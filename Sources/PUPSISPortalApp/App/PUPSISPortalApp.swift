@@ -17,7 +17,6 @@ final class AppState: ObservableObject {
         self.credentials = credentials
         isEditing = false
         portal.status = .idle
-        portal.signIn(with: credentials)
     }
 
     func signOut() {

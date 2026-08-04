@@ -37,6 +37,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     }
 
     func signIn(with credentials: Credentials) {
+        guard status != .loggingIn else { return }
         Task { await runSignIn(credentials) }
     }
 
