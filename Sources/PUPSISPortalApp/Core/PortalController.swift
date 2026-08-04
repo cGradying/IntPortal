@@ -1,6 +1,14 @@
 import Foundation
 import WebKit
 
+enum PortalError: LocalizedError {
+    case timedOut
+
+    var errorDescription: String? {
+        "The SIS took too long to respond. Check your connection and try again."
+    }
+}
+
 enum LoginStatus: Equatable {
     case idle
     case loggingIn
@@ -18,6 +26,9 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
 
     private let webView: WKWebView
     private var pendingContinuation: CheckedContinuation<Void, Error>?
+    private var pendingToken: UUID?
+
+    private static let genericFailure = "Sign-in didn't go through — check your student number, birthdate, and password."
 
     private static let base = "https://sis8.pup.edu.ph/student"
     private static let loginURL = URL(string: "\(base)/")!
@@ -38,15 +49,17 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         status = .loggingIn
         do {
             try await load(Self.loginURL)
-            webView.evaluateJavaScript(fillAndSubmitScript(for: credentials), completionHandler: nil)
-            try await waitForNavigation()
 
-            // ponytail: assumes the post-submit redirect lands on a /student
-            // page in one navigation. If the SIS ever adds a client-side
-            // interstitial, this reads as a failed login. Upgrade: loop
-            // waitForNavigation() until the URL settles or a timeout elapses.
-            guard webView.url?.path.hasPrefix("/student/home") == true else {
-                status = .failed("Sign-in didn't go through — check your student number, birthdate, and password.")
+            // Don't wait on navigation events here: signing in runs through a
+            // redirect chain (POST to /student/ then on to /student/home), so
+            // any single didFinish can land mid-chain — and a validation error
+            // shows a modal with no navigation at all. Poll the DOM until the
+            // outcome actually settles instead.
+            webView.evaluateJavaScript(fillAndSubmitScript(for: credentials), completionHandler: nil)
+
+            let outcome = await awaitSignInOutcome()
+            guard outcome.success else {
+                status = .failed(outcome.message)
                 return
             }
 
@@ -67,14 +80,63 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         }
     }
 
-    private func load(_ url: URL) async throws {
-        webView.load(URLRequest(url: url))
-        try await waitForNavigation()
+    /// Polls until sign-in resolves one way or the other: the login form
+    /// disappearing means we're in, a validation modal means we're not.
+    /// Polling (rather than watching navigations) is what makes this survive
+    /// the redirect chain and the no-navigation error case.
+    private func awaitSignInOutcome(timeout: TimeInterval = 25) async -> (success: Bool, message: String) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            // Probing mid-navigation can throw; that just means "not settled".
+            if let probe = try? await probeLoginPage() {
+                if !probe.stillOnLoginForm { return (true, "") }
+                if !probe.message.isEmpty { return (false, probe.message) }
+            }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
+        return (false, Self.genericFailure)
     }
 
-    private func waitForNavigation() async throws {
+    /// Success is "the login form is gone", not a URL match — the form POSTs
+    /// to /student/ and the logged-in page can render at that same URL, so
+    /// matching on /student/home reports a failure even when sign-in worked.
+    private func probeLoginPage() async throws -> (stillOnLoginForm: Bool, message: String) {
+        let script = """
+        (function () {
+            var modal = document.querySelector('.modal.show .modal-body, .modal[style*="block"] .modal-body');
+            return {
+                stillOnLoginForm: !!document.getElementById('studno'),
+                message: modal ? modal.textContent.trim() : ''
+            };
+        })();
+        """
+        let result = try await webView.evaluateJavaScript(script) as? [String: Any]
+        return (
+            result?["stillOnLoginForm"] as? Bool ?? true,
+            result?["message"] as? String ?? ""
+        )
+    }
+
+    private func load(_ url: URL) async throws {
+        try await performAndWait { [weak self] in
+            self?.webView.load(URLRequest(url: url))
+        }
+    }
+
+    /// Arms the continuation *before* kicking off the navigation — otherwise a
+    /// fast `didFinish` resumes nothing and the next navigation resumes the
+    /// wrong await.
+    private func performAndWait(timeout: TimeInterval = 25, _ action: @escaping () -> Void) async throws {
+        let token = UUID()
+        pendingToken = token
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             pendingContinuation = continuation
+            action()
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                guard pendingToken == token else { return }
+                resumePending(throwing: PortalError.timedOut)
+            }
         }
     }
 
@@ -107,6 +169,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     private func resumePending(throwing error: Error?) {
         guard let continuation = pendingContinuation else { return }
         pendingContinuation = nil
+        pendingToken = nil
         if let error {
             continuation.resume(throwing: error)
         } else {

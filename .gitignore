@@ -1,3 +1,7 @@
 .build/
 .swiftpm/
 *.xcodeproj
+
+# Local-only tooling — never ships with the public repo
+CLAUDE.md
+.claude/
