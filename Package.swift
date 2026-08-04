@@ -8,6 +8,11 @@ let package = Package(
         .executableTarget(
             name: "PUPSISPortal",
             path: "Sources/PUPSISPortalApp"
+        ),
+        .testTarget(
+            name: "PUPSISPortalTests",
+            dependencies: ["PUPSISPortal"],
+            path: "Tests/PUPSISPortalTests"
         )
     ]
 )

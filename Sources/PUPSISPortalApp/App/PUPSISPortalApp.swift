@@ -24,6 +24,7 @@ final class AppState: ObservableObject {
         credentials = nil
         isEditing = true
         portal.status = .idle
+        portal.sessions = []
     }
 }
 
@@ -34,7 +35,8 @@ struct ContentView: View {
         if appState.isEditing || appState.credentials == nil {
             CredentialsView(existing: appState.credentials, onSave: appState.save)
         } else if let credentials = appState.credentials {
-            DashboardView(controller: appState.portal, credentials: credentials)
+            CalendarView(controller: appState.portal, credentials: credentials)
+                .frame(minWidth: 900, minHeight: 560)
         }
     }
 }
@@ -49,6 +51,14 @@ struct PUPSISPortalApp: App {
         }
         .commands {
             CommandMenu("Account") {
+                Button("Refresh Schedule") {
+                    Task { await appState.portal.loadSchedule() }
+                }
+                .keyboardShortcut("r")
+                .disabled(appState.credentials == nil)
+
+                Divider()
+
                 Button("Edit Credentials") { appState.isEditing = true }
                 Button("Sign Out") { appState.signOut() }
                     .disabled(appState.credentials == nil)

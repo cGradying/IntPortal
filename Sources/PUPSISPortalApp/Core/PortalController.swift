@@ -8,27 +8,20 @@ enum LoginStatus: Equatable {
     case failed(String)
 }
 
-/// Owns the single WKWebView that carries the authenticated SIS session.
-/// Drives sign-in to completion (rather than PUPSIS's fire-and-forget
-/// one-shot autofill), then scrapes Schedule/Grades out of it. The same
-/// web view is reused to display raw SIS pages the dashboard doesn't model
-/// natively, so navigating there doesn't need a second, separately
-/// authenticated view.
+/// Drives the headless SIS session: signs in, then scrapes the schedule.
+/// The web view is never shown — it exists only to hold the authenticated
+/// session and run the scraping JS.
 @MainActor
 final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     @Published var status: LoginStatus = .idle
-    @Published var schedule: [ScheduleEntry] = []
-    @Published var grades: [GradeEntry] = []
-    @Published var summary = AcademicSummary()
+    @Published var sessions: [ClassSession] = []
 
-    let webView: WKWebView
+    private let webView: WKWebView
     private var pendingContinuation: CheckedContinuation<Void, Error>?
 
     private static let base = "https://sis8.pup.edu.ph/student"
     private static let loginURL = URL(string: "\(base)/")!
     private static let scheduleURL = URL(string: "\(base)/schedule")!
-    private static let gradesURL = URL(string: "\(base)/grades")!
-    private static let homeURL = URL(string: "\(base)/home")!
 
     override init() {
         webView = WKWebView()
@@ -41,13 +34,6 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         Task { await runSignIn(credentials) }
     }
 
-    /// Navigate the shared web view to a raw SIS page not modeled natively
-    /// (Enrollment, Accounts, Forms, HDF).
-    func openRawPage(path: String) {
-        guard let url = URL(string: "\(Self.base)/\(path)") else { return }
-        webView.load(URLRequest(url: url))
-    }
-
     private func runSignIn(_ credentials: Credentials) async {
         status = .loggingIn
         do {
@@ -55,34 +41,29 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             webView.evaluateJavaScript(fillAndSubmitScript(for: credentials), completionHandler: nil)
             try await waitForNavigation()
 
-            // ponytail: assumes the post-submit redirect lands directly on
-            // /student/home in one navigation. If the SIS ever adds a
-            // client-side-JS interstitial redirect, this will read as a
-            // failed login. Upgrade: loop waitForNavigation() until the URL
-            // stabilizes or a short timeout elapses.
-            if webView.url?.path.hasPrefix("/student/home") == true {
-                status = .success
-                await refreshData()
-            } else {
+            // ponytail: assumes the post-submit redirect lands on a /student
+            // page in one navigation. If the SIS ever adds a client-side
+            // interstitial, this reads as a failed login. Upgrade: loop
+            // waitForNavigation() until the URL settles or a timeout elapses.
+            guard webView.url?.path.hasPrefix("/student/home") == true else {
                 status = .failed("Sign-in didn't go through — check your student number, birthdate, and password.")
+                return
             }
+
+            status = .success
+            await loadSchedule()
         } catch {
             status = .failed(error.localizedDescription)
         }
     }
 
-    func refreshData() async {
+    func loadSchedule() async {
         do {
             try await load(Self.scheduleURL)
-            schedule = try await SISScraper.scrapeTable(from: webView).compactMap(ScheduleEntry.init)
-
-            try await load(Self.gradesURL)
-            grades = try await SISScraper.scrapeTable(from: webView).compactMap(GradeEntry.init)
-            summary = AcademicSummary(fields: try await SISScraper.scrapeSummary(from: webView))
-
-            try await load(Self.homeURL)
+            let rows = try await SISScraper.scrapeSchedule(from: webView)
+            sessions = rows.flatMap(ScheduleParser.parse)
         } catch {
-            status = .failed("Couldn't load schedule/grades: \(error.localizedDescription)")
+            status = .failed("Couldn't load your schedule: \(error.localizedDescription)")
         }
     }
 
@@ -123,24 +104,25 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         """
     }
 
-    nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        Task { @MainActor in
-            pendingContinuation?.resume()
-            pendingContinuation = nil
+    private func resumePending(throwing error: Error?) {
+        guard let continuation = pendingContinuation else { return }
+        pendingContinuation = nil
+        if let error {
+            continuation.resume(throwing: error)
+        } else {
+            continuation.resume()
         }
+    }
+
+    nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        Task { @MainActor in resumePending(throwing: nil) }
     }
 
     nonisolated func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        Task { @MainActor in
-            pendingContinuation?.resume(throwing: error)
-            pendingContinuation = nil
-        }
+        Task { @MainActor in resumePending(throwing: error) }
     }
 
     nonisolated func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        Task { @MainActor in
-            pendingContinuation?.resume(throwing: error)
-            pendingContinuation = nil
-        }
+        Task { @MainActor in resumePending(throwing: error) }
     }
 }

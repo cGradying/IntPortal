@@ -1,58 +1,68 @@
 import Foundation
 
-struct ScheduleEntry: Identifiable {
+enum Weekday: Int, CaseIterable, Identifiable {
+    case monday = 1, tuesday, wednesday, thursday, friday, saturday, sunday
+
+    var id: Int { rawValue }
+
+    var short: String {
+        switch self {
+        case .monday: "MON"
+        case .tuesday: "TUE"
+        case .wednesday: "WED"
+        case .thursday: "THU"
+        case .friday: "FRI"
+        case .saturday: "SAT"
+        case .sunday: "SUN"
+        }
+    }
+
+    /// SIS day codes, longest first — `SUN` and `TH` must be matched before
+    /// `S` and `T` or they get swallowed.
+    static let codes: [(String, Weekday)] = [
+        ("SUN", .sunday),
+        ("TH", .thursday),
+        ("M", .monday),
+        ("T", .tuesday),
+        ("W", .wednesday),
+        ("F", .friday),
+        ("S", .saturday),
+    ]
+}
+
+/// One class block on one day. A course split into Lec/Lab, or meeting on
+/// two days, produces one `ClassSession` per occurrence.
+struct ClassSession: Identifiable, Equatable {
     let id = UUID()
     let subjectCode: String
     let description: String
-    let lec: String
-    let lab: String
-    let unit: String
-    let schedule: String
+    let faculty: String
+    let day: Weekday
+    /// Minutes from midnight.
+    let start: Int
+    let end: Int
 
-    init?(row: [String: String]) {
-        guard let subjectCode = row["Subject Code"], !subjectCode.isEmpty else { return nil }
-        self.subjectCode = subjectCode
-        description = row["Description"] ?? ""
-        lec = row["Lec"] ?? ""
-        lab = row["Lab"] ?? ""
-        unit = row["Unit"] ?? ""
-        schedule = row["Schedule"] ?? ""
+    var duration: Int { max(end - start, 0) }
+
+    var timeLabel: String {
+        "\(ClassSession.format(start)) – \(ClassSession.format(end))"
     }
-}
 
-struct GradeEntry: Identifiable {
-    let id = UUID()
-    let subjectCode: String
-    let description: String
-    let facultyName: String
-    let units: String
-    let sectCode: String
-    let finalGrade: String
-    let gradeStatus: String
-
-    init?(row: [String: String]) {
-        guard let subjectCode = row["Subject Code"], !subjectCode.isEmpty else { return nil }
-        self.subjectCode = subjectCode
-        description = row["Description"] ?? ""
-        facultyName = row["Faculty Name"] ?? ""
-        units = row["Units"] ?? ""
-        sectCode = row["Sect Code"] ?? ""
-        finalGrade = row["Final Grade"] ?? ""
-        gradeStatus = row["Grade Status"] ?? ""
+    static func format(_ minutes: Int) -> String {
+        let hour24 = minutes / 60
+        let minute = minutes % 60
+        let period = hour24 >= 12 ? "PM" : "AM"
+        var hour = hour24 % 12
+        if hour == 0 { hour = 12 }
+        return minute == 0
+            ? "\(hour)\(period)"
+            : String(format: "%d:%02d%@", hour, minute, period)
     }
-}
 
-/// The SIS renders these as separate one-row `<dl>` blocks above the grades table.
-struct AcademicSummary {
-    var admissionStatus = ""
-    var scholasticStatus = ""
-    var courseDescription = ""
-    var gpa = ""
-
-    init(fields: [String: String] = [:]) {
-        admissionStatus = fields["Admission Status"] ?? ""
-        scholasticStatus = fields["Scholastic Status"] ?? ""
-        courseDescription = fields["Course Code & Description"] ?? ""
-        gpa = fields.first(where: { $0.key.hasPrefix("GPA") })?.value ?? ""
+    static func == (lhs: ClassSession, rhs: ClassSession) -> Bool {
+        lhs.subjectCode == rhs.subjectCode
+            && lhs.day == rhs.day
+            && lhs.start == rhs.start
+            && lhs.end == rhs.end
     }
 }
