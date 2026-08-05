@@ -126,6 +126,51 @@ extension EnvironmentValues {
     }
 }
 
+// MARK: - Motion
+
+/// The app's animation vocabulary, in one place so timings stay related to
+/// each other rather than being invented per call site.
+///
+/// Every one takes `reduced` from `\.accessibilityReduceMotion` and returns
+/// `nil` when it's on — a `nil` animation is SwiftUI's "apply instantly",
+/// which is exactly what Reduce Motion asks for.
+enum Motion {
+    /// Blocks arriving, week changes — quick and settled, no overshoot to
+    /// distract from the schedule itself.
+    static func arrival(reduced: Bool) -> Animation? {
+        reduced ? nil : .snappy(duration: 0.28)
+    }
+
+    /// Pointer feedback. Short enough to feel attached to the cursor.
+    static func hover(reduced: Bool) -> Animation? {
+        reduced ? nil : .easeOut(duration: 0.12)
+    }
+
+    /// The now-line stepping a minute, and palette changes: slow and
+    /// continuous, because both are ambient rather than responses to input.
+    static func drift(reduced: Bool) -> Animation? {
+        reduced ? nil : .smooth(duration: 0.45)
+    }
+
+    /// Blocks land in reading order instead of all at once. Capped so a busy
+    /// day doesn't finish arriving noticeably later than a quiet one.
+    static func stagger(_ index: Int, reduced: Bool) -> Double {
+        reduced ? 0 : min(Double(index) * 0.025, 0.3)
+    }
+
+    /// The selection ring appearing. Faster than `hover` so a click feels
+    /// acknowledged rather than animated at.
+    static func selection(reduced: Bool) -> Animation? {
+        reduced ? nil : .easeOut(duration: 0.1)
+    }
+
+    /// A draft block following a drag. Springy enough that snapping between
+    /// quarter hours reads as a snap rather than a stutter.
+    static func drag(reduced: Bool) -> Animation? {
+        reduced ? nil : .interactiveSpring(duration: 0.18, extraBounce: 0.1)
+    }
+}
+
 // MARK: - Type scale
 
 /// Fonts don't vary by theme, so they stay static.

@@ -11,6 +11,7 @@ import SwiftUI
 /// the same minute also decides which blocks have already finished.
 struct NowLine: View {
     @Environment(\.palette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Minutes from midnight, right now.
     let minutes: Int
@@ -46,6 +47,9 @@ struct NowLine: View {
             }
             .frame(height: lozengeHeight)
             .offset(y: offset / span * height - lozengeHeight / 2)
+            // Glides to the new minute instead of jumping, which is the
+            // difference between a clock and a thing that flickers.
+            .animation(Motion.drift(reduced: reduceMotion), value: minutes)
         }
     }
 

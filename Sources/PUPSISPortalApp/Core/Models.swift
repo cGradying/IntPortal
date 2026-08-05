@@ -1,3 +1,4 @@
+import EventKit
 import Foundation
 
 enum Weekday: Int, CaseIterable, Identifiable, Codable {
@@ -21,6 +22,33 @@ enum Weekday: Int, CaseIterable, Identifiable, Codable {
     /// 1 = Monday … 7 = Sunday, which is the order the grid renders in.
     static func on(_ date: Date, calendar: Calendar = .current) -> Weekday {
         Weekday(rawValue: (calendar.component(.weekday, from: date) + 5) % 7 + 1) ?? .monday
+    }
+
+    /// EventKit counts weekdays from Sunday = 1, the same convention
+    /// `Calendar` uses and the opposite end from this enum's Monday = 1.
+    var ekWeekday: EKWeekday {
+        switch self {
+        case .monday: .monday
+        case .tuesday: .tuesday
+        case .wednesday: .wednesday
+        case .thursday: .thursday
+        case .friday: .friday
+        case .saturday: .saturday
+        case .sunday: .sunday
+        }
+    }
+
+    init?(ekWeekday: EKWeekday) {
+        switch ekWeekday {
+        case .monday: self = .monday
+        case .tuesday: self = .tuesday
+        case .wednesday: self = .wednesday
+        case .thursday: self = .thursday
+        case .friday: self = .friday
+        case .saturday: self = .saturday
+        case .sunday: self = .sunday
+        @unknown default: return nil
+        }
     }
 
     /// Midnight on the Monday of `date`'s week. The grid reads Monday-first,

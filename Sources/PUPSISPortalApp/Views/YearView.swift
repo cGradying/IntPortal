@@ -72,6 +72,8 @@ private struct DayCell: View {
     let onSelect: (Date) -> Void
 
     @Environment(\.palette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovering = false
 
     private var isToday: Bool { Calendar.current.isDateInToday(date) }
 
@@ -92,10 +94,15 @@ private struct DayCell: View {
                         // The open week reads as a band across the row, which
                         // is what actually tells you where you are.
                         Rectangle().fill(palette.accent.opacity(0.14))
+                    } else if isHovering {
+                        Circle().fill(palette.accent.opacity(0.2))
                     }
                 }
         }
         .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .animation(Motion.hover(reduced: reduceMotion), value: isHovering)
+        .animation(Motion.hover(reduced: reduceMotion), value: isInSelectedWeek)
         .accessibilityLabel(date.formatted(.dateTime.weekday(.wide).month(.wide).day()))
         .accessibilityHint("Show this week")
     }

@@ -46,6 +46,10 @@ final class CalendarBridge: ObservableObject {
     /// and a re-export still only ever deletes events this app wrote.
     static let exportTag = "[PUPSISPortal]"
 
+    /// When recurring events stop repeating. Mirrored from `Preferences` so
+    /// writers don't each need a reference to it.
+    var termEnd: Date = Preferences.defaultTermEnd()
+
     private let store = EKEventStore()
     private var storeObserver: NSObjectProtocol?
 
@@ -116,7 +120,40 @@ final class CalendarBridge: ObservableObject {
         }
 
         let predicate = store.predicateForEvents(withStart: weekStart, end: weekEnd, calendars: wanted)
-        events = store.events(matching: predicate).compactMap { Self.block(from: $0, calendar: calendar) }
+        let matches = store.events(matching: predicate)
+
+        // Hold on to the EKEvent instances. A recurring event's occurrences all
+        // share one eventIdentifier, so store.event(withIdentifier:) hands back
+        // the *master* — editing through it would silently rewrite the whole
+        // series when the user dragged a single Tuesday.
+        occurrences = [:]
+        events = matches
+            // Skip what this app exported. Ticking the export calendar
+            // otherwise draws every class twice: once from the SIS scrape and
+            // once as our own copy read back. The export stays in Calendar.app
+            // and on the phone — it just stops echoing into the app that
+            // wrote it.
+            .filter { !Self.isOurExport($0) }
+            .compactMap { event in
+                guard let block = Self.block(from: event, calendar: calendar) else { return nil }
+                occurrences[block.id] = event
+                return block
+            }
+    }
+
+    nonisolated static func isOurExport(_ event: EKEvent) -> Bool {
+        event.notes?.contains(exportTag) == true
+    }
+
+    /// The exact `EKEvent` a block was built from, keyed by block id.
+    private var occurrences: [String: EKEvent] = [:]
+
+    func event(for block: DayBlock) -> EKEvent? { occurrences[block.id] }
+
+    /// True when a block belongs to a repeating event, so callers know to ask
+    /// whether an edit applies to one occurrence or the whole series.
+    func isRecurring(_ block: DayBlock) -> Bool {
+        occurrences[block.id]?.hasRecurrenceRules == true
     }
 
     /// All-day events have no slot in an hour grid, so they're dropped rather
@@ -139,7 +176,11 @@ final class CalendarBridge: ObservableObject {
         guard endMinutes > startMinutes else { return nil }
 
         return DayBlock(
-            id: identifier,
+            // Occurrence date, not just the identifier: three occurrences of
+            // one weekly event land in the same week, and a shared id would
+            // collapse them into a single block for both SwiftUI and
+            // BlockLayout.
+            id: Self.blockID(identifier: identifier, occurrence: start),
             day: Weekday.on(start, calendar: calendar),
             start: startMinutes,
             end: endMinutes,
@@ -148,13 +189,106 @@ final class CalendarBridge: ObservableObject {
         )
     }
 
+    /// Pure string building, so it stays callable off the main actor.
+    nonisolated static func blockID(identifier: String, occurrence: Date) -> String {
+        "\(identifier)@\(Int(occurrence.timeIntervalSince1970))"
+    }
+
     // MARK: Writing
 
-    func add(title: String, on date: Date, start: Int, end: Int, calendarID: String) {
+    /// Creates one event. A drag across several days becomes a *single* event
+    /// with a weekday recurrence rule rather than one event per day — editing
+    /// it later edits the whole band, and the days in between stay free.
+    ///
+    /// Returns the new event's identifier so an undo can find it again.
+    @discardableResult
+    func add(
+        title: String,
+        on date: Date,
+        start: Int,
+        end: Int,
+        repeatingOn days: [Weekday] = [],
+        until termEnd: Date? = nil,
+        calendarID: String
+    ) -> String? {
         guard let target = store.calendars(for: .event).first(where: { $0.calendarIdentifier == calendarID })
                 ?? store.defaultCalendarForNewEvents
         else {
             lastError = "No calendar available to add to."
+            return nil
+        }
+
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: date)
+        guard let startDate = calendar.date(byAdding: .minute, value: start, to: day),
+              let endDate = calendar.date(byAdding: .minute, value: end, to: day)
+        else { return nil }
+
+        let event = EKEvent(eventStore: store)
+        event.title = title
+        event.startDate = startDate
+        event.endDate = endDate
+        event.calendar = target
+
+        // A single day needs no rule — a recurrence of one weekday is just
+        // noise in Calendar.app's inspector.
+        if days.count > 1 {
+            event.recurrenceRules = [Self.weeklyRule(on: days, until: termEnd)]
+        }
+
+        do {
+            try store.save(event, span: .futureEvents, commit: true)
+            lastError = nil
+            return event.eventIdentifier
+        } catch {
+            store.reset()
+            lastError = error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Builds a rule from values only — no store access, so it's testable
+    /// without a main-actor hop.
+    nonisolated static func weeklyRule(on days: [Weekday], until termEnd: Date?) -> EKRecurrenceRule {
+        EKRecurrenceRule(
+            recurrenceWith: .weekly,
+            interval: 1,
+            daysOfTheWeek: days.map { EKRecurrenceDayOfWeek($0.ekWeekday) },
+            daysOfTheMonth: nil,
+            monthsOfTheYear: nil,
+            weeksOfTheYear: nil,
+            daysOfTheYear: nil,
+            setPositions: nil,
+            end: termEnd.map { EKRecurrenceEnd(end: $0) }
+        )
+    }
+
+    /// Which occurrences an edit applies to. Callers ask the user when the
+    /// block is recurring; picking either silently is wrong.
+    enum EditScope {
+        case thisEvent
+        case futureEvents
+
+        var span: EKSpan {
+            switch self {
+            case .thisEvent: .thisEvent
+            case .futureEvents: .futureEvents
+            }
+        }
+    }
+
+    /// Moves an existing event to a new day and time — used by dragging a
+    /// block's body or its edges.
+    ///
+    /// Works from the occurrence captured during `load`, never from
+    /// `store.event(withIdentifier:)`, which returns the series master.
+    func reschedule(_ block: DayBlock, to date: Date, start: Int, end: Int, scope: EditScope) {
+        guard let event = occurrences[block.id] else {
+            lastError = "That event is no longer loaded. Refresh and try again."
+            return
+        }
+        guard event.calendar.allowsContentModifications else {
+            lastError = "“\(event.calendar.title)” is read-only."
             return
         }
 
@@ -164,15 +298,43 @@ final class CalendarBridge: ObservableObject {
               let endDate = calendar.date(byAdding: .minute, value: end, to: day)
         else { return }
 
-        let event = EKEvent(eventStore: store)
-        event.title = title
         event.startDate = startDate
         event.endDate = endDate
-        event.calendar = target
+        save(event, scope: scope)
+    }
+
+    func delete(_ block: DayBlock, scope: EditScope) {
+        guard let event = occurrences[block.id] else {
+            lastError = "That event is no longer loaded. Refresh and try again."
+            return
+        }
+        guard event.calendar.allowsContentModifications else {
+            lastError = "“\(event.calendar.title)” is read-only."
+            return
+        }
 
         do {
-            try store.save(event, span: .thisEvent, commit: true)
+            try store.remove(event, span: scope.span, commit: true)
+            occurrences[block.id] = nil
+            lastError = nil
         } catch {
+            store.reset()
+            lastError = error.localizedDescription
+        }
+    }
+
+    func rename(_ block: DayBlock, to title: String, scope: EditScope) {
+        guard let event = occurrences[block.id] else { return }
+        event.title = title
+        save(event, scope: scope)
+    }
+
+    private func save(_ event: EKEvent, scope: EditScope) {
+        do {
+            try store.save(event, span: scope.span, commit: true)
+            lastError = nil
+        } catch {
+            store.reset()
             lastError = error.localizedDescription
         }
     }

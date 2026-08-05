@@ -131,6 +131,34 @@ final class PreferencesTests: XCTestCase {
     }
 }
 
+/// Reduce Motion is an accessibility setting, not a preference to soften —
+/// every animation has to actually stop, not just get shorter.
+final class MotionTests: XCTestCase {
+    func testEveryAnimationIsRemovedWhenMotionIsReduced() {
+        XCTAssertNil(Motion.arrival(reduced: true))
+        XCTAssertNil(Motion.hover(reduced: true))
+        XCTAssertNil(Motion.drift(reduced: true))
+    }
+
+    func testAnimationsExistWhenMotionIsAllowed() {
+        XCTAssertNotNil(Motion.arrival(reduced: false))
+        XCTAssertNotNil(Motion.hover(reduced: false))
+        XCTAssertNotNil(Motion.drift(reduced: false))
+    }
+
+    func testStaggerCollapsesToZeroWhenMotionIsReduced() {
+        XCTAssertEqual(Motion.stagger(0, reduced: true), 0)
+        XCTAssertEqual(Motion.stagger(40, reduced: true), 0)
+    }
+
+    /// A packed day must not finish arriving noticeably after a quiet one.
+    func testStaggerIsCappedForBusyDays() {
+        XCTAssertEqual(Motion.stagger(0, reduced: false), 0)
+        XCTAssertLessThan(Motion.stagger(2, reduced: false), Motion.stagger(6, reduced: false))
+        XCTAssertEqual(Motion.stagger(200, reduced: false), 0.3)
+    }
+}
+
 final class PaletteTests: XCTestCase {
     func testAutoFollowsTheSystemAppearance() {
         XCTAssertEqual(ThemeChoice.auto.palette(for: .light), .pupMaroon)

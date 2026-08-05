@@ -1,28 +1,47 @@
 import AppKit
 import SwiftUI
 
+/// The Schedule screen's shell: which week, which scale, what's selected, and
+/// where the editor pops from. The grid itself lives in `WeekGrid`, and every
+/// calendar mutation goes through `EventEditor` so undo has one hook.
 struct CalendarView: View {
     @ObservedObject var controller: PortalController
     @ObservedObject var preferences: Preferences
     @ObservedObject var calendar: CalendarBridge
     let credentials: Credentials
-    @Environment(\.palette) private var palette
 
-    /// Weeks away from the current one. Classes repeat, so browsing is only
-    /// interesting once dated calendar events land in the grid — but the grid
-    /// has to be dated before they can.
+    @Environment(\.palette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.undoManager) private var undoManager
+
     @State private var weekOffset = 0
     @State private var scale: CalendarScale = .week
-    @State private var newEvent: NewEventRequest?
+    @State private var selection: Set<String> = []
+    @State private var editing: EditorRequest?
+    /// Set when an edit lands on a repeating event and the scope has to be
+    /// asked for rather than assumed.
+    @State private var pendingScope: ScopeQuestion?
+    @StateObject private var editor: EventEditor
+
+    init(
+        controller: PortalController,
+        preferences: Preferences,
+        calendar: CalendarBridge,
+        credentials: Credentials
+    ) {
+        self.controller = controller
+        self.preferences = preferences
+        self.calendar = calendar
+        self.credentials = credentials
+        _editor = StateObject(wrappedValue: EventEditor(bridge: calendar))
+    }
 
     private var weekStart: Date {
         let thisWeek = Weekday.weekStart(containing: .now)
         return Calendar.current.date(byAdding: .day, value: weekOffset * 7, to: thisWeek) ?? thisWeek
     }
 
-    private var year: Int {
-        Calendar.current.component(.year, from: weekStart)
-    }
+    private var year: Int { Calendar.current.component(.year, from: weekStart) }
 
     /// Classes and calendar events end up in one list so the grid draws one
     /// kind of thing and overlap layout can see across both.
@@ -30,72 +49,267 @@ struct CalendarView: View {
         controller.sessions.map(DayBlock.init) + calendar.events
     }
 
+    private var canEdit: Bool { calendar.access == .granted }
+
     var body: some View {
         ZStack {
             palette.canvasWash.ignoresSafeArea()
 
             // Having a schedule is what decides the screen, not the session
             // state: a cached week beats a spinner, and beats an error too.
-            if controller.sessions.isEmpty {
+            if controller.sessions.isEmpty && calendar.events.isEmpty {
                 startupState
             } else {
                 VStack(spacing: 0) {
                     switch scale {
                     case .week:
-                        WeekGrid(blocks: blocks, weekStart: weekStart, preferences: preferences)
+                        weekGrid
+                            .id(weekStart)
+                            .transition(.opacity)
+                            .overlay(alignment: .bottom) {
+                                if !selection.isEmpty {
+                                    SelectionBar(
+                                        count: selection.count,
+                                        onDelete: deleteSelection,
+                                        onDuplicate: duplicateSelection,
+                                        onDone: { selection.removeAll() }
+                                    )
+                                    .padding(.bottom, 20)
+                                }
+                            }
                     case .year:
                         YearView(year: year, selectedWeekStart: weekStart) { open($0) }
+                            .transition(.opacity)
                     }
 
                     StatusFooter(
                         lastUpdated: controller.lastUpdated,
-                        refreshError: controller.refreshError,
+                        refreshError: controller.refreshError ?? calendar.lastError,
                         onRetry: retry
                     )
                 }
             }
         }
+        .animation(Motion.arrival(reduced: reduceMotion), value: weekStart)
+        .animation(Motion.arrival(reduced: reduceMotion), value: scale)
+        // Palette is Equatable, so switching theme crossfades every colour at
+        // once instead of snapping.
+        .animation(Motion.drift(reduced: reduceMotion), value: palette)
         .navigationTitle(weekTitle)
-        .toolbar { weekNavigation }
+        .toolbar { toolbar }
+        .animation(Motion.arrival(reduced: reduceMotion), value: selection.isEmpty)
+        .focusable()
+        .onKeyPress(.escape) { selection.removeAll(); return .handled }
+        .onKeyPress(.delete) { deleteSelection(); return .handled }
+        // Classes are excluded: they can't be deleted or duplicated, so
+        // selecting them would offer actions that do nothing.
+        .onKeyPress("a", phases: .down) { press in
+            guard press.modifiers.contains(.command) else { return .ignored }
+            selection = Set(calendar.events.map(\.id))
+            return .handled
+        }
         .task {
             if controller.status == .idle {
                 controller.signIn(with: credentials)
             }
         }
-        // Reload whenever the week or the ticked calendars change.
-        .task(id: reloadKey) {
-            calendar.load(weekStart: weekStart, calendarIDs: preferences.visibleCalendarIDs)
-        }
+        .task(id: reloadKey) { reload() }
         // ...and when Calendar.app itself changes underneath us.
         .onReceive(NotificationCenter.default.publisher(for: .calendarStoreChanged)) { _ in
-            calendar.load(weekStart: weekStart, calendarIDs: preferences.visibleCalendarIDs)
+            reload()
         }
-        .sheet(item: $newEvent) { request in
-            AddEventSheet(calendar: calendar, preferences: preferences, initialDate: request.date)
+        .onAppear {
+            editor.undoManager = undoManager
+            editor.onChange = reload
+            calendar.termEnd = preferences.termEndDate
+        }
+        .onChange(of: preferences.termEndDate) { calendar.termEnd = preferences.termEndDate }
+        .confirmationDialog(
+            "This event repeats.",
+            isPresented: Binding(get: { pendingScope != nil }, set: { if !$0 { pendingScope = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("This Event Only") { pendingScope?.apply(.thisEvent); pendingScope = nil }
+            Button("All Future Events") { pendingScope?.apply(.futureEvents); pendingScope = nil }
+            Button("Cancel", role: .cancel) { pendingScope = nil }
         }
     }
 
-    /// `sheet(item:)` needs identity, and a plain `Date` has none — two
-    /// requests for the same slot would be treated as the same sheet.
-    private struct NewEventRequest: Identifiable {
-        let id = UUID()
-        let date: Date
+    private var weekGrid: some View {
+        WeekGrid(
+            blocks: blocks,
+            weekStart: weekStart,
+            selection: selection,
+            recurringIDs: recurringIDs,
+            preferences: preferences,
+            editing: canEdit ? gridEditing : nil
+        )
+        .popover(
+            item: $editing,
+            attachmentAnchor: .rect(.rect(editing?.anchor ?? .zero)),
+            arrowEdge: .trailing
+        ) { request in
+            EventEditorPopover(
+                draft: request.draft,
+                calendars: calendar.writableCalendars,
+                existing: request.block,
+                isRecurring: request.block.map { recurringIDs.contains($0.id) } ?? request.draft.isMultiDay,
+                onCommit: { commit($0, for: request.block) },
+                onDelete: request.block.map { block in { withScope(block) { editor.delete(block, scope: $0, inWeekStarting: weekStart) } } },
+                onDuplicate: request.block.map { block in { editor.duplicate(block, inWeekStarting: weekStart) } }
+            )
+        }
     }
 
-    /// Opens on today when the current week is showing, otherwise on the
-    /// Monday of whatever week is being browsed.
-    private func startNewEvent() {
-        let today = Date.now
-        let inThisWeek = Weekday.weekStart(containing: today) == weekStart
-        newEvent = NewEventRequest(date: inThisWeek ? today : weekStart)
+    private var gridEditing: WeekGrid.Editing {
+        WeekGrid.Editing(
+            create: startCreate,
+            move: moveBlock,
+            resize: resizeBlock,
+            select: select,
+            band: bandSelect,
+            edit: startEdit,
+            duplicate: { editor.duplicate($0, inWeekStarting: weekStart) },
+            delete: { block in withScope(block) { editor.delete(block, scope: $0, inWeekStarting: weekStart) } }
+        )
+    }
+
+    private func startEdit(_ block: DayBlock, anchor: CGRect) {
+        guard let draft = editor.snapshot(of: block) else { return }
+        editing = EditorRequest(block: block, anchor: anchor, draft: draft)
+    }
+
+    private var recurringIDs: Set<String> {
+        Set(calendar.events.filter(calendar.isRecurring).map(\.id))
+    }
+
+    // MARK: Editing
+
+    private func startCreate(_ range: DragRange, anchor: CGRect) {
+        guard let calendarID = defaultCalendarID else { return }
+
+        editing = EditorRequest(
+            block: nil,
+            anchor: anchor,
+            draft: EventSnapshot(
+                title: "",
+                calendarID: calendarID,
+                date: range.anchorDay.date(inWeekStarting: weekStart),
+                start: range.start,
+                end: range.end,
+                repeatDays: range.days
+            )
+        )
+    }
+
+    private func commit(_ snapshot: EventSnapshot, for block: DayBlock?) {
+        if let block {
+            withScope(block) { scope in
+                editor.rename(block, to: snapshot.title, scope: scope)
+                editor.move(block, to: snapshot.date, start: snapshot.start,
+                            end: snapshot.end, scope: scope)
+            }
+        } else {
+            editor.create(snapshot, inWeekStarting: weekStart)
+        }
+    }
+
+    private func moveBlock(_ block: DayBlock, to day: Weekday, start: Int, end: Int) {
+        withScope(block) { scope in
+            editor.move(block, to: day.date(inWeekStarting: weekStart),
+                        start: start, end: end, scope: scope)
+        }
+    }
+
+    private func resizeBlock(_ block: DayBlock, start: Int, end: Int) {
+        withScope(block) { scope in
+            editor.move(block, to: block.day.date(inWeekStarting: weekStart),
+                        start: start, end: end, scope: scope, actionName: "Resize Event")
+        }
+    }
+
+    /// Repeating events get asked; everything else applies straight away.
+    /// Picking a scope silently would either orphan one occurrence or rewrite
+    /// a whole series behind the user's back.
+    private func withScope(_ block: DayBlock, _ apply: @escaping (CalendarBridge.EditScope) -> Void) {
+        if calendar.isRecurring(block) {
+            pendingScope = ScopeQuestion(apply: apply)
+        } else {
+            apply(.thisEvent)
+        }
+    }
+
+    private func deleteSelection() {
+        let targets = calendar.events.filter { selection.contains($0.id) }
+        guard !targets.isEmpty else { return }
+
+        for block in targets {
+            withScope(block) { editor.delete(block, scope: $0, inWeekStarting: weekStart) }
+        }
+        selection.removeAll()
+    }
+
+    private func duplicateSelection() {
+        for block in calendar.events where selection.contains(block.id) {
+            editor.duplicate(block, inWeekStarting: weekStart)
+        }
+    }
+
+    // MARK: Selection
+
+    private func select(_ block: DayBlock?, mode: SelectionMode) {
+        guard let block else {
+            selection.removeAll()
+            return
+        }
+
+        switch mode {
+        case .replace:
+            selection = [block.id]
+        case .toggle:
+            if selection.contains(block.id) { selection.remove(block.id) } else { selection.insert(block.id) }
+        }
+    }
+
+    private func bandSelect(_ blocks: [DayBlock]) {
+        selection = Set(blocks.map(\.id))
+    }
+
+    // MARK: Plumbing
+
+    private var defaultCalendarID: String? {
+        let writable = calendar.writableCalendars
+        return (writable.first { preferences.visibleCalendarIDs.contains($0.id) } ?? writable.first)?.id
     }
 
     private var reloadKey: String {
         "\(weekStart.timeIntervalSince1970)-\(preferences.visibleCalendarIDs.sorted().joined())"
     }
 
+    private func reload() {
+        calendar.load(weekStart: weekStart, calendarIDs: preferences.visibleCalendarIDs)
+        // Anything that vanished can't stay selected.
+        let alive = Set(calendar.events.map(\.id))
+        selection.formIntersection(alive)
+    }
+
+    private func open(_ date: Date, switchToWeek: Bool = true) {
+        let thisWeek = Weekday.weekStart(containing: .now)
+        let target = Weekday.weekStart(containing: date)
+        let days = Calendar.current.dateComponents([.day], from: thisWeek, to: target).day ?? 0
+
+        weekOffset = days / 7
+        if switchToWeek { scale = .week }
+    }
+
+    private func retry() {
+        controller.signIn(with: credentials)
+    }
+
+    // MARK: Toolbar
+
     @ToolbarContentBuilder
-    private var weekNavigation: some ToolbarContent {
+    private var toolbar: some ToolbarContent {
         ToolbarItemGroup {
             Picker("View", selection: $scale) {
                 ForEach(CalendarScale.allCases) { option in
@@ -105,9 +319,7 @@ struct CalendarView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
 
-            Button {
-                step(-1)
-            } label: {
+            Button { step(-1) } label: {
                 Label(scale == .week ? "Previous Week" : "Previous Year", systemImage: "chevron.left")
             }
             .keyboardShortcut("[", modifiers: .command)
@@ -115,21 +327,22 @@ struct CalendarView: View {
             Button("Today") { weekOffset = 0 }
                 .disabled(weekOffset == 0)
 
-            Button {
-                step(1)
-            } label: {
+            Button { step(1) } label: {
                 Label(scale == .week ? "Next Week" : "Next Year", systemImage: "chevron.right")
             }
             .keyboardShortcut("]", modifiers: .command)
 
-            Button(action: startNewEvent) {
+            Button(action: newEventAtDefaultSlot) {
                 Label("New Event", systemImage: "plus")
             }
             .keyboardShortcut("n", modifiers: .command)
-            .disabled(calendar.access != .granted)
-            .help(calendar.access == .granted
-                  ? "Add an event to Calendar"
-                  : "Connect Calendar in Settings first")
+            .disabled(!canEdit)
+            .help(canEdit ? "Add an event to Calendar" : "Connect Calendar in Settings first")
+
+            Button("Duplicate", action: duplicateSelection)
+                .keyboardShortcut("d", modifiers: .command)
+                .disabled(selection.isEmpty)
+                .hidden()
         }
     }
 
@@ -140,20 +353,19 @@ struct CalendarView: View {
         case .week:
             weekOffset += direction
         case .year:
-            let target = Calendar.current.date(byAdding: .year, value: direction, to: weekStart)
-            if let target { open(target, switchToWeek: false) }
+            if let target = Calendar.current.date(byAdding: .year, value: direction, to: weekStart) {
+                open(target, switchToWeek: false)
+            }
         }
     }
 
-    /// Picking a date in the year view opens that week — the point of the year
-    /// view is getting somewhere, not staying there.
-    private func open(_ date: Date, switchToWeek: Bool = true) {
-        let thisWeek = Weekday.weekStart(containing: .now)
-        let target = Weekday.weekStart(containing: date)
-        let days = Calendar.current.dateComponents([.day], from: thisWeek, to: target).day ?? 0
+    private func newEventAtDefaultSlot() {
+        let today = Date.now
+        let inThisWeek = Weekday.weekStart(containing: today) == weekStart
+        let day = inThisWeek ? Weekday.on(today) : .monday
+        let hour = TimeSnap.snap(NowLine.minutes(of: today), to: 60)
 
-        weekOffset = days / 7
-        if switchToWeek { scale = .week }
+        startCreate(DragRange(days: [day], start: hour, end: hour + 60), anchor: .zero)
     }
 
     private var weekTitle: String {
@@ -167,8 +379,6 @@ struct CalendarView: View {
         }
     }
 
-    /// Only ever seen on a first run, or after signing out — any later failure
-    /// lands in the footer instead.
     @ViewBuilder
     private var startupState: some View {
         switch controller.status {
@@ -194,423 +404,20 @@ struct CalendarView: View {
             )
         }
     }
-
-    private func retry() {
-        controller.signIn(with: credentials)
-    }
 }
 
-// MARK: - Week grid
-
-private struct WeekGrid: View {
-    let blocks: [DayBlock]
-    let weekStart: Date
-    @ObservedObject var preferences: Preferences
-    @Environment(\.palette) private var palette
-
-    private let gutter: CGFloat = 56
-    private let headerHeight: CGFloat = 44
-    private let hourHeight: CGFloat = 60
-    /// Shared by the header and the grid so day labels line up with columns.
-    private let columnInset: CGFloat = 12
-
-    private var axis: (start: Int, end: Int) {
-        GridAxis.hours(covering: blocks)
-    }
-
-    private var hours: [Int] {
-        stride(from: axis.start, through: axis.end, by: 60).map { $0 }
-    }
-
-    var body: some View {
-        let span = CGFloat(max(axis.end - axis.start, 60))
-        let bodyHeight = span / 60 * hourHeight
-
-        // One clock for the whole grid: the same minute positions the now-line
-        // and decides which blocks have already finished.
-        TimelineView(.periodic(from: NowLine.nextMinute, by: 60)) { context in
-            let now = context.date
-
-            ZStack(alignment: .top) {
-                scrollingBody(span: span, height: bodyHeight, now: now)
-                header(now: now)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-        }
-    }
-
-    /// Floats over the grid rather than sitting above it, so hours pass
-    /// underneath the glass instead of colliding with a hard edge.
-    private func header(now: Date) -> some View {
-        HStack(spacing: 0) {
-            Color.clear.frame(width: gutter)
-            ForEach(Weekday.allCases) { day in
-                let isToday = isToday(day, now: now)
-
-                VStack(spacing: 1) {
-                    Text(day.short)
-                        .font(Theme.Typo.dayName)
-                    Text(dayNumber(day))
-                        .font(Theme.Typo.gutter)
-                        .opacity(0.8)
-                }
-                .foregroundStyle(isToday ? palette.accent : .secondary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 3)
-                .background(Capsule().fill(palette.accent.opacity(isToday ? 0.16 : 0)))
-                .frame(maxWidth: .infinity)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(isToday ? "\(day.short) \(dayNumber(day)), today"
-                                            : "\(day.short) \(dayNumber(day))")
-            }
-        }
-        .frame(height: headerHeight)
-        // Matches the scrolling body's trailing inset exactly. Padding the
-        // header's leading edge instead would shift every label off its
-        // column by that amount.
-        .padding(.trailing, columnInset)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16))
-    }
-
-    private func scrollingBody(span: CGFloat, height: CGFloat, now: Date) -> some View {
-        let nowMinutes = NowLine.minutes(of: now)
-
-        return ScrollViewReader { proxy in
-            ScrollView {
-                HStack(alignment: .top, spacing: 0) {
-                    hourLabels(now: showsNowLine(now) ? nowMinutes : nil)
-                        .frame(width: gutter)
-
-                    ZStack(alignment: .topLeading) {
-                        hourLines(height: height)
-
-                        HStack(spacing: 5) {
-                            ForEach(Weekday.allCases) { day in
-                                dayColumn(day, span: span, height: height, now: now)
-                            }
-                        }
-                    }
-                    .frame(height: height)
-                }
-                .overlay(alignment: .topLeading) {
-                    // Only the week that actually contains today gets a now-line.
-                    if showsNowLine(now) {
-                        NowLine(minutes: nowMinutes, axisStart: axis.start,
-                                span: span, height: height, gutter: gutter)
-                    }
-                }
-                .padding(.top, headerHeight + 14)
-                .padding(.bottom, 12)
-                .padding(.trailing, columnInset)
-            }
-            .onAppear {
-                // Open on the current hour rather than at 7am. No animation:
-                // an initial position should just be the position.
-                guard let target = hours.last(where: { $0 <= nowMinutes }) else { return }
-                proxy.scrollTo(target, anchor: .top)
-            }
-        }
-    }
-
-    /// The now-lozenge lives in this same gutter, so any hour label it would
-    /// land on top of gets out of the way. The lozenge already says the time.
-    private func hourLabels(now: Int?) -> some View {
-        VStack(alignment: .trailing, spacing: 0) {
-            ForEach(hours.dropLast(), id: \.self) { hour in
-                Text(ClassSession.format(hour))
-                    .font(Theme.Typo.gutter)
-                    .foregroundStyle(.tertiary)
-                    .opacity(now.map { abs(hour - $0) < 20 } == true ? 0 : 1)
-                    .frame(height: hourHeight, alignment: .top)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-        }
-        .padding(.trailing, 8)
-    }
-
-    private func hourLines(height: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            ForEach(hours.dropLast(), id: \.self) { hour in
-                Rectangle()
-                    .fill(palette.gridLine)
-                    .frame(height: 1)
-                    .frame(height: hourHeight, alignment: .top)
-                    .id(hour)
-            }
-        }
-        .frame(height: height, alignment: .top)
-    }
-
-    private func dayColumn(_ day: Weekday, span: CGFloat, height: CGFloat, now: Date) -> some View {
-        let placements = BlockLayout.arrange(blocks.filter { $0.day == day })
-
-        return GeometryReader { proxy in
-            ForEach(placements) { placement in
-                let width = proxy.size.width / CGFloat(placement.lanes)
-
-                blockView(placement.block, isPast: isPast(placement.block, now: now))
-                    .frame(
-                        width: max(width - 2, 1),
-                        height: max(CGFloat(placement.block.duration) / span * height, 26)
-                    )
-                    .offset(
-                        x: width * CGFloat(placement.lane),
-                        y: CGFloat(placement.block.start - axis.start) / span * height
-                    )
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: height)
-    }
-
-    @ViewBuilder
-    private func blockView(_ block: DayBlock, isPast: Bool) -> some View {
-        if let session = block.session {
-            ClassBlock(session: session, isPast: isPast, preferences: preferences)
-        } else {
-            EventBlock(block: block, isPast: isPast)
-        }
-    }
-
-    // MARK: Dates
-
-    private func isToday(_ day: Weekday, now: Date) -> Bool {
-        Calendar.current.isDate(day.date(inWeekStarting: weekStart), inSameDayAs: now)
-    }
-
-    private func showsNowLine(_ now: Date) -> Bool {
-        Weekday.weekStart(containing: now) == weekStart
-    }
-
-    private func dayNumber(_ day: Weekday) -> String {
-        String(Calendar.current.component(.day, from: day.date(inWeekStarting: weekStart)))
-    }
-
-    /// Compared against real dates rather than weekday order, so browsing to
-    /// last week greys everything and next week greys nothing.
-    private func isPast(_ block: DayBlock, now: Date) -> Bool {
-        let date = block.day.date(inWeekStarting: weekStart)
-        guard let end = Calendar.current.date(byAdding: .minute, value: block.end, to: date) else {
-            return false
-        }
-        return end <= now
-    }
+/// An open editor, with the rect it should point at.
+private struct EditorRequest: Identifiable {
+    let id = UUID()
+    let block: DayBlock?
+    let anchor: CGRect
+    let draft: EventSnapshot
 }
 
-// MARK: - Blocks
-
-private struct ClassBlock: View {
-    let session: ClassSession
-    let isPast: Bool
-    @ObservedObject var preferences: Preferences
-    @Environment(\.palette) private var palette
-    @State private var showingDetail = false
-
-    private var status: SessionStatus { preferences.status(for: session) }
-    private var color: Color { preferences.color(for: session.subjectCode, in: palette) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(session.subjectCode)
-                .font(Theme.Typo.blockCode)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-
-            HStack(spacing: 3) {
-                if status != .regular {
-                    Image(systemName: status.symbol)
-                        .font(.system(size: 8))
-                }
-                Text(status == .vacant ? "Vacant" : session.timeLabel)
-                    .font(Theme.Typo.blockTime)
-            }
-            .opacity(0.85)
-        }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 5)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        // Opaque on purpose. Glass belongs to the chrome; the blocks are the
-        // content, and per-subject color has to survive being looked at.
-        .background(fill, in: RoundedRectangle(cornerRadius: 8))
-        // A vacant class keeps its outline so the slot still reads as spoken
-        // for — it just stops looking like something you have to attend.
-        .overlay {
-            if status == .vacant {
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(color.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-            }
-        }
-        .foregroundStyle(status == .vacant ? AnyShapeStyle(color) : AnyShapeStyle(.white))
-        .shadow(color: .black.opacity(status == .vacant ? 0 : 0.18), radius: 1.5, y: 1)
-        .opacity(isPast ? 0.45 : 1)
-        .onTapGesture { showingDetail = true }
-        .contextMenu { contextMenu }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(isPast ? "Already finished" : "Show details")
-        .accessibilityAddTraits(.isButton)
-        .popover(isPresented: $showingDetail) { detail }
-    }
-
-    private var fill: Color {
-        status == .vacant ? color.opacity(0.14) : color
-    }
-
-    private var accessibilityLabel: String {
-        let state = status == .regular ? "" : ", \(status.label)"
-        return "\(session.subjectCode), \(session.description), \(session.timeLabel)\(state)"
-    }
-
-    @ViewBuilder
-    private var contextMenu: some View {
-        Picker("Status", selection: statusBinding) {
-            ForEach(SessionStatus.allCases) { option in
-                Label(option.label, systemImage: option.symbol).tag(option)
-            }
-        }
-        .pickerStyle(.inline)
-
-        Divider()
-
-        // A real ColorPicker can't live in a menu, so this hands off to the
-        // popover, which has one.
-        Button("Change Color…") { showingDetail = true }
-        Button("Reset Color") { preferences.resetColor(for: session.subjectCode) }
-            .disabled(!preferences.hasCustomColor(for: session.subjectCode))
-    }
-
-    /// Opening the panel takes key window, which dismisses the popover — so
-    /// capture what the callback needs instead of reading it back from a view
-    /// that's already gone.
-    private func presentColorPanel() {
-        let preferences = preferences
-        let subjectCode = session.subjectCode
-
-        ColorPanelController.shared.present(current: color, near: NSEvent.mouseLocation) { picked in
-            preferences.setColor(picked, for: subjectCode)
-        }
-    }
-
-    private var statusBinding: Binding<SessionStatus> {
-        Binding(
-            get: { status },
-            set: { preferences.setStatus($0, for: session) }
-        )
-    }
-
-    private var detail: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(session.subjectCode)
-                    .font(Theme.Typo.detailTitle)
-                Text(session.description)
-                    .font(Theme.Typo.detailBody)
-                Text("\(session.day.short)  \(session.timeLabel)")
-                    .font(Theme.Typo.detailMeta)
-                    .foregroundStyle(.secondary)
-                if !session.faculty.isEmpty {
-                    Text(session.faculty)
-                        .font(Theme.Typo.detailBody)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Divider()
-
-            Picker("Status", selection: statusBinding) {
-                ForEach(SessionStatus.allCases) { option in
-                    Text(option.label).tag(option)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            // Swatches inline rather than only a `ColorPicker`: the system
-            // color panel opens as its own floating window somewhere else on
-            // screen, which is a long way to go to recolor a block. The
-            // picker stays for a genuinely custom color.
-            HStack(spacing: 6) {
-                ForEach(Array(palette.subjectColors.enumerated()), id: \.offset) { _, swatch in
-                    Button {
-                        preferences.setColor(swatch, for: session.subjectCode)
-                    } label: {
-                        Circle()
-                            .fill(swatch)
-                            .frame(width: 20, height: 20)
-                            .overlay {
-                                Circle()
-                                    .strokeBorder(.primary, lineWidth: 2)
-                                    .opacity(swatch.hex == color.hex ? 1 : 0)
-                            }
-                    }
-                    .buttonStyle(.plain)
-                    .help("Use this color")
-                }
-
-                Button(action: presentColorPanel) {
-                    Circle()
-                        .fill(AngularGradient(
-                            colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red],
-                            center: .center
-                        ))
-                        .frame(width: 20, height: 20)
-                        .overlay { Circle().strokeBorder(.primary.opacity(0.25), lineWidth: 1) }
-                }
-                .buttonStyle(.plain)
-                .help("Custom color…")
-
-                Spacer()
-
-                Button("Reset") { preferences.resetColor(for: session.subjectCode) }
-                    .buttonStyle(.link)
-                    .disabled(!preferences.hasCustomColor(for: session.subjectCode))
-            }
-
-            Text("Color applies to every \(session.subjectCode) block; status is just this meeting.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(16)
-        .frame(width: 300, alignment: .leading)
-        .tint(palette.accent)
-    }
+/// A held-back edit, waiting for the user to say how far it should reach.
+private struct ScopeQuestion {
+    let apply: (CalendarBridge.EditScope) -> Void
 }
-
-/// A calendar event. Deliberately plainer than a class: it isn't the app's
-/// data, so it gets no color or status controls.
-private struct EventBlock: View {
-    let block: DayBlock
-    let isPast: Bool
-    @Environment(\.palette) private var palette
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(block.title)
-                .font(Theme.Typo.blockCode)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-            Text(block.subtitle)
-                .font(Theme.Typo.blockTime)
-                .opacity(0.85)
-        }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 5)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(palette.secondary.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(palette.secondary)
-                .frame(width: 3)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .foregroundStyle(.primary)
-        .opacity(isPast ? 0.45 : 1)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(block.title), \(block.subtitle)")
-    }
-}
-
-// MARK: - Footer
 
 /// Where a failed refresh goes now that it no longer gets to take the screen.
 private struct StatusFooter: View {
