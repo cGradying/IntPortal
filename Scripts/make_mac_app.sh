@@ -41,14 +41,22 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleExecutable</key><string>PUPSISPortal</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
-  <key>LSMinimumSystemVersion</key><string>13.0</string>
+  <key>LSMinimumSystemVersion</key><string>26.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
   $ICON_ARG
 </dict>
 </plist>
 EOF
 
-codesign --force --deep --sign - "$APP"
+# Prefer the stable identity from Scripts/make_signing_identity.sh: ad-hoc
+# signing changes the app's code identity on every build, which invalidates
+# the Keychain ACL and makes the app block on a credential prompt at launch.
+SIGN_ID="PUPSISPortal Local Signing"
+if security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_ID"; then
+  codesign --force --deep --sign "$SIGN_ID" "$APP"
+else
+  codesign --force --deep --sign - "$APP"
+fi
 
 touch "$APP"
 mdimport "$APP" >/dev/null 2>&1 || true

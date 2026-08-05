@@ -3,6 +3,7 @@ import SwiftUI
 struct CredentialsView: View {
     var existing: Credentials?
     var onSave: (Credentials) -> Void
+    @Environment(\.palette) private var palette
 
     @State private var studentNumber: String
     @State private var birthMonth: Int
@@ -27,8 +28,8 @@ struct CredentialsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("PUP SIS Login")
-                .font(.title2.bold())
-                .foregroundStyle(Theme.accent)
+                .font(Theme.Typo.screenTitle)
+                .foregroundStyle(palette.accent)
 
             TextField("Student Number (e.g. 2020-00000-MN-0)", text: $studentNumber)
                 .textFieldStyle(.roundedBorder)
@@ -58,10 +59,15 @@ struct CredentialsView: View {
                 ))
             }
             .keyboardShortcut(.defaultAction)
-            .tint(Theme.accent)
+            .tint(palette.accent)
             .disabled(studentNumber.isEmpty || password.isEmpty)
         }
         .padding(24)
         .frame(width: 360)
+        // A form is chrome, not content, so glass is the right layer for it.
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(palette.canvasWash.ignoresSafeArea())
     }
 }
