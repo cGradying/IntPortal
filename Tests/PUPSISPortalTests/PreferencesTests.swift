@@ -98,6 +98,28 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.status(for: tuesday), .regular)
     }
 
+    func testTermEndDefaultsToAboutASemesterOut() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
+        let from = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 8, day: 5)))
+
+        let end = Preferences.defaultTermEnd(from: from, calendar: calendar)
+
+        XCTAssertEqual(calendar.dateComponents([.year, .month, .day], from: end).month, 12)
+        XCTAssertEqual(calendar.dateComponents([.year, .month, .day], from: end).day, 5)
+    }
+
+    func testTermEndSurvivesRelaunch() {
+        let chosen = Date(timeIntervalSince1970: 1_767_225_600)
+        Preferences(defaults: defaults).termEndDate = chosen
+
+        XCTAssertEqual(
+            Preferences(defaults: defaults).termEndDate.timeIntervalSince1970,
+            chosen.timeIntervalSince1970,
+            accuracy: 0.001
+        )
+    }
+
     /// One subject's override must not leak onto another.
     func testOverridesAreScopedToOneSubject() {
         let prefs = Preferences(defaults: defaults)

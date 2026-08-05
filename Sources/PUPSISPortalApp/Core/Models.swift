@@ -23,6 +23,19 @@ enum Weekday: Int, CaseIterable, Identifiable, Codable {
         Weekday(rawValue: (calendar.component(.weekday, from: date) + 5) % 7 + 1) ?? .monday
     }
 
+    /// Midnight on the Monday of `date`'s week. The grid reads Monday-first,
+    /// and `Calendar.firstWeekday` is locale-dependent, so don't ask it.
+    static func weekStart(containing date: Date, calendar: Calendar = .current) -> Date {
+        let offset = on(date, calendar: calendar).rawValue - 1
+        return calendar.date(byAdding: .day, value: -offset, to: calendar.startOfDay(for: date))
+            ?? calendar.startOfDay(for: date)
+    }
+
+    /// The date this weekday falls on in the week beginning `weekStart`.
+    func date(inWeekStarting weekStart: Date, calendar: Calendar = .current) -> Date {
+        calendar.date(byAdding: .day, value: rawValue - 1, to: weekStart) ?? weekStart
+    }
+
     /// SIS day codes, longest first — `SUN` and `TH` must be matched before
     /// `S` and `T` or they get swallowed.
     static let codes: [(String, Weekday)] = [

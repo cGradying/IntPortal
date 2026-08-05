@@ -49,12 +49,40 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(try? JSONEncoder().encode(sessionStatuses), forKey: Key.sessionStatuses) }
     }
 
+    /// Which Calendar.app calendars are drawn in the grid. Empty by default —
+    /// nothing from the user's calendar appears until they ask for it.
+    @Published var visibleCalendarIDs: Set<String> {
+        didSet { defaults.set(Array(visibleCalendarIDs), forKey: Key.visibleCalendarIDs) }
+    }
+
+    /// Which calendar classes get exported into. Empty until the user picks —
+    /// there's no safe default guess for someone else's calendar.
+    @Published var exportCalendarID: String {
+        didSet { defaults.set(exportCalendarID, forKey: Key.exportCalendarID) }
+    }
+
+    /// When exported classes stop repeating. The SIS doesn't publish a term
+    /// end, so the user supplies it — a class repeating forever is the kind of
+    /// thing you find in your calendar two years later.
+    @Published var termEndDate: Date {
+        didSet { defaults.set(termEndDate.timeIntervalSince1970, forKey: Key.termEndDate) }
+    }
+
+    /// Far enough out to cover a semester, close enough that it's obviously a
+    /// guess worth correcting.
+    static func defaultTermEnd(from date: Date = .now, calendar: Calendar = .current) -> Date {
+        calendar.date(byAdding: .month, value: 4, to: calendar.startOfDay(for: date)) ?? date
+    }
+
     private let defaults: UserDefaults
 
     private enum Key {
         static let theme = "theme"
         static let subjectColors = "subjectColors"
         static let sessionStatuses = "sessionStatuses"
+        static let visibleCalendarIDs = "visibleCalendarIDs"
+        static let exportCalendarID = "exportCalendarID"
+        static let termEndDate = "termEndDate"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -64,6 +92,18 @@ final class Preferences: ObservableObject {
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         sessionStatuses = defaults.data(forKey: Key.sessionStatuses)
             .flatMap { try? JSONDecoder().decode([String: SessionStatus].self, from: $0) } ?? [:]
+        visibleCalendarIDs = Set(defaults.stringArray(forKey: Key.visibleCalendarIDs) ?? [])
+        exportCalendarID = defaults.string(forKey: Key.exportCalendarID) ?? ""
+        termEndDate = (defaults.object(forKey: Key.termEndDate) as? Double)
+            .map(Date.init(timeIntervalSince1970:)) ?? Self.defaultTermEnd()
+    }
+
+    func setCalendar(_ id: String, visible: Bool) {
+        if visible {
+            visibleCalendarIDs.insert(id)
+        } else {
+            visibleCalendarIDs.remove(id)
+        }
     }
 
     func status(for session: ClassSession) -> SessionStatus {

@@ -89,4 +89,51 @@ final class WeekdayTests: XCTestCase {
         XCTAssertEqual(try weekday("2026-08-08"), .saturday)
         XCTAssertEqual(try weekday("2026-08-09"), .sunday)
     }
+
+    /// `Calendar.firstWeekday` is locale-dependent — in a US locale the week
+    /// starts Sunday, which would slide the whole grid by a day.
+    func testWeekStartIsMondayRegardlessOfLocale() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
+        calendar.firstWeekday = 1 // Sunday, as en_US would have it
+
+        let monday = try date("2026-08-03", calendar)
+
+        for iso in ["2026-08-03", "2026-08-05", "2026-08-09"] {
+            let start = Weekday.weekStart(containing: try date(iso, calendar), calendar: calendar)
+            XCTAssertEqual(start, monday, "week containing \(iso)")
+        }
+    }
+
+    /// Sunday belongs to the week that started six days earlier, not the one
+    /// about to begin.
+    func testSundayClosesTheWeekRatherThanOpeningTheNext() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
+
+        let sunday = try date("2026-08-09", calendar)
+        let start = Weekday.weekStart(containing: sunday, calendar: calendar)
+
+        XCTAssertEqual(start, try date("2026-08-03", calendar))
+        XCTAssertEqual(Weekday.sunday.date(inWeekStarting: start, calendar: calendar), sunday)
+    }
+
+    func testEachWeekdayLandsOnItsOwnDate() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
+        let start = try date("2026-08-03", calendar)
+
+        let dates = Weekday.allCases.map { $0.date(inWeekStarting: start, calendar: calendar) }
+
+        XCTAssertEqual(dates.count, Set(dates).count)
+        XCTAssertEqual(dates.first, start)
+        XCTAssertEqual(dates.last, try date("2026-08-09", calendar))
+    }
+
+    private func date(_ iso: String, _ calendar: Calendar) throws -> Date {
+        let parts = iso.split(separator: "-").compactMap { Int($0) }
+        var components = DateComponents()
+        (components.year, components.month, components.day) = (parts[0], parts[1], parts[2])
+        return try XCTUnwrap(calendar.date(from: components))
+    }
 }

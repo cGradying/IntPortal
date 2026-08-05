@@ -7,6 +7,7 @@ final class AppState: ObservableObject {
 
     let portal = PortalController()
     let preferences = Preferences()
+    let calendar = CalendarBridge()
 
     init() {
         credentials = KeychainStore.load()
@@ -87,10 +88,15 @@ struct ContentView: View {
                     CalendarView(
                         controller: appState.portal,
                         preferences: preferences,
+                        calendar: appState.calendar,
                         credentials: credentials
                     )
                 case .settings:
-                    SettingsView(appState: appState, preferences: preferences)
+                    SettingsView(
+                        appState: appState,
+                        preferences: preferences,
+                        calendar: appState.calendar
+                    )
                 }
             }
             .frame(minWidth: 1040, minHeight: 600)

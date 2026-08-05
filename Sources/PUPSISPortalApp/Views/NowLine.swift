@@ -60,6 +60,7 @@ struct NowLine: View {
         ) ?? .now
     }
 
+    /// Minutes from midnight for a date, in the given calendar's time zone.
     static func minutes(of date: Date, calendar: Calendar = .current) -> Int {
         let parts = calendar.dateComponents([.hour, .minute], from: date)
         return (parts.hour ?? 0) * 60 + (parts.minute ?? 0)

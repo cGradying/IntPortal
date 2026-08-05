@@ -3,7 +3,9 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
+    @ObservedObject var calendar: CalendarBridge
     @Environment(\.palette) private var palette
+    @State fileprivate var exportResult: String?
 
     /// Subjects the user can actually recolor: whatever is on screen right now.
     private var subjectCodes: [String] {
@@ -37,6 +39,8 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            calendarSection
+
             Section("Account") {
                 LabeledContent("Last updated") {
                     Text(appState.portal.lastUpdated.map {
@@ -60,6 +64,112 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .background(palette.canvasWash.ignoresSafeArea())
         .navigationTitle("Settings")
+    }
+}
+
+private extension SettingsView {
+    @ViewBuilder
+    var calendarSection: some View {
+        Section {
+            switch calendar.access {
+            case .notDetermined:
+                LabeledContent("Calendar.app") {
+                    Button("Connect…") {
+                        Task { await calendar.requestAccess() }
+                    }
+                }
+
+            case .denied:
+                Label(
+                    "Calendar access is off. Turn it on in System Settings › Privacy & Security › Calendars.",
+                    systemImage: "exclamationmark.triangle"
+                )
+                .foregroundStyle(.secondary)
+
+            case .granted:
+                if calendar.calendars.isEmpty {
+                    Text("No calendars found.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(calendar.calendars) { info in
+                        Toggle(isOn: Binding(
+                            get: { preferences.visibleCalendarIDs.contains(info.id) },
+                            set: { preferences.setCalendar(info.id, visible: $0) }
+                        )) {
+                            Label {
+                                Text(info.title)
+                            } icon: {
+                                Circle().fill(info.color).frame(width: 10, height: 10)
+                            }
+                        }
+                    }
+                }
+
+                if calendar.writableCalendars.isEmpty {
+                    Text("None of your calendars can be edited, so classes can't be exported.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Picker("Add classes to", selection: $preferences.exportCalendarID) {
+                        Text("Choose a calendar…").tag("")
+                        ForEach(calendar.writableCalendars) { info in
+                            Text(info.title).tag(info.id)
+                        }
+                    }
+
+                    DatePicker(
+                        "Repeat until",
+                        selection: $preferences.termEndDate,
+                        displayedComponents: .date
+                    )
+
+                    LabeledContent("Your classes") {
+                        Button("Add to Calendar…", action: exportClasses)
+                            .disabled(appState.portal.sessions.isEmpty
+                                      || preferences.exportCalendarID.isEmpty)
+                    }
+                }
+            }
+
+            if let result = exportResult {
+                Text(result)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let error = calendar.lastError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        } header: {
+            Text("Calendar")
+        } footer: {
+            Text(calendarFooter)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    var calendarFooter: String {
+        switch calendar.access {
+        case .granted:
+            """
+            Ticked calendars appear alongside your classes in the week grid. \
+            Adding your classes writes them as weekly repeats into the calendar you choose, \
+            stopping on the date above; running it again replaces the ones this app added \
+            and leaves your own events alone.
+            """
+        default:
+            "Nothing from your calendar is shown until you connect and pick which calendars to include."
+        }
+    }
+
+    func exportClasses() {
+        exportResult = calendar.exportClasses(
+            appState.portal.sessions,
+            weekStart: Weekday.weekStart(containing: .now),
+            until: preferences.termEndDate,
+            toCalendarID: preferences.exportCalendarID
+        )
     }
 }
 

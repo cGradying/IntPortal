@@ -43,6 +43,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>LSMinimumSystemVersion</key><string>26.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
+  <key>NSCalendarsFullAccessUsageDescription</key><string>PUPSISPortal shows your calendar events beside your class schedule, and can add your classes to Calendar.</string>
   $ICON_ARG
 </dict>
 </plist>

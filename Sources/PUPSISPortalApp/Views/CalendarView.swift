@@ -4,8 +4,31 @@ import SwiftUI
 struct CalendarView: View {
     @ObservedObject var controller: PortalController
     @ObservedObject var preferences: Preferences
+    @ObservedObject var calendar: CalendarBridge
     let credentials: Credentials
     @Environment(\.palette) private var palette
+
+    /// Weeks away from the current one. Classes repeat, so browsing is only
+    /// interesting once dated calendar events land in the grid — but the grid
+    /// has to be dated before they can.
+    @State private var weekOffset = 0
+    @State private var scale: CalendarScale = .week
+    @State private var newEvent: NewEventRequest?
+
+    private var weekStart: Date {
+        let thisWeek = Weekday.weekStart(containing: .now)
+        return Calendar.current.date(byAdding: .day, value: weekOffset * 7, to: thisWeek) ?? thisWeek
+    }
+
+    private var year: Int {
+        Calendar.current.component(.year, from: weekStart)
+    }
+
+    /// Classes and calendar events end up in one list so the grid draws one
+    /// kind of thing and overlap layout can see across both.
+    private var blocks: [DayBlock] {
+        controller.sessions.map(DayBlock.init) + calendar.events
+    }
 
     var body: some View {
         ZStack {
@@ -17,7 +40,13 @@ struct CalendarView: View {
                 startupState
             } else {
                 VStack(spacing: 0) {
-                    WeekGrid(sessions: controller.sessions, preferences: preferences)
+                    switch scale {
+                    case .week:
+                        WeekGrid(blocks: blocks, weekStart: weekStart, preferences: preferences)
+                    case .year:
+                        YearView(year: year, selectedWeekStart: weekStart) { open($0) }
+                    }
+
                     StatusFooter(
                         lastUpdated: controller.lastUpdated,
                         refreshError: controller.refreshError,
@@ -26,10 +55,115 @@ struct CalendarView: View {
                 }
             }
         }
+        .navigationTitle(weekTitle)
+        .toolbar { weekNavigation }
         .task {
             if controller.status == .idle {
                 controller.signIn(with: credentials)
             }
+        }
+        // Reload whenever the week or the ticked calendars change.
+        .task(id: reloadKey) {
+            calendar.load(weekStart: weekStart, calendarIDs: preferences.visibleCalendarIDs)
+        }
+        // ...and when Calendar.app itself changes underneath us.
+        .onReceive(NotificationCenter.default.publisher(for: .calendarStoreChanged)) { _ in
+            calendar.load(weekStart: weekStart, calendarIDs: preferences.visibleCalendarIDs)
+        }
+        .sheet(item: $newEvent) { request in
+            AddEventSheet(calendar: calendar, preferences: preferences, initialDate: request.date)
+        }
+    }
+
+    /// `sheet(item:)` needs identity, and a plain `Date` has none — two
+    /// requests for the same slot would be treated as the same sheet.
+    private struct NewEventRequest: Identifiable {
+        let id = UUID()
+        let date: Date
+    }
+
+    /// Opens on today when the current week is showing, otherwise on the
+    /// Monday of whatever week is being browsed.
+    private func startNewEvent() {
+        let today = Date.now
+        let inThisWeek = Weekday.weekStart(containing: today) == weekStart
+        newEvent = NewEventRequest(date: inThisWeek ? today : weekStart)
+    }
+
+    private var reloadKey: String {
+        "\(weekStart.timeIntervalSince1970)-\(preferences.visibleCalendarIDs.sorted().joined())"
+    }
+
+    @ToolbarContentBuilder
+    private var weekNavigation: some ToolbarContent {
+        ToolbarItemGroup {
+            Picker("View", selection: $scale) {
+                ForEach(CalendarScale.allCases) { option in
+                    Text(option.label).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            Button {
+                step(-1)
+            } label: {
+                Label(scale == .week ? "Previous Week" : "Previous Year", systemImage: "chevron.left")
+            }
+            .keyboardShortcut("[", modifiers: .command)
+
+            Button("Today") { weekOffset = 0 }
+                .disabled(weekOffset == 0)
+
+            Button {
+                step(1)
+            } label: {
+                Label(scale == .week ? "Next Week" : "Next Year", systemImage: "chevron.right")
+            }
+            .keyboardShortcut("]", modifiers: .command)
+
+            Button(action: startNewEvent) {
+                Label("New Event", systemImage: "plus")
+            }
+            .keyboardShortcut("n", modifiers: .command)
+            .disabled(calendar.access != .granted)
+            .help(calendar.access == .granted
+                  ? "Add an event to Calendar"
+                  : "Connect Calendar in Settings first")
+        }
+    }
+
+    /// The arrows move by whatever the current view shows, so they stay useful
+    /// in the year view instead of nudging it a week at a time.
+    private func step(_ direction: Int) {
+        switch scale {
+        case .week:
+            weekOffset += direction
+        case .year:
+            let target = Calendar.current.date(byAdding: .year, value: direction, to: weekStart)
+            if let target { open(target, switchToWeek: false) }
+        }
+    }
+
+    /// Picking a date in the year view opens that week — the point of the year
+    /// view is getting somewhere, not staying there.
+    private func open(_ date: Date, switchToWeek: Bool = true) {
+        let thisWeek = Weekday.weekStart(containing: .now)
+        let target = Weekday.weekStart(containing: date)
+        let days = Calendar.current.dateComponents([.day], from: thisWeek, to: target).day ?? 0
+
+        weekOffset = days / 7
+        if switchToWeek { scale = .week }
+    }
+
+    private var weekTitle: String {
+        switch scale {
+        case .week:
+            let end = Calendar.current.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+            let short = Date.FormatStyle.dateTime.month(.abbreviated).day()
+            return "\(weekStart.formatted(short)) – \(end.formatted(short))"
+        case .year:
+            return String(year)
         }
     }
 
@@ -69,23 +203,19 @@ struct CalendarView: View {
 // MARK: - Week grid
 
 private struct WeekGrid: View {
-    let sessions: [ClassSession]
+    let blocks: [DayBlock]
+    let weekStart: Date
     @ObservedObject var preferences: Preferences
     @Environment(\.palette) private var palette
 
     private let gutter: CGFloat = 56
-    private let headerHeight: CGFloat = 34
+    private let headerHeight: CGFloat = 44
     private let hourHeight: CGFloat = 60
     /// Shared by the header and the grid so day labels line up with columns.
     private let columnInset: CGFloat = 12
 
-    /// Axis padded to whole hours around the real class range, so the grid
-    /// isn't a mostly-empty 24-hour column.
     private var axis: (start: Int, end: Int) {
-        let starts = sessions.map(\.start)
-        let ends = sessions.map(\.end)
-        guard let first = starts.min(), let last = ends.max() else { return (7 * 60, 21 * 60) }
-        return ((first / 60) * 60, Int(ceil(Double(last) / 60)) * 60)
+        GridAxis.hours(covering: blocks)
     }
 
     private var hours: [Int] {
@@ -100,12 +230,10 @@ private struct WeekGrid: View {
         // and decides which blocks have already finished.
         TimelineView(.periodic(from: NowLine.nextMinute, by: 60)) { context in
             let now = context.date
-            let today = Weekday.on(now)
-            let minutes = NowLine.minutes(of: now)
 
             ZStack(alignment: .top) {
-                scrollingBody(span: span, height: bodyHeight, today: today, minutes: minutes)
-                header(today: today)
+                scrollingBody(span: span, height: bodyHeight, now: now)
+                header(now: now)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -114,20 +242,27 @@ private struct WeekGrid: View {
 
     /// Floats over the grid rather than sitting above it, so hours pass
     /// underneath the glass instead of colliding with a hard edge.
-    private func header(today: Weekday) -> some View {
+    private func header(now: Date) -> some View {
         HStack(spacing: 0) {
             Color.clear.frame(width: gutter)
             ForEach(Weekday.allCases) { day in
-                Text(day.short)
-                    .font(Theme.Typo.dayName)
-                    .foregroundStyle(day == today ? palette.accent : .secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule().fill(palette.accent.opacity(day == today ? 0.16 : 0))
-                    )
-                    .frame(maxWidth: .infinity)
-                    .accessibilityLabel(day == today ? "\(day.short), today" : day.short)
+                let isToday = isToday(day, now: now)
+
+                VStack(spacing: 1) {
+                    Text(day.short)
+                        .font(Theme.Typo.dayName)
+                    Text(dayNumber(day))
+                        .font(Theme.Typo.gutter)
+                        .opacity(0.8)
+                }
+                .foregroundStyle(isToday ? palette.accent : .secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(palette.accent.opacity(isToday ? 0.16 : 0)))
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(isToday ? "\(day.short) \(dayNumber(day)), today"
+                                            : "\(day.short) \(dayNumber(day))")
             }
         }
         .frame(height: headerHeight)
@@ -138,11 +273,13 @@ private struct WeekGrid: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 16))
     }
 
-    private func scrollingBody(span: CGFloat, height: CGFloat, today: Weekday, minutes: Int) -> some View {
-        ScrollViewReader { proxy in
+    private func scrollingBody(span: CGFloat, height: CGFloat, now: Date) -> some View {
+        let nowMinutes = NowLine.minutes(of: now)
+
+        return ScrollViewReader { proxy in
             ScrollView {
                 HStack(alignment: .top, spacing: 0) {
-                    hourLabels(now: minutes)
+                    hourLabels(now: showsNowLine(now) ? nowMinutes : nil)
                         .frame(width: gutter)
 
                     ZStack(alignment: .topLeading) {
@@ -150,16 +287,18 @@ private struct WeekGrid: View {
 
                         HStack(spacing: 5) {
                             ForEach(Weekday.allCases) { day in
-                                dayColumn(day, span: span, height: height,
-                                          today: today, minutes: minutes)
+                                dayColumn(day, span: span, height: height, now: now)
                             }
                         }
                     }
                     .frame(height: height)
                 }
                 .overlay(alignment: .topLeading) {
-                    NowLine(minutes: minutes, axisStart: axis.start,
-                            span: span, height: height, gutter: gutter)
+                    // Only the week that actually contains today gets a now-line.
+                    if showsNowLine(now) {
+                        NowLine(minutes: nowMinutes, axisStart: axis.start,
+                                span: span, height: height, gutter: gutter)
+                    }
                 }
                 .padding(.top, headerHeight + 14)
                 .padding(.bottom, 12)
@@ -168,7 +307,7 @@ private struct WeekGrid: View {
             .onAppear {
                 // Open on the current hour rather than at 7am. No animation:
                 // an initial position should just be the position.
-                guard let target = hours.last(where: { $0 <= minutes }) else { return }
+                guard let target = hours.last(where: { $0 <= nowMinutes }) else { return }
                 proxy.scrollTo(target, anchor: .top)
             }
         }
@@ -176,13 +315,13 @@ private struct WeekGrid: View {
 
     /// The now-lozenge lives in this same gutter, so any hour label it would
     /// land on top of gets out of the way. The lozenge already says the time.
-    private func hourLabels(now: Int) -> some View {
+    private func hourLabels(now: Int?) -> some View {
         VStack(alignment: .trailing, spacing: 0) {
             ForEach(hours.dropLast(), id: \.self) { hour in
                 Text(ClassSession.format(hour))
                     .font(Theme.Typo.gutter)
                     .foregroundStyle(.tertiary)
-                    .opacity(abs(hour - now) < 20 ? 0 : 1)
+                    .opacity(now.map { abs(hour - $0) < 20 } == true ? 0 : 1)
                     .frame(height: hourHeight, alignment: .top)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -203,37 +342,65 @@ private struct WeekGrid: View {
         .frame(height: height, alignment: .top)
     }
 
-    private func dayColumn(_ day: Weekday, span: CGFloat, height: CGFloat,
-                           today: Weekday, minutes: Int) -> some View {
-        GeometryReader { proxy in
-            ForEach(sessions.filter { $0.day == day }) { session in
-                SessionBlock(
-                    session: session,
-                    isPast: isPast(session, today: today, minutes: minutes),
-                    preferences: preferences
-                )
+    private func dayColumn(_ day: Weekday, span: CGFloat, height: CGFloat, now: Date) -> some View {
+        let placements = BlockLayout.arrange(blocks.filter { $0.day == day })
+
+        return GeometryReader { proxy in
+            ForEach(placements) { placement in
+                let width = proxy.size.width / CGFloat(placement.lanes)
+
+                blockView(placement.block, isPast: isPast(placement.block, now: now))
                     .frame(
-                        width: proxy.size.width,
-                        height: max(CGFloat(session.duration) / span * height, 26)
+                        width: max(width - 2, 1),
+                        height: max(CGFloat(placement.block.duration) / span * height, 26)
                     )
-                    .offset(y: CGFloat(session.start - axis.start) / span * height)
+                    .offset(
+                        x: width * CGFloat(placement.lane),
+                        y: CGFloat(placement.block.start - axis.start) / span * height
+                    )
             }
         }
         .frame(maxWidth: .infinity)
         .frame(height: height)
     }
 
-    /// The week reads Monday-first, and so does `Weekday`, so an earlier
-    /// raw value is an earlier day of this same week.
-    private func isPast(_ session: ClassSession, today: Weekday, minutes: Int) -> Bool {
-        session.day.rawValue < today.rawValue
-            || (session.day == today && session.end <= minutes)
+    @ViewBuilder
+    private func blockView(_ block: DayBlock, isPast: Bool) -> some View {
+        if let session = block.session {
+            ClassBlock(session: session, isPast: isPast, preferences: preferences)
+        } else {
+            EventBlock(block: block, isPast: isPast)
+        }
+    }
+
+    // MARK: Dates
+
+    private func isToday(_ day: Weekday, now: Date) -> Bool {
+        Calendar.current.isDate(day.date(inWeekStarting: weekStart), inSameDayAs: now)
+    }
+
+    private func showsNowLine(_ now: Date) -> Bool {
+        Weekday.weekStart(containing: now) == weekStart
+    }
+
+    private func dayNumber(_ day: Weekday) -> String {
+        String(Calendar.current.component(.day, from: day.date(inWeekStarting: weekStart)))
+    }
+
+    /// Compared against real dates rather than weekday order, so browsing to
+    /// last week greys everything and next week greys nothing.
+    private func isPast(_ block: DayBlock, now: Date) -> Bool {
+        let date = block.day.date(inWeekStarting: weekStart)
+        guard let end = Calendar.current.date(byAdding: .minute, value: block.end, to: date) else {
+            return false
+        }
+        return end <= now
     }
 }
 
 // MARK: - Blocks
 
-private struct SessionBlock: View {
+private struct ClassBlock: View {
     let session: ClassSession
     let isPast: Bool
     @ObservedObject var preferences: Preferences
@@ -406,6 +573,40 @@ private struct SessionBlock: View {
         .padding(16)
         .frame(width: 300, alignment: .leading)
         .tint(palette.accent)
+    }
+}
+
+/// A calendar event. Deliberately plainer than a class: it isn't the app's
+/// data, so it gets no color or status controls.
+private struct EventBlock: View {
+    let block: DayBlock
+    let isPast: Bool
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(block.title)
+                .font(Theme.Typo.blockCode)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(block.subtitle)
+                .font(Theme.Typo.blockTime)
+                .opacity(0.85)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(palette.secondary.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(palette.secondary)
+                .frame(width: 3)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .foregroundStyle(.primary)
+        .opacity(isPast ? 0.45 : 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(block.title), \(block.subtitle)")
     }
 }
 
