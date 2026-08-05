@@ -1,6 +1,6 @@
 import Foundation
 
-enum Weekday: Int, CaseIterable, Identifiable {
+enum Weekday: Int, CaseIterable, Identifiable, Codable {
     case monday = 1, tuesday, wednesday, thursday, friday, saturday, sunday
 
     var id: Int { rawValue }
@@ -15,6 +15,12 @@ enum Weekday: Int, CaseIterable, Identifiable {
         case .saturday: "SAT"
         case .sunday: "SUN"
         }
+    }
+
+    /// `Calendar` numbers weekdays 1 = Sunday … 7 = Saturday; this enum runs
+    /// 1 = Monday … 7 = Sunday, which is the order the grid renders in.
+    static func on(_ date: Date, calendar: Calendar = .current) -> Weekday {
+        Weekday(rawValue: (calendar.component(.weekday, from: date) + 5) % 7 + 1) ?? .monday
     }
 
     /// SIS day codes, longest first — `SUN` and `TH` must be matched before
@@ -32,8 +38,7 @@ enum Weekday: Int, CaseIterable, Identifiable {
 
 /// One class block on one day. A course split into Lec/Lab, or meeting on
 /// two days, produces one `ClassSession` per occurrence.
-struct ClassSession: Identifiable, Equatable {
-    let id = UUID()
+struct ClassSession: Identifiable, Equatable, Codable {
     let subjectCode: String
     let description: String
     let faculty: String
@@ -41,6 +46,11 @@ struct ClassSession: Identifiable, Equatable {
     /// Minutes from midnight.
     let start: Int
     let end: Int
+
+    /// Derived, not stored: a `UUID()` default would block synthesized
+    /// `Codable` and hand every decoded session a new identity. Identity here
+    /// is positional anyway — `==` already compares these same fields.
+    var id: String { "\(subjectCode)-\(day.rawValue)-\(start)-\(end)" }
 
     var duration: Int { max(end - start, 0) }
 

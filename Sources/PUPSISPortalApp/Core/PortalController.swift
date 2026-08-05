@@ -23,6 +23,11 @@ enum LoginStatus: Equatable {
 final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     @Published var status: LoginStatus = .idle
     @Published var sessions: [ClassSession] = []
+    /// When the on-screen schedule was last scraped — `nil` means never.
+    @Published var lastUpdated: Date?
+    /// Set instead of `status` when a refresh fails but a cached schedule is
+    /// already on screen. Shown as a footer note, not an error screen.
+    @Published var refreshError: String?
 
     private let webView: WKWebView
     private var pendingContinuation: CheckedContinuation<Void, Error>?
@@ -38,6 +43,13 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         webView = WKWebView()
         super.init()
         webView.navigationDelegate = self
+
+        // Synchronous on purpose: it's one small JSON file, and reading it
+        // here is what lets the first frame already have a calendar in it.
+        if let cached = ScheduleStore.load() {
+            sessions = cached.sessions
+            lastUpdated = cached.lastUpdated
+        }
     }
 
     func signIn(with credentials: Credentials) {
@@ -59,25 +71,80 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
 
             let outcome = await awaitSignInOutcome()
             guard outcome.success else {
-                status = .failed(outcome.message)
+                report(outcome.message)
                 return
             }
 
             status = .success
             await loadSchedule()
         } catch {
-            status = .failed(error.localizedDescription)
+            report(error.localizedDescription)
         }
     }
 
     func loadSchedule() async {
         do {
             try await load(Self.scheduleURL)
-            let rows = try await SISScraper.scrapeSchedule(from: webView)
-            sessions = rows.flatMap(ScheduleParser.parse)
+            let rows = try await awaitScheduleRows()
+            let scraped = rows.flatMap(ScheduleParser.parse)
+            let now = Date()
+
+            sessions = scraped
+            lastUpdated = now
+            refreshError = nil
+            ScheduleStore.save(scraped, lastUpdated: now)
         } catch {
-            status = .failed("Couldn't load your schedule: \(error.localizedDescription)")
+            report("Couldn't refresh your schedule: \(error.localizedDescription)")
         }
+    }
+
+    /// A failed refresh must never replace a schedule we already have — the
+    /// cached calendar is more useful than an error screen. With nothing
+    /// cached there's nothing to protect, so the error takes the whole view.
+    ///
+    /// Falls back to `.idle` rather than staying `.loggingIn`, or the
+    /// single-flight guard in `signIn` would make Retry a no-op.
+    private func report(_ message: String) {
+        if sessions.isEmpty {
+            status = .failed(message)
+        } else {
+            refreshError = message
+            status = .idle
+        }
+    }
+
+    /// Same reason sign-in polls: one `didFinish` is not proof we've arrived.
+    /// The redirect chain after sign-in can resume the schedule navigation's
+    /// wait early, so a single scrape lands on whatever page happened to be
+    /// loaded — and even on the right page, DataTables may not have filled the
+    /// body yet. Poll until rows exist.
+    ///
+    /// The path check here is *not* the URL-based sign-in detection that
+    /// CLAUDE.md warns about. That one asked "am I authenticated"; this one
+    /// asks "which page is loaded", which is exactly what a path is for.
+    private func awaitScheduleRows(timeout: TimeInterval = 12) async throws -> [[String: String]] {
+        let deadline = Date().addingTimeInterval(timeout)
+        var reachedPage = false
+
+        while Date() < deadline {
+            if await isOnSchedulePage() {
+                reachedPage = true
+                if let rows = try? await SISScraper.scrapeSchedule(from: webView), !rows.isEmpty {
+                    return rows
+                }
+            }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
+
+        // Reaching the page and finding nothing is a real answer — an empty
+        // term looks exactly like this. Never reaching it is a failure.
+        guard reachedPage else { throw PortalError.timedOut }
+        return []
+    }
+
+    private func isOnSchedulePage() async -> Bool {
+        let path = try? await webView.evaluateJavaScript("document.location.pathname") as? String
+        return (path ?? "")?.hasSuffix("/schedule") ?? false
     }
 
     /// Polls until sign-in resolves one way or the other: the login form
@@ -182,10 +249,21 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     }
 
     nonisolated func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        Task { @MainActor in resumePending(throwing: error) }
+        fail(with: error)
     }
 
     nonisolated func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        fail(with: error)
+    }
+
+    /// `NSURLErrorCancelled` means another navigation superseded this one, not
+    /// that anything went wrong — the sign-in redirect chain is still settling
+    /// when we ask for `/student/schedule`, so the older load gets cancelled
+    /// and reports here. Surfacing it turned a working sign-in into
+    /// "error -999". The superseding navigation reports for itself, and the
+    /// timeout in `performAndWait` covers the case where nothing does.
+    private nonisolated func fail(with error: Error) {
+        guard (error as NSError).code != NSURLErrorCancelled else { return }
         Task { @MainActor in resumePending(throwing: error) }
     }
 }

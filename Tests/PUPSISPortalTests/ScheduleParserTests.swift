@@ -63,3 +63,30 @@ final class ScheduleParserTests: XCTestCase {
         XCTAssertTrue(parse("no times here at all").isEmpty)
     }
 }
+
+/// `Calendar` counts weekdays from Sunday, this enum counts from Monday.
+/// Getting the shift wrong puts the now-line in the wrong column.
+final class WeekdayTests: XCTestCase {
+    private func weekday(_ iso: String) throws -> Weekday {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
+
+        var formatter = DateComponents()
+        let parts = iso.split(separator: "-").compactMap { Int($0) }
+        (formatter.year, formatter.month, formatter.day) = (parts[0], parts[1], parts[2])
+        formatter.hour = 12
+
+        return Weekday.on(try XCTUnwrap(calendar.date(from: formatter)), calendar: calendar)
+    }
+
+    func testEveryDayOfAKnownWeekMaps() throws {
+        // 2026-08-03 is a Monday.
+        XCTAssertEqual(try weekday("2026-08-03"), .monday)
+        XCTAssertEqual(try weekday("2026-08-04"), .tuesday)
+        XCTAssertEqual(try weekday("2026-08-05"), .wednesday)
+        XCTAssertEqual(try weekday("2026-08-06"), .thursday)
+        XCTAssertEqual(try weekday("2026-08-07"), .friday)
+        XCTAssertEqual(try weekday("2026-08-08"), .saturday)
+        XCTAssertEqual(try weekday("2026-08-09"), .sunday)
+    }
+}
