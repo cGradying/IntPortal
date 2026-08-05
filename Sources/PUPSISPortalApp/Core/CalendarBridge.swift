@@ -185,7 +185,10 @@ final class CalendarBridge: ObservableObject {
             start: startMinutes,
             end: endMinutes,
             title: event.title ?? "Untitled",
-            subtitle: "\(ClassSession.format(startMinutes)) – \(ClassSession.format(endMinutes))"
+            subtitle: "\(ClassSession.format(startMinutes)) – \(ClassSession.format(endMinutes))",
+            // Occurrences of one series share the identifier, so they group
+            // even if their titles were edited apart.
+            groupKey: event.hasRecurrenceRules ? "series-\(identifier)" : nil
         )
     }
 

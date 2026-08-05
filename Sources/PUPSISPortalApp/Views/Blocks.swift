@@ -8,6 +8,9 @@ struct ClassBlock: View {
     let session: ClassSession
     let isPast: Bool
     let isSelected: Bool
+    /// Where this sits in a run of consecutive days, so the shape can square
+    /// off where it meets the next one.
+    let position: RunPosition
     @ObservedObject var preferences: Preferences
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -39,16 +42,16 @@ struct ClassBlock: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         // Opaque on purpose. Glass belongs to the chrome; the blocks are the
         // content, and per-subject colour has to survive being looked at.
-        .background(fill, in: RoundedRectangle(cornerRadius: 8))
+        .background(fill, in: BlockShape(position: position))
         // A vacant class keeps its outline so the slot still reads as spoken
         // for — it just stops looking like something you have to attend.
         .overlay {
             if status == .vacant {
-                RoundedRectangle(cornerRadius: 8)
+                BlockShape(position: position)
                     .strokeBorder(color.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
             }
         }
-        .selectionRing(isSelected, palette: palette, reduced: reduceMotion)
+        .selectionRing(isSelected, palette: palette, reduced: reduceMotion, position: position)
         .foregroundStyle(status == .vacant ? AnyShapeStyle(color) : AnyShapeStyle(.white))
         .lift(isHovering, base: status == .vacant ? 0 : 0.18, reduced: reduceMotion)
         .opacity(isPast ? 0.45 : 1)
@@ -208,6 +211,8 @@ struct EventBlock: View {
     let isPast: Bool
     let isSelected: Bool
     let isRecurring: Bool
+    let position: RunPosition
+    @ObservedObject var preferences: Preferences
     /// Nil when calendar access hasn't been granted, which makes the block
     /// read-only rather than offering menu items that can't work.
     let actions: Actions?
@@ -234,6 +239,10 @@ struct EventBlock: View {
     /// Height of the grab strip at the top and bottom edges.
     private let edgeGrab: CGFloat = 7
 
+    /// Keyed by the run's group, so recolouring one day of a connected run
+    /// recolours the whole run — which is what it looks like it should do.
+    private var color: Color { preferences.color(forEvent: block.groupKey, in: palette) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 3) {
@@ -254,14 +263,18 @@ struct EventBlock: View {
         .padding(.horizontal, 7)
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(palette.secondary.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
+        .background(color.opacity(0.22), in: BlockShape(position: position))
         .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(palette.secondary)
-                .frame(width: 3)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+            // Only the first day of a run gets the accent edge; repeating it
+            // mid-run would draw a seam through a continuous bar.
+            if position.roundsLeft {
+                Rectangle()
+                    .fill(color)
+                    .frame(width: 3)
+                    .clipShape(BlockShape(position: position))
+            }
         }
-        .selectionRing(isSelected, palette: palette, reduced: reduceMotion)
+        .selectionRing(isSelected, palette: palette, reduced: reduceMotion, position: position)
         .foregroundStyle(.primary)
         .lift(isHovering, base: 0.12, reduced: reduceMotion)
         .opacity(isPast ? 0.45 : 1)
@@ -285,7 +298,24 @@ struct EventBlock: View {
         if let actions {
             Button("Edit…", action: actions.edit)
             Button("Duplicate", action: actions.duplicate)
+
             Divider()
+
+            // A colour picker can't live in a menu, so the palette's own
+            // colours go here by name and anything custom goes through Edit.
+            Menu("Colour") {
+                ForEach(Array(palette.subjectColors.enumerated()), id: \.offset) { index, swatch in
+                    Button(Palette.colorName(at: index)) {
+                        preferences.setEventColor(swatch, for: block.groupKey)
+                    }
+                }
+                Divider()
+                Button("Reset") { preferences.resetEventColor(for: block.groupKey) }
+                    .disabled(!preferences.hasCustomEventColor(for: block.groupKey))
+            }
+
+            Divider()
+
             Button("Delete", role: .destructive, action: actions.delete)
         }
     }
@@ -376,12 +406,35 @@ struct EventBlock: View {
 
 // MARK: - Shared chrome
 
+/// A block's outline, squared where it joins the next day so a run of
+/// consecutive days reads as one bar rather than a row of separate boxes.
+struct BlockShape: InsettableShape {
+    let position: RunPosition
+    var inset: CGFloat = 0
+
+    private let radius: CGFloat = 8
+
+    func path(in rect: CGRect) -> Path {
+        UnevenRoundedRectangle(
+            topLeadingRadius: position.roundsLeft ? radius : 0,
+            bottomLeadingRadius: position.roundsLeft ? radius : 0,
+            bottomTrailingRadius: position.roundsRight ? radius : 0,
+            topTrailingRadius: position.roundsRight ? radius : 0
+        )
+        .path(in: rect.insetBy(dx: inset, dy: inset))
+    }
+
+    func inset(by amount: CGFloat) -> BlockShape {
+        BlockShape(position: position, inset: inset + amount)
+    }
+}
+
 private extension View {
     /// Selection is a ring, not a badge or a toolbar — the grid stays quiet
     /// and the ring says everything.
-    func selectionRing(_ isSelected: Bool, palette: Palette, reduced: Bool) -> some View {
+    func selectionRing(_ isSelected: Bool, palette: Palette, reduced: Bool, position: RunPosition) -> some View {
         overlay {
-            RoundedRectangle(cornerRadius: 8)
+            BlockShape(position: position)
                 .strokeBorder(palette.accent, lineWidth: 2)
                 .opacity(isSelected ? 1 : 0)
         }

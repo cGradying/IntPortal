@@ -78,6 +78,119 @@ final class BlockLayoutTests: XCTestCase {
     }
 }
 
+final class BlockRunsTests: XCTestCase {
+    private func event(_ title: String, _ day: Weekday, _ start: Int = 840, _ end: Int = 960) -> DayBlock {
+        DayBlock(id: "\(title)-\(day.rawValue)", day: day, start: start, end: end,
+                 title: title, subtitle: "")
+    }
+
+    private func session(_ code: String, _ day: Weekday, _ start: Int = 840, _ end: Int = 960) -> DayBlock {
+        DayBlock(ClassSession(subjectCode: code, description: "", faculty: "",
+                              day: day, start: start, end: end))
+    }
+
+    func testALoneBlockIsItsOwnRun() {
+        let block = event("Study", .wednesday)
+
+        XCTAssertEqual(BlockRuns.positions(for: [block])[block.id], .single)
+    }
+
+    /// The case that prompted this: a drag from Monday to Wednesday drew three
+    /// unconnected boxes.
+    func testConsecutiveDaysFormOneRun() {
+        let blocks = [event("Study", .monday), event("Study", .tuesday), event("Study", .wednesday)]
+
+        let positions = BlockRuns.positions(for: blocks)
+
+        XCTAssertEqual(positions[blocks[0].id], .leading)
+        XCTAssertEqual(positions[blocks[1].id], .middle)
+        XCTAssertEqual(positions[blocks[2].id], .trailing)
+    }
+
+    func testATwoDayRunHasNoMiddle() {
+        let blocks = [event("Study", .thursday), event("Study", .friday)]
+        let positions = BlockRuns.positions(for: blocks)
+
+        XCTAssertEqual(positions[blocks[0].id], .leading)
+        XCTAssertEqual(positions[blocks[1].id], .trailing)
+    }
+
+    /// Bridging Monday to Wednesday would draw a bar straight through a
+    /// Tuesday the class doesn't meet on.
+    func testNonConsecutiveDaysDoNotJoin() {
+        let blocks = [session("COMP 001", .monday), session("COMP 001", .wednesday),
+                      session("COMP 001", .friday)]
+
+        for block in blocks {
+            XCTAssertEqual(BlockRuns.positions(for: blocks)[block.id], .single, block.day.short)
+        }
+    }
+
+    /// Two subjects at the same hour on adjacent days are unrelated.
+    func testDifferentThingsNeverJoin() {
+        let blocks = [session("COMP 001", .monday), session("GEED 005", .tuesday)]
+
+        XCTAssertEqual(BlockRuns.positions(for: blocks)[blocks[0].id], .single)
+        XCTAssertEqual(BlockRuns.positions(for: blocks)[blocks[1].id], .single)
+    }
+
+    /// Same subject, different hour — a run means the same slot across days.
+    func testTheSameSubjectAtADifferentHourIsADifferentRun() {
+        let blocks = [session("COMP 001", .monday, 480, 600), session("COMP 001", .tuesday, 840, 960)]
+
+        XCTAssertEqual(BlockRuns.positions(for: blocks)[blocks[0].id], .single)
+        XCTAssertEqual(BlockRuns.positions(for: blocks)[blocks[1].id], .single)
+    }
+
+    /// Two runs of the same thing in one week each get their own ends.
+    func testAGapSplitsOneGroupIntoTwoRuns() {
+        let blocks = [event("Study", .monday), event("Study", .tuesday),
+                      event("Study", .thursday), event("Study", .friday)]
+        let positions = BlockRuns.positions(for: blocks)
+
+        XCTAssertEqual(positions[blocks[0].id], .leading)
+        XCTAssertEqual(positions[blocks[1].id], .trailing)
+        XCTAssertEqual(positions[blocks[2].id], .leading)
+        XCTAssertEqual(positions[blocks[3].id], .trailing)
+    }
+
+    /// Sunday closes the week. Joining it to Monday would draw a bar off the
+    /// right edge of the grid and back in on the left.
+    func testTheWeekDoesNotWrapFromSundayToMonday() {
+        let blocks = [event("Study", .sunday), event("Study", .monday)]
+        let positions = BlockRuns.positions(for: blocks)
+
+        XCTAssertEqual(positions[blocks[0].id], .single)
+        XCTAssertEqual(positions[blocks[1].id], .single)
+    }
+
+    /// The far end of the week does join normally.
+    func testSaturdayAndSundayJoin() {
+        let blocks = [event("Study", .saturday), event("Study", .sunday)]
+        let positions = BlockRuns.positions(for: blocks)
+
+        XCTAssertEqual(positions[blocks[0].id], .leading)
+        XCTAssertEqual(positions[blocks[1].id], .trailing)
+    }
+
+    /// Only the ends round, so the joins read as one continuous bar.
+    func testOnlyTheOuterCornersOfARunAreRounded() {
+        XCTAssertTrue(RunPosition.single.roundsLeft && RunPosition.single.roundsRight)
+        XCTAssertTrue(RunPosition.leading.roundsLeft)
+        XCTAssertFalse(RunPosition.leading.roundsRight)
+        XCTAssertFalse(RunPosition.middle.roundsLeft || RunPosition.middle.roundsRight)
+        XCTAssertTrue(RunPosition.trailing.roundsRight)
+    }
+
+    /// Everything but the last block reaches across the column gap.
+    func testOnlyTheLastBlockOfARunStopsAtItsColumn() {
+        XCTAssertTrue(RunPosition.leading.bridgesRight)
+        XCTAssertTrue(RunPosition.middle.bridgesRight)
+        XCTAssertFalse(RunPosition.trailing.bridgesRight)
+        XCTAssertFalse(RunPosition.single.bridgesRight)
+    }
+}
+
 final class GridAxisTests: XCTestCase {
     private func block(_ start: Int, _ end: Int) -> DayBlock {
         DayBlock(id: "\(start)-\(end)", day: .monday, start: start, end: end, title: "x", subtitle: "")

@@ -38,6 +38,12 @@ struct Palette: Equatable {
         let seed = subjectCode.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }
         return subjectColors[seed % subjectColors.count]
     }
+
+    /// Menus can only show text reliably — a coloured circle in a menu item
+    /// renders as a template image — so the palette slots have names.
+    static func colorName(at index: Int) -> String {
+        ["Maroon", "Rust", "Gold", "Plum", "Forest", "Slate"][index % 6]
+    }
 }
 
 extension Palette {

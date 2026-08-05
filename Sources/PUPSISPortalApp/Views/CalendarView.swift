@@ -231,28 +231,40 @@ struct CalendarView: View {
     /// Repeating events get asked; everything else applies straight away.
     /// Picking a scope silently would either orphan one occurrence or rewrite
     /// a whole series behind the user's back.
-    private func withScope(_ block: DayBlock, _ apply: @escaping (CalendarBridge.EditScope) -> Void) {
-        if calendar.isRecurring(block) {
+    ///
+    /// Asked **once for the whole batch**. Looping and calling this per block
+    /// overwrote a single `pendingScope` each time, so only the last block's
+    /// question survived and the rest were silently dropped — which is why
+    /// deleting a selection appeared to do nothing.
+    private func withScope(_ blocks: [DayBlock], _ apply: @escaping (CalendarBridge.EditScope) -> Void) {
+        if blocks.contains(where: calendar.isRecurring) {
             pendingScope = ScopeQuestion(apply: apply)
         } else {
             apply(.thisEvent)
         }
     }
 
+    private func withScope(_ block: DayBlock, _ apply: @escaping (CalendarBridge.EditScope) -> Void) {
+        withScope([block], apply)
+    }
+
     private func deleteSelection() {
         let targets = calendar.events.filter { selection.contains($0.id) }
         guard !targets.isEmpty else { return }
 
-        for block in targets {
-            withScope(block) { editor.delete(block, scope: $0, inWeekStarting: weekStart) }
+        withScope(targets) { scope in
+            for block in targets {
+                editor.delete(block, scope: scope, inWeekStarting: weekStart)
+            }
+            selection.removeAll()
         }
-        selection.removeAll()
     }
 
     private func duplicateSelection() {
         for block in calendar.events where selection.contains(block.id) {
             editor.duplicate(block, inWeekStarting: weekStart)
         }
+        selection.removeAll()
     }
 
     // MARK: Selection
@@ -271,8 +283,10 @@ struct CalendarView: View {
         }
     }
 
+    /// Classes are dropped: they can't be deleted or duplicated, so counting
+    /// them made the bar say "3 selected" and then delete one.
     private func bandSelect(_ blocks: [DayBlock]) {
-        selection = Set(blocks.map(\.id))
+        selection = Set(blocks.filter { $0.session == nil }.map(\.id))
     }
 
     // MARK: Plumbing

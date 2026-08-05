@@ -92,31 +92,38 @@ struct GridInteractionLayer: View {
 
     // MARK: Overlays
 
+    /// One rectangle across every day the drag covers, not one per day. The
+    /// days from a drag are always consecutive, so the column gaps are part of
+    /// the same block and drawing them as separate boxes was a lie about what
+    /// was being created.
     @ViewBuilder
     private var draftOverlay: some View {
         if let range = gesture?.draftRange {
-            ForEach(range.days) { day in
-                let rect = geometry.rect(day: day, start: range.start, end: range.end)
+            let first = geometry.rect(day: range.anchorDay, start: range.start, end: range.end)
+            let last = geometry.rect(day: range.days.last ?? range.anchorDay,
+                                     start: range.start, end: range.end)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    if day == range.anchorDay {
-                        Text("New Event")
-                            .font(Theme.Typo.blockCode)
-                        Text("\(ClassSession.format(range.start)) – \(ClassSession.format(range.end))")
-                            .font(Theme.Typo.blockTime)
-                    }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(range.isMultiDay ? "New Events" : "New Event")
+                    .font(Theme.Typo.blockCode)
+                Text("\(ClassSession.format(range.start)) – \(ClassSession.format(range.end))")
+                    .font(Theme.Typo.blockTime)
+                if range.isMultiDay {
+                    Text(range.days.map(\.short).map { $0.capitalized }.joined(separator: ", "))
+                        .font(Theme.Typo.blockTime)
+                        .opacity(0.8)
                 }
-                .padding(.horizontal, 7)
-                .padding(.vertical, 5)
-                .frame(width: rect.width, height: rect.height, alignment: .topLeading)
-                .background(palette.accent.opacity(0.28), in: RoundedRectangle(cornerRadius: 8))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(palette.accent, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                }
-                .foregroundStyle(palette.accent)
-                .offset(x: rect.minX, y: rect.minY)
             }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
+            .frame(width: last.maxX - first.minX, height: first.height, alignment: .topLeading)
+            .background(palette.accent.opacity(0.28), in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(palette.accent, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            }
+            .foregroundStyle(palette.accent)
+            .offset(x: first.minX, y: first.minY)
             .animation(Motion.drag(reduced: reduceMotion), value: range)
             .allowsHitTesting(false)
         }

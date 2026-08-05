@@ -181,7 +181,16 @@ struct WeekGrid: View {
     // MARK: Blocks
 
     private func blockLayer(geometry: GridGeometry, now: Date) -> some View {
-        ForEach(Array(placements(geometry: geometry).enumerated()), id: \.element.id) { index, placed in
+        let placed = placements(geometry: geometry)
+        // Only blocks that own their whole column can join a run. A block
+        // sharing its column sits at half width, so bridging into it would
+        // leave a nub reaching at nothing — and its neighbour has to know
+        // that, which is why this is decided across the week rather than by
+        // each block on its own.
+        let solo = Set(placed.filter { $0.placement.lanes == 1 }.map(\.placement.block.id))
+        let runs = BlockRuns.positions(for: blocks.filter { solo.contains($0.id) })
+
+        return ForEach(Array(placed.enumerated()), id: \.element.id) { index, placed in
             let block = placed.placement.block
             let dragging = isDragging(block)
             let bounds = self.bounds(of: block)
@@ -193,9 +202,14 @@ struct WeekGrid: View {
             let lanes = dragging ? 1 : placed.placement.lanes
             let lane = dragging ? 0 : placed.placement.lane
             let laneWidth = rect.width / CGFloat(lanes)
+            // Dragging opts out of its run, so the block being moved reads as
+            // one loose thing rather than dragging a bar behind it.
+            let position = dragging ? .single : (runs[block.id] ?? .single)
+            // Closing the gap is what makes consecutive days read as one bar.
+            let bridge = position.bridgesRight ? columnSpacing + 2 : 0
 
-            blockView(block, isPast: isPast(block, now: now), geometry: geometry)
-                .frame(width: max(laneWidth - 2, 1), height: max(rect.height, 26))
+            blockView(block, isPast: isPast(block, now: now), geometry: geometry, position: position)
+                .frame(width: max(laneWidth - 2, 1) + bridge, height: max(rect.height, 26))
                 .scaleEffect(dragging ? 1.03 : 1)
                 .shadow(color: .black.opacity(dragging ? 0.35 : 0), radius: 8, y: 4)
                 .offset(x: rect.minX + laneWidth * CGFloat(lane), y: rect.minY)
@@ -250,12 +264,18 @@ struct WeekGrid: View {
     }
 
     @ViewBuilder
-    private func blockView(_ block: DayBlock, isPast: Bool, geometry: GridGeometry) -> some View {
+    private func blockView(
+        _ block: DayBlock,
+        isPast: Bool,
+        geometry: GridGeometry,
+        position: RunPosition
+    ) -> some View {
         if let session = block.session {
             ClassBlock(
                 session: session,
                 isPast: isPast,
                 isSelected: selection.contains(block.id),
+                position: position,
                 preferences: preferences
             )
         } else {
@@ -264,6 +284,8 @@ struct WeekGrid: View {
                 isPast: isPast,
                 isSelected: selection.contains(block.id),
                 isRecurring: recurringIDs.contains(block.id),
+                position: position,
+                preferences: preferences,
                 actions: editing.map { editing in
                     EventBlock.Actions(
                         select: { editing.select(block, $0) },

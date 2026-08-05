@@ -17,6 +17,10 @@ struct DayBlock: Identifiable, Equatable {
     let title: String
     let subtitle: String
     let source: Source
+    /// Blocks sharing this are the same thing on different days — a class that
+    /// meets twice a week, or one drag that covered Monday to Wednesday. Used
+    /// to draw them as one connected run instead of separate boxes.
+    let groupKey: String
 
     var duration: Int { max(end - start, 0) }
 
@@ -33,9 +37,19 @@ struct DayBlock: Identifiable, Equatable {
         title = session.subjectCode
         subtitle = session.timeLabel
         source = .sisClass(session)
+        // The same subject at a different hour is a different run.
+        groupKey = "class-\(session.subjectCode)-\(session.start)-\(session.end)"
     }
 
-    init(id: String, day: Weekday, start: Int, end: Int, title: String, subtitle: String) {
+    init(
+        id: String,
+        day: Weekday,
+        start: Int,
+        end: Int,
+        title: String,
+        subtitle: String,
+        groupKey: String? = nil
+    ) {
         self.id = "event-\(id)"
         self.day = day
         self.start = start
@@ -43,6 +57,61 @@ struct DayBlock: Identifiable, Equatable {
         self.title = title
         self.subtitle = subtitle
         source = .calendarEvent(identifier: id)
+        // A recurring series passes its shared identifier; separate one-off
+        // events fall back to matching title and hour, which is what a
+        // multi-day drag without a repeat produces.
+        self.groupKey = groupKey ?? "event-\(title)-\(start)-\(end)"
+    }
+}
+
+/// Where a block sits in a run of consecutive days.
+///
+/// A drag from Monday to Wednesday used to render as three unconnected boxes,
+/// which reads as three unrelated things. Squaring the inner corners and
+/// closing the column gap makes it read as one bar.
+enum RunPosition: Equatable {
+    case single
+    case leading
+    case middle
+    case trailing
+
+    /// Everything except the last block in a run reaches across the gap into
+    /// the next column.
+    var bridgesRight: Bool { self == .leading || self == .middle }
+
+    var roundsLeft: Bool { self == .single || self == .leading }
+    var roundsRight: Bool { self == .single || self == .trailing }
+}
+
+/// Groups blocks that are the same thing on different days and works out which
+/// of them form runs of consecutive weekdays.
+enum BlockRuns {
+    /// Only consecutive days join. Monday/Wednesday/Friday classes stay
+    /// separate boxes, because bridging them would draw a bar straight through
+    /// a Tuesday the class doesn't meet on.
+    static func positions(for blocks: [DayBlock]) -> [String: RunPosition] {
+        var result: [String: RunPosition] = [:]
+
+        for (_, group) in Dictionary(grouping: blocks, by: \.groupKey) {
+            let ordered = group.sorted { $0.day.rawValue < $1.day.rawValue }
+
+            for (index, block) in ordered.enumerated() {
+                let previous = index > 0 ? ordered[index - 1] : nil
+                let next = index + 1 < ordered.count ? ordered[index + 1] : nil
+
+                let joinsLeft = previous.map { $0.day.rawValue == block.day.rawValue - 1 } ?? false
+                let joinsRight = next.map { $0.day.rawValue == block.day.rawValue + 1 } ?? false
+
+                result[block.id] = switch (joinsLeft, joinsRight) {
+                case (false, false): .single
+                case (false, true): .leading
+                case (true, true): .middle
+                case (true, false): .trailing
+                }
+            }
+        }
+
+        return result
     }
 }
 

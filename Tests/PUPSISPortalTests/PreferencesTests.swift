@@ -120,6 +120,41 @@ final class PreferencesTests: XCTestCase {
         )
     }
 
+    /// EventKit has no per-event colour, so this is ours to keep — and it's
+    /// keyed by run, so recolouring one day of a connected run recolours all
+    /// of it rather than breaking the bar in half.
+    func testEventColoursAreKeyedByRunAndSurviveRelaunch() {
+        let run = "event-Study-840-960"
+        Preferences(defaults: defaults).setEventColor(Color(red: 0, green: 1, blue: 0), for: run)
+
+        let reloaded = Preferences(defaults: defaults)
+        XCTAssertTrue(reloaded.hasCustomEventColor(for: run))
+        XCTAssertEqual(reloaded.color(forEvent: run, in: .pupMaroon).hex, "#00FF00")
+    }
+
+    func testResettingAnEventColourFallsBackToTheSeededDefault() {
+        let prefs = Preferences(defaults: defaults)
+        let run = "event-Study-840-960"
+        let seeded = prefs.color(forEvent: run, in: .pupMaroon)
+
+        prefs.setEventColor(Color(red: 1, green: 0, blue: 0), for: run)
+        prefs.resetEventColor(for: run)
+
+        XCTAssertEqual(prefs.color(forEvent: run, in: .pupMaroon).hex, seeded.hex)
+    }
+
+    /// Subject colours and event colours are separate namespaces — a class and
+    /// an event with the same name must not share a swatch.
+    func testEventColoursDoNotLeakIntoSubjectColours() {
+        let prefs = Preferences(defaults: defaults)
+        let before = prefs.color(for: "COMP 20073", in: .pupMaroon)
+
+        prefs.setEventColor(Color(red: 1, green: 0, blue: 0), for: "COMP 20073")
+
+        XCTAssertEqual(prefs.color(for: "COMP 20073", in: .pupMaroon).hex, before.hex)
+        XCTAssertFalse(prefs.hasCustomColor(for: "COMP 20073"))
+    }
+
     /// One subject's override must not leak onto another.
     func testOverridesAreScopedToOneSubject() {
         let prefs = Preferences(defaults: defaults)

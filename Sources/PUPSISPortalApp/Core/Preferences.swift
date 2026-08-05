@@ -49,6 +49,13 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(try? JSONEncoder().encode(sessionStatuses), forKey: Key.sessionStatuses) }
     }
 
+    /// Event colours, keyed by `DayBlock.groupKey` so a run of connected days
+    /// recolours as one thing. EventKit has no per-event colour — events take
+    /// their calendar's — so this is ours to keep.
+    @Published private(set) var eventColors: [String: String] {
+        didSet { defaults.set(try? JSONEncoder().encode(eventColors), forKey: Key.eventColors) }
+    }
+
     /// Which Calendar.app calendars are drawn in the grid. Empty by default —
     /// nothing from the user's calendar appears until they ask for it.
     @Published var visibleCalendarIDs: Set<String> {
@@ -82,6 +89,7 @@ final class Preferences: ObservableObject {
         static let sessionStatuses = "sessionStatuses"
         static let visibleCalendarIDs = "visibleCalendarIDs"
         static let exportCalendarID = "exportCalendarID"
+        static let eventColors = "eventColors"
         static let termEndDate = "termEndDate"
     }
 
@@ -92,10 +100,31 @@ final class Preferences: ObservableObject {
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         sessionStatuses = defaults.data(forKey: Key.sessionStatuses)
             .flatMap { try? JSONDecoder().decode([String: SessionStatus].self, from: $0) } ?? [:]
+        eventColors = defaults.data(forKey: Key.eventColors)
+            .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         visibleCalendarIDs = Set(defaults.stringArray(forKey: Key.visibleCalendarIDs) ?? [])
         exportCalendarID = defaults.string(forKey: Key.exportCalendarID) ?? ""
         termEndDate = (defaults.object(forKey: Key.termEndDate) as? Double)
             .map(Date.init(timeIntervalSince1970:)) ?? Self.defaultTermEnd()
+    }
+
+    /// The colour an event renders in: the user's pick, else the palette's
+    /// deterministic default so two different events don't look identical.
+    func color(forEvent groupKey: String, in palette: Palette) -> Color {
+        eventColors[groupKey].flatMap(Color.init(hex:)) ?? palette.color(for: groupKey)
+    }
+
+    func setEventColor(_ color: Color, for groupKey: String) {
+        guard let hex = color.hex else { return }
+        eventColors[groupKey] = hex
+    }
+
+    func resetEventColor(for groupKey: String) {
+        eventColors[groupKey] = nil
+    }
+
+    func hasCustomEventColor(for groupKey: String) -> Bool {
+        eventColors[groupKey] != nil
     }
 
     func setCalendar(_ id: String, visible: Bool) {
