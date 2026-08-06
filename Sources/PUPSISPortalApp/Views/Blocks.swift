@@ -6,6 +6,9 @@ import SwiftUI
 /// local overrides, and those it does own.
 struct ClassBlock: View {
     let session: ClassSession
+    /// The Monday of the week this block is drawn in, so status can be set for
+    /// just this week rather than every week.
+    let weekStart: Date
     let isPast: Bool
     let isSelected: Bool
     /// Where this sits in a run of consecutive days, so the shape can square
@@ -17,8 +20,9 @@ struct ClassBlock: View {
     @State private var showingDetail = false
     @State private var isHovering = false
 
-    private var status: SessionStatus { preferences.status(for: session) }
+    private var status: SessionStatus { preferences.status(for: session, on: weekStart) }
     private var color: Color { preferences.color(for: session.subjectCode, in: palette) }
+    private var stripColor: Color { preferences.stripColor(for: session.subjectCode, in: palette) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -44,11 +48,16 @@ struct ClassBlock: View {
         // content, and per-subject colour has to survive being looked at.
         .background(fill, in: BlockShape(position: position))
         // A vacant class keeps its outline so the slot still reads as spoken
-        // for — it just stops looking like something you have to attend.
+        // for — it just stops looking like something you have to attend. An
+        // online class keeps its solid fill but gains a coloured strip so it
+        // reads as online at a glance.
         .overlay {
             if status == .vacant {
                 BlockShape(position: position)
                     .strokeBorder(color.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            } else if status == .online {
+                BlockShape(position: position)
+                    .strokeBorder(stripColor, lineWidth: 2.5)
             }
         }
         .selectionRing(isSelected, palette: palette, reduced: reduceMotion, position: position)
@@ -104,10 +113,31 @@ struct ClassBlock: View {
         }
     }
 
+    private func presentStripPanel() {
+        let preferences = preferences
+        let subjectCode = session.subjectCode
+
+        ColorPanelController.shared.present(current: stripColor, near: NSEvent.mouseLocation) { picked in
+            preferences.setStripColor(picked, for: subjectCode)
+        }
+    }
+
+    /// Sets this week's status. The term default is set separately by the
+    /// "every week this term" toggle.
     private var statusBinding: Binding<SessionStatus> {
         Binding(
             get: { status },
-            set: { preferences.setStatus($0, for: session) }
+            set: { preferences.setStatus($0, for: session, on: weekStart) }
+        )
+    }
+
+    /// On when the current status is pinned across the whole term. Toggling it
+    /// promotes this week's status to the term default, or clears the default
+    /// back to in person.
+    private var termBinding: Binding<Bool> {
+        Binding(
+            get: { preferences.termStatus(for: session) == status && status != .regular },
+            set: { preferences.setTermStatus($0 ? status : .regular, for: session) }
         )
     }
 
@@ -137,14 +167,36 @@ struct ClassBlock: View {
             }
             .pickerStyle(.segmented)
 
-            SubjectSwatches(
-                subjectCode: session.subjectCode,
+            // Off by default: a status change is this week only until the user
+            // says it's the whole term.
+            Toggle("Every week this term", isOn: termBinding)
+                .toggleStyle(.checkbox)
+                .disabled(status == .regular)
+                .font(.callout)
+
+            if status == .online {
+                Divider()
+                Text("Online strip")
+                    .font(Theme.Typo.detailMeta)
+                    .foregroundStyle(.secondary)
+                SwatchRow(
+                    current: stripColor,
+                    onPick: { preferences.setStripColor($0, for: session.subjectCode) },
+                    onCustom: presentStripPanel,
+                    onReset: { preferences.resetStripColor(for: session.subjectCode) },
+                    hasCustom: preferences.hasCustomStripColor(for: session.subjectCode)
+                )
+            }
+
+            SwatchRow(
                 current: color,
-                preferences: preferences,
-                onCustom: presentColorPanel
+                onPick: { preferences.setColor($0, for: session.subjectCode) },
+                onCustom: presentColorPanel,
+                onReset: { preferences.resetColor(for: session.subjectCode) },
+                hasCustom: preferences.hasCustomColor(for: session.subjectCode)
             )
 
-            Text("Colour applies to every \(session.subjectCode) block; status is just this meeting.")
+            Text("Colour applies to every \(session.subjectCode) block. Status is this week unless you tick every week.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -156,18 +208,22 @@ struct ClassBlock: View {
 
 /// Inline colour choices. A `ColorPicker` alone opens the system colour panel
 /// as its own floating window, which is a long way to go to recolour a block.
-private struct SubjectSwatches: View {
-    let subjectCode: String
+///
+/// Takes its actions as closures so the same row drives both the subject colour
+/// and the online strip colour without a second copy.
+private struct SwatchRow: View {
     let current: Color
-    @ObservedObject var preferences: Preferences
+    let onPick: (Color) -> Void
     let onCustom: () -> Void
+    let onReset: () -> Void
+    let hasCustom: Bool
     @Environment(\.palette) private var palette
 
     var body: some View {
         HStack(spacing: 6) {
             ForEach(Array(palette.subjectColors.enumerated()), id: \.offset) { _, swatch in
                 Button {
-                    preferences.setColor(swatch, for: subjectCode)
+                    onPick(swatch)
                 } label: {
                     Circle()
                         .fill(swatch)
@@ -196,9 +252,9 @@ private struct SubjectSwatches: View {
 
             Spacer()
 
-            Button("Reset") { preferences.resetColor(for: subjectCode) }
+            Button("Reset", action: onReset)
                 .buttonStyle(.link)
-                .disabled(!preferences.hasCustomColor(for: subjectCode))
+                .disabled(!hasCustom)
         }
     }
 }

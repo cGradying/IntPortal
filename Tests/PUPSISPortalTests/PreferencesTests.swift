@@ -59,6 +59,47 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.color(for: "COMP 20073", in: .pupMaroon).hex, seeded.hex)
     }
 
+    // MARK: Online strip colour (per subject)
+
+    func testStripColorDefaultsToThePaletteStrip() {
+        XCTAssertEqual(
+            Preferences(defaults: defaults).stripColor(for: "COMP 20073", in: .pupMaroon).hex,
+            Palette.pupMaroon.onlineStrip.hex
+        )
+    }
+
+    func testCustomStripColorWinsAndSurvivesRelaunch() {
+        Preferences(defaults: defaults).setStripColor(Color(red: 0, green: 0.5, blue: 1), for: "COMP 20073")
+
+        let reloaded = Preferences(defaults: defaults)
+        XCTAssertTrue(reloaded.hasCustomStripColor(for: "COMP 20073"))
+        XCTAssertEqual(reloaded.stripColor(for: "COMP 20073", in: .pupMaroon).hex, "#0080FF")
+    }
+
+    func testResettingAStripColorFallsBackToThePaletteStrip() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setStripColor(Color(red: 1, green: 0, blue: 0), for: "COMP 20073")
+        prefs.resetStripColor(for: "COMP 20073")
+
+        XCTAssertFalse(prefs.hasCustomStripColor(for: "COMP 20073"))
+        XCTAssertEqual(prefs.stripColor(for: "COMP 20073", in: .pupMaroon).hex, Palette.pupMaroon.onlineStrip.hex)
+    }
+
+    /// One subject's strip must not leak onto another, and must not touch its
+    /// fill colour — separate namespaces.
+    func testStripColorIsScopedAndSeparateFromTheFill() {
+        let prefs = Preferences(defaults: defaults)
+        let otherStrip = prefs.stripColor(for: "GEED 005", in: .pupMaroon)
+        let ownFill = prefs.color(for: "COMP 20073", in: .pupMaroon)
+
+        prefs.setStripColor(Color(red: 1, green: 0, blue: 0), for: "COMP 20073")
+
+        XCTAssertEqual(prefs.stripColor(for: "GEED 005", in: .pupMaroon).hex, otherStrip.hex)
+        XCTAssertEqual(prefs.color(for: "COMP 20073", in: .pupMaroon).hex, ownFill.hex)
+        XCTAssertFalse(prefs.hasCustomColor(for: "COMP 20073"))
+    }
+
     private let tuesday = ClassSession(subjectCode: "COMP 20073", description: "Data Structures",
                                        faculty: "SANTOS, JUAN", day: .tuesday,
                                        start: 14 * 60, end: 16 * 60)
@@ -66,14 +107,60 @@ final class PreferencesTests: XCTestCase {
                                       faculty: "SANTOS, JUAN", day: .friday,
                                       start: 13 * 60 + 30, end: 16 * 60 + 30)
 
+    private let week1 = Date(timeIntervalSince1970: 1_754_006_400) // a Monday
+    private let week2 = Date(timeIntervalSince1970: 1_754_611_200) // the next Monday
+
     func testStatusDefaultsToInPerson() {
-        XCTAssertEqual(Preferences(defaults: defaults).status(for: tuesday), .regular)
+        XCTAssertEqual(Preferences(defaults: defaults).status(for: tuesday, on: week1), .regular)
     }
 
-    func testStatusSurvivesRelaunch() {
-        Preferences(defaults: defaults).setStatus(.online, for: tuesday)
+    func testAWeekStatusSurvivesRelaunch() {
+        Preferences(defaults: defaults).setStatus(.online, for: tuesday, on: week1)
 
-        XCTAssertEqual(Preferences(defaults: defaults).status(for: tuesday), .online)
+        XCTAssertEqual(Preferences(defaults: defaults).status(for: tuesday, on: week1), .online)
+    }
+
+    /// The whole point of the fix: a status set in one week must not appear in
+    /// another. Keying by session alone was the bug.
+    func testAWeekStatusDoesNotLeakIntoOtherWeeks() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setStatus(.online, for: tuesday, on: week1)
+
+        XCTAssertEqual(prefs.status(for: tuesday, on: week1), .online)
+        XCTAssertEqual(prefs.status(for: tuesday, on: week2), .regular)
+    }
+
+    /// The term default applies to every week that has no exception of its own.
+    func testTermStatusAppliesToEveryWeekWithoutAnException() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setTermStatus(.online, for: tuesday)
+
+        XCTAssertEqual(prefs.status(for: tuesday, on: week1), .online)
+        XCTAssertEqual(prefs.status(for: tuesday, on: week2), .online)
+    }
+
+    /// A one-week exception wins over the term default, and only for its week.
+    func testAWeekExceptionOverridesTheTermDefault() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setTermStatus(.online, for: tuesday)
+        prefs.setStatus(.vacant, for: tuesday, on: week1)
+
+        XCTAssertEqual(prefs.status(for: tuesday, on: week1), .vacant)
+        XCTAssertEqual(prefs.status(for: tuesday, on: week2), .online)
+    }
+
+    /// A week status equal to the term default isn't a real exception, so it
+    /// shouldn't be stored.
+    func testAWeekStatusMatchingTheTermDefaultStoresNothing() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setTermStatus(.online, for: tuesday)
+        prefs.setStatus(.online, for: tuesday, on: week1)
+
+        XCTAssertTrue(prefs.occurrenceStatuses.isEmpty)
     }
 
     /// Status is per meeting, not per subject — same course, two days, one of
@@ -81,21 +168,33 @@ final class PreferencesTests: XCTestCase {
     func testStatusIsScopedToOneMeetingNotTheWholeSubject() {
         let prefs = Preferences(defaults: defaults)
 
-        prefs.setStatus(.vacant, for: tuesday)
+        prefs.setStatus(.vacant, for: tuesday, on: week1)
 
-        XCTAssertEqual(prefs.status(for: tuesday), .vacant)
-        XCTAssertEqual(prefs.status(for: friday), .regular)
+        XCTAssertEqual(prefs.status(for: tuesday, on: week1), .vacant)
+        XCTAssertEqual(prefs.status(for: friday, on: week1), .regular)
     }
 
-    /// Going back to the default should drop the key, not store `.regular`.
-    func testResettingToInPersonClearsTheEntry() {
+    /// Marks made before status went per-week were keyed by session alone, under
+    /// the `sessionStatuses` key. They must load as term defaults, not vanish.
+    func testLegacyStatusesLoadAsTermDefaults() throws {
+        let legacy = try JSONEncoder().encode(["\(tuesday.id)": SessionStatus.online])
+        defaults.set(legacy, forKey: "sessionStatuses")
+
+        let prefs = Preferences(defaults: defaults)
+        XCTAssertEqual(prefs.termStatus(for: tuesday), .online)
+        XCTAssertEqual(prefs.status(for: tuesday, on: week1), .online)
+    }
+
+    /// Reminders and next-class honour term-vacant only — a one-week vacancy
+    /// can't be dropped from a weekly-recurring trigger.
+    func testVacantSessionIDsReflectTermVacantNotAOneWeekVacant() {
         let prefs = Preferences(defaults: defaults)
 
-        prefs.setStatus(.vacant, for: tuesday)
-        prefs.setStatus(.regular, for: tuesday)
+        prefs.setStatus(.vacant, for: tuesday, on: week1)
+        XCTAssertTrue(prefs.vacantSessionIDs.isEmpty)
 
-        XCTAssertTrue(prefs.sessionStatuses.isEmpty)
-        XCTAssertEqual(prefs.status(for: tuesday), .regular)
+        prefs.setTermStatus(.vacant, for: tuesday)
+        XCTAssertEqual(prefs.vacantSessionIDs, [tuesday.id])
     }
 
     func testTermEndDefaultsToAboutASemesterOut() throws {

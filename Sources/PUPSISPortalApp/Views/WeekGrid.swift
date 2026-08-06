@@ -273,6 +273,7 @@ struct WeekGrid: View {
         if let session = block.session {
             ClassBlock(
                 session: session,
+                weekStart: weekStart,
                 isPast: isPast,
                 isSelected: selection.contains(block.id),
                 position: position,

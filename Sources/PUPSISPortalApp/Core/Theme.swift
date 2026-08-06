@@ -10,6 +10,10 @@ struct Palette: Equatable {
     let canvasTop: Color
     let canvasBottom: Color
     let gridLine: Color
+    /// Default colour of the strip around an online class, before any
+    /// per-subject override. Theme-aware so it reads against that theme's block
+    /// fills — a value the user can still change per subject in `Preferences`.
+    let onlineStrip: Color
     /// Per-subject block colors, indexed deterministically by `color(for:)`.
     let subjectColors: [Color]
 
@@ -54,6 +58,7 @@ extension Palette {
         canvasTop: Color(red: 0.988, green: 0.984, blue: 0.980),
         canvasBottom: Color(red: 0.949, green: 0.929, blue: 0.925),
         gridLine: Color.black.opacity(0.08),
+        onlineStrip: Color(red: 0.788, green: 0.635, blue: 0.153),
         subjectColors: [
             Color(red: 0.478, green: 0.067, blue: 0.157),
             Color(red: 0.694, green: 0.243, blue: 0.204),
@@ -71,6 +76,7 @@ extension Palette {
         canvasTop: Color(red: 0.055, green: 0.082, blue: 0.145),
         canvasBottom: Color(red: 0.024, green: 0.047, blue: 0.094),
         gridLine: Color.white.opacity(0.10),
+        onlineStrip: Color(red: 0.925, green: 0.616, blue: 0.243),
         subjectColors: [
             Color(red: 0.063, green: 0.725, blue: 0.506),
             Color(red: 0.024, green: 0.588, blue: 0.612),

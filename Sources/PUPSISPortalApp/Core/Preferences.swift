@@ -43,10 +43,26 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(try? JSONEncoder().encode(subjectColors), forKey: Key.subjectColors) }
     }
 
-    /// `ClassSession.id` → status. Keyed per *meeting*, not per subject: one
-    /// section can be in person on Tuesday and online on Friday.
-    @Published private(set) var sessionStatuses: [String: SessionStatus] {
-        didSet { defaults.set(try? JSONEncoder().encode(sessionStatuses), forKey: Key.sessionStatuses) }
+    /// The term-wide default status per meeting, keyed by `ClassSession.id`.
+    /// Per *meeting*, not per subject: one section can be in person on Tuesday
+    /// and online on Friday. Persisted under the original `sessionStatuses` key,
+    /// so marks made before status went per-week load here as "every week" —
+    /// which is exactly how they behaved then.
+    @Published private(set) var termStatuses: [String: SessionStatus] {
+        didSet { defaults.set(try? JSONEncoder().encode(termStatuses), forKey: Key.sessionStatuses) }
+    }
+
+    /// This-week exceptions to the term default, keyed by `ClassSession.id` plus
+    /// the week they fall in — so "this Tuesday is online" doesn't make every
+    /// Tuesday online.
+    @Published private(set) var occurrenceStatuses: [String: SessionStatus] {
+        didSet { defaults.set(try? JSONEncoder().encode(occurrenceStatuses), forKey: Key.occurrenceStatuses) }
+    }
+
+    /// Per-subject colour of the strip drawn around an online class, keyed by
+    /// subject code. Absent means "use the palette's online-strip default".
+    @Published private(set) var onlineStripColors: [String: String] {
+        didSet { defaults.set(try? JSONEncoder().encode(onlineStripColors), forKey: Key.onlineStripColors) }
     }
 
     /// Event colours, keyed by `DayBlock.groupKey` so a run of connected days
@@ -88,10 +104,12 @@ final class Preferences: ObservableObject {
 
     static let leadOptions = [5, 10, 15, 30]
 
-    /// Meetings the user marked vacant, in the form `Notifier` and `NextClass`
-    /// want — neither of them knows what a `SessionStatus` is.
+    /// Meetings marked vacant **for the whole term**, in the form `Notifier` and
+    /// `NextClass` want. Term-only on purpose: a weekly-recurring reminder can't
+    /// skip a single week's occurrence, so a one-week vacancy stays a visual
+    /// thing and doesn't rewrite the reminder.
     var vacantSessionIDs: Set<String> {
-        Set(sessionStatuses.filter { $0.value == .vacant }.keys)
+        Set(termStatuses.filter { $0.value == .vacant }.keys)
     }
 
     /// Far enough out to cover a semester, close enough that it's obviously a
@@ -106,6 +124,8 @@ final class Preferences: ObservableObject {
         static let theme = "theme"
         static let subjectColors = "subjectColors"
         static let sessionStatuses = "sessionStatuses"
+        static let occurrenceStatuses = "occurrenceStatuses"
+        static let onlineStripColors = "onlineStripColors"
         static let visibleCalendarIDs = "visibleCalendarIDs"
         static let exportCalendarID = "exportCalendarID"
         static let eventColors = "eventColors"
@@ -119,8 +139,12 @@ final class Preferences: ObservableObject {
         theme = defaults.string(forKey: Key.theme).flatMap(ThemeChoice.init(rawValue:)) ?? .auto
         subjectColors = defaults.data(forKey: Key.subjectColors)
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
-        sessionStatuses = defaults.data(forKey: Key.sessionStatuses)
+        termStatuses = defaults.data(forKey: Key.sessionStatuses)
             .flatMap { try? JSONDecoder().decode([String: SessionStatus].self, from: $0) } ?? [:]
+        occurrenceStatuses = defaults.data(forKey: Key.occurrenceStatuses)
+            .flatMap { try? JSONDecoder().decode([String: SessionStatus].self, from: $0) } ?? [:]
+        onlineStripColors = defaults.data(forKey: Key.onlineStripColors)
+            .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         eventColors = defaults.data(forKey: Key.eventColors)
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         visibleCalendarIDs = Set(defaults.stringArray(forKey: Key.visibleCalendarIDs) ?? [])
@@ -160,14 +184,53 @@ final class Preferences: ObservableObject {
         }
     }
 
-    func status(for session: ClassSession) -> SessionStatus {
-        sessionStatuses[session.id] ?? .regular
+    private func occurrenceKey(_ session: ClassSession, on weekStart: Date) -> String {
+        "\(session.id)@\(Int(weekStart.timeIntervalSince1970))"
     }
 
-    func setStatus(_ status: SessionStatus, for session: ClassSession) {
-        // Don't store the default — an absent key and `.regular` mean the same
-        // thing, and not storing it keeps the dictionary to what was changed.
-        sessionStatuses[session.id] = status == .regular ? nil : status
+    /// The status a meeting shows in a given week: this week's exception if
+    /// there is one, otherwise the term default, otherwise in person.
+    func status(for session: ClassSession, on weekStart: Date) -> SessionStatus {
+        occurrenceStatuses[occurrenceKey(session, on: weekStart)]
+            ?? termStatuses[session.id]
+            ?? .regular
+    }
+
+    /// The status picker sets **this week**. Stored only when it differs from
+    /// the term default, so it's a genuine exception and clearing back to the
+    /// default drops the key rather than pinning a redundant override.
+    func setStatus(_ status: SessionStatus, for session: ClassSession, on weekStart: Date) {
+        let base = termStatuses[session.id] ?? .regular
+        occurrenceStatuses[occurrenceKey(session, on: weekStart)] = status == base ? nil : status
+    }
+
+    func termStatus(for session: ClassSession) -> SessionStatus {
+        termStatuses[session.id] ?? .regular
+    }
+
+    /// The "every week this term" control. `.regular` clears it. Week exceptions
+    /// still win over it, so a term-online class can have one vacant week.
+    func setTermStatus(_ status: SessionStatus, for session: ClassSession) {
+        termStatuses[session.id] = status == .regular ? nil : status
+    }
+
+    /// The colour of the strip drawn around an online class: the user's
+    /// per-subject pick, else the palette's theme-aware default.
+    func stripColor(for subjectCode: String, in palette: Palette) -> Color {
+        onlineStripColors[subjectCode].flatMap(Color.init(hex:)) ?? palette.onlineStrip
+    }
+
+    func setStripColor(_ color: Color, for subjectCode: String) {
+        guard let hex = color.hex else { return }
+        onlineStripColors[subjectCode] = hex
+    }
+
+    func resetStripColor(for subjectCode: String) {
+        onlineStripColors[subjectCode] = nil
+    }
+
+    func hasCustomStripColor(for subjectCode: String) -> Bool {
+        onlineStripColors[subjectCode] != nil
     }
 
     /// The color a subject actually renders in: the user's pick if they made
