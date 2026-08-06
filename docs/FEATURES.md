@@ -111,6 +111,25 @@ appear twice — they're still in Calendar.app.
 
 ---
 
+## Grades
+
+### Your grades, with a real GPA
+**What it does** — Shows each subject you're enrolled in with its final grade,
+and computes your GPA — weighted by units, the way it actually counts — rather
+than just reprinting what the SIS shows.
+
+**How to use it** — Pick **Grades** in the sidebar. Each subject lists its
+units and grade; the GPA sits at the top.
+
+**Notes & limits** — Grade cells are blank until the school posts them, which
+is the normal state for most of a semester — those subjects read "Pending" and
+don't affect the GPA. Incomplete or dropped marks (INC, DRP) are listed but
+left out of the average. Until anything is posted, the GPA shows a dash, not a
+zero. Like the schedule, grades are saved on your Mac so the page opens
+instantly, and are erased when you sign out.
+
+---
+
 ## Appearance
 
 ### Themes
