@@ -56,6 +56,15 @@ the last class of the week it looks ahead to next week's first.
 **Notes & limits** — Classes you've marked vacant are skipped. Online classes
 still count — you still have to show up.
 
+### Menu bar
+**What it does** — Puts your next class in the Mac menu bar, always visible.
+Click it for a small panel: the countdown, the rest of today's classes,
+whether reminders are on, and buttons to open the app, refresh, or quit.
+
+**How to use it** — It's there whenever the app is running, even with the main
+window closed — which is what keeps reminders firing while you work in other
+apps.
+
 ---
 
 ## Reminders
