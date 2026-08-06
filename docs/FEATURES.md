@@ -115,8 +115,11 @@ and a "repeat until" date (usually the end of term), then **Add to Calendar…**
 
 **Notes & limits** — Needs a calendar you can edit; the app won't create one.
 Running it again replaces the classes it added before and leaves your own
-events alone. Exported classes are hidden from the app's own grid so they don't
-appear twice — they're still in Calendar.app.
+events alone. Classes you've marked **online for the whole term** are labelled
+"(Online)"; classes marked **vacant for the term** are left off entirely — so
+your calendar matches what you set. Re-run the export after changing a status.
+Exported classes are hidden from the app's own grid so they don't appear twice —
+they're still in Calendar.app.
 
 ---
 
