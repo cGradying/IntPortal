@@ -17,6 +17,9 @@ struct CalendarView: View {
     @State private var weekOffset = 0
     @State private var scale: CalendarScale = .week
     @State private var selection: Set<String> = []
+    /// Cancelled (vacant) classes are hidden by default; this reveals them so a
+    /// mistaken cancellation can be undone.
+    @State private var showCancelled = false
     @State private var editing: EditorRequest?
     /// Set when an edit lands on a repeating event and the scope has to be
     /// asked for rather than assumed.
@@ -45,8 +48,16 @@ struct CalendarView: View {
 
     /// Classes and calendar events end up in one list so the grid draws one
     /// kind of thing and overlap layout can see across both.
+    ///
+    /// A class vacant this week is dropped from the grid — a cancelled class
+    /// disappears — unless "Show Cancelled" is on, which brings it back faded so
+    /// it can be restored. Vacancy is resolved per week, so a one-week vacancy
+    /// only hides that week.
     private var blocks: [DayBlock] {
-        controller.sessions.map(DayBlock.init) + calendar.events
+        let classes = controller.sessions
+            .filter { showCancelled || preferences.status(for: $0, on: weekStart) != .vacant }
+            .map(DayBlock.init)
+        return classes + calendar.events
     }
 
     private var canEdit: Bool { calendar.access == .granted }
@@ -124,6 +135,11 @@ struct CalendarView: View {
             await Notifier.shared.refreshAuthorization()
             Notifier.shared.sync(controller.sessions, preferences)
         }
+        // Keep the exported calendar in step with whole-term status: mark a
+        // class online for the term and Calendar.app relabels it; mark it
+        // vacant and it drops out — no manual re-export. Per-week status stays
+        // out of this; a repeating series can't carry a single week's exception.
+        .onChange(of: termStatusKey) { resyncCalendarExport() }
         // ...and when Calendar.app itself changes underneath us.
         .onReceive(NotificationCenter.default.publisher(for: .calendarStoreChanged)) { _ in
             reload()
@@ -322,6 +338,34 @@ struct CalendarView: View {
         ].joined(separator: "|")
     }
 
+    /// Every whole-term status, so a change to any of them re-syncs the export.
+    /// Includes online (relabel) and regular (restore), not just vacant.
+    private var termStatusKey: String {
+        controller.sessions
+            .map { "\($0.id):\(preferences.termStatus(for: $0).rawValue)" }
+            .sorted()
+            .joined(separator: ",")
+    }
+
+    /// Re-writes the exported classes so Calendar.app reflects the current term
+    /// status. Only when the user has already chosen an export calendar — that
+    /// choice is the consent to touch their calendar; without it, nothing is
+    /// written behind their back.
+    private func resyncCalendarExport() {
+        guard calendar.access == .granted,
+              !preferences.exportCalendarID.isEmpty,
+              !controller.sessions.isEmpty
+        else { return }
+
+        _ = calendar.exportClasses(
+            controller.sessions,
+            weekStart: Weekday.weekStart(containing: .now),
+            until: preferences.termEndDate,
+            toCalendarID: preferences.exportCalendarID,
+            status: { preferences.termStatus(for: $0) }
+        )
+    }
+
     private func reload() {
         calendar.load(weekStart: weekStart, calendarIDs: preferences.visibleCalendarIDs)
         // Anything that vanished can't stay selected.
@@ -340,6 +384,11 @@ struct CalendarView: View {
 
     private func retry() {
         controller.signIn(with: credentials)
+    }
+
+    /// A class is vacant this week and therefore hidden from the grid.
+    private var hasHiddenCancellations: Bool {
+        controller.sessions.contains { preferences.status(for: $0, on: weekStart) == .vacant }
     }
 
     // MARK: Toolbar
@@ -367,6 +416,16 @@ struct CalendarView: View {
                 Label(scale == .week ? "Next Week" : "Next Year", systemImage: "chevron.right")
             }
             .keyboardShortcut("]", modifiers: .command)
+
+            // Only worth showing when there's something hidden to bring back, or
+            // it's already on — otherwise it's a button for nothing.
+            if scale == .week, showCancelled || hasHiddenCancellations {
+                Button { showCancelled.toggle() } label: {
+                    Label(showCancelled ? "Hide Cancelled" : "Show Cancelled",
+                          systemImage: showCancelled ? "eye" : "eye.slash")
+                }
+                .help("Reveal classes you've marked vacant so you can restore them")
+            }
 
             Button(action: newEventAtDefaultSlot) {
                 Label("New Event", systemImage: "plus")
