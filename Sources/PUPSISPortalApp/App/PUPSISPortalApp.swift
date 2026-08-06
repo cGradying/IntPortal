@@ -9,9 +9,47 @@ final class AppState: ObservableObject {
     let preferences = Preferences()
     let calendar = CalendarBridge()
 
+    /// The current minute, republished on the minute boundary. The menu bar's
+    /// "next class" has no view of its own to hang a `TimelineView` on, so the
+    /// clock lives here where both the menu bar and any window can read it.
+    @Published var now = Date()
+    private var clock: Timer?
+
     init() {
         credentials = KeychainStore.load()
         isEditing = credentials == nil
+        startClock()
+    }
+
+    /// Fires on each :00 rather than 60s after launch, so "in 25 min" flips when
+    /// the wall clock does. `.common` keeps it ticking while a menu is open.
+    private func startClock() {
+        let fromNextMinute = NowLine.nextMinute.timeIntervalSinceNow
+        clock = Timer.scheduledTimer(withTimeInterval: max(fromNextMinute, 1), repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.now = Date()
+                self?.clock = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+                    Task { @MainActor in self?.now = Date() }
+                }
+                self?.clock.map { RunLoop.main.add($0, forMode: .common) }
+            }
+        }
+        clock.map { RunLoop.main.add($0, forMode: .common) }
+    }
+
+    /// The next class right now, or `nil`. Vacant meetings are excluded, the
+    /// same rule the in-window banner and the reminders follow.
+    var upcoming: NextClass.Upcoming? {
+        NextClass.next(in: portal.sessions, at: now, skipping: preferences.vacantSessionIDs)
+    }
+
+    /// Refresh from anywhere — the app menu, the menu bar — and reschedule
+    /// reminders afterward. Routed through here (not the window) so a refresh
+    /// with the window closed still keeps the OS's pending reminders in step.
+    func refresh() async {
+        await portal.loadSchedule()
+        await portal.loadGrades()
+        Notifier.shared.sync(portal.sessions, preferences)
     }
 
     func save(_ credentials: Credentials) {
@@ -117,19 +155,14 @@ struct PUPSISPortalApp: App {
     @StateObject private var appState = AppState()
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: Self.mainWindowID) {
             ContentView(appState: appState, preferences: appState.preferences)
         }
         .commands {
             CommandMenu("Account") {
-                Button("Refresh") {
-                    Task {
-                        await appState.portal.loadSchedule()
-                        await appState.portal.loadGrades()
-                    }
-                }
-                .keyboardShortcut("r")
-                .disabled(appState.credentials == nil)
+                Button("Refresh") { Task { await appState.refresh() } }
+                    .keyboardShortcut("r")
+                    .disabled(appState.credentials == nil)
 
                 Divider()
 
@@ -138,5 +171,17 @@ struct PUPSISPortalApp: App {
                     .disabled(appState.credentials == nil)
             }
         }
+
+        // The menu bar presence: what's next at a glance, and the reason the app
+        // stays useful with its window closed — the OS keeps firing the reminders
+        // it already holds, and this is how you still see the schedule and reopen.
+        MenuBarExtra {
+            MenuBarPanel(appState: appState, preferences: appState.preferences)
+        } label: {
+            MenuBarLabel(appState: appState)
+        }
+        .menuBarExtraStyle(.window)
     }
+
+    static let mainWindowID = "main"
 }

@@ -18,6 +18,20 @@ enum NextClass {
         func minutesAway(from now: Date) -> Int {
             max(Int(start.timeIntervalSince(now) / 60), 0)
         }
+
+        /// A short human phrase for how far off it is — shared by the in-window
+        /// banner and the menu bar so they never drift apart.
+        func countdown(now: Date, calendar: Calendar = .current) -> String {
+            if isNow { return "in session until \(ClassSession.format(session.end))" }
+
+            let minutes = minutesAway(from: now)
+            if minutes == 0 { return "starting now" }
+            if minutes < 60 { return "in \(minutes) min" }
+
+            return calendar.isDate(start, inSameDayAs: now)
+                ? "at \(ClassSession.format(session.start))"
+                : "\(session.day.short) \(ClassSession.format(session.start))"
+        }
     }
 
     /// The next meeting that hasn't finished yet, or `nil` if there are none.

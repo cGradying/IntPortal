@@ -529,7 +529,7 @@ private struct NextClassBanner: View {
                     Text(upcoming.session.subjectCode)
                         .font(Theme.Typo.blockCode)
 
-                    Text(Self.label(upcoming, now: context.date))
+                    Text(upcoming.countdown(now: context.date))
                         .foregroundStyle(.secondary)
                 }
                 .font(Theme.Typo.footer)
@@ -543,20 +543,5 @@ private struct NextClassBanner: View {
                 .animation(Motion.drift(reduced: reduceMotion), value: upcoming.session.id)
             }
         }
-    }
-
-    static func label(_ upcoming: NextClass.Upcoming, now: Date,
-                      calendar: Calendar = .current) -> String {
-        if upcoming.isNow {
-            return "in session until \(ClassSession.format(upcoming.session.end))"
-        }
-
-        let minutes = upcoming.minutesAway(from: now)
-        if minutes == 0 { return "starting now" }
-        if minutes < 60 { return "in \(minutes) min" }
-
-        return calendar.isDate(upcoming.start, inSameDayAs: now)
-            ? "at \(ClassSession.format(upcoming.session.start))"
-            : "\(upcoming.session.day.short) \(ClassSession.format(upcoming.session.start))"
     }
 }

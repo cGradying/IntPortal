@@ -114,6 +114,32 @@ final class NextClassTests: XCTestCase {
 
         XCTAssertEqual(upcoming.minutesAway(from: now), 0)
     }
+
+    // MARK: Countdown phrasing (shared by the banner and the menu bar)
+
+    private func upcoming(at now: Date) throws -> NextClass.Upcoming {
+        try XCTUnwrap(NextClass.next(in: week, at: now, calendar: calendar))
+    }
+
+    func testCountdownReadsInSessionWhileAClassRuns() throws {
+        let phrase = try upcoming(at: try date("2026-08-03", 9)).countdown(now: try date("2026-08-03", 9), calendar: calendar)
+        XCTAssertEqual(phrase, "in session until 10AM")
+    }
+
+    func testCountdownUnderAnHourIsMinutes() throws {
+        let now = try date("2026-08-03", 13, 35)
+        XCTAssertEqual(try upcoming(at: now).countdown(now: now, calendar: calendar), "in 25 min")
+    }
+
+    func testCountdownSameDayButOverAnHourIsAClockTime() throws {
+        let now = try date("2026-08-03", 11)   // next is GEED 005 at 2pm
+        XCTAssertEqual(try upcoming(at: now).countdown(now: now, calendar: calendar), "at 2PM")
+    }
+
+    func testCountdownOnAnotherDayCarriesTheDay() throws {
+        let now = try date("2026-08-03", 17)   // Monday done; next is Friday
+        XCTAssertEqual(try upcoming(at: now).countdown(now: now, calendar: calendar), "FRI 1:30PM")
+    }
 }
 
 /// The reminder's fire time is plain arithmetic, and the only part of
