@@ -171,7 +171,14 @@ pick a status. A status applies to **just the week you're viewing** by default;
 tick **Every week this term** to make it stick across the semester. For online
 classes the panel also has an "Online strip" colour.
 
+A class marked vacant **disappears** from the week grid — a cancelled class
+shouldn't take up space. Use **Show Cancelled** in the toolbar to bring hidden
+ones back (faded) if you need to restore one.
+
 **Notes & limits** — Status is per meeting, not per subject: the same course can
-be in-person on Tuesday and online on Friday. Reminders and the next-class
-banner honour a class marked vacant **for the whole term** — a single vacant
-week is a visual note only, since the weekly reminder repeats.
+be in-person on Tuesday and online on Friday. Reminders, the next-class banner,
+and the Apple Calendar export act on a **whole-term** status (the "every week"
+tick): term-vacant classes are dropped from the export automatically and
+term-online ones are relabelled — no manual re-export. A single vacant week only
+hides that week in the app, since a repeating calendar event and a weekly
+reminder can't skip one occurrence.
