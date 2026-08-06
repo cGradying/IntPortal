@@ -160,10 +160,15 @@ refresh.
 
 ### Mark a class online or vacant
 **What it does** — Tag each meeting as in-person, online, or vacant — something
-the SIS doesn't tell you. Vacant meetings are skipped by reminders and the
-next-class banner.
+the SIS doesn't tell you. Online classes get a coloured strip around them, whose
+colour you can set per subject. Vacant meetings are dimmed.
 
-**How to use it** — Right-click a class block and pick a status.
+**How to use it** — Click a class block for its panel, or right-click it, and
+pick a status. A status applies to **just the week you're viewing** by default;
+tick **Every week this term** to make it stick across the semester. For online
+classes the panel also has an "Online strip" colour.
 
 **Notes & limits** — Status is per meeting, not per subject: the same course can
-be in-person on Tuesday and online on Friday.
+be in-person on Tuesday and online on Friday. Reminders and the next-class
+banner honour a class marked vacant **for the whole term** — a single vacant
+week is a visual note only, since the weekly reminder repeats.
