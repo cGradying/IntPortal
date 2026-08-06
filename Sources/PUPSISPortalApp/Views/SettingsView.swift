@@ -1,9 +1,11 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
     @ObservedObject var calendar: CalendarBridge
+    @ObservedObject fileprivate var notifier = Notifier.shared
     @Environment(\.palette) private var palette
     @State fileprivate var exportResult: String?
 
@@ -41,6 +43,8 @@ struct SettingsView: View {
 
             calendarSection
 
+            notificationSection
+
             Section("Account") {
                 LabeledContent("Last updated") {
                     Text(appState.portal.lastUpdated.map {
@@ -64,10 +68,63 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .background(palette.canvasWash.ignoresSafeArea())
         .navigationTitle("Settings")
+        .task { await notifier.refreshAuthorization() }
     }
 }
 
 private extension SettingsView {
+    @ViewBuilder
+    var notificationSection: some View {
+        Section {
+            Toggle("Remind me before class", isOn: Binding(
+                // Not a plain binding: turning it on is what asks for
+                // authorization, and a toggle that stays on while nothing can
+                // fire is worse than one that refuses.
+                get: { preferences.notificationsEnabled },
+                set: { wants in
+                    guard wants else {
+                        preferences.notificationsEnabled = false
+                        syncNotifications()
+                        return
+                    }
+                    Task {
+                        preferences.notificationsEnabled = await notifier.requestAuthorization()
+                        syncNotifications()
+                    }
+                }
+            ))
+
+            Picker("How early", selection: $preferences.notificationLeadMinutes) {
+                ForEach(Preferences.leadOptions, id: \.self) { minutes in
+                    Text("\(minutes) minutes before").tag(minutes)
+                }
+            }
+            .disabled(!preferences.notificationsEnabled)
+            // Rebuilt from here, not only from the calendar: that view isn't
+            // alive while this pane is on screen, so it can't do it for us.
+            .onChange(of: preferences.notificationLeadMinutes) { syncNotifications() }
+
+            if notifier.authorization == .denied {
+                LabeledContent("Notifications are turned off for this app") {
+                    Button("Open System Settings…") {
+                        guard let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")
+                        else { return }
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Notifications")
+        } footer: {
+            Text("""
+            One reminder per class meeting, repeating weekly. Meetings you've \
+            marked vacant are skipped. Reminders only fire while PUPSISPortal is open.
+            """)
+            .foregroundStyle(.secondary)
+        }
+    }
+
     @ViewBuilder
     var calendarSection: some View {
         Section {
@@ -162,6 +219,10 @@ private extension SettingsView {
         default:
             "Nothing from your calendar is shown until you connect and pick which calendars to include."
         }
+    }
+
+    func syncNotifications() {
+        notifier.sync(appState.portal.sessions, preferences)
     }
 
     func exportClasses() {

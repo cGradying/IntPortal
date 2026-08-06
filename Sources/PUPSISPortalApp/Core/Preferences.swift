@@ -75,6 +75,25 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(termEndDate.timeIntervalSince1970, forKey: Key.termEndDate) }
     }
 
+    /// Off until asked for. Turning it on is what triggers the authorization
+    /// prompt, so defaulting it to true would prompt at first launch.
+    @Published var notificationsEnabled: Bool {
+        didSet { defaults.set(notificationsEnabled, forKey: Key.notificationsEnabled) }
+    }
+
+    /// Minutes before a class starts. Long enough to walk somewhere.
+    @Published var notificationLeadMinutes: Int {
+        didSet { defaults.set(notificationLeadMinutes, forKey: Key.notificationLeadMinutes) }
+    }
+
+    static let leadOptions = [5, 10, 15, 30]
+
+    /// Meetings the user marked vacant, in the form `Notifier` and `NextClass`
+    /// want — neither of them knows what a `SessionStatus` is.
+    var vacantSessionIDs: Set<String> {
+        Set(sessionStatuses.filter { $0.value == .vacant }.keys)
+    }
+
     /// Far enough out to cover a semester, close enough that it's obviously a
     /// guess worth correcting.
     static func defaultTermEnd(from date: Date = .now, calendar: Calendar = .current) -> Date {
@@ -91,6 +110,8 @@ final class Preferences: ObservableObject {
         static let exportCalendarID = "exportCalendarID"
         static let eventColors = "eventColors"
         static let termEndDate = "termEndDate"
+        static let notificationsEnabled = "notificationsEnabled"
+        static let notificationLeadMinutes = "notificationLeadMinutes"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -106,6 +127,10 @@ final class Preferences: ObservableObject {
         exportCalendarID = defaults.string(forKey: Key.exportCalendarID) ?? ""
         termEndDate = (defaults.object(forKey: Key.termEndDate) as? Double)
             .map(Date.init(timeIntervalSince1970:)) ?? Self.defaultTermEnd()
+        notificationsEnabled = defaults.bool(forKey: Key.notificationsEnabled)
+        // `integer(forKey:)` returns 0 for a missing key, and 0 is a legal lead
+        // ("as it starts") — so check for the key rather than trusting the zero.
+        notificationLeadMinutes = (defaults.object(forKey: Key.notificationLeadMinutes) as? Int) ?? 15
     }
 
     /// The colour an event renders in: the user's pick, else the palette's

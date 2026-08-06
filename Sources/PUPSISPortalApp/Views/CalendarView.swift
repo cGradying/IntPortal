@@ -85,6 +85,9 @@ struct CalendarView: View {
                     StatusFooter(
                         lastUpdated: controller.lastUpdated,
                         refreshError: controller.refreshError ?? calendar.lastError,
+                        sessions: controller.sessions,
+                        vacantIDs: preferences.vacantSessionIDs,
+                        tint: { preferences.color(for: $0.subjectCode, in: palette) },
                         onRetry: retry
                     )
                 }
@@ -114,6 +117,13 @@ struct CalendarView: View {
             }
         }
         .task(id: reloadKey) { reload() }
+        // Reminders are rebuilt from here rather than from `PortalController`
+        // so the schedule loader stays free of UI concerns — and because this
+        // is the one view that already sees both the sessions and the settings.
+        .task(id: notificationKey) {
+            await Notifier.shared.refreshAuthorization()
+            Notifier.shared.sync(controller.sessions, preferences)
+        }
         // ...and when Calendar.app itself changes underneath us.
         .onReceive(NotificationCenter.default.publisher(for: .calendarStoreChanged)) { _ in
             reload()
@@ -300,6 +310,18 @@ struct CalendarView: View {
         "\(weekStart.timeIntervalSince1970)-\(preferences.visibleCalendarIDs.sorted().joined())"
     }
 
+    /// Everything a pending reminder depends on. Deliberately excludes
+    /// `weekStart` — the schedule repeats weekly, so paging through weeks must
+    /// not rewrite the notification set.
+    private var notificationKey: String {
+        [
+            String(preferences.notificationsEnabled),
+            String(preferences.notificationLeadMinutes),
+            controller.sessions.map(\.id).joined(separator: ","),
+            preferences.vacantSessionIDs.sorted().joined(separator: ","),
+        ].joined(separator: "|")
+    }
+
     private func reload() {
         calendar.load(weekStart: weekStart, calendarIDs: preferences.visibleCalendarIDs)
         // Anything that vanished can't stay selected.
@@ -433,15 +455,21 @@ private struct ScopeQuestion {
     let apply: (CalendarBridge.EditScope) -> Void
 }
 
-/// Where a failed refresh goes now that it no longer gets to take the screen.
+/// Where a failed refresh goes now that it no longer gets to take the screen —
+/// and, on the other side of the bar, what's coming up next.
 private struct StatusFooter: View {
     let lastUpdated: Date?
     let refreshError: String?
+    let sessions: [ClassSession]
+    let vacantIDs: Set<String>
+    let tint: (ClassSession) -> Color
     let onRetry: () -> Void
     @Environment(\.palette) private var palette
 
     var body: some View {
         HStack(spacing: 8) {
+            NextClassBanner(sessions: sessions, vacantIDs: vacantIDs, tint: tint)
+
             if let refreshError {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
@@ -473,5 +501,62 @@ private struct StatusFooter: View {
         // which is worse than saying it plainly.
         guard Date().timeIntervalSince(lastUpdated) >= 60 else { return "Updated just now" }
         return "Updated \(lastUpdated.formatted(.relative(presentation: .named)))"
+    }
+}
+
+/// "Next class in N minutes" — the single most useful glance in the app.
+///
+/// Ticks from its own `TimelineView` rather than a timer, and starts on the
+/// next :00 so the countdown changes when the minute does. Same mechanism
+/// `NowLine` uses one level up in the grid.
+private struct NextClassBanner: View {
+    let sessions: [ClassSession]
+    let vacantIDs: Set<String>
+    let tint: (ClassSession) -> Color
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.periodic(from: NowLine.nextMinute, by: 60)) { context in
+            if let upcoming = NextClass.next(in: sessions, at: context.date, skipping: vacantIDs) {
+                let color = tint(upcoming.session)
+
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 7, height: 7)
+
+                    Text(upcoming.session.subjectCode)
+                        .font(Theme.Typo.blockCode)
+
+                    Text(Self.label(upcoming, now: context.date))
+                        .foregroundStyle(.secondary)
+                }
+                .font(Theme.Typo.footer)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 3)
+                .glassEffect(.regular.tint(color.opacity(0.18)), in: .capsule)
+                .help("\(upcoming.session.description) · \(upcoming.session.timeLabel)")
+                .accessibilityElement(children: .combine)
+                // Only the subject changing is worth animating; the countdown
+                // ticking every minute would strobe the whole lozenge.
+                .animation(Motion.drift(reduced: reduceMotion), value: upcoming.session.id)
+            }
+        }
+    }
+
+    static func label(_ upcoming: NextClass.Upcoming, now: Date,
+                      calendar: Calendar = .current) -> String {
+        if upcoming.isNow {
+            return "in session until \(ClassSession.format(upcoming.session.end))"
+        }
+
+        let minutes = upcoming.minutesAway(from: now)
+        if minutes == 0 { return "starting now" }
+        if minutes < 60 { return "in \(minutes) min" }
+
+        return calendar.isDate(upcoming.start, inSameDayAs: now)
+            ? "at \(ClassSession.format(upcoming.session.start))"
+            : "\(upcoming.session.day.short) \(ClassSession.format(upcoming.session.start))"
     }
 }
