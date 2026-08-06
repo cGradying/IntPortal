@@ -213,8 +213,10 @@ private extension SettingsView {
             Ticked calendars appear alongside your classes in the week grid. \
             Adding your classes writes them as weekly repeats into the calendar you choose, \
             stopping on the date above; running it again replaces the ones this app added \
-            and leaves your own events alone. Classes added this way stay hidden here so \
-            they don't show up twice — they're still in Calendar.app and on your other devices.
+            and leaves your own events alone. Classes you've marked online for the whole term \
+            are labelled Online; classes marked vacant for the term are left off. Re-run this \
+            after changing a status. Classes added this way stay hidden here so they don't show \
+            up twice — they're still in Calendar.app and on your other devices.
             """
         default:
             "Nothing from your calendar is shown until you connect and pick which calendars to include."
@@ -230,7 +232,8 @@ private extension SettingsView {
             appState.portal.sessions,
             weekStart: Weekday.weekStart(containing: .now),
             until: preferences.termEndDate,
-            toCalendarID: preferences.exportCalendarID
+            toCalendarID: preferences.exportCalendarID,
+            status: { preferences.termStatus(for: $0) }
         )
     }
 }

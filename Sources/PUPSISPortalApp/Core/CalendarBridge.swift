@@ -342,9 +342,32 @@ final class CalendarBridge: ObservableObject {
         }
     }
 
+    /// How a class is written to the calendar, given its term status. Pure so
+    /// the "vacant stays off, online is marked" rule is testable without EventKit.
+    ///
+    /// Term status, not this week's: the export is a weekly-repeating series, so
+    /// it can't carry a single week's exception any more than a reminder can.
+    enum ClassExport: Equatable {
+        /// Vacant all term — deliberately not on the calendar.
+        case skip
+        case event(titleSuffix: String?, location: String?)
+
+        static func plan(for status: SessionStatus) -> ClassExport {
+            switch status {
+            case .vacant: .skip
+            case .online: .event(titleSuffix: " (Online)", location: "Online")
+            case .regular: .event(titleSuffix: nil, location: nil)
+            }
+        }
+    }
+
     /// Writes the schedule into a calendar the user picked, as weekly repeats,
     /// clearing this app's previous export first — otherwise every export
     /// stacks another copy of the term on top of the last.
+    ///
+    /// `status` resolves each session's term status: vacant classes are left off
+    /// the calendar and online ones are marked, so the export reflects what the
+    /// user set rather than the raw scrape.
     ///
     /// Reports how many events it wrote, so a silent no-op is impossible to
     /// mistake for success.
@@ -352,7 +375,8 @@ final class CalendarBridge: ObservableObject {
         _ sessions: [ClassSession],
         weekStart: Date,
         until termEnd: Date,
-        toCalendarID id: String
+        toCalendarID id: String,
+        status: (ClassSession) -> SessionStatus = { _ in .regular }
     ) -> String? {
         guard access == .granted else {
             lastError = "Grant calendar access first."
@@ -378,14 +402,22 @@ final class CalendarBridge: ObservableObject {
 
             let calendar = Calendar.current
             var written = 0
+            var skipped = 0
             for session in sessions {
+                // Vacant-all-term classes are deliberately left off the calendar.
+                guard case let .event(titleSuffix, location) = ClassExport.plan(for: status(session)) else {
+                    skipped += 1
+                    continue
+                }
+
                 let day = session.day.date(inWeekStarting: weekStart, calendar: calendar)
                 guard let start = calendar.date(byAdding: .minute, value: session.start, to: day),
                       let end = calendar.date(byAdding: .minute, value: session.end, to: day)
                 else { continue }
 
                 let event = EKEvent(eventStore: store)
-                event.title = session.subjectCode
+                event.title = session.subjectCode + (titleSuffix ?? "")
+                event.location = location
                 event.notes = "\(session.description)\n\n\(Self.exportTag)"
                 event.startDate = start
                 event.endDate = end
@@ -405,8 +437,9 @@ final class CalendarBridge: ObservableObject {
 
             lastError = nil
             let replaced = removed > 0 ? ", replacing \(removed)" : ""
+            let vacant = skipped > 0 ? ", skipping \(skipped) vacant" : ""
             let through = lastDay.formatted(.dateTime.month(.abbreviated).day().year())
-            return "Added \(written) class\(written == 1 ? "" : "es") to “\(target.title)” through \(through)\(replaced)."
+            return "Added \(written) class\(written == 1 ? "" : "es") to “\(target.title)” through \(through)\(replaced)\(vacant)."
         } catch {
             store.reset()
             lastError = error.localizedDescription
