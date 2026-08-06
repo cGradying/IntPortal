@@ -23,20 +23,24 @@ final class AppState: ObservableObject {
 
     func signOut() {
         KeychainStore.delete()
-        // The cache is this student's own class schedule; signing out has to
-        // take it off disk too, not just off screen.
+        // Both caches are this student's own data; signing out has to take them
+        // off disk too, not just off screen.
         ScheduleStore.delete()
+        GradesStore.delete()
         credentials = nil
         isEditing = true
         portal.status = .idle
         portal.sessions = []
         portal.lastUpdated = nil
         portal.refreshError = nil
+        portal.grades = nil
+        portal.gradesError = nil
     }
 }
 
 enum SidebarItem: String, CaseIterable, Identifiable {
     case schedule
+    case grades
     case settings
 
     var id: String { rawValue }
@@ -44,6 +48,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .schedule: "Schedule"
+        case .grades: "Grades"
         case .settings: "Settings"
         }
     }
@@ -51,6 +56,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .schedule: "calendar"
+        case .grades: "graduationcap"
         case .settings: "gearshape"
         }
     }
@@ -91,6 +97,8 @@ struct ContentView: View {
                         calendar: appState.calendar,
                         credentials: credentials
                     )
+                case .grades:
+                    GradesView(controller: appState.portal, preferences: preferences)
                 case .settings:
                     SettingsView(
                         appState: appState,
@@ -114,8 +122,11 @@ struct PUPSISPortalApp: App {
         }
         .commands {
             CommandMenu("Account") {
-                Button("Refresh Schedule") {
-                    Task { await appState.portal.loadSchedule() }
+                Button("Refresh") {
+                    Task {
+                        await appState.portal.loadSchedule()
+                        await appState.portal.loadGrades()
+                    }
                 }
                 .keyboardShortcut("r")
                 .disabled(appState.credentials == nil)

@@ -29,6 +29,12 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// already on screen. Shown as a footer note, not an error screen.
     @Published var refreshError: String?
 
+    /// The scraped grades, or the cache. `nil` means never loaded.
+    @Published var grades: GradeReport?
+    /// A grades refresh that failed. Kept apart from `refreshError` so a grades
+    /// problem never disturbs the schedule screen, and vice versa.
+    @Published var gradesError: String?
+
     private let webView: WKWebView
     private var pendingContinuation: CheckedContinuation<Void, Error>?
     private var pendingToken: UUID?
@@ -38,6 +44,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     private static let base = "https://sis8.pup.edu.ph/student"
     private static let loginURL = URL(string: "\(base)/")!
     private static let scheduleURL = URL(string: "\(base)/schedule")!
+    private static let gradesURL = URL(string: "\(base)/grades")!
 
     override init() {
         webView = WKWebView()
@@ -50,6 +57,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             sessions = cached.sessions
             lastUpdated = cached.lastUpdated
         }
+        grades = GradesStore.load()
     }
 
     func signIn(with credentials: Credentials) {
@@ -77,6 +85,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
 
             status = .success
             await loadSchedule()
+            await loadGrades()
         } catch {
             report(error.localizedDescription)
         }
@@ -85,7 +94,9 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     func loadSchedule() async {
         do {
             try await load(Self.scheduleURL)
-            let rows = try await awaitScheduleRows()
+            let rows = try await awaitPageRows(suffix: "/schedule") {
+                try await SISScraper.scrapeSchedule(from: $0)
+            } isEmpty: { $0.isEmpty }
             let scraped = rows.flatMap(ScheduleParser.parse)
             let now = Date()
 
@@ -95,6 +106,32 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             ScheduleStore.save(scraped, lastUpdated: now)
         } catch {
             report("Couldn't refresh your schedule: \(error.localizedDescription)")
+        }
+    }
+
+    /// Same shape as `loadSchedule`, on its own error channel. A grades failure
+    /// sets `gradesError` and leaves the schedule screen untouched — the two
+    /// pages fail independently.
+    func loadGrades() async {
+        do {
+            try await load(Self.gradesURL)
+            // The subject rows carry the page; an empty summary is fine, but an
+            // empty row set is what "page not settled yet" looks like.
+            let scraped = try await awaitPageRows(suffix: "/grades") {
+                try await SISScraper.scrapeGrades(from: $0)
+            } isEmpty: { $0.rows.isEmpty }
+
+            let report = GradeReport(
+                lastUpdated: Date(),
+                subjects: GradesParser.parse(scraped.rows),
+                summary: scraped.summary
+            )
+            grades = report
+            gradesError = nil
+            GradesStore.save(report)
+        } catch {
+            // Never through `report(_:)` — that governs the schedule screen.
+            gradesError = "Couldn't refresh your grades: \(error.localizedDescription)"
         }
     }
 
@@ -114,37 +151,49 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     }
 
     /// Same reason sign-in polls: one `didFinish` is not proof we've arrived.
-    /// The redirect chain after sign-in can resume the schedule navigation's
-    /// wait early, so a single scrape lands on whatever page happened to be
-    /// loaded — and even on the right page, DataTables may not have filled the
-    /// body yet. Poll until rows exist.
+    /// The redirect chain after sign-in can resume a navigation's wait early, so
+    /// a single scrape lands on whatever page happened to be loaded — and even
+    /// on the right page, DataTables may not have filled the body yet. Poll
+    /// until the path matches *and* the scrape yields rows.
     ///
     /// The path check here is *not* the URL-based sign-in detection that
     /// CLAUDE.md warns about. That one asked "am I authenticated"; this one
     /// asks "which page is loaded", which is exactly what a path is for.
-    private func awaitScheduleRows(timeout: TimeInterval = 12) async throws -> [[String: String]] {
+    ///
+    /// Generic over the scrape so Schedule and Grades share one settling loop
+    /// rather than each keeping its own copy of the race handling.
+    private func awaitPageRows<T>(
+        suffix: String,
+        timeout: TimeInterval = 12,
+        scrape: @escaping (WKWebView) async throws -> T,
+        isEmpty: (T) -> Bool
+    ) async throws -> T {
         let deadline = Date().addingTimeInterval(timeout)
         var reachedPage = false
+        var lastScrape: T?
 
         while Date() < deadline {
-            if await isOnSchedulePage() {
+            if await isOnPage(suffix: suffix) {
                 reachedPage = true
-                if let rows = try? await SISScraper.scrapeSchedule(from: webView), !rows.isEmpty {
-                    return rows
+                if let scraped = try? await scrape(webView) {
+                    lastScrape = scraped
+                    if !isEmpty(scraped) { return scraped }
                 }
             }
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
 
-        // Reaching the page and finding nothing is a real answer — an empty
-        // term looks exactly like this. Never reaching it is a failure.
-        guard reachedPage else { throw PortalError.timedOut }
-        return []
+        // Reaching the page and finding nothing is a real answer — an empty term
+        // (or a semester with no grades yet) looks exactly like this. Return the
+        // last empty scrape so its shape survives; never reaching the page is a
+        // genuine failure.
+        guard reachedPage, let lastScrape else { throw PortalError.timedOut }
+        return lastScrape
     }
 
-    private func isOnSchedulePage() async -> Bool {
+    private func isOnPage(suffix: String) async -> Bool {
         let path = try? await webView.evaluateJavaScript("document.location.pathname") as? String
-        return (path ?? "")?.hasSuffix("/schedule") ?? false
+        return (path ?? "")?.hasSuffix(suffix) ?? false
     }
 
     /// Polls until sign-in resolves one way or the other: the login form
