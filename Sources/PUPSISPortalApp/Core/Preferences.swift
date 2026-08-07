@@ -109,6 +109,13 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(notificationLeadMinutes, forKey: Key.notificationLeadMinutes) }
     }
 
+    /// The program's total required units, for the "units completed / total"
+    /// progress on the grades trend. SIS doesn't publish it, so the user sets it
+    /// once; 0 means "not set" and the progress shows completed units only.
+    @Published var programTotalUnits: Int {
+        didSet { defaults.set(programTotalUnits, forKey: Key.programTotalUnits) }
+    }
+
     static let leadOptions = [5, 10, 15, 30]
 
     /// Meetings marked vacant **for the whole term**, in the form `Notifier` and
@@ -140,6 +147,7 @@ final class Preferences: ObservableObject {
         static let termEndDate = "termEndDate"
         static let notificationsEnabled = "notificationsEnabled"
         static let notificationLeadMinutes = "notificationLeadMinutes"
+        static let programTotalUnits = "programTotalUnits"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -164,6 +172,7 @@ final class Preferences: ObservableObject {
         // `integer(forKey:)` returns 0 for a missing key, and 0 is a legal lead
         // ("as it starts") — so check for the key rather than trusting the zero.
         notificationLeadMinutes = (defaults.object(forKey: Key.notificationLeadMinutes) as? Int) ?? 15
+        programTotalUnits = (defaults.object(forKey: Key.programTotalUnits) as? Int) ?? 0
     }
 
     /// The colour an event renders in: the user's pick, else the palette's

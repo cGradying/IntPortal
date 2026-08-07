@@ -8,6 +8,9 @@ struct SettingsView: View {
     @ObservedObject fileprivate var notifier = Notifier.shared
     @Environment(\.palette) private var palette
     @State fileprivate var exportResult: String?
+    /// Mirrors the OS login-item status; re-read after every toggle so it can't
+    /// drift from System Settings.
+    @State fileprivate var launchAtLogin = LoginItem.isEnabled
 
     /// Subjects the user can actually recolor: whatever is on screen right now.
     private var subjectCodes: [String] {
@@ -44,6 +47,22 @@ struct SettingsView: View {
             calendarSection
 
             notificationSection
+
+            Section {
+                Stepper(value: $preferences.programTotalUnits, in: 0...400, step: 3) {
+                    LabeledContent("Program total units") {
+                        Text(preferences.programTotalUnits == 0
+                             ? "Not set"
+                             : "\(preferences.programTotalUnits)")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Grades")
+            } footer: {
+                Text("Your program's total required units, for the completed-units progress on the Grades trend. SIS doesn't publish it.")
+                    .foregroundStyle(.secondary)
+            }
 
             Section("Account") {
                 LabeledContent("Last updated") {
@@ -114,12 +133,21 @@ private extension SettingsView {
                 }
                 .foregroundStyle(.secondary)
             }
+
+            Toggle("Start at login", isOn: $launchAtLogin)
+                .onChange(of: launchAtLogin) { _, wants in
+                    LoginItem.setEnabled(wants)
+                    // Reflect what actually took effect, in case registration failed.
+                    launchAtLogin = LoginItem.isEnabled
+                }
         } header: {
             Text("Notifications")
         } footer: {
             Text("""
             One reminder per class meeting, repeating weekly. Meetings you've \
-            marked vacant are skipped. Reminders only fire while PUPSISPortal is open.
+            marked vacant are skipped. Reminders fire only while PUPSISPortal is \
+            running — turn on Start at login so it's always there to fire them, \
+            even after a restart.
             """)
             .foregroundStyle(.secondary)
         }

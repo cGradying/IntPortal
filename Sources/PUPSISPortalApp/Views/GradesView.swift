@@ -1,31 +1,72 @@
+import Charts
 import SwiftUI
 
 /// The Grades screen. For most of a semester the grade cells are empty — the
 /// school hasn't posted yet — so the not-yet-posted state is the one this view
 /// is built around, not an afterthought.
+///
+/// Beyond the current term it also reads `controller.gradeHistory`: a GPA trend
+/// across terms and units-completed progress, the two things SIS shows one term
+/// at a time but never puts together.
 struct GradesView: View {
     @ObservedObject var controller: PortalController
     @ObservedObject var preferences: Preferences
     @Environment(\.palette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Which term's subject list is on screen. `nil` = the current term.
+    @State private var selectedTerm: String?
+    /// Flipped true on first appear so the subject rows animate in once.
+    @State private var appeared = false
 
     private var report: GradeReport? { controller.grades }
+
+    /// Every term we can show: the backfilled history plus the current term.
+    /// The current term is kept even when it has no posted grades (so it never
+    /// gets folded into `gradeHistory`) — otherwise the picker would list only
+    /// past terms and the on-screen term couldn't be selected back to.
+    private var allTerms: [GradeReport] {
+        var terms = controller.gradeHistory
+        if let report, !terms.contains(where: { $0.termLabel == report.termLabel }) {
+            terms.append(report)
+        }
+        return terms
+    }
+
+    /// Terms with a real GPA — the only ones a trend line should plot.
+    private var trendTerms: [GradeReport] {
+        allTerms.filter { $0.computedGPA != nil }
+    }
+
+    /// The term whose subjects are shown: the picker's choice, else the current
+    /// term, else the most recent one we have.
+    private var displayedReport: GradeReport? {
+        if let selectedTerm, let match = allTerms.first(where: { $0.termLabel == selectedTerm }) {
+            return match
+        }
+        return report ?? allTerms.last
+    }
 
     var body: some View {
         ZStack {
             palette.canvasWash.ignoresSafeArea()
 
-            if let report, !report.subjects.isEmpty {
+            if let shown = displayedReport, !shown.subjects.isEmpty {
                 VStack(spacing: 0) {
                     ScrollView {
                         VStack(spacing: 16) {
-                            summaryCard(report)
-                            subjectList(report)
+                            if trendTerms.count >= 2 { trendCard }
+                            unitsCard
+                            if allTerms.count > 1 { termPicker }
+                            summaryCard(shown)
+                            subjectList(shown)
+                            historyControl
                         }
                         .padding(20)
                         .frame(maxWidth: 720)
                         .frame(maxWidth: .infinity)
                     }
-                    footer(report)
+                    footer(shown)
                 }
             } else {
                 emptyState
@@ -33,6 +74,134 @@ struct GradesView: View {
         }
         .navigationTitle("Grades")
         .task { if controller.grades == nil { await controller.loadGrades() } }
+        .onAppear {
+            appeared = true
+            // Default the picker to the on-screen term so it shows a selection
+            // instead of a blank menu (tags are all non-nil term labels).
+            if selectedTerm == nil { selectedTerm = (report ?? allTerms.last)?.termLabel }
+        }
+    }
+
+    // MARK: Trend
+
+    private var trendCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("GPA trend")
+                .font(Theme.Typo.detailMeta)
+                .foregroundStyle(.secondary)
+
+            Chart(trendTerms, id: \.termLabel) { term in
+                LineMark(
+                    x: .value("Term", term.termLabel),
+                    y: .value("GPA", term.computedGPA ?? 0)
+                )
+                .foregroundStyle(palette.accent)
+                PointMark(
+                    x: .value("Term", term.termLabel),
+                    y: .value("GPA", term.computedGPA ?? 0)
+                )
+                .foregroundStyle(palette.accent)
+            }
+            // PUP grades run 1.00 (best) to 5.00 (worst). Fix the domain to the
+            // full scale, flipped so the better GPA sits at the top where
+            // "up = good" reads correctly, and label every whole mark.
+            .chartYScale(domain: [5.0, 1.0])
+            .chartYAxis {
+                AxisMarks(values: [1.0, 2.0, 3.0, 4.0, 5.0]) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let gpa = value.as(Double.self) {
+                            Text(String(format: "%.2f", gpa))
+                        }
+                    }
+                }
+            }
+            .frame(height: 160)
+            .accessibilityLabel(trendAccessibilitySummary)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+    }
+
+    /// A spoken summary for the chart: the latest GPA and which way it moved.
+    private var trendAccessibilitySummary: String {
+        let posted = trendTerms.compactMap { term in term.computedGPA.map { (term.termLabel, $0) } }
+        guard let latest = posted.last else { return "GPA trend" }
+
+        let base = "GPA trend across \(posted.count) terms. Latest \(String(format: "%.2f", latest.1)) in \(latest.0)."
+        guard posted.count >= 2 else { return base }
+
+        let previous = posted[posted.count - 2].1
+        // Lower is better on the PUP scale, so a drop in the number is an
+        // improvement — say it in plain terms, not in the raw direction.
+        let direction: String
+        if latest.1 < previous { direction = "up from" }
+        else if latest.1 > previous { direction = "down from" }
+        else { direction = "unchanged from" }
+        return base + " \(direction) \(String(format: "%.2f", previous))."
+    }
+
+    private var unitsCard: some View {
+        // Cumulative across every term we have. ponytail: no retake dedup — a
+        // repeated subject counts twice; revisit if that ever matters.
+        let completed = allTerms.reduce(0.0) { $0 + $1.completedUnits }
+        let total = preferences.programTotalUnits
+
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Units completed")
+                .font(Theme.Typo.detailMeta)
+                .foregroundStyle(.secondary)
+
+            if total > 0 {
+                Text("\(unitString(completed)) / \(total)")
+                    .font(.system(.title3, design: .serif).weight(.semibold))
+                ProgressView(value: min(completed / Double(total), 1))
+                    .tint(palette.accent)
+            } else {
+                Text(unitString(completed))
+                    .font(.system(.title3, design: .serif).weight(.semibold))
+                Text("Set your program's total units in Settings to see progress.")
+                    .font(Theme.Typo.footer)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+    }
+
+    private var termPicker: some View {
+        Picker("Term", selection: $selectedTerm) {
+            ForEach(allTerms.reversed(), id: \.termLabel) { term in
+                Text(term.termLabel).tag(Optional(term.termLabel))
+            }
+        }
+        .pickerStyle(.menu)
+        .tint(palette.accent)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var historyControl: some View {
+        if controller.isLoadingHistory {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Loading past terms…")
+                    .font(Theme.Typo.footer)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+        } else if controller.gradeHistory.count < 2 {
+            Button("Load past terms") { Task { await controller.loadGradeHistory() } }
+                .buttonStyle(.glass)
+                .tint(palette.accent)
+                .controlSize(.small)
+        }
+    }
+
+    private func unitString(_ units: Double) -> String {
+        units.rounded() == units ? String(Int(units)) : String(format: "%.1f", units)
     }
 
     // MARK: Summary
@@ -102,10 +271,19 @@ struct GradesView: View {
 
     private func subjectList(_ report: GradeReport) -> some View {
         VStack(spacing: 8) {
-            ForEach(report.subjects) { subject in
+            ForEach(Array(report.subjects.enumerated()), id: \.element.id) { index, subject in
                 GradeRow(
                     subject: subject,
                     color: preferences.color(for: subject.subjectCode, in: palette)
+                )
+                // Rows land in reading order on open, the same arrival the
+                // week grid and Today screen use. Reduce Motion → instant.
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 6)
+                .animation(
+                    Motion.arrival(reduced: reduceMotion)?
+                        .delay(Motion.stagger(index, reduced: reduceMotion)),
+                    value: appeared
                 )
             }
         }

@@ -37,10 +37,15 @@ final class AppState: ObservableObject {
         clock.map { RunLoop.main.add($0, forMode: .common) }
     }
 
-    /// The next class right now, or `nil`. Vacant meetings are excluded, the
-    /// same rule the in-window banner and the reminders follow.
+    /// The next class right now, or `nil`. Vacant meetings are excluded by
+    /// **this-week** status — the same per-week rule the day list and the grid
+    /// use — so the menu bar never advertises a class the user cancelled this
+    /// week. (Reminders stay term-wide in `Notifier`: a weekly-repeating trigger
+    /// can't skip a single week.)
     var upcoming: NextClass.Upcoming? {
-        NextClass.next(in: portal.sessions, at: now, skipping: preferences.vacantSessionIDs)
+        NextClass.next(in: portal.sessions, at: now, isVacant: { session, date in
+            preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
+        })
     }
 
     /// Refresh from anywhere — the app menu, the menu bar — and reschedule
@@ -73,11 +78,13 @@ final class AppState: ObservableObject {
         portal.refreshError = nil
         portal.grades = nil
         portal.gradesError = nil
+        portal.gradeHistory = []
     }
 }
 
 enum SidebarItem: String, CaseIterable, Identifiable {
     case schedule
+    case today
     case grades
     case settings
 
@@ -86,6 +93,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .schedule: "Schedule"
+        case .today: "Today"
         case .grades: "Grades"
         case .settings: "Settings"
         }
@@ -94,6 +102,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .schedule: "calendar"
+        case .today: "list.bullet.rectangle"
         case .grades: "graduationcap"
         case .settings: "gearshape"
         }
@@ -135,6 +144,8 @@ struct ContentView: View {
                         calendar: appState.calendar,
                         credentials: credentials
                     )
+                case .today:
+                    AgendaView(appState: appState, preferences: preferences)
                 case .grades:
                     GradesView(controller: appState.portal, preferences: preferences)
                 case .settings:

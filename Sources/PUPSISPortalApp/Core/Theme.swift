@@ -69,6 +69,25 @@ extension Palette {
         ]
     )
 
+    /// Ivory: ink navy on warm cream paper. An editorial light theme, quieter
+    /// than PUP Maroon — earthy jewel subjects rather than the maroon-and-gold.
+    static let ivory = Palette(
+        accent: Color(red: 0.204, green: 0.235, blue: 0.318),
+        secondary: Color(red: 0.620, green: 0.553, blue: 0.400),
+        canvasTop: Color(red: 0.992, green: 0.984, blue: 0.965),
+        canvasBottom: Color(red: 0.965, green: 0.949, blue: 0.918),
+        gridLine: Color.black.opacity(0.07),
+        onlineStrip: Color(red: 0.788, green: 0.475, blue: 0.325),
+        subjectColors: [
+            Color(red: 0.204, green: 0.235, blue: 0.318),
+            Color(red: 0.706, green: 0.376, blue: 0.278),
+            Color(red: 0.639, green: 0.494, blue: 0.196),
+            Color(red: 0.451, green: 0.310, blue: 0.416),
+            Color(red: 0.325, green: 0.427, blue: 0.310),
+            Color(red: 0.243, green: 0.451, blue: 0.467),
+        ]
+    )
+
     /// Astra moon: emerald on deep navy.
     static let astraMoon = Palette(
         accent: Color(red: 0.063, green: 0.725, blue: 0.506),
@@ -93,6 +112,7 @@ extension Palette {
 enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
     case auto
     case pupMaroon
+    case ivory
     case astraMoon
 
     var id: String { rawValue }
@@ -101,6 +121,7 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .auto: "Match System"
         case .pupMaroon: "PUP Maroon"
+        case .ivory: "Ivory"
         case .astraMoon: "Astra Moon"
         }
     }
@@ -109,6 +130,7 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .auto: systemScheme == .dark ? .astraMoon : .pupMaroon
         case .pupMaroon: .pupMaroon
+        case .ivory: .ivory
         case .astraMoon: .astraMoon
         }
     }
@@ -120,6 +142,7 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .auto: nil
         case .pupMaroon: .light
+        case .ivory: .light
         case .astraMoon: .dark
         }
     }

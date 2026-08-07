@@ -45,17 +45,27 @@ struct MenuBarPanel: View {
                 Text("Sign in to see your schedule.")
                     .font(Theme.Typo.footer)
                     .foregroundStyle(.secondary)
-            } else if let upcoming = appState.upcoming {
-                nextClass(upcoming)
+            } else {
+                dateHeader
+
+                let upcoming = appState.upcoming
+                if let upcoming {
+                    nextClass(upcoming)
+                } else {
+                    Text("No more classes this week.")
+                        .font(Theme.Typo.detailBody)
+                        .foregroundStyle(.secondary)
+                }
+
                 let rest = laterToday(after: upcoming)
                 if !rest.isEmpty {
                     Divider()
                     laterList(rest)
+                } else if let first = todayAgenda.tomorrowFirst, isWindingDownToday(upcoming) {
+                    // The day's last class is up next — look ahead to tomorrow.
+                    Divider()
+                    tomorrowLine(first)
                 }
-            } else {
-                Text("No more classes this week.")
-                    .font(Theme.Typo.detailBody)
-                    .foregroundStyle(.secondary)
             }
 
             Divider()
@@ -69,6 +79,12 @@ struct MenuBarPanel: View {
     }
 
     // MARK: Sections
+
+    private var dateHeader: some View {
+        Text(appState.now.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+            .font(Theme.Typo.detailMeta)
+            .foregroundStyle(.secondary)
+    }
 
     private func nextClass(_ upcoming: NextClass.Upcoming) -> some View {
         HStack(alignment: .top, spacing: 10) {
@@ -94,24 +110,46 @@ struct MenuBarPanel: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func laterList(_ sessions: [ClassSession]) -> some View {
+    private func laterList(_ items: [DayAgenda.Item]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Later today")
                 .font(Theme.Typo.detailMeta)
                 .foregroundStyle(.secondary)
-            ForEach(sessions) { session in
+            ForEach(items) { item in
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(preferences.color(for: session.subjectCode, in: palette))
+                        .fill(preferences.color(for: item.session.subjectCode, in: palette))
                         .frame(width: 6, height: 6)
-                    Text(session.subjectCode)
+                    Text(item.session.subjectCode)
                         .font(Theme.Typo.footer)
+                    if item.phase == .inSession {
+                        Text("now")
+                            .font(Theme.Typo.detailMeta)
+                            .foregroundStyle(palette.accent)
+                    }
                     Spacer(minLength: 8)
-                    Text(ClassSession.format(session.start))
+                    Text(ClassSession.format(item.session.start))
                         .font(Theme.Typo.detailMeta)
                         .foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(rowAccessibilityLabel(item))
             }
+        }
+    }
+
+    private func rowAccessibilityLabel(_ item: DayAgenda.Item) -> String {
+        let when = item.phase == .inSession ? "now" : "at \(ClassSession.format(item.session.start))"
+        return "\(item.session.subjectCode), \(when)"
+    }
+
+    private func tomorrowLine(_ first: ClassSession) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sunrise")
+                .foregroundStyle(.secondary)
+            Text("Tomorrow · \(first.subjectCode) at \(ClassSession.format(first.start))")
+                .font(Theme.Typo.footer)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -159,21 +197,33 @@ struct MenuBarPanel: View {
 
     // MARK: Today's remaining classes
 
+    /// The one reading of today, shared with the Today screen. Vacancy keys per
+    /// week (and to the occurrence's own week for tomorrow), so a class marked
+    /// vacant just this week drops here exactly as it does on the grid.
+    private var todayAgenda: DayAgenda {
+        DayAgenda.make(
+            sessions: appState.portal.sessions,
+            now: appState.now,
+            isVacant: { session, date in
+                preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
+            }
+        )
+    }
+
     /// The classes still to come today, after the next one — so the panel reads
     /// as "now, then the rest of your day" rather than repeating the next class.
-    private func laterToday(after upcoming: NextClass.Upcoming) -> [ClassSession] {
-        let today = Weekday.on(appState.now)
-        // Only when the next class is itself today; if it's tomorrow or next
-        // week, there is no "later today".
-        guard upcoming.session.day == today else { return [] }
+    private func laterToday(after upcoming: NextClass.Upcoming?) -> [DayAgenda.Item] {
+        // Drop the up-next class when it's today's, so it isn't listed twice.
+        guard let upcoming, upcoming.session.day == Weekday.on(appState.now) else {
+            return todayAgenda.remaining
+        }
+        return todayAgenda.remaining.filter { $0.session.id != upcoming.session.id }
+    }
 
-        let vacant = preferences.vacantSessionIDs
-        let nowMinutes = NowLine.minutes(of: appState.now)
-
-        return appState.portal.sessions
-            .filter { $0.day == today && !vacant.contains($0.id) }
-            .filter { $0.start > upcoming.session.start || ($0.start == upcoming.session.start && $0.id != upcoming.session.id) }
-            .filter { $0.end > nowMinutes }
-            .sorted { $0.start < $1.start }
+    /// True when there's a class today but the next one is its last — the moment
+    /// a look-ahead to tomorrow is useful.
+    private func isWindingDownToday(_ upcoming: NextClass.Upcoming?) -> Bool {
+        guard let upcoming else { return false }
+        return upcoming.session.day == Weekday.on(appState.now)
     }
 }

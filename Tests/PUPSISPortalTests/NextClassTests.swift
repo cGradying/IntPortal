@@ -72,7 +72,7 @@ final class NextClassTests: XCTestCase {
     func testVacantMeetingsAreSkipped() throws {
         let vacant = week[1].id // Monday's GEED 005
         let upcoming = NextClass.next(in: week, at: try date("2026-08-03", 11),
-                                      skipping: [vacant], calendar: calendar)
+                                      isVacant: { s, _ in s.id == vacant }, calendar: calendar)
 
         XCTAssertEqual(upcoming?.session.subjectCode, "COMP 20073")
         XCTAssertEqual(upcoming?.session.day, .friday)
@@ -83,9 +83,26 @@ final class NextClassTests: XCTestCase {
     func testSkippingOneMeetingLeavesTheSubjectsOtherMeeting() throws {
         let mondayComp = week[0].id
         let upcoming = NextClass.next(in: week, at: try date("2026-08-03", 7),
-                                      skipping: [mondayComp], calendar: calendar)
+                                      isVacant: { s, _ in s.id == mondayComp }, calendar: calendar)
 
         XCTAssertEqual(upcoming?.session.subjectCode, "GEED 005")
+    }
+
+    /// Per-occurrence vacancy: a class vacant only *this* week is skipped now
+    /// but must still surface as next week's candidate — the reason `isVacant`
+    /// takes the occurrence date rather than a flat set of ids.
+    func testThisWeekOnlyVacancyStillSurfacesNextWeek() throws {
+        let only = [session("COMP 20073", .monday, 8 * 60, 10 * 60)]
+        let thisMonday = try date("2026-08-03", 7)
+        let nextMonday = try date("2026-08-10", 8)
+
+        let upcoming = NextClass.next(in: only, at: thisMonday,
+                                      isVacant: { _, occurrence in occurrence < nextMonday },
+                                      calendar: calendar)
+
+        // This week's Monday is vacant, so the answer is next week's occurrence.
+        XCTAssertEqual(upcoming?.session.subjectCode, "COMP 20073")
+        XCTAssertEqual(upcoming?.start, try date("2026-08-10", 8))
     }
 
     func testNoSessionsMeansNoAnswerRatherThanACrash() throws {
@@ -97,7 +114,7 @@ final class NextClassTests: XCTestCase {
         let all = Set(week.map(\.id))
 
         XCTAssertNil(NextClass.next(in: week, at: try date("2026-08-03", 7),
-                                    skipping: all, calendar: calendar))
+                                    isVacant: { s, _ in all.contains(s.id) }, calendar: calendar))
     }
 
     func testMinutesAwayCountsDownInWholeMinutes() throws {

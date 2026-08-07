@@ -36,16 +36,19 @@ enum NextClass {
 
     /// The next meeting that hasn't finished yet, or `nil` if there are none.
     ///
-    /// `skipping` takes `ClassSession.id`s the user marked vacant. Online ones
-    /// are deliberately *not* skipped — you still have to show up.
+    /// `isVacant` takes a meeting **and the concrete date of the occurrence
+    /// being considered**, so a caller can apply per-week vacancy that keys to
+    /// the right week (this week vs. next) rather than a flat term-wide set —
+    /// which is what keeps the menu bar's "up next" in step with the day list
+    /// and the grid. Online meetings are deliberately never skipped; you still
+    /// have to show up.
     static func next(
         in sessions: [ClassSession],
         at now: Date,
-        skipping vacant: Set<String> = [],
+        isVacant: (ClassSession, Date) -> Bool = { _, _ in false },
         calendar: Calendar = .current
     ) -> Upcoming? {
-        let live = sessions.filter { !vacant.contains($0.id) }
-        guard !live.isEmpty else { return nil }
+        guard !sessions.isEmpty else { return nil }
 
         let thisWeek = Weekday.weekStart(containing: now, calendar: calendar)
         // Two weeks of candidates, because Sunday evening has to find Monday's
@@ -54,7 +57,7 @@ enum NextClass {
             .compactMap { $0 }
 
         let upcoming = weekStarts.flatMap { weekStart in
-            live.compactMap { session -> Upcoming? in
+            sessions.compactMap { session -> Upcoming? in
                 let midnight = session.day.date(inWeekStarting: weekStart, calendar: calendar)
                 // Added as minutes rather than a raw interval so a DST shift
                 // moves the class with the clock instead of an hour off it.
@@ -62,6 +65,10 @@ enum NextClass {
                       let end = calendar.date(byAdding: .minute, value: session.end, to: midnight),
                       end > now
                 else { return nil }
+
+                // Checked per occurrence, so a class vacant only this week is
+                // still a candidate next week.
+                guard !isVacant(session, start) else { return nil }
 
                 return Upcoming(session: session, start: start, isNow: start <= now)
             }

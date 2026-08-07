@@ -97,7 +97,9 @@ struct CalendarView: View {
                         lastUpdated: controller.lastUpdated,
                         refreshError: controller.refreshError ?? calendar.lastError,
                         sessions: controller.sessions,
-                        vacantIDs: preferences.vacantSessionIDs,
+                        isVacant: { session, date in
+                            preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
+                        },
                         tint: { preferences.color(for: $0.subjectCode, in: palette) },
                         onRetry: retry
                     )
@@ -527,14 +529,14 @@ private struct StatusFooter: View {
     let lastUpdated: Date?
     let refreshError: String?
     let sessions: [ClassSession]
-    let vacantIDs: Set<String>
+    let isVacant: (ClassSession, Date) -> Bool
     let tint: (ClassSession) -> Color
     let onRetry: () -> Void
     @Environment(\.palette) private var palette
 
     var body: some View {
         HStack(spacing: 8) {
-            NextClassBanner(sessions: sessions, vacantIDs: vacantIDs, tint: tint)
+            NextClassBanner(sessions: sessions, isVacant: isVacant, tint: tint)
 
             if let refreshError {
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -577,14 +579,14 @@ private struct StatusFooter: View {
 /// `NowLine` uses one level up in the grid.
 private struct NextClassBanner: View {
     let sessions: [ClassSession]
-    let vacantIDs: Set<String>
+    let isVacant: (ClassSession, Date) -> Bool
     let tint: (ClassSession) -> Color
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         TimelineView(.periodic(from: NowLine.nextMinute, by: 60)) { context in
-            if let upcoming = NextClass.next(in: sessions, at: context.date, skipping: vacantIDs) {
+            if let upcoming = NextClass.next(in: sessions, at: context.date, isVacant: isVacant) {
                 let color = tint(upcoming.session)
 
                 HStack(spacing: 6) {

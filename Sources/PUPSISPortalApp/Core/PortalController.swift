@@ -35,6 +35,13 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// problem never disturbs the schedule screen, and vice versa.
     @Published var gradesError: String?
 
+    /// Past terms, backfilled from the grades page's SY/Semester dropdowns.
+    /// Sorted oldest-first. Empty until `loadGradeHistory()` runs.
+    @Published var gradeHistory: [GradeReport] = []
+    /// True while the (potentially slow) term-by-term backfill is running, so
+    /// the UI can show progress rather than looking hung.
+    @Published var isLoadingHistory = false
+
     private let webView: WKWebView
     private var pendingContinuation: CheckedContinuation<Void, Error>?
     private var pendingToken: UUID?
@@ -58,6 +65,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             lastUpdated = cached.lastUpdated
         }
         grades = GradesStore.load()
+        gradeHistory = GradesStore.loadHistory()
     }
 
     func signIn(with credentials: Credentials) {
@@ -121,17 +129,94 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
                 try await SISScraper.scrapeGrades(from: $0)
             } isEmpty: { $0.rows.isEmpty }
 
+            let options = try? await SISScraper.gradeTermOptions(from: webView)
             let report = GradeReport(
                 lastUpdated: Date(),
                 subjects: GradesParser.parse(scraped.rows),
-                summary: scraped.summary
+                summary: scraped.summary,
+                schoolYear: options?.currentSchoolYear,
+                semester: options?.currentSemester
             )
             grades = report
             gradesError = nil
             GradesStore.save(report)
+
+            // Fold the current term into history too, so the trend has at least
+            // one real point before any backfill and stays current after one.
+            // Only when the term is actually identified: without a school
+            // year/semester the label falls back to the update date, and a
+            // monthly refresh would then land the same real term under a new
+            // label each time, piling up duplicate trend points.
+            if report.hasPostedGrades, report.schoolYear != nil {
+                gradeHistory = GradesStore.merged(report, into: gradeHistory)
+                GradesStore.saveHistory(gradeHistory)
+            }
         } catch {
             // Never through `report(_:)` — that governs the schedule screen.
             gradesError = "Couldn't refresh your grades: \(error.localizedDescription)"
+        }
+    }
+
+    /// Backfills every term the account exposes, by driving the grades page's
+    /// School Year / Semester dropdowns one combination at a time. On its own
+    /// error channel, like `loadGrades` — a backfill problem never blanks the
+    /// current-term screen. Degrades to whatever it managed to collect (at least
+    /// the current term) rather than failing the whole run.
+    ///
+    /// Unverified against a live grades page — the user has no posted grades yet
+    /// (see the term-select heuristics in `SISScraper`). Kept on-demand, not on
+    /// every sign-in, so its cost is only paid when asked for.
+    func loadGradeHistory() async {
+        guard !isLoadingHistory else { return }
+        isLoadingHistory = true
+        defer { isLoadingHistory = false }
+
+        do {
+            try await load(Self.gradesURL)
+            let options = try await SISScraper.gradeTermOptions(from: webView)
+            let combos = options.combinations
+            // No dropdowns found (or an unexpected page shape): keep whatever
+            // history we already have rather than erroring.
+            guard !combos.isEmpty else { return }
+
+            var collected = gradeHistory
+            for combo in combos {
+                // Arm the navigation wait *before* the submit fires it.
+                let script = SISScraper.selectGradeTermScript(
+                    schoolYear: combo.schoolYear,
+                    semester: combo.semester
+                )
+                do {
+                    try await performAndWait { [weak self] in
+                        self?.webView.evaluateJavaScript(script, completionHandler: nil)
+                    }
+                } catch {
+                    // This term's submit didn't navigate — skip it, keep going.
+                    continue
+                }
+
+                let scraped = try await awaitPageRows(suffix: "/grades") {
+                    try await SISScraper.scrapeGrades(from: $0)
+                } isEmpty: { $0.rows.isEmpty }
+
+                let report = GradeReport(
+                    lastUpdated: Date(),
+                    subjects: GradesParser.parse(scraped.rows),
+                    summary: scraped.summary,
+                    schoolYear: combo.schoolYear,
+                    semester: combo.semester
+                )
+                // Empty or unposted terms don't belong on a GPA trend.
+                if report.hasPostedGrades {
+                    collected = GradesStore.merged(report, into: collected)
+                }
+            }
+
+            gradeHistory = collected
+            gradesError = nil
+            GradesStore.saveHistory(collected)
+        } catch {
+            gradesError = "Couldn't load your grade history: \(error.localizedDescription)"
         }
     }
 

@@ -58,12 +58,28 @@ still count — you still have to show up.
 
 ### Menu bar
 **What it does** — Puts your next class in the Mac menu bar, always visible.
-Click it for a small panel: the countdown, the rest of today's classes,
-whether reminders are on, and buttons to open the app, refresh, or quit.
+Click it for a today-at-a-glance panel: today's date, the next class with its
+countdown, the rest of today's classes (the one in session marked "now"), a
+look-ahead to tomorrow's first class once the day's winding down, whether
+reminders are on, and buttons to open the app, refresh, or quit.
 
 **How to use it** — It's there whenever the app is running, even with the main
 window closed — which is what keeps reminders firing while you work in other
-apps.
+apps. A class you've marked vacant this week drops from the list, same as on the
+grid.
+
+### Today view
+**What it does** — A read-only daily rundown next to the week grid: today's
+classes top to bottom, the one happening now highlighted "In session", finished
+ones dimmed "Done", and upcoming ones with a countdown ("in 25 min" / "at 2PM").
+Free stretches between classes show as "2h 15m free", and a line at the bottom
+previews tomorrow's first class.
+
+**How to use it** — Click **Today** in the sidebar. On a free day (weekend, term
+break) it shows a clean empty state with the tomorrow line still there.
+
+**Notes & limits** — Display only — nothing here edits the schedule. Classes
+marked vacant for the week are dropped, matching the grid.
 
 ---
 
@@ -77,9 +93,11 @@ repeating every week.
 macOS asks permission the first time. Pick how early you're warned (5, 10, 15,
 or 30 minutes).
 
-**Notes & limits** — Reminders only fire while PUPSISPortal is open. Meetings
-you've marked vacant are skipped. If you turn notifications off for the app in
-System Settings, the toggle here offers a shortcut back to fix it.
+**Notes & limits** — Reminders fire only while PUPSISPortal is running. Turn on
+**Settings → Notifications → Start at login** so the app relaunches after a
+restart and is always there to fire them. Meetings you've marked vacant are
+skipped. If you turn notifications off for the app in System Settings, the
+toggle here offers a shortcut back to fix it.
 
 ---
 
@@ -143,14 +161,32 @@ left out of the average. Until anything is posted, the GPA shows a dash, not a
 zero. Like the schedule, grades are saved on your Mac so the page opens
 instantly, and are erased when you sign out.
 
+### GPA trend across terms
+**What it does** — Beyond the current term, the Grades screen draws a **GPA
+trend line** across every past term and shows **units completed** toward your
+program's total — the two things SIS shows one term at a time but never puts
+together. A term picker lets you flip the subject list back to any past
+semester.
+
+**How to use it** — Click **Load past terms** on the Grades screen; the app
+steps through your School Year / Semester dropdowns and pulls each term. Set
+your program's total required units in **Settings → Grades** to get a
+completed-of-total progress bar (SIS doesn't publish that total).
+
+**Notes & limits** — Only terms with posted grades appear on the trend. Better
+GPAs sit higher on the line (PUP grades run 1.00 best to 5.00). Past terms are
+saved on your Mac alongside the current one and erased on sign-out. A repeated
+subject currently counts its units each time it appears.
+
 ---
 
 ## Appearance
 
 ### Themes
-**What it does** — Two hand-tuned looks — **PUP Maroon** (maroon and gold on
-warm paper) and **Astra Moon** (emerald on deep navy) — or **Match System** to
-follow light/dark automatically.
+**What it does** — Three hand-tuned looks — **PUP Maroon** (maroon and gold on
+warm paper), **Ivory** (ink navy on cream, an editorial light look), and
+**Astra Moon** (emerald on deep navy) — or **Match System** to follow light/dark
+automatically.
 
 **How to use it** — **Settings → Appearance → Theme**.
 

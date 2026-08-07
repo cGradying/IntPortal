@@ -37,12 +37,82 @@ struct GradeReport: Codable, Equatable {
     /// on the live page still round-trips instead of being dropped.
     let summary: [String: String]
 
+    /// Which term this snapshot is, read from the grades page's School Year /
+    /// Semester dropdowns. Optional so a report cached before history existed
+    /// (no term fields) still decodes — it just reads as an untagged term.
+    let schoolYear: String?
+    let semester: String?
+
+    init(
+        lastUpdated: Date,
+        subjects: [SubjectGrade],
+        summary: [String: String],
+        schoolYear: String? = nil,
+        semester: String? = nil
+    ) {
+        self.lastUpdated = lastUpdated
+        self.subjects = subjects
+        self.summary = summary
+        self.schoolYear = schoolYear
+        self.semester = semester
+    }
+
     /// Our own weighted GPA over the posted subjects — the number SIS shows one
     /// term at a time but never breaks down. `nil` when nothing is posted yet,
     /// which reads as "no GPA" rather than a misleading 0.00.
     var computedGPA: Double? { GradesParser.gpa(of: subjects) }
 
     var hasPostedGrades: Bool { subjects.contains { $0.isPosted } }
+
+    /// Units the student has actually earned this term — posted subjects only,
+    /// so unposted and INC/DRP don't inflate the count.
+    var completedUnits: Double {
+        subjects.filter(\.isPosted).reduce(0) { $0 + $1.units }
+    }
+
+    /// A short, stable label for the term. Falls back to the update date for a
+    /// legacy untagged snapshot so it still reads as *something*.
+    var termLabel: String {
+        switch (schoolYear, semester) {
+        case let (sy?, sem?): "\(GradeReport.shortSemester(sem)) \(sy)"
+        case let (sy?, nil): sy
+        case let (nil, sem?): sem
+        case (nil, nil): lastUpdated.formatted(.dateTime.year().month())
+        }
+    }
+
+    /// Chronological sort key: `startYear * 10 + semester rank`, so terms line
+    /// up oldest-first on the trend regardless of scrape order.
+    /// ponytail: string heuristic on the dropdown label — fine for PUP's fixed
+    /// term names ("2025-2026", "1st Semester", "Summer"); revisit only if the
+    /// site changes how it prints them.
+    var termOrder: Int {
+        let year = schoolYear.flatMap { GradeReport.startYear(of: $0) } ?? 0
+        return year * 10 + GradeReport.semesterRank(semester)
+    }
+
+    static func startYear(of schoolYear: String) -> Int? {
+        // "2025-2026" → 2025; take the first run of digits.
+        let digits = schoolYear.prefix { $0.isNumber }
+        return Int(digits)
+    }
+
+    static func semesterRank(_ semester: String?) -> Int {
+        guard let s = semester?.lowercased() else { return 0 }
+        if s.contains("1st") || s.contains("first") { return 1 }
+        if s.contains("2nd") || s.contains("second") { return 2 }
+        // Summer / midyear sits after both regular semesters.
+        if s.contains("summer") || s.contains("mid") { return 3 }
+        return 0
+    }
+
+    static func shortSemester(_ semester: String) -> String {
+        let s = semester.lowercased()
+        if s.contains("1st") || s.contains("first") { return "1st Sem" }
+        if s.contains("2nd") || s.contains("second") { return "2nd Sem" }
+        if s.contains("summer") || s.contains("mid") { return "Summer" }
+        return semester
+    }
 }
 
 /// Turns scraped grade rows into typed values, and computes the GPA.
