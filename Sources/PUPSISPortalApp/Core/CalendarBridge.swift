@@ -377,8 +377,7 @@ final class CalendarBridge: ObservableObject {
         until termEnd: Date,
         toCalendarID id: String,
         onlineCalendarID: String? = nil,
-        termStatus: (ClassSession) -> SessionStatus = { _ in .regular },
-        weekStatus: (ClassSession, Date) -> SessionStatus = { _, _ in .regular }
+        status: (ClassSession, Date) -> SessionStatus = { _, _ in .regular }
     ) -> String? {
         guard access == .granted else {
             lastError = "Grant calendar access first."
@@ -394,11 +393,8 @@ final class CalendarBridge: ObservableObject {
         // Online classes go to their own calendar if one is set; otherwise they
         // land with the rest.
         let onlineTarget = onlineCalendarID.flatMap(writable) ?? inPersonTarget
-        // Every calendar we might write to must be cleared first, or a class
-        // that moved calendars would leave a copy behind on the old one.
-        let targets = [inPersonTarget, onlineTarget]
 
-        // End of that day, so a class on the last day still gets an occurrence.
+        // End of that day, so a class on the last day still gets its meeting.
         let lastDay = Calendar.current.startOfDay(for: termEnd).addingTimeInterval(24 * 60 * 60 - 1)
         guard lastDay > weekStart else {
             lastError = "The end date is before this week — nothing would repeat."
@@ -406,77 +402,58 @@ final class CalendarBridge: ObservableObject {
         }
 
         do {
+            // Clear both calendars first, or a class that moved calendars would
+            // leave a copy behind on the old one.
             var removed = 0
-            for target in dedupedCalendars(targets) { removed += try clearExported(from: target) }
+            for target in dedupedCalendars([inPersonTarget, onlineTarget]) {
+                removed += try clearExported(from: target)
+            }
 
+            // One event per (class, week), placed by that week's resolved status
+            // — a single repeating event can't put different weeks on different
+            // calendars, and online varies week to week.
+            // ponytail: rewrites every meeting on each sync (~classes × weeks);
+            // fine at this size, delta-sync if the churn ever bites.
             let calendar = Calendar.current
             var written = 0
             var skipped = 0
-            for session in sessions {
-                let status = termStatus(session)
-                // Vacant-all-term classes are deliberately left off the calendar.
-                guard case let .event(titleSuffix, location) = ClassExport.plan(for: status) else {
-                    skipped += 1
-                    continue
+            var week = weekStart
+            while week <= lastDay {
+                for session in sessions {
+                    let st = status(session, week)
+                    guard case let .event(titleSuffix, location) = ClassExport.plan(for: st) else {
+                        skipped += 1
+                        continue
+                    }
+                    let target = st == .online ? onlineTarget : inPersonTarget
+
+                    let day = session.day.date(inWeekStarting: week, calendar: calendar)
+                    guard let start = calendar.date(byAdding: .minute, value: session.start, to: day),
+                          let end = calendar.date(byAdding: .minute, value: session.end, to: day),
+                          start <= lastDay
+                    else { continue }
+
+                    let event = EKEvent(eventStore: store)
+                    event.title = session.subjectCode + (titleSuffix ?? "")
+                    event.location = location
+                    event.notes = "\(session.description)\n\n\(Self.exportTag)"
+                    event.startDate = start
+                    event.endDate = end
+                    event.calendar = target
+                    try store.save(event, span: .thisEvent, commit: false)
+                    written += 1
                 }
-                let target = status == .online ? onlineTarget : inPersonTarget
-
-                let day = session.day.date(inWeekStarting: weekStart, calendar: calendar)
-                guard let start = calendar.date(byAdding: .minute, value: session.start, to: day),
-                      let end = calendar.date(byAdding: .minute, value: session.end, to: day)
-                else { continue }
-
-                let event = EKEvent(eventStore: store)
-                event.title = session.subjectCode + (titleSuffix ?? "")
-                event.location = location
-                event.notes = "\(session.description)\n\n\(Self.exportTag)"
-                event.startDate = start
-                event.endDate = end
-                event.calendar = target
-                event.recurrenceRules = [
-                    EKRecurrenceRule(
-                        recurrenceWith: .weekly,
-                        interval: 1,
-                        end: EKRecurrenceEnd(end: lastDay)
-                    )
-                ]
-
-                try store.save(event, span: .futureEvents, commit: false)
-                written += 1
+                guard let next = calendar.date(byAdding: .day, value: 7, to: week) else { break }
+                week = next
             }
             try store.commit()
 
-            // A class vacant just one week keeps its series but loses that
-            // week's occurrence — the calendar shows the class repeating with a
-            // hole on the cancelled date, which is what a single-week cancellation
-            // actually is. `.thisEvent` detaches only that occurrence.
-            // ponytail: rebuilds the whole export each sync; delta-sync only if the
-            // per-toggle churn ever bites Google/iCloud.
-            var cancelled = 0
-            for session in sessions {
-                let status = termStatus(session)
-                guard status != .vacant else { continue }
-                let target = status == .online ? onlineTarget : inPersonTarget
-                var week = weekStart
-                while week <= lastDay {
-                    if weekStatus(session, week) == .vacant {
-                        let day = session.day.date(inWeekStarting: week, calendar: calendar)
-                        if removeExportedOccurrence(of: session, on: day, in: target) { cancelled += 1 }
-                    }
-                    guard let next = calendar.date(byAdding: .day, value: 7, to: week) else { break }
-                    week = next
-                }
-            }
-            if cancelled > 0 { try store.commit() }
-
             lastError = nil
             let replaced = removed > 0 ? ", replacing \(removed)" : ""
-            let vacant = skipped > 0 ? ", skipping \(skipped) vacant" : ""
-            let holes = cancelled > 0 ? ", \(cancelled) week\(cancelled == 1 ? "" : "s") cancelled" : ""
             let split = onlineTarget.calendarIdentifier != inPersonTarget.calendarIdentifier
                 ? " (online to “\(onlineTarget.title)”)" : ""
             let through = lastDay.formatted(.dateTime.month(.abbreviated).day().year())
-            return "Added \(written) class\(written == 1 ? "" : "es") to “\(inPersonTarget.title)”\(split) through \(through)\(replaced)\(vacant)\(holes)."
+            return "Exported \(written) class meeting\(written == 1 ? "" : "s") to “\(inPersonTarget.title)”\(split) through \(through)\(replaced)."
         } catch {
             store.reset()
             lastError = error.localizedDescription
@@ -489,30 +466,6 @@ final class CalendarBridge: ObservableObject {
     private func dedupedCalendars(_ calendars: [EKCalendar]) -> [EKCalendar] {
         var seen = Set<String>()
         return calendars.filter { seen.insert($0.calendarIdentifier).inserted }
-    }
-
-    /// Deletes a single week's occurrence of an exported class — the one whose
-    /// weekday, start time, and subject match — leaving the rest of the series
-    /// in place. Matches only this app's own tagged events.
-    @discardableResult
-    private func removeExportedOccurrence(of session: ClassSession, on date: Date, in target: EKCalendar) -> Bool {
-        let calendar = Calendar.current
-        let dayStart = calendar.startOfDay(for: date)
-        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return false }
-
-        let predicate = store.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: [target])
-        var removedAny = false
-        for occurrence in store.events(matching: predicate) where Self.isOurExport(occurrence) {
-            let minutes = calendar.component(.hour, from: occurrence.startDate) * 60
-                + calendar.component(.minute, from: occurrence.startDate)
-            guard minutes == session.start,
-                  (occurrence.title ?? "").hasPrefix(session.subjectCode)
-            else { continue }
-
-            try? store.remove(occurrence, span: .thisEvent, commit: false)
-            removedAny = true
-        }
-        return removedAny
     }
 
     /// Removes only events carrying this app's tag. Anything the user put in

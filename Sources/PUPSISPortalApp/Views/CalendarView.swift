@@ -139,7 +139,7 @@ struct CalendarView: View {
         // class online for the term and Calendar.app relabels it; mark it
         // vacant and it drops out — no manual re-export. Per-week status stays
         // out of this; a repeating series can't carry a single week's exception.
-        .onChange(of: statusExportKey) { resyncCalendarExport() }
+        .onChange(of: exportKey) { resyncCalendarExport() }
         // ...and when Calendar.app itself changes underneath us.
         .onReceive(NotificationCenter.default.publisher(for: .calendarStoreChanged)) { _ in
             reload()
@@ -338,18 +338,19 @@ struct CalendarView: View {
         ].joined(separator: "|")
     }
 
-    /// Every status that the export depends on — term defaults *and* per-week
-    /// exceptions — so changing any of them (vacant, online, or back to regular)
-    /// re-syncs the calendar. A one-week vacancy has to reach here too, or its
-    /// occurrence would never get punched out of the exported series.
-    private var statusExportKey: String {
+    /// Everything the export depends on — term defaults, per-week exceptions,
+    /// and which calendars in-person and online go to — so changing any of them
+    /// re-syncs. Picking the online calendar has to reach here, or the classes
+    /// never move onto it.
+    private var exportKey: String {
         let term = controller.sessions
             .map { "\($0.id):\(preferences.termStatus(for: $0).rawValue)" }
             .sorted()
         let perWeek = preferences.occurrenceStatuses
             .map { "\($0.key):\($0.value.rawValue)" }
             .sorted()
-        return (term + perWeek).joined(separator: ",")
+        return (term + perWeek + [preferences.exportCalendarID, preferences.onlineExportCalendarID])
+            .joined(separator: ",")
     }
 
     /// Re-writes the exported classes so Calendar.app reflects the current term
@@ -368,8 +369,7 @@ struct CalendarView: View {
             until: preferences.termEndDate,
             toCalendarID: preferences.exportCalendarID,
             onlineCalendarID: preferences.onlineExportCalendarID.isEmpty ? nil : preferences.onlineExportCalendarID,
-            termStatus: { preferences.termStatus(for: $0) },
-            weekStatus: { preferences.status(for: $0, on: $1) }
+            status: { preferences.status(for: $0, on: $1) }
         )
     }
 
