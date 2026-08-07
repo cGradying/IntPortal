@@ -20,6 +20,9 @@ struct CalendarView: View {
     /// Vacant classes stay visible by default (faded, in their slot); this can
     /// hide them for a cleaner week once you've stopped managing cancellations.
     @State private var showCancelled = true
+    /// The view/nav controls collapse to a single icon; expanding persists for
+    /// the session, so once opened the keyboard shortcuts stay live too.
+    @State private var controlsExpanded = false
     @State private var editing: EditorRequest?
     /// Set when an edit lands on a repeating event and the scope has to be
     /// asked for rather than assumed.
@@ -404,50 +407,65 @@ struct CalendarView: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItemGroup {
-            Picker("View", selection: $scale) {
-                ForEach(CalendarScale.allCases) { option in
-                    Text(option.label).tag(option)
+        ToolbarItem {
+            HStack(spacing: 8) {
+                if controlsExpanded {
+                    scheduleControls
+                        // Slides out from behind the icon rather than popping in.
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
 
-            Button { step(-1) } label: {
-                Label(scale == .week ? "Previous Week" : "Previous Year", systemImage: "chevron.left")
-            }
-            .keyboardShortcut("[", modifiers: .command)
-
-            Button("Today") { weekOffset = 0 }
-                .disabled(weekOffset == 0)
-
-            Button { step(1) } label: {
-                Label(scale == .week ? "Next Week" : "Next Year", systemImage: "chevron.right")
-            }
-            .keyboardShortcut("]", modifiers: .command)
-
-            // Only when there are cancellations to act on — otherwise it's a
-            // button for nothing.
-            if scale == .week, hasVacantThisWeek {
-                Button { showCancelled.toggle() } label: {
-                    Label(showCancelled ? "Hide Cancelled" : "Show Cancelled",
-                          systemImage: showCancelled ? "eye" : "eye.slash")
+                Button {
+                    withAnimation(Motion.arrival(reduced: reduceMotion)) { controlsExpanded.toggle() }
+                } label: {
+                    Image(systemName: controlsExpanded ? "chevron.right" : "slider.horizontal.3")
                 }
-                .help("Show or hide classes you've marked vacant this week")
+                .help(controlsExpanded ? "Hide controls" : "Show controls")
+                .accessibilityLabel(controlsExpanded ? "Hide controls" : "Show controls")
             }
-
-            Button(action: newEventAtDefaultSlot) {
-                Label("New Event", systemImage: "plus")
-            }
-            .keyboardShortcut("n", modifiers: .command)
-            .disabled(!canEdit)
-            .help(canEdit ? "Add an event to Calendar" : "Connect Calendar in Settings first")
-
-            Button("Duplicate", action: duplicateSelection)
-                .keyboardShortcut("d", modifiers: .command)
-                .disabled(selection.isEmpty)
-                .hidden()
         }
+    }
+
+    /// The view/navigation cluster, revealed when the toolbar is expanded.
+    @ViewBuilder
+    private var scheduleControls: some View {
+        Picker("View", selection: $scale) {
+            ForEach(CalendarScale.allCases) { option in
+                Text(option.label).tag(option)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+
+        Button { step(-1) } label: {
+            Label(scale == .week ? "Previous Week" : "Previous Year", systemImage: "chevron.left")
+        }
+        .keyboardShortcut("[", modifiers: .command)
+
+        Button("Today") { weekOffset = 0 }
+            .disabled(weekOffset == 0)
+
+        Button { step(1) } label: {
+            Label(scale == .week ? "Next Week" : "Next Year", systemImage: "chevron.right")
+        }
+        .keyboardShortcut("]", modifiers: .command)
+
+        // Only when there are cancellations to act on — otherwise it's a
+        // button for nothing.
+        if scale == .week, hasVacantThisWeek {
+            Button { showCancelled.toggle() } label: {
+                Label(showCancelled ? "Hide Cancelled" : "Show Cancelled",
+                      systemImage: showCancelled ? "eye" : "eye.slash")
+            }
+            .help("Show or hide classes you've marked vacant this week")
+        }
+
+        Button(action: newEventAtDefaultSlot) {
+            Label("New Event", systemImage: "plus")
+        }
+        .keyboardShortcut("n", modifiers: .command)
+        .disabled(!canEdit)
+        .help(canEdit ? "Add an event to Calendar" : "Connect Calendar in Settings first")
     }
 
     /// The arrows move by whatever the current view shows, so they stay useful
