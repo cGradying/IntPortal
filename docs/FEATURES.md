@@ -110,8 +110,11 @@ here — they'd be overwritten on the next refresh.
 **What it does** — Writes your whole class schedule into a calendar you pick,
 as weekly repeats, so your classes show up on all your devices.
 
-**How to use it** — **Settings → Calendar**, choose which calendar to add to
-and a "repeat until" date (usually the end of term), then **Add to Calendar…**.
+**How to use it** — **Settings → Calendar**, choose which calendar in-person
+classes go to and a "repeat until" date (usually the end of term), then **Add to
+Calendar…**. You can send **online classes to a separate calendar** ("Online
+classes to") — a different colour/label in Apple or Google Calendar — or leave
+them with the rest.
 
 **Notes & limits** — Needs a calendar you can edit; the app won't create one.
 Running it again replaces the classes it added before and leaves your own
@@ -171,9 +174,9 @@ pick a status. A status applies to **just the week you're viewing** by default;
 tick **Every week this term** to make it stick across the semester. For online
 classes the panel also has an "Online strip" colour.
 
-A class marked vacant **disappears** from the week grid — a cancelled class
-shouldn't take up space. Use **Show Cancelled** in the toolbar to bring hidden
-ones back (faded) if you need to restore one.
+A class marked vacant stays visible in its slot, faded, so you can still see and
+restore it. Use **Hide Cancelled** in the toolbar for a cleaner week once you're
+done.
 
 **Notes & limits** — Status is per meeting, not per subject: the same course can
 be in-person on Tuesday and online on Friday. If you've exported to Apple/Google

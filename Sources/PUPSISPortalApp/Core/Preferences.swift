@@ -78,10 +78,17 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(Array(visibleCalendarIDs), forKey: Key.visibleCalendarIDs) }
     }
 
-    /// Which calendar classes get exported into. Empty until the user picks —
-    /// there's no safe default guess for someone else's calendar.
+    /// Which calendar in-person classes get exported into. Empty until the user
+    /// picks — there's no safe default guess for someone else's calendar.
     @Published var exportCalendarID: String {
         didSet { defaults.set(exportCalendarID, forKey: Key.exportCalendarID) }
+    }
+
+    /// Which calendar online classes go into. Empty means "same as in-person",
+    /// so by default everything lands in one calendar until the user separates
+    /// them.
+    @Published var onlineExportCalendarID: String {
+        didSet { defaults.set(onlineExportCalendarID, forKey: Key.onlineExportCalendarID) }
     }
 
     /// When exported classes stop repeating. The SIS doesn't publish a term
@@ -128,6 +135,7 @@ final class Preferences: ObservableObject {
         static let onlineStripColors = "onlineStripColors"
         static let visibleCalendarIDs = "visibleCalendarIDs"
         static let exportCalendarID = "exportCalendarID"
+        static let onlineExportCalendarID = "onlineExportCalendarID"
         static let eventColors = "eventColors"
         static let termEndDate = "termEndDate"
         static let notificationsEnabled = "notificationsEnabled"
@@ -149,6 +157,7 @@ final class Preferences: ObservableObject {
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         visibleCalendarIDs = Set(defaults.stringArray(forKey: Key.visibleCalendarIDs) ?? [])
         exportCalendarID = defaults.string(forKey: Key.exportCalendarID) ?? ""
+        onlineExportCalendarID = defaults.string(forKey: Key.onlineExportCalendarID) ?? ""
         termEndDate = (defaults.object(forKey: Key.termEndDate) as? Double)
             .map(Date.init(timeIntervalSince1970:)) ?? Self.defaultTermEnd()
         notificationsEnabled = defaults.bool(forKey: Key.notificationsEnabled)

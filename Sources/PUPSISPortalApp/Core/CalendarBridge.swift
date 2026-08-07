@@ -376,6 +376,7 @@ final class CalendarBridge: ObservableObject {
         weekStart: Date,
         until termEnd: Date,
         toCalendarID id: String,
+        onlineCalendarID: String? = nil,
         termStatus: (ClassSession) -> SessionStatus = { _ in .regular },
         weekStatus: (ClassSession, Date) -> SessionStatus = { _, _ in .regular }
     ) -> String? {
@@ -383,14 +384,20 @@ final class CalendarBridge: ObservableObject {
             lastError = "Grant calendar access first."
             return nil
         }
-        guard let target = store.calendars(for: .event).first(where: { $0.calendarIdentifier == id }) else {
-            lastError = "That calendar is no longer available."
+        func writable(_ id: String) -> EKCalendar? {
+            store.calendars(for: .event).first { $0.calendarIdentifier == id && $0.allowsContentModifications }
+        }
+        guard let inPersonTarget = writable(id) else {
+            lastError = "That calendar is unavailable or read-only. Pick one you can edit."
             return nil
         }
-        guard target.allowsContentModifications else {
-            lastError = "“\(target.title)” is read-only. Pick a calendar you can edit."
-            return nil
-        }
+        // Online classes go to their own calendar if one is set; otherwise they
+        // land with the rest.
+        let onlineTarget = onlineCalendarID.flatMap(writable) ?? inPersonTarget
+        // Every calendar we might write to must be cleared first, or a class
+        // that moved calendars would leave a copy behind on the old one.
+        let targets = [inPersonTarget, onlineTarget]
+
         // End of that day, so a class on the last day still gets an occurrence.
         let lastDay = Calendar.current.startOfDay(for: termEnd).addingTimeInterval(24 * 60 * 60 - 1)
         guard lastDay > weekStart else {
@@ -399,17 +406,20 @@ final class CalendarBridge: ObservableObject {
         }
 
         do {
-            let removed = try clearExported(from: target)
+            var removed = 0
+            for target in dedupedCalendars(targets) { removed += try clearExported(from: target) }
 
             let calendar = Calendar.current
             var written = 0
             var skipped = 0
             for session in sessions {
+                let status = termStatus(session)
                 // Vacant-all-term classes are deliberately left off the calendar.
-                guard case let .event(titleSuffix, location) = ClassExport.plan(for: termStatus(session)) else {
+                guard case let .event(titleSuffix, location) = ClassExport.plan(for: status) else {
                     skipped += 1
                     continue
                 }
+                let target = status == .online ? onlineTarget : inPersonTarget
 
                 let day = session.day.date(inWeekStarting: weekStart, calendar: calendar)
                 guard let start = calendar.date(byAdding: .minute, value: session.start, to: day),
@@ -443,7 +453,10 @@ final class CalendarBridge: ObservableObject {
             // ponytail: rebuilds the whole export each sync; delta-sync only if the
             // per-toggle churn ever bites Google/iCloud.
             var cancelled = 0
-            for session in sessions where termStatus(session) != .vacant {
+            for session in sessions {
+                let status = termStatus(session)
+                guard status != .vacant else { continue }
+                let target = status == .online ? onlineTarget : inPersonTarget
                 var week = weekStart
                 while week <= lastDay {
                     if weekStatus(session, week) == .vacant {
@@ -460,13 +473,22 @@ final class CalendarBridge: ObservableObject {
             let replaced = removed > 0 ? ", replacing \(removed)" : ""
             let vacant = skipped > 0 ? ", skipping \(skipped) vacant" : ""
             let holes = cancelled > 0 ? ", \(cancelled) week\(cancelled == 1 ? "" : "s") cancelled" : ""
+            let split = onlineTarget.calendarIdentifier != inPersonTarget.calendarIdentifier
+                ? " (online to “\(onlineTarget.title)”)" : ""
             let through = lastDay.formatted(.dateTime.month(.abbreviated).day().year())
-            return "Added \(written) class\(written == 1 ? "" : "es") to “\(target.title)” through \(through)\(replaced)\(vacant)\(holes)."
+            return "Added \(written) class\(written == 1 ? "" : "es") to “\(inPersonTarget.title)”\(split) through \(through)\(replaced)\(vacant)\(holes)."
         } catch {
             store.reset()
             lastError = error.localizedDescription
             return nil
         }
+    }
+
+    /// Distinct calendars by identifier — in-person and online may be the same
+    /// one, and clearing it twice would just waste a query.
+    private func dedupedCalendars(_ calendars: [EKCalendar]) -> [EKCalendar] {
+        var seen = Set<String>()
+        return calendars.filter { seen.insert($0.calendarIdentifier).inserted }
     }
 
     /// Deletes a single week's occurrence of an exported class — the one whose

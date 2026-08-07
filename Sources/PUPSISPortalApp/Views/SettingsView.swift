@@ -166,12 +166,22 @@ private extension SettingsView {
                     Text("None of your calendars can be edited, so classes can't be exported.")
                         .foregroundStyle(.secondary)
                 } else {
-                    Picker("Add classes to", selection: $preferences.exportCalendarID) {
+                    Picker("In-person classes to", selection: $preferences.exportCalendarID) {
                         Text("Choose a calendar…").tag("")
                         ForEach(calendar.writableCalendars) { info in
                             Text(info.title).tag(info.id)
                         }
                     }
+
+                    // Route online classes to their own calendar — a separate
+                    // "label" in Apple/Google Calendar — or leave them with the rest.
+                    Picker("Online classes to", selection: $preferences.onlineExportCalendarID) {
+                        Text("Same as in-person").tag("")
+                        ForEach(calendar.writableCalendars) { info in
+                            Text(info.title).tag(info.id)
+                        }
+                    }
+                    .disabled(preferences.exportCalendarID.isEmpty)
 
                     DatePicker(
                         "Repeat until",
@@ -211,12 +221,14 @@ private extension SettingsView {
         case .granted:
             """
             Ticked calendars appear alongside your classes in the week grid. \
-            Adding your classes writes them as weekly repeats into the calendar you choose, \
+            Adding your classes writes them as weekly repeats into the calendars you choose, \
             stopping on the date above; running it again replaces the ones this app added \
-            and leaves your own events alone. Classes you've marked online for the whole term \
-            are labelled Online; classes marked vacant for the term are left off. Re-run this \
-            after changing a status. Classes added this way stay hidden here so they don't show \
-            up twice — they're still in Calendar.app and on your other devices.
+            and leaves your own events alone. Online classes can go to their own calendar — \
+            pick one under "Online classes to" — otherwise they land with the rest, labelled \
+            Online. Classes marked vacant for the term are left off; a class vacant for a single \
+            week loses just that date. After the first export, status changes sync automatically. \
+            Classes added this way stay hidden here so they don't show up twice — they're still \
+            in Calendar.app and on your other devices.
             """
         default:
             "Nothing from your calendar is shown until you connect and pick which calendars to include."
@@ -233,6 +245,7 @@ private extension SettingsView {
             weekStart: Weekday.weekStart(containing: .now),
             until: preferences.termEndDate,
             toCalendarID: preferences.exportCalendarID,
+            onlineCalendarID: preferences.onlineExportCalendarID.isEmpty ? nil : preferences.onlineExportCalendarID,
             termStatus: { preferences.termStatus(for: $0) },
             weekStatus: { preferences.status(for: $0, on: $1) }
         )

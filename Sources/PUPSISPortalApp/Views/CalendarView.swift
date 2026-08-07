@@ -17,9 +17,9 @@ struct CalendarView: View {
     @State private var weekOffset = 0
     @State private var scale: CalendarScale = .week
     @State private var selection: Set<String> = []
-    /// Cancelled (vacant) classes are hidden by default; this reveals them so a
-    /// mistaken cancellation can be undone.
-    @State private var showCancelled = false
+    /// Vacant classes stay visible by default (faded, in their slot); this can
+    /// hide them for a cleaner week once you've stopped managing cancellations.
+    @State private var showCancelled = true
     @State private var editing: EditorRequest?
     /// Set when an edit lands on a repeating event and the scope has to be
     /// asked for rather than assumed.
@@ -367,6 +367,7 @@ struct CalendarView: View {
             weekStart: Weekday.weekStart(containing: .now),
             until: preferences.termEndDate,
             toCalendarID: preferences.exportCalendarID,
+            onlineCalendarID: preferences.onlineExportCalendarID.isEmpty ? nil : preferences.onlineExportCalendarID,
             termStatus: { preferences.termStatus(for: $0) },
             weekStatus: { preferences.status(for: $0, on: $1) }
         )
@@ -392,8 +393,8 @@ struct CalendarView: View {
         controller.signIn(with: credentials)
     }
 
-    /// A class is vacant this week and therefore hidden from the grid.
-    private var hasHiddenCancellations: Bool {
+    /// A class is vacant this week, so the show/hide toggle is worth offering.
+    private var hasVacantThisWeek: Bool {
         controller.sessions.contains { preferences.status(for: $0, on: weekStart) == .vacant }
     }
 
@@ -423,14 +424,14 @@ struct CalendarView: View {
             }
             .keyboardShortcut("]", modifiers: .command)
 
-            // Only worth showing when there's something hidden to bring back, or
-            // it's already on — otherwise it's a button for nothing.
-            if scale == .week, showCancelled || hasHiddenCancellations {
+            // Only when there are cancellations to act on — otherwise it's a
+            // button for nothing.
+            if scale == .week, hasVacantThisWeek {
                 Button { showCancelled.toggle() } label: {
                     Label(showCancelled ? "Hide Cancelled" : "Show Cancelled",
                           systemImage: showCancelled ? "eye" : "eye.slash")
                 }
-                .help("Reveal classes you've marked vacant so you can restore them")
+                .help("Show or hide classes you've marked vacant this week")
             }
 
             Button(action: newEventAtDefaultSlot) {
