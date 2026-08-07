@@ -15,6 +15,11 @@ final class AppState: ObservableObject {
     @Published var now = Date()
     private var clock: Timer?
 
+    /// Which destination the window shows, and whether Settings is up. App-level
+    /// so the menu commands (⌘1/2/3, ⌘,) can drive them, not just the view.
+    @Published var selection: Destination = .schedule
+    @Published var showingSettings = false
+
     init() {
         credentials = KeychainStore.load()
         isEditing = credentials == nil
@@ -82,11 +87,12 @@ final class AppState: ObservableObject {
     }
 }
 
-enum SidebarItem: String, CaseIterable, Identifiable {
+/// The three main destinations. Settings is no longer one of these — it's a
+/// sheet behind the gear button.
+enum Destination: String, CaseIterable, Identifiable {
     case schedule
     case today
     case grades
-    case settings
 
     var id: String { rawValue }
 
@@ -95,7 +101,6 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .schedule: "Schedule"
         case .today: "Today"
         case .grades: "Grades"
-        case .settings: "Settings"
         }
     }
 
@@ -104,7 +109,6 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .schedule: "calendar"
         case .today: "list.bullet.rectangle"
         case .grades: "graduationcap"
-        case .settings: "gearshape"
         }
     }
 }
@@ -112,7 +116,6 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
-    @State private var selection: SidebarItem = .schedule
     @Environment(\.colorScheme) private var systemScheme
 
     var body: some View {
@@ -126,35 +129,69 @@ struct ContentView: View {
     @ViewBuilder
     private var content: some View {
         if appState.isEditing || appState.credentials == nil {
-            // No sidebar before sign-in: there is nowhere to navigate to yet.
+            // No nav before sign-in: there is nowhere to go yet.
             CredentialsView(existing: appState.credentials, onSave: appState.save)
         } else if let credentials = appState.credentials {
-            NavigationSplitView {
-                SidebarView(selection: $selection)
-                    .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
-            } detail: {
-                switch selection {
-                case .schedule:
-                    CalendarView(
-                        controller: appState.portal,
-                        preferences: preferences,
-                        calendar: appState.calendar,
-                        credentials: credentials
-                    )
-                case .today:
-                    AgendaView(appState: appState, preferences: preferences)
-                case .grades:
-                    GradesView(controller: appState.portal, preferences: preferences)
-                case .settings:
-                    SettingsView(
-                        appState: appState,
-                        preferences: preferences,
-                        calendar: appState.calendar
-                    )
+            NavigationStack {
+                destination(for: credentials)
+                    // The pill lives in the title bar centre — a thin top switcher
+                    // that clears the content, with the gear beside it. Each view
+                    // keeps its own toolbar items alongside.
+                    .toolbar {
+                        ToolbarItem(placement: .principal) {
+                            DestinationBar(selection: $appState.selection)
+                        }
+                        ToolbarItem(placement: .automatic) {
+                            gearButton
+                        }
+                    }
+            }
+            .sheet(isPresented: $appState.showingSettings) { settingsSheet }
+            .frame(minWidth: 900, minHeight: 600)
+        }
+    }
+
+    @ViewBuilder
+    private func destination(for credentials: Credentials) -> some View {
+        switch appState.selection {
+        case .schedule:
+            CalendarView(
+                controller: appState.portal,
+                preferences: preferences,
+                calendar: appState.calendar,
+                credentials: credentials
+            )
+        case .today:
+            AgendaView(appState: appState, preferences: preferences)
+        case .grades:
+            GradesView(controller: appState.portal, preferences: preferences)
+        }
+    }
+
+    private var gearButton: some View {
+        Button {
+            appState.showingSettings = true
+        } label: {
+            Image(systemName: "gearshape")
+        }
+        .help("Settings")
+        .accessibilityLabel("Settings")
+    }
+
+    private var settingsSheet: some View {
+        NavigationStack {
+            SettingsView(
+                appState: appState,
+                preferences: preferences,
+                calendar: appState.calendar
+            )
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { appState.showingSettings = false }
                 }
             }
-            .frame(minWidth: 1040, minHeight: 600)
         }
+        .frame(width: 560, height: 620)
     }
 }
 
@@ -167,6 +204,24 @@ struct PUPSISPortalApp: App {
             ContentView(appState: appState, preferences: appState.preferences)
         }
         .commands {
+            // Settings by ⌘, in the app menu, now that it's a sheet not a row.
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { appState.showingSettings = true }
+                    .keyboardShortcut(",", modifiers: .command)
+                    .disabled(appState.credentials == nil)
+            }
+
+            // Keep the destinations reachable from the keyboard without a sidebar.
+            CommandGroup(after: .toolbar) {
+                Button("Schedule") { appState.selection = .schedule }
+                    .keyboardShortcut("1", modifiers: .command)
+                Button("Today") { appState.selection = .today }
+                    .keyboardShortcut("2", modifiers: .command)
+                Button("Grades") { appState.selection = .grades }
+                    .keyboardShortcut("3", modifiers: .command)
+                Divider()
+            }
+
             CommandMenu("Account") {
                 Button("Refresh") { Task { await appState.refresh() } }
                     .keyboardShortcut("r")
