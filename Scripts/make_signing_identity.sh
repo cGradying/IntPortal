@@ -38,12 +38,17 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
   -addext "extendedKeyUsage=critical,codeSigning" \
   >/dev/null 2>&1
 
-openssl pkcs12 -export -out "$TMP/identity.p12" \
-  -inkey "$TMP/key.pem" -in "$TMP/cert.pem" -passout pass: >/dev/null 2>&1
+# OpenSSL 3 defaults to a PKCS12 MAC (SHA-256) and encryption that macOS's
+# `security import` can't verify — it fails with "MAC verification failed".
+# `-legacy` + an explicit SHA1 MAC produce a bundle the keychain accepts, and a
+# real (throwaway) password is more reliable through `security` than an empty one.
+P12PASS="pupsisportal"
+openssl pkcs12 -export -legacy -macalg sha1 -out "$TMP/identity.p12" \
+  -inkey "$TMP/key.pem" -in "$TMP/cert.pem" -passout "pass:$P12PASS" >/dev/null 2>&1
 
 # -T limits use of the private key to codesign rather than any binary.
 echo "Importing into the login keychain (macOS may ask for your password)..."
-security import "$TMP/identity.p12" -k "$KEYCHAIN" -P "" -T /usr/bin/codesign
+security import "$TMP/identity.p12" -k "$KEYCHAIN" -P "$P12PASS" -T /usr/bin/codesign
 
 echo "Marking it trusted for code signing (user domain only)..."
 security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$TMP/cert.pem"
