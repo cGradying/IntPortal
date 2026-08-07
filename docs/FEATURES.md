@@ -176,9 +176,10 @@ shouldn't take up space. Use **Show Cancelled** in the toolbar to bring hidden
 ones back (faded) if you need to restore one.
 
 **Notes & limits** — Status is per meeting, not per subject: the same course can
-be in-person on Tuesday and online on Friday. Reminders, the next-class banner,
-and the Apple Calendar export act on a **whole-term** status (the "every week"
-tick): term-vacant classes are dropped from the export automatically and
-term-online ones are relabelled — no manual re-export. A single vacant week only
-hides that week in the app, since a repeating calendar event and a weekly
-reminder can't skip one occurrence.
+be in-person on Tuesday and online on Friday. If you've exported to Apple/Google
+Calendar, status changes sync there automatically: a class vacant **for the
+term** is dropped entirely, a class vacant **just one week** keeps repeating but
+loses that week's date, and an online class is relabelled "(Online)" — no manual
+re-export. (The calendar only syncs once you've picked an export calendar in
+Settings.) Reminders and the next-class banner still act on whole-term status
+only — a weekly reminder can't skip a single week.

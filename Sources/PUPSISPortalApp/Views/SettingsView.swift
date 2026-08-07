@@ -233,7 +233,8 @@ private extension SettingsView {
             weekStart: Weekday.weekStart(containing: .now),
             until: preferences.termEndDate,
             toCalendarID: preferences.exportCalendarID,
-            status: { preferences.termStatus(for: $0) }
+            termStatus: { preferences.termStatus(for: $0) },
+            weekStatus: { preferences.status(for: $0, on: $1) }
         )
     }
 }

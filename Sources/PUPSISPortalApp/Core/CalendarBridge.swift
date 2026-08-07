@@ -376,7 +376,8 @@ final class CalendarBridge: ObservableObject {
         weekStart: Date,
         until termEnd: Date,
         toCalendarID id: String,
-        status: (ClassSession) -> SessionStatus = { _ in .regular }
+        termStatus: (ClassSession) -> SessionStatus = { _ in .regular },
+        weekStatus: (ClassSession, Date) -> SessionStatus = { _, _ in .regular }
     ) -> String? {
         guard access == .granted else {
             lastError = "Grant calendar access first."
@@ -405,7 +406,7 @@ final class CalendarBridge: ObservableObject {
             var skipped = 0
             for session in sessions {
                 // Vacant-all-term classes are deliberately left off the calendar.
-                guard case let .event(titleSuffix, location) = ClassExport.plan(for: status(session)) else {
+                guard case let .event(titleSuffix, location) = ClassExport.plan(for: termStatus(session)) else {
                     skipped += 1
                     continue
                 }
@@ -435,16 +436,61 @@ final class CalendarBridge: ObservableObject {
             }
             try store.commit()
 
+            // A class vacant just one week keeps its series but loses that
+            // week's occurrence — the calendar shows the class repeating with a
+            // hole on the cancelled date, which is what a single-week cancellation
+            // actually is. `.thisEvent` detaches only that occurrence.
+            // ponytail: rebuilds the whole export each sync; delta-sync only if the
+            // per-toggle churn ever bites Google/iCloud.
+            var cancelled = 0
+            for session in sessions where termStatus(session) != .vacant {
+                var week = weekStart
+                while week <= lastDay {
+                    if weekStatus(session, week) == .vacant {
+                        let day = session.day.date(inWeekStarting: week, calendar: calendar)
+                        if removeExportedOccurrence(of: session, on: day, in: target) { cancelled += 1 }
+                    }
+                    guard let next = calendar.date(byAdding: .day, value: 7, to: week) else { break }
+                    week = next
+                }
+            }
+            if cancelled > 0 { try store.commit() }
+
             lastError = nil
             let replaced = removed > 0 ? ", replacing \(removed)" : ""
             let vacant = skipped > 0 ? ", skipping \(skipped) vacant" : ""
+            let holes = cancelled > 0 ? ", \(cancelled) week\(cancelled == 1 ? "" : "s") cancelled" : ""
             let through = lastDay.formatted(.dateTime.month(.abbreviated).day().year())
-            return "Added \(written) class\(written == 1 ? "" : "es") to “\(target.title)” through \(through)\(replaced)\(vacant)."
+            return "Added \(written) class\(written == 1 ? "" : "es") to “\(target.title)” through \(through)\(replaced)\(vacant)\(holes)."
         } catch {
             store.reset()
             lastError = error.localizedDescription
             return nil
         }
+    }
+
+    /// Deletes a single week's occurrence of an exported class — the one whose
+    /// weekday, start time, and subject match — leaving the rest of the series
+    /// in place. Matches only this app's own tagged events.
+    @discardableResult
+    private func removeExportedOccurrence(of session: ClassSession, on date: Date, in target: EKCalendar) -> Bool {
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return false }
+
+        let predicate = store.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: [target])
+        var removedAny = false
+        for occurrence in store.events(matching: predicate) where Self.isOurExport(occurrence) {
+            let minutes = calendar.component(.hour, from: occurrence.startDate) * 60
+                + calendar.component(.minute, from: occurrence.startDate)
+            guard minutes == session.start,
+                  (occurrence.title ?? "").hasPrefix(session.subjectCode)
+            else { continue }
+
+            try? store.remove(occurrence, span: .thisEvent, commit: false)
+            removedAny = true
+        }
+        return removedAny
     }
 
     /// Removes only events carrying this app's tag. Anything the user put in
