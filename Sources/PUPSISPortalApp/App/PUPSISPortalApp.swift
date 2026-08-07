@@ -130,11 +130,8 @@ struct ContentView: View {
             CredentialsView(existing: appState.credentials, onSave: appState.save)
         } else if let credentials = appState.credentials {
             NavigationSplitView {
-                List(SidebarItem.allCases, selection: $selection) { item in
-                    Label(item.title, systemImage: item.symbol)
-                        .tag(item)
-                }
-                .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 240)
+                SidebarView(selection: $selection)
+                    .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
             } detail: {
                 switch selection {
                 case .schedule:
