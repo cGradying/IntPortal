@@ -514,7 +514,7 @@ struct CalendarView: View {
                 Text(message)
             } actions: {
                 Button("Try again", action: retry)
-                    .buttonStyle(.glassProminent)
+                    .glassProminentButton()
                     .tint(palette.accent)
             }
 
@@ -571,7 +571,7 @@ private struct StatusFooter: View {
             Spacer(minLength: 12)
 
             Button(refreshError == nil ? "Refresh" : "Try again", action: onRetry)
-                .buttonStyle(.glass)
+                .glassButton()
                 .tint(palette.accent)
                 .controlSize(.small)
         }
@@ -621,7 +621,7 @@ private struct NextClassBanner: View {
                 .font(Theme.Typo.footer)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
-                .glassEffect(.regular.tint(color.opacity(0.18)), in: .capsule)
+                .glassTintedCapsule(color.opacity(0.18))
                 .help("\(upcoming.session.description) · \(upcoming.session.timeLabel)")
                 .accessibilityElement(children: .combine)
                 // Only the subject changing is worth animating; the countdown

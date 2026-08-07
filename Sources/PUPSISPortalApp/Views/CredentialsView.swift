@@ -65,7 +65,7 @@ struct CredentialsView: View {
         .padding(24)
         .frame(width: 360)
         // A form is chrome, not content, so glass is the right layer for it.
-        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .glassPanel(cornerRadius: 20)
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(palette.canvasWash.ignoresSafeArea())

@@ -141,7 +141,7 @@ struct EventEditorPopover: View {
                 .keyboardShortcut(.cancelAction)
             Button(existing == nil ? "Add" : "Save", action: commit)
                 .keyboardShortcut(.defaultAction)
-                .buttonStyle(.glassProminent)
+                .glassProminentButton()
                 .disabled(!canCommit)
         }
     }

@@ -34,7 +34,7 @@ struct NowLine: View {
                     .foregroundStyle(palette.nowTint)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
-                    .glassEffect(.regular.tint(palette.nowTint.opacity(0.22)), in: .capsule)
+                    .glassTintedCapsule(palette.nowTint.opacity(0.22))
                     .frame(width: gutter, alignment: .trailing)
                     .accessibilityLabel("Now, \(ClassSession.format(minutes))")
 

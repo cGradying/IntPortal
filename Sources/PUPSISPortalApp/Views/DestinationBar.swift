@@ -18,7 +18,7 @@ struct DestinationBar: View {
             }
         }
         .padding(4)
-        .glassEffect(.regular, in: .capsule)
+        .glassCapsule()
         .animation(Motion.selection(reduced: reduceMotion), value: selection)
     }
 

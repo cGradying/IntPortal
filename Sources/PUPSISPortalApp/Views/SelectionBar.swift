@@ -43,7 +43,7 @@ struct SelectionBar: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         // Transient chrome floating over content — the layer glass is for.
-        .glassEffect(.regular, in: .capsule)
+        .glassCapsule()
         .transition(
             .move(edge: .bottom).combined(with: .opacity)
             .animation(Motion.arrival(reduced: reduceMotion))

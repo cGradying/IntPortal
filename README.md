@@ -18,10 +18,11 @@ non-commercial use.
 
 ## Requirements
 
-- **macOS 26+** — the UI is built on Liquid Glass (`glassEffect`) and is used
-  unguarded (no availability fallback).
-- A Swift toolchain that can target macOS 26 (Xcode 26+ / matching command-line
-  tools).
+- **macOS 14+**. On **macOS 26** the UI uses Liquid Glass (`glassEffect`); on
+  14–15 those surfaces fall back to a plain material, so it builds and runs
+  there too — the glass look just degrades.
+- A Swift toolchain matching your macOS (Xcode 16+ for macOS 14–15; Xcode 26+
+  to get the Liquid Glass look on macOS 26).
 
 ## Build & run
 

@@ -121,7 +121,7 @@ struct GradesView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        .glassPanel(cornerRadius: 16)
     }
 
     /// A spoken summary for the chart: the latest GPA and which way it moved.
@@ -168,7 +168,7 @@ struct GradesView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        .glassPanel(cornerRadius: 16)
     }
 
     private var termPicker: some View {
@@ -194,7 +194,7 @@ struct GradesView: View {
             .frame(maxWidth: .infinity)
         } else if controller.gradeHistory.count < 2 {
             Button("Load past terms") { Task { await controller.loadGradeHistory() } }
-                .buttonStyle(.glass)
+                .glassButton()
                 .tint(palette.accent)
                 .controlSize(.small)
         }
@@ -241,7 +241,7 @@ struct GradesView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        .glassPanel(cornerRadius: 16)
     }
 
     /// Whatever the page's `<dl>` listed, shown as-is. Skips the GPA line — the
@@ -300,7 +300,7 @@ struct GradesView: View {
                 Text(error)
             } actions: {
                 Button("Try again") { Task { await controller.loadGrades() } }
-                    .buttonStyle(.glassProminent)
+                    .glassProminentButton()
                     .tint(palette.accent)
             }
         } else {
@@ -325,7 +325,7 @@ struct GradesView: View {
             Spacer(minLength: 12)
 
             Button("Refresh") { Task { await controller.loadGrades() } }
-                .buttonStyle(.glass)
+                .glassButton()
                 .tint(palette.accent)
                 .controlSize(.small)
         }

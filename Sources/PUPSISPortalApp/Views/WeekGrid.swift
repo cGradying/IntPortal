@@ -92,7 +92,7 @@ struct WeekGrid: View {
         // header's leading edge instead would shift every label off its
         // column by that amount.
         .padding(.trailing, columnInset)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        .glassPanel(cornerRadius: 16)
     }
 
     private func scrollingBody(height: CGFloat, now: Date) -> some View {
