@@ -202,6 +202,11 @@ screen stays in "testing", Google expires the sign-in about **once a week**, so
 you'll tap **Connect** again occasionally — that's Google's rule for unpublished
 apps, not a bug.
 
+HELLO TEAM RYZZA!!!d fkjenjsncjnsndjejduajd
+wdnwjfdnwhjhaedhand
+wadjwdjajsdwa
+dwdjefjskfpowa
+
 ---
 
 ## Build from source
@@ -239,22 +244,22 @@ target. Single-window SwiftUI app; no view-model layer.
 
 ### Session & data (`Core/`)
 
-| File | Role |
-|---|---|
-| `PortalController.swift` | Owns the single hidden `WKWebView`. Headless sign-in, navigation-settling, schedule/grades loading. `@MainActor`, `WKNavigationDelegate`. |
-| `SISScraper.swift` | The scraping JavaScript. A shared table walker maps header cells to output keys by name (positional fallback); Schedule and Grades share it. |
-| `ScheduleParser.swift` / `GradesParser.swift` | Scraped rows → `[ClassSession]` / `[SubjectGrade]` + `GradeReport` (units-weighted GPA, term identity). |
-| `Models.swift` | `Weekday`, `ClassSession`. |
-| `DayAgenda.swift` / `NextClass.swift` | Pure "today right now" and "what's next" readings, shared by the Today screen and the menu bar. |
-| `KeychainStore.swift` / `GoogleTokenStore.swift` | SIS credentials and the Google refresh token in the Keychain (service `ph.edu.pup.sis8.portal`). |
-| `ScheduleStore.swift` / `GradesStore.swift` / `NotesStore.swift` | Offline JSON documents under Application Support (dir `0700`, file `0600`). |
-| `Preferences.swift` | Theme, per-subject colors, per-week/term `SessionStatus`, calendar/export settings, notes style, notification prefs. `UserDefaults`, injectable for tests. |
-| `Theme.swift` | `Palette` (injected via `\.palette`), `ThemeChoice`, the `Motion` vocabulary, `Theme.Typo` type scale. |
-| `CalendarBridge.swift` / `EventEditor.swift` | The single `EKEventStore`: reads the week, writes/exports events; every mutation routes through `EventEditor` for one undo hook. |
-| `ICSExporter.swift` / `ClassRecurrence.swift` | `.ics` file export and the shared weekly-`RRULE` builder. |
-| `GoogleAuth.swift` / `GoogleCalendarClient.swift` | PKCE OAuth (no secret) and the Calendar REST client for direct Google export. |
-| `Notifier.swift` / `LoginItem.swift` | Weekly reminder triggers, and `SMAppService` start-at-login so they survive a quit. |
-| `GridGeometry.swift` / `TimeSnap.swift` / `DayBlock.swift` / `MonthLayout.swift` | Point↔(day,minute) math, snapping, the flat render model, and the year grid. |
+| File                                                                             | Role                                                                                                                                                       |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PortalController.swift`                                                         | Owns the single hidden `WKWebView`. Headless sign-in, navigation-settling, schedule/grades loading. `@MainActor`, `WKNavigationDelegate`.                  |
+| `SISScraper.swift`                                                               | The scraping JavaScript. A shared table walker maps header cells to output keys by name (positional fallback); Schedule and Grades share it.               |
+| `ScheduleParser.swift` / `GradesParser.swift`                                    | Scraped rows → `[ClassSession]` / `[SubjectGrade]` + `GradeReport` (units-weighted GPA, term identity).                                                    |
+| `Models.swift`                                                                   | `Weekday`, `ClassSession`.                                                                                                                                 |
+| `DayAgenda.swift` / `NextClass.swift`                                            | Pure "today right now" and "what's next" readings, shared by the Today screen and the menu bar.                                                            |
+| `KeychainStore.swift` / `GoogleTokenStore.swift`                                 | SIS credentials and the Google refresh token in the Keychain (service `ph.edu.pup.sis8.portal`).                                                           |
+| `ScheduleStore.swift` / `GradesStore.swift` / `NotesStore.swift`                 | Offline JSON documents under Application Support (dir `0700`, file `0600`).                                                                                |
+| `Preferences.swift`                                                              | Theme, per-subject colors, per-week/term `SessionStatus`, calendar/export settings, notes style, notification prefs. `UserDefaults`, injectable for tests. |
+| `Theme.swift`                                                                    | `Palette` (injected via `\.palette`), `ThemeChoice`, the `Motion` vocabulary, `Theme.Typo` type scale.                                                     |
+| `CalendarBridge.swift` / `EventEditor.swift`                                     | The single `EKEventStore`: reads the week, writes/exports events; every mutation routes through `EventEditor` for one undo hook.                           |
+| `ICSExporter.swift` / `ClassRecurrence.swift`                                    | `.ics` file export and the shared weekly-`RRULE` builder.                                                                                                  |
+| `GoogleAuth.swift` / `GoogleCalendarClient.swift`                                | PKCE OAuth (no secret) and the Calendar REST client for direct Google export.                                                                              |
+| `Notifier.swift` / `LoginItem.swift`                                             | Weekly reminder triggers, and `SMAppService` start-at-login so they survive a quit.                                                                        |
+| `GridGeometry.swift` / `TimeSnap.swift` / `DayBlock.swift` / `MonthLayout.swift` | Point↔(day,minute) math, snapping, the flat render model, and the year grid.                                                                               |
 
 ### Views (`Views/`)
 
@@ -273,7 +278,7 @@ swift test
 ```
 
 Parsing, stores, GPA/history, day-agenda, Markdown, `.ics`, and the Google event
-builder are unit-tested with real scraped-*shape* fixtures — never real personal
+builder are unit-tested with real scraped-_shape_ fixtures — never real personal
 data. UI and live SIS / EventKit / Google integration are verified by running the
 packaged app.
 
