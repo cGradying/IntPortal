@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @ObservedObject var appState: AppState
@@ -182,7 +183,14 @@ private extension SettingsView {
                             set: { preferences.setCalendar(info.id, visible: $0) }
                         )) {
                             Label {
-                                Text(info.title)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(info.title)
+                                    // The account, so a Google calendar is
+                                    // identifiable next to an iCloud one.
+                                    Text(info.source)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             } icon: {
                                 Circle().fill(info.color).frame(width: 10, height: 10)
                             }
@@ -197,7 +205,7 @@ private extension SettingsView {
                     Picker("In-person classes to", selection: $preferences.exportCalendarID) {
                         Text("Choose a calendar…").tag("")
                         ForEach(calendar.writableCalendars) { info in
-                            Text(info.title).tag(info.id)
+                            Text("\(info.title) · \(info.source)").tag(info.id)
                         }
                     }
 
@@ -206,7 +214,7 @@ private extension SettingsView {
                     Picker("Online classes to", selection: $preferences.onlineExportCalendarID) {
                         Text("Same as in-person").tag("")
                         ForEach(calendar.writableCalendars) { info in
-                            Text(info.title).tag(info.id)
+                            Text("\(info.title) · \(info.source)").tag(info.id)
                         }
                     }
                     .disabled(preferences.exportCalendarID.isEmpty)
@@ -223,6 +231,23 @@ private extension SettingsView {
                                       || preferences.exportCalendarID.isEmpty)
                     }
                 }
+            }
+
+            // Google (and any other) calendars flow into the app through
+            // EventKit once the account is added to macOS — this is the way in.
+            LabeledContent("Google & other accounts") {
+                Button("Open Internet Accounts…") {
+                    guard let url = URL(string: "x-apple.systempreferences:com.apple.Internet-Accounts-Settings.extension")
+                    else { return }
+                    NSWorkspace.shared.open(url)
+                }
+            }
+
+            // A plain file, so the schedule can go anywhere — Google Calendar's
+            // web import, a phone — without granting calendar access at all.
+            LabeledContent("Schedule file") {
+                Button("Export .ics…", action: exportICS)
+                    .disabled(appState.portal.sessions.isEmpty)
             }
 
             if let result = exportResult {
@@ -256,15 +281,40 @@ private extension SettingsView {
             Online. Classes marked vacant for the term are left off; a class vacant for a single \
             week loses just that date. After the first export, status changes sync automatically. \
             Classes added this way stay hidden here so they don't show up twice — they're still \
-            in Calendar.app and on your other devices.
+            in Calendar.app and on your other devices. To use a Google calendar, add the account \
+            in System Settings › Internet Accounts (with Calendars on) and it appears above.
             """
         default:
-            "Nothing from your calendar is shown until you connect and pick which calendars to include."
+            "Nothing from your calendar is shown until you connect and pick which calendars to include. Google calendars appear here once the account is added in System Settings › Internet Accounts."
         }
     }
 
     func syncNotifications() {
         notifier.sync(appState.portal.sessions, preferences)
+    }
+
+    func exportICS() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "PUPSIS-Schedule.ics"
+        if let ics = UTType(filenameExtension: "ics") {
+            panel.allowedContentTypes = [ics]
+        }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let text = ICSExporter.ics(
+            for: appState.portal.sessions,
+            weekStart: Weekday.weekStart(containing: .now),
+            until: preferences.termEndDate,
+            // Term status: an .ics VEVENT is a single repeating series, so it
+            // carries whole-term status, not a single week's exception.
+            status: { preferences.termStatus(for: $0) }
+        )
+        do {
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            exportResult = "Saved schedule to “\(url.lastPathComponent)”."
+        } catch {
+            exportResult = error.localizedDescription
+        }
     }
 
     func exportClasses() {

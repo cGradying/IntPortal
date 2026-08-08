@@ -103,4 +103,68 @@ final class DayAgendaTests: XCTestCase {
         XCTAssertTrue(result.items.isEmpty)
         XCTAssertEqual(result.tomorrowFirst?.subjectCode, "TMRW")
     }
+
+    // MARK: Merged timeline (classes + custom events)
+
+    private func event(_ title: String, _ day: Weekday, _ start: Int, _ end: Int) -> DayBlock {
+        DayBlock(id: "\(title)-\(start)", day: day, start: start, end: end,
+                 title: title, subtitle: "\(start)–\(end)")
+    }
+
+    private func timeline(_ classes: [ClassSession], _ events: [DayBlock], now: Date,
+                          vacant: Set<String> = []) -> [DayAgenda.AgendaEntry] {
+        DayAgenda.timeline(classes: classes, events: events, now: now,
+                           isVacant: { s, _ in vacant.contains(s.id) }, calendar: utc)
+    }
+
+    /// Classes and events interleave in start order, not classes-then-events.
+    func testTimelineMergesAndOrdersByStart() {
+        let math = session("MATH", .monday, 8 * 60, 10 * 60)
+        let phys = session("PHYS", .monday, 14 * 60, 16 * 60)
+        let lunch = event("LUNCH", .monday, 12 * 60, 13 * 60)
+
+        let entries = timeline([math, phys], [lunch], now: date(weekday: .monday, minute: 9 * 60))
+        XCTAssertEqual(entries.map(\.title), ["MATH", "LUNCH", "PHYS"])
+    }
+
+    func testTimelineTagsPhaseAcrossBoth() {
+        let math = session("MATH", .monday, 8 * 60, 10 * 60)
+        let lunch = event("LUNCH", .monday, 12 * 60, 13 * 60)
+
+        let entries = timeline([math], [lunch], now: date(weekday: .monday, minute: 9 * 60))
+        XCTAssertEqual(entries.first { $0.title == "MATH" }?.phase, .inSession)
+        XCTAssertEqual(entries.first { $0.title == "LUNCH" }?.phase, .upcoming)
+    }
+
+    /// Events on another day, and vacant classes, are left out.
+    func testTimelineFiltersOtherDaysAndVacant() {
+        let math = session("MATH", .monday, 8 * 60, 10 * 60)
+        let tomorrowEvent = event("TMRW", .tuesday, 9 * 60, 10 * 60)
+        let now = date(weekday: .monday, minute: 7 * 60)
+
+        let entries = timeline([math], [tomorrowEvent], now: now, vacant: [math.id])
+        XCTAssertTrue(entries.isEmpty)
+    }
+
+    /// Free time ahead sums the ≥15-minute gaps between entries that haven't passed.
+    func testRemainingFreeMinutesCountsGapsAhead() {
+        let math = session("MATH", .monday, 8 * 60, 10 * 60)
+        let phys = session("PHYS", .monday, 14 * 60, 16 * 60)
+        let lunch = event("LUNCH", .monday, 12 * 60, 13 * 60)
+        let entries = timeline([math, phys], [lunch], now: date(weekday: .monday, minute: 9 * 60))
+
+        // 10:00→12:00 (120) + 13:00→14:00 (60) = 180, both still ahead of 9:00.
+        XCTAssertEqual(DayAgenda.remainingFreeMinutes(entries, nowMinutes: 9 * 60), 180)
+    }
+
+    func testRemainingFreeMinutesSkipsPassedGaps() {
+        let math = session("MATH", .monday, 8 * 60, 10 * 60)
+        let phys = session("PHYS", .monday, 14 * 60, 16 * 60)
+        let lunch = event("LUNCH", .monday, 12 * 60, 13 * 60)
+        let entries = timeline([math, phys], [lunch], now: date(weekday: .monday, minute: 13 * 60 + 20))
+
+        // At 1:20PM the 10:00→12:00 gap has passed (its next entry, LUNCH at 12:00,
+        // is behind now); only 13:00→14:00 (60, PHYS still ahead) counts.
+        XCTAssertEqual(DayAgenda.remainingFreeMinutes(entries, nowMinutes: 13 * 60 + 20), 60)
+    }
 }

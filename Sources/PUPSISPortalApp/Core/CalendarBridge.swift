@@ -6,6 +6,10 @@ struct CalendarInfo: Identifiable, Equatable {
     let id: String
     let title: String
     let color: Color
+    /// The account it belongs to — "Google", "iCloud", "On My Mac". Lets the UI
+    /// show which are Google, since Google calendars reach the app through
+    /// EventKit once the account is added in System Settings.
+    let source: String
 }
 
 /// Reads Calendar.app into the week grid and writes classes back out.
@@ -96,7 +100,14 @@ final class CalendarBridge: ObservableObject {
 
     private static func readCalendars(from store: EKEventStore) -> [CalendarInfo] {
         store.calendars(for: .event)
-            .map { CalendarInfo(id: $0.calendarIdentifier, title: $0.title, color: Color(nsColor: $0.color)) }
+            .map {
+                CalendarInfo(
+                    id: $0.calendarIdentifier,
+                    title: $0.title,
+                    color: Color(nsColor: $0.color),
+                    source: $0.source?.title ?? "Other"
+                )
+            }
             .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
 
@@ -143,6 +154,27 @@ final class CalendarBridge: ObservableObject {
 
     nonisolated static func isOurExport(_ event: EKEvent) -> Bool {
         event.notes?.contains(exportTag) == true
+    }
+
+    /// Today's events from the given calendars, as render blocks — without
+    /// touching the `@Published events` the week grid drives. The Today screen
+    /// folds these in beside classes to compute free time around the real day.
+    /// Our own class export is filtered out so it doesn't double up, and all-day
+    /// events are dropped (they own no slot in an hour timeline).
+    func todayBlocks(calendarIDs: Set<String>, on day: Date) -> [DayBlock] {
+        guard access == .granted, !calendarIDs.isEmpty else { return [] }
+
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: day)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+
+        let wanted = store.calendars(for: .event).filter { calendarIDs.contains($0.calendarIdentifier) }
+        guard !wanted.isEmpty else { return [] }
+
+        let predicate = store.predicateForEvents(withStart: start, end: end, calendars: wanted)
+        return store.events(matching: predicate)
+            .filter { !Self.isOurExport($0) }
+            .compactMap { Self.block(from: $0, calendar: calendar) }
     }
 
     /// The exact `EKEvent` a block was built from, keyed by block id.

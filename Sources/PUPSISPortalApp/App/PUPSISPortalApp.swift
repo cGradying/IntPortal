@@ -8,6 +8,7 @@ final class AppState: ObservableObject {
     let portal = PortalController()
     let preferences = Preferences()
     let calendar = CalendarBridge()
+    let notes = NotesStore()
 
     /// The current minute, republished on the minute boundary. The menu bar's
     /// "next class" has no view of its own to hang a `TimelineView` on, so the
@@ -162,7 +163,7 @@ struct ContentView: View {
                 credentials: credentials
             )
         case .today:
-            AgendaView(appState: appState, preferences: preferences)
+            AgendaView(appState: appState, preferences: preferences, calendar: appState.calendar, notes: appState.notes)
         case .grades:
             GradesView(controller: appState.portal, preferences: preferences)
         }

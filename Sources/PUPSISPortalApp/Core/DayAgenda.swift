@@ -59,4 +59,87 @@ struct DayAgenda {
     var remaining: [Item] {
         items.filter { $0.phase != .past }
     }
+
+    // MARK: Merged timeline (classes + custom calendar events)
+
+    /// A single row in the Today timeline — a class or a calendar event, flattened
+    /// to the same shape so free time can be read across both.
+    struct AgendaEntry: Identifiable {
+        enum Kind: Equatable {
+            case klass(ClassSession)
+            case event
+        }
+        let id: String
+        /// Minutes from midnight.
+        let start: Int
+        let end: Int
+        let title: String
+        let subtitle: String
+        let kind: Kind
+        let phase: ClassPhase
+
+        var session: ClassSession? {
+            if case .klass(let session) = kind { return session }
+            return nil
+        }
+    }
+
+    /// Today's non-vacant classes merged with today's calendar `events`, sorted by
+    /// start and phase-tagged — so the Today screen can draw one timeline and its
+    /// free stretches span classes *and* the user's own events, not just classes.
+    static func timeline(
+        classes: [ClassSession],
+        events: [DayBlock],
+        now: Date,
+        isVacant: (ClassSession, Date) -> Bool,
+        calendar: Calendar = .current
+    ) -> [AgendaEntry] {
+        let today = Weekday.on(now, calendar: calendar)
+        let nowMinutes = NowLine.minutes(of: now, calendar: calendar)
+
+        func phase(start: Int, end: Int) -> ClassPhase {
+            if end <= nowMinutes { return .past }
+            if start <= nowMinutes { return .inSession }
+            return .upcoming
+        }
+
+        let classEntries = classes
+            .filter { $0.day == today && !isVacant($0, now) }
+            .map { session in
+                AgendaEntry(
+                    id: "class-\(session.id)",
+                    start: session.start, end: session.end,
+                    title: session.subjectCode, subtitle: session.description,
+                    kind: .klass(session),
+                    phase: phase(start: session.start, end: session.end)
+                )
+            }
+
+        let eventEntries = events
+            .filter { $0.day == today }
+            .map { block in
+                AgendaEntry(
+                    id: block.id,
+                    start: block.start, end: block.end,
+                    title: block.title, subtitle: block.subtitle,
+                    kind: .event,
+                    phase: phase(start: block.start, end: block.end)
+                )
+            }
+
+        return (classEntries + eventEntries).sorted { $0.start < $1.start }
+    }
+
+    /// Free minutes still ahead today — the ≥15-minute gaps the timeline draws
+    /// between consecutive entries, counting only gaps that haven't passed.
+    /// Overlapping entries contribute nothing (a negative gap is dropped).
+    static func remainingFreeMinutes(_ entries: [AgendaEntry], nowMinutes: Int) -> Int {
+        var total = 0
+        for i in entries.indices.dropLast() {
+            let gap = entries[i + 1].start - entries[i].end
+            guard gap >= 15, entries[i + 1].start > nowMinutes else { continue }
+            total += gap
+        }
+        return total
+    }
 }
