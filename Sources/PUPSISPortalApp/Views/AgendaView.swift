@@ -24,8 +24,12 @@ struct AgendaView: View {
     @State private var appeared = false
 
     /// The note key of the tapped Today row, or nil for none — drives the
-    /// per-item note in the side panel.
+    /// side panel (sidebar style) or the per-row popover (popup style).
     @State private var selectedKey: String?
+
+    /// The day-scratchpad popover, opened from the toolbar Notes button in popup
+    /// style.
+    @State private var showingDayNote = false
 
     private var now: Date { appState.now }
     private var nowMinutes: Int { NowLine.minutes(of: now) }
@@ -56,40 +60,63 @@ struct AgendaView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            ZStack {
-                palette.canvasWash.ignoresSafeArea()
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        header
-
-                        if entries.isEmpty {
-                            emptyState
-                        } else {
-                            timeline
-                        }
-
-                        tomorrowLine
-                    }
-                    .padding(24)
-                    .frame(maxWidth: 560)
-                    .frame(maxWidth: .infinity)
+        Group {
+            switch preferences.notesStyle {
+            case .sidebar:
+                HStack(spacing: 0) {
+                    agendaPane
+                    Divider()
+                    NotesPanel(
+                        notes: notes,
+                        dayKey: dayKey,
+                        selectedKey: selectedKey,
+                        selectedTitle: selectedTitle
+                    )
+                    .frame(width: 320)
                 }
+            case .popup:
+                agendaPane
             }
-
-            Divider()
-
-            NotesPanel(
-                notes: notes,
-                dayKey: dayKey,
-                selectedKey: selectedKey,
-                selectedTitle: selectedTitle
-            )
-            .frame(width: 320)
         }
         .navigationTitle("Today")
+        .toolbar {
+            // Popup style has no side panel, so the day scratchpad gets a button.
+            if preferences.notesStyle == .popup {
+                ToolbarItem {
+                    Button { showingDayNote.toggle() } label: {
+                        Label("Notes", systemImage: "note.text")
+                    }
+                    .help("Today's notes")
+                    .popover(isPresented: $showingDayNote, arrowEdge: .bottom) {
+                        MarkdownNotesEditor(notes: notes, noteKey: dayKey, title: "Today")
+                    }
+                }
+            }
+        }
         .onAppear { appeared = true }
+    }
+
+    private var agendaPane: some View {
+        ZStack {
+            palette.canvasWash.ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    header
+
+                    if entries.isEmpty {
+                        emptyState
+                    } else {
+                        timeline
+                    }
+
+                    tomorrowLine
+                }
+                .padding(24)
+                .frame(maxWidth: 560)
+                .frame(maxWidth: .infinity)
+            }
+        }
     }
 
     // MARK: Header
@@ -161,6 +188,17 @@ struct AgendaView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(palette.accent.opacity(selected ? 0.5 : 0), lineWidth: 1.5)
         )
+        // Popup style: the note opens beside the tapped row. Sidebar style leaves
+        // this off and edits in the fixed side panel instead.
+        .popover(
+            isPresented: Binding(
+                get: { preferences.notesStyle == .popup && selectedKey == key },
+                set: { open in if !open, selectedKey == key { selectedKey = nil } }
+            ),
+            arrowEdge: .trailing
+        ) {
+            MarkdownNotesEditor(notes: notes, noteKey: key, title: entry.title)
+        }
     }
 
     @ViewBuilder

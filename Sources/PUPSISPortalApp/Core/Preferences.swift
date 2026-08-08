@@ -27,6 +27,24 @@ enum SessionStatus: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// How the Today notes surface is presented.
+enum NotesStyle: String, Codable, CaseIterable, Identifiable {
+    /// The original: a Notes column fixed to the right of the Today list, plain text.
+    case sidebar
+    /// A popup opened from a Today row (or the Notes button), with Markdown
+    /// (`#`, `-`, `[ ]`) and an Edit/Preview toggle.
+    case popup
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .sidebar: "Sidebar"
+        case .popup: "Popup (Markdown)"
+        }
+    }
+}
+
 /// User settings. `UserDefaults` on purpose — these are preferences, unlike
 /// the schedule, which is a document and lives in `ScheduleStore`.
 ///
@@ -116,6 +134,11 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(programTotalUnits, forKey: Key.programTotalUnits) }
     }
 
+    /// How the Today notes surface is shown. Defaults to the original sidebar.
+    @Published var notesStyle: NotesStyle {
+        didSet { defaults.set(notesStyle.rawValue, forKey: Key.notesStyle) }
+    }
+
     static let leadOptions = [5, 10, 15, 30]
 
     /// Meetings marked vacant **for the whole term**, in the form `Notifier` and
@@ -148,6 +171,7 @@ final class Preferences: ObservableObject {
         static let notificationsEnabled = "notificationsEnabled"
         static let notificationLeadMinutes = "notificationLeadMinutes"
         static let programTotalUnits = "programTotalUnits"
+        static let notesStyle = "notesStyle"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -173,6 +197,8 @@ final class Preferences: ObservableObject {
         // ("as it starts") — so check for the key rather than trusting the zero.
         notificationLeadMinutes = (defaults.object(forKey: Key.notificationLeadMinutes) as? Int) ?? 15
         programTotalUnits = (defaults.object(forKey: Key.programTotalUnits) as? Int) ?? 0
+        notesStyle = defaults.string(forKey: Key.notesStyle)
+            .flatMap(NotesStyle.init(rawValue:)) ?? .sidebar
     }
 
     /// The colour an event renders in: the user's pick, else the palette's

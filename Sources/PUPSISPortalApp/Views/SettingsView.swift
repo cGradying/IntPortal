@@ -47,6 +47,20 @@ struct SettingsView: View {
 
             calendarSection
 
+            Section {
+                Picker("Style", selection: $preferences.notesStyle) {
+                    ForEach(NotesStyle.allCases) { style in
+                        Text(style.label).tag(style)
+                    }
+                }
+                .pickerStyle(.inline)
+            } header: {
+                Text("Today Notes")
+            } footer: {
+                Text("Sidebar keeps a plain notes column beside Today. Popup opens a Markdown note (# headings, - bullets, - [ ] tasks) from a class, event, or the Notes button.")
+                    .foregroundStyle(.secondary)
+            }
+
             notificationSection
 
             Section {
