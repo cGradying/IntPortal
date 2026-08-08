@@ -139,6 +139,18 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(notesStyle.rawValue, forKey: Key.notesStyle) }
     }
 
+    /// The user's own Google OAuth client ID (from their Google Cloud project).
+    /// Not secret — the refresh token it obtains is, and that lives in the
+    /// Keychain (`GoogleTokenStore`), never here.
+    @Published var googleClientID: String {
+        didSet { defaults.set(googleClientID, forKey: Key.googleClientID) }
+    }
+
+    /// Which Google calendar classes export into. Empty until the user picks.
+    @Published var googleCalendarID: String {
+        didSet { defaults.set(googleCalendarID, forKey: Key.googleCalendarID) }
+    }
+
     static let leadOptions = [5, 10, 15, 30]
 
     /// Meetings marked vacant **for the whole term**, in the form `Notifier` and
@@ -172,6 +184,8 @@ final class Preferences: ObservableObject {
         static let notificationLeadMinutes = "notificationLeadMinutes"
         static let programTotalUnits = "programTotalUnits"
         static let notesStyle = "notesStyle"
+        static let googleClientID = "googleClientID"
+        static let googleCalendarID = "googleCalendarID"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -199,6 +213,8 @@ final class Preferences: ObservableObject {
         programTotalUnits = (defaults.object(forKey: Key.programTotalUnits) as? Int) ?? 0
         notesStyle = defaults.string(forKey: Key.notesStyle)
             .flatMap(NotesStyle.init(rawValue:)) ?? .sidebar
+        googleClientID = defaults.string(forKey: Key.googleClientID) ?? ""
+        googleCalendarID = defaults.string(forKey: Key.googleCalendarID) ?? ""
     }
 
     /// The colour an event renders in: the user's pick, else the palette's

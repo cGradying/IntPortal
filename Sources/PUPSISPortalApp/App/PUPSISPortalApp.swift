@@ -9,6 +9,8 @@ final class AppState: ObservableObject {
     let preferences = Preferences()
     let calendar = CalendarBridge()
     let notes = NotesStore()
+    lazy var googleAuth = GoogleAuth { [preferences] in preferences.googleClientID }
+    lazy var googleClient = GoogleCalendarClient(auth: googleAuth)
 
     /// The current minute, republished on the minute boundary. The menu bar's
     /// "next class" has no view of its own to hang a `TimelineView` on, so the
@@ -184,7 +186,8 @@ struct ContentView: View {
             SettingsView(
                 appState: appState,
                 preferences: preferences,
-                calendar: appState.calendar
+                calendar: appState.calendar,
+                googleAuth: appState.googleAuth
             )
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

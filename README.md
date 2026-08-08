@@ -93,6 +93,14 @@ Settings (`SettingsView`), the menu bar (`MenuBarPanel`), event editing
 - **Two-way Calendar.app sync** (EventKit) — draw your other calendars beside
   class, and export classes into a chosen calendar (tagged `[PUPSISPortal]` so a
   re-export only touches ours), with per-week/per-status calendar routing.
+- **Direct Google Calendar export** — writes classes straight to Google over the
+  Calendar API (PKCE OAuth, no client secret), for when macOS's Google/CalDAV
+  bridge won't take repeating events. One-time setup in Settings → Google
+  Calendar: at [Google Cloud Console](https://console.cloud.google.com) create a
+  project, enable the Google Calendar API, add yourself as a Test user, create an
+  **iOS** OAuth client (bundle id `com.cgradying.pupsisportal`), and paste its
+  Client ID. Re-export replaces only events this app wrote (tagged in
+  `extendedProperties`). Also **`.ics` export** for importing anywhere.
 - **Reminders** — a configurable lead-time notification before each class;
   optional **Start at login** so they fire even when the app is fully quit.
 - **Menu bar** — next class + a today-at-a-glance mini-agenda, always visible.

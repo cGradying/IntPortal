@@ -6,9 +6,13 @@ struct SettingsView: View {
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
     @ObservedObject var calendar: CalendarBridge
+    @ObservedObject var googleAuth: GoogleAuth
     @ObservedObject fileprivate var notifier = Notifier.shared
     @Environment(\.palette) private var palette
     @State fileprivate var exportResult: String?
+    @State fileprivate var googleCalendars: [GoogleCalendar] = []
+    @State fileprivate var googleBusy = false
+    @State fileprivate var googleResult: String?
     /// Mirrors the OS login-item status; re-read after every toggle so it can't
     /// drift from System Settings.
     @State fileprivate var launchAtLogin = LoginItem.isEnabled
@@ -46,6 +50,8 @@ struct SettingsView: View {
             }
 
             calendarSection
+
+            googleSection
 
             Section {
                 Picker("Style", selection: $preferences.notesStyle) {
@@ -103,6 +109,9 @@ struct SettingsView: View {
         .background(palette.canvasWash.ignoresSafeArea())
         .navigationTitle("Settings")
         .task { await notifier.refreshAuthorization() }
+        .task(id: googleAuth.isConnected) {
+            if googleAuth.isConnected { await loadGoogleCalendars() }
+        }
     }
 }
 
@@ -300,6 +309,103 @@ private extension SettingsView {
             """
         default:
             "Nothing from your calendar is shown until you connect and pick which calendars to include. Google calendars appear here once the account is added in System Settings › Internet Accounts."
+        }
+    }
+
+    @ViewBuilder
+    var googleSection: some View {
+        Section {
+            if !googleAuth.isConnected {
+                TextField("OAuth client ID", text: $preferences.googleClientID)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                LabeledContent("Google account") {
+                    Button("Connect Google") { connectGoogle() }
+                        .disabled(preferences.googleClientID.trimmingCharacters(in: .whitespaces).isEmpty || googleBusy)
+                }
+            } else {
+                Picker("Export to", selection: $preferences.googleCalendarID) {
+                    Text("Choose a calendar…").tag("")
+                    ForEach(googleCalendars) { cal in
+                        Text(cal.summary).tag(cal.id)
+                    }
+                }
+
+                LabeledContent("Your classes") {
+                    Button("Export to Google", action: exportToGoogle)
+                        .disabled(appState.portal.sessions.isEmpty
+                                  || preferences.googleCalendarID.isEmpty
+                                  || googleBusy)
+                }
+
+                Button("Disconnect Google", role: .destructive) {
+                    googleAuth.disconnect()
+                    googleCalendars = []
+                    googleResult = nil
+                }
+            }
+
+            if googleBusy {
+                HStack { ProgressView().controlSize(.small); Text("Working…").foregroundStyle(.secondary) }
+            }
+            if let googleResult {
+                Text(googleResult).font(.caption).foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Google Calendar (direct)")
+        } footer: {
+            Text("""
+            Writes classes straight to Google, bypassing Apple Calendar (whose \
+            Google sync is unreliable for repeating events). One-time setup: at \
+            console.cloud.google.com create a project, enable the Google Calendar \
+            API, add yourself as a Test user on the OAuth consent screen, then \
+            create an OAuth client ID of type iOS with bundle ID \
+            com.cgradying.pupsisportal and paste its Client ID above. While the \
+            consent screen stays in testing, Google asks you to reconnect about \
+            once a week.
+            """)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    func connectGoogle() {
+        googleBusy = true
+        googleResult = nil
+        Task {
+            defer { googleBusy = false }
+            do {
+                try await googleAuth.connect()
+                await loadGoogleCalendars()
+            } catch {
+                googleResult = error.localizedDescription
+            }
+        }
+    }
+
+    func loadGoogleCalendars() async {
+        do {
+            googleCalendars = try await appState.googleClient.listCalendars()
+        } catch {
+            googleResult = error.localizedDescription
+        }
+    }
+
+    func exportToGoogle() {
+        googleBusy = true
+        googleResult = nil
+        Task {
+            defer { googleBusy = false }
+            do {
+                googleResult = try await appState.googleClient.exportClasses(
+                    appState.portal.sessions,
+                    weekStart: Weekday.weekStart(containing: .now),
+                    until: preferences.termEndDate,
+                    toCalendarID: preferences.googleCalendarID,
+                    status: { preferences.termStatus(for: $0) }
+                )
+            } catch {
+                googleResult = error.localizedDescription
+            }
         }
     }
 
