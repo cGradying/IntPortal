@@ -1,5 +1,8 @@
 # PUPSISPortal
 
+**Current version: v1.0** — no signed build; see [Install](#install) and
+[Release history](#release-history) below.
+
 Native macOS app that signs into the [PUP Student Information System](https://sis8.pup.edu.ph/student/)
 **headlessly** and renders your own schedule and grades as a native SwiftUI
 interface. The SIS web UI is never shown — a hidden `WKWebView` holds the
@@ -37,6 +40,8 @@ bypasses auth, or redistributes SIS content.
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Security & privacy](#security--privacy)
+- [Release history](#release-history)
+- [Future plans](#future-plans)
 - [Reviews](#reviews)
 
 ---
@@ -66,10 +71,13 @@ instead of a slow web portal.
 
 Two ways in:
 
-**A. Download a build** (if one is attached to a [Release](https://github.com/cGradying/PUPSISPortal/releases)):
-download `PUPSISPortal.app`, move it to `~/Applications`, and open it. Because the
-build is self-signed, the first open needs **right-click → Open → Open** (or
-System Settings › Privacy & Security › "Open Anyway").
+**A. Download a build** from [Releases](https://github.com/cGradying/PUPSISPortal/releases):
+grab the `.dmg`, drag `PUPSISPortal.app` to `~/Applications`, and open it. These
+builds are **not notarized by Apple** (no paid developer account), so Gatekeeper
+blocks a plain double-click. First open needs **right-click → Open → Open**, or
+System Settings › Privacy & Security › "Open Anyway". This is expected for every
+release, not a broken download — verify the download's checksum against the one
+posted on the Release page if you want to confirm it wasn't tampered with in transit.
 
 **B. Build it yourself** — see [Build from source](#build-from-source). This is
 the recommended path and the one the signing notes below assume.
@@ -201,7 +209,6 @@ Re-exporting replaces only the events this app wrote. **Note:** while your conse
 screen stays in "testing", Google expires the sign-in about **once a week**, so
 you'll tap **Connect** again occasionally — that's Google's rule for unpublished
 apps, not a bug.
-
 ---
 
 ## Build from source
@@ -244,7 +251,8 @@ target. Single-window SwiftUI app; no view-model layer.
 | `PortalController.swift` | Owns the single hidden `WKWebView`. Headless sign-in, navigation-settling, schedule/grades loading. `@MainActor`, `WKNavigationDelegate`. |
 | `SISScraper.swift` | The scraping JavaScript. A shared table walker maps header cells to output keys by name (positional fallback); Schedule and Grades share it. |
 | `ScheduleParser.swift` / `GradesParser.swift` | Scraped rows → `[ClassSession]` / `[SubjectGrade]` + `GradeReport` (units-weighted GPA, term identity). |
-| `Models.swift` | `Weekday`, `ClassSession`. |
+| `Models.swift` / `Credentials.swift` | `Weekday`, `ClassSession`; the student-number/password/birthdate struct handed to sign-in. |
+| `Markdown.swift` | Minimal Obsidian-flavored block parser (headings, bullets, task checkboxes) for notes; inline emphasis is left to `AttributedString(markdown:)`. |
 | `DayAgenda.swift` / `NextClass.swift` | Pure "today right now" and "what's next" readings, shared by the Today screen and the menu bar. |
 | `KeychainStore.swift` / `GoogleTokenStore.swift` | SIS credentials and the Google refresh token in the Keychain (service `ph.edu.pup.sis8.portal`). |
 | `ScheduleStore.swift` / `GradesStore.swift` / `NotesStore.swift` | Offline JSON documents under Application Support (dir `0700`, file `0600`). |
@@ -259,10 +267,13 @@ target. Single-window SwiftUI app; no view-model layer.
 ### Views (`Views/`)
 
 Weekly grid (`WeekGrid`, `Blocks`, `GridInteractionLayer`), the now-line
-(`NowLine`), year view (`YearView`), the Today agenda + notes (`AgendaView`,
-`NotesPanel`, `MarkdownNotesEditor`), Grades + GPA trend (`GradesView`), Settings
-(`SettingsView`), the menu bar (`MenuBarPanel`), event editing
-(`EventEditorPopover`, `SelectionBar`), and sign-in (`CredentialsView`).
+(`NowLine`), year view (`YearView`), the top-center nav pill (`DestinationBar`),
+the Today agenda + notes (`AgendaView`, `NotesPanel`, `MarkdownNotesEditor`),
+Grades + GPA trend (`GradesView`), Settings (`SettingsView`), the menu bar
+(`MenuBarPanel`), event editing (`EventEditorPopover`, `SelectionBar`,
+`ColorPanel` for per-block recoloring), sign-in (`CredentialsView`), and
+`GlassCompat` — every Liquid Glass call in the app routes through it, so glass
+degrades to a plain material below macOS 26 instead of failing to build.
 
 ---
 
@@ -290,6 +301,47 @@ packaged app.
 - Nothing is sent anywhere but the real PUP SIS server and — only if you set it up
   — your own Google Calendar. Only your own pages are read: no other students'
   data, no auth bypass.
+
+---
+
+## Release history
+
+No GitHub Release has been cut yet — `CFBundleShortVersionString` is `1.0` in
+`Scripts/make_mac_app.sh`, and every build is self-signed/unsigned (see
+[Install](#install)). Grouped by what actually shipped, oldest first:
+
+| Version | Date | Shipped |
+|---|---|---|
+| v0.1 | 2026-08-05 | Native rewrite of the headless sign-in (DOM-poll detection, not URL matching); first native weekly calendar; offline schedule cache; macOS 26 redesign with themes, the now-line, and per-class editing; dated week grid, year view, Calendar.app sync. |
+| v0.2 | 2026-08-06 | Full event editing on the grid — drag to create/move/resize, multi-day blocks, multi-select, undo; pre-class reminders and "what's next"; Grades page with a computed units-weighted GPA. |
+| v0.3 | 2026-08-07 | Menu-bar presence; per-week and whole-term class status (online/vacant) with colored strips; status-aware calendar export — auto-sync on status change, online classes to their own calendar, vacant classes hidden. |
+| v0.4 | 2026-08-08 | Today agenda, cross-term GPA trend, menu-bar mini-agenda, Ivory theme, start-at-login; dynamic-island nav pill replacing the sidebar; macOS 14+ compatibility (glass gated to macOS 26, plain material below it); direct Google Calendar OAuth export; `.ics` export; custom events + free time in Today; popup Markdown notes. |
+| **v1.0** | 2026-08-08 | Full README documentation pass — use cases, walkthrough, setup, architecture. Current. |
+
+---
+
+## Future plans
+
+- **Signed, notarized releases.** Current `.dmg`/`.app` builds are self-signed
+  or ad-hoc (see [Install](#install)) — Gatekeeper will always flag them until
+  there's an Apple Developer ID to notarize against. Until then, treat every
+  release the same way: right-click open, and check the posted checksum if
+  you want to confirm the download.
+- **Grades/GPA verified against a live posted-grades page.** The parser and
+  the per-term GPA-trend backfill (driving the SIS SY/Semester dropdowns) are
+  built and unit-tested against fixture shapes, but not yet confirmed against
+  a real account with posted grades — benched until that's possible.
+- **Notes editor rework.** Moving the popup Markdown notes editor onto an
+  embedded web-based editor (CodeMirror) with inline KaTeX math rendering,
+  in place of the current native `MarkdownNotesEditor`.
+- **Smaller polish:** scroll-to-now on opening the week grid, print export.
+- **Parked, not forgotten:** a real WidgetKit next-class widget needs an
+  Xcode project and a paid Apple Developer account (App Group for app↔widget
+  data) — this app is intentionally SwiftPM + shell-packaged. The menu bar
+  stands in as the glanceable surface instead.
+- **Out of scope by design:** a Windows port, multiple accounts, or any other
+  student's data. Scope stays one person's own account, personal and
+  non-commercial, per PUP's Terms of Use.
 
 ---
 
