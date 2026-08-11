@@ -108,6 +108,15 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             let scraped = rows.flatMap(ScheduleParser.parse)
             let now = Date()
 
+            // A scrape that parses to nothing while we already hold a schedule is
+            // almost always a hiccup (page not settled, markup drift), not a real
+            // empty term — never let it blank a good cache. Keep what we have and
+            // surface it, the same way `report(_:)` protects a cached calendar.
+            if scraped.isEmpty && !sessions.isEmpty {
+                refreshError = "No classes found on the SIS schedule page — kept your last schedule."
+                return
+            }
+
             sessions = scraped
             lastUpdated = now
             refreshError = nil
@@ -137,6 +146,13 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
                 schoolYear: options?.currentSchoolYear,
                 semester: options?.currentSemester
             )
+            // Same protection as the schedule: don't let an empty parse wipe grades
+            // we already hold.
+            if report.subjects.isEmpty, let existing = grades, !existing.subjects.isEmpty {
+                gradesError = "No grades found on the SIS page — kept your last grades."
+                return
+            }
+
             grades = report
             gradesError = nil
             GradesStore.save(report)

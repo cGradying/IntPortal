@@ -5,3 +5,11 @@
 # Local-only tooling — never ships with the public repo
 CLAUDE.md
 .claude/
+
+# Distributable artifacts
+dist/
+
+# Node / editor build
+node_modules/
+.DS_Store
+vsc.code-workspace
