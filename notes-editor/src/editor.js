@@ -2,7 +2,7 @@
 // $$…$$ / $…$ render inline via KaTeX (auto, no click); move the caret into a
 // math span to edit its source. Bridged to the native app over WKWebView.
 import { EditorView, Decoration, WidgetType, ViewPlugin, keymap, drawSelection, lineNumbers } from "@codemirror/view";
-import { EditorState, RangeSetBuilder } from "@codemirror/state";
+import { EditorState, StateField, RangeSetBuilder } from "@codemirror/state";
 import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle, LanguageDescription, syntaxTree } from "@codemirror/language";
@@ -109,6 +109,10 @@ function codeBlockDecorations(view) {
       enter: (node) => {
         if (node.name !== "FencedCode") return;
         const first = view.state.doc.lineAt(node.from).number;
+        // A ```pupdb block renders as an interactive table (tablePlugin), not
+        // the dark code box.
+        const lang = view.state.doc.line(first).text.replace(/^`+/, "").trim().toLowerCase();
+        if (lang === "pupdb") return;
         const last = view.state.doc.lineAt(node.to).number;
         for (let n = first; n <= last; n++) {
           const line = view.state.doc.line(n);
@@ -203,6 +207,7 @@ function fenceDecorations(view) {
         const close = view.state.doc.lineAt(node.to);
         if (close.number <= open.number) return;
         const lang = open.text.replace(/^`+/, "").trim().toLowerCase();
+        if (lang === "pupdb") return;
         const codeStart = open.to + 1, codeEnd = close.from - 1;
         const code = codeEnd > codeStart ? view.state.doc.sliceString(codeStart, codeEnd) : "";
         items.push({ from: open.from, to: open.to, deco: Decoration.replace({ widget: new CodeHeaderWidget(lang, code) }) });
@@ -225,6 +230,563 @@ const fencePlugin = ViewPlugin.fromClass(
   },
   { decorations: (v) => v.decorations, provide: (p) => EditorView.atomicRanges.of((v) => v.plugin(p)?.decorations || Decoration.none) }
 );
+
+// --- Horizontal rule: a line that's exactly ---, ***, or ___ renders as <hr> ---
+const HR_RE = /^(?:-{3,}|\*{3,}|_{3,})$/;
+
+class HrWidget extends WidgetType {
+  toDOM() {
+    // A block-display <div> (not <hr>) so a non-block replace widget still
+    // spans the full editor width as a clearly visible rule.
+    const el = document.createElement("div");
+    el.className = "pup-hr";
+    return el;
+  }
+  ignoreEvent() { return false; }
+}
+
+function hrDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const sel = view.state.selection.main;
+  const doc = view.state.doc;
+  for (let n = 1; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    if (!HR_RE.test(line.text.trim())) continue;
+    const editing = sel.from <= line.to && sel.to >= line.from;
+    if (editing) continue;
+    builder.add(line.from, line.to, Decoration.replace({ widget: new HrWidget() }));
+  }
+  return builder.finish();
+}
+
+const hrPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = hrDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = hrDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+// --- Interactive checkboxes: "- [ ] " / "- [x] " get a clickable box ---
+const CHECKBOX_RE = /^(\s*[-*] )\[( |x|X)\] /;
+
+class CheckboxWidget extends WidgetType {
+  constructor(checked, pos) { super(); this.checked = checked; this.pos = pos; }
+  eq(other) { return other.checked === this.checked && other.pos === this.pos; }
+  toDOM() {
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.className = "pup-checkbox";
+    box.checked = this.checked;
+    box.onmousedown = (e) => e.stopPropagation();
+    box.onclick = (e) => {
+      e.stopPropagation();
+      view.dispatch({ changes: { from: this.pos, to: this.pos + 1, insert: this.checked ? " " : "x" } });
+    };
+    return box;
+  }
+  ignoreEvent() { return false; }
+}
+
+function checkboxDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const doc = view.state.doc;
+  for (let n = 1; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    const m = line.text.match(CHECKBOX_RE);
+    if (!m) continue;
+    const bracketOpen = line.from + m[1].length;
+    const charPos = bracketOpen + 1;
+    builder.add(bracketOpen, bracketOpen + 3, Decoration.replace({ widget: new CheckboxWidget(m[2].toLowerCase() === "x", charPos) }));
+  }
+  return builder.finish();
+}
+
+const checkboxPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = checkboxDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.viewportChanged) this.decorations = checkboxDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+// --- Note connections: [[Title]] renders as a clickable link to another note ---
+const WIKILINK_RE = /\[\[([^\[\]]+)\]\]/g;
+
+class WikilinkWidget extends WidgetType {
+  constructor(title) { super(); this.title = title; }
+  eq(other) { return other.title === this.title; }
+  toDOM() {
+    const span = document.createElement("span");
+    span.className = "pup-wikilink";
+    span.textContent = this.title;
+    span.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
+    span.onclick = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      post("open", { title: this.title });
+    };
+    return span;
+  }
+  ignoreEvent() { return false; }
+}
+
+function wikilinkDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const sel = view.state.selection.main;
+  const text = view.state.doc.toString();
+  WIKILINK_RE.lastIndex = 0;
+  let m;
+  while ((m = WIKILINK_RE.exec(text))) {
+    const from = m.index, to = m.index + m[0].length;
+    const editing = sel.from <= to && sel.to >= from;
+    if (editing) continue;
+    builder.add(from, to, Decoration.replace({ widget: new WikilinkWidget(m[1]) }));
+  }
+  return builder.finish();
+}
+
+const wikilinkPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = wikilinkDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = wikilinkDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+// --- Colored text: {#rrggbb:text} renders `text` in that color, hiding the
+// syntax (caret inside reveals the source to edit). Matches cmd("color"). ---
+const COLOR_RE = /\{#([0-9a-fA-F]{3,8}):([^{}]*)\}/g;
+
+class ColorWidget extends WidgetType {
+  constructor(hex, text) { super(); this.hex = hex; this.text = text; }
+  eq(other) { return other.hex === this.hex && other.text === this.text; }
+  toDOM() {
+    const span = document.createElement("span");
+    span.style.color = "#" + this.hex;
+    span.textContent = this.text;
+    return span;
+  }
+  ignoreEvent() { return false; }
+}
+
+function colorDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const sel = view.state.selection.main;
+  const text = view.state.doc.toString();
+  COLOR_RE.lastIndex = 0;
+  let m;
+  while ((m = COLOR_RE.exec(text))) {
+    const from = m.index, to = m.index + m[0].length;
+    if (sel.from <= to && sel.to >= from) continue; // editing → show source
+    builder.add(from, to, Decoration.replace({ widget: new ColorWidget(m[1], m[2]) }));
+  }
+  return builder.finish();
+}
+
+const colorPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = colorDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = colorDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+// --- Inline image preview: ![alt](url) renders as a block <img>, both for
+// pupimg:// (pasted/dropped, served by the native side) and http(s):// URLs ---
+const IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/g;
+
+class ImageWidget extends WidgetType {
+  constructor(url, alt) { super(); this.url = url; this.alt = alt; }
+  eq(other) { return other.url === this.url && other.alt === this.alt; }
+  toDOM() {
+    const img = document.createElement("img");
+    img.className = "pup-image";
+    img.src = this.url;
+    img.alt = this.alt;
+    return img;
+  }
+  ignoreEvent() { return false; }
+}
+
+function imageDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const sel = view.state.selection.main;
+  const text = view.state.doc.toString();
+  IMAGE_RE.lastIndex = 0;
+  let m;
+  while ((m = IMAGE_RE.exec(text))) {
+    const from = m.index, to = m.index + m[0].length;
+    const editing = sel.from <= to && sel.to >= from;
+    if (editing) continue;
+    const url = m[2].trim();
+    if (!/^(https?:|pupimg:)/.test(url)) continue;
+    builder.add(from, to, Decoration.replace({ widget: new ImageWidget(url, m[1]) }));
+  }
+  return builder.finish();
+}
+
+const imagePlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = imageDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = imageDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+// --- pupdb: an interactive table with typed columns (text/number/checkbox/
+// date/select) embedded as a ```pupdb fenced JSON block. One widget covers
+// both "checklist connected to a table" and a lightweight Notion-style
+// database — a checkbox column, a custom colored select/status column with
+// its own option list, freely added/removed. ---
+const DB_COLORS = ["#e5484d", "#e57a00", "#d4a300", "#2f9e44", "#0d9488", "#3b7dd8", "#8f5cd8", "#d6409f"];
+let dbUidCounter = 0;
+function dbUid() { return `id${Date.now().toString(36)}${(dbUidCounter++).toString(36)}`; }
+
+function newColumn(type) {
+  const col = { id: dbUid(), name: type === "select" ? "Status" : type === "checkbox" ? "Done" : "Column", type };
+  if (type === "select") {
+    col.options = [
+      { label: "Not started", color: DB_COLORS[0] },
+      { label: "In progress", color: DB_COLORS[2] },
+      { label: "Done", color: DB_COLORS[3] },
+    ];
+  }
+  return col;
+}
+
+function newRow(columns) {
+  const row = { id: dbUid() };
+  for (const c of columns) row[c.id] = c.type === "checkbox" ? false : "";
+  return row;
+}
+
+function starterDb() {
+  const columns = [newColumn("text"), newColumn("select"), newColumn("checkbox")];
+  return { columns, rows: [newRow(columns)] };
+}
+
+const COLUMN_TYPES = ["text", "number", "checkbox", "date", "select"];
+
+function closeDbMenus() { document.querySelectorAll(".pup-db-menu").forEach((m) => m.remove()); }
+
+// A popover anchored under `anchor`, appended to <body> so its own inputs live
+// outside CodeMirror's contentEditable (where typing would otherwise be eaten).
+function makeDbMenu(anchor) {
+  closeDbMenus();
+  const menu = document.createElement("div");
+  menu.className = "pup-db-menu";
+  menu.addEventListener("mousedown", (e) => e.stopPropagation());
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.left = `${r.left}px`;
+  menu.style.top = `${r.bottom + 4}px`;
+  setTimeout(() => document.addEventListener("mousedown", function close(e) {
+    if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener("mousedown", close); }
+  }), 0);
+  return menu;
+}
+
+class TableWidget extends WidgetType {
+  constructor(db, from, to) { super(); this.db = db; this.from = from; this.to = to; this.pending = false; }
+  eq(other) { return other.from === this.from && other.to === this.to && JSON.stringify(other.db) === JSON.stringify(this.db); }
+  // Interactive widget: CodeMirror must not treat DOM events here as its own,
+  // or it steals focus/selection from the inputs.
+  ignoreEvent() { return true; }
+
+  // Re-serialize the (live-mutated) db back into the ```pupdb block. Deferred
+  // and coalesced: a click that follows a cell edit (blur→change) would
+  // otherwise tear down this widget's DOM mid-event, swallowing the click.
+  // this.db holds the truth until the single pending write lands.
+  commit() {
+    if (this.pending) return;
+    this.pending = true;
+    setTimeout(() => {
+      view.dispatch({ changes: { from: this.from, to: this.to, insert: "```pupdb\n" + JSON.stringify(this.db) + "\n```" } });
+    }, 0);
+  }
+
+  toDOM() {
+    const db = this.db;
+    const commit = () => this.commit();
+    const root = document.createElement("div");
+    root.className = "pup-db";
+    // The widget is a non-editable island; its form controls are still
+    // focusable. Keep CM's editor mousedown handler from hijacking focus.
+    root.contentEditable = "false";
+    root.addEventListener("mousedown", (e) => e.stopPropagation());
+
+    const openTypeMenu = (anchor) => {
+      const menu = makeDbMenu(anchor);
+      for (const type of COLUMN_TYPES) {
+        const item = document.createElement("div");
+        item.className = "pup-db-menuitem pup-db-menuitem-plain";
+        item.textContent = type;
+        item.onclick = () => {
+          const col = newColumn(type);
+          db.columns.push(col);
+          for (const r of db.rows) r[col.id] = col.type === "checkbox" ? false : "";
+          commit(); menu.remove();
+        };
+        menu.appendChild(item);
+      }
+    };
+
+    const openOptionMenu = (anchor, col, row, applyPill) => {
+      const menu = makeDbMenu(anchor);
+      for (const opt of col.options || []) {
+        const item = document.createElement("div");
+        item.className = "pup-db-menuitem";
+        item.style.setProperty("--pill", opt.color);
+        const label = document.createElement("span");
+        label.textContent = opt.label;
+        label.style.flex = "1";
+        item.appendChild(label);
+        item.onclick = () => { row[col.id] = opt.label; applyPill(); commit(); menu.remove(); };
+        const del = document.createElement("span");
+        del.className = "pup-db-opt-del";
+        del.textContent = "×";
+        del.title = "Remove option";
+        del.onclick = (e) => {
+          e.stopPropagation();
+          col.options = (col.options || []).filter((o) => o !== opt);
+          for (const r of db.rows) if (r[col.id] === opt.label) r[col.id] = "";
+          commit(); menu.remove();
+        };
+        item.appendChild(del);
+        menu.appendChild(item);
+      }
+      // Inline "new tag" form — replaces the old prompt() (a no-op in WKWebView).
+      const form = document.createElement("div");
+      form.className = "pup-db-addopt";
+      const input = document.createElement("input");
+      input.className = "pup-db-optinput";
+      input.placeholder = "New tag…";
+      let chosen = DB_COLORS[(col.options || []).length % DB_COLORS.length];
+      const swatches = document.createElement("div");
+      swatches.className = "pup-db-swatches";
+      for (const c of DB_COLORS) {
+        const s = document.createElement("button");
+        s.className = "pup-db-swatch" + (c === chosen ? " sel" : "");
+        s.style.background = c;
+        s.onclick = () => {
+          chosen = c;
+          swatches.querySelectorAll(".pup-db-swatch").forEach((e) => e.classList.remove("sel"));
+          s.classList.add("sel");
+        };
+        swatches.appendChild(s);
+      }
+      const addBtn = document.createElement("button");
+      addBtn.className = "pup-db-optadd";
+      addBtn.textContent = "Add tag";
+      const doAdd = () => {
+        const label = input.value.trim();
+        if (!label) return;
+        col.options = [...(col.options || []), { label, color: chosen }];
+        row[col.id] = label;
+        applyPill(); commit(); menu.remove();
+      };
+      addBtn.onclick = doAdd;
+      input.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); doAdd(); } };
+      form.appendChild(input);
+      form.appendChild(swatches);
+      form.appendChild(addBtn);
+      menu.appendChild(form);
+      setTimeout(() => input.focus(), 0);
+    };
+
+    const renderCell = (row, col) => {
+      const td = document.createElement("td");
+      if (col.type === "checkbox") {
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = !!row[col.id];
+        box.onchange = () => { row[col.id] = box.checked; commit(); };
+        td.appendChild(box);
+      } else if (col.type === "select") {
+        const pill = document.createElement("button");
+        pill.className = "pup-db-pill";
+        const applyPill = () => {
+          const opt = (col.options || []).find((o) => o.label === row[col.id]);
+          pill.textContent = row[col.id] || "＋";
+          pill.style.setProperty("--pill", opt ? opt.color : "");
+          pill.classList.toggle("pup-db-pill-empty", !opt);
+        };
+        applyPill();
+        pill.onclick = () => openOptionMenu(pill, col, row, applyPill);
+        td.appendChild(pill);
+      } else {
+        const input = document.createElement("input");
+        input.className = "pup-db-cell";
+        input.type = col.type === "date" ? "date" : col.type === "number" ? "number" : "text";
+        input.value = row[col.id] ?? "";
+        // Keep memory current on every keystroke (so a cross-click never loses
+        // typing); persist on blur/enter.
+        input.oninput = () => { row[col.id] = input.value; };
+        input.onchange = () => { row[col.id] = input.value; commit(); };
+        td.appendChild(input);
+      }
+      return td;
+    };
+
+    const renderHeaderCell = (col, colEl) => {
+      const th = document.createElement("th");
+      const name = document.createElement("input");
+      name.className = "pup-db-name";
+      name.value = col.name;
+      name.oninput = () => { col.name = name.value || col.name; };
+      name.onchange = () => { col.name = name.value || col.name; commit(); };
+      th.appendChild(name);
+      if (col.type === "select") {
+        const cfg = document.createElement("button");
+        cfg.className = "pup-db-colmenu";
+        cfg.textContent = "▾";
+        cfg.title = "Tags";
+        cfg.onclick = () => {
+          // Configure this column's tags against the first row as a scratch pick.
+          openOptionMenu(cfg, col, db.rows[0] || {}, () => {});
+        };
+        th.appendChild(cfg);
+      }
+      const del = document.createElement("button");
+      del.className = "pup-db-colmenu";
+      del.textContent = "×";
+      del.title = "Delete column";
+      del.onclick = () => {
+        db.columns = db.columns.filter((c) => c !== col);
+        for (const r of db.rows) delete r[col.id];
+        commit();
+      };
+      th.appendChild(del);
+      // Drag the right edge to resize the column. Live-updates the <col> during
+      // the drag; persists the width once, on mouseup (no rebuild thrash).
+      const grip = document.createElement("div");
+      grip.className = "pup-db-resize";
+      grip.onmousedown = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const startX = e.clientX;
+        const startW = colEl.getBoundingClientRect().width;
+        const onMove = (ev) => {
+          const w = Math.max(60, Math.round(startW + (ev.clientX - startX)));
+          colEl.style.width = w + "px";
+          col.width = w;
+        };
+        const onUp = () => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+          commit();
+        };
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+      };
+      th.appendChild(grip);
+      return th;
+    };
+
+    const table = document.createElement("table");
+    // Fixed layout so per-column <col> widths are authoritative and resizing sticks.
+    const colgroup = document.createElement("colgroup");
+    const colEls = db.columns.map((col) => {
+      const c = document.createElement("col");
+      c.style.width = (col.width || 180) + "px";
+      colgroup.appendChild(c);
+      return c;
+    });
+    const actionsCol = document.createElement("col");
+    actionsCol.className = "pup-db-actioncol";
+    colgroup.appendChild(actionsCol);
+    table.appendChild(colgroup);
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    db.columns.forEach((col, i) => headRow.appendChild(renderHeaderCell(col, colEls[i])));
+    const addColTh = document.createElement("th");
+    const addColBtn = document.createElement("button");
+    addColBtn.className = "pup-db-add";
+    addColBtn.textContent = "+";
+    addColBtn.title = "Add column";
+    addColBtn.onclick = () => openTypeMenu(addColBtn);
+    addColTh.appendChild(addColBtn);
+    headRow.appendChild(addColTh);
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const row of db.rows) {
+      const tr = document.createElement("tr");
+      for (const col of db.columns) tr.appendChild(renderCell(row, col));
+      const delTd = document.createElement("td");
+      const delBtn = document.createElement("button");
+      delBtn.className = "pup-db-del";
+      delBtn.textContent = "×";
+      delBtn.title = "Delete row";
+      delBtn.onclick = () => { db.rows = db.rows.filter((r) => r !== row); commit(); };
+      delTd.appendChild(delBtn);
+      tr.appendChild(delTd);
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    root.appendChild(table);
+
+    const addRow = document.createElement("button");
+    addRow.className = "pup-db-addrow";
+    addRow.textContent = "+ Row";
+    addRow.onclick = () => { db.rows.push(newRow(db.columns)); commit(); };
+    root.appendChild(addRow);
+
+    return root;
+  }
+}
+
+// Block/line-break-spanning replace decorations must come from a StateField,
+// not a ViewPlugin — so the table lives in one. Whole-doc iteration (notes are
+// small) since a field has no viewport.
+function tableDecorations(state) {
+  const items = [];
+  syntaxTree(state).iterate({
+    enter: (node) => {
+      if (node.name !== "FencedCode") return;
+      const open = state.doc.lineAt(node.from);
+      const close = state.doc.lineAt(node.to);
+      if (close.number <= open.number) return;
+      const lang = open.text.replace(/^`+/, "").trim().toLowerCase();
+      if (lang !== "pupdb") return;
+      // Always render the interactive widget (never raw JSON) — every edit goes
+      // through its own inputs, and the atomic range keeps the caret out of the
+      // block. Malformed JSON falls through the catch below to plain text, which
+      // is the only escape hatch needed.
+      const bodyStart = open.to + 1, bodyEnd = close.from - 1;
+      const body = bodyEnd > bodyStart ? state.doc.sliceString(bodyStart, bodyEnd) : "";
+      let db;
+      try { db = JSON.parse(body); } catch (e) { return; }
+      if (!db || !Array.isArray(db.columns) || !Array.isArray(db.rows)) return;
+      items.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget: new TableWidget(db, node.from, node.to), block: true }) });
+    },
+  });
+  items.sort((a, b) => a.from - b.from);
+  const builder = new RangeSetBuilder();
+  for (const it of items) builder.add(it.from, it.to, it.deco);
+  return builder.finish();
+}
+
+const tableField = StateField.define({
+  create(state) { return tableDecorations(state); },
+  update(deco, tr) {
+    return tr.docChanged ? tableDecorations(tr.state) : deco;
+  },
+  provide: (f) => [
+    EditorView.decorations.from(f),
+    EditorView.atomicRanges.of((view) => view.state.field(f, false) || Decoration.none),
+  ],
+});
 
 // --- Syntax highlighting: markdown structure + code tokens (Discord-ish) ---
 const highlight = HighlightStyle.define([
@@ -284,12 +846,54 @@ export function initEditor(initialText, key) {
         codeBlockPlugin,
         fencePlugin,
         mathPlugin,
+        hrPlugin,
+        checkboxPlugin,
+        wikilinkPlugin,
+        colorPlugin,
+        imagePlugin,
+        tableField,
         EditorView.updateListener.of((u) => {
           if (u.docChanged) post("notes", { key: docKey, text: view.state.doc.toString() });
         }),
       ],
     }),
   });
+  view.dom.addEventListener("paste", handlePaste);
+  view.dom.addEventListener("drop", handleDrop);
+  view.dom.addEventListener("dragover", (e) => e.preventDefault());
+  view.focus();
+}
+
+// --- Images: paste or drag-drop a file, native side saves it and calls
+// insertImage back with the pupimg:// URL to drop at the caret ---
+function sendImage(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  const ext = file.type.split("/")[1] || "png";
+  const reader = new FileReader();
+  reader.onload = () => post("image", { base64: reader.result.split(",")[1], ext });
+  reader.readAsDataURL(file);
+}
+
+function handlePaste(e) {
+  const file = Array.from(e.clipboardData?.items || [])
+    .find((item) => item.type.startsWith("image/"))?.getAsFile();
+  if (!file) return;
+  e.preventDefault();
+  sendImage(file);
+}
+
+function handleDrop(e) {
+  const file = e.dataTransfer?.files?.[0];
+  if (!file || !file.type.startsWith("image/")) return;
+  e.preventDefault();
+  sendImage(file);
+}
+
+export function insertImage(url) {
+  if (!view) return;
+  const { from } = view.state.selection.main;
+  const insert = `![](${url})\n`;
+  view.dispatch({ changes: { from, insert }, selection: { anchor: from + insert.length } });
   view.focus();
 }
 
@@ -383,6 +987,39 @@ export function cmd(name, arg) {
       const insert = `[${sel}](url)`;
       const urlAt = from + sel.length + 3;
       view.dispatch({ changes: { from, to, insert }, selection: { anchor: urlAt, head: urlAt + 3 } });
+      return view.focus();
+    }
+    case "wikilink": {
+      const { from, to } = view.state.selection.main;
+      const sel = view.state.sliceDoc(from, to);
+      const insert = `[[${sel}]]`;
+      const caret = from + 2 + sel.length;
+      view.dispatch({ changes: { from, to, insert }, selection: { anchor: caret } });
+      return view.focus();
+    }
+    case "table": {
+      const { from } = view.state.selection.main;
+      const line = view.state.doc.lineAt(from);
+      const body = "```pupdb\n" + JSON.stringify(starterDb()) + "\n```\n";
+      const insert = (line.text.length ? "\n" : "") + body;
+      view.dispatch({ changes: { from: line.to, insert }, selection: { anchor: line.to + insert.length } });
+      return view.focus();
+    }
+    case "rule": {
+      const { from } = view.state.selection.main;
+      const line = view.state.doc.lineAt(from);
+      const insert = (line.text.length ? "\n" : "") + "---\n";
+      view.dispatch({ changes: { from: line.to, insert }, selection: { anchor: line.to + insert.length } });
+      return view.focus();
+    }
+    // Appends a "## <date>" heading at the end of the doc — a running dated
+    // log entry point for shared per-subject class notes (arg is the label,
+    // e.g. "Aug 16", computed natively from the schedule or "today").
+    case "datestamp": {
+      const end = view.state.doc.length;
+      const sep = end === 0 ? "" : "\n\n";
+      const insert = `${sep}## ${arg}\n\n`;
+      view.dispatch({ changes: { from: end, insert }, selection: { anchor: end + insert.length } });
       return view.focus();
     }
   }

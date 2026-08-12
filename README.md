@@ -1,6 +1,6 @@
 # PUPSISPortal
 
-**Current version: v1.0** — no signed build; see [Install](#install) and
+**Current version: v1.1** — no signed build; see [Install](#install) and
 [Release history](#release-history) below.
 
 Native macOS app that signs into the [PUP Student Information System](https://sis8.pup.edu.ph/student/)
@@ -138,13 +138,33 @@ done, what's upcoming with a countdown, the **free time** between things, and a
 one-line look at tomorrow. It folds in your own events from the calendars you've
 ticked, so free-time reflects the whole day.
 
-**Notes** attach here, in one of two styles (Settings → Today Notes):
+**Notes** attach right here, in a live Markdown editor (web-based CodeMirror,
+bundled offline) that renders as you type — the Obsidian way, no Edit/Preview
+toggle. Tap a class or event row to open its note, use the **day scratchpad**
+for anything undated, or build a **vault** of folders and named notes in the
+sidebar; open notes stack as **tabs** above the editor. A class note is **shared
+across every week** the class meets (one note per subject), and its **Add dated
+entry** button appends a `## <date>` heading — defaulting to the subject's **next
+class meeting date**, or today — so it grows into a running dated log. Rows with a
+note show a dot.
 
-- **Sidebar** — a plain notes column beside the list.
-- **Popup (Markdown)** — tap a class or event to open a note anchored to it, plus
-  a **Notes** button for a day scratchpad. Supports Markdown with an **Edit /
-  Preview** toggle: `#` headings, `-` bullets, `- [ ]` / `- [x]` task checkboxes,
-  and `**bold**` / `*italic*`. Rows that have a note show a dot.
+The editor supports:
+
+- **Formatting** — headings, **bold** / *italic* / ~~strike~~ / ==highlight==,
+  **colored text**, `> quotes`, bullet / numbered lists, and a **horizontal-rule
+  divider**.
+- **Interactive checkboxes** — `- [ ]` / `- [x]` render as real checkboxes you
+  click to toggle.
+- **Inline math** — `$…$` and `$$…$$` render live via KaTeX.
+- **Code blocks** — fenced ```` ```lang ```` blocks get syntax highlighting, a
+  language badge, and a copy button.
+- **Note links** — `[[Title]]` renders as a clickable link that opens that note.
+- **Images** — paste, drag-drop, or an `![](https://…)` URL; local images are
+  copied into the app's storage and shown inline.
+- **Tables / database** — insert an interactive table with typed columns
+  (text, number, checkbox, date, and a **status** column with your own
+  custom-colored tags). Click cells to edit, drag a column's edge to resize,
+  add / remove rows and columns; the `×` controls appear on hover.
 
 ### Grades & GPA
 
@@ -268,8 +288,9 @@ target. Single-window SwiftUI app; no view-model layer.
 
 Weekly grid (`WeekGrid`, `Blocks`, `GridInteractionLayer`), the now-line
 (`NowLine`), year view (`YearView`), the top-center nav pill (`DestinationBar`),
-the Today agenda + notes (`AgendaView`, `NotesPanel`, `MarkdownNotesEditor`),
-Grades + GPA trend (`GradesView`), Settings (`SettingsView`), the menu bar
+the Today agenda + notes (`AgendaView`, `WebNoteEditor` — a `WKWebView` hosting
+the bundled CodeMirror editor in `Resources/notes-editor.bundle.js`, built from
+`notes-editor/`), Grades + GPA trend (`GradesView`), Settings (`SettingsView`), the menu bar
 (`MenuBarPanel`), event editing (`EventEditorPopover`, `SelectionBar`,
 `ColorPanel` for per-block recoloring), sign-in (`CredentialsView`), and
 `GlassCompat` — every Liquid Glass call in the app routes through it, so glass
@@ -306,9 +327,8 @@ packaged app.
 
 ## Release history
 
-No GitHub Release has been cut yet — `CFBundleShortVersionString` is `1.0` in
-`Scripts/make_mac_app.sh`, and every build is self-signed/unsigned (see
-[Install](#install)). Grouped by what actually shipped, oldest first:
+Builds are self-signed/unsigned (see [Install](#install)); `CFBundleShortVersionString`
+is `1.1` in `Scripts/make_mac_app.sh`. Grouped by what actually shipped, oldest first:
 
 | Version | Date | Shipped |
 |---|---|---|
@@ -316,7 +336,8 @@ No GitHub Release has been cut yet — `CFBundleShortVersionString` is `1.0` in
 | v0.2 | 2026-08-06 | Full event editing on the grid — drag to create/move/resize, multi-day blocks, multi-select, undo; pre-class reminders and "what's next"; Grades page with a computed units-weighted GPA. |
 | v0.3 | 2026-08-07 | Menu-bar presence; per-week and whole-term class status (online/vacant) with colored strips; status-aware calendar export — auto-sync on status change, online classes to their own calendar, vacant classes hidden. |
 | v0.4 | 2026-08-08 | Today agenda, cross-term GPA trend, menu-bar mini-agenda, Ivory theme, start-at-login; dynamic-island nav pill replacing the sidebar; macOS 14+ compatibility (glass gated to macOS 26, plain material below it); direct Google Calendar OAuth export; `.ics` export; custom events + free time in Today; popup Markdown notes. |
-| **v1.0** | 2026-08-08 | Full README documentation pass — use cases, walkthrough, setup, architecture. Current. |
+| v1.0 | 2026-08-08 | Full README documentation pass — use cases, walkthrough, setup, architecture. |
+| **v1.1** | 2026-08-12 | Notes reworked into a live web-based editor (CodeMirror + KaTeX): a folder/file vault with note tabs; shared-per-subject class notes with dated log entries (next-class-aware); colored text, checkboxes, dividers, `[[note links]]`, inline image preview (paste/drop/URL), and an interactive typed-column table/database with custom-colored status tags and drag-to-resize columns. First GitHub Release, `.dmg` attached. Current. |
 
 ---
 
@@ -331,9 +352,9 @@ No GitHub Release has been cut yet — `CFBundleShortVersionString` is `1.0` in
   the per-term GPA-trend backfill (driving the SIS SY/Semester dropdowns) are
   built and unit-tested against fixture shapes, but not yet confirmed against
   a real account with posted grades — benched until that's possible.
-- **Notes editor rework.** Moving the popup Markdown notes editor onto an
-  embedded web-based editor (CodeMirror) with inline KaTeX math rendering,
-  in place of the current native `MarkdownNotesEditor`.
+- **AI writing in notes.** A local **Ollama** connection so the notes editor
+  can draft and rewrite text against a model running on your own machine — no
+  cloud, no keys. (The web editor rework that this builds on shipped in v1.1.)
 - **Smaller polish:** scroll-to-now on opening the week grid, print export.
 - **Parked, not forgotten:** a real WidgetKit next-class widget needs an
   Xcode project and a paid Apple Developer account (App Group for app↔widget

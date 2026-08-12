@@ -14,6 +14,9 @@ struct WebNoteEditor: View {
     let noteKey: String
     var title: String? = nil
     var onOpenNote: ((String) -> Void)? = nil
+    /// "Next class" / "today" date labels for the Add-date menu — non-nil only
+    /// when this note is a shared per-subject class note.
+    var addDateOptions: (next: String, today: String)? = nil
 
     @Environment(\.palette) private var palette
     @StateObject private var bridge = WebNoteBridge()
@@ -34,7 +37,7 @@ struct WebNoteEditor: View {
     var body: some View {
         VStack(spacing: 6) {
             toolbar
-            WebNoteView(notes: notes, noteKey: noteKey, title: title, bridge: bridge)
+            WebNoteView(notes: notes, noteKey: noteKey, title: title, bridge: bridge, onOpenNote: onOpenNote)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .tint(palette.accent)
@@ -57,8 +60,15 @@ struct WebNoteEditor: View {
                 button("list.number", "Numbered list") { bridge.cmd("numbered") }
                 button("checklist", "Checklist") { bridge.cmd("checklist") }
                 button("text.quote", "Quote") { bridge.cmd("quote") }
+                button("minus", "Divider") { bridge.cmd("rule") }
+                button("tablecells", "Table") { bridge.cmd("table") }
                 divider
                 button("link", "Link") { bridge.cmd("link") }
+                button("link.badge.plus", "Link to another note") { bridge.cmd("wikilink") }
+                if let options = addDateOptions {
+                    divider
+                    dateMenu(options)
+                }
             }
             .padding(.horizontal, 2)
         }
@@ -97,6 +107,21 @@ struct WebNoteEditor: View {
         }
     }
 
+    // Appends a "## <date>" heading to the note as a new dated log entry.
+    // Offers the subject's next scheduled meeting (default) and today, so a
+    // note written ahead of the class still lands under the date it's for.
+    private func dateMenu(_ options: (next: String, today: String)) -> some View {
+        Menu {
+            Button("Next class · \(options.next)") { bridge.cmd("datestamp", options.next) }
+            if options.today != options.next {
+                Button("Today · \(options.today)") { bridge.cmd("datestamp", options.today) }
+            }
+        } label: {
+            Image(systemName: "calendar.badge.plus").frame(width: 20, height: 20)
+        }
+        .menuIndicator(.hidden).fixedSize().help("Add dated entry")
+    }
+
     private var colorMenu: some View {
         Menu {
             ForEach(Self.colors, id: \.hex) { color in
@@ -128,17 +153,76 @@ final class WebNoteBridge: ObservableObject {
     }
 }
 
+/// Where pasted/dropped note images live on disk, and how the `pupimg://`
+/// scheme resolves them back into the webview. Mirrors `NotesStore`'s disk
+/// conventions: Application Support, dir `0700`, file `0600`.
+private enum NoteImages {
+    static let directory: URL = {
+        let support = (try? FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+        )) ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        return support.appendingPathComponent("PUPSISPortal", isDirectory: true)
+            .appendingPathComponent("note-images", isDirectory: true)
+    }()
+
+    /// Decodes `base64` and writes it as a new file; returns the `pupimg://`
+    /// URL string to insert into the note, or nil on any I/O failure. The
+    /// name is lowercased so it can't mismatch a URL parser that lowercases
+    /// the host component.
+    static func save(base64: String, ext: String) -> String? {
+        guard let data = Data(base64Encoded: base64) else { return nil }
+        try? FileManager.default.createDirectory(
+            at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]
+        )
+        let letters = ext.filter(\.isLetter).lowercased()
+        let name = "\(UUID().uuidString.lowercased()).\(letters.isEmpty ? "png" : letters)"
+        let fileURL = directory.appendingPathComponent(name)
+        guard (try? data.write(to: fileURL)) != nil else { return nil }
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
+        return "pupimg://\(name)"
+    }
+
+    static func url(for name: String) -> URL { directory.appendingPathComponent(name) }
+}
+
+/// Serves saved note images back into the webview under `pupimg://<name>`.
+private final class PupImageSchemeHandler: NSObject, WKURLSchemeHandler {
+    func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
+        guard let url = urlSchemeTask.request.url, let host = url.host,
+              let data = try? Data(contentsOf: NoteImages.url(for: host)) else {
+            urlSchemeTask.didFailWithError(URLError(.fileDoesNotExist))
+            return
+        }
+        let ext = NoteImages.url(for: host).pathExtension
+        let response = URLResponse(
+            url: url, mimeType: "image/\(ext.isEmpty ? "png" : ext)",
+            expectedContentLength: data.count, textEncodingName: nil
+        )
+        urlSchemeTask.didReceive(response)
+        urlSchemeTask.didReceive(data)
+        urlSchemeTask.didFinish()
+    }
+
+    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+}
+
 private struct WebNoteView: NSViewRepresentable {
     @ObservedObject var notes: NotesStore
     let noteKey: String
     var title: String?
     let bridge: WebNoteBridge
+    var onOpenNote: ((String) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.userContentController.add(context.coordinator, name: "notes")
+        config.userContentController.add(context.coordinator, name: "open")
+        config.userContentController.add(context.coordinator, name: "image")
+        // loadHTMLString(baseURL: nil) can't reach file://, so pasted/dropped
+        // images round-trip through this custom scheme instead.
+        config.setURLSchemeHandler(PupImageSchemeHandler(), forURLScheme: "pupimg")
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
@@ -166,6 +250,8 @@ private struct WebNoteView: NSViewRepresentable {
 
     static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "notes")
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "open")
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "image")
     }
 
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
@@ -174,14 +260,30 @@ private struct WebNoteView: NSViewRepresentable {
         var loaded = false
         init(_ parent: WebNoteView) { self.parent = parent }
 
-        // JS → Swift: the doc changed. The payload carries the key it belongs to,
-        // so an edit that arrives after a note switch still saves to its own note.
+        // JS → Swift: either the doc changed ("notes") or a [[wikilink]] was
+        // clicked ("open"). The edit payload carries the key it belongs to, so
+        // an edit that arrives after a note switch still saves to its own note.
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.name == "notes", let body = message.body as? [String: Any],
-                  let text = body["text"] as? String, let key = body["key"] as? String else { return }
-            // Only the open note's title is current; a late edit keeps its own.
-            let title = key == currentKey ? parent.title : parent.notes.note(for: key)?.title
-            parent.notes.setText(text, for: key, title: title)
+            guard let body = message.body as? [String: Any] else { return }
+            switch message.name {
+            case "notes":
+                guard let text = body["text"] as? String, let key = body["key"] as? String else { return }
+                // Only the open note's title is current; a late edit keeps its own.
+                let title = key == currentKey ? parent.title : parent.notes.note(for: key)?.title
+                parent.notes.setText(text, for: key, title: title)
+            case "open":
+                guard let title = body["title"] as? String else { return }
+                parent.onOpenNote?(title)
+            case "image":
+                // A pasted/dropped image arrives as base64; save it, then hand the
+                // resulting pupimg:// URL back so the editor inserts it at the caret.
+                guard let base64 = body["base64"] as? String, let ext = body["ext"] as? String,
+                      let inserted = NoteImages.save(base64: base64, ext: ext) else { return }
+                let js = "PUPNotes.insertImage(\(WebNoteView.jsonString(inserted)));"
+                message.webView?.evaluateJavaScript(js, completionHandler: nil)
+            default:
+                break
+            }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -254,6 +356,78 @@ private struct WebNoteView: NSViewRepresentable {
           }
           .pup-copy:hover { background:#3a3c41; color:#fff; }
           .pup-hidden-fence { display:none; }
+          .pup-hr { display:block; width:100%; height:0; border-top:2px solid color-mix(in srgb, var(--fg) 40%, transparent); margin:12px 0; }
+          .pup-checkbox { width:14px; height:14px; margin:0 2px 0 0; vertical-align:-2px; cursor:pointer; }
+          .pup-wikilink {
+            color:#3b7dd8; background:color-mix(in srgb, #3b7dd8 12%, transparent);
+            border-radius:4px; padding:0 4px; cursor:pointer;
+          }
+          .pup-wikilink:hover { background:color-mix(in srgb, #3b7dd8 22%, transparent); }
+          .pup-image { max-width:100%; border-radius:8px; display:block; margin:6px 0; }
+          /* pupdb: the interactive table / checklist-database widget. */
+          .pup-db { margin:10px 0; overflow-x:auto; }
+          .pup-db table { border-collapse:collapse; table-layout:fixed; width:auto; font:13px -apple-system, system-ui, sans-serif; }
+          .pup-db th, .pup-db td { border:1px solid color-mix(in srgb, var(--fg) 14%, transparent); padding:4px 6px; text-align:left; overflow:hidden; }
+          .pup-db th { position:relative; background:color-mix(in srgb, var(--fg) 6%, transparent); }
+          .pup-db-actioncol { width:34px; }
+          .pup-db-name { border:none; background:transparent; color:var(--fg); font:inherit; font-weight:600; width:calc(100% - 30px); }
+          .pup-db-name:focus { outline:none; }
+          /* Drag handle on a column's right edge. */
+          .pup-db-resize { position:absolute; top:0; right:-3px; width:6px; height:100%; cursor:col-resize; z-index:2; }
+          .pup-db-resize:hover { background:color-mix(in srgb, #3b7dd8 50%, transparent); }
+          .pup-db-add, .pup-db-addrow {
+            border:none; background:transparent; color:color-mix(in srgb, var(--fg) 55%, transparent);
+            cursor:pointer; font:12px -apple-system, system-ui, sans-serif;
+          }
+          /* × / ▾ column and row controls: hidden until the cursor is over that
+             header or row (kept out of the way, revealed when near). */
+          .pup-db-colmenu, .pup-db-del {
+            border:none; background:transparent; color:color-mix(in srgb, var(--fg) 55%, transparent);
+            cursor:pointer; font:12px -apple-system, system-ui, sans-serif;
+            opacity:0; transition:opacity 0.12s;
+          }
+          .pup-db th:hover .pup-db-colmenu, .pup-db tbody tr:hover .pup-db-del { opacity:1; }
+          .pup-db-colmenu:hover, .pup-db-del:hover { color:#e5484d; }
+          .pup-db-add { font-weight:700; }
+          .pup-db-addrow {
+            margin-top:6px; padding:2px 10px; border:1px dashed color-mix(in srgb, var(--fg) 25%, transparent);
+            border-radius:5px;
+          }
+          .pup-db-cell { border:none; background:transparent; color:var(--fg); font:inherit; width:100%; }
+          .pup-db-cell:focus { outline:none; }
+          .pup-db-pill {
+            border:none; border-radius:5px; padding:2px 8px; font:12px -apple-system, system-ui, sans-serif;
+            font-weight:600; color:#fff; background:var(--pill, #8a8f98); cursor:pointer;
+          }
+          .pup-db-pill-empty { background:color-mix(in srgb, var(--fg) 15%, transparent); color:var(--fg); }
+          .pup-db-menu {
+            position:fixed; background:#26282c; border:1px solid #3f4147; border-radius:6px; padding:4px;
+            z-index:1000; min-width:140px; box-shadow:0 4px 16px rgba(0,0,0,0.3);
+          }
+          .pup-db-menuitem {
+            display:flex; align-items:center; gap:6px; padding:4px 8px; border-radius:4px;
+            cursor:pointer; color:#dbdee1; font:12px -apple-system, system-ui, sans-serif;
+          }
+          .pup-db-menuitem:hover { background:#313338; }
+          .pup-db-menuitem:not(.pup-db-menuitem-plain)::before {
+            content:""; width:8px; height:8px; border-radius:50%; background:var(--pill, #8a8f98); flex:none;
+          }
+          .pup-db-opt-del { color:#8a8f98; padding:0 2px; }
+          .pup-db-opt-del:hover { color:#e5484d; }
+          .pup-db-addopt { border-top:1px solid #3f4147; margin-top:4px; padding-top:6px; }
+          .pup-db-optinput {
+            width:100%; box-sizing:border-box; background:#1e1f22; border:1px solid #3f4147;
+            border-radius:4px; color:#dbdee1; font:12px -apple-system, system-ui, sans-serif; padding:4px 6px;
+          }
+          .pup-db-optinput:focus { outline:none; border-color:#5865f2; }
+          .pup-db-swatches { display:flex; gap:4px; margin:6px 0; flex-wrap:wrap; }
+          .pup-db-swatch { width:16px; height:16px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; }
+          .pup-db-swatch.sel { border-color:#fff; }
+          .pup-db-optadd {
+            width:100%; background:#5865f2; border:none; border-radius:4px; color:#fff;
+            font:12px -apple-system, system-ui, sans-serif; font-weight:600; padding:5px; cursor:pointer;
+          }
+          .pup-db-optadd:hover { background:#4752c4; }
         </style>
         <script>\(bundle)</script>
         </head><body>

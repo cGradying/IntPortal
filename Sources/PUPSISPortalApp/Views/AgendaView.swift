@@ -133,7 +133,8 @@ struct AgendaView: View {
                 notes: notes,
                 noteKey: currentKey,
                 title: noteTitle(for: currentKey),
-                onOpenNote: openNote(titled:)
+                onOpenNote: openNote(titled:),
+                addDateOptions: addDateOptions(for: currentKey)
             )
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -800,6 +801,21 @@ struct AgendaView: View {
     private func noteKey(_ entry: DayAgenda.AgendaEntry) -> String {
         if let session = entry.session { return "class:\(session.subjectCode)" }
         return "event:\(entry.id)"
+    }
+
+    /// "Next class" / "Today" date labels for the Add-date menu, shown only
+    /// when the open note is a shared per-subject class note. `next` is the
+    /// next date (today or later) the subject meets, by weekday; `today` is
+    /// always just today. When they land on the same day the toolbar collapses
+    /// them into one option.
+    private func addDateOptions(for key: String) -> (next: String, today: String)? {
+        guard key.hasPrefix("class:") else { return nil }
+        let subjectCode = String(key.dropFirst("class:".count))
+        let todayLabel = Self.shortDate.string(from: now)
+        guard let next = ClassSession.nextMeetingDate(for: subjectCode, in: appState.portal.sessions, from: now) else {
+            return nil
+        }
+        return (next: Self.shortDate.string(from: next), today: todayLabel)
     }
 
     /// The freeform day scratchpad's key for a given calendar day. Uses the

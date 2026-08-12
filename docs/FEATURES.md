@@ -83,6 +83,60 @@ marked vacant for the week are dropped, matching the grid.
 
 ---
 
+## Notes
+
+### A live Markdown editor, right by your day
+**What it does** — Attaches notes to the Today screen in a proper editor that
+renders as you type (Obsidian-style live preview — no separate Edit/Preview
+mode). Notes are saved on your Mac and open instantly.
+
+**How to use it** — Click a class or event row to open its note, use the day
+scratchpad for anything undated, or build a vault of folders and named notes in
+the sidebar. Open notes stack as tabs above the editor. A toolbar drives the
+formatting; you can also type the Markdown directly.
+
+**Notes & limits** — A class note is **shared across every week** that class
+meets — one note per subject, not one per week — so ongoing notes for a course
+stay in one place.
+
+### Dated log for a class
+**What it does** — Turns a class note into a running, dated log so you can tell
+when each bit was written.
+
+**How to use it** — On a class note, click **Add dated entry**. It appends a
+`## <date>` heading and offers two dates: the subject's **next class meeting**
+(computed from your schedule — e.g. writing on the 15th for a class that next
+meets the 16th stamps the 16th) or **today**.
+
+### Rich content
+**What it does** — The editor is more than plain text:
+
+- **Formatting** — headings, bold, italic, strikethrough, highlight, colored
+  text, quotes, and bullet / numbered lists.
+- **Dividers** — a horizontal rule to break sections.
+- **Task checkboxes** — `- [ ]` / `- [x]` become real checkboxes you click to
+  tick off.
+- **Math** — `$…$` and `$$…$$` render live via KaTeX.
+- **Code blocks** — fenced ```` ```language ```` blocks get syntax highlighting,
+  a language badge, and a copy button.
+- **Note links** — `[[Title]]` is a clickable link that jumps to that note.
+- **Images** — paste an image, drag one in, or use an image URL; it shows inline.
+- **Tables / database** — an interactive table with typed columns: text,
+  number, checkbox, date, and a **status** column with your own custom-colored
+  tags (add your own labels and colors, not a fixed list). Click cells to edit,
+  drag a column edge to resize it, and add or remove rows and columns — the `×`
+  controls appear when you hover.
+
+**How to use it** — Use the toolbar above the editor, or type the Markdown by
+hand. Insert a table or divider from the toolbar; click a status cell to pick or
+create a tag.
+
+**Notes & limits** — Everything is stored as plain Markdown text in the note, so
+it stays portable. Pasted/dropped images are copied into the app's storage
+(Application Support), same privacy terms as the rest of your data.
+
+---
+
 ## Reminders
 
 ### Notifications before class

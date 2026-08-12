@@ -116,4 +116,21 @@ struct ClassSession: Identifiable, Equatable, Codable {
             && lhs.start == rhs.start
             && lhs.end == rhs.end
     }
+
+    /// The next date on/after `date` that `subjectCode` meets, by scheduled
+    /// weekday. `nil` if the subject isn't in `sessions`. Used to default a
+    /// class note's dated log entry to the class it's actually for, rather
+    /// than the day it happened to be written.
+    static func nextMeetingDate(
+        for subjectCode: String, in sessions: [ClassSession], from date: Date, calendar: Calendar = .current
+    ) -> Date? {
+        let weekdays = Set(sessions.filter { $0.subjectCode == subjectCode }.map(\.day))
+        guard !weekdays.isEmpty else { return nil }
+        let startOfDay = calendar.startOfDay(for: date)
+        for offset in 0..<7 {
+            guard let candidate = calendar.date(byAdding: .day, value: offset, to: startOfDay) else { continue }
+            if weekdays.contains(Weekday.on(candidate, calendar: calendar)) { return candidate }
+        }
+        return nil
+    }
 }

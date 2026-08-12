@@ -137,3 +137,53 @@ final class WeekdayTests: XCTestCase {
         return try XCTUnwrap(calendar.date(from: components))
     }
 }
+
+/// `ClassSession.nextMeetingDate` — drives the class-note Add-date menu's
+/// "Next class" default.
+final class ClassSessionNextMeetingTests: XCTestCase {
+    private var calendar: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "Asia/Manila")!
+        return c
+    }()
+
+    private func date(_ iso: String) throws -> Date {
+        let parts = iso.split(separator: "-").compactMap { Int($0) }
+        var components = DateComponents()
+        (components.year, components.month, components.day) = (parts[0], parts[1], parts[2])
+        return try XCTUnwrap(calendar.date(from: components))
+    }
+
+    private func session(_ subject: String, _ day: Weekday) -> ClassSession {
+        ClassSession(subjectCode: subject, description: "", faculty: "", day: day, start: 480, end: 600)
+    }
+
+    /// Subject meets Sunday; asking from Saturday (the 15th) should land on
+    /// Sunday the 16th, not today.
+    func testWrapsForwardToTheNextScheduledWeekday() throws {
+        let sessions = [session("COMP1", .sunday)]
+        let saturday = try date("2026-08-15")
+
+        let next = ClassSession.nextMeetingDate(for: "COMP1", in: sessions, from: saturday, calendar: calendar)
+
+        XCTAssertEqual(next, try date("2026-08-16"))
+    }
+
+    /// Asking on the meeting day itself returns that same day, not a week out.
+    func testReturnsTodayWhenTodayIsAMeetingDay() throws {
+        let sessions = [session("COMP1", .sunday)]
+        let sunday = try date("2026-08-16")
+
+        let next = ClassSession.nextMeetingDate(for: "COMP1", in: sessions, from: sunday, calendar: calendar)
+
+        XCTAssertEqual(next, sunday)
+    }
+
+    func testNilForASubjectNotOnTheSchedule() throws {
+        let sessions = [session("COMP1", .sunday)]
+
+        let next = ClassSession.nextMeetingDate(for: "MATH1", in: sessions, from: try date("2026-08-15"), calendar: calendar)
+
+        XCTAssertNil(next)
+    }
+}
