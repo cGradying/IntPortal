@@ -32,8 +32,26 @@ net8.0 runtime present, that's a no-op.
   `notes-editor.bundle.js` from the repo's existing build output (wired at the
   notes stage), rather than committing a second copy of a generated file.
 
+## Building the WinUI app (Windows only)
+
+`PUPSISPortal.App` targets `net8.0-windows` and needs the Windows App SDK, so it
+is **not** in `PUPSISPortal.slnx` (that keeps the mac build of Core+Tests green).
+On Windows:
+
+```powershell
+dotnet build windows/PUPSISPortal.App/PUPSISPortal.App.csproj
+```
+
+or add it to the solution and open in Visual Studio. It was authored on macOS
+where it can't be compiled — expect to fix small WinUI/WebView2 API details on the
+first Windows build.
+
 ## Status
 
-Stage 0 (scaffold) done. See `.claude/plans/windows-port-stages.md` for the full
-staged plan. Owned by the `pupsis-windows` agent; the mac agents never touch this
-folder.
+- **Stages 0–2 done, tested on mac (185 xUnit tests):** the whole portable Core +
+  the `SisSession` scrape orchestration behind `ISisWebView`.
+- **Stages 3–5 scaffolded (Windows-only, unverified):** `PUPSISPortal.App` — the
+  WebView2 `ISisWebView` driver + PasswordVault creds (3), a Mica + custom-titlebar
+  shell (5), and a week-grid `CalendarView` (4).
+- **Remaining (6–9):** notes host, grades chart, Google/ICS/toast/tray/startup,
+  MSIX. See `.claude/plans/windows-port-stages.md`.
