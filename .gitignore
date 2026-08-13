@@ -9,3 +9,8 @@ dist/
 node_modules/
 .DS_Store
 vsc.code-workspace
+
+# .NET — Windows port under windows/ (isolated from the SwiftPM app)
+windows/**/bin/
+windows/**/obj/
+*.user

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="PUPSISPortal.Core.Tests/PUPSISPortal.Core.Tests.csproj" />
+  <Project Path="PUPSISPortal.Core/PUPSISPortal.Core.csproj" />
+</Solution>
