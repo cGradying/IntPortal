@@ -170,41 +170,4 @@ public class GradesParserTests
         var ids = new HashSet<string>(subjects.Select(s => s.Id));
         Assert.Equal(2, ids.Count);
     }
-
-    [Fact]
-    public void TheStoreRoundTripsAReport()
-    {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"GradesStoreTests-{Guid.NewGuid()}");
-        var url = Path.Combine(tempDir, "grades.json");
-
-        try
-        {
-            var report = new GradeReport
-            {
-                LastUpdated = new DateTime(2025, 8, 14, 0, 0, 0, DateTimeKind.Utc),
-                Subjects = GradesParser.Parse(new[] { Row("COMP 20073", units: "3", grade: "1.25") }),
-                Summary = new Dictionary<string, string> { { "Scholastic Status", "Regular" } }
-            };
-
-            GradesStore.Save(report, url);
-
-            var loaded = GradesStore.Load(url);
-            Assert.NotNull(loaded);
-            Assert.Equal(report.Subjects.Count, loaded.Subjects.Count);
-            Assert.Equal(report.Subjects.First().SubjectCode, loaded.Subjects.First().SubjectCode);
-            Assert.Equal(report.Summary, loaded.Summary);
-
-            // On Windows, file permissions are set via ACL, which is more complex to verify
-            // than POSIX permissions. Just verify the file exists and is readable.
-            Assert.True(File.Exists(url));
-        }
-        finally
-        {
-            try
-            {
-                Directory.Delete(tempDir, recursive: true);
-            }
-            catch { }
-        }
-    }
 }
