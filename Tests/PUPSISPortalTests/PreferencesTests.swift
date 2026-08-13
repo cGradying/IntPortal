@@ -272,12 +272,16 @@ final class MotionTests: XCTestCase {
         XCTAssertNil(Motion.arrival(reduced: true))
         XCTAssertNil(Motion.hover(reduced: true))
         XCTAssertNil(Motion.drift(reduced: true))
+        XCTAssertNil(Motion.selection(reduced: true))
+        XCTAssertNil(Motion.drag(reduced: true))
+        XCTAssertNil(Motion.island(reduced: true))
     }
 
     func testAnimationsExistWhenMotionIsAllowed() {
         XCTAssertNotNil(Motion.arrival(reduced: false))
         XCTAssertNotNil(Motion.hover(reduced: false))
         XCTAssertNotNil(Motion.drift(reduced: false))
+        XCTAssertNotNil(Motion.island(reduced: false))
     }
 
     func testStaggerCollapsesToZeroWhenMotionIsReduced() {

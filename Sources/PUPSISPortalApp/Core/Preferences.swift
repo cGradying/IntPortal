@@ -128,6 +128,25 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(googleCalendarID, forKey: Key.googleCalendarID) }
     }
 
+    // MARK: Dynamic island
+
+    /// Open on the centred home launcher; off opens straight into the last screen.
+    @Published var islandStartHome: Bool {
+        didSet { defaults.set(islandStartHome, forKey: Key.islandStartHome) }
+    }
+
+    /// The island rests as a compact pill and expands on hover; off keeps the
+    /// full bar shown at all times.
+    @Published var islandExpandOnHover: Bool {
+        didSet { defaults.set(islandExpandOnHover, forKey: Key.islandExpandOnHover) }
+    }
+
+    /// Auto-hide the window's traffic-light buttons, revealing them when the
+    /// cursor nears the top-left corner. Off keeps them always visible.
+    @Published var trafficLightsAutoHide: Bool {
+        didSet { defaults.set(trafficLightsAutoHide, forKey: Key.trafficLightsAutoHide) }
+    }
+
     static let leadOptions = [5, 10, 15, 30]
 
     /// Meetings marked vacant **for the whole term**, in the form `Notifier` and
@@ -162,6 +181,9 @@ final class Preferences: ObservableObject {
         static let programTotalUnits = "programTotalUnits"
         static let googleClientID = "googleClientID"
         static let googleCalendarID = "googleCalendarID"
+        static let islandStartHome = "islandStartHome"
+        static let islandExpandOnHover = "islandExpandOnHover"
+        static let trafficLightsAutoHide = "trafficLightsAutoHide"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -189,6 +211,11 @@ final class Preferences: ObservableObject {
         programTotalUnits = (defaults.object(forKey: Key.programTotalUnits) as? Int) ?? 0
         googleClientID = defaults.string(forKey: Key.googleClientID) ?? ""
         googleCalendarID = defaults.string(forKey: Key.googleCalendarID) ?? ""
+        // Default the island prefs on; `bool(forKey:)` returns false for a
+        // missing key, so check the key instead.
+        islandStartHome = (defaults.object(forKey: Key.islandStartHome) as? Bool) ?? true
+        islandExpandOnHover = (defaults.object(forKey: Key.islandExpandOnHover) as? Bool) ?? true
+        trafficLightsAutoHide = (defaults.object(forKey: Key.trafficLightsAutoHide) as? Bool) ?? true
     }
 
     /// The colour an event renders in: the user's pick, else the palette's

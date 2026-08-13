@@ -8,6 +8,12 @@ import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle, LanguageDescription, syntaxTree } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import katex from "katex";
+import { parse as latexParse, HtmlGenerator as LatexHtmlGenerator } from "latex.js";
+// Relative into node_modules — latex.js's package `exports` map blocks the
+// bare "latex.js/dist/css/*" subpath, but esbuild resolves a relative file fine.
+import latexBaseCss from "../node_modules/latex.js/dist/css/base.css";
+import latexArticleCss from "../node_modules/latex.js/dist/css/article.css";
+import latexKatexCss from "../node_modules/latex.js/dist/css/katex.css";
 
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
@@ -40,21 +46,45 @@ const codeLanguages = [
 ];
 
 // --- Math detection (mirrors the native MarkdownCommands.mathMatches rules) ---
-const BLOCK = /\$\$([\s\S]+?)\$\$/g;
-const INLINE = /(?<![$\w])\$(?! )([^$\n]+?)(?<! )\$(?!\$)/g;
+// KaTeX's standard delimiter set (mirrors renderMathInElement) plus the common
+// math environments. Ordered block-level first; `whole` passes the entire match
+// (incl. \begin…\end) to KaTeX, which parses environments itself.
+const MATH_PATTERNS = [
+  { re: /\$\$([\s\S]+?)\$\$/g, display: true, whole: false },
+  { re: /\\\[([\s\S]+?)\\\]/g, display: true, whole: false },
+  { re: /\\begin\{(equation\*?|align\*?|alignat\*?|flalign\*?|gather\*?|multline\*?|aligned|gathered|split|cases|array|[pbBvV]?matrix|smallmatrix)\}[\s\S]*?\\end\{\1\}/g, display: true, whole: true },
+  { re: /(?<![$\w])\$(?! )([^$\n]+?)(?<! )\$(?!\$)/g, display: false, whole: false },
+  { re: /\\\(([\s\S]+?)\\\)/g, display: false, whole: false },
+];
+
+// A full LaTeX document `\documentclass … \end{document}` is rendered whole by
+// latexDocField. The inline scanners below must NOT also decorate inside it, or
+// two replace decorations overlap (a hard error). These helpers let each skip
+// any match that falls within a document region.
+const LATEX_DOC_RE = /\\documentclass\b[\s\S]*?\\end\{document\}/g;
+
+function latexRegions(text) {
+  const regions = [];
+  LATEX_DOC_RE.lastIndex = 0;
+  let m;
+  while ((m = LATEX_DOC_RE.exec(text))) regions.push({ from: m.index, to: m.index + m[0].length });
+  return regions;
+}
+
+function inRegions(from, to, regions) {
+  return regions.some((r) => from < r.to && to > r.from);
+}
 
 function findMath(text) {
   const found = [];
-  let m;
-  BLOCK.lastIndex = 0;
-  while ((m = BLOCK.exec(text))) {
-    found.push({ from: m.index, to: m.index + m[0].length, latex: m[1], display: true });
-  }
-  INLINE.lastIndex = 0;
-  while ((m = INLINE.exec(text))) {
-    const from = m.index, to = m.index + m[0].length;
-    if (found.some((f) => from < f.to && to > f.from)) continue; // inside a block
-    found.push({ from, to, latex: m[1], display: false });
+  for (const p of MATH_PATTERNS) {
+    p.re.lastIndex = 0;
+    let m;
+    while ((m = p.re.exec(text))) {
+      const from = m.index, to = m.index + m[0].length;
+      if (found.some((f) => from < f.to && to > f.from)) continue; // overlaps an earlier (block) match
+      found.push({ from, to, latex: p.whole ? m[0] : m[1], display: p.display });
+    }
   }
   return found.sort((a, b) => a.from - b.from);
 }
@@ -79,10 +109,12 @@ function mathDecorations(view) {
   const builder = new RangeSetBuilder();
   const sel = view.state.selection.main;
   const text = view.state.doc.toString();
+  const regions = latexRegions(text);
   for (const m of findMath(text)) {
     // Show raw source while the caret is inside/adjacent, so it stays editable.
     const editing = sel.from <= m.to && sel.to >= m.from;
     if (editing) continue;
+    if (inRegions(m.from, m.to, regions)) continue; // rendered by the LaTeX document
     builder.add(m.from, m.to, Decoration.replace({ widget: new MathWidget(m.latex, m.display) }));
   }
   return builder.finish();
@@ -92,7 +124,10 @@ const mathPlugin = ViewPlugin.fromClass(
   class {
     constructor(view) { this.decorations = mathDecorations(view); }
     update(u) {
-      if (u.docChanged || u.selectionSet || u.viewportChanged) {
+      // NOT viewportChanged: mathDecorations scans the whole doc (not
+      // visibleRanges), and re-rendering KaTeX on a viewport change shifts
+      // layout → fires viewportChanged again → measure/re-render freeze loop.
+      if (u.docChanged || u.selectionSet) {
         this.decorations = mathDecorations(u.view);
       }
     }
@@ -249,11 +284,13 @@ function hrDecorations(view) {
   const builder = new RangeSetBuilder();
   const sel = view.state.selection.main;
   const doc = view.state.doc;
+  const regions = latexRegions(doc.toString());
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     if (!HR_RE.test(line.text.trim())) continue;
     const editing = sel.from <= line.to && sel.to >= line.from;
     if (editing) continue;
+    if (inRegions(line.from, line.to, regions)) continue;
     builder.add(line.from, line.to, Decoration.replace({ widget: new HrWidget() }));
   }
   return builder.finish();
@@ -263,7 +300,7 @@ const hrPlugin = ViewPlugin.fromClass(
   class {
     constructor(view) { this.decorations = hrDecorations(view); }
     update(u) {
-      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = hrDecorations(u.view);
+      if (u.docChanged || u.selectionSet) this.decorations = hrDecorations(u.view);
     }
   },
   { decorations: (v) => v.decorations }
@@ -293,10 +330,12 @@ class CheckboxWidget extends WidgetType {
 function checkboxDecorations(view) {
   const builder = new RangeSetBuilder();
   const doc = view.state.doc;
+  const regions = latexRegions(doc.toString());
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     const m = line.text.match(CHECKBOX_RE);
     if (!m) continue;
+    if (inRegions(line.from, line.to, regions)) continue;
     const bracketOpen = line.from + m[1].length;
     const charPos = bracketOpen + 1;
     builder.add(bracketOpen, bracketOpen + 3, Decoration.replace({ widget: new CheckboxWidget(m[2].toLowerCase() === "x", charPos) }));
@@ -309,6 +348,36 @@ const checkboxPlugin = ViewPlugin.fromClass(
     constructor(view) { this.decorations = checkboxDecorations(view); }
     update(u) {
       if (u.docChanged || u.viewportChanged) this.decorations = checkboxDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+// --- Headings: hide the leading `#{1,6} ` marks (the line stays styled big via
+// the syntax highlighter); reveal them when the caret is on that line. ---
+const HEADING_RE = /^(#{1,6})\s/;
+
+function headingDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const sel = view.state.selection.main;
+  const doc = view.state.doc;
+  const regions = latexRegions(doc.toString());
+  for (let n = 1; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    const m = line.text.match(HEADING_RE);
+    if (!m) continue;
+    if (sel.from <= line.to && sel.to >= line.from) continue; // caret on line → show marks
+    if (inRegions(line.from, line.to, regions)) continue;
+    builder.add(line.from, line.from + m[0].length, Decoration.replace({}));
+  }
+  return builder.finish();
+}
+
+const headingPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = headingDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.selectionSet) this.decorations = headingDecorations(u.view);
     }
   },
   { decorations: (v) => v.decorations }
@@ -338,12 +407,14 @@ function wikilinkDecorations(view) {
   const builder = new RangeSetBuilder();
   const sel = view.state.selection.main;
   const text = view.state.doc.toString();
+  const regions = latexRegions(text);
   WIKILINK_RE.lastIndex = 0;
   let m;
   while ((m = WIKILINK_RE.exec(text))) {
     const from = m.index, to = m.index + m[0].length;
     const editing = sel.from <= to && sel.to >= from;
     if (editing) continue;
+    if (inRegions(from, to, regions)) continue;
     builder.add(from, to, Decoration.replace({ widget: new WikilinkWidget(m[1]) }));
   }
   return builder.finish();
@@ -353,7 +424,7 @@ const wikilinkPlugin = ViewPlugin.fromClass(
   class {
     constructor(view) { this.decorations = wikilinkDecorations(view); }
     update(u) {
-      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = wikilinkDecorations(u.view);
+      if (u.docChanged || u.selectionSet) this.decorations = wikilinkDecorations(u.view);
     }
   },
   { decorations: (v) => v.decorations }
@@ -363,28 +434,27 @@ const wikilinkPlugin = ViewPlugin.fromClass(
 // syntax (caret inside reveals the source to edit). Matches cmd("color"). ---
 const COLOR_RE = /\{#([0-9a-fA-F]{3,8}):([^{}]*)\}/g;
 
-class ColorWidget extends WidgetType {
-  constructor(hex, text) { super(); this.hex = hex; this.text = text; }
-  eq(other) { return other.hex === this.hex && other.text === this.text; }
-  toDOM() {
-    const span = document.createElement("span");
-    span.style.color = "#" + this.hex;
-    span.textContent = this.text;
-    return span;
-  }
-  ignoreEvent() { return false; }
-}
-
+// Color via a MARK on the real text (not a replace widget), so the text keeps
+// whatever its context gives it — a colored word inside a heading stays
+// heading-sized/weighted. The `{#hex:` and `}` delimiters are hidden with
+// empty replace decorations.
 function colorDecorations(view) {
   const builder = new RangeSetBuilder();
   const sel = view.state.selection.main;
   const text = view.state.doc.toString();
+  const regions = latexRegions(text);
   COLOR_RE.lastIndex = 0;
   let m;
   while ((m = COLOR_RE.exec(text))) {
     const from = m.index, to = m.index + m[0].length;
     if (sel.from <= to && sel.to >= from) continue; // editing → show source
-    builder.add(from, to, Decoration.replace({ widget: new ColorWidget(m[1], m[2]) }));
+    if (inRegions(from, to, regions)) continue;
+    const innerFrom = from + 2 + m[1].length + 1; // past "{#" + hex + ":"
+    const innerTo = to - 1;                        // before "}"
+    if (innerTo <= innerFrom) continue;            // empty → nothing to color
+    builder.add(from, innerFrom, Decoration.replace({}));
+    builder.add(innerFrom, innerTo, Decoration.mark({ attributes: { style: `color:#${m[1]}` } }));
+    builder.add(innerTo, to, Decoration.replace({}));
   }
   return builder.finish();
 }
@@ -393,7 +463,7 @@ const colorPlugin = ViewPlugin.fromClass(
   class {
     constructor(view) { this.decorations = colorDecorations(view); }
     update(u) {
-      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = colorDecorations(u.view);
+      if (u.docChanged || u.selectionSet) this.decorations = colorDecorations(u.view);
     }
   },
   { decorations: (v) => v.decorations }
@@ -420,12 +490,14 @@ function imageDecorations(view) {
   const builder = new RangeSetBuilder();
   const sel = view.state.selection.main;
   const text = view.state.doc.toString();
+  const regions = latexRegions(text);
   IMAGE_RE.lastIndex = 0;
   let m;
   while ((m = IMAGE_RE.exec(text))) {
     const from = m.index, to = m.index + m[0].length;
     const editing = sel.from <= to && sel.to >= from;
     if (editing) continue;
+    if (inRegions(from, to, regions)) continue;
     const url = m[2].trim();
     if (!/^(https?:|pupimg:)/.test(url)) continue;
     builder.add(from, to, Decoration.replace({ widget: new ImageWidget(url, m[1]) }));
@@ -437,7 +509,7 @@ const imagePlugin = ViewPlugin.fromClass(
   class {
     constructor(view) { this.decorations = imageDecorations(view); }
     update(u) {
-      if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = imageDecorations(u.view);
+      if (u.docChanged || u.selectionSet) this.decorations = imageDecorations(u.view);
     }
   },
   { decorations: (v) => v.decorations }
@@ -604,6 +676,32 @@ class TableWidget extends WidgetType {
       setTimeout(() => input.focus(), 0);
     };
 
+    // Per-cell text color for text/number/date cells. Stored on the row as
+    // `_colors[colId]` so it round-trips in the pupdb JSON; "Default" clears it.
+    const openCellColorMenu = (anchor, row, col, applyColor) => {
+      const menu = makeDbMenu(anchor);
+      const setColor = (hex) => {
+        if (hex) { (row._colors || (row._colors = {}))[col.id] = hex; }
+        else if (row._colors) { delete row._colors[col.id]; }
+        applyColor(); commit(); menu.remove();
+      };
+      const def = document.createElement("div");
+      def.className = "pup-db-menuitem pup-db-menuitem-plain";
+      def.textContent = "Default";
+      def.onclick = () => setColor(null);
+      menu.appendChild(def);
+      const swatches = document.createElement("div");
+      swatches.className = "pup-db-swatches";
+      for (const c of DB_COLORS) {
+        const s = document.createElement("button");
+        s.className = "pup-db-swatch";
+        s.style.background = c;
+        s.onclick = () => setColor(c);
+        swatches.appendChild(s);
+      }
+      menu.appendChild(swatches);
+    };
+
     const renderCell = (row, col) => {
       const td = document.createElement("td");
       if (col.type === "checkbox") {
@@ -629,11 +727,20 @@ class TableWidget extends WidgetType {
         input.className = "pup-db-cell";
         input.type = col.type === "date" ? "date" : col.type === "number" ? "number" : "text";
         input.value = row[col.id] ?? "";
+        const applyColor = () => { input.style.color = (row._colors && row._colors[col.id]) || ""; };
+        applyColor();
         // Keep memory current on every keystroke (so a cross-click never loses
         // typing); persist on blur/enter.
         input.oninput = () => { row[col.id] = input.value; };
         input.onchange = () => { row[col.id] = input.value; commit(); };
         td.appendChild(input);
+        // Hover-reveal color dot → swatch menu; colors this cell's text.
+        const dot = document.createElement("button");
+        dot.className = "pup-db-cellcolor";
+        dot.textContent = "●";
+        dot.title = "Text color";
+        dot.onclick = () => openCellColorMenu(dot, row, col, applyColor);
+        td.appendChild(dot);
       }
       return td;
     };
@@ -788,6 +895,60 @@ const tableField = StateField.define({
   ],
 });
 
+// --- Full LaTeX document: `\documentclass … \end{document}` renders via
+// latex.js into an isolated shadow root (so its stylesheet can't touch the
+// editor). Caret inside shows raw source; a parse error falls back to <pre>. ---
+class LatexDocWidget extends WidgetType {
+  constructor(src) { super(); this.src = src; }
+  eq(other) { return other.src === this.src; }
+  ignoreEvent() { return false; }
+  toDOM() {
+    const host = document.createElement("div");
+    host.className = "pup-latexdoc";
+    const shadow = host.attachShadow({ mode: "open" });
+    const style = document.createElement("style");
+    style.textContent = latexBaseCss + "\n" + latexArticleCss + "\n" + latexKatexCss +
+      "\n:host{display:block;margin:8px 0;} .body{padding:0;}";
+    shadow.appendChild(style);
+    try {
+      const generator = new LatexHtmlGenerator({ hyphenate: false });
+      const doc = latexParse(this.src, { generator });
+      shadow.appendChild(doc.domFragment());
+    } catch (e) {
+      const pre = document.createElement("pre");
+      pre.style.whiteSpace = "pre-wrap";
+      pre.textContent = this.src;
+      shadow.appendChild(pre);
+    }
+    return host;
+  }
+}
+
+function latexDocDecorations(state) {
+  const sel = state.selection.main;
+  const text = state.doc.toString();
+  const items = [];
+  for (const r of latexRegions(text)) {
+    if (sel.from <= r.to && sel.to >= r.from) continue; // editing → show source
+    const src = text.slice(r.from, r.to);
+    items.push({ from: r.from, to: r.to, deco: Decoration.replace({ widget: new LatexDocWidget(src), block: true }) });
+  }
+  const builder = new RangeSetBuilder();
+  for (const it of items) builder.add(it.from, it.to, it.deco);
+  return builder.finish();
+}
+
+const latexDocField = StateField.define({
+  create(state) { return latexDocDecorations(state); },
+  update(deco, tr) {
+    return tr.docChanged || tr.selection ? latexDocDecorations(tr.state) : deco;
+  },
+  provide: (f) => [
+    EditorView.decorations.from(f),
+    EditorView.atomicRanges.of((view) => view.state.field(f, false) || Decoration.none),
+  ],
+});
+
 // --- Syntax highlighting: markdown structure + code tokens (Discord-ish) ---
 const highlight = HighlightStyle.define([
   { tag: t.heading1, fontSize: "1.6em", fontWeight: "700" },
@@ -847,11 +1008,13 @@ export function initEditor(initialText, key) {
         fencePlugin,
         mathPlugin,
         hrPlugin,
+        headingPlugin,
         checkboxPlugin,
         wikilinkPlugin,
         colorPlugin,
         imagePlugin,
         tableField,
+        latexDocField,
         EditorView.updateListener.of((u) => {
           if (u.docChanged) post("notes", { key: docKey, text: view.state.doc.toString() });
         }),
@@ -945,6 +1108,16 @@ function toggleHeading() {
   view.focus();
 }
 
+// Set the current line to a specific heading level (1–6), or 0 for normal text.
+function setHeading(level) {
+  const line = view.state.doc.lineAt(view.state.selection.main.from);
+  const m = line.text.match(/^(#{1,6}) /);
+  const removeLen = m ? m[0].length : 0;
+  const insert = level > 0 ? "#".repeat(Math.min(level, 6)) + " " : "";
+  view.dispatch({ changes: { from: line.from, to: line.from + removeLen, insert } });
+  view.focus();
+}
+
 // Insert a ```lang fenced block around the selection (or empty, caret inside).
 function insertCodeBlock(lang) {
   const { from, to } = view.state.selection.main;
@@ -968,7 +1141,7 @@ export function cmd(name, arg) {
     case "code": return wrapSelection("`");
     case "codeblock": return insertCodeBlock(arg);
     case "math": return wrapSelection("$$");
-    case "heading": return toggleHeading();
+    case "heading": return arg !== undefined ? setHeading(parseInt(arg, 10)) : toggleHeading();
     case "bullet": return prefixLines(() => "- ");
     case "numbered": return prefixLines((i) => `${i + 1}. `);
     case "checklist": return prefixLines(() => "- [ ] ");
@@ -986,6 +1159,15 @@ export function cmd(name, arg) {
       const sel = view.state.sliceDoc(from, to);
       const insert = `[${sel}](url)`;
       const urlAt = from + sel.length + 3;
+      view.dispatch({ changes: { from, to, insert }, selection: { anchor: urlAt, head: urlAt + 3 } });
+      return view.focus();
+    }
+    case "image": {
+      // Manual image by URL/alt (paste & drag-drop go through the native bridge).
+      const { from, to } = view.state.selection.main;
+      const sel = view.state.sliceDoc(from, to);
+      const insert = `![${sel}](url)`;
+      const urlAt = from + sel.length + 4;
       view.dispatch({ changes: { from, to, insert }, selection: { anchor: urlAt, head: urlAt + 3 } });
       return view.focus();
     }
@@ -1010,6 +1192,16 @@ export function cmd(name, arg) {
       const line = view.state.doc.lineAt(from);
       const insert = (line.text.length ? "\n" : "") + "---\n";
       view.dispatch({ changes: { from: line.to, insert }, selection: { anchor: line.to + insert.length } });
+      return view.focus();
+    }
+    case "latexdoc": {
+      const { from } = view.state.selection.main;
+      const line = view.state.doc.lineAt(from);
+      const skeleton = "\\documentclass{article}\n\\begin{document}\n\n\\end{document}\n";
+      const insert = (line.text.length ? "\n" : "") + skeleton;
+      // Caret on the blank body line, between \begin and \end.
+      const caret = line.to + insert.indexOf("\n\n\\end") + 1;
+      view.dispatch({ changes: { from: line.to, insert }, selection: { anchor: caret } });
       return view.focus();
     }
     // Appends a "## <date>" heading at the end of the doc — a running dated

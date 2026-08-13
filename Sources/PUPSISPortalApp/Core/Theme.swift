@@ -204,6 +204,12 @@ enum Motion {
     static func drag(reduced: Bool) -> Animation? {
         reduced ? nil : .interactiveSpring(duration: 0.18, extraBounce: 0.1)
     }
+
+    /// The nav island gliding centre↔top and morphing collapsed↔expanded. A
+    /// gentle spring so the flight reads as one continuous move, not a snap.
+    static func island(reduced: Bool) -> Animation? {
+        reduced ? nil : .spring(response: 0.42, dampingFraction: 0.82)
+    }
 }
 
 // MARK: - Type scale

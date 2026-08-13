@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "build": "esbuild src/editor.js --bundle --format=iife --global-name=PUPNotes --minify --outfile=../Sources/PUPSISPortalApp/Resources/notes-editor.bundle.js"
+    "build": "esbuild src/editor.js --bundle --format=iife --global-name=PUPNotes --minify --loader:.keep=empty --loader:.css=text --outfile=../Sources/PUPSISPortalApp/Resources/notes-editor.bundle.js"
   },
   "devDependencies": {
     "esbuild": "^0.23.0"
@@ -27,6 +27,7 @@
     "@codemirror/state": "^6.4.0",
     "@codemirror/view": "^6.30.0",
     "@lezer/highlight": "^1.2.0",
-    "katex": "^0.16.11"
+    "katex": "^0.16.11",
+    "latex.js": "^0.12.6"
   }
 }

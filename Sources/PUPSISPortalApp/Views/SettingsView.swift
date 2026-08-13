@@ -23,7 +23,33 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        Form {
+        TabView {
+            appearanceTab.tabItem { Label("Appearance", systemImage: "paintbrush") }
+            calendarTab.tabItem { Label("Calendar", systemImage: "calendar") }
+            notificationsTab.tabItem { Label("Notifications", systemImage: "bell.badge") }
+            gradesTab.tabItem { Label("Grades", systemImage: "graduationcap") }
+            accountTab.tabItem { Label("Account", systemImage: "person.crop.circle") }
+            aboutTab.tabItem { Label("About", systemImage: "info.circle") }
+        }
+        .tint(palette.accent)
+        .background(palette.canvasWash.ignoresSafeArea())
+        .navigationTitle("Settings")
+        .task { await notifier.refreshAuthorization() }
+        .task(id: googleAuth.isConnected) {
+            if googleAuth.isConnected { await loadGoogleCalendars() }
+        }
+    }
+
+    /// One grouped, wash-backed form per tab — the shared chrome lives here.
+    @ViewBuilder
+    private func settingsForm<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        Form { content() }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+    }
+
+    private var appearanceTab: some View {
+        settingsForm {
             Section("Appearance") {
                 Picker("Theme", selection: $preferences.theme) {
                     ForEach(ThemeChoice.allCases) { choice in
@@ -31,6 +57,16 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.inline)
+            }
+            Section {
+                Toggle("Open on the home launcher", isOn: $preferences.islandStartHome)
+                Toggle("Expand island on hover", isOn: $preferences.islandExpandOnHover)
+                Toggle("Auto-hide window buttons", isOn: $preferences.trafficLightsAutoHide)
+            } header: {
+                Text("Dynamic Island")
+            } footer: {
+                Text("The floating island is the app's top bar. When it starts on the home launcher it sits centred and flies to the top when you open a screen. Expand-on-hover keeps it a compact pill until you point at it. Auto-hide keeps the red/yellow/green window buttons hidden until your cursor nears the top-left corner.")
+                    .foregroundStyle(.secondary)
             }
 
             Section {
@@ -48,13 +84,22 @@ struct SettingsView: View {
                 Text("Colors are remembered per subject code and survive a refresh.")
                     .foregroundStyle(.secondary)
             }
+        }
+    }
 
+    private var calendarTab: some View {
+        settingsForm {
             calendarSection
-
             googleSection
+        }
+    }
 
-            notificationSection
+    private var notificationsTab: some View {
+        settingsForm { notificationSection }
+    }
 
+    private var gradesTab: some View {
+        settingsForm {
             Section {
                 Stepper(value: $preferences.programTotalUnits, in: 0...400, step: 3) {
                     LabeledContent("Program total units") {
@@ -70,7 +115,11 @@ struct SettingsView: View {
                 Text("Your program's total required units, for the completed-units progress on the Grades trend. SIS doesn't publish it.")
                     .foregroundStyle(.secondary)
             }
+        }
+    }
 
+    private var accountTab: some View {
+        settingsForm {
             Section("Account") {
                 LabeledContent("Last updated") {
                     Text(appState.portal.lastUpdated.map {
@@ -89,14 +138,56 @@ struct SettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
-        .tint(palette.accent)
-        .scrollContentBackground(.hidden)
-        .background(palette.canvasWash.ignoresSafeArea())
-        .navigationTitle("Settings")
-        .task { await notifier.refreshAuthorization() }
-        .task(id: googleAuth.isConnected) {
-            if googleAuth.isConnected { await loadGoogleCalendars() }
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1"
+    }
+
+    private var aboutTab: some View {
+        settingsForm {
+            Section("About") {
+                LabeledContent("PUPSISPortal", value: "v\(appVersion)")
+                LabeledContent("Author", value: "Janvin D. Salvador")
+                LabeledContent("Contact") {
+                    Link("cgradying@gmail.com", destination: URL(string: "mailto:cgradying@gmail.com")!)
+                }
+                LabeledContent("LinkedIn") {
+                    // ponytail: people-search link (safe) until the exact profile URL is known.
+                    Link("Janvin D. Salvador",
+                         destination: URL(string: "https://www.linkedin.com/search/results/people/?keywords=Janvin%20D.%20Salvador")!)
+                }
+            }
+
+            Section("Support") {
+                LabeledContent("Donate") {
+                    Text("Coming soon").foregroundStyle(.secondary)
+                }
+            }
+
+            Section {
+                Text("""
+                PUPSISPortal is an unofficial, independent client for the PUP \
+                Student Information System. It is not affiliated with, endorsed by, \
+                or connected to the Polytechnic University of the Philippines.
+
+                Use is limited to your own account and your own data, for personal, \
+                non-commercial purposes — which is what PUP's Terms of Use permit. \
+                The app never scrapes other students, bypasses authentication, or \
+                redistributes SIS content.
+
+                Your credentials stay in the macOS Keychain and your schedule, grades, \
+                and notes stay on your Mac; nothing is sent anywhere but the PUP SIS \
+                server and — only if you set it up — your own Google Calendar.
+
+                The software is provided "as is", without warranty of any kind. You \
+                are responsible for your use of it and for keeping to PUP's Terms of Use.
+                """)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text("Terms of Use")
+            }
         }
     }
 }

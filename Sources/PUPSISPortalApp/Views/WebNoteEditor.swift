@@ -1,5 +1,7 @@
 import SwiftUI
 import WebKit
+import AppKit
+import UniformTypeIdentifiers
 
 /// The notes editor, web-based (CodeMirror 6 + KaTeX, bundled offline). This is
 /// how Obsidian works: `$$…$$` / `$…$` render inline live as you type — no click —
@@ -21,6 +23,8 @@ struct WebNoteEditor: View {
     @Environment(\.palette) private var palette
     @StateObject private var bridge = WebNoteBridge()
     @State private var showLanguages = false
+    @State private var showColors = false
+    @State private var customColor: Color = .red
 
     private static let colors: [(name: String, hex: String)] = [
         ("Red", "e5484d"), ("Orange", "e57a00"), ("Yellow", "d4a300"), ("Green", "2f9e44"),
@@ -46,15 +50,16 @@ struct WebNoteEditor: View {
     private var toolbar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 1) {
-                button("number", "Heading") { bridge.cmd("heading") }
+                headingMenu
                 divider
                 button("bold", "Bold") { bridge.cmd("bold") }
                 button("italic", "Italic") { bridge.cmd("italic") }
                 button("strikethrough", "Strikethrough") { bridge.cmd("strike") }
                 button("highlighter", "Highlight") { bridge.cmd("highlight") }
-                colorMenu
+                colorButton
                 codeButton
                 button("x.squareroot", "Math") { bridge.cmd("math") }
+                button("function", "LaTeX document") { bridge.cmd("latexdoc") }
                 divider
                 button("list.bullet", "Bullet list") { bridge.cmd("bullet") }
                 button("list.number", "Numbered list") { bridge.cmd("numbered") }
@@ -63,6 +68,7 @@ struct WebNoteEditor: View {
                 button("minus", "Divider") { bridge.cmd("rule") }
                 button("tablecells", "Table") { bridge.cmd("table") }
                 divider
+                button("photo", "Insert image…") { pickImage() }
                 button("link", "Link") { bridge.cmd("link") }
                 button("link.badge.plus", "Link to another note") { bridge.cmd("wikilink") }
                 if let options = addDateOptions {
@@ -76,6 +82,95 @@ struct WebNoteEditor: View {
     }
 
     // Code button → horizontal language picker; click a language to insert its ```block.
+    // Appends a "## <date>" heading to the note as a new dated log entry.
+    // Offers the subject's next scheduled meeting (default) and today, so a
+    // note written ahead of the class still lands under the date it's for.
+    private func dateMenu(_ options: (next: String, today: String)) -> some View {
+        Menu {
+            Button("Next class · \(options.next)") { bridge.cmd("datestamp", options.next) }
+            if options.today != options.next {
+                Button("Today · \(options.today)") { bridge.cmd("datestamp", options.today) }
+            }
+        } label: {
+            Image(systemName: "calendar.badge.plus").frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.borderless)
+        .menuIndicator(.hidden).fixedSize().help("Add dated entry")
+    }
+
+    private var headingMenu: some View {
+        Menu {
+            Button("Heading 1") { bridge.cmd("heading", "1") }
+            Button("Heading 2") { bridge.cmd("heading", "2") }
+            Button("Heading 3") { bridge.cmd("heading", "3") }
+            Divider()
+            Button("Normal text") { bridge.cmd("heading", "0") }
+        } label: {
+            Image(systemName: "number").frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.borderless)
+        .menuIndicator(.hidden).fixedSize().help("Heading level")
+    }
+
+    // A visual color picker: a grid of preset swatches plus a native color well
+    // for any custom color. Applies to the selected text via cmd("color", hex).
+    private var colorButton: some View {
+        Button { showColors = true } label: {
+            Image(systemName: "paintpalette").frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless).help("Text color")
+        .popover(isPresented: $showColors, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Text color").font(.caption).foregroundStyle(.secondary)
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(24), spacing: 8), count: 4), spacing: 8) {
+                    ForEach(Self.colors, id: \.hex) { c in
+                        Button {
+                            bridge.cmd("color", c.hex)
+                            showColors = false
+                        } label: {
+                            Circle()
+                                .fill(Color(hex: c.hex) ?? .gray)
+                                .frame(width: 22, height: 22)
+                                .overlay(Circle().strokeBorder(.primary.opacity(0.15), lineWidth: 1))
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain).help(c.name)
+                    }
+                }
+                Divider()
+                HStack(spacing: 8) {
+                    ColorPicker("Custom", selection: $customColor, supportsOpacity: false)
+                        .labelsHidden()
+                    Button("Apply custom") {
+                        if let hex = customColor.hex {
+                            bridge.cmd("color", String(hex.dropFirst())) // strip '#'
+                        }
+                        showColors = false
+                    }
+                    .font(.caption)
+                }
+            }
+            .padding(12)
+            .frame(width: 188)
+        }
+    }
+
+    // Native file picker → copy the image into app storage → insert it inline
+    // at the caret (same pupimg:// pipeline as paste/drop).
+    private func pickImage() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.prompt = "Insert"
+        panel.message = "Choose an image to insert"
+        guard panel.runModal() == .OK, let url = panel.url,
+              let data = try? Data(contentsOf: url),
+              let inserted = NoteImages.save(base64: data.base64EncodedString(), ext: url.pathExtension)
+        else { return }
+        bridge.insertImage(inserted)
+    }
+
     private var codeButton: some View {
         Button { showLanguages = true } label: {
             Image(systemName: "chevron.left.forwardslash.chevron.right")
@@ -107,32 +202,6 @@ struct WebNoteEditor: View {
         }
     }
 
-    // Appends a "## <date>" heading to the note as a new dated log entry.
-    // Offers the subject's next scheduled meeting (default) and today, so a
-    // note written ahead of the class still lands under the date it's for.
-    private func dateMenu(_ options: (next: String, today: String)) -> some View {
-        Menu {
-            Button("Next class · \(options.next)") { bridge.cmd("datestamp", options.next) }
-            if options.today != options.next {
-                Button("Today · \(options.today)") { bridge.cmd("datestamp", options.today) }
-            }
-        } label: {
-            Image(systemName: "calendar.badge.plus").frame(width: 20, height: 20)
-        }
-        .menuIndicator(.hidden).fixedSize().help("Add dated entry")
-    }
-
-    private var colorMenu: some View {
-        Menu {
-            ForEach(Self.colors, id: \.hex) { color in
-                Button(color.name) { bridge.cmd("color", color.hex) }
-            }
-        } label: {
-            Image(systemName: "paintpalette").frame(width: 20, height: 20)
-        }
-        .menuIndicator(.hidden).fixedSize().help("Text color")
-    }
-
     private var divider: some View { Divider().frame(height: 14).padding(.horizontal, 2) }
 
     private func button(_ symbol: String, _ help: String, _ action: @escaping () -> Void) -> some View {
@@ -150,6 +219,12 @@ final class WebNoteBridge: ObservableObject {
     func cmd(_ name: String, _ arg: String? = nil) {
         let argJS = arg.map { "'\($0)'" } ?? "undefined"
         webView?.evaluateJavaScript("window.PUPNotes && PUPNotes.cmd('\(name)', \(argJS));", completionHandler: nil)
+    }
+
+    /// Insert an image at the editor's caret. `url` is an app-generated
+    /// `pupimg://<uuid>.<ext>` — no user text, safe to inline.
+    func insertImage(_ url: String) {
+        webView?.evaluateJavaScript("window.PUPNotes && PUPNotes.insertImage('\(url)');", completionHandler: nil)
     }
 }
 
@@ -325,7 +400,7 @@ private struct WebNoteView: NSViewRepresentable {
             font:15px/1.55 -apple-system, system-ui, sans-serif; }
           .cm-editor.cm-focused { outline:none; }
           .cm-scroller { padding:6px 10px; overflow:auto; }
-          .cm-content { max-width:820px; }
+          .cm-content { max-width:none; }
           .cm-cursor { border-left-color:var(--fg); }
           .pup-math { font-size:1.05em; }
           .pup-math-block { display:block; margin:6px 0; }
@@ -367,8 +442,16 @@ private struct WebNoteView: NSViewRepresentable {
           /* pupdb: the interactive table / checklist-database widget. */
           .pup-db { margin:10px 0; overflow-x:auto; }
           .pup-db table { border-collapse:collapse; table-layout:fixed; width:auto; font:13px -apple-system, system-ui, sans-serif; }
-          .pup-db th, .pup-db td { border:1px solid color-mix(in srgb, var(--fg) 14%, transparent); padding:4px 6px; text-align:left; overflow:hidden; }
-          .pup-db th { position:relative; background:color-mix(in srgb, var(--fg) 6%, transparent); }
+          .pup-db th, .pup-db td { border:1px solid color-mix(in srgb, var(--fg) 14%, transparent); padding:4px 6px; text-align:left; overflow:hidden; position:relative; }
+          .pup-db th { background:color-mix(in srgb, var(--fg) 6%, transparent); }
+          .pup-db-cell { padding-right:14px; }
+          .pup-db-cellcolor {
+            position:absolute; right:3px; top:50%; transform:translateY(-50%);
+            border:none; background:transparent; cursor:pointer; font-size:9px; padding:0; line-height:1;
+            color:color-mix(in srgb, var(--fg) 45%, transparent); opacity:0; transition:opacity 0.12s;
+          }
+          .pup-db td:hover .pup-db-cellcolor { opacity:0.7; }
+          .pup-db-cellcolor:hover { opacity:1; }
           .pup-db-actioncol { width:34px; }
           .pup-db-name { border:none; background:transparent; color:var(--fg); font:inherit; font-weight:600; width:calc(100% - 30px); }
           .pup-db-name:focus { outline:none; }

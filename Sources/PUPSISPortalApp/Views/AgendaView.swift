@@ -136,7 +136,6 @@ struct AgendaView: View {
                 onOpenNote: openNote(titled:),
                 addDateOptions: addDateOptions(for: currentKey)
             )
-            .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(16)

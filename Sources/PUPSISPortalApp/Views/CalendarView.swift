@@ -9,36 +9,47 @@ struct CalendarView: View {
     @ObservedObject var preferences: Preferences
     @ObservedObject var calendar: CalendarBridge
     let credentials: Credentials
+    /// Week/scale/show-cancelled + the island's step/new-event intents. Lifted
+    /// out so the floating nav island drives these instead of a toolbar.
+    @ObservedObject var schedule: ScheduleModel
 
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.undoManager) private var undoManager
 
-    @State private var weekOffset = 0
-    @State private var scale: CalendarScale = .week
     @State private var selection: Set<String> = []
-    /// Vacant classes stay visible by default (faded, in their slot); this can
-    /// hide them for a cleaner week once you've stopped managing cancellations.
-    @State private var showCancelled = true
-    /// The view/nav controls collapse to a single icon; expanding persists for
-    /// the session, so once opened the keyboard shortcuts stay live too.
-    @State private var controlsExpanded = false
     @State private var editing: EditorRequest?
     /// Set when an edit lands on a repeating event and the scope has to be
     /// asked for rather than assumed.
     @State private var pendingScope: ScopeQuestion?
     @StateObject private var editor: EventEditor
 
+    // The lifted state now lives on `schedule`; these keep the body readable.
+    private var weekOffset: Int {
+        get { schedule.weekOffset }
+        nonmutating set { schedule.weekOffset = newValue }
+    }
+    private var scale: CalendarScale {
+        get { schedule.scale }
+        nonmutating set { schedule.scale = newValue }
+    }
+    private var showCancelled: Bool {
+        get { schedule.showCancelled }
+        nonmutating set { schedule.showCancelled = newValue }
+    }
+
     init(
         controller: PortalController,
         preferences: Preferences,
         calendar: CalendarBridge,
-        credentials: Credentials
+        credentials: Credentials,
+        schedule: ScheduleModel
     ) {
         self.controller = controller
         self.preferences = preferences
         self.calendar = calendar
         self.credentials = credentials
+        self.schedule = schedule
         _editor = StateObject(wrappedValue: EventEditor(bridge: calendar))
     }
 
@@ -114,8 +125,14 @@ struct CalendarView: View {
         // Palette is Equatable, so switching theme crossfades every colour at
         // once instead of snapping.
         .animation(Motion.drift(reduced: reduceMotion), value: palette)
-        .navigationTitle(weekTitle)
-        .toolbar { toolbar }
+        // The nav island drives the controls now: consume its step / new-event
+        // intents here, where the week context and editor live.
+        .onChange(of: schedule.stepIntent) { _, dir in
+            guard dir != 0 else { return }
+            step(dir)
+            schedule.stepIntent = 0
+        }
+        .onChange(of: schedule.newEventIntent) { _, _ in newEventAtDefaultSlot() }
         .animation(Motion.arrival(reduced: reduceMotion), value: selection.isEmpty)
         .focusable()
         .onKeyPress(.escape) { selection.removeAll(); return .handled }
@@ -401,71 +418,6 @@ struct CalendarView: View {
     /// A class is vacant this week, so the show/hide toggle is worth offering.
     private var hasVacantThisWeek: Bool {
         controller.sessions.contains { preferences.status(for: $0, on: weekStart) == .vacant }
-    }
-
-    // MARK: Toolbar
-
-    @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        ToolbarItem {
-            HStack(spacing: 8) {
-                if controlsExpanded {
-                    scheduleControls
-                        // Slides out from behind the icon rather than popping in.
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                }
-
-                Button {
-                    withAnimation(Motion.arrival(reduced: reduceMotion)) { controlsExpanded.toggle() }
-                } label: {
-                    Image(systemName: controlsExpanded ? "chevron.right" : "slider.horizontal.3")
-                }
-                .help(controlsExpanded ? "Hide controls" : "Show controls")
-                .accessibilityLabel(controlsExpanded ? "Hide controls" : "Show controls")
-            }
-        }
-    }
-
-    /// The view/navigation cluster, revealed when the toolbar is expanded.
-    @ViewBuilder
-    private var scheduleControls: some View {
-        Picker("View", selection: $scale) {
-            ForEach(CalendarScale.allCases) { option in
-                Text(option.label).tag(option)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-
-        Button { step(-1) } label: {
-            Label(scale == .week ? "Previous Week" : "Previous Year", systemImage: "chevron.left")
-        }
-        .keyboardShortcut("[", modifiers: .command)
-
-        Button("Today") { weekOffset = 0 }
-            .disabled(weekOffset == 0)
-
-        Button { step(1) } label: {
-            Label(scale == .week ? "Next Week" : "Next Year", systemImage: "chevron.right")
-        }
-        .keyboardShortcut("]", modifiers: .command)
-
-        // Only when there are cancellations to act on — otherwise it's a
-        // button for nothing.
-        if scale == .week, hasVacantThisWeek {
-            Button { showCancelled.toggle() } label: {
-                Label(showCancelled ? "Hide Cancelled" : "Show Cancelled",
-                      systemImage: showCancelled ? "eye" : "eye.slash")
-            }
-            .help("Show or hide classes you've marked vacant this week")
-        }
-
-        Button(action: newEventAtDefaultSlot) {
-            Label("New Event", systemImage: "plus")
-        }
-        .keyboardShortcut("n", modifiers: .command)
-        .disabled(!canEdit)
-        .help(canEdit ? "Add an event to Calendar" : "Connect Calendar in Settings first")
     }
 
     /// The arrows move by whatever the current view shows, so they stay useful

@@ -1,7 +1,23 @@
 import SwiftUI
 
+/// The Schedule screen's controls, lifted out of `CalendarView` so the floating
+/// nav island can drive them. Week nav / scale / show-cancelled are plain
+/// state the island mutates directly; year-step and new-event are intents the
+/// view consumes (they need `CalendarView`'s week/editor context).
+@MainActor
+final class ScheduleModel: ObservableObject {
+    @Published var scale: CalendarScale = .week
+    @Published var weekOffset = 0
+    @Published var showCancelled = true
+    /// Island → view: −1 / +1 to step by the current scale; the view resets it to 0.
+    @Published var stepIntent = 0
+    /// Island → view: bumped to request a new event at the default slot.
+    @Published var newEventIntent = 0
+}
+
 @MainActor
 final class AppState: ObservableObject {
+    let schedule = ScheduleModel()
     @Published var credentials: Credentials?
     @Published var isEditing = false
 
@@ -23,9 +39,22 @@ final class AppState: ObservableObject {
     @Published var selection: Destination = .schedule
     @Published var showingSettings = false
 
+    /// The nav island's placement. Launch shows the island centred (a home
+    /// launcher); opening a destination flies it to the top and reveals the
+    /// screen. The island's home mark flips it back.
+    @Published var isHome = true
+
+    /// Open a destination from the island or a menu command: select it and
+    /// leave home so the island glides to the top.
+    func open(_ destination: Destination) {
+        selection = destination
+        isHome = false
+    }
+
     init() {
         credentials = KeychainStore.load()
         isEditing = credentials == nil
+        isHome = preferences.islandStartHome
         startClock()
     }
 
@@ -120,9 +149,11 @@ struct ContentView: View {
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
     @Environment(\.colorScheme) private var systemScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         content
+            .background(TrafficLights(autoHide: preferences.trafficLightsAutoHide))
             .environment(\.palette, preferences.theme.palette(for: systemScheme))
             // Keeps native controls (fields, pickers, popovers) in step with a
             // theme the user picked against their system setting.
@@ -135,20 +166,43 @@ struct ContentView: View {
             // No nav before sign-in: there is nowhere to go yet.
             CredentialsView(existing: appState.credentials, onSave: appState.save)
         } else if let credentials = appState.credentials {
-            NavigationStack {
-                destination(for: credentials)
-                    // The pill lives in the title bar centre — a thin top switcher
-                    // that clears the content, with the gear beside it. Each view
-                    // keeps its own toolbar items alongside.
-                    .toolbar {
-                        ToolbarItem(placement: .principal) {
-                            DestinationBar(selection: $appState.selection)
-                        }
-                        ToolbarItem(placement: .automatic) {
-                            gearButton
-                        }
+            ZStack(alignment: .top) {
+                // Base: a calm wash at home, the screen (inset below the floating
+                // island) once open. Cross-fades under the gliding island.
+                Group {
+                    if appState.isHome {
+                        preferences.theme.palette(for: systemScheme).canvasWash
+                            .ignoresSafeArea()
+                    } else {
+                        destination(for: credentials)
+                            .padding(.top, 40) // clear the slim top bar
+                            .transition(.opacity)
                     }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // A pixel-dither strip textures the otherwise-flat top bar.
+                if !appState.isHome {
+                    DitherBand(color: preferences.theme.palette(for: systemScheme).accent.opacity(0.6))
+                        .frame(height: 40)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .transition(.opacity)
+                }
+
+                // The island itself never re-mounts — it *glides* from centre (home)
+                // to the top (open), so opening reads as a move/expand, not a fade.
+                // Hover morph keeps working because it's one live view throughout.
+                NavIsland(appState: appState, schedule: appState.schedule, preferences: preferences)
+                    .fixedSize()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity,
+                           alignment: appState.isHome ? .center : .top)
+                    .padding(.top, appState.isHome ? 0 : 4)
             }
+            // Fill the whole window — including the hidden title bar's strip — so
+            // no grey window background shows there.
+            .ignoresSafeArea()
+            .background(preferences.theme.palette(for: systemScheme).canvasWash.ignoresSafeArea())
+            .animation(Motion.island(reduced: reduceMotion), value: appState.isHome)
             .sheet(isPresented: $appState.showingSettings) { settingsSheet }
             .frame(minWidth: 900, minHeight: 600)
         }
@@ -162,23 +216,14 @@ struct ContentView: View {
                 controller: appState.portal,
                 preferences: preferences,
                 calendar: appState.calendar,
-                credentials: credentials
+                credentials: credentials,
+                schedule: appState.schedule
             )
         case .today:
             AgendaView(appState: appState, preferences: preferences, calendar: appState.calendar, notes: appState.notes)
         case .grades:
             GradesView(controller: appState.portal, preferences: preferences)
         }
-    }
-
-    private var gearButton: some View {
-        Button {
-            appState.showingSettings = true
-        } label: {
-            Image(systemName: "gearshape")
-        }
-        .help("Settings")
-        .accessibilityLabel("Settings")
     }
 
     private var settingsSheet: some View {
@@ -207,6 +252,8 @@ struct PUPSISPortalApp: App {
         WindowGroup(id: Self.mainWindowID) {
             ContentView(appState: appState, preferences: appState.preferences)
         }
+        // The island is the only top chrome now — no native title bar competing.
+        .windowStyle(.hiddenTitleBar)
         .commands {
             // Settings by ⌘, in the app menu, now that it's a sheet not a row.
             CommandGroup(replacing: .appSettings) {
@@ -217,13 +264,27 @@ struct PUPSISPortalApp: App {
 
             // Keep the destinations reachable from the keyboard without a sidebar.
             CommandGroup(after: .toolbar) {
-                Button("Schedule") { appState.selection = .schedule }
+                Button("Schedule") { appState.open(.schedule) }
                     .keyboardShortcut("1", modifiers: .command)
-                Button("Today") { appState.selection = .today }
+                Button("Today") { appState.open(.today) }
                     .keyboardShortcut("2", modifiers: .command)
-                Button("Grades") { appState.selection = .grades }
+                Button("Grades") { appState.open(.grades) }
                     .keyboardShortcut("3", modifiers: .command)
                 Divider()
+                Button("Home") { appState.isHome = true }
+                    .keyboardShortcut("0", modifiers: .command)
+                Divider()
+                // Schedule controls now live in the island; keep their shortcuts
+                // global so they work whether or not the island is hovered.
+                Button("Previous") { appState.schedule.stepIntent = -1 }
+                    .keyboardShortcut("[", modifiers: .command)
+                    .disabled(appState.selection != .schedule)
+                Button("Next") { appState.schedule.stepIntent = 1 }
+                    .keyboardShortcut("]", modifiers: .command)
+                    .disabled(appState.selection != .schedule)
+                Button("New Event") { appState.schedule.newEventIntent += 1 }
+                    .keyboardShortcut("n", modifiers: .command)
+                    .disabled(appState.selection != .schedule)
             }
 
             CommandMenu("Account") {

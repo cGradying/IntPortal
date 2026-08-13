@@ -41,6 +41,21 @@ extension View {
         glassPanel(in: Capsule())
     }
 
+    /// Interactive glass chrome (responds to pointer/press) in the given shape —
+    /// for the nav island, which is hovered and clicked. `.regularMaterial` below 26.
+    @ViewBuilder
+    func glassInteractive(in shape: some Shape) -> some View {
+        #if canImport(FoundationModels)
+        if #available(macOS 26, *) {
+            glassEffect(.regular.interactive(), in: shape)
+        } else {
+            background(.regularMaterial, in: shape)
+        }
+        #else
+        background(.regularMaterial, in: shape)
+        #endif
+    }
+
     /// Tinted glass — used only by the now-line. Below 26, the tint becomes a
     /// plain capsule fill so the marker still reads.
     @ViewBuilder
