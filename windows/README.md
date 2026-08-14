@@ -34,17 +34,83 @@ net8.0 runtime present, that's a no-op.
 
 ## Building the WinUI app (Windows only)
 
-`PUPSISPortal.App` targets `net8.0-windows` and needs the Windows App SDK, so it
-is **not** in `PUPSISPortal.slnx` (that keeps the mac build of Core+Tests green).
-On Windows:
+`PUPSISPortal.App` targets `net8.0-windows` and needs the Windows App SDK's XAML
+compiler, which only runs on actual Windows — that's why it's kept **out** of
+`PUPSISPortal.slnx` (that solution is the mac-buildable Core+Tests subset). It
+was authored on macOS where it's never been compiled — expect to fix small
+WinUI/WebView2 API details on the first real build.
+
+### 1. Get a Windows machine
+
+Windows 11, or Windows 10 22H2+ (`TargetPlatformMinVersion` in the csproj is
+`10.0.17763.0`, but Mica/the newer WinUI visuals want 11). A VM is fine for a
+first build/smoke-test pass.
+
+### 2. Install the toolchain
+
+**Visual Studio 2022 (Community is free)** — [visualstudio.microsoft.com](https://visualstudio.microsoft.com/).
+In the installer, check these workloads:
+- **.NET desktop development**
+- **Windows application development** (this is the one that pulls in the
+  Windows App SDK project system, the WinUI 3 XAML compiler, and a matching
+  Windows 10/11 SDK — trying to assemble those by hand outside VS is the
+  fragile path, not recommended for a first build)
+
+This also installs a matching .NET SDK; if you'd rather manage that yourself,
+grab the [.NET 8 SDK](https://dotnet.microsoft.com/download) separately first.
+
+**WebView2 Runtime** — ships in the box on Windows 11 and Windows 10 22H2+
+(it's the Edge engine). If a fresh Windows 10 install is missing it, grab the
+Evergreen Bootstrapper from [Microsoft's WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/).
+
+### 3. Get the code
 
 ```powershell
-dotnet build windows/PUPSISPortal.App/PUPSISPortal.App.csproj
+git clone https://github.com/cGradying/PUPSISPortal.git
+cd PUPSISPortal
 ```
 
-or add it to the solution and open in Visual Studio. It was authored on macOS
-where it can't be compiled — expect to fix small WinUI/WebView2 API details on the
-first Windows build.
+(Or `git pull` if the repo's already there.) No solution edits needed —
+`PUPSISPortal.App.csproj` already references `PUPSISPortal.Core` directly, so
+building/running the app doesn't require adding it to `PUPSISPortal.slnx`.
+
+### 4. Restore and build
+
+```powershell
+dotnet restore windows\PUPSISPortal.App\PUPSISPortal.App.csproj
+dotnet build   windows\PUPSISPortal.App\PUPSISPortal.App.csproj -c Release
+```
+
+This is where the first-build fixups happen. Expect a handful of small WinUI
+API mismatches (a type in the wrong namespace, a control property that moved) —
+none of it is architectural, all of it is "authored blind against docs, never
+compiled." Fix, rebuild, repeat.
+
+### 5. Run it for dev/testing
+
+Either open `windows/PUPSISPortal.App/PUPSISPortal.App.csproj` directly in
+Visual Studio and hit **F5**, or from the CLI:
+
+```powershell
+dotnet run --project windows\PUPSISPortal.App\PUPSISPortal.App.csproj
+```
+
+This runs unpublished, straight from `bin/`, against the live PUP SIS — sign in
+with a real account to verify the scrape/parse/calendar pipeline end to end.
+
+### 6. Publish a shippable `.exe`
+
+See [Packaging](#packaging-windows-only) below for the self-contained publish
+command and where the `.exe` lands.
+
+### 7. First launch
+
+The exe is unsigned (no code-signing certificate, same situation as the mac
+`.dmg`), so **Windows SmartScreen** will block a double-click the first time:
+**"Windows protected your PC" → More info → Run anyway.** That's expected, not
+a broken build — the mac equivalent is the Gatekeeper right-click-open dance.
+`PasswordVault` will also prompt once on first credential save/read, the same
+way the macOS Keychain does.
 
 ## Status
 
@@ -91,7 +157,7 @@ dotnet publish windows/PUPSISPortal.App/PUPSISPortal.App.csproj `
 ```
 
 Output lands in `PUPSISPortal.App/bin/Release/net8.0-windows.../win-x64/publish/`;
-zip that folder for a GitHub release asset (`PUPSISPortal-Windows-1.1.1.zip`,
+zip that folder for a GitHub release asset (`PUPSISPortal-Windows-1.1.2.zip`,
 alongside the mac `.dmg`). Repeat for `win-arm64` if shipping ARM64 too.
 
 MSIX (auto-update, cleaner install, Start-menu shortcut) is a stretch goal, not
