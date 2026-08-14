@@ -12,6 +12,9 @@ struct CalendarView: View {
     /// Week/scale/show-cancelled + the island's step/new-event intents. Lifted
     /// out so the floating nav island drives these instead of a toolbar.
     @ObservedObject var schedule: ScheduleModel
+    /// A newer release, if the launch check found one — shown in the footer
+    /// beside the other quiet status, never as an interruption.
+    let update: UpdateInfo?
 
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -43,13 +46,15 @@ struct CalendarView: View {
         preferences: Preferences,
         calendar: CalendarBridge,
         credentials: Credentials,
-        schedule: ScheduleModel
+        schedule: ScheduleModel,
+        update: UpdateInfo? = nil
     ) {
         self.controller = controller
         self.preferences = preferences
         self.calendar = calendar
         self.credentials = credentials
         self.schedule = schedule
+        self.update = update
         _editor = StateObject(wrappedValue: EventEditor(bridge: calendar))
     }
 
@@ -110,6 +115,7 @@ struct CalendarView: View {
                     StatusFooter(
                         lastUpdated: controller.lastUpdated,
                         refreshError: controller.refreshError ?? calendar.lastError,
+                        update: update,
                         sessions: controller.sessions,
                         isVacant: { session, date in
                             preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
@@ -498,6 +504,7 @@ private struct ScopeQuestion {
 private struct StatusFooter: View {
     let lastUpdated: Date?
     let refreshError: String?
+    let update: UpdateInfo?
     let sessions: [ClassSession]
     let isVacant: (ClassSession, Date) -> Bool
     let tint: (ClassSession) -> Color
@@ -521,6 +528,14 @@ private struct StatusFooter: View {
                 .foregroundStyle(.secondary)
 
             Spacer(minLength: 12)
+
+            if let update {
+                Link(destination: update.url) {
+                    Label("v\(update.version) available", systemImage: "arrow.down.circle")
+                }
+                .foregroundStyle(palette.accent)
+                .help("Opens the release page in your browser. Downloads and installs by hand, as usual.")
+            }
 
             Button(refreshError == nil ? "Refresh" : "Try again", action: onRetry)
                 .glassButton()

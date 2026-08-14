@@ -9,7 +9,7 @@ STAGE="$(mktemp -d)/PUPSISPortal"
 DMG="$ROOT/dist/PUPSISPortal-$VERSION.dmg"
 
 # Build a fresh .app into the staging dir (not ~/Applications).
-"$ROOT/Scripts/make_mac_app.sh" "$STAGE"
+VERSION="$VERSION" "$ROOT/Scripts/make_mac_app.sh" "$STAGE"
 ln -s /Applications "$STAGE/Applications"
 
 mkdir -p "$ROOT/dist"

@@ -358,16 +358,18 @@ is `1.1.2` in `Scripts/make_mac_app.sh`. Grouped by what actually shipped, oldes
 - **AI writing in notes.** A local **Ollama** connection so the notes editor
   can draft and rewrite text against a model running on your own machine — no
   cloud, no keys. (The web editor rework that this builds on shipped in v1.1.)
-- **Smaller polish:** scroll-to-now on opening the week grid, print export.
+- **Smaller polish:** print export of the week.
 - **Parked, not forgotten:** a real WidgetKit next-class widget needs an
   Xcode project and a paid Apple Developer account (App Group for app↔widget
   data) — this app is intentionally SwiftPM + shell-packaged. The menu bar
   stands in as the glanceable surface instead.
-- **Windows port, in progress.** A C#/.NET + WinUI 3 build lives in this repo
-  under [`windows/`](windows/README.md), sharing this app's ported logic and
-  the same SIS quirks. The portable core is tested; the WinUI app itself is
-  scaffolded but unverified — it hasn't been built or run on a real Windows
-  machine yet. See that README for status.
+- **Windows port, paused.** A C#/.NET + WinUI 3 build lives in this repo under
+  [`windows/`](windows/README.md), sharing this app's ported logic and the same
+  SIS quirks. The portable core is tested (200 tests), the WinUI app compiles
+  on a real Windows runner in CI, and it has been built and launched on a
+  Windows machine. It's **on hold pending an interface rework** — the
+  underlying pipeline works, the UI isn't good enough to ship. No release date;
+  macOS is the supported platform today. See that README for detail.
 - **Out of scope by design:** multiple accounts, or any other student's data.
   Scope stays one person's own account, personal and non-commercial, per
   PUP's Terms of Use — see [License](#license).

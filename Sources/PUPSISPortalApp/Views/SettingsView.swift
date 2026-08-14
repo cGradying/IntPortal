@@ -140,14 +140,26 @@ struct SettingsView: View {
         }
     }
 
+    /// Read through `UpdateCheck` so the version shown here and the version the
+    /// update check compares against can't drift apart. Unknown when there's no
+    /// Info.plist to read (a bare `swift run`) — better than a hardcoded
+    /// stand-in, which silently goes stale at the next release.
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1"
+        UpdateCheck.currentVersion ?? "unknown"
     }
 
     private var aboutTab: some View {
         settingsForm {
             Section("About") {
-                LabeledContent("PUPSISPortal", value: "v\(appVersion)")
+                LabeledContent("PUPSISPortal") {
+                    if let update = appState.availableUpdate {
+                        // Only ever a link out — the app never updates itself.
+                        Link("v\(appVersion) — v\(update.version) available",
+                             destination: update.url)
+                    } else {
+                        Text("v\(appVersion)")
+                    }
+                }
                 LabeledContent("Author", value: "Janvin D. Salvador")
                 LabeledContent("Contact") {
                     Link("cgradying@gmail.com", destination: URL(string: "mailto:cgradying@gmail.com")!)

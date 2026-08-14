@@ -228,39 +228,8 @@ final class WebNoteBridge: ObservableObject {
     }
 }
 
-/// Where pasted/dropped note images live on disk, and how the `pupimg://`
-/// scheme resolves them back into the webview. Mirrors `NotesStore`'s disk
-/// conventions: Application Support, dir `0700`, file `0600`.
-private enum NoteImages {
-    static let directory: URL = {
-        let support = (try? FileManager.default.url(
-            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
-        )) ?? URL(fileURLWithPath: NSTemporaryDirectory())
-        return support.appendingPathComponent("PUPSISPortal", isDirectory: true)
-            .appendingPathComponent("note-images", isDirectory: true)
-    }()
-
-    /// Decodes `base64` and writes it as a new file; returns the `pupimg://`
-    /// URL string to insert into the note, or nil on any I/O failure. The
-    /// name is lowercased so it can't mismatch a URL parser that lowercases
-    /// the host component.
-    static func save(base64: String, ext: String) -> String? {
-        guard let data = Data(base64Encoded: base64) else { return nil }
-        try? FileManager.default.createDirectory(
-            at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]
-        )
-        let letters = ext.filter(\.isLetter).lowercased()
-        let name = "\(UUID().uuidString.lowercased()).\(letters.isEmpty ? "png" : letters)"
-        let fileURL = directory.appendingPathComponent(name)
-        guard (try? data.write(to: fileURL)) != nil else { return nil }
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
-        return "pupimg://\(name)"
-    }
-
-    static func url(for name: String) -> URL { directory.appendingPathComponent(name) }
-}
-
 /// Serves saved note images back into the webview under `pupimg://<name>`.
+/// The files themselves are `Core/NoteImages`, which `NotesStore` also needs.
 private final class PupImageSchemeHandler: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
         guard let url = urlSchemeTask.request.url, let host = url.host,

@@ -1,0 +1,50 @@
+# Builds the .dmg and attaches it to a GitHub release on a version tag push.
+# Mirrors windows-build.yml's role for the Windows side (Phase G of
+# .claude/plans/alright-lets-plan-the-drifting-gadget.md) — mac's manual
+# make_dmg.sh flow, made reproducible instead of hand-run per release.
+#
+# Unsigned/self-signed .dmg (no Apple Developer cert, matches the documented
+# Gatekeeper right-click-open step in README's Install section) — this
+# workflow doesn't change that, only automates the build+attach.
+name: Mac release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build .dmg
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          Scripts/make_dmg.sh "$VERSION"
+
+      # README tells users twice to verify the download against "the posted
+      # checksum" (Install, and Future plans). Until this step existed, no
+      # release had ever posted one — the instruction was unfollowable. Since
+      # the builds are unnotarized, this is the only integrity check a user has.
+      - name: Checksum
+        run: |
+          cd dist
+          shasum -a 256 *.dmg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Attach to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="$(printf '### SHA-256\n\n```\n%s\n```\n' "$(cat dist/SHA256SUMS.txt)")"
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/SHA256SUMS.txt \
+            --title "$GITHUB_REF_NAME" --generate-notes --notes "$NOTES" \
+            || gh release upload "$GITHUB_REF_NAME" dist/*.dmg dist/SHA256SUMS.txt --clobber

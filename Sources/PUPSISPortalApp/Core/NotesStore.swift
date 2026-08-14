@@ -141,9 +141,13 @@ final class NotesStore: ObservableObject {
     }
 
     /// Remove a node (and, for a folder, its whole subtree) plus any notes it held.
+    /// Pasted images belong to the note that used them, so they go too —
+    /// otherwise `note-images/` only ever grows.
     func deleteItem(_ id: UUID) {
         var removedKeys: [String] = []
         remove(id, from: &vault, removedKeys: &removedKeys)
+
+        NoteImages.delete(NoteImages.orphaned(removing: removedKeys, from: notes))
         for key in removedKeys { notes[key] = nil }
         persist()
     }

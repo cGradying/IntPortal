@@ -44,6 +44,11 @@ final class AppState: ObservableObject {
     /// screen. The island's home mark flips it back.
     @Published var isHome = true
 
+    /// A newer release, once the launch check finds one. Stays nil otherwise —
+    /// including when the check fails — so nothing appears unless there really
+    /// is an update.
+    @Published var availableUpdate: UpdateInfo?
+
     /// Open a destination from the island or a menu command: select it and
     /// leave home so the island glides to the top.
     func open(_ destination: Destination) {
@@ -56,6 +61,19 @@ final class AppState: ObservableObject {
         isEditing = credentials == nil
         isHome = preferences.islandStartHome
         startClock()
+        checkForUpdate()
+    }
+
+    /// One anonymous GET at launch, detached so it never delays the first frame.
+    /// Skipped entirely when the running version can't be read (`swift run`,
+    /// tests) rather than guessed at — see `UpdateCheck.currentVersion`.
+    private func checkForUpdate() {
+        guard let current = UpdateCheck.currentVersion else { return }
+        Task { [weak self] in
+            let info = await UpdateCheck().check(current: current)
+            guard let info else { return }
+            await MainActor.run { self?.availableUpdate = info }
+        }
     }
 
     /// Fires on each :00 rather than 60s after launch, so "in 25 min" flips when
@@ -224,7 +242,8 @@ struct ContentView: View {
                 preferences: preferences,
                 calendar: appState.calendar,
                 credentials: credentials,
-                schedule: appState.schedule
+                schedule: appState.schedule,
+                update: appState.availableUpdate
             )
         case .today:
             AgendaView(appState: appState, preferences: preferences, calendar: appState.calendar, notes: appState.notes)
