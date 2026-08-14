@@ -11,14 +11,15 @@
 # time (windows/README.md "Packaging"), not something this compile signal
 # needs to duplicate.
 #
-# If dotnet build can't resolve the WinUI/Windows App SDK toolset on the
-# runner (the Windows App SDK's build tooling ships inside the
-# Microsoft.WindowsAppSDK NuGet package itself, so a plain `dotnet build`
-# is expected to work without an extra VS workload install — but this is
-# the first time it's run anywhere, so treat that assumption as unverified
-# too): fall back to `microsoft/setup-msbuild` + `msbuild`, which chains to
-# the Windows SDK already on the windows-latest image via the pre-installed
-# Visual Studio Build Tools instead of the .NET SDK's own toolset.
+# windows-latest ships more than one .NET SDK preinstalled (observed:
+# 10.0.302 alongside whatever actions/setup-dotnet adds), and Windows SDK
+# resolution isn't isolated per-install the way it is on mac/Linux runners —
+# absent a pin, `dotnet` picks the latest one found, which broke Windows App
+# SDK's PRI-resource-generation task (it looked for a task assembly under
+# that SDK's own AppxPackage folder and came up empty). windows/global.json
+# pins the SDK to 8.0.x; running with working-directory: windows is what
+# makes `dotnet` actually discover it (its search walks up from cwd, never
+# down into subdirectories).
 name: Windows build
 
 on:
@@ -39,6 +40,9 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
     steps:
       - uses: actions/checkout@v4
 
@@ -47,10 +51,10 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Restore
-        run: dotnet restore windows/PUPSISPortal.App/PUPSISPortal.App.csproj
+        run: dotnet restore PUPSISPortal.App/PUPSISPortal.App.csproj
 
       - name: Build WinUI app (Release, win-x64)
-        run: dotnet build windows/PUPSISPortal.App/PUPSISPortal.App.csproj -c Release -r win-x64 --no-restore
+        run: dotnet build PUPSISPortal.App/PUPSISPortal.App.csproj -c Release -r win-x64 --no-restore
 
       - name: Run Core + Tests (sanity check the portable layer, native to this platform)
-        run: dotnet test windows/PUPSISPortal.slnx -c Release
+        run: dotnet test PUPSISPortal.slnx -c Release
