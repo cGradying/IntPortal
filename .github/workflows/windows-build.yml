@@ -1,0 +1,56 @@
+# Compiles the WinUI 3 Windows port (windows/PUPSISPortal.App) on a real
+# Windows runner. This is a compile-only forcing-function, not a full CI
+# pipeline: the app has never been built outside a mac session where WinUI's
+# XAML compiler can't run, so this workflow's job is to turn that "unverified"
+# into a visible green/red signal without hand-building on a local machine
+# every round. It doesn't run the app or touch the live SIS — see
+# windows/README.md "Building the WinUI app" for the runtime-verification
+# steps that still need a real Windows box + a real account.
+#
+# Only win-x64 is built here; win-arm64 is a separate RID publish for release
+# time (windows/README.md "Packaging"), not something this compile signal
+# needs to duplicate.
+#
+# If dotnet build can't resolve the WinUI/Windows App SDK toolset on the
+# runner (the Windows App SDK's build tooling ships inside the
+# Microsoft.WindowsAppSDK NuGet package itself, so a plain `dotnet build`
+# is expected to work without an extra VS workload install — but this is
+# the first time it's run anywhere, so treat that assumption as unverified
+# too): fall back to `microsoft/setup-msbuild` + `msbuild`, which chains to
+# the Windows SDK already on the windows-latest image via the pre-installed
+# Visual Studio Build Tools instead of the .NET SDK's own toolset.
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "windows/**"
+      - ".github/workflows/windows-build.yml"
+  pull_request:
+    paths:
+      - "windows/**"
+      - ".github/workflows/windows-build.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore windows/PUPSISPortal.App/PUPSISPortal.App.csproj
+
+      - name: Build WinUI app (Release, win-x64)
+        run: dotnet build windows/PUPSISPortal.App/PUPSISPortal.App.csproj -c Release -r win-x64 --no-restore
+
+      - name: Run Core + Tests (sanity check the portable layer, native to this platform)
+        run: dotnet test windows/PUPSISPortal.slnx -c Release
