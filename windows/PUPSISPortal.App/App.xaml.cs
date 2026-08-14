@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using PUPSISPortal.App.Platform;
 
 namespace PUPSISPortal.App;
 
@@ -10,6 +11,7 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        ToastReminders.Register();
         _window = new MainWindow();
         _window.Activate();
     }

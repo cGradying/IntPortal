@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using PUPSISPortal.App.Platform;
 using PUPSISPortal.Core;
 
@@ -8,16 +9,39 @@ namespace PUPSISPortal.App;
 /// Stage 3–5 shell: Mica ground + custom titlebar, a minimal sign-in, and the
 /// week-grid calendar rendered from the ported <see cref="SisSession"/>. The
 /// session is real (Core, tested on mac); the driver and UI are Windows-only.
+/// Stage 8 adds the integrations flyout (.ics/Google/startup), toast reminders,
+/// and the tray icon.
 /// </summary>
 public sealed partial class MainWindow : Window
 {
     private SisSession? _session;
+    private readonly Preferences _prefs = new();
+    private readonly GoogleAuthWindows _google = new();
+    private readonly TrayIcon _tray;
+    private ToastReminders.Scheduler? _reminders;
 
     public MainWindow()
     {
         InitializeComponent();
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
+        Notes.OwnerWindow = this;
+
+        _tray = new TrayIcon(this);
+        _tray.OpenRequested += () => { AppWindow.Show(); Activate(); };
+        _tray.ExitRequested += () => { _tray.Dispose(); Application.Current.Exit(); };
+        _tray.Show();
+
+        // Closing the window keeps reminders/the tray alive instead of exiting —
+        // "Exit" from the tray menu is the real quit.
+        AppWindow.Closing += (_, args) =>
+        {
+            args.Cancel = true;
+            AppWindow.Hide();
+        };
+
+        StartupMenuItem.IsChecked = StartupTask.IsEnabled;
+
         _ = InitAsync();
     }
 
@@ -73,9 +97,138 @@ public sealed partial class MainWindow : Window
     {
         if (_session is null) return;
         SignInPanel.Visibility = Visibility.Collapsed;
-        Calendar.Visibility = Visibility.Visible;
+        NavButtons.Visibility = Visibility.Visible;
+        MoreButton.Visibility = Visibility.Visible;
         Calendar.Show(_session.Sessions);
+        ShowScreen(Calendar);
+
+        GoogleMenuItem.Text = _google.IsConnected ? "Disconnect Google Calendar" : "Connect Google Calendar…";
+
+        if (_reminders is null)
+        {
+            _reminders = new ToastReminders.Scheduler(() => _session.Sessions, _prefs);
+            _reminders.Start();
+        }
     }
+
+    // MARK: Screen switcher
+
+    private void OnNavCalendar(object sender, RoutedEventArgs e) => ShowScreen(Calendar);
+    private void OnNavNotes(object sender, RoutedEventArgs e) => ShowScreen(Notes);
+    private void OnNavGrades(object sender, RoutedEventArgs e)
+    {
+        ShowScreen(Grades);
+        if (_session is not null) _ = Grades.LoadAsync(_session);
+    }
+
+    private void ShowScreen(FrameworkElement shown)
+    {
+        foreach (var screen in new FrameworkElement[] { Calendar, Notes, Grades })
+            screen.Visibility = screen == shown ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // MARK: Integrations flyout
+
+    private async void OnExportIcs(object sender, RoutedEventArgs e)
+    {
+        if (_session is null) return;
+        var picker = new Windows.Storage.Pickers.FileSavePicker();
+        picker.FileTypeChoices.Add("Calendar", new List<string> { ".ics" });
+        picker.SuggestedFileName = "PUPSISPortal";
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+
+        var file = await picker.PickSaveFileAsync();
+        if (file is null) return;
+
+        var weekStart = WeekdayExtensions.WeekStart(DateTime.Now);
+        var ics = ICSExporter.Ics(_session.Sessions, weekStart, _prefs.TermEndDate,
+            s => _prefs.Status(s.Id, weekStart));
+        await Windows.Storage.FileIO.WriteTextAsync(file, ics);
+        Status.Text = "Exported .ics.";
+    }
+
+    private async void OnGoogleConnect(object sender, RoutedEventArgs e)
+    {
+        if (_google.IsConnected)
+        {
+            _google.Disconnect();
+            GoogleMenuItem.Text = "Connect Google Calendar…";
+            return;
+        }
+
+        var box = new TextBox { Header = "Google OAuth client ID", Text = _prefs.GoogleClientId };
+        var dialog = new ContentDialog
+        {
+            Title = "Connect Google Calendar",
+            Content = box,
+            PrimaryButtonText = "Connect",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = Content.XamlRoot,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        _prefs.GoogleClientId = box.Text.Trim();
+        try
+        {
+            await _google.ConnectAsync(_prefs.GoogleClientId);
+            GoogleMenuItem.Text = "Disconnect Google Calendar";
+            Status.Text = "Google Calendar connected.";
+        }
+        catch (GoogleAuthWindows.AuthException ex)
+        {
+            Status.Text = ex.Message;
+        }
+    }
+
+    private async void OnGoogleExport(object sender, RoutedEventArgs e)
+    {
+        if (_session is null) return;
+        if (!_google.IsConnected) { Status.Text = "Connect your Google account first."; return; }
+
+        var client = new GoogleCalendarClient(() => _google.ValidAccessTokenAsync(_prefs.GoogleClientId));
+
+        var calendarId = _prefs.GoogleCalendarId;
+        if (string.IsNullOrEmpty(calendarId))
+        {
+            List<GoogleCalendar> calendars;
+            try { calendars = await client.ListCalendarsAsync(); }
+            catch (GoogleCalendarClient.ClientException ex) { Status.Text = ex.Message; return; }
+
+            var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var cal in calendars) combo.Items.Add(cal.Summary);
+            if (combo.Items.Count > 0) combo.SelectedIndex = 0;
+
+            var dialog = new ContentDialog
+            {
+                Title = "Which calendar?",
+                Content = combo,
+                PrimaryButtonText = "Export",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = Content.XamlRoot,
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary || combo.SelectedIndex < 0) return;
+
+            calendarId = calendars[combo.SelectedIndex].Id;
+            _prefs.GoogleCalendarId = calendarId;
+        }
+
+        try
+        {
+            var weekStart = WeekdayExtensions.WeekStart(DateTime.Now);
+            Status.Text = await client.ExportClassesAsync(
+                _session.Sessions, weekStart, _prefs.TermEndDate, calendarId,
+                s => _prefs.Status(s.Id, weekStart));
+        }
+        catch (GoogleCalendarClient.ClientException ex)
+        {
+            Status.Text = ex.Message;
+        }
+    }
+
+    private void OnToggleStartup(object sender, RoutedEventArgs e) =>
+        StartupTask.SetEnabled(StartupMenuItem.IsChecked);
 
     private static int ToInt(double value) => double.IsNaN(value) ? 0 : (int)value;
 }

@@ -19,12 +19,41 @@
 
         <!-- Custom, draggable title strip (SetTitleBar in code-behind). -->
         <Border x:Name="AppTitleBar" Grid.Row="0" Background="Transparent">
-            <TextBlock Text="PUPSISPortal" Margin="16,0,0,0"
-                       VerticalAlignment="Center" FontWeight="SemiBold" />
+            <Grid>
+                <TextBlock Text="PUPSISPortal" Margin="16,0,0,0"
+                           VerticalAlignment="Center" FontWeight="SemiBold" />
+                <!-- Screen switcher — plain buttons, not a NavigationView, to match
+                     the minimal Stage 3-5 shell rather than pull in a heavier chrome. -->
+                <StackPanel x:Name="NavButtons" Orientation="Horizontal" Spacing="4"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Visibility="Collapsed">
+                    <Button x:Name="NavCalendarButton" Content="Calendar" Click="OnNavCalendar" />
+                    <Button x:Name="NavNotesButton" Content="Notes" Click="OnNavNotes" />
+                    <Button x:Name="NavGradesButton" Content="Grades" Click="OnNavGrades" />
+                </StackPanel>
+
+                <!-- Integrations: .ics export, Google Calendar, startup — kept in one
+                     flyout rather than a dedicated Settings screen for now. -->
+                <Button x:Name="MoreButton" Content="…" HorizontalAlignment="Right"
+                        Margin="0,0,16,0" Visibility="Collapsed">
+                    <Button.Flyout>
+                        <MenuFlyout Placement="Bottom">
+                            <MenuFlyoutItem Text="Export schedule (.ics)…" Click="OnExportIcs" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem x:Name="GoogleMenuItem" Text="Connect Google Calendar…" Click="OnGoogleConnect" />
+                            <MenuFlyoutItem Text="Export to Google Calendar" Click="OnGoogleExport" />
+                            <MenuFlyoutSeparator />
+                            <ToggleMenuFlyoutItem x:Name="StartupMenuItem" Text="Start with Windows" Click="OnToggleStartup" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+            </Grid>
         </Border>
 
         <Grid Grid.Row="1">
             <views:CalendarView x:Name="Calendar" Margin="16" Visibility="Collapsed" />
+            <views:NotesPage x:Name="Notes" Visibility="Collapsed" />
+            <views:GradesView x:Name="Grades" Visibility="Collapsed" />
 
             <StackPanel x:Name="SignInPanel" Width="320" Spacing="8"
                         HorizontalAlignment="Center" VerticalAlignment="Center">

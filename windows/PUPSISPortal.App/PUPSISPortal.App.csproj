@@ -16,6 +16,10 @@
     <!-- Unpackaged, self-contained: runs as a plain .exe, no MSIX needed to dev. -->
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Kept in step with the mac app's version by hand (Scripts/make_dmg.sh);
+         there's no shared version source across the two toolchains. -->
+    <Version>1.1.1.0</Version>
+    <FileVersion>1.1.1.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,6 +35,15 @@
   <ItemGroup>
     <Content Include="..\assets\sis-scrapers\*.js">
       <Link>Assets\sis-scrapers\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- The notes editor shell + bundle (copied verbatim from the mac app's
+       Resources/notes-editor.bundle.js); NotesView reads both at runtime. -->
+  <ItemGroup>
+    <Content Include="..\assets\notes-editor\*">
+      <Link>Assets\notes-editor\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
