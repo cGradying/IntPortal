@@ -55,6 +55,16 @@
             <views:NotesPage x:Name="Notes" Visibility="Collapsed" />
             <views:GradesView x:Name="Grades" Visibility="Collapsed" />
 
+            <!-- The update nudge: checked at startup against GitHub releases,
+                 never a self-updater — this just links out. -->
+            <InfoBar x:Name="UpdateBar" Severity="Informational" IsOpen="False"
+                     Title="Update available" IsClosable="True"
+                     VerticalAlignment="Top" Margin="16,8">
+                <InfoBar.ActionButton>
+                    <Button x:Name="UpdateBarButton" Content="View release" Click="OnViewUpdate" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+
             <StackPanel x:Name="SignInPanel" Width="320" Spacing="8"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="Sign in to PUP SIS" FontSize="20" FontWeight="SemiBold" />

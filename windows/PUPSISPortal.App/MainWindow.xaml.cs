@@ -18,7 +18,9 @@ public sealed partial class MainWindow : Window
     private readonly Preferences _prefs = new();
     private readonly GoogleAuthWindows _google = new();
     private readonly TrayIcon _tray;
+    private readonly UpdateChecker _updateChecker = new();
     private ToastReminders.Scheduler? _reminders;
+    private string? _updateUrl;
 
     public MainWindow()
     {
@@ -55,6 +57,30 @@ public sealed partial class MainWindow : Window
 
         var saved = PasswordVaultCredentialStore.Load();
         if (saved is not null) await RunSignIn(saved);
+
+        _ = CheckForUpdateAsync();
+    }
+
+    /// <summary>
+    /// The update nudge — checks once at startup, independent of sign-in state.
+    /// Silent on failure/no-update (<see cref="UpdateChecker.CheckAsync"/> never
+    /// throws); this only ever shows the bar, never an error.
+    /// </summary>
+    private async Task CheckForUpdateAsync()
+    {
+        var current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0.0";
+        var update = await _updateChecker.CheckAsync(current);
+        if (update is null) return;
+
+        _updateUrl = update.Url;
+        UpdateBar.Message = $"PUPSISPortal {update.Version} is out — you're on {current}.";
+        UpdateBar.IsOpen = true;
+    }
+
+    private void OnViewUpdate(object sender, RoutedEventArgs e)
+    {
+        if (_updateUrl is null) return;
+        _ = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_updateUrl) { UseShellExecute = true });
     }
 
     private async void OnSignIn(object sender, RoutedEventArgs e)
