@@ -1,6 +1,6 @@
 # PUPSISPortal
 
-**Current version: v1.1** — no signed build; see [Install](#install) and
+**Current version: v1.1.2** — no signed build; see [Install](#install) and
 [Release history](#release-history) below.
 
 Native macOS app that signs into the [PUP Student Information System](https://sis8.pup.edu.ph/student/)
@@ -42,6 +42,7 @@ bypasses auth, or redistributes SIS content.
 - [Security & privacy](#security--privacy)
 - [Release history](#release-history)
 - [Future plans](#future-plans)
+- [License](#license)
 - [Reviews](#reviews)
 
 ---
@@ -328,7 +329,7 @@ packaged app.
 ## Release history
 
 Builds are self-signed/unsigned (see [Install](#install)); `CFBundleShortVersionString`
-is `1.1` in `Scripts/make_mac_app.sh`. Grouped by what actually shipped, oldest first:
+is `1.1.2` in `Scripts/make_mac_app.sh`. Grouped by what actually shipped, oldest first:
 
 | Version | Date | Shipped |
 |---|---|---|
@@ -337,7 +338,9 @@ is `1.1` in `Scripts/make_mac_app.sh`. Grouped by what actually shipped, oldest 
 | v0.3 | 2026-08-07 | Menu-bar presence; per-week and whole-term class status (online/vacant) with colored strips; status-aware calendar export — auto-sync on status change, online classes to their own calendar, vacant classes hidden. |
 | v0.4 | 2026-08-08 | Today agenda, cross-term GPA trend, menu-bar mini-agenda, Ivory theme, start-at-login; dynamic-island nav pill replacing the sidebar; macOS 14+ compatibility (glass gated to macOS 26, plain material below it); direct Google Calendar OAuth export; `.ics` export; custom events + free time in Today; popup Markdown notes. |
 | v1.0 | 2026-08-08 | Full README documentation pass — use cases, walkthrough, setup, architecture. |
-| **v1.1** | 2026-08-12 | Notes reworked into a live web-based editor (CodeMirror + KaTeX): a folder/file vault with note tabs; shared-per-subject class notes with dated log entries (next-class-aware); colored text, checkboxes, dividers, `[[note links]]`, inline image preview (paste/drop/URL), and an interactive typed-column table/database with custom-colored status tags and drag-to-resize columns. First GitHub Release, `.dmg` attached. Current. |
+| v1.1 | 2026-08-12 | Notes reworked into a live web-based editor (CodeMirror + KaTeX): a folder/file vault with note tabs; shared-per-subject class notes with dated log entries (next-class-aware); colored text, checkboxes, dividers, `[[note links]]`, inline image preview (paste/drop/URL), and an interactive typed-column table/database with custom-colored status tags and drag-to-resize columns. First GitHub Release, `.dmg` attached. |
+| v1.1.1 | 2026-08-13 | Window chrome rework — nav island, dither band; switched licensing to PolyForm Noncommercial 1.0.0. |
+| **v1.1.2** | 2026-08-14 | Fixed drag-to-create-event dragging the whole window instead of drawing an event (the chrome now has its own explicit drag strip). Current. |
 
 ---
 
@@ -360,9 +363,22 @@ is `1.1` in `Scripts/make_mac_app.sh`. Grouped by what actually shipped, oldest 
   Xcode project and a paid Apple Developer account (App Group for app↔widget
   data) — this app is intentionally SwiftPM + shell-packaged. The menu bar
   stands in as the glanceable surface instead.
-- **Out of scope by design:** a Windows port, multiple accounts, or any other
-  student's data. Scope stays one person's own account, personal and
-  non-commercial, per PUP's Terms of Use.
+- **Windows port, in progress.** A C#/.NET + WinUI 3 build lives in this repo
+  under [`windows/`](windows/README.md), sharing this app's ported logic and
+  the same SIS quirks. The portable core is tested; the WinUI app itself is
+  scaffolded but unverified — it hasn't been built or run on a real Windows
+  machine yet. See that README for status.
+- **Out of scope by design:** multiple accounts, or any other student's data.
+  Scope stays one person's own account, personal and non-commercial, per
+  PUP's Terms of Use — see [License](#license).
+
+---
+
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE) — free for personal, non-commercial
+use (which is the only use PUP's Terms of Use permit anyway); no commercial
+use or redistribution as part of a commercial offering.
 
 ---
 
