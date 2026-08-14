@@ -37,8 +37,13 @@ net8.0 runtime present, that's a no-op.
 `PUPSISPortal.App` targets `net8.0-windows` and needs the Windows App SDK's XAML
 compiler, which only runs on actual Windows — that's why it's kept **out** of
 `PUPSISPortal.slnx` (that solution is the mac-buildable Core+Tests subset). It
-was authored on macOS where it's never been compiled — expect to fix small
-WinUI/WebView2 API details on the first real build.
+was authored on macOS and is now **confirmed compiling clean** via
+[`.github/workflows/windows-build.yml`](../.github/workflows/windows-build.yml)
+(`msbuild`, win-x64, `EnableMsixTooling`) — see that workflow's own comments
+for what it took to get there, including a couple of dead ends that turned
+out to be wrong theories, corrected once the real log disproved them. What's
+still unconfirmed is *running* it: no one has launched the app or signed into
+SIS yet — the steps below are for that.
 
 ### 1. Get a Windows machine
 
@@ -74,29 +79,36 @@ cd PUPSISPortal
 `PUPSISPortal.App.csproj` already references `PUPSISPortal.Core` directly, so
 building/running the app doesn't require adding it to `PUPSISPortal.slnx`.
 
-### 4. Restore and build
+### 4. Build
+
+**Use `msbuild`, not `dotnet build`** — confirmed on real CI runs (see
+`.github/workflows/windows-build.yml`'s own comments): Windows App SDK's
+PRI-resource-generation step needs `<EnableMsixTooling>true</EnableMsixTooling>`
+(already in the csproj) *and* the actual Visual Studio build tools, and
+multiple outside reports agree that combination doesn't reliably satisfy the
+`dotnet build` CLI front end specifically, even with the property set.
 
 ```powershell
-dotnet restore windows\PUPSISPortal.App\PUPSISPortal.App.csproj
-dotnet build   windows\PUPSISPortal.App\PUPSISPortal.App.csproj -c Release
+cd windows
+msbuild PUPSISPortal.App\PUPSISPortal.App.csproj /restore /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64
 ```
 
-This is where the first-build fixups happen. Expect a handful of small WinUI
-API mismatches (a type in the wrong namespace, a control property that moved) —
-none of it is architectural, all of it is "authored blind against docs, never
-compiled." Fix, rebuild, repeat.
+(Or open `PUPSISPortal.App.csproj` in Visual Studio and build there — the IDE
+drives real `msbuild` under the hood, same as above.) This compiles clean as
+of the first green CI run — if you hit something CI didn't, it's likely a
+runner-vs-your-machine environment difference (missing workload, different VS
+version); the errors so far have all been either mechanical C# fixes or
+Windows App SDK/MSBuild configuration, never a design problem.
 
 ### 5. Run it for dev/testing
 
-Either open `windows/PUPSISPortal.App/PUPSISPortal.App.csproj` directly in
-Visual Studio and hit **F5**, or from the CLI:
-
-```powershell
-dotnet run --project windows\PUPSISPortal.App\PUPSISPortal.App.csproj
-```
-
-This runs unpublished, straight from `bin/`, against the live PUP SIS — sign in
-with a real account to verify the scrape/parse/calendar pipeline end to end.
+Open `windows/PUPSISPortal.App/PUPSISPortal.App.csproj` in Visual Studio and
+hit **F5** — this is the untested part. CI proves the app *compiles*; no one
+has launched it, so treat the first run as real exploratory testing, not a
+formality. Sign in with a real PUP account to verify the scrape/parse/calendar
+pipeline end to end, and watch specifically for the runtime risks flagged in
+the state-audit table above (tray icon clicks, toast notifications, the
+Google OAuth loopback listener) — none of those are provable by compiling.
 
 ### 6. Publish a shippable `.exe`
 
@@ -114,25 +126,34 @@ way the macOS Keychain does.
 
 ## Status
 
-State audit (2026-08-14) — source of truth is the code, not memory:
+State audit (updated 2026-08-14, after the first green CI run) — source of
+truth is the code + CI's actual log output, not memory or assumption:
 
 | Stage | What | State | Verified |
 |---|---|---|---|
 | 0 | Repo scaffold, isolation from the mac build | Built | mac (`dotnet build` green) |
-| 1 | Portable Core — parsers, geometry, stores, `Preferences`, `ICSExporter`, `GoogleCalendarClient` | Built | mac, **185 xUnit tests green** |
-| 2 | `SisSession` scrape orchestration behind `ISisWebView` | Built | mac, mock-tested (no live site) |
-| 3 | `WebView2SisWebView` driver + `PasswordVaultCredentialStore` | Scaffolded | **Unverified** — never compiled |
-| 4 | Week-grid `CalendarView` | Scaffolded | **Unverified** |
-| 5 | Mica + custom-titlebar shell | Scaffolded | **Unverified** |
-| 6 | Notes (`NotesPage`/`NotesView`, vault tree) | Scaffolded, **known bug** (§ below) | **Unverified** |
-| 7 | Grades (`GradesView`, trend chart) | Scaffolded | **Unverified** |
-| 8 | Integrations (Google OAuth, `.ics`, toast, tray, startup) | Scaffolded | **Unverified** |
-| 9 | Packaging (publish command documented) | Documented, no CI yet | N/A |
+| 1 | Portable Core — parsers, geometry, stores, `Preferences`, `ICSExporter`, `GoogleCalendarClient` | Built | mac + Windows CI, **200 xUnit tests green** |
+| 2 | `SisSession` scrape orchestration behind `ISisWebView` | Built | mac + Windows CI, mock-tested (no live site) |
+| 3 | `WebView2SisWebView` driver + `PasswordVaultCredentialStore` | Built | **Compiles clean in CI** — not run yet |
+| 4 | Week-grid `CalendarView` | Built | **Compiles clean in CI** — not run yet |
+| 5 | Mica + custom-titlebar shell | Built | **Compiles clean in CI** — not run yet |
+| 6 | Notes (`NotesPage`/`NotesView`, vault tree) | Built, prior bug fixed | **Compiles clean in CI** — not run yet |
+| 7 | Grades (`GradesView`, trend chart) | Built | **Compiles clean in CI** — not run yet |
+| 8 | Integrations (Google OAuth, `.ics`, toast, tray, startup) | Built | **Compiles clean in CI** — not run yet |
+| 9 | Packaging (publish command documented, CI builds it) | Built | Windows CI |
 
-**Known bug (blocks Stage 6 from working at all):** `NotesView.NavigateShell()`
-inlines the 1.88MB `bundle.js` into `CoreWebView2.NavigateToString`, which caps
-around 2MB — near-certain failure. Fix in flight: serve the notes-editor folder
-over a virtual host instead of inlining it.
+**"Compiles clean in CI" is not "verified to work."** A GitHub Actions
+Windows runner (`msbuild`, confirmed via [`.github/workflows/windows-build.yml`](../.github/workflows/windows-build.yml))
+proves the code is well-formed C#/XAML against the real WinUI toolchain — it
+has never launched the app, signed into SIS, or clicked anything. `TrayIcon`'s
+`WndProc` subclass, `ToastReminders`' unpackaged notification attribution, and
+`GoogleAuthWindows`' loopback listener are all real *runtime* risk that
+compiling says nothing about — that's what actually running it on a Windows
+box (not yet done) is for.
+
+**Fixed:** `NotesView` used to inline the 1.88MB `bundle.js` into
+`CoreWebView2.NavigateToString` (~2MB cap, near-certain failure) — now served
+over a virtual host instead.
 
 **Scope cuts** (deliberate, not bugs — see the Stage 6–8 notes below for why):
 notes is one editor pane with no tab strip and no per-class/day/event wiring from
@@ -178,6 +199,13 @@ real distribution is a self-contained publish, zipped:
 dotnet publish windows/PUPSISPortal.App/PUPSISPortal.App.csproj `
   -c Release -r win-x64 --self-contained -p:PublishSingleFile=false
 ```
+
+**Unverified — only `dotnet build` was confirmed to need the `msbuild`
+workaround (§ "Build" above); `dotnet publish` hasn't been tried yet and may
+hit the same Windows App SDK/PRI-generation issue.** If it does, the same
+fix applies: `msbuild PUPSISPortal.App\PUPSISPortal.App.csproj /restore
+/t:Publish /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64
+/p:SelfContained=true`.
 
 Output lands in `PUPSISPortal.App/bin/Release/net8.0-windows.../win-x64/publish/`;
 zip that folder for a GitHub release asset (`PUPSISPortal-Windows-1.1.2.zip`,
