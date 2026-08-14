@@ -49,6 +49,8 @@ public sealed partial class MainWindow : Window
 
     private async Task InitAsync()
     {
+        _ = CheckForUpdateAsync(); // independent of sign-in — starts right away, never awaited here
+
         await Web.EnsureCoreWebView2Async();
         _session = new SisSession(new WebView2SisWebView(Web), SisScriptLoader.Load());
 
@@ -57,8 +59,6 @@ public sealed partial class MainWindow : Window
 
         var saved = PasswordVaultCredentialStore.Load();
         if (saved is not null) await RunSignIn(saved);
-
-        _ = CheckForUpdateAsync();
     }
 
     /// <summary>
