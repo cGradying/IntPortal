@@ -67,5 +67,9 @@ jobs:
       - name: Build WinUI app (Release, win-x64, msbuild /restore)
         run: msbuild PUPSISPortal.App/PUPSISPortal.App.csproj /restore /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /m
 
+      # PUPSISPortal.slnx uses the newer .slnx format, which the pinned 8.0.x
+      # SDK's `dotnet` can't parse ("MSB4068: <Solution> is unrecognized") —
+      # confirmed on this exact CI run. Testing the project directly sidesteps
+      # solution-file support entirely instead of chasing another SDK version.
       - name: Run Core + Tests (sanity check the portable layer, native to this platform)
-        run: dotnet test PUPSISPortal.slnx -c Release
+        run: dotnet test PUPSISPortal.Core.Tests/PUPSISPortal.Core.Tests.csproj -c Release
