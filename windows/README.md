@@ -114,10 +114,33 @@ way the macOS Keychain does.
 
 ## Status
 
-- **Stages 0–2 done, tested on mac (185 xUnit tests):** the whole portable Core +
-  the `SisSession` scrape orchestration behind `ISisWebView`.
-- **Stages 3–9 scaffolded (Windows-only, unverified — first Windows build will
-  need fixups):**
+State audit (2026-08-14) — source of truth is the code, not memory:
+
+| Stage | What | State | Verified |
+|---|---|---|---|
+| 0 | Repo scaffold, isolation from the mac build | Built | mac (`dotnet build` green) |
+| 1 | Portable Core — parsers, geometry, stores, `Preferences`, `ICSExporter`, `GoogleCalendarClient` | Built | mac, **185 xUnit tests green** |
+| 2 | `SisSession` scrape orchestration behind `ISisWebView` | Built | mac, mock-tested (no live site) |
+| 3 | `WebView2SisWebView` driver + `PasswordVaultCredentialStore` | Scaffolded | **Unverified** — never compiled |
+| 4 | Week-grid `CalendarView` | Scaffolded | **Unverified** |
+| 5 | Mica + custom-titlebar shell | Scaffolded | **Unverified** |
+| 6 | Notes (`NotesPage`/`NotesView`, vault tree) | Scaffolded, **known bug** (§ below) | **Unverified** |
+| 7 | Grades (`GradesView`, trend chart) | Scaffolded | **Unverified** |
+| 8 | Integrations (Google OAuth, `.ics`, toast, tray, startup) | Scaffolded | **Unverified** |
+| 9 | Packaging (publish command documented) | Documented, no CI yet | N/A |
+
+**Known bug (blocks Stage 6 from working at all):** `NotesView.NavigateShell()`
+inlines the 1.88MB `bundle.js` into `CoreWebView2.NavigateToString`, which caps
+around 2MB — near-certain failure. Fix in flight: serve the notes-editor folder
+over a virtual host instead of inlining it.
+
+**Scope cuts** (deliberate, not bugs — see the Stage 6–8 notes below for why):
+notes is one editor pane with no tab strip and no per-class/day/event wiring from
+the calendar; grades trend only plots locally-cached terms, no SIS backfill; no
+subject-color picker UI; MSIX packaging deferred in favor of a self-contained zip.
+
+Detail, stage by stage:
+
   - **3–5** — WebView2 `ISisWebView` driver + PasswordVault creds, a Mica +
     custom-titlebar shell, a week-grid `CalendarView`.
   - **6 — Notes:** `NotesPage`/`NotesView` host the mac app's
