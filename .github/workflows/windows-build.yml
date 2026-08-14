@@ -11,15 +11,27 @@
 # time (windows/README.md "Packaging"), not something this compile signal
 # needs to duplicate.
 #
-# windows-latest ships more than one .NET SDK preinstalled (observed:
-# 10.0.302 alongside whatever actions/setup-dotnet adds), and Windows SDK
-# resolution isn't isolated per-install the way it is on mac/Linux runners —
-# absent a pin, `dotnet` picks the latest one found, which broke Windows App
-# SDK's PRI-resource-generation task (it looked for a task assembly under
-# that SDK's own AppxPackage folder and came up empty). windows/global.json
-# pins the SDK to 8.0.x; running with working-directory: windows is what
-# makes `dotnet` actually discover it (its search walks up from cwd, never
-# down into subdirectories).
+# Two things confirmed the hard way on the first few real runs, not assumed:
+#
+# 1. windows/global.json pins the SDK `dotnet` resolves to 8.0.x (windows-latest
+#    has more than one SDK installed, e.g. a preinstalled 10.x alongside
+#    whatever actions/setup-dotnet adds, and without a pin `dotnet` picks the
+#    latest one found). working-directory: windows is what makes it actually
+#    get discovered — SDK resolution searches upward from cwd, never down.
+#
+# 2. That pin alone did NOT fix Windows App SDK's PRI-resource-generation step
+#    (MrtCore.PriGen.targets) failing to load Microsoft.Build.Packaging.Pri.
+#    Tasks.dll — the error persisted verbatim even once the log confirmed the
+#    pinned 8.0.x SDK was the one actually being used. That assembly is a
+#    Visual-Studio-installed piece, not something a bare `dotnet-install`-style
+#    SDK ships; this is a known, longstanding Windows App SDK limitation
+#    (microsoft/WindowsAppSDK#3939, #4889), not anything specific to this repo.
+#    The documented fix is <EnableMsixTooling>true</EnableMsixTooling> in the
+#    csproj (added there) — but multiple real reports show that property alone
+#    doesn't reliably satisfy `dotnet build` and that `msbuild` succeeds where
+#    `dotnet build` doesn't, so the build step below uses actual `msbuild` via
+#    the VS toolchain already on this runner image (confirmed present in the
+#    job log: "windows-2025-vs2026"), not the .NET SDK's own build front end.
 name: Windows build
 
 on:
@@ -50,11 +62,10 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Restore
-        run: dotnet restore PUPSISPortal.App/PUPSISPortal.App.csproj
+      - uses: microsoft/setup-msbuild@v2
 
-      - name: Build WinUI app (Release, win-x64)
-        run: dotnet build PUPSISPortal.App/PUPSISPortal.App.csproj -c Release -r win-x64 --no-restore
+      - name: Build WinUI app (Release, win-x64, msbuild /restore)
+        run: msbuild PUPSISPortal.App/PUPSISPortal.App.csproj /restore /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /m
 
       - name: Run Core + Tests (sanity check the portable layer, native to this platform)
         run: dotnet test PUPSISPortal.slnx -c Release

@@ -16,6 +16,13 @@
     <!-- Unpackaged, self-contained: runs as a plain .exe, no MSIX needed to dev. -->
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Verified fix for MSB4062 "ExpandPriContent could not be loaded" (Windows
+         App SDK's PRI-resource-generation step still runs for unpackaged apps,
+         and needs this even when WindowsPackageType=None): confirmed against
+         microsoft/WindowsAppSDK#3939 and a matching Microsoft Q&A thread, both
+         showing this exact property fixes the exact error this project hit on
+         its first CI build. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <!-- Kept in step with the mac app's version by hand (Scripts/make_dmg.sh);
          there's no shared version source across the two toolchains. -->
     <Version>1.1.1.0</Version>
