@@ -22,16 +22,8 @@ namespace PUPSISPortal.App.Views;
 /// </summary>
 public sealed class NotesView : UserControl
 {
-    private static readonly string ShellTemplate = LoadAsset("shell.html");
-    private static readonly string Bundle = LoadAsset("bundle.js");
-
-    private const string WebkitShim = """
-        window.webkit = { messageHandlers: {
-          notes: { postMessage: function (m) { m.channel = 'notes'; window.chrome.webview.postMessage(m); } },
-          open:  { postMessage: function (m) { m.channel = 'open';  window.chrome.webview.postMessage(m); } },
-          image: { postMessage: function (m) { m.channel = 'image'; window.chrome.webview.postMessage(m); } },
-        } };
-        """;
+    private static readonly string NotesAssetsDir =
+        Path.Combine(AppContext.BaseDirectory, "Assets", "notes-editor");
 
     private readonly WebView2 _web = new();
     private readonly StackPanel _toolbar = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
@@ -70,8 +62,9 @@ public sealed class NotesView : UserControl
         Content = root;
     }
 
-    /// Switches the pane to a different note, pushing its stored text in once
-    /// the bundle has finished loading.
+    /// Switches the pane to a different note. The shell page is navigated to
+    /// exactly once (see <see cref="InitWebViewAsync"/>); every note switch —
+    /// this first one included — is a content push, not a fresh navigation.
     public void Open(NotesStore notes, string key, string? title = null)
     {
         _notes = notes;
@@ -79,8 +72,8 @@ public sealed class NotesView : UserControl
         _pendingTitle = title;
         if (_loaded)
             PushContent();
-        else if (_coreReady)
-            NavigateShell();
+        // else: the pending NavigationCompleted handler picks it up once the
+        // shell finishes loading (it checks _notes != null).
     }
 
     // MARK: WebView2 plumbing
@@ -91,28 +84,18 @@ public sealed class NotesView : UserControl
         var core = _web.CoreWebView2;
         core.SetVirtualHostNameToFolderMapping(
             "pupimg.local", NoteImageStore.Directory, CoreWebView2HostResourceAccessKind.Allow);
+        // The shell + bundle are served as static files, not built into a string —
+        // NavigateToString caps around 2MB and bundle.js alone is 1.9MB.
+        core.SetVirtualHostNameToFolderMapping(
+            "notes.local", NotesAssetsDir, CoreWebView2HostResourceAccessKind.Allow);
         core.NavigationCompleted += (_, _) => { _loaded = true; if (_notes != null) PushContent(); };
         core.WebMessageReceived += OnWebMessage;
         _coreReady = true;
-        if (_notes != null) NavigateShell();
-    }
-
-    private void NavigateShell()
-    {
-        _loaded = false;
-        var initial = _notes?.Text(_currentKey) ?? "";
-        var html = ShellTemplate
-            .Replace("__WEBKIT_SHIM__", WebkitShim)
-            .Replace("__BUNDLE__", Bundle)
-            .Replace("__INITIAL__", JsonQuoted(initial))
-            .Replace("__KEY__", JsonQuoted(_currentKey));
-        _web.CoreWebView2.NavigateToString(html);
+        core.Navigate("https://notes.local/shell.html");
     }
 
     private void PushContent()
     {
-        // The freshly-navigated shell already carries the right note (NavigateShell
-        // seeded it); only an in-place switch after load needs a live push.
         var json = JsonQuoted(_notes!.Text(_currentKey));
         var key = JsonQuoted(_currentKey);
         _ = _web.CoreWebView2.ExecuteScriptAsync($"PUPNotes.setContent({json}, {key});");
@@ -293,14 +276,14 @@ public sealed class NotesView : UserControl
 
     // MARK: Helpers
 
-    /// JSON-encodes a string and escapes what a raw `<script>` embed can't carry
-    /// safely — mirrors the macOS host's `jsonString(_:)`.
+    /// JSON-encodes a string for safe interpolation into a script string handed
+    /// to ExecuteScriptAsync -- U+2028/U+2029 are invalid unescaped inside a JS
+    /// string literal, and the `<` escape is cheap insurance against the text
+    /// ever landing inside an HTML <script> tag. Mirrors the macOS host's
+    /// `jsonString(_:)`.
     private static string JsonQuoted(string s) =>
         JsonSerializer.Serialize(s)
             .Replace("<", "\\u003c")
             .Replace("\u2028", "\\u2028")
             .Replace("\u2029", "\\u2029");
-
-    private static string LoadAsset(string name) =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Assets", "notes-editor", name));
 }

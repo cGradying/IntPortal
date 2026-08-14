@@ -5,19 +5,25 @@
   Segoe UI here), same bundle, same init call. Keep the two in sync by hand;
   the bundle itself (bundle.js, copied verbatim) is never edited on either side.
 
-  Loaded via NotesView.cs: CoreWebView2.NavigateToString(html), where html is
-  this file with __WEBKIT_SHIM__/__BUNDLE__/__INITIAL__/__KEY__ substituted.
-  __WEBKIT_SHIM__ makes the bundle's unmodified
+  Loaded via NotesView.cs as a **static file** over a virtual host
+  (`https://notes.local/shell.html`, SetVirtualHostNameToFolderMapping onto this
+  folder) — not `NavigateToString`. That API caps around 2MB and bundle.js alone
+  is 1.9MB, so inlining it (the original approach) was a near-certain failure at
+  that size; a `<script src>` has no such ceiling. Because the shell no longer
+  varies per note, it's navigated to exactly once per app run — real content
+  arrives after the fact via `PUPNotes.setContent(...)` through ExecuteScriptAsync
+  (see NotesView.PushContent), the same call the mac-side note-switch path uses.
+
+  The webkit shim makes the bundle's unmodified
   `window.webkit.messageHandlers[x].postMessage(...)` calls (written for
   WKWebView) land on `chrome.webview.postMessage` instead — the only bridge
   adapter needed to reuse the bundle as-is.
 
   Pasted/dropped images: the macOS host answers a custom `pupimg://` scheme;
-  WebView2 doesn't need a scheme registration for that — NotesView instead maps
-  a virtual host (`https://pupimg.local/`) to the image folder via
-  SetVirtualHostNameToFolderMapping, so inserted image URLs use that host. The
-  bundle only ever inserts whatever URL string it's given, so this is invisible
-  to it either way.
+  WebView2 doesn't need a scheme registration for that — NotesView maps a
+  *second* virtual host (`https://pupimg.local/`) to the image folder, so
+  inserted image URLs use that host. The bundle only ever inserts whatever URL
+  string it's given, so this is invisible to it either way.
 -->
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
@@ -138,9 +144,19 @@
   }
   .pup-db-optadd:hover { background:#4752c4; }
 </style>
-<script>__WEBKIT_SHIM__</script>
-<script>__BUNDLE__</script>
+<script>
+  window.webkit = { messageHandlers: {
+    notes: { postMessage: function (m) { m.channel = 'notes'; window.chrome.webview.postMessage(m); } },
+    open:  { postMessage: function (m) { m.channel = 'open';  window.chrome.webview.postMessage(m); } },
+    image: { postMessage: function (m) { m.channel = 'image'; window.chrome.webview.postMessage(m); } },
+  } };
+</script>
+<script src="bundle.js"></script>
 </head><body>
 <div id="editor"></div>
-<script> PUPNotes.initEditor(__INITIAL__, __KEY__); </script>
+<script>
+  // Blank init — the real note text/key are pushed right after this
+  // navigation completes (NotesView.PushContent), never inlined here.
+  PUPNotes.initEditor('', '');
+</script>
 </body></html>
