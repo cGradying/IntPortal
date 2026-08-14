@@ -189,6 +189,13 @@ struct ContentView: View {
                         .transition(.opacity)
                 }
 
+                // Invisible titlebar-style drag strip: moves the window in place of
+                // background dragging (which fought the calendar's create-drag).
+                // Below the island in z-order, so island buttons still win.
+                WindowDragArea()
+                    .frame(height: 40)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
                 // The island itself never re-mounts — it *glides* from centre (home)
                 // to the top (open), so opening reads as a move/expand, not a fade.
                 // Hover morph keeps working because it's one live view throughout.

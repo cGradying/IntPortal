@@ -60,7 +60,11 @@ struct TrafficLights: NSViewRepresentable {
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
             window.styleMask.insert(.fullSizeContentView)
-            window.isMovableByWindowBackground = true
+            // Not movable by arbitrary background: AppKit hit-tests the calendar's
+            // clear create-drag rectangle as draggable background and steals the
+            // gesture, so a drag-to-add-event moved the whole window instead. The
+            // top strip gets an explicit drag handle (`WindowDragArea`) instead.
+            window.isMovableByWindowBackground = false
             // Drop the hairline under the title bar — the last remnant of the bar.
             window.titlebarSeparatorStyle = .none
             window.toolbar = nil
@@ -77,6 +81,28 @@ struct TrafficLights: NSViewRepresentable {
             guard let window = view?.window else { return }
             for button: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
                 window.standardWindowButton(button)?.isHidden = hidden
+            }
+        }
+    }
+}
+
+/// A transparent strip that moves the window on drag, replacing
+/// `isMovableByWindowBackground`. That flag dragged the window from *any*
+/// background — including the calendar's clear create-gesture rectangle, which
+/// broke drag-to-add-event. This drives the move explicitly, so only where it's
+/// placed (the top chrome strip, under the nav island) moves the window; the
+/// grid below is left alone. A double-click still zooms, like a real title bar.
+struct WindowDragArea: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { DraggingView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class DraggingView: NSView {
+        override func mouseDown(with event: NSEvent) {
+            guard let window else { return }
+            if event.clickCount == 2 {
+                window.performZoom(nil)
+            } else {
+                window.performDrag(with: event)
             }
         }
     }
