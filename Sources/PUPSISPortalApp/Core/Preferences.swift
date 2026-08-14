@@ -147,6 +147,26 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(trafficLightsAutoHide, forKey: Key.trafficLightsAutoHide) }
     }
 
+    // MARK: AI (beta)
+
+    /// Drafting help in the notes editor from a model running locally via
+    /// Ollama. **Off by default and staying that way** — it's an extra thing to
+    /// install and not everyone's machine can run a model, so it must never be
+    /// something the app assumes.
+    @Published var aiEnabled: Bool {
+        didSet { defaults.set(aiEnabled, forKey: Key.aiEnabled) }
+    }
+
+    /// Which local model to ask. A name, not an endpoint: the host is fixed at
+    /// localhost so "your notes stay on your Mac" can't be configured away.
+    ///
+    /// Empty until the user picks from the models actually installed on this
+    /// machine — there's no sensible stock default, since a name like
+    /// `llama3.2` is a 404 on a machine that never pulled it.
+    @Published var aiModel: String {
+        didSet { defaults.set(aiModel, forKey: Key.aiModel) }
+    }
+
     static let leadOptions = [5, 10, 15, 30]
 
     /// Meetings marked vacant **for the whole term**, in the form `Notifier` and
@@ -184,6 +204,8 @@ final class Preferences: ObservableObject {
         static let islandStartHome = "islandStartHome"
         static let islandExpandOnHover = "islandExpandOnHover"
         static let trafficLightsAutoHide = "trafficLightsAutoHide"
+        static let aiEnabled = "aiEnabled"
+        static let aiModel = "aiModel"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -216,6 +238,8 @@ final class Preferences: ObservableObject {
         islandStartHome = (defaults.object(forKey: Key.islandStartHome) as? Bool) ?? true
         islandExpandOnHover = (defaults.object(forKey: Key.islandExpandOnHover) as? Bool) ?? true
         trafficLightsAutoHide = (defaults.object(forKey: Key.trafficLightsAutoHide) as? Bool) ?? true
+        aiEnabled = (defaults.object(forKey: Key.aiEnabled) as? Bool) ?? false
+        aiModel = defaults.string(forKey: Key.aiModel) ?? ""
     }
 
     /// The colour an event renders in: the user's pick, else the palette's

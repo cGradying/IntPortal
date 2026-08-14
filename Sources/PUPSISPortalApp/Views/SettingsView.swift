@@ -8,6 +8,8 @@ struct SettingsView: View {
     @ObservedObject var calendar: CalendarBridge
     @ObservedObject var googleAuth: GoogleAuth
     @ObservedObject fileprivate var notifier = Notifier.shared
+    /// Ollama models present on this machine, refreshed when the AI section shows.
+    @State private var installedModels: [String] = []
     @Environment(\.palette) private var palette
     @State fileprivate var exportResult: String?
     @State fileprivate var googleCalendars: [GoogleCalendar] = []
@@ -115,6 +117,55 @@ struct SettingsView: View {
                 Text("Your program's total required units, for the completed-units progress on the Grades trend. SIS doesn't publish it.")
                     .foregroundStyle(.secondary)
             }
+
+            aiSection
+        }
+    }
+
+    /// Beta, off by default. Lives on the Grades tab because it's the emptiest
+    /// one — worth its own tab only once there's more than a toggle here.
+    private var aiSection: some View {
+        Section {
+            Toggle("Draft with a local model", isOn: $preferences.aiEnabled)
+            if preferences.aiEnabled {
+                if installedModels.isEmpty {
+                    LabeledContent("Model") {
+                        Text("No models found — is Ollama running?")
+                            .foregroundStyle(.secondary)
+                    }
+                    Button("Check again") { Task { await loadModels() } }
+                } else {
+                    Picker("Model", selection: $preferences.aiModel) {
+                        ForEach(installedModels, id: \.self) { Text($0).tag($0) }
+                    }
+                }
+            }
+        } header: {
+            Text("AI (beta)")
+        } footer: {
+            Text("""
+            Adds a ✦ button to the notes toolbar that asks a model to continue \
+            what you've selected. Needs [Ollama](https://ollama.com) running on \
+            this Mac (`ollama serve`) with the model pulled — nothing else is \
+            installed for you.
+
+            Your notes are sent to that local server and nowhere else. There is \
+            no cloud provider and no way to point this at one.
+            """)
+            .foregroundStyle(.secondary)
+        }
+        .task(id: preferences.aiEnabled) {
+            guard preferences.aiEnabled else { return }
+            await loadModels()
+        }
+    }
+
+    private func loadModels() async {
+        installedModels = await OllamaClient.installedModels()
+        // Pick something usable rather than leaving the picker on a stale or
+        // empty name the user never chose.
+        if !installedModels.contains(preferences.aiModel), let first = installedModels.first {
+            preferences.aiModel = first
         }
     }
 

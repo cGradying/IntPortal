@@ -1070,6 +1070,29 @@ export function setContent(text, key) {
 
 export function getContent() { return view ? view.state.doc.toString() : ""; }
 
+// --- AI drafting: the native side reads the selection, asks a local model, and
+// calls insertText back with the result. Kept as two plain accessors rather
+// than a postMessage round trip — the request is driven from the toolbar, which
+// is native, so there's nothing for the editor to initiate. ---
+
+export function getSelection() {
+  if (!view) return "";
+  const { from, to } = view.state.selection.main;
+  // No selection: fall back to the whole note, so "expand on this" works on a
+  // note you've just started typing without making you select it first.
+  return from === to ? view.state.doc.toString() : view.state.sliceDoc(from, to);
+}
+
+// Insert generated text after the selection (or at the caret), leaving what
+// the user wrote untouched — a draft is an addition, never a replacement.
+export function insertText(text) {
+  if (!view || !text) return;
+  const { to } = view.state.selection.main;
+  const insert = `\n\n${text}\n`;
+  view.dispatch({ changes: { from: to, insert }, selection: { anchor: to + insert.length } });
+  view.focus();
+}
+
 // --- Toolbar commands (called from the native toolbar via evaluateJavaScript) ---
 function wrapSelection(marker) {
   const { from, to } = view.state.selection.main;
