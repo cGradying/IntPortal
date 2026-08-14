@@ -1,7 +1,8 @@
+using System.Runtime.InteropServices.WindowsRuntime; // IBuffer.ToArray()
 using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Shapes;
+using Microsoft.UI.Xaml.Shapes; // brings in Path (the shape) — System.IO.Path below must stay qualified
 using Microsoft.Web.WebView2.Core;
 using PUPSISPortal.App.Platform;
 using PUPSISPortal.Core;
@@ -23,7 +24,7 @@ namespace PUPSISPortal.App.Views;
 public sealed class NotesView : UserControl
 {
     private static readonly string NotesAssetsDir =
-        Path.Combine(AppContext.BaseDirectory, "Assets", "notes-editor");
+        System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "notes-editor");
 
     private readonly WebView2 _web = new();
     private readonly StackPanel _toolbar = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
@@ -259,7 +260,7 @@ public sealed class NotesView : UserControl
 
         var bytes = await Windows.Storage.FileIO.ReadBufferAsync(file);
         var base64 = Convert.ToBase64String(bytes.ToArray());
-        var ext = Path.GetExtension(file.Path).TrimStart('.');
+        var ext = System.IO.Path.GetExtension(file.Path).TrimStart('.');
         if (NoteImageStore.Save(base64, ext) is { } name)
         {
             var url = JsonQuoted($"https://pupimg.local/{name}");
