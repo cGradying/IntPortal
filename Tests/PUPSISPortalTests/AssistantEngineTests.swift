@@ -183,6 +183,18 @@ final class AssistantEngineTests: XCTestCase {
         XCTAssertTrue(prompt.contains(context.rendered))
     }
 
+    func testSystemPromptIncludesUserInstructionsWhenGiven() {
+        let prompt = AssistantEngine.systemPrompt(context: context, instructions: "Always use bullet points.")
+        XCTAssertTrue(prompt.contains("Always use bullet points."))
+    }
+
+    func testSystemPromptOmitsInstructionsSectionWhenNil() {
+        let withInstructions = AssistantEngine.systemPrompt(context: context, instructions: "x")
+        let without = AssistantEngine.systemPrompt(context: context, instructions: nil)
+        XCTAssertFalse(without.contains("own instructions"))
+        XCTAssertTrue(withInstructions.contains("own instructions"))
+    }
+
     func testResponseSchemaConstrainsToolNamesToTheCatalog() throws {
         let schema = AssistantEngine.responseSchema()
         let properties = try XCTUnwrap(schema["properties"] as? [String: Any])

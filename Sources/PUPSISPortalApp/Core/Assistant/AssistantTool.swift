@@ -35,6 +35,11 @@ struct AssistantTool: Equatable {
             args: []
         ),
         AssistantTool(
+            name: "search_notes",
+            description: "Search the student's notes for a word or phrase; returns matching notes with a snippet. Use this before answering a question the open note and today's schedule don't already cover.",
+            args: [Arg(name: "query", description: "word or phrase to search for")]
+        ),
+        AssistantTool(
             name: "append_note",
             description: "Add text to the end of a note, keeping what's already there.",
             args: [

@@ -46,6 +46,7 @@ final class RealAssistantExecutor: AssistantExecutor {
         switch action.tool {
         case "read_note": return readNote(action)
         case "list_notes": return listNotes(action)
+        case "search_notes": return searchNotes(action)
         case "append_note": return appendNote(action)
         case "create_note": return createNote(action)
         case "read_week": return readWeek(action)
@@ -92,6 +93,36 @@ final class RealAssistantExecutor: AssistantExecutor {
         nodes.flatMap { node -> [String] in
             node.isFolder ? fileNames(in: node.children ?? []) : [node.name]
         }
+    }
+
+    /// Retrieval half of "RAG over your notes" — plain substring search, not
+    /// embeddings. Every note's text is short enough on a personal vault that
+    /// a keyword match plus a snippet is genuinely useful without a vector
+    /// pipeline, an embedding model call, or anywhere new for note content to
+    /// end up. Revisit if a real semantic-search need shows up; don't build
+    /// it speculatively.
+    private func searchNotes(_ action: AssistantAction) -> AssistantToolResult {
+        guard let query = action.string("query") else {
+            return AssistantToolResult(action: action, ok: false, message: "No search query given.")
+        }
+        let needle = query.lowercased()
+        let hits = notesStore.notes.compactMap { key, note -> String? in
+            guard let range = note.text.lowercased().range(of: needle) else { return nil }
+            return "\(displayName(for: key)): …\(Self.snippet(of: note.text, around: range))…"
+        }
+        guard !hits.isEmpty else {
+            return AssistantToolResult(action: action, ok: true, message: "No notes matched \"\(query)\".")
+        }
+        return AssistantToolResult(action: action, ok: true, message: Self.truncated(hits.sorted().joined(separator: "\n")))
+    }
+
+    /// ~40 characters either side of the match, word-safe isn't worth the
+    /// complexity for a snippet nobody reads character-precisely.
+    private static func snippet(of text: String, around range: Range<String.Index>) -> String {
+        let padding = 40
+        let start = text.index(range.lowerBound, offsetBy: -padding, limitedBy: text.startIndex) ?? text.startIndex
+        let end = text.index(range.upperBound, offsetBy: padding, limitedBy: text.endIndex) ?? text.endIndex
+        return text[start..<end].trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// The one place the spike's near-miss (an empty argument silently

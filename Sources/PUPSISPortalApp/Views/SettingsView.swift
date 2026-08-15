@@ -163,6 +163,10 @@ struct SettingsView: View {
                 Text(preferences.aiPermission.explanation)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Button("Edit assistant instructions…") {
+                    NSWorkspace.shared.open(AssistantInstructions.ensureExists())
+                }
+                .font(.caption)
             }
         } header: {
             Text("AI (beta)")

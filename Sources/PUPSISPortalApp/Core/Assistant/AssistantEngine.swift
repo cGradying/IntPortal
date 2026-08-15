@@ -180,8 +180,11 @@ final class AssistantEngine {
         """
     }
 
-    static func systemPrompt(context: AssistantContext) -> String {
-        """
+    /// `instructions` defaults to `AssistantInstructions.load()` rather than
+    /// being hardcoded to it, so tests can pin an exact value instead of
+    /// depending on whatever file happens to exist on the machine running them.
+    static func systemPrompt(context: AssistantContext, instructions: String? = AssistantInstructions.load()) -> String {
+        var prompt = """
         You are a local study assistant for PUPSISPortal, running entirely on \
         the student's own machine — nothing you're told leaves it.
 
@@ -200,9 +203,14 @@ final class AssistantEngine {
         having done it.
         - If nothing needs doing, return an empty actions array.
         - Reply with JSON only, matching the given schema. No prose outside it.
-
-        \(context.rendered)
         """
+
+        if let instructions {
+            prompt += "\n\nThe student's own instructions for you:\n\(instructions)"
+        }
+
+        prompt += "\n\n\(context.rendered)"
+        return prompt
     }
 
     /// `actions[].args` stays a generic object rather than a per-tool schema:

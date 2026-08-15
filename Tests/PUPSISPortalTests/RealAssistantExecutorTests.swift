@@ -69,6 +69,35 @@ final class RealAssistantExecutorTests: XCTestCase {
         XCTAssertTrue(result.message.contains("class:COMP 001"))
     }
 
+    // MARK: search_notes
+
+    func testSearchNotesFindsAMatchWithASnippet() async {
+        notesStore.setText("Lecture 1: intro to arrays and linked lists.", for: "class:COMP 001")
+        let result = await executor().execute(AssistantAction(tool: "search_notes", args: ["query": .string("linked lists")]))
+        XCTAssertTrue(result.ok)
+        XCTAssertTrue(result.message.contains("linked lists"))
+        XCTAssertTrue(result.message.contains("COMP 001"))
+    }
+
+    func testSearchNotesIsCaseInsensitive() async {
+        notesStore.setText("Review Recursion before the exam.", for: "class:COMP 001")
+        let result = await executor().execute(AssistantAction(tool: "search_notes", args: ["query": .string("recursion")]))
+        XCTAssertTrue(result.ok)
+        XCTAssertTrue(result.message.lowercased().contains("recursion"))
+    }
+
+    func testSearchNotesReportsNoMatches() async {
+        notesStore.setText("unrelated content", for: "class:COMP 001")
+        let result = await executor().execute(AssistantAction(tool: "search_notes", args: ["query": .string("nonexistent")]))
+        XCTAssertTrue(result.ok)
+        XCTAssertTrue(result.message.contains("No notes matched"))
+    }
+
+    func testSearchNotesRefusesEmptyQuery() async {
+        let result = await executor().execute(AssistantAction(tool: "search_notes", args: [:]))
+        XCTAssertFalse(result.ok)
+    }
+
     // MARK: append_note — the guard that matters most
 
     func testAppendNoteAddsToExistingText() async {
