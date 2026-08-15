@@ -87,6 +87,43 @@ struct OllamaClient {
         return tags.models.map(\.name).sorted()
     }
 
+    /// Models Ollama currently has **loaded in memory**, not just installed —
+    /// `/api/ps`, distinct from `/api/tags`. Switching the assistant's model
+    /// in Settings doesn't replace what's resident, it adds to it: the old
+    /// model stays loaded until Ollama's own idle timeout, so two models can
+    /// end up competing for the same machine. This is what lets Settings
+    /// unload the one that's no longer wanted instead of waiting that out.
+    static func runningModels() async -> [String] {
+        let url = URL(string: "http://localhost:11434/api/ps")!
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 5
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return [] }
+        return parseRunningModels(data)
+    }
+
+    static func parseRunningModels(_ data: Data) -> [String] {
+        struct Ps: Decodable {
+            struct Model: Decodable { let name: String }
+            let models: [Model]
+        }
+        guard let ps = try? JSONDecoder().decode(Ps.self, from: data) else { return [] }
+        return ps.models.map(\.name)
+    }
+
+    /// Asks Ollama to drop `model` from memory right away — `keep_alive: 0`
+    /// on the same endpoint `generate` uses, with no prompt. Silent failure
+    /// (model already gone, Ollama offline) is fine here: the caller is
+    /// freeing resources, not performing an action the user is waiting on.
+    func unload(model: String) async {
+        guard let body = try? Self.unloadRequestBody(model: model) else { return }
+        _ = try? await send(body)
+    }
+
+    static func unloadRequestBody(model: String) throws -> Data {
+        let payload: [String: Any] = ["model": model, "keep_alive": 0]
+        return try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+    }
+
     private static func post(_ body: Data) async throws -> (Data, Int) {
         try await post(body, to: endpoint)
     }

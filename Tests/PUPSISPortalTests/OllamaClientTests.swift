@@ -136,4 +136,59 @@ final class OllamaClientTests: XCTestCase {
             // Any error will do; the point is it doesn't silently insert nothing.
         }
     }
+
+    // MARK: parseRunningModels
+
+    /// Shape confirmed against a real `GET /api/ps` on a machine with a model
+    /// loaded — distinct payload from `/api/tags` (adds expires_at, VRAM size).
+    func testParseRunningModelsTakesNames() {
+        let data = Data("""
+        {"models":[
+          {"name":"qwen3.5:4b","model":"qwen3.5:4b","size":1,"expires_at":"2026-08-15T10:07:35+08:00"}
+        ]}
+        """.utf8)
+        XCTAssertEqual(OllamaClient.parseRunningModels(data), ["qwen3.5:4b"])
+    }
+
+    func testParseRunningModelsHandlesNothingLoaded() {
+        XCTAssertEqual(OllamaClient.parseRunningModels(Data(#"{"models":[]}"#.utf8)), [])
+    }
+
+    func testParseRunningModelsHandlesGarbage() {
+        XCTAssertEqual(OllamaClient.parseRunningModels(Data("connection refused".utf8)), [])
+    }
+
+    // MARK: unload
+
+    func testUnloadRequestBodySetsKeepAliveToZero() throws {
+        let data = try OllamaClient.unloadRequestBody(model: "qwen3.5:4b")
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["model"] as? String, "qwen3.5:4b")
+        // Zero, not omitted — that's what actually tells Ollama to drop it
+        // now rather than just not extending how long it stays resident.
+        XCTAssertEqual(json["keep_alive"] as? Int, 0)
+    }
+
+    func testUnloadSendsTheUnloadRequestBody() async throws {
+        actor Captured { var body: Data?; func set(_ d: Data) { body = d } }
+        let captured = Captured()
+        let client = OllamaClient(send: { body in
+            await captured.set(body)
+            return (Data(), 200)
+        })
+        await client.unload(model: "qwen2.5-coder:3b")
+
+        let capturedBody = await captured.body
+        let sent = try XCTUnwrap(capturedBody)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: sent) as? [String: Any])
+        XCTAssertEqual(json["model"] as? String, "qwen2.5-coder:3b")
+    }
+
+    /// Unloading is best-effort cleanup, not a user-waited-on action — a
+    /// failure here must never throw or surface an error line.
+    func testUnloadSwallowsTransportFailure() async {
+        struct Boom: Error {}
+        let client = OllamaClient(send: { _ in throw Boom() })
+        await client.unload(model: "m") // must not throw
+    }
 }

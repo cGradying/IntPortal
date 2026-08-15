@@ -15,6 +15,22 @@ enum AssistantPermission: String, Codable, CaseIterable, Identifiable {
     case auto
 
     var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .propose: "Propose only"
+        case .confirm: "Confirm each action"
+        case .auto: "Act automatically"
+        }
+    }
+
+    var explanation: String {
+        switch self {
+        case .propose: "Shows what it would do; you apply it yourself."
+        case .confirm: "Shows each action before it runs — you approve or skip."
+        case .auto: "Acts on its own, then tells you what it did. Calendar adds stay undoable (⌘Z)."
+        }
+    }
 }
 
 /// One prior turn, for continuing a conversation across multiple messages.

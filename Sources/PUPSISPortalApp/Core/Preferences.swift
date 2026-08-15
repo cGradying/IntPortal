@@ -167,6 +167,14 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(aiModel, forKey: Key.aiModel) }
     }
 
+    /// How much the assistant acts on its own — see `AssistantPermission`.
+    /// Defaults to `.confirm`: the Phase 0 spike showed small local models
+    /// will confidently claim to have done things they didn't, so nothing
+    /// runs unseen until the user has reason to trust it more.
+    @Published var aiPermission: AssistantPermission {
+        didSet { defaults.set(aiPermission.rawValue, forKey: Key.aiPermission) }
+    }
+
     static let leadOptions = [5, 10, 15, 30]
 
     /// Meetings marked vacant **for the whole term**, in the form `Notifier` and
@@ -206,6 +214,7 @@ final class Preferences: ObservableObject {
         static let trafficLightsAutoHide = "trafficLightsAutoHide"
         static let aiEnabled = "aiEnabled"
         static let aiModel = "aiModel"
+        static let aiPermission = "aiPermission"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -240,6 +249,8 @@ final class Preferences: ObservableObject {
         trafficLightsAutoHide = (defaults.object(forKey: Key.trafficLightsAutoHide) as? Bool) ?? true
         aiEnabled = (defaults.object(forKey: Key.aiEnabled) as? Bool) ?? false
         aiModel = defaults.string(forKey: Key.aiModel) ?? ""
+        aiPermission = defaults.string(forKey: Key.aiPermission)
+            .flatMap(AssistantPermission.init(rawValue:)) ?? .confirm
     }
 
     /// The colour an event renders in: the user's pick, else the palette's

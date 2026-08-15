@@ -10,6 +10,8 @@ struct SettingsView: View {
     @ObservedObject fileprivate var notifier = Notifier.shared
     /// Ollama models present on this machine, refreshed when the AI section shows.
     @State private var installedModels: [String] = []
+    /// Ollama models currently loaded in memory that aren't the selected one.
+    @State private var runningOthers: [String] = []
     @Environment(\.palette) private var palette
     @State fileprivate var exportResult: String?
     @State fileprivate var googleCalendars: [GoogleCalendar] = []
@@ -126,7 +128,7 @@ struct SettingsView: View {
     /// one — worth its own tab only once there's more than a toggle here.
     private var aiSection: some View {
         Section {
-            Toggle("Draft with a local model", isOn: $preferences.aiEnabled)
+            Toggle("Floating assistant", isOn: $preferences.aiEnabled)
             if preferences.aiEnabled {
                 if installedModels.isEmpty {
                     LabeledContent("Model") {
@@ -138,25 +140,57 @@ struct SettingsView: View {
                     Picker("Model", selection: $preferences.aiModel) {
                         ForEach(installedModels, id: \.self) { Text($0).tag($0) }
                     }
+                    // Switching here doesn't unload what was running before —
+                    // Ollama keeps it resident until its own idle timeout, so
+                    // two models can end up competing for the machine. Free
+                    // the old one the moment a different one is picked.
+                    .onChange(of: preferences.aiModel) { old, new in
+                        guard old != new, !old.isEmpty else { return }
+                        Task { await OllamaClient().unload(model: old) }
+                    }
+                    if runningOthers.isEmpty == false {
+                        Button("Unload other running models (\(runningOthers.count))") {
+                            Task { await unloadOthers() }
+                        }
+                        .font(.caption)
+                    }
                 }
+                Picker("Permission", selection: $preferences.aiPermission) {
+                    ForEach(AssistantPermission.allCases) { level in
+                        Text(level.label).tag(level)
+                    }
+                }
+                Text(preferences.aiPermission.explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         } header: {
             Text("AI (beta)")
         } footer: {
             Text("""
-            Adds a ✦ button to the notes toolbar that asks a model to continue \
-            what you've selected. Needs [Ollama](https://ollama.com) running on \
-            this Mac (`ollama serve`) with the model pulled — nothing else is \
-            installed for you.
+            A floating assistant (bottom-left, when this is on) that can read \
+            and add to your notes, read and add calendar events, and read your \
+            grades — never delete, move, or change one. Needs \
+            [Ollama](https://ollama.com) running on this Mac (`ollama serve`) \
+            with a model pulled — nothing else is installed for you.
 
-            Your notes are sent to that local server and nowhere else. There is \
-            no cloud provider and no way to point this at one.
+            Everything it sees and does stays on this Mac, talking only to that \
+            local server. There is no cloud provider and no way to point this \
+            at one.
             """)
             .foregroundStyle(.secondary)
         }
         .task(id: preferences.aiEnabled) {
             guard preferences.aiEnabled else { return }
             await loadModels()
+            await refreshRunningOthers()
+        }
+        .task(id: preferences.aiModel) {
+            guard preferences.aiEnabled else { return }
+            // A moment for the onChange-triggered unload above to land before
+            // asking Ollama what's still resident.
+            try? await Task.sleep(for: .seconds(1))
+            await refreshRunningOthers()
         }
     }
 
@@ -167,6 +201,22 @@ struct SettingsView: View {
         if !installedModels.contains(preferences.aiModel), let first = installedModels.first {
             preferences.aiModel = first
         }
+    }
+
+    /// Loaded models other than the one currently selected — what the manual
+    /// "Unload other running models" button offers to clean up. Covers models
+    /// left resident from outside the app (`ollama run <x>` in a terminal).
+    private func refreshRunningOthers() async {
+        let running = await OllamaClient.runningModels()
+        runningOthers = running.filter { $0 != preferences.aiModel }
+    }
+
+    private func unloadOthers() async {
+        let client = OllamaClient()
+        for model in runningOthers {
+            await client.unload(model: model)
+        }
+        await refreshRunningOthers()
     }
 
     private var accountTab: some View {

@@ -257,6 +257,14 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity,
                            alignment: appState.isHome ? .center : .top)
                     .padding(.top, appState.isHome ? 0 : 4)
+
+                // Floating, reachable from every screen — only exists at all
+                // once the beta toggle is on (Settings › Grades › AI (beta)).
+                if preferences.aiEnabled {
+                    AssistantFloating(appState: appState, preferences: preferences)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                        .padding(16)
+                }
             }
             // Fill the whole window — including the hidden title bar's strip — so
             // no grey window background shows there.
