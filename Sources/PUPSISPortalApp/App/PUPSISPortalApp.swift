@@ -261,7 +261,7 @@ struct ContentView: View {
                 // Floating, reachable from every screen — only exists at all
                 // once the beta toggle is on (Settings › Grades › AI (beta)).
                 if preferences.aiEnabled {
-                    AssistantFloating(appState: appState, preferences: preferences)
+                    AssistantFloating(appState: appState, preferences: preferences, session: appState.assistant)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                         .padding(16)
                 }

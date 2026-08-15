@@ -9,15 +9,22 @@ import SwiftUI
 struct AssistantFloating: View {
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
+    // Must be its own @ObservedObject, not a computed `appState.assistant` —
+    // AppState holds it as a plain `let`, not `@Published`, so SwiftUI never
+    // subscribes to AssistantSession's own publisher through a computed
+    // pass-through. A click flipped isOpen in memory correctly; nothing ever
+    // re-rendered to show it, until something else (any AppState/Preferences
+    // @Published change, e.g. the Settings toggle) forced a re-render anyway
+    // and picked up the stale-but-correct value. Real bug, not a hunch —
+    // traced from the user's exact repro ("only opens when I touch Settings").
+    @ObservedObject var session: AssistantSession
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var session: AssistantSession { appState.assistant }
 
     var body: some View {
         Group {
             if session.isOpen {
-                AssistantChat(appState: appState, preferences: preferences)
+                AssistantChat(appState: appState, preferences: preferences, session: session)
                     .frame(width: 360, height: 440)
             } else {
                 orb
@@ -45,11 +52,10 @@ struct AssistantFloating: View {
 private struct AssistantChat: View {
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
+    @ObservedObject var session: AssistantSession
     @Environment(\.palette) private var palette
     @FocusState private var inputFocused: Bool
     @State private var input = ""
-
-    private var session: AssistantSession { appState.assistant }
 
     var body: some View {
         VStack(spacing: 0) {
