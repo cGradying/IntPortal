@@ -49,6 +49,35 @@ final class AppState: ObservableObject {
     /// is an update.
     @Published var availableUpdate: UpdateInfo?
 
+    /// The note key the user is currently looking at, mirrored up from
+    /// whichever screen has one open (today: `AgendaView`) — see the comment
+    /// at its `.onChange`/`.onAppear` there. Read by the assistant to answer
+    /// "summarize this note" without the model needing a key it was never told.
+    @Published var openNoteKey: String?
+
+    /// The floating assistant's own conversation state.
+    let assistant = AssistantSession()
+
+    /// The assistant's **own** `EventEditor`, separate from `CalendarView`'s.
+    /// `EventEditor.undoManager` is only wired while `CalendarView` is on
+    /// screen (`Views/CalendarView.swift`), so an edit made from the assistant
+    /// while looking at Grades or Today would otherwise be un-undoable. Both
+    /// editors share the same underlying `CalendarBridge`, so an assistant-made
+    /// event still shows up once that bridge reloads.
+    lazy var assistantEditor: EventEditor = {
+        let editor = EventEditor(bridge: calendar)
+        editor.onChange = { [weak self] in self?.reloadCalendarForAssistant() }
+        return editor
+    }()
+
+    private func reloadCalendarForAssistant() {
+        let thisWeek = Weekday.weekStart(containing: .now)
+        let viewedWeek = Calendar.current.date(
+            byAdding: .day, value: schedule.weekOffset * 7, to: thisWeek
+        ) ?? thisWeek
+        calendar.load(weekStart: viewedWeek, calendarIDs: preferences.visibleCalendarIDs)
+    }
+
     /// Open a destination from the island or a menu command: select it and
     /// leave home so the island glides to the top.
     func open(_ destination: Destination) {
@@ -168,6 +197,7 @@ struct ContentView: View {
     @ObservedObject var preferences: Preferences
     @Environment(\.colorScheme) private var systemScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.undoManager) private var undoManager
 
     var body: some View {
         content
@@ -176,6 +206,11 @@ struct ContentView: View {
             // Keeps native controls (fields, pickers, popovers) in step with a
             // theme the user picked against their system setting.
             .preferredColorScheme(preferences.theme.colorScheme)
+            // Same reasoning as CalendarView wiring its own EventEditor's
+            // undoManager: SwiftUI only hands one out via the environment
+            // inside a view, so the assistant's editor (a plain object on
+            // AppState) has to be handed it explicitly, once, here.
+            .onAppear { appState.assistantEditor.undoManager = undoManager }
     }
 
     @ViewBuilder

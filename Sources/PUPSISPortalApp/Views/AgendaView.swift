@@ -134,8 +134,7 @@ struct AgendaView: View {
                 noteKey: currentKey,
                 title: noteTitle(for: currentKey),
                 onOpenNote: openNote(titled:),
-                addDateOptions: addDateOptions(for: currentKey),
-                preferences: preferences
+                addDateOptions: addDateOptions(for: currentKey)
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -146,6 +145,13 @@ struct AgendaView: View {
         .onChange(of: selectedKey) { _, new in
             if let new, !openTabs.contains(new) { openTabs.append(new) }
         }
+        // The assistant panel floats outside this view and needs to know
+        // "the note you're looking at" — selectedKey/openTabs stay private
+        // (they're this screen's own tab-bar bookkeeping), but the resolved
+        // key is mirrored up so a request like "summarize this note" works
+        // from anywhere, not just from inside AgendaView.
+        .onChange(of: currentKey) { _, new in appState.openNoteKey = new }
+        .onAppear { appState.openNoteKey = currentKey }
     }
 
     /// Open notes as closeable tabs. A vault file dragged onto the bar opens too.

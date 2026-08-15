@@ -19,9 +19,6 @@ struct WebNoteEditor: View {
     /// "Next class" / "today" date labels for the Add-date menu — non-nil only
     /// when this note is a shared per-subject class note.
     var addDateOptions: (next: String, today: String)? = nil
-    /// Read for the AI-drafting toggle and model name; the button is absent
-    /// entirely when the feature is off.
-    @ObservedObject var preferences: Preferences
 
     @Environment(\.palette) private var palette
     @StateObject private var bridge = WebNoteBridge()
@@ -78,56 +75,10 @@ struct WebNoteEditor: View {
                     divider
                     dateMenu(options)
                 }
-                // No model chosen yet means nothing to ask — Settings picks one
-                // from what's actually installed.
-                if preferences.aiEnabled && !preferences.aiModel.isEmpty {
-                    divider
-                    draftButton
-                }
             }
             .padding(.horizontal, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// Ask the local model to continue the selection (or the whole note, when
-    /// nothing is selected). Hidden entirely unless the beta toggle is on.
-    @ViewBuilder
-    private var draftButton: some View {
-        if bridge.isDrafting {
-            ProgressView()
-                .controlSize(.small)
-                .frame(width: 20, height: 20)
-                .help("Drafting…")
-        } else {
-            button("sparkles", bridge.draftError ?? "Draft with \(preferences.aiModel)") {
-                draft()
-            }
-            .foregroundStyle(bridge.draftError == nil ? palette.accent : .orange)
-        }
-    }
-
-    private func draft() {
-        Task {
-            bridge.draftError = nil
-            let selection = await bridge.selection()
-            guard !selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                bridge.draftError = "Write something first — there's nothing to work from."
-                return
-            }
-            bridge.isDrafting = true
-            defer { bridge.isDrafting = false }
-            do {
-                let text = try await OllamaClient().generate(
-                    model: preferences.aiModel, selection: selection
-                )
-                bridge.insertText(text)
-            } catch {
-                // Stays on the button as a tooltip rather than an alert: a model
-                // that isn't running is a setup problem, not an emergency.
-                bridge.draftError = error.localizedDescription
-            }
-        }
     }
 
     // Code button → horizontal language picker; click a language to insert its ```block.
@@ -280,11 +231,6 @@ func jsNoteString(_ s: String) -> String {
 @MainActor
 final class WebNoteBridge: ObservableObject {
     weak var webView: WKWebView?
-
-    /// A draft is in flight; the toolbar shows a spinner and blocks a second ask.
-    @Published var isDrafting = false
-    /// Why the last draft produced nothing. Cleared when the next one starts.
-    @Published var draftError: String?
 
     func cmd(_ name: String, _ arg: String? = nil) {
         let argJS = arg.map { "'\($0)'" } ?? "undefined"
