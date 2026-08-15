@@ -40,10 +40,27 @@ struct OllamaClient {
         }
     }
 
-    private let send: (Data) async throws -> (Data, Int)
+    /// The assistant's structured turn: `/api/chat` with a JSON-schema `format`,
+    /// used by `AssistantEngine`. Separate endpoint and transport from
+    /// `generate` — a distinct injectable so each surface's tests stay
+    /// independent of the other's.
+    static let chatEndpoint = URL(string: "http://localhost:11434/api/chat")!
 
-    init(send: ((Data) async throws -> (Data, Int))? = nil) {
+    struct ChatMessage: Equatable {
+        enum Role: String { case system, user, assistant, tool }
+        let role: Role
+        let content: String
+    }
+
+    private let send: (Data) async throws -> (Data, Int)
+    private let sendChat: (Data) async throws -> (Data, Int)
+
+    init(
+        send: ((Data) async throws -> (Data, Int))? = nil,
+        sendChat: ((Data) async throws -> (Data, Int))? = nil
+    ) {
         self.send = send ?? Self.post
+        self.sendChat = sendChat ?? Self.postChat
     }
 
     /// Model names already pulled on this machine, newest API shape first.
@@ -71,7 +88,15 @@ struct OllamaClient {
     }
 
     private static func post(_ body: Data) async throws -> (Data, Int) {
-        var request = URLRequest(url: endpoint)
+        try await post(body, to: endpoint)
+    }
+
+    private static func postChat(_ body: Data) async throws -> (Data, Int) {
+        try await post(body, to: chatEndpoint)
+    }
+
+    private static func post(_ body: Data, to url: URL) async throws -> (Data, Int) {
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
@@ -117,6 +142,54 @@ struct OllamaClient {
             throw ClientError.empty
         }
         let text = reply.response.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { throw ClientError.empty }
+        return text
+    }
+
+    // MARK: Structured chat (for AssistantEngine)
+
+    /// One structured turn: `messages` is the whole conversation so far
+    /// (system prompt + history + the new user message); `schema` constrains
+    /// the reply to valid JSON via Ollama's `format` field. Returns the raw
+    /// JSON string the model produced — `AssistantEngine` decodes it, since
+    /// what "valid" means is the engine's concern, not the transport's.
+    func chat(model: String, messages: [ChatMessage], schema: [String: Any]) async throws -> String {
+        let body = try Self.chatRequestBody(model: model, messages: messages, schema: schema)
+        let (data, code): (Data, Int)
+        do {
+            (data, code) = try await sendChat(body)
+        } catch {
+            throw ClientError.offline
+        }
+        guard (200..<300).contains(code) else { throw ClientError.http(code) }
+        return try Self.parseChatContent(data)
+    }
+
+    static func chatRequestBody(model: String, messages: [ChatMessage], schema: [String: Any]) throws -> Data {
+        let payload: [String: Any] = [
+            "model": model,
+            "messages": messages.map { ["role": $0.role.rawValue, "content": $0.content] },
+            "format": schema,
+            "stream": false,
+            // Structured output is brittle enough at small model sizes without
+            // also inviting creative deviation from the schema.
+            "options": ["temperature": 0.2],
+        ]
+        return try JSONSerialization.data(withJSONObject: payload)
+    }
+
+    /// Ollama wraps the model's turn in `{"message": {"role": ..., "content": "..."}}`.
+    /// `content` is itself a JSON string (constrained by `format`, not parsed by
+    /// Ollama) — this only unwraps the envelope, not the schema inside it.
+    static func parseChatContent(_ data: Data) throws -> String {
+        struct Reply: Decodable {
+            struct Message: Decodable { let content: String }
+            let message: Message
+        }
+        guard let reply = try? JSONDecoder().decode(Reply.self, from: data) else {
+            throw ClientError.empty
+        }
+        let text = reply.message.content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw ClientError.empty }
         return text
     }

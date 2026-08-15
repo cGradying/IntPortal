@@ -80,7 +80,7 @@ final class OllamaClientTests: XCTestCase {
     // MARK: generate
 
     func testGenerateReturnsModelText() async throws {
-        let client = OllamaClient { _ in (Data(#"{"response":"drafted"}"#.utf8), 200) }
+        let client = OllamaClient(send: { _ in (Data(#"{"response":"drafted"}"#.utf8), 200) })
         let text = try await client.generate(model: "m", selection: "seed")
         XCTAssertEqual(text, "drafted")
     }
@@ -88,10 +88,10 @@ final class OllamaClientTests: XCTestCase {
     func testGenerateSendsTheBuiltBody() async throws {
         actor Captured { var body: Data?; func set(_ d: Data) { body = d } }
         let captured = Captured()
-        let client = OllamaClient { body in
+        let client = OllamaClient(send: { body in
             await captured.set(body)
             return (Data(#"{"response":"ok"}"#.utf8), 200)
-        }
+        })
         _ = try await client.generate(model: "mistral", selection: "seed text")
 
         let sent = await captured.body
@@ -105,7 +105,7 @@ final class OllamaClientTests: XCTestCase {
     /// this is the failure a first-time user will actually hit.
     func testGenerateReportsOfflineWhenTheSendThrows() async {
         struct Boom: Error {}
-        let client = OllamaClient { _ in throw Boom() }
+        let client = OllamaClient(send: { _ in throw Boom() })
         do {
             _ = try await client.generate(model: "m", selection: "seed")
             XCTFail("expected an error")
@@ -117,7 +117,7 @@ final class OllamaClientTests: XCTestCase {
 
     /// A wrong model name is a 404 from Ollama, not a transport failure.
     func testGenerateReportsHTTPStatus() async {
-        let client = OllamaClient { _ in (Data(), 404) }
+        let client = OllamaClient(send: { _ in (Data(), 404) })
         do {
             _ = try await client.generate(model: "typo", selection: "seed")
             XCTFail("expected an error")
@@ -128,7 +128,7 @@ final class OllamaClientTests: XCTestCase {
     }
 
     func testGenerateRejectsEmptyModelOutput() async {
-        let client = OllamaClient { _ in (Data(#"{"response":""}"#.utf8), 200) }
+        let client = OllamaClient(send: { _ in (Data(#"{"response":""}"#.utf8), 200) })
         do {
             _ = try await client.generate(model: "m", selection: "seed")
             XCTFail("expected an error")
