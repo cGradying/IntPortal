@@ -163,11 +163,61 @@ final class AssistantEngine {
         throw AssistantEngineError.iterationsExhausted
     }
 
+    /// Sanitizes *before* decoding, not after a caught failure — confirmed live:
+    /// when a model leaves a literal newline inside a JSON string (writing
+    /// multi-line code), `JSONDecoder` doesn't reliably throw on it. It can
+    /// decode the reply "successfully" while silently dropping just the
+    /// corrupted field — here, the code — which a try-then-salvage-on-failure
+    /// pattern would never even see, since nothing failed to catch.
+    /// `escapingRawControlCharacters` is a no-op on already-valid JSON, so
+    /// sanitizing unconditionally costs nothing on the common path.
     private static func decodeOrThrow(_ raw: String) throws -> AssistantReply {
-        guard let parsed = try? AssistantReply.decode(raw) else {
+        guard let parsed = try? AssistantReply.decode(escapingRawControlCharacters(in: raw)) else {
             throw AssistantEngineError.malformedReply(raw)
         }
         return parsed
+    }
+
+    /// Walks the text tracking whether we're inside a JSON string literal
+    /// (toggling on an unescaped `"`) and escapes any literal control
+    /// character found there. Deliberately narrow: it does **not** try to fix
+    /// unescaped quotes or backslashes — those are ambiguous without knowing
+    /// the model's intent, and guessing wrong would corrupt otherwise-valid
+    /// content rather than salvage it.
+    static func escapingRawControlCharacters(in text: String) -> String {
+        var result = ""
+        result.reserveCapacity(text.count)
+        var inString = false
+        var escaped = false
+
+        for char in text {
+            if escaped {
+                result.append(char)
+                escaped = false
+                continue
+            }
+            if char == "\\" {
+                result.append(char)
+                escaped = true
+                continue
+            }
+            if char == "\"" {
+                inString.toggle()
+                result.append(char)
+                continue
+            }
+            if inString {
+                switch char {
+                case "\n": result.append("\\n")
+                case "\t": result.append("\\t")
+                case "\r": result.append("\\r")
+                default: result.append(char)
+                }
+            } else {
+                result.append(char)
+            }
+        }
+        return result
     }
 
     static func toolResultsMessage(_ results: [AssistantToolResult]) -> String {

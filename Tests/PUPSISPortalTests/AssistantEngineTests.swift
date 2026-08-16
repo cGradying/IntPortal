@@ -64,6 +64,25 @@ final class AssistantEngineTests: XCTestCase {
         XCTAssertEqual(outcome.actions, [])
     }
 
+    /// Regression for the real bug: a model writing multi-line code left a
+    /// literal newline inside the JSON string instead of `\n`. Confirmed live
+    /// that `JSONDecoder` doesn't throw on this — it decodes `reply`/`tool`
+    /// fine and silently drops just the corrupted `text` argument, so the note
+    /// gets created with the prose but no code. Built with a real embedded
+    /// newline (not `\n`) to reproduce exactly that.
+    func testALiteralNewlineInsideAStringIsSalvagedRatherThanDiscardingTheTurn() async throws {
+        let content = """
+        {"reply":"Added it.","actions":[{"tool":"append_note","args":{"text":"def add(a, b):
+            return a + b"}}]}
+        """
+        let sut = engine { _ in self.jsonResponse(content) }
+        let outcome = try await sut.respond(to: "add this code", context: context, permission: .confirm)
+
+        XCTAssertEqual(outcome.reply, "Added it.")
+        XCTAssertEqual(outcome.actions.first?.tool, "append_note")
+        XCTAssertEqual(outcome.actions.first?.string("text"), "def add(a, b):\n    return a + b")
+    }
+
     func testGarbageContentThrowsMalformedReply() async {
         let sut = engine { _ in self.jsonResponse("not json at all") }
         do {
@@ -193,6 +212,34 @@ final class AssistantEngineTests: XCTestCase {
         let without = AssistantEngine.systemPrompt(context: context, instructions: nil)
         XCTAssertFalse(without.contains("own instructions"))
         XCTAssertTrue(withInstructions.contains("own instructions"))
+    }
+
+    // MARK: escapingRawControlCharacters — the salvage transform itself
+
+    func testEscapingLeavesAlreadyValidJSONUnchanged() {
+        let json = #"{"reply":"ok","actions":[]}"#
+        XCTAssertEqual(AssistantEngine.escapingRawControlCharacters(in: json), json)
+    }
+
+    func testEscapingConvertsALiteralNewlineInsideAStringOnly() {
+        let raw = "{\"text\":\"line one\nline two\"}"
+        let fixed = AssistantEngine.escapingRawControlCharacters(in: raw)
+        XCTAssertEqual(fixed, #"{"text":"line one\nline two"}"#)
+    }
+
+    /// Formatting whitespace between JSON tokens (outside any string) must
+    /// survive untouched — only literal control characters *inside* a string
+    /// are the target.
+    func testEscapingDoesNotTouchWhitespaceOutsideAString() {
+        let raw = "{\n  \"reply\": \"ok\"\n}"
+        XCTAssertEqual(AssistantEngine.escapingRawControlCharacters(in: raw), raw)
+    }
+
+    /// An already-correct `\n` escape must not become `\\n` — the scanner has
+    /// to track escape state, not just count backslashes.
+    func testEscapingDoesNotDoubleEscapeAnAlreadyValidSequence() {
+        let json = #"{"text":"already\nescaped"}"#
+        XCTAssertEqual(AssistantEngine.escapingRawControlCharacters(in: json), json)
     }
 
     func testResponseSchemaConstrainsToolNamesToTheCatalog() throws {
