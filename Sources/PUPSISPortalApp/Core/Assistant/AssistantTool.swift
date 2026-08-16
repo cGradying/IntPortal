@@ -40,6 +40,11 @@ struct AssistantTool: Equatable {
             args: [Arg(name: "query", description: "word or phrase to search for")]
         ),
         AssistantTool(
+            name: "ask_notes",
+            description: "Answer a question by searching the student's notes and having a second, specialized local model synthesize a grounded answer from what's found — not just a list of matches like search_notes. Use this when the student wants an actual answer synthesized from their notes, not just to see what matched. Requires a local llama.cpp server running separately; fails clearly if it isn't.",
+            args: [Arg(name: "query", description: "the question to answer from the student's notes")]
+        ),
+        AssistantTool(
             name: "append_note",
             description: "Add text to the end of a note, keeping what's already there.",
             args: [

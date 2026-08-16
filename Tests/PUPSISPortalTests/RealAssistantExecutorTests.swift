@@ -28,14 +28,15 @@ final class RealAssistantExecutorTests: XCTestCase {
         try? FileManager.default.removeItem(at: notesURL.deletingLastPathComponent())
     }
 
-    private func executor(openKey: String? = nil) -> RealAssistantExecutor {
+    private func executor(openKey: String? = nil, llamaCppClient: LlamaCppClient = LlamaCppClient()) -> RealAssistantExecutor {
         RealAssistantExecutor(
             notes: notesStore,
             editor: EventEditor(bridge: CalendarBridge()),
             calendar: CalendarBridge(),
             portal: PortalController(),
             preferences: Preferences(defaults: UserDefaults(suiteName: "RealAssistantExecutorTests-\(UUID().uuidString)")!),
-            openNoteKey: { openKey }
+            openNoteKey: { openKey },
+            llamaCppClient: llamaCppClient
         )
     }
 
@@ -96,6 +97,55 @@ final class RealAssistantExecutorTests: XCTestCase {
     func testSearchNotesRefusesEmptyQuery() async {
         let result = await executor().execute(AssistantAction(tool: "search_notes", args: [:]))
         XCTAssertFalse(result.ok)
+    }
+
+    // MARK: ask_notes — the grounded-answer tool
+
+    func testAskNotesReturnsTheModelsGroundedAnswer() async {
+        notesStore.setText("Recursion has a base case and a recursive case.", for: "class:COMP 001")
+        let client = LlamaCppClient(send: { _ in
+            (Data(#"{"choices":[{"message":{"content":"A base case and a recursive case."}}]}"#.utf8), 200)
+        })
+        let result = await executor(llamaCppClient: client)
+            .execute(AssistantAction(tool: "ask_notes", args: ["query": .string("recursion")]))
+
+        XCTAssertTrue(result.ok)
+        XCTAssertEqual(result.message, "A base case and a recursive case.")
+    }
+
+    /// Nothing matched — the model is never even called, since there's
+    /// nothing to ground an answer in.
+    func testAskNotesSkipsTheModelWhenNothingMatches() async {
+        notesStore.setText("unrelated content", for: "class:COMP 001")
+        var called = false
+        let client = LlamaCppClient(send: { body in
+            called = true
+            return (Data(#"{"choices":[{"message":{"content":"x"}}]}"#.utf8), 200)
+        })
+        let result = await executor(llamaCppClient: client)
+            .execute(AssistantAction(tool: "ask_notes", args: ["query": .string("nonexistent")]))
+
+        XCTAssertTrue(result.ok)
+        XCTAssertTrue(result.message.contains("nothing to answer from"))
+        XCTAssertFalse(called, "the model must not be called with no context")
+    }
+
+    func testAskNotesRefusesEmptyQuery() async {
+        let result = await executor().execute(AssistantAction(tool: "ask_notes", args: [:]))
+        XCTAssertFalse(result.ok)
+    }
+
+    /// The server isn't running (or unreachable) — fails clearly rather than
+    /// crashing or silently returning nothing.
+    func testAskNotesFailsClearlyWhenTheServerIsUnreachable() async {
+        notesStore.setText("Recursion has a base case.", for: "class:COMP 001")
+        struct Boom: Error {}
+        let client = LlamaCppClient(send: { _ in throw Boom() })
+        let result = await executor(llamaCppClient: client)
+            .execute(AssistantAction(tool: "ask_notes", args: ["query": .string("recursion")]))
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.message.lowercased().contains("llama-server") || result.message.lowercased().contains("reach"))
     }
 
     // MARK: append_note — the guard that matters most

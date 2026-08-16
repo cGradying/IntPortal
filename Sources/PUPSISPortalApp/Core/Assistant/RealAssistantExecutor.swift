@@ -20,6 +20,11 @@ final class RealAssistantExecutor: AssistantExecutor {
     /// The note the user currently has open, if any — resolved fresh on every
     /// call rather than captured once, since it can change mid-conversation.
     private let openNoteKey: () -> String?
+    /// The `ask_notes` tool's model — a separate local server from the main
+    /// assistant's Ollama connection, injectable so tests never hit a real
+    /// one. See `LlamaCppClient`'s doc comment for why it's scoped to this
+    /// one tool rather than driving the assistant itself.
+    private let llamaCppClient: LlamaCppClient
 
     /// Tool-result strings are fed back to the model in `.auto` mode and shown
     /// in the confirm-row UI — capped so one enormous note can't blow out
@@ -32,7 +37,8 @@ final class RealAssistantExecutor: AssistantExecutor {
         calendar: CalendarBridge,
         portal: PortalController,
         preferences: Preferences,
-        openNoteKey: @escaping () -> String?
+        openNoteKey: @escaping () -> String?,
+        llamaCppClient: LlamaCppClient = LlamaCppClient()
     ) {
         self.notesStore = notes
         self.editor = editor
@@ -40,6 +46,7 @@ final class RealAssistantExecutor: AssistantExecutor {
         self.portal = portal
         self.preferences = preferences
         self.openNoteKey = openNoteKey
+        self.llamaCppClient = llamaCppClient
     }
 
     func execute(_ action: AssistantAction) async -> AssistantToolResult {
@@ -47,6 +54,7 @@ final class RealAssistantExecutor: AssistantExecutor {
         case "read_note": return readNote(action)
         case "list_notes": return listNotes(action)
         case "search_notes": return searchNotes(action)
+        case "ask_notes": return await askNotes(action)
         case "append_note": return appendNote(action)
         case "create_note": return createNote(action)
         case "read_week": return readWeek(action)
@@ -123,6 +131,38 @@ final class RealAssistantExecutor: AssistantExecutor {
         let start = text.index(range.lowerBound, offsetBy: -padding, limitedBy: text.startIndex) ?? text.startIndex
         let end = text.index(range.upperBound, offsetBy: padding, limitedBy: text.endIndex) ?? text.endIndex
         return text[start..<end].trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Generation half of RAG over the notes vault: gathers the same
+    /// keyword-matched notes `search_notes` would, then asks the separate
+    /// local `llama.cpp` model (see `LlamaCppClient`) to synthesize one
+    /// grounded answer from them — a plain completion, not a tool-calling
+    /// turn, per that client's own doc comment on why. Never calls the model
+    /// at all when nothing matched; an empty prompt has nothing to answer from.
+    private func askNotes(_ action: AssistantAction) async -> AssistantToolResult {
+        guard let query = action.string("query") else {
+            return AssistantToolResult(action: action, ok: false, message: "No question given.")
+        }
+        let needle = query.lowercased()
+        let context = notesStore.notes.compactMap { key, note -> String? in
+            guard note.text.lowercased().contains(needle) else { return nil }
+            return "\(displayName(for: key)):\n\(note.text)"
+        }
+        guard !context.isEmpty else {
+            return AssistantToolResult(action: action, ok: true,
+                message: "No notes matched \"\(query)\", so there's nothing to answer from.")
+        }
+
+        do {
+            let answer = try await llamaCppClient.complete(
+                system: "Answer the question using only the notes given. If the notes don't contain the answer, say so plainly rather than guessing.",
+                user: "Notes:\n\(Self.truncated(context.joined(separator: "\n\n")))\n\nQuestion: \(query)"
+            )
+            return AssistantToolResult(action: action, ok: true, message: answer)
+        } catch {
+            return AssistantToolResult(action: action, ok: false,
+                message: error.localizedDescription)
+        }
     }
 
     /// The one place the spike's near-miss (an empty argument silently
