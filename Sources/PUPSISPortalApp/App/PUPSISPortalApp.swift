@@ -104,13 +104,20 @@ final class AppState: ObservableObject {
     /// Dock, and the menu-bar Quit button's `NSApp.terminate(nil)` — so this
     /// one observer covers all of them without an `NSApplicationDelegate`.
     private func observeTermination() {
+        // `queue: nil` — not `.main`. `.main` doesn't mean "run synchronously
+        // on the main thread"; it means "enqueue onto `OperationQueue.main`
+        // and run on a *later* run-loop turn", which during termination may
+        // never come before the process exits. `nil` is what actually
+        // delivers synchronously on the posting thread — confirmed the real
+        // bug behind the fix not working: it was there, just never ran.
         NotificationCenter.default.addObserver(
-            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+            forName: NSApplication.willTerminateNotification, object: nil, queue: nil
         ) { [preferences] _ in
-            // `queue: .main` guarantees this runs on the main thread already —
-            // safe to assume isolation synchronously rather than hopping
-            // through `Task`, which isn't guaranteed to even get scheduled
-            // before the process actually exits.
+            // AppKit posts lifecycle notifications on the main thread, and
+            // `queue: nil` above delivers synchronously on the posting
+            // thread — so this really is the main actor already, safe to
+            // assume rather than hopping through `Task`, which still
+            // wouldn't be guaranteed to get scheduled before exit.
             MainActor.assumeIsolated {
                 LlamaServerManager.shared.stop()
             }
