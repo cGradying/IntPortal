@@ -127,7 +127,8 @@ struct CalendarView: View {
                             preferences.time(for: session, on: Weekday.weekStart(containing: date))
                         },
                         tint: { preferences.color(for: $0.subjectCode, in: palette) },
-                        onRetry: retry
+                        onRetry: retry,
+                        onPrint: printWeek
                     )
                 }
             }
@@ -428,6 +429,27 @@ struct CalendarView: View {
         controller.signIn(with: credentials)
     }
 
+    /// Opens the system print panel on a stateless rendering of the browsed
+    /// week. Its own "PDF ▾" menu (Save as PDF, Open in Preview, Mail…) is
+    /// what actually produces a PDF — no custom PDF-writing code needed here.
+    private func printWeek() {
+        var colors: [String: Color] = [:]
+        for block in blocks {
+            colors[block.groupKey] = block.session.map { preferences.color(for: $0.subjectCode, in: .pupMaroon) }
+                ?? preferences.color(forEvent: block.groupKey, in: .pupMaroon)
+        }
+
+        let hostingView = NSHostingView(rootView: WeekPrintView(blocks: blocks, weekStart: weekStart, colors: colors))
+        hostingView.frame = CGRect(origin: .zero, size: WeekPrintLayout.pageSize(for: blocks))
+
+        let info = NSPrintInfo.shared
+        info.orientation = .landscape
+        info.horizontalPagination = .fit
+        info.verticalPagination = .fit
+
+        NSPrintOperation(view: hostingView, printInfo: info).run()
+    }
+
     /// A class is vacant this week, so the show/hide toggle is worth offering.
     private var hasVacantThisWeek: Bool {
         controller.sessions.contains { preferences.status(for: $0, on: weekStart) == .vacant }
@@ -517,6 +539,7 @@ private struct StatusFooter: View {
     let time: (ClassSession, Date) -> (Int, Int)
     let tint: (ClassSession) -> Color
     let onRetry: () -> Void
+    let onPrint: () -> Void
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -544,6 +567,10 @@ private struct StatusFooter: View {
                 .foregroundStyle(palette.accent)
                 .help("Opens the release page in your browser. Downloads and installs by hand, as usual.")
             }
+
+            Button("Print…", action: onPrint)
+                .glassButton()
+                .controlSize(.small)
 
             Button(refreshError == nil ? "Refresh" : "Try again", action: onRetry)
                 .glassButton()
