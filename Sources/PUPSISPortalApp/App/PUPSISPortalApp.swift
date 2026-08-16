@@ -127,9 +127,15 @@ final class AppState: ObservableObject {
     /// week. (Reminders stay term-wide in `Notifier`: a weekly-repeating trigger
     /// can't skip a single week.)
     var upcoming: NextClass.Upcoming? {
-        NextClass.next(in: portal.sessions, at: now, isVacant: { session, date in
-            preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
-        })
+        NextClass.next(
+            in: portal.sessions, at: now,
+            isVacant: { session, date in
+                preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
+            },
+            time: { session, date in
+                preferences.time(for: session, on: Weekday.weekStart(containing: date))
+            }
+        )
     }
 
     /// Refresh from anywhere — the app menu, the menu bar — and reschedule

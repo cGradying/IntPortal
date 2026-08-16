@@ -16,6 +16,11 @@ enum ClassPhase {
 struct DayAgenda {
     struct Item: Identifiable {
         let session: ClassSession
+        /// Resolved minutes-from-midnight for this occurrence — read these,
+        /// never `session.start`/`.end`, so a locally-moved class doesn't show
+        /// its old SIS time here while the grid already shows the new one.
+        let start: Int
+        let end: Int
         let phase: ClassPhase
         var id: String { session.id }
     }
@@ -29,6 +34,7 @@ struct DayAgenda {
         sessions: [ClassSession],
         now: Date,
         isVacant: (ClassSession, Date) -> Bool,
+        time: (ClassSession, Date) -> (Int, Int) = { s, _ in (s.start, s.end) },
         calendar: Calendar = .current
     ) -> DayAgenda {
         let today = Weekday.on(now, calendar: calendar)
@@ -36,20 +42,21 @@ struct DayAgenda {
 
         let items = sessions
             .filter { $0.day == today && !isVacant($0, now) }
-            .sorted { $0.start < $1.start }
             .map { session -> Item in
+                let (start, end) = time(session, now)
                 let phase: ClassPhase
-                if session.end <= nowMinutes { phase = .past }
-                else if session.start <= nowMinutes { phase = .inSession }
+                if end <= nowMinutes { phase = .past }
+                else if start <= nowMinutes { phase = .inSession }
                 else { phase = .upcoming }
-                return Item(session: session, phase: phase)
+                return Item(session: session, start: start, end: end, phase: phase)
             }
+            .sorted { $0.start < $1.start }
 
         let tomorrowDate = calendar.date(byAdding: .day, value: 1, to: now) ?? now
         let tomorrowDay = Weekday.on(tomorrowDate, calendar: calendar)
         let tomorrowFirst = sessions
             .filter { $0.day == tomorrowDay && !isVacant($0, tomorrowDate) }
-            .min { $0.start < $1.start }
+            .min { time($0, tomorrowDate).0 < time($1, tomorrowDate).0 }
 
         return DayAgenda(items: items, tomorrowFirst: tomorrowFirst)
     }
@@ -92,6 +99,7 @@ struct DayAgenda {
         events: [DayBlock],
         now: Date,
         isVacant: (ClassSession, Date) -> Bool,
+        time: (ClassSession, Date) -> (Int, Int) = { s, _ in (s.start, s.end) },
         calendar: Calendar = .current
     ) -> [AgendaEntry] {
         let today = Weekday.on(now, calendar: calendar)
@@ -105,13 +113,14 @@ struct DayAgenda {
 
         let classEntries = classes
             .filter { $0.day == today && !isVacant($0, now) }
-            .map { session in
-                AgendaEntry(
+            .map { session -> AgendaEntry in
+                let (start, end) = time(session, now)
+                return AgendaEntry(
                     id: "class-\(session.id)",
-                    start: session.start, end: session.end,
+                    start: start, end: end,
                     title: session.subjectCode, subtitle: session.description,
                     kind: .klass(session),
-                    phase: phase(start: session.start, end: session.end)
+                    phase: phase(start: start, end: end)
                 )
             }
 

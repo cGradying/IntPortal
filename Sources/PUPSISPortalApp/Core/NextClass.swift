@@ -10,6 +10,12 @@ enum NextClass {
         let session: ClassSession
         /// The concrete `Date` this meeting starts, not just minutes-from-midnight.
         let start: Date
+        /// Resolved minutes-from-midnight for this occurrence — the locally
+        /// moved time if one applies, otherwise `session.start`/`.end`. Text
+        /// must read off these, never `session.start`/`.end` directly, or a
+        /// moved class would show its old SIS time here.
+        let startMinutes: Int
+        let endMinutes: Int
         /// True while `now` sits inside the meeting — the banner says "In
         /// session" rather than counting down to something already happening.
         let isNow: Bool
@@ -22,30 +28,31 @@ enum NextClass {
         /// A short human phrase for how far off it is — shared by the in-window
         /// banner and the menu bar so they never drift apart.
         func countdown(now: Date, calendar: Calendar = .current) -> String {
-            if isNow { return "in session until \(ClassSession.format(session.end))" }
+            if isNow { return "in session until \(ClassSession.format(endMinutes))" }
 
             let minutes = minutesAway(from: now)
             if minutes == 0 { return "starting now" }
             if minutes < 60 { return "in \(minutes) min" }
 
             return calendar.isDate(start, inSameDayAs: now)
-                ? "at \(ClassSession.format(session.start))"
-                : "\(session.day.short) \(ClassSession.format(session.start))"
+                ? "at \(ClassSession.format(startMinutes))"
+                : "\(session.day.short) \(ClassSession.format(startMinutes))"
         }
     }
 
     /// The next meeting that hasn't finished yet, or `nil` if there are none.
     ///
-    /// `isVacant` takes a meeting **and the concrete date of the occurrence
-    /// being considered**, so a caller can apply per-week vacancy that keys to
-    /// the right week (this week vs. next) rather than a flat term-wide set —
-    /// which is what keeps the menu bar's "up next" in step with the day list
-    /// and the grid. Online meetings are deliberately never skipped; you still
-    /// have to show up.
+    /// `isVacant` and `time` both take a meeting **and the concrete date of the
+    /// occurrence being considered**, so a caller can apply per-week vacancy
+    /// and per-week time moves that key to the right week (this week vs. next)
+    /// rather than a flat term-wide set — which is what keeps the menu bar's
+    /// "up next" in step with the day list and the grid. Online meetings are
+    /// deliberately never skipped; you still have to show up.
     static func next(
         in sessions: [ClassSession],
         at now: Date,
         isVacant: (ClassSession, Date) -> Bool = { _, _ in false },
+        time: (ClassSession, Date) -> (Int, Int) = { s, _ in (s.start, s.end) },
         calendar: Calendar = .current
     ) -> Upcoming? {
         guard !sessions.isEmpty else { return nil }
@@ -59,10 +66,11 @@ enum NextClass {
         let upcoming = weekStarts.flatMap { weekStart in
             sessions.compactMap { session -> Upcoming? in
                 let midnight = session.day.date(inWeekStarting: weekStart, calendar: calendar)
+                let (startMinutes, endMinutes) = time(session, midnight)
                 // Added as minutes rather than a raw interval so a DST shift
                 // moves the class with the clock instead of an hour off it.
-                guard let start = calendar.date(byAdding: .minute, value: session.start, to: midnight),
-                      let end = calendar.date(byAdding: .minute, value: session.end, to: midnight),
+                guard let start = calendar.date(byAdding: .minute, value: startMinutes, to: midnight),
+                      let end = calendar.date(byAdding: .minute, value: endMinutes, to: midnight),
                       end > now
                 else { return nil }
 
@@ -70,7 +78,11 @@ enum NextClass {
                 // still a candidate next week.
                 guard !isVacant(session, start) else { return nil }
 
-                return Upcoming(session: session, start: start, isNow: start <= now)
+                return Upcoming(
+                    session: session, start: start,
+                    startMinutes: startMinutes, endMinutes: endMinutes,
+                    isNow: start <= now
+                )
             }
         }
 

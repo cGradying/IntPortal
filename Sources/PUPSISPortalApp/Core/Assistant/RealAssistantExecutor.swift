@@ -165,9 +165,17 @@ final class RealAssistantExecutor: AssistantExecutor {
     /// are weekly-recurring so they're accurate regardless of week; calendar
     /// events are only reported for whatever week is already loaded.
     private func readWeek(_ action: AssistantAction) -> AssistantToolResult {
+        // Term-level resolution only — a recurring move, never a this-week-only
+        // exception, since this listing is explicitly labelled "every week".
+        func termTime(_ session: ClassSession) -> (Int, Int) {
+            preferences.termTimes[session.id].map { ($0.start, $0.end) } ?? (session.start, session.end)
+        }
         let classLines = portal.sessions
             .sorted { ($0.day.rawValue, $0.start) < ($1.day.rawValue, $1.start) }
-            .map { "\($0.day.short) \($0.subjectCode) \(ClassSession.format($0.start))-\(ClassSession.format($0.end))" }
+            .map { session -> String in
+                let (start, end) = termTime(session)
+                return "\(session.day.short) \(session.subjectCode) \(ClassSession.format(start))-\(ClassSession.format(end))"
+            }
 
         let eventLines = calendar.events
             .filter { if case .calendarEvent = $0.source { return true } else { return false } }

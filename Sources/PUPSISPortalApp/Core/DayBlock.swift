@@ -29,16 +29,21 @@ struct DayBlock: Identifiable, Equatable {
         return nil
     }
 
-    init(_ session: ClassSession) {
+    /// `start`/`end` default to the scraped session time but can be overridden
+    /// (a locally-moved meeting) — `id` deliberately stays derived from the
+    /// *session's* own id, not these, so a block's identity survives being
+    /// moved rather than being keyed off the very value that just changed.
+    init(_ session: ClassSession, start overrideStart: Int? = nil, end overrideEnd: Int? = nil) {
         id = "class-\(session.id)"
         day = session.day
-        start = session.start
-        end = session.end
+        start = overrideStart ?? session.start
+        end = overrideEnd ?? session.end
         title = session.subjectCode
-        subtitle = session.timeLabel
+        subtitle = ClassSession.format(start) + " – " + ClassSession.format(end)
         source = .sisClass(session)
-        // The same subject at a different hour is a different run.
-        groupKey = "class-\(session.subjectCode)-\(session.start)-\(session.end)"
+        // The same subject at a different hour is a different run — resolved
+        // time, so a moved day doesn't connect to an unmoved neighbour.
+        groupKey = "class-\(session.subjectCode)-\(start)-\(end)"
     }
 
     init(

@@ -68,6 +68,9 @@ struct AgendaView: View {
             now: referenceNow,
             isVacant: { session, date in
                 preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
+            },
+            time: { session, date in
+                preferences.time(for: session, on: Weekday.weekStart(containing: date))
             }
         )
     }
@@ -80,6 +83,9 @@ struct AgendaView: View {
             now: referenceNow,
             isVacant: { session, date in
                 preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
+            },
+            time: { session, date in
+                preferences.time(for: session, on: Weekday.weekStart(containing: date))
             }
         )
     }
@@ -699,7 +705,8 @@ struct AgendaView: View {
                 .padding(.vertical, 3)
                 .background(palette.accent.opacity(0.14), in: .capsule)
         case .upcoming:
-            Text(isBrowsingToday ? upcoming(for: session).countdown(now: now) : "at \(ClassSession.format(session.start))")
+            Text(isBrowsingToday ? upcoming(for: session).countdown(now: now)
+                 : "at \(ClassSession.format(preferences.time(for: session, on: weekStart).start))")
                 .font(Theme.Typo.footer.weight(.medium))
                 .foregroundStyle(color)
         case .past:
@@ -788,7 +795,9 @@ struct AgendaView: View {
 
     private var tomorrowText: String {
         guard let first = agenda.tomorrowFirst else { return "Tomorrow · nothing scheduled" }
-        return "Tomorrow · \(first.subjectCode) at \(ClassSession.format(first.start))"
+        let tomorrowDate = Calendar.current.date(byAdding: .day, value: 1, to: referenceNow) ?? referenceNow
+        let start = preferences.time(for: first, on: Weekday.weekStart(containing: tomorrowDate)).start
+        return "Tomorrow · \(first.subjectCode) at \(ClassSession.format(start))"
     }
 
     // MARK: Notes
@@ -862,8 +871,12 @@ struct AgendaView: View {
     private func upcoming(for session: ClassSession) -> NextClass.Upcoming {
         let cal = Calendar.current
         let midnight = session.day.date(inWeekStarting: weekStart)
-        let start = cal.date(byAdding: .minute, value: session.start, to: midnight) ?? midnight
-        return NextClass.Upcoming(session: session, start: start, isNow: false)
+        let (startMinutes, endMinutes) = preferences.time(for: session, on: weekStart)
+        let start = cal.date(byAdding: .minute, value: startMinutes, to: midnight) ?? midnight
+        return NextClass.Upcoming(
+            session: session, start: start,
+            startMinutes: startMinutes, endMinutes: endMinutes, isNow: false
+        )
     }
 
     private func duration(_ minutes: Int) -> String {

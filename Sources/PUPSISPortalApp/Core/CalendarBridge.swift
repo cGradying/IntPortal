@@ -409,7 +409,8 @@ final class CalendarBridge: ObservableObject {
         until termEnd: Date,
         toCalendarID id: String,
         onlineCalendarID: String? = nil,
-        status: (ClassSession, Date) -> SessionStatus = { _, _ in .regular }
+        status: (ClassSession, Date) -> SessionStatus = { _, _ in .regular },
+        time: (ClassSession, Date) -> (Int, Int) = { s, _ in (s.start, s.end) }
     ) -> String? {
         guard access == .granted else {
             lastError = "Grant calendar access first."
@@ -460,8 +461,9 @@ final class CalendarBridge: ObservableObject {
                     let target = st == .online ? onlineTarget : inPersonTarget
 
                     let day = session.day.date(inWeekStarting: week, calendar: calendar)
-                    guard let start = calendar.date(byAdding: .minute, value: session.start, to: day),
-                          let end = calendar.date(byAdding: .minute, value: session.end, to: day),
+                    let (startMinutes, endMinutes) = time(session, week)
+                    guard let start = calendar.date(byAdding: .minute, value: startMinutes, to: day),
+                          let end = calendar.date(byAdding: .minute, value: endMinutes, to: day),
                           start <= lastDay
                     else { continue }
 

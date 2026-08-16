@@ -27,6 +27,14 @@ enum SessionStatus: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// A locally-set start/end for a class meeting, minutes from midnight —
+/// the SIS time moved (a prof rescheduling), never a drag/resize, since
+/// classes aren't draggable.
+struct TimeOverride: Codable, Equatable {
+    var start: Int
+    var end: Int
+}
+
 /// A user-written description and/or online-meeting link for a class. Empty
 /// fields are the "nothing set" state — never persisted, so an all-empty
 /// value is equivalent to no entry at all.
@@ -72,6 +80,19 @@ final class Preferences: ObservableObject {
     /// subject code. Absent means "use the palette's online-strip default".
     @Published private(set) var onlineStripColors: [String: String] {
         didSet { defaults.set(try? JSONEncoder().encode(onlineStripColors), forKey: Key.onlineStripColors) }
+    }
+
+    /// The term-wide moved time per meeting, keyed by `ClassSession.id` — same
+    /// shape as `termStatuses`. "The prof permanently moved it to 1:30."
+    @Published private(set) var termTimes: [String: TimeOverride] {
+        didSet { defaults.set(try? JSONEncoder().encode(termTimes), forKey: Key.termTimes) }
+    }
+
+    /// This-week exceptions to the moved time, keyed like `occurrenceStatuses`.
+    /// "Just this week it's 1:30." Wins over `termTimes`, which wins over the
+    /// scraped time — resolved by `time(for:on:)`.
+    @Published private(set) var occurrenceTimes: [String: TimeOverride] {
+        didSet { defaults.set(try? JSONEncoder().encode(occurrenceTimes), forKey: Key.occurrenceTimes) }
     }
 
     /// Description + online link a user attached to a class. Keyed by
@@ -226,6 +247,8 @@ final class Preferences: ObservableObject {
         static let sessionStatuses = "sessionStatuses"
         static let occurrenceStatuses = "occurrenceStatuses"
         static let onlineStripColors = "onlineStripColors"
+        static let termTimes = "termTimes"
+        static let occurrenceTimes = "occurrenceTimes"
         static let classInfo = "classInfo"
         static let permaSubjects = "permaSubjects"
         static let visibleCalendarIDs = "visibleCalendarIDs"
@@ -257,6 +280,10 @@ final class Preferences: ObservableObject {
             .flatMap { try? JSONDecoder().decode([String: SessionStatus].self, from: $0) } ?? [:]
         onlineStripColors = defaults.data(forKey: Key.onlineStripColors)
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
+        termTimes = defaults.data(forKey: Key.termTimes)
+            .flatMap { try? JSONDecoder().decode([String: TimeOverride].self, from: $0) } ?? [:]
+        occurrenceTimes = defaults.data(forKey: Key.occurrenceTimes)
+            .flatMap { try? JSONDecoder().decode([String: TimeOverride].self, from: $0) } ?? [:]
         classInfo = defaults.data(forKey: Key.classInfo)
             .flatMap { try? JSONDecoder().decode([String: ClassInfo].self, from: $0) } ?? [:]
         permaSubjects = Set(defaults.stringArray(forKey: Key.permaSubjects) ?? [])
@@ -340,6 +367,39 @@ final class Preferences: ObservableObject {
     /// still win over it, so a term-online class can have one vacant week.
     func setTermStatus(_ status: SessionStatus, for session: ClassSession) {
         termStatuses[session.id] = status == .regular ? nil : status
+    }
+
+    /// The time a meeting shows in a given week: this week's exception if
+    /// there is one, otherwise the term-wide move, otherwise the scraped SIS
+    /// time. Never reads or writes `session.start`/`.end` directly — those stay
+    /// scraped, and `session.id` is derived from them (`Models.swift:94`), so
+    /// mutating them would shift the very key this override is stored under.
+    func time(for session: ClassSession, on weekStart: Date) -> (start: Int, end: Int) {
+        let override = occurrenceTimes[occurrenceKey(session, on: weekStart)] ?? termTimes[session.id]
+        return override.map { ($0.start, $0.end) } ?? (session.start, session.end)
+    }
+
+    func isTimeOverridden(_ session: ClassSession, on weekStart: Date) -> Bool {
+        occurrenceTimes[occurrenceKey(session, on: weekStart)] != nil || termTimes[session.id] != nil
+    }
+
+    /// Whether the *recurring* move is set — distinct from `isTimeOverridden`,
+    /// which is also true for a this-week-only exception. Drives the popover's
+    /// "Every week" toggle regardless of which week is open.
+    func isTermTimeOverridden(_ session: ClassSession) -> Bool {
+        termTimes[session.id] != nil
+    }
+
+    /// This week only. `nil` clears it — dropping the key rather than pinning
+    /// a redundant override, same convention as `setStatus`.
+    func setTime(_ override: TimeOverride?, for session: ClassSession, on weekStart: Date) {
+        occurrenceTimes[occurrenceKey(session, on: weekStart)] = override
+    }
+
+    /// Every week. Week exceptions still win over it, so a permanently-moved
+    /// class can still have one further one-off week.
+    func setTermTime(_ override: TimeOverride?, for session: ClassSession) {
+        termTimes[session.id] = override
     }
 
     /// The colour of the strip drawn around an online class: the user's

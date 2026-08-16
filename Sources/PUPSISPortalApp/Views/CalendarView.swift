@@ -75,7 +75,10 @@ struct CalendarView: View {
     private var blocks: [DayBlock] {
         let classes = controller.sessions
             .filter { showCancelled || preferences.status(for: $0, on: weekStart) != .vacant }
-            .map(DayBlock.init)
+            .map { session -> DayBlock in
+                let time = preferences.time(for: session, on: weekStart)
+                return DayBlock(session, start: time.start, end: time.end)
+            }
         return classes + calendar.events
     }
 
@@ -119,6 +122,9 @@ struct CalendarView: View {
                         sessions: controller.sessions,
                         isVacant: { session, date in
                             preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
+                        },
+                        time: { session, date in
+                            preferences.time(for: session, on: Weekday.weekStart(containing: date))
                         },
                         tint: { preferences.color(for: $0.subjectCode, in: palette) },
                         onRetry: retry
@@ -397,7 +403,8 @@ struct CalendarView: View {
             until: preferences.termEndDate,
             toCalendarID: preferences.exportCalendarID,
             onlineCalendarID: preferences.onlineExportCalendarID.isEmpty ? nil : preferences.onlineExportCalendarID,
-            status: { preferences.status(for: $0, on: $1) }
+            status: { preferences.status(for: $0, on: $1) },
+            time: { preferences.time(for: $0, on: $1) }
         )
     }
 
@@ -507,13 +514,14 @@ private struct StatusFooter: View {
     let update: UpdateInfo?
     let sessions: [ClassSession]
     let isVacant: (ClassSession, Date) -> Bool
+    let time: (ClassSession, Date) -> (Int, Int)
     let tint: (ClassSession) -> Color
     let onRetry: () -> Void
     @Environment(\.palette) private var palette
 
     var body: some View {
         HStack(spacing: 8) {
-            NextClassBanner(sessions: sessions, isVacant: isVacant, tint: tint)
+            NextClassBanner(sessions: sessions, isVacant: isVacant, time: time, tint: tint)
 
             if let refreshError {
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -565,13 +573,14 @@ private struct StatusFooter: View {
 private struct NextClassBanner: View {
     let sessions: [ClassSession]
     let isVacant: (ClassSession, Date) -> Bool
+    let time: (ClassSession, Date) -> (Int, Int)
     let tint: (ClassSession) -> Color
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         TimelineView(.periodic(from: NowLine.nextMinute, by: 60)) { context in
-            if let upcoming = NextClass.next(in: sessions, at: context.date, isVacant: isVacant) {
+            if let upcoming = NextClass.next(in: sessions, at: context.date, isVacant: isVacant, time: time) {
                 let color = tint(upcoming.session)
 
                 HStack(spacing: 6) {

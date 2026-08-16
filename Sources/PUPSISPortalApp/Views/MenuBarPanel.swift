@@ -25,7 +25,7 @@ struct MenuBarLabel: View {
         // clock time is.
         return minutes < 60
             ? "\(upcoming.session.subjectCode) · \(minutes)m"
-            : "\(upcoming.session.subjectCode) · \(ClassSession.format(upcoming.session.start))"
+            : "\(upcoming.session.subjectCode) · \(ClassSession.format(upcoming.startMinutes))"
     }
 }
 
@@ -128,7 +128,7 @@ struct MenuBarPanel: View {
                             .foregroundStyle(palette.accent)
                     }
                     Spacer(minLength: 8)
-                    Text(ClassSession.format(item.session.start))
+                    Text(ClassSession.format(item.start))
                         .font(Theme.Typo.detailMeta)
                         .foregroundStyle(.secondary)
                 }
@@ -139,15 +139,17 @@ struct MenuBarPanel: View {
     }
 
     private func rowAccessibilityLabel(_ item: DayAgenda.Item) -> String {
-        let when = item.phase == .inSession ? "now" : "at \(ClassSession.format(item.session.start))"
+        let when = item.phase == .inSession ? "now" : "at \(ClassSession.format(item.start))"
         return "\(item.session.subjectCode), \(when)"
     }
 
     private func tomorrowLine(_ first: ClassSession) -> some View {
-        HStack(spacing: 8) {
+        let tomorrowDate = Calendar.current.date(byAdding: .day, value: 1, to: appState.now) ?? appState.now
+        let start = preferences.time(for: first, on: Weekday.weekStart(containing: tomorrowDate)).start
+        return HStack(spacing: 8) {
             Image(systemName: "sunrise")
                 .foregroundStyle(.secondary)
-            Text("Tomorrow · \(first.subjectCode) at \(ClassSession.format(first.start))")
+            Text("Tomorrow · \(first.subjectCode) at \(ClassSession.format(start))")
                 .font(Theme.Typo.footer)
                 .foregroundStyle(.secondary)
         }
@@ -206,6 +208,9 @@ struct MenuBarPanel: View {
             now: appState.now,
             isVacant: { session, date in
                 preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
+            },
+            time: { session, date in
+                preferences.time(for: session, on: Weekday.weekStart(containing: date))
             }
         )
     }

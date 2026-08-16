@@ -1,9 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// A scraped class. Its time is SIS-owned, so it can't be moved or resized —
-/// a local edit would be wiped by the next refresh. Colour and status are
-/// local overrides, and those it does own.
+/// A scraped class. Its time is SIS-owned and `ClassSession` itself is never
+/// mutated — a local edit would be wiped by the next refresh, and
+/// `ClassSession.id` is derived from start/end (`Models.swift:94`), so
+/// mutating them would shift the very key an override is stored under. A
+/// moved time lives in `Preferences` instead, resolved fresh on every read.
+/// Colour, status, and time are all local overrides. The block still isn't
+/// draggable — the popover below is the one edit surface for all three.
 struct ClassBlock: View {
     let session: ClassSession
     /// The Monday of the week this block is drawn in, so status can be set for
@@ -23,6 +27,13 @@ struct ClassBlock: View {
     private var status: SessionStatus { preferences.status(for: session, on: weekStart) }
     private var color: Color { preferences.color(for: session.subjectCode, in: palette) }
     private var stripColor: Color { preferences.stripColor(for: session.subjectCode, in: palette) }
+    /// Never `session.start`/`.end` directly — this is the moved time when
+    /// one applies, which is the whole point of the override.
+    private var resolvedTime: (start: Int, end: Int) { preferences.time(for: session, on: weekStart) }
+    private var isTimeOverridden: Bool { preferences.isTimeOverridden(session, on: weekStart) }
+    private var resolvedTimeLabel: String {
+        "\(ClassSession.format(resolvedTime.start)) – \(ClassSession.format(resolvedTime.end))"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -36,8 +47,12 @@ struct ClassBlock: View {
                     Image(systemName: status.symbol)
                         .font(.system(size: 8))
                 }
-                Text(status == .vacant ? "Vacant" : session.timeLabel)
+                Text(status == .vacant ? "Vacant" : resolvedTimeLabel)
                     .font(Theme.Typo.blockTime)
+                if isTimeOverridden {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 8))
+                }
                 if !preferences.info(for: session).link.isEmpty {
                     Image(systemName: "link")
                         .font(.system(size: 8))
@@ -84,7 +99,7 @@ struct ClassBlock: View {
 
     private var accessibilityLabel: String {
         let state = status == .regular ? "" : ", \(status.label)"
-        return "\(session.subjectCode), \(session.description), \(session.timeLabel)\(state)"
+        return "\(session.subjectCode), \(session.description), \(resolvedTimeLabel)\(state)"
     }
 
     @ViewBuilder
@@ -182,6 +197,69 @@ struct ClassBlock: View {
         return url
     }
 
+    /// On when the moved time applies to every week rather than just this one.
+    private var everyWeekTimeBinding: Binding<Bool> {
+        Binding(
+            get: { preferences.isTermTimeOverridden(session) },
+            set: { on in
+                let time = resolvedTime
+                if on {
+                    preferences.setTime(nil, for: session, on: weekStart)
+                    preferences.setTermTime(TimeOverride(start: time.start, end: time.end), for: session)
+                } else {
+                    preferences.setTermTime(nil, for: session)
+                    preferences.setTime(TimeOverride(start: time.start, end: time.end), for: session, on: weekStart)
+                }
+            }
+        )
+    }
+
+    private func date(fromMinutes minutes: Int) -> Date {
+        Calendar.current.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: .now) ?? .now
+    }
+
+    private func minutes(from date: Date) -> Int {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (c.hour ?? 0) * 60 + (c.minute ?? 0)
+    }
+
+    /// Writes to whichever scope the "Every week" toggle currently reads —
+    /// never both, so flipping the toggle stays the one place scope changes.
+    private func writeTime(start: Int, end: Int) {
+        let override = TimeOverride(start: start, end: end)
+        if everyWeekTimeBinding.wrappedValue {
+            preferences.setTermTime(override, for: session)
+        } else {
+            preferences.setTime(override, for: session, on: weekStart)
+        }
+    }
+
+    private var startBinding: Binding<Date> {
+        Binding(
+            get: { date(fromMinutes: resolvedTime.start) },
+            set: { newDate in
+                let newStart = minutes(from: newDate)
+                writeTime(start: newStart, end: max(resolvedTime.end, newStart + TimeSnap.minimumDuration))
+            }
+        )
+    }
+
+    private var endBinding: Binding<Date> {
+        Binding(
+            get: { date(fromMinutes: resolvedTime.end) },
+            set: { newDate in
+                let newEnd = minutes(from: newDate)
+                writeTime(start: resolvedTime.start, end: max(newEnd, resolvedTime.start + TimeSnap.minimumDuration))
+            }
+        )
+    }
+
+    /// Back to the SIS time entirely — clears both tiers, not just this week's.
+    private func resetTime() {
+        preferences.setTime(nil, for: session, on: weekStart)
+        preferences.setTermTime(nil, for: session)
+    }
+
     private var detail: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 6) {
@@ -189,7 +267,7 @@ struct ClassBlock: View {
                     .font(Theme.Typo.detailTitle)
                 Text(session.description)
                     .font(Theme.Typo.detailBody)
-                Text("\(session.day.short)  \(session.timeLabel)")
+                Text("\(session.day.short)  \(resolvedTimeLabel)")
                     .font(Theme.Typo.detailMeta)
                     .foregroundStyle(.secondary)
                 if !session.faculty.isEmpty {
@@ -217,6 +295,32 @@ struct ClassBlock: View {
                 Toggle("Apply to every \(session.subjectCode) block", isOn: permaBinding)
                     .toggleStyle(.checkbox)
                     .font(.caption)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    DatePicker("Start", selection: startBinding, displayedComponents: .hourAndMinute)
+                    DatePicker("End", selection: endBinding, displayedComponents: .hourAndMinute)
+                }
+                .labelsHidden()
+
+                Toggle("Every week", isOn: everyWeekTimeBinding)
+                    .toggleStyle(.checkbox)
+                    .font(.caption)
+
+                if isTimeOverridden {
+                    HStack {
+                        Text("SIS: \(session.timeLabel)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Reset", action: resetTime)
+                            .buttonStyle(.link)
+                            .font(.caption)
+                    }
+                }
             }
 
             Divider()

@@ -160,22 +160,17 @@ final class NextClassTests: XCTestCase {
 }
 
 /// The reminder's fire time is plain arithmetic, and the only part of
-/// `Notifier` worth testing — the rest is `UNUserNotificationCenter`.
+/// `Notifier`'s weekly path worth testing — the rest is `UNUserNotificationCenter`.
 final class NotifierFireTimeTests: XCTestCase {
-    private func session(_ day: Weekday, start: Int) -> ClassSession {
-        ClassSession(subjectCode: "COMP 20073", description: "Data Structures",
-                     faculty: "SANTOS, JUAN", day: day, start: start, end: start + 120)
-    }
-
     func testTheLeadTimeIsSubtractedFromTheStart() {
-        let fire = Notifier.fireTime(for: session(.tuesday, start: 14 * 60), leadMinutes: 15)
+        let fire = Notifier.fireTime(day: .tuesday, start: 14 * 60, leadMinutes: 15)
 
         XCTAssertEqual(fire.day, .tuesday)
         XCTAssertEqual(fire.minutes, 13 * 60 + 45)
     }
 
     func testAZeroLeadFiresExactlyAtTheStart() {
-        let fire = Notifier.fireTime(for: session(.tuesday, start: 14 * 60), leadMinutes: 0)
+        let fire = Notifier.fireTime(day: .tuesday, start: 14 * 60, leadMinutes: 0)
 
         XCTAssertEqual(fire.minutes, 14 * 60)
     }
@@ -183,7 +178,7 @@ final class NotifierFireTimeTests: XCTestCase {
     /// A lead that runs back past midnight belongs to the previous day. Left
     /// negative it would ask for a minute no day has, and never fire.
     func testALeadCrossingMidnightMovesToThePreviousDay() {
-        let fire = Notifier.fireTime(for: session(.tuesday, start: 15), leadMinutes: 30)
+        let fire = Notifier.fireTime(day: .tuesday, start: 15, leadMinutes: 30)
 
         XCTAssertEqual(fire.day, .monday)
         XCTAssertEqual(fire.minutes, 23 * 60 + 45)
@@ -192,7 +187,7 @@ final class NotifierFireTimeTests: XCTestCase {
     /// Monday is the enum's first day, so wrapping backwards off it has to land
     /// on Sunday rather than clamping.
     func testCrossingMidnightOnMondayWrapsToSunday() {
-        let fire = Notifier.fireTime(for: session(.monday, start: 0), leadMinutes: 10)
+        let fire = Notifier.fireTime(day: .monday, start: 0, leadMinutes: 10)
 
         XCTAssertEqual(fire.day, .sunday)
         XCTAssertEqual(fire.minutes, 23 * 60 + 50)

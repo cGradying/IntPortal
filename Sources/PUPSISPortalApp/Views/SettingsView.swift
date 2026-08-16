@@ -638,7 +638,8 @@ private extension SettingsView {
             until: preferences.termEndDate,
             toCalendarID: preferences.exportCalendarID,
             onlineCalendarID: preferences.onlineExportCalendarID.isEmpty ? nil : preferences.onlineExportCalendarID,
-            status: { preferences.status(for: $0, on: $1) }
+            status: { preferences.status(for: $0, on: $1) },
+            time: { preferences.time(for: $0, on: $1) }
         )
     }
 }

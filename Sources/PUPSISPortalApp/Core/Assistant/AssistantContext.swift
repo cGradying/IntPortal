@@ -6,10 +6,19 @@ import Foundation
 /// per turn from whatever the app already has in memory — nothing here reads
 /// disk or the network by itself.
 struct AssistantContext: Equatable {
+    /// A today's class plus its resolved time — never `session.start`/`.end`
+    /// directly, so a locally-moved class doesn't tell the model a time the
+    /// grid already disagrees with.
+    struct ClassEntry: Equatable {
+        let session: ClassSession
+        let start: Int
+        let end: Int
+    }
+
     let destination: Destination
     let openNoteKey: String?
     let openNoteText: String?
-    let todayClasses: [ClassSession]
+    let todayClasses: [ClassEntry]
     let gradesSummary: String?
 
     /// Notes and schedules can run long; the prompt is what actually gets sent
@@ -42,7 +51,7 @@ struct AssistantContext: Equatable {
         } else {
             let classLines = todayClasses
                 .sorted { $0.start < $1.start }
-                .map { "\($0.subjectCode) \(ClassSession.format($0.start))-\(ClassSession.format($0.end))" }
+                .map { "\($0.session.subjectCode) \(ClassSession.format($0.start))-\(ClassSession.format($0.end))" }
             lines.append("Today's classes:\n" + classLines.joined(separator: "\n"))
         }
 

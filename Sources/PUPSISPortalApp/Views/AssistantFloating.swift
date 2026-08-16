@@ -242,7 +242,13 @@ private struct AssistantChat: View {
 
     private func buildContext() -> AssistantContext {
         let today = Weekday.on(appState.now)
-        let todayClasses = appState.portal.sessions.filter { $0.day == today }
+        let weekStart = Weekday.weekStart(containing: appState.now)
+        let todayClasses = appState.portal.sessions
+            .filter { $0.day == today }
+            .map { session -> AssistantContext.ClassEntry in
+                let time = preferences.time(for: session, on: weekStart)
+                return AssistantContext.ClassEntry(session: session, start: time.start, end: time.end)
+            }
         let noteText = appState.openNoteKey.map { appState.notes.text(for: $0) }
         let gradesSummary = appState.portal.grades.flatMap { report -> String? in
             guard report.hasPostedGrades else { return nil }

@@ -197,6 +197,93 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.vacantSessionIDs, [tuesday.id])
     }
 
+    // MARK: Time overrides (this week / every week)
+
+    func testTimeDefaultsToTheScrapedSchedule() {
+        let (start, end) = Preferences(defaults: defaults).time(for: tuesday, on: week1)
+        XCTAssertEqual(start, tuesday.start)
+        XCTAssertEqual(end, tuesday.end)
+        XCTAssertFalse(Preferences(defaults: defaults).isTimeOverridden(tuesday, on: week1))
+    }
+
+    /// This week only — the exact "prof moved it just this once" case.
+    func testAWeekTimeDoesNotLeakIntoOtherWeeks() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setTime(TimeOverride(start: 13 * 60 + 30, end: 15 * 60 + 30), for: tuesday, on: week1)
+
+        XCTAssertEqual(prefs.time(for: tuesday, on: week1).start, 13 * 60 + 30)
+        XCTAssertTrue(prefs.isTimeOverridden(tuesday, on: week1))
+        XCTAssertEqual(prefs.time(for: tuesday, on: week2).start, tuesday.start, "a different week is untouched")
+        XCTAssertFalse(prefs.isTimeOverridden(tuesday, on: week2))
+    }
+
+    /// Every week — the recurring move.
+    func testATermTimeAppliesToEveryWeek() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setTermTime(TimeOverride(start: 13 * 60 + 30, end: 15 * 60 + 30), for: tuesday)
+
+        XCTAssertEqual(prefs.time(for: tuesday, on: week1).start, 13 * 60 + 30)
+        XCTAssertEqual(prefs.time(for: tuesday, on: week2).start, 13 * 60 + 30)
+    }
+
+    /// A week exception still wins over a term-wide move — one further
+    /// one-off week on top of an already-permanently-moved class.
+    func testAWeekExceptionOverridesTheTermTime() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setTermTime(TimeOverride(start: 13 * 60 + 30, end: 15 * 60 + 30), for: tuesday)
+        prefs.setTime(TimeOverride(start: 15 * 60, end: 17 * 60), for: tuesday, on: week1)
+
+        XCTAssertEqual(prefs.time(for: tuesday, on: week1).start, 15 * 60)
+        XCTAssertEqual(prefs.time(for: tuesday, on: week2).start, 13 * 60 + 30)
+    }
+
+    func testClearingATimeOverrideDropsTheKey() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setTime(TimeOverride(start: 13 * 60 + 30, end: 15 * 60 + 30), for: tuesday, on: week1)
+        prefs.setTime(nil, for: tuesday, on: week1)
+
+        XCTAssertTrue(prefs.occurrenceTimes.isEmpty)
+        XCTAssertFalse(prefs.isTimeOverridden(tuesday, on: week1))
+    }
+
+    /// Time is scoped per meeting, not per subject — same course, two days,
+    /// only one of them moved.
+    func testTimeIsScopedToOneMeetingNotTheWholeSubject() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setTime(TimeOverride(start: 15 * 60, end: 17 * 60), for: tuesday, on: week1)
+
+        XCTAssertEqual(prefs.time(for: tuesday, on: week1).start, 15 * 60)
+        XCTAssertEqual(prefs.time(for: friday, on: week1).start, friday.start)
+    }
+
+    func testTimeOverridesSurviveRelaunch() {
+        Preferences(defaults: defaults).setTime(
+            TimeOverride(start: 13 * 60 + 30, end: 15 * 60 + 30), for: tuesday, on: week1)
+
+        let reloaded = Preferences(defaults: defaults).time(for: tuesday, on: week1)
+        XCTAssertEqual(reloaded.start, 13 * 60 + 30)
+        XCTAssertEqual(reloaded.end, 15 * 60 + 30)
+    }
+
+    /// The trap the whole feature has to avoid: `ClassSession.id` is derived
+    /// from start/end (`Models.swift:94`). Applying a time override must never
+    /// change the id it's stored under, or the lookup can never find itself
+    /// again on the next render.
+    func testApplyingATimeOverrideDoesNotChangeTheSessionsID() {
+        let prefs = Preferences(defaults: defaults)
+        let idBefore = tuesday.id
+
+        prefs.setTime(TimeOverride(start: 13 * 60 + 30, end: 15 * 60 + 30), for: tuesday, on: week1)
+
+        XCTAssertEqual(tuesday.id, idBefore, "the session itself must never be mutated")
+        XCTAssertEqual(prefs.time(for: tuesday, on: week1).start, 13 * 60 + 30, "and the override must still resolve")
+    }
+
     func testTermEndDefaultsToAboutASemesterOut() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
