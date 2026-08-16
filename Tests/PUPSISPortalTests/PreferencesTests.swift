@@ -263,6 +263,115 @@ final class PreferencesTests: XCTestCase {
 
         XCTAssertEqual(prefs.color(for: "GEED 005", in: .pupMaroon).hex, otherBefore.hex)
     }
+
+    // MARK: Class description + online link
+
+    func testClassInfoDefaultsToEmpty() {
+        XCTAssertEqual(Preferences(defaults: defaults).info(for: tuesday), ClassInfo())
+    }
+
+    /// The default scope: setting one meeting's info must not touch another
+    /// meeting of the same subject.
+    func testPerMeetingInfoDoesNotLeakToAnotherMeetingOfTheSameSubject() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setInfo(ClassInfo(note: "Bring calculator", link: "https://zoom.us/tue"), for: tuesday)
+
+        XCTAssertEqual(prefs.info(for: tuesday).link, "https://zoom.us/tue")
+        XCTAssertEqual(prefs.info(for: friday), ClassInfo())
+        XCTAssertFalse(prefs.hasPerma(for: tuesday))
+    }
+
+    /// The perma toggle: a subject-wide link covers every meeting of that
+    /// subject, exactly like a teacher's one permanent Zoom room.
+    func testPermaInfoAppliesToEveryMeetingOfTheSubject() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setPerma(true, for: tuesday)
+        prefs.setInfo(ClassInfo(link: "https://zoom.us/perma"), for: tuesday)
+
+        XCTAssertEqual(prefs.info(for: tuesday).link, "https://zoom.us/perma")
+        XCTAssertEqual(prefs.info(for: friday).link, "https://zoom.us/perma")
+        XCTAssertTrue(prefs.hasPerma(for: tuesday))
+        XCTAssertTrue(prefs.hasPerma(for: friday), "perma is a subject-wide flag, not per meeting")
+    }
+
+    /// Turning perma on before typing anything must still stick — this is the
+    /// real click-then-type order the popover toggle drives, and it's exactly
+    /// what content-presence-as-flag would silently drop (an empty `ClassInfo`
+    /// is indistinguishable from "never toggled").
+    func testTogglingPermaOnBeforeTypingAnythingStillPersists() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setPerma(true, for: tuesday)
+
+        XCTAssertTrue(prefs.hasPerma(for: tuesday))
+        XCTAssertTrue(prefs.hasPerma(for: friday))
+
+        prefs.setInfo(ClassInfo(link: "https://zoom.us/perma"), for: tuesday)
+        XCTAssertEqual(prefs.info(for: friday).link, "https://zoom.us/perma")
+    }
+
+    /// The binding pattern the popover actually uses — read the current value,
+    /// change one field, write the whole struct back — must not clobber the
+    /// field it didn't touch, whichever scope currently applies.
+    func testEditingOneFieldPreservesTheOtherViaReadModifyWrite() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setInfo(ClassInfo(link: "https://zoom.us/tue"), for: tuesday)
+        var updated = prefs.info(for: tuesday)
+        updated.note = "Bring calculator"
+        prefs.setInfo(updated, for: tuesday)
+
+        XCTAssertEqual(prefs.info(for: tuesday).link, "https://zoom.us/tue")
+        XCTAssertEqual(prefs.info(for: tuesday).note, "Bring calculator")
+    }
+
+    /// Turning the toggle off for one meeting demotes the shared link away
+    /// from every meeting of the subject — "every block" is what's turning off.
+    func testTurningPermaOffRemovesItFromEveryMeetingOfTheSubject() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setPerma(true, for: tuesday)
+        prefs.setInfo(ClassInfo(link: "https://zoom.us/perma"), for: tuesday)
+        prefs.setPerma(false, for: tuesday)
+
+        XCTAssertEqual(prefs.info(for: tuesday).link, "https://zoom.us/perma", "value moves down to just this meeting")
+        XCTAssertEqual(prefs.info(for: friday), ClassInfo())
+        XCTAssertFalse(prefs.hasPerma(for: friday))
+    }
+
+    /// Flipping the toggle moves the value between scopes rather than leaving
+    /// a stale copy behind in the one it left.
+    func testTogglingPermaMovesTheValueRatherThanDuplicatingIt() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setInfo(ClassInfo(note: "x"), for: tuesday)
+        prefs.setPerma(true, for: tuesday)
+
+        XCTAssertEqual(prefs.classInfo[tuesday.id], nil, "per-meeting entry must be cleared once promoted")
+        XCTAssertEqual(prefs.classInfo[tuesday.subjectCode]?.note, "x")
+    }
+
+    /// Clearing both fields back to empty drops the key rather than persisting
+    /// a no-op override — matches every other reset-to-default in this file.
+    func testClearingInfoBackToEmptyDropsTheKey() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setInfo(ClassInfo(note: "x"), for: tuesday)
+        prefs.setInfo(ClassInfo(), for: tuesday)
+
+        XCTAssertTrue(prefs.classInfo.isEmpty)
+    }
+
+    func testClassInfoSurvivesRelaunch() {
+        Preferences(defaults: defaults).setInfo(
+            ClassInfo(note: "Chapter 4", link: "https://meet.google.com/abc"), for: tuesday)
+
+        let reloaded = Preferences(defaults: defaults).info(for: tuesday)
+        XCTAssertEqual(reloaded.note, "Chapter 4")
+        XCTAssertEqual(reloaded.link, "https://meet.google.com/abc")
+    }
 }
 
 /// Reduce Motion is an accessibility setting, not a preference to soften —

@@ -27,6 +27,15 @@ enum SessionStatus: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// A user-written description and/or online-meeting link for a class. Empty
+/// fields are the "nothing set" state — never persisted, so an all-empty
+/// value is equivalent to no entry at all.
+struct ClassInfo: Codable, Equatable {
+    var note: String = ""
+    var link: String = ""
+    var isEmpty: Bool { note.isEmpty && link.isEmpty }
+}
+
 /// User settings. `UserDefaults` on purpose — these are preferences, unlike
 /// the schedule, which is a document and lives in `ScheduleStore`.
 ///
@@ -63,6 +72,24 @@ final class Preferences: ObservableObject {
     /// subject code. Absent means "use the palette's online-strip default".
     @Published private(set) var onlineStripColors: [String: String] {
         didSet { defaults.set(try? JSONEncoder().encode(onlineStripColors), forKey: Key.onlineStripColors) }
+    }
+
+    /// Description + online link a user attached to a class. Keyed by
+    /// `ClassSession.id` (default: this one meeting) **or** `subjectCode` (the
+    /// "apply to every X block" toggle — a teacher's one permanent link
+    /// covering every meeting of the course). The two key spaces never
+    /// collide, so one dictionary covers both scopes; `info(for:)` resolves
+    /// per-meeting first, falling back to the subject-wide entry.
+    @Published private(set) var classInfo: [String: ClassInfo] {
+        didSet { defaults.set(try? JSONEncoder().encode(classInfo), forKey: Key.classInfo) }
+    }
+
+    /// Subjects whose "apply to every block" toggle is on. Deliberately
+    /// separate from `classInfo`'s content: the toggle can be switched on
+    /// before any text exists, and content presence alone can't carry that —
+    /// an empty `ClassInfo` is indistinguishable from "never toggled".
+    @Published private(set) var permaSubjects: Set<String> {
+        didSet { defaults.set(Array(permaSubjects), forKey: Key.permaSubjects) }
     }
 
     /// Event colours, keyed by `DayBlock.groupKey` so a run of connected days
@@ -199,6 +226,8 @@ final class Preferences: ObservableObject {
         static let sessionStatuses = "sessionStatuses"
         static let occurrenceStatuses = "occurrenceStatuses"
         static let onlineStripColors = "onlineStripColors"
+        static let classInfo = "classInfo"
+        static let permaSubjects = "permaSubjects"
         static let visibleCalendarIDs = "visibleCalendarIDs"
         static let exportCalendarID = "exportCalendarID"
         static let onlineExportCalendarID = "onlineExportCalendarID"
@@ -228,6 +257,9 @@ final class Preferences: ObservableObject {
             .flatMap { try? JSONDecoder().decode([String: SessionStatus].self, from: $0) } ?? [:]
         onlineStripColors = defaults.data(forKey: Key.onlineStripColors)
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
+        classInfo = defaults.data(forKey: Key.classInfo)
+            .flatMap { try? JSONDecoder().decode([String: ClassInfo].self, from: $0) } ?? [:]
+        permaSubjects = Set(defaults.stringArray(forKey: Key.permaSubjects) ?? [])
         eventColors = defaults.data(forKey: Key.eventColors)
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         visibleCalendarIDs = Set(defaults.stringArray(forKey: Key.visibleCalendarIDs) ?? [])
@@ -346,5 +378,46 @@ final class Preferences: ObservableObject {
 
     func hasCustomColor(for subjectCode: String) -> Bool {
         subjectColors[subjectCode] != nil
+    }
+
+    /// The description/link for a meeting: the subject-wide entry while perma
+    /// is on for this subject, otherwise this meeting's own entry.
+    func info(for session: ClassSession) -> ClassInfo {
+        let key = hasPerma(for: session) ? session.subjectCode : session.id
+        return classInfo[key] ?? ClassInfo()
+    }
+
+    /// Whether this subject currently has the "every block" toggle on — a flag
+    /// independent of content, so switching it on before typing anything still
+    /// sticks. Drives the popover's toggle regardless of which meeting is open.
+    func hasPerma(for session: ClassSession) -> Bool {
+        permaSubjects.contains(session.subjectCode)
+    }
+
+    /// Writes note/link text to whichever scope this meeting currently reads
+    /// from — the subject-wide entry if perma is on for this subject, this
+    /// meeting's own entry otherwise. Never touches the other scope: editing
+    /// text isn't the same action as promoting/demoting it, and a subject-wide
+    /// entry set from one meeting must survive editing a *different* meeting.
+    /// An empty `info` drops the key rather than persisting a no-op.
+    func setInfo(_ info: ClassInfo, for session: ClassSession) {
+        let key = hasPerma(for: session) ? session.subjectCode : session.id
+        classInfo[key] = info.isEmpty ? nil : info
+    }
+
+    /// The "apply to every X block" toggle. On: flips the flag, promotes this
+    /// meeting's current info to cover the whole subject, and clears its own
+    /// entry so it doesn't shadow the shared one. Off: flips the flag back and
+    /// demotes the subject-wide entry down to just this meeting — which does
+    /// remove it from every other meeting, since "every block" is what's off.
+    func setPerma(_ perma: Bool, for session: ClassSession) {
+        let current = info(for: session)
+        if perma {
+            permaSubjects.insert(session.subjectCode)
+        } else {
+            permaSubjects.remove(session.subjectCode)
+        }
+        classInfo[session.subjectCode] = perma ? (current.isEmpty ? nil : current) : nil
+        classInfo[session.id] = perma ? nil : (current.isEmpty ? nil : current)
     }
 }

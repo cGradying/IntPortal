@@ -38,6 +38,10 @@ struct ClassBlock: View {
                 }
                 Text(status == .vacant ? "Vacant" : session.timeLabel)
                     .font(Theme.Typo.blockTime)
+                if !preferences.info(for: session).link.isEmpty {
+                    Image(systemName: "link")
+                        .font(.system(size: 8))
+                }
             }
             .opacity(0.85)
         }
@@ -141,6 +145,43 @@ struct ClassBlock: View {
         )
     }
 
+    /// On when the note/link apply to every meeting of this subject rather
+    /// than just this one. Flipping it moves the current value between scopes.
+    private var permaBinding: Binding<Bool> {
+        Binding(
+            get: { preferences.hasPerma(for: session) },
+            set: { preferences.setPerma($0, for: session) }
+        )
+    }
+
+    private var noteBinding: Binding<String> {
+        Binding(
+            get: { preferences.info(for: session).note },
+            set: { newValue in
+                var info = preferences.info(for: session)
+                info.note = newValue
+                preferences.setInfo(info, for: session)
+            }
+        )
+    }
+
+    private var linkBinding: Binding<String> {
+        Binding(
+            get: { preferences.info(for: session).link },
+            set: { newValue in
+                var info = preferences.info(for: session)
+                info.link = newValue
+                preferences.setInfo(info, for: session)
+            }
+        )
+    }
+
+    private var joinURL: URL? {
+        let link = preferences.info(for: session).link.trimmingCharacters(in: .whitespaces)
+        guard !link.isEmpty, let url = URL(string: link), url.scheme != nil else { return nil }
+        return url
+    }
+
     private var detail: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 6) {
@@ -156,6 +197,26 @@ struct ClassBlock: View {
                         .font(Theme.Typo.detailBody)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                TextField("Description", text: noteBinding, axis: .vertical)
+                    .lineLimit(1...4)
+                    .textFieldStyle(.plain)
+
+                HStack(spacing: 8) {
+                    TextField("Online class link", text: linkBinding)
+                        .textFieldStyle(.plain)
+                    if let joinURL {
+                        Button("Join") { NSWorkspace.shared.open(joinURL) }
+                    }
+                }
+
+                Toggle("Apply to every \(session.subjectCode) block", isOn: permaBinding)
+                    .toggleStyle(.checkbox)
+                    .font(.caption)
             }
 
             Divider()
