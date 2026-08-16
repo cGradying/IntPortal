@@ -71,6 +71,25 @@ final class OllamaClientTests: XCTestCase {
         XCTAssertEqual(OllamaClient.parseModels(Data(#"{"models":[]}"#.utf8)), [])
     }
 
+    // MARK: parseModelDetails
+
+    func testParseModelDetailsKeepsSizeAndSorts() {
+        let data = Data("""
+        {"models":[
+          {"name":"qwen2.5-coder:3b","size":3389983735,"details":{"family":"qwen2"}},
+          {"name":"llama3.2","size":2019000000,"details":{"family":"llama"}}
+        ]}
+        """.utf8)
+        XCTAssertEqual(OllamaClient.parseModelDetails(data), [
+            OllamaClient.ModelInfo(name: "llama3.2", size: 2_019_000_000),
+            OllamaClient.ModelInfo(name: "qwen2.5-coder:3b", size: 3_389_983_735),
+        ])
+    }
+
+    func testParseModelDetailsHandlesNoModelsPulled() {
+        XCTAssertEqual(OllamaClient.parseModelDetails(Data(#"{"models":[]}"#.utf8)), [])
+    }
+
     /// Ollama not running: the fetch fails and we get nothing decodable. Empty,
     /// never a crash — Settings shows "is Ollama running?" off the back of this.
     func testParseModelsHandlesGarbage() {

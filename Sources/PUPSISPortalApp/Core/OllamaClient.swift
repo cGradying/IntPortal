@@ -87,6 +87,30 @@ struct OllamaClient {
         return tags.models.map(\.name).sorted()
     }
 
+    /// A model's name plus its on-disk weight size, for the memory-check
+    /// confirmation before switching to it — `/api/tags` already reports this,
+    /// `parseModels` above just didn't keep it. Separate method rather than
+    /// changing `installedModels`'s return type: that one's shipped and
+    /// tested, and nothing else needs the size.
+    struct ModelInfo: Decodable, Equatable {
+        let name: String
+        let size: Int64
+    }
+
+    static func installedModelsDetailed() async -> [ModelInfo] {
+        let url = URL(string: "http://localhost:11434/api/tags")!
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 5
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return [] }
+        return parseModelDetails(data)
+    }
+
+    static func parseModelDetails(_ data: Data) -> [ModelInfo] {
+        struct Tags: Decodable { let models: [ModelInfo] }
+        guard let tags = try? JSONDecoder().decode(Tags.self, from: data) else { return [] }
+        return tags.models.sorted { $0.name < $1.name }
+    }
+
     /// Models Ollama currently has **loaded in memory**, not just installed —
     /// `/api/ps`, distinct from `/api/tags`. Switching the assistant's model
     /// in Settings doesn't replace what's resident, it adds to it: the old

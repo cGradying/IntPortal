@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The Schedule screen's controls, lifted out of `CalendarView` so the floating
@@ -91,6 +92,35 @@ final class AppState: ObservableObject {
         isHome = preferences.islandStartHome
         startClock()
         checkForUpdate()
+        observeTermination()
+    }
+
+    /// Frees what the assistant was using the moment the app quits, rather
+    /// than leaving it resident — confirmed neither happened before this:
+    /// `OllamaClient.unload` only ever fired on a manual Settings action, and
+    /// `llama-server` had no relationship with the app at all, so a hand-
+    /// started one could (and did) outlive the app entirely. `willTerminate`
+    /// is the one notification all three quit paths converge on — ⌘Q, the
+    /// Dock, and the menu-bar Quit button's `NSApp.terminate(nil)` — so this
+    /// one observer covers all of them without an `NSApplicationDelegate`.
+    private func observeTermination() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [preferences] _ in
+            // `queue: .main` guarantees this runs on the main thread already —
+            // safe to assume isolation synchronously rather than hopping
+            // through `Task`, which isn't guaranteed to even get scheduled
+            // before the process actually exits.
+            MainActor.assumeIsolated {
+                LlamaServerManager.shared.stop()
+            }
+            // Best-effort: an async network call has no such guarantee, and
+            // may not complete before the process dies. Same tolerance
+            // `OllamaClient.unload` already documents for its other callers —
+            // Ollama's own idle timeout frees it eventually regardless.
+            guard !preferences.aiModel.isEmpty else { return }
+            Task { await OllamaClient().unload(model: preferences.aiModel) }
+        }
     }
 
     /// One anonymous GET at launch, detached so it never delays the first frame.

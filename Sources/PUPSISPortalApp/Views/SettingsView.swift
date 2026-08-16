@@ -10,6 +10,13 @@ struct SettingsView: View {
     @ObservedObject fileprivate var notifier = Notifier.shared
     /// Ollama models present on this machine, refreshed when the AI section shows.
     @State private var installedModels: [String] = []
+    /// Each installed model's on-disk weight size, for the memory check before
+    /// switching to one. Keyed by name rather than reusing `installedModels`'
+    /// shape, so that already-shipped, already-tested property stays untouched.
+    @State private var modelSizes: [String: Int64] = [:]
+    /// Held here rather than acted on immediately when a pick would need more
+    /// memory than looks available — `.alert(item:)` below asks first.
+    @State private var pendingModelLoad: PendingModelLoad?
     /// Ollama models currently loaded in memory that aren't the selected one.
     @State private var runningOthers: [String] = []
     @Environment(\.palette) private var palette
@@ -137,16 +144,8 @@ struct SettingsView: View {
                     }
                     Button("Check again") { Task { await loadModels() } }
                 } else {
-                    Picker("Model", selection: $preferences.aiModel) {
+                    Picker("Model", selection: modelSelectionBinding) {
                         ForEach(installedModels, id: \.self) { Text($0).tag($0) }
-                    }
-                    // Switching here doesn't unload what was running before —
-                    // Ollama keeps it resident until its own idle timeout, so
-                    // two models can end up competing for the machine. Free
-                    // the old one the moment a different one is picked.
-                    .onChange(of: preferences.aiModel) { old, new in
-                        guard old != new, !old.isEmpty else { return }
-                        Task { await OllamaClient().unload(model: old) }
                     }
                     if runningOthers.isEmpty == false {
                         Button("Unload other running models (\(runningOthers.count))") {
@@ -185,9 +184,14 @@ struct SettingsView: View {
             .foregroundStyle(.secondary)
         }
         .task(id: preferences.aiEnabled) {
-            guard preferences.aiEnabled else { return }
-            await loadModels()
-            await refreshRunningOthers()
+            if preferences.aiEnabled {
+                await loadModels()
+                await refreshRunningOthers()
+            } else {
+                // Not just "don't load more" — actually free what's running,
+                // so turning the assistant off is also turning it off.
+                LlamaServerManager.shared.stop()
+            }
         }
         .task(id: preferences.aiModel) {
             guard preferences.aiEnabled else { return }
@@ -196,14 +200,68 @@ struct SettingsView: View {
             try? await Task.sleep(for: .seconds(1))
             await refreshRunningOthers()
         }
+        .alert(item: $pendingModelLoad) { pending in
+            Alert(
+                title: Text("Load \(pending.name)?"),
+                message: Text(pending.message),
+                primaryButton: .default(Text("Load Anyway")) { commitModel(pending.name) },
+                secondaryButton: .cancel()
+            )
+        }
+    }
+
+    /// A model whose size crossed the memory-check threshold, held for
+    /// confirmation before it's ever written to `preferences.aiModel`.
+    private struct PendingModelLoad: Identifiable {
+        let name: String
+        let modelBytes: Int64
+        let availableBytes: UInt64
+        var id: String { name }
+
+        var message: String {
+            let modelGB = Double(modelBytes) / 1_073_741_824
+            let availableGB = Double(availableBytes) / 1_073_741_824
+            return String(format: "This model needs about %.1f GB. You have about %.1f GB available.", modelGB, availableGB)
+        }
+    }
+
+    /// The Picker's binding: never writes to `preferences.aiModel` directly,
+    /// so a check can run *before* anything is committed — Cancel then needs
+    /// no revert, since nothing changed yet.
+    private var modelSelectionBinding: Binding<String> {
+        Binding(get: { preferences.aiModel }, set: considerSelecting)
+    }
+
+    private func considerSelecting(_ name: String) {
+        guard name != preferences.aiModel else { return }
+        if let bytes = modelSizes[name], let available = SystemMemory.availableBytes(),
+           SystemMemory.shouldWarn(modelBytes: bytes, availableBytes: available) {
+            pendingModelLoad = PendingModelLoad(name: name, modelBytes: bytes, availableBytes: available)
+        } else {
+            commitModel(name)
+        }
+    }
+
+    /// Switching here doesn't unload what was running before — Ollama keeps
+    /// it resident until its own idle timeout, so two models can end up
+    /// competing for the machine. Free the old one the moment a different
+    /// one is picked.
+    private func commitModel(_ name: String) {
+        let old = preferences.aiModel
+        preferences.aiModel = name
+        guard old != name, !old.isEmpty else { return }
+        Task { await OllamaClient().unload(model: old) }
     }
 
     private func loadModels() async {
-        installedModels = await OllamaClient.installedModels()
+        let details = await OllamaClient.installedModelsDetailed()
+        installedModels = details.map(\.name).sorted()
+        modelSizes = Dictionary(uniqueKeysWithValues: details.map { ($0.name, $0.size) })
         // Pick something usable rather than leaving the picker on a stale or
-        // empty name the user never chose.
+        // empty name the user never chose — routed through the same check,
+        // so a large default doesn't skip the confirmation either.
         if !installedModels.contains(preferences.aiModel), let first = installedModels.first {
-            preferences.aiModel = first
+            considerSelecting(first)
         }
     }
 

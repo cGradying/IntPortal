@@ -25,6 +25,9 @@ final class RealAssistantExecutor: AssistantExecutor {
     /// one. See `LlamaCppClient`'s doc comment for why it's scoped to this
     /// one tool rather than driving the assistant itself.
     private let llamaCppClient: LlamaCppClient
+    /// Starts llama-server on demand — injectable so tests never spawn a
+    /// real process. Defaults to the real manager.
+    private let ensureServerRunning: () async -> Bool
 
     /// Tool-result strings are fed back to the model in `.auto` mode and shown
     /// in the confirm-row UI — capped so one enormous note can't blow out
@@ -38,7 +41,8 @@ final class RealAssistantExecutor: AssistantExecutor {
         portal: PortalController,
         preferences: Preferences,
         openNoteKey: @escaping () -> String?,
-        llamaCppClient: LlamaCppClient = LlamaCppClient()
+        llamaCppClient: LlamaCppClient = LlamaCppClient(),
+        ensureServerRunning: @escaping () async -> Bool = { await LlamaServerManager.shared.ensureRunning() }
     ) {
         self.notesStore = notes
         self.editor = editor
@@ -47,6 +51,7 @@ final class RealAssistantExecutor: AssistantExecutor {
         self.preferences = preferences
         self.openNoteKey = openNoteKey
         self.llamaCppClient = llamaCppClient
+        self.ensureServerRunning = ensureServerRunning
     }
 
     func execute(_ action: AssistantAction) async -> AssistantToolResult {
@@ -151,6 +156,11 @@ final class RealAssistantExecutor: AssistantExecutor {
         guard !context.isEmpty else {
             return AssistantToolResult(action: action, ok: true,
                 message: "No notes matched \"\(query)\", so there's nothing to answer from.")
+        }
+
+        guard await ensureServerRunning() else {
+            return AssistantToolResult(action: action, ok: false,
+                message: "Couldn't start the local notes-answering server. Is llama.cpp installed? (`brew install llama.cpp`)")
         }
 
         do {

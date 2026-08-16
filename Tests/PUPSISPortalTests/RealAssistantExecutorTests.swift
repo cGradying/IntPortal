@@ -28,7 +28,11 @@ final class RealAssistantExecutorTests: XCTestCase {
         try? FileManager.default.removeItem(at: notesURL.deletingLastPathComponent())
     }
 
-    private func executor(openKey: String? = nil, llamaCppClient: LlamaCppClient = LlamaCppClient()) -> RealAssistantExecutor {
+    private func executor(
+        openKey: String? = nil,
+        llamaCppClient: LlamaCppClient = LlamaCppClient(),
+        ensureServerRunning: @escaping () async -> Bool = { true }
+    ) -> RealAssistantExecutor {
         RealAssistantExecutor(
             notes: notesStore,
             editor: EventEditor(bridge: CalendarBridge()),
@@ -36,7 +40,8 @@ final class RealAssistantExecutorTests: XCTestCase {
             portal: PortalController(),
             preferences: Preferences(defaults: UserDefaults(suiteName: "RealAssistantExecutorTests-\(UUID().uuidString)")!),
             openNoteKey: { openKey },
-            llamaCppClient: llamaCppClient
+            llamaCppClient: llamaCppClient,
+            ensureServerRunning: ensureServerRunning
         )
     }
 
@@ -133,6 +138,34 @@ final class RealAssistantExecutorTests: XCTestCase {
     func testAskNotesRefusesEmptyQuery() async {
         let result = await executor().execute(AssistantAction(tool: "ask_notes", args: [:]))
         XCTAssertFalse(result.ok)
+    }
+
+    /// The server can't be started — fails clearly, and never even tries the
+    /// client, since there's nothing to talk to.
+    func testAskNotesFailsClearlyWhenTheServerCannotBeStarted() async {
+        notesStore.setText("Recursion has a base case.", for: "class:COMP 001")
+        var clientCalled = false
+        let client = LlamaCppClient(send: { _ in
+            clientCalled = true
+            return (Data(#"{"choices":[{"message":{"content":"x"}}]}"#.utf8), 200)
+        })
+        let result = await executor(llamaCppClient: client, ensureServerRunning: { false })
+            .execute(AssistantAction(tool: "ask_notes", args: ["query": .string("recursion")]))
+
+        XCTAssertFalse(result.ok)
+        XCTAssertFalse(clientCalled, "must not talk to a server that failed to start")
+    }
+
+    /// Starting the server is skipped entirely when nothing matched — no
+    /// point paying a cold start for a question there's nothing to answer.
+    func testAskNotesNeverStartsTheServerWhenNothingMatches() async {
+        notesStore.setText("unrelated content", for: "class:COMP 001")
+        var startAttempted = false
+        let result = await executor(ensureServerRunning: { startAttempted = true; return true })
+            .execute(AssistantAction(tool: "ask_notes", args: ["query": .string("nonexistent")]))
+
+        XCTAssertTrue(result.ok)
+        XCTAssertFalse(startAttempted)
     }
 
     /// The server isn't running (or unreachable) — fails clearly rather than
