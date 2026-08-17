@@ -266,6 +266,34 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(ragEmbedModel, forKey: Key.ragEmbedModel) }
     }
 
+    // MARK: Assistant panel size
+
+    /// The app's first persisted geometry. Read directly by `AssistantFloating`
+    /// for its `.frame`; write only through `setAssistantPanelSize` /
+    /// `resetAssistantPanelSize` so a corrupt `UserDefaults` value (or a stray
+    /// drag-site bug) can never produce a panel outside the clamp range.
+    static let assistantPanelDefaultWidth: Double = 360
+    static let assistantPanelDefaultHeight: Double = 440
+    static let assistantPanelWidthRange: ClosedRange<Double> = 320...760
+    static let assistantPanelHeightRange: ClosedRange<Double> = 300...900
+
+    @Published private(set) var assistantPanelWidth: Double {
+        didSet { defaults.set(assistantPanelWidth, forKey: Key.assistantPanelWidth) }
+    }
+    @Published private(set) var assistantPanelHeight: Double {
+        didSet { defaults.set(assistantPanelHeight, forKey: Key.assistantPanelHeight) }
+    }
+
+    func setAssistantPanelSize(_ size: CGSize) {
+        assistantPanelWidth = min(max(size.width, Self.assistantPanelWidthRange.lowerBound), Self.assistantPanelWidthRange.upperBound)
+        assistantPanelHeight = min(max(size.height, Self.assistantPanelHeightRange.lowerBound), Self.assistantPanelHeightRange.upperBound)
+    }
+
+    func resetAssistantPanelSize() {
+        assistantPanelWidth = Self.assistantPanelDefaultWidth
+        assistantPanelHeight = Self.assistantPanelDefaultHeight
+    }
+
     static let leadOptions = [5, 10, 15, 30]
 
     /// Meetings marked vacant **for the whole term**, in the form `Notifier` and
@@ -316,6 +344,8 @@ final class Preferences: ObservableObject {
         static let ragContextBudget = "ragContextBudget"
         static let ragAnswerTemperature = "ragAnswerTemperature"
         static let ragEmbedModel = "ragEmbedModel"
+        static let assistantPanelWidth = "assistantPanelWidth"
+        static let assistantPanelHeight = "assistantPanelHeight"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -366,6 +396,8 @@ final class Preferences: ObservableObject {
         ragContextBudget = (defaults.object(forKey: Key.ragContextBudget) as? Int) ?? Preferences.ragDefaultContextBudget
         ragAnswerTemperature = (defaults.object(forKey: Key.ragAnswerTemperature) as? Double) ?? Preferences.ragDefaultAnswerTemperature
         ragEmbedModel = defaults.string(forKey: Key.ragEmbedModel) ?? Preferences.ragDefaultEmbedModel
+        assistantPanelWidth = (defaults.object(forKey: Key.assistantPanelWidth) as? Double) ?? Preferences.assistantPanelDefaultWidth
+        assistantPanelHeight = (defaults.object(forKey: Key.assistantPanelHeight) as? Double) ?? Preferences.assistantPanelDefaultHeight
     }
 
     /// The colour an event renders in: the user's pick, else the palette's

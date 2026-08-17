@@ -150,7 +150,10 @@ struct AgendaView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(palette.canvasWash)
+        // No background here: the app-level wash already covers the whole
+        // window (`PUPSISPortalApp.swift`). Repainting the gradient inside
+        // this pane restarted it at a different extent than the sidebar's
+        // and the window's, which is what produced the visible seams.
         // Every explicit note open (tap a file/row/day, wikilink, drop) becomes a tab.
         .onChange(of: selectedKey) { _, new in
             if let new, !openTabs.contains(new) { openTabs.append(new) }
@@ -174,6 +177,7 @@ struct AgendaView: View {
                     }
                 }
                 .padding(.bottom, 2)
+                .animation(Motion.arrival(reduced: reduceMotion), value: openTabs)
             }
             .dropDestination(for: String.self) { items, _ in
                 guard let id = items.first.flatMap({ UUID(uuidString: $0) }),
@@ -229,9 +233,7 @@ struct AgendaView: View {
                     dailyNoteRow
 
                     if entries.isEmpty {
-                        Text("Nothing scheduled today.")
-                            .font(Theme.Typo.footer)
-                            .foregroundStyle(.secondary)
+                        emptyDay
                     } else {
                         timeline
                     }
@@ -260,8 +262,10 @@ struct AgendaView: View {
                 }
             }
             .padding(16)
+            .animation(Motion.selection(reduced: reduceMotion), value: currentKey)
+            .animation(Motion.arrival(reduced: reduceMotion), value: expandedFolders)
         }
-        .background(palette.canvasWash)
+        // No background — see the note-editor pane's identical comment.
     }
 
     // MARK: Daily-note navigator (browse any date)
@@ -848,12 +852,22 @@ struct AgendaView: View {
 
     @ViewBuilder
     private func rowBackground(phase: ClassPhase) -> some View {
+        // ponytail: one Canvas per finished row, capped by a day's own class
+        // count (≤10 in practice) — fine at this scale. If a busy schedule ever
+        // shows up in a profile, replace with one full-height dither masked by
+        // the row rects instead of per-row Canvases.
+        let shape = RoundedRectangle(cornerRadius: 12)
         if phase == .inSession {
-            RoundedRectangle(cornerRadius: 12)
+            shape
                 .fill(palette.accent.opacity(0.10))
                 .stroke(palette.accent.opacity(0.35), lineWidth: 1)
+        } else if phase == .past {
+            // A finished class reads as literally eroded, not just dimmed.
+            shape
+                .fill(.quaternary.opacity(0.4))
+                .overlay(DitherFill(color: palette.canvasBottom.opacity(0.7), ramp: .flat(0.4)).clipShape(shape))
         } else {
-            RoundedRectangle(cornerRadius: 12)
+            shape
                 .fill(.quaternary.opacity(0.4))
         }
     }
@@ -868,7 +882,21 @@ struct AgendaView: View {
         .foregroundStyle(.secondary)
         .opacity(passed ? 0.4 : 1)
         .padding(.leading, 18)
+        .padding(.vertical, 2)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // A free stretch reads as textured distance rather than a bare caption.
+        .background(DitherFill(color: palette.secondary.opacity(0.5), ramp: .flat(0.22)))
+    }
+
+    /// The day's empty state — a small dither wedge behind the caption instead
+    /// of a bare line of text.
+    private var emptyDay: some View {
+        Text("Nothing scheduled today.")
+            .font(Theme.Typo.footer)
+            .foregroundStyle(.secondary)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DitherFill(color: palette.secondary.opacity(0.4), ramp: .flat(0.18)))
     }
 
     // MARK: Tomorrow

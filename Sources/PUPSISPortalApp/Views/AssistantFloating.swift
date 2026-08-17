@@ -20,12 +20,14 @@ struct AssistantFloating: View {
     @ObservedObject var session: AssistantSession
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var morph
 
     var body: some View {
         Group {
             if session.isOpen {
-                AssistantChat(appState: appState, preferences: preferences, session: session)
-                    .frame(width: 360, height: 440)
+                AssistantChat(appState: appState, preferences: preferences, session: session, morph: morph)
+                    .frame(width: preferences.assistantPanelWidth, height: preferences.assistantPanelHeight)
+                    .matchedGeometryEffect(id: "assistant", in: morph)
             } else {
                 orb
             }
@@ -43,6 +45,7 @@ struct AssistantFloating: View {
         .buttonStyle(.plain)
         .foregroundStyle(palette.accent)
         .glassInteractive(in: Circle())
+        .matchedGeometryEffect(id: "assistant", in: morph)
         .help("Assistant")
     }
 }
@@ -53,25 +56,77 @@ private struct AssistantChat: View {
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
     @ObservedObject var session: AssistantSession
+    let morph: Namespace.ID
     @Environment(\.palette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var inputFocused: Bool
     @State private var input = ""
     /// Keyboard-highlighted row in the command autocomplete palette below —
     /// Tab/↵ complete this one, ↑/↓ move it.
     @State private var highlightedSuggestion = 0
+    /// Panel size captured at the start of a resize drag, so the grip
+    /// accumulates from a fixed point rather than re-reading the (already
+    /// mutating) preference mid-drag.
+    @State private var sizeAtDragStart: CGSize?
+    @State private var gripHovered = false
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
             transcript
-            if !session.pendingActions.isEmpty { pendingActionsList }
-            if let error = session.lastError { errorLine(error) }
+            if !session.pendingActions.isEmpty {
+                pendingActionsList
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+            if let error = session.lastError {
+                errorLine(error)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
             Divider()
             inputBar
         }
         .glassPanel(cornerRadius: 20)
+        .overlay(alignment: .topTrailing) { resizeGrip }
+        .animation(Motion.arrival(reduced: reduceMotion), value: session.pendingActions.isEmpty)
+        .animation(Motion.arrival(reduced: reduceMotion), value: session.lastError)
         .onAppear { inputFocused = true }
+    }
+
+    /// A small handle poking past the panel's own top-trailing corner —
+    /// offset clear of the header's close/clear buttons rather than sharing
+    /// their corner. Dragging widens/heightens; a click that never moved
+    /// writes nothing, matching the block-resize convention in `Blocks.swift`.
+    private var resizeGrip: some View {
+        Image(systemName: "arrow.up.left.and.arrow.down.right")
+            .font(.system(size: 8, weight: .semibold))
+            .foregroundStyle(gripHovered ? palette.accent : .secondary.opacity(0.5))
+            .padding(6)
+            .contentShape(Rectangle())
+            .offset(x: 6, y: -6)
+            .onHover { inside in
+                gripHovered = inside
+                if inside { NSCursor.crosshair.push() } else { NSCursor.pop() }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        let start = sizeAtDragStart ?? CGSize(
+                            width: preferences.assistantPanelWidth,
+                            height: preferences.assistantPanelHeight
+                        )
+                        if sizeAtDragStart == nil { sizeAtDragStart = start }
+                        // Anchored bottom-leading: dragging right widens, dragging
+                        // *up* (negative dy) heightens.
+                        preferences.setAssistantPanelSize(CGSize(
+                            width: start.width + value.translation.width,
+                            height: start.height - value.translation.height
+                        ))
+                    }
+                    .onEnded { _ in sizeAtDragStart = nil }
+            )
+            .onTapGesture(count: 2) { preferences.resetAssistantPanelSize() }
+            .help("Drag to resize · double-click to reset")
     }
 
     private var header: some View {
@@ -82,6 +137,14 @@ private struct AssistantChat: View {
                 Text(preferences.aiPermission.label)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                if !session.transcript.isEmpty {
+                    Button { session.reset() } label: {
+                        Image(systemName: "square.and.pencil").font(.system(size: 11, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Clear conversation")
+                }
                 Button {
                     session.isOpen = false
                 } label: {
@@ -122,21 +185,34 @@ private struct AssistantChat: View {
                             .padding(.top, 8)
                     }
                     ForEach(Array(session.transcript.enumerated()), id: \.offset) { index, turn in
-                        bubble(turn).id(index)
+                        bubble(turn)
+                            .id(index)
+                            .transition(.opacity.combined(with: .move(edge: turn.role == .user ? .trailing : .leading)))
                     }
                     if session.isThinking {
-                        ProgressView().controlSize(.small).padding(.top, 4)
+                        thinkingIndicator
                             .id("thinking")
                     }
                 }
                 .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .animation(Motion.arrival(reduced: reduceMotion), value: session.transcript.count)
             }
             .onChange(of: session.transcript.count) { _, _ in
-                withAnimation { proxy.scrollTo(session.transcript.count - 1, anchor: .bottom) }
+                withAnimation(Motion.arrival(reduced: reduceMotion)) {
+                    proxy.scrollTo(session.transcript.count - 1, anchor: .bottom)
+                }
             }
         }
         .frame(maxHeight: .infinity)
+    }
+
+    /// Three squares blinking in sequence rather than a stock spinner — the
+    /// panel's one piece of ambient/waiting motion. Static (fixed opacity)
+    /// under Reduce Motion, per the app's contract.
+    private var thinkingIndicator: some View {
+        PixelThinkingDots(color: palette.accent, reduced: reduceMotion)
+            .padding(.top, 4)
     }
 
     /// Message bubbles are content, not chrome — no glass on these, per the
@@ -145,13 +221,23 @@ private struct AssistantChat: View {
         VStack(alignment: turn.role == .user ? .trailing : .leading, spacing: 4) {
             HStack {
                 if turn.role == .assistant { Spacer(minLength: 24) }
-                Text(turn.content)
-                    .font(.callout)
-                    .padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(
-                        turn.role == .user ? palette.accent.opacity(0.16) : Color.secondary.opacity(0.1),
-                        in: RoundedRectangle(cornerRadius: 12)
-                    )
+                Group {
+                    if let markdown = try? AttributedString(
+                        markdown: turn.content,
+                        options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+                    ) {
+                        Text(markdown)
+                    } else {
+                        Text(turn.content)
+                    }
+                }
+                .font(.callout)
+                .textSelection(.enabled)
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .background(
+                    turn.role == .user ? palette.accent.opacity(0.16) : Color.secondary.opacity(0.1),
+                    in: RoundedRectangle(cornerRadius: 12)
+                )
                 if turn.role == .user { Spacer(minLength: 24) }
             }
             if !turn.sources.isEmpty { sourceChips(turn.sources) }
@@ -162,16 +248,20 @@ private struct AssistantChat: View {
     /// One capsule per note a `search_notes`/`ask_notes` reply actually drew
     /// from — the "did this come from RAG, and which note" the panel didn't
     /// show before (only a `Sources: …` line buried in the reply text).
+    /// Scrolls horizontally rather than wrapping — a plain `HStack` overflowed
+    /// the panel width once a reply drew from four or more notes.
     private func sourceChips(_ sources: [String]) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "sparkles")
-                .font(.caption2)
-                .foregroundStyle(palette.accent)
-            ForEach(sources, id: \.self) { name in
-                Text(name)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 4) {
+                Image(systemName: "sparkles")
                     .font(.caption2)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(palette.accent.opacity(0.12), in: Capsule())
+                    .foregroundStyle(palette.accent)
+                ForEach(sources, id: \.self) { name in
+                    Text(name)
+                        .font(.caption2)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(palette.accent.opacity(0.12), in: Capsule())
+                }
             }
         }
         .padding(.leading, 24)
@@ -427,5 +517,33 @@ private struct AssistantChat: View {
             gradesSummary: gradesSummary,
             pinnedNote: session.pinnedNote
         )
+    }
+}
+
+/// Three squares blinking in sequence — the "thinking" indicator, in the
+/// app's own pixel idiom instead of a stock `ProgressView`. Reduce Motion
+/// holds them at a fixed half-opacity instead of animating.
+private struct PixelThinkingDots: View {
+    var color: Color
+    var reduced: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: reduced ? nil : 0.35, paused: reduced)) { context in
+            HStack(spacing: 4) {
+                ForEach(0..<3, id: \.self) { i in
+                    let phase = reduced ? 1.0 : blink(context.date, offset: i)
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(color.opacity(reduced ? 0.5 : phase))
+                        .frame(width: 4, height: 4)
+                }
+            }
+        }
+    }
+
+    /// Cycles 0.25…1…0.25 with a per-dot phase offset, so the three blink in
+    /// sequence rather than together.
+    private func blink(_ date: Date, offset: Int) -> Double {
+        let t = date.timeIntervalSinceReferenceDate / 0.35 + Double(offset) * 0.6
+        return 0.625 + 0.375 * sin(t * .pi)
     }
 }

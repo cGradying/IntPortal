@@ -486,6 +486,45 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(reloaded.ragAnswerTemperature, 0.7)
         XCTAssertEqual(reloaded.ragEmbedModel, "mxbai-embed-large")
     }
+
+    // MARK: Assistant panel size
+
+    func testAssistantPanelSizeDefaultsToTheShippedValues() {
+        let prefs = Preferences(defaults: defaults)
+        XCTAssertEqual(prefs.assistantPanelWidth, Preferences.assistantPanelDefaultWidth)
+        XCTAssertEqual(prefs.assistantPanelHeight, Preferences.assistantPanelDefaultHeight)
+    }
+
+    func testAssistantPanelSizeSurvivesRelaunch() {
+        let prefs = Preferences(defaults: defaults)
+        prefs.setAssistantPanelSize(CGSize(width: 500, height: 600))
+
+        let reloaded = Preferences(defaults: defaults)
+        XCTAssertEqual(reloaded.assistantPanelWidth, 500)
+        XCTAssertEqual(reloaded.assistantPanelHeight, 600)
+    }
+
+    /// A corrupt default, a stray drag bug, or just a small display shouldn't
+    /// be able to produce a panel outside the usable range.
+    func testAssistantPanelSizeClampsAtBothEnds() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.setAssistantPanelSize(CGSize(width: 10, height: 10))
+        XCTAssertEqual(prefs.assistantPanelWidth, Preferences.assistantPanelWidthRange.lowerBound)
+        XCTAssertEqual(prefs.assistantPanelHeight, Preferences.assistantPanelHeightRange.lowerBound)
+
+        prefs.setAssistantPanelSize(CGSize(width: 5000, height: 5000))
+        XCTAssertEqual(prefs.assistantPanelWidth, Preferences.assistantPanelWidthRange.upperBound)
+        XCTAssertEqual(prefs.assistantPanelHeight, Preferences.assistantPanelHeightRange.upperBound)
+    }
+
+    func testResetAssistantPanelSizeRestoresTheDefaults() {
+        let prefs = Preferences(defaults: defaults)
+        prefs.setAssistantPanelSize(CGSize(width: 700, height: 800))
+        prefs.resetAssistantPanelSize()
+        XCTAssertEqual(prefs.assistantPanelWidth, Preferences.assistantPanelDefaultWidth)
+        XCTAssertEqual(prefs.assistantPanelHeight, Preferences.assistantPanelDefaultHeight)
+    }
 }
 
 /// Reduce Motion is an accessibility setting, not a preference to soften —

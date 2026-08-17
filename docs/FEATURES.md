@@ -145,7 +145,7 @@ screen) that expands into a chat panel. You ask it questions about your notes,
 schedule, and grades, and it runs on Ollama — a local AI engine on your Mac,
 so no data leaves your machine.
 
-**How to use it** — **Settings → Grades → AI (beta)** — turn on "Floating
+**How to use it** — **Settings → Misc → AI (beta)** — turn on "Floating
 assistant". Make sure Ollama is running (`ollama serve` in a terminal), then
 click the sparkles orb. The panel stays open across screens; type your message
 and press Return. The assistant picks a permission level you set (see below) —
@@ -158,6 +158,16 @@ stays local — no cloud, no API keys, no tracking. Your model stays running in
 Ollama; switching models in Settings auto-unloads the old one if you want to save
 RAM (manual "Unload other running models" button is there too).
 
+**Getting a model** — **Settings → Misc → Download Models** lists the exact
+terminal commands: install Ollama (`brew install ollama`), start it
+(`ollama serve`), pull a chat model (`ollama pull qwen2.5-coder:1.5b` — small
+and fast, what this app is built against), and pull the embedding model
+(`ollama pull nomic-embed-text`) that note search runs on. A small model like
+`qwen2.5-coder:1.5b` sometimes answers a notes question directly instead of
+actually searching — `/rag "question"` always searches regardless of model
+size. Grounded `/rag` answers additionally need `llama.cpp`
+(`brew install llama.cpp`), which downloads its own model on first use.
+
 ### Permission levels
 **What it does** — Three choices for how the assistant acts when it comes up with
 something to do (add a calendar event, append text to a note, etc.):
@@ -167,7 +177,7 @@ something to do (add a calendar event, append text to a note, etc.):
   to tap "Apply" or "Skip".
 - **Act automatically** — runs actions without asking.
 
-**How to use it** — **Settings → Grades → AI (beta) → How the assistant
+**How to use it** — **Settings → Misc → AI (beta) → How the assistant
 acts**.
 
 ### What the assistant can do
@@ -311,7 +321,7 @@ eye to the change. Two animation styles:
 Respects your Mac's Reduce Motion setting (collapses to a plain instant fade
 if turned on).
 
-**How to use it** — **Settings → Grades → AI (beta) → Text reveal** — pick
+**How to use it** — **Settings → Misc → AI (beta) → Text reveal** — pick
 Sweep or Word blink. The choice applies the next time AI writes into a note.
 
 **Notes & limits** — Pure eye candy — the glow is client-side only. Turn it off

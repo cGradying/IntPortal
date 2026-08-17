@@ -241,6 +241,10 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var systemScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.undoManager) private var undoManager
+    /// Flipped true just after the chrome band mounts, so it dithers in rather
+    /// than appearing whole. Reset by the band's own `onAppear` each time a
+    /// destination opens (the band's `if` removes/reinserts it from the tree).
+    @State private var bandResolved = false
 
     var body: some View {
         content
@@ -271,25 +275,39 @@ struct ContentView: View {
                             .ignoresSafeArea()
                     } else {
                         destination(for: credentials)
-                            .padding(.top, 40) // clear the slim top bar
+                            .padding(.top, Theme.Chrome.topStrip) // clear the slim top bar
                             .transition(.opacity)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // A pixel-dither strip textures the otherwise-flat top bar.
+                // A pixel-dither strip textures the otherwise-flat top bar. Clipped
+                // slightly inside the window's own rounded corner so individual
+                // dither cells are never sliced mid-square by the window mask.
                 if !appState.isHome {
-                    DitherBand(color: preferences.theme.palette(for: systemScheme).accent.opacity(0.6))
-                        .frame(height: 40)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        .transition(.opacity)
+                    DitherFill(
+                        color: preferences.theme.palette(for: systemScheme).accent.opacity(0.6),
+                        density: bandResolved ? 1 : 0
+                    )
+                    .frame(height: Theme.Chrome.topStrip)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .clipShape(
+                        UnevenRoundedRectangle(
+                            topLeadingRadius: Theme.Chrome.windowRadius,
+                            topTrailingRadius: Theme.Chrome.windowRadius
+                        )
+                    )
+                    .transition(.opacity)
+                    .onAppear { bandResolved = false }
+                    .animation(Motion.arrival(reduced: reduceMotion), value: bandResolved)
+                    .task { bandResolved = true }
                 }
 
                 // Invisible titlebar-style drag strip: moves the window in place of
                 // background dragging (which fought the calendar's create-drag).
                 // Below the island in z-order, so island buttons still win.
                 WindowDragArea()
-                    .frame(height: 40)
+                    .frame(height: Theme.Chrome.topStrip)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
                 // The island itself never re-mounts — it *glides* from centre (home)

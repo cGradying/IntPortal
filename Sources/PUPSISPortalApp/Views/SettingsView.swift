@@ -129,13 +129,12 @@ struct SettingsView: View {
                 Text("Your program's total required units, for the completed-units progress on the Grades trend. SIS doesn't publish it.")
                     .foregroundStyle(.secondary)
             }
-
-            aiSection
         }
     }
 
-    /// Beta, off by default. Lives on the Grades tab because it's the emptiest
-    /// one — worth its own tab only once there's more than a toggle here.
+    /// Beta, off by default. Lives on the Misc tab alongside the local-model
+    /// download steps and the RAG tuning knobs — everything AI-related in
+    /// one place, rather than a toggle stranded on the Grades tab.
     private var aiSection: some View {
         Section {
             Toggle("Floating assistant", isOn: $preferences.aiEnabled)
@@ -218,6 +217,59 @@ struct SettingsView: View {
                 primaryButton: .default(Text("Load Anyway")) { commitModel(pending.name) },
                 secondaryButton: .cancel()
             )
+        }
+    }
+
+    /// Copy-pasteable terminal steps for the two things `aiSection` needs
+    /// installed — Ollama isn't bundled, and neither the chat model nor the
+    /// embedding model are picked for the user. `qwen2.5-coder:1.5b` is
+    /// called out as the small/fast default; the caveat about tool-calling
+    /// is real (confirmed live) rather than theoretical, so it's worth the
+    /// line rather than a silent surprise the first time `/rag` behaves
+    /// differently from a plain question.
+    private var downloadModelsSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+                modelStep(1, "Install Ollama", "brew install ollama")
+                modelStep(2, "Start it", "ollama serve")
+                modelStep(3, "Pull a chat model", "ollama pull qwen2.5-coder:1.5b")
+                Text("Small and fast, the default this app is built against. A model this size sometimes answers directly instead of actually searching your notes — `/rag \"question\"` always searches, regardless of model.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 22)
+                modelStep(4, "Pull the embedding model", "ollama pull nomic-embed-text")
+                Text("Powers note search (`ragEmbedModel` below) — a plain chat model can't embed.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 22)
+                modelStep(5, "Optional: grounded /rag answers", "brew install llama.cpp")
+                Text("The model downloads itself on first use — nothing to pull by hand.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 22)
+            }
+            .padding(.vertical, 2)
+        } header: {
+            Text("Download Models")
+        } footer: {
+            Text("Run these in Terminal, then hit “Check again” above (or just reopen this tab).")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func modelStep(_ number: Int, _ label: String, _ command: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("\(number).")
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .frame(width: 14, alignment: .trailing)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label).font(.caption)
+                Text(command)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
         }
     }
 
@@ -304,6 +356,9 @@ struct SettingsView: View {
                 Text("Opens Finder with notes.json selected — the file everything in Notes is stored in.")
                     .foregroundStyle(.secondary)
             }
+
+            aiSection
+            downloadModelsSection
 
             Section {
                 Button("Delete All Notes…", role: .destructive) { confirmingWipe = true }

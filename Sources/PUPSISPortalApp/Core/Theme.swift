@@ -216,6 +216,17 @@ enum Motion {
 
 /// Fonts don't vary by theme, so they stay static.
 enum Theme {
+    /// The floating top chrome — the dither band, the window-drag surface, and
+    /// the destination's own top inset all key off this one value, rather than
+    /// three matching-by-coincidence literals.
+    enum Chrome {
+        /// Height of the strip the nav island floats in.
+        static let topStrip: CGFloat = 40
+        /// Slightly inside the NSWindow's own rounded corner, so the chrome
+        /// band's dither cells are never sliced mid-square by the window mask.
+        static let windowRadius: CGFloat = 14
+    }
+
     /// Three faces, three jobs. New York (`.serif`) makes the course code the
     /// anchor of a block instead of another bolded caption; SF Mono keeps the
     /// time column from reshuffling its width between `9AM` and `12PM`.

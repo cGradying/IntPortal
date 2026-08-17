@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST_DIR="${1:-$HOME/Applications}"
 APP="$DEST_DIR/PUPSISPortal.app"
 BUNDLE_ID="com.cgradying.pupsisportal"
-VERSION="${VERSION:-1.2.0}"
+VERSION="${VERSION:-1.2.1}"
 
 cd "$ROOT"
 echo "Building PUPSISPortal (release)..."
