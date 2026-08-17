@@ -119,7 +119,8 @@ final class AssistantCommandRunnerTests: XCTestCase {
             ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }), // forces the term-match fallback
             llamaCppClient: LlamaCppClient(send: { _ in
                 (Data(#"{"choices":[{"message":{"content":"A base case and a recursive case."}}]}"#.utf8), 200)
-            })
+            }),
+            ensureServerRunning: { true } // never spawn/health-check a real llama-server in a test
         )
         let outcome = await runner(ragQuery: ragQuery).run(.rag(prompt: "recursion"))
         XCTAssertEqual(outcome.reply, "A base case and a recursive case.")

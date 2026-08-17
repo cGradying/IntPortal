@@ -88,7 +88,8 @@ final class RAGQueryTests: XCTestCase {
         let query = RAGQuery(
             notes: notesStore,
             ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
-            llamaCppClient: client
+            llamaCppClient: client,
+            ensureServerRunning: { true } // never spawn/health-check a real llama-server in a test
         )
 
         do {
@@ -111,6 +112,7 @@ final class RAGQueryTests: XCTestCase {
             notes: notesStore,
             ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
             llamaCppClient: client,
+            ensureServerRunning: { true }, // never spawn/health-check a real llama-server in a test
             contextBudget: 20 // smaller than the single matching chunk's own text
         )
 
