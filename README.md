@@ -455,7 +455,7 @@ use or redistribution as part of a commercial offering.
 
 _Feedback from people using the app will go here._
 
-> \_"**2026-08-17 — Bug report: Topbar buttons disappear on hover (Full Screen)**
+> \_"**08/17/26 — Bug report: Topbar buttons disappear on hover (Full Screen)**
 > **Steps to reproduce:**
 >
 > > 1. Launch the app on macOS Sequoia 15.6.1.
