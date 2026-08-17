@@ -42,6 +42,9 @@ struct AgendaView: View {
     @State private var showingDatePicker = false
     /// The folder currently highlighted as a drag-drop target.
     @State private var dropTarget: UUID?
+    /// Shows the per-row RAG-included/excluded chip — off by default so the
+    /// vault reads plain until the user actually wants to check.
+    @State private var showRAGBadges = false
 
     struct NamingRequest: Identifiable {
         let id = UUID()
@@ -137,6 +140,7 @@ struct AgendaView: View {
 
             WebNoteEditor(
                 notes: notes,
+                preferences: preferences,
                 noteKey: currentKey,
                 title: noteTitle(for: currentKey),
                 onOpenNote: openNote(titled:),
@@ -316,6 +320,11 @@ struct AgendaView: View {
             HStack(spacing: 6) {
                 Text("Vault").font(Theme.Typo.detailMeta).foregroundStyle(.secondary)
                 Spacer()
+                Button { showRAGBadges.toggle() } label: {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(showRAGBadges ? palette.accent : .secondary)
+                }
+                .help("\(notes.ragCounts().included) of \(notes.ragCounts().total) notes in AI search — click to show which")
                 Button { promptNewFile(parent: nil) } label: { Image(systemName: "doc.badge.plus") }
                     .help("New note")
                 Button { promptNewFolder(parent: nil) } label: { Image(systemName: "folder.badge.plus") }
@@ -341,31 +350,35 @@ struct AgendaView: View {
     }
 
     // AnyView: the function is recursive, so the opaque `some View` can't be
-    // inferred in terms of itself.
-    private func vaultRow(_ node: VaultNode, depth: Int) -> AnyView {
+    // inferred in terms of itself. `inheritedExcluded` carries an ancestor
+    // folder's RAG exclusion down so a child's badge reflects the *effective*
+    // state, not just its own flag.
+    private func vaultRow(_ node: VaultNode, depth: Int, inheritedExcluded: Bool = false) -> AnyView {
+        let effectiveExcluded = inheritedExcluded || node.ragExcluded == true
         if node.isFolder {
             return AnyView(
                 VStack(alignment: .leading, spacing: 0) {
-                    folderRow(node, depth: depth)
+                    folderRow(node, depth: depth, effectiveExcluded: effectiveExcluded)
                     if expandedFolders.contains(node.id) {
                         ForEach(node.children ?? []) { child in
-                            vaultRow(child, depth: depth + 1)
+                            vaultRow(child, depth: depth + 1, inheritedExcluded: effectiveExcluded)
                         }
                     }
                 }
             )
         }
-        return AnyView(fileRow(node, depth: depth))
+        return AnyView(fileRow(node, depth: depth, effectiveExcluded: effectiveExcluded))
     }
 
-    private func folderRow(_ node: VaultNode, depth: Int) -> some View {
+    private func folderRow(_ node: VaultNode, depth: Int, effectiveExcluded: Bool) -> some View {
         let open = expandedFolders.contains(node.id)
         return HStack(spacing: 6) {
             Image(systemName: open ? "chevron.down" : "chevron.right")
                 .font(.caption2).foregroundStyle(.secondary).frame(width: 10)
-            Image(systemName: "folder").foregroundStyle(.secondary)
+            Image(systemName: "folder").foregroundStyle(labelColor(node) ?? .secondary)
             Text(node.name).font(Theme.Typo.footer).lineLimit(1)
             Spacer(minLength: 4)
+            if showRAGBadges { ragBadge(excluded: effectiveExcluded) }
         }
         .padding(.vertical, 4)
         .padding(.leading, CGFloat(depth) * 14)
@@ -383,16 +396,20 @@ struct AgendaView: View {
             Button("New note") { promptNewFile(parent: node.id) }
             Button("New folder") { promptNewFolder(parent: node.id) }
             Button("Rename") { promptRename(node) }
+            labelMenu(for: node)
+            Toggle("Include in AI search", isOn: ragIncludedBinding(for: node))
+            Divider()
             Button("Delete", role: .destructive) { pendingDelete = node }
         }
     }
 
-    private func fileRow(_ node: VaultNode, depth: Int) -> some View {
+    private func fileRow(_ node: VaultNode, depth: Int, effectiveExcluded: Bool) -> some View {
         let selected = node.noteKey == currentKey
         return HStack(spacing: 6) {
-            Image(systemName: "doc.text").foregroundStyle(.secondary).frame(width: 10)
+            Image(systemName: "doc.text").foregroundStyle(labelColor(node) ?? .secondary).frame(width: 10)
             Text(node.name).font(Theme.Typo.footer).lineLimit(1)
             Spacer(minLength: 4)
+            if showRAGBadges { ragBadge(excluded: effectiveExcluded) }
             if let key = node.noteKey, notes.hasNote(for: key) { noteDot }
         }
         .padding(.vertical, 4)
@@ -406,13 +423,70 @@ struct AgendaView: View {
         .contextMenu {
             if let key = node.noteKey {
                 Button("Copy text") { copyNoteText(key) }
-                Button("Share as…") { exportNote(key) }
+                exportMenu(for: key)
                 Divider()
             }
             Button("Rename") { promptRename(node) }
+            labelMenu(for: node)
+            Toggle("Include in AI search", isOn: ragIncludedBinding(for: node))
+            Divider()
             Button("Delete", role: .destructive) { pendingDelete = node }
         }
     }
+
+    /// A node's colour label, resolved from its stored hex — `nil` reads as
+    /// "use the row's default secondary tint" everywhere it's used.
+    private func labelColor(_ node: VaultNode) -> Color? {
+        node.colorHex.flatMap(Color.init(hex:))
+    }
+
+    /// The palette's own swatches plus "None" — the fixed-row pattern
+    /// `SwatchRow` (`Views/Blocks.swift`) uses for subject colours. A plain SF
+    /// Symbol would render monochrome (menus template-tint symbol icons), so
+    /// each swatch is baked into a real, non-template `NSImage` dot — the one
+    /// way a colour survives into an AppKit menu.
+    @ViewBuilder private func labelMenu(for node: VaultNode) -> some View {
+        Menu("Label") {
+            Button("None") { notes.setColor(nil, for: node.id) }
+            ForEach(Array(palette.subjectColors.enumerated()), id: \.offset) { index, swatch in
+                Button {
+                    notes.setColor(swatch.hex, for: node.id)
+                } label: {
+                    Label {
+                        Text(node.colorHex == swatch.hex ? "Colour \(index + 1) ✓" : "Colour \(index + 1)")
+                    } icon: {
+                        Self.swatchIcon(swatch)
+                    }
+                }
+            }
+        }
+    }
+
+    private static func swatchIcon(_ color: Color) -> Image {
+        let size = NSSize(width: 12, height: 12)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSColor(color).setFill()
+        NSBezierPath(ovalIn: NSRect(origin: .zero, size: size)).fill()
+        image.unlockFocus()
+        image.isTemplate = false
+        return Image(nsImage: image)
+    }
+
+    private func ragIncludedBinding(for node: VaultNode) -> Binding<Bool> {
+        Binding(
+            get: { node.ragExcluded != true },
+            set: { notes.setRAGExcluded(!$0, for: node.id) }
+        )
+    }
+
+    private func ragBadge(excluded: Bool) -> some View {
+        Image(systemName: excluded ? "sparkles.slash" : "sparkles")
+            .font(.caption2)
+            .foregroundStyle(excluded ? .secondary : palette.accent)
+            .help(excluded ? "Excluded from AI search" : "Included in AI search")
+    }
+
 
     /// Move a dragged node (by id string) into `parent` (root when nil).
     private func handleDrop(_ items: [String], into parent: UUID?) -> Bool {
@@ -468,12 +542,31 @@ struct AgendaView: View {
         NSPasteboard.general.setString(notes.text(for: key), forType: .string)
     }
 
-    /// "Share as" — write the note's Markdown to a file the user picks.
-    private func exportNote(_ key: String) {
+    /// Export ▸ Markdown / Plain text / PDF, one `NSSavePanel` shared across
+    /// the three renderers in `Core/NoteExport.swift`.
+    private func exportMenu(for key: String) -> some View {
+        Menu("Export") {
+            ForEach(NoteExportFormat.allCases) { format in
+                Button(format.label) { exportNote(key, as: format) }
+            }
+        }
+    }
+
+    private func exportNote(_ key: String, as format: NoteExportFormat) {
+        let title = noteTitle(for: key)
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = noteTitle(for: key).replacingOccurrences(of: "/", with: "-") + ".md"
+        panel.nameFieldStringValue = title.replacingOccurrences(of: "/", with: "-") + "." + format.fileExtension
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        try? notes.text(for: key).write(to: url, atomically: true, encoding: .utf8)
+
+        let markdown = notes.text(for: key)
+        switch format {
+        case .markdown:
+            try? markdown.write(to: url, atomically: true, encoding: .utf8)
+        case .plainText:
+            try? NoteExport.plainText(from: markdown).write(to: url, atomically: true, encoding: .utf8)
+        case .pdf:
+            NoteExport.writePDF(markdown, title: title, to: url)
+        }
     }
 
     /// Clear a day/class/event note (they aren't vault files, so emptying is the
@@ -486,7 +579,7 @@ struct AgendaView: View {
     /// The copy / export / delete actions shared by day, class, event and history notes.
     @ViewBuilder private func noteActions(for key: String) -> some View {
         Button("Copy text") { copyNoteText(key) }
-        Button("Share as…") { exportNote(key) }
+        exportMenu(for: key)
         if notes.hasNote(for: key) {
             Button("Delete", role: .destructive) { clearNote(key) }
         }

@@ -2,7 +2,7 @@
 // $$…$$ / $…$ render inline via KaTeX (auto, no click); move the caret into a
 // math span to edit its source. Bridged to the native app over WKWebView.
 import { EditorView, Decoration, WidgetType, ViewPlugin, keymap, drawSelection, lineNumbers } from "@codemirror/view";
-import { EditorState, StateField, RangeSetBuilder } from "@codemirror/state";
+import { EditorState, StateField, StateEffect, RangeSetBuilder } from "@codemirror/state";
 import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle, LanguageDescription, syntaxTree } from "@codemirror/language";
@@ -949,6 +949,152 @@ const latexDocField = StateField.define({
   ],
 });
 
+// --- Word-by-word fade-in for AI-inserted text (Replace / Insert below in
+// runAI, below). The document is correct from the first frame — this is a
+// purely visual overlay of Decoration.mark ranges that fades/glows in and
+// then clears itself; it never delays or stages what actually gets saved. ---
+const startWordFade = StateEffect.define();
+const clearWordFade = StateEffect.define();
+let wordFadeGen = 0;
+
+const wordFadeField = StateField.define({
+  create() { return Decoration.none; },
+  update(deco, tr) {
+    deco = deco.map(tr.changes);
+    for (const effect of tr.effects) {
+      if (effect.is(startWordFade)) deco = effect.value.deco;
+      // An older batch's own cleanup timer firing after a newer fade has
+      // already started must not wipe the new one out from under it.
+      if (effect.is(clearWordFade) && effect.value === wordFadeGen) deco = Decoration.none;
+    }
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+// Every inserted word gets the reveal — no word-count cap. What's bounded is
+// the *total* cascade time: stagger compresses for a long insert so 1000
+// words doesn't take 1000×16ms=16s to finish revealing. (Previously a fixed
+// WORD_FADE_MAX=120 word cap just stopped animating past word 120 with no
+// visual cue why — reported as "the animation stops halfway".)
+const WORD_FADE_STAGGER_MS = 16;
+const WORD_FADE_DURATION_MS = 460;
+const WORD_FADE_MAX_TOTAL_MS = 1400;
+
+// "sweep" (default, Settings → AI (beta) → Text reveal): one continuous glow
+// band per line. "blink": each word gets its own independent glow pulse —
+// the original behavior, kept as the alternative rather than replaced.
+let aiRevealMode = "sweep";
+export function setAIRevealMode(mode) {
+  aiRevealMode = mode === "blink" ? "blink" : "sweep";
+}
+
+function triggerWordFade(from, to) {
+  if (!view) return;
+  const text = view.state.doc.sliceString(from, to);
+  const words = [...text.matchAll(/\S+/g)];
+  if (!words.length) return;
+
+  // Never exceeds WORD_FADE_STAGGER_MS per word for a short insert; only
+  // compresses once the word count would otherwise blow past the total-time
+  // budget.
+  const stagger = Math.min(WORD_FADE_STAGGER_MS, WORD_FADE_MAX_TOTAL_MS / words.length);
+
+  const glowClass = aiRevealMode === "blink" ? "pup-fade-word pup-glow" : "pup-fade-word";
+  const builder = new RangeSetBuilder();
+  // Grouped by rendered *visual row*, not the document/hard line — a
+  // paragraph is normally one long hard line that soft-wraps under
+  // EditorView.lineWrapping, so grouping by doc.lineAt gave one giant band
+  // spanning the whole paragraph instead of following each wrapped row.
+  // Rows are found by measured position (coordsAtPos, rounded) — the same
+  // technique the AI pill/menu already use, and the only way to know where a
+  // wrap actually broke since CodeMirror doesn't expose that directly.
+  const rowGroups = [];
+  for (let i = 0; i < words.length; i++) {
+    const start = from + words[i].index;
+    const end = start + words[i][0].length;
+    builder.add(start, end, Decoration.mark({ attributes: { class: glowClass, style: `--i:${i};--stagger:${stagger}ms` } }));
+
+    const coords = view.coordsAtPos(start);
+    const row = coords ? Math.round(coords.top) : -1;
+    const currentGroup = rowGroups[rowGroups.length - 1];
+    if (!currentGroup || currentGroup.row !== row) {
+      rowGroups.push({ row, startIndex: i, endIndex: i });
+    } else {
+      currentGroup.endIndex = i;
+    }
+  }
+
+  const gen = ++wordFadeGen;
+  view.dispatch({ effects: startWordFade.of({ deco: builder.finish(), gen }) });
+  const lastDelay = (words.length - 1) * stagger;
+  setTimeout(() => {
+    if (view) view.dispatch({ effects: clearWordFade.of(gen) });
+  }, lastDelay + WORD_FADE_DURATION_MS + 80);
+
+  if (aiRevealMode !== "blink") spawnSweepBands(from, words, rowGroups, stagger);
+}
+
+// One glow band per rendered row, positioned from real measured coordinates
+// (coordsAtPos — the same technique the AI pill/menu already use) so it
+// tracks the actual wrapped layout rather than assuming a fixed-width line.
+// Each band's delay/duration matches the word range it's escorting, using
+// the same index bookkeeping triggerWordFade already built above — so a
+// multi-row insert reads as one glow flowing row to row, not several
+// independent effects fighting for attention.
+function spawnSweepBands(from, words, rowGroups, stagger) {
+  for (const group of rowGroups) {
+    const firstWord = words[group.startIndex];
+    const lastWord = words[group.endIndex];
+    const segStart = from + firstWord.index;
+    const segEnd = from + lastWord.index + lastWord[0].length;
+    const startCoords = view.coordsAtPos(segStart);
+    const endCoords = view.coordsAtPos(segEnd);
+    if (!startCoords || !endCoords) continue;
+
+    const rect = {
+      left: startCoords.left,
+      right: endCoords.right,
+      top: Math.min(startCoords.top, endCoords.top),
+      bottom: Math.max(startCoords.bottom, endCoords.bottom),
+    };
+    const wordCount = group.endIndex - group.startIndex + 1;
+    const delayMs = group.startIndex * stagger;
+    const durationMs = wordCount * stagger + WORD_FADE_DURATION_MS;
+    spawnSweepBand(rect, delayMs, durationMs);
+  }
+}
+
+// Anchored inside the editor's own scroller (`view.scrollDOM`, CodeMirror's
+// `.cm-scroller`) as `position:absolute`, not `document.body` as
+// `position:fixed`. `coordsAtPos` gives viewport coordinates, which is what
+// broke this: a fixed-position band never moved once spawned, so scrolling
+// while a band was still running (now up to ~1.4s for a long insert) left it
+// glued to its birth position while the actual text scrolled out from under
+// it. Converting that viewport rect to scroller-relative once, then
+// appending as the scroller's own child, means the band scrolls for free —
+// it's just more scrolled content, no scroll listener needed.
+function spawnSweepBand(rect, delayMs, durationMs) {
+  const scroller = view.scrollDOM;
+  const scrollerRect = scroller.getBoundingClientRect();
+  const left = rect.left - scrollerRect.left + scroller.scrollLeft;
+  const top = rect.top - scrollerRect.top + scroller.scrollTop;
+
+  const band = document.createElement("div");
+  band.className = "pup-sweep-band";
+  band.style.left = `${left - 4}px`;
+  band.style.top = `${top - 3}px`;
+  band.style.width = `${Math.max(rect.right - rect.left + 8, 16)}px`;
+  band.style.height = `${rect.bottom - rect.top + 6}px`;
+  const beam = document.createElement("div");
+  beam.className = "pup-sweep-beam";
+  beam.style.animationDelay = `${delayMs}ms`;
+  beam.style.animationDuration = `${durationMs}ms`;
+  band.appendChild(beam);
+  scroller.appendChild(band);
+  setTimeout(() => band.remove(), delayMs + durationMs + 80);
+}
+
 // --- Syntax highlighting: markdown structure + code tokens (Discord-ish) ---
 const highlight = HighlightStyle.define([
   { tag: t.heading1, fontSize: "1.6em", fontWeight: "700" },
@@ -1015,8 +1161,10 @@ export function initEditor(initialText, key) {
         imagePlugin,
         tableField,
         latexDocField,
+        wordFadeField,
         EditorView.updateListener.of((u) => {
           if (u.docChanged) post("notes", { key: docKey, text: view.state.doc.toString() });
+          if (u.docChanged || u.selectionSet) updateAIPill();
         }),
       ],
     }),
@@ -1091,6 +1239,192 @@ export function insertText(text) {
   const insert = `\n\n${text}\n`;
   view.dispatch({ changes: { from: to, insert }, selection: { anchor: to + insert.length } });
   view.focus();
+}
+
+// --- AI selection assist: select text -> a floating "Ask AI" pill -> pick
+// Summarize / Answer this / a custom prompt -> native runs the model ->
+// Replace / Insert below / Copy. Follows the same in-page-popover pattern as
+// the pupdb column menu (makeDbMenu, above): a <div> on document.body,
+// positioned from getBoundingClientRect, dismissed on outside mousedown —
+// nothing here is native chrome. ---
+let aiEnabled = false;
+let aiPill = null;
+// The range + text a request was sent for, captured when the menu opened
+// (not when the result lands) — the caret may have moved by then, and the
+// answer must still apply to what the user actually selected.
+let pendingAI = null;
+let aiRequestId = 0;
+
+export function setAIEnabled(on) {
+  aiEnabled = !!on;
+  if (!aiEnabled) removeAIPill();
+}
+
+function closeAIMenus() {
+  document.querySelectorAll(".pup-ai-menu").forEach((m) => m.remove());
+  pendingAI = null;
+}
+
+function removeAIPill() {
+  if (aiPill) { aiPill.remove(); aiPill = null; }
+  closeAIMenus();
+}
+
+// Places `el` (already appended, so its real size is measurable) below `r`
+// by default — that's the requested placement — but flips above `r` when
+// there isn't room below, and always clamps left/right so the element can
+// never render partly off the visible viewport regardless of where the
+// selection sits.
+function positionBelow(el, r) {
+  const margin = 8;
+  const rect = el.getBoundingClientRect();
+
+  let left = r.left;
+  if (left + rect.width + margin > window.innerWidth) {
+    left = window.innerWidth - rect.width - margin;
+  }
+  left = Math.max(margin, left);
+
+  let top = r.bottom + 6;
+  if (top + rect.height + margin > window.innerHeight) {
+    const above = r.top - rect.height - 6;
+    top = above >= margin ? above : Math.max(margin, window.innerHeight - rect.height - margin);
+  }
+
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+}
+
+function updateAIPill() {
+  if (!view) return;
+  const { from, to } = view.state.selection.main;
+  if (!aiEnabled || from === to) { removeAIPill(); return; }
+  // Anchor to the selection's end, so the pill sits under the text the user
+  // just finished selecting rather than over the start of it.
+  const coords = view.coordsAtPos(to) || view.coordsAtPos(from);
+  if (!coords) { removeAIPill(); return; }
+  if (!aiPill) {
+    aiPill = document.createElement("button");
+    aiPill.className = "pup-ai-pill";
+    aiPill.textContent = "✨ Ask AI";
+    // Keep the editor's selection alive through the click — a plain click
+    // would collapse it before openAIMenu ever reads `from`/`to`.
+    aiPill.addEventListener("mousedown", (e) => e.preventDefault());
+    document.body.appendChild(aiPill);
+  }
+  aiPill.onclick = () => openAIMenu(aiPill, from, to);
+  positionBelow(aiPill, coords);
+}
+
+function openAIMenu(anchor, from, to) {
+  closeAIMenus();
+  const text = view.state.sliceDoc(from, to);
+  const menu = document.createElement("div");
+  menu.className = "pup-ai-menu";
+  menu.addEventListener("mousedown", (e) => e.stopPropagation());
+  document.body.appendChild(menu);
+  // The anchor's rect, kept for re-positioning as the menu's own content
+  // (and so its size) changes underneath it — "Thinking…" then a preview.
+  menu._anchorRect = anchor.getBoundingClientRect();
+
+  const item = (label, onClick) => {
+    const el = document.createElement("div");
+    el.className = "pup-ai-menuitem";
+    el.textContent = label;
+    el.addEventListener("click", onClick);
+    menu.appendChild(el);
+  };
+  item("Summarize", () => runAI(menu, "summarize", null, text, from, to));
+  item("Answer this", () => runAI(menu, "answer", null, text, from, to));
+  item("Structure this", () => runAI(menu, "structure", null, text, from, to));
+
+  const custom = document.createElement("div");
+  custom.className = "pup-ai-custom";
+  const input = document.createElement("input");
+  input.className = "pup-ai-custom-input";
+  input.placeholder = "Custom prompt…";
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && input.value.trim()) {
+      runAI(menu, "custom", input.value.trim(), text, from, to);
+    }
+  });
+  custom.appendChild(input);
+  menu.appendChild(custom);
+  positionBelow(menu, menu._anchorRect);
+  input.focus();
+
+  setTimeout(() => document.addEventListener("mousedown", function close(e) {
+    if (!menu.contains(e.target) && e.target !== aiPill) {
+      menu.remove();
+      document.removeEventListener("mousedown", close);
+    }
+  }), 0);
+}
+
+function runAI(menu, mode, prompt, text, from, to) {
+  const id = ++aiRequestId;
+  pendingAI = { id, from, to };
+  menu.innerHTML = "";
+  const status = document.createElement("div");
+  status.className = "pup-ai-status";
+  status.textContent = "Thinking…";
+  menu.appendChild(status);
+  positionBelow(menu, menu._anchorRect);
+  post("ai", { id, mode, prompt, text });
+}
+
+// Native calls back into this once the model answers (or fails).
+export function aiResult(id, text, error) {
+  const menu = document.querySelector(".pup-ai-menu");
+  if (!menu || !pendingAI || pendingAI.id !== id) return;
+  menu.innerHTML = "";
+
+  if (error) {
+    const line = document.createElement("div");
+    line.className = "pup-ai-status pup-ai-error";
+    line.textContent = error;
+    menu.appendChild(line);
+    positionBelow(menu, menu._anchorRect);
+    return;
+  }
+
+  const preview = document.createElement("div");
+  preview.className = "pup-ai-preview";
+  preview.textContent = text;
+  menu.appendChild(preview);
+
+  const actions = document.createElement("div");
+  actions.className = "pup-ai-actions";
+  const range = pendingAI;
+  const button = (label, onClick) => {
+    const b = document.createElement("button");
+    b.className = "pup-ai-actionbtn";
+    b.textContent = label;
+    b.addEventListener("click", onClick);
+    actions.appendChild(b);
+  };
+  button("Replace", () => {
+    view.dispatch({ changes: { from: range.from, to: range.to, insert: text },
+      selection: { anchor: range.from + text.length } });
+    triggerWordFade(range.from, range.from + text.length);
+    view.focus();
+    removeAIPill();
+  });
+  button("Insert below", () => {
+    const insert = `\n\n${text}\n`;
+    const textStart = range.to + 2; // past the leading "\n\n"
+    view.dispatch({ changes: { from: range.to, insert },
+      selection: { anchor: range.to + insert.length } });
+    triggerWordFade(textStart, textStart + text.length);
+    view.focus();
+    removeAIPill();
+  });
+  button("Copy", () => {
+    navigator.clipboard?.writeText(text);
+    closeAIMenus();
+  });
+  menu.appendChild(actions);
+  positionBelow(menu, menu._anchorRect);
 }
 
 // --- Toolbar commands (called from the native toolbar via evaluateJavaScript) ---

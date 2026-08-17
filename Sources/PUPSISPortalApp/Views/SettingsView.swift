@@ -27,6 +27,8 @@ struct SettingsView: View {
     /// Mirrors the OS login-item status; re-read after every toggle so it can't
     /// drift from System Settings.
     @State fileprivate var launchAtLogin = LoginItem.isEnabled
+    /// Gates the Misc tab's "Delete All Notes" confirmation dialog.
+    @State private var confirmingWipe = false
 
     /// Subjects the user can actually recolor: whatever is on screen right now.
     private var subjectCodes: [String] {
@@ -40,6 +42,7 @@ struct SettingsView: View {
             notificationsTab.tabItem { Label("Notifications", systemImage: "bell.badge") }
             gradesTab.tabItem { Label("Grades", systemImage: "graduationcap") }
             accountTab.tabItem { Label("Account", systemImage: "person.crop.circle") }
+            miscTab.tabItem { Label("Misc", systemImage: "ellipsis.circle") }
             aboutTab.tabItem { Label("About", systemImage: "info.circle") }
         }
         .tint(palette.accent)
@@ -162,6 +165,14 @@ struct SettingsView: View {
                 Text(preferences.aiPermission.explanation)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Picker("Text reveal", selection: $preferences.aiRevealAnimation) {
+                    ForEach(AIRevealAnimation.allCases) { style in
+                        Text(style.label).tag(style)
+                    }
+                }
+                Text("How Replace/Insert below animates in — a connected sweep down each line, or each word fading in on its own.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Button("Edit assistant instructions…") {
                     NSWorkspace.shared.open(AssistantInstructions.ensureExists())
                 }
@@ -279,6 +290,74 @@ struct SettingsView: View {
             await client.unload(model: model)
         }
         await refreshRunningOthers()
+    }
+
+    private var miscTab: some View {
+        settingsForm {
+            Section {
+                Button("Reveal in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([NotesStore.defaultURL])
+                }
+            } header: {
+                Text("Notes Database")
+            } footer: {
+                Text("Opens Finder with notes.json selected — the file everything in Notes is stored in.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Button("Delete All Notes…", role: .destructive) { confirmingWipe = true }
+            } header: {
+                Text("Wipe Notes")
+            } footer: {
+                Text("Deletes every note, folder, and pasted image. Login, schedule/grades cache, and settings are untouched.")
+                    .foregroundStyle(.secondary)
+            }
+            .confirmationDialog(
+                "Delete all notes?",
+                isPresented: $confirmingWipe
+            ) {
+                Button("Delete Everything", role: .destructive) { appState.notes.wipeAll() }
+            } message: {
+                Text("This deletes every note, folder, and pasted image. This cannot be undone.")
+            }
+
+            Section {
+                Stepper(value: $preferences.ragChunkSize, in: 200...2000, step: 100) {
+                    LabeledContent("Chunk size", value: "\(preferences.ragChunkSize) chars")
+                }
+                VStack(alignment: .leading) {
+                    LabeledContent("Similarity floor", value: String(format: "%.2f", preferences.ragSimilarityFloor))
+                    Slider(value: $preferences.ragSimilarityFloor, in: 0...1, step: 0.05)
+                }
+                Stepper(value: $preferences.ragContextBudget, in: 1000...20000, step: 500) {
+                    LabeledContent("Context budget", value: "\(preferences.ragContextBudget) chars")
+                }
+                VStack(alignment: .leading) {
+                    LabeledContent("Answer temperature", value: String(format: "%.2f", preferences.ragAnswerTemperature))
+                    Slider(value: $preferences.ragAnswerTemperature, in: 0...1, step: 0.05)
+                }
+                TextField("Embed model", text: $preferences.ragEmbedModel)
+                Button("Reset to Defaults") {
+                    preferences.ragChunkSize = Preferences.ragDefaultChunkSize
+                    preferences.ragSimilarityFloor = Preferences.ragDefaultSimilarityFloor
+                    preferences.ragContextBudget = Preferences.ragDefaultContextBudget
+                    preferences.ragAnswerTemperature = Preferences.ragDefaultAnswerTemperature
+                    preferences.ragEmbedModel = Preferences.ragDefaultEmbedModel
+                }
+                .font(.caption)
+            } header: {
+                Text("AI Tuning")
+            } footer: {
+                Text("""
+                How the assistant searches your notes (the AI's own search, and `/rag`). Chunk size is how much \
+                text is grouped per match; similarity floor is how loose a match counts as relevant — lower finds \
+                more, at the risk of an unrelated note slipping in. Context budget caps how much matched text \
+                reaches the answer model. Embed model must actually support embeddings — a plain chat model 404s.
+                """)
+                .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var accountTab: some View {

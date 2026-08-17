@@ -79,4 +79,15 @@ enum NoteImages {
             try? FileManager.default.removeItem(at: url(for: name))
         }
     }
+
+    /// Empties the whole directory — Settings ▸ Misc's "wipe all notes"
+    /// action. Unlike `delete(_:)`/`orphaned(removing:from:)`, this isn't
+    /// computing what's still referenced; a full wipe means nothing is left
+    /// to reference it.
+    static func deleteAll() {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
+        for file in files {
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
 }

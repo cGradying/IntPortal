@@ -4,7 +4,7 @@
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="${1:-1.1.2}"
+VERSION="${1:-1.2.0}"
 STAGE="$(mktemp -d)/PUPSISPortal"
 DMG="$ROOT/dist/PUPSISPortal-$VERSION.dmg"
 

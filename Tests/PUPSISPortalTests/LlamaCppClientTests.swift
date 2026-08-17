@@ -27,6 +27,20 @@ final class LlamaCppClientTests: XCTestCase {
         XCTAssertNil(json["model"])
     }
 
+    func testRequestBodyDefaultsTemperatureToPointTwo() throws {
+        let data = try LlamaCppClient.requestBody(system: "s", user: "u")
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["temperature"] as? Double, 0.2)
+    }
+
+    /// Settings ▸ Misc's answer-temperature slider — has to actually reach
+    /// the request.
+    func testRequestBodyHonorsACustomTemperature() throws {
+        let data = try LlamaCppClient.requestBody(system: "s", user: "u", temperature: 0.9)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["temperature"] as? Double, 0.9)
+    }
+
     // MARK: parse — the OpenAI-compatible shape
 
     func testParseExtractsMessageContent() throws {

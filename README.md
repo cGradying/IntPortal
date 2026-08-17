@@ -1,6 +1,6 @@
 # PUPSISPortal
 
-**Current version: v1.1.2** — no signed build; see [Install](#install) and
+**Current version: v1.2.0** — no signed build; see [Install](#install) and
 [Release history](#release-history) below.
 
 Native macOS app that signs into the [PUP Student Information System](https://sis8.pup.edu.ph/student/)
@@ -31,6 +31,7 @@ bypasses auth, or redistributes SIS content.
   - [Schedule (week & year)](#schedule-week--year)
   - [Class status: online / vacant](#class-status-online--vacant)
   - [Today & Notes](#today--notes)
+  - [AI Assistant (beta)](#ai-assistant-beta)
   - [Grades & GPA](#grades--gpa)
   - [Calendar sync & export](#calendar-sync--export)
   - [Reminders & menu bar](#reminders--menu-bar)
@@ -65,6 +66,9 @@ instead of a slow web portal.
   whole term); the grid, exports, and reminders follow.
 - **Keep notes with your day.** Attach notes to a class or the day, in plain text
   or Markdown.
+- **Ask an AI that actually knows your notes.** A local, opt-in assistant that
+  can search and summarize what you've written, add calendar events, and answer
+  questions grounded in your own vault — never leaves your Mac.
 
 ---
 
@@ -167,6 +171,53 @@ The editor supports:
   custom-colored tags). Click cells to edit, drag a column's edge to resize,
   add / remove rows and columns; the `×` controls appear on hover.
 
+### AI Assistant (beta)
+
+A floating orb (bottom-left, every screen) expands into a chat panel that can
+read and add to your notes, read your schedule and grades, and add calendar
+events — never delete, move, or change a grade. **Off by default**; turn it
+on in **Settings → Grades → AI (beta)**, pick an installed
+[Ollama](https://ollama.com) model, and set how much it acts on its own
+(**Propose only** / **Confirm each action** / **Act automatically**).
+Everything stays on your Mac, talking only to your local Ollama server — no
+cloud provider, no way to point it elsewhere.
+
+Type `/` in the chat for a filtered command palette:
+
+- **`/read "Note"`** — pins a note into the conversation (no name = the note
+  you have open).
+- **`/summary "Note"`** — a one-shot AI summary.
+- **`/create a prompt`** — writes a new note from a prompt.
+- **`/rag "a question"`** — answers strictly from your notes vault, guaranteed
+  to actually search them (asking the assistant directly can sometimes skip
+  the search step — small local models aren't always reliable about deciding
+  to call it; `/rag` bypasses that entirely).
+- **`/help`** — lists commands.
+
+**Retrieval (RAG).** The assistant ranks your notes by *meaning*, not just
+keyword — pull `nomic-embed-text` (`ollama pull nomic-embed-text`) once and a
+paraphrased question still finds the right note; without it, retrieval falls
+back to keyword matching automatically. A second small local model
+([llama.cpp](https://github.com/ggml-org/llama.cpp), started for you when
+needed) reads the matched notes and writes one grounded answer, citing which
+note(s) it drew from as a small chip under the reply. Right-click any note or
+folder → **Include in AI search** to control what it's allowed to read
+(everything's in by default; excluding a folder excludes everything inside
+it); the Vault header's sparkles button shows how many notes are currently
+searchable.
+
+**In the editor:** select text for a popup offering Summarize, "Answer this",
+"Structure this" (reorganizes into a clean technical reference, isolating and
+language-tagging any code), or a custom prompt — results Replace, Insert
+below, or Copy, with a soft glow reveal (Settings-picked: a connected sweep
+down each line, or each word on its own). Right-click a note or folder for a
+color label, or **Export** as Markdown, plain text, or a properly typeset PDF.
+
+**Settings → Misc:** reveal the raw notes database in Finder, wipe every note
+(confirmation-gated; login and everything else stay untouched), and tune the
+retrieval pipeline (chunk size, match strictness, answer creativity, embedding
+model) if the defaults ever need adjusting.
+
 ### Grades & GPA
 
 The **Grades** screen shows your posted subjects, a **units-weighted GPA**, a
@@ -265,6 +316,8 @@ Allow** on the first launch after a build.
 Pure SwiftPM, one executable target (`Sources/PUPSISPortalApp`) plus a test
 target. Single-window SwiftUI app; no view-model layer.
 
+![PUPSISPortal architecture diagram](docs/architecture.png)
+
 ### Session & data (`Core/`)
 
 | File | Role |
@@ -276,8 +329,10 @@ target. Single-window SwiftUI app; no view-model layer.
 | `Markdown.swift` | Minimal Obsidian-flavored block parser (headings, bullets, task checkboxes) for notes; inline emphasis is left to `AttributedString(markdown:)`. |
 | `DayAgenda.swift` / `NextClass.swift` | Pure "today right now" and "what's next" readings, shared by the Today screen and the menu bar. |
 | `KeychainStore.swift` / `GoogleTokenStore.swift` | SIS credentials and the Google refresh token in the Keychain (service `ph.edu.pup.sis8.portal`). |
-| `ScheduleStore.swift` / `GradesStore.swift` / `NotesStore.swift` | Offline JSON documents under Application Support (dir `0700`, file `0600`). |
-| `Preferences.swift` | Theme, per-subject colors, per-week/term `SessionStatus`, calendar/export settings, notes style, notification prefs. `UserDefaults`, injectable for tests. |
+| `ScheduleStore.swift` / `GradesStore.swift` / `NotesStore.swift` | Offline JSON documents under Application Support (dir `0700`, file `0600`). `NotesStore` also owns the vault tree (folders/notes, color labels, per-note RAG inclusion) and `wipeAll()`. |
+| `NoteExport.swift` / `NoteImages.swift` | A note's Markdown → plain text or a typeset PDF; pasted-image storage and orphan cleanup. |
+| `OllamaClient.swift` / `LlamaCppClient.swift` / `LlamaServerManager.swift` | The two local model connections behind the AI assistant — Ollama (chat, embeddings) and llama.cpp (grounded RAG answers, process managed on demand) — plus the shared HTTP client shape both reuse. |
+| `Preferences.swift` | Theme, per-subject colors, per-week/term `SessionStatus`, calendar/export settings, notes style, notification prefs, AI/RAG tuning (Settings → Misc). `UserDefaults`, injectable for tests. |
 | `Theme.swift` | `Palette` (injected via `\.palette`), `ThemeChoice`, the `Motion` vocabulary, `Theme.Typo` type scale. |
 | `CalendarBridge.swift` / `EventEditor.swift` | The single `EKEventStore`: reads the week, writes/exports events; every mutation routes through `EventEditor` for one undo hook. |
 | `ICSExporter.swift` / `ClassRecurrence.swift` | `.ics` file export and the shared weekly-`RRULE` builder. |
@@ -285,14 +340,28 @@ target. Single-window SwiftUI app; no view-model layer.
 | `Notifier.swift` / `LoginItem.swift` | Weekly reminder triggers, and `SMAppService` start-at-login so they survive a quit. |
 | `GridGeometry.swift` / `TimeSnap.swift` / `DayBlock.swift` / `MonthLayout.swift` | Point↔(day,minute) math, snapping, the flat render model, and the year grid. |
 
+### AI Assistant (`Core/Assistant/`)
+
+| File | Role |
+|---|---|
+| `AssistantEngine.swift` | Talks to Ollama's structured-JSON `/api/chat` (not native tool-calling — small models follow a JSON schema far more reliably); Propose/Confirm/Auto permission loop. |
+| `AssistantTool.swift` | The tool catalog — single source of truth for the system prompt and the response schema, so they can't disagree about what exists. |
+| `RealAssistantExecutor.swift` | Runs a tool call against the real stores — the only place model output touches app state. |
+| `AssistantCommand.swift` / `AssistantCommandRunner.swift` | Slash commands (`/read`, `/summary`, `/create`, `/rag`, `/help`) — parsed and run deterministically, never through the model's own tool-picking. |
+| `RAGQuery.swift` / `NoteRetrieval.swift` | The retrieval pipeline shared by the `ask_notes`/`search_notes` tools and `/rag`: embeddings via Ollama (`nomic-embed-text`) ranked by cosine similarity, falling back to TF·IDF term matching when no embedding model is installed; paragraph-chunked so one long note doesn't dilute or blow past the answer budget. |
+| `AssistantContext.swift` / `AssistantSession.swift` / `AssistantInstructions.swift` | What the model is told each turn (open note, today's classes, grades); the panel's live conversation state; the user's own editable house-style instructions. |
+
 ### Views (`Views/`)
 
 Weekly grid (`WeekGrid`, `Blocks`, `GridInteractionLayer`), the now-line
 (`NowLine`), year view (`YearView`), the top-center nav pill (`DestinationBar`),
 the Today agenda + notes (`AgendaView`, `WebNoteEditor` — a `WKWebView` hosting
 the bundled CodeMirror editor in `Resources/notes-editor.bundle.js`, built from
-`notes-editor/`), Grades + GPA trend (`GradesView`), Settings (`SettingsView`), the menu bar
-(`MenuBarPanel`), event editing (`EventEditorPopover`, `SelectionBar`,
+`notes-editor/`, including its own selection-based AI popup and the AI-insert
+reveal animation), the floating assistant (`AssistantFloating` — orb ↔ chat
+panel, command autocomplete), Grades + GPA trend (`GradesView`), Settings
+(`SettingsView`, including the AI/RAG tuning and notes-wipe controls on
+Misc), the menu bar (`MenuBarPanel`), event editing (`EventEditorPopover`, `SelectionBar`,
 `ColorPanel` for per-block recoloring), sign-in (`CredentialsView`), and
 `GlassCompat` — every Liquid Glass call in the app routes through it, so glass
 degrades to a plain material below macOS 26 instead of failing to build.
@@ -340,7 +409,8 @@ is `1.1.2` in `Scripts/make_mac_app.sh`. Grouped by what actually shipped, oldes
 | v1.0 | 2026-08-08 | Full README documentation pass — use cases, walkthrough, setup, architecture. |
 | v1.1 | 2026-08-12 | Notes reworked into a live web-based editor (CodeMirror + KaTeX): a folder/file vault with note tabs; shared-per-subject class notes with dated log entries (next-class-aware); colored text, checkboxes, dividers, `[[note links]]`, inline image preview (paste/drop/URL), and an interactive typed-column table/database with custom-colored status tags and drag-to-resize columns. First GitHub Release, `.dmg` attached. |
 | v1.1.1 | 2026-08-13 | Window chrome rework — nav island, dither band; switched licensing to PolyForm Noncommercial 1.0.0. |
-| **v1.1.2** | 2026-08-14 | Fixed drag-to-create-event dragging the whole window instead of drawing an event (the chrome now has its own explicit drag strip). Current. |
+| v1.1.2 | 2026-08-14 | Fixed drag-to-create-event dragging the whole window instead of drawing an event (the chrome now has its own explicit drag strip). |
+| **v1.2.0** | 2026-08-17 | **AI Assistant, beta**, built up over several stages: a floating chat (orb → panel, Propose/Confirm/Auto permission) that reads/adds notes, reads schedule and grades, and adds calendar events — never deletes, moves, or changes a grade. Slash commands (`/read`, `/summary`, `/create`, `/rag`, `/help`) bypass the model's own tool-picking entirely, with a keyboard-navigable autocomplete palette. Real retrieval over the notes vault — embeddings (`nomic-embed-text`) ranked by cosine similarity with a keyword-matching fallback, paragraph-chunked so one long note can't blow past the answer budget or get silently dropped like it originally did — and a local llama.cpp model writes one grounded answer citing which notes it drew from. Per-note/folder "Include in AI search" toggle and color labels; note export as Markdown/plain text/typeset PDF. In the editor: a selection popup (Summarize / Answer this / Structure this / custom prompt → Replace / Insert below / Copy) and a Siri-style word-by-word reveal for AI-inserted text (Sweep or Word blink, Reduce-Motion aware), fixed to track scrolling correctly and to never stop partway through a long insert. New Settings → Misc tab: reveal the notes database in Finder, wipe all notes, and tune the retrieval pipeline (chunk size, match strictness, context budget, answer creativity, embedding model). Also this cycle: memory check before loading a model plus clean AI shutdown on quit, a user-editable house-style instructions file, per-class time overrides (this week / every week) and a per-class description + join link on the calendar, and printing/exporting the week as a PDF. Current. |
 
 ---
 
@@ -355,10 +425,6 @@ is `1.1.2` in `Scripts/make_mac_app.sh`. Grouped by what actually shipped, oldes
   the per-term GPA-trend backfill (driving the SIS SY/Semester dropdowns) are
   built and unit-tested against fixture shapes, but not yet confirmed against
   a real account with posted grades — benched until that's possible.
-- **AI writing in notes.** A local **Ollama** connection so the notes editor
-  can draft and rewrite text against a model running on your own machine — no
-  cloud, no keys. (The web editor rework that this builds on shipped in v1.1.)
-- **Smaller polish:** print export of the week.
 - **Parked, not forgotten:** a real WidgetKit next-class widget needs an
   Xcode project and a paid Apple Developer account (App Group for app↔widget
   data) — this app is intentionally SwiftPM + shell-packaged. The menu bar

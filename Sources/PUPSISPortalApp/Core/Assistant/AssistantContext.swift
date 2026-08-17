@@ -20,6 +20,9 @@ struct AssistantContext: Equatable {
     let openNoteText: String?
     let todayClasses: [ClassEntry]
     let gradesSummary: String?
+    /// Set by `/read` — a note the student explicitly pulled into the
+    /// conversation, independent of whatever's open on screen.
+    var pinnedNote: AssistantCommandRunner.PinnedNote? = nil
 
     /// Notes and schedules can run long; the prompt is what actually gets sent
     /// to the model, so it's capped here rather than trusting every call site
@@ -44,6 +47,13 @@ struct AssistantContext: Equatable {
             }
         } else {
             lines.append("No note is open.")
+        }
+
+        if let pinnedNote {
+            let truncated = pinnedNote.text.count > Self.noteCharLimit
+                ? String(pinnedNote.text.prefix(Self.noteCharLimit)) + "\n[...truncated]"
+                : pinnedNote.text
+            lines.append("Pinned note \"\(pinnedNote.name)\":\n\(truncated)")
         }
 
         if todayClasses.isEmpty {

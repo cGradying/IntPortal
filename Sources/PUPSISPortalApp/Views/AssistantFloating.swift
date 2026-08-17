@@ -56,6 +56,9 @@ private struct AssistantChat: View {
     @Environment(\.palette) private var palette
     @FocusState private var inputFocused: Bool
     @State private var input = ""
+    /// Keyboard-highlighted row in the command autocomplete palette below —
+    /// Tab/↵ complete this one, ↑/↓ move it.
+    @State private var highlightedSuggestion = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -72,21 +75,40 @@ private struct AssistantChat: View {
     }
 
     private var header: some View {
-        HStack {
-            Text("Assistant").font(Theme.Typo.detailTitle)
-            Spacer()
-            Text(preferences.aiPermission.label)
-                .font(.caption2)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Assistant").font(Theme.Typo.detailTitle)
+                Spacer()
+                Text(preferences.aiPermission.label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Button {
+                    session.isOpen = false
+                } label: {
+                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-            Button {
-                session.isOpen = false
-            } label: {
-                Image(systemName: "xmark").font(.system(size: 11, weight: .semibold))
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            if let pin = session.pinnedNote {
+                pinChip(pin)
+            }
         }
         .padding(12)
+    }
+
+    private func pinChip(_ pin: AssistantCommandRunner.PinnedNote) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "pin.fill").font(.system(size: 9))
+            Text(pin.name).font(.caption2).lineLimit(1)
+            Button { session.pinnedNote = nil } label: {
+                Image(systemName: "xmark").font(.system(size: 8, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 3)
+        .background(palette.accent.opacity(0.14), in: Capsule())
+        .foregroundStyle(palette.accent)
     }
 
     private var transcript: some View {
@@ -94,7 +116,7 @@ private struct AssistantChat: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     if session.transcript.isEmpty {
-                        Text("Ask about your notes, schedule, or grades.")
+                        Text("Ask about your notes, schedule, or grades. Or try /read, /summary, /create, /help.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .padding(.top, 8)
@@ -120,18 +142,40 @@ private struct AssistantChat: View {
     /// Message bubbles are content, not chrome — no glass on these, per the
     /// app's one hard rule about where Liquid Glass belongs.
     private func bubble(_ turn: AssistantTurn) -> some View {
-        HStack {
-            if turn.role == .assistant { Spacer(minLength: 24) }
-            Text(turn.content)
-                .font(.callout)
-                .padding(.horizontal, 10).padding(.vertical, 7)
-                .background(
-                    turn.role == .user ? palette.accent.opacity(0.16) : Color.secondary.opacity(0.1),
-                    in: RoundedRectangle(cornerRadius: 12)
-                )
-            if turn.role == .user { Spacer(minLength: 24) }
+        VStack(alignment: turn.role == .user ? .trailing : .leading, spacing: 4) {
+            HStack {
+                if turn.role == .assistant { Spacer(minLength: 24) }
+                Text(turn.content)
+                    .font(.callout)
+                    .padding(.horizontal, 10).padding(.vertical, 7)
+                    .background(
+                        turn.role == .user ? palette.accent.opacity(0.16) : Color.secondary.opacity(0.1),
+                        in: RoundedRectangle(cornerRadius: 12)
+                    )
+                if turn.role == .user { Spacer(minLength: 24) }
+            }
+            if !turn.sources.isEmpty { sourceChips(turn.sources) }
         }
         .frame(maxWidth: .infinity, alignment: turn.role == .user ? .trailing : .leading)
+    }
+
+    /// One capsule per note a `search_notes`/`ask_notes` reply actually drew
+    /// from — the "did this come from RAG, and which note" the panel didn't
+    /// show before (only a `Sources: …` line buried in the reply text).
+    private func sourceChips(_ sources: [String]) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "sparkles")
+                .font(.caption2)
+                .foregroundStyle(palette.accent)
+            ForEach(sources, id: \.self) { name in
+                Text(name)
+                    .font(.caption2)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(palette.accent.opacity(0.12), in: Capsule())
+            }
+        }
+        .padding(.leading, 24)
+        .help("From your notes: \(sources.joined(separator: ", "))")
     }
 
     // ponytail: propose and confirm share this same Apply/Skip list for now —
@@ -166,7 +210,7 @@ private struct AssistantChat: View {
         Task {
             let executor = makeExecutor()
             let result = await executor.execute(action)
-            session.appendAssistant(result.message)
+            session.appendAssistant(result.message, sources: result.sources)
         }
     }
 
@@ -179,20 +223,108 @@ private struct AssistantChat: View {
     }
 
     private var inputBar: some View {
-        HStack(spacing: 8) {
-            TextField("Ask the assistant…", text: $input, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...3)
-                .focused($inputFocused)
-                .onSubmit(send)
-            Button(action: send) {
-                Image(systemName: "arrow.up.circle.fill").font(.system(size: 20))
+        VStack(alignment: .leading, spacing: 0) {
+            if !commandSuggestions.isEmpty {
+                commandPalette
+                Divider()
+            } else if let hint = activeCommandHint {
+                commandHintLine(hint)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary : palette.accent)
-            .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.isThinking)
+            HStack(spacing: 8) {
+                TextField("Ask the assistant… or /command", text: $input, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...3)
+                    .focused($inputFocused)
+                    .onSubmit(send)
+                Button(action: send) {
+                    Image(systemName: "arrow.up.circle.fill").font(.system(size: 20))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary : palette.accent)
+                .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.isThinking)
+            }
+            .padding(10)
         }
-        .padding(10)
+        // Tab/↵ complete the highlighted row; ↑/↓ move it. All four fall
+        // through to .ignored (normal typing / the TextField's own onSubmit)
+        // whenever the palette isn't showing.
+        .onKeyPress(.tab) { completeHighlighted() }
+        .onKeyPress(.return) { completeHighlighted() }
+        .onKeyPress(.downArrow) { moveHighlight(1) }
+        .onKeyPress(.upArrow) { moveHighlight(-1) }
+        .onChange(of: input) { _, _ in highlightedSuggestion = 0 }
+    }
+
+    /// Autocomplete while the command word itself is still being typed —
+    /// before the first space, so it never fights with typing the argument.
+    private var commandSuggestions: [AssistantCommand.Spec] {
+        guard input.hasPrefix("/"), !input.contains(" ") else { return [] }
+        let typed = input.dropFirst().lowercased()
+        guard !typed.isEmpty else { return AssistantCommand.catalog }
+        return AssistantCommand.catalog.filter { $0.name.hasPrefix(typed) }
+    }
+
+    /// Once the command word is finished (a space typed) and matches a real
+    /// command, a one-line reminder of its argument replaces the full list.
+    private var activeCommandHint: AssistantCommand.Spec? {
+        guard input.hasPrefix("/"), let spaceIndex = input.firstIndex(of: " ") else { return nil }
+        let word = input[input.index(after: input.startIndex)..<spaceIndex].lowercased()
+        return AssistantCommand.catalog.first { $0.name == word }
+    }
+
+    private var commandPalette: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(Array(commandSuggestions.enumerated()), id: \.element.id) { index, spec in
+                Button { complete(spec) } label: {
+                    HStack(spacing: 6) {
+                        Text(spec.usage).font(.caption.monospaced()).fontWeight(.semibold)
+                        Text(spec.description).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(
+                        index == highlightedSuggestion ? palette.accent.opacity(0.14) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 6)
+                    )
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(6)
+    }
+
+    private func commandHintLine(_ spec: AssistantCommand.Spec) -> some View {
+        Text("\(spec.usage) — \(spec.description)")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12).padding(.top, 6)
+    }
+
+    /// Fills the input with `spec`'s usage — sends immediately for a
+    /// no-argument command (nothing left to type), otherwise leaves a
+    /// trailing space and keeps editing (that space is also what hides the
+    /// palette, since `commandSuggestions` requires no space yet).
+    private func complete(_ spec: AssistantCommand.Spec) {
+        if spec.params.isEmpty {
+            input = "/\(spec.name)"
+            send()
+        } else {
+            input = "/\(spec.name) "
+        }
+    }
+
+    private func completeHighlighted() -> KeyPress.Result {
+        guard !commandSuggestions.isEmpty else { return .ignored }
+        complete(commandSuggestions[min(highlightedSuggestion, commandSuggestions.count - 1)])
+        return .handled
+    }
+
+    private func moveHighlight(_ delta: Int) -> KeyPress.Result {
+        guard !commandSuggestions.isEmpty else { return .ignored }
+        let count = commandSuggestions.count
+        highlightedSuggestion = ((highlightedSuggestion + delta) % count + count) % count
+        return .handled
     }
 
     private func send() {
@@ -203,6 +335,20 @@ private struct AssistantChat: View {
         session.pendingActions = []
         let priorHistory = session.transcript
         session.appendUser(text)
+
+        // Slash-commands never reach the model's tool-picking loop at all —
+        // parsed deterministically here, or falls through to the engine below.
+        if let command = AssistantCommand.parse(text) {
+            session.isThinking = true
+            Task {
+                let outcome = await makeCommandRunner().run(command)
+                if let pin = outcome.pin { session.pinnedNote = pin }
+                session.appendAssistant(outcome.reply, sources: outcome.sources)
+                session.isThinking = false
+            }
+            return
+        }
+
         session.isThinking = true
 
         let engine = makeEngine()
@@ -214,7 +360,16 @@ private struct AssistantChat: View {
                 let outcome = try await engine.respond(
                     to: text, history: priorHistory, context: context, permission: permission
                 )
-                session.appendAssistant(AssistantSession.displayReply(outcome.reply, actionCount: outcome.actions.count))
+                // `.auto` already executed every tool itself — fold whichever
+                // notes it drew from into the reply's own chip, rather than
+                // leaving them buried in a mid-loop tool result nobody sees.
+                let sources = outcome.results.flatMap(\.sources).reduce(into: [String]()) { unique, name in
+                    if !unique.contains(name) { unique.append(name) }
+                }
+                session.appendAssistant(
+                    AssistantSession.displayReply(outcome.reply, actionCount: outcome.actions.count),
+                    sources: sources
+                )
                 if permission != .auto {
                     session.pendingActions = outcome.actions
                 }
@@ -223,6 +378,15 @@ private struct AssistantChat: View {
             }
             session.isThinking = false
         }
+    }
+
+    private func makeCommandRunner() -> AssistantCommandRunner {
+        AssistantCommandRunner(
+            notes: appState.notes,
+            openNoteKey: { appState.openNoteKey },
+            model: preferences.aiModel,
+            preferences: preferences
+        )
     }
 
     private func makeExecutor() -> RealAssistantExecutor {
@@ -260,7 +424,8 @@ private struct AssistantChat: View {
             openNoteKey: appState.openNoteKey,
             openNoteText: noteText,
             todayClasses: todayClasses,
-            gradesSummary: gradesSummary
+            gradesSummary: gradesSummary,
+            pinnedNote: session.pinnedNote
         )
     }
 }

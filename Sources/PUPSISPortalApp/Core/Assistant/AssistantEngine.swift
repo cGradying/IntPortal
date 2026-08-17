@@ -38,6 +38,10 @@ struct AssistantTurn: Equatable {
     enum Role: String { case user, assistant }
     let role: Role
     let content: String
+    /// Note names `search_notes`/`ask_notes` actually drew this reply from —
+    /// empty for everything else. Lets the panel show a "from your notes"
+    /// chip instead of the source burying itself in the reply text.
+    var sources: [String] = []
 }
 
 /// What actually happened when an action ran.
@@ -48,6 +52,10 @@ struct AssistantToolResult: Equatable {
     /// the model verbatim in auto mode, so it doubles as the model's evidence
     /// that a step succeeded or why it didn't.
     let message: String
+    /// Note names this result was drawn from (`search_notes`/`ask_notes`
+    /// only) — kept structured rather than folded into `message` so the UI
+    /// can render it as its own chip instead of parsing text back out.
+    var sources: [String] = []
 }
 
 /// One full turn's outcome. In `.propose`/`.confirm`, `actions` are proposals

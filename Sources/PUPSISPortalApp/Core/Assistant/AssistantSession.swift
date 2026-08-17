@@ -11,6 +11,10 @@ final class AssistantSession: ObservableObject {
     @Published var transcript: [AssistantTurn] = []
     @Published var isThinking = false
 
+    /// The note `/read` pinned into the conversation, if any — shown as a chip
+    /// in the panel header, cleared by `reset()` or a fresh `/read`.
+    @Published var pinnedNote: AssistantCommandRunner.PinnedNote?
+
     /// Set only in `.propose`/`.confirm` — the actions from the most recent
     /// reply, waiting on the user to apply or skip each one. Cleared once
     /// resolved. Always empty in `.auto`, since the engine executes those
@@ -36,8 +40,8 @@ final class AssistantSession: ObservableObject {
         transcript.append(AssistantTurn(role: .user, content: text))
     }
 
-    func appendAssistant(_ text: String) {
-        transcript.append(AssistantTurn(role: .assistant, content: text))
+    func appendAssistant(_ text: String, sources: [String] = []) {
+        transcript.append(AssistantTurn(role: .assistant, content: text, sources: sources))
     }
 
     func reset() {
@@ -45,5 +49,6 @@ final class AssistantSession: ObservableObject {
         pendingActions = []
         lastError = nil
         isThinking = false
+        pinnedNote = nil
     }
 }

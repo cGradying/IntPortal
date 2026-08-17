@@ -21,6 +21,23 @@ final class OllamaClientTests: XCTestCase {
         XCTAssertTrue(prompt.contains(OllamaClient.instruction), "the house style must be applied")
     }
 
+    /// Callers with their own house style (the selection popup's summarize/
+    /// answer/custom prompts, `/summary`, `/create`) don't get the note-
+    /// drafting instruction — the default is only for the drafting path.
+    func testRequestBodyHonorsACustomInstruction() throws {
+        let data = try OllamaClient.requestBody(model: "m", selection: "text", instruction: "Translate to French.")
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let prompt = try XCTUnwrap(json["prompt"] as? String)
+        XCTAssertTrue(prompt.contains("Translate to French."))
+        XCTAssertFalse(prompt.contains(OllamaClient.instruction))
+    }
+
+    func testRequestBodyDefaultsToTheHouseStyle() throws {
+        let data = try OllamaClient.requestBody(model: "m", selection: "text")
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertTrue(try XCTUnwrap(json["prompt"] as? String).contains(OllamaClient.instruction))
+    }
+
     func testRequestBodyEscapesAwkwardSelections() throws {
         let nasty = "quotes \" backslash \\ newline \n emoji 🌱"
         let data = try OllamaClient.requestBody(model: "m", selection: nasty)
@@ -209,5 +226,57 @@ final class OllamaClientTests: XCTestCase {
         struct Boom: Error {}
         let client = OllamaClient(send: { _ in throw Boom() })
         await client.unload(model: "m") // must not throw
+    }
+
+    // MARK: embed — retrieval's vector call
+
+    func testEmbedRequestBodyCarriesModelAndInput() throws {
+        let data = try OllamaClient.embedRequestBody(model: "nomic-embed-text", texts: ["a", "b"])
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["model"] as? String, "nomic-embed-text")
+        XCTAssertEqual(json["input"] as? [String], ["a", "b"])
+    }
+
+    func testEmbedReturnsOneVectorPerText() async throws {
+        let client = OllamaClient(sendEmbed: { _ in
+            (Data(#"{"embeddings":[[0.1,0.2],[0.3,0.4]]}"#.utf8), 200)
+        })
+        let vectors = try await client.embed(model: "nomic-embed-text", texts: ["a", "b"])
+        XCTAssertEqual(vectors, [[0.1, 0.2], [0.3, 0.4]])
+    }
+
+    func testEmbedOfEmptyTextsSkipsTheRequest() async throws {
+        var called = false
+        let client = OllamaClient(sendEmbed: { _ in called = true; return (Data(), 200) })
+        let vectors = try await client.embed(model: "m", texts: [])
+        XCTAssertEqual(vectors, [])
+        XCTAssertFalse(called)
+    }
+
+    func testEmbedThrowsOfflineOnTransportFailure() async {
+        struct Boom: Error {}
+        let client = OllamaClient(sendEmbed: { _ in throw Boom() })
+        do {
+            _ = try await client.embed(model: "m", texts: ["a"])
+            XCTFail("expected .offline")
+        } catch let error as OllamaClient.ClientError {
+            XCTAssertEqual(error.errorDescription, OllamaClient.ClientError.offline.errorDescription)
+        } catch {
+            XCTFail("wrong error type: \(error)")
+        }
+    }
+
+    /// The real failure mode confirmed live: a plain chat model 404s
+    /// `/api/embed` because it isn't loaded with embeddings support.
+    func testEmbedThrowsHTTPOnNon2xx() async {
+        let client = OllamaClient(sendEmbed: { _ in (Data(), 404) })
+        do {
+            _ = try await client.embed(model: "qwen3.5:4b", texts: ["a"])
+            XCTFail("expected .http")
+        } catch let error as OllamaClient.ClientError {
+            XCTAssertEqual(error.errorDescription, OllamaClient.ClientError.http(404).errorDescription)
+        } catch {
+            XCTFail("wrong error type: \(error)")
+        }
     }
 }

@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 /// content in via `setContent`. The note's stored text is always plain Markdown.
 struct WebNoteEditor: View {
     @ObservedObject var notes: NotesStore
+    @ObservedObject var preferences: Preferences
     let noteKey: String
     var title: String? = nil
     var onOpenNote: ((String) -> Void)? = nil
@@ -41,7 +42,7 @@ struct WebNoteEditor: View {
     var body: some View {
         VStack(spacing: 6) {
             toolbar
-            WebNoteView(notes: notes, noteKey: noteKey, title: title, bridge: bridge, onOpenNote: onOpenNote)
+            WebNoteView(notes: notes, preferences: preferences, noteKey: noteKey, title: title, bridge: bridge, onOpenNote: onOpenNote)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .tint(palette.accent)
@@ -283,10 +284,12 @@ private final class PupImageSchemeHandler: NSObject, WKURLSchemeHandler {
 
 private struct WebNoteView: NSViewRepresentable {
     @ObservedObject var notes: NotesStore
+    @ObservedObject var preferences: Preferences
     let noteKey: String
     var title: String?
     let bridge: WebNoteBridge
     var onOpenNote: ((String) -> Void)? = nil
+    @Environment(\.palette) private var palette
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -295,6 +298,7 @@ private struct WebNoteView: NSViewRepresentable {
         config.userContentController.add(context.coordinator, name: "notes")
         config.userContentController.add(context.coordinator, name: "open")
         config.userContentController.add(context.coordinator, name: "image")
+        config.userContentController.add(context.coordinator, name: "ai")
         // loadHTMLString(baseURL: nil) can't reach file://, so pasted/dropped
         // images round-trip through this custom scheme instead.
         config.setURLSchemeHandler(PupImageSchemeHandler(), forURLScheme: "pupimg")
@@ -305,7 +309,7 @@ private struct WebNoteView: NSViewRepresentable {
         bridge.webView = webView
         context.coordinator.currentKey = noteKey
         context.coordinator.loaded = false
-        webView.loadHTMLString(Self.html(initial: notes.text(for: noteKey), key: noteKey), baseURL: nil)
+        webView.loadHTMLString(Self.html(initial: notes.text(for: noteKey), key: noteKey, accentHex: palette.accent.hex ?? "#5865f2"), baseURL: nil)
         return webView
     }
 
@@ -321,18 +325,42 @@ private struct WebNoteView: NSViewRepresentable {
                 webView.evaluateJavaScript("PUPNotes.setContent(\(json), \(keyJSON));", completionHandler: nil)
             }
         }
+        // Turning the assistant off in Settings kills the pill live, without
+        // requiring the note to be reopened.
+        if context.coordinator.loaded, context.coordinator.lastPushedAIEnabled != preferences.aiEnabled {
+            context.coordinator.pushAIEnabled(to: webView)
+        }
+        // Switching the app theme in Settings restyles the pill/menu live too —
+        // otherwise an already-open note keeps whatever accent it loaded with.
+        let accentHex = palette.accent.hex ?? "#5865f2"
+        if context.coordinator.loaded, context.coordinator.lastPushedAccentHex != accentHex {
+            context.coordinator.pushAccent(accentHex, to: webView)
+        }
+        // Same for switching Sweep/Word blink in Settings.
+        if context.coordinator.loaded, context.coordinator.lastPushedRevealMode != preferences.aiRevealAnimation {
+            context.coordinator.pushRevealMode(preferences.aiRevealAnimation, to: webView)
+        }
     }
 
     static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "notes")
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "open")
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "image")
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "ai")
     }
 
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         var parent: WebNoteView
         var currentKey: String = ""
         var loaded = false
+        /// Last value pushed to `PUPNotes.setAIEnabled`, so `updateNSView`
+        /// (called on every SwiftUI re-render) only actually talks to the
+        /// webview when the toggle really changed.
+        var lastPushedAIEnabled: Bool?
+        /// Same idea for the `--accent` CSS variable, pushed on a theme switch.
+        var lastPushedAccentHex: String?
+        /// Same idea for Sweep vs. Word blink, pushed on a Settings switch.
+        var lastPushedRevealMode: AIRevealAnimation?
         init(_ parent: WebNoteView) { self.parent = parent }
 
         // JS → Swift: either the doc changed ("notes") or a [[wikilink]] was
@@ -356,14 +384,136 @@ private struct WebNoteView: NSViewRepresentable {
                       let inserted = NoteImages.save(base64: base64, ext: ext) else { return }
                 let js = "PUPNotes.insertImage(\(WebNoteView.jsonString(inserted)));"
                 message.webView?.evaluateJavaScript(js, completionHandler: nil)
+            case "ai":
+                handleAI(body, webView: message.webView)
             default:
                 break
             }
         }
 
+        /// The selection-popup's request: `id` round-trips so a stale answer
+        /// (from a request the user has since abandoned) can't overwrite a
+        /// newer one — `editor.js`'s `aiResult` already checks it too.
+        private func handleAI(_ body: [String: Any], webView: WKWebView?) {
+            guard let webView, let id = body["id"] as? Int, let mode = body["mode"] as? String,
+                  let text = body["text"] as? String else { return }
+            let prompt = body["prompt"] as? String
+
+            guard parent.preferences.aiEnabled, !parent.preferences.aiModel.isEmpty else {
+                deliver(webView, id: id, text: nil, error: "Turn on the assistant in Settings first.")
+                return
+            }
+            let instruction: String
+            switch mode {
+            case "summarize": instruction = Self.summarizeInstruction
+            case "answer": instruction = Self.answerInstruction
+            case "structure": instruction = Self.structureInstruction
+            default: instruction = prompt ?? Self.summarizeInstruction
+            }
+            let model = parent.preferences.aiModel
+            Task {
+                do {
+                    let result = try await OllamaClient().generate(model: model, selection: text, instruction: instruction)
+                    deliver(webView, id: id, text: result, error: nil)
+                } catch {
+                    deliver(webView, id: id, text: nil, error: error.localizedDescription)
+                }
+            }
+        }
+
+        private func deliver(_ webView: WKWebView, id: Int, text: String?, error: String?) {
+            let textJS = text.map(WebNoteView.jsonString) ?? "null"
+            let errorJS = error.map(WebNoteView.jsonString) ?? "null"
+            webView.evaluateJavaScript("PUPNotes.aiResult(\(id), \(textJS), \(errorJS));", completionHandler: nil)
+        }
+
+        func pushAIEnabled(to webView: WKWebView) {
+            lastPushedAIEnabled = parent.preferences.aiEnabled
+            webView.evaluateJavaScript("PUPNotes.setAIEnabled(\(parent.preferences.aiEnabled));", completionHandler: nil)
+        }
+
+        /// Only the CSS variable needs updating — the popup's shape and copy
+        /// don't change with theme, just its accent color.
+        func pushAccent(_ hex: String, to webView: WKWebView) {
+            lastPushedAccentHex = hex
+            webView.evaluateJavaScript(
+                "document.documentElement.style.setProperty('--accent', \(WebNoteView.jsonString(hex)));",
+                completionHandler: nil
+            )
+        }
+
+        func pushRevealMode(_ mode: AIRevealAnimation, to webView: WKWebView) {
+            lastPushedRevealMode = mode
+            webView.evaluateJavaScript("PUPNotes.setAIRevealMode(\(WebNoteView.jsonString(mode.rawValue)));", completionHandler: nil)
+        }
+
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             loaded = true
+            pushAIEnabled(to: webView)
+            pushRevealMode(parent.preferences.aiRevealAnimation, to: webView)
+            lastPushedAccentHex = parent.palette.accent.hex ?? "#5865f2" // already baked into the loaded HTML
         }
+
+        private static let summarizeInstruction = """
+        Summarize the following text from a student's notes, in a few short \
+        sentences. Reply with the summary only — no preamble.
+        """
+        private static let answerInstruction = """
+        The following text is a question from a student's notes. Answer it. \
+        Reply with the answer only — no preamble, no restating the question.
+        """
+
+        /// Reformats without paraphrasing away real content — the app's editor
+        /// (`notes-editor/src/editor.js`) understands a specific Markdown
+        /// dialect, so this spells out exactly that syntax rather than saying
+        /// "use Markdown" and hoping the model picks compatible syntax on its
+        /// own (nothing here renders in-app if it doesn't match). The layout
+        /// itself is spelled out too, not just the syntax — "make it neater"
+        /// alone tends to come back as the same prose with a stray heading
+        /// slapped on top; a concrete document shape is what actually produces
+        /// something scannable.
+        private static let structureInstruction = """
+        Reorganize the following note text into a tight technical reference —
+        same information, denser and easier to scan. Do not remove or invent
+        facts; restructure and tighten the wording only.
+
+        Shape it in this order, skipping whatever doesn't apply:
+        1. One `#` title only if the note covers a single clear topic — skip
+           it entirely for a short fragment or a loose list of facts.
+        2. `##` for each major section, `###` for a subsection inside it.
+           Two levels deep, never three — split into another `##` section
+           instead of nesting further.
+        3. Open each section with the core fact or definition in one tight
+           sentence before any supporting detail — the takeaway first, not
+           built up to.
+        4. Enumerable facts (steps, properties, comparisons) become a `- ` or
+           `1. ` list, one fact per line — never a paragraph restating them
+           in prose.
+        5. `**bold**` only on a term's first real use, never as decoration on
+           ordinary words. No italics unless a word is genuinely emphasized.
+        6. `> ` only for something that actually needs to stand apart (a
+           warning, a formula's meaning, an exam note) — not for ordinary
+           content.
+        7. `$$...$$` for a standalone math expression, `$...$` for inline
+           math — only where math is actually present.
+
+        If any actual code appears anywhere in the text, isolate just those
+        lines into their own fenced block — ```language on its own line, the
+        code, then ``` on its own line — tagged with the specific language
+        it's actually written in (python, javascript, typescript, cpp, c,
+        java, rust, go, html, css, json, sql, php, or xml). Everything around
+        the code (explanation, headings, prose) stays outside the fence as
+        normal Markdown text. Never wrap the whole note, or any non-code
+        prose, inside a code block just because part of it contains code.
+
+        Cut filler outright: no "In this section...", no restating a heading
+        in its own first sentence, no hedging ("it seems", "basically"), no
+        closing summary that repeats what was just said. One blank line
+        between blocks, nothing padded.
+
+        Reply with the restructured note text only — no preamble, no
+        explanation of what changed.
+        """
     }
 
     // MARK: HTML shell
@@ -375,15 +525,23 @@ private struct WebNoteView: NSViewRepresentable {
 
     private static func jsonString(_ s: String) -> String { jsNoteString(s) }
 
-    private static func html(initial: String, key: String) -> String {
+    private static func html(initial: String, key: String, accentHex: String) -> String {
         guard let bundle else {
             return "<html><body style=\"font-family:-apple-system;padding:16px;color:#900\">Notes editor bundle missing.</body></html>"
         }
         return """
         <!DOCTYPE html><html><head><meta charset="utf-8">
         <style>
-          :root { color-scheme: light dark; --fg:#1a1a1a; }
-          @media (prefers-color-scheme: dark) { :root { --fg:#e8e8e8; } }
+          :root {
+            color-scheme: light dark; --fg:#1a1a1a; --accent:\(accentHex);
+            --surface:#ffffff; --surface-border:rgba(0,0,0,0.10);
+            /* Monochrome fractal noise; mix-blend-mode does the theme-tinting
+               (see .pup-fade-word::before) rather than needing a per-theme asset. */
+            --pup-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+          }
+          @media (prefers-color-scheme: dark) {
+            :root { --fg:#e8e8e8; --surface:#242426; --surface-border:rgba(255,255,255,0.12); }
+          }
           html,body { margin:0; height:100%; background:transparent; }
           #editor { height:100%; }
           .cm-editor { height:100%; background:transparent; color:var(--fg);
@@ -501,6 +659,125 @@ private struct WebNoteView: NSViewRepresentable {
             font:12px -apple-system, system-ui, sans-serif; font-weight:600; padding:5px; cursor:pointer;
           }
           .pup-db-optadd:hover { background:#4752c4; }
+          /* AI selection assist: the floating pill and its menu. Uses the
+             app's own accent (--accent, injected per theme) and the same
+             light/dark surface tokens as the rest of the editor chrome —
+             unlike the pupdb widgets above, this isn't meant to read as a
+             fixed dark Discord-style box, it should look like it belongs to
+             whichever theme (Maroon / Ivory / Astra Moon) is active. */
+          .pup-ai-pill {
+            position:fixed; z-index:1000; border:none; border-radius:999px; padding:5px 12px;
+            font:12px -apple-system, system-ui, sans-serif; font-weight:600; color:#fff;
+            background:var(--accent); cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,0.18);
+          }
+          .pup-ai-pill:hover { filter:brightness(1.08); }
+          .pup-ai-menu {
+            position:fixed; background:var(--surface); border:1px solid var(--surface-border);
+            border-radius:10px; padding:6px; z-index:1000; min-width:200px; max-width:320px;
+            box-shadow:0 8px 24px rgba(0,0,0,0.18); color:var(--fg);
+          }
+          .pup-ai-menuitem {
+            padding:7px 9px; border-radius:6px; cursor:pointer; color:var(--fg);
+            font:12px -apple-system, system-ui, sans-serif;
+          }
+          .pup-ai-menuitem:hover { background:color-mix(in srgb, var(--accent) 14%, transparent); }
+          .pup-ai-custom { border-top:1px solid var(--surface-border); margin-top:4px; padding-top:6px; }
+          .pup-ai-custom-input {
+            width:100%; box-sizing:border-box; background:color-mix(in srgb, var(--fg) 5%, transparent);
+            border:1px solid var(--surface-border); border-radius:6px; color:var(--fg);
+            font:12px -apple-system, system-ui, sans-serif; padding:6px 8px;
+          }
+          .pup-ai-custom-input:focus { outline:none; border-color:var(--accent); }
+          .pup-ai-status {
+            padding:7px 9px; color:color-mix(in srgb, var(--fg) 55%, transparent);
+            font:12px -apple-system, system-ui, sans-serif;
+          }
+          .pup-ai-error { color:#e5484d; }
+          .pup-ai-preview {
+            padding:7px 9px; color:var(--fg); font:12px -apple-system, system-ui, sans-serif;
+            max-height:200px; overflow-y:auto; white-space:pre-wrap;
+          }
+          .pup-ai-actions { display:flex; gap:6px; padding:6px 6px 2px; }
+          .pup-ai-actionbtn {
+            flex:1; border:none; border-radius:6px; padding:6px 8px; cursor:pointer;
+            font:11px -apple-system, system-ui, sans-serif; font-weight:600;
+            background:color-mix(in srgb, var(--fg) 8%, transparent); color:var(--fg);
+          }
+          .pup-ai-actionbtn:hover { background:var(--accent); color:#fff; }
+          /* Siri-style reveal for AI-inserted text (Replace / Insert below),
+             two styles picked in Settings (AIRevealAnimation):
+             - .pup-fade-word alone (Sweep, default): the word just fades/
+               un-blurs/settles in — smoothed, no per-word pulse of its own.
+               The connecting glow is `.pup-sweep-band` below, one continuous
+               band per line traveling start-to-end, not tied to individual
+               words at all.
+             - .pup-fade-word.pup-glow (Word blink): the original — each word
+               additionally gets its own independent glow pulse (::before),
+               which is what reads as "blinking" rather than connected.
+             Either way the word's real color is never touched — that stays
+             whatever syntax highlighting/color spans already gave it; both
+             styles only add opacity/blur/glow layers on top. */
+          .pup-fade-word {
+            position:relative; display:inline-block;
+            animation: pupFadeWordIn 560ms cubic-bezier(.22,.85,.32,1) both;
+            animation-delay: calc(var(--i, 0) * var(--stagger, 16ms));
+          }
+          .pup-fade-word.pup-glow::before {
+            content:""; position:absolute; inset:-3px -2px; z-index:-1;
+            border-radius:4px; pointer-events:none;
+            background:
+              radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 70%, transparent), transparent 70%),
+              var(--pup-noise);
+            background-size: 100% 100%, 72px 72px;
+            mix-blend-mode: overlay;
+            opacity:0;
+            animation: pupWordGlow 460ms cubic-bezier(.16,.8,.24,1) both;
+            animation-delay: calc(var(--i, 0) * var(--stagger, 16ms));
+          }
+          @keyframes pupFadeWordIn {
+            0%   { opacity:0; filter:blur(6px); transform:translateY(4px); }
+            70%  { opacity:1; filter:blur(0); transform:translateY(0); }
+            100% { opacity:1; filter:blur(0); transform:translateY(0); }
+          }
+          @keyframes pupWordGlow {
+            0%   { opacity:0; }
+            35%  { opacity:0.9; }
+            100% { opacity:0; }
+          }
+          /* Sweep (default): one continuous glow band per line, positioned
+             from real measured coordinates (coordsAtPos — same technique the
+             AI pill/menu already use, so it can't be thrown off by inline
+             text wrapping the way a pure-CSS width trick on a text span
+             would be) and appended as a child of the editor's own scroller
+             (`.cm-scroller`, position:relative already), not <body> — so it
+             scrolls along with the text it's escorting instead of staying
+             glued to the screen position it was born at while the content
+             scrolls out from under it. */
+          .pup-sweep-band {
+            position:absolute; z-index:998; pointer-events:none;
+            border-radius:5px; overflow:hidden;
+          }
+          .pup-sweep-beam {
+            position:absolute; top:0; bottom:0; left:-40%; width:40%;
+            background:
+              linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 80%, transparent) 50%, transparent),
+              var(--pup-noise);
+            background-size: 100% 100%, 72px 72px;
+            mix-blend-mode: overlay;
+            animation: pupSweepTravel linear both;
+          }
+          @keyframes pupSweepTravel {
+            0%   { left:-40%; }
+            100% { left:100%; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .pup-fade-word {
+              animation: pupFadeWordInReduced 120ms linear both; animation-delay:0ms;
+            }
+            .pup-fade-word.pup-glow::before { display:none; }
+            .pup-sweep-band { display:none; }
+          }
+          @keyframes pupFadeWordInReduced { from { opacity:0; } to { opacity:1; } }
         </style>
         <script>\(bundle)</script>
         </head><body>

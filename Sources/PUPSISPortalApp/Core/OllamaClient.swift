@@ -52,15 +52,26 @@ struct OllamaClient {
         let content: String
     }
 
+    /// `/api/embed` — turns text into a vector for `NoteRetrieval`'s
+    /// cosine-similarity ranking. Separate endpoint from `generate`/`chat`
+    /// because it takes a *different model* (`RealAssistantExecutor`'s
+    /// `embedModel`, a small purpose-built embedding model, not whatever chat
+    /// model the assistant itself is set to) — Ollama 404s if you ask a plain
+    /// chat model for embeddings.
+    static let embedEndpoint = URL(string: "http://localhost:11434/api/embed")!
+
     private let send: (Data) async throws -> (Data, Int)
     private let sendChat: (Data) async throws -> (Data, Int)
+    private let sendEmbed: (Data) async throws -> (Data, Int)
 
     init(
         send: ((Data) async throws -> (Data, Int))? = nil,
-        sendChat: ((Data) async throws -> (Data, Int))? = nil
+        sendChat: ((Data) async throws -> (Data, Int))? = nil,
+        sendEmbed: ((Data) async throws -> (Data, Int))? = nil
     ) {
         self.send = send ?? Self.post
         self.sendChat = sendChat ?? Self.postChat
+        self.sendEmbed = sendEmbed ?? Self.postEmbed
     }
 
     /// Model names already pulled on this machine, newest API shape first.
@@ -156,6 +167,10 @@ struct OllamaClient {
         try await post(body, to: chatEndpoint)
     }
 
+    private static func postEmbed(_ body: Data) async throws -> (Data, Int) {
+        try await post(body, to: embedEndpoint)
+    }
+
     private static func post(_ body: Data, to url: URL) async throws -> (Data, Int) {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -171,9 +186,11 @@ struct OllamaClient {
 
     /// Ask `model` to continue `selection`. Throws rather than returning nil so
     /// the caller can tell the user *why* nothing appeared — a silent no-op
-    /// looks identical to a broken feature.
-    func generate(model: String, selection: String) async throws -> String {
-        let body = try Self.requestBody(model: model, selection: selection)
+    /// looks identical to a broken feature. `instruction` defaults to the note-
+    /// drafting house style; the selection-popup summarize/answer/custom
+    /// prompts pass their own.
+    func generate(model: String, selection: String, instruction: String = Self.instruction) async throws -> String {
+        let body = try Self.requestBody(model: model, selection: selection, instruction: instruction)
         let (data, code): (Data, Int)
         do {
             (data, code) = try await send(body)
@@ -186,7 +203,7 @@ struct OllamaClient {
 
     /// Pure, so the request shape is pinned by a test rather than by whatever
     /// Ollama happened to accept the day it was written.
-    static func requestBody(model: String, selection: String) throws -> Data {
+    static func requestBody(model: String, selection: String, instruction: String = Self.instruction) throws -> Data {
         let payload: [String: Any] = [
             "model": model,
             "prompt": "\(instruction)\n\n\(selection)",
@@ -253,5 +270,37 @@ struct OllamaClient {
         let text = reply.message.content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw ClientError.empty }
         return text
+    }
+
+    // MARK: Embeddings (for RAG retrieval)
+
+    /// One vector per `texts` entry, same order — batched into a single
+    /// request rather than one call per chunk, so ranking a whole vault's
+    /// worth of chunks against a query costs one round trip either way.
+    func embed(model: String, texts: [String]) async throws -> [[Double]] {
+        guard !texts.isEmpty else { return [] }
+        let body = try Self.embedRequestBody(model: model, texts: texts)
+        let (data, code): (Data, Int)
+        do {
+            (data, code) = try await sendEmbed(body)
+        } catch {
+            throw ClientError.offline
+        }
+        guard (200..<300).contains(code) else { throw ClientError.http(code) }
+        return try Self.parseEmbeddings(data)
+    }
+
+    static func embedRequestBody(model: String, texts: [String]) throws -> Data {
+        let payload: [String: Any] = ["model": model, "input": texts]
+        return try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+    }
+
+    /// `{"embeddings": [[...], [...]]}`.
+    static func parseEmbeddings(_ data: Data) throws -> [[Double]] {
+        struct Reply: Decodable { let embeddings: [[Double]] }
+        guard let reply = try? JSONDecoder().decode(Reply.self, from: data), !reply.embeddings.isEmpty else {
+            throw ClientError.empty
+        }
+        return reply.embeddings
     }
 }

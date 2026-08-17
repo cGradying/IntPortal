@@ -223,6 +223,49 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(aiPermission.rawValue, forKey: Key.aiPermission) }
     }
 
+    /// How AI-inserted text (Replace / Insert below in the note editor) reveals
+    /// itself — see `AIRevealAnimation`. `.sweep` is the default: one
+    /// continuous glow traveling start-of-line to end, rather than each word
+    /// pulsing on its own.
+    @Published var aiRevealAnimation: AIRevealAnimation {
+        didSet { defaults.set(aiRevealAnimation.rawValue, forKey: Key.aiRevealAnimation) }
+    }
+
+    // MARK: RAG tuning (Settings ▸ Misc)
+
+    /// Defaults mirror what was hand-calibrated live against a real vault —
+    /// see `RAGQuery`'s own doc comment. Exposed here rather than staying
+    /// hardcoded so a future miscalibration is a slider, not a code change.
+    static let ragDefaultChunkSize = 700
+    static let ragDefaultSimilarityFloor = 0.35
+    static let ragDefaultContextBudget = 4000
+    static let ragDefaultAnswerTemperature = 0.2
+    static let ragDefaultEmbedModel = "nomic-embed-text"
+
+    /// Max characters per retrieval chunk — `NoteRetrieval.chunks(maxChars:)`.
+    @Published var ragChunkSize: Int {
+        didSet { defaults.set(ragChunkSize, forKey: Key.ragChunkSize) }
+    }
+    /// Cosine-similarity floor below which an embedding match is discarded —
+    /// `NoteRetrieval.rankByEmbedding(minSimilarity:)`.
+    @Published var ragSimilarityFloor: Double {
+        didSet { defaults.set(ragSimilarityFloor, forKey: Key.ragSimilarityFloor) }
+    }
+    /// Character budget for the grounded-answer prompt — `RAGQuery.ask`'s
+    /// packing loop.
+    @Published var ragContextBudget: Int {
+        didSet { defaults.set(ragContextBudget, forKey: Key.ragContextBudget) }
+    }
+    /// LFM2's answer temperature — `LlamaCppClient.complete(temperature:)`.
+    @Published var ragAnswerTemperature: Double {
+        didSet { defaults.set(ragAnswerTemperature, forKey: Key.ragAnswerTemperature) }
+    }
+    /// The Ollama model `RAGQuery` embeds with — must actually support
+    /// embeddings (confirmed live: a plain chat model 404s `/api/embed`).
+    @Published var ragEmbedModel: String {
+        didSet { defaults.set(ragEmbedModel, forKey: Key.ragEmbedModel) }
+    }
+
     static let leadOptions = [5, 10, 15, 30]
 
     /// Meetings marked vacant **for the whole term**, in the form `Notifier` and
@@ -267,6 +310,12 @@ final class Preferences: ObservableObject {
         static let aiEnabled = "aiEnabled"
         static let aiModel = "aiModel"
         static let aiPermission = "aiPermission"
+        static let aiRevealAnimation = "aiRevealAnimation"
+        static let ragChunkSize = "ragChunkSize"
+        static let ragSimilarityFloor = "ragSimilarityFloor"
+        static let ragContextBudget = "ragContextBudget"
+        static let ragAnswerTemperature = "ragAnswerTemperature"
+        static let ragEmbedModel = "ragEmbedModel"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -310,6 +359,13 @@ final class Preferences: ObservableObject {
         aiModel = defaults.string(forKey: Key.aiModel) ?? ""
         aiPermission = defaults.string(forKey: Key.aiPermission)
             .flatMap(AssistantPermission.init(rawValue:)) ?? .confirm
+        aiRevealAnimation = defaults.string(forKey: Key.aiRevealAnimation)
+            .flatMap(AIRevealAnimation.init(rawValue:)) ?? .sweep
+        ragChunkSize = (defaults.object(forKey: Key.ragChunkSize) as? Int) ?? Preferences.ragDefaultChunkSize
+        ragSimilarityFloor = (defaults.object(forKey: Key.ragSimilarityFloor) as? Double) ?? Preferences.ragDefaultSimilarityFloor
+        ragContextBudget = (defaults.object(forKey: Key.ragContextBudget) as? Int) ?? Preferences.ragDefaultContextBudget
+        ragAnswerTemperature = (defaults.object(forKey: Key.ragAnswerTemperature) as? Double) ?? Preferences.ragDefaultAnswerTemperature
+        ragEmbedModel = defaults.string(forKey: Key.ragEmbedModel) ?? Preferences.ragDefaultEmbedModel
     }
 
     /// The colour an event renders in: the user's pick, else the palette's
@@ -479,5 +535,27 @@ final class Preferences: ObservableObject {
         }
         classInfo[session.subjectCode] = perma ? (current.isEmpty ? nil : current) : nil
         classInfo[session.id] = perma ? nil : (current.isEmpty ? nil : current)
+    }
+}
+
+/// How the note editor's AI-inserted text (Replace / Insert below,
+/// `notes-editor/src/editor.js`) reveals itself. Pushed to the webview by
+/// `WebNoteEditor.swift`'s `PUPNotes.setAIRevealMode` — the animation itself
+/// is pure CSS/JS, this enum only carries the user's pick.
+enum AIRevealAnimation: String, Codable, CaseIterable, Identifiable {
+    /// One continuous glow traveling start-of-line to end, escorting the
+    /// words as they reveal — connected rather than each word on its own.
+    case sweep
+    /// Each word fades/glows in on its own — the original, kept as the
+    /// alternative rather than replaced outright.
+    case blink
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .sweep: "Sweep"
+        case .blink: "Word blink"
+        }
     }
 }

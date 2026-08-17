@@ -28,10 +28,17 @@ final class RealAssistantExecutorTests: XCTestCase {
         try? FileManager.default.removeItem(at: notesURL.deletingLastPathComponent())
     }
 
+    /// Offline by default — `search_notes`/`ask_notes` tests exercise the
+    /// term-ranking fallback path deterministically, with no dependency on a
+    /// real Ollama or an embedding model being installed. Tests that care
+    /// about the embedding path inject their own `ollamaClient`.
+    private static let offlineOllamaClient = OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
+
     private func executor(
         openKey: String? = nil,
         llamaCppClient: LlamaCppClient = LlamaCppClient(),
-        ensureServerRunning: @escaping () async -> Bool = { true }
+        ensureServerRunning: @escaping () async -> Bool = { true },
+        ollamaClient: OllamaClient = offlineOllamaClient
     ) -> RealAssistantExecutor {
         RealAssistantExecutor(
             notes: notesStore,
@@ -41,7 +48,8 @@ final class RealAssistantExecutorTests: XCTestCase {
             preferences: Preferences(defaults: UserDefaults(suiteName: "RealAssistantExecutorTests-\(UUID().uuidString)")!),
             openNoteKey: { openKey },
             llamaCppClient: llamaCppClient,
-            ensureServerRunning: ensureServerRunning
+            ensureServerRunning: ensureServerRunning,
+            ollamaClient: ollamaClient
         )
     }
 
@@ -83,6 +91,7 @@ final class RealAssistantExecutorTests: XCTestCase {
         XCTAssertTrue(result.ok)
         XCTAssertTrue(result.message.contains("linked lists"))
         XCTAssertTrue(result.message.contains("COMP 001"))
+        XCTAssertEqual(result.sources, ["COMP 001"])
     }
 
     func testSearchNotesIsCaseInsensitive() async {
@@ -116,6 +125,7 @@ final class RealAssistantExecutorTests: XCTestCase {
 
         XCTAssertTrue(result.ok)
         XCTAssertEqual(result.message, "A base case and a recursive case.")
+        XCTAssertEqual(result.sources, ["COMP 001"])
     }
 
     /// Nothing matched — the model is never even called, since there's
@@ -133,6 +143,59 @@ final class RealAssistantExecutorTests: XCTestCase {
         XCTAssertTrue(result.ok)
         XCTAssertTrue(result.message.contains("nothing to answer from"))
         XCTAssertFalse(called, "the model must not be called with no context")
+    }
+
+    // MARK: embedding-based retrieval — the semantic-match upgrade
+
+    /// A fake `/api/embed` keyed by exact input text, so a test can assign a
+    /// deterministic vector to each string without depending on chunk/dict
+    /// iteration order.
+    private func embedClient(_ vectors: [String: [Double]]) -> OllamaClient {
+        OllamaClient(sendEmbed: { body in
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+            let inputs = try XCTUnwrap(json["input"] as? [String])
+            let embeddings = inputs.map { vectors[$0] ?? [0, 0] }
+            return (try JSONEncoder().encode(["embeddings": embeddings]), 200)
+        })
+    }
+
+    /// Proves retrieval actually uses the embedding vectors, not a term-match
+    /// fallback in disguise: the matching chunk shares *no* words with the
+    /// query, and the decoy chunk is stuffed with the query's literal words —
+    /// term ranking would pick the decoy, embeddings correctly pick the other.
+    func testAskNotesPrefersEmbeddingSimilarityOverLiteralWordOverlap() async {
+        notesStore.setText("Humans began farming and settling into villages during the Neolithic period.", for: "class:HIST")
+        notesStore.setText("agricultural revolution agricultural revolution agricultural revolution (decoy, unrelated)", for: "class:DECOY")
+
+        let query = "what does my note say about the agricultural revolution?"
+        let client = embedClient([
+            query: [1, 0],
+            "Humans began farming and settling into villages during the Neolithic period.": [0.95, 0.05],
+            "agricultural revolution agricultural revolution agricultural revolution (decoy, unrelated)": [0, 1],
+        ])
+        let llama = LlamaCppClient(send: { _ in
+            (Data(#"{"choices":[{"message":{"content":"Farming began and people settled into villages."}}]}"#.utf8), 200)
+        })
+
+        let result = await executor(llamaCppClient: llama, ollamaClient: client)
+            .execute(AssistantAction(tool: "ask_notes", args: ["query": .string(query)]))
+
+        XCTAssertTrue(result.ok)
+        XCTAssertTrue(result.sources.contains("HIST"))
+        XCTAssertFalse(result.sources.contains("DECOY"))
+    }
+
+    /// If the embed call fails (no `nomic-embed-text` pulled, Ollama offline),
+    /// retrieval falls back to term matching instead of dead-ending.
+    func testSearchNotesFallsBackToTermMatchingWhenEmbeddingFails() async {
+        notesStore.setText("Review recursion before the exam.", for: "class:COMP 001")
+        let failingClient = OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
+
+        let result = await executor(ollamaClient: failingClient)
+            .execute(AssistantAction(tool: "search_notes", args: ["query": .string("recursion")]))
+
+        XCTAssertTrue(result.ok)
+        XCTAssertTrue(result.message.contains("COMP 001"))
     }
 
     func testAskNotesRefusesEmptyQuery() async {

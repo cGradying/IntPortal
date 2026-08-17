@@ -20,14 +20,13 @@ final class RealAssistantExecutor: AssistantExecutor {
     /// The note the user currently has open, if any — resolved fresh on every
     /// call rather than captured once, since it can change mid-conversation.
     private let openNoteKey: () -> String?
-    /// The `ask_notes` tool's model — a separate local server from the main
-    /// assistant's Ollama connection, injectable so tests never hit a real
-    /// one. See `LlamaCppClient`'s doc comment for why it's scoped to this
-    /// one tool rather than driving the assistant itself.
-    private let llamaCppClient: LlamaCppClient
-    /// Starts llama-server on demand — injectable so tests never spawn a
-    /// real process. Defaults to the real manager.
-    private let ensureServerRunning: () async -> Bool
+    /// The retrieval + grounded-answer pipeline behind `search_notes`/
+    /// `ask_notes` — shared with the `/rag` slash command, see its own doc
+    /// comment for why. Built from the same injectable pieces
+    /// (`llamaCppClient`/`ensureServerRunning`/`ollamaClient`) this
+    /// initializer always took, so existing tests construct it exactly as
+    /// before.
+    private let ragQuery: RAGQuery
 
     /// Tool-result strings are fed back to the model in `.auto` mode and shown
     /// in the confirm-row UI — capped so one enormous note can't blow out
@@ -42,7 +41,8 @@ final class RealAssistantExecutor: AssistantExecutor {
         preferences: Preferences,
         openNoteKey: @escaping () -> String?,
         llamaCppClient: LlamaCppClient = LlamaCppClient(),
-        ensureServerRunning: @escaping () async -> Bool = { await LlamaServerManager.shared.ensureRunning() }
+        ensureServerRunning: @escaping () async -> Bool = { await LlamaServerManager.shared.ensureRunning() },
+        ollamaClient: OllamaClient = OllamaClient()
     ) {
         self.notesStore = notes
         self.editor = editor
@@ -50,15 +50,20 @@ final class RealAssistantExecutor: AssistantExecutor {
         self.portal = portal
         self.preferences = preferences
         self.openNoteKey = openNoteKey
-        self.llamaCppClient = llamaCppClient
-        self.ensureServerRunning = ensureServerRunning
+        self.ragQuery = RAGQuery(
+            notes: notes, ollamaClient: ollamaClient, llamaCppClient: llamaCppClient,
+            ensureServerRunning: ensureServerRunning,
+            embedModel: preferences.ragEmbedModel, chunkSize: preferences.ragChunkSize,
+            similarityFloor: preferences.ragSimilarityFloor, contextBudget: preferences.ragContextBudget,
+            answerTemperature: preferences.ragAnswerTemperature
+        )
     }
 
     func execute(_ action: AssistantAction) async -> AssistantToolResult {
         switch action.tool {
         case "read_note": return readNote(action)
         case "list_notes": return listNotes(action)
-        case "search_notes": return searchNotes(action)
+        case "search_notes": return await searchNotes(action)
         case "ask_notes": return await askNotes(action)
         case "append_note": return appendNote(action)
         case "create_note": return createNote(action)
@@ -108,70 +113,47 @@ final class RealAssistantExecutor: AssistantExecutor {
         }
     }
 
-    /// Retrieval half of "RAG over your notes" — plain substring search, not
-    /// embeddings. Every note's text is short enough on a personal vault that
-    /// a keyword match plus a snippet is genuinely useful without a vector
-    /// pipeline, an embedding model call, or anywhere new for note content to
-    /// end up. Revisit if a real semantic-search need shows up; don't build
-    /// it speculatively.
-    private func searchNotes(_ action: AssistantAction) -> AssistantToolResult {
+    /// Retrieval half of "RAG over your notes" — delegates to `RAGQuery`
+    /// (embeddings first, term-matching fallback; see its own doc comment).
+    /// Only notes the user has left in the RAG (`NotesStore.ragIncludedKeys`)
+    /// are ever searched — the right-click "Include in AI search" toggle.
+    private func searchNotes(_ action: AssistantAction) async -> AssistantToolResult {
         guard let query = action.string("query") else {
             return AssistantToolResult(action: action, ok: false, message: "No search query given.")
         }
-        let needle = query.lowercased()
-        let hits = notesStore.notes.compactMap { key, note -> String? in
-            guard let range = note.text.lowercased().range(of: needle) else { return nil }
-            return "\(displayName(for: key)): …\(Self.snippet(of: note.text, around: range))…"
-        }
+        let hits = await ragQuery.search(query)
         guard !hits.isEmpty else {
             return AssistantToolResult(action: action, ok: true, message: "No notes matched \"\(query)\".")
         }
-        return AssistantToolResult(action: action, ok: true, message: Self.truncated(hits.sorted().joined(separator: "\n")))
+        let lines = hits.map { "\($0.name): …\($0.text.prefix(160))…" }
+        return AssistantToolResult(
+            action: action, ok: true,
+            message: Self.truncated(lines.joined(separator: "\n")),
+            sources: Self.uniqueNames(hits)
+        )
     }
 
-    /// ~40 characters either side of the match, word-safe isn't worth the
-    /// complexity for a snippet nobody reads character-precisely.
-    private static func snippet(of text: String, around range: Range<String.Index>) -> String {
-        let padding = 40
-        let start = text.index(range.lowerBound, offsetBy: -padding, limitedBy: text.startIndex) ?? text.startIndex
-        let end = text.index(range.upperBound, offsetBy: padding, limitedBy: text.endIndex) ?? text.endIndex
-        return text[start..<end].trimmingCharacters(in: .whitespacesAndNewlines)
+    private static func uniqueNames(_ hits: [NoteChunk]) -> [String] {
+        var seen = Set<String>()
+        return hits.map(\.name).filter { seen.insert($0).inserted }
     }
 
-    /// Generation half of RAG over the notes vault: gathers the same
-    /// keyword-matched notes `search_notes` would, then asks the separate
-    /// local `llama.cpp` model (see `LlamaCppClient`) to synthesize one
-    /// grounded answer from them — a plain completion, not a tool-calling
-    /// turn, per that client's own doc comment on why. Never calls the model
-    /// at all when nothing matched; an empty prompt has nothing to answer from.
+    /// Generation half of RAG over the notes vault — delegates to `RAGQuery`,
+    /// translating its two expected failure modes (nothing matched / server
+    /// unavailable) into the `ok: true`/`ok: false` split the model and the
+    /// confirm-row UI expect.
     private func askNotes(_ action: AssistantAction) async -> AssistantToolResult {
         guard let query = action.string("query") else {
             return AssistantToolResult(action: action, ok: false, message: "No question given.")
         }
-        let needle = query.lowercased()
-        let context = notesStore.notes.compactMap { key, note -> String? in
-            guard note.text.lowercased().contains(needle) else { return nil }
-            return "\(displayName(for: key)):\n\(note.text)"
-        }
-        guard !context.isEmpty else {
-            return AssistantToolResult(action: action, ok: true,
-                message: "No notes matched \"\(query)\", so there's nothing to answer from.")
-        }
-
-        guard await ensureServerRunning() else {
-            return AssistantToolResult(action: action, ok: false,
-                message: "Couldn't start the local notes-answering server. Is llama.cpp installed? (`brew install llama.cpp`)")
-        }
-
         do {
-            let answer = try await llamaCppClient.complete(
-                system: "Answer the question using only the notes given. If the notes don't contain the answer, say so plainly rather than guessing.",
-                user: "Notes:\n\(Self.truncated(context.joined(separator: "\n\n")))\n\nQuestion: \(query)"
-            )
-            return AssistantToolResult(action: action, ok: true, message: answer)
+            let answer = try await ragQuery.ask(query)
+            return AssistantToolResult(action: action, ok: true, message: answer.text, sources: answer.sources)
+        } catch let error as RAGQuery.QueryError {
+            let ok = error == .noMatch(query)
+            return AssistantToolResult(action: action, ok: ok, message: error.localizedDescription)
         } catch {
-            return AssistantToolResult(action: action, ok: false,
-                message: error.localizedDescription)
+            return AssistantToolResult(action: action, ok: false, message: error.localizedDescription)
         }
     }
 

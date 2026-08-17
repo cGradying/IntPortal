@@ -459,6 +459,33 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(reloaded.note, "Chapter 4")
         XCTAssertEqual(reloaded.link, "https://meet.google.com/abc")
     }
+
+    // MARK: RAG tuning (Settings ▸ Misc)
+
+    func testRAGSettingsDefaultToTheShippedValues() {
+        let prefs = Preferences(defaults: defaults)
+        XCTAssertEqual(prefs.ragChunkSize, Preferences.ragDefaultChunkSize)
+        XCTAssertEqual(prefs.ragSimilarityFloor, Preferences.ragDefaultSimilarityFloor)
+        XCTAssertEqual(prefs.ragContextBudget, Preferences.ragDefaultContextBudget)
+        XCTAssertEqual(prefs.ragAnswerTemperature, Preferences.ragDefaultAnswerTemperature)
+        XCTAssertEqual(prefs.ragEmbedModel, Preferences.ragDefaultEmbedModel)
+    }
+
+    func testRAGSettingsSurviveRelaunch() {
+        let prefs = Preferences(defaults: defaults)
+        prefs.ragChunkSize = 500
+        prefs.ragSimilarityFloor = 0.5
+        prefs.ragContextBudget = 8000
+        prefs.ragAnswerTemperature = 0.7
+        prefs.ragEmbedModel = "mxbai-embed-large"
+
+        let reloaded = Preferences(defaults: defaults)
+        XCTAssertEqual(reloaded.ragChunkSize, 500)
+        XCTAssertEqual(reloaded.ragSimilarityFloor, 0.5)
+        XCTAssertEqual(reloaded.ragContextBudget, 8000)
+        XCTAssertEqual(reloaded.ragAnswerTemperature, 0.7)
+        XCTAssertEqual(reloaded.ragEmbedModel, "mxbai-embed-large")
+    }
 }
 
 /// Reduce Motion is an accessibility setting, not a preference to soften —

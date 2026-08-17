@@ -56,8 +56,8 @@ struct LlamaCppClient {
     /// tool menu in the prompt, per the spike finding above. Throws rather
     /// than returning nil so the caller (the `ask_notes` tool) can tell the
     /// student *why* nothing came back, same rationale as `OllamaClient.generate`.
-    func complete(system: String, user: String) async throws -> String {
-        let body = try Self.requestBody(system: system, user: user)
+    func complete(system: String, user: String, temperature: Double = 0.2) async throws -> String {
+        let body = try Self.requestBody(system: system, user: user, temperature: temperature)
         let (data, code): (Data, Int)
         do {
             (data, code) = try await send(body)
@@ -72,13 +72,13 @@ struct LlamaCppClient {
     /// llama.cpp happened to accept the day it was written. `model` is omitted
     /// deliberately — llama.cpp's server serves exactly one model per running
     /// process, unlike Ollama's multi-model `/api/generate`.
-    static func requestBody(system: String, user: String) throws -> Data {
+    static func requestBody(system: String, user: String, temperature: Double = 0.2) throws -> Data {
         let payload: [String: Any] = [
             "messages": [
                 ["role": "system", "content": system],
                 ["role": "user", "content": user],
             ],
-            "temperature": 0.2,
+            "temperature": temperature,
             "max_tokens": 500,
         ]
         return try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
