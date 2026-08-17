@@ -454,7 +454,16 @@ use or redistribution as part of a commercial offering.
 
 _Feedback from people using the app will go here._
 
-> _"…"_
+> \_"**08/17/26 — Bug report: Topbar buttons disappear on hover (Full Screen)**
+> **Steps to reproduce:**
+>
+> > 1. Launch the app on macOS Sequoia 15.6.1.
+> > 2. Enter full-screen mode.
+> > 3. Hover the mouse over the topbar.
+> >    **Expected:** Topbar buttons remain visible on hover.
+> >    **Actual:** Topbar buttons disappear when hovered while in full-screen.
+> >    **Notes:** Bug occurs only in full-screen; not reproducible when the app is windowed.
+> >    _Reporter: Mark (macOS Sequoia 15.6.1)_"\_
 
 ---
 
