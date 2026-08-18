@@ -59,6 +59,16 @@ struct ClassBlock: View {
                 }
             }
             .opacity(0.85)
+
+            if !session.description.isEmpty {
+                // No line limit — a tall block has the room to show all of it;
+                // the clip on the block's own shape (below) is what keeps a
+                // short block from bleeding into the row underneath, not a
+                // line cap that would truncate even when there's space.
+                Text(session.description)
+                    .font(.system(size: 9))
+                    .opacity(0.85)
+            }
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 5)
@@ -66,6 +76,11 @@ struct ClassBlock: View {
         // Opaque on purpose. Glass belongs to the chrome; the blocks are the
         // content, and per-subject colour has to survive being looked at.
         .background(fill, in: BlockShape(position: position))
+        // A short (15-30min) block doesn't have room for three lines — clip
+        // to the block's own shape so the description crops away instead of
+        // bleeding into the row below, rather than gating it on a measured
+        // height that isn't available here.
+        .clipShape(BlockShape(position: position))
         // A vacant class keeps its outline so the slot still reads as spoken
         // for — it just stops looking like something you have to attend. An
         // online class keeps its solid fill but gains a coloured strip so it

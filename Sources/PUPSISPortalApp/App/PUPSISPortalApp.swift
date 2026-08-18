@@ -245,6 +245,14 @@ struct ContentView: View {
     /// than appearing whole. Reset by the band's own `onAppear` each time a
     /// destination opens (the band's `if` removes/reinserts it from the tree).
     @State private var bandResolved = false
+    /// Flipped true just after the home title mounts, so it fades/rises in
+    /// rather than appearing whole. Reset on every home visit, same pattern
+    /// as `bandResolved`.
+    @State private var titleResolved = false
+    /// Clears the nav island's fixed-size home content above it. A plain
+    /// constant rather than `Theme.Chrome` — one call site, not a repeated
+    /// value the way the chrome-strip height is.
+    private let homeTitleOffset: CGFloat = -86
 
     var body: some View {
         content
@@ -271,8 +279,15 @@ struct ContentView: View {
                 // island) once open. Cross-fades under the gliding island.
                 Group {
                     if appState.isHome {
-                        preferences.theme.palette(for: systemScheme).canvasWash
-                            .ignoresSafeArea()
+                        ZStack {
+                            preferences.theme.palette(for: systemScheme).canvasWash
+                            // Animated static, behind everything else at home —
+                            // the one other place accent tint is allowed to show,
+                            // and only faintly. See HomeNoiseField's own doc
+                            // comment for why this is safe to run continuously.
+                            HomeNoiseField(color: preferences.theme.palette(for: systemScheme).accent)
+                        }
+                        .ignoresSafeArea()
                     } else {
                         destination(for: credentials)
                             .padding(.top, Theme.Chrome.topStrip) // clear the slim top bar
@@ -280,6 +295,23 @@ struct ContentView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // The home wordmark — mounts fresh (and replays its entrance)
+                // every time isHome becomes true, same as the chrome band below.
+                if appState.isHome {
+                    Text("Student IntPortal")
+                        .font(.system(.largeTitle, design: .serif).weight(.semibold))
+                        .foregroundStyle(preferences.theme.palette(for: systemScheme).accent)
+                        .opacity(titleResolved ? 1 : 0)
+                        .offset(y: titleResolved ? 0 : 8)
+                        .onAppear { titleResolved = false }
+                        .animation(Motion.arrival(reduced: reduceMotion), value: titleResolved)
+                        .task { titleResolved = true }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        .offset(y: homeTitleOffset)
+                        .transition(.opacity)
+                        .allowsHitTesting(false)
+                }
 
                 // A pixel-dither strip textures the otherwise-flat top bar. Clipped
                 // slightly inside the window's own rounded corner so individual

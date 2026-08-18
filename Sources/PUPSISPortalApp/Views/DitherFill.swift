@@ -12,6 +12,11 @@ struct DitherFill: View, Animatable {
     /// Scales the whole ramp: 0 draws nothing, 1 is the full ramp. Animatable,
     /// so a fill can dither *in* rather than appearing all at once.
     var density: Double = 1
+    /// Only read by `.wave` — the travelling gradient's position in radians.
+    /// A plain stored property, not in `animatableData`: the caller (a
+    /// `TimelineView`) already hands in a smoothly-increasing value each
+    /// tick, so there's nothing for SwiftUI to interpolate between draws.
+    var phase: Double = 0
 
     enum Ramp {
         /// Dense at the top, gone at the bottom, quadratic falloff — the
@@ -20,6 +25,12 @@ struct DitherFill: View, Animatable {
         /// Uniform density at the given level — a veil over finished/empty
         /// content, rather than a directional fade.
         case flat(Double)
+        /// Two overlapping sine gradients at different angles/speeds, so the
+        /// dither's density itself sweeps and drifts like light on water
+        /// rather than sitting at a fixed level. Deterministic in `phase`,
+        /// not random — advancing `phase` reads as a wave travelling through
+        /// the field, never a jump.
+        case wave(Double)
     }
 
     var animatableData: Double {
@@ -42,18 +53,10 @@ struct DitherFill: View, Animatable {
             let rows = Int(size.height / cell) + 1
             guard rows > 0, cols > 0 else { return }
             for r in 0..<rows {
-                let level: Double
-                switch ramp {
-                case .topDown:
-                    // 1 at the top → 0 at the bottom, so the dots thin out downward.
-                    let fade = rows > 1 ? 1.0 - Double(r) / Double(rows - 1) : 1
-                    level = fade * fade
-                case .flat(let value):
-                    level = value
-                }
-                let threshold = Int(level * density * 16)
                 let row = Self.bayer[r % 4]
-                for c in 0..<cols where row[c % 4] < threshold {
+                for c in 0..<cols {
+                    let threshold = Int(level(col: c, row: r, rows: rows) * density * 16)
+                    guard row[c % 4] < threshold else { continue }
                     let rect = CGRect(x: CGFloat(c) * cell, y: CGFloat(r) * cell, width: cell, height: cell)
                     context.fill(Path(rect), with: .color(color))
                 }
@@ -61,5 +64,28 @@ struct DitherFill: View, Animatable {
         }
         .drawingGroup()
         .allowsHitTesting(false)
+    }
+
+    private func level(col: Int, row: Int, rows: Int) -> Double {
+        switch ramp {
+        case .topDown:
+            // 1 at the top → 0 at the bottom, so the dots thin out downward.
+            let fade = rows > 1 ? 1.0 - Double(row) / Double(rows - 1) : 1
+            return fade * fade
+        case .flat(let value):
+            return value
+        case .wave(let intensity):
+            return Self.waveLevel(col, row, phase: phase) * intensity
+        }
+    }
+
+    /// Two sine waves at different spatial frequencies and speeds, summed and
+    /// remapped to 0...1. The mismatched frequencies keep the pattern from
+    /// ever exactly repeating on screen — it reads as drifting light, not a
+    /// scrolling stripe.
+    private static func waveLevel(_ x: Int, _ y: Int, phase: Double) -> Double {
+        let wave1 = sin(Double(x) * 0.045 + phase)
+        let wave2 = sin(Double(y) * 0.07 - phase * 0.6)
+        return (wave1 + wave2) * 0.25 + 0.5
     }
 }

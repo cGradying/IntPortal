@@ -1,19 +1,31 @@
+<div align="center">
+
 # PUPSISPortal
 
-**Current version: v1.2.1** — no signed build; see [Install](#install) and
-[Release history](#release-history) below.
+**Your PUP class schedule, as a native Mac app.**
+Signs into SIS headlessly — you never see the web portal, only your week.
 
-Native macOS app that signs into the [PUP Student Information System](https://sis8.pup.edu.ph/student/)
+[![Version](https://img.shields.io/badge/version-v1.2.1-8B0000?style=for-the-badge&labelColor=0B1120)](#release-history)
+[![macOS](https://img.shields.io/badge/macOS-14%2B-8B0000?style=for-the-badge&labelColor=0B1120)](#install)
+[![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-8B0000?style=for-the-badge&labelColor=0B1120)](LICENSE)
+[![Download](https://img.shields.io/badge/download-.dmg-8B0000?style=for-the-badge&labelColor=0B1120)](https://github.com/cGradying/PUPSISPortal/releases)
+
+</div>
+
+![PUPSISPortal week grid](docs/media/hero.png)
+
+<!-- Demo video: paste the github user-attachments URL here on its own line
+     (see docs/media/README.md for how to get one). GitHub renders it as an
+     inline player automatically. -->
+
+Signs into the [PUP Student Information System](https://sis8.pup.edu.ph/student/)
 **headlessly** and renders your own schedule and grades as a native SwiftUI
-interface. The SIS web UI is never shown — a hidden `WKWebView` holds the
-authenticated session and runs the scraping JavaScript; everything you see is
-drawn natively, works offline, and fits macOS.
+interface — the SIS web UI is never shown, only a hidden `WKWebView` holding
+the session. Launches instantly from an offline cache, always knows what's
+next, and exports cleanly to your real calendar.
 
 Sibling to [PUPSIS](https://github.com/cGradying/PUPSIS) (which only auto-fills
-the real site). PUPSISPortal is the one with its own interface: a weekly
-calendar, a day agenda with notes, Calendar.app + Google Calendar sync,
-reminders, grades with a computed GPA and cross-term trend, and a menu-bar
-presence.
+the real site) — this one has its own interface.
 
 Scope is strictly your own account and data — personal, non-commercial use,
 which is what PUP's Terms of Use permit. It never scrapes other students,
@@ -21,8 +33,24 @@ bypasses auth, or redistributes SIS content.
 
 ---
 
+## Quickstart
+
+```sh
+git clone https://github.com/cGradying/PUPSISPortal.git
+cd PUPSISPortal
+Scripts/make_signing_identity.sh   # one-time: stable local signing identity
+Scripts/make_mac_app.sh            # build + install to ~/Applications
+```
+
+Open it, enter your SIS student number and password — stored only in your
+Keychain, never on disk. Prefer a prebuilt `.dmg` instead? See
+[Install](#install) (unsigned; right-click → Open the first time).
+
+---
+
 ## Contents
 
+- [Quickstart](#quickstart)
 - [Who it's for / use cases](#who-its-for--use-cases)
 - [Install](#install)
 - [First launch & sign-in](#first-launch--sign-in)
@@ -138,6 +166,8 @@ to bring them back faded). Status flows through to reminders and calendar export
 
 ### Today & Notes
 
+![Today screen with live notes editor](docs/media/today.png)
+
 The **Today** screen reads your day top to bottom: the class in session, what's
 done, what's upcoming with a countdown, the **free time** between things, and a
 one-line look at tomorrow. It folds in your own events from the calendars you've
@@ -172,6 +202,8 @@ The editor supports:
   add / remove rows and columns; the `×` controls appear on hover.
 
 ### AI Assistant (beta)
+
+![AI assistant panel mid-answer with a source chip](docs/media/assistant.png)
 
 A floating orb (bottom-left, every screen) expands into a chat panel that can
 read and add to your notes, read your schedule and grades, and add calendar
@@ -220,6 +252,8 @@ model) if the defaults ever need adjusting.
 
 ### Grades & GPA
 
+![Grades screen with units-weighted GPA and cross-term trend](docs/media/grades.png)
+
 The **Grades** screen shows your posted subjects, a **units-weighted GPA**, a
 **cross-term GPA trend** (backfilled by driving the SIS School-Year/Semester
 dropdowns), and **units completed**. Grade cells are empty until grades are
@@ -251,6 +285,8 @@ units in **Settings → Grades** for the completed-units progress.
   so you can close the window and still stay oriented.
 
 ### Appearance
+
+![Theme comparison, PUP Maroon and Astra Moon](docs/media/appearance.png)
 
 **Settings → Appearance** — themes **PUP Maroon**, **Ivory**, **Astra Moon**, or
 **Match System**, plus per-subject color overrides.
@@ -285,15 +321,10 @@ apps, not a bug.
 
 ## Build from source
 
-Pure SwiftPM — no Xcode project needed, just a Swift toolchain (Xcode 16+ on
-macOS 14–15; Xcode 26+ to get the Liquid Glass look on macOS 26).
-
-```sh
-swift build -c release                 # build
-swift test                             # parser / store / logic tests
-Scripts/make_signing_identity.sh       # one-time: stable local signing identity
-Scripts/make_mac_app.sh                # package + install to ~/Applications
-```
+Same commands as [Quickstart](#quickstart). Pure SwiftPM — no Xcode project
+needed, just a Swift toolchain (Xcode 16+ on macOS 14–15; Xcode 26+ to get the
+Liquid Glass look on macOS 26). `swift test` runs the parser/store/logic suite
+separately if you want it.
 
 `make_mac_app.sh` builds the release binary, assembles `PUPSISPortal.app`
 (bundle id `com.cgradying.pupsisportal`) with a generated `Info.plist` and icon,

@@ -105,6 +105,61 @@ extension Palette {
             Color(red: 0.914, green: 0.412, blue: 0.514),
         ]
     )
+
+    /// Sakura: hot pink on warm blush paper.
+    static let sakura = Palette(
+        accent: Color(red: 0.878, green: 0.255, blue: 0.494),
+        secondary: Color(red: 0.788, green: 0.561, blue: 0.651),
+        canvasTop: Color(red: 1.000, green: 0.969, blue: 0.980),
+        canvasBottom: Color(red: 0.988, green: 0.914, blue: 0.941),
+        gridLine: Color.black.opacity(0.06),
+        onlineStrip: Color(red: 1.000, green: 0.561, blue: 0.639),
+        subjectColors: [
+            Color(red: 0.878, green: 0.255, blue: 0.494),
+            Color(red: 0.945, green: 0.427, blue: 0.400),
+            Color(red: 0.545, green: 0.318, blue: 0.635),
+            Color(red: 0.788, green: 0.635, blue: 0.153),
+            Color(red: 0.216, green: 0.545, blue: 0.522),
+            Color(red: 0.204, green: 0.235, blue: 0.318),
+        ]
+    )
+
+    /// Monochrome: black and gray on white, clean — no color at all beyond
+    /// lightness. Subjects read apart by shade, not hue.
+    static let monochrome = Palette(
+        accent: Color(red: 0.067, green: 0.067, blue: 0.067),
+        secondary: Color(red: 0.502, green: 0.502, blue: 0.502),
+        canvasTop: Color(red: 1.000, green: 1.000, blue: 1.000),
+        canvasBottom: Color(red: 0.949, green: 0.949, blue: 0.949),
+        gridLine: Color.black.opacity(0.08),
+        onlineStrip: Color(red: 0.251, green: 0.251, blue: 0.251),
+        subjectColors: [
+            Color(red: 0.102, green: 0.102, blue: 0.102),
+            Color(red: 0.239, green: 0.239, blue: 0.239),
+            Color(red: 0.361, green: 0.361, blue: 0.361),
+            Color(red: 0.478, green: 0.478, blue: 0.478),
+            Color(red: 0.600, green: 0.600, blue: 0.600),
+            Color(red: 0.722, green: 0.722, blue: 0.722),
+        ]
+    )
+
+    /// Matrix: phosphor green terminal on black.
+    static let matrix = Palette(
+        accent: Color(red: 0.000, green: 1.000, blue: 0.255),
+        secondary: Color(red: 0.000, green: 0.561, blue: 0.067),
+        canvasTop: Color(red: 0.051, green: 0.059, blue: 0.051),
+        canvasBottom: Color(red: 0.000, green: 0.000, blue: 0.000),
+        gridLine: Color.white.opacity(0.08),
+        onlineStrip: Color(red: 1.000, green: 0.690, blue: 0.000),
+        subjectColors: [
+            Color(red: 0.000, green: 1.000, blue: 0.255),
+            Color(red: 0.000, green: 0.898, blue: 0.831),
+            Color(red: 1.000, green: 0.690, blue: 0.000),
+            Color(red: 0.000, green: 0.561, blue: 0.067),
+            Color(red: 0.827, green: 0.827, blue: 0.827),
+            Color(red: 0.157, green: 0.678, blue: 0.522),
+        ]
+    )
 }
 
 /// What the user picked in Settings. `auto` is the app's original behavior —
@@ -114,6 +169,9 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
     case pupMaroon
     case ivory
     case astraMoon
+    case sakura
+    case monochrome
+    case matrix
 
     var id: String { rawValue }
 
@@ -123,6 +181,9 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
         case .pupMaroon: "PUP Maroon"
         case .ivory: "Ivory"
         case .astraMoon: "Astra Moon"
+        case .sakura: "Sakura"
+        case .monochrome: "Monochrome"
+        case .matrix: "Matrix"
         }
     }
 
@@ -132,6 +193,9 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
         case .pupMaroon: .pupMaroon
         case .ivory: .ivory
         case .astraMoon: .astraMoon
+        case .sakura: .sakura
+        case .monochrome: .monochrome
+        case .matrix: .matrix
         }
     }
 
@@ -144,6 +208,9 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
         case .pupMaroon: .light
         case .ivory: .light
         case .astraMoon: .dark
+        case .sakura: .light
+        case .monochrome: .light
+        case .matrix: .dark
         }
     }
 }

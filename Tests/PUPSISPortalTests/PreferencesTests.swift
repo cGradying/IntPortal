@@ -579,6 +579,18 @@ final class PaletteTests: XCTestCase {
         XCTAssertEqual(ThemeChoice.astraMoon.colorScheme, .dark)
     }
 
+    /// The three added palettes — not reachable through `auto`, so only an
+    /// explicit pick resolves them; each pairs with the color scheme its own
+    /// canvas actually needs (a black-on-black picker on Matrix would be a bug).
+    func testAddedPalettesResolveWithTheirOwnColorScheme() {
+        XCTAssertEqual(ThemeChoice.sakura.palette(for: .dark), .sakura)
+        XCTAssertEqual(ThemeChoice.sakura.colorScheme, .light)
+        XCTAssertEqual(ThemeChoice.monochrome.palette(for: .dark), .monochrome)
+        XCTAssertEqual(ThemeChoice.monochrome.colorScheme, .light)
+        XCTAssertEqual(ThemeChoice.matrix.palette(for: .light), .matrix)
+        XCTAssertEqual(ThemeChoice.matrix.colorScheme, .dark)
+    }
+
     /// Deterministic, not `Hashable` — Swift reseeds that per process, which
     /// would repaint every subject on each launch.
     func testSubjectColorIsStableForTheSameCode() {
