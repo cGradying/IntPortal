@@ -8,10 +8,14 @@ struct YearView: View {
     /// The week currently open in the grid, so it can be marked here.
     let selectedWeekStart: Date
     let onSelect: (Date) -> Void
+    /// Fires whenever the scroll position pins to (or leaves) the top —
+    /// what `CalendarScroll` gates the year↔week overscroll switch on.
+    var onAtTopChange: (Bool) -> Void = { _ in }
 
     @Environment(\.palette) private var palette
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 28), count: 4)
+    private static let scrollSpace = "PUPSISPortal.yearScroll"
 
     var body: some View {
         ScrollView {
@@ -25,7 +29,10 @@ struct YearView: View {
                 }
             }
             .padding(24)
+            .trackScrollTop(space: Self.scrollSpace) { onAtTopChange($0 >= -1) }
         }
+        .coordinateSpace(.named(Self.scrollSpace))
+        .scrollIndicators(.hidden)
     }
 }
 

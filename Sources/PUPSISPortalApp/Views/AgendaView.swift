@@ -17,6 +17,9 @@ struct AgendaView: View {
     @ObservedObject var preferences: Preferences
     @ObservedObject var calendar: CalendarBridge
     @ObservedObject var notes: NotesStore
+    @ObservedObject var quizzes: QuizStore
+    @ObservedObject var generation: GenerationCenter
+    @ObservedObject var notebook: NotebookModel
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -42,6 +45,12 @@ struct AgendaView: View {
     @State private var showingDatePicker = false
     /// The folder currently highlighted as a drag-drop target.
     @State private var dropTarget: UUID?
+    /// Sidebar width captured at the start of a resize drag, so the handle
+    /// accumulates from a fixed point rather than re-reading the (already
+    /// mutating) preference mid-drag — same convention as
+    /// `AssistantFloating`'s `resizeGrip`.
+    @State private var sidebarWidthAtDragStart: Double?
+    @State private var sidebarHandleHovered = false
     /// Shows the per-row RAG-included/excluded chip — off by default so the
     /// vault reads plain until the user actually wants to check.
     @State private var showRAGBadges = false
@@ -98,13 +107,19 @@ struct AgendaView: View {
     private var currentKey: String { selectedKey ?? dayKey(for: browsedDay) }
 
     var body: some View {
-        HStack(spacing: 0) {
-            noteEditorPane
-            Divider()
-            sidebar
-                .frame(width: 300)
+        Group {
+            if notebook.tab == .quizzes {
+                QuizzesView(store: quizzes, center: generation, preferences: preferences, notes: notes, aiModel: preferences.aiModel)
+            } else {
+                HStack(spacing: 0) {
+                    noteEditorPane
+                    sidebarResizeHandle
+                    sidebar
+                        .frame(width: preferences.notebookSidebarWidth)
+                }
+            }
         }
-        .navigationTitle("Today")
+        .navigationTitle("Notebook")
         .onAppear { appeared = true }
         .alert(naming?.title ?? "", isPresented: namingPresented, presenting: naming) { request in
             TextField("Name", text: $namingText)
@@ -225,6 +240,37 @@ struct AgendaView: View {
 
     // MARK: Sidebar — schedule + note history
 
+    /// A draggable divider between the note editor and the sidebar — a
+    /// `Divider()` with a wider invisible hit area so the drag doesn't need
+    /// pixel-perfect aim, and a resize cursor on hover. Double-click resets
+    /// to the default width, matching `AssistantFloating`'s resize grip.
+    private var sidebarResizeHandle: some View {
+        Divider()
+            .overlay(alignment: .center) {
+                Color.clear
+                    .frame(width: 9)
+                    .contentShape(Rectangle())
+            }
+            .background(sidebarHandleHovered ? palette.accent.opacity(0.3) : .clear)
+            .onHover { inside in
+                sidebarHandleHovered = inside
+                if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        let start = sidebarWidthAtDragStart ?? preferences.notebookSidebarWidth
+                        if sidebarWidthAtDragStart == nil { sidebarWidthAtDragStart = start }
+                        // The sidebar sits to the right of this handle: dragging
+                        // left (negative dx) widens it.
+                        preferences.setNotebookSidebarWidth(start - value.translation.width)
+                    }
+                    .onEnded { _ in sidebarWidthAtDragStart = nil }
+            )
+            .onTapGesture(count: 2) { preferences.resetNotebookSidebarWidth() }
+            .help("Drag to resize · double-click to reset")
+    }
+
     private var sidebar: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -265,6 +311,7 @@ struct AgendaView: View {
             .animation(Motion.selection(reduced: reduceMotion), value: currentKey)
             .animation(Motion.arrival(reduced: reduceMotion), value: expandedFolders)
         }
+        .scrollIndicators(.hidden)
         // No background — see the note-editor pane's identical comment.
     }
 

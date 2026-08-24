@@ -144,18 +144,24 @@ enum GridAxis {
     }
 }
 
-/// Side-by-side placement for blocks that share a time slot. Without this, a
-/// class and a calendar event at the same hour draw on top of each other and
-/// the one underneath is simply invisible.
+/// Side-by-side placement for blocks that share a time slot. No nesting —
+/// every block in an overlapping cluster gets its own equal-width column,
+/// full height, side by side. Never covers another block's fill or text,
+/// so there's nothing to keep legible against: two classes at the same hour
+/// simply split the width, the same as a busy calendar always has.
 enum BlockLayout {
     struct Placement: Equatable, Identifiable {
         let block: DayBlock
-        /// Which sub-column this block sits in.
-        let lane: Int
-        /// How many sub-columns its overlapping cluster needs.
-        let lanes: Int
+        /// Left edge as a fraction of column width.
+        let offset: Double
+        /// Width as a fraction of column width.
+        let width: Double
 
         var id: String { block.id }
+        /// Owns its whole column — the condition run-bridging needs: a block
+        /// sharing its column can't reach across the gap into a neighbour
+        /// that has no matching nub to bridge into.
+        var isFullWidth: Bool { offset == 0 && width == 1 }
     }
 
     /// Blocks are grouped into clusters of transitively-overlapping blocks, so
@@ -171,7 +177,10 @@ enum BlockLayout {
 
         func flush() {
             let lanes = max(laneEnds.count, 1)
-            placements += cluster.map { Placement(block: $0.block, lane: $0.lane, lanes: lanes) }
+            let laneWidth = 1.0 / Double(lanes)
+            placements += cluster.map {
+                Placement(block: $0.block, offset: Double($0.lane) * laneWidth, width: laneWidth)
+            }
             cluster.removeAll()
             laneEnds.removeAll()
             clusterEnd = Int.min

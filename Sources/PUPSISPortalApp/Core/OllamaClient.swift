@@ -231,8 +231,8 @@ struct OllamaClient {
     /// the reply to valid JSON via Ollama's `format` field. Returns the raw
     /// JSON string the model produced — `AssistantEngine` decodes it, since
     /// what "valid" means is the engine's concern, not the transport's.
-    func chat(model: String, messages: [ChatMessage], schema: [String: Any]) async throws -> String {
-        let body = try Self.chatRequestBody(model: model, messages: messages, schema: schema)
+    func chat(model: String, messages: [ChatMessage], schema: [String: Any], numPredict: Int? = nil) async throws -> String {
+        let body = try Self.chatRequestBody(model: model, messages: messages, schema: schema, numPredict: numPredict)
         let (data, code): (Data, Int)
         do {
             (data, code) = try await sendChat(body)
@@ -243,15 +243,25 @@ struct OllamaClient {
         return try Self.parseChatContent(data)
     }
 
-    static func chatRequestBody(model: String, messages: [ChatMessage], schema: [String: Any]) throws -> Data {
+    /// `numPredict` caps how many tokens the model is allowed to generate —
+    /// omitted (Ollama's own default) unless a caller knows roughly how much
+    /// output to expect and wants to catch a runaway/truncated reply early.
+    /// `CardGenerator` sets this; `AssistantEngine`'s free-form replies don't.
+    static func chatRequestBody(
+        model: String, messages: [ChatMessage], schema: [String: Any], numPredict: Int? = nil
+    ) throws -> Data {
+        var options: [String: Any] = [
+            // Structured output is brittle enough at small model sizes without
+            // also inviting creative deviation from the schema.
+            "temperature": 0.2,
+        ]
+        if let numPredict { options["num_predict"] = numPredict }
         let payload: [String: Any] = [
             "model": model,
             "messages": messages.map { ["role": $0.role.rawValue, "content": $0.content] },
             "format": schema,
             "stream": false,
-            // Structured output is brittle enough at small model sizes without
-            // also inviting creative deviation from the schema.
-            "options": ["temperature": 0.2],
+            "options": options,
         ]
         return try JSONSerialization.data(withJSONObject: payload)
     }

@@ -104,7 +104,6 @@ struct WeekPrintView: View {
     private func blockView(_ placed: BlockLayout.Placement, day: Weekday) -> some View {
         let block = placed.block
         let rect = geometry.rect(day: day, start: block.start, end: block.end)
-        let laneWidth = rect.width / CGFloat(placed.lanes)
         let fill: Color = colors[block.groupKey] ?? Palette.pupMaroon.color(for: block.title)
 
         return VStack(alignment: .leading, spacing: 1) {
@@ -117,8 +116,8 @@ struct WeekPrintView: View {
         }
         .foregroundStyle(.white)
         .padding(3)
-        .frame(width: max(laneWidth - 1, 1), height: max(rect.height, 14), alignment: .topLeading)
+        .frame(width: max(rect.width * placed.width - 1, 1), height: max(rect.height, 14), alignment: .topLeading)
         .background(fill.opacity(0.9), in: RoundedRectangle(cornerRadius: 3))
-        .offset(x: rect.minX + laneWidth * CGFloat(placed.lane), y: rect.minY)
+        .offset(x: rect.minX + rect.width * placed.offset, y: rect.minY)
     }
 }

@@ -2,6 +2,12 @@
 .swiftpm/
 *.xcodeproj
 
+# Claude Code / agent tooling — local only, never commit
+CLAUDE.md
+.claude/
+.codegraph/
+.impeccable/
+
 # Distributable artifacts
 dist/
 

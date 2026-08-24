@@ -15,6 +15,10 @@ struct CalendarView: View {
     /// A newer release, if the launch check found one — shown in the footer
     /// beside the other quiet status, never as an interruption.
     let update: UpdateInfo?
+    /// Settings is a sheet floating over this screen, not a replacement for
+    /// it — `CalendarView` stays mounted underneath, so the scroll monitor
+    /// needs telling explicitly not to move the schedule behind it.
+    var settingsShowing: Bool = false
 
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -22,6 +26,10 @@ struct CalendarView: View {
 
     @State private var selection: Set<String> = []
     @State private var editing: EditorRequest?
+    /// Whether the visible grid/year scroll is pinned to its top edge — what
+    /// gates the scroll-driven Week↔Year switch. Defaults true since both
+    /// start there before their first layout pass reports in.
+    @State private var atTop = true
     /// Set when an edit lands on a repeating event and the scope has to be
     /// asked for rather than assumed.
     @State private var pendingScope: ScopeQuestion?
@@ -47,7 +55,8 @@ struct CalendarView: View {
         calendar: CalendarBridge,
         credentials: Credentials,
         schedule: ScheduleModel,
-        update: UpdateInfo? = nil
+        update: UpdateInfo? = nil,
+        settingsShowing: Bool = false
     ) {
         self.controller = controller
         self.preferences = preferences
@@ -55,6 +64,7 @@ struct CalendarView: View {
         self.credentials = credentials
         self.schedule = schedule
         self.update = update
+        self.settingsShowing = settingsShowing
         _editor = StateObject(wrappedValue: EventEditor(bridge: calendar))
     }
 
@@ -111,8 +121,12 @@ struct CalendarView: View {
                                 }
                             }
                     case .year:
-                        YearView(year: year, selectedWeekStart: weekStart) { open($0) }
-                            .transition(.opacity)
+                        YearView(
+                            year: year, selectedWeekStart: weekStart,
+                            onSelect: { open($0) },
+                            onAtTopChange: { atTop = $0 }
+                        )
+                        .transition(.opacity)
                     }
 
                     StatusFooter(
@@ -131,6 +145,7 @@ struct CalendarView: View {
                         onPrint: printWeek
                     )
                 }
+                .calendarScroll(enabled: !settingsShowing, scale: scale, atTop: atTop, perform: handleScroll)
             }
         }
         .animation(Motion.arrival(reduced: reduceMotion), value: weekStart)
@@ -203,7 +218,8 @@ struct CalendarView: View {
             selection: selection,
             recurringIDs: recurringIDs,
             preferences: preferences,
-            editing: canEdit ? gridEditing : nil
+            editing: canEdit ? gridEditing : nil,
+            onAtTopChange: { atTop = $0 }
         )
         .popover(
             item: $editing,
@@ -465,6 +481,14 @@ struct CalendarView: View {
             if let target = Calendar.current.date(byAdding: .year, value: direction, to: weekStart) {
                 open(target, switchToWeek: false)
             }
+        }
+    }
+
+    private func handleScroll(_ action: CalendarScrollAction) {
+        switch action {
+        case .stepWeek(let direction): step(direction)
+        case .zoomOut: scale = .year
+        case .zoomIn: scale = .week // weekStart untouched — lands where you left
         }
     }
 

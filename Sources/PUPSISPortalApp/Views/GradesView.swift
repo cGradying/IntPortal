@@ -66,6 +66,7 @@ struct GradesView: View {
                         .frame(maxWidth: 720)
                         .frame(maxWidth: .infinity)
                     }
+                    .scrollIndicators(.hidden)
                     footer(shown)
                 }
             } else {

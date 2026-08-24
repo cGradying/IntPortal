@@ -203,6 +203,7 @@ private struct AssistantChat: View {
                     proxy.scrollTo(session.transcript.count - 1, anchor: .bottom)
                 }
             }
+            .scrollIndicators(.hidden)
         }
         .frame(maxHeight: .infinity)
     }

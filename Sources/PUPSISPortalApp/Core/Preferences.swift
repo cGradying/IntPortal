@@ -294,6 +294,46 @@ final class Preferences: ObservableObject {
         assistantPanelHeight = Self.assistantPanelDefaultHeight
     }
 
+    // MARK: Notebook sidebar width
+
+    /// Same clamp-through-a-setter convention as the assistant panel above —
+    /// `AgendaView` reads this directly for its sidebar `.frame`, writes only
+    /// through `setNotebookSidebarWidth`/`resetNotebookSidebarWidth`.
+    static let notebookSidebarDefaultWidth: Double = 300
+    static let notebookSidebarWidthRange: ClosedRange<Double> = 220...480
+
+    @Published private(set) var notebookSidebarWidth: Double {
+        didSet { defaults.set(notebookSidebarWidth, forKey: Key.notebookSidebarWidth) }
+    }
+
+    func setNotebookSidebarWidth(_ width: Double) {
+        notebookSidebarWidth = min(max(width, Self.notebookSidebarWidthRange.lowerBound), Self.notebookSidebarWidthRange.upperBound)
+    }
+
+    func resetNotebookSidebarWidth() {
+        notebookSidebarWidth = Self.notebookSidebarDefaultWidth
+    }
+
+    // MARK: UI zoom
+
+    /// Browser-style page zoom — one global level, applied via `.uiScaled(_:)`.
+    /// Plain bindable `@Published`, not the clamp-through-a-setter convention
+    /// `assistantPanelWidth`/`notebookSidebarWidth` use above: the primary
+    /// control is a `Stepper(in: uiScaleRange, step: uiScaleStep)`, which
+    /// already self-clamps. The increment/decrement helpers below exist for
+    /// the ⌘+/⌘− keyboard-shortcut path, which isn't routed through the
+    /// Stepper and does need its own clamp.
+    static let uiScaleRange: ClosedRange<Double> = 0.5...2.0
+    static let uiScaleStep: Double = 0.1
+
+    @Published var uiScale: Double {
+        didSet { defaults.set(uiScale, forKey: Key.uiScale) }
+    }
+
+    func increaseUIScale() { uiScale = min(uiScale + Self.uiScaleStep, Self.uiScaleRange.upperBound) }
+    func decreaseUIScale() { uiScale = max(uiScale - Self.uiScaleStep, Self.uiScaleRange.lowerBound) }
+    func resetUIScale() { uiScale = 1.0 }
+
     static let leadOptions = [5, 10, 15, 30]
 
     /// Meetings marked vacant **for the whole term**, in the form `Notifier` and
@@ -346,6 +386,8 @@ final class Preferences: ObservableObject {
         static let ragEmbedModel = "ragEmbedModel"
         static let assistantPanelWidth = "assistantPanelWidth"
         static let assistantPanelHeight = "assistantPanelHeight"
+        static let notebookSidebarWidth = "notebookSidebarWidth"
+        static let uiScale = "uiScale"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -397,6 +439,8 @@ final class Preferences: ObservableObject {
         ragAnswerTemperature = (defaults.object(forKey: Key.ragAnswerTemperature) as? Double) ?? Preferences.ragDefaultAnswerTemperature
         ragEmbedModel = defaults.string(forKey: Key.ragEmbedModel) ?? Preferences.ragDefaultEmbedModel
         assistantPanelWidth = (defaults.object(forKey: Key.assistantPanelWidth) as? Double) ?? Preferences.assistantPanelDefaultWidth
+        notebookSidebarWidth = (defaults.object(forKey: Key.notebookSidebarWidth) as? Double) ?? Preferences.notebookSidebarDefaultWidth
+        uiScale = (defaults.object(forKey: Key.uiScale) as? Double) ?? 1.0
         assistantPanelHeight = (defaults.object(forKey: Key.assistantPanelHeight) as? Double) ?? Preferences.assistantPanelDefaultHeight
     }
 

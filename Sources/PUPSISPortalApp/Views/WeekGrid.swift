@@ -11,10 +11,17 @@ struct WeekGrid: View {
     /// Nil when calendar access hasn't been granted — the grid stays read-only
     /// rather than offering drags that can't go anywhere.
     let editing: Editing?
+    /// Fires whenever the grid's scroll position pins to (or leaves) the top —
+    /// what `CalendarScroll` gates the week↔year overscroll switch on.
+    var onAtTopChange: (Bool) -> Void = { _ in }
 
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var gesture: GridGesture?
+    /// The real height `WeekGrid` is given by its parent — what `hourHeight`
+    /// stretches hours to fill, so a light day's schedule reaches the bottom
+    /// of a tall window without the user reaching for manual UI zoom.
+    @State private var availableHeight: CGFloat = 0
 
     /// Everything the grid can do to the calendar, handed in from the shell.
     struct Editing {
@@ -30,11 +37,24 @@ struct WeekGrid: View {
 
     private let gutter: CGFloat = 56
     private let headerHeight: CGFloat = 44
-    private let hourHeight: CGFloat = 60
+    /// The floor `hourHeight` stretches up from, never below — a genuinely
+    /// busy/long day still scrolls at this size rather than being squeezed
+    /// illegible to fit.
+    private let minHourHeight: CGFloat = 60
+    /// Stretches hours to fill real dead space below a light day's
+    /// schedule; never shrinks below `minHourHeight`. `14`/`12` mirror
+    /// `scrollingBody`'s own top/bottom padding below the header.
+    private var hourHeight: CGFloat {
+        let hours = CGFloat(max(axis.end - axis.start, 60)) / 60
+        let available = max(availableHeight - headerHeight - 14 - 12, 0)
+        let natural = hours * minHourHeight
+        return available > natural ? available / hours : minHourHeight
+    }
     /// Shared by the header and the grid so day labels line up with columns.
     private let columnInset: CGFloat = 12
     private let columnSpacing: CGFloat = 5
     static let gridSpace = "PUPSISPortal.grid"
+    static let scrollSpace = "PUPSISPortal.weekScroll"
 
     private var axis: (start: Int, end: Int) { GridAxis.hours(covering: blocks) }
 
@@ -58,6 +78,13 @@ struct WeekGrid: View {
             .padding(.horizontal, 16)
             .padding(.top, 12)
         }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { availableHeight = proxy.size.height }
+                    .onChange(of: proxy.size.height) { _, newValue in availableHeight = newValue }
+            }
+        )
     }
 
     // MARK: Chrome
@@ -139,7 +166,15 @@ struct WeekGrid: View {
                 .padding(.top, headerHeight + 14)
                 .padding(.bottom, 12)
                 .padding(.trailing, columnInset)
+                .trackScrollTop(space: Self.scrollSpace) { onAtTopChange($0 >= -1) }
+                // .scrollIndicators(.hidden) alone left a persistent AppKit
+                // scroller when System Settings has "Show scroll bars:
+                // Always" — this reaches the real NSScrollView directly.
+                // Scrolling itself is untouched, only the widget is gone.
+                .hidingRealScroller()
             }
+            .coordinateSpace(.named(Self.scrollSpace))
+            .scrollIndicators(.hidden)
             .onAppear {
                 // Open on the current hour rather than at 6am. No animation:
                 // an initial position should just be the position.
@@ -187,7 +222,7 @@ struct WeekGrid: View {
         // leave a nub reaching at nothing — and its neighbour has to know
         // that, which is why this is decided across the week rather than by
         // each block on its own.
-        let solo = Set(placed.filter { $0.placement.lanes == 1 }.map(\.placement.block.id))
+        let solo = Set(placed.filter { $0.placement.isFullWidth }.map(\.placement.block.id))
         let runs = BlockRuns.positions(for: blocks.filter { solo.contains($0.id) })
 
         return ForEach(Array(placed.enumerated()), id: \.element.id) { index, placed in
@@ -199,20 +234,19 @@ struct WeekGrid: View {
             let rect = geometry.rect(day: bounds.day, start: bounds.start, end: bounds.end)
             // A block in flight ignores lane splitting: it's above everything
             // and shouldn't shrink because of what it's passing over.
-            let lanes = dragging ? 1 : placed.placement.lanes
-            let lane = dragging ? 0 : placed.placement.lane
-            let laneWidth = rect.width / CGFloat(lanes)
+            let width = dragging ? 1 : placed.placement.width
+            let offset = dragging ? 0 : placed.placement.offset
             // Dragging opts out of its run, so the block being moved reads as
             // one loose thing rather than dragging a bar behind it.
-            let position = dragging ? .single : (runs[block.id] ?? .single)
+            let position: RunPosition = dragging ? .single : (runs[block.id] ?? .single)
             // Closing the gap is what makes consecutive days read as one bar.
             let bridge = position.bridgesRight ? columnSpacing + 2 : 0
 
             blockView(block, isPast: isPast(block, now: now), geometry: geometry, position: position)
-                .frame(width: max(laneWidth - 2, 1) + bridge, height: max(rect.height, 26))
+                .frame(width: max(rect.width * width - 2, 1) + bridge, height: max(rect.height, 26))
                 .scaleEffect(dragging ? 1.03 : 1)
                 .shadow(color: .black.opacity(dragging ? 0.35 : 0), radius: 8, y: 4)
-                .offset(x: rect.minX + laneWidth * CGFloat(lane), y: rect.minY)
+                .offset(x: rect.minX + rect.width * offset, y: rect.minY)
                 .zIndex(dragging ? 10 : 0)
                 .transition(
                     .opacity.combined(with: .scale(scale: 0.96, anchor: .topLeading))

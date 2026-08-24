@@ -10,6 +10,7 @@ import SwiftUI
 struct NavIsland: View {
     @ObservedObject var appState: AppState
     @ObservedObject var schedule: ScheduleModel
+    @ObservedObject var notebook: NotebookModel
     @ObservedObject var preferences: Preferences
     @Environment(\.palette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -73,6 +74,9 @@ struct NavIsland: View {
             if appState.selection == .schedule {
                 scheduleControls
             }
+            if appState.selection == .today {
+                notebookControls
+            }
             Divider().frame(height: 14)
             settingsButton
         }
@@ -98,6 +102,17 @@ struct NavIsland: View {
             }
         }
         iconButton("plus", "New event") { schedule.newEventIntent += 1 }
+    }
+
+    /// Vault ↔ Quizzes, the two full-width faces of Notebook.
+    private var notebookControls: some View {
+        HStack(spacing: 4) {
+            Divider().frame(height: 14)
+            Picker("Notebook tab", selection: $notebook.tab) {
+                ForEach(NotebookTab.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+        }
     }
 
     private func iconButton(_ symbol: String, _ help: String, _ action: @escaping () -> Void) -> some View {

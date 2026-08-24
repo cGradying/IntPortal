@@ -47,15 +47,15 @@ final class WeekPrintLayoutTests: XCTestCase {
         XCTAssertLessThan(early.minY, late.minY)
     }
 
-    /// Overlapping classes get distinct lanes rather than drawing on top of
+    /// Overlapping classes split the width rather than drawing on top of
     /// each other — the exact reuse of `BlockLayout` the print view relies on.
-    func testOverlappingBlocksGetSeparateLanes() {
-        let blocks = [classBlock(.monday, 8 * 60, 10 * 60), classBlock(.monday, 9 * 60, 11 * 60)]
+    func testOverlappingBlocksSplitRatherThanOverlap() {
+        let blocks = [classBlock(.monday, 8 * 60, 11 * 60), classBlock(.monday, 9 * 60, 10 * 60)]
         let placements = BlockLayout.arrange(blocks)
 
         XCTAssertEqual(placements.count, 2)
-        XCTAssertEqual(Set(placements.map(\.lane)), [0, 1])
-        XCTAssertTrue(placements.allSatisfy { $0.lanes == 2 })
+        XCTAssertTrue(placements.allSatisfy { $0.width == 0.5 })
+        XCTAssertNotEqual(placements[0].offset, placements[1].offset)
     }
 
     func testPageSizeAccountsForGutterAndMargins() {

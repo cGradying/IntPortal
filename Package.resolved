@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "swiftfsrs",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/bootuz/SwiftFSRS",
+      "state" : {
+        "revision" : "43fe0f3856b52611da1cb7ed4d199b903a1977ff",
+        "version" : "1.0.2"
+      }
+    }
+  ],
+  "version" : 2
+}

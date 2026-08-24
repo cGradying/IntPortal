@@ -71,6 +71,16 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.inline)
+                Stepper(value: $preferences.uiScale, in: Preferences.uiScaleRange, step: Preferences.uiScaleStep) {
+                    LabeledContent("UI Scale") {
+                        Text("\(Int(preferences.uiScale * 100))%")
+                    }
+                }
+                if preferences.uiScale != 1.0 {
+                    Button("Reset to 100%") { preferences.resetUIScale() }
+                }
+                Text("Scales the whole app — \u{2318}+/\u{2318}\u{2212} also work from anywhere, \u{2325}\u{2318}0 to reset.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section {
                 Toggle("Open on the home launcher", isOn: $preferences.islandStartHome)

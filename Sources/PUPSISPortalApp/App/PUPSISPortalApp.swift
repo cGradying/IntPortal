@@ -16,9 +16,24 @@ final class ScheduleModel: ObservableObject {
     @Published var newEventIntent = 0
 }
 
+/// Which side of Notebook is showing — mutated by the island's segmented
+/// control when `.notebook` is open, same pattern as `ScheduleModel`.
+@MainActor
+final class NotebookModel: ObservableObject {
+    @Published var tab: NotebookTab = .vault
+}
+
+enum NotebookTab: String, CaseIterable, Identifiable {
+    case vault
+    case quizzes
+    var id: String { rawValue }
+    var label: String { self == .vault ? "Vault" : "Quizzes" }
+}
+
 @MainActor
 final class AppState: ObservableObject {
     let schedule = ScheduleModel()
+    let notebook = NotebookModel()
     @Published var credentials: Credentials?
     @Published var isEditing = false
 
@@ -26,6 +41,8 @@ final class AppState: ObservableObject {
     let preferences = Preferences()
     let calendar = CalendarBridge()
     let notes = NotesStore()
+    let quizzes = QuizStore()
+    let generation = GenerationCenter()
     lazy var googleAuth = GoogleAuth { [preferences] in preferences.googleClientID }
     lazy var googleClient = GoogleCalendarClient(auth: googleAuth)
 
@@ -221,7 +238,7 @@ enum Destination: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .schedule: "Schedule"
-        case .today: "Today"
+        case .today: "Notebook"
         case .grades: "Grades"
         }
     }
@@ -256,6 +273,13 @@ struct ContentView: View {
 
     var body: some View {
         content
+            // Zoom applied once, at the root — Schedule, Notebook, Grades,
+            // and the chrome (nav island, assistant) all scale together, so
+            // switching screens never looks like the level "reset". Above
+            // TrafficLights: that NSViewRepresentable drives the real window
+            // buttons and draws nothing, so it stays outside the transform.
+            .uiScaled(preferences.uiScale)
+            .frame(minWidth: 900, minHeight: 600)
             .background(TrafficLights(autoHide: preferences.trafficLightsAutoHide))
             .environment(\.palette, preferences.theme.palette(for: systemScheme))
             // Keeps native controls (fields, pickers, popovers) in step with a
@@ -345,7 +369,7 @@ struct ContentView: View {
                 // The island itself never re-mounts — it *glides* from centre (home)
                 // to the top (open), so opening reads as a move/expand, not a fade.
                 // Hover morph keeps working because it's one live view throughout.
-                NavIsland(appState: appState, schedule: appState.schedule, preferences: preferences)
+                NavIsland(appState: appState, schedule: appState.schedule, notebook: appState.notebook, preferences: preferences)
                     .fixedSize()
                     .frame(maxWidth: .infinity, maxHeight: .infinity,
                            alignment: appState.isHome ? .center : .top)
@@ -365,7 +389,6 @@ struct ContentView: View {
             .background(preferences.theme.palette(for: systemScheme).canvasWash.ignoresSafeArea())
             .animation(Motion.island(reduced: reduceMotion), value: appState.isHome)
             .sheet(isPresented: $appState.showingSettings) { settingsSheet }
-            .frame(minWidth: 900, minHeight: 600)
         }
     }
 
@@ -379,10 +402,15 @@ struct ContentView: View {
                 calendar: appState.calendar,
                 credentials: credentials,
                 schedule: appState.schedule,
-                update: appState.availableUpdate
+                update: appState.availableUpdate,
+                settingsShowing: appState.showingSettings
             )
         case .today:
-            AgendaView(appState: appState, preferences: preferences, calendar: appState.calendar, notes: appState.notes)
+            AgendaView(
+                appState: appState, preferences: preferences, calendar: appState.calendar,
+                notes: appState.notes, quizzes: appState.quizzes, generation: appState.generation,
+                notebook: appState.notebook
+            )
         case .grades:
             GradesView(controller: appState.portal, preferences: preferences)
         }
@@ -396,13 +424,18 @@ struct ContentView: View {
                 calendar: appState.calendar,
                 googleAuth: appState.googleAuth
             )
+            // A .sheet is its own window on macOS — doesn't inherit the
+            // ContentView root's scaleEffect, so it needs its own call.
+            .uiScaled(preferences.uiScale)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { appState.showingSettings = false }
                 }
             }
         }
-        .frame(width: 560, height: 620)
+        // min/ideal/max instead of a fixed size — same starting size, but
+        // the sheet now offers macOS's native drag-to-resize edge.
+        .frame(minWidth: 480, idealWidth: 560, maxWidth: 760, minHeight: 480, idealHeight: 620, maxHeight: 860)
     }
 }
 
@@ -447,6 +480,16 @@ struct PUPSISPortalApp: App {
                 Button("New Event") { appState.schedule.newEventIntent += 1 }
                     .keyboardShortcut("n", modifiers: .command)
                     .disabled(appState.selection != .schedule)
+                Divider()
+                // Browser-style zoom, app-wide — see uiScaled(_:) at the
+                // ContentView root. ⌘0 is already "Home" above, so
+                // "Actual Size" is ⌥⌘0 instead of the pure browser convention.
+                Button("Zoom In") { appState.preferences.increaseUIScale() }
+                    .keyboardShortcut("+", modifiers: .command)
+                Button("Zoom Out") { appState.preferences.decreaseUIScale() }
+                    .keyboardShortcut("-", modifiers: .command)
+                Button("Actual Size") { appState.preferences.resetUIScale() }
+                    .keyboardShortcut("0", modifiers: [.command, .option])
             }
 
             CommandMenu("Account") {

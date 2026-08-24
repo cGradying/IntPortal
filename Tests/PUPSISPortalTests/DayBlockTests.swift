@@ -6,8 +6,12 @@ final class BlockLayoutTests: XCTestCase {
         DayBlock(id: id, day: .monday, start: start, end: end, title: id, subtitle: "")
     }
 
-    private func lanes(_ placements: [BlockLayout.Placement], _ id: String) -> (lane: Int, lanes: Int)? {
-        placements.first { $0.block.title == id }.map { ($0.lane, $0.lanes) }
+    private func classBlock(_ id: String, _ start: Int, _ end: Int) -> DayBlock {
+        DayBlock(ClassSession(subjectCode: id, description: "", faculty: "", day: .monday, start: start, end: end))
+    }
+
+    private func placement(_ placements: [BlockLayout.Placement], _ id: String) -> BlockLayout.Placement? {
+        placements.first { $0.block.title == id }
     }
 
     func testEmptyDayPlacesNothing() {
@@ -18,8 +22,7 @@ final class BlockLayoutTests: XCTestCase {
         let placements = BlockLayout.arrange([block("a", 540, 660)])
 
         XCTAssertEqual(placements.count, 1)
-        XCTAssertEqual(lanes(placements, "a")?.lanes, 1)
-        XCTAssertEqual(lanes(placements, "a")?.lane, 0)
+        XCTAssertTrue(placement(placements, "a")!.isFullWidth)
     }
 
     /// The whole reason this exists: two blocks at the same hour must not draw
@@ -27,9 +30,9 @@ final class BlockLayoutTests: XCTestCase {
     func testOverlappingBlocksSplitTheWidth() {
         let placements = BlockLayout.arrange([block("a", 540, 660), block("b", 600, 720)])
 
-        XCTAssertEqual(lanes(placements, "a")?.lanes, 2)
-        XCTAssertEqual(lanes(placements, "b")?.lanes, 2)
-        XCTAssertNotEqual(lanes(placements, "a")?.lane, lanes(placements, "b")?.lane)
+        XCTAssertEqual(placement(placements, "a")?.width, 0.5)
+        XCTAssertEqual(placement(placements, "b")?.width, 0.5)
+        XCTAssertNotEqual(placement(placements, "a")?.offset, placement(placements, "b")?.offset)
     }
 
     /// 3–6pm followed by 6–9pm is consecutive, not concurrent. Treating a
@@ -37,8 +40,8 @@ final class BlockLayoutTests: XCTestCase {
     func testTouchingEdgesAreNotAnOverlap() {
         let placements = BlockLayout.arrange([block("a", 900, 1080), block("b", 1080, 1260)])
 
-        XCTAssertEqual(lanes(placements, "a")?.lanes, 1)
-        XCTAssertEqual(lanes(placements, "b")?.lanes, 1)
+        XCTAssertTrue(placement(placements, "a")!.isFullWidth)
+        XCTAssertTrue(placement(placements, "b")!.isFullWidth)
     }
 
     /// A busy morning must not shrink an unrelated afternoon block.
@@ -49,8 +52,8 @@ final class BlockLayoutTests: XCTestCase {
             block("afternoon", 840, 960),
         ])
 
-        XCTAssertEqual(lanes(placements, "morningA")?.lanes, 2)
-        XCTAssertEqual(lanes(placements, "afternoon")?.lanes, 1)
+        XCTAssertEqual(placement(placements, "morningA")?.width, 0.5)
+        XCTAssertTrue(placement(placements, "afternoon")!.isFullWidth)
     }
 
     /// Three-way pileup, and the third block reuses the lane the first freed.
@@ -62,10 +65,23 @@ final class BlockLayoutTests: XCTestCase {
         ])
 
         // a and b overlap, c overlaps b but starts after a ends.
-        XCTAssertEqual(lanes(placements, "b")?.lanes, 2)
-        XCTAssertEqual(lanes(placements, "a")?.lane, 0)
-        XCTAssertEqual(lanes(placements, "c")?.lane, 0)
-        XCTAssertEqual(lanes(placements, "b")?.lane, 1)
+        XCTAssertEqual(placement(placements, "a")?.width, 0.5)
+        XCTAssertEqual(placement(placements, "b")?.width, 0.5)
+        XCTAssertEqual(placement(placements, "c")?.width, 0.5)
+        XCTAssertEqual(placement(placements, "a")?.offset, placement(placements, "c")?.offset)
+        XCTAssertNotEqual(placement(placements, "a")?.offset, placement(placements, "b")?.offset)
+    }
+
+    /// A class and an event at the same hour split the width exactly the
+    /// same way as two classes — no nesting, no front/behind relationship.
+    func testAClassAndAnEventOverlappingJustSplitTheWidth() {
+        let placements = BlockLayout.arrange([
+            block("event", 0, 1000),
+            classBlock("class", 100, 300),
+        ])
+
+        XCTAssertEqual(placement(placements, "event")?.width, 0.5)
+        XCTAssertEqual(placement(placements, "class")?.width, 0.5)
     }
 
     func testEveryBlockIsPlacedExactlyOnce() {
@@ -105,6 +121,57 @@ final class BlockRunsTests: XCTestCase {
         XCTAssertEqual(positions[blocks[0].id], .leading)
         XCTAssertEqual(positions[blocks[1].id], .middle)
         XCTAssertEqual(positions[blocks[2].id], .trailing)
+    }
+
+    /// The real path `WeekGrid.blockLayer` takes, not just `BlockRuns` in
+    /// isolation: each day is arranged on its own (`BlockLayout.arrange`
+    /// only ever sees one day's blocks at a time), the results are gated
+    /// through `isFullWidth`, and only what survives that gate reaches
+    /// `BlockRuns.positions`. A recurring event with no overlap on any of
+    /// its five days should still bridge across all of them.
+    func testARecurringEventWithNoOverlapBridgesThroughTheRealPipeline() {
+        let days: [Weekday] = [.monday, .tuesday, .wednesday, .thursday, .friday]
+        let blocks = days.map { event("Home practice", $0, 690, 990) }
+
+        let placed = Weekday.allCases.flatMap { day in
+            BlockLayout.arrange(blocks.filter { $0.day == day })
+        }
+        let bridgeable = Set(placed.filter { $0.isFullWidth }.map(\.block.id))
+        let positions = BlockRuns.positions(for: blocks.filter { bridgeable.contains($0.id) })
+
+        XCTAssertEqual(positions[blocks[0].id], .leading)
+        XCTAssertEqual(positions[blocks[1].id], .middle)
+        XCTAssertEqual(positions[blocks[2].id], .middle)
+        XCTAssertEqual(positions[blocks[3].id], .middle)
+        XCTAssertEqual(positions[blocks[4].id], .trailing)
+    }
+
+    /// The exact shape image 14 reported: Wednesday's occurrence of the
+    /// recurring event was edited "this event only", which detaches it in
+    /// EventKit — it loses `hasRecurrenceRules`, so `CalendarBridge` falls
+    /// back to the time-keyed `groupKey`, genuinely different from the
+    /// series' `"series-<identifier>"` the other four still share
+    /// (`Core/CalendarBridge.swift:223`). That's a legitimate break — two
+    /// 2-day runs, not one 5-day run — but only Monday and Thursday (the
+    /// *start* of each sub-run) should show the leading stripe; Tuesday and
+    /// Friday should read as seamlessly joined to the day before them.
+    func testADetachedMidWeekOccurrenceSplitsIntoTwoRunsNotFiveSingles() {
+        let recurring: [Weekday] = [.monday, .tuesday, .thursday, .friday]
+        var blocks = recurring.map { event("Home practice", $0, 690, 990) }
+        // Wednesday: same title, different time, own groupKey — detached.
+        blocks.append(event("Home practice", .wednesday, 645, 945))
+
+        let placed = Weekday.allCases.flatMap { day in
+            BlockLayout.arrange(blocks.filter { $0.day == day })
+        }
+        let bridgeable = Set(placed.filter { $0.isFullWidth }.map(\.block.id))
+        let positions = BlockRuns.positions(for: blocks.filter { bridgeable.contains($0.id) })
+
+        let byDay = Dictionary(uniqueKeysWithValues: blocks.map { ($0.day, $0.id) })
+        XCTAssertEqual(positions[byDay[.monday]!], .leading)
+        XCTAssertEqual(positions[byDay[.tuesday]!], .trailing)
+        XCTAssertEqual(positions[byDay[.thursday]!], .leading)
+        XCTAssertEqual(positions[byDay[.friday]!], .trailing)
     }
 
     func testATwoDayRunHasNoMiddle() {
