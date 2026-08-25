@@ -78,11 +78,20 @@ cat > "$APP/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-# Prefer the stable identity from Scripts/make_signing_identity.sh: ad-hoc
-# signing changes the app's code identity on every build, which invalidates
-# the Keychain ACL and makes the app block on a credential prompt at launch.
-SIGN_ID="PUPSISPortal Local Signing"
-if ! security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_ID"; then
+# Prefer a stable identity over ad-hoc: ad-hoc signing changes the app's code
+# identity on every build, which invalidates the Keychain ACL (blocks on a
+# credential prompt at launch) and, worse, breaks Sparkle's signing-continuity
+# check between releases. Two names because dev machines and CI keep separate
+# identities: "PUPSISPortal Local Signing" (Scripts/make_signing_identity.sh,
+# one-time per dev machine) and "PUPSISPortal CI Signing" (imported fresh each
+# CI run from the MACOS_SIGNING_P12 secret) — either is fine, as long as it's
+# the SAME one release to release.
+IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null)"
+if echo "$IDENTITIES" | grep -qF "PUPSISPortal Local Signing"; then
+  SIGN_ID="PUPSISPortal Local Signing"
+elif echo "$IDENTITIES" | grep -qF "PUPSISPortal CI Signing"; then
+  SIGN_ID="PUPSISPortal CI Signing"
+else
   SIGN_ID="-"
 fi
 

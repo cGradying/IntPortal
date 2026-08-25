@@ -1,11 +1,16 @@
-# Builds the .dmg and attaches it to a GitHub release on a version tag push.
-# Mirrors windows-build.yml's role for the Windows side (Phase G of
-# .claude/plans/alright-lets-plan-the-drifting-gadget.md) — mac's manual
-# make_dmg.sh flow, made reproducible instead of hand-run per release.
+# Builds the .dmg/.zip and attaches them (plus an appcast) to a GitHub
+# release on a version tag push. Mirrors windows-build.yml's role for the
+# Windows side (Phase G of .claude/plans/alright-lets-plan-the-drifting-gadget.md)
+# — mac's manual make_dmg.sh flow, made reproducible instead of hand-run per
+# release.
 #
-# Unsigned/self-signed .dmg (no Apple Developer cert, matches the documented
-# Gatekeeper right-click-open step in README's Install section) — this
-# workflow doesn't change that, only automates the build+attach.
+# Self-signed, not Apple Developer ID (no paid account) — but CI signs every
+# release with the SAME identity every time (MACOS_SIGNING_P12 secret), which
+# is what lets Sparkle's in-app auto-update (Sources/PUPSISPortalApp/Core/UpdaterBridge.swift)
+# verify one release against the next. The .dmg download still needs the
+# documented Gatekeeper right-click-open step in README's Install section —
+# that's unchanged. Auto-updates installed via Sparkle skip it entirely:
+# Sparkle strips com.apple.quarantine from the swapped-in bundle itself.
 name: Mac release
 
 on:
@@ -25,19 +30,68 @@ jobs:
       - name: Run tests
         run: swift test
 
+      - name: Import signing identity
+        env:
+          P12: ${{ secrets.MACOS_SIGNING_P12 }}
+          P12_PASS: ${{ secrets.MACOS_SIGNING_P12_PASSWORD }}
+          KC_PASS: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/id.p12"
+          security create-keychain -p "$KC_PASS" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KC_PASS" build.keychain
+          security import "$RUNNER_TEMP/id.p12" -k build.keychain -P "$P12_PASS" -T /usr/bin/codesign -A
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASS" build.keychain
+          # Self-signed: codesign needs the cert trusted, or find-identity -v
+          # won't list it and make_mac_app.sh silently falls back to ad-hoc.
+          openssl pkcs12 -in "$RUNNER_TEMP/id.p12" -passin "pass:$P12_PASS" -clcerts -nokeys -legacy -out "$RUNNER_TEMP/cert.pem"
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain "$RUNNER_TEMP/cert.pem"
+          rm -f "$RUNNER_TEMP/id.p12" "$RUNNER_TEMP/cert.pem"
+          # Fails the job loudly here rather than letting make_mac_app.sh's
+          # own CI guard catch it three steps later.
+          security find-identity -v -p codesigning | grep -qF "PUPSISPortal CI Signing"
+
       - name: Build .dmg
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           Scripts/make_dmg.sh "$VERSION"
 
+      - name: Build .zip update payload
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="$VERSION" Scripts/make_mac_app.sh "$RUNNER_TEMP/zipstage"
+          # ditto, not zip -r: preserves the symlinks the framework's own
+          # code signature is computed over, same reason make_mac_app.sh
+          # uses ditto (not cp -R) to embed Sparkle.framework in the first
+          # place.
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$RUNNER_TEMP/zipstage/PUPSISPortal.app" "dist/PUPSISPortal-$VERSION.zip"
+
+      - name: Generate appcast
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          BIN="$(find .build/artifacts -type d -name bin -path '*Sparkle*' -print -quit)"
+          mkdir -p "$RUNNER_TEMP/appcast"
+          cp dist/*.zip "$RUNNER_TEMP/appcast/"
+          echo "$SPARKLE_ED_PRIVATE_KEY" | "$BIN/generate_appcast" \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/cGradying/PUPSISPortal/releases/download/$GITHUB_REF_NAME/" \
+            --link "https://github.com/cGradying/PUPSISPortal/releases/latest" \
+            -o dist/appcast.xml \
+            "$RUNNER_TEMP/appcast/"
+          cat dist/appcast.xml
+
       # README tells users twice to verify the download against "the posted
-      # checksum" (Install, and Future plans). Until this step existed, no
-      # release had ever posted one — the instruction was unfollowable. Since
-      # the builds are unnotarized, this is the only integrity check a user has.
+      # checksum" (Install, and Future plans). Since the builds are
+      # unnotarized, this is the only integrity check a user has for the
+      # first, manual .dmg install — the .zip is covered separately by
+      # Sparkle's own EdDSA signature in the appcast.
       - name: Checksum
         run: |
           cd dist
-          shasum -a 256 *.dmg > SHA256SUMS.txt
+          shasum -a 256 *.dmg *.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Attach to GitHub release
@@ -45,6 +99,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           NOTES="$(printf '### SHA-256\n\n```\n%s\n```\n' "$(cat dist/SHA256SUMS.txt)")"
-          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/SHA256SUMS.txt \
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/appcast.xml dist/SHA256SUMS.txt \
             --title "$GITHUB_REF_NAME" --generate-notes --notes "$NOTES" \
-            || gh release upload "$GITHUB_REF_NAME" dist/*.dmg dist/SHA256SUMS.txt --clobber
+            || gh release upload "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/appcast.xml dist/SHA256SUMS.txt --clobber
