@@ -1,0 +1,54 @@
+# Auto-tags a new release on every merge to main, so cutting a release stops
+# being a manual `git tag && git push` step. This workflow only computes the
+# next version and pushes the tag; mac-release.yml (triggered by that tag
+# push) still does all the actual building, signing, and publishing.
+#
+# Tests run here BEFORE the tag is created — a failing build should never get
+# tagged in the first place, even though mac-release.yml would also refuse to
+# release it. A dangling tag with no release attached is worse than no tag.
+#
+# Skip a release for one commit with "[skip release]" anywhere in the message
+# — e.g. a CI-only tweak or a docs fix that ships no app change.
+name: Auto release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: macos-latest
+    if: "!contains(github.event.head_commit.message, '[skip release]')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need full tag history to compute the next version
+
+      - name: Run tests
+        run: swift test
+
+      - name: Compute next version and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LAST_TAG="$(git tag -l 'v*.*.*' --sort=-v:refname | head -1)"
+          if [ -z "$LAST_TAG" ]; then
+            NEXT="v0.1.0"
+          else
+            VERSION="${LAST_TAG#v}"
+            MAJOR="${VERSION%%.*}"
+            REST="${VERSION#*.}"
+            MINOR="${REST%%.*}"
+            PATCH="${REST#*.}"
+            NEXT="v$MAJOR.$MINOR.$((PATCH + 1))"
+          fi
+          echo "Tagging $NEXT"
+          git tag -a "$NEXT" -m "$NEXT"
+          git push origin "$NEXT"
