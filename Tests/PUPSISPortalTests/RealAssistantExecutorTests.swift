@@ -342,6 +342,148 @@ final class RealAssistantExecutorTests: XCTestCase {
         XCTAssertTrue(result.message.lowercased().contains("calendar"))
     }
 
+    func testAddEventWithRepeatDaysStillRefusesWhenNoWritableCalendarExists() async {
+        // Confirms the new optional `repeat_days` arg doesn't skip the same
+        // "somewhere to put this" guard `testAddEventRefusesWhenNoWritableCalendarExists`
+        // already covers — the recurrence branch is parsed before that guard
+        // fires, so this exercises it without ever touching real EventKit.
+        let action = AssistantAction(tool: "add_event",
+            args: ["title": .string("Study"), "date": .string("2026-08-18"), "start": .int(600), "end": .int(660),
+                   "repeat_days": .string("mon,wed,fri")])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.message.lowercased().contains("calendar"))
+    }
+
+    // MARK: move_event — validation, no real EventKit access
+    //
+    // Like add_event above, a fresh `CalendarBridge` never grants EventKit
+    // access, so `calendar.events(on:calendarIDs:)` deterministically returns
+    // `[]` — a real, OS-level permission gate, not a data cache like
+    // `PortalController`'s (see the file header comment for why that one
+    // stays untouched). That makes "no event found" the one outcome safely
+    // testable here without a real calendar in the loop.
+
+    func testMoveEventRefusesMissingTitle() async {
+        let action = AssistantAction(tool: "move_event",
+            args: ["date": .string("2026-08-18"), "new_date": .string("2026-08-19"), "new_start": .int(600), "new_end": .int(660)])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testMoveEventRefusesMalformedDate() async {
+        let action = AssistantAction(tool: "move_event",
+            args: ["title": .string("Dentist"), "date": .string("not-a-date"),
+                   "new_date": .string("2026-08-19"), "new_start": .int(600), "new_end": .int(660)])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testMoveEventRefusesMalformedNewDate() async {
+        let action = AssistantAction(tool: "move_event",
+            args: ["title": .string("Dentist"), "date": .string("2026-08-18"),
+                   "new_date": .string("not-a-date"), "new_start": .int(600), "new_end": .int(660)])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testMoveEventRefusesEndBeforeStart() async {
+        let action = AssistantAction(tool: "move_event",
+            args: ["title": .string("Dentist"), "date": .string("2026-08-18"),
+                   "new_date": .string("2026-08-19"), "new_start": .int(660), "new_end": .int(600)])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testMoveEventReportsNoMatchWithoutCalendarAccess() async {
+        let action = AssistantAction(tool: "move_event",
+            args: ["title": .string("Dentist"), "date": .string("2026-08-18"),
+                   "new_date": .string("2026-08-19"), "new_start": .int(600), "new_end": .int(660)])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.message.contains("No event named"))
+    }
+
+    // MARK: read_date — validation only
+    //
+    // `readDate` reads `portal.sessions` once its date guard passes, and
+    // `PortalController()`'s real cached-schedule read (see the file header
+    // comment) means what's in there isn't safe to assert on — only the
+    // guard that runs before touching it is tested here, same boundary
+    // `read_week`/`read_grades` already draw for themselves.
+
+    func testReadDateRefusesMalformedDate() async {
+        let result = await executor().execute(AssistantAction(tool: "read_date", args: ["date": .string("not-a-date")]))
+        XCTAssertFalse(result.ok)
+    }
+
+    func testReadDateRefusesMissingDate() async {
+        let result = await executor().execute(AssistantAction(tool: "read_date"))
+        XCTAssertFalse(result.ok)
+    }
+
+    // MARK: set_class_status / set_class_time — validation only
+    //
+    // Same boundary as read_date above: `findSession` reads `portal.sessions`,
+    // so only the guards that run before it — bad args, bad date, bad status,
+    // bad time range — are safe to assert on here.
+
+    func testSetClassStatusRefusesMissingSubjectCode() async {
+        let action = AssistantAction(tool: "set_class_status",
+            args: ["date": .string("2026-08-18"), "status": .string("vacant")])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testSetClassStatusRefusesMalformedDate() async {
+        let action = AssistantAction(tool: "set_class_status",
+            args: ["subject_code": .string("COMP 20073"), "date": .string("not-a-date"), "status": .string("vacant")])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testSetClassStatusRefusesInvalidStatus() async {
+        let action = AssistantAction(tool: "set_class_status",
+            args: ["subject_code": .string("COMP 20073"), "date": .string("2026-08-18"), "status": .string("cancelled")])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testSetClassStatusRefusesMissingStatus() async {
+        let action = AssistantAction(tool: "set_class_status",
+            args: ["subject_code": .string("COMP 20073"), "date": .string("2026-08-18")])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testSetClassTimeRefusesMissingSubjectCode() async {
+        let action = AssistantAction(tool: "set_class_time",
+            args: ["date": .string("2026-08-18"), "start": .int(600), "end": .int(660)])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testSetClassTimeRefusesMalformedDate() async {
+        let action = AssistantAction(tool: "set_class_time",
+            args: ["subject_code": .string("COMP 20073"), "date": .string("not-a-date"), "start": .int(600), "end": .int(660)])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testSetClassTimeRefusesEndBeforeStart() async {
+        let action = AssistantAction(tool: "set_class_time",
+            args: ["subject_code": .string("COMP 20073"), "date": .string("2026-08-18"), "start": .int(660), "end": .int(600)])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    func testSetClassTimeRefusesMissingTimes() async {
+        let action = AssistantAction(tool: "set_class_time",
+            args: ["subject_code": .string("COMP 20073"), "date": .string("2026-08-18")])
+        let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
     // MARK: Unknown tool
 
     func testUnknownToolFailsCleanlyRatherThanCrashing() async {

@@ -162,6 +162,18 @@ final class CalendarBridge: ObservableObject {
     /// Our own class export is filtered out so it doesn't double up, and all-day
     /// events are dropped (they own no slot in an hour timeline).
     func todayBlocks(calendarIDs: Set<String>, on day: Date) -> [DayBlock] {
+        events(on: day, calendarIDs: calendarIDs)
+    }
+
+    /// Read-only, single-day version of `load(weekStart:calendarIDs:)`. Used by
+    /// the assistant's `read_date`/`move_event` tools so a question about an
+    /// arbitrary date never disturbs the week the user is actually looking at
+    /// — same reasoning `todayBlocks` already documented for itself, which now
+    /// calls through here. Unlike `todayBlocks`, this also seeds `occurrences`
+    /// (merged in, not reset) so a block it returns can be moved through the
+    /// normal `EventEditor.move` path afterward, exactly as if that day's week
+    /// had been loaded.
+    func events(on day: Date, calendarIDs: Set<String>) -> [DayBlock] {
         guard access == .granted, !calendarIDs.isEmpty else { return [] }
 
         let calendar = Calendar.current
@@ -174,7 +186,11 @@ final class CalendarBridge: ObservableObject {
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: wanted)
         return store.events(matching: predicate)
             .filter { !Self.isOurExport($0) }
-            .compactMap { Self.block(from: $0, calendar: calendar) }
+            .compactMap { event in
+                guard let block = Self.block(from: event, calendar: calendar) else { return nil }
+                occurrences[block.id] = event
+                return block
+            }
     }
 
     /// The exact `EKEvent` a block was built from, keyed by block id.

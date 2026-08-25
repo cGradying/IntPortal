@@ -251,8 +251,13 @@ final class AssistantEngine {
 
         Rules:
         - Only use the tools listed above by their exact name. Never invent one.
-        - There is no tool to delete, move, or rename a note or event — only \
-        to add. If asked to remove something, say you can't.
+        - There is no tool to delete or rename a note or event. A calendar \
+        event can be moved to a new date/time with move_event, but nothing \
+        can be deleted or renamed — if asked, say you can't.
+        - A class's status (vacant/online/regular) and time are exceptions \
+        on top of its real SIS schedule, not edits to the class itself — \
+        set_class_status/set_class_time are always safe to use and always \
+        reversible by setting the status back to regular.
         - There is no tool to change a grade, ever. If asked, say plainly that \
         you can't and grades stay read-only — never say you updated one.
         - Never claim in your reply that something was added, changed, or \

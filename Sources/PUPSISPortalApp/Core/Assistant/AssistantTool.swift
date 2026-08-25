@@ -20,8 +20,9 @@ struct AssistantTool: Equatable {
     /// for why the response schema keeps `args` generic.
     let args: [Arg]
 
-    /// v1 scope, per the plan: notes read+write, calendar read + add-only,
-    /// grades read-only. No delete/move/rename tool exists anywhere in this
+    /// v1 scope, per the plan: notes read+write, calendar read + write
+    /// (add/move an event, mark a class vacant/online, move a class's time),
+    /// grades read-only. No delete or rename tool exists anywhere in this
     /// catalog — that's deliberate, not an oversight to fill in later.
     static let catalog: [AssistantTool] = [
         AssistantTool(
@@ -64,12 +65,53 @@ struct AssistantTool: Equatable {
         ),
         AssistantTool(
             name: "add_event",
-            description: "Add a new calendar event. Cannot move, rename, or delete existing events.",
+            description: "Add a new calendar event, optionally repeating weekly. Cannot rename or delete existing events.",
             args: [
                 Arg(name: "title", description: "event title"),
-                Arg(name: "date", description: "yyyy-MM-dd"),
+                Arg(name: "date", description: "yyyy-MM-dd — for a repeating event, the first occurrence"),
                 Arg(name: "start", description: "start time, minutes from midnight"),
                 Arg(name: "end", description: "end time, minutes from midnight"),
+                Arg(name: "repeat_days", description: "optional — only when the student actually asked for a recurring event: comma-separated weekdays, e.g. \"mon,wed,fri\". Omit for a one-off event."),
+            ]
+        ),
+        AssistantTool(
+            name: "move_event",
+            description: "Move an existing calendar event to a new date and/or time. Cannot rename or delete it.",
+            args: [
+                Arg(name: "title", description: "the event's current title, to find it"),
+                Arg(name: "date", description: "yyyy-MM-dd — the date it's currently on"),
+                Arg(name: "new_date", description: "yyyy-MM-dd — the date to move it to"),
+                Arg(name: "new_start", description: "new start time, minutes from midnight"),
+                Arg(name: "new_end", description: "new end time, minutes from midnight"),
+                Arg(name: "scope", description: "\"this_event\" (default) for just this occurrence, or \"future_events\" for a repeating event and everything after it"),
+            ]
+        ),
+        AssistantTool(
+            name: "read_date",
+            description: "Read the student's classes and calendar events for one specific date — use this instead of read_week when asked what's happening on a particular day.",
+            args: [Arg(name: "date", description: "yyyy-MM-dd")]
+        ),
+        AssistantTool(
+            name: "set_class_status",
+            description: "Mark a class vacant (cancelled that meeting), online, or back to in-person. This is how to make a class vacant on the calendar.",
+            args: [
+                Arg(name: "subject_code", description: "the class's subject code, e.g. \"COMP 20073\""),
+                Arg(name: "date", description: "yyyy-MM-dd — a date the class actually meets on"),
+                Arg(name: "status", description: "\"vacant\", \"online\", or \"regular\""),
+                Arg(name: "scope", description: "\"week\" (default) for just that week, or \"term\" for every week"),
+                Arg(name: "start", description: "optional, minutes from midnight — only needed if the subject meets more than once that day (e.g. a Lec and a Lab) and it's ambiguous which one is meant"),
+            ]
+        ),
+        AssistantTool(
+            name: "set_class_time",
+            description: "Move a class to a different start/end time.",
+            args: [
+                Arg(name: "subject_code", description: "the class's subject code"),
+                Arg(name: "date", description: "yyyy-MM-dd — a date the class actually meets on"),
+                Arg(name: "start", description: "new start time, minutes from midnight"),
+                Arg(name: "end", description: "new end time, minutes from midnight"),
+                Arg(name: "scope", description: "\"week\" (default) for just that week, or \"term\" for every week"),
+                Arg(name: "current_start", description: "optional, minutes from midnight — disambiguates when the subject meets more than once that day; this is the class's CURRENT start, not the new one"),
             ]
         ),
         AssistantTool(

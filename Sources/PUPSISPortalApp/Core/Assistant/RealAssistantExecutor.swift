@@ -69,6 +69,10 @@ final class RealAssistantExecutor: AssistantExecutor {
         case "create_note": return createNote(action)
         case "read_week": return readWeek(action)
         case "add_event": return addEvent(action)
+        case "move_event": return moveEvent(action)
+        case "read_date": return readDate(action)
+        case "set_class_status": return setClassStatus(action)
+        case "set_class_time": return setClassTime(action)
         case "read_grades": return readGrades(action)
         default:
             return AssistantToolResult(action: action, ok: false, message: "Unknown tool '\(action.tool)'.")
@@ -244,10 +248,29 @@ final class RealAssistantExecutor: AssistantExecutor {
             return AssistantToolResult(action: action, ok: false, message: "No writable calendar is available to add to.")
         }
 
-        let snapshot = EventSnapshot(title: title, calendarID: calendarID, date: date, start: start, end: end, repeatDays: [])
+        // Recurrence is opt-in — the model only sends repeat_days when the
+        // student actually asked for a recurring event. Omitted (or blank)
+        // stays exactly the one-off behavior this tool always had.
+        let repeatDays = action.string("repeat_days").map(Self.weekdays(fromCommaList:)) ?? []
+        let snapshot = EventSnapshot(
+            title: title, calendarID: calendarID, date: date, start: start, end: end,
+            repeatDays: repeatDays, repeatsWeekly: !repeatDays.isEmpty
+        )
         editor.create(snapshot, inWeekStarting: Weekday.weekStart(containing: date), actionName: "Assistant: Add Event")
+        let recurrenceNote = repeatDays.isEmpty ? "" : ", repeating weekly on \(repeatDays.map(\.short).joined(separator: ", "))"
         return AssistantToolResult(action: action, ok: true,
-            message: "Added \"\(title)\" on \(dateString), \(ClassSession.format(start))-\(ClassSession.format(end)).")
+            message: "Added \"\(title)\" on \(dateString), \(ClassSession.format(start))-\(ClassSession.format(end))\(recurrenceNote).")
+    }
+
+    /// Parses a comma-separated weekday list like "mon,wed,fri" — `args` can't
+    /// carry a real JSON array (`AssistantJSON` deliberately supports only
+    /// primitives), so this is the one string that stands in for one.
+    /// Unrecognized tokens are dropped rather than failing the whole tool call.
+    private static func weekdays(fromCommaList value: String) -> [Weekday] {
+        value.split(separator: ",").compactMap { token in
+            let code = token.trimmingCharacters(in: .whitespaces).uppercased()
+            return Weekday.allCases.first { $0.short == code }
+        }
     }
 
     private func preferredCalendarID() -> String? {
@@ -256,6 +279,165 @@ final class RealAssistantExecutor: AssistantExecutor {
             return configured
         }
         return calendar.writableCalendars.first?.id
+    }
+
+    /// Reads one specific date, not a whole week — classes plus that day's
+    /// calendar events, vacancy and time exceptions already resolved, via the
+    /// same `DayAgenda.timeline` the Today screen draws from. Deliberately
+    /// doesn't call `CalendarBridge.load(weekStart:)`, same reasoning as
+    /// `readWeek` — a read tool should never move what week the user is
+    /// looking at. Uses `CalendarBridge.events(on:calendarIDs:)` instead,
+    /// which is read-only with respect to the visible grid.
+    private func readDate(_ action: AssistantAction) -> AssistantToolResult {
+        guard let dateString = action.string("date"), let date = Self.dateFormat.date(from: dateString) else {
+            return AssistantToolResult(action: action, ok: false, message: "Need a valid date (yyyy-MM-dd).")
+        }
+
+        let dayEvents = calendar.events(on: date, calendarIDs: preferences.visibleCalendarIDs)
+        let entries = DayAgenda.timeline(
+            classes: portal.sessions, events: dayEvents, now: date,
+            isVacant: { session, occurrence in
+                preferences.status(for: session, on: Weekday.weekStart(containing: occurrence)) == .vacant
+            },
+            time: { session, occurrence in
+                preferences.time(for: session, on: Weekday.weekStart(containing: occurrence))
+            }
+        )
+        guard !entries.isEmpty else {
+            return AssistantToolResult(action: action, ok: true, message: "Nothing scheduled on \(dateString).")
+        }
+
+        let lines = entries.map { "\(ClassSession.format($0.start))-\(ClassSession.format($0.end)) \($0.title)" }
+        return AssistantToolResult(
+            action: action, ok: true,
+            message: Self.truncated((["\(dateString):"] + lines).joined(separator: "\n"))
+        )
+    }
+
+    /// The one class-lookup every status/time-exception tool shares: which
+    /// `ClassSession` a subject code + date names. Zero matches fails closed
+    /// with what was searched; more than one (a Lec/Lab pair on the same day)
+    /// fails closed asking for the disambiguating `start` unless it was
+    /// already given and actually narrows it to exactly one.
+    private func findSession(subjectCode: String, on date: Date, disambiguatingStart: Int?) -> (ClassSession?, String?) {
+        let day = Weekday.on(date)
+        let candidates = portal.sessions.filter { $0.subjectCode == subjectCode && $0.day == day }
+
+        guard !candidates.isEmpty else {
+            return (nil, "No class named \"\(subjectCode)\" meets on \(day.short) (\(Self.dateFormat.string(from: date))).")
+        }
+        guard candidates.count > 1 else {
+            return (candidates[0], nil)
+        }
+
+        func resolvedStart(_ session: ClassSession) -> Int {
+            preferences.time(for: session, on: Weekday.weekStart(containing: date)).start
+        }
+        guard let disambiguatingStart else {
+            let times = candidates.map { ClassSession.format(resolvedStart($0)) }.joined(separator: ", ")
+            return (nil, "\"\(subjectCode)\" meets more than once on \(day.short) (\(times)) — give a start time to say which one.")
+        }
+        guard let match = candidates.first(where: { resolvedStart($0) == disambiguatingStart }) else {
+            let times = candidates.map { ClassSession.format(resolvedStart($0)) }.joined(separator: ", ")
+            return (nil, "No \"\(subjectCode)\" meeting on \(day.short) starts at \(ClassSession.format(disambiguatingStart)) — it meets at \(times).")
+        }
+        return (match, nil)
+    }
+
+    /// "week" (default) is a this-occurrence exception; "term" is the
+    /// recurring default. Anything else falls back to "week" rather than
+    /// failing the call over a typo'd scope.
+    private func isTermScope(_ action: AssistantAction) -> Bool {
+        action.string("scope")?.lowercased() == "term"
+    }
+
+    private func setClassStatus(_ action: AssistantAction) -> AssistantToolResult {
+        guard let subjectCode = action.string("subject_code") else {
+            return AssistantToolResult(action: action, ok: false, message: "No subject_code given.")
+        }
+        guard let dateString = action.string("date"), let date = Self.dateFormat.date(from: dateString) else {
+            return AssistantToolResult(action: action, ok: false, message: "Need a valid date (yyyy-MM-dd).")
+        }
+        guard let statusString = action.string("status")?.lowercased(), let status = SessionStatus(rawValue: statusString) else {
+            return AssistantToolResult(action: action, ok: false, message: "status must be \"vacant\", \"online\", or \"regular\".")
+        }
+        let (session, error) = findSession(subjectCode: subjectCode, on: date, disambiguatingStart: action.int("start"))
+        guard let session else {
+            return AssistantToolResult(action: action, ok: false, message: error ?? "Class not found.")
+        }
+
+        let termScope = isTermScope(action)
+        if termScope {
+            preferences.setTermStatus(status, for: session)
+        } else {
+            preferences.setStatus(status, for: session, on: Weekday.weekStart(containing: date))
+        }
+        let scopeWord = termScope ? "every week" : "the week of \(dateString)"
+        return AssistantToolResult(action: action, ok: true, message: "Marked \(subjectCode) \(status.label.lowercased()) for \(scopeWord).")
+    }
+
+    private func setClassTime(_ action: AssistantAction) -> AssistantToolResult {
+        guard let subjectCode = action.string("subject_code") else {
+            return AssistantToolResult(action: action, ok: false, message: "No subject_code given.")
+        }
+        guard let dateString = action.string("date"), let date = Self.dateFormat.date(from: dateString) else {
+            return AssistantToolResult(action: action, ok: false, message: "Need a valid date (yyyy-MM-dd).")
+        }
+        guard let start = action.int("start"), let end = action.int("end"), end > start else {
+            return AssistantToolResult(action: action, ok: false,
+                message: "Need a start and end time in minutes from midnight, with end after start.")
+        }
+        let (session, error) = findSession(subjectCode: subjectCode, on: date, disambiguatingStart: action.int("current_start"))
+        guard let session else {
+            return AssistantToolResult(action: action, ok: false, message: error ?? "Class not found.")
+        }
+
+        let termScope = isTermScope(action)
+        let override = TimeOverride(start: start, end: end)
+        if termScope {
+            preferences.setTermTime(override, for: session)
+        } else {
+            preferences.setTime(override, for: session, on: Weekday.weekStart(containing: date))
+        }
+        let scopeWord = termScope ? "every week" : "that week"
+        return AssistantToolResult(action: action, ok: true,
+            message: "Moved \(subjectCode) to \(ClassSession.format(start))-\(ClassSession.format(end)) for \(scopeWord).")
+    }
+
+    /// Finds an existing calendar event by title on a specific date — not
+    /// through the currently-loaded week's `calendar.events`, which may not
+    /// include that date at all, but through `CalendarBridge.events(on:calendarIDs:)`,
+    /// same as `readDate`. Fails closed on zero or more-than-one match rather
+    /// than guessing which event was meant.
+    private func moveEvent(_ action: AssistantAction) -> AssistantToolResult {
+        guard let title = action.string("title") else {
+            return AssistantToolResult(action: action, ok: false, message: "No title given to find the event.")
+        }
+        guard let dateString = action.string("date"), let date = Self.dateFormat.date(from: dateString) else {
+            return AssistantToolResult(action: action, ok: false, message: "Need a valid date (yyyy-MM-dd) for where the event currently is.")
+        }
+        guard let newDateString = action.string("new_date"), let newDate = Self.dateFormat.date(from: newDateString) else {
+            return AssistantToolResult(action: action, ok: false, message: "Need a valid new_date (yyyy-MM-dd).")
+        }
+        guard let start = action.int("new_start"), let end = action.int("new_end"), end > start else {
+            return AssistantToolResult(action: action, ok: false,
+                message: "Need new_start and new_end in minutes from midnight, with end after start.")
+        }
+
+        let dayEvents = calendar.events(on: date, calendarIDs: preferences.visibleCalendarIDs)
+        let matches = dayEvents.filter { $0.title.localizedCaseInsensitiveCompare(title) == .orderedSame }
+        guard let match = matches.first, matches.count == 1 else {
+            let found = matches.count
+            let message = found == 0
+                ? "No event named \"\(title)\" found on \(dateString)."
+                : "More than one event named \"\(title)\" on \(dateString) — be more specific, or move it by hand."
+            return AssistantToolResult(action: action, ok: false, message: message)
+        }
+
+        let scope: CalendarBridge.EditScope = action.string("scope")?.lowercased() == "future_events" ? .futureEvents : .thisEvent
+        editor.move(match, to: newDate, start: start, end: end, scope: scope, actionName: "Assistant: Move Event")
+        return AssistantToolResult(action: action, ok: true,
+            message: "Moved \"\(title)\" to \(newDateString), \(ClassSession.format(start))-\(ClassSession.format(end)).")
     }
 
     // MARK: Grades (read-only — no other case here ever writes one)
