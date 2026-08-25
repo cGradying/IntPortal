@@ -71,7 +71,7 @@ Evergreen Bootstrapper from [Microsoft's WebView2 page](https://developer.micros
 ### 3. Get the code
 
 ```powershell
-git clone https://github.com/cGradying/PUPSISPortal.git
+git clone https://github.com/cGradying/IntPortal.git
 cd PUPSISPortal
 ```
 

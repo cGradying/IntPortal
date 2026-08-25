@@ -27,7 +27,7 @@ struct UpdateInfo: Equatable {
 /// about what "newer" means.
 struct UpdateCheck {
     static let releasesURL = URL(string:
-        "https://api.github.com/repos/cGradying/PUPSISPortal/releases/latest")!
+        "https://api.github.com/repos/cGradying/IntPortal/releases/latest")!
 
     /// The running build's version, or nil when there's no Info.plist to read it
     /// from (a bare `swift run`, tests). Nil means *don't guess* — a stand-in

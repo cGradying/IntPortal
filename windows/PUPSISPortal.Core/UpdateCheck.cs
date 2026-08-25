@@ -21,7 +21,7 @@ public record UpdateInfo(string Version, string Url);
 public class UpdateChecker
 {
     private const string ReleasesUrl =
-        "https://api.github.com/repos/cGradying/PUPSISPortal/releases/latest";
+        "https://api.github.com/repos/cGradying/IntPortal/releases/latest";
 
     private static readonly HttpClient DefaultHttp = new();
     private readonly Func<Task<string>> _fetchJson;

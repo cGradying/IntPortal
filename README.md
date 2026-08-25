@@ -8,7 +8,7 @@ Signs into SIS headlessly — you never see the web portal, only your week.
 [![Version](https://img.shields.io/badge/version-v1.2.1-8B0000?style=for-the-badge&labelColor=0B1120)](#release-history)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-8B0000?style=for-the-badge&labelColor=0B1120)](#install)
 [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-8B0000?style=for-the-badge&labelColor=0B1120)](LICENSE)
-[![Download](https://img.shields.io/badge/download-.dmg-8B0000?style=for-the-badge&labelColor=0B1120)](https://github.com/cGradying/PUPSISPortal/releases)
+[![Download](https://img.shields.io/badge/download-.dmg-8B0000?style=for-the-badge&labelColor=0B1120)](https://github.com/cGradying/IntPortal/releases)
 
 </div>
 
@@ -36,7 +36,7 @@ bypasses auth, or redistributes SIS content.
 ## Quickstart
 
 ```sh
-git clone https://github.com/cGradying/PUPSISPortal.git
+git clone https://github.com/cGradying/IntPortal.git
 cd PUPSISPortal
 Scripts/make_signing_identity.sh   # one-time: stable local signing identity
 Scripts/make_mac_app.sh            # build + install to ~/Applications
@@ -104,7 +104,7 @@ instead of a slow web portal.
 
 Two ways in:
 
-**A. Download a build** from [Releases](https://github.com/cGradying/PUPSISPortal/releases):
+**A. Download a build** from [Releases](https://github.com/cGradying/IntPortal/releases):
 grab the `.dmg`, drag `PUPSISPortal.app` to `~/Applications`, and open it. These
 builds are **not notarized by Apple** (no paid developer account), so Gatekeeper
 blocks a plain double-click. First open needs **right-click → Open → Open**, or

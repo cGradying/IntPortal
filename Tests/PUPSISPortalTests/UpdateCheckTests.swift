@@ -65,12 +65,12 @@ final class UpdateCheckTests: XCTestCase {
 
     func testCheckReturnsNewerRelease() async {
         let sut = checker(json: """
-        {"tag_name":"v1.2.0","html_url":"https://github.com/cGradying/PUPSISPortal/releases/tag/v1.2.0"}
+        {"tag_name":"v1.2.0","html_url":"https://github.com/cGradying/IntPortal/releases/tag/v1.2.0"}
         """)
         let info = await sut.check(current: "1.1.2")
         XCTAssertEqual(info?.version, "1.2.0")
         XCTAssertEqual(info?.url.absoluteString,
-                       "https://github.com/cGradying/PUPSISPortal/releases/tag/v1.2.0")
+                       "https://github.com/cGradying/IntPortal/releases/tag/v1.2.0")
     }
 
     func testCheckReturnsNilWhenUpToDate() async {

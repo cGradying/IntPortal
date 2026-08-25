@@ -77,8 +77,8 @@ jobs:
           cp dist/*.zip "$RUNNER_TEMP/appcast/"
           echo "$SPARKLE_ED_PRIVATE_KEY" | "$BIN/generate_appcast" \
             --ed-key-file - \
-            --download-url-prefix "https://github.com/cGradying/PUPSISPortal/releases/download/$GITHUB_REF_NAME/" \
-            --link "https://github.com/cGradying/PUPSISPortal/releases/latest" \
+            --download-url-prefix "https://github.com/cGradying/IntPortal/releases/download/$GITHUB_REF_NAME/" \
+            --link "https://github.com/cGradying/IntPortal/releases/latest" \
             -o dist/appcast.xml \
             "$RUNNER_TEMP/appcast/"
           cat dist/appcast.xml

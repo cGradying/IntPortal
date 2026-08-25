@@ -51,13 +51,13 @@ public class UpdateCheckTests
     public async Task CheckAsync_ReturnsUpdateInfo_WhenLatestIsNewer()
     {
         var checker = new UpdateChecker(() => Task.FromResult(
-            """{"tag_name":"v1.2.0","html_url":"https://github.com/cGradying/PUPSISPortal/releases/tag/v1.2.0"}"""));
+            """{"tag_name":"v1.2.0","html_url":"https://github.com/cGradying/IntPortal/releases/tag/v1.2.0"}"""));
 
         var result = await checker.CheckAsync("1.1.2");
 
         Assert.NotNull(result);
         Assert.Equal("1.2.0", result!.Version);
-        Assert.Equal("https://github.com/cGradying/PUPSISPortal/releases/tag/v1.2.0", result.Url);
+        Assert.Equal("https://github.com/cGradying/IntPortal/releases/tag/v1.2.0", result.Url);
     }
 
     [Fact]

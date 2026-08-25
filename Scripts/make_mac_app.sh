@@ -70,7 +70,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
   <key>NSCalendarsFullAccessUsageDescription</key><string>PUPSISPortal shows your calendar events beside your class schedule, and can add your classes to Calendar.</string>
-  <key>SUFeedURL</key><string>https://github.com/cGradying/PUPSISPortal/releases/latest/download/appcast.xml</string>
+  <key>SUFeedURL</key><string>https://github.com/cGradying/IntPortal/releases/latest/download/appcast.xml</string>
   <key>SUPublicEDKey</key><string>$SPARKLE_PUBLIC_ED_KEY</string>
   <key>SUEnableAutomaticChecks</key><true/>
   $ICON_ARG
