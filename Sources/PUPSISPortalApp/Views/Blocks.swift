@@ -20,6 +20,7 @@ struct ClassBlock: View {
     let position: RunPosition
     @ObservedObject var preferences: Preferences
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingDetail = false
     @State private var isHovering = false
@@ -38,7 +39,7 @@ struct ClassBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(session.subjectCode)
-                .font(Theme.Typo.blockCode)
+                .font(typography.blockCode)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
 
@@ -48,7 +49,7 @@ struct ClassBlock: View {
                         .font(.system(size: 8))
                 }
                 Text(status == .vacant ? "Vacant" : resolvedTimeLabel)
-                    .font(Theme.Typo.blockTime)
+                    .font(typography.blockTime)
                 if isTimeOverridden {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: 8))
@@ -279,15 +280,15 @@ struct ClassBlock: View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(session.subjectCode)
-                    .font(Theme.Typo.detailTitle)
+                    .font(typography.detailTitle)
                 Text(session.description)
-                    .font(Theme.Typo.detailBody)
+                    .font(typography.detailBody)
                 Text("\(session.day.short)  \(resolvedTimeLabel)")
-                    .font(Theme.Typo.detailMeta)
+                    .font(typography.detailMeta)
                     .foregroundStyle(.secondary)
                 if !session.faculty.isEmpty {
                     Text(session.faculty)
-                        .font(Theme.Typo.detailBody)
+                        .font(typography.detailBody)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -357,7 +358,7 @@ struct ClassBlock: View {
             if status == .online {
                 Divider()
                 Text("Online strip")
-                    .font(Theme.Typo.detailMeta)
+                    .font(typography.detailMeta)
                     .foregroundStyle(.secondary)
                 SwatchRow(
                     current: stripColor,
@@ -398,6 +399,7 @@ private struct SwatchRow: View {
     let onReset: () -> Void
     let hasCustom: Bool
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
 
     var body: some View {
         HStack(spacing: 6) {
@@ -455,6 +457,8 @@ struct EventBlock: View {
     let geometry: GridGeometry
 
     @Environment(\.palette) private var palette
+
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
 
@@ -483,7 +487,7 @@ struct EventBlock: View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 3) {
                 Text(block.title)
-                    .font(Theme.Typo.blockCode)
+                    .font(typography.blockCode)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 if isRecurring {
@@ -493,7 +497,7 @@ struct EventBlock: View {
                 }
             }
             Text(block.subtitle)
-                .font(Theme.Typo.blockTime)
+                .font(typography.blockTime)
                 .opacity(0.85)
         }
         .padding(.horizontal, 7)

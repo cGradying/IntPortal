@@ -16,6 +16,13 @@ struct Palette: Equatable {
     let onlineStrip: Color
     /// Per-subject block colors, indexed deterministically by `color(for:)`.
     let subjectColors: [Color]
+    /// A dark hero-panel fill, for full-bleed surfaces like the login screen's
+    /// welcome side — deliberately its own token rather than derived from
+    /// `canvasBottom` with opacity math, so each theme can commit to an actual
+    /// color instead of an approximation.
+    let panel: Color
+    /// Text/marks legible on `panel`.
+    let onPanel: Color
 
     /// The one tint with a job: it marks the present moment and nothing else.
     /// Apple's material guidance is that a tint should carry meaning rather
@@ -66,7 +73,9 @@ extension Palette {
             Color(red: 0.361, green: 0.192, blue: 0.373),
             Color(red: 0.180, green: 0.353, blue: 0.310),
             Color(red: 0.247, green: 0.318, blue: 0.478),
-        ]
+        ],
+        panel: Color(red: 0.078, green: 0.024, blue: 0.031),
+        onPanel: Color(red: 0.988, green: 0.984, blue: 0.980)
     )
 
     /// Ivory: ink navy on warm cream paper. An editorial light theme, quieter
@@ -85,7 +94,9 @@ extension Palette {
             Color(red: 0.451, green: 0.310, blue: 0.416),
             Color(red: 0.325, green: 0.427, blue: 0.310),
             Color(red: 0.243, green: 0.451, blue: 0.467),
-        ]
+        ],
+        panel: Color(red: 0.129, green: 0.129, blue: 0.145),
+        onPanel: Color(red: 0.992, green: 0.984, blue: 0.965)
     )
 
     /// Astra moon: emerald on deep navy.
@@ -103,7 +114,9 @@ extension Palette {
             Color(red: 0.545, green: 0.451, blue: 0.925),
             Color(red: 0.925, green: 0.616, blue: 0.243),
             Color(red: 0.914, green: 0.412, blue: 0.514),
-        ]
+        ],
+        panel: Color(red: 0.024, green: 0.039, blue: 0.075),
+        onPanel: Color(red: 0.945, green: 0.965, blue: 0.980)
     )
 
     /// Sakura: hot pink on warm blush paper.
@@ -121,7 +134,9 @@ extension Palette {
             Color(red: 0.788, green: 0.635, blue: 0.153),
             Color(red: 0.216, green: 0.545, blue: 0.522),
             Color(red: 0.204, green: 0.235, blue: 0.318),
-        ]
+        ],
+        panel: Color(red: 0.129, green: 0.031, blue: 0.086),
+        onPanel: Color(red: 1.000, green: 0.969, blue: 0.980)
     )
 
     /// Monochrome: black and gray on white, clean — no color at all beyond
@@ -140,7 +155,9 @@ extension Palette {
             Color(red: 0.478, green: 0.478, blue: 0.478),
             Color(red: 0.600, green: 0.600, blue: 0.600),
             Color(red: 0.722, green: 0.722, blue: 0.722),
-        ]
+        ],
+        panel: Color(red: 0.067, green: 0.067, blue: 0.067),
+        onPanel: Color(red: 1.000, green: 1.000, blue: 1.000)
     )
 
     /// Matrix: phosphor green terminal on black.
@@ -158,7 +175,9 @@ extension Palette {
             Color(red: 0.000, green: 0.561, blue: 0.067),
             Color(red: 0.827, green: 0.827, blue: 0.827),
             Color(red: 0.157, green: 0.678, blue: 0.522),
-        ]
+        ],
+        panel: Color(red: 0.000, green: 0.000, blue: 0.000),
+        onPanel: Color(red: 0.000, green: 1.000, blue: 0.255)
     )
 }
 
@@ -228,6 +247,17 @@ extension EnvironmentValues {
     }
 }
 
+private struct TypographyKey: EnvironmentKey {
+    static let defaultValue = Typography(.system)
+}
+
+extension EnvironmentValues {
+    var typography: Typography {
+        get { self[TypographyKey.self] }
+        set { self[TypographyKey.self] = newValue }
+    }
+}
+
 // MARK: - Motion
 
 /// The app's animation vocabulary, in one place so timings stay related to
@@ -279,9 +309,8 @@ enum Motion {
     }
 }
 
-// MARK: - Type scale
+// MARK: - Chrome
 
-/// Fonts don't vary by theme, so they stay static.
 enum Theme {
     /// The floating top chrome — the dither band, the window-drag surface, and
     /// the destination's own top inset all key off this one value, rather than
@@ -293,25 +322,88 @@ enum Theme {
         /// band's dither cells are never sliced mid-square by the window mask.
         static let windowRadius: CGFloat = 14
     }
+}
 
-    /// Three faces, three jobs. New York (`.serif`) makes the course code the
-    /// anchor of a block instead of another bolded caption; SF Mono keeps the
-    /// time column from reshuffling its width between `9AM` and `12PM`.
-    enum Typo {
-        static let screenTitle = Font.system(.title2, design: .serif).weight(.semibold)
+// MARK: - Type scale
 
-        static let dayName = Font.system(.caption, design: .default).weight(.semibold)
-        static let gutter = Font.system(.caption2, design: .monospaced)
+/// The app's type scale, built from a `FontChoice`. A value rather than
+/// statics — same reasoning as `Palette` above a `static let` can't re-render
+/// when the user changes their pick in Settings. Every entry keeps the same
+/// *size and role* `Theme.Typo` always had; only the family changes.
+///
+/// `.system` reproduces the original hardcoded scale exactly: New York
+/// (`.serif`) makes the course code the anchor of a block instead of another
+/// bolded caption, SF Mono keeps the time column from reshuffling its width
+/// between `9AM` and `12PM`.
+struct Typography: Equatable {
+    let choice: FontChoice
 
-        static let blockCode = Font.system(.subheadline, design: .serif).weight(.semibold)
-        static let blockTime = Font.system(size: 10, design: .monospaced)
+    init(_ choice: FontChoice) {
+        self.choice = choice
+    }
 
-        static let detailTitle = Font.system(.title3, design: .serif).weight(.semibold)
-        static let detailBody = Font.system(.callout)
-        static let detailMeta = Font.system(.caption, design: .monospaced)
+    // `weight` is optional and only ever applied when given: the original
+    // hardcoded scale left five entries at the system default rather than
+    // spelling out `.weight(.regular)`, and `Font` compares its *build*, not
+    // its rendered appearance, so `.weight(.regular)` is not `==` to the same
+    // font left alone. Matching that shape exactly is what lets `.system`
+    // still equal the original literals.
+    private func font(_ style: Font.TextStyle, design: Font.Design = .default, weight: Font.Weight? = nil) -> Font {
+        let base = choice.familyName.map { Font.custom($0, size: Theme.pointSize(for: style)) }
+            ?? Font.system(style, design: design)
+        return weight.map(base.weight) ?? base
+    }
 
-        static let nowClock = Font.system(.caption2, design: .monospaced).weight(.semibold)
-        static let footer = Font.system(.caption)
+    private func font(size: CGFloat, design: Font.Design = .default, weight: Font.Weight? = nil) -> Font {
+        let base = choice.familyName.map { Font.custom($0, size: size) }
+            ?? Font.system(size: size, design: design)
+        return weight.map(base.weight) ?? base
+    }
+
+    /// The home wordmark. `.largeTitle` — matches the size the wordmark always
+    /// rendered at (previously an inline `.system(.largeTitle, …)` literal),
+    /// so picking `.system` here reproduces that exactly.
+    var hero: Font { font(.largeTitle, design: .serif, weight: .semibold) }
+
+    /// The login screen's oversized welcome line — bigger than `hero`, the
+    /// one place in the app that goes past a title.
+    var loginHeadline: Font { font(size: 40, design: .serif, weight: .light) }
+
+    var screenTitle: Font { font(.title2, design: .serif, weight: .semibold) }
+
+    var dayName: Font { font(.caption, weight: .semibold) }
+    var gutter: Font { font(.caption2, design: .monospaced) }
+
+    var blockCode: Font { font(.subheadline, design: .serif, weight: .semibold) }
+    var blockTime: Font { font(size: 10, design: .monospaced) }
+
+    var detailTitle: Font { font(.title3, design: .serif, weight: .semibold) }
+    var detailBody: Font { font(.callout) }
+    var detailMeta: Font { font(.caption, design: .monospaced) }
+
+    var nowClock: Font { font(.caption2, design: .monospaced, weight: .semibold) }
+    var footer: Font { font(.caption) }
+}
+
+extension Theme {
+    /// `Font.custom` needs a point size, not a `TextStyle` — this is the fixed
+    /// mapping macOS uses for `.system(_:)` at Dynamic Type's default size, so
+    /// a custom family lines up with what the system design would have been.
+    fileprivate static func pointSize(for style: Font.TextStyle) -> CGFloat {
+        switch style {
+        case .largeTitle: 26
+        case .title: 22
+        case .title2: 17
+        case .title3: 15
+        case .headline: 13
+        case .body: 13
+        case .callout: 12
+        case .subheadline: 11
+        case .footnote: 10
+        case .caption: 10
+        case .caption2: 10
+        default: 13
+        }
     }
 }
 

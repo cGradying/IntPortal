@@ -13,6 +13,7 @@ struct NavIsland: View {
     @ObservedObject var notebook: NotebookModel
     @ObservedObject var preferences: Preferences
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var highlight
     @State private var hovered = false
@@ -47,9 +48,9 @@ struct NavIsland: View {
         VStack(spacing: 10) {
             VStack(spacing: 2) {
                 Text(Self.homeDate.string(from: appState.now))
-                    .font(Theme.Typo.screenTitle)
+                    .font(typography.screenTitle)
                 Text(glance)
-                    .font(Theme.Typo.footer)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
@@ -92,7 +93,7 @@ struct NavIsland: View {
         .pickerStyle(.segmented).labelsHidden().fixedSize()
         iconButton("chevron.left", "Previous") { schedule.stepIntent = -1 }
         Button("Today") { schedule.weekOffset = 0 }
-            .buttonStyle(.plain).font(Theme.Typo.dayName)
+            .buttonStyle(.plain).font(typography.dayName)
             .foregroundStyle(schedule.weekOffset == 0 ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.primary))
             .disabled(schedule.weekOffset == 0)
         iconButton("chevron.right", "Next") { schedule.stepIntent = 1 }
@@ -131,9 +132,9 @@ struct NavIsland: View {
         let dest = appState.selection
         return HStack(spacing: 7) {
             Image(systemName: dest.symbol).font(.system(size: 12, weight: .medium))
-            Text(dest.title).font(Theme.Typo.dayName)
+            Text(dest.title).font(typography.dayName)
             Text("·").foregroundStyle(.secondary)
-            Text(glance).font(Theme.Typo.footer).foregroundStyle(.secondary).monospacedDigit()
+            Text(glance).font(typography.footer).foregroundStyle(.secondary).monospacedDigit()
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 3)
@@ -148,7 +149,7 @@ struct NavIsland: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: item.symbol).font(.system(size: 12, weight: .medium))
-                Text(item.title).font(Theme.Typo.dayName)
+                Text(item.title).font(typography.dayName)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)

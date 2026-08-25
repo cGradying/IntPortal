@@ -16,6 +16,8 @@ struct WeekGrid: View {
     var onAtTopChange: (Bool) -> Void = { _ in }
 
     @Environment(\.palette) private var palette
+
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var gesture: GridGesture?
     /// The real height `WeekGrid` is given by its parent — what `hourHeight`
@@ -99,9 +101,9 @@ struct WeekGrid: View {
 
                 VStack(spacing: 1) {
                     Text(day.short)
-                        .font(Theme.Typo.dayName)
+                        .font(typography.dayName)
                     Text(dayNumber(day))
-                        .font(Theme.Typo.gutter)
+                        .font(typography.gutter)
                         .opacity(0.8)
                 }
                 .foregroundStyle(isToday ? palette.accent : .secondary)
@@ -190,7 +192,7 @@ struct WeekGrid: View {
         VStack(alignment: .trailing, spacing: 0) {
             ForEach(hours.dropLast(), id: \.self) { hour in
                 Text(ClassSession.format(hour))
-                    .font(Theme.Typo.gutter)
+                    .font(typography.gutter)
                     .foregroundStyle(.tertiary)
                     .opacity(now.map { abs(hour - $0) < 20 } == true ? 0 : 1)
                     .frame(height: hourHeight, alignment: .top)

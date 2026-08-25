@@ -18,6 +18,7 @@ struct EventEditorPopover: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @FocusState private var titleFocused: Bool
 
     /// Quick lengths, so the common case never opens a time picker.
@@ -46,7 +47,7 @@ struct EventEditorPopover: View {
         VStack(alignment: .leading, spacing: 4) {
             TextField("Event title", text: $draft.title)
                 .textFieldStyle(.plain)
-                .font(Theme.Typo.detailTitle)
+                .font(typography.detailTitle)
                 .focused($titleFocused)
                 .onSubmit(commit)
 
@@ -56,7 +57,7 @@ struct EventEditorPopover: View {
                     Image(systemName: "repeat")
                 }
             }
-            .font(Theme.Typo.detailMeta)
+            .font(typography.detailMeta)
             .foregroundStyle(.secondary)
         }
     }
@@ -69,7 +70,7 @@ struct EventEditorPopover: View {
 
                 Button(String(day.short.prefix(1))) { toggle(day) }
                     .buttonStyle(.plain)
-                    .font(Theme.Typo.dayName)
+                    .font(typography.dayName)
                     .foregroundStyle(on ? .white : .secondary)
                     .frame(width: 26, height: 26)
                     .background(Circle().fill(on ? palette.accent : palette.accent.opacity(0.08)))

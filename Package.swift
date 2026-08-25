@@ -21,7 +21,11 @@ let package = Package(
         .executableTarget(
             name: "PUPSISPortal",
             dependencies: [.product(name: "FSRS", package: "SwiftFSRS")],
-            path: "Sources/PUPSISPortalApp"
+            path: "Sources/PUPSISPortalApp",
+            resources: [
+                .copy("Resources/notes-editor.bundle.js"),
+                .copy("Resources/Fonts"),
+            ]
         ),
         .testTarget(
             name: "PUPSISPortalTests",

@@ -19,6 +19,7 @@ struct AssistantFloating: View {
     // traced from the user's exact repro ("only opens when I touch Settings").
     @ObservedObject var session: AssistantSession
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var morph
 
@@ -58,6 +59,7 @@ private struct AssistantChat: View {
     @ObservedObject var session: AssistantSession
     let morph: Namespace.ID
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var inputFocused: Bool
     @State private var input = ""
@@ -132,7 +134,7 @@ private struct AssistantChat: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Assistant").font(Theme.Typo.detailTitle)
+                Text("Assistant").font(typography.detailTitle)
                 Spacer()
                 Text(preferences.aiPermission.label)
                     .font(.caption2)

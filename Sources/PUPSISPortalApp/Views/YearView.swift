@@ -14,6 +14,8 @@ struct YearView: View {
 
     @Environment(\.palette) private var palette
 
+    @Environment(\.typography) private var typography
+
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 28), count: 4)
     private static let scrollSpace = "PUPSISPortal.yearScroll"
 
@@ -43,18 +45,20 @@ private struct MonthGrid: View {
 
     @Environment(\.palette) private var palette
 
+    @Environment(\.typography) private var typography
+
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 1), count: 7)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(month.formatted(.dateTime.month(.wide)))
-                .font(Theme.Typo.detailTitle)
+                .font(typography.detailTitle)
                 .foregroundStyle(palette.accent)
 
             LazyVGrid(columns: columns, spacing: 1) {
                 ForEach(Weekday.allCases) { day in
                     Text(day.short.prefix(1))
-                        .font(Theme.Typo.gutter)
+                        .font(typography.gutter)
                         .foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity)
                 }
@@ -79,6 +83,8 @@ private struct DayCell: View {
     let onSelect: (Date) -> Void
 
     @Environment(\.palette) private var palette
+
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
 
@@ -89,7 +95,7 @@ private struct DayCell: View {
             onSelect(date)
         } label: {
             Text(String(Calendar.current.component(.day, from: date)))
-                .font(Theme.Typo.gutter)
+                .font(typography.gutter)
                 .monospacedDigit()
                 .foregroundStyle(foreground)
                 .frame(maxWidth: .infinity)

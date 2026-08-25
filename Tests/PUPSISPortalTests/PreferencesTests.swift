@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import XCTest
 @testable import PUPSISPortal
@@ -26,6 +27,16 @@ final class PreferencesTests: XCTestCase {
         Preferences(defaults: defaults).theme = .astraMoon
 
         XCTAssertEqual(Preferences(defaults: defaults).theme, .astraMoon)
+    }
+
+    func testFontChoiceSurvivesRelaunch() {
+        Preferences(defaults: defaults).fontChoice = .poppins
+
+        XCTAssertEqual(Preferences(defaults: defaults).fontChoice, .poppins)
+    }
+
+    func testFontChoiceDefaultsToSystem() {
+        XCTAssertEqual(Preferences(defaults: defaults).fontChoice, .system)
     }
 
     /// The whole point of the override: it has to beat the seeded default.
@@ -605,5 +616,58 @@ final class PaletteTests: XCTestCase {
         XCTAssertEqual(Color(hex: "1E7A4C")?.hex, "#1E7A4C")
         XCTAssertNil(Color(hex: "nope"))
         XCTAssertNil(Color(hex: "#12345"))
+    }
+
+    /// The login screen's hero side needs an honest fill and a legible mark on
+    /// it — this catches a copy-paste miss where two palettes ended up sharing
+    /// the same `panel`/`onPanel` pair.
+    func testEveryPaletteDefinesADistinctPanel() {
+        let palettes: [Palette] = [.pupMaroon, .ivory, .astraMoon, .sakura, .monochrome, .matrix]
+        let panels = Set(palettes.map { $0.panel.hex })
+        let onPanels = Set(palettes.map { $0.onPanel.hex })
+        XCTAssertEqual(panels.count, palettes.count, "two palettes share a panel color")
+        XCTAssertEqual(onPanels.count, palettes.count, "two palettes share an onPanel color")
+    }
+}
+
+final class TypographyTests: XCTestCase {
+    /// `.system` has to reproduce the original hardcoded scale exactly, or
+    /// every screen changes size the moment this shipped — even for someone
+    /// who never opens the font picker.
+    /// `Font`'s `Equatable` conformance isn't reliable across independently
+    /// built values (even `Font.system(.callout) == Font.system(.callout)`
+    /// comes back `false` on this SDK) — its debug description is stable
+    /// where `==` isn't, so that's what this compares against.
+    func testSystemChoiceMatchesTheOriginalScale() {
+        let typography = Typography(.system)
+        func describe(_ font: Font) -> String { String(describing: font) }
+
+        XCTAssertEqual(describe(typography.screenTitle), describe(Font.system(.title2, design: .serif).weight(.semibold)))
+        XCTAssertEqual(describe(typography.dayName), describe(Font.system(.caption, design: .default).weight(.semibold)))
+        XCTAssertEqual(describe(typography.gutter), describe(Font.system(.caption2, design: .monospaced)))
+        XCTAssertEqual(describe(typography.blockCode), describe(Font.system(.subheadline, design: .serif).weight(.semibold)))
+        XCTAssertEqual(describe(typography.blockTime), describe(Font.system(size: 10, design: .monospaced)))
+        XCTAssertEqual(describe(typography.detailTitle), describe(Font.system(.title3, design: .serif).weight(.semibold)))
+        XCTAssertEqual(describe(typography.detailBody), describe(Font.system(.callout)))
+        XCTAssertEqual(describe(typography.detailMeta), describe(Font.system(.caption, design: .monospaced)))
+        XCTAssertEqual(describe(typography.nowClock), describe(Font.system(.caption2, design: .monospaced).weight(.semibold)))
+        XCTAssertEqual(describe(typography.footer), describe(Font.system(.caption)))
+        XCTAssertEqual(describe(typography.hero), describe(Font.system(.largeTitle, design: .serif).weight(.semibold)))
+    }
+
+    /// Every non-system choice has to actually resolve to a registered font —
+    /// this is what fails if a `.ttf` goes missing from `Resources/Fonts` or
+    /// `Package.swift` stops copying the directory.
+    func testEveryBundledFamilyIsRegistered() {
+        FontLibrary.registerBundledFonts()
+        for choice in FontChoice.allCases where choice != .system {
+            guard let family = choice.familyName else {
+                XCTFail("\(choice) has no family name")
+                continue
+            }
+            let members = NSFontManager.shared.availableMembers(ofFontFamily: family)
+            XCTAssertNotNil(members, "\(family) is not registered")
+            XCTAssertFalse(members?.isEmpty ?? true, "\(family) registered with no members")
+        }
     }
 }

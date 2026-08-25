@@ -17,6 +17,7 @@ struct QuizzesView: View {
     @ObservedObject var notes: NotesStore
     let aiModel: String
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
 
     struct GrowthRequest: Identifiable {
         let id = UUID()
@@ -160,7 +161,7 @@ struct QuizzesView: View {
 
     private func featuredStrip(_ deck: QuizDeck) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Continue studying").font(Theme.Typo.detailMeta).foregroundStyle(.secondary)
+            Text("Continue studying").font(typography.detailMeta).foregroundStyle(.secondary)
             deckTile(deck, featured: true)
         }
     }
@@ -169,7 +170,7 @@ struct QuizzesView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Circle().fill(palette.accent).frame(width: 8, height: 8)
-                Text(category.name).font(Theme.Typo.detailTitle).lineLimit(1).truncationMode(.tail)
+                Text(category.name).font(typography.detailTitle).lineLimit(1).truncationMode(.tail)
                 Spacer()
                 Text(category.dueTotal > 0
                      ? "\(category.decks.count) deck\(category.decks.count == 1 ? "" : "s") · \(category.dueTotal) due today"

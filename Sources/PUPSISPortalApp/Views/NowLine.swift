@@ -11,6 +11,7 @@ import SwiftUI
 /// the same minute also decides which blocks have already finished.
 struct NowLine: View {
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Minutes from midnight, right now.
@@ -30,7 +31,7 @@ struct NowLine: View {
         if offset >= 0, offset <= span {
             HStack(spacing: 0) {
                 Text(ClassSession.format(minutes))
-                    .font(Theme.Typo.nowClock)
+                    .font(typography.nowClock)
                     .foregroundStyle(palette.nowTint)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)

@@ -12,6 +12,7 @@ struct GradesView: View {
     @ObservedObject var controller: PortalController
     @ObservedObject var preferences: Preferences
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Which term's subject list is on screen. `nil` = the current term.
@@ -88,7 +89,7 @@ struct GradesView: View {
     private var trendCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("GPA trend")
-                .font(Theme.Typo.detailMeta)
+                .font(typography.detailMeta)
                 .foregroundStyle(.secondary)
 
             Chart(trendTerms, id: \.termLabel) { term in
@@ -151,7 +152,7 @@ struct GradesView: View {
 
         return VStack(alignment: .leading, spacing: 8) {
             Text("Units completed")
-                .font(Theme.Typo.detailMeta)
+                .font(typography.detailMeta)
                 .foregroundStyle(.secondary)
 
             if total > 0 {
@@ -163,7 +164,7 @@ struct GradesView: View {
                 Text(unitString(completed))
                     .font(.system(.title3, design: .serif).weight(.semibold))
                 Text("Set your program's total units in Settings to see progress.")
-                    .font(Theme.Typo.footer)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
             }
         }
@@ -189,7 +190,7 @@ struct GradesView: View {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
                 Text("Loading past terms…")
-                    .font(Theme.Typo.footer)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -215,7 +216,7 @@ struct GradesView: View {
         HStack(alignment: .top, spacing: 24) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("GPA")
-                    .font(Theme.Typo.detailMeta)
+                    .font(typography.detailMeta)
                     .foregroundStyle(.secondary)
 
                 if let gpa = report.computedGPA {
@@ -232,7 +233,7 @@ struct GradesView: View {
                 Text(posted == 0
                      ? "No grades posted yet"
                      : "\(posted) of \(total) subject\(total == 1 ? "" : "s") posted")
-                    .font(Theme.Typo.footer)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
             }
 
@@ -258,10 +259,10 @@ struct GradesView: View {
                 ForEach(rows, id: \.key) { key, value in
                     VStack(alignment: .trailing, spacing: 1) {
                         Text(key)
-                            .font(Theme.Typo.detailMeta)
+                            .font(typography.detailMeta)
                             .foregroundStyle(.secondary)
                         Text(value)
-                            .font(Theme.Typo.footer.weight(.medium))
+                            .font(typography.footer.weight(.medium))
                     }
                 }
             }
@@ -330,7 +331,7 @@ struct GradesView: View {
                 .tint(palette.accent)
                 .controlSize(.small)
         }
-        .font(Theme.Typo.footer)
+        .font(typography.footer)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(.bar)
@@ -343,6 +344,8 @@ private struct GradeRow: View {
     let subject: SubjectGrade
     let color: Color
 
+    @Environment(\.typography) private var typography
+
     var body: some View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 3)
@@ -351,9 +354,9 @@ private struct GradeRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(subject.subjectCode)
-                    .font(Theme.Typo.blockCode)
+                    .font(typography.blockCode)
                 Text(subject.description)
-                    .font(Theme.Typo.footer)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -362,7 +365,7 @@ private struct GradeRow: View {
 
             if subject.units > 0 {
                 Text(unitLabel)
-                    .font(Theme.Typo.detailMeta)
+                    .font(typography.detailMeta)
                     .foregroundStyle(.secondary)
             }
 
@@ -393,7 +396,7 @@ private struct GradeRow: View {
             // Empty cell = not posted; a non-empty non-numeric mark (INC, DRP)
             // shows as itself so it's clearly not just missing.
             Text(subject.finalGrade.isEmpty ? "Pending" : subject.finalGrade)
-                .font(Theme.Typo.footer.weight(.medium))
+                .font(typography.footer.weight(.medium))
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 52)
                 .padding(.vertical, 4)

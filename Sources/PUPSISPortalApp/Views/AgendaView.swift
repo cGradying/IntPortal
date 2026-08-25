@@ -21,6 +21,7 @@ struct AgendaView: View {
     @ObservedObject var generation: GenerationCenter
     @ObservedObject var notebook: NotebookModel
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Flipped true on first appear so the rows animate in once, on open, rather
@@ -150,7 +151,7 @@ struct AgendaView: View {
         VStack(alignment: .leading, spacing: 6) {
             tabBar
             Text(noteTitle(for: currentKey))
-                .font(Theme.Typo.detailTitle)
+                .font(typography.detailTitle)
                 .lineLimit(1)
 
             WebNoteEditor(
@@ -206,7 +207,7 @@ struct AgendaView: View {
     private func tabChip(_ key: String) -> some View {
         let active = key == currentKey
         return HStack(spacing: 6) {
-            Text(noteTitle(for: key)).font(Theme.Typo.footer).lineLimit(1)
+            Text(noteTitle(for: key)).font(typography.footer).lineLimit(1)
             Button { closeTab(key) } label: {
                 Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
             }
@@ -294,7 +295,7 @@ struct AgendaView: View {
                     Divider()
                     VStack(alignment: .leading, spacing: 4) {
                         Text("All notes")
-                            .font(Theme.Typo.detailMeta)
+                            .font(typography.detailMeta)
                             .foregroundStyle(.secondary)
                         ForEach(history, id: \.key) { item in
                             sidebarItem(
@@ -327,9 +328,9 @@ struct AgendaView: View {
             Button { selectedKey = key } label: {
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Day note").font(Theme.Typo.footer)
+                        Text("Day note").font(typography.footer)
                         Text(Self.shortDate.string(from: browsedDay))
-                            .font(Theme.Typo.detailMeta).foregroundStyle(.secondary)
+                            .font(typography.detailMeta).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 4)
                     if notes.hasNote(for: key) { noteDot }
@@ -369,7 +370,7 @@ struct AgendaView: View {
     private var vaultSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                Text("Vault").font(Theme.Typo.detailMeta).foregroundStyle(.secondary)
+                Text("Vault").font(typography.detailMeta).foregroundStyle(.secondary)
                 Spacer()
                 Button { showRAGBadges.toggle() } label: {
                     Image(systemName: "sparkles")
@@ -385,7 +386,7 @@ struct AgendaView: View {
 
             if notes.vault.isEmpty {
                 Text("No files yet — add a note or folder.")
-                    .font(Theme.Typo.footer)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
             } else {
@@ -427,7 +428,7 @@ struct AgendaView: View {
             Image(systemName: open ? "chevron.down" : "chevron.right")
                 .font(.caption2).foregroundStyle(.secondary).frame(width: 10)
             Image(systemName: "folder").foregroundStyle(labelColor(node) ?? .secondary)
-            Text(node.name).font(Theme.Typo.footer).lineLimit(1)
+            Text(node.name).font(typography.footer).lineLimit(1)
             Spacer(minLength: 4)
             if showRAGBadges { ragBadge(excluded: effectiveExcluded) }
         }
@@ -458,7 +459,7 @@ struct AgendaView: View {
         let selected = node.noteKey == currentKey
         return HStack(spacing: 6) {
             Image(systemName: "doc.text").foregroundStyle(labelColor(node) ?? .secondary).frame(width: 10)
-            Text(node.name).font(Theme.Typo.footer).lineLimit(1)
+            Text(node.name).font(typography.footer).lineLimit(1)
             Spacer(minLength: 4)
             if showRAGBadges { ragBadge(excluded: effectiveExcluded) }
             if let key = node.noteKey, notes.hasNote(for: key) { noteDot }
@@ -642,9 +643,9 @@ struct AgendaView: View {
         let selected = key == currentKey
         return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(Theme.Typo.footer).lineLimit(1)
+                Text(title).font(typography.footer).lineLimit(1)
                 if let subtitle {
-                    Text(subtitle).font(Theme.Typo.detailMeta).foregroundStyle(.secondary).lineLimit(1)
+                    Text(subtitle).font(typography.detailMeta).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             Spacer(minLength: 4)
@@ -681,10 +682,10 @@ struct AgendaView: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 Text(referenceNow.formatted(.dateTime.weekday(.wide)))
-                    .font(Theme.Typo.detailTitle)
+                    .font(typography.detailTitle)
                 if !isBrowsingToday {
                     Button("Today") { browsedDay = now }
-                        .font(Theme.Typo.footer)
+                        .font(typography.footer)
                         .buttonStyle(.borderless)
                 }
             }
@@ -699,7 +700,7 @@ struct AgendaView: View {
                     }
                 }
             }
-            .font(Theme.Typo.footer)
+            .font(typography.footer)
             .foregroundStyle(.secondary)
         }
         .padding(.bottom, 4)
@@ -771,20 +772,20 @@ struct AgendaView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(session.subjectCode)
-                        .font(Theme.Typo.blockCode)
+                        .font(typography.blockCode)
                     if online {
                         Image(systemName: "video.fill")
-                            .font(Theme.Typo.detailMeta)
+                            .font(typography.detailMeta)
                             .foregroundStyle(.secondary)
                     }
                     if hasNote { noteDot }
                 }
                 Text(session.description)
-                    .font(Theme.Typo.footer)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Text(session.timeLabel)
-                    .font(Theme.Typo.detailMeta)
+                    .font(typography.detailMeta)
                     .foregroundStyle(.secondary)
             }
 
@@ -815,12 +816,12 @@ struct AgendaView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(entry.title)
-                        .font(Theme.Typo.blockCode)
+                        .font(typography.blockCode)
                         .lineLimit(1)
                     if hasNote { noteDot }
                 }
                 Text(entry.subtitle)
-                    .font(Theme.Typo.detailMeta)
+                    .font(typography.detailMeta)
                     .foregroundStyle(.secondary)
             }
 
@@ -843,7 +844,7 @@ struct AgendaView: View {
         switch phase {
         case .inSession:
             Text("In session")
-                .font(Theme.Typo.footer.weight(.semibold))
+                .font(typography.footer.weight(.semibold))
                 .foregroundStyle(palette.accent)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
@@ -851,11 +852,11 @@ struct AgendaView: View {
         case .upcoming:
             Text(isBrowsingToday ? upcoming(for: session).countdown(now: now)
                  : "at \(ClassSession.format(preferences.time(for: session, on: weekStart).start))")
-                .font(Theme.Typo.footer.weight(.medium))
+                .font(typography.footer.weight(.medium))
                 .foregroundStyle(color)
         case .past:
             Text("Done")
-                .font(Theme.Typo.detailMeta)
+                .font(typography.detailMeta)
                 .foregroundStyle(.tertiary)
         }
     }
@@ -865,15 +866,15 @@ struct AgendaView: View {
         switch entry.phase {
         case .inSession:
             Text("Now")
-                .font(Theme.Typo.footer.weight(.semibold))
+                .font(typography.footer.weight(.semibold))
                 .foregroundStyle(.secondary)
         case .upcoming:
             Text("at \(ClassSession.format(entry.start))")
-                .font(Theme.Typo.footer.weight(.medium))
+                .font(typography.footer.weight(.medium))
                 .foregroundStyle(.secondary)
         case .past:
             Text("Done")
-                .font(Theme.Typo.detailMeta)
+                .font(typography.detailMeta)
                 .foregroundStyle(.tertiary)
         }
     }
@@ -925,7 +926,7 @@ struct AgendaView: View {
                 .accessibilityHidden(true)
             Text("\(duration(minutes)) free")
         }
-        .font(Theme.Typo.detailMeta)
+        .font(typography.detailMeta)
         .foregroundStyle(.secondary)
         .opacity(passed ? 0.4 : 1)
         .padding(.leading, 18)
@@ -939,7 +940,7 @@ struct AgendaView: View {
     /// of a bare line of text.
     private var emptyDay: some View {
         Text("Nothing scheduled today.")
-            .font(Theme.Typo.footer)
+            .font(typography.footer)
             .foregroundStyle(.secondary)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -954,7 +955,7 @@ struct AgendaView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text(tomorrowText)
-                .font(Theme.Typo.footer)
+                .font(typography.footer)
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 14)

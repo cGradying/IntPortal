@@ -38,12 +38,13 @@ struct MenuBarPanel: View {
     @Environment(\.colorScheme) private var systemScheme
 
     private var palette: Palette { preferences.theme.palette(for: systemScheme) }
+    private var typography: Typography { Typography(preferences.fontChoice) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if appState.credentials == nil {
                 Text("Sign in to see your schedule.")
-                    .font(Theme.Typo.footer)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
             } else {
                 dateHeader
@@ -53,7 +54,7 @@ struct MenuBarPanel: View {
                     nextClass(upcoming)
                 } else {
                     Text("No more classes this week.")
-                        .font(Theme.Typo.detailBody)
+                        .font(typography.detailBody)
                         .foregroundStyle(.secondary)
                 }
 
@@ -82,7 +83,7 @@ struct MenuBarPanel: View {
 
     private var dateHeader: some View {
         Text(appState.now.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
-            .font(Theme.Typo.detailMeta)
+            .font(typography.detailMeta)
             .foregroundStyle(.secondary)
     }
 
@@ -94,16 +95,16 @@ struct MenuBarPanel: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Up next")
-                    .font(Theme.Typo.detailMeta)
+                    .font(typography.detailMeta)
                     .foregroundStyle(.secondary)
                 Text(upcoming.session.subjectCode)
-                    .font(Theme.Typo.detailTitle)
+                    .font(typography.detailTitle)
                 Text(upcoming.session.description)
-                    .font(Theme.Typo.footer)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Text(upcoming.countdown(now: appState.now))
-                    .font(Theme.Typo.footer.weight(.medium))
+                    .font(typography.footer.weight(.medium))
                     .foregroundStyle(palette.accent)
             }
         }
@@ -113,7 +114,7 @@ struct MenuBarPanel: View {
     private func laterList(_ items: [DayAgenda.Item]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Later today")
-                .font(Theme.Typo.detailMeta)
+                .font(typography.detailMeta)
                 .foregroundStyle(.secondary)
             ForEach(items) { item in
                 HStack(spacing: 8) {
@@ -121,15 +122,15 @@ struct MenuBarPanel: View {
                         .fill(preferences.color(for: item.session.subjectCode, in: palette))
                         .frame(width: 6, height: 6)
                     Text(item.session.subjectCode)
-                        .font(Theme.Typo.footer)
+                        .font(typography.footer)
                     if item.phase == .inSession {
                         Text("now")
-                            .font(Theme.Typo.detailMeta)
+                            .font(typography.detailMeta)
                             .foregroundStyle(palette.accent)
                     }
                     Spacer(minLength: 8)
                     Text(ClassSession.format(item.start))
-                        .font(Theme.Typo.detailMeta)
+                        .font(typography.detailMeta)
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .ignore)
@@ -150,7 +151,7 @@ struct MenuBarPanel: View {
             Image(systemName: "sunrise")
                 .foregroundStyle(.secondary)
             Text("Tomorrow · \(first.subjectCode) at \(ClassSession.format(start))")
-                .font(Theme.Typo.footer)
+                .font(typography.footer)
                 .foregroundStyle(.secondary)
         }
     }
@@ -163,7 +164,7 @@ struct MenuBarPanel: View {
             Text(preferences.notificationsEnabled
                  ? "Reminders on · \(preferences.notificationLeadMinutes) min before"
                  : "Reminders off")
-                .font(Theme.Typo.footer)
+                .font(typography.footer)
                 .foregroundStyle(.secondary)
         }
     }
@@ -194,7 +195,7 @@ struct MenuBarPanel: View {
             }
         }
         .buttonStyle(.plain)
-        .font(Theme.Typo.detailBody)
+        .font(typography.detailBody)
     }
 
     // MARK: Today's remaining classes

@@ -11,12 +11,14 @@ struct SelectionBar: View {
     let onDone: () -> Void
 
     @Environment(\.palette) private var palette
+
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 14) {
             Text("\(count) selected")
-                .font(Theme.Typo.footer)
+                .font(typography.footer)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
 

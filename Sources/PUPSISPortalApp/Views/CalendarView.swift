@@ -21,6 +21,8 @@ struct CalendarView: View {
     var settingsShowing: Bool = false
 
     @Environment(\.palette) private var palette
+
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.undoManager) private var undoManager
 
@@ -565,6 +567,7 @@ private struct StatusFooter: View {
     let onRetry: () -> Void
     let onPrint: () -> Void
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
 
     var body: some View {
         HStack(spacing: 8) {
@@ -601,7 +604,7 @@ private struct StatusFooter: View {
                 .tint(palette.accent)
                 .controlSize(.small)
         }
-        .font(Theme.Typo.footer)
+        .font(typography.footer)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(.bar)
@@ -627,6 +630,7 @@ private struct NextClassBanner: View {
     let time: (ClassSession, Date) -> (Int, Int)
     let tint: (ClassSession) -> Color
 
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -640,12 +644,12 @@ private struct NextClassBanner: View {
                         .frame(width: 7, height: 7)
 
                     Text(upcoming.session.subjectCode)
-                        .font(Theme.Typo.blockCode)
+                        .font(typography.blockCode)
 
                     Text(upcoming.countdown(now: context.date))
                         .foregroundStyle(.secondary)
                 }
-                .font(Theme.Typo.footer)
+                .font(typography.footer)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
                 .glassTintedCapsule(color.opacity(0.18))

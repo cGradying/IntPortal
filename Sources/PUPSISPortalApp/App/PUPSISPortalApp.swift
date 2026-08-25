@@ -104,6 +104,7 @@ final class AppState: ObservableObject {
     }
 
     init() {
+        FontLibrary.registerBundledFonts()
         credentials = KeychainStore.load()
         isEditing = credentials == nil
         isHome = preferences.islandStartHome
@@ -273,6 +274,10 @@ struct ContentView: View {
 
     var body: some View {
         content
+            // Reaches both branches of `content` (login screen and the main
+            // app) — the login screen's own circular gear button sets this
+            // same flag, so one sheet definition covers both.
+            .sheet(isPresented: $appState.showingSettings) { settingsSheet }
             // Zoom applied once, at the root — Schedule, Notebook, Grades,
             // and the chrome (nav island, assistant) all scale together, so
             // switching screens never looks like the level "reset". Above
@@ -282,6 +287,7 @@ struct ContentView: View {
             .frame(minWidth: 900, minHeight: 600)
             .background(TrafficLights(autoHide: preferences.trafficLightsAutoHide))
             .environment(\.palette, preferences.theme.palette(for: systemScheme))
+            .environment(\.typography, Typography(preferences.fontChoice))
             // Keeps native controls (fields, pickers, popovers) in step with a
             // theme the user picked against their system setting.
             .preferredColorScheme(preferences.theme.colorScheme)
@@ -296,7 +302,11 @@ struct ContentView: View {
     private var content: some View {
         if appState.isEditing || appState.credentials == nil {
             // No nav before sign-in: there is nowhere to go yet.
-            CredentialsView(existing: appState.credentials, onSave: appState.save)
+            CredentialsView(
+                existing: appState.credentials,
+                onSave: appState.save,
+                showingSettings: $appState.showingSettings
+            )
         } else if let credentials = appState.credentials {
             ZStack(alignment: .top) {
                 // Base: a calm wash at home, the screen (inset below the floating
@@ -324,7 +334,7 @@ struct ContentView: View {
                 // every time isHome becomes true, same as the chrome band below.
                 if appState.isHome {
                     Text("Student IntPortal")
-                        .font(.system(.largeTitle, design: .serif).weight(.semibold))
+                        .font(Typography(preferences.fontChoice).hero)
                         .foregroundStyle(preferences.theme.palette(for: systemScheme).accent)
                         .opacity(titleResolved ? 1 : 0)
                         .offset(y: titleResolved ? 0 : 8)
@@ -388,7 +398,6 @@ struct ContentView: View {
             .ignoresSafeArea()
             .background(preferences.theme.palette(for: systemScheme).canvasWash.ignoresSafeArea())
             .animation(Motion.island(reduced: reduceMotion), value: appState.isHome)
-            .sheet(isPresented: $appState.showingSettings) { settingsSheet }
         }
     }
 
@@ -424,9 +433,12 @@ struct ContentView: View {
                 calendar: appState.calendar,
                 googleAuth: appState.googleAuth
             )
-            // A .sheet is its own window on macOS — doesn't inherit the
-            // ContentView root's scaleEffect, so it needs its own call.
-            .uiScaled(preferences.uiScale)
+            // Deliberately NOT .uiScaled: this sheet is a TabView of native
+            // AppKit Form controls (Picker/Stepper/Toggle). scaleEffect
+            // doesn't transform their hit-test regions, so above 1.0 clicks
+            // land off-target and the whole form reads as grayed-out/dead.
+            // Renders at 100% like every other native macOS sheet instead —
+            // Settings text just doesn't grow with UI Scale.
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { appState.showingSettings = false }

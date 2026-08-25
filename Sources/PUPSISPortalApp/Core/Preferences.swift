@@ -55,6 +55,10 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(theme.rawValue, forKey: Key.theme) }
     }
 
+    @Published var fontChoice: FontChoice {
+        didSet { defaults.set(fontChoice.rawValue, forKey: Key.fontChoice) }
+    }
+
     /// Subject code → hex. Absent means "use the palette's default".
     @Published private(set) var subjectColors: [String: String] {
         didSet { defaults.set(try? JSONEncoder().encode(subjectColors), forKey: Key.subjectColors) }
@@ -354,6 +358,7 @@ final class Preferences: ObservableObject {
 
     private enum Key {
         static let theme = "theme"
+        static let fontChoice = "fontChoice"
         static let subjectColors = "subjectColors"
         static let sessionStatuses = "sessionStatuses"
         static let occurrenceStatuses = "occurrenceStatuses"
@@ -393,6 +398,7 @@ final class Preferences: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         theme = defaults.string(forKey: Key.theme).flatMap(ThemeChoice.init(rawValue:)) ?? .auto
+        fontChoice = defaults.string(forKey: Key.fontChoice).flatMap(FontChoice.init(rawValue:)) ?? .system
         subjectColors = defaults.data(forKey: Key.subjectColors)
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         termStatuses = defaults.data(forKey: Key.sessionStatuses)

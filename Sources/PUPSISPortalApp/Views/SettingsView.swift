@@ -20,6 +20,7 @@ struct SettingsView: View {
     /// Ollama models currently loaded in memory that aren't the selected one.
     @State private var runningOthers: [String] = []
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @State fileprivate var exportResult: String?
     @State fileprivate var googleCalendars: [GoogleCalendar] = []
     @State fileprivate var googleBusy = false
@@ -71,6 +72,13 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.inline)
+                Picker("Font", selection: $preferences.fontChoice) {
+                    ForEach(FontChoice.allCases) { choice in
+                        Text(choice.label)
+                            .font(Typography(choice).screenTitle.weight(.regular))
+                            .tag(choice)
+                    }
+                }
                 Stepper(value: $preferences.uiScale, in: Preferences.uiScaleRange, step: Preferences.uiScaleStep) {
                     LabeledContent("UI Scale") {
                         Text("\(Int(preferences.uiScale * 100))%")
@@ -851,6 +859,8 @@ private struct SubjectColorRow: View {
     @ObservedObject var preferences: Preferences
     let palette: Palette
 
+    @Environment(\.typography) private var typography
+
     var body: some View {
         HStack(spacing: 12) {
             // Binding rather than onChange: ColorPicker writes continuously
@@ -863,7 +873,7 @@ private struct SubjectColorRow: View {
                 supportsOpacity: false
             ) {
                 Text(code)
-                    .font(Theme.Typo.blockCode)
+                    .font(typography.blockCode)
             }
 
             Spacer()

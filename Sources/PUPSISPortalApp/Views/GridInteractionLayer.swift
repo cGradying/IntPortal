@@ -31,6 +31,8 @@ struct GridInteractionLayer: View {
     let onBand: ([DayBlock]) -> Void
 
     @Environment(\.palette) private var palette
+
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Where the pointer last was, so the right-click menu knows which slot it
@@ -105,12 +107,12 @@ struct GridInteractionLayer: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(range.isMultiDay ? "New Events" : "New Event")
-                    .font(Theme.Typo.blockCode)
+                    .font(typography.blockCode)
                 Text("\(ClassSession.format(range.start)) – \(ClassSession.format(range.end))")
-                    .font(Theme.Typo.blockTime)
+                    .font(typography.blockTime)
                 if range.isMultiDay {
                     Text(range.days.map(\.short).map { $0.capitalized }.joined(separator: ", "))
-                        .font(Theme.Typo.blockTime)
+                        .font(typography.blockTime)
                         .opacity(0.8)
                 }
             }
