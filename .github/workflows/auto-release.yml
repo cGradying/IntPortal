@@ -7,8 +7,12 @@
 # tagged in the first place, even though mac-release.yml would also refuse to
 # release it. A dangling tag with no release attached is worse than no tag.
 #
-# Skip a release for one commit with "[skip release]" anywhere in the message
-# — e.g. a CI-only tweak or a docs fix that ships no app change.
+# Skip a release for one commit by writing that exact bracketed phrase (not
+# quoted here on purpose — quoting it in a commit message trips the check on
+# itself, confirmed the hard way) anywhere in the message — e.g. a CI-only
+# tweak or a docs fix that ships no app change. An empty commit doesn't
+# trigger this workflow at all (paths-ignore skips a push with zero changed
+# files), so testing this needs a real diff, not `--allow-empty`.
 name: Auto release
 
 on:
