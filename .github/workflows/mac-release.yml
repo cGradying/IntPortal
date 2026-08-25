@@ -11,12 +11,29 @@
 # documented Gatekeeper right-click-open step in README's Install section —
 # that's unchanged. Auto-updates installed via Sparkle skip it entirely:
 # Sparkle strips com.apple.quarantine from the swapped-in bundle itself.
+#
+# Two ways in: a manually pushed "v*.*.*" tag (the original path — still
+# works for a hand-cut release), or `workflow_call` from auto-release.yml,
+# which computes the next version and calls this directly with a `tag`
+# input. It has to be workflow_call, not a second tag push: a tag pushed
+# using the built-in GITHUB_TOKEN deliberately does NOT trigger another
+# workflow's `on: push` (GitHub's own anti-recursion rule) — confirmed the
+# hard way when auto-release.yml's first real run tagged v1.5.1 and this
+# workflow silently never started. `secrets: inherit` on the caller's side
+# is what makes the signing/appcast secrets below available either way.
 name: Mac release
 
 on:
   push:
     tags:
       - "v*.*.*"
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Version tag, e.g. "v1.5.1" — only set when called from auto-release.yml'
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -26,6 +43,17 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
+      # The one thing every later step needs: which tag this release is.
+      # Direct tag-push trigger already has it as GITHUB_REF_NAME; the
+      # workflow_call path has no tag ref at all (it's running on main's
+      # commit, before or as the tag is pushed), so it comes in as an input.
+      - name: Resolve tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          TAG="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Run tests
         run: swift test
@@ -54,12 +82,12 @@ jobs:
 
       - name: Build .dmg
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           Scripts/make_dmg.sh "$VERSION"
 
       - name: Build .zip update payload
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           VERSION="$VERSION" Scripts/make_mac_app.sh "$RUNNER_TEMP/zipstage"
           # ditto, not zip -r: preserves the symlinks the framework's own
           # code signature is computed over, same reason make_mac_app.sh
@@ -77,7 +105,7 @@ jobs:
           cp dist/*.zip "$RUNNER_TEMP/appcast/"
           echo "$SPARKLE_ED_PRIVATE_KEY" | "$BIN/generate_appcast" \
             --ed-key-file - \
-            --download-url-prefix "https://github.com/cGradying/IntPortal/releases/download/$GITHUB_REF_NAME/" \
+            --download-url-prefix "https://github.com/cGradying/IntPortal/releases/download/$TAG/" \
             --link "https://github.com/cGradying/IntPortal/releases/latest" \
             -o dist/appcast.xml \
             "$RUNNER_TEMP/appcast/"
@@ -99,6 +127,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           NOTES="$(printf '### SHA-256\n\n```\n%s\n```\n' "$(cat dist/SHA256SUMS.txt)")"
-          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/appcast.xml dist/SHA256SUMS.txt \
-            --title "$GITHUB_REF_NAME" --generate-notes --notes "$NOTES" \
-            || gh release upload "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/appcast.xml dist/SHA256SUMS.txt --clobber
+          gh release create "$TAG" dist/*.dmg dist/*.zip dist/appcast.xml dist/SHA256SUMS.txt \
+            --title "$TAG" --generate-notes --notes "$NOTES" \
+            || gh release upload "$TAG" dist/*.dmg dist/*.zip dist/appcast.xml dist/SHA256SUMS.txt --clobber

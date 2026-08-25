@@ -1,7 +1,15 @@
 # Auto-tags a new release on every merge to main, so cutting a release stops
-# being a manual `git tag && git push` step. This workflow only computes the
-# next version and pushes the tag; mac-release.yml (triggered by that tag
-# push) still does all the actual building, signing, and publishing.
+# being a manual `git tag && git push` step. This job only computes the next
+# version and pushes the tag as a record; the `release` job below calls
+# mac-release.yml directly as a reusable workflow (`workflow_call`) with that
+# tag, rather than relying on the tag push itself to trigger it.
+#
+# That indirection is required, not stylistic: a tag pushed using the
+# built-in GITHUB_TOKEN deliberately does NOT trigger another workflow's
+# `on: push` — GitHub's own anti-recursion rule. Confirmed the hard way: the
+# first real run here tagged v1.5.1 and mac-release.yml silently never
+# started. `workflow_call` sidesteps it entirely, since it's not a second
+# independently-triggered event at all.
 #
 # Tests run here BEFORE the tag is created — a failing build should never get
 # tagged in the first place, even though mac-release.yml would also refuse to
@@ -30,6 +38,8 @@ jobs:
   tag:
     runs-on: macos-latest
     if: "!contains(github.event.head_commit.message, '[skip release]')"
+    outputs:
+      tag: ${{ steps.compute.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,6 +49,7 @@ jobs:
         run: swift test
 
       - name: Compute next version and tag
+        id: compute
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -56,3 +67,11 @@ jobs:
           echo "Tagging $NEXT"
           git tag -a "$NEXT" -m "$NEXT"
           git push origin "$NEXT"
+          echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: tag
+    uses: ./.github/workflows/mac-release.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit
