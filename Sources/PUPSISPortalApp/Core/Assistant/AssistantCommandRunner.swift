@@ -30,12 +30,17 @@ struct AssistantCommandRunner {
     private let client: OllamaClient
     private let model: String
     private let ragQuery: RAGQuery
+    /// `/date`, `/vacant`, `/online`, `/regular` all delegate to this rather
+    /// than duplicating any calendar logic — they just build the same
+    /// `AssistantAction` the model's tool-picking would, deterministically.
+    private let executor: RealAssistantExecutor
 
     init(
         notes: NotesStore,
         openNoteKey: @escaping () -> String?,
         model: String,
         preferences: Preferences,
+        executor: RealAssistantExecutor,
         client: OllamaClient = OllamaClient(),
         ragQuery: RAGQuery? = nil
     ) {
@@ -43,6 +48,7 @@ struct AssistantCommandRunner {
         self.openNoteKey = openNoteKey
         self.model = model
         self.client = client
+        self.executor = executor
         self.ragQuery = ragQuery ?? RAGQuery(
             notes: notes,
             embedModel: preferences.ragEmbedModel, chunkSize: preferences.ragChunkSize,
@@ -57,6 +63,8 @@ struct AssistantCommandRunner {
         case .summary(let name): return await summary(name)
         case .create(let prompt): return await create(prompt)
         case .rag(let prompt): return await rag(prompt)
+        case .date(let dateString): return await readDate(dateString)
+        case .classStatus(let subject, let dateString, let status): return await setClassStatus(subject, dateString, status)
         case .help: return Outcome(reply: AssistantCommand.helpText, pin: nil)
         case .unknown(let word):
             return Outcome(reply: "Unknown command /\(word).\n\n\(AssistantCommand.helpText)", pin: nil)
@@ -76,6 +84,28 @@ struct AssistantCommandRunner {
         } catch {
             return Outcome(reply: error.localizedDescription, pin: nil)
         }
+    }
+
+    private func readDate(_ dateString: String) async -> Outcome {
+        let trimmed = dateString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return Outcome(reply: #"Give a date, e.g. `/date 2026-08-30`."#, pin: nil)
+        }
+        let result = await executor.execute(AssistantAction(tool: "read_date", args: ["date": .string(trimmed)]))
+        return Outcome(reply: result.message, pin: nil)
+    }
+
+    private func setClassStatus(_ subject: String, _ dateString: String, _ status: String) async -> Outcome {
+        let subject = subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        let dateString = dateString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !subject.isEmpty, !dateString.isEmpty else {
+            return Outcome(reply: #"Give a subject and a date, e.g. `/\#(status) "COMP 20073" 2026-08-30`."#, pin: nil)
+        }
+        let action = AssistantAction(tool: "set_class_status", args: [
+            "subject_code": .string(subject), "date": .string(dateString), "status": .string(status),
+        ])
+        let result = await executor.execute(action)
+        return Outcome(reply: result.message, pin: nil)
     }
 
     private func read(_ name: String?) -> Outcome {

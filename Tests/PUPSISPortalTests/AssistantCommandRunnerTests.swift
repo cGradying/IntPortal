@@ -25,9 +25,17 @@ final class AssistantCommandRunnerTests: XCTestCase {
         ragQuery: RAGQuery? = nil
     ) -> AssistantCommandRunner {
         let preferences = Preferences(defaults: UserDefaults(suiteName: "AssistantCommandRunnerTests-\(UUID().uuidString)")!)
+        // Same reasoning as RealAssistantExecutorTests: a never-`requestAccess`'d
+        // CalendarBridge and a never-constructed-for-real PortalController keep
+        // /date, /vacant, /online, /regular's validation paths testable without
+        // touching real EventKit or the user's cached schedule.
+        let executor = RealAssistantExecutor(
+            notes: notesStore, editor: EventEditor(bridge: CalendarBridge()), calendar: CalendarBridge(),
+            portal: PortalController(), preferences: preferences, openNoteKey: { openKey }
+        )
         return AssistantCommandRunner(
             notes: notesStore, openNoteKey: { openKey }, model: "test-model", preferences: preferences,
-            client: client, ragQuery: ragQuery
+            executor: executor, client: client, ragQuery: ragQuery
         )
     }
 
@@ -136,6 +144,30 @@ final class AssistantCommandRunnerTests: XCTestCase {
         let outcome = await runner(ragQuery: ragQuery).run(.rag(prompt: "nonexistent"))
         XCTAssertTrue(outcome.reply.contains("No notes matched"))
         XCTAssertTrue(outcome.sources.isEmpty)
+    }
+
+    // MARK: /date, /vacant, /online, /regular — deterministic onto the same
+    // calendar tools the model can call, via the injected `RealAssistantExecutor`.
+    //
+    // Same boundary `RealAssistantExecutorTests` already draws for itself:
+    // `PortalController()`'s real cached-schedule read means only the guards
+    // that run before touching `portal.sessions` are safe to assert on here
+    // — which for these commands means the ones the runner itself checks
+    // before ever calling the executor.
+
+    func testDateWithNoArgumentAsksForOne() async {
+        let outcome = await runner().run(.date("   "))
+        XCTAssertTrue(outcome.reply.contains("/date"))
+    }
+
+    func testVacantWithNoSubjectOrDateAsksForBoth() async {
+        let outcome = await runner().run(.classStatus(subject: "", date: "", status: "vacant"))
+        XCTAssertTrue(outcome.reply.contains("/vacant"))
+    }
+
+    func testOnlineWithNoDateAsksForOne() async {
+        let outcome = await runner().run(.classStatus(subject: "COMP 20073", date: "", status: "online"))
+        XCTAssertTrue(outcome.reply.contains("/online"))
     }
 
     // MARK: /help and unknown

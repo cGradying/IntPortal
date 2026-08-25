@@ -526,7 +526,8 @@ private struct AssistantChat: View {
             notes: appState.notes,
             openNoteKey: { appState.openNoteKey },
             model: preferences.aiModel,
-            preferences: preferences
+            preferences: preferences,
+            executor: makeExecutor()
         )
     }
 

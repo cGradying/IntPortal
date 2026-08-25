@@ -57,6 +57,31 @@ final class AssistantCommandTests: XCTestCase {
         XCTAssertEqual(AssistantCommand.parse("/rag what is recursion"), .rag(prompt: "what is recursion"))
     }
 
+    func testDateTakesTheWholeRestAsTheDate() {
+        XCTAssertEqual(AssistantCommand.parse("/date 2026-08-30"), .date("2026-08-30"))
+    }
+
+    func testVacantWithQuotedSubjectAndABareDate() {
+        XCTAssertEqual(
+            AssistantCommand.parse(#"/vacant "COMP 20073" 2026-08-30"#),
+            .classStatus(subject: "COMP 20073", date: "2026-08-30", status: "vacant")
+        )
+    }
+
+    func testOnlineWithABareSubjectAndDate() {
+        XCTAssertEqual(
+            AssistantCommand.parse("/online COMP 2026-08-30"),
+            .classStatus(subject: "COMP", date: "2026-08-30", status: "online")
+        )
+    }
+
+    func testRegularWithNoDateLeavesItEmpty() {
+        XCTAssertEqual(
+            AssistantCommand.parse(#"/regular "COMP 20073""#),
+            .classStatus(subject: "COMP 20073", date: "", status: "regular")
+        )
+    }
+
     func testCommandNameIsCaseInsensitive() {
         XCTAssertEqual(AssistantCommand.parse("/READ Physics"), .read(name: "Physics"))
     }
@@ -72,7 +97,7 @@ final class AssistantCommandTests: XCTestCase {
     /// offer one, that doesn't match what actually runs.
     func testCatalogCoversEveryParsedCommand() {
         let names = Set(AssistantCommand.catalog.map(\.name))
-        XCTAssertEqual(names, ["read", "summary", "create", "rag", "help"])
+        XCTAssertEqual(names, ["read", "summary", "create", "rag", "date", "vacant", "online", "regular", "help"])
     }
 
     func testUsageAddsQuotedParamPlaceholdersOnlyWhenThereAreParams() {

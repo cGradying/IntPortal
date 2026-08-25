@@ -19,6 +19,15 @@ enum AssistantCommand: Equatable {
     /// `ask_notes` on its own (confirmed live: `qwen2.5-coder:1.5b` never
     /// called it, even asked to by name) — `/rag` is the guaranteed path in.
     case rag(prompt: String)
+    /// Deterministic path onto `read_date` — same reasoning as `/rag`: typing
+    /// a date shouldn't depend on a small model correctly picking the right
+    /// tool out of the whole calendar catalog.
+    case date(String)
+    /// Deterministic path onto `set_class_status` — the literal "turn this
+    /// class vacant" ask, guaranteed to hit the right tool with the right
+    /// status rather than routed through the model's own tool-picking.
+    /// `status` is fixed by which of /vacant, /online, /regular was typed.
+    case classStatus(subject: String, date: String, status: String)
     case help
     /// An unrecognized `/word` — still not prose, so it must not silently fall
     /// through to the model; the runner replies with what commands do exist.
@@ -43,6 +52,11 @@ enum AssistantCommand: Equatable {
             return .create(prompt: rest)
         case "rag":
             return .rag(prompt: quotedOrBare(rest))
+        case "date":
+            return .date(rest)
+        case "vacant", "online", "regular":
+            let (subject, date) = splitFirstArg(rest)
+            return .classStatus(subject: subject, date: date, status: String(word))
         case "help":
             return .help
         default:
@@ -57,6 +71,25 @@ enum AssistantCommand: Equatable {
             return s
         }
         return String(s[s.index(after: s.startIndex)..<closing])
+    }
+
+    /// The two-argument shape `/vacant "COMP 20073" 2026-08-30` needs: a
+    /// leading `"quoted"` (or single bare-word) first argument, then
+    /// whatever's left over, trimmed. `quotedOrBare` above only ever handles
+    /// one trailing argument, so this is its two-argument sibling.
+    private static func splitFirstArg(_ s: String) -> (first: String, rest: String) {
+        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("\""), let closing = trimmed.dropFirst().firstIndex(of: "\"") {
+            let first = String(trimmed[trimmed.index(after: trimmed.startIndex)..<closing])
+            let rest = String(trimmed[trimmed.index(after: closing)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return (first, rest)
+        }
+        guard let spaceIndex = trimmed.firstIndex(where: \.isWhitespace) else {
+            return (trimmed, "")
+        }
+        let first = String(trimmed[..<spaceIndex])
+        let rest = String(trimmed[trimmed.index(after: spaceIndex)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return (first, rest)
     }
 
     /// Shown for `/help` and for any unrecognized `/word` — generated from
@@ -90,6 +123,10 @@ enum AssistantCommand: Equatable {
         Spec(name: "summary", params: ["name"], description: "Summarize a note"),
         Spec(name: "create", params: ["prompt"], description: "Write a new note from a prompt"),
         Spec(name: "rag", params: ["prompt"], description: "Answer a question from your notes (RAG), guaranteed to actually search them"),
+        Spec(name: "date", params: ["yyyy-MM-dd"], description: "What's on a specific date — classes and calendar events"),
+        Spec(name: "vacant", params: ["subject", "yyyy-MM-dd"], description: "Mark a class vacant that day (or every week — ask in chat for that)"),
+        Spec(name: "online", params: ["subject", "yyyy-MM-dd"], description: "Mark a class online that day"),
+        Spec(name: "regular", params: ["subject", "yyyy-MM-dd"], description: "Clear a vacant/online exception, back to in person"),
         Spec(name: "help", params: [], description: "Show this list"),
     ]
 }
