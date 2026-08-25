@@ -131,10 +131,21 @@ private struct AssistantChat: View {
             .help("Drag to resize · double-click to reset")
     }
 
+    /// Whether the "what can you do" popover is showing — local, not on
+    /// `session`, since it's transient UI state nothing else needs to see.
+    @State private var showingCapabilities = false
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Assistant").font(typography.detailTitle)
+                Button { showingCapabilities = true } label: {
+                    Image(systemName: "questionmark.circle").font(.system(size: 12, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("What can I ask it to do?")
+                .popover(isPresented: $showingCapabilities, arrowEdge: .bottom) { capabilitiesPopover }
                 Spacer()
                 Text(preferences.aiPermission.label)
                     .font(.caption2)
@@ -162,6 +173,43 @@ private struct AssistantChat: View {
         .padding(12)
     }
 
+    /// Read straight off `AssistantTool.catalog` — the same list that builds
+    /// the system prompt and the response schema, so this can never drift
+    /// from what the model can actually do. Grouped by a plain name prefix
+    /// rather than a second category field on `AssistantTool`, which would
+    /// be one more thing every future tool has to remember to set.
+    private var capabilitiesPopover: some View {
+        let groups: [(String, [AssistantTool])] = [
+            ("Calendar", AssistantTool.catalog.filter {
+                ["read_week", "read_date", "add_event", "move_event", "set_class_status", "set_class_time"].contains($0.name)
+            }),
+            ("Notes", AssistantTool.catalog.filter { $0.name.hasSuffix("note") || $0.name.hasSuffix("notes") }),
+            ("Grades", AssistantTool.catalog.filter { $0.name == "read_grades" }),
+        ]
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("What it can do").font(.headline)
+                ForEach(groups, id: \.0) { title, tools in
+                    if !tools.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(title).font(.caption).foregroundStyle(.secondary)
+                            ForEach(tools, id: \.name) { tool in
+                                Text("• \(tool.description)").font(.callout)
+                            }
+                        }
+                    }
+                }
+                Text(preferences.aiPermission == .auto
+                     ? "Changes apply right away in \(preferences.aiPermission.label) mode."
+                     : "Every change is shown to you first — nothing applies without a tap.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(16)
+        }
+        .frame(width: 300, height: 340)
+    }
+
     private func pinChip(_ pin: AssistantCommandRunner.PinnedNote) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "pin.fill").font(.system(size: 9))
@@ -181,7 +229,7 @@ private struct AssistantChat: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     if session.transcript.isEmpty {
-                        Text("Ask about your notes, schedule, or grades. Or try /read, /summary, /create, /help.")
+                        Text("Ask what's on a date, mark a class vacant, move an event — or about your notes and grades. Tap the ? above to see everything it can do, or try /read, /summary, /create, /help.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .padding(.top, 8)
