@@ -7,7 +7,16 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST_DIR="${1:-$HOME/Applications}"
 APP="$DEST_DIR/PUPSISPortal.app"
 BUNDLE_ID="com.cgradying.pupsisportal"
-VERSION="${VERSION:-1.2.1}"
+# Git tags are already the single source of truth (CI derives VERSION the
+# same way from GITHUB_REF_NAME) — no more hand-edited fallback going stale.
+VERSION="${VERSION:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')}"
+VERSION="${VERSION:-0.0.0}"
+# Sparkle's public EdDSA key (Info.plist SUPublicEDKey) — pairs with the
+# private key held in the login Keychain (Scripts/make_mac_app.sh never
+# touches it) and, for CI, the SPARKLE_ED_PRIVATE_KEY repo secret. Rotating
+# this key strands every installed app's ability to verify future updates —
+# don't regenerate it casually.
+SPARKLE_PUBLIC_ED_KEY="z5o63RKeioPEdrM0+1v9VVPA35kU1zQ1b3NsMxW2kKo="
 
 cd "$ROOT"
 echo "Building PUPSISPortal (release)..."
@@ -22,6 +31,17 @@ cp "$BIN" "$APP/Contents/MacOS/PUPSISPortal"
 # Bundle the web notes editor (CodeMirror + KaTeX, offline) into Resources.
 NOTES_BUNDLE="$ROOT/Sources/PUPSISPortalApp/Resources/notes-editor.bundle.js"
 [ -f "$NOTES_BUNDLE" ] && cp "$NOTES_BUNDLE" "$APP/Contents/Resources/notes-editor.bundle.js"
+
+# Embed Sparkle.framework for in-app auto-update. SwiftPM's Package.swift
+# fetches it as a prebuilt XCFramework (not source) into .build/artifacts —
+# Xcode would normally do this embedding step for us; a hand-rolled bundle
+# has to do it by hand. `ditto`, not `cp -R`: the framework's own code
+# signature is computed over its Versions/Current symlinks, which only
+# `ditto` preserves faithfully.
+SPARKLE_FW="$(find "$ROOT/.build/artifacts" -type d -name 'Sparkle.framework' -path '*/macos-*' -print -quit)"
+[ -n "$SPARKLE_FW" ] || { echo "Sparkle.framework not found under .build/artifacts — run swift build first" >&2; exit 1; }
+mkdir -p "$APP/Contents/Frameworks"
+ditto "$SPARKLE_FW" "$APP/Contents/Frameworks/Sparkle.framework"
 
 ICON_PNG="$ROOT/Sources/PUPSISPortalApp/Resources/pupsisportal-icon.png"
 ICON_ARG=""
@@ -50,6 +70,9 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
   <key>NSCalendarsFullAccessUsageDescription</key><string>PUPSISPortal shows your calendar events beside your class schedule, and can add your classes to Calendar.</string>
+  <key>SUFeedURL</key><string>https://github.com/cGradying/PUPSISPortal/releases/latest/download/appcast.xml</string>
+  <key>SUPublicEDKey</key><string>$SPARKLE_PUBLIC_ED_KEY</string>
+  <key>SUEnableAutomaticChecks</key><true/>
   $ICON_ARG
 </dict>
 </plist>
@@ -59,11 +82,43 @@ EOF
 # signing changes the app's code identity on every build, which invalidates
 # the Keychain ACL and makes the app block on a credential prompt at launch.
 SIGN_ID="PUPSISPortal Local Signing"
-if security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_ID"; then
-  codesign --force --deep --sign "$SIGN_ID" "$APP"
-else
-  codesign --force --deep --sign - "$APP"
+if ! security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_ID"; then
+  SIGN_ID="-"
 fi
+
+# Sparkle can rotate a code-signing identity release to release, but it can
+# never accept an update that DROPS signing entirely (SUUpdateValidator:
+# "supports rotation, but not removal of Apple Code Signing identity"). A CI
+# run that silently fell back to ad-hoc would still install fine today, but
+# would permanently strand every already-installed copy the next time a real
+# identity comes back — so refuse outright rather than let that happen.
+if [ "${CI:-}" = "true" ] && [ "$SIGN_ID" = "-" ]; then
+  echo "refusing to build a CI release ad-hoc signed — import the signing identity first" >&2
+  exit 1
+fi
+
+# Sign inside-out, app last. Sparkle's own docs call out `--deep` as "a
+# common source of errors" here: Downloader.xpc carries entitlements the
+# other nested binaries must not inherit, so each item needs its own
+# invocation rather than one recursive pass.
+FW="$APP/Contents/Frameworks/Sparkle.framework"
+codesign --force --sign "$SIGN_ID" --options runtime \
+  "$FW/Versions/B/XPCServices/Installer.xpc"
+codesign --force --sign "$SIGN_ID" --options runtime --preserve-metadata=entitlements \
+  "$FW/Versions/B/XPCServices/Downloader.xpc"
+codesign --force --sign "$SIGN_ID" --options runtime \
+  "$FW/Versions/B/Autoupdate"
+codesign --force --sign "$SIGN_ID" --options runtime \
+  "$FW/Versions/B/Updater.app"
+codesign --force --sign "$SIGN_ID" "$FW"
+# Deliberately no --options runtime on the app itself: hardened runtime
+# enables Library Validation, and under the ad-hoc dev fallback every
+# rebuild is a different identity, so the app would refuse to load its own
+# (differently-signed) framework.
+codesign --force --sign "$SIGN_ID" "$APP"
+
+codesign --verify --strict --verbose=2 "$APP"
+plutil -extract SUPublicEDKey raw "$APP/Contents/Info.plist" >/dev/null
 
 touch "$APP"
 mdimport "$APP" >/dev/null 2>&1 || true

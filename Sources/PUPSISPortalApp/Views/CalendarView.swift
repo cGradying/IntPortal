@@ -12,9 +12,12 @@ struct CalendarView: View {
     /// Week/scale/show-cancelled + the island's step/new-event intents. Lifted
     /// out so the floating nav island drives these instead of a toolbar.
     @ObservedObject var schedule: ScheduleModel
-    /// A newer release, if the launch check found one — shown in the footer
-    /// beside the other quiet status, never as an interruption.
-    let update: UpdateInfo?
+    /// Sparkle's delegate shim. `@ObservedObject`, not a plain `String?` —
+    /// `updaterBridge` is its own `ObservableObject` nested inside `AppState`,
+    /// so this view must observe it directly or a version becoming available
+    /// while this screen is already on-screen wouldn't repaint the footer.
+    @ObservedObject var updaterBridge: UpdaterBridge
+    let onCheckForUpdates: () -> Void
     /// Settings is a sheet floating over this screen, not a replacement for
     /// it — `CalendarView` stays mounted underneath, so the scroll monitor
     /// needs telling explicitly not to move the schedule behind it.
@@ -57,7 +60,8 @@ struct CalendarView: View {
         calendar: CalendarBridge,
         credentials: Credentials,
         schedule: ScheduleModel,
-        update: UpdateInfo? = nil,
+        updaterBridge: UpdaterBridge,
+        onCheckForUpdates: @escaping () -> Void = {},
         settingsShowing: Bool = false
     ) {
         self.controller = controller
@@ -65,7 +69,8 @@ struct CalendarView: View {
         self.calendar = calendar
         self.credentials = credentials
         self.schedule = schedule
-        self.update = update
+        self.updaterBridge = updaterBridge
+        self.onCheckForUpdates = onCheckForUpdates
         self.settingsShowing = settingsShowing
         _editor = StateObject(wrappedValue: EventEditor(bridge: calendar))
     }
@@ -134,7 +139,8 @@ struct CalendarView: View {
                     StatusFooter(
                         lastUpdated: controller.lastUpdated,
                         refreshError: controller.refreshError ?? calendar.lastError,
-                        update: update,
+                        update: updaterBridge.availableVersion,
+                        onCheckForUpdates: onCheckForUpdates,
                         sessions: controller.sessions,
                         isVacant: { session, date in
                             preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
@@ -559,7 +565,8 @@ private struct ScopeQuestion {
 private struct StatusFooter: View {
     let lastUpdated: Date?
     let refreshError: String?
-    let update: UpdateInfo?
+    let update: String?
+    let onCheckForUpdates: () -> Void
     let sessions: [ClassSession]
     let isVacant: (ClassSession, Date) -> Bool
     let time: (ClassSession, Date) -> (Int, Int)
@@ -588,11 +595,12 @@ private struct StatusFooter: View {
             Spacer(minLength: 12)
 
             if let update {
-                Link(destination: update.url) {
-                    Label("v\(update.version) available", systemImage: "arrow.down.circle")
+                Button(action: onCheckForUpdates) {
+                    Label("v\(update) available", systemImage: "arrow.down.circle")
                 }
+                .buttonStyle(.plain)
                 .foregroundStyle(palette.accent)
-                .help("Opens the release page in your browser. Downloads and installs by hand, as usual.")
+                .help("Installs the update in place, then relaunches.")
             }
 
             Button("Print…", action: onPrint)

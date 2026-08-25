@@ -11,6 +11,12 @@ struct UpdateInfo: Equatable {
 /// No self-update — the user still downloads the `.dmg` by hand, which is also
 /// why this stays a quiet footer line rather than a modal.
 ///
+/// ponytail: `AppState` no longer calls this — real self-updating now lives in
+/// `UpdaterBridge`/Sparkle. Kept in the tree, untouched, only so anyone still
+/// on a pre-Sparkle build (v1.3.0 or older) has one last "there's an update"
+/// nudge to find their way to the release that finally installs Sparkle.
+/// Delete this file and its test alongside it in v1.5.0.
+///
 /// Nothing about the user is sent: it's an anonymous GET against this project's
 /// own public releases endpoint, with no query and no body.
 ///

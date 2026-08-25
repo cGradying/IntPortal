@@ -1,4 +1,5 @@
 import AppKit
+import Sparkle
 import SwiftUI
 
 /// The Schedule screen's controls, lifted out of `CalendarView` so the floating
@@ -62,10 +63,18 @@ final class AppState: ObservableObject {
     /// screen. The island's home mark flips it back.
     @Published var isHome = true
 
-    /// A newer release, once the launch check finds one. Stays nil otherwise —
-    /// including when the check fails — so nothing appears unless there really
-    /// is an update.
-    @Published var availableUpdate: UpdateInfo?
+    /// Sparkle's own delegate shim — `availableVersion` drives the footer
+    /// badge and Settings › About. See `UpdaterBridge` for why it isn't
+    /// folded directly into `AppState`.
+    let updaterBridge = UpdaterBridge()
+
+    /// Starts Sparkle's own launch-time background check and scheduler
+    /// (`SUEnableAutomaticChecks` in Info.plist). `lazy` so construction —
+    /// and its `startingUpdater: true` side effect — happens once, on first
+    /// touch, rather than as an unconditional part of `init()`.
+    private(set) lazy var updaterController = SPUStandardUpdaterController(
+        startingUpdater: true, updaterDelegate: updaterBridge, userDriverDelegate: nil
+    )
 
     /// The note key the user is currently looking at, mirrored up from
     /// whichever screen has one open (today: `AgendaView`) — see the comment
@@ -109,7 +118,7 @@ final class AppState: ObservableObject {
         isEditing = credentials == nil
         isHome = preferences.islandStartHome
         startClock()
-        checkForUpdate()
+        _ = updaterController // force the lazy: starts Sparkle's scheduler now, not on first UI touch
         observeTermination()
     }
 
@@ -145,18 +154,6 @@ final class AppState: ObservableObject {
             // Ollama's own idle timeout frees it eventually regardless.
             guard !preferences.aiModel.isEmpty else { return }
             Task { await OllamaClient().unload(model: preferences.aiModel) }
-        }
-    }
-
-    /// One anonymous GET at launch, detached so it never delays the first frame.
-    /// Skipped entirely when the running version can't be read (`swift run`,
-    /// tests) rather than guessed at — see `UpdateCheck.currentVersion`.
-    private func checkForUpdate() {
-        guard let current = UpdateCheck.currentVersion else { return }
-        Task { [weak self] in
-            let info = await UpdateCheck().check(current: current)
-            guard let info else { return }
-            await MainActor.run { self?.availableUpdate = info }
         }
     }
 
@@ -411,7 +408,8 @@ struct ContentView: View {
                 calendar: appState.calendar,
                 credentials: credentials,
                 schedule: appState.schedule,
-                update: appState.availableUpdate,
+                updaterBridge: appState.updaterBridge,
+                onCheckForUpdates: { appState.updaterController.checkForUpdates(nil) },
                 settingsShowing: appState.showingSettings
             )
         case .today:
@@ -429,6 +427,7 @@ struct ContentView: View {
         NavigationStack {
             SettingsView(
                 appState: appState,
+                updaterBridge: appState.updaterBridge,
                 preferences: preferences,
                 calendar: appState.calendar,
                 googleAuth: appState.googleAuth

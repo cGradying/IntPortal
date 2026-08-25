@@ -4,7 +4,8 @@
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="${1:-1.2.1}"
+VERSION="${1:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')}"
+VERSION="${VERSION:-0.0.0}"
 STAGE="$(mktemp -d)/PUPSISPortal"
 DMG="$ROOT/dist/PUPSISPortal-$VERSION.dmg"
 

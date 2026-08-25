@@ -4,6 +4,10 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @ObservedObject var appState: AppState
+    /// `appState.updaterBridge` is its own `ObservableObject` — this view must
+    /// observe it directly, or a version becoming available while Settings is
+    /// already open wouldn't repaint the About tab. See `CalendarView`, same reason.
+    @ObservedObject var updaterBridge: UpdaterBridge
     @ObservedObject var preferences: Preferences
     @ObservedObject var calendar: CalendarBridge
     @ObservedObject var googleAuth: GoogleAuth
@@ -467,14 +471,16 @@ struct SettingsView: View {
         settingsForm {
             Section("About") {
                 LabeledContent("PUPSISPortal") {
-                    if let update = appState.availableUpdate {
-                        // Only ever a link out — the app never updates itself.
-                        Link("v\(appVersion) — v\(update.version) available",
-                             destination: update.url)
-                    } else {
-                        Text("v\(appVersion)")
+                    HStack {
+                        Text(updaterBridge.availableVersion.map { "v\(appVersion) — v\($0) available" } ?? "v\(appVersion)")
+                        Button("Check for Updates…") { appState.updaterController.checkForUpdates(nil) }
+                            .disabled(!appState.updaterController.updater.canCheckForUpdates)
                     }
                 }
+                Toggle("Check for updates automatically", isOn: Binding(
+                    get: { appState.updaterController.updater.automaticallyChecksForUpdates },
+                    set: { appState.updaterController.updater.automaticallyChecksForUpdates = $0 }
+                ))
                 LabeledContent("Author", value: "Janvin D. Salvador")
                 LabeledContent("Contact") {
                     Link("cgradying@gmail.com", destination: URL(string: "mailto:cgradying@gmail.com")!)
