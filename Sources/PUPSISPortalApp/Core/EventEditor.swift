@@ -16,6 +16,10 @@ struct EventSnapshot: Equatable {
     /// Off by default: a drag across three days should give three blocks this
     /// week, not something that comes back every week until the term ends.
     var repeatsWeekly = false
+    /// Both optional, both map straight to `EKEvent.notes`/`.url` — nothing
+    /// app-specific, so Calendar.app and any other client show them too.
+    var note = ""
+    var link = ""
 
     var isMultiDay: Bool { repeatDays.count > 1 }
 
@@ -61,6 +65,8 @@ final class EventEditor: ObservableObject {
     /// Not repeating gives one plain event per day — the days were still
     /// selected, they just don't come back next week.
     func create(_ snapshot: EventSnapshot, inWeekStarting weekStart: Date, actionName: String = "Add Event") {
+        let notes = snapshot.note.isEmpty ? nil : snapshot.note
+        let url = URL(string: snapshot.link)
         if snapshot.repeatsWeekly {
             guard bridge.add(
                 title: snapshot.title,
@@ -69,7 +75,9 @@ final class EventEditor: ObservableObject {
                 end: snapshot.end,
                 repeatingOn: snapshot.repeatDays,
                 until: termEnd,
-                calendarID: snapshot.calendarID
+                calendarID: snapshot.calendarID,
+                notes: notes,
+                url: url
             ) != nil else { return }
         } else {
             for date in snapshot.dates(inWeekStarting: weekStart) {
@@ -78,7 +86,9 @@ final class EventEditor: ObservableObject {
                     on: date,
                     start: snapshot.start,
                     end: snapshot.end,
-                    calendarID: snapshot.calendarID
+                    calendarID: snapshot.calendarID,
+                    notes: notes,
+                    url: url
                 )
             }
         }
@@ -133,6 +143,16 @@ final class EventEditor: ObservableObject {
         onChange?()
     }
 
+    func setDetails(_ block: DayBlock, note: String, link: String, scope: CalendarBridge.EditScope) {
+        guard let before = snapshot(of: block) else { return }
+
+        bridge.setDetails(block, note: note, link: link, scope: scope)
+        register("Edit Event Details") { editor in
+            editor.setDetailsBack(to: before, scope: scope)
+        }
+        onChange?()
+    }
+
     func duplicate(_ block: DayBlock, inWeekStarting weekStart: Date) {
         guard var snapshot = snapshot(of: block) else { return }
         snapshot.title += " copy"
@@ -158,7 +178,9 @@ final class EventEditor: ObservableObject {
             start: block.start,
             end: block.end,
             repeatDays: days.isEmpty ? [block.day] : days.sorted { $0.rawValue < $1.rawValue },
-            repeatsWeekly: !days.isEmpty
+            repeatsWeekly: !days.isEmpty,
+            note: event.notes ?? "",
+            link: event.url?.absoluteString ?? ""
         )
     }
 
@@ -204,5 +226,12 @@ final class EventEditor: ObservableObject {
             $0.start == snapshot.start && $0.end == snapshot.end
         }) else { return }
         rename(block, to: snapshot.title, scope: scope)
+    }
+
+    private func setDetailsBack(to snapshot: EventSnapshot, scope: CalendarBridge.EditScope) {
+        guard let block = bridge.events.first(where: {
+            $0.start == snapshot.start && $0.end == snapshot.end
+        }) else { return }
+        setDetails(block, note: snapshot.note, link: snapshot.link, scope: scope)
     }
 }

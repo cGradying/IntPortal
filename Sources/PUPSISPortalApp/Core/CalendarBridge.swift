@@ -260,7 +260,9 @@ final class CalendarBridge: ObservableObject {
         end: Int,
         repeatingOn days: [Weekday] = [],
         until termEnd: Date? = nil,
-        calendarID: String
+        calendarID: String,
+        notes: String? = nil,
+        url: URL? = nil
     ) -> String? {
         guard let target = store.calendars(for: .event).first(where: { $0.calendarIdentifier == calendarID })
                 ?? store.defaultCalendarForNewEvents
@@ -280,6 +282,8 @@ final class CalendarBridge: ObservableObject {
         event.startDate = startDate
         event.endDate = endDate
         event.calendar = target
+        event.notes = notes
+        event.url = url
 
         // A single day needs no rule — a recurrence of one weekday is just
         // noise in Calendar.app's inspector.
@@ -377,6 +381,15 @@ final class CalendarBridge: ObservableObject {
     func rename(_ block: DayBlock, to title: String, scope: EditScope) {
         guard let event = occurrences[block.id] else { return }
         event.title = title
+        save(event, scope: scope)
+    }
+
+    /// `note`/`link` map straight to `EKEvent.notes`/`.url` — an empty
+    /// string clears the field rather than leaving a stale value behind.
+    func setDetails(_ block: DayBlock, note: String, link: String, scope: EditScope) {
+        guard let event = occurrences[block.id] else { return }
+        event.notes = note.isEmpty ? nil : note
+        event.url = URL(string: link)
         save(event, scope: scope)
     }
 

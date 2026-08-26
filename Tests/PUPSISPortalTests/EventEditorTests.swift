@@ -61,6 +61,15 @@ final class EventSnapshotTests: XCTestCase {
     func testTheSummaryAlwaysCarriesTheTimeRange() {
         XCTAssertTrue(snapshot(days: [.monday]).summary.contains("2PM – 4PM"))
     }
+
+    /// Both optional and off by default — a snapshot built the same way
+    /// `startCreate` in `CalendarView` builds one, with no note/link given,
+    /// must not carry stale text into a new event.
+    func testNoteAndLinkDefaultToEmpty() {
+        let created = snapshot(days: [.monday])
+        XCTAssertEqual(created.note, "")
+        XCTAssertEqual(created.link, "")
+    }
 }
 
 final class RecurrenceMappingTests: XCTestCase {

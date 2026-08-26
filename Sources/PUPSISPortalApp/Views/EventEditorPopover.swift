@@ -33,6 +33,8 @@ struct EventEditorPopover: View {
             repeatToggle
             calendarPicker
             Divider()
+            details
+            Divider()
             actions
         }
         .padding(16)
@@ -115,6 +117,19 @@ struct EventEditorPopover: View {
                 }
             }
             .labelsHidden()
+        }
+    }
+
+    /// Both optional — same convention as a class's own note/link editor
+    /// (`Blocks.swift`), just for a custom calendar event instead of a
+    /// scraped class.
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            TextField("Description", text: $draft.note, axis: .vertical)
+                .lineLimit(1...4)
+                .textFieldStyle(.plain)
+            TextField("Link", text: $draft.link)
+                .textFieldStyle(.plain)
         }
     }
 

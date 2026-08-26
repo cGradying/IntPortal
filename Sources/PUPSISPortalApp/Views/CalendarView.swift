@@ -293,6 +293,7 @@ struct CalendarView: View {
                 editor.rename(block, to: snapshot.title, scope: scope)
                 editor.move(block, to: snapshot.date, start: snapshot.start,
                             end: snapshot.end, scope: scope)
+                editor.setDetails(block, note: snapshot.note, link: snapshot.link, scope: scope)
             }
         } else {
             editor.create(snapshot, inWeekStarting: weekStart)
