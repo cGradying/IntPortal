@@ -87,7 +87,6 @@ private struct AssistantChat: View {
             }
             Divider()
             inputBar
-            thinkingBar
         }
         .glassPanel(cornerRadius: 20)
         .overlay(alignment: .topTrailing) { resizeGrip }
@@ -135,6 +134,8 @@ private struct AssistantChat: View {
     /// Whether the "what can you do" popover is showing — local, not on
     /// `session`, since it's transient UI state nothing else needs to see.
     @State private var showingCapabilities = false
+    /// Whether the thinking popover is showing — same reasoning as above.
+    @State private var showingThinking = false
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -147,6 +148,13 @@ private struct AssistantChat: View {
                 .foregroundStyle(.secondary)
                 .help("What can I ask it to do?")
                 .popover(isPresented: $showingCapabilities, arrowEdge: .bottom) { capabilitiesPopover }
+                Button { showingThinking = true } label: {
+                    Image(systemName: "brain").font(.system(size: 12, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(preferences.aiThinking == .off ? .secondary : palette.accent)
+                .help("Thinking: \(preferences.aiThinking.label)")
+                .popover(isPresented: $showingThinking, arrowEdge: .bottom) { thinkingPopover }
                 Spacer()
                 Text(preferences.aiPermission.label)
                     .font(.caption2)
@@ -492,24 +500,45 @@ private struct AssistantChat: View {
         .padding(6)
     }
 
-    /// The bottom thinking-level strip — same idea as Claude's own thinking
-    /// picker, in this app's glass/pixel idiom: a segmented row of cells
-    /// rather than a stock `Picker`, so it reads as chrome the way
-    /// `SelectionBar`/`NavIsland` do. `.max` gets the app's own ambient
-    /// glitch treatment (`GlitchGradientText`) as its "special effect" —
-    /// reusing the existing Matrix-scramble idiom rather than inventing a
-    /// second one.
-    private var thinkingBar: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "brain")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
-            ForEach(AssistantThinking.allCases) { level in
-                thinkingCell(level)
+    /// The brain button's popover: the level picker (moved here from an
+    /// always-visible bottom bar) plus the last completed turn's actual
+    /// reasoning text — the thing that bar never showed at all. Same idea as
+    /// Claude's own thinking picker, in this app's glass/pixel idiom: a
+    /// segmented row of cells rather than a stock `Picker`. `.max` gets the
+    /// app's own ambient glitch treatment (`GlitchGradientText`) as its
+    /// "special effect" — reusing the existing Matrix-scramble idiom rather
+    /// than inventing a second one.
+    private var thinkingPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Thinking").font(.headline)
+            HStack(spacing: 4) {
+                ForEach(AssistantThinking.allCases) { level in
+                    thinkingCell(level)
+                }
             }
+            Text(preferences.aiThinking.explanation)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Divider()
+            Group {
+                if session.lastThinking.isEmpty {
+                    Text("No thinking yet — ask something.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ScrollView {
+                        Text(session.lastThinking)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            .frame(height: 160)
         }
-        .padding(.horizontal, 10).padding(.vertical, 6)
-        .help(preferences.aiThinking.explanation)
+        .padding(16)
+        .frame(width: 280)
     }
 
     private func thinkingCell(_ level: AssistantThinking) -> some View {
@@ -601,6 +630,7 @@ private struct AssistantChat: View {
                     to: text, history: priorHistory, context: context, permission: permission,
                     think: preferences.aiThinking
                 )
+                session.lastThinking = outcome.thinking
                 // `.auto` already executed every tool itself — fold whichever
                 // notes it drew from into the reply's own chip, rather than
                 // leaving them buried in a mid-loop tool result nobody sees.
@@ -661,12 +691,25 @@ private struct AssistantChat: View {
             let gpa = report.computedGPA.map { String(format: "%.2f", $0) } ?? "n/a"
             return "GPA \(gpa) across \(report.subjects.count) subjects"
         }
+        let schedule = AssistantScheduleSnapshot(
+            now: appState.now,
+            sessions: appState.portal.sessions,
+            termEnd: preferences.termEndDate,
+            status: { preferences.termStatus(for: $0) },
+            time: { preferences.termTime(for: $0) }
+        )
+        // The "shared JSON file" — written once per turn (cheap: a few dozen
+        // sessions), same Application Support convention as
+        // schedule.json/notes.json. Not load-bearing for the prompt itself
+        // (that's `schedule.rendered` below) — this is for inspection.
+        schedule.save()
         return AssistantContext(
             destination: appState.selection,
             openNoteKey: appState.openNoteKey,
             openNoteText: noteText,
             todayClasses: todayClasses,
             gradesSummary: gradesSummary,
+            schedule: schedule,
             pinnedNote: session.pinnedNote
         )
     }

@@ -281,6 +281,17 @@ final class AssistantEngine {
         turn. A description of what you're about to do is not the same as \
         having done it.
         - If nothing needs doing, return an empty actions array.
+        - Never compute a date yourself — resolve "tomorrow"/"next Friday"/etc. \
+        by looking it up in the date reference table below. Convert a clock \
+        time to minutes from midnight by multiplying the hour by 60 and \
+        adding the minutes (e.g. 6:00 PM = 18:00 = 1080).
+        - A new event with no end time given defaults to one hour after the \
+        start — end must always be greater than start, never equal to it. \
+        Say the assumed duration in your reply so the student can correct it.
+        - If you're missing something else you need to add or move an event \
+        — which date is meant, or which meeting when a subject meets more \
+        than once that day — ask the student in your reply instead of \
+        guessing. Leave actions empty until you actually know.
         - Reply with JSON only, matching the given schema. No prose outside it.
         """
 

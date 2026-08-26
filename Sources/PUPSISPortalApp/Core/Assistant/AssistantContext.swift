@@ -20,6 +20,10 @@ struct AssistantContext: Equatable {
     let openNoteText: String?
     let todayClasses: [ClassEntry]
     let gradesSummary: String?
+    /// "Now" and the recurring weekly pattern, resolved once per turn — see
+    /// its own doc comment for why the model needs this rather than
+    /// inventing dates itself.
+    let schedule: AssistantScheduleSnapshot
     /// Set by `/read` — a note the student explicitly pulled into the
     /// conversation, independent of whatever's open on screen.
     var pinnedNote: AssistantCommandRunner.PinnedNote? = nil
@@ -33,7 +37,7 @@ struct AssistantContext: Equatable {
     /// catalog. Kept to plain lines rather than JSON — this is context for the
     /// model to read, not something it parses back.
     var rendered: String {
-        var lines = ["Current screen: \(destination.title)"]
+        var lines = [schedule.rendered, "Current screen: \(destination.title)"]
 
         if let key = openNoteKey {
             lines.append("Open note: \(key)")

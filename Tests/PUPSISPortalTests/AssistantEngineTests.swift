@@ -21,9 +21,17 @@ private final class FakeExecutor: AssistantExecutor {
 /// never matches.
 final class AssistantEngineTests: XCTestCase {
 
+    /// Fixed rather than `Date()` — several tests assert on `context.rendered`
+    /// appearing verbatim in the prompt, which must not flip mid-run at a
+    /// minute boundary.
+    private static let fixedNow = Calendar(identifier: .gregorian).date(from: DateComponents(year: 2026, month: 8, day: 26, hour: 14, minute: 30))!
+
     private let context = AssistantContext(
         destination: .today, openNoteKey: "class:COMP 001", openNoteText: "existing text",
-        todayClasses: [], gradesSummary: nil
+        todayClasses: [], gradesSummary: nil,
+        schedule: AssistantScheduleSnapshot(
+            now: AssistantEngineTests.fixedNow, sessions: [], termEnd: nil, status: { _ in .regular }, time: { ($0.start, $0.end) }
+        )
     )
 
     private func engine(sending: @escaping (Data) async throws -> (Data, Int),
@@ -207,6 +215,18 @@ final class AssistantEngineTests: XCTestCase {
     }
 
     // MARK: Prompt assembly
+
+    /// The actual fix this session: the model must be told today's date, not
+    /// left to invent one — regression guard for that gap.
+    func testSystemPromptIncludesTodaysDate() {
+        let prompt = AssistantEngine.systemPrompt(context: context)
+        XCTAssertTrue(prompt.contains("2026-08-26"), "prompt missing today's date")
+    }
+
+    func testSystemPromptTellsTheModelToLookUpNotComputeDates() {
+        let prompt = AssistantEngine.systemPrompt(context: context)
+        XCTAssertTrue(prompt.lowercased().contains("never compute a date"))
+    }
 
     func testSystemPromptListsEveryCatalogTool() {
         let prompt = AssistantEngine.systemPrompt(context: context)

@@ -502,6 +502,14 @@ final class Preferences: ObservableObject {
         termStatuses[session.id] ?? .regular
     }
 
+    /// The term-wide start/end for a meeting — the scraped SIS time unless
+    /// permanently moved. Distinct from `time(for:on:)`, which also layers in
+    /// a this-week-only exception; this is the pattern that actually repeats
+    /// every week, which is what `AssistantScheduleSnapshot` shows the model.
+    func termTime(for session: ClassSession) -> (start: Int, end: Int) {
+        termTimes[session.id].map { ($0.start, $0.end) } ?? (session.start, session.end)
+    }
+
     /// The "every week this term" control. `.regular` clears it. Week exceptions
     /// still win over it, so a term-online class can have one vacant week.
     func setTermStatus(_ status: SessionStatus, for session: ClassSession) {

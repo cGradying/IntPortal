@@ -25,6 +25,12 @@ final class AssistantSession: ObservableObject {
     /// a line in the panel. Cleared at the start of the next send.
     @Published var lastError: String?
 
+    /// The most recently completed turn's actual reasoning text — empty when
+    /// thinking was off, the model returned none, or nothing has been asked
+    /// yet. Shown in the header's brain popover, not inline in the
+    /// transcript — it's the model's scratch work, not part of the reply.
+    @Published var lastThinking = ""
+
     /// A reply the model produced but that isn't fit to show as-is — the
     /// Phase 0 spike's `"reply": "[]"` rough edge, or a genuinely empty
     /// string. Falls back to something that still reflects what happened,
@@ -50,5 +56,6 @@ final class AssistantSession: ObservableObject {
         lastError = nil
         isThinking = false
         pinnedNote = nil
+        lastThinking = ""
     }
 }
