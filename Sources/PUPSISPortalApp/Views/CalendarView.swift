@@ -151,8 +151,8 @@ struct CalendarView: View {
             if controller.sessions.isEmpty && calendar.events.isEmpty {
                 startupState
             } else {
-                HStack(spacing: 0) {
-                    ZStack {
+                ZStack {
+                    HStack(spacing: 0) {
                         weekGrid
                             .id(weekStart)
                             .overlay(alignment: .bottom) {
@@ -166,51 +166,51 @@ struct CalendarView: View {
                                     .padding(.bottom, 20)
                                 }
                             }
-                            // The year overlay below blurs and dims this
-                            // instead of replacing it — the week grid stays
-                            // visible underneath, per the floating-panel design.
-                            .blur(radius: scale == .year ? 14 : 0)
-                            .allowsHitTesting(scale == .week)
+                            .calendarScroll(enabled: !settingsShowing, scale: scale, atTop: atTop, perform: handleScroll)
 
-                        if scale == .year {
-                            Color.black.opacity(0.25)
-                                .ignoresSafeArea()
-                                .onTapGesture { scale = .week }
-                                .transition(.opacity)
-
-                            YearView(
-                                months: MonthLayout.months(around: weekStart, count: 4),
-                                selectedWeekStart: weekStart,
-                                weekdayColors: weekdayColors,
-                                onSelect: { open($0) },
-                                onAtTopChange: { atTop = $0 }
-                            )
-                            .frame(width: 420, height: 460)
-                            .glassPanel(cornerRadius: 20)
-                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                        }
+                        scheduleSidebarResizeHandle
+                        ScheduleSidebar(
+                            lastUpdated: controller.lastUpdated,
+                            refreshError: controller.refreshError ?? calendar.lastError,
+                            update: updaterBridge.availableVersion,
+                            onCheckForUpdates: onCheckForUpdates,
+                            sessions: controller.sessions,
+                            isVacant: { session, date in
+                                preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
+                            },
+                            time: { session, date in
+                                preferences.time(for: session, on: Weekday.weekStart(containing: date))
+                            },
+                            tint: { preferences.color(for: $0.subjectCode, in: palette) },
+                            onRetry: retry,
+                            onPrint: printWeek,
+                            preferences: preferences
+                        )
+                        .frame(width: preferences.scheduleSidebarWidth)
                     }
-                    .calendarScroll(enabled: !settingsShowing, scale: scale, atTop: atTop, perform: handleScroll)
+                    // The year overlay below blurs and dims the *whole*
+                    // screen — grid and sidebar both — rather than leaving
+                    // the sidebar sharp beside a blurred grid.
+                    .blur(radius: scale == .year ? 14 : 0)
+                    .allowsHitTesting(scale == .week)
 
-                    scheduleSidebarResizeHandle
-                    ScheduleSidebar(
-                        lastUpdated: controller.lastUpdated,
-                        refreshError: controller.refreshError ?? calendar.lastError,
-                        update: updaterBridge.availableVersion,
-                        onCheckForUpdates: onCheckForUpdates,
-                        sessions: controller.sessions,
-                        isVacant: { session, date in
-                            preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
-                        },
-                        time: { session, date in
-                            preferences.time(for: session, on: Weekday.weekStart(containing: date))
-                        },
-                        tint: { preferences.color(for: $0.subjectCode, in: palette) },
-                        onRetry: retry,
-                        onPrint: printWeek,
-                        preferences: preferences
-                    )
-                    .frame(width: preferences.scheduleSidebarWidth)
+                    if scale == .year {
+                        Color.black.opacity(0.25)
+                            .ignoresSafeArea()
+                            .onTapGesture { scale = .week }
+                            .transition(.opacity)
+
+                        YearView(
+                            months: MonthLayout.months(around: weekStart, count: 4),
+                            selectedWeekStart: weekStart,
+                            weekdayColors: weekdayColors,
+                            onSelect: { open($0) },
+                            onAtTopChange: { atTop = $0 }
+                        )
+                        .frame(width: 620, height: 680)
+                        .glassPanel(cornerRadius: 24)
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    }
                 }
             }
         }

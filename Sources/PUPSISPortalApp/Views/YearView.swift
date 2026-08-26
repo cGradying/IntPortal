@@ -26,12 +26,12 @@ struct YearView: View {
 
     // 2 columns — a 2×2 popup for 4 months, not the wide 4-column strip a
     // full year needed.
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 28), count: 2)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 40), count: 2)
     private static let scrollSpace = "PUPSISPortal.yearScroll"
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 28) {
+            LazyVGrid(columns: columns, spacing: 40) {
                 ForEach(months, id: \.self) { month in
                     MonthGrid(
                         month: month,
@@ -41,7 +41,7 @@ struct YearView: View {
                     )
                 }
             }
-            .padding(24)
+            .padding(32)
             .trackScrollTop(space: Self.scrollSpace) { onAtTopChange($0 >= -1) }
         }
         .coordinateSpace(.named(Self.scrollSpace))
@@ -59,10 +59,10 @@ private struct MonthGrid: View {
 
     @Environment(\.typography) private var typography
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 1), count: 7)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(month.formatted(.dateTime.month(.wide)))
                 .font(typography.detailTitle)
                 .foregroundStyle(palette.accent)
