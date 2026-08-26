@@ -279,4 +279,61 @@ final class OllamaClientTests: XCTestCase {
             XCTFail("wrong error type: \(error)")
         }
     }
+
+    // MARK: think — Granite's thinking mode
+
+    /// Confirmed live against `granite4.2:3b`: the top-level `"think"`
+    /// request field is what actually gates thinking (`options.think`, the
+    /// shape the model's own README shows, is a no-op on the server) — see
+    /// `OllamaClient.chatRequestBody`'s own doc comment.
+    func testChatRequestBodySendsThinkAtTopLevelWhenOn() throws {
+        let body = try OllamaClient.chatRequestBody(
+            model: "granite4.2:3b", messages: [.init(role: .user, content: "hi")],
+            schema: ["type": "object"], think: .max
+        )
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        XCTAssertEqual(json["think"] as? String, "high")
+    }
+
+    /// `.off` omits the field entirely rather than sending `false` — a model
+    /// with no thinking mode at all (any non-Granite pick) should see
+    /// nothing unexpected in its request.
+    func testChatRequestBodyOmitsThinkWhenOff() throws {
+        let body = try OllamaClient.chatRequestBody(
+            model: "qwen2.5-coder:1.5b", messages: [.init(role: .user, content: "hi")],
+            schema: ["type": "object"], think: .off
+        )
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        XCTAssertNil(json["think"])
+    }
+
+    /// Ollama's reply carries thinking in its own `message.thinking` field,
+    /// never mixed into `content` — no `<think>` tag stripping needed.
+    func testParseChatContentSeparatesThinkingFromContent() throws {
+        let data = Data(#"{"message":{"content":"{\"reply\":\"4\"}","thinking":"2+2 is 4"}}"#.utf8)
+        let (content, thinking) = try OllamaClient.parseChatContent(data)
+        XCTAssertEqual(content, #"{"reply":"4"}"#)
+        XCTAssertEqual(thinking, "2+2 is 4")
+    }
+
+    func testParseChatContentThinkingIsEmptyWhenAbsent() throws {
+        let data = Data(#"{"message":{"content":"{\"reply\":\"4\"}"}}"#.utf8)
+        let (_, thinking) = try OllamaClient.parseChatContent(data)
+        XCTAssertEqual(thinking, "")
+    }
+
+    // MARK: pull progress
+
+    func testParsePullProgressComputesFraction() {
+        let line = #"{"status":"pulling manifest","completed":50,"total":200}"#
+        XCTAssertEqual(OllamaClient.parsePullProgress(line), 0.25)
+    }
+
+    /// The initial "pulling manifest" lines and the final `{"status":"success"}`
+    /// line both carry no byte counts — `nil`, not a divide-by-zero crash or a
+    /// bogus 0%/100%.
+    func testParsePullProgressIsNilWithoutByteCounts() {
+        XCTAssertNil(OllamaClient.parsePullProgress(#"{"status":"success"}"#))
+        XCTAssertNil(OllamaClient.parsePullProgress("not json"))
+    }
 }

@@ -28,6 +28,26 @@ enum AssistantCommand: Equatable {
     /// status rather than routed through the model's own tool-picking.
     /// `status` is fixed by which of /vacant, /online, /regular was typed.
     case classStatus(subject: String, date: String, status: String)
+    /// Deterministic path onto `read_week` — `weekStart` empty means the
+    /// current week, same as the tool's own "omitted" default.
+    case week(weekStart: String)
+    /// Deterministic path onto `read_grades` — no arguments either way.
+    case grades
+    /// Deterministic path onto `list_notes`.
+    case notes
+    /// Deterministic path onto `search_notes` — `/rag` synthesizes an answer,
+    /// this just lists matches, same distinction the two tools make.
+    case find(query: String)
+    /// Deterministic path onto `add_event`, one-off only — a recurring event
+    /// still needs the model (`repeat_days` isn't worth a 5-argument command).
+    case event(title: String, date: String, start: String, end: String)
+    /// Deterministic path onto `move_event`, this occurrence only (`scope`
+    /// defaults to `this_event` in the tool itself).
+    case move(title: String, date: String, newDate: String, newStart: String, newEnd: String)
+    /// Sets `Preferences.aiThinking` directly — a UI setting, not a tool call,
+    /// so `AssistantCommandRunner` applies it without going through the
+    /// executor at all.
+    case think(AssistantThinking)
     case help
     /// An unrecognized `/word` — still not prose, so it must not silently fall
     /// through to the model; the runner replies with what commands do exist.
@@ -57,6 +77,36 @@ enum AssistantCommand: Equatable {
         case "vacant", "online", "regular":
             let (subject, date) = splitFirstArg(rest)
             return .classStatus(subject: subject, date: date, status: String(word))
+        case "week":
+            return .week(weekStart: rest)
+        case "grades":
+            return .grades
+        case "notes":
+            return .notes
+        case "find":
+            return .find(query: quotedOrBare(rest))
+        case "event":
+            let (title, remainder) = splitFirstArg(rest)
+            let tokens = remainder.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+            return .event(
+                title: title,
+                date: tokens.count > 0 ? tokens[0] : "",
+                start: tokens.count > 1 ? tokens[1] : "",
+                end: tokens.count > 2 ? tokens[2] : ""
+            )
+        case "move":
+            let (title, remainder) = splitFirstArg(rest)
+            let tokens = remainder.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+            return .move(
+                title: title,
+                date: tokens.count > 0 ? tokens[0] : "",
+                newDate: tokens.count > 1 ? tokens[1] : "",
+                newStart: tokens.count > 2 ? tokens[2] : "",
+                newEnd: tokens.count > 3 ? tokens[3] : ""
+            )
+        case "think":
+            let level = AssistantThinking(rawValue: rest.lowercased().trimmingCharacters(in: .whitespaces))
+            return level.map(AssistantCommand.think) ?? .unknown(String(word))
         case "help":
             return .help
         default:
@@ -127,6 +177,13 @@ enum AssistantCommand: Equatable {
         Spec(name: "vacant", params: ["subject", "yyyy-MM-dd"], description: "Mark a class vacant that day (or every week — ask in chat for that)"),
         Spec(name: "online", params: ["subject", "yyyy-MM-dd"], description: "Mark a class online that day"),
         Spec(name: "regular", params: ["subject", "yyyy-MM-dd"], description: "Clear a vacant/online exception, back to in person"),
+        Spec(name: "week", params: ["yyyy-MM-dd"], description: "This week's classes and events (omit the date for the current week)"),
+        Spec(name: "grades", params: [], description: "Your posted grades and GPA"),
+        Spec(name: "notes", params: [], description: "List your note and vault names"),
+        Spec(name: "find", params: ["query"], description: "Search your notes for a word or phrase (just the matches, not a synthesized answer — see /rag)"),
+        Spec(name: "event", params: ["title", "yyyy-MM-dd", "start", "end"], description: "Add a one-off event (start/end in minutes from midnight)"),
+        Spec(name: "move", params: ["title", "yyyy-MM-dd", "new date", "new start", "new end"], description: "Move an event to a new date/time"),
+        Spec(name: "think", params: ["off|low|medium|max"], description: "Set how hard the assistant reasons before answering"),
         Spec(name: "help", params: [], description: "Show this list"),
     ]
 }

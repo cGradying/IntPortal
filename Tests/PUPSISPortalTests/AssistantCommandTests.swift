@@ -97,7 +97,10 @@ final class AssistantCommandTests: XCTestCase {
     /// offer one, that doesn't match what actually runs.
     func testCatalogCoversEveryParsedCommand() {
         let names = Set(AssistantCommand.catalog.map(\.name))
-        XCTAssertEqual(names, ["read", "summary", "create", "rag", "date", "vacant", "online", "regular", "help"])
+        XCTAssertEqual(names, [
+            "read", "summary", "create", "rag", "date", "vacant", "online", "regular",
+            "week", "grades", "notes", "find", "event", "move", "think", "help",
+        ])
     }
 
     func testUsageAddsQuotedParamPlaceholdersOnlyWhenThereAreParams() {

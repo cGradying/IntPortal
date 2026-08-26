@@ -235,6 +235,13 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(aiRevealAnimation.rawValue, forKey: Key.aiRevealAnimation) }
     }
 
+    /// How hard the assistant reasons before answering — see
+    /// `AssistantThinking`. Defaults `.low`: thinking on (Granite's default),
+    /// but the cheap pass rather than the slow one.
+    @Published var aiThinking: AssistantThinking {
+        didSet { defaults.set(aiThinking.rawValue, forKey: Key.aiThinking) }
+    }
+
     // MARK: RAG tuning (Settings ▸ Misc)
 
     /// Defaults mirror what was hand-calibrated live against a real vault —
@@ -268,6 +275,10 @@ final class Preferences: ObservableObject {
     /// embeddings (confirmed live: a plain chat model 404s `/api/embed`).
     @Published var ragEmbedModel: String {
         didSet { defaults.set(ragEmbedModel, forKey: Key.ragEmbedModel) }
+    }
+    /// Which model answers a `/rag`/`ask_notes` question — see `RAGAnswerModel`.
+    @Published var ragAnswerModel: RAGAnswerModel {
+        didSet { defaults.set(ragAnswerModel.rawValue, forKey: Key.ragAnswerModel) }
     }
 
     // MARK: Assistant panel size
@@ -384,6 +395,8 @@ final class Preferences: ObservableObject {
         static let aiModel = "aiModel"
         static let aiPermission = "aiPermission"
         static let aiRevealAnimation = "aiRevealAnimation"
+        static let aiThinking = "aiThinking"
+        static let ragAnswerModel = "ragAnswerModel"
         static let ragChunkSize = "ragChunkSize"
         static let ragSimilarityFloor = "ragSimilarityFloor"
         static let ragContextBudget = "ragContextBudget"
@@ -439,6 +452,10 @@ final class Preferences: ObservableObject {
             .flatMap(AssistantPermission.init(rawValue:)) ?? .confirm
         aiRevealAnimation = defaults.string(forKey: Key.aiRevealAnimation)
             .flatMap(AIRevealAnimation.init(rawValue:)) ?? .sweep
+        aiThinking = defaults.string(forKey: Key.aiThinking)
+            .flatMap(AssistantThinking.init(rawValue:)) ?? .low
+        ragAnswerModel = defaults.string(forKey: Key.ragAnswerModel)
+            .flatMap(RAGAnswerModel.init(rawValue:)) ?? .assistantModel
         ragChunkSize = (defaults.object(forKey: Key.ragChunkSize) as? Int) ?? Preferences.ragDefaultChunkSize
         ragSimilarityFloor = (defaults.object(forKey: Key.ragSimilarityFloor) as? Double) ?? Preferences.ragDefaultSimilarityFloor
         ragContextBudget = (defaults.object(forKey: Key.ragContextBudget) as? Int) ?? Preferences.ragDefaultContextBudget

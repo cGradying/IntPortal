@@ -23,6 +23,10 @@ struct SettingsView: View {
     @State private var pendingModelLoad: PendingModelLoad?
     /// Ollama models currently loaded in memory that aren't the selected one.
     @State private var runningOthers: [String] = []
+    /// `nil` when no download is running; 0...1 while `installGranite` pulls.
+    @State private var installProgress: Double?
+    @State private var installingLabel: String?
+    @State private var installError: String?
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
     @State fileprivate var exportResult: String?
@@ -198,6 +202,14 @@ struct SettingsView: View {
                     NSWorkspace.shared.open(AssistantInstructions.ensureExists())
                 }
                 .font(.caption)
+                Picker("Thinking", selection: $preferences.aiThinking) {
+                    ForEach(AssistantThinking.allCases) { level in
+                        Text(level.label).tag(level)
+                    }
+                }
+                Text(preferences.aiThinking.explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         } header: {
             Text("AI (beta)")
@@ -207,11 +219,15 @@ struct SettingsView: View {
             and add to your notes, read and add calendar events, and read your \
             grades — never delete, move, or change one. Needs \
             [Ollama](https://ollama.com) running on this Mac (`ollama serve`) \
-            with a model pulled — nothing else is installed for you.
+            with a model pulled — see Download Models below for a one-click Granite install.
 
             Everything it sees and does stays on this Mac, talking only to that \
             local server. There is no cloud provider and no way to point this \
             at one.
+
+            **It runs locally and can be wrong.** Treat anything it tells you \
+            — a summary, a date, an answer from your notes — as a draft to \
+            check, not a fact.
             """)
             .foregroundStyle(.secondary)
         }
@@ -242,41 +258,81 @@ struct SettingsView: View {
         }
     }
 
-    /// Copy-pasteable terminal steps for the two things `aiSection` needs
-    /// installed — Ollama isn't bundled, and neither the chat model nor the
-    /// embedding model are picked for the user. `qwen2.5-coder:1.5b` is
-    /// called out as the small/fast default; the caveat about tool-calling
-    /// is real (confirmed live) rather than theoretical, so it's worth the
-    /// line rather than a silent surprise the first time `/rag` behaves
-    /// differently from a plain question.
+    /// Granite handles chat, tool-calling, and grounded RAG answers all in
+    /// one model — the "install Ollama, then pull two separate models for
+    /// two separate jobs" dance below is a fallback for a machine with no
+    /// Ollama at all (that step genuinely can't happen from inside the app);
+    /// everything Ollama itself can do, this section now does with a button.
     private var downloadModelsSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 10) {
-                modelStep(1, "Install Ollama", "brew install ollama")
-                modelStep(2, "Start it", "ollama serve")
-                modelStep(3, "Pull a chat model", "ollama pull qwen2.5-coder:1.5b")
-                Text("Small and fast, the default this app is built against. A model this size sometimes answers directly instead of actually searching your notes — `/rag \"question\"` always searches, regardless of model.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 22)
-                modelStep(4, "Pull the embedding model", "ollama pull nomic-embed-text")
-                Text("Powers note search (`ragEmbedModel` below) — a plain chat model can't embed.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 22)
-                modelStep(5, "Optional: grounded /rag answers", "brew install llama.cpp")
-                Text("The model downloads itself on first use — nothing to pull by hand.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 22)
+                if let progress = installProgress {
+                    ProgressView(value: progress) {
+                        Text(installingLabel ?? "Downloading…").font(.caption)
+                    }
+                } else {
+                    Button("Install Granite (granite4.2:3b, ~2.2GB)") {
+                        Task { await installGranite("granite4.2:3b") }
+                    }
+                    Text("One button: pulls the chat/RAG model and the note-search embedding model, then selects it. No other setup needed.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    if installedModels.contains(where: { $0.hasPrefix("granite4.2:3b") }) {
+                        Button("Also get granite4.2:8b (~5.3GB, if your Mac has the memory)") {
+                            Task { await installGranite("granite4.2:8b", alsoEmbed: false) }
+                        }
+                        .font(.caption)
+                    }
+                    if let error = installError {
+                        Text(error).font(.caption2).foregroundStyle(.red)
+                    }
+                }
             }
             .padding(.vertical, 2)
         } header: {
             Text("Download Models")
         } footer: {
-            Text("Run these in Terminal, then hit “Check again” above (or just reopen this tab).")
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Needs [Ollama](https://ollama.com) itself running (`ollama serve`) — that one step can't be done from inside the app. No Ollama yet?")
+                    .foregroundStyle(.secondary)
+                DisclosureGroup("Terminal steps") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        modelStep(1, "Install Ollama", "brew install ollama")
+                        modelStep(2, "Start it", "ollama serve")
+                    }
+                    .padding(.top, 4)
+                }
+                .font(.caption)
+            }
         }
+        .task(id: preferences.aiEnabled) {
+            guard preferences.aiEnabled else { return }
+            await loadModels()
+        }
+    }
+
+    private func installGranite(_ model: String, alsoEmbed: Bool = true) async {
+        installError = nil
+        installingLabel = "Pulling \(model)…"
+        installProgress = 0
+        do {
+            for try await fraction in OllamaClient.pull(model: model) {
+                installProgress = fraction
+            }
+            if alsoEmbed {
+                installingLabel = "Pulling \(Preferences.ragDefaultEmbedModel)…"
+                installProgress = 0
+                for try await fraction in OllamaClient.pull(model: Preferences.ragDefaultEmbedModel) {
+                    installProgress = fraction
+                }
+            }
+            await loadModels()
+            considerSelecting(model)
+        } catch {
+            installError = "Couldn't download \(model) — is Ollama running? (\(error.localizedDescription))"
+        }
+        installProgress = nil
+        installingLabel = nil
     }
 
     private func modelStep(_ number: Int, _ label: String, _ command: String) -> some View {
@@ -415,6 +471,11 @@ struct SettingsView: View {
                     Slider(value: $preferences.ragAnswerTemperature, in: 0...1, step: 0.05)
                 }
                 TextField("Embed model", text: $preferences.ragEmbedModel)
+                Picker("Answer model", selection: $preferences.ragAnswerModel) {
+                    ForEach(RAGAnswerModel.allCases) { option in
+                        Text(option.label).tag(option)
+                    }
+                }
                 Button("Reset to Defaults") {
                     preferences.ragChunkSize = Preferences.ragDefaultChunkSize
                     preferences.ragSimilarityFloor = Preferences.ragDefaultSimilarityFloor

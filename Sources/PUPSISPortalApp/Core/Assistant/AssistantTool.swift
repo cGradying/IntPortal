@@ -10,14 +10,24 @@ struct AssistantTool: Equatable {
     struct Arg: Equatable {
         let name: String
         let description: String
+        /// JSON Schema primitive type — every argument in this catalog is
+        /// either a string or a whole number, so this is the whole vocabulary
+        /// `argsSchema` needs, not a general JSON Schema type system.
+        var type: String = "string"
+        /// Whether the model must supply this argument — an optional one
+        /// (documented in `description` as "omitted"/"optional") is left out
+        /// of `argsSchema`'s `required` list, not made nullable.
+        var required: Bool = true
     }
 
     let name: String
     /// One line, written for the model: what it does and when to use it.
     let description: String
-    /// Argument name → one-line description, for the system prompt only.
-    /// **Not** JSON-Schema-validated per tool — see the note on `AssistantEngine`
-    /// for why the response schema keeps `args` generic.
+    /// Argument name → one-line description, `type`, and `required` — used
+    /// both for the system prompt (`promptCatalog`) and, since Granite can
+    /// actually follow a tight schema (unlike the sub-3B models this catalog
+    /// was first tuned against), the response schema's per-tool validation
+    /// (`argsSchema`).
     let args: [Arg]
 
     /// v1 scope, per the plan: notes read+write, calendar read + write
@@ -28,7 +38,7 @@ struct AssistantTool: Equatable {
         AssistantTool(
             name: "read_note",
             description: "Read a note's text.",
-            args: [Arg(name: "key", description: "note key, or omitted for the currently open note")]
+            args: [Arg(name: "key", description: "note key, or omitted for the currently open note", required: false)]
         ),
         AssistantTool(
             name: "list_notes",
@@ -42,14 +52,14 @@ struct AssistantTool: Equatable {
         ),
         AssistantTool(
             name: "ask_notes",
-            description: "Answer a question by searching the student's notes and having a second, specialized local model synthesize a grounded answer from what's found — not just a list of matches like search_notes. Use this when the student wants an actual answer synthesized from their notes, not just to see what matched. Requires a local llama.cpp server running separately; fails clearly if it isn't.",
+            description: "Answer a question by searching the student's notes and having the assistant model synthesize a grounded answer from what's found — not just a list of matches like search_notes. Use this when the student wants an actual answer synthesized from their notes, not just to see what matched.",
             args: [Arg(name: "query", description: "the question to answer from the student's notes")]
         ),
         AssistantTool(
             name: "append_note",
             description: "Add text to the end of a note, keeping what's already there.",
             args: [
-                Arg(name: "key", description: "note key, or omitted for the currently open note"),
+                Arg(name: "key", description: "note key, or omitted for the currently open note", required: false),
                 Arg(name: "text", description: "markdown to add — must not be empty"),
             ]
         ),
@@ -61,7 +71,7 @@ struct AssistantTool: Equatable {
         AssistantTool(
             name: "read_week",
             description: "Read the student's classes and calendar events for a week.",
-            args: [Arg(name: "weekStart", description: "yyyy-MM-dd, or omitted for the current week")]
+            args: [Arg(name: "weekStart", description: "yyyy-MM-dd, or omitted for the current week", required: false)]
         ),
         AssistantTool(
             name: "add_event",
@@ -69,9 +79,9 @@ struct AssistantTool: Equatable {
             args: [
                 Arg(name: "title", description: "event title"),
                 Arg(name: "date", description: "yyyy-MM-dd — for a repeating event, the first occurrence"),
-                Arg(name: "start", description: "start time, minutes from midnight"),
-                Arg(name: "end", description: "end time, minutes from midnight"),
-                Arg(name: "repeat_days", description: "optional — only when the student actually asked for a recurring event: comma-separated weekdays, e.g. \"mon,wed,fri\". Omit for a one-off event."),
+                Arg(name: "start", description: "start time, minutes from midnight", type: "integer"),
+                Arg(name: "end", description: "end time, minutes from midnight", type: "integer"),
+                Arg(name: "repeat_days", description: "optional — only when the student actually asked for a recurring event: comma-separated weekdays, e.g. \"mon,wed,fri\". Omit for a one-off event.", required: false),
             ]
         ),
         AssistantTool(
@@ -81,9 +91,9 @@ struct AssistantTool: Equatable {
                 Arg(name: "title", description: "the event's current title, to find it"),
                 Arg(name: "date", description: "yyyy-MM-dd — the date it's currently on"),
                 Arg(name: "new_date", description: "yyyy-MM-dd — the date to move it to"),
-                Arg(name: "new_start", description: "new start time, minutes from midnight"),
-                Arg(name: "new_end", description: "new end time, minutes from midnight"),
-                Arg(name: "scope", description: "\"this_event\" (default) for just this occurrence, or \"future_events\" for a repeating event and everything after it"),
+                Arg(name: "new_start", description: "new start time, minutes from midnight", type: "integer"),
+                Arg(name: "new_end", description: "new end time, minutes from midnight", type: "integer"),
+                Arg(name: "scope", description: "\"this_event\" (default) for just this occurrence, or \"future_events\" for a repeating event and everything after it", required: false),
             ]
         ),
         AssistantTool(
@@ -98,8 +108,8 @@ struct AssistantTool: Equatable {
                 Arg(name: "subject_code", description: "the class's subject code, e.g. \"COMP 20073\""),
                 Arg(name: "date", description: "yyyy-MM-dd — a date the class actually meets on"),
                 Arg(name: "status", description: "\"vacant\", \"online\", or \"regular\""),
-                Arg(name: "scope", description: "\"week\" (default) for just that week, or \"term\" for every week"),
-                Arg(name: "start", description: "optional, minutes from midnight — only needed if the subject meets more than once that day (e.g. a Lec and a Lab) and it's ambiguous which one is meant"),
+                Arg(name: "scope", description: "\"week\" (default) for just that week, or \"term\" for every week", required: false),
+                Arg(name: "start", description: "optional, minutes from midnight — only needed if the subject meets more than once that day (e.g. a Lec and a Lab) and it's ambiguous which one is meant", type: "integer", required: false),
             ]
         ),
         AssistantTool(
@@ -108,10 +118,10 @@ struct AssistantTool: Equatable {
             args: [
                 Arg(name: "subject_code", description: "the class's subject code"),
                 Arg(name: "date", description: "yyyy-MM-dd — a date the class actually meets on"),
-                Arg(name: "start", description: "new start time, minutes from midnight"),
-                Arg(name: "end", description: "new end time, minutes from midnight"),
-                Arg(name: "scope", description: "\"week\" (default) for just that week, or \"term\" for every week"),
-                Arg(name: "current_start", description: "optional, minutes from midnight — disambiguates when the subject meets more than once that day; this is the class's CURRENT start, not the new one"),
+                Arg(name: "start", description: "new start time, minutes from midnight", type: "integer"),
+                Arg(name: "end", description: "new end time, minutes from midnight", type: "integer"),
+                Arg(name: "scope", description: "\"week\" (default) for just that week, or \"term\" for every week", required: false),
+                Arg(name: "current_start", description: "optional, minutes from midnight — disambiguates when the subject meets more than once that day; this is the class's CURRENT start, not the new one", type: "integer", required: false),
             ]
         ),
         AssistantTool(
@@ -137,4 +147,30 @@ struct AssistantTool: Equatable {
 
     /// The `tool` field's `enum` constraint for the response JSON schema.
     static var names: [String] { catalog.map(\.name) }
+
+    /// One `oneOf` branch per tool — `{tool: <const name>, args: {...}}` with
+    /// that tool's real argument shape — derived straight from `catalog`, so
+    /// it can never drift from `promptCatalog`/`names` the way a hand-written
+    /// parallel schema could. Ollama's `format` degrades models below ~3B
+    /// badly against a schema this tight (the original reason `args` stayed
+    /// generic); Granite is what this is built for.
+    static var argsSchema: [String: Any] {
+        [
+            "oneOf": catalog.map { tool -> [String: Any] in
+                var properties: [String: Any] = [:]
+                for arg in tool.args { properties[arg.name] = ["type": arg.type] }
+                let required = tool.args.filter(\.required).map(\.name)
+                var argsSchema: [String: Any] = ["type": "object", "properties": properties]
+                if !required.isEmpty { argsSchema["required"] = required }
+                return [
+                    "type": "object",
+                    "properties": [
+                        "tool": ["const": tool.name],
+                        "args": argsSchema,
+                    ],
+                    "required": ["tool"],
+                ]
+            },
+        ]
+    }
 }

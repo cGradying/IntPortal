@@ -159,6 +159,55 @@ struct OllamaClient {
         return try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
     }
 
+    /// `POST /api/pull` — Ollama's own download endpoint. NDJSON progress,
+    /// one `{"status":...,"completed":N,"total":M}` line per chunk, so the
+    /// installer in Settings can show a real bar instead of an indeterminate
+    /// spinner for what's often a multi-GB download. `AsyncThrowingStream`
+    /// rather than a callback closure: lets the caller `for try await` it,
+    /// which is what a SwiftUI `.task` wants anyway.
+    static func pull(model: String) -> AsyncThrowingStream<Double, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    var request = URLRequest(url: pullEndpoint)
+                    request.httpMethod = "POST"
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.httpBody = try JSONSerialization.data(withJSONObject: ["name": model])
+                    // A multi-GB download can run well past the shared client's
+                    // usual timeouts.
+                    request.timeoutInterval = 1800
+                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    guard (200..<300).contains(code) else { throw ClientError.http(code) }
+                    for try await line in bytes.lines {
+                        if let fraction = Self.parsePullProgress(line) {
+                            continuation.yield(fraction)
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    static let pullEndpoint = URL(string: "http://localhost:11434/api/pull")!
+
+    /// One NDJSON line → a 0...1 fraction, or `nil` for a status line with no
+    /// byte counts yet (the initial "pulling manifest" lines). `nil` on the
+    /// final `{"status":"success"}` line too — the caller treats stream
+    /// completion, not a specific fraction, as "done".
+    static func parsePullProgress(_ line: String) -> Double? {
+        struct Progress: Decodable { let completed: Int64?; let total: Int64? }
+        guard let data = line.data(using: .utf8),
+              let progress = try? JSONDecoder().decode(Progress.self, from: data),
+              let completed = progress.completed, let total = progress.total, total > 0
+        else { return nil }
+        return Double(completed) / Double(total)
+    }
+
     private static func post(_ body: Data) async throws -> (Data, Int) {
         try await post(body, to: endpoint)
     }
@@ -231,8 +280,14 @@ struct OllamaClient {
     /// the reply to valid JSON via Ollama's `format` field. Returns the raw
     /// JSON string the model produced — `AssistantEngine` decodes it, since
     /// what "valid" means is the engine's concern, not the transport's.
-    func chat(model: String, messages: [ChatMessage], schema: [String: Any], numPredict: Int? = nil) async throws -> String {
-        let body = try Self.chatRequestBody(model: model, messages: messages, schema: schema, numPredict: numPredict)
+    /// `think` is `.off` by default (harmless no-op for a non-thinking model
+    /// like `CardGenerator`'s); `AssistantEngine` is the one caller that
+    /// varies it.
+    func chat(
+        model: String, messages: [ChatMessage], schema: [String: Any],
+        numPredict: Int? = nil, think: AssistantThinking = .off
+    ) async throws -> (content: String, thinking: String) {
+        let body = try Self.chatRequestBody(model: model, messages: messages, schema: schema, numPredict: numPredict, think: think)
         let (data, code): (Data, Int)
         do {
             (data, code) = try await sendChat(body)
@@ -247,8 +302,16 @@ struct OllamaClient {
     /// omitted (Ollama's own default) unless a caller knows roughly how much
     /// output to expect and wants to catch a runaway/truncated reply early.
     /// `CardGenerator` sets this; `AssistantEngine`'s free-form replies don't.
+    ///
+    /// `think`, confirmed live against `granite4.2:3b`: Ollama's top-level
+    /// `"think"` request field (not the `options.think` shape the model's own
+    /// README shows — that one is a no-op on the server) is what actually
+    /// gates thinking, and the model's reasoning comes back in a **separate**
+    /// `message.thinking` field, never mixed into `content` — no `<think>`
+    /// tag stripping needed anywhere downstream.
     static func chatRequestBody(
-        model: String, messages: [ChatMessage], schema: [String: Any], numPredict: Int? = nil
+        model: String, messages: [ChatMessage], schema: [String: Any],
+        numPredict: Int? = nil, think: AssistantThinking = .off
     ) throws -> Data {
         var options: [String: Any] = [
             // Structured output is brittle enough at small model sizes without
@@ -256,22 +319,25 @@ struct OllamaClient {
             "temperature": 0.2,
         ]
         if let numPredict { options["num_predict"] = numPredict }
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "model": model,
             "messages": messages.map { ["role": $0.role.rawValue, "content": $0.content] },
             "format": schema,
             "stream": false,
             "options": options,
         ]
+        if let apiValue = think.apiValue { payload["think"] = apiValue }
         return try JSONSerialization.data(withJSONObject: payload)
     }
 
-    /// Ollama wraps the model's turn in `{"message": {"role": ..., "content": "..."}}`.
-    /// `content` is itself a JSON string (constrained by `format`, not parsed by
-    /// Ollama) — this only unwraps the envelope, not the schema inside it.
-    static func parseChatContent(_ data: Data) throws -> String {
+    /// Ollama wraps the model's turn in
+    /// `{"message": {"role": ..., "content": "...", "thinking": "..."}}` —
+    /// `thinking` only present when the request asked for it. `content` is
+    /// itself a JSON string (constrained by `format`, not parsed by Ollama)
+    /// — this only unwraps the envelope, not the schema inside it.
+    static func parseChatContent(_ data: Data) throws -> (content: String, thinking: String) {
         struct Reply: Decodable {
-            struct Message: Decodable { let content: String }
+            struct Message: Decodable { let content: String; let thinking: String? }
             let message: Message
         }
         guard let reply = try? JSONDecoder().decode(Reply.self, from: data) else {
@@ -279,7 +345,8 @@ struct OllamaClient {
         }
         let text = reply.message.content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw ClientError.empty }
-        return text
+        let thinking = reply.message.thinking?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return (text, thinking)
     }
 
     // MARK: Embeddings (for RAG retrieval)

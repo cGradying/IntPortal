@@ -89,7 +89,8 @@ final class RAGQueryTests: XCTestCase {
             notes: notesStore,
             ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
             llamaCppClient: client,
-            ensureServerRunning: { true } // never spawn/health-check a real llama-server in a test
+            ensureServerRunning: { true }, // never spawn/health-check a real llama-server in a test
+            answerer: .llamaCpp
         )
 
         do {
@@ -113,11 +114,36 @@ final class RAGQueryTests: XCTestCase {
             ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
             llamaCppClient: client,
             ensureServerRunning: { true }, // never spawn/health-check a real llama-server in a test
-            contextBudget: 20 // smaller than the single matching chunk's own text
+            contextBudget: 20, // smaller than the single matching chunk's own text
+            answerer: .llamaCpp
         )
 
         do {
             let answer = try await query.ask("recursion")
+            XCTAssertEqual(answer.sources, ["COMP 001"])
+        } catch {
+            XCTFail("expected an answer, got \(error)")
+        }
+    }
+
+    // MARK: Granite as the default answerer — one model, one server, no llama.cpp
+
+    func testAssistantModelAnswererDefaultsToOllamaNotLlamaCpp() async {
+        notesStore.setText("Recursion has a base case and a recursive case.", for: "class:COMP 001")
+        let query = RAGQuery(
+            notes: notesStore,
+            ollamaClient: OllamaClient(
+                // If this ever routes through llamaCppClient instead, the
+                // hardcoded 400 below is what fails the test loudly.
+                sendChat: { _ in (Data(#"{"message":{"content":"{\"answer\":\"A base case and a recursive case.\"}"}}"#.utf8), 200) },
+                sendEmbed: { _ in throw URLError(.notConnectedToInternet) }
+            ),
+            llamaCppClient: LlamaCppClient(send: { _ in (Data(), 400) }),
+            answerModel: "granite4.2:3b"
+        )
+        do {
+            let answer = try await query.ask("recursion")
+            XCTAssertEqual(answer.text, "A base case and a recursive case.")
             XCTAssertEqual(answer.sources, ["COMP 001"])
         } catch {
             XCTFail("expected an answer, got \(error)")

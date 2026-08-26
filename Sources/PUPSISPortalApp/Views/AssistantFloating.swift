@@ -87,6 +87,7 @@ private struct AssistantChat: View {
             }
             Divider()
             inputBar
+            thinkingBar
         }
         .glassPanel(cornerRadius: 20)
         .overlay(alignment: .topTrailing) { resizeGrip }
@@ -193,9 +194,7 @@ private struct AssistantChat: View {
                     if !tools.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(title).font(.caption).foregroundStyle(.secondary)
-                            ForEach(tools, id: \.name) { tool in
-                                Text("• \(tool.description)").font(.callout)
-                            }
+                            ForEach(tools, id: \.name) { tool in capabilityRow(tool) }
                         }
                     }
                 }
@@ -208,6 +207,43 @@ private struct AssistantChat: View {
             .padding(16)
         }
         .frame(width: 300, height: 340)
+    }
+
+    /// A tool's matching slash command, if one exists — the deterministic
+    /// commands are a bypass around the model's own tool-picking, so a
+    /// capability with one should be reachable both ways from this popover.
+    private static let commandForTool: [String: String] = [
+        "read_date": "date", "add_event": "event", "move_event": "move",
+        "set_class_status": "vacant", "read_week": "week", "read_grades": "grades",
+        "list_notes": "notes", "search_notes": "find", "ask_notes": "rag",
+        "read_note": "read", "create_note": "create",
+    ]
+
+    /// Read-only text for a capability with no deterministic command
+    /// (`set_class_time`, `append_note` — no slash command covers them);
+    /// otherwise a button that prefills that command into the input and
+    /// closes the popover, so tapping it is the fastest way in.
+    private func capabilityRow(_ tool: AssistantTool) -> some View {
+        Group {
+            if let name = Self.commandForTool[tool.name],
+               let spec = AssistantCommand.catalog.first(where: { $0.name == name }) {
+                Button {
+                    input = spec.params.isEmpty ? "/\(spec.name)" : "/\(spec.name) "
+                    showingCapabilities = false
+                    inputFocused = true
+                } label: {
+                    HStack(alignment: .top, spacing: 4) {
+                        Text("•").foregroundStyle(.secondary)
+                        Text(tool.description).font(.callout).multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
+                        Text(spec.usage).font(.caption2.monospaced()).foregroundStyle(palette.accent)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text("• \(tool.description)").font(.callout)
+            }
+        }
     }
 
     private func pinChip(_ pin: AssistantCommandRunner.PinnedNote) -> some View {
@@ -229,7 +265,7 @@ private struct AssistantChat: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     if session.transcript.isEmpty {
-                        Text("Ask what's on a date, mark a class vacant, move an event — or about your notes and grades. Tap the ? above to see everything it can do, or try /read, /summary, /create, /help.")
+                        Text("Ask what's on a date, mark a class vacant, move an event — or about your notes and grades. Tap the ? above to see everything it can do, or try /week, /find, /event, /help.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .padding(.top, 8)
@@ -260,10 +296,21 @@ private struct AssistantChat: View {
 
     /// Three squares blinking in sequence rather than a stock spinner — the
     /// panel's one piece of ambient/waiting motion. Static (fixed opacity)
-    /// under Reduce Motion, per the app's contract.
+    /// under Reduce Motion, per the app's contract. At `.max` thinking, the
+    /// label itself glitches too — the one place this turn's extra reasoning
+    /// depth is visible while it's happening.
     private var thinkingIndicator: some View {
-        PixelThinkingDots(color: palette.accent, reduced: reduceMotion)
-            .padding(.top, 4)
+        HStack(spacing: 6) {
+            PixelThinkingDots(color: palette.accent, reduced: reduceMotion)
+            if preferences.aiThinking == .max {
+                GlitchGradientText(
+                    text: "thinking hard…",
+                    font: .caption2,
+                    gradient: [palette.accent, palette.accent.opacity(0.5)]
+                )
+            }
+        }
+        .padding(.top, 4)
     }
 
     /// Message bubbles are content, not chrome — no glass on these, per the
@@ -363,8 +410,18 @@ private struct AssistantChat: View {
         .padding(.horizontal, 12).padding(.vertical, 6)
     }
 
+    /// Persistent, not dismissible — the user asked for a warning about using
+    /// the AI, and a one-time alert stops being one the moment it's dismissed.
+    private var accuracyWarning: some View {
+        Text("Runs locally and can be wrong. Check anything that matters.")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12).padding(.top, 6)
+    }
+
     private var inputBar: some View {
         VStack(alignment: .leading, spacing: 0) {
+            accuracyWarning
             if !commandSuggestions.isEmpty {
                 commandPalette
                 Divider()
@@ -435,6 +492,48 @@ private struct AssistantChat: View {
         .padding(6)
     }
 
+    /// The bottom thinking-level strip — same idea as Claude's own thinking
+    /// picker, in this app's glass/pixel idiom: a segmented row of cells
+    /// rather than a stock `Picker`, so it reads as chrome the way
+    /// `SelectionBar`/`NavIsland` do. `.max` gets the app's own ambient
+    /// glitch treatment (`GlitchGradientText`) as its "special effect" —
+    /// reusing the existing Matrix-scramble idiom rather than inventing a
+    /// second one.
+    private var thinkingBar: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "brain")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+            ForEach(AssistantThinking.allCases) { level in
+                thinkingCell(level)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .help(preferences.aiThinking.explanation)
+    }
+
+    private func thinkingCell(_ level: AssistantThinking) -> some View {
+        let selected = preferences.aiThinking == level
+        return Button { preferences.aiThinking = level } label: {
+            Group {
+                if selected, level == .max {
+                    GlitchGradientText(
+                        text: level.label,
+                        font: .caption2.weight(.semibold),
+                        gradient: [palette.accent, palette.accent.opacity(0.5)]
+                    )
+                } else {
+                    Text(level.label)
+                        .font(.caption2.weight(selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? palette.accent : .secondary)
+                }
+            }
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(selected ? palette.accent.opacity(0.16) : Color.clear, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
     private func commandHintLine(_ spec: AssistantCommand.Spec) -> some View {
         Text("\(spec.usage) — \(spec.description)")
             .font(.caption2)
@@ -499,7 +598,8 @@ private struct AssistantChat: View {
         Task {
             do {
                 let outcome = try await engine.respond(
-                    to: text, history: priorHistory, context: context, permission: permission
+                    to: text, history: priorHistory, context: context, permission: permission,
+                    think: preferences.aiThinking
                 )
                 // `.auto` already executed every tool itself — fold whichever
                 // notes it drew from into the reply's own chip, rather than

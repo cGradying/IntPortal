@@ -128,7 +128,8 @@ final class AssistantCommandRunnerTests: XCTestCase {
             llamaCppClient: LlamaCppClient(send: { _ in
                 (Data(#"{"choices":[{"message":{"content":"A base case and a recursive case."}}]}"#.utf8), 200)
             }),
-            ensureServerRunning: { true } // never spawn/health-check a real llama-server in a test
+            ensureServerRunning: { true }, // never spawn/health-check a real llama-server in a test
+            answerer: .llamaCpp
         )
         let outcome = await runner(ragQuery: ragQuery).run(.rag(prompt: "recursion"))
         XCTAssertEqual(outcome.reply, "A base case and a recursive case.")

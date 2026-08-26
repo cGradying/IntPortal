@@ -34,18 +34,25 @@ final class RealAssistantExecutorTests: XCTestCase {
     /// about the embedding path inject their own `ollamaClient`.
     private static let offlineOllamaClient = OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
 
+    /// `ask_notes` tests here exercise `LlamaCppClient` fakes, so they need
+    /// `ragAnswerModel` pinned to `.llamaCpp` — the default is `.assistantModel`
+    /// (Granite via `ollamaClient`) since that's what a real install answers
+    /// with, but these tests are specifically about the llama.cpp path.
     private func executor(
         openKey: String? = nil,
         llamaCppClient: LlamaCppClient = LlamaCppClient(),
         ensureServerRunning: @escaping () async -> Bool = { true },
-        ollamaClient: OllamaClient = offlineOllamaClient
+        ollamaClient: OllamaClient = offlineOllamaClient,
+        answerer: RAGAnswerModel = .llamaCpp
     ) -> RealAssistantExecutor {
-        RealAssistantExecutor(
+        let preferences = Preferences(defaults: UserDefaults(suiteName: "RealAssistantExecutorTests-\(UUID().uuidString)")!)
+        preferences.ragAnswerModel = answerer
+        return RealAssistantExecutor(
             notes: notesStore,
             editor: EventEditor(bridge: CalendarBridge()),
             calendar: CalendarBridge(),
             portal: PortalController(),
-            preferences: Preferences(defaults: UserDefaults(suiteName: "RealAssistantExecutorTests-\(UUID().uuidString)")!),
+            preferences: preferences,
             openNoteKey: { openKey },
             llamaCppClient: llamaCppClient,
             ensureServerRunning: ensureServerRunning,

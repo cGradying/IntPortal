@@ -66,6 +66,10 @@ struct AssistantOutcome: Equatable {
     let reply: String
     let actions: [AssistantAction]
     let results: [AssistantToolResult]
+    /// The model's reasoning for its *final* round, shown in the assistant
+    /// panel behind a disclosure rather than folded into `reply` — empty
+    /// when thinking was off, or the model didn't return any.
+    var thinking: String = ""
 }
 
 /// Runs a tool call against the real stores (Phase 3) or a fake one (tests).
@@ -130,7 +134,8 @@ final class AssistantEngine {
         to userMessage: String,
         history: [AssistantTurn] = [],
         context: AssistantContext,
-        permission: AssistantPermission
+        permission: AssistantPermission,
+        think: AssistantThinking = .off
     ) async throws -> AssistantOutcome {
         var messages: [OllamaClient.ChatMessage] = [
             OllamaClient.ChatMessage(role: .system, content: Self.systemPrompt(context: context)),
@@ -144,19 +149,19 @@ final class AssistantEngine {
         // action by action, whether to call the executor at all. One request,
         // no loop.
         guard permission == .auto else {
-            let raw = try await client.chat(model: model, messages: messages, schema: Self.responseSchema())
-            let parsed = try Self.decodeOrThrow(raw)
-            return AssistantOutcome(reply: parsed.reply, actions: parsed.actions, results: [])
+            let raw = try await client.chat(model: model, messages: messages, schema: Self.responseSchema(), think: think)
+            let parsed = try Self.decodeOrThrow(raw.content)
+            return AssistantOutcome(reply: parsed.reply, actions: parsed.actions, results: [], thinking: raw.thinking)
         }
 
         var allResults: [AssistantToolResult] = []
         for iteration in 1...Self.maxIterations {
-            let raw = try await client.chat(model: model, messages: messages, schema: Self.responseSchema())
-            let parsed = try Self.decodeOrThrow(raw)
+            let raw = try await client.chat(model: model, messages: messages, schema: Self.responseSchema(), think: think)
+            let parsed = try Self.decodeOrThrow(raw.content)
 
             // Nothing left to do, or out of rounds: this is the final answer.
             if parsed.actions.isEmpty || iteration == Self.maxIterations {
-                return AssistantOutcome(reply: parsed.reply, actions: parsed.actions, results: allResults)
+                return AssistantOutcome(reply: parsed.reply, actions: parsed.actions, results: allResults, thinking: raw.thinking)
             }
 
             var results: [AssistantToolResult] = []
@@ -165,7 +170,7 @@ final class AssistantEngine {
             }
             allResults += results
 
-            messages.append(OllamaClient.ChatMessage(role: .assistant, content: raw))
+            messages.append(OllamaClient.ChatMessage(role: .assistant, content: raw.content))
             messages.append(OllamaClient.ChatMessage(role: .user, content: Self.toolResultsMessage(results)))
         }
         throw AssistantEngineError.iterationsExhausted
@@ -276,12 +281,12 @@ final class AssistantEngine {
         return prompt
     }
 
-    /// `actions[].args` stays a generic object rather than a per-tool schema:
-    /// JSON Schema would need a `oneOf` keyed on `tool` to validate each
-    /// tool's arguments strictly, which is a lot of schema for models this
-    /// small to reliably follow. Argument correctness is instead the
-    /// executor's job — see `AssistantAction.string(_:)`/`int(_:)` and each
-    /// tool's own validation in Phase 3.
+    /// Each action's `args` is validated per-tool via `AssistantTool.argsSchema`'s
+    /// `oneOf` — this catalog was originally kept generic because sub-3B
+    /// models followed a schema this tight badly; Granite is why it's worth
+    /// tightening. Argument correctness is still also the executor's job
+    /// (`AssistantAction.string(_:)`/`int(_:)`) — a stricter schema narrows
+    /// what a model *sends*, it doesn't replace validating what arrives.
     static func responseSchema() -> [String: Any] {
         [
             "type": "object",
@@ -289,14 +294,7 @@ final class AssistantEngine {
                 "reply": ["type": "string"],
                 "actions": [
                     "type": "array",
-                    "items": [
-                        "type": "object",
-                        "properties": [
-                            "tool": ["type": "string", "enum": AssistantTool.names],
-                            "args": ["type": "object"],
-                        ],
-                        "required": ["tool"],
-                    ],
+                    "items": AssistantTool.argsSchema,
                 ],
             ],
             "required": ["reply", "actions"],

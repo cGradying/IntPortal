@@ -138,7 +138,7 @@ enum CardGenerator {
             ],
             schema: schema(targetCount: targetCount),
             numPredict: numPredict(for: count)
-        )
+        ).content
         // Same reasoning as AssistantEngine.decodeOrThrow: sanitize before
         // decoding, not after a caught failure, because a literal newline in
         // a JSON string can make JSONDecoder silently drop just that field

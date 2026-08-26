@@ -30,6 +30,8 @@ struct AssistantCommandRunner {
     private let client: OllamaClient
     private let model: String
     private let ragQuery: RAGQuery
+    /// `/think` writes here directly — a UI setting, not a tool call.
+    private let preferences: Preferences
     /// `/date`, `/vacant`, `/online`, `/regular` all delegate to this rather
     /// than duplicating any calendar logic — they just build the same
     /// `AssistantAction` the model's tool-picking would, deterministically.
@@ -49,11 +51,13 @@ struct AssistantCommandRunner {
         self.model = model
         self.client = client
         self.executor = executor
+        self.preferences = preferences
         self.ragQuery = ragQuery ?? RAGQuery(
             notes: notes,
             embedModel: preferences.ragEmbedModel, chunkSize: preferences.ragChunkSize,
             similarityFloor: preferences.ragSimilarityFloor, contextBudget: preferences.ragContextBudget,
-            answerTemperature: preferences.ragAnswerTemperature
+            answerTemperature: preferences.ragAnswerTemperature,
+            answerer: preferences.ragAnswerModel, answerModel: preferences.aiModel
         )
     }
 
@@ -65,6 +69,15 @@ struct AssistantCommandRunner {
         case .rag(let prompt): return await rag(prompt)
         case .date(let dateString): return await readDate(dateString)
         case .classStatus(let subject, let dateString, let status): return await setClassStatus(subject, dateString, status)
+        case .week(let weekStart): return await readWeek(weekStart)
+        case .grades: return await readGrades()
+        case .notes: return await listNotes()
+        case .find(let query): return await find(query)
+        case .event(let title, let date, let start, let end): return await addEvent(title, date, start, end)
+        case .move(let title, let date, let newDate, let newStart, let newEnd): return await moveEvent(title, date, newDate, newStart, newEnd)
+        case .think(let level):
+            preferences.aiThinking = level
+            return Outcome(reply: "Thinking set to \(level.label). \(level.explanation)", pin: nil)
         case .help: return Outcome(reply: AssistantCommand.helpText, pin: nil)
         case .unknown(let word):
             return Outcome(reply: "Unknown command /\(word).\n\n\(AssistantCommand.helpText)", pin: nil)
@@ -103,6 +116,57 @@ struct AssistantCommandRunner {
         }
         let action = AssistantAction(tool: "set_class_status", args: [
             "subject_code": .string(subject), "date": .string(dateString), "status": .string(status),
+        ])
+        let result = await executor.execute(action)
+        return Outcome(reply: result.message, pin: nil)
+    }
+
+    private func readWeek(_ weekStart: String) async -> Outcome {
+        let trimmed = weekStart.trimmingCharacters(in: .whitespacesAndNewlines)
+        var args: [String: AssistantJSON] = [:]
+        if !trimmed.isEmpty { args["weekStart"] = .string(trimmed) }
+        let result = await executor.execute(AssistantAction(tool: "read_week", args: args))
+        return Outcome(reply: result.message, pin: nil)
+    }
+
+    private func readGrades() async -> Outcome {
+        let result = await executor.execute(AssistantAction(tool: "read_grades"))
+        return Outcome(reply: result.message, pin: nil)
+    }
+
+    private func listNotes() async -> Outcome {
+        let result = await executor.execute(AssistantAction(tool: "list_notes"))
+        return Outcome(reply: result.message, pin: nil)
+    }
+
+    /// Just the matches — `/rag` above is the synthesized-answer sibling.
+    private func find(_ query: String) async -> Outcome {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return Outcome(reply: #"Give something to search for, e.g. `/find "photosynthesis"`."#, pin: nil)
+        }
+        let result = await executor.execute(AssistantAction(tool: "search_notes", args: ["query": .string(trimmed)]))
+        return Outcome(reply: result.message, pin: nil, sources: result.sources)
+    }
+
+    private func addEvent(_ title: String, _ date: String, _ start: String, _ end: String) async -> Outcome {
+        guard !title.isEmpty, !date.isEmpty, !start.isEmpty, !end.isEmpty else {
+            return Outcome(reply: #"Give a title, date, start, and end, e.g. `/event "Study group" 2026-08-30 780 900`."#, pin: nil)
+        }
+        let action = AssistantAction(tool: "add_event", args: [
+            "title": .string(title), "date": .string(date), "start": .string(start), "end": .string(end),
+        ])
+        let result = await executor.execute(action)
+        return Outcome(reply: result.message, pin: nil)
+    }
+
+    private func moveEvent(_ title: String, _ date: String, _ newDate: String, _ newStart: String, _ newEnd: String) async -> Outcome {
+        guard !title.isEmpty, !date.isEmpty, !newDate.isEmpty, !newStart.isEmpty, !newEnd.isEmpty else {
+            return Outcome(reply: #"Give a title, its current date, and the new date/start/end, e.g. `/move "Study group" 2026-08-30 2026-08-31 780 900`."#, pin: nil)
+        }
+        let action = AssistantAction(tool: "move_event", args: [
+            "title": .string(title), "date": .string(date),
+            "new_date": .string(newDate), "new_start": .string(newStart), "new_end": .string(newEnd),
         ])
         let result = await executor.execute(action)
         return Outcome(reply: result.message, pin: nil)

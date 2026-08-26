@@ -1,5 +1,24 @@
 import Foundation
 
+/// Which model synthesizes `RAGQuery`'s grounded answer. `Preferences.ragAnswerModel`.
+enum RAGAnswerModel: String, Codable, CaseIterable, Identifiable {
+    /// The assistant's own Ollama chat model (e.g. Granite) — one model, one
+    /// server, for chat and RAG both.
+    case assistantModel
+    /// The dedicated llama.cpp RAG model (`LlamaCppClient`) — kept for a
+    /// setup from before Granite that's already working.
+    case llamaCpp
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .assistantModel: "Assistant model"
+        case .llamaCpp: "Dedicated RAG model (llama.cpp)"
+        }
+    }
+}
+
 /// The RAG pipeline itself: rank the vault's RAG-included notes against a
 /// query (embeddings via Ollama, falling back to term matching when the
 /// embed model isn't available), then ask the local grounded-answer model
@@ -26,6 +45,8 @@ struct RAGQuery {
     private let similarityFloor: Double
     private let contextBudget: Int
     private let answerTemperature: Double
+    private let answerer: RAGAnswerModel
+    private let answerModel: String
 
     init(
         notes: NotesStore,
@@ -41,7 +62,15 @@ struct RAGQuery {
         chunkSize: Int = 700,
         similarityFloor: Double = 0.35,
         contextBudget: Int = 4000,
-        answerTemperature: Double = 0.2
+        answerTemperature: Double = 0.2,
+        /// Which model synthesizes the grounded answer — see `RAGAnswerModel`.
+        answerer: RAGAnswerModel = .assistantModel,
+        /// The Ollama chat model to ask when `answerer == .assistantModel`
+        /// (`Preferences.aiModel`, e.g. `granite4.2:3b` — a model good at
+        /// both tool-calling and grounded RAG, unlike the small models this
+        /// split originally existed to work around). Unused when `answerer`
+        /// is `.llamaCpp`.
+        answerModel: String = ""
     ) {
         self.notesStore = notes
         self.ollamaClient = ollamaClient
@@ -52,6 +81,8 @@ struct RAGQuery {
         self.similarityFloor = similarityFloor
         self.contextBudget = contextBudget
         self.answerTemperature = answerTemperature
+        self.answerer = answerer
+        self.answerModel = answerModel
     }
 
     struct Answer {
@@ -105,12 +136,40 @@ struct RAGQuery {
             if !sourceNames.contains(hit.name) { sourceNames.append(hit.name) }
         }
 
-        let answer = try await llamaCppClient.complete(
-            system: "Answer the question using only the notes given. If the notes don't contain the answer, say so plainly rather than guessing.",
-            user: "Notes:\n\(packed)\n\nQuestion: \(query)",
-            temperature: answerTemperature
-        )
-        return Answer(text: answer, sources: sourceNames)
+        let text = try await answer(notes: packed, query: query)
+        return Answer(text: text, sources: sourceNames)
+    }
+
+    private static let answerSystemPrompt = "Answer the question using only the notes given. If the notes don't contain the answer, say so plainly rather than guessing."
+
+    /// `.assistantModel` is default: Granite (or whatever `answerModel` is
+    /// set to) answers directly through the same Ollama server the assistant
+    /// already talks to — no second process. `.llamaCpp` is kept for anyone
+    /// who set it up before Granite and still wants the dedicated RAG model;
+    /// its `.offline`/`.http`/`.empty` errors propagate exactly as before.
+    private func answer(notes packed: String, query: String) async throws -> String {
+        switch answerer {
+        case .assistantModel:
+            let reply = try await ollamaClient.chat(
+                model: answerModel,
+                messages: [
+                    .init(role: .system, content: Self.answerSystemPrompt),
+                    .init(role: .user, content: "Notes:\n\(packed)\n\nQuestion: \(query)"),
+                ],
+                schema: ["type": "object", "properties": ["answer": ["type": "string"]], "required": ["answer"]]
+            )
+            struct Answer: Decodable { let answer: String }
+            guard let data = reply.content.data(using: .utf8),
+                  let decoded = try? JSONDecoder().decode(Answer.self, from: data)
+            else { throw OllamaClient.ClientError.empty }
+            return decoded.answer
+        case .llamaCpp:
+            return try await llamaCppClient.complete(
+                system: Self.answerSystemPrompt,
+                user: "Notes:\n\(packed)\n\nQuestion: \(query)",
+                temperature: answerTemperature
+            )
+        }
     }
 
     /// Every RAG-included note, chunked — the pool both `search`/`ask` rank

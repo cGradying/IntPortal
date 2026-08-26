@@ -55,7 +55,8 @@ final class RealAssistantExecutor: AssistantExecutor {
             ensureServerRunning: ensureServerRunning,
             embedModel: preferences.ragEmbedModel, chunkSize: preferences.ragChunkSize,
             similarityFloor: preferences.ragSimilarityFloor, contextBudget: preferences.ragContextBudget,
-            answerTemperature: preferences.ragAnswerTemperature
+            answerTemperature: preferences.ragAnswerTemperature,
+            answerer: preferences.ragAnswerModel, answerModel: preferences.aiModel
         )
     }
 

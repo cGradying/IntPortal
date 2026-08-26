@@ -242,14 +242,22 @@ final class AssistantEngineTests: XCTestCase {
         XCTAssertEqual(AssistantEngine.escapingRawControlCharacters(in: json), json)
     }
 
+    /// `actions.items` is `AssistantTool.argsSchema`'s `oneOf` — one branch
+    /// per tool, each a `const` tool name — rather than a bare `enum`, since
+    /// Granite can follow a schema this tight (the sub-3B models this catalog
+    /// was first built against couldn't, see `AssistantEngine.responseSchema`'s
+    /// own doc comment).
     func testResponseSchemaConstrainsToolNamesToTheCatalog() throws {
         let schema = AssistantEngine.responseSchema()
         let properties = try XCTUnwrap(schema["properties"] as? [String: Any])
         let actions = try XCTUnwrap(properties["actions"] as? [String: Any])
         let items = try XCTUnwrap(actions["items"] as? [String: Any])
-        let itemProps = try XCTUnwrap(items["properties"] as? [String: Any])
-        let toolSchema = try XCTUnwrap(itemProps["tool"] as? [String: Any])
-        let names = try XCTUnwrap(toolSchema["enum"] as? [String])
+        let branches = try XCTUnwrap(items["oneOf"] as? [[String: Any]])
+        let names = try branches.map { branch -> String in
+            let branchProps = try XCTUnwrap(branch["properties"] as? [String: Any])
+            let toolSchema = try XCTUnwrap(branchProps["tool"] as? [String: Any])
+            return try XCTUnwrap(toolSchema["const"] as? String)
+        }
         XCTAssertEqual(Set(names), Set(AssistantTool.names))
     }
 }
