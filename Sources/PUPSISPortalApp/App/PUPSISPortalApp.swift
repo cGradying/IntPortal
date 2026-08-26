@@ -266,22 +266,22 @@ struct ContentView: View {
     /// value the way the chrome-strip height is.
     private let homeTitleOffset: CGFloat = -86
 
+    /// `Theme.Chrome.topStrip` scaled by UI Scale — grown, not stretched
+    /// (`Typography` above does the equivalent for text): with the old root
+    /// `.scaleEffect` gone, nothing else makes this strip track the zoom
+    /// level automatically.
+    private var topStrip: CGFloat { Theme.Chrome.topStrip * preferences.uiScale }
+
     var body: some View {
         content
             // Reaches both branches of `content` (login screen and the main
             // app) — the login screen's own circular gear button sets this
             // same flag, so one sheet definition covers both.
             .sheet(isPresented: $appState.showingSettings) { settingsSheet }
-            // Zoom applied once, at the root — Schedule, Notebook, Grades,
-            // and the chrome (nav island, assistant) all scale together, so
-            // switching screens never looks like the level "reset". Above
-            // TrafficLights: that NSViewRepresentable drives the real window
-            // buttons and draws nothing, so it stays outside the transform.
-            .uiScaled(preferences.uiScale)
             .frame(minWidth: 900, minHeight: 600)
             .background(TrafficLights(autoHide: preferences.trafficLightsAutoHide))
             .environment(\.palette, preferences.theme.palette(for: systemScheme))
-            .environment(\.typography, Typography(preferences.fontChoice))
+            .environment(\.typography, Typography(preferences.fontChoice, scale: preferences.uiScale))
             // Keeps native controls (fields, pickers, popovers) in step with a
             // theme the user picked against their system setting.
             .preferredColorScheme(preferences.theme.colorScheme)
@@ -318,7 +318,7 @@ struct ContentView: View {
                         .ignoresSafeArea()
                     } else {
                         destination(for: credentials)
-                            .padding(.top, Theme.Chrome.topStrip) // clear the slim top bar
+                            .padding(.top, topStrip) // clear the slim top bar
                             .transition(.opacity)
                     }
                 }
@@ -328,7 +328,7 @@ struct ContentView: View {
                 // every time isHome becomes true, same as the chrome band below.
                 if appState.isHome {
                     Text("Student IntPortal")
-                        .font(Typography(preferences.fontChoice).hero)
+                        .font(Typography(preferences.fontChoice, scale: preferences.uiScale).hero)
                         .foregroundStyle(preferences.theme.palette(for: systemScheme).accent)
                         .opacity(titleResolved ? 1 : 0)
                         .offset(y: titleResolved ? 0 : 8)
@@ -345,11 +345,14 @@ struct ContentView: View {
                 // slightly inside the window's own rounded corner so individual
                 // dither cells are never sliced mid-square by the window mask.
                 if !appState.isHome {
+                    // Pixel gradient, not a uniform speckle — dense at the top,
+                    // fading toward the destination below it.
                     DitherFill(
                         color: preferences.theme.palette(for: systemScheme).accent.opacity(0.6),
+                        ramp: .topDown,
                         density: bandResolved ? 1 : 0
                     )
-                    .frame(height: Theme.Chrome.topStrip)
+                    .frame(height: topStrip)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .clipShape(
                         UnevenRoundedRectangle(
@@ -367,7 +370,7 @@ struct ContentView: View {
                 // background dragging (which fought the calendar's create-drag).
                 // Below the island in z-order, so island buttons still win.
                 WindowDragArea()
-                    .frame(height: Theme.Chrome.topStrip)
+                    .frame(height: topStrip)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
                 // The island itself never re-mounts — it *glides* from centre (home)
@@ -429,12 +432,6 @@ struct ContentView: View {
                 calendar: appState.calendar,
                 googleAuth: appState.googleAuth
             )
-            // Deliberately NOT .uiScaled: this sheet is a TabView of native
-            // AppKit Form controls (Picker/Stepper/Toggle). scaleEffect
-            // doesn't transform their hit-test regions, so above 1.0 clicks
-            // land off-target and the whole form reads as grayed-out/dead.
-            // Renders at 100% like every other native macOS sheet instead —
-            // Settings text just doesn't grow with UI Scale.
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { appState.showingSettings = false }

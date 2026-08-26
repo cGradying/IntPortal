@@ -337,9 +337,17 @@ enum Theme {
 /// between `9AM` and `12PM`.
 struct Typography: Equatable {
     let choice: FontChoice
+    /// `Preferences.uiScale` — multiplies every point size below, so text
+    /// stays vector-crisp at every zoom level instead of being rasterized at
+    /// 100% and stretched (`UIScale.swift`, deleted, used to do that with a
+    /// root `.scaleEffect`). `== 1` for `.system` takes the style-based
+    /// branch below so `testSystemChoiceMatchesTheOriginalScale` keeps
+    /// comparing identical `Font` builds at the default zoom.
+    let scale: Double
 
-    init(_ choice: FontChoice) {
+    init(_ choice: FontChoice, scale: Double = 1.0) {
         self.choice = choice
+        self.scale = scale
     }
 
     // `weight` is optional and only ever applied when given: the original
@@ -349,14 +357,20 @@ struct Typography: Equatable {
     // font left alone. Matching that shape exactly is what lets `.system`
     // still equal the original literals.
     private func font(_ style: Font.TextStyle, design: Font.Design = .default, weight: Font.Weight? = nil) -> Font {
-        let base = choice.familyName.map { Font.custom($0, size: Theme.pointSize(for: style)) }
-            ?? Font.system(style, design: design)
+        let base: Font
+        if let family = choice.familyName {
+            base = Font.custom(family, size: Theme.pointSize(for: style) * scale)
+        } else if scale == 1 {
+            base = Font.system(style, design: design)
+        } else {
+            base = Font.system(size: Theme.pointSize(for: style) * scale, design: design)
+        }
         return weight.map(base.weight) ?? base
     }
 
     private func font(size: CGFloat, design: Font.Design = .default, weight: Font.Weight? = nil) -> Font {
-        let base = choice.familyName.map { Font.custom($0, size: size) }
-            ?? Font.system(size: size, design: design)
+        let base = choice.familyName.map { Font.custom($0, size: size * scale) }
+            ?? Font.system(size: size * scale, design: design)
         return weight.map(base.weight) ?? base
     }
 

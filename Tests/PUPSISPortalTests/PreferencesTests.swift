@@ -652,6 +652,26 @@ final class TypographyTests: XCTestCase {
         XCTAssertEqual(describe(typography.hero), describe(Font.system(.largeTitle, design: .serif).weight(.semibold)))
     }
 
+    /// The scaling this exists for: a custom family's point size actually
+    /// grows, and a `.system` choice at a non-1.0 scale stops taking the
+    /// style-based branch (which can't be resized) for the size-based one.
+    /// `Font.custom`'s debug description doesn't encode the size (unlike the
+    /// style-based branch above), so this compares against the exact
+    /// expected build rather than a not-equal check.
+    func testScaleMultipliesPointSize() {
+        func describe(_ font: Font) -> String { String(describing: font) }
+
+        let doubled = Typography(.jetBrainsMono, scale: 2.0)
+        XCTAssertEqual(describe(doubled.blockTime), describe(Font.custom("JetBrains Mono", size: 20)))
+        let normal = Typography(.jetBrainsMono, scale: 1.0)
+        XCTAssertEqual(describe(normal.blockTime), describe(Font.custom("JetBrains Mono", size: 10)))
+
+        // `.system` at scale 1 keeps the exact literals the test above pins;
+        // any other scale must switch off that (unresizable) branch.
+        XCTAssertEqual(describe(Typography(.system, scale: 1.0).footer), describe(Font.system(.caption)))
+        XCTAssertEqual(describe(Typography(.system, scale: 1.5).footer), describe(Font.system(size: 15)))
+    }
+
     /// Every non-system choice has to actually resolve to a registered font —
     /// this is what fails if a `.ttf` goes missing from `Resources/Fonts` or
     /// `Package.swift` stops copying the directory.
