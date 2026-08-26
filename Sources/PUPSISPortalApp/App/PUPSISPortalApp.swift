@@ -353,6 +353,13 @@ struct ContentView: View {
                         density: bandResolved ? 1 : 0
                     )
                     .frame(height: topStrip)
+                    // The dither's own fade is density-per-cell — an ordered
+                    // Bayer matrix only has 16 discrete thresholds, so density
+                    // hits zero (no more dots to drop) well before the band's
+                    // bottom edge, and the fade reads as a hard stop instead
+                    // of thinning out. A real per-pixel alpha gradient on top
+                    // smooths that regardless of how sparse the dots get.
+                    .mask(LinearGradient(colors: [.black, .black.opacity(0)], startPoint: .top, endPoint: .bottom))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .clipShape(
                         UnevenRoundedRectangle(
