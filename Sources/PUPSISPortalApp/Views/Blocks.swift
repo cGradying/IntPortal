@@ -522,14 +522,23 @@ struct EventBlock: View {
         .overlay(alignment: .top) { resizeHandle(.top) }
         .overlay(alignment: .bottom) { resizeHandle(.bottom) }
         .gesture(moveGesture)
-        .onTapGesture(count: 2) { actions?.edit() }
         .onTapGesture {
-            actions?.select(NSEvent.modifierFlags.isExtendingSelection ? .toggle : .replace)
+            // Shift-click still just extends the selection, for bulk
+            // delete/duplicate via the selection bar — a plain click opens
+            // the same editor `ClassBlock`'s own click already does, Delete
+            // included since (unlike a class) this block can actually be
+            // deleted.
+            if NSEvent.modifierFlags.isExtendingSelection {
+                actions?.select(.toggle)
+            } else {
+                actions?.select(.replace)
+                actions?.edit()
+            }
         }
         .contextMenu { contextMenu }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(block.title), \(block.subtitle)\(isRecurring ? ", repeating" : "")")
-        .accessibilityHint("Double-click to edit")
+        .accessibilityHint("Click to edit")
         .accessibilityAddTraits(.isButton)
     }
 
