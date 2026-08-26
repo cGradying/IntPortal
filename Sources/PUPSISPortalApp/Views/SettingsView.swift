@@ -158,7 +158,7 @@ struct SettingsView: View {
     /// one place, rather than a toggle stranded on the Grades tab.
     private var aiSection: some View {
         Section {
-            Toggle("Floating assistant", isOn: $preferences.aiEnabled)
+            Toggle("IntAssis", isOn: $preferences.aiEnabled)
             if preferences.aiEnabled {
                 Picker("Permission", selection: $preferences.aiPermission) {
                     ForEach(AssistantPermission.allCases) { level in
@@ -176,7 +176,7 @@ struct SettingsView: View {
                 Text("How Replace/Insert below animates in — a connected sweep down each line, or each word fading in on its own.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Button("Edit assistant instructions…") {
+                Button("Edit IntAssis instructions…") {
                     NSWorkspace.shared.open(AssistantInstructions.ensureExists())
                 }
                 .font(.caption)
@@ -193,10 +193,11 @@ struct SettingsView: View {
             Text("AI (beta)")
         } footer: {
             Text("""
-            A floating assistant (bottom-left, when this is on) that can read \
-            and add to your notes, read and add calendar events, and read your \
-            grades — never delete, move, or change one. Pick a model below — \
-            everything downloads and runs itself, no separate app needed.
+            IntAssis: a floating assistant (bottom-left, when this is on) \
+            that can read and add to your notes, read and add calendar \
+            events, and read your grades — never delete, move, or change \
+            one. Pick a model below — everything downloads and runs itself, \
+            no separate app needed.
 
             Everything it sees and does stays on this Mac, talking only to a \
             `llama-server` process this app starts and stops on its own. \

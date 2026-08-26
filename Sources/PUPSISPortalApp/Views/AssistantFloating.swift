@@ -47,7 +47,7 @@ struct AssistantFloating: View {
         .foregroundStyle(palette.accent)
         .glassInteractive(in: Circle())
         .matchedGeometryEffect(id: "assistant", in: morph)
-        .help("Assistant")
+        .help("IntAssis")
     }
 }
 
@@ -140,7 +140,7 @@ private struct AssistantChat: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Assistant").font(typography.detailTitle)
+                Text("IntAssis").font(typography.detailTitle)
                 Button { showingCapabilities = true } label: {
                     Image(systemName: "questionmark.circle").font(.system(size: 12, weight: .medium))
                 }
@@ -277,9 +277,10 @@ private struct AssistantChat: View {
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .padding(.top, 8)
+                        accuracyWarning
                     }
                     ForEach(Array(session.transcript.enumerated()), id: \.offset) { index, turn in
-                        bubble(turn)
+                        bubble(turn, reveal: index == lastAssistantIndex)
                             .id(index)
                             .transition(.opacity.combined(with: .move(edge: turn.role == .user ? .trailing : .leading)))
                     }
@@ -302,6 +303,12 @@ private struct AssistantChat: View {
         .frame(maxHeight: .infinity)
     }
 
+    /// Only the newest reply gets the reveal — re-rendering scrollback (e.g.
+    /// after a resize) must never replay old turns' animations.
+    private var lastAssistantIndex: Int? {
+        session.transcript.lastIndex { $0.role == .assistant }
+    }
+
     /// Three squares blinking in sequence rather than a stock spinner — the
     /// panel's one piece of ambient/waiting motion. Static (fixed opacity)
     /// under Reduce Motion, per the app's contract. At `.max` thinking, the
@@ -322,13 +329,18 @@ private struct AssistantChat: View {
     }
 
     /// Message bubbles are content, not chrome — no glass on these, per the
-    /// app's one hard rule about where Liquid Glass belongs.
-    private func bubble(_ turn: AssistantTurn) -> some View {
+    /// app's one hard rule about where Liquid Glass belongs. `reveal` is true
+    /// only for the newest assistant turn — a reply arrives as one whole
+    /// string (no streaming, see `AssistantEngine.respond`), so this is what
+    /// keeps it from just appearing as a wall of text.
+    private func bubble(_ turn: AssistantTurn, reveal: Bool) -> some View {
         VStack(alignment: turn.role == .user ? .trailing : .leading, spacing: 4) {
             HStack {
                 if turn.role == .assistant { Spacer(minLength: 24) }
                 Group {
-                    if let markdown = try? AttributedString(
+                    if turn.role == .assistant, reveal, !reduceMotion {
+                        RevealText(turn.content)
+                    } else if let markdown = try? AttributedString(
                         markdown: turn.content,
                         options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
                     ) {
@@ -418,18 +430,19 @@ private struct AssistantChat: View {
         .padding(.horizontal, 12).padding(.vertical, 6)
     }
 
-    /// Persistent, not dismissible — the user asked for a warning about using
-    /// the AI, and a one-time alert stops being one the moment it's dismissed.
+    /// Shown once, at the start of the conversation — not dismissible, but
+    /// tied to the empty transcript rather than pinned above the input
+    /// forever, so it returns every time `session.reset()` clears the chat
+    /// without nagging mid-conversation.
     private var accuracyWarning: some View {
         Text("Runs locally and can be wrong. Check anything that matters.")
             .font(.caption2)
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 12).padding(.top, 6)
+            .padding(.top, 6)
     }
 
     private var inputBar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            accuracyWarning
             if !commandSuggestions.isEmpty {
                 commandPalette
                 Divider()
@@ -437,7 +450,7 @@ private struct AssistantChat: View {
                 commandHintLine(hint)
             }
             HStack(spacing: 8) {
-                TextField("Ask the assistant… or /command", text: $input, axis: .vertical)
+                TextField("Ask IntAssis… or /command", text: $input, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...3)
                     .focused($inputFocused)
@@ -712,6 +725,41 @@ private struct AssistantChat: View {
             schedule: schedule,
             pinnedNote: session.pinnedNote
         )
+    }
+}
+
+/// A reply fading in word by word instead of appearing as a wall of text —
+/// there's no streaming from the model (`AssistantEngine.respond` returns
+/// one whole string), so this is the panel's substitute for a typing effect.
+/// Plain text, not markdown — the note editor's word-blink reveal
+/// (`AIRevealAnimation`) is the precedent for word-granular over character
+///-granular. Caller is responsible for skipping this under Reduce Motion.
+private struct RevealText: View {
+    let text: String
+    private let words: [String]
+    @State private var shown = 0
+
+    init(_ text: String) {
+        self.text = text
+        words = text.split(separator: " ").map(String.init)
+    }
+
+    var body: some View {
+        Text(words.prefix(shown).joined(separator: " "))
+            .animation(.easeOut(duration: 0.08), value: shown)
+            // `.task(id:)`, not `.onAppear` — an `Int` isn't `VectorArithmetic`,
+            // so `withAnimation { shown = words.count }` would just snap
+            // between the two endpoints rather than interpolate. Stepping
+            // through the words explicitly is what actually reveals them.
+            .task(id: text) {
+                shown = 0
+                guard !words.isEmpty else { return }
+                let perWord = min(500_000_000 / UInt64(words.count), 40_000_000) // ns; ≤0.5s total, ≤40ms/word
+                for index in 1...words.count {
+                    shown = index
+                    if index < words.count { try? await Task.sleep(nanoseconds: perWord) }
+                }
+            }
     }
 }
 

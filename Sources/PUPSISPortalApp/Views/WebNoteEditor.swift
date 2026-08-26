@@ -420,7 +420,7 @@ private struct WebNoteView: NSViewRepresentable {
             let prompt = body["prompt"] as? String
 
             guard parent.preferences.aiEnabled, !parent.preferences.aiModel.isEmpty else {
-                deliver(webView, id: id, text: nil, error: "Turn on the assistant in Settings first.")
+                deliver(webView, id: id, text: nil, error: "Turn on IntAssis in Settings first.")
                 return
             }
             let instruction: String

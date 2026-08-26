@@ -221,7 +221,7 @@ struct QuizzesView: View {
             }
             .disabled(!preferences.aiEnabled || preferences.aiModel.isEmpty)
             .help(preferences.aiEnabled && !preferences.aiModel.isEmpty
-                  ? "Generate a new deck" : "Turn on the assistant and pick a model in Settings first")
+                  ? "Generate a new deck" : "Turn on IntAssis and pick a model in Settings first")
         }
     }
 
