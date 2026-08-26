@@ -32,6 +32,20 @@ cp "$BIN" "$APP/Contents/MacOS/PUPSISPortal"
 NOTES_BUNDLE="$ROOT/Sources/PUPSISPortalApp/Resources/notes-editor.bundle.js"
 [ -f "$NOTES_BUNDLE" ] && cp "$NOTES_BUNDLE" "$APP/Contents/Resources/notes-editor.bundle.js"
 
+# Bundled fonts (FontLibrary.swift), same convention as notes-editor.bundle.js
+# above — a plain copy into Contents/Resources, read back via Bundle.main.
+# NOT SwiftPM's Bundle.module: confirmed the hard way that its generated
+# accessor checks Bundle.main.bundleURL (the .app's own root) for a
+# "PUPSISPortal_PUPSISPortal.bundle" folder, and a Swift fatalError inside
+# that accessor's lazy static init can't be caught — it just crashes, on
+# every real launch, silently missed by `swift build`/`swift test` because
+# dev builds resolve the same accessor differently. Placing that bundle at
+# the app's top level to satisfy it was tried and rejected: codesign's
+# --verify --strict correctly refuses "unsealed contents present in the
+# bundle root" for anything outside Contents/.
+FONTS_DIR="$ROOT/Sources/PUPSISPortalApp/Resources/Fonts"
+[ -d "$FONTS_DIR" ] && ditto "$FONTS_DIR" "$APP/Contents/Resources/Fonts"
+
 # Embed Sparkle.framework for in-app auto-update. SwiftPM's Package.swift
 # fetches it as a prebuilt XCFramework (not source) into .build/artifacts —
 # Xcode would normally do this embedding step for us; a hand-rolled bundle

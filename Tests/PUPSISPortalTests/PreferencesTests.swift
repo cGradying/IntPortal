@@ -659,7 +659,10 @@ final class TypographyTests: XCTestCase {
     /// this is what fails if a `.ttf` goes missing from `Resources/Fonts` or
     /// `Package.swift` stops copying the directory.
     func testEveryBundledFamilyIsRegistered() {
-        FontLibrary.registerBundledFonts()
+        // .module, not the default .main: this xctest process's Bundle.main
+        // is the test runner itself, not this package — see FontLibrary's
+        // own doc comment for why production code can't use .module too.
+        FontLibrary.registerBundledFonts(in: .module)
         for choice in FontChoice.allCases where choice != .system {
             guard let family = choice.familyName else {
                 XCTFail("\(choice) has no family name")

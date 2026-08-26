@@ -57,16 +57,34 @@ enum FontChoice: String, CaseIterable, Codable, Identifiable {
 
 /// Registers every bundled font once, at launch. Programmatic registration
 /// (rather than `ATSApplicationFontsPath` in Info.plist) because `swift run`
-/// and `swift test` don't produce the app bundle `make_mac_app.sh` does — this
-/// path works the same in all three.
+/// and `swift test` don't produce the app bundle `make_mac_app.sh` does.
+///
+/// Reads through `Bundle.main`, same as `WebNoteEditor`'s
+/// `notes-editor.bundle.js` lookup — **not** SwiftPM's `Bundle.module`.
+/// Confirmed the hard way that `Bundle.module`'s generated accessor checks
+/// `Bundle.main.bundleURL` (the packaged `.app`'s own root, not
+/// `Contents/Resources`) for a `PUPSISPortal_PUPSISPortal.bundle` folder
+/// `make_mac_app.sh` never creates there — and a `fatalError` inside that
+/// accessor's lazy static init can't be caught, so it crashed every real
+/// launch while `swift build`/`swift test` never surfaced it at all, since a
+/// dev build resolves that same accessor differently. `Bundle.main` finds
+/// `Contents/Resources/Fonts` in the real app, and simply returns nil here
+/// (graceful no-op, not a crash) under `swift run`/`swift test`, where
+/// nothing copies that folder in.
 enum FontLibrary {
     private static var didRegister = false
 
-    static func registerBundledFonts() {
+    /// `bundle` defaults to `.main` for real use (the packaged `.app`'s
+    /// `Contents/Resources`) — injectable so `swift test` can pass `.module`
+    /// instead, which resolves correctly in that environment (unlike
+    /// `.main`, which is the xctest runner there, not this package) and lets
+    /// `PreferencesTests.testEveryBundledFamilyIsRegistered` still verify
+    /// real `CTFontManager` registration rather than trusting it blindly.
+    static func registerBundledFonts(in bundle: Bundle = .main) {
         guard !didRegister else { return }
         didRegister = true
 
-        guard let fontsDir = Bundle.module.url(forResource: "Fonts", withExtension: nil) else { return }
+        guard let fontsDir = bundle.url(forResource: "Fonts", withExtension: nil) else { return }
         let files = (try? FileManager.default.contentsOfDirectory(
             at: fontsDir, includingPropertiesForKeys: nil
         )) ?? []

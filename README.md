@@ -102,9 +102,20 @@ instead of a slow web portal.
 
 ## Install
 
-Two ways in:
+Three ways in:
 
-**A. Download a build** from [Releases](https://github.com/cGradying/IntPortal/releases):
+**A. One-line install/update:**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/cGradying/IntPortal/main/Scripts/install.sh | sh
+```
+
+Downloads the latest release, installs it to `~/Applications`, and trusts the
+build's signing certificate so it launches with no Gatekeeper prompt at all —
+see the script's own comments for exactly what that does and how to undo it.
+Safe to re-run any time to update.
+
+**B. Download a build** from [Releases](https://github.com/cGradying/IntPortal/releases):
 grab the `.dmg`, drag `PUPSISPortal.app` to `~/Applications`, and open it. These
 builds are **not notarized by Apple** (no paid developer account), so Gatekeeper
 blocks a plain double-click. First open needs **right-click → Open → Open**, or
@@ -112,7 +123,7 @@ System Settings › Privacy & Security › "Open Anyway". This is expected for e
 release, not a broken download — verify the download's checksum against the one
 posted on the Release page if you want to confirm it wasn't tampered with in transit.
 
-**B. Build it yourself** — see [Build from source](#build-from-source). This is
+**C. Build it yourself** — see [Build from source](#build-from-source). This is
 the recommended path and the one the signing notes below assume.
 
 **Requirements:** macOS 14 or later. On macOS 26 the interface uses Liquid Glass;
