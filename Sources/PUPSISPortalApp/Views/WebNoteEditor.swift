@@ -39,6 +39,26 @@ struct WebNoteEditor: View {
         ("HTML", "html"), ("CSS", "css"), ("JSON", "json"), ("SQL", "sql"), ("PHP", "php"), ("XML", "xml"),
     ]
 
+    /// Belt-and-suspenders for the AI "Structure"/"Create" prompt rules: a
+    /// model that wraps its whole reply in an outer ```markdown fence and
+    /// forgets the closing ``` breaks every line after it once inserted —
+    /// confirmed live — the editor renders the rest of the note as one giant
+    /// unterminated code block. Only strips an explicit `markdown`/`md`
+    /// opener, never a bare ```, so a reply that's genuinely just a code
+    /// sample (a legitimate use of "Answer"/custom mode) is left alone.
+    static func strippingOuterMarkdownFence(_ text: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        guard let first = lines.first?.trimmingCharacters(in: .whitespaces).lowercased(),
+              first == "```markdown" || first == "```md"
+        else { return text }
+        lines.removeFirst()
+        if let lastIndex = lines.lastIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }),
+           lines[lastIndex].trimmingCharacters(in: .whitespaces) == "```" {
+            lines.remove(at: lastIndex)
+        }
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var body: some View {
         VStack(spacing: 6) {
             toolbar
@@ -418,7 +438,7 @@ private struct WebNoteView: NSViewRepresentable {
                 }
                 do {
                     let result = try await LlamaCppClient().generate(model: model, selection: text, instruction: instruction)
-                    deliver(webView, id: id, text: result, error: nil)
+                    deliver(webView, id: id, text: WebNoteEditor.strippingOuterMarkdownFence(result), error: nil)
                 } catch {
                     deliver(webView, id: id, text: nil, error: error.localizedDescription)
                 }
@@ -516,7 +536,11 @@ private struct WebNoteView: NSViewRepresentable {
         between blocks, nothing padded.
 
         Reply with the restructured note text only — no preamble, no
-        explanation of what changed.
+        explanation of what changed, no code fences around the whole answer.
+        Confirmed live: a model that wraps the whole reply in an outer
+        ```markdown fence sometimes never closes it, which breaks every line
+        after it once inserted — the fenced-code rule above is only for
+        actual code found inside the note, never for the reply as a whole.
         """
     }
 

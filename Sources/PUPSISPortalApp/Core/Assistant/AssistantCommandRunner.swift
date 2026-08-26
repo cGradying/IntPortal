@@ -258,6 +258,7 @@ struct AssistantCommandRunner {
 
     static let createInstruction = """
     Write a new study note in Markdown for the topic below. Reply with the \
-    note's body only — no title line, no preamble.
+    note's body only — no title line, no preamble, no code fences around \
+    the whole answer (only around actual code, if any appears).
     """
 }

@@ -60,6 +60,13 @@ struct TrafficLights: NSViewRepresentable {
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
             window.styleMask.insert(.fullSizeContentView)
+            // `.windowStyle(.hiddenTitleBar)` makes SwiftUI treat the window
+            // as tab-capable, which draws a thin strip in the *system* accent
+            // color (never this app's own theme) across the top whenever the
+            // window is key — confirmed live: only shows while focused. This
+            // app has no tabs and never will; kill the affordance outright
+            // rather than just hiding a tab bar that would otherwise exist.
+            window.tabbingMode = .disallowed
             // Not movable by arbitrary background: AppKit hit-tests the calendar's
             // clear create-drag rectangle as draggable background and steals the
             // gesture, so a drag-to-add-event moved the whole window instead. The
