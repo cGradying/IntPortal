@@ -31,7 +31,7 @@ final class GenerationCenter: ObservableObject {
 
     @discardableResult
     func start(
-        label: String, source: QuizSource, model: String, client: OllamaClient,
+        label: String, source: QuizSource, model: String, client: LlamaCppClient,
         ragQuery: RAGQuery?, chunkSize: Int, target: Target
     ) -> UUID {
         let id = UUID()
@@ -72,7 +72,7 @@ final class GenerationCenter: ObservableObject {
         if result.cards.isEmpty {
             jobs[index].failure = result.totalChunks == 0
                 ? "Nothing to generate from."
-                : "Generation failed for all \(result.totalChunks) chunk(s). Check Ollama and the model in Settings."
+                : "Generation failed for all \(result.totalChunks) chunk(s). Check the model in Settings ▸ AI is downloaded and llama.cpp is installed."
         } else {
             jobs[index].result = result
         }

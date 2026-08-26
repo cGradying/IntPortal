@@ -412,8 +412,12 @@ private struct WebNoteView: NSViewRepresentable {
             }
             let model = parent.preferences.aiModel
             Task {
+                guard await LlamaRuntime.ensureChatServer(modelID: model) else {
+                    deliver(webView, id: id, text: nil, error: LlamaCppClient.ClientError.offline.errorDescription)
+                    return
+                }
                 do {
-                    let result = try await OllamaClient().generate(model: model, selection: text, instruction: instruction)
+                    let result = try await LlamaCppClient().generate(model: model, selection: text, instruction: instruction)
                     deliver(webView, id: id, text: result, error: nil)
                 } catch {
                     deliver(webView, id: id, text: nil, error: error.localizedDescription)

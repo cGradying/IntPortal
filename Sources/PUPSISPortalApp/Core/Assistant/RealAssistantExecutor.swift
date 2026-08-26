@@ -22,8 +22,7 @@ final class RealAssistantExecutor: AssistantExecutor {
     private let openNoteKey: () -> String?
     /// The retrieval + grounded-answer pipeline behind `search_notes`/
     /// `ask_notes` — shared with the `/rag` slash command, see its own doc
-    /// comment for why. Built from the same injectable pieces
-    /// (`llamaCppClient`/`ensureServerRunning`/`ollamaClient`) this
+    /// comment for why. Built from the same injectable `client` this
     /// initializer always took, so existing tests construct it exactly as
     /// before.
     private let ragQuery: RAGQuery
@@ -40,9 +39,9 @@ final class RealAssistantExecutor: AssistantExecutor {
         portal: PortalController,
         preferences: Preferences,
         openNoteKey: @escaping () -> String?,
-        llamaCppClient: LlamaCppClient = LlamaCppClient(),
-        ensureServerRunning: @escaping () async -> Bool = { await LlamaServerManager.shared.ensureRunning() },
-        ollamaClient: OllamaClient = OllamaClient()
+        client: LlamaCppClient = LlamaCppClient(),
+        ensureChatServerRunning: (() async -> Bool)? = nil,
+        ensureEmbedServerRunning: (() async -> Bool)? = nil
     ) {
         self.notesStore = notes
         self.editor = editor
@@ -51,12 +50,13 @@ final class RealAssistantExecutor: AssistantExecutor {
         self.preferences = preferences
         self.openNoteKey = openNoteKey
         self.ragQuery = RAGQuery(
-            notes: notes, ollamaClient: ollamaClient, llamaCppClient: llamaCppClient,
-            ensureServerRunning: ensureServerRunning,
-            embedModel: preferences.ragEmbedModel, chunkSize: preferences.ragChunkSize,
+            notes: notes, client: client,
+            ensureChatServerRunning: ensureChatServerRunning ?? { await LlamaRuntime.ensureChatServer(modelID: preferences.aiModel) },
+            ensureEmbedServerRunning: ensureEmbedServerRunning ?? { await LlamaRuntime.ensureEmbedServer() },
+            chunkSize: preferences.ragChunkSize,
             similarityFloor: preferences.ragSimilarityFloor, contextBudget: preferences.ragContextBudget,
             answerTemperature: preferences.ragAnswerTemperature,
-            answerer: preferences.ragAnswerModel, answerModel: preferences.aiModel
+            answerModel: preferences.aiModel
         )
     }
 

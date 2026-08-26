@@ -11,7 +11,7 @@ enum QuizSource {
     case material(text: String, label: String)
 }
 
-/// Generates flashcards from a `QuizSource` via `OllamaClient.chat`'s
+/// Generates flashcards from a `QuizSource` via `LlamaCppClient.chat`'s
 /// schema-constrained JSON path — the same `format`-param approach
 /// `AssistantEngine` uses, including its control-character salvage fix
 /// (`AssistantEngine.escapingRawControlCharacters`), because a model
@@ -25,7 +25,7 @@ enum QuizSource {
 @MainActor
 enum CardGenerator {
     /// One generation run's outcome. Partial results are kept on failure —
-    /// `stream: false`, 180s timeout, no retries anywhere in `OllamaClient`,
+    /// `stream: false`, 180s timeout, no retries anywhere in `LlamaCppClient`,
     /// so losing a late chunk must never cost the chunks that already
     /// succeeded.
     struct Result {
@@ -51,16 +51,21 @@ enum CardGenerator {
     static func run(
         source: QuizSource,
         model: String,
-        client: OllamaClient,
+        client: LlamaCppClient,
         ragQuery: RAGQuery?,
         chunkSize: Int,
         targetCount: Int? = nil,
         onProgress: (Int, Int) -> Void = { _, _ in },
-        isCancelled: () -> Bool = { false }
+        isCancelled: () -> Bool = { false },
+        ensureServerRunning: (() async -> Bool)? = nil
     ) async -> Result {
         let (chunks, truncatedMaterial) = await resolveChunks(source: source, ragQuery: ragQuery, chunkSize: chunkSize)
         guard !chunks.isEmpty else {
             return Result(cards: [], failedChunks: 0, totalChunks: 0, truncatedMaterial: truncatedMaterial)
+        }
+        let serverReady = await (ensureServerRunning ?? { await LlamaRuntime.ensureChatServer(modelID: model) })()
+        guard serverReady else {
+            return Result(cards: [], failedChunks: chunks.count, totalChunks: chunks.count, truncatedMaterial: truncatedMaterial)
         }
 
         var allCards: [QuizCard] = []
@@ -106,7 +111,7 @@ enum CardGenerator {
     /// failure counts the chunk as failed, so "asked for too much" degrades
     /// to fewer real cards instead of none.
     private static func generateCardsWithRetry(
-        from chunk: NoteChunk, model: String, client: OllamaClient, targetCount: Int?
+        from chunk: NoteChunk, model: String, client: LlamaCppClient, targetCount: Int?
     ) async -> [QuizCard]? {
         if let cards = try? await generateCards(from: chunk, model: model, client: client, targetCount: targetCount) {
             return cards
@@ -127,7 +132,7 @@ enum CardGenerator {
     }
 
     private static func generateCards(
-        from chunk: NoteChunk, model: String, client: OllamaClient, targetCount: Int?
+        from chunk: NoteChunk, model: String, client: LlamaCppClient, targetCount: Int?
     ) async throws -> [QuizCard] {
         let count = targetCount ?? maxCardsPerChunk
         let raw = try await client.chat(
@@ -147,7 +152,7 @@ enum CardGenerator {
         guard let data = sanitized.data(using: .utf8),
               let decoded = try? JSONDecoder().decode(GeneratedDeck.self, from: data)
         else {
-            throw OllamaClient.ClientError.empty
+            throw LlamaCppClient.ClientError.empty
         }
         return decoded.cards.compactMap { generated -> QuizCard? in
             let front = generated.front.trimmingCharacters(in: .whitespacesAndNewlines)

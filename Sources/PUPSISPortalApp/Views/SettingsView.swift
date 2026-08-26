@@ -12,21 +12,16 @@ struct SettingsView: View {
     @ObservedObject var calendar: CalendarBridge
     @ObservedObject var googleAuth: GoogleAuth
     @ObservedObject fileprivate var notifier = Notifier.shared
-    /// Ollama models present on this machine, refreshed when the AI section shows.
-    @State private var installedModels: [String] = []
-    /// Each installed model's on-disk weight size, for the memory check before
-    /// switching to one. Keyed by name rather than reusing `installedModels`'
-    /// shape, so that already-shipped, already-tested property stays untouched.
-    @State private var modelSizes: [String: Int64] = [:]
     /// Held here rather than acted on immediately when a pick would need more
     /// memory than looks available — `.alert(item:)` below asks first.
     @State private var pendingModelLoad: PendingModelLoad?
-    /// Ollama models currently loaded in memory that aren't the selected one.
-    @State private var runningOthers: [String] = []
-    /// `nil` when no download is running; 0...1 while `installGranite` pulls.
+    /// `nil` when no download is running; 0...1 while `installModel` pulls.
     @State private var installProgress: Double?
     @State private var installingLabel: String?
     @State private var installError: String?
+    /// Recomputed after every download — which `ModelCatalog` entries are
+    /// actually on disk, driving each row's Download/Selected state.
+    @State private var downloadedIDs: Set<String> = []
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
     @State fileprivate var exportResult: String?
@@ -165,23 +160,6 @@ struct SettingsView: View {
         Section {
             Toggle("Floating assistant", isOn: $preferences.aiEnabled)
             if preferences.aiEnabled {
-                if installedModels.isEmpty {
-                    LabeledContent("Model") {
-                        Text("No models found — is Ollama running?")
-                            .foregroundStyle(.secondary)
-                    }
-                    Button("Check again") { Task { await loadModels() } }
-                } else {
-                    Picker("Model", selection: modelSelectionBinding) {
-                        ForEach(installedModels, id: \.self) { Text($0).tag($0) }
-                    }
-                    if runningOthers.isEmpty == false {
-                        Button("Unload other running models (\(runningOthers.count))") {
-                            Task { await unloadOthers() }
-                        }
-                        .font(.caption)
-                    }
-                }
                 Picker("Permission", selection: $preferences.aiPermission) {
                     ForEach(AssistantPermission.allCases) { level in
                         Text(level.label).tag(level)
@@ -217,13 +195,12 @@ struct SettingsView: View {
             Text("""
             A floating assistant (bottom-left, when this is on) that can read \
             and add to your notes, read and add calendar events, and read your \
-            grades — never delete, move, or change one. Needs \
-            [Ollama](https://ollama.com) running on this Mac (`ollama serve`) \
-            with a model pulled — see Download Models below for a one-click Granite install.
+            grades — never delete, move, or change one. Pick a model below — \
+            everything downloads and runs itself, no separate app needed.
 
-            Everything it sees and does stays on this Mac, talking only to that \
-            local server. There is no cloud provider and no way to point this \
-            at one.
+            Everything it sees and does stays on this Mac, talking only to a \
+            `llama-server` process this app starts and stops on its own. \
+            There is no cloud provider and no way to point this at one.
 
             **It runs locally and can be wrong.** Treat anything it tells you \
             — a summary, a date, an answer from your notes — as a draft to \
@@ -233,193 +210,132 @@ struct SettingsView: View {
         }
         .task(id: preferences.aiEnabled) {
             if preferences.aiEnabled {
-                await loadModels()
-                await refreshRunningOthers()
+                refreshDownloaded()
             } else {
                 // Not just "don't load more" — actually free what's running,
                 // so turning the assistant off is also turning it off.
                 LlamaServerManager.shared.stop()
             }
         }
-        .task(id: preferences.aiModel) {
-            guard preferences.aiEnabled else { return }
-            // A moment for the onChange-triggered unload above to land before
-            // asking Ollama what's still resident.
-            try? await Task.sleep(for: .seconds(1))
-            await refreshRunningOthers()
-        }
         .alert(item: $pendingModelLoad) { pending in
             Alert(
-                title: Text("Load \(pending.name)?"),
+                title: Text("Switch to \(pending.entry.label)?"),
                 message: Text(pending.message),
-                primaryButton: .default(Text("Load Anyway")) { commitModel(pending.name) },
+                primaryButton: .default(Text("Load Anyway")) { preferences.aiModel = pending.entry.id },
                 secondaryButton: .cancel()
             )
         }
     }
 
-    /// Granite handles chat, tool-calling, and grounded RAG answers all in
-    /// one model — the "install Ollama, then pull two separate models for
-    /// two separate jobs" dance below is a fallback for a machine with no
-    /// Ollama at all (that step genuinely can't happen from inside the app);
-    /// everything Ollama itself can do, this section now does with a button.
+    /// One `llama-server` binary, a short verified catalog of models
+    /// (`ModelCatalog`) — pick one, it downloads with a real progress bar,
+    /// and becomes the running model. The one real remaining dependency is
+    /// `llama-server` itself (`brew install llama.cpp`, once); model weights
+    /// are entirely in-app after that.
     private var downloadModelsSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 10) {
-                if let progress = installProgress {
-                    ProgressView(value: progress) {
-                        Text(installingLabel ?? "Downloading…").font(.caption)
-                    }
-                } else {
-                    Button("Install Granite (granite4.2:3b, ~2.2GB)") {
-                        Task { await installGranite("granite4.2:3b") }
-                    }
-                    Text("One button: pulls the chat/RAG model and the note-search embedding model, then selects it. No other setup needed.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    if installedModels.contains(where: { $0.hasPrefix("granite4.2:3b") }) {
-                        Button("Also get granite4.2:8b (~5.3GB, if your Mac has the memory)") {
-                            Task { await installGranite("granite4.2:8b", alsoEmbed: false) }
-                        }
-                        .font(.caption)
-                    }
-                    if let error = installError {
-                        Text(error).font(.caption2).foregroundStyle(.red)
-                    }
+            ForEach(ModelCatalog.entries) { entry in
+                modelRow(entry)
+            }
+            if let progress = installProgress {
+                ProgressView(value: progress) {
+                    Text(installingLabel ?? "Downloading…").font(.caption)
                 }
             }
-            .padding(.vertical, 2)
+            if let error = installError {
+                Text(error).font(.caption2).foregroundStyle(.red)
+            }
         } header: {
-            Text("Download Models")
+            Text("Models")
         } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Needs [Ollama](https://ollama.com) itself running (`ollama serve`) — that one step can't be done from inside the app. No Ollama yet?")
-                    .foregroundStyle(.secondary)
-                DisclosureGroup("Terminal steps") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        modelStep(1, "Install Ollama", "brew install ollama")
-                        modelStep(2, "Start it", "ollama serve")
-                    }
-                    .padding(.top, 4)
-                }
-                .font(.caption)
-            }
-        }
-        .task(id: preferences.aiEnabled) {
-            guard preferences.aiEnabled else { return }
-            await loadModels()
-        }
-    }
-
-    private func installGranite(_ model: String, alsoEmbed: Bool = true) async {
-        installError = nil
-        installingLabel = "Pulling \(model)…"
-        installProgress = 0
-        do {
-            for try await fraction in OllamaClient.pull(model: model) {
-                installProgress = fraction
-            }
-            if alsoEmbed {
-                installingLabel = "Pulling \(Preferences.ragDefaultEmbedModel)…"
-                installProgress = 0
-                for try await fraction in OllamaClient.pull(model: Preferences.ragDefaultEmbedModel) {
-                    installProgress = fraction
-                }
-            }
-            await loadModels()
-            considerSelecting(model)
-        } catch {
-            installError = "Couldn't download \(model) — is Ollama running? (\(error.localizedDescription))"
-        }
-        installProgress = nil
-        installingLabel = nil
-    }
-
-    private func modelStep(_ number: Int, _ label: String, _ command: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text("\(number).")
-                .font(.caption.monospaced())
+            Text("Needs `llama-server` itself installed once — `brew install llama.cpp` — that one step can't be done from inside the app. Every model above downloads and runs itself after that.")
                 .foregroundStyle(.secondary)
-                .frame(width: 14, alignment: .trailing)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label).font(.caption)
-                Text(command)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+        }
+    }
+
+    private func modelRow(_ entry: ModelCatalog.Entry) -> some View {
+        let isSelected = preferences.aiModel == entry.id
+        let isDownloaded = downloadedIDs.contains(entry.id)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.label).font(.callout).fontWeight(isSelected ? .semibold : .regular)
+                    Text(entry.description).font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if isSelected {
+                    Label("Selected", systemImage: "checkmark.circle.fill")
+                        .font(.caption).foregroundStyle(.green).labelStyle(.titleAndIcon)
+                } else if isDownloaded {
+                    Button("Use this model") { considerSelecting(entry) }.font(.caption)
+                } else {
+                    Button("Download") { Task { await installModel(entry) } }
+                        .font(.caption).disabled(installProgress != nil)
+                }
             }
         }
+        .padding(.vertical, 2)
     }
 
     /// A model whose size crossed the memory-check threshold, held for
     /// confirmation before it's ever written to `preferences.aiModel`.
     private struct PendingModelLoad: Identifiable {
-        let name: String
-        let modelBytes: Int64
+        let entry: ModelCatalog.Entry
         let availableBytes: UInt64
-        var id: String { name }
+        var id: String { entry.id }
 
         var message: String {
-            let modelGB = Double(modelBytes) / 1_073_741_824
+            let modelGB = Double(entry.sizeBytes) / 1_073_741_824
             let availableGB = Double(availableBytes) / 1_073_741_824
             return String(format: "This model needs about %.1f GB. You have about %.1f GB available.", modelGB, availableGB)
         }
     }
 
-    /// The Picker's binding: never writes to `preferences.aiModel` directly,
-    /// so a check can run *before* anything is committed — Cancel then needs
-    /// no revert, since nothing changed yet.
-    private var modelSelectionBinding: Binding<String> {
-        Binding(get: { preferences.aiModel }, set: considerSelecting)
-    }
-
-    private func considerSelecting(_ name: String) {
-        guard name != preferences.aiModel else { return }
-        if let bytes = modelSizes[name], let available = SystemMemory.availableBytes(),
-           SystemMemory.shouldWarn(modelBytes: bytes, availableBytes: available) {
-            pendingModelLoad = PendingModelLoad(name: name, modelBytes: bytes, availableBytes: available)
+    /// Never writes to `preferences.aiModel` directly, so a memory check can
+    /// run *before* anything is committed — Cancel then needs no revert,
+    /// since nothing changed yet.
+    private func considerSelecting(_ entry: ModelCatalog.Entry) {
+        guard entry.id != preferences.aiModel else { return }
+        if let available = SystemMemory.availableBytes(),
+           SystemMemory.shouldWarn(modelBytes: entry.sizeBytes, availableBytes: available) {
+            pendingModelLoad = PendingModelLoad(entry: entry, availableBytes: available)
         } else {
-            commitModel(name)
+            preferences.aiModel = entry.id
         }
     }
 
-    /// Switching here doesn't unload what was running before — Ollama keeps
-    /// it resident until its own idle timeout, so two models can end up
-    /// competing for the machine. Free the old one the moment a different
-    /// one is picked.
-    private func commitModel(_ name: String) {
-        let old = preferences.aiModel
-        preferences.aiModel = name
-        guard old != name, !old.isEmpty else { return }
-        Task { await OllamaClient().unload(model: old) }
-    }
-
-    private func loadModels() async {
-        let details = await OllamaClient.installedModelsDetailed()
-        installedModels = details.map(\.name).sorted()
-        modelSizes = Dictionary(uniqueKeysWithValues: details.map { ($0.name, $0.size) })
-        // Pick something usable rather than leaving the picker on a stale or
-        // empty name the user never chose — routed through the same check,
-        // so a large default doesn't skip the confirmation either.
-        if !installedModels.contains(preferences.aiModel), let first = installedModels.first {
-            considerSelecting(first)
+    /// Downloads `entry` (via the real memory-check gate above once it's on
+    /// disk), plus the fixed embedding model alongside it if that isn't
+    /// downloaded yet — one button covers both jobs, same promise the
+    /// standalone-download requirement asked for.
+    private func installModel(_ entry: ModelCatalog.Entry) async {
+        installError = nil
+        do {
+            installingLabel = "Downloading \(entry.label)…"
+            installProgress = 0
+            for try await fraction in LlamaCppClient.download(from: entry.url, to: ModelCatalog.localURL(for: entry)) {
+                installProgress = fraction
+            }
+            if !ModelCatalog.isDownloaded(ModelCatalog.embedModel) {
+                installingLabel = "Downloading \(ModelCatalog.embedModel.label)…"
+                installProgress = 0
+                for try await fraction in LlamaCppClient.download(
+                    from: ModelCatalog.embedModel.url, to: ModelCatalog.localURL(for: ModelCatalog.embedModel)
+                ) {
+                    installProgress = fraction
+                }
+            }
+            refreshDownloaded()
+            considerSelecting(entry)
+        } catch {
+            installError = "Couldn't download \(entry.label) — \(error.localizedDescription)"
         }
+        installProgress = nil
+        installingLabel = nil
     }
 
-    /// Loaded models other than the one currently selected — what the manual
-    /// "Unload other running models" button offers to clean up. Covers models
-    /// left resident from outside the app (`ollama run <x>` in a terminal).
-    private func refreshRunningOthers() async {
-        let running = await OllamaClient.runningModels()
-        runningOthers = running.filter { $0 != preferences.aiModel }
-    }
-
-    private func unloadOthers() async {
-        let client = OllamaClient()
-        for model in runningOthers {
-            await client.unload(model: model)
-        }
-        await refreshRunningOthers()
+    private func refreshDownloaded() {
+        downloadedIDs = Set(ModelCatalog.entries.filter(ModelCatalog.isDownloaded).map(\.id))
     }
 
     private var miscTab: some View {
@@ -470,18 +386,11 @@ struct SettingsView: View {
                     LabeledContent("Answer temperature", value: String(format: "%.2f", preferences.ragAnswerTemperature))
                     Slider(value: $preferences.ragAnswerTemperature, in: 0...1, step: 0.05)
                 }
-                TextField("Embed model", text: $preferences.ragEmbedModel)
-                Picker("Answer model", selection: $preferences.ragAnswerModel) {
-                    ForEach(RAGAnswerModel.allCases) { option in
-                        Text(option.label).tag(option)
-                    }
-                }
                 Button("Reset to Defaults") {
                     preferences.ragChunkSize = Preferences.ragDefaultChunkSize
                     preferences.ragSimilarityFloor = Preferences.ragDefaultSimilarityFloor
                     preferences.ragContextBudget = Preferences.ragDefaultContextBudget
                     preferences.ragAnswerTemperature = Preferences.ragDefaultAnswerTemperature
-                    preferences.ragEmbedModel = Preferences.ragDefaultEmbedModel
                 }
                 .font(.caption)
             } header: {
@@ -491,7 +400,7 @@ struct SettingsView: View {
                 How the assistant searches your notes (the AI's own search, and `/rag`). Chunk size is how much \
                 text is grouped per match; similarity floor is how loose a match counts as relevant — lower finds \
                 more, at the risk of an unrelated note slipping in. Context budget caps how much matched text \
-                reaches the answer model. Embed model must actually support embeddings — a plain chat model 404s.
+                reaches the answer model.
                 """)
                 .foregroundStyle(.secondary)
             }

@@ -202,19 +202,18 @@ final class Preferences: ObservableObject {
     // MARK: AI (beta)
 
     /// Drafting help in the notes editor from a model running locally via
-    /// Ollama. **Off by default and staying that way** — it's an extra thing to
-    /// install and not everyone's machine can run a model, so it must never be
-    /// something the app assumes.
+    /// `llama-server`. **Off by default and staying that way** — it's an
+    /// extra thing to install and not everyone's machine can run a model, so
+    /// it must never be something the app assumes.
     @Published var aiEnabled: Bool {
         didSet { defaults.set(aiEnabled, forKey: Key.aiEnabled) }
     }
 
-    /// Which local model to ask. A name, not an endpoint: the host is fixed at
-    /// localhost so "your notes stay on your Mac" can't be configured away.
-    ///
-    /// Empty until the user picks from the models actually installed on this
-    /// machine — there's no sensible stock default, since a name like
-    /// `llama3.2` is a 404 on a machine that never pulled it.
+    /// Which `ModelCatalog` entry to run — the host and port are fixed
+    /// (`LlamaCppClient.endpoint`) so "your notes stay on your Mac" can't be
+    /// configured away. Defaults to `ModelCatalog.defaultID` (Qwen3-1.7B):
+    /// unlike the old Ollama-name field, every catalog id is one the app can
+    /// actually download itself, so there's no reason to leave it empty.
     @Published var aiModel: String {
         didSet { defaults.set(aiModel, forKey: Key.aiModel) }
     }
@@ -251,7 +250,6 @@ final class Preferences: ObservableObject {
     static let ragDefaultSimilarityFloor = 0.35
     static let ragDefaultContextBudget = 4000
     static let ragDefaultAnswerTemperature = 0.2
-    static let ragDefaultEmbedModel = "nomic-embed-text"
 
     /// Max characters per retrieval chunk — `NoteRetrieval.chunks(maxChars:)`.
     @Published var ragChunkSize: Int {
@@ -267,18 +265,9 @@ final class Preferences: ObservableObject {
     @Published var ragContextBudget: Int {
         didSet { defaults.set(ragContextBudget, forKey: Key.ragContextBudget) }
     }
-    /// LFM2's answer temperature — `LlamaCppClient.complete(temperature:)`.
+    /// The grounded-answer model's temperature — `LlamaCppClient.chat(temperature:)`.
     @Published var ragAnswerTemperature: Double {
         didSet { defaults.set(ragAnswerTemperature, forKey: Key.ragAnswerTemperature) }
-    }
-    /// The Ollama model `RAGQuery` embeds with — must actually support
-    /// embeddings (confirmed live: a plain chat model 404s `/api/embed`).
-    @Published var ragEmbedModel: String {
-        didSet { defaults.set(ragEmbedModel, forKey: Key.ragEmbedModel) }
-    }
-    /// Which model answers a `/rag`/`ask_notes` question — see `RAGAnswerModel`.
-    @Published var ragAnswerModel: RAGAnswerModel {
-        didSet { defaults.set(ragAnswerModel.rawValue, forKey: Key.ragAnswerModel) }
     }
 
     // MARK: Assistant panel size
@@ -396,12 +385,10 @@ final class Preferences: ObservableObject {
         static let aiPermission = "aiPermission"
         static let aiRevealAnimation = "aiRevealAnimation"
         static let aiThinking = "aiThinking"
-        static let ragAnswerModel = "ragAnswerModel"
         static let ragChunkSize = "ragChunkSize"
         static let ragSimilarityFloor = "ragSimilarityFloor"
         static let ragContextBudget = "ragContextBudget"
         static let ragAnswerTemperature = "ragAnswerTemperature"
-        static let ragEmbedModel = "ragEmbedModel"
         static let assistantPanelWidth = "assistantPanelWidth"
         static let assistantPanelHeight = "assistantPanelHeight"
         static let notebookSidebarWidth = "notebookSidebarWidth"
@@ -447,20 +434,17 @@ final class Preferences: ObservableObject {
         islandExpandOnHover = (defaults.object(forKey: Key.islandExpandOnHover) as? Bool) ?? true
         trafficLightsAutoHide = (defaults.object(forKey: Key.trafficLightsAutoHide) as? Bool) ?? true
         aiEnabled = (defaults.object(forKey: Key.aiEnabled) as? Bool) ?? false
-        aiModel = defaults.string(forKey: Key.aiModel) ?? ""
+        aiModel = defaults.string(forKey: Key.aiModel) ?? ModelCatalog.defaultID
         aiPermission = defaults.string(forKey: Key.aiPermission)
             .flatMap(AssistantPermission.init(rawValue:)) ?? .confirm
         aiRevealAnimation = defaults.string(forKey: Key.aiRevealAnimation)
             .flatMap(AIRevealAnimation.init(rawValue:)) ?? .sweep
         aiThinking = defaults.string(forKey: Key.aiThinking)
             .flatMap(AssistantThinking.init(rawValue:)) ?? .low
-        ragAnswerModel = defaults.string(forKey: Key.ragAnswerModel)
-            .flatMap(RAGAnswerModel.init(rawValue:)) ?? .assistantModel
         ragChunkSize = (defaults.object(forKey: Key.ragChunkSize) as? Int) ?? Preferences.ragDefaultChunkSize
         ragSimilarityFloor = (defaults.object(forKey: Key.ragSimilarityFloor) as? Double) ?? Preferences.ragDefaultSimilarityFloor
         ragContextBudget = (defaults.object(forKey: Key.ragContextBudget) as? Int) ?? Preferences.ragDefaultContextBudget
         ragAnswerTemperature = (defaults.object(forKey: Key.ragAnswerTemperature) as? Double) ?? Preferences.ragDefaultAnswerTemperature
-        ragEmbedModel = defaults.string(forKey: Key.ragEmbedModel) ?? Preferences.ragDefaultEmbedModel
         assistantPanelWidth = (defaults.object(forKey: Key.assistantPanelWidth) as? Double) ?? Preferences.assistantPanelDefaultWidth
         notebookSidebarWidth = (defaults.object(forKey: Key.notebookSidebarWidth) as? Double) ?? Preferences.notebookSidebarDefaultWidth
         uiScale = (defaults.object(forKey: Key.uiScale) as? Double) ?? 1.0

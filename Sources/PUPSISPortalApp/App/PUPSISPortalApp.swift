@@ -139,21 +139,18 @@ final class AppState: ObservableObject {
         // bug behind the fix not working: it was there, just never ran.
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: nil
-        ) { [preferences] _ in
+        ) { _ in
             // AppKit posts lifecycle notifications on the main thread, and
             // `queue: nil` above delivers synchronously on the posting
             // thread — so this really is the main actor already, safe to
             // assume rather than hopping through `Task`, which still
             // wouldn't be guaranteed to get scheduled before exit.
             MainActor.assumeIsolated {
+                // `llama-server` holds no state to unload — a clean SIGTERM
+                // here is the whole story, unlike Ollama's separate
+                // idle-timeout-driven unload this used to also need.
                 LlamaServerManager.shared.stop()
             }
-            // Best-effort: an async network call has no such guarantee, and
-            // may not complete before the process dies. Same tolerance
-            // `OllamaClient.unload` already documents for its other callers —
-            // Ollama's own idle timeout frees it eventually regardless.
-            guard !preferences.aiModel.isEmpty else { return }
-            Task { await OllamaClient().unload(model: preferences.aiModel) }
         }
     }
 

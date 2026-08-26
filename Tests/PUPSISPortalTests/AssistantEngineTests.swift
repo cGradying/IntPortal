@@ -14,8 +14,11 @@ private final class FakeExecutor: AssistantExecutor {
     }
 }
 
-/// Every case drives the engine through an injected `OllamaClient` — no
-/// network, no real Ollama needed for this suite to pass.
+/// Every case drives the engine through an injected `LlamaCppClient` — no
+/// network, no real `llama-server` needed for this suite to pass.
+/// `ensureServerRunning: { true }` is pinned throughout — the real default
+/// resolves through `LlamaRuntime`/`ModelCatalog`, which `"test-model"`
+/// never matches.
 final class AssistantEngineTests: XCTestCase {
 
     private let context = AssistantContext(
@@ -25,14 +28,18 @@ final class AssistantEngineTests: XCTestCase {
 
     private func engine(sending: @escaping (Data) async throws -> (Data, Int),
                         executor: AssistantExecutor = FakeExecutor()) -> AssistantEngine {
-        AssistantEngine(client: OllamaClient(sendChat: sending), model: "test-model", executor: executor)
+        AssistantEngine(
+            client: LlamaCppClient(send: sending), model: "test-model", executor: executor,
+            ensureServerRunning: { true }
+        )
     }
 
-    /// Wraps `content` (the model's own JSON turn, itself a string) in
-    /// Ollama's `/api/chat` envelope. Built via `JSONSerialization` rather than
-    /// string interpolation so quoting/escaping is never the thing under test.
+    /// Wraps `content` (the model's own JSON turn, itself a string) in the
+    /// OpenAI-compatible `/v1/chat/completions` envelope. Built via
+    /// `JSONSerialization` rather than string interpolation so
+    /// quoting/escaping is never the thing under test.
     private func jsonResponse(_ content: String) -> (Data, Int) {
-        let envelope: [String: Any] = ["message": ["role": "assistant", "content": content]]
+        let envelope: [String: Any] = ["choices": [["message": ["role": "assistant", "content": content]]]]
         let data = (try? JSONSerialization.data(withJSONObject: envelope)) ?? Data()
         return (data, 200)
     }
@@ -119,6 +126,25 @@ final class AssistantEngineTests: XCTestCase {
         let outcome = try await sut.respond(to: "hello", context: context, permission: .confirm)
         XCTAssertEqual(outcome.actions.first?.tool, "delete_everything")
         XCTAssertNil(AssistantTool.named("delete_everything"))
+    }
+
+    /// No model downloaded / `llama-server` not installed — the engine fails
+    /// closed with `.serverUnavailable` before ever calling the transport.
+    func testThrowsServerUnavailableWhenTheServerCannotBeStarted() async {
+        var called = false
+        let sut = AssistantEngine(
+            client: LlamaCppClient(send: { _ in called = true; return self.jsonResponse(#"{"reply":"x","actions":[]}"#) }),
+            model: "test-model", executor: FakeExecutor(), ensureServerRunning: { false }
+        )
+        do {
+            _ = try await sut.respond(to: "hello", context: context, permission: .confirm)
+            XCTFail("expected serverUnavailable")
+        } catch let error as AssistantEngineError {
+            if case .serverUnavailable = error {} else { XCTFail("wrong case: \(error)") }
+        } catch {
+            XCTFail("wrong error type: \(error)")
+        }
+        XCTAssertFalse(called)
     }
 
     // MARK: propose/confirm never execute

@@ -3,7 +3,10 @@ import XCTest
 
 /// `RAGQuery` itself — the pipeline `ask_notes`/`search_notes` and `/rag`
 /// both delegate to. Covers the two expected failure modes as typed errors,
-/// since both callers switch on them.
+/// since both callers switch on them. `ensureChatServerRunning`/
+/// `ensureEmbedServerRunning` are pinned explicitly throughout — the real
+/// defaults resolve through `LlamaRuntime`/`ModelCatalog`, which a bare test
+/// answer model never matches.
 @MainActor
 final class RAGQueryTests: XCTestCase {
     private var notesURL: URL!
@@ -20,8 +23,13 @@ final class RAGQueryTests: XCTestCase {
         try? FileManager.default.removeItem(at: notesURL.deletingLastPathComponent())
     }
 
+    private func envelope(_ content: String) -> (Data, Int) {
+        let wrapper: [String: Any] = ["choices": [["message": ["role": "assistant", "content": content]]]]
+        return ((try? JSONSerialization.data(withJSONObject: wrapper)) ?? Data(), 200)
+    }
+
     func testAskThrowsNoMatchWhenNothingIsInTheVault() async {
-        let query = RAGQuery(notes: notesStore)
+        let query = RAGQuery(notes: notesStore, ensureChatServerRunning: { true })
         do {
             _ = try await query.ask("anything")
             XCTFail("expected .noMatch")
@@ -32,16 +40,12 @@ final class RAGQueryTests: XCTestCase {
         }
     }
 
-    func testAskThrowsServerUnavailableWhenLlamaServerWontStart() async {
+    func testAskThrowsServerUnavailableWhenTheChatServerWontStart() async {
         notesStore.setText("Review recursion.", for: "class:COMP 001")
         let query = RAGQuery(
             notes: notesStore,
-            ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
-            ensureServerRunning: { false },
-            // Only the llama.cpp path spawns/health-checks a server at all —
-            // pin it explicitly, since the default answerer is Ollama-based
-            // and wouldn't call ensureServerRunning in the first place.
-            answerer: .llamaCpp
+            client: LlamaCppClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
+            ensureChatServerRunning: { false }
         )
         do {
             _ = try await query.ask("recursion")
@@ -55,7 +59,20 @@ final class RAGQueryTests: XCTestCase {
 
     func testSearchFallsBackToTermMatchingWhenEmbeddingFails() async {
         notesStore.setText("Review recursion before the exam.", for: "class:COMP 001")
-        let query = RAGQuery(notes: notesStore, ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }))
+        let query = RAGQuery(
+            notes: notesStore,
+            client: LlamaCppClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
+            ensureEmbedServerRunning: { true } // reaches the embed call itself, which then throws
+        )
+        let hits = await query.search("recursion")
+        XCTAssertEqual(hits.first?.name, "COMP 001")
+    }
+
+    /// Starting the embed server itself failing (not just the embed call)
+    /// must fall back to term matching too, same as an embed-call failure.
+    func testSearchFallsBackToTermMatchingWhenTheEmbedServerWontStart() async {
+        notesStore.setText("Review recursion before the exam.", for: "class:COMP 001")
+        let query = RAGQuery(notes: notesStore, ensureEmbedServerRunning: { false })
         let hits = await query.search("recursion")
         XCTAssertEqual(hits.first?.name, "COMP 001")
     }
@@ -66,7 +83,10 @@ final class RAGQueryTests: XCTestCase {
         notesStore.setText("Review recursion before the exam.", for: key)
         notesStore.setRAGExcluded(true, for: id)
 
-        let query = RAGQuery(notes: notesStore, ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }))
+        let query = RAGQuery(
+            notes: notesStore,
+            client: LlamaCppClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
+        )
         let hits = await query.search("recursion")
         XCTAssertTrue(hits.isEmpty)
     }
@@ -86,16 +106,11 @@ final class RAGQueryTests: XCTestCase {
         notesStore.setText("Unrelated shopping list: milk, eggs, bread.", for: "class:DECOY1")
         notesStore.setText("Another unrelated note about the weather today.", for: "class:DECOY2")
 
-        let client = LlamaCppClient(send: { _ in
-            (Data(#"{"choices":[{"message":{"content":"Photosynthesis converts light to energy."}}]}"#.utf8), 200)
-        })
-        let query = RAGQuery(
-            notes: notesStore,
-            ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
-            llamaCppClient: client,
-            ensureServerRunning: { true }, // never spawn/health-check a real llama-server in a test
-            answerer: .llamaCpp
+        let client = LlamaCppClient(
+            send: { _ in self.envelope(#"{"answer":"Photosynthesis converts light to energy."}"#) },
+            sendEmbed: { _ in throw URLError(.notConnectedToInternet) }
         )
+        let query = RAGQuery(notes: notesStore, client: client, ensureChatServerRunning: { true })
 
         do {
             let answer = try await query.ask("photosynthesis")
@@ -112,14 +127,13 @@ final class RAGQueryTests: XCTestCase {
     /// dropped outright.
     func testAskTruncatesAnOverBudgetHitInsteadOfDroppingItEntirely() async {
         notesStore.setText("Recursion has a base case and a recursive case, applied repeatedly.", for: "class:COMP 001")
-        let client = LlamaCppClient(send: { _ in (Data(#"{"choices":[{"message":{"content":"An answer."}}]}"#.utf8), 200) })
+        let client = LlamaCppClient(
+            send: { _ in self.envelope(#"{"answer":"An answer."}"#) },
+            sendEmbed: { _ in throw URLError(.notConnectedToInternet) }
+        )
         let query = RAGQuery(
-            notes: notesStore,
-            ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
-            llamaCppClient: client,
-            ensureServerRunning: { true }, // never spawn/health-check a real llama-server in a test
-            contextBudget: 20, // smaller than the single matching chunk's own text
-            answerer: .llamaCpp
+            notes: notesStore, client: client, ensureChatServerRunning: { true },
+            contextBudget: 20 // smaller than the single matching chunk's own text
         )
 
         do {
@@ -130,21 +144,15 @@ final class RAGQueryTests: XCTestCase {
         }
     }
 
-    // MARK: Granite as the default answerer — one model, one server, no llama.cpp
+    // MARK: answering — the chat-role server, schema-constrained
 
-    func testAssistantModelAnswererDefaultsToOllamaNotLlamaCpp() async {
+    func testAskDecodesTheAnswerFieldFromTheChatServer() async {
         notesStore.setText("Recursion has a base case and a recursive case.", for: "class:COMP 001")
-        let query = RAGQuery(
-            notes: notesStore,
-            ollamaClient: OllamaClient(
-                // If this ever routes through llamaCppClient instead, the
-                // hardcoded 400 below is what fails the test loudly.
-                sendChat: { _ in (Data(#"{"message":{"content":"{\"answer\":\"A base case and a recursive case.\"}"}}"#.utf8), 200) },
-                sendEmbed: { _ in throw URLError(.notConnectedToInternet) }
-            ),
-            llamaCppClient: LlamaCppClient(send: { _ in (Data(), 400) }),
-            answerModel: "granite4.2:3b"
+        let client = LlamaCppClient(
+            send: { _ in self.envelope(#"{"answer":"A base case and a recursive case."}"#) },
+            sendEmbed: { _ in throw URLError(.notConnectedToInternet) }
         )
+        let query = RAGQuery(notes: notesStore, client: client, ensureChatServerRunning: { true }, answerModel: "qwen3-1.7b")
         do {
             let answer = try await query.ask("recursion")
             XCTAssertEqual(answer.text, "A base case and a recursive case.")

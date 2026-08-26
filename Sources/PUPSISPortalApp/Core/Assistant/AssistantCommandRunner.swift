@@ -27,7 +27,7 @@ struct AssistantCommandRunner {
 
     private let notes: NotesStore
     private let openNoteKey: () -> String?
-    private let client: OllamaClient
+    private let client: LlamaCppClient
     private let model: String
     private let ragQuery: RAGQuery
     /// `/think` writes here directly — a UI setting, not a tool call.
@@ -36,6 +36,9 @@ struct AssistantCommandRunner {
     /// than duplicating any calendar logic — they just build the same
     /// `AssistantAction` the model's tool-picking would, deterministically.
     private let executor: RealAssistantExecutor
+    /// Defaults to resolving `model` through `LlamaRuntime` — override in
+    /// tests to skip the real process-management path entirely.
+    private let ensureServerRunning: () async -> Bool
 
     init(
         notes: NotesStore,
@@ -43,8 +46,9 @@ struct AssistantCommandRunner {
         model: String,
         preferences: Preferences,
         executor: RealAssistantExecutor,
-        client: OllamaClient = OllamaClient(),
-        ragQuery: RAGQuery? = nil
+        client: LlamaCppClient = LlamaCppClient(),
+        ragQuery: RAGQuery? = nil,
+        ensureServerRunning: (() async -> Bool)? = nil
     ) {
         self.notes = notes
         self.openNoteKey = openNoteKey
@@ -52,12 +56,13 @@ struct AssistantCommandRunner {
         self.client = client
         self.executor = executor
         self.preferences = preferences
+        self.ensureServerRunning = ensureServerRunning ?? { await LlamaRuntime.ensureChatServer(modelID: model) }
         self.ragQuery = ragQuery ?? RAGQuery(
             notes: notes,
-            embedModel: preferences.ragEmbedModel, chunkSize: preferences.ragChunkSize,
+            chunkSize: preferences.ragChunkSize,
             similarityFloor: preferences.ragSimilarityFloor, contextBudget: preferences.ragContextBudget,
             answerTemperature: preferences.ragAnswerTemperature,
-            answerer: preferences.ragAnswerModel, answerModel: preferences.aiModel
+            answerModel: preferences.aiModel
         )
     }
 
@@ -190,6 +195,9 @@ struct AssistantCommandRunner {
         guard !text.isEmpty else {
             return Outcome(reply: "\(displayName(key)) is empty — nothing to summarize.", pin: nil)
         }
+        guard await ensureServerRunning() else {
+            return Outcome(reply: LlamaCppClient.ClientError.offline.errorDescription ?? "Couldn't reach the local model server.", pin: nil)
+        }
         do {
             let summary = try await client.generate(
                 model: model, selection: text, instruction: Self.summarizeInstruction
@@ -204,6 +212,9 @@ struct AssistantCommandRunner {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return Outcome(reply: "Say what the note should be about, e.g. `/create photosynthesis basics`.", pin: nil)
+        }
+        guard await ensureServerRunning() else {
+            return Outcome(reply: LlamaCppClient.ClientError.offline.errorDescription ?? "Couldn't reach the local model server.", pin: nil)
         }
         do {
             let text = try await client.generate(model: model, selection: trimmed, instruction: Self.createInstruction)

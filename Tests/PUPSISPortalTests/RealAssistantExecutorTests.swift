@@ -28,25 +28,19 @@ final class RealAssistantExecutorTests: XCTestCase {
         try? FileManager.default.removeItem(at: notesURL.deletingLastPathComponent())
     }
 
-    /// Offline by default — `search_notes`/`ask_notes` tests exercise the
-    /// term-ranking fallback path deterministically, with no dependency on a
-    /// real Ollama or an embedding model being installed. Tests that care
-    /// about the embedding path inject their own `ollamaClient`.
-    private static let offlineOllamaClient = OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
+    /// Offline embeddings by default — `search_notes`/`ask_notes` tests
+    /// exercise the term-ranking fallback path deterministically, with no
+    /// dependency on a real `llama-server`/embedding model being installed.
+    /// Tests that care about the embedding path inject their own `client`.
+    private static let offlineClient = LlamaCppClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
 
-    /// `ask_notes` tests here exercise `LlamaCppClient` fakes, so they need
-    /// `ragAnswerModel` pinned to `.llamaCpp` — the default is `.assistantModel`
-    /// (Granite via `ollamaClient`) since that's what a real install answers
-    /// with, but these tests are specifically about the llama.cpp path.
     private func executor(
         openKey: String? = nil,
-        llamaCppClient: LlamaCppClient = LlamaCppClient(),
-        ensureServerRunning: @escaping () async -> Bool = { true },
-        ollamaClient: OllamaClient = offlineOllamaClient,
-        answerer: RAGAnswerModel = .llamaCpp
+        client: LlamaCppClient = offlineClient,
+        ensureChatServerRunning: @escaping () async -> Bool = { true },
+        ensureEmbedServerRunning: @escaping () async -> Bool = { true }
     ) -> RealAssistantExecutor {
         let preferences = Preferences(defaults: UserDefaults(suiteName: "RealAssistantExecutorTests-\(UUID().uuidString)")!)
-        preferences.ragAnswerModel = answerer
         return RealAssistantExecutor(
             notes: notesStore,
             editor: EventEditor(bridge: CalendarBridge()),
@@ -54,9 +48,9 @@ final class RealAssistantExecutorTests: XCTestCase {
             portal: PortalController(),
             preferences: preferences,
             openNoteKey: { openKey },
-            llamaCppClient: llamaCppClient,
-            ensureServerRunning: ensureServerRunning,
-            ollamaClient: ollamaClient
+            client: client,
+            ensureChatServerRunning: ensureChatServerRunning,
+            ensureEmbedServerRunning: ensureEmbedServerRunning
         )
     }
 
@@ -125,9 +119,9 @@ final class RealAssistantExecutorTests: XCTestCase {
     func testAskNotesReturnsTheModelsGroundedAnswer() async {
         notesStore.setText("Recursion has a base case and a recursive case.", for: "class:COMP 001")
         let client = LlamaCppClient(send: { _ in
-            (Data(#"{"choices":[{"message":{"content":"A base case and a recursive case."}}]}"#.utf8), 200)
-        })
-        let result = await executor(llamaCppClient: client)
+            (Data(#"{"choices":[{"message":{"content":"{\"answer\":\"A base case and a recursive case.\"}"}}]}"#.utf8), 200)
+        }, sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
+        let result = await executor(client: client)
             .execute(AssistantAction(tool: "ask_notes", args: ["query": .string("recursion")]))
 
         XCTAssertTrue(result.ok)
@@ -140,11 +134,11 @@ final class RealAssistantExecutorTests: XCTestCase {
     func testAskNotesSkipsTheModelWhenNothingMatches() async {
         notesStore.setText("unrelated content", for: "class:COMP 001")
         var called = false
-        let client = LlamaCppClient(send: { body in
+        let client = LlamaCppClient(send: { _ in
             called = true
-            return (Data(#"{"choices":[{"message":{"content":"x"}}]}"#.utf8), 200)
+            return (Data(#"{"choices":[{"message":{"content":"{\"answer\":\"x\"}"}}]}"#.utf8), 200)
         })
-        let result = await executor(llamaCppClient: client)
+        let result = await executor(client: client)
             .execute(AssistantAction(tool: "ask_notes", args: ["query": .string("nonexistent")]))
 
         XCTAssertTrue(result.ok)
@@ -154,15 +148,16 @@ final class RealAssistantExecutorTests: XCTestCase {
 
     // MARK: embedding-based retrieval — the semantic-match upgrade
 
-    /// A fake `/api/embed` keyed by exact input text, so a test can assign a
-    /// deterministic vector to each string without depending on chunk/dict
-    /// iteration order.
-    private func embedClient(_ vectors: [String: [Double]]) -> OllamaClient {
-        OllamaClient(sendEmbed: { body in
+    /// A fake `/v1/embeddings` keyed by exact input text, so a test can
+    /// assign a deterministic vector to each string without depending on
+    /// chunk/dict iteration order.
+    private func embedClient(_ vectors: [String: [Double]], send: ((Data) async throws -> (Data, Int))? = nil) -> LlamaCppClient {
+        LlamaCppClient(send: send, sendEmbed: { body in
             let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
             let inputs = try XCTUnwrap(json["input"] as? [String])
             let embeddings = inputs.map { vectors[$0] ?? [0, 0] }
-            return (try JSONEncoder().encode(["embeddings": embeddings]), 200)
+            let data = try JSONSerialization.data(withJSONObject: ["data": embeddings.map { ["embedding": $0] }])
+            return (data, 200)
         })
     }
 
@@ -175,16 +170,16 @@ final class RealAssistantExecutorTests: XCTestCase {
         notesStore.setText("agricultural revolution agricultural revolution agricultural revolution (decoy, unrelated)", for: "class:DECOY")
 
         let query = "what does my note say about the agricultural revolution?"
-        let client = embedClient([
-            query: [1, 0],
-            "Humans began farming and settling into villages during the Neolithic period.": [0.95, 0.05],
-            "agricultural revolution agricultural revolution agricultural revolution (decoy, unrelated)": [0, 1],
-        ])
-        let llama = LlamaCppClient(send: { _ in
-            (Data(#"{"choices":[{"message":{"content":"Farming began and people settled into villages."}}]}"#.utf8), 200)
-        })
+        let client = embedClient(
+            [
+                query: [1, 0],
+                "Humans began farming and settling into villages during the Neolithic period.": [0.95, 0.05],
+                "agricultural revolution agricultural revolution agricultural revolution (decoy, unrelated)": [0, 1],
+            ],
+            send: { _ in (Data(#"{"choices":[{"message":{"content":"{\"answer\":\"Farming began and people settled into villages.\"}"}}]}"#.utf8), 200) }
+        )
 
-        let result = await executor(llamaCppClient: llama, ollamaClient: client)
+        let result = await executor(client: client)
             .execute(AssistantAction(tool: "ask_notes", args: ["query": .string(query)]))
 
         XCTAssertTrue(result.ok)
@@ -192,13 +187,13 @@ final class RealAssistantExecutorTests: XCTestCase {
         XCTAssertFalse(result.sources.contains("DECOY"))
     }
 
-    /// If the embed call fails (no `nomic-embed-text` pulled, Ollama offline),
-    /// retrieval falls back to term matching instead of dead-ending.
+    /// If the embed call fails (no embedding model downloaded, server
+    /// offline), retrieval falls back to term matching instead of dead-ending.
     func testSearchNotesFallsBackToTermMatchingWhenEmbeddingFails() async {
         notesStore.setText("Review recursion before the exam.", for: "class:COMP 001")
-        let failingClient = OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
+        let failingClient = LlamaCppClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
 
-        let result = await executor(ollamaClient: failingClient)
+        let result = await executor(client: failingClient)
             .execute(AssistantAction(tool: "search_notes", args: ["query": .string("recursion")]))
 
         XCTAssertTrue(result.ok)
@@ -210,28 +205,28 @@ final class RealAssistantExecutorTests: XCTestCase {
         XCTAssertFalse(result.ok)
     }
 
-    /// The server can't be started — fails clearly, and never even tries the
-    /// client, since there's nothing to talk to.
+    /// The chat server can't be started — fails clearly, and never even
+    /// tries the client, since there's nothing to talk to.
     func testAskNotesFailsClearlyWhenTheServerCannotBeStarted() async {
         notesStore.setText("Recursion has a base case.", for: "class:COMP 001")
         var clientCalled = false
         let client = LlamaCppClient(send: { _ in
             clientCalled = true
-            return (Data(#"{"choices":[{"message":{"content":"x"}}]}"#.utf8), 200)
-        })
-        let result = await executor(llamaCppClient: client, ensureServerRunning: { false })
+            return (Data(#"{"choices":[{"message":{"content":"{\"answer\":\"x\"}"}}]}"#.utf8), 200)
+        }, sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
+        let result = await executor(client: client, ensureChatServerRunning: { false })
             .execute(AssistantAction(tool: "ask_notes", args: ["query": .string("recursion")]))
 
         XCTAssertFalse(result.ok)
         XCTAssertFalse(clientCalled, "must not talk to a server that failed to start")
     }
 
-    /// Starting the server is skipped entirely when nothing matched — no
-    /// point paying a cold start for a question there's nothing to answer.
+    /// Starting the chat server is skipped entirely when nothing matched —
+    /// no point paying a cold start for a question there's nothing to answer.
     func testAskNotesNeverStartsTheServerWhenNothingMatches() async {
         notesStore.setText("unrelated content", for: "class:COMP 001")
         var startAttempted = false
-        let result = await executor(ensureServerRunning: { startAttempted = true; return true })
+        let result = await executor(ensureChatServerRunning: { startAttempted = true; return true })
             .execute(AssistantAction(tool: "ask_notes", args: ["query": .string("nonexistent")]))
 
         XCTAssertTrue(result.ok)
@@ -243,8 +238,8 @@ final class RealAssistantExecutorTests: XCTestCase {
     func testAskNotesFailsClearlyWhenTheServerIsUnreachable() async {
         notesStore.setText("Recursion has a base case.", for: "class:COMP 001")
         struct Boom: Error {}
-        let client = LlamaCppClient(send: { _ in throw Boom() })
-        let result = await executor(llamaCppClient: client)
+        let client = LlamaCppClient(send: { _ in throw Boom() }, sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
+        let result = await executor(client: client)
             .execute(AssistantAction(tool: "ask_notes", args: ["query": .string("recursion")]))
 
         XCTAssertFalse(result.ok)

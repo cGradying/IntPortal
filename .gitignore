@@ -20,3 +20,8 @@ vsc.code-workspace
 windows/**/bin/
 windows/**/obj/
 *.user
+
+# Downloaded model weights — the real download target is Application
+# Support (ModelCatalog.modelsDirectory), never the repo.
+*.gguf
+gguf/

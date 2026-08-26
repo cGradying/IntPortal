@@ -479,7 +479,6 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.ragSimilarityFloor, Preferences.ragDefaultSimilarityFloor)
         XCTAssertEqual(prefs.ragContextBudget, Preferences.ragDefaultContextBudget)
         XCTAssertEqual(prefs.ragAnswerTemperature, Preferences.ragDefaultAnswerTemperature)
-        XCTAssertEqual(prefs.ragEmbedModel, Preferences.ragDefaultEmbedModel)
     }
 
     func testRAGSettingsSurviveRelaunch() {
@@ -488,14 +487,12 @@ final class PreferencesTests: XCTestCase {
         prefs.ragSimilarityFloor = 0.5
         prefs.ragContextBudget = 8000
         prefs.ragAnswerTemperature = 0.7
-        prefs.ragEmbedModel = "mxbai-embed-large"
 
         let reloaded = Preferences(defaults: defaults)
         XCTAssertEqual(reloaded.ragChunkSize, 500)
         XCTAssertEqual(reloaded.ragSimilarityFloor, 0.5)
         XCTAssertEqual(reloaded.ragContextBudget, 8000)
         XCTAssertEqual(reloaded.ragAnswerTemperature, 0.7)
-        XCTAssertEqual(reloaded.ragEmbedModel, "mxbai-embed-large")
     }
 
     // MARK: Assistant panel size

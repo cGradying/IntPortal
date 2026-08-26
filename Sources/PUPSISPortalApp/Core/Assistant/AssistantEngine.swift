@@ -82,7 +82,7 @@ protocol AssistantExecutor {
 
 enum AssistantEngineError: LocalizedError {
     /// The model's turn didn't decode as `AssistantReply` — a schema violation
-    /// Ollama's `format` constraint didn't actually prevent, or the model
+    /// the `response_format` constraint didn't actually prevent, or the model
     /// returned nothing. Carries a truncated snippet, not the full payload —
     /// this can end up in a user-facing error line.
     case malformedReply(String)
@@ -91,6 +91,10 @@ enum AssistantEngineError: LocalizedError {
     /// not happen in practice — the loop always returns on its last iteration
     /// regardless — this exists so the function has no silent unreachable path.
     case iterationsExhausted
+    /// The `.chat`-role `llama-server` couldn't be started — no model
+    /// downloaded yet in Settings ▸ AI, or `llama-server` itself isn't
+    /// installed (`brew install llama.cpp`).
+    case serverUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -98,33 +102,38 @@ enum AssistantEngineError: LocalizedError {
             "The assistant's reply wasn't valid JSON: \(raw.prefix(200))"
         case .iterationsExhausted:
             "The assistant took too many steps without finishing."
+        case .serverUnavailable:
+            "Couldn't start the local model server. Is a model downloaded in Settings ▸ AI, and is llama.cpp installed? (`brew install llama.cpp`)"
         }
     }
 }
 
 /// Drives one user turn through the local model: builds the prompt (tool
-/// catalog + screen context + conversation), asks Ollama for a schema-
-/// constrained reply, decodes it, and — only in `.auto` — executes actions and
-/// loops with their results until the model stops proposing more or the
-/// iteration cap is hit.
+/// catalog + screen context + conversation), asks the local `llama-server`
+/// for a schema-constrained reply, decodes it, and — only in `.auto` —
+/// executes actions and loops with their results until the model stops
+/// proposing more or the iteration cap is hit.
 ///
-/// **Why a JSON schema instead of Ollama's native `tools` parameter:**
-/// tool-calling support varies a lot across small local models and degrades
-/// badly under ~3B parameters. A `format` schema works on any model that can
+/// **Why a JSON schema instead of a native `tools` parameter:** tool-calling
+/// support varies a lot across small local models and degrades badly under
+/// ~3B parameters. A `response_format` schema works on any model that can
 /// follow instructions at all, and fails in a way this engine can catch
-/// (`.malformedReply`) rather than silently misbehaving. Revisit if native
-/// tools prove reliably better on the machine's larger models — the schema
-/// path should stay as the fallback either way.
+/// (`.malformedReply`) rather than silently misbehaving.
 final class AssistantEngine {
-    /// Confirmed against real installed models (`qwen2.5-coder:1.5b/3b`,
-    /// `qwen3.5:4b`) during Phase 0 — see the plan file's Phase 0 spike notes.
     static let maxIterations = 4
 
-    private let client: OllamaClient
+    private let client: LlamaCppClient
     private let model: String
     private let executor: AssistantExecutor
+    /// Defaults to resolving `model` through `LlamaRuntime` — override in
+    /// tests to skip the real process-management path entirely.
+    private let ensureServerRunning: () async -> Bool
 
-    init(client: OllamaClient = OllamaClient(), model: String, executor: AssistantExecutor) {
+    init(
+        client: LlamaCppClient = LlamaCppClient(), model: String, executor: AssistantExecutor,
+        ensureServerRunning: (() async -> Bool)? = nil
+    ) {
+        self.ensureServerRunning = ensureServerRunning ?? { await LlamaRuntime.ensureChatServer(modelID: model) }
         self.client = client
         self.model = model
         self.executor = executor
@@ -137,13 +146,15 @@ final class AssistantEngine {
         permission: AssistantPermission,
         think: AssistantThinking = .off
     ) async throws -> AssistantOutcome {
-        var messages: [OllamaClient.ChatMessage] = [
-            OllamaClient.ChatMessage(role: .system, content: Self.systemPrompt(context: context)),
+        guard await ensureServerRunning() else { throw AssistantEngineError.serverUnavailable }
+
+        var messages: [LlamaCppClient.ChatMessage] = [
+            LlamaCppClient.ChatMessage(role: .system, content: Self.systemPrompt(context: context)),
         ]
         messages += history.map {
-            OllamaClient.ChatMessage(role: $0.role == .user ? .user : .assistant, content: $0.content)
+            LlamaCppClient.ChatMessage(role: $0.role == .user ? .user : .assistant, content: $0.content)
         }
-        messages.append(OllamaClient.ChatMessage(role: .user, content: userMessage))
+        messages.append(LlamaCppClient.ChatMessage(role: .user, content: userMessage))
 
         // propose/confirm never execute anything themselves — the UI decides,
         // action by action, whether to call the executor at all. One request,
@@ -170,8 +181,8 @@ final class AssistantEngine {
             }
             allResults += results
 
-            messages.append(OllamaClient.ChatMessage(role: .assistant, content: raw.content))
-            messages.append(OllamaClient.ChatMessage(role: .user, content: Self.toolResultsMessage(results)))
+            messages.append(LlamaCppClient.ChatMessage(role: .assistant, content: raw.content))
+            messages.append(LlamaCppClient.ChatMessage(role: .user, content: Self.toolResultsMessage(results)))
         }
         throw AssistantEngineError.iterationsExhausted
     }

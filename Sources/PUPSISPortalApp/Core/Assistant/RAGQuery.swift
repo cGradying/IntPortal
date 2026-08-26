@@ -1,33 +1,14 @@
 import Foundation
 
-/// Which model synthesizes `RAGQuery`'s grounded answer. `Preferences.ragAnswerModel`.
-enum RAGAnswerModel: String, Codable, CaseIterable, Identifiable {
-    /// The assistant's own Ollama chat model (e.g. Granite) — one model, one
-    /// server, for chat and RAG both.
-    case assistantModel
-    /// The dedicated llama.cpp RAG model (`LlamaCppClient`) — kept for a
-    /// setup from before Granite that's already working.
-    case llamaCpp
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .assistantModel: "Assistant model"
-        case .llamaCpp: "Dedicated RAG model (llama.cpp)"
-        }
-    }
-}
-
 /// The RAG pipeline itself: rank the vault's RAG-included notes against a
-/// query (embeddings via Ollama, falling back to term matching when the
-/// embed model isn't available), then ask the local grounded-answer model
+/// query (embeddings via the `.embed`-role `llama-server`, falling back to
+/// term matching when that's unavailable), then ask the `.chat`-role server
 /// for one synthesized answer. Shared by two entry points — `ask_notes`/
 /// `search_notes` (the model decides when to call these, and small models
-/// are unreliable at that — confirmed live: `qwen2.5-coder:1.5b` never calls
-/// them even when told to by name) and the `/rag "prompt"` slash command
-/// (deterministic, always runs, no tool-picking involved). Same retrieval,
-/// same answer model, two ways in — extracted here so neither reimplements it.
+/// are unreliable at that — confirmed live) and the `/rag "prompt"` slash
+/// command (deterministic, always runs, no tool-picking involved). Same
+/// retrieval, same answer model, two ways in — extracted here so neither
+/// reimplements it.
 ///
 /// Every tunable is a plain init parameter defaulted to the shipped value,
 /// not a `Preferences` dependency — keeps this a pure, easily-testable
@@ -37,51 +18,41 @@ enum RAGAnswerModel: String, Codable, CaseIterable, Identifiable {
 @MainActor
 struct RAGQuery {
     private let notesStore: NotesStore
-    private let ollamaClient: OllamaClient
-    private let llamaCppClient: LlamaCppClient
-    private let ensureServerRunning: () async -> Bool
-    private let embedModel: String
+    private let client: LlamaCppClient
+    private let ensureChatServerRunning: () async -> Bool
+    private let ensureEmbedServerRunning: () async -> Bool
     private let chunkSize: Int
     private let similarityFloor: Double
     private let contextBudget: Int
     private let answerTemperature: Double
-    private let answerer: RAGAnswerModel
     private let answerModel: String
 
     init(
         notes: NotesStore,
-        ollamaClient: OllamaClient = OllamaClient(),
-        llamaCppClient: LlamaCppClient = LlamaCppClient(),
-        ensureServerRunning: @escaping () async -> Bool = { await LlamaServerManager.shared.ensureRunning() },
-        /// A small, purpose-built embedding model — not the assistant's own
-        /// chat model, which 404s on Ollama's `/api/embed` (confirmed live: a
-        /// plain chat model isn't loaded with embeddings support). One-time
-        /// setup on a machine that doesn't have it:
-        /// `ollama pull nomic-embed-text` (~270MB).
-        embedModel: String = "nomic-embed-text",
+        client: LlamaCppClient = LlamaCppClient(),
+        /// Defaults to resolving `answerModel` through `LlamaRuntime` —
+        /// override in tests to skip the real process-management path
+        /// entirely.
+        ensureChatServerRunning: (() async -> Bool)? = nil,
+        ensureEmbedServerRunning: @escaping () async -> Bool = { await LlamaRuntime.ensureEmbedServer() },
         chunkSize: Int = 700,
         similarityFloor: Double = 0.35,
         contextBudget: Int = 4000,
         answerTemperature: Double = 0.2,
-        /// Which model synthesizes the grounded answer — see `RAGAnswerModel`.
-        answerer: RAGAnswerModel = .assistantModel,
-        /// The Ollama chat model to ask when `answerer == .assistantModel`
-        /// (`Preferences.aiModel`, e.g. `granite4.2:3b` — a model good at
-        /// both tool-calling and grounded RAG, unlike the small models this
-        /// split originally existed to work around). Unused when `answerer`
-        /// is `.llamaCpp`.
+        /// The catalog model id that answers (`Preferences.aiModel`) —
+        /// resolved to a local `llama-server` process, not passed in any
+        /// request body (see `LlamaCppClient`'s own doc comment on why
+        /// `model` request fields are vestigial there).
         answerModel: String = ""
     ) {
         self.notesStore = notes
-        self.ollamaClient = ollamaClient
-        self.llamaCppClient = llamaCppClient
-        self.ensureServerRunning = ensureServerRunning
-        self.embedModel = embedModel
+        self.client = client
+        self.ensureChatServerRunning = ensureChatServerRunning ?? { await LlamaRuntime.ensureChatServer(modelID: answerModel) }
+        self.ensureEmbedServerRunning = ensureEmbedServerRunning
         self.chunkSize = chunkSize
         self.similarityFloor = similarityFloor
         self.contextBudget = contextBudget
         self.answerTemperature = answerTemperature
-        self.answerer = answerer
         self.answerModel = answerModel
     }
 
@@ -99,7 +70,7 @@ struct RAGQuery {
             case .noMatch(let query):
                 "No notes matched \"\(query)\", so there's nothing to answer from."
             case .serverUnavailable:
-                "Couldn't start the local notes-answering server. Is llama.cpp installed? (`brew install llama.cpp`)"
+                "Couldn't start the local model server. Is a model downloaded in Settings ▸ AI, and is llama.cpp installed? (`brew install llama.cpp`)"
             }
         }
     }
@@ -111,17 +82,12 @@ struct RAGQuery {
 
     /// One grounded answer — what `ask_notes` and `/rag` both produce.
     /// `.noMatch` and `.serverUnavailable` are expected, handleable outcomes
-    /// (an empty vault, llama.cpp not installed); anything `llamaCppClient`
-    /// itself throws (its own `.offline`/`.http`/`.empty`) propagates as-is.
+    /// (an empty vault, no model downloaded yet); anything `client` itself
+    /// throws (its own `.offline`/`.http`/`.empty`) propagates as-is.
     func ask(_ query: String) async throws -> Answer {
         let hits = await rankedChunks(for: query)
         guard !hits.isEmpty else { throw QueryError.noMatch(query) }
-        // Only the llama.cpp path needs a server spawned/health-checked —
-        // `.assistantModel` answers through the same Ollama server retrieval
-        // already used for embeddings, nothing extra to start.
-        if answerer == .llamaCpp {
-            guard await ensureServerRunning() else { throw QueryError.serverUnavailable }
-        }
+        guard await ensureChatServerRunning() else { throw QueryError.serverUnavailable }
 
         // Truncates an over-budget hit to whatever room is left rather than
         // skipping it outright — a top-ranked match (a whole note pasted with
@@ -147,34 +113,20 @@ struct RAGQuery {
 
     private static let answerSystemPrompt = "Answer the question using only the notes given. If the notes don't contain the answer, say so plainly rather than guessing."
 
-    /// `.assistantModel` is default: Granite (or whatever `answerModel` is
-    /// set to) answers directly through the same Ollama server the assistant
-    /// already talks to — no second process. `.llamaCpp` is kept for anyone
-    /// who set it up before Granite and still wants the dedicated RAG model;
-    /// its `.offline`/`.http`/`.empty` errors propagate exactly as before.
     private func answer(notes packed: String, query: String) async throws -> String {
-        switch answerer {
-        case .assistantModel:
-            let reply = try await ollamaClient.chat(
-                model: answerModel,
-                messages: [
-                    .init(role: .system, content: Self.answerSystemPrompt),
-                    .init(role: .user, content: "Notes:\n\(packed)\n\nQuestion: \(query)"),
-                ],
-                schema: ["type": "object", "properties": ["answer": ["type": "string"]], "required": ["answer"]]
-            )
-            struct Answer: Decodable { let answer: String }
-            guard let data = reply.content.data(using: .utf8),
-                  let decoded = try? JSONDecoder().decode(Answer.self, from: data)
-            else { throw OllamaClient.ClientError.empty }
-            return decoded.answer
-        case .llamaCpp:
-            return try await llamaCppClient.complete(
-                system: Self.answerSystemPrompt,
-                user: "Notes:\n\(packed)\n\nQuestion: \(query)",
-                temperature: answerTemperature
-            )
-        }
+        let reply = try await client.chat(
+            messages: [
+                .init(role: .system, content: Self.answerSystemPrompt),
+                .init(role: .user, content: "Notes:\n\(packed)\n\nQuestion: \(query)"),
+            ],
+            schema: ["type": "object", "properties": ["answer": ["type": "string"]], "required": ["answer"]],
+            temperature: answerTemperature
+        )
+        struct Answer: Decodable { let answer: String }
+        guard let data = reply.content.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode(Answer.self, from: data)
+        else { throw LlamaCppClient.ClientError.empty }
+        return decoded.answer
     }
 
     /// Every RAG-included note, chunked — the pool both `search`/`ask` rank
@@ -191,15 +143,16 @@ struct RAGQuery {
 
     /// Embeds the query plus every chunk in **one** batched request (so
     /// ranking costs one round trip regardless of vault size), then ranks by
-    /// cosine similarity. Any failure — model not pulled, Ollama unreachable
-    /// — falls back to term ranking rather than surfacing an error, since
-    /// this is a retrieval quality upgrade, not something the user should
-    /// have to troubleshoot to keep retrieval working at all.
+    /// cosine similarity. Any failure — embed model not downloaded yet, its
+    /// server unreachable — falls back to term ranking rather than surfacing
+    /// an error, since this is a retrieval quality upgrade, not something the
+    /// user should have to troubleshoot to keep retrieval working at all.
     private func rankedChunks(for query: String) async -> [NoteChunk] {
         let chunks = ragChunks()
         guard !chunks.isEmpty else { return [] }
+        guard await ensureEmbedServerRunning() else { return NoteRetrieval.rank(query: query, in: chunks) }
         do {
-            let vectors = try await ollamaClient.embed(model: embedModel, texts: [query] + chunks.map(\.text))
+            let vectors = try await client.embed(texts: [query] + chunks.map(\.text))
             guard let queryVector = vectors.first, vectors.count == chunks.count + 1 else {
                 return NoteRetrieval.rank(query: query, in: chunks)
             }

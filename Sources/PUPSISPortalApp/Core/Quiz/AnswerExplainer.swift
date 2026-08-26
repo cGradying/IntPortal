@@ -4,20 +4,24 @@ import Foundation
 /// study mode (identification/multiple-choice/true-false/matching) — what a
 /// student actually gets out of missing a question, instead of just seeing
 /// the right answer with no reasoning. Free text, not schema-constrained
-/// JSON: `OllamaClient.generate`'s plain path (the same one `WebNoteEditor`'s
-/// AI popup uses), since there's no structure here for `format` to buy.
+/// JSON: `LlamaCppClient.generate`'s plain path (the same one
+/// `WebNoteEditor`'s AI popup uses), since there's no structure here for
+/// `response_format` to buy.
 ///
 /// Flashcard mode has no place to call this — a flip-and-self-rate has no
 /// typed/selected wrong answer to explain against.
 @MainActor
 enum AnswerExplainer {
-    /// `nil` on any failure — offline, empty reply, timeout — so the caller
-    /// falls back to just showing the card's front/back, the same as before
-    /// this existed. Never throws: an explanation is a nice-to-have, not
-    /// something a failed call should interrupt the session over.
+    /// `nil` on any failure — offline, empty reply, timeout, no model server
+    /// running — so the caller falls back to just showing the card's
+    /// front/back, the same as before this existed. Never throws: an
+    /// explanation is a nice-to-have, not something a failed call should
+    /// interrupt the session over.
     static func explain(
-        card: QuizCard, studentAnswered: String?, model: String, client: OllamaClient
+        card: QuizCard, studentAnswered: String?, model: String, client: LlamaCppClient,
+        ensureServerRunning: (() async -> Bool)? = nil
     ) async -> String? {
+        guard await (ensureServerRunning ?? { await LlamaRuntime.ensureChatServer(modelID: model) })() else { return nil }
         let selection = """
         Question: \(card.front)
         Correct answer: \(card.back)

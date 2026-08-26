@@ -1,8 +1,8 @@
 import XCTest
 @testable import PUPSISPortal
 
-/// Every case drives generation through an injected `OllamaClient` — no
-/// network, no real Ollama needed for this suite to pass. Source is always
+/// Every case drives generation through an injected `LlamaCppClient` — no
+/// network, no real llama-server needed for this suite to pass. Source is always
 /// `.material`, so no `RAGQuery`/vault is involved either.
 @MainActor
 final class CardGeneratorTests: XCTestCase {
@@ -14,7 +14,7 @@ final class CardGeneratorTests: XCTestCase {
         String(repeating: "a", count: 80) + "\n\n" + String(repeating: "b", count: 80)
 
     private func envelope(_ content: String) -> (Data, Int) {
-        let wrapper: [String: Any] = ["message": ["role": "assistant", "content": content]]
+        let wrapper: [String: Any] = ["choices": [["message": ["role": "assistant", "content": content]]]]
         return ((try? JSONSerialization.data(withJSONObject: wrapper)) ?? Data(), 200)
     }
 
@@ -31,11 +31,12 @@ final class CardGeneratorTests: XCTestCase {
     // MARK: Basic decode + citation
 
     func testDecodesCardsAndAttachesTheChunkAsCitation() async {
-        let client = OllamaClient(sendChat: { _ in self.envelope(self.cardsJSON([(front: "Q1", back: "A1", subject: "Bio")])) })
+        let client = LlamaCppClient(send: { _ in self.envelope(self.cardsJSON([(front: "Q1", back: "A1", subject: "Bio")])) })
 
         let result = await CardGenerator.run(
             source: .material(text: "Photosynthesis converts light into chemical energy.", label: "Bio notes"),
-            model: "m", client: client, ragQuery: nil, chunkSize: 700
+            model: "m", client: client, ragQuery: nil, chunkSize: 700,
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(result.cards.count, 1)
@@ -48,11 +49,12 @@ final class CardGeneratorTests: XCTestCase {
     /// The model didn't emit a subject — falls back to the chunk's own name
     /// rather than an empty string, since `subject` must never be blank.
     func testMissingSubjectFallsBackToTheChunkName() async {
-        let client = OllamaClient(sendChat: { _ in self.envelope(self.cardsJSON([(front: "Q1", back: "A1", subject: nil)])) })
+        let client = LlamaCppClient(send: { _ in self.envelope(self.cardsJSON([(front: "Q1", back: "A1", subject: nil)])) })
 
         let result = await CardGenerator.run(
             source: .material(text: "Some material.", label: "Untitled material"),
-            model: "m", client: client, ragQuery: nil, chunkSize: 700
+            model: "m", client: client, ragQuery: nil, chunkSize: 700,
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(result.cards.first?.subject, "Untitled material")
@@ -65,11 +67,12 @@ final class CardGeneratorTests: XCTestCase {
     /// first. Confirms `CardGenerator` reuses that fix rather than choking on it.
     func testSalvagesALiteralNewlineInsideAStringField() async {
         let raw = "{\"cards\":[{\"front\":\"Q1\",\"back\":\"line one\nline two\",\"subject\":\"S\"}]}"
-        let client = OllamaClient(sendChat: { _ in self.envelope(raw) })
+        let client = LlamaCppClient(send: { _ in self.envelope(raw) })
 
         let result = await CardGenerator.run(
             source: .material(text: "Some material.", label: "L"),
-            model: "m", client: client, ragQuery: nil, chunkSize: 700
+            model: "m", client: client, ragQuery: nil, chunkSize: 700,
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(result.cards.count, 1)
@@ -87,13 +90,14 @@ final class CardGeneratorTests: XCTestCase {
     /// true regardless of how many attempts a failing chunk gets.
     func testKeepsCardsFromSucceedingChunksWhenAnotherChunkFailsEvenAfterItsRetry() async {
         struct Boom: Error {}
-        let client = OllamaClient(sendChat: { body in
+        let client = LlamaCppClient(send: { body in
             if self.userContent(of: body).contains("aaaa") { throw Boom() }
             return self.envelope(self.cardsJSON([(front: "Q-from-b-chunk", back: "A", subject: "S")]))
         })
 
         let result = await CardGenerator.run(
-            source: .material(text: Self.twoChunkText, label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: Self.twoChunkSize
+            source: .material(text: Self.twoChunkText, label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: Self.twoChunkSize,
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(result.totalChunks, 2)
@@ -109,14 +113,15 @@ final class CardGeneratorTests: XCTestCase {
     /// a second attempt at half the requested count succeeds.
     func testTruncatedReplyRecoversOnTheHalvedRetry() async {
         var callCount = 0
-        let client = OllamaClient(sendChat: { _ in
+        let client = LlamaCppClient(send: { _ in
             callCount += 1
             if callCount == 1 { return self.envelope(#"{"cards":[{"front":"Q1","back":"A1","subject":"S"#) } // cut off mid-object
             return self.envelope(self.cardsJSON([(front: "Recovered", back: "A", subject: "S")]))
         })
 
         let result = await CardGenerator.run(
-            source: .material(text: "Some material.", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700
+            source: .material(text: "Some material.", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700,
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(callCount, 2, "one initial attempt, one retry")
@@ -129,10 +134,11 @@ final class CardGeneratorTests: XCTestCase {
     /// before this pass, rather than retried forever.
     func testGarbageReplyFailsBothAttemptsAndCountsAsFailed() async {
         var callCount = 0
-        let client = OllamaClient(sendChat: { _ in callCount += 1; return self.envelope("not json at all") })
+        let client = LlamaCppClient(send: { _ in callCount += 1; return self.envelope("not json at all") })
 
         let result = await CardGenerator.run(
-            source: .material(text: "Some material.", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700
+            source: .material(text: "Some material.", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700,
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(callCount, 2)
@@ -144,10 +150,11 @@ final class CardGeneratorTests: XCTestCase {
 
     func testAcceptedAnswersDecodeOntoTheCard() async {
         let raw = #"{"cards":[{"front":"Q1","back":"A1","subject":"S","acceptedAnswers":["Alt 1","Alt 2"]}]}"#
-        let client = OllamaClient(sendChat: { _ in self.envelope(raw) })
+        let client = LlamaCppClient(send: { _ in self.envelope(raw) })
 
         let result = await CardGenerator.run(
-            source: .material(text: "Some material.", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700
+            source: .material(text: "Some material.", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700,
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(result.cards.first?.acceptedAnswers, ["Alt 1", "Alt 2"])
@@ -157,10 +164,11 @@ final class CardGeneratorTests: XCTestCase {
     /// that ignored the instruction) still decodes — the field is optional
     /// in the schema, not required.
     func testMissingAcceptedAnswersFieldStillDecodes() async {
-        let client = OllamaClient(sendChat: { _ in self.envelope(self.cardsJSON([(front: "Q1", back: "A1", subject: "S")])) })
+        let client = LlamaCppClient(send: { _ in self.envelope(self.cardsJSON([(front: "Q1", back: "A1", subject: "S")])) })
 
         let result = await CardGenerator.run(
-            source: .material(text: "Some material.", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700
+            source: .material(text: "Some material.", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700,
+            ensureServerRunning: { true }
         )
 
         XCTAssertNil(result.cards.first?.acceptedAnswers)
@@ -168,10 +176,11 @@ final class CardGeneratorTests: XCTestCase {
 
     func testBlankAcceptedAnswersAreDroppedNotKeptAsEmptyStrings() async {
         let raw = #"{"cards":[{"front":"Q1","back":"A1","subject":"S","acceptedAnswers":["  ","Real one"]}]}"#
-        let client = OllamaClient(sendChat: { _ in self.envelope(raw) })
+        let client = LlamaCppClient(send: { _ in self.envelope(raw) })
 
         let result = await CardGenerator.run(
-            source: .material(text: "Some material.", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700
+            source: .material(text: "Some material.", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700,
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(result.cards.first?.acceptedAnswers, ["Real one"])
@@ -190,10 +199,11 @@ final class CardGeneratorTests: XCTestCase {
         // 15 paragraphs, each too big to combine with a neighbor under this
         // chunk size, so this reliably becomes 15 chunks before the cap.
         let text = (0..<15).map { String(repeating: "p\($0)", count: 12) }.joined(separator: "\n\n")
-        let client = OllamaClient(sendChat: { _ in self.envelope(self.cardsJSON([])) })
+        let client = LlamaCppClient(send: { _ in self.envelope(self.cardsJSON([])) })
 
         let result = await CardGenerator.run(
-            source: .material(text: text, label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 40
+            source: .material(text: text, label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 40,
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(result.totalChunks, CardGenerator.maxChunksPerRun)
@@ -201,10 +211,11 @@ final class CardGeneratorTests: XCTestCase {
     }
 
     func testMaterialUnderTheCapIsNotReportedAsTruncated() async {
-        let client = OllamaClient(sendChat: { _ in self.envelope(self.cardsJSON([])) })
+        let client = LlamaCppClient(send: { _ in self.envelope(self.cardsJSON([])) })
 
         let result = await CardGenerator.run(
-            source: .material(text: Self.twoChunkText, label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: Self.twoChunkSize
+            source: .material(text: Self.twoChunkText, label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: Self.twoChunkSize,
+            ensureServerRunning: { true }
         )
 
         XCTAssertFalse(result.truncatedMaterial)
@@ -220,10 +231,11 @@ final class CardGeneratorTests: XCTestCase {
 
     func testEmptyMaterialProducesNoChunksAndNoRequests() async {
         var called = false
-        let client = OllamaClient(sendChat: { _ in called = true; return self.envelope(self.cardsJSON([])) })
+        let client = LlamaCppClient(send: { _ in called = true; return self.envelope(self.cardsJSON([])) })
 
         let result = await CardGenerator.run(
-            source: .material(text: "   \n\n  ", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700
+            source: .material(text: "   \n\n  ", label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 700,
+            ensureServerRunning: { true }
         )
 
         XCTAssertFalse(called)
@@ -235,14 +247,15 @@ final class CardGeneratorTests: XCTestCase {
 
     func testDedupesCardsWithTheSameFrontAcrossChunksCaseAndWhitespaceInsensitively() async {
         var callCount = 0
-        let client = OllamaClient(sendChat: { _ in
+        let client = LlamaCppClient(send: { _ in
             callCount += 1
             let front = callCount == 1 ? "What is X?" : "  what IS x?  "
             return self.envelope(self.cardsJSON([(front: front, back: "A\(callCount)", subject: "S")]))
         })
 
         let result = await CardGenerator.run(
-            source: .material(text: Self.twoChunkText, label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: Self.twoChunkSize
+            source: .material(text: Self.twoChunkText, label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: Self.twoChunkSize,
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(result.totalChunks, 2)
@@ -253,7 +266,7 @@ final class CardGeneratorTests: XCTestCase {
 
     func testCancellationStopsBeforeLaterChunksAreRequested() async {
         var callCount = 0
-        let client = OllamaClient(sendChat: { _ in
+        let client = LlamaCppClient(send: { _ in
             callCount += 1
             return self.envelope(self.cardsJSON([(front: "Q\(callCount)", back: "A", subject: "S")]))
         })
@@ -263,7 +276,8 @@ final class CardGeneratorTests: XCTestCase {
 
         let result = await CardGenerator.run(
             source: .material(text: text, label: "L"), model: "m", client: client, ragQuery: nil, chunkSize: 200,
-            isCancelled: { true }
+            isCancelled: { true },
+            ensureServerRunning: { true }
         )
 
         XCTAssertEqual(callCount, 0)

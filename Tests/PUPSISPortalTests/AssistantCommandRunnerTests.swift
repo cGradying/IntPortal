@@ -3,6 +3,8 @@ import XCTest
 
 /// `AssistantCommandRunner` never lets a bad `/read`/`/summary` name reach the
 /// model — this suite checks that boundary as much as the happy paths.
+/// `runner(...)`'s default `ensureServerRunning: { true }` bypasses the real
+/// `LlamaRuntime`/`ModelCatalog` lookup, which `"test-model"` never matches.
 @MainActor
 final class AssistantCommandRunnerTests: XCTestCase {
     private var notesURL: URL!
@@ -19,9 +21,16 @@ final class AssistantCommandRunnerTests: XCTestCase {
         try? FileManager.default.removeItem(at: notesURL.deletingLastPathComponent())
     }
 
+    private func envelope(_ content: String) -> (Data, Int) {
+        let wrapper: [String: Any] = ["choices": [["message": ["role": "assistant", "content": content]]]]
+        return ((try? JSONSerialization.data(withJSONObject: wrapper)) ?? Data(), 200)
+    }
+
     private func runner(
         openKey: String? = nil,
-        client: OllamaClient = OllamaClient(send: { _ in (Data(#"{"response":"unused"}"#.utf8), 200) }),
+        client: LlamaCppClient = LlamaCppClient(send: { _ in
+            (Data(#"{"choices":[{"message":{"content":"unused"}}]}"#.utf8), 200)
+        }),
         ragQuery: RAGQuery? = nil
     ) -> AssistantCommandRunner {
         let preferences = Preferences(defaults: UserDefaults(suiteName: "AssistantCommandRunnerTests-\(UUID().uuidString)")!)
@@ -35,7 +44,7 @@ final class AssistantCommandRunnerTests: XCTestCase {
         )
         return AssistantCommandRunner(
             notes: notesStore, openNoteKey: { openKey }, model: "test-model", preferences: preferences,
-            executor: executor, client: client, ragQuery: ragQuery
+            executor: executor, client: client, ragQuery: ragQuery, ensureServerRunning: { true }
         )
     }
 
@@ -58,7 +67,7 @@ final class AssistantCommandRunnerTests: XCTestCase {
     func testReadOnAMissingNameListsRealNotesAndCallsNoModel() async {
         _ = notesStore.addFile(name: "Physics", to: nil)
         var modelCalled = false
-        let client = OllamaClient(send: { _ in modelCalled = true; return (Data(), 200) })
+        let client = LlamaCppClient(send: { _ in modelCalled = true; return (Data(), 200) })
         let outcome = await runner(client: client).run(.read(name: "nonsense"))
         XCTAssertNil(outcome.pin)
         XCTAssertTrue(outcome.reply.contains("Physics"))
@@ -70,7 +79,7 @@ final class AssistantCommandRunnerTests: XCTestCase {
     func testSummaryReturnsTheModelsText() async {
         let key = notesStore.addFile(name: "Physics", to: nil)
         notesStore.setText("Newton's laws of motion.", for: key)
-        let client = OllamaClient(send: { _ in (Data(#"{"response":"A summary."}"#.utf8), 200) })
+        let client = LlamaCppClient(send: { _ in self.envelope("A summary.") })
         let outcome = await runner(client: client).run(.summary(name: "Physics"))
         XCTAssertEqual(outcome.reply, "A summary.")
         XCTAssertNil(outcome.pin, "summary never pins — that's /read's job")
@@ -79,7 +88,7 @@ final class AssistantCommandRunnerTests: XCTestCase {
     func testSummaryOnAnEmptyNoteCallsNoModel() async {
         _ = notesStore.addFile(name: "Blank", to: nil)
         var modelCalled = false
-        let client = OllamaClient(send: { _ in modelCalled = true; return (Data(), 200) })
+        let client = LlamaCppClient(send: { _ in modelCalled = true; return (Data(), 200) })
         _ = await runner(client: client).run(.summary(name: "Blank"))
         XCTAssertFalse(modelCalled)
     }
@@ -87,7 +96,7 @@ final class AssistantCommandRunnerTests: XCTestCase {
     // MARK: /create
 
     func testCreateWritesANewNoteFromTheModelsText() async {
-        let client = OllamaClient(send: { _ in (Data(#"{"response":"Plants use light to make sugar."}"#.utf8), 200) })
+        let client = LlamaCppClient(send: { _ in self.envelope("Plants use light to make sugar.") })
         let outcome = await runner(client: client).run(.create(prompt: "photosynthesis basics"))
         XCTAssertTrue(outcome.wroteNote)
         XCTAssertTrue(outcome.reply.contains("photosynthesis basics"))
@@ -100,7 +109,7 @@ final class AssistantCommandRunnerTests: XCTestCase {
 
     func testCreateWithBlankPromptWritesNothing() async {
         var modelCalled = false
-        let client = OllamaClient(send: { _ in modelCalled = true; return (Data(), 200) })
+        let client = LlamaCppClient(send: { _ in modelCalled = true; return (Data(), 200) })
         let outcome = await runner(client: client).run(.create(prompt: "   "))
         XCTAssertFalse(outcome.wroteNote)
         XCTAssertFalse(modelCalled)
@@ -113,7 +122,8 @@ final class AssistantCommandRunnerTests: XCTestCase {
         var called = false
         let ragQuery = RAGQuery(
             notes: notesStore,
-            ollamaClient: OllamaClient(sendEmbed: { _ in called = true; return (Data(), 200) })
+            ensureChatServerRunning: { true },
+            ensureEmbedServerRunning: { called = true; return true }
         )
         let outcome = await runner(ragQuery: ragQuery).run(.rag(prompt: "   "))
         XCTAssertFalse(called)
@@ -124,12 +134,13 @@ final class AssistantCommandRunnerTests: XCTestCase {
         notesStore.setText("Recursion has a base case and a recursive case.", for: "class:COMP 001")
         let ragQuery = RAGQuery(
             notes: notesStore,
-            ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }), // forces the term-match fallback
-            llamaCppClient: LlamaCppClient(send: { _ in
-                (Data(#"{"choices":[{"message":{"content":"A base case and a recursive case."}}]}"#.utf8), 200)
+            client: LlamaCppClient(send: { _ in
+                (Data(#"{"choices":[{"message":{"content":"{\"answer\":\"A base case and a recursive case.\"}"}}]}"#.utf8), 200)
             }),
-            ensureServerRunning: { true }, // never spawn/health-check a real llama-server in a test
-            answerer: .llamaCpp
+            ensureChatServerRunning: { true },
+            // Forces the term-match fallback for retrieval itself — the
+            // answer above is what's actually under test here.
+            ensureEmbedServerRunning: { false }
         )
         let outcome = await runner(ragQuery: ragQuery).run(.rag(prompt: "recursion"))
         XCTAssertEqual(outcome.reply, "A base case and a recursive case.")
@@ -138,10 +149,7 @@ final class AssistantCommandRunnerTests: XCTestCase {
 
     func testRagReportsWhenNothingMatches() async {
         notesStore.setText("unrelated content", for: "class:COMP 001")
-        let ragQuery = RAGQuery(
-            notes: notesStore,
-            ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) })
-        )
+        let ragQuery = RAGQuery(notes: notesStore, ensureChatServerRunning: { true }, ensureEmbedServerRunning: { false })
         let outcome = await runner(ragQuery: ragQuery).run(.rag(prompt: "nonexistent"))
         XCTAssertTrue(outcome.reply.contains("No notes matched"))
         XCTAssertTrue(outcome.sources.isEmpty)
