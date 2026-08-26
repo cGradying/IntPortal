@@ -936,15 +936,20 @@ struct AgendaView: View {
         .background(DitherFill(color: palette.secondary.opacity(0.5), ramp: .flat(0.22)))
     }
 
-    /// The day's empty state — a small dither wedge behind the caption instead
-    /// of a bare line of text.
+    /// The day's empty state — plain and legible. Used to sit on a dither
+    /// wedge; dropped, since a flat dither veil behind small caption text
+    /// (`palette.secondary` on top of more `.secondary`) read as barely
+    /// visible rather than textured.
+    // ponytail: no "add something" action wired here — that would mean
+    // reaching into Schedule's own week/editor state from Notebook, which
+    // has no existing path today. Add one if this empty state needs to do
+    // more than read clearly.
     private var emptyDay: some View {
         Text("Nothing scheduled today.")
             .font(typography.footer)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.primary.opacity(0.7))
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DitherFill(color: palette.secondary.opacity(0.4), ramp: .flat(0.18)))
     }
 
     // MARK: Tomorrow
