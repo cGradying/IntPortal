@@ -193,6 +193,29 @@ final class CalendarBridge: ObservableObject {
             }
     }
 
+    /// Custom-event dots for the floating month calendar — one predicate
+    /// query over the whole visible range, not a query per day (the
+    /// per-day-query cost this was explicitly deferred to avoid). Grouped by
+    /// calendar day, each day's blocks reduced to just their color-lookup
+    /// key. Deliberately doesn't touch `occurrences`/`events` — this is a
+    /// read-only glance, not the loaded week `EventEditor` can act on.
+    func eventsByDate(from start: Date, to end: Date, calendarIDs: Set<String>) -> [Date: [String]] {
+        guard access == .granted, !calendarIDs.isEmpty else { return [:] }
+
+        let calendar = Calendar.current
+        let wanted = store.calendars(for: .event).filter { calendarIDs.contains($0.calendarIdentifier) }
+        guard !wanted.isEmpty else { return [:] }
+
+        let predicate = store.predicateForEvents(withStart: start, end: end, calendars: wanted)
+        var byDate: [Date: [String]] = [:]
+        for event in store.events(matching: predicate) where !Self.isOurExport(event) {
+            guard let block = Self.block(from: event, calendar: calendar), let eventStart = event.startDate else { continue }
+            let day = calendar.startOfDay(for: eventStart)
+            byDate[day, default: []].append(block.groupKey)
+        }
+        return byDate
+    }
+
     /// The exact `EKEvent` a block was built from, keyed by block id.
     private var occurrences: [String: EKEvent] = [:]
 

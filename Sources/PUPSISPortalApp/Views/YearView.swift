@@ -15,6 +15,10 @@ struct YearView: View {
     /// once by the caller (`CalendarView.weekdayColors`), not recomputed
     /// per cell.
     var weekdayColors: [Weekday: [Color]] = [:]
+    /// Custom-calendar-event dot colors, keyed by `startOfDay` — the
+    /// date-specific sibling to `weekdayColors`' recurring pattern (see
+    /// `CalendarView.eventDotsByDate`).
+    var eventDotsByDate: [Date: [Color]] = [:]
     let onSelect: (Date) -> Void
 
     @Environment(\.palette) private var palette
@@ -23,24 +27,25 @@ struct YearView: View {
 
     // 2 columns — a 2×2 popup for 4 months, not the wide 4-column strip a
     // full year needed.
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 44), count: 2)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 56), count: 2)
 
     // No ScrollView: a fixed 4-month grid has one size, and a scrollable
     // container the content doesn't fill is exactly the "excess space"
     // this was asked to stop doing — the panel now sizes to its content
     // instead of to an arbitrary fixed height.
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 44) {
+        LazyVGrid(columns: columns, spacing: 56) {
             ForEach(months, id: \.self) { month in
                 MonthGrid(
                     month: month,
                     selectedWeekStart: selectedWeekStart,
                     weekdayColors: weekdayColors,
+                    eventDotsByDate: eventDotsByDate,
                     onSelect: onSelect
                 )
             }
         }
-        .padding(36)
+        .padding(44)
     }
 }
 
@@ -48,21 +53,22 @@ private struct MonthGrid: View {
     let month: Date
     let selectedWeekStart: Date
     let weekdayColors: [Weekday: [Color]]
+    let eventDotsByDate: [Date: [Color]]
     let onSelect: (Date) -> Void
 
     @Environment(\.palette) private var palette
 
     @Environment(\.typography) private var typography
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 3), count: 7)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             Text(month.formatted(.dateTime.month(.wide)))
-                .font(typography.detailTitle)
+                .font(typography.screenTitle)
                 .foregroundStyle(palette.accent)
 
-            LazyVGrid(columns: columns, spacing: 1) {
+            LazyVGrid(columns: columns, spacing: 2) {
                 ForEach(Weekday.allCases) { day in
                     Text(day.short.prefix(1))
                         .font(typography.gutter)
@@ -71,11 +77,12 @@ private struct MonthGrid: View {
                 }
 
                 ForEach(MonthLayout.days(ofMonthContaining: month), id: \.self) { date in
+                    let day = Calendar.current.startOfDay(for: date)
                     DayCell(
                         date: date,
                         isInMonth: MonthLayout.isSameMonth(date, as: month),
                         isInSelectedWeek: Weekday.weekStart(containing: date) == selectedWeekStart,
-                        dotColors: weekdayColors[Weekday.on(date)] ?? [],
+                        dotColors: Array((weekdayColors[Weekday.on(date)] ?? []) + (eventDotsByDate[day] ?? []).prefix(4)),
                         onSelect: onSelect
                     )
                 }
@@ -88,7 +95,8 @@ private struct DayCell: View {
     let date: Date
     let isInMonth: Bool
     let isInSelectedWeek: Bool
-    /// Already resolved for this date's weekday — see `CalendarView.weekdayColors`.
+    /// Already resolved for this date — recurring weekday pattern plus any
+    /// custom events on this exact day, combined by `MonthGrid`.
     var dotColors: [Color] = []
     let onSelect: (Date) -> Void
 
@@ -104,13 +112,13 @@ private struct DayCell: View {
         Button {
             onSelect(date)
         } label: {
-            VStack(spacing: 1) {
+            VStack(spacing: 3) {
                 Text(String(Calendar.current.component(.day, from: date)))
-                    .font(typography.gutter)
+                    .font(typography.detailBody)
                     .monospacedDigit()
                     .foregroundStyle(foreground)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 24)
+                    .frame(height: 30)
                     .background {
                         if isToday {
                             Circle().fill(palette.accent)
@@ -123,12 +131,12 @@ private struct DayCell: View {
                         }
                     }
 
-                HStack(spacing: 2) {
-                    ForEach(Array(dotColors.enumerated()), id: \.offset) { _, color in
+                HStack(spacing: 3) {
+                    ForEach(Array(dotColors.prefix(4).enumerated()), id: \.offset) { _, color in
                         Circle().fill(color).frame(width: 4, height: 4)
                     }
                 }
-                .frame(height: 5)
+                .frame(height: 6)
             }
         }
         .buttonStyle(.plain)

@@ -113,6 +113,18 @@ struct CalendarView: View {
             .mapValues { codes in codes.prefix(4).map { preferences.color(for: $0, in: palette) } }
     }
 
+    /// Custom-calendar-event dots for the same panel — one range query over
+    /// the visible 4 months (`CalendarBridge.eventsByDate`), not a query per
+    /// day. `DayCell` adds these to `weekdayColors`'s recurring pattern for
+    /// its date, capped to 4 total between the two.
+    private var eventDotsByDate: [Date: [Color]] {
+        guard let first = MonthLayout.months(around: weekStart, count: 4).first else { return [:] }
+        let start = MonthLayout.startOfMonth(containing: first)
+        guard let end = Calendar.current.date(byAdding: .month, value: 4, to: start) else { return [:] }
+        return calendar.eventsByDate(from: start, to: end, calendarIDs: preferences.visibleCalendarIDs)
+            .mapValues { keys in keys.map { preferences.color(forEvent: $0, in: palette) } }
+    }
+
     /// Straight copy of `AgendaView`'s `sidebarResizeHandle` — same drag
     /// convention, own state, since the two sidebars resize independently.
     private var scheduleSidebarResizeHandle: some View {
@@ -204,12 +216,13 @@ struct CalendarView: View {
                             months: MonthLayout.months(around: weekStart, count: 4),
                             selectedWeekStart: weekStart,
                             weekdayColors: weekdayColors,
+                            eventDotsByDate: eventDotsByDate,
                             onSelect: { open($0) }
                         )
                         // Width only — height sizes to the 4-month grid's
                         // actual content instead of a guessed fixed number,
                         // so there's no leftover empty space in the panel.
-                        .frame(width: 700)
+                        .frame(width: 860)
                         .glassPanel(cornerRadius: 24)
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     }
