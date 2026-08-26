@@ -44,6 +44,25 @@ struct ClassInfo: Codable, Equatable {
     var isEmpty: Bool { note.isEmpty && link.isEmpty }
 }
 
+/// A syllabus item the user added under a subject — not scraped, the SIS has
+/// nothing like this. The first `Identifiable` array persisted in
+/// `Preferences`; every other store here is a dictionary, but a task list is
+/// naturally keyed by its own id, not by subject (a subject has many tasks).
+struct SubjectTask: Codable, Identifiable, Equatable {
+    let id: UUID
+    var subjectCode: String
+    var title: String
+    var dueDate: Date?
+    var done = false
+
+    init(subjectCode: String, title: String, dueDate: Date? = nil) {
+        id = UUID()
+        self.subjectCode = subjectCode
+        self.title = title
+        self.dueDate = dueDate
+    }
+}
+
 /// User settings. `UserDefaults` on purpose — these are preferences, unlike
 /// the schedule, which is a document and lives in `ScheduleStore`.
 ///
@@ -115,6 +134,13 @@ final class Preferences: ObservableObject {
     /// an empty `ClassInfo` is indistinguishable from "never toggled".
     @Published private(set) var permaSubjects: Set<String> {
         didSet { defaults.set(Array(permaSubjects), forKey: Key.permaSubjects) }
+    }
+
+    /// Syllabus tasks the user added under a subject — the schedule sidebar's
+    /// own content, nothing scraped. A plain array, not a dictionary (see
+    /// `SubjectTask`'s doc comment).
+    @Published private(set) var subjectTasks: [SubjectTask] {
+        didSet { defaults.set(try? JSONEncoder().encode(subjectTasks), forKey: Key.subjectTasks) }
     }
 
     /// Event colours, keyed by `DayBlock.groupKey` so a run of connected days
@@ -318,6 +344,25 @@ final class Preferences: ObservableObject {
         notebookSidebarWidth = Self.notebookSidebarDefaultWidth
     }
 
+    // MARK: Schedule sidebar width
+
+    /// Same convention as the notebook sidebar above, independent state —
+    /// the two screens' sidebars resize separately.
+    static let scheduleSidebarDefaultWidth: Double = 280
+    static let scheduleSidebarWidthRange: ClosedRange<Double> = 240...420
+
+    @Published private(set) var scheduleSidebarWidth: Double {
+        didSet { defaults.set(scheduleSidebarWidth, forKey: Key.scheduleSidebarWidth) }
+    }
+
+    func setScheduleSidebarWidth(_ width: Double) {
+        scheduleSidebarWidth = min(max(width, Self.scheduleSidebarWidthRange.lowerBound), Self.scheduleSidebarWidthRange.upperBound)
+    }
+
+    func resetScheduleSidebarWidth() {
+        scheduleSidebarWidth = Self.scheduleSidebarDefaultWidth
+    }
+
     // MARK: UI zoom
 
     /// Browser-style page zoom — one global level, applied via `.uiScaled(_:)`.
@@ -367,6 +412,7 @@ final class Preferences: ObservableObject {
         static let occurrenceTimes = "occurrenceTimes"
         static let classInfo = "classInfo"
         static let permaSubjects = "permaSubjects"
+        static let subjectTasks = "subjectTasks"
         static let visibleCalendarIDs = "visibleCalendarIDs"
         static let exportCalendarID = "exportCalendarID"
         static let onlineExportCalendarID = "onlineExportCalendarID"
@@ -392,6 +438,7 @@ final class Preferences: ObservableObject {
         static let assistantPanelWidth = "assistantPanelWidth"
         static let assistantPanelHeight = "assistantPanelHeight"
         static let notebookSidebarWidth = "notebookSidebarWidth"
+        static let scheduleSidebarWidth = "scheduleSidebarWidth"
         static let uiScale = "uiScale"
     }
 
@@ -414,6 +461,8 @@ final class Preferences: ObservableObject {
         classInfo = defaults.data(forKey: Key.classInfo)
             .flatMap { try? JSONDecoder().decode([String: ClassInfo].self, from: $0) } ?? [:]
         permaSubjects = Set(defaults.stringArray(forKey: Key.permaSubjects) ?? [])
+        subjectTasks = defaults.data(forKey: Key.subjectTasks)
+            .flatMap { try? JSONDecoder().decode([SubjectTask].self, from: $0) } ?? []
         eventColors = defaults.data(forKey: Key.eventColors)
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         visibleCalendarIDs = Set(defaults.stringArray(forKey: Key.visibleCalendarIDs) ?? [])
@@ -447,6 +496,7 @@ final class Preferences: ObservableObject {
         ragAnswerTemperature = (defaults.object(forKey: Key.ragAnswerTemperature) as? Double) ?? Preferences.ragDefaultAnswerTemperature
         assistantPanelWidth = (defaults.object(forKey: Key.assistantPanelWidth) as? Double) ?? Preferences.assistantPanelDefaultWidth
         notebookSidebarWidth = (defaults.object(forKey: Key.notebookSidebarWidth) as? Double) ?? Preferences.notebookSidebarDefaultWidth
+        scheduleSidebarWidth = (defaults.object(forKey: Key.scheduleSidebarWidth) as? Double) ?? Preferences.scheduleSidebarDefaultWidth
         uiScale = (defaults.object(forKey: Key.uiScale) as? Double) ?? 1.0
         assistantPanelHeight = (defaults.object(forKey: Key.assistantPanelHeight) as? Double) ?? Preferences.assistantPanelDefaultHeight
     }
@@ -626,6 +676,23 @@ final class Preferences: ObservableObject {
         }
         classInfo[session.subjectCode] = perma ? (current.isEmpty ? nil : current) : nil
         classInfo[session.id] = perma ? nil : (current.isEmpty ? nil : current)
+    }
+
+    // MARK: Syllabus tasks
+
+    func addTask(_ title: String, for subjectCode: String, due: Date? = nil) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        subjectTasks.append(SubjectTask(subjectCode: subjectCode, title: trimmed, dueDate: due))
+    }
+
+    func toggleTask(_ id: SubjectTask.ID) {
+        guard let index = subjectTasks.firstIndex(where: { $0.id == id }) else { return }
+        subjectTasks[index].done.toggle()
+    }
+
+    func deleteTask(_ id: SubjectTask.ID) {
+        subjectTasks.removeAll { $0.id == id }
     }
 }
 

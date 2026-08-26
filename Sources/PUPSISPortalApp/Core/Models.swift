@@ -117,6 +117,23 @@ struct ClassSession: Identifiable, Equatable, Codable {
             && lhs.end == rhs.end
     }
 
+    /// Every distinct subject code across `sessions`, sorted — the "what
+    /// subjects do I have" list, shared rather than reimplemented at each
+    /// call site (Settings' subject-color list, the schedule sidebar's
+    /// syllabus/files sections).
+    static func subjectCodes(in sessions: [ClassSession]) -> [String] {
+        Array(Set(sessions.map(\.subjectCode))).sorted()
+    }
+
+    /// Subject codes grouped by the weekday they meet on — pure, ignores
+    /// term/week exceptions. Feeds the floating month calendar's per-day
+    /// color dots: a subject's *normal* meeting day, not this week's
+    /// vacant/moved exceptions (see the ponytail note at its call site).
+    static func subjectCodesByWeekday(in sessions: [ClassSession]) -> [Weekday: [String]] {
+        Dictionary(grouping: sessions, by: \.day)
+            .mapValues { Array(Set($0.map(\.subjectCode))).sorted() }
+    }
+
     /// The next date on/after `date` that `subjectCode` meets, by scheduled
     /// weekday. `nil` if the subject isn't in `sessions`. Used to default a
     /// class note's dated log entry to the class it's actually for, rather

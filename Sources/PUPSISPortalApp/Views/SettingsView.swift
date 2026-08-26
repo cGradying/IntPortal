@@ -36,7 +36,7 @@ struct SettingsView: View {
 
     /// Subjects the user can actually recolor: whatever is on screen right now.
     private var subjectCodes: [String] {
-        Array(Set(appState.portal.sessions.map(\.subjectCode))).sorted()
+        ClassSession.subjectCodes(in: appState.portal.sessions)
     }
 
     var body: some View {

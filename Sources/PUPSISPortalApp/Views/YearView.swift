@@ -7,6 +7,10 @@ struct YearView: View {
     let year: Int
     /// The week currently open in the grid, so it can be marked here.
     let selectedWeekStart: Date
+    /// Per-weekday dot colors — a subject's *normal* meeting day, resolved
+    /// once by the caller (`CalendarView.weekdayColors`), not recomputed
+    /// per cell.
+    var weekdayColors: [Weekday: [Color]] = [:]
     let onSelect: (Date) -> Void
     /// Fires whenever the scroll position pins to (or leaves) the top —
     /// what `CalendarScroll` gates the year↔week overscroll switch on.
@@ -26,6 +30,7 @@ struct YearView: View {
                     MonthGrid(
                         month: month,
                         selectedWeekStart: selectedWeekStart,
+                        weekdayColors: weekdayColors,
                         onSelect: onSelect
                     )
                 }
@@ -41,6 +46,7 @@ struct YearView: View {
 private struct MonthGrid: View {
     let month: Date
     let selectedWeekStart: Date
+    let weekdayColors: [Weekday: [Color]]
     let onSelect: (Date) -> Void
 
     @Environment(\.palette) private var palette
@@ -68,6 +74,7 @@ private struct MonthGrid: View {
                         date: date,
                         isInMonth: MonthLayout.isSameMonth(date, as: month),
                         isInSelectedWeek: Weekday.weekStart(containing: date) == selectedWeekStart,
+                        dotColors: weekdayColors[Weekday.on(date)] ?? [],
                         onSelect: onSelect
                     )
                 }
@@ -80,6 +87,8 @@ private struct DayCell: View {
     let date: Date
     let isInMonth: Bool
     let isInSelectedWeek: Bool
+    /// Already resolved for this date's weekday — see `CalendarView.weekdayColors`.
+    var dotColors: [Color] = []
     let onSelect: (Date) -> Void
 
     @Environment(\.palette) private var palette
@@ -94,23 +103,32 @@ private struct DayCell: View {
         Button {
             onSelect(date)
         } label: {
-            Text(String(Calendar.current.component(.day, from: date)))
-                .font(typography.gutter)
-                .monospacedDigit()
-                .foregroundStyle(foreground)
-                .frame(maxWidth: .infinity)
-                .frame(height: 20)
-                .background {
-                    if isToday {
-                        Circle().fill(palette.accent)
-                    } else if isInSelectedWeek {
-                        // The open week reads as a band across the row, which
-                        // is what actually tells you where you are.
-                        Rectangle().fill(palette.accent.opacity(0.14))
-                    } else if isHovering {
-                        Circle().fill(palette.accent.opacity(0.2))
+            VStack(spacing: 1) {
+                Text(String(Calendar.current.component(.day, from: date)))
+                    .font(typography.gutter)
+                    .monospacedDigit()
+                    .foregroundStyle(foreground)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 20)
+                    .background {
+                        if isToday {
+                            Circle().fill(palette.accent)
+                        } else if isInSelectedWeek {
+                            // The open week reads as a band across the row, which
+                            // is what actually tells you where you are.
+                            Rectangle().fill(palette.accent.opacity(0.14))
+                        } else if isHovering {
+                            Circle().fill(palette.accent.opacity(0.2))
+                        }
+                    }
+
+                HStack(spacing: 2) {
+                    ForEach(Array(dotColors.enumerated()), id: \.offset) { _, color in
+                        Circle().fill(color).frame(width: 3, height: 3)
                     }
                 }
+                .frame(height: 4)
+            }
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }

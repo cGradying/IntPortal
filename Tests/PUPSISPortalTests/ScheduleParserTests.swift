@@ -64,6 +64,32 @@ final class ScheduleParserTests: XCTestCase {
     }
 }
 
+/// The floating month calendar's dot colors read off this — a subject
+/// missing from its weekday, or a duplicate dot, would misrepresent the
+/// schedule at a glance.
+final class ClassSessionSubjectGroupingTests: XCTestCase {
+    private func session(_ code: String, _ day: Weekday) -> ClassSession {
+        ClassSession(subjectCode: code, description: "", faculty: "", day: day, start: 480, end: 540)
+    }
+
+    func testSubjectCodesDedupsAndSorts() {
+        let sessions = [session("COMP 20073", .monday), session("COMP 20073", .wednesday), session("GEED 10023", .tuesday)]
+        XCTAssertEqual(ClassSession.subjectCodes(in: sessions), ["COMP 20073", "GEED 10023"])
+    }
+
+    func testSubjectCodesByWeekdayGroupsAndDedupsPerDay() {
+        let sessions = [
+            session("COMP 20073", .monday), session("COMP 20073", .monday),
+            session("GEED 10023", .monday), session("PHED 10013", .friday),
+        ]
+        let grouped = ClassSession.subjectCodesByWeekday(in: sessions)
+
+        XCTAssertEqual(grouped[.monday], ["COMP 20073", "GEED 10023"])
+        XCTAssertEqual(grouped[.friday], ["PHED 10013"])
+        XCTAssertNil(grouped[.tuesday])
+    }
+}
+
 /// `Calendar` counts weekdays from Sunday, this enum counts from Monday.
 /// Getting the shift wrong puts the now-line in the wrong column.
 final class WeekdayTests: XCTestCase {

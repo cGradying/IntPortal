@@ -471,6 +471,42 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(reloaded.link, "https://meet.google.com/abc")
     }
 
+    // MARK: Syllabus tasks
+
+    func testAddTaskTrimsAndIgnoresBlankTitle() {
+        let prefs = Preferences(defaults: defaults)
+
+        prefs.addTask("  Lab 4  ", for: "COMP 20073")
+        prefs.addTask("   ", for: "COMP 20073")
+
+        XCTAssertEqual(prefs.subjectTasks.count, 1)
+        XCTAssertEqual(prefs.subjectTasks.first?.title, "Lab 4")
+    }
+
+    func testToggleAndDeleteTaskByID() {
+        let prefs = Preferences(defaults: defaults)
+        prefs.addTask("Quiz 2", for: "COMP 20073")
+        let id = prefs.subjectTasks[0].id
+
+        prefs.toggleTask(id)
+        XCTAssertTrue(prefs.subjectTasks[0].done)
+        prefs.toggleTask(id)
+        XCTAssertFalse(prefs.subjectTasks[0].done)
+
+        prefs.deleteTask(id)
+        XCTAssertTrue(prefs.subjectTasks.isEmpty)
+    }
+
+    func testSubjectTasksSurviveRelaunch() {
+        let due = Date(timeIntervalSince1970: 1_800_000_000)
+        Preferences(defaults: defaults).addTask("Essay", for: "GEED 10023", due: due)
+
+        let reloaded = Preferences(defaults: defaults).subjectTasks
+        XCTAssertEqual(reloaded.count, 1)
+        XCTAssertEqual(reloaded.first?.title, "Essay")
+        XCTAssertEqual(reloaded.first?.dueDate, due)
+    }
+
     // MARK: RAG tuning (Settings ▸ Misc)
 
     func testRAGSettingsDefaultToTheShippedValues() {

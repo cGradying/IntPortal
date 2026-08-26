@@ -39,6 +39,10 @@ struct CalendarView: View {
     /// asked for rather than assumed.
     @State private var pendingScope: ScopeQuestion?
     @StateObject private var editor: EventEditor
+    /// Sidebar width captured at the start of a resize drag — same
+    /// convention as `AgendaView`'s own `sidebarWidthAtDragStart`.
+    @State private var sidebarWidthAtDragStart: Double?
+    @State private var sidebarHandleHovered = false
 
     // The lifted state now lives on `schedule`; these keep the body readable.
     private var weekOffset: Int {
@@ -101,6 +105,45 @@ struct CalendarView: View {
 
     private var canEdit: Bool { calendar.access == .granted }
 
+    /// Feeds the floating month calendar's per-day color dots — capped to 4
+    /// per weekday so a busy day's cell doesn't overflow.
+    /// `ClassSession.subjectCodesByWeekday` is the pure/tested part; this is
+    /// just the same `preferences.color(for:in:)` lookup `printWeek` already
+    /// does per subject.
+    private var weekdayColors: [Weekday: [Color]] {
+        ClassSession.subjectCodesByWeekday(in: controller.sessions)
+            .mapValues { codes in codes.prefix(4).map { preferences.color(for: $0, in: palette) } }
+    }
+
+    /// Straight copy of `AgendaView`'s `sidebarResizeHandle` — same drag
+    /// convention, own state, since the two sidebars resize independently.
+    private var scheduleSidebarResizeHandle: some View {
+        Divider()
+            .overlay(alignment: .center) {
+                Color.clear
+                    .frame(width: 9)
+                    .contentShape(Rectangle())
+            }
+            .background(sidebarHandleHovered ? palette.accent.opacity(0.3) : .clear)
+            .onHover { inside in
+                sidebarHandleHovered = inside
+                if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        let start = sidebarWidthAtDragStart ?? preferences.scheduleSidebarWidth
+                        if sidebarWidthAtDragStart == nil { sidebarWidthAtDragStart = start }
+                        // The sidebar sits to the right of this handle: dragging
+                        // left (negative dx) widens it.
+                        preferences.setScheduleSidebarWidth(start - value.translation.width)
+                    }
+                    .onEnded { _ in sidebarWidthAtDragStart = nil }
+            )
+            .onTapGesture(count: 2) { preferences.resetScheduleSidebarWidth() }
+            .help("Drag to resize · double-click to reset")
+    }
+
     var body: some View {
         ZStack {
             palette.canvasWash.ignoresSafeArea()
@@ -110,12 +153,10 @@ struct CalendarView: View {
             if controller.sessions.isEmpty && calendar.events.isEmpty {
                 startupState
             } else {
-                VStack(spacing: 0) {
-                    switch scale {
-                    case .week:
+                HStack(spacing: 0) {
+                    ZStack {
                         weekGrid
                             .id(weekStart)
-                            .transition(.opacity)
                             .overlay(alignment: .bottom) {
                                 if !selection.isEmpty {
                                     SelectionBar(
@@ -127,16 +168,33 @@ struct CalendarView: View {
                                     .padding(.bottom, 20)
                                 }
                             }
-                    case .year:
-                        YearView(
-                            year: year, selectedWeekStart: weekStart,
-                            onSelect: { open($0) },
-                            onAtTopChange: { atTop = $0 }
-                        )
-                        .transition(.opacity)
-                    }
+                            // The year overlay below blurs and dims this
+                            // instead of replacing it — the week grid stays
+                            // visible underneath, per the floating-panel design.
+                            .blur(radius: scale == .year ? 14 : 0)
+                            .allowsHitTesting(scale == .week)
 
-                    StatusFooter(
+                        if scale == .year {
+                            Color.black.opacity(0.25)
+                                .ignoresSafeArea()
+                                .onTapGesture { scale = .week }
+                                .transition(.opacity)
+
+                            YearView(
+                                year: year, selectedWeekStart: weekStart,
+                                weekdayColors: weekdayColors,
+                                onSelect: { open($0) },
+                                onAtTopChange: { atTop = $0 }
+                            )
+                            .frame(width: 640, height: 520)
+                            .glassPanel(cornerRadius: 20)
+                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                        }
+                    }
+                    .calendarScroll(enabled: !settingsShowing, scale: scale, atTop: atTop, perform: handleScroll)
+
+                    scheduleSidebarResizeHandle
+                    ScheduleSidebar(
                         lastUpdated: controller.lastUpdated,
                         refreshError: controller.refreshError ?? calendar.lastError,
                         update: updaterBridge.availableVersion,
@@ -150,10 +208,11 @@ struct CalendarView: View {
                         },
                         tint: { preferences.color(for: $0.subjectCode, in: palette) },
                         onRetry: retry,
-                        onPrint: printWeek
+                        onPrint: printWeek,
+                        preferences: preferences
                     )
+                    .frame(width: preferences.scheduleSidebarWidth)
                 }
-                .calendarScroll(enabled: !settingsShowing, scale: scale, atTop: atTop, perform: handleScroll)
             }
         }
         .animation(Motion.arrival(reduced: reduceMotion), value: weekStart)
@@ -171,7 +230,11 @@ struct CalendarView: View {
         .onChange(of: schedule.newEventIntent) { _, _ in newEventAtDefaultSlot() }
         .animation(Motion.arrival(reduced: reduceMotion), value: selection.isEmpty)
         .focusable()
-        .onKeyPress(.escape) { selection.removeAll(); return .handled }
+        .onKeyPress(.escape) {
+            if !selection.isEmpty { selection.removeAll(); return .handled }
+            if scale == .year { scale = .week; return .handled }
+            return .ignored
+        }
         .onKeyPress(.delete) { deleteSelection(); return .handled }
         // Classes are excluded: they can't be deleted or duplicated, so
         // selecting them would offer actions that do nothing.
@@ -561,113 +624,3 @@ private struct ScopeQuestion {
     let apply: (CalendarBridge.EditScope) -> Void
 }
 
-/// Where a failed refresh goes now that it no longer gets to take the screen —
-/// and, on the other side of the bar, what's coming up next.
-private struct StatusFooter: View {
-    let lastUpdated: Date?
-    let refreshError: String?
-    let update: String?
-    let onCheckForUpdates: () -> Void
-    let sessions: [ClassSession]
-    let isVacant: (ClassSession, Date) -> Bool
-    let time: (ClassSession, Date) -> (Int, Int)
-    let tint: (ClassSession) -> Color
-    let onRetry: () -> Void
-    let onPrint: () -> Void
-    @Environment(\.palette) private var palette
-    @Environment(\.typography) private var typography
-
-    var body: some View {
-        HStack(spacing: 8) {
-            NextClassBanner(sessions: sessions, isVacant: isVacant, time: time, tint: tint)
-
-            if let refreshError {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                Text(refreshError)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .help(refreshError)
-            }
-
-            Text(staleness)
-                .foregroundStyle(.secondary)
-
-            Spacer(minLength: 12)
-
-            if let update {
-                Button(action: onCheckForUpdates) {
-                    Label("v\(update) available", systemImage: "arrow.down.circle")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(palette.accent)
-                .help("Installs the update in place, then relaunches.")
-            }
-
-            Button("Print…", action: onPrint)
-                .glassButton()
-                .controlSize(.small)
-
-            Button(refreshError == nil ? "Refresh" : "Try again", action: onRetry)
-                .glassButton()
-                .tint(palette.accent)
-                .controlSize(.small)
-        }
-        .font(typography.footer)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.bar)
-    }
-
-    private var staleness: String {
-        guard let lastUpdated else { return "Never updated" }
-        // Under a minute reads as "in 0 seconds" through the relative style,
-        // which is worse than saying it plainly.
-        guard Date().timeIntervalSince(lastUpdated) >= 60 else { return "Updated just now" }
-        return "Updated \(lastUpdated.formatted(.relative(presentation: .named)))"
-    }
-}
-
-/// "Next class in N minutes" — the single most useful glance in the app.
-///
-/// Ticks from its own `TimelineView` rather than a timer, and starts on the
-/// next :00 so the countdown changes when the minute does. Same mechanism
-/// `NowLine` uses one level up in the grid.
-private struct NextClassBanner: View {
-    let sessions: [ClassSession]
-    let isVacant: (ClassSession, Date) -> Bool
-    let time: (ClassSession, Date) -> (Int, Int)
-    let tint: (ClassSession) -> Color
-
-    @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        TimelineView(.periodic(from: NowLine.nextMinute, by: 60)) { context in
-            if let upcoming = NextClass.next(in: sessions, at: context.date, isVacant: isVacant, time: time) {
-                let color = tint(upcoming.session)
-
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(color)
-                        .frame(width: 7, height: 7)
-
-                    Text(upcoming.session.subjectCode)
-                        .font(typography.blockCode)
-
-                    Text(upcoming.countdown(now: context.date))
-                        .foregroundStyle(.secondary)
-                }
-                .font(typography.footer)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 3)
-                .glassTintedCapsule(color.opacity(0.18))
-                .help("\(upcoming.session.description) · \(upcoming.session.timeLabel)")
-                .accessibilityElement(children: .combine)
-                // Only the subject changing is worth animating; the countdown
-                // ticking every minute would strobe the whole lozenge.
-                .animation(Motion.drift(reduced: reduceMotion), value: upcoming.session.id)
-            }
-        }
-    }
-}
