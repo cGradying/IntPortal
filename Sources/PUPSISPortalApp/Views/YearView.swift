@@ -16,9 +16,6 @@ struct YearView: View {
     /// per cell.
     var weekdayColors: [Weekday: [Color]] = [:]
     let onSelect: (Date) -> Void
-    /// Fires whenever the scroll position pins to (or leaves) the top —
-    /// what `CalendarScroll` gates the year↔week overscroll switch on.
-    var onAtTopChange: (Bool) -> Void = { _ in }
 
     @Environment(\.palette) private var palette
 
@@ -26,26 +23,24 @@ struct YearView: View {
 
     // 2 columns — a 2×2 popup for 4 months, not the wide 4-column strip a
     // full year needed.
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 40), count: 2)
-    private static let scrollSpace = "PUPSISPortal.yearScroll"
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 44), count: 2)
 
+    // No ScrollView: a fixed 4-month grid has one size, and a scrollable
+    // container the content doesn't fill is exactly the "excess space"
+    // this was asked to stop doing — the panel now sizes to its content
+    // instead of to an arbitrary fixed height.
     var body: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 40) {
-                ForEach(months, id: \.self) { month in
-                    MonthGrid(
-                        month: month,
-                        selectedWeekStart: selectedWeekStart,
-                        weekdayColors: weekdayColors,
-                        onSelect: onSelect
-                    )
-                }
+        LazyVGrid(columns: columns, spacing: 44) {
+            ForEach(months, id: \.self) { month in
+                MonthGrid(
+                    month: month,
+                    selectedWeekStart: selectedWeekStart,
+                    weekdayColors: weekdayColors,
+                    onSelect: onSelect
+                )
             }
-            .padding(32)
-            .trackScrollTop(space: Self.scrollSpace) { onAtTopChange($0 >= -1) }
         }
-        .coordinateSpace(.named(Self.scrollSpace))
-        .scrollIndicators(.hidden)
+        .padding(36)
     }
 }
 
@@ -115,7 +110,7 @@ private struct DayCell: View {
                     .monospacedDigit()
                     .foregroundStyle(foreground)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 20)
+                    .frame(height: 24)
                     .background {
                         if isToday {
                             Circle().fill(palette.accent)
@@ -130,10 +125,10 @@ private struct DayCell: View {
 
                 HStack(spacing: 2) {
                     ForEach(Array(dotColors.enumerated()), id: \.offset) { _, color in
-                        Circle().fill(color).frame(width: 3, height: 3)
+                        Circle().fill(color).frame(width: 4, height: 4)
                     }
                 }
-                .frame(height: 4)
+                .frame(height: 5)
             }
         }
         .buttonStyle(.plain)

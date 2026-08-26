@@ -272,6 +272,16 @@ struct ContentView: View {
     /// level automatically.
     private var topStrip: CGFloat { Theme.Chrome.topStrip * preferences.uiScale }
 
+    /// The floating month calendar (`CalendarView`) blurs/dims the grid and
+    /// sidebar itself, but it's inset below this top strip and has no reach
+    /// above it — this is what extends the same treatment to the chrome
+    /// band, so the whole screen behind the popup dims, not just the part
+    /// under `CalendarView`. The island itself is drawn after this in
+    /// z-order, so it's untouched.
+    private var showingMonthOverlay: Bool {
+        appState.selection == .schedule && appState.schedule.scale == .year
+    }
+
     var body: some View {
         content
             // Reaches both branches of `content` (login screen and the main
@@ -360,7 +370,16 @@ struct ContentView: View {
                     // of thinning out. A real per-pixel alpha gradient on top
                     // smooths that regardless of how sparse the dots get.
                     .mask(LinearGradient(colors: [.black, .black.opacity(0)], startPoint: .top, endPoint: .bottom))
+                    .blur(radius: showingMonthOverlay ? 14 : 0)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .overlay(alignment: .top) {
+                        if showingMonthOverlay {
+                            Color.black.opacity(0.25)
+                                .frame(height: topStrip)
+                                .onTapGesture { appState.schedule.scale = .week }
+                                .transition(.opacity)
+                        }
+                    }
                     .clipShape(
                         UnevenRoundedRectangle(
                             topLeadingRadius: Theme.Chrome.windowRadius,
@@ -402,6 +421,7 @@ struct ContentView: View {
             .ignoresSafeArea()
             .background(preferences.theme.palette(for: systemScheme).canvasWash.ignoresSafeArea())
             .animation(Motion.island(reduced: reduceMotion), value: appState.isHome)
+            .animation(Motion.arrival(reduced: reduceMotion), value: showingMonthOverlay)
         }
     }
 

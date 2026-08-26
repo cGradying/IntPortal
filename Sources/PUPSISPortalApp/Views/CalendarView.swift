@@ -204,10 +204,12 @@ struct CalendarView: View {
                             months: MonthLayout.months(around: weekStart, count: 4),
                             selectedWeekStart: weekStart,
                             weekdayColors: weekdayColors,
-                            onSelect: { open($0) },
-                            onAtTopChange: { atTop = $0 }
+                            onSelect: { open($0) }
                         )
-                        .frame(width: 620, height: 680)
+                        // Width only — height sizes to the 4-month grid's
+                        // actual content instead of a guessed fixed number,
+                        // so there's no leftover empty space in the panel.
+                        .frame(width: 700)
                         .glassPanel(cornerRadius: 24)
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     }
