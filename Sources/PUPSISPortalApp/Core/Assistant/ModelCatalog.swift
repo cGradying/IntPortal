@@ -15,7 +15,7 @@ enum ModelCatalog {
         let description: String
     }
 
-    /// Confirmed live this session: downloaded and ran both through a real
+    /// Confirmed live this session: downloaded and ran through a real
     /// `llama-server`, RSS/JSON-schema/thinking all checked directly rather
     /// than trusted from a model card.
     static let entries: [Entry] = [
@@ -26,14 +26,6 @@ enum ModelCatalog {
             url: URL(string: "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf")!,
             sizeBytes: 1_107_409_472,
             description: "1.1GB · general chat, tools, and thinking. The default — runs comfortably on any Mac."
-        ),
-        Entry(
-            id: "lfm2.5-2.6b",
-            label: "LFM2.5-2.6B",
-            filename: "LFM2.5-2.6B-Q4_K_M.gguf",
-            url: URL(string: "https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-Q4_K_M.gguf")!,
-            sizeBytes: 1_707_000_000,
-            description: "1.6GB · leans toward RAG, data extraction, and long context. Custom Liquid AI license (lfm1.0), not Apache 2.0."
         ),
     ]
 

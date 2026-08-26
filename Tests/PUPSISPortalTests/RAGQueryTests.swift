@@ -45,7 +45,8 @@ final class RAGQueryTests: XCTestCase {
         let query = RAGQuery(
             notes: notesStore,
             client: LlamaCppClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
-            ensureChatServerRunning: { false }
+            ensureChatServerRunning: { false },
+            ensureEmbedServerRunning: { false }
         )
         do {
             _ = try await query.ask("recursion")
@@ -110,7 +111,7 @@ final class RAGQueryTests: XCTestCase {
             send: { _ in self.envelope(#"{"answer":"Photosynthesis converts light to energy."}"#) },
             sendEmbed: { _ in throw URLError(.notConnectedToInternet) }
         )
-        let query = RAGQuery(notes: notesStore, client: client, ensureChatServerRunning: { true })
+        let query = RAGQuery(notes: notesStore, client: client, ensureChatServerRunning: { true }, ensureEmbedServerRunning: { false })
 
         do {
             let answer = try await query.ask("photosynthesis")
@@ -132,7 +133,7 @@ final class RAGQueryTests: XCTestCase {
             sendEmbed: { _ in throw URLError(.notConnectedToInternet) }
         )
         let query = RAGQuery(
-            notes: notesStore, client: client, ensureChatServerRunning: { true },
+            notes: notesStore, client: client, ensureChatServerRunning: { true }, ensureEmbedServerRunning: { false },
             contextBudget: 20 // smaller than the single matching chunk's own text
         )
 
@@ -152,7 +153,10 @@ final class RAGQueryTests: XCTestCase {
             send: { _ in self.envelope(#"{"answer":"A base case and a recursive case."}"#) },
             sendEmbed: { _ in throw URLError(.notConnectedToInternet) }
         )
-        let query = RAGQuery(notes: notesStore, client: client, ensureChatServerRunning: { true }, answerModel: "qwen3-1.7b")
+        let query = RAGQuery(
+            notes: notesStore, client: client, ensureChatServerRunning: { true }, ensureEmbedServerRunning: { false },
+            answerModel: "qwen3-1.7b"
+        )
         do {
             let answer = try await query.ask("recursion")
             XCTAssertEqual(answer.text, "A base case and a recursive case.")
