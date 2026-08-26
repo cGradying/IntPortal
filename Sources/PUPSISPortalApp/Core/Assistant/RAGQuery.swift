@@ -116,7 +116,12 @@ struct RAGQuery {
     func ask(_ query: String) async throws -> Answer {
         let hits = await rankedChunks(for: query)
         guard !hits.isEmpty else { throw QueryError.noMatch(query) }
-        guard await ensureServerRunning() else { throw QueryError.serverUnavailable }
+        // Only the llama.cpp path needs a server spawned/health-checked —
+        // `.assistantModel` answers through the same Ollama server retrieval
+        // already used for embeddings, nothing extra to start.
+        if answerer == .llamaCpp {
+            guard await ensureServerRunning() else { throw QueryError.serverUnavailable }
+        }
 
         // Truncates an over-budget hit to whatever room is left rather than
         // skipping it outright — a top-ranked match (a whole note pasted with

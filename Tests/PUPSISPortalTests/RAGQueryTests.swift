@@ -37,7 +37,11 @@ final class RAGQueryTests: XCTestCase {
         let query = RAGQuery(
             notes: notesStore,
             ollamaClient: OllamaClient(sendEmbed: { _ in throw URLError(.notConnectedToInternet) }),
-            ensureServerRunning: { false }
+            ensureServerRunning: { false },
+            // Only the llama.cpp path spawns/health-checks a server at all —
+            // pin it explicitly, since the default answerer is Ollama-based
+            // and wouldn't call ensureServerRunning in the first place.
+            answerer: .llamaCpp
         )
         do {
             _ = try await query.ask("recursion")
