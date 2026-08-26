@@ -70,6 +70,24 @@ final class MonthLayoutTests: XCTestCase {
 
     /// February 2027 starts on a Monday and has 28 days — exactly four weeks,
     /// the case most likely to produce a short grid.
+    /// The floating month calendar's popup — 4 consecutive months starting
+    /// at the given date's own month, not a calendar-year slice.
+    func testMonthsAroundReturnsFourConsecutiveMonthsStartingAtTheGivenDate() throws {
+        let months = MonthLayout.months(around: try date(2026, 8, 15), calendar: calendar)
+
+        XCTAssertEqual(months.count, 4)
+        XCTAssertEqual(months.map { calendar.component(.month, from: $0) }, [8, 9, 10, 11])
+        XCTAssertEqual(months.map { calendar.component(.day, from: $0) }, [1, 1, 1, 1])
+    }
+
+    /// Has to cross the year boundary correctly, not clamp at December.
+    func testMonthsAroundCrossesTheYearBoundary() throws {
+        let months = MonthLayout.months(around: try date(2026, 11, 3), calendar: calendar)
+
+        XCTAssertEqual(months.map { calendar.component(.month, from: $0) }, [11, 12, 1, 2])
+        XCTAssertEqual(months.map { calendar.component(.year, from: $0) }, [2026, 2026, 2027, 2027])
+    }
+
     func testAnExactlyFourWeekMonthStillFillsSixRows() throws {
         let february = try date(2027, 2, 1)
         let days = MonthLayout.days(ofMonthContaining: february, calendar: calendar)

@@ -4,7 +4,11 @@ import SwiftUI
 /// see where you are and jump somewhere, not a place to read a schedule.
 /// Picking any date opens that week in the grid.
 struct YearView: View {
-    let year: Int
+    /// The months to show, in order — a compact 4-month window around
+    /// wherever's currently browsed (`MonthLayout.months(around:count:)`),
+    /// not a calendar-year slice. Presentation-only: the view just lays out
+    /// whatever it's given.
+    let months: [Date]
     /// The week currently open in the grid, so it can be marked here.
     let selectedWeekStart: Date
     /// Per-weekday dot colors — a subject's *normal* meeting day, resolved
@@ -20,13 +24,15 @@ struct YearView: View {
 
     @Environment(\.typography) private var typography
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 28), count: 4)
+    // 2 columns — a 2×2 popup for 4 months, not the wide 4-column strip a
+    // full year needed.
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 28), count: 2)
     private static let scrollSpace = "PUPSISPortal.yearScroll"
 
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 28) {
-                ForEach(MonthLayout.months(in: year), id: \.self) { month in
+                ForEach(months, id: \.self) { month in
                     MonthGrid(
                         month: month,
                         selectedWeekStart: selectedWeekStart,

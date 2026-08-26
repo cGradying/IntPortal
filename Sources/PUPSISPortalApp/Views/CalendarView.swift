@@ -84,8 +84,6 @@ struct CalendarView: View {
         return Calendar.current.date(byAdding: .day, value: weekOffset * 7, to: thisWeek) ?? thisWeek
     }
 
-    private var year: Int { Calendar.current.component(.year, from: weekStart) }
-
     /// Classes and calendar events end up in one list so the grid draws one
     /// kind of thing and overlap layout can see across both.
     ///
@@ -181,12 +179,13 @@ struct CalendarView: View {
                                 .transition(.opacity)
 
                             YearView(
-                                year: year, selectedWeekStart: weekStart,
+                                months: MonthLayout.months(around: weekStart, count: 4),
+                                selectedWeekStart: weekStart,
                                 weekdayColors: weekdayColors,
                                 onSelect: { open($0) },
                                 onAtTopChange: { atTop = $0 }
                             )
-                            .frame(width: 640, height: 520)
+                            .frame(width: 420, height: 460)
                             .glassPanel(cornerRadius: 20)
                             .transition(.opacity.combined(with: .scale(scale: 0.96)))
                         }
@@ -550,7 +549,9 @@ struct CalendarView: View {
         case .week:
             weekOffset += direction
         case .year:
-            if let target = Calendar.current.date(byAdding: .year, value: direction, to: weekStart) {
+            // A full-year jump made sense when the panel showed all twelve
+            // months; it only shows a 4-month window now, so step by that.
+            if let target = Calendar.current.date(byAdding: .month, value: direction * 4, to: weekStart) {
                 open(target, switchToWeek: false)
             }
         }
@@ -580,7 +581,8 @@ struct CalendarView: View {
             let short = Date.FormatStyle.dateTime.month(.abbreviated).day()
             return "\(weekStart.formatted(short)) – \(end.formatted(short))"
         case .year:
-            return String(year)
+            let short = Date.FormatStyle.dateTime.month(.abbreviated).year()
+            return weekStart.formatted(short)
         }
     }
 

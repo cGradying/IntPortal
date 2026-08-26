@@ -47,6 +47,15 @@ enum MonthLayout {
         }
     }
 
+    /// `count` consecutive first-of-month dates starting at `date`'s own
+    /// month — the floating month calendar's popup, deliberately not a
+    /// calendar-year slice: it opens centered on wherever you're actually
+    /// browsing, and crosses a year boundary correctly (November → Nov/Dec/Jan/Feb).
+    static func months(around date: Date, count: Int = 4, calendar: Calendar = .current) -> [Date] {
+        let start = startOfMonth(containing: date, calendar: calendar)
+        return (0..<count).compactMap { calendar.date(byAdding: .month, value: $0, to: start) }
+    }
+
     static func isSameMonth(_ date: Date, as other: Date, calendar: Calendar = .current) -> Bool {
         calendar.isDate(date, equalTo: other, toGranularity: .month)
     }
