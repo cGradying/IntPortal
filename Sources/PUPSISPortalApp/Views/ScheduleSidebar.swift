@@ -34,7 +34,17 @@ struct ScheduleSidebar: View {
             .padding(16)
         }
         .frame(maxHeight: .infinity)
-        .background(.bar)
+        // Faded in from the top, not a flat fill starting right at the top
+        // strip's edge — the week-grid side blends into the chrome band via
+        // `canvasWash`; an opaque `.bar` right up to that same seam read as
+        // a hard-edged rectangle by contrast.
+        .background {
+            Rectangle().fill(.bar)
+                .mask(LinearGradient(
+                    stops: [.init(color: .black.opacity(0), location: 0), .init(color: .black, location: 0.06)],
+                    startPoint: .top, endPoint: .bottom
+                ))
+        }
     }
 
     // MARK: Status
