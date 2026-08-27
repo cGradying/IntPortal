@@ -24,6 +24,7 @@ struct SettingsView: View {
     @State private var downloadedIDs: Set<String> = []
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
+    @Environment(\.colorScheme) private var systemScheme
     @State fileprivate var exportResult: String?
     @State fileprivate var googleCalendars: [GoogleCalendar] = []
     @State fileprivate var googleBusy = false
@@ -66,15 +67,44 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
     }
 
+    /// Replaces `.pickerStyle(.inline)`, which rendered as a bare, unstyled
+    /// system radio list — confirmed live as jarring the moment someone
+    /// opens Settings to change the very thing this whole app is themed by.
+    /// Same circle-with-selection-ring language `Blocks.swift`'s `SwatchRow`
+    /// already uses for subject colors, adapted to a named room instead of
+    /// a raw color.
+    private var themeSwatchGrid: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
+            ForEach(ThemeChoice.allCases) { choice in
+                let selected = preferences.theme == choice
+                Button {
+                    preferences.theme = choice
+                } label: {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(choice.palette(for: systemScheme).accent)
+                            .frame(width: 16, height: 16)
+                            .overlay {
+                                Circle().strokeBorder(.primary, lineWidth: 2).opacity(selected ? 1 : 0)
+                            }
+                        Text(choice.label)
+                            .font(.callout)
+                            .foregroundStyle(selected ? .primary : .secondary)
+                        Spacer(minLength: 0)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
     private var appearanceTab: some View {
         settingsForm {
             Section("Appearance") {
-                Picker("Theme", selection: $preferences.theme) {
-                    ForEach(ThemeChoice.allCases) { choice in
-                        Text(choice.label).tag(choice)
-                    }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Theme").font(.callout)
+                    themeSwatchGrid
                 }
-                .pickerStyle(.inline)
                 Picker("Font", selection: $preferences.fontChoice) {
                     ForEach(FontChoice.allCases) { choice in
                         Text(choice.label)

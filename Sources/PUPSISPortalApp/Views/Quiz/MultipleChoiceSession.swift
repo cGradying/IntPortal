@@ -21,13 +21,14 @@ struct MultipleChoiceSession: View {
     @State private var explanationCache: [UUID: String] = [:]
     @State private var correctThisSession = 0
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 20) {
             QuizSessionHeader(
                 title: deck.name, position: index + 1, total: queue.count, correct: correctThisSession,
-                ringColor: index < queue.count ? palette.color(for: queue[index].subject) : .accentColor, onDone: onDone
+                ringColor: index < queue.count ? palette.color(for: queue[index].subject) : palette.accent, onDone: onDone
             )
 
             if queue.isEmpty {
@@ -59,7 +60,7 @@ struct MultipleChoiceSession: View {
     private func content(card: QuizCard, options: [String]) -> some View {
         VStack(spacing: 20) {
             Text(card.front)
-                .font(.title2.weight(.medium))
+                .font(typography.screenTitle)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             VStack(spacing: 8) {
@@ -110,8 +111,8 @@ struct MultipleChoiceSession: View {
 
     private func rowColor(isCorrect: Bool, isPicked: Bool, subject: String) -> Color {
         guard picked != nil else { return palette.color(for: subject).opacity(0.12) }
-        if isCorrect { return .green.opacity(0.25) }
-        if isPicked { return .red.opacity(0.25) }
+        if isCorrect { return .quizSuccess.opacity(0.25) }
+        if isPicked { return .quizDanger.opacity(0.25) }
         return palette.color(for: subject).opacity(0.12)
     }
 
@@ -132,13 +133,13 @@ struct MultipleChoiceSession: View {
     private func wrongAnswerPanel(card: QuizCard, picked: String) -> some View {
         VStack(spacing: 8) {
             if let explanation {
-                Text(explanation).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Text(explanation).font(typography.footer).foregroundStyle(.secondary).multilineTextAlignment(.center)
             } else if explaining {
                 ProgressView().controlSize(.small)
             } else {
                 Button("Why?") { Task { await fetchExplanationIfNeeded(card: card, picked: picked) } }
                     .buttonStyle(.borderless)
-                    .font(.caption)
+                    .font(typography.footer)
             }
             Button("Next") { advance() }
                 .buttonStyle(.borderedProminent)

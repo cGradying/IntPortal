@@ -82,6 +82,16 @@ extension View {
     }
 }
 
+/// Quiz correctness signals, deliberately independent of the active room's
+/// own accent — a themed accent risks visually colliding with "this answer
+/// was right" (confirmed a real problem in Matrix, whose own accent is
+/// itself phosphor green). Fixed, not palette-derived, the way a real-world
+/// green-check/red-X convention is fixed regardless of surrounding decor.
+extension Color {
+    static let quizSuccess = Color(red: 0.204, green: 0.780, blue: 0.349)
+    static let quizDanger = Color(red: 0.910, green: 0.298, blue: 0.235)
+}
+
 // MARK: Pixel-art feedback badges
 
 /// What a badge shows — each is a small hand-drawn bitmap, `1` filled, laid
@@ -130,8 +140,8 @@ enum PixelBadgeKind {
 
     var color: Color {
         switch self {
-        case .correct: .green
-        case .incorrect: .red
+        case .correct: .quizSuccess
+        case .incorrect: .quizDanger
         case .streak: .orange
         }
     }
@@ -234,7 +244,10 @@ struct QuizSessionHeader: View {
     let position: Int
     let total: Int
     var correct: Int = 0
-    var ringColor: Color = .accentColor
+    // No default — `.accentColor` here was the *system* accent, not the
+    // room's own, and MatchingSession was the one call site quietly relying
+    // on it instead of a real palette color. Every caller says one now.
+    let ringColor: Color
     let onDone: () -> Void
 
     var body: some View {
@@ -249,7 +262,7 @@ struct QuizSessionHeader: View {
                     Text("\(min(position, max(total, position))) / \(total)")
                         .font(.caption).foregroundStyle(.secondary)
                     if correct > 0 {
-                        Text("· \(correct) correct").font(.caption).foregroundStyle(.green)
+                        Text("· \(correct) correct").font(.caption).foregroundStyle(Color.quizSuccess)
                     }
                 }
             }
@@ -315,7 +328,7 @@ struct DeckStatCard: View {
         }
         .foregroundStyle(emphasized ? color : .secondary)
         .padding(.horizontal, 8).padding(.vertical, 3)
-        .background(emphasized ? color.opacity(0.16) : Color.gray.opacity(0.12), in: .capsule)
+        .background(emphasized ? color.opacity(0.16) : .secondary.opacity(0.12), in: .capsule)
     }
 }
 
@@ -326,7 +339,7 @@ struct QuizEmptyState: View {
     var body: some View {
         Spacer()
         VStack(spacing: 8) {
-            Image(systemName: "checkmark.circle").font(.system(size: 40)).foregroundStyle(.green)
+            Image(systemName: "checkmark.circle").font(.system(size: 40)).foregroundStyle(Color.quizSuccess)
             Text(message).foregroundStyle(.secondary)
         }
         Spacer()
@@ -340,7 +353,7 @@ struct QuizCompleteState: View {
     var body: some View {
         Spacer()
         VStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 40)).foregroundStyle(.green)
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 40)).foregroundStyle(Color.quizSuccess)
             Text("Session complete.").foregroundStyle(.secondary)
             Button("Done") { onDone() }
         }

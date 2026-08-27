@@ -24,7 +24,7 @@ struct StudySession: View {
         VStack(spacing: 20) {
             QuizSessionHeader(
                 title: deck.name, position: index + 1, total: queue.count, correct: correctThisSession,
-                ringColor: index < queue.count ? subjectColor : .accentColor, onDone: onDone
+                ringColor: index < queue.count ? subjectColor : palette.accent, onDone: onDone
             )
 
             if queue.isEmpty {

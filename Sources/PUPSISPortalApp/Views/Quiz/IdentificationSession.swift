@@ -21,13 +21,14 @@ struct IdentificationSession: View {
     @State private var correctThisSession = 0
     @FocusState private var fieldFocused: Bool
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 20) {
             QuizSessionHeader(
                 title: deck.name, position: index + 1, total: queue.count, correct: correctThisSession,
-                ringColor: index < queue.count ? subjectColor : .accentColor, onDone: onDone
+                ringColor: index < queue.count ? subjectColor : palette.accent, onDone: onDone
             )
 
             if queue.isEmpty {
@@ -58,7 +59,7 @@ struct IdentificationSession: View {
     private var card: some View {
         VStack(spacing: 16) {
             Text(current.back)
-                .font(.title2.weight(.medium))
+                .font(typography.screenTitle)
                 .multilineTextAlignment(.center)
             TextField("Type the term", text: $typed)
                 .textFieldStyle(.roundedBorder)
@@ -97,15 +98,15 @@ struct IdentificationSession: View {
     @ViewBuilder
     private var wrongAnswerPanel: some View {
         VStack(spacing: 6) {
-            Text("Answer: \(current.front)").font(.callout)
+            Text("Answer: \(current.front)").font(typography.detailBody)
             if let explanation {
-                Text(explanation).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Text(explanation).font(typography.footer).foregroundStyle(.secondary).multilineTextAlignment(.center)
             } else if explaining {
                 ProgressView().controlSize(.small)
             } else {
                 Button("Why?") { Task { await fetchExplanationIfNeeded() } }
                     .buttonStyle(.borderless)
-                    .font(.caption)
+                    .font(typography.footer)
             }
         }
     }

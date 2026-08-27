@@ -29,7 +29,7 @@ struct MatchingSession: View {
         VStack(spacing: 20) {
             QuizSessionHeader(
                 title: deck.name, position: max(totalDue - pool.count - round.count + matchedIDs.count, 0),
-                total: totalDue, correct: correctThisSession, onDone: onDone
+                total: totalDue, correct: correctThisSession, ringColor: palette.accent, onDone: onDone
             )
 
             if totalDue == 0 {
@@ -103,8 +103,8 @@ struct MatchingSession: View {
                 .padding(10)
                 .background(
                     RoundedRectangle(cornerRadius: 8).fill(
-                        matched ? Color.green.opacity(0.2)
-                            : flashingWrong ? Color.red.opacity(0.3)
+                        matched ? Color.quizSuccess.opacity(0.2)
+                            : flashingWrong ? Color.quizDanger.opacity(0.3)
                             : selected ? subjectColor.opacity(0.28)
                             : subjectColor.opacity(0.12)
                     )

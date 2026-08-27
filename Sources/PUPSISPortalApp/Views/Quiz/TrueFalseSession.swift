@@ -20,13 +20,14 @@ struct TrueFalseSession: View {
     @State private var pressed: Bool?
     @State private var correctThisSession = 0
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 20) {
             QuizSessionHeader(
                 title: deck.name, position: index + 1, total: queue.count, correct: correctThisSession,
-                ringColor: index < queue.count ? palette.color(for: queue[index].subject) : .accentColor, onDone: onDone
+                ringColor: index < queue.count ? palette.color(for: queue[index].subject) : palette.accent, onDone: onDone
             )
 
             if queue.isEmpty {
@@ -58,11 +59,11 @@ struct TrueFalseSession: View {
     private func content(card: QuizCard, statement: String, isActuallyTrue: Bool) -> some View {
         VStack(spacing: 20) {
             Text(card.front)
-                .font(.title3.weight(.medium))
+                .font(typography.detailTitle)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Text(statement)
-                .font(.title2.weight(.semibold))
+                .font(typography.screenTitle)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             if let answered {
@@ -128,7 +129,7 @@ struct TrueFalseSession: View {
     private func wrongAnswerPanel(card: QuizCard, statement: String, isActuallyTrue: Bool) -> some View {
         VStack(spacing: 8) {
             if let explanation {
-                Text(explanation).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Text(explanation).font(typography.footer).foregroundStyle(.secondary).multilineTextAlignment(.center)
             } else if explaining {
                 ProgressView().controlSize(.small)
             } else {
@@ -136,7 +137,7 @@ struct TrueFalseSession: View {
                     Task { await fetchExplanationIfNeeded(card: card, shownStatement: statement, isActuallyTrue: isActuallyTrue) }
                 }
                 .buttonStyle(.borderless)
-                .font(.caption)
+                .font(typography.footer)
             }
             Button("Next") { advance() }
                 .buttonStyle(.borderedProminent)

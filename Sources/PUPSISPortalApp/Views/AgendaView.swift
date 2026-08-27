@@ -323,6 +323,7 @@ struct AgendaView: View {
             Button { shiftDay(-1) } label: { Image(systemName: "chevron.left") }
                 .buttonStyle(.borderless)
                 .help("Previous day")
+                .accessibilityLabel("Previous day")
 
             let key = dayKey(for: browsedDay)
             Button { selectedKey = key } label: {
@@ -348,6 +349,7 @@ struct AgendaView: View {
             Button { showingDatePicker = true } label: { Image(systemName: "calendar") }
                 .buttonStyle(.borderless)
                 .help("Pick a date")
+                .accessibilityLabel("Pick a date")
                 .popover(isPresented: $showingDatePicker) {
                     DatePicker("", selection: $browsedDay, displayedComponents: .date)
                         .datePickerStyle(.graphical)
@@ -358,6 +360,7 @@ struct AgendaView: View {
             Button { shiftDay(1) } label: { Image(systemName: "chevron.right") }
                 .buttonStyle(.borderless)
                 .help("Next day")
+                .accessibilityLabel("Next day")
         }
     }
 
@@ -377,10 +380,13 @@ struct AgendaView: View {
                         .foregroundStyle(showRAGBadges ? palette.accent : .secondary)
                 }
                 .help("\(notes.ragCounts().included) of \(notes.ragCounts().total) notes in AI search — click to show which")
+                .accessibilityLabel("AI search inclusion — \(notes.ragCounts().included) of \(notes.ragCounts().total) notes included")
                 Button { promptNewFile(parent: nil) } label: { Image(systemName: "doc.badge.plus") }
                     .help("New note")
+                    .accessibilityLabel("New note")
                 Button { promptNewFolder(parent: nil) } label: { Image(systemName: "folder.badge.plus") }
                     .help("New folder")
+                    .accessibilityLabel("New folder")
             }
             .buttonStyle(.borderless)
 
