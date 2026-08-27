@@ -258,6 +258,22 @@ extension EnvironmentValues {
     }
 }
 
+/// `Preferences.uiScale`, for the handful of views that need the raw factor
+/// for their own fixed pixel geometry (a popover's width, the now-line
+/// lozenge) rather than a pre-scaled font from `Typography`. Views that
+/// already hold a `Preferences` reference (`WeekGrid`) just read
+/// `preferences.uiScale` directly — this exists for the ones that don't.
+private struct UIScaleKey: EnvironmentKey {
+    static let defaultValue: Double = 1.0
+}
+
+extension EnvironmentValues {
+    var uiScale: Double {
+        get { self[UIScaleKey.self] }
+        set { self[UIScaleKey.self] = newValue }
+    }
+}
+
 // MARK: - Motion
 
 /// The app's animation vocabulary, in one place so timings stay related to

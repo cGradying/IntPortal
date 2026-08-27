@@ -13,6 +13,7 @@ struct NowLine: View {
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.uiScale) private var uiScale
 
     /// Minutes from midnight, right now.
     let minutes: Int
@@ -23,7 +24,7 @@ struct NowLine: View {
     let height: CGFloat
     let gutter: CGFloat
 
-    private let lozengeHeight: CGFloat = 18
+    private var lozengeHeight: CGFloat { 18 * uiScale }
 
     var body: some View {
         let offset = CGFloat(minutes - axisStart)

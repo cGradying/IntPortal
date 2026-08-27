@@ -292,6 +292,7 @@ struct ContentView: View {
             .background(TrafficLights(autoHide: preferences.trafficLightsAutoHide))
             .environment(\.palette, preferences.theme.palette(for: systemScheme))
             .environment(\.typography, Typography(preferences.fontChoice, scale: preferences.uiScale))
+            .environment(\.uiScale, preferences.uiScale)
             // Keeps native controls (fields, pickers, popovers) in step with a
             // theme the user picked against their system setting.
             .preferredColorScheme(preferences.theme.colorScheme)

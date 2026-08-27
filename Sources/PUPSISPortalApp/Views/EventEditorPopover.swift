@@ -19,6 +19,7 @@ struct EventEditorPopover: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
+    @Environment(\.uiScale) private var uiScale
     @FocusState private var titleFocused: Bool
 
     /// Quick lengths, so the common case never opens a time picker.
@@ -38,7 +39,7 @@ struct EventEditorPopover: View {
             actions
         }
         .padding(16)
-        .frame(width: 320)
+        .frame(width: 320 * uiScale)
         .tint(palette.accent)
         .onAppear { titleFocused = existing == nil }
     }
@@ -88,7 +89,7 @@ struct EventEditorPopover: View {
 
                 Button(label(for: minutes)) { draft.end = draft.start + minutes }
                     .buttonStyle(.plain)
-                    .font(.caption)
+                    .font(typography.footer)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
                     .background(Capsule().fill(palette.accent.opacity(on ? 0.22 : 0.08)))
@@ -101,7 +102,7 @@ struct EventEditorPopover: View {
     private var repeatToggle: some View {
         Toggle(isOn: $draft.repeatsWeekly) {
             Text(draft.repeatsWeekly ? "Repeats weekly until term ends" : "Just this week")
-                .font(.caption)
+                .font(typography.footer)
         }
         .toggleStyle(.switch)
         .controlSize(.small)

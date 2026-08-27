@@ -37,12 +37,17 @@ struct WeekGrid: View {
         let delete: (DayBlock) -> Void
     }
 
-    private let gutter: CGFloat = 56
-    private let headerHeight: CGFloat = 44
+    // Fixed pixel geometry — `preferences.uiScale`-scaled, same convention
+    // as `Theme.Chrome.topStrip` (`App/PUPSISPortalApp.swift`): grown, not
+    // rasterized. Without this, the grid stayed pinned to its 100% size
+    // while `Typography` grew, so a wider gutter's mono time labels
+    // overflowed a `gutter` that never grew with them.
+    private var gutter: CGFloat { 56 * preferences.uiScale }
+    private var headerHeight: CGFloat { 44 * preferences.uiScale }
     /// The floor `hourHeight` stretches up from, never below — a genuinely
     /// busy/long day still scrolls at this size rather than being squeezed
     /// illegible to fit.
-    private let minHourHeight: CGFloat = 60
+    private var minHourHeight: CGFloat { 60 * preferences.uiScale }
     /// Stretches hours to fill real dead space below a light day's
     /// schedule; never shrinks below `minHourHeight`. `14`/`12` mirror
     /// `scrollingBody`'s own top/bottom padding below the header.
@@ -53,8 +58,8 @@ struct WeekGrid: View {
         return available > natural ? available / hours : minHourHeight
     }
     /// Shared by the header and the grid so day labels line up with columns.
-    private let columnInset: CGFloat = 12
-    private let columnSpacing: CGFloat = 5
+    private var columnInset: CGFloat { 12 * preferences.uiScale }
+    private var columnSpacing: CGFloat { 5 * preferences.uiScale }
     static let gridSpace = "PUPSISPortal.grid"
     static let scrollSpace = "PUPSISPortal.weekScroll"
 

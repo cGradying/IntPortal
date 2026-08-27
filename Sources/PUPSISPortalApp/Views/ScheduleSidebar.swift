@@ -56,7 +56,7 @@ struct ScheduleSidebar: View {
             if let refreshError {
                 Label(refreshError, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
-                    .font(.caption)
+                    .font(typography.footer)
             }
 
             Text(staleness)
@@ -98,7 +98,7 @@ struct ScheduleSidebar: View {
 
             if subjectCodes.isEmpty {
                 Text("Subjects appear here once your schedule loads.")
-                    .font(.caption)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(subjectCodes, id: \.self) { code in
@@ -119,7 +119,7 @@ struct ScheduleSidebar: View {
             }
             if linked.isEmpty {
                 Text("Set a subject's link from its class block — \"Apply to every block\" — and it shows here.")
-                    .font(.caption)
+                    .font(typography.footer)
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(linked, id: \.self) { code in
@@ -181,6 +181,7 @@ private struct NextClassBanner: View {
 private struct SubjectTaskGroup: View {
     let subjectCode: String
     @ObservedObject var preferences: Preferences
+    @Environment(\.typography) private var typography
     @State private var newTitle = ""
     @State private var newDue: Date?
     @State private var showingDatePicker = false
@@ -200,13 +201,13 @@ private struct SubjectTaskGroup: View {
                         .buttonStyle(.plain)
 
                         Text(task.title)
-                            .font(.caption)
+                            .font(typography.footer)
                             .strikethrough(task.done)
                             .foregroundStyle(task.done ? .secondary : .primary)
 
                         if let due = task.dueDate {
                             Text(due.formatted(.dateTime.month(.abbreviated).day()))
-                                .font(.caption2)
+                                .font(typography.footer)
                                 .foregroundStyle(.secondary)
                         }
 
@@ -223,7 +224,7 @@ private struct SubjectTaskGroup: View {
                 HStack(spacing: 6) {
                     TextField("Add task…", text: $newTitle)
                         .textFieldStyle(.plain)
-                        .font(.caption)
+                        .font(typography.footer)
                         .onSubmit(addTask)
                     Button {
                         showingDatePicker.toggle()
@@ -245,7 +246,7 @@ private struct SubjectTaskGroup: View {
             }
             .padding(.top, 4)
         } label: {
-            Text(subjectCode).font(.caption.weight(.semibold))
+            Text(subjectCode).font(typography.footer.weight(.semibold))
         }
     }
 
@@ -261,6 +262,7 @@ private struct SubjectTaskGroup: View {
 private struct SubjectLinkRow: View {
     let subjectCode: String
     @ObservedObject var preferences: Preferences
+    @Environment(\.typography) private var typography
 
     private var url: URL? {
         let link = preferences.classInfo[subjectCode]?.link.trimmingCharacters(in: .whitespaces) ?? ""
@@ -274,7 +276,7 @@ private struct SubjectLinkRow: View {
                 NSWorkspace.shared.open(url)
             } label: {
                 Label(subjectCode, systemImage: "link")
-                    .font(.caption)
+                    .font(typography.footer)
             }
             .buttonStyle(.plain)
         }

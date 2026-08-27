@@ -310,7 +310,7 @@ struct ClassBlock: View {
 
                 Toggle("Apply to every \(session.subjectCode) block", isOn: permaBinding)
                     .toggleStyle(.checkbox)
-                    .font(.caption)
+                    .font(typography.footer)
             }
 
             Divider()
@@ -324,17 +324,17 @@ struct ClassBlock: View {
 
                 Toggle("Every week", isOn: everyWeekTimeBinding)
                     .toggleStyle(.checkbox)
-                    .font(.caption)
+                    .font(typography.footer)
 
                 if isTimeOverridden {
                     HStack {
                         Text("SIS: \(session.timeLabel)")
-                            .font(.caption)
+                            .font(typography.footer)
                             .foregroundStyle(.secondary)
                         Spacer()
                         Button("Reset", action: resetTime)
                             .buttonStyle(.link)
-                            .font(.caption)
+                            .font(typography.footer)
                     }
                 }
             }
@@ -353,7 +353,7 @@ struct ClassBlock: View {
             Toggle("Every week this term", isOn: termBinding)
                 .toggleStyle(.checkbox)
                 .disabled(status == .regular)
-                .font(.callout)
+                .font(typography.detailBody)
 
             if status == .online {
                 Divider()
@@ -378,7 +378,7 @@ struct ClassBlock: View {
             )
 
             Text("Colour applies to every \(session.subjectCode) block. Status is this week unless you tick every week.")
-                .font(.caption)
+                .font(typography.footer)
                 .foregroundStyle(.secondary)
         }
         .padding(16)
