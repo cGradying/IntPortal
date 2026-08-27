@@ -70,7 +70,7 @@ struct RAGQuery {
             case .noMatch(let query):
                 "No notes matched \"\(query)\", so there's nothing to answer from."
             case .serverUnavailable:
-                "Couldn't start the local model server. Is a model downloaded in Settings ▸ AI, and is llama.cpp installed? (`brew install llama.cpp`)"
+                "Couldn't start the local model server. Is a model downloaded in Settings ▸ AI? If you installed the plain (non-AI-bundled) build, it also needs `llama-server` — `brew install llama.cpp`."
             }
         }
     }

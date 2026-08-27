@@ -285,9 +285,10 @@ struct SettingsView: View {
 
     /// One `llama-server` binary, a short verified catalog of models
     /// (`ModelCatalog`) — pick one, it downloads with a real progress bar,
-    /// and becomes the running model. The one real remaining dependency is
-    /// `llama-server` itself (`brew install llama.cpp`, once); model weights
-    /// are entirely in-app after that.
+    /// and becomes the running model. The `-with-AI` dmg ships `llama-server`
+    /// itself inside the bundle (`LlamaServerManager.binaryCandidates` finds
+    /// it there first); the plain dmg still needs it once from Homebrew — the
+    /// footer below only says so when neither is already present.
     private var downloadModelsSection: some View {
         Section {
             ForEach(ModelCatalog.entries) { entry in
@@ -304,8 +305,13 @@ struct SettingsView: View {
         } header: {
             Text("Models")
         } footer: {
-            Text("Needs `llama-server` itself installed once — `brew install llama.cpp` — that one step can't be done from inside the app. Every model above downloads and runs itself after that.")
-                .foregroundStyle(.secondary)
+            if LlamaServerManager.locateBinary() == nil {
+                Text("Needs `llama-server` itself installed once — `brew install llama.cpp` — that one step can't be done from inside the app. (The download-with-AI build ships it already and skips this.) Every model above downloads and runs itself after that.")
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Every model above downloads and runs itself — nothing else to install.")
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 

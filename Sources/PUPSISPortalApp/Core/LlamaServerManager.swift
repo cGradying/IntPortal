@@ -38,7 +38,16 @@ final class LlamaServerManager {
         }
     }
 
-    private static let binaryCandidates = ["/opt/homebrew/bin/llama-server", "/usr/local/bin/llama-server"]
+    // Bundled first: the `-with-AI` dmg ships its own static, universal
+    // llama-server at `Contents/MacOS/llama-server` — a Homebrew copy
+    // (possibly a different, incompatible version) must never win over it.
+    // The lite build has no such file, so this candidate just never matches
+    // and Homebrew's own path is used, unchanged from before.
+    private static let binaryCandidates = [
+        Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/llama-server").path,
+        "/opt/homebrew/bin/llama-server",
+        "/usr/local/bin/llama-server",
+    ]
 
     private var processes: [Role: Process] = [:]
 
