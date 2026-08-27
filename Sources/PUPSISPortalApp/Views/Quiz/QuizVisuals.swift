@@ -136,6 +136,17 @@ enum PixelBadgeKind {
         }
     }
 
+    /// A `Canvas`-drawn bitmap has nothing for VoiceOver to read on its own —
+    /// this is the only signal a screen-reader user gets that an answer was
+    /// right or wrong.
+    var accessibilityLabel: String {
+        switch self {
+        case .correct: "Correct"
+        case .incorrect: "Incorrect"
+        case .streak: "Streak"
+        }
+    }
+
     private static func grid(_ rows: [String]) -> [[Bool]] {
         rows.map { row in row.map { $0 == "1" } }
     }
@@ -175,6 +186,8 @@ struct PixelBadge: View {
         }
         .id(key)
         .onAppear { animateReveal() }
+        .accessibilityElement()
+        .accessibilityLabel(kind.accessibilityLabel)
     }
 
     private func animateReveal() {

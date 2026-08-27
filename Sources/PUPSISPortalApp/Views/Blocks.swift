@@ -96,7 +96,7 @@ struct ClassBlock: View {
             }
         }
         .selectionRing(isSelected, palette: palette, reduced: reduceMotion, position: position)
-        .foregroundStyle(status == .vacant ? AnyShapeStyle(color) : AnyShapeStyle(.white))
+        .foregroundStyle(status == .vacant ? AnyShapeStyle(color) : AnyShapeStyle(Color.legibleForeground(on: color)))
         .lift(isHovering, base: status == .vacant ? 0 : 0.18, reduced: reduceMotion)
         .opacity(isPast ? 0.45 : 1)
         .onHover { isHovering = $0 }

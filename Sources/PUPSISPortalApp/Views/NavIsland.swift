@@ -124,6 +124,10 @@ struct NavIsland: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain).help(help)
+        // `.help()` is a hover tooltip only — VoiceOver doesn't read it.
+        // The island is the app's primary navigation; every icon-only
+        // control here needs its own label.
+        .accessibilityLabel(help)
     }
 
     // MARK: Active + idle — a compact pill with a glance.
@@ -164,6 +168,8 @@ struct NavIsland: View {
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(item.title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var homeButton: some View {
@@ -177,6 +183,7 @@ struct NavIsland: View {
         }
         .buttonStyle(.plain)
         .help("Home")
+        .accessibilityLabel("Home")
     }
 
     private var settingsButton: some View {
@@ -188,6 +195,7 @@ struct NavIsland: View {
         }
         .buttonStyle(.plain)
         .help("Settings")
+        .accessibilityLabel("Settings")
     }
 
     /// The next class, or the weekday when nothing's coming up.

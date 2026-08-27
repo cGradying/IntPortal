@@ -74,7 +74,7 @@ struct EventEditorPopover: View {
                 Button(String(day.short.prefix(1))) { toggle(day) }
                     .buttonStyle(.plain)
                     .font(typography.dayName)
-                    .foregroundStyle(on ? .white : .secondary)
+                    .foregroundStyle(on ? Color.legibleForeground(on: palette.accent) : .secondary)
                     .frame(width: 26, height: 26)
                     .background(Circle().fill(on ? palette.accent : palette.accent.opacity(0.08)))
                     .help(day.short)

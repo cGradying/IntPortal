@@ -414,7 +414,12 @@ struct ContentView: View {
                 if preferences.aiEnabled {
                     AssistantFloating(appState: appState, preferences: preferences, session: appState.assistant)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .padding(16)
+                        .padding(.leading, 16)
+                        // Confirmed live: at the old uniform 16pt bottom inset,
+                        // this sat directly over Grades' bottom status bar,
+                        // covering "Updated N minutes ago" entirely. Cleared
+                        // to sit above a typical footer bar's height instead.
+                        .padding(.bottom, 56)
                 }
             }
             // Fill the whole window — including the hidden title bar's strip — so

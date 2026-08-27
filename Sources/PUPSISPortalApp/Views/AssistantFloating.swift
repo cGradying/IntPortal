@@ -46,6 +46,11 @@ struct AssistantFloating: View {
         .buttonStyle(.plain)
         .foregroundStyle(palette.accent)
         .glassInteractive(in: Circle())
+        // Confirmed live: `.regularMaterial`'s translucent fallback reads as
+        // a near-invisible white-on-white circle against a light canvas
+        // (PUP Maroon, Ivory, Sakura). A defined edge, not a shadow, is what
+        // the zero-drop-shadow doctrine allows here.
+        .overlay(Circle().strokeBorder(palette.accent.opacity(0.35), lineWidth: 1))
         .matchedGeometryEffect(id: "assistant", in: morph)
         .help("IntAssis")
     }

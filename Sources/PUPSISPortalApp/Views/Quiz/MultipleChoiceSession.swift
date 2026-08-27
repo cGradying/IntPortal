@@ -99,6 +99,9 @@ struct MultipleChoiceSession: View {
         .disabled(picked != nil)
         .scaleEffect(isPicked ? 1.02 : 1)
         .animation(Motion.selection(reduced: reduceMotion), value: picked)
+        // Correctness here was color-only (green/red fill) — nothing for a
+        // screen reader to announce once an option resolves.
+        .accessibilityValue(picked == nil ? "" : isCorrect ? "Correct" : isPicked ? "Incorrect" : "")
     }
 
     private func rowColor(isCorrect: Bool, isPicked: Bool, subject: String) -> Color {

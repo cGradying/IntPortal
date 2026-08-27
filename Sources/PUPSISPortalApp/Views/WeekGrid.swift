@@ -109,8 +109,10 @@ struct WeekGrid: View {
                         .font(typography.dayName)
                     Text(dayNumber(day))
                         .font(typography.gutter)
-                        .opacity(0.8)
                 }
+                // Confirmed live: an extra .opacity(0.8) on top of .secondary
+                // compounded into near-illegible day headers on non-today
+                // columns — .secondary alone already reads as "not today".
                 .foregroundStyle(isToday ? palette.accent : .secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
@@ -198,7 +200,10 @@ struct WeekGrid: View {
             ForEach(hours.dropLast(), id: \.self) { hour in
                 Text(ClassSession.format(hour))
                     .font(typography.gutter)
-                    .foregroundStyle(.tertiary)
+                    // .tertiary read as near-invisible light grey against the
+                    // canvas wash in live testing — .secondary keeps it
+                    // quieter than the day header without disappearing.
+                    .foregroundStyle(.secondary)
                     .opacity(now.map { abs(hour - $0) < 20 } == true ? 0 : 1)
                     .frame(height: hourHeight, alignment: .top)
                     .frame(maxWidth: .infinity, alignment: .trailing)

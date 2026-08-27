@@ -661,6 +661,18 @@ final class PaletteTests: XCTestCase {
         XCTAssertEqual(panels.count, palettes.count, "two palettes share a panel color")
         XCTAssertEqual(onPanels.count, palettes.count, "two palettes share an onPanel color")
     }
+
+    /// Confirmed live: hardcoded `.white` on an arbitrary subject/accent
+    /// color went unreadable in Monochrome's lighter subject slot and on
+    /// Matrix's phosphor green — both real shipped rooms, not edge cases.
+    func testLegibleForegroundPicksByLuminanceNotAFixedAssumption() {
+        XCTAssertEqual(Color.legibleForeground(on: .black), .white)
+        XCTAssertEqual(Color.legibleForeground(on: .white), .black)
+        // Matrix's accent — phosphor green, bright enough to need dark text.
+        XCTAssertEqual(Color.legibleForeground(on: Color(hex: "#00FF41")!), .black)
+        // Matrix's darkest subject shade is still meant to read with white.
+        XCTAssertEqual(Color.legibleForeground(on: Color(hex: "#0D0F0D")!), .white)
+    }
 }
 
 final class TypographyTests: XCTestCase {

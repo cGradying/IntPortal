@@ -148,7 +148,7 @@ private struct DayCell: View {
     }
 
     private var foreground: Color {
-        if isToday { return .white }
+        if isToday { return Color.legibleForeground(on: palette.accent) }
         return isInMonth ? .primary : .secondary.opacity(0.5)
     }
 }

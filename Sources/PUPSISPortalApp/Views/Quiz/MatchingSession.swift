@@ -22,6 +22,7 @@ struct MatchingSession: View {
     @State private var totalDue = 0
     @State private var correctThisSession = 0
     @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -92,25 +93,30 @@ struct MatchingSession: View {
         let selected = isFront && selectedFront?.id == id
         let flashingWrong = isFront ? wrongFlash?.front == id : wrongFlash?.back == id
         let subjectColor = palette.color(for: round.first { $0.id == id }?.subject ?? "")
-        return Text(text)
-            .font(.callout)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 8).fill(
-                    matched ? Color.green.opacity(0.2)
-                        : flashingWrong ? Color.red.opacity(0.3)
-                        : selected ? subjectColor.opacity(0.28)
-                        : subjectColor.opacity(0.12)
+        // A real Button, not .onTapGesture — this was mouse-only and
+        // unreachable by keyboard/VoiceOver, the app's primary navigation
+        // aside, the only fully mouse-locked interaction in the app.
+        return Button { tap(id: id, isFront: isFront) } label: {
+            Text(text)
+                .font(typography.detailBody)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 8).fill(
+                        matched ? Color.green.opacity(0.2)
+                            : flashingWrong ? Color.red.opacity(0.3)
+                            : selected ? subjectColor.opacity(0.28)
+                            : subjectColor.opacity(0.12)
+                    )
                 )
-            )
-            .opacity(matched ? 0.35 : 1)
-            .animation(Motion.arrival(reduced: reduceMotion), value: matched)
-            .animation(Motion.hover(reduced: reduceMotion), value: flashingWrong)
-            .animation(Motion.selection(reduced: reduceMotion), value: selected)
-            .contentShape(Rectangle())
-            .onTapGesture { tap(id: id, isFront: isFront) }
-            .disabled(matched)
+                .opacity(matched ? 0.35 : 1)
+        }
+        .buttonStyle(.plain)
+        .animation(Motion.arrival(reduced: reduceMotion), value: matched)
+        .animation(Motion.hover(reduced: reduceMotion), value: flashingWrong)
+        .animation(Motion.selection(reduced: reduceMotion), value: selected)
+        .disabled(matched)
+        .accessibilityValue(matched ? "Matched" : flashingWrong == true ? "Incorrect" : "")
     }
 
     private func tap(id: UUID, isFront: Bool) {

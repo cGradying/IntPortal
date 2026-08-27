@@ -464,4 +464,23 @@ extension Color {
             Int((srgb.blueComponent * 255).rounded())
         )
     }
+
+    /// Black or white, whichever reads against `background` — picked by
+    /// relative luminance rather than assuming every fill is dark enough for
+    /// white text. Confirmed live: `.white` hardcoded on an arbitrary subject
+    /// color went unreadable against Monochrome's lighter subject slot and
+    /// Matrix's phosphor green — both shipped rooms where a fill can be
+    /// light. `nil` background (no sRGB representation) falls back to white,
+    /// matching every call site's previous behavior.
+    static func legibleForeground(on background: Color) -> Color {
+        guard let srgb = NSColor(background).usingColorSpace(.sRGB) else { return .white }
+        // WCAG relative luminance, sRGB gamma-corrected.
+        func channel(_ value: CGFloat) -> CGFloat {
+            value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * channel(srgb.redComponent)
+            + 0.7152 * channel(srgb.greenComponent)
+            + 0.0722 * channel(srgb.blueComponent)
+        return luminance > 0.42 ? .black : .white
+    }
 }
