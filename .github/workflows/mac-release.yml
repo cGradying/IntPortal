@@ -101,14 +101,27 @@ jobs:
         run: |
           git clone --branch b10648 --depth 1 https://github.com/ggml-org/llama.cpp "$RUNNER_TEMP/llama.cpp"
           cd "$RUNNER_TEMP/llama.cpp"
-          # LLAMA_SERVER_SSL=OFF is load-bearing, not cosmetic: cmake auto-detects
-          # Homebrew's OpenSSL on the runner and links TLS support into httplib
-          # regardless, but only the *arm64* OpenSSL slice exists there — the
-          # x86_64 cross-compile then fails at link time with "symbol(s) not
-          # found for architecture x86_64" on every X509_* symbol. Confirmed
-          # live (run 33072940139): this app never uses llama-server's TLS mode
-          # in the first place, so there is nothing lost by forcing it off.
-          COMMON_FLAGS="-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_SERVER_SSL=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=ON"
+          # LLAMA_OPENSSL=OFF is load-bearing, not cosmetic: it defaults ON
+          # (vendor/cpp-httplib/CMakeLists.txt's LLAMA_OPENSSL branch calls
+          # find_package(OpenSSL) unconditionally), and the runner's Homebrew
+          # OpenSSL is arm64-only — the x86_64 cross-compile then fails at
+          # link time with "symbol(s) not found for architecture x86_64" on
+          # every X509_* symbol. (`LLAMA_SERVER_SSL` — tried first — isn't a
+          # real option in this tree at all; it silently no-ops and the build
+          # still fails the same way. Confirmed live: runs 33072940139 and
+          # 33074429477.) This app never uses llama-server's HTTPS mode in
+          # the first place, so there is nothing lost by forcing it off.
+          #
+          # GGML_NATIVE=OFF is equally load-bearing for the x86_64 slice:
+          # left at its default (ON), ggml's "-march=native" resolves against
+          # the *host* compiler on this arm64 runner, which emits
+          # "-march=apple-m4" — a target CPU name clang's x86_64 backend has
+          # never heard of, so every ggml-cpu translation unit fails to
+          # compile. Confirmed live and locally reproduced cross-compiling on
+          # an arm64 Mac. Harmless for the arm64 slice too (it already builds
+          # correctly either way), so it's in COMMON_FLAGS rather than only
+          # the x86_64 invocation.
+          COMMON_FLAGS="-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DGGML_NATIVE=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=ON"
           # arm64: Metal, embedded so the binary needs no .metallib alongside it.
           cmake -B build-arm64 -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON $COMMON_FLAGS
