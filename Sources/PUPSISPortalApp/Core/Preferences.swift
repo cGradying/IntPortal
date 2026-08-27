@@ -267,6 +267,28 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(aiThinking.rawValue, forKey: Key.aiThinking) }
     }
 
+    /// The chat model's context window (`llama-server --ctx-size`), in
+    /// tokens. Not launched with any value at all before this — llama.cpp
+    /// silently fell back to its own default (4096, matched here so raising
+    /// the slider is the only behavior change). `LlamaServerManager` restarts
+    /// the `.chat` process when this changes, same as switching `aiModel`.
+    @Published var aiContextSize: Int {
+        didSet { defaults.set(aiContextSize, forKey: Key.aiContextSize) }
+    }
+
+    nonisolated static let aiDefaultContextSize = 4096
+    static let aiContextSizeRange = 2048...32768
+
+    /// Reads the live value straight from `UserDefaults` rather than an
+    /// injected `Preferences` instance — `LlamaRuntime`'s call sites (engine,
+    /// executor, quiz generators) are deliberately decoupled from
+    /// `Preferences` for testability (see its own doc comment), so this is
+    /// the one place that crosses back over, and only for a process-launch
+    /// argument, never a per-request value.
+    nonisolated static func storedContextSize(defaults: UserDefaults = .standard) -> Int {
+        (defaults.object(forKey: Key.aiContextSize) as? Int) ?? aiDefaultContextSize
+    }
+
     // MARK: RAG tuning (Settings ▸ Misc)
 
     /// Defaults mirror what was hand-calibrated live against a real vault —
@@ -431,6 +453,7 @@ final class Preferences: ObservableObject {
         static let aiPermission = "aiPermission"
         static let aiRevealAnimation = "aiRevealAnimation"
         static let aiThinking = "aiThinking"
+        static let aiContextSize = "aiContextSize"
         static let ragChunkSize = "ragChunkSize"
         static let ragSimilarityFloor = "ragSimilarityFloor"
         static let ragContextBudget = "ragContextBudget"
@@ -490,6 +513,7 @@ final class Preferences: ObservableObject {
             .flatMap(AIRevealAnimation.init(rawValue:)) ?? .sweep
         aiThinking = defaults.string(forKey: Key.aiThinking)
             .flatMap(AssistantThinking.init(rawValue:)) ?? .low
+        aiContextSize = (defaults.object(forKey: Key.aiContextSize) as? Int) ?? Preferences.aiDefaultContextSize
         ragChunkSize = (defaults.object(forKey: Key.ragChunkSize) as? Int) ?? Preferences.ragDefaultChunkSize
         ragSimilarityFloor = (defaults.object(forKey: Key.ragSimilarityFloor) as? Double) ?? Preferences.ragDefaultSimilarityFloor
         ragContextBudget = (defaults.object(forKey: Key.ragContextBudget) as? Int) ?? Preferences.ragDefaultContextBudget

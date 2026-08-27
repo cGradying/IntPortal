@@ -50,18 +50,26 @@ final class LlamaServerManager {
     /// duplicate.
     ///
     /// Switching `.chat` models (a different `modelPath` than what's already
-    /// running) restarts the process — `llama-server` serves one model for
-    /// its whole lifetime, there's no in-place model swap.
-    func ensureRunning(_ role: Role, modelPath: URL) async -> Bool {
-        if await isHealthy(role), currentModelPath[role] == modelPath { return true }
-        if currentModelPath[role] != modelPath { stop(role) }
+    /// running), or changing `contextSize`, restarts the process —
+    /// `llama-server` serves one model at one context length for its whole
+    /// lifetime, there's no in-place swap of either. `contextSize` only
+    /// matters for `.chat` (`Preferences.aiContextSize`); `.embed` passes its
+    /// own fixed default since embedding requests are one short chunk at a
+    /// time, never the long context a chat/RAG turn needs.
+    func ensureRunning(_ role: Role, modelPath: URL, contextSize: Int = Preferences.aiDefaultContextSize) async -> Bool {
+        if await isHealthy(role), currentModelPath[role] == modelPath, currentContextSize[role] == contextSize {
+            return true
+        }
+        if currentModelPath[role] != modelPath || currentContextSize[role] != contextSize { stop(role) }
         if processes[role] != nil { return await waitUntilHealthy(role) }
 
         guard let binary = Self.locateBinary() else { return false }
 
         let launched = Process()
         launched.executableURL = URL(fileURLWithPath: binary)
-        launched.arguments = ["-m", modelPath.path, "--port", String(role.port)] + role.extraArguments
+        launched.arguments = [
+            "-m", modelPath.path, "--port", String(role.port), "--ctx-size", String(contextSize),
+        ] + role.extraArguments
         launched.standardOutput = FileHandle.nullDevice
         launched.standardError = FileHandle.nullDevice
 
@@ -72,13 +80,16 @@ final class LlamaServerManager {
         }
         processes[role] = launched
         currentModelPath[role] = modelPath
+        currentContextSize[role] = contextSize
         return await waitUntilHealthy(role)
     }
 
-    /// Tracks which model each role's currently-running process was started
-    /// with, so `ensureRunning` knows to restart rather than reuse when the
-    /// user switches `Preferences.aiModel` to a different catalog entry.
+    /// Tracks which model (and context size) each role's currently-running
+    /// process was started with, so `ensureRunning` knows to restart rather
+    /// than reuse when the user switches `Preferences.aiModel` or
+    /// `Preferences.aiContextSize`.
     private var currentModelPath: [Role: URL] = [:]
+    private var currentContextSize: [Role: Int] = [:]
 
     /// Clean SIGTERM — llama-server shuts down on it. Called when AI is
     /// toggled off and when the app quits (`AppState`'s termination observer).
@@ -91,6 +102,7 @@ final class LlamaServerManager {
         processes[role]?.terminate()
         processes[role] = nil
         currentModelPath[role] = nil
+        currentContextSize[role] = nil
     }
 
     private func isHealthy(_ role: Role) async -> Bool {

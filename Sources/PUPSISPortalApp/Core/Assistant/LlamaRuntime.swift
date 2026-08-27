@@ -13,9 +13,9 @@ import Foundation
 /// closures rather than this enum directly.
 @MainActor
 enum LlamaRuntime {
-    static func ensureChatServer(modelID: String) async -> Bool {
+    static func ensureChatServer(modelID: String, contextSize: Int = Preferences.storedContextSize()) async -> Bool {
         guard let entry = ModelCatalog.entry(for: modelID), ModelCatalog.isDownloaded(entry) else { return false }
-        return await LlamaServerManager.shared.ensureRunning(.chat, modelPath: ModelCatalog.localURL(for: entry))
+        return await LlamaServerManager.shared.ensureRunning(.chat, modelPath: ModelCatalog.localURL(for: entry), contextSize: contextSize)
     }
 
     static func ensureEmbedServer() async -> Bool {

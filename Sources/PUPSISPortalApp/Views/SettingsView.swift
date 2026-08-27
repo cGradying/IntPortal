@@ -34,6 +34,8 @@ struct SettingsView: View {
     @State fileprivate var launchAtLogin = LoginItem.isEnabled
     /// Gates the Misc tab's "Delete All Notes" confirmation dialog.
     @State private var confirmingWipe = false
+    /// Whether the context-size explainer popover is showing.
+    @State private var showingContextInfo = false
 
     /// Subjects the user can actually recolor: whatever is on screen right now.
     private var subjectCodes: [String] {
@@ -218,6 +220,29 @@ struct SettingsView: View {
                 Text(preferences.aiThinking.explanation)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        LabeledContent("Context size", value: "\(preferences.aiContextSize) tokens")
+                        Button { showingContextInfo = true } label: {
+                            Image(systemName: "questionmark.circle").font(.system(size: 12, weight: .medium))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .help("What does raising this do?")
+                        .popover(isPresented: $showingContextInfo, arrowEdge: .bottom) { contextSizeInfoPopover }
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { Double(preferences.aiContextSize) },
+                            set: { preferences.aiContextSize = Int($0) }
+                        ),
+                        in: Double(Preferences.aiContextSizeRange.lowerBound)...Double(Preferences.aiContextSizeRange.upperBound),
+                        step: 512
+                    )
+                }
+                Text("How much conversation, notes, and tool results the model can hold at once. Restarts the local model process when changed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         } header: {
             Text("AI (beta)")
@@ -367,6 +392,37 @@ struct SettingsView: View {
 
     private func refreshDownloaded() {
         downloadedIDs = Set(ModelCatalog.entries.filter(ModelCatalog.isDownloaded).map(\.id))
+    }
+
+    /// Same "?" popover language as `AssistantFloating`'s capabilities/thinking
+    /// buttons — this app's one pattern for "explain the knob before you turn it."
+    private var contextSizeInfoPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Context size").font(.headline)
+            Text("""
+            How many tokens (roughly ¾ of a word each) the model can hold at once — \
+            your message, the conversation so far, any pinned note, and whatever it \
+            retrieved for `/rag`, all combined. Qwen3-1.7B supports up to 32,768.
+            """)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Higher").fontWeight(.semibold)
+                Text("• Longer conversations before old messages get dropped")
+                Text("• More room for pinned notes and RAG results, less truncation")
+                Text("• Longer tool-call chains stay coherent")
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Higher costs").fontWeight(.semibold)
+                Text("• Far more RAM — the KV cache grows with context size, so 32k can need several GB more than 4k")
+                Text("• Slower first reply — processing a long prompt takes longer before the model starts answering")
+                Text("• Slower once the conversation is long — attention cost grows with how full the context is")
+                Text("• On a Mac tight on RAM, llama-server can fail to start or get killed by the OS")
+            }
+            Text("Changing this restarts the local model process. Lower it back down if replies get sluggish or it stops starting.")
+                .foregroundStyle(.secondary)
+        }
+        .font(.caption)
+        .padding()
+        .frame(width: 320)
     }
 
     private var miscTab: some View {
