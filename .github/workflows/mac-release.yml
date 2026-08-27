@@ -85,6 +85,63 @@ jobs:
           VERSION="${TAG#v}"
           Scripts/make_dmg.sh "$VERSION"
 
+      # Pinned, not "latest main" — a static llama-server is a compatibility
+      # surface for this app's whole AI feature, and an unreviewed upstream
+      # bump landing silently in a release would be a bad way to find that
+      # out. Bump this deliberately, not automatically.
+      - name: Cache universal llama-server
+        id: llama-cache
+        uses: actions/cache@v4
+        with:
+          path: dist-llama/llama-server
+          key: llama-server-universal-b10648
+
+      - name: Build universal llama-server
+        if: steps.llama-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --branch b10648 --depth 1 https://github.com/ggml-org/llama.cpp "$RUNNER_TEMP/llama.cpp"
+          cd "$RUNNER_TEMP/llama.cpp"
+          COMMON_FLAGS="-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=ON"
+          # arm64: Metal, embedded so the binary needs no .metallib alongside it.
+          cmake -B build-arm64 -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON $COMMON_FLAGS
+          cmake --build build-arm64 --target llama-server -j"$(sysctl -n hw.ncpu)"
+          # x86_64: no Metal there — CPU + Accelerate instead.
+          cmake -B build-x86_64 -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DGGML_METAL=OFF -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=Apple $COMMON_FLAGS
+          cmake --build build-x86_64 --target llama-server -j"$(sysctl -n hw.ncpu)"
+          mkdir -p "$GITHUB_WORKSPACE/dist-llama"
+          lipo -create build-arm64/bin/llama-server build-x86_64/bin/llama-server \
+            -output "$GITHUB_WORKSPACE/dist-llama/llama-server"
+
+      - name: Verify universal llama-server
+        run: |
+          lipo -info dist-llama/llama-server
+          otool -L dist-llama/llama-server
+          # Fails loudly if a Homebrew/rpath dependency ever sneaks back in —
+          # the whole point of building from source instead of vendoring brew's.
+          ! otool -L dist-llama/llama-server | grep -qE '@rpath|/opt/homebrew|/usr/local'
+
+      - name: Fetch model weights
+        run: |
+          mkdir -p dist-models
+          # URLs and expected sizes both come straight from ModelCatalog.swift
+          # so this can never silently drift from what the app itself expects.
+          curl -fL -o dist-models/Qwen3-1.7B-Q4_K_M.gguf \
+            "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf"
+          curl -fL -o dist-models/nomic-embed-text-v1.5.Q4_K_M.gguf \
+            "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf"
+          [ "$(stat -f%z dist-models/Qwen3-1.7B-Q4_K_M.gguf)" = "1107409472" ]
+          [ "$(stat -f%z dist-models/nomic-embed-text-v1.5.Q4_K_M.gguf)" = "84106624" ]
+
+      - name: Build .dmg (with-AI)
+        env:
+          BUNDLE_LLAMA_SERVER: dist-llama/llama-server
+          BUNDLE_MODELS: dist-models
+        run: |
+          VERSION="${TAG#v}"
+          Scripts/make_dmg.sh "$VERSION"
+
       - name: Build .zip update payload
         run: |
           VERSION="${TAG#v}"

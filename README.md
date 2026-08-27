@@ -123,6 +123,15 @@ System Settings › Privacy & Security › "Open Anyway". This is expected for e
 release, not a broken download — verify the download's checksum against the one
 posted on the Release page if you want to confirm it wasn't tampered with in transit.
 
+Every release ships two `.dmg`s — pick one:
+
+- `PUPSISPortal-<version>.dmg` — the app itself. IntAssis (the local AI
+  assistant, Settings ▸ AI) downloads its own model on first use (~1.2GB) and
+  needs `llama-server` installed once (`brew install llama.cpp`).
+- `PUPSISPortal-<version>-with-AI.dmg` — the same app with IntAssis's model
+  and `llama-server` already inside. Bigger download, but nothing to install
+  or fetch afterward — open it and IntAssis works offline immediately.
+
 **C. Build it yourself** — see [Build from source](#build-from-source). This is
 the recommended path and the one the signing notes below assume.
 

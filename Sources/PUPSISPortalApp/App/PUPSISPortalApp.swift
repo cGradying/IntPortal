@@ -114,6 +114,9 @@ final class AppState: ObservableObject {
 
     init() {
         FontLibrary.registerBundledFonts()
+        // No-op on the lite build (no `models/` in the bundle) and on any
+        // launch after the first (already adopted) — see its own doc comment.
+        ModelCatalog.adoptBundledModels()
         credentials = KeychainStore.load()
         isEditing = credentials == nil
         isHome = preferences.islandStartHome

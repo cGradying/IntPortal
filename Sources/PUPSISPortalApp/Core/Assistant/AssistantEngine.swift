@@ -92,8 +92,8 @@ enum AssistantEngineError: LocalizedError {
     /// regardless — this exists so the function has no silent unreachable path.
     case iterationsExhausted
     /// The `.chat`-role `llama-server` couldn't be started — no model
-    /// downloaded yet in Settings ▸ AI, or `llama-server` itself isn't
-    /// installed (`brew install llama.cpp`).
+    /// downloaded yet in Settings ▸ AI, or (on the plain, non-`-with-AI`
+    /// build) `llama-server` itself isn't installed.
     case serverUnavailable
 
     var errorDescription: String? {
@@ -103,7 +103,7 @@ enum AssistantEngineError: LocalizedError {
         case .iterationsExhausted:
             "The assistant took too many steps without finishing."
         case .serverUnavailable:
-            "Couldn't start the local model server. Is a model downloaded in Settings ▸ AI, and is llama.cpp installed? (`brew install llama.cpp`)"
+            "Couldn't start the local model server. Is a model downloaded in Settings ▸ AI? If you installed the plain (non-AI-bundled) build, it also needs `llama-server` — `brew install llama.cpp`."
         }
     }
 }

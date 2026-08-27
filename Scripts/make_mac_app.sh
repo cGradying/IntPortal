@@ -46,6 +46,29 @@ NOTES_BUNDLE="$ROOT/Sources/PUPSISPortalApp/Resources/notes-editor.bundle.js"
 FONTS_DIR="$ROOT/Sources/PUPSISPortalApp/Resources/Fonts"
 [ -d "$FONTS_DIR" ] && ditto "$FONTS_DIR" "$APP/Contents/Resources/Fonts"
 
+# Opt-in, standalone "-with-AI" build: a static universal llama-server binary
+# (BUNDLE_LLAMA_SERVER, built by CI — see .github/workflows/mac-release.yml)
+# and the GGUF weights it runs (BUNDLE_MODELS, a directory of .gguf files
+# matching ModelCatalog's filenames). Both unset — the default, and every
+# local dev build — leaves the lite bundle exactly as it was before this.
+#
+# `Contents/MacOS/llama-server` (not Resources): it's an executable the app
+# spawns, same tier as the app's own binary; `LlamaServerManager.binaryCandidates`
+# looks for it there first. `Contents/Resources/models/` for the weights,
+# same convention as Fonts/ above; `ModelCatalog.adoptBundledModels()`
+# hardlinks them into Application Support on first launch so a later lite
+# Sparkle update (which replaces the whole bundle) can never take them away.
+if [ -n "${BUNDLE_LLAMA_SERVER:-}" ]; then
+  [ -f "$BUNDLE_LLAMA_SERVER" ] || { echo "BUNDLE_LLAMA_SERVER=$BUNDLE_LLAMA_SERVER not found" >&2; exit 1; }
+  ditto "$BUNDLE_LLAMA_SERVER" "$APP/Contents/MacOS/llama-server"
+  chmod +x "$APP/Contents/MacOS/llama-server"
+fi
+if [ -n "${BUNDLE_MODELS:-}" ]; then
+  [ -d "$BUNDLE_MODELS" ] || { echo "BUNDLE_MODELS=$BUNDLE_MODELS not found" >&2; exit 1; }
+  mkdir -p "$APP/Contents/Resources/models"
+  ditto "$BUNDLE_MODELS" "$APP/Contents/Resources/models"
+fi
+
 # Embed Sparkle.framework for in-app auto-update. SwiftPM's Package.swift
 # fetches it as a prebuilt XCFramework (not source) into .build/artifacts —
 # Xcode would normally do this embedding step for us; a hand-rolled bundle
@@ -124,6 +147,13 @@ fi
 # common source of errors" here: Downloader.xpc carries entitlements the
 # other nested binaries must not inherit, so each item needs its own
 # invocation rather than one recursive pass.
+if [ -f "$APP/Contents/MacOS/llama-server" ]; then
+  # Plain, no --options runtime — same reasoning as the app itself just
+  # below: hardened runtime's Library Validation would refuse to load a
+  # differently-signed nested binary under the ad-hoc dev fallback, where
+  # every rebuild is a new identity.
+  codesign --force --sign "$SIGN_ID" "$APP/Contents/MacOS/llama-server"
+fi
 FW="$APP/Contents/Frameworks/Sparkle.framework"
 codesign --force --sign "$SIGN_ID" --options runtime \
   "$FW/Versions/B/XPCServices/Installer.xpc"
