@@ -443,6 +443,7 @@ struct ContentView: View {
                 schedule: appState.schedule,
                 updaterBridge: appState.updaterBridge,
                 onCheckForUpdates: { appState.updaterController.checkForUpdates(nil) },
+                onEditCredentials: { appState.isEditing = true },
                 settingsShowing: appState.showingSettings
             )
         case .today:

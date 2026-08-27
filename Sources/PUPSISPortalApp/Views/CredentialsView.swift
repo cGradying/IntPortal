@@ -138,6 +138,14 @@ struct CredentialsView: View {
                     .textFieldStyle(.plain)
             }
 
+            // The single highest-stakes moment in the app — a real SIS
+            // password — said nothing about where it goes. The fuller
+            // version of this already exists in Settings › About, filed
+            // where nobody sees it at the moment it would matter.
+            Text("Stored in your Mac's Keychain. Sent only to the PUP SIS.")
+                .font(typography.footer)
+                .foregroundStyle(.secondary)
+
             Button {
                 onSave(Credentials(
                     studentNumber: studentNumber,

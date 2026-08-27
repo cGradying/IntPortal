@@ -18,6 +18,11 @@ struct CalendarView: View {
     /// while this screen is already on-screen wouldn't repaint the footer.
     @ObservedObject var updaterBridge: UpdaterBridge
     let onCheckForUpdates: () -> Void
+    /// A failed sign-in's only recovery used to be "Try again" — which
+    /// replays the same rejected credentials. This is the way back to the
+    /// form itself, confirmed live as otherwise reachable only through
+    /// Account › Edit Credentials in the menu bar.
+    var onEditCredentials: () -> Void = {}
     /// Settings is a sheet floating over this screen, not a replacement for
     /// it — `CalendarView` stays mounted underneath, so the scroll monitor
     /// needs telling explicitly not to move the schedule behind it.
@@ -66,6 +71,7 @@ struct CalendarView: View {
         schedule: ScheduleModel,
         updaterBridge: UpdaterBridge,
         onCheckForUpdates: @escaping () -> Void = {},
+        onEditCredentials: @escaping () -> Void = {},
         settingsShowing: Bool = false
     ) {
         self.controller = controller
@@ -75,6 +81,7 @@ struct CalendarView: View {
         self.schedule = schedule
         self.updaterBridge = updaterBridge
         self.onCheckForUpdates = onCheckForUpdates
+        self.onEditCredentials = onEditCredentials
         self.settingsShowing = settingsShowing
         _editor = StateObject(wrappedValue: EventEditor(bridge: calendar))
     }
@@ -613,9 +620,16 @@ struct CalendarView: View {
             } description: {
                 Text(message)
             } actions: {
-                Button("Try again", action: retry)
-                    .glassProminentButton()
-                    .tint(palette.accent)
+                // "Try again" alone replays the same rejected credentials —
+                // confirmed live as a dead end when the password itself was
+                // wrong, with no visible way back to the form.
+                HStack {
+                    Button("Edit credentials", action: onEditCredentials)
+                        .glassButton()
+                    Button("Try again", action: retry)
+                        .glassProminentButton()
+                        .tint(palette.accent)
+                }
             }
 
         case .success:
