@@ -481,15 +481,31 @@ struct SettingsView: View {
             }
 
             Section {
-                Stepper(value: $preferences.ragChunkSize, in: 200...2000, step: 100) {
+                VStack(alignment: .leading) {
                     LabeledContent("Chunk size", value: "\(preferences.ragChunkSize) chars")
+                    Slider(
+                        value: Binding(
+                            get: { Double(preferences.ragChunkSize) },
+                            set: { preferences.ragChunkSize = Int($0) }
+                        ),
+                        in: 200...2000,
+                        step: 100
+                    )
                 }
                 VStack(alignment: .leading) {
                     LabeledContent("Similarity floor", value: String(format: "%.2f", preferences.ragSimilarityFloor))
                     Slider(value: $preferences.ragSimilarityFloor, in: 0...1, step: 0.05)
                 }
-                Stepper(value: $preferences.ragContextBudget, in: 1000...20000, step: 500) {
+                VStack(alignment: .leading) {
                     LabeledContent("Context budget", value: "\(preferences.ragContextBudget) chars")
+                    Slider(
+                        value: Binding(
+                            get: { Double(preferences.ragContextBudget) },
+                            set: { preferences.ragContextBudget = Int($0) }
+                        ),
+                        in: 1000...20000,
+                        step: 500
+                    )
                 }
                 VStack(alignment: .leading) {
                     LabeledContent("Answer temperature", value: String(format: "%.2f", preferences.ragAnswerTemperature))
