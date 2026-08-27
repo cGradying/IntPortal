@@ -472,6 +472,13 @@ struct ContentView: View {
                 }
             }
         }
+        // Confirmed live: with no tint set, every native control here (tab
+        // selection, Done, toggles/radios) fell back to the system accent
+        // instead of the room's own — a maroon app with a green Settings
+        // sheet. Every other screen resolves this through \.palette; this
+        // sheet needs the same color said explicitly, since native Form
+        // controls read `.tint`, not the custom environment key.
+        .tint(preferences.theme.palette(for: systemScheme).accent)
         // min/ideal/max instead of a fixed size — same starting size, but
         // the sheet now offers macOS's native drag-to-resize edge.
         .frame(minWidth: 480, idealWidth: 560, maxWidth: 760, minHeight: 480, idealHeight: 620, maxHeight: 860)

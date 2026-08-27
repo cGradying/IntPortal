@@ -19,6 +19,12 @@ struct YearView: View {
     /// date-specific sibling to `weekdayColors`' recurring pattern (see
     /// `CalendarView.eventDotsByDate`).
     var eventDotsByDate: [Date: [Color]] = [:]
+    /// The recurring pattern in `weekdayColors` is date-blind — without this,
+    /// every Monday in every visible month gets Monday's dots, including
+    /// months before enrollment or past the term's own end. `nil` means no
+    /// cutoff (matches every other place a missing term end degrades to
+    /// "don't gate").
+    var termEndDate: Date?
     let onSelect: (Date) -> Void
 
     @Environment(\.palette) private var palette
@@ -41,6 +47,7 @@ struct YearView: View {
                     selectedWeekStart: selectedWeekStart,
                     weekdayColors: weekdayColors,
                     eventDotsByDate: eventDotsByDate,
+                    termEndDate: termEndDate,
                     onSelect: onSelect
                 )
             }
@@ -54,6 +61,7 @@ private struct MonthGrid: View {
     let selectedWeekStart: Date
     let weekdayColors: [Weekday: [Color]]
     let eventDotsByDate: [Date: [Color]]
+    let termEndDate: Date?
     let onSelect: (Date) -> Void
 
     @Environment(\.palette) private var palette
@@ -78,11 +86,13 @@ private struct MonthGrid: View {
 
                 ForEach(MonthLayout.days(ofMonthContaining: month), id: \.self) { date in
                     let day = Calendar.current.startOfDay(for: date)
+                    let inTerm = termEndDate.map { date <= $0 } ?? true
+                    let recurring = inTerm ? (weekdayColors[Weekday.on(date)] ?? []) : []
                     DayCell(
                         date: date,
                         isInMonth: MonthLayout.isSameMonth(date, as: month),
                         isInSelectedWeek: Weekday.weekStart(containing: date) == selectedWeekStart,
-                        dotColors: Array((weekdayColors[Weekday.on(date)] ?? []) + (eventDotsByDate[day] ?? []).prefix(4)),
+                        dotColors: Array(recurring + (eventDotsByDate[day] ?? []).prefix(4)),
                         onSelect: onSelect
                     )
                 }

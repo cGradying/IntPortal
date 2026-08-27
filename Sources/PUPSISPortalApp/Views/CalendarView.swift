@@ -224,6 +224,7 @@ struct CalendarView: View {
                             selectedWeekStart: weekStart,
                             weekdayColors: weekdayColors,
                             eventDotsByDate: eventDotsByDate,
+                            termEndDate: preferences.termEndDate,
                             onSelect: { open($0) }
                         )
                         // Width only — height sizes to the 4-month grid's
