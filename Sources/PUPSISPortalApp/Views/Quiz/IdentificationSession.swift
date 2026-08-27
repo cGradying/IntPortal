@@ -77,6 +77,12 @@ struct IdentificationSession: View {
                     .frame(width: 28, height: 28)
                 if !graded {
                     wrongAnswerPanel
+                } else if reduceMotion {
+                    // The auto-advance timer is skipped under Reduce Motion
+                    // (WCAG's "Timing Adjustable" — content disappearing on
+                    // a fixed clock nobody can extend), so this is the only
+                    // way forward on a correct answer in that case.
+                    Button("Next") { advance() }
                 }
             }
         }
@@ -123,6 +129,7 @@ struct IdentificationSession: View {
         store.recordReview(cardID: current.id, deckID: deck.id, rating: correct ? .good : .again)
         if correct {
             correctThisSession += 1
+            guard !reduceMotion else { return }
             Task {
                 try? await Task.sleep(nanoseconds: 600_000_000)
                 if graded == true { advance() }

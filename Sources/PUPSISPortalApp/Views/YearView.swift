@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Twelve months at once, the way Apple Calendar's year view works: a place to
-/// see where you are and jump somewhere, not a place to read a schedule.
-/// Picking any date opens that week in the grid.
+/// A compact window of months at once, the way Apple Calendar's year view
+/// works: a place to see where you are and jump somewhere, not a place to
+/// read a schedule. Picking any date opens that week in the grid.
 struct YearView: View {
     /// The months to show, in order — a compact 4-month window around
     /// wherever's currently browsed (`MonthLayout.months(around:count:)`),
@@ -92,7 +92,10 @@ private struct MonthGrid: View {
                         date: date,
                         isInMonth: MonthLayout.isSameMonth(date, as: month),
                         isInSelectedWeek: Weekday.weekStart(containing: date) == selectedWeekStart,
-                        dotColors: Array(recurring + (eventDotsByDate[day] ?? []).prefix(4)),
+                        // The real cap to 4 total lives in DayCell — capping
+                        // just the event slice here was dead: DayCell's own
+                        // .prefix(4) over the combined array already wins.
+                        dotColors: recurring + (eventDotsByDate[day] ?? []),
                         onSelect: onSelect
                     )
                 }

@@ -70,6 +70,10 @@ struct TrueFalseSession: View {
                     .frame(width: 28, height: 28)
                 if !answered {
                     wrongAnswerPanel(card: card, statement: statement, isActuallyTrue: isActuallyTrue)
+                } else if reduceMotion {
+                    // Auto-advance skipped under Reduce Motion (WCAG's
+                    // "Timing Adjustable") — this is the way forward instead.
+                    Button("Next") { advance() }
                 }
             } else {
                 HStack(spacing: 16) {
@@ -112,6 +116,7 @@ struct TrueFalseSession: View {
         store.recordReview(cardID: card.id, deckID: deck.id, rating: correct ? .good : .again)
         if correct {
             correctThisSession += 1
+            guard !reduceMotion else { return }
             Task {
                 try? await Task.sleep(nanoseconds: 600_000_000)
                 if answered == true { advance() }
