@@ -239,6 +239,7 @@ struct SettingsView: View {
                         in: Double(Preferences.aiContextSizeRange.lowerBound)...Double(Preferences.aiContextSizeRange.upperBound),
                         step: 512
                     )
+                    ramEstimateRow
                 }
                 Text("How much conversation, notes, and tool results the model can hold at once. Restarts the local model process when changed.")
                     .font(.caption)
@@ -392,6 +393,27 @@ struct SettingsView: View {
 
     private func refreshDownloaded() {
         downloadedIDs = Set(ModelCatalog.entries.filter(ModelCatalog.isDownloaded).map(\.id))
+    }
+
+    /// Live estimate of what `llama-server` will actually hold in RAM at the
+    /// slider's current position — weights + KV cache + a flat compute-buffer
+    /// overhead (`ModelCatalog.estimatedRAMBytes`). Turns red past the same
+    /// 60%-of-available-RAM threshold `SystemMemory.shouldWarn` already gates
+    /// the model-download confirmation with, so the two "is this too much
+    /// RAM" checks in Settings agree with each other.
+    private var ramEstimateRow: some View {
+        let entry = ModelCatalog.entry(for: preferences.aiModel) ?? ModelCatalog.entries[0]
+        let estimate = ModelCatalog.estimatedRAMBytes(for: entry, contextSize: preferences.aiContextSize)
+        let estimateGB = Double(estimate) / 1_073_741_824
+        let tooMuch = SystemMemory.availableBytes().map {
+            SystemMemory.shouldWarn(modelBytes: estimate, availableBytes: $0)
+        } ?? false
+        return HStack(spacing: 4) {
+            Image(systemName: tooMuch ? "exclamationmark.triangle.fill" : "memorychip")
+            Text(String(format: "~%.1f GB RAM at this context size", estimateGB))
+        }
+        .font(.caption)
+        .foregroundStyle(tooMuch ? .red : .secondary)
     }
 
     /// Same "?" popover language as `AssistantFloating`'s capabilities/thinking

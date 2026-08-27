@@ -13,6 +13,15 @@ enum ModelCatalog {
         let url: URL
         let sizeBytes: Int64
         let description: String
+        /// KV cache bytes per token of context, at llama.cpp's default
+        /// (unquantized, fp16) cache type: `2 (K+V) * layers * kvHeads *
+        /// headDim * 2 bytes`. Architecture-specific — from Qwen3-1.7B's
+        /// published config (28 layers, 8 KV heads via GQA, head_dim 128):
+        /// `2 * 28 * 8 * 128 * 2 = 114,688`. Used only for the Settings
+        /// RAM estimate (`ModelCatalog.estimatedRAMBytes`), not by
+        /// `llama-server` itself — it works this out on its own from the
+        /// GGUF's real metadata.
+        let kvCacheBytesPerToken: Int64
     }
 
     /// Confirmed live this session: downloaded and ran through a real
@@ -25,7 +34,8 @@ enum ModelCatalog {
             filename: "Qwen3-1.7B-Q4_K_M.gguf",
             url: URL(string: "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf")!,
             sizeBytes: 1_107_409_472,
-            description: "1.1GB · general chat, tools, and thinking. The default — runs comfortably on any Mac."
+            description: "1.1GB · general chat, tools, and thinking. The default — runs comfortably on any Mac.",
+            kvCacheBytesPerToken: 114_688
         ),
     ]
 
@@ -34,6 +44,24 @@ enum ModelCatalog {
     }
 
     static var defaultID: String { entries[0].id }
+
+    /// Fixed padding for `llama-server`'s own compute buffers (the
+    /// activation/graph memory it allocates alongside the KV cache) — not
+    /// something the GGUF or config exposes, so this is a round, deliberately
+    /// generous estimate rather than a measured figure.
+    /// ponytail: flat 512MB fudge factor, not scaled per-model or per-context;
+    /// revisit if a bigger model is ever added to the catalog and this stops
+    /// being close enough.
+    private static let computeOverheadBytes: Int64 = 512 * 1024 * 1024
+
+    /// Rough total RSS estimate for running `entry` at `contextSize` tokens:
+    /// its on-disk weights (loaded ~as-is into RAM) plus the KV cache the
+    /// context length demands plus a flat compute-buffer overhead. For
+    /// display only (the Settings context-size slider) — never fed back into
+    /// anything that allocates memory itself.
+    static func estimatedRAMBytes(for entry: Entry, contextSize: Int) -> Int64 {
+        entry.sizeBytes + entry.kvCacheBytesPerToken * Int64(contextSize) + computeOverheadBytes
+    }
 
     /// Fixed — not a picker. One small embedding model, downloaded once
     /// alongside the first chat model, running as `LlamaServerManager`'s
@@ -44,7 +72,11 @@ enum ModelCatalog {
         filename: "nomic-embed-text-v1.5.Q4_K_M.gguf",
         url: URL(string: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf")!,
         sizeBytes: 84_106_624,
-        description: "Powers note search — downloaded automatically alongside your first chat model."
+        description: "Powers note search — downloaded automatically alongside your first chat model.",
+        // Unused (no context slider for the fixed embed role) — filled in for
+        // `Entry`'s sake from nomic-embed-text-v1.5's own config (12 layers,
+        // 12 heads, head_dim 64): `2 * 12 * 12 * 64 * 2 = 36,864`.
+        kvCacheBytesPerToken: 36_864
     )
 
     /// Downloaded weights live under Application Support, same convention
