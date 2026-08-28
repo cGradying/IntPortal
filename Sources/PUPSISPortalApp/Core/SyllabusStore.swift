@@ -13,6 +13,16 @@ enum SyllabusItemType: String, Codable, CaseIterable, Identifiable {
         case .project: "Project"
         }
     }
+    /// SF Symbol for the Today marker (`AgendaView.syllabusMarker`) and
+    /// wherever else a syllabus item needs a one-glyph icon.
+    var symbol: String {
+        switch self {
+        case .lecture: "book"
+        case .quiz: "questionmark.circle"
+        case .exam: "graduationcap"
+        case .project: "hammer"
+        }
+    }
 }
 
 /// How an item entered the syllabus — not shown prominently anywhere yet,
@@ -138,6 +148,18 @@ final class SyllabusStore: ObservableObject {
     /// (wayfinder ticket #15) and any cross-subject view want this flat.
     func allItems() -> [SyllabusItem] {
         items.values.flatMap { $0 }
+    }
+
+    /// Every item whose `date` falls on the same calendar day as `date` —
+    /// the read path for the week-grid day header badge and the Today
+    /// timeline's marker row (wayfinder ticket #13). An item with no `date`
+    /// never matches here; it only shows wherever an undated list surfaces
+    /// items (the table/timeline views, ticket #14).
+    func items(on date: Date, calendar: Calendar = .current) -> [SyllabusItem] {
+        allItems().filter { item in
+            guard let itemDate = item.date else { return false }
+            return calendar.isDate(itemDate, inSameDayAs: date)
+        }
     }
 
     @discardableResult

@@ -10,6 +10,9 @@ struct CalendarView: View {
     @ObservedObject var controller: PortalController
     @ObservedObject var preferences: Preferences
     @ObservedObject var calendar: CalendarBridge
+    /// All-day badges on the week header (wayfinder ticket #13) — syllabus
+    /// items are never real `DayBlock`s (see `WeekGrid.header`'s doc comment).
+    @ObservedObject var syllabus: SyllabusStore
     let credentials: Credentials
     /// Week/scale/show-cancelled + the island's step/new-event intents. Lifted
     /// out so the floating nav island drives these instead of a toolbar.
@@ -69,6 +72,7 @@ struct CalendarView: View {
         controller: PortalController,
         preferences: Preferences,
         calendar: CalendarBridge,
+        syllabus: SyllabusStore,
         credentials: Credentials,
         schedule: ScheduleModel,
         updaterBridge: UpdaterBridge,
@@ -79,6 +83,7 @@ struct CalendarView: View {
         self.controller = controller
         self.preferences = preferences
         self.calendar = calendar
+        self.syllabus = syllabus
         self.credentials = credentials
         self.schedule = schedule
         self.updaterBridge = updaterBridge
@@ -314,6 +319,7 @@ struct CalendarView: View {
             selection: selection,
             recurringIDs: recurringIDs,
             preferences: preferences,
+            syllabus: syllabus,
             editing: canEdit ? gridEditing : nil,
             onAtTopChange: { atTop = $0 }
         )

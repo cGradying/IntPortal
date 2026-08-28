@@ -42,6 +42,7 @@ final class AppState: ObservableObject {
     let preferences = Preferences()
     let calendar = CalendarBridge()
     let notes = NotesStore()
+    let syllabus = SyllabusStore()
     let quizzes = QuizStore()
     let generation = GenerationCenter()
     lazy var googleAuth = GoogleAuth { [preferences] in preferences.googleClientID }
@@ -454,6 +455,7 @@ struct ContentView: View {
                 controller: appState.portal,
                 preferences: preferences,
                 calendar: appState.calendar,
+                syllabus: appState.syllabus,
                 credentials: credentials,
                 schedule: appState.schedule,
                 updaterBridge: appState.updaterBridge,

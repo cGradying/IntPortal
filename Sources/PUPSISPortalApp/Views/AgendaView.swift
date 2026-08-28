@@ -291,6 +291,7 @@ struct AgendaView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     header
                     dailyNoteRow
+                    syllabusMarker
 
                     if entries.isEmpty {
                         emptyDay
@@ -723,6 +724,32 @@ struct AgendaView: View {
             .foregroundStyle(.secondary)
         }
         .padding(.bottom, 4)
+    }
+
+    // MARK: Syllabus (wayfinder ticket #13)
+
+    /// The browsed day's syllabus items — an all-day marker line above the
+    /// timed timeline, not a `DayBlock`/`AgendaEntry` (see `WeekGrid`'s own
+    /// doc comment on the same call): a syllabus item usually has no
+    /// class-time, just a date, so it doesn't belong in a minutes-based row.
+    @ViewBuilder private var syllabusMarker: some View {
+        let items = appState.syllabus.items(on: referenceNow)
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(items) { item in
+                    HStack(spacing: 6) {
+                        Image(systemName: item.type.symbol)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(palette.accent)
+                        Text(item.topic).font(typography.footer).lineLimit(1)
+                        Text(item.subjectCode)
+                            .font(typography.detailMeta)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.bottom, 2)
+        }
     }
 
     // MARK: Timeline
