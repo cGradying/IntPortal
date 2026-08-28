@@ -24,22 +24,27 @@ html,body { margin:0; height:100%; background:transparent; }
 .cm-cursor { border-left-color:var(--fg); }
 .pup-math { font-size:1.05em; }
 .pup-math-block { display:block; margin:6px 0; }
-/* Fenced code block: rounded box in the app's own surface tokens (was a
-   fixed Discord-dark box regardless of theme — now reads as the current
-   theme's own chrome, same as .pup-ai-* below already did). */
+/* Fenced code block: rounded box in the app's own theme tokens (was a fixed
+   Discord-dark box regardless of theme, then briefly flat var(--surface) —
+   confirmed unreadable in light mode, since --surface is #ffffff, same as
+   the page it sits on with essentially no contrast). Tinted relative to
+   --fg instead of a flat surface color, so it reads as a distinct box
+   against any theme's canvas without hardcoding a shade for each one. */
 .cm-line.pup-code {
-  background:var(--surface); color:var(--fg);
-  border-left:1px solid var(--surface-border); border-right:1px solid var(--surface-border);
+  background:color-mix(in srgb, var(--fg) 6%, var(--surface));
+  color:var(--fg);
+  border-left:1px solid color-mix(in srgb, var(--fg) 16%, transparent);
+  border-right:1px solid color-mix(in srgb, var(--fg) 16%, transparent);
   font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:0.9em;
   padding-left:14px; padding-right:14px;
 }
 .cm-line.pup-code-first {
-  border-top:1px solid var(--surface-border);
+  border-top:1px solid color-mix(in srgb, var(--fg) 16%, transparent);
   border-top-left-radius:6px; border-top-right-radius:6px;
   padding-top:8px; margin-top:4px;
 }
 .cm-line.pup-code-last {
-  border-bottom:1px solid var(--surface-border);
+  border-bottom:1px solid color-mix(in srgb, var(--fg) 16%, transparent);
   border-bottom-left-radius:6px; border-bottom-right-radius:6px;
   padding-bottom:8px; margin-bottom:4px;
 }

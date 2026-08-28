@@ -81,6 +81,34 @@ function inRegions(from, to, regions) {
   return regions.some((r) => from < r.to && to > r.from);
 }
 
+// Fenced code content is verbatim — CONFIRMED LIVE BUG this fixes: every
+// other "render this markdown construct" decorator below (headings, hr,
+// checkboxes, wikilinks, colors, highlight, images, the LaTeX-document
+// renderer) scans either the raw document text with a regex or the document
+// line-by-line, with NO awareness of block structure — only the syntax-tree
+// -based ones (inlineMarkDecorations, fenceDecorations itself) respect it
+// natively. So typing `# not a heading` or `- [ ] not a checkbox` or `---`
+// as literal example text *inside* a ```fenced block``` got rendered as a
+// real heading/checkbox/rule anyway — markdown from outside the block
+// leaking into content that should stay exactly what was typed. One shared
+// `codeRegions` (mirrors `latexRegions`, syntax-tree based since a regex
+// can't reliably find fence boundaries around arbitrary content) plus
+// `excludedRegions` combining both is used everywhere `latexRegions` was
+// checked instead of sprinkling a second one-off check at each site.
+function codeRegions(state) {
+  const regions = [];
+  syntaxTree(state).iterate({
+    enter(node) {
+      if (node.name === "FencedCode") regions.push({ from: node.from, to: node.to });
+    },
+  });
+  return regions;
+}
+
+function excludedRegions(state) {
+  return latexRegions(state.doc.toString()).concat(codeRegions(state));
+}
+
 // Every "reveal raw syntax while editing" decorator (math, fences, hr,
 // headings, inline marks, wikilinks, colors, highlight, images) asks the
 // same question: is the caret inside this construct right now? Confirmed
@@ -131,7 +159,7 @@ class MathWidget extends WidgetType {
 function mathDecorations(view) {
   const builder = new RangeSetBuilder();
   const text = view.state.doc.toString();
-  const regions = latexRegions(text);
+  const regions = excludedRegions(view.state);
   for (const m of findMath(text)) {
     // Show raw source while the caret is inside/adjacent, so it stays editable.
     if (caretOverlaps(view, m.from, m.to)) continue;
@@ -303,7 +331,7 @@ class HrWidget extends WidgetType {
 function hrDecorations(view) {
   const builder = new RangeSetBuilder();
   const doc = view.state.doc;
-  const regions = latexRegions(doc.toString());
+  const regions = excludedRegions(view.state);
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     if (!HR_RE.test(line.text.trim())) continue;
@@ -348,7 +376,7 @@ class CheckboxWidget extends WidgetType {
 function checkboxDecorations(view) {
   const builder = new RangeSetBuilder();
   const doc = view.state.doc;
-  const regions = latexRegions(doc.toString());
+  const regions = excludedRegions(view.state);
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     const m = line.text.match(CHECKBOX_RE);
@@ -378,7 +406,7 @@ const HEADING_RE = /^(#{1,6})\s/;
 function headingDecorations(view) {
   const builder = new RangeSetBuilder();
   const doc = view.state.doc;
-  const regions = latexRegions(doc.toString());
+  const regions = excludedRegions(view.state);
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     const m = line.text.match(HEADING_RE);
@@ -454,7 +482,7 @@ class WikilinkWidget extends WidgetType {
 function wikilinkDecorations(view) {
   const builder = new RangeSetBuilder();
   const text = view.state.doc.toString();
-  const regions = latexRegions(text);
+  const regions = excludedRegions(view.state);
   WIKILINK_RE.lastIndex = 0;
   let m;
   while ((m = WIKILINK_RE.exec(text))) {
@@ -487,7 +515,7 @@ const COLOR_RE = /\{#([0-9a-fA-F]{3,8}):([^{}]*)\}/g;
 function colorDecorations(view) {
   const builder = new RangeSetBuilder();
   const text = view.state.doc.toString();
-  const regions = latexRegions(text);
+  const regions = excludedRegions(view.state);
   COLOR_RE.lastIndex = 0;
   let m;
   while ((m = COLOR_RE.exec(text))) {
@@ -524,7 +552,7 @@ const HIGHLIGHT_RE = /==([^=]+)==/g;
 function highlightMarkDecorations(view) {
   const builder = new RangeSetBuilder();
   const text = view.state.doc.toString();
-  const regions = latexRegions(text);
+  const regions = excludedRegions(view.state);
   HIGHLIGHT_RE.lastIndex = 0;
   let m;
   while ((m = HIGHLIGHT_RE.exec(text))) {
@@ -569,7 +597,7 @@ class ImageWidget extends WidgetType {
 function imageDecorations(view) {
   const builder = new RangeSetBuilder();
   const text = view.state.doc.toString();
-  const regions = latexRegions(text);
+  const regions = excludedRegions(view.state);
   IMAGE_RE.lastIndex = 0;
   let m;
   while ((m = IMAGE_RE.exec(text))) {
@@ -1006,8 +1034,10 @@ function latexDocDecorations(state) {
   const sel = state.selection.main;
   const text = state.doc.toString();
   const items = [];
+  const codeBlocks = codeRegions(state);
   for (const r of latexRegions(text)) {
     if (sel.from <= r.to && sel.to >= r.from) continue; // editing → show source
+    if (inRegions(r.from, r.to, codeBlocks)) continue; // a \documentclass sample shown as code, not a live document
     const src = text.slice(r.from, r.to);
     items.push({ from: r.from, to: r.to, deco: Decoration.replace({ widget: new LatexDocWidget(src), block: true }) });
   }
