@@ -76,6 +76,23 @@ function inRegions(from, to, regions) {
   return regions.some((r) => from < r.to && to > r.from);
 }
 
+// Every "reveal raw syntax while editing" decorator (math, fences, hr,
+// headings, inline marks, wikilinks, colors, highlight, images) asks the
+// same question: is the caret inside this construct right now? Confirmed
+// live bug this fixes: CodeMirror's default selection sits at document
+// offset 0 even before the webview has ever been focused, so a note whose
+// very first line was a heading (or any other of these constructs) showed
+// its raw marks on first load — nothing had "clicked into" it, but the
+// selection-only check couldn't tell the difference. Requiring focus too is
+// the fix; every call site below routes through this instead of repeating
+// `sel.from <= to && sel.to >= from` (and forgetting the focus half) on its
+// own.
+function caretOverlaps(view, from, to) {
+  if (!view.hasFocus) return false;
+  const sel = view.state.selection.main;
+  return sel.from <= to && sel.to >= from;
+}
+
 function findMath(text) {
   const found = [];
   for (const p of MATH_PATTERNS) {
@@ -108,13 +125,11 @@ class MathWidget extends WidgetType {
 
 function mathDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const text = view.state.doc.toString();
   const regions = latexRegions(text);
   for (const m of findMath(text)) {
     // Show raw source while the caret is inside/adjacent, so it stays editable.
-    const editing = sel.from <= m.to && sel.to >= m.from;
-    if (editing) continue;
+    if (caretOverlaps(view, m.from, m.to)) continue;
     if (inRegions(m.from, m.to, regions)) continue; // rendered by the LaTeX document
     builder.add(m.from, m.to, Decoration.replace({ widget: new MathWidget(m.latex, m.display) }));
   }
@@ -230,7 +245,6 @@ class HiddenWidget extends WidgetType {
 }
 
 function fenceDecorations(view) {
-  const sel = view.state.selection.main;
   const items = [];
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
@@ -238,7 +252,7 @@ function fenceDecorations(view) {
       enter: (node) => {
         if (node.name !== "FencedCode") return;
         // Editing this block? Show the raw fences so they're changeable.
-        if (sel.from <= node.to && sel.to >= node.from) return;
+        if (caretOverlaps(view, node.from, node.to)) return;
         const open = view.state.doc.lineAt(node.from);
         const close = view.state.doc.lineAt(node.to);
         if (close.number <= open.number) return;
@@ -283,14 +297,12 @@ class HrWidget extends WidgetType {
 
 function hrDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const doc = view.state.doc;
   const regions = latexRegions(doc.toString());
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     if (!HR_RE.test(line.text.trim())) continue;
-    const editing = sel.from <= line.to && sel.to >= line.from;
-    if (editing) continue;
+    if (caretOverlaps(view, line.from, line.to)) continue;
     if (inRegions(line.from, line.to, regions)) continue;
     builder.add(line.from, line.to, Decoration.replace({ widget: new HrWidget() }));
   }
@@ -360,14 +372,13 @@ const HEADING_RE = /^(#{1,6})\s/;
 
 function headingDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const doc = view.state.doc;
   const regions = latexRegions(doc.toString());
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     const m = line.text.match(HEADING_RE);
     if (!m) continue;
-    if (sel.from <= line.to && sel.to >= line.from) continue; // caret on line → show marks
+    if (caretOverlaps(view, line.from, line.to)) continue; // caret on line, focused → show marks
     if (inRegions(line.from, line.to, regions)) continue;
     builder.add(line.from, line.from + m[0].length, Decoration.replace({}));
   }
@@ -392,14 +403,13 @@ const INLINE_MARK_NODES = new Set(["EmphasisMark", "CodeMark", "StrikethroughMar
 
 function inlineMarkDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   syntaxTree(view.state).iterate({
     enter(node) {
       if (!INLINE_MARK_NODES.has(node.name)) return;
       const parent = node.node.parent;
       const from = parent ? parent.from : node.from;
       const to = parent ? parent.to : node.to;
-      if (sel.from <= to && sel.to >= from) return; // caret inside → show marks
+      if (caretOverlaps(view, from, to)) return; // caret inside, focused → show marks
       builder.add(node.from, node.to, Decoration.replace({}));
     },
   });
@@ -438,15 +448,13 @@ class WikilinkWidget extends WidgetType {
 
 function wikilinkDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const text = view.state.doc.toString();
   const regions = latexRegions(text);
   WIKILINK_RE.lastIndex = 0;
   let m;
   while ((m = WIKILINK_RE.exec(text))) {
     const from = m.index, to = m.index + m[0].length;
-    const editing = sel.from <= to && sel.to >= from;
-    if (editing) continue;
+    if (caretOverlaps(view, from, to)) continue;
     if (inRegions(from, to, regions)) continue;
     builder.add(from, to, Decoration.replace({ widget: new WikilinkWidget(m[1]) }));
   }
@@ -473,14 +481,13 @@ const COLOR_RE = /\{#([0-9a-fA-F]{3,8}):([^{}]*)\}/g;
 // empty replace decorations.
 function colorDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const text = view.state.doc.toString();
   const regions = latexRegions(text);
   COLOR_RE.lastIndex = 0;
   let m;
   while ((m = COLOR_RE.exec(text))) {
     const from = m.index, to = m.index + m[0].length;
-    if (sel.from <= to && sel.to >= from) continue; // editing → show source
+    if (caretOverlaps(view, from, to)) continue; // editing, focused → show source
     if (inRegions(from, to, regions)) continue;
     const innerFrom = from + 2 + m[1].length + 1; // past "{#" + hex + ":"
     const innerTo = to - 1;                        // before "}"
@@ -511,14 +518,13 @@ const HIGHLIGHT_RE = /==([^=]+)==/g;
 
 function highlightMarkDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const text = view.state.doc.toString();
   const regions = latexRegions(text);
   HIGHLIGHT_RE.lastIndex = 0;
   let m;
   while ((m = HIGHLIGHT_RE.exec(text))) {
     const from = m.index, to = m.index + m[0].length;
-    if (sel.from <= to && sel.to >= from) continue; // editing → show source
+    if (caretOverlaps(view, from, to)) continue; // editing, focused → show source
     if (inRegions(from, to, regions)) continue;
     const innerFrom = from + 2, innerTo = to - 2;
     builder.add(from, innerFrom, Decoration.replace({}));
@@ -557,15 +563,13 @@ class ImageWidget extends WidgetType {
 
 function imageDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const text = view.state.doc.toString();
   const regions = latexRegions(text);
   IMAGE_RE.lastIndex = 0;
   let m;
   while ((m = IMAGE_RE.exec(text))) {
     const from = m.index, to = m.index + m[0].length;
-    const editing = sel.from <= to && sel.to >= from;
-    if (editing) continue;
+    if (caretOverlaps(view, from, to)) continue;
     if (inRegions(from, to, regions)) continue;
     const url = m[2].trim();
     if (!/^(https?:|pupimg:)/.test(url)) continue;
