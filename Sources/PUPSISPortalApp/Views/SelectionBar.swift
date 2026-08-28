@@ -1,10 +1,12 @@
 import SwiftUI
+import Inject
 
 /// What you can do with a selection, said out loud.
 ///
 /// ⌫ and ⌘D worked before this, but nothing on screen said so — a selection
 /// you can't act on with the mouse is a selection most people never use.
 struct SelectionBar: View {
+    @ObserveInjection var inject
     let count: Int
     let onDelete: () -> Void
     let onDuplicate: () -> Void
@@ -52,5 +54,6 @@ struct SelectionBar: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(count) blocks selected")
+        .enableInjection()
     }
 }

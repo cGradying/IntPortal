@@ -1,4 +1,5 @@
 import SwiftUI
+import Inject
 
 /// The app's one piece of floating chrome. It starts centred in the window (a
 /// home launcher), and flies to the top when a destination opens. Idle at the
@@ -8,6 +9,7 @@ import SwiftUI
 /// Glass because it's chrome, never content; untinted (tint is the now-line's
 /// alone). One resizing capsule, so no `GlassEffectContainer` is needed.
 struct NavIsland: View {
+    @ObserveInjection var inject
     @ObservedObject var appState: AppState
     @ObservedObject var schedule: ScheduleModel
     @ObservedObject var notebook: NotebookModel
@@ -30,6 +32,7 @@ struct NavIsland: View {
             .onHover { hovered = $0 }
             .animation(Motion.island(reduced: reduceMotion), value: hovered)
             .animation(Motion.island(reduced: reduceMotion), value: appState.isHome)
+            .enableInjection()
     }
 
     @ViewBuilder private var content: some View {

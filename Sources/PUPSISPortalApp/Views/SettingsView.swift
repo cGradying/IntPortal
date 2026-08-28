@@ -1,8 +1,10 @@
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
+import Inject
 
 struct SettingsView: View {
+    @ObserveInjection var inject
     @ObservedObject var appState: AppState
     /// `appState.updaterBridge` is its own `ObservableObject` — this view must
     /// observe it directly, or a version becoming available while Settings is
@@ -59,6 +61,7 @@ struct SettingsView: View {
         .task(id: googleAuth.isConnected) {
             if googleAuth.isConnected { await loadGoogleCalendars() }
         }
+        .enableInjection()
     }
 
     /// One grouped, wash-backed form per tab — the shared chrome lives here.

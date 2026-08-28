@@ -1,8 +1,10 @@
 import SwiftUI
+import Inject
 
 /// The week itself: hour rules, the floating day header, positioned blocks,
 /// and the single interaction layer over the top of them.
 struct WeekGrid: View {
+    @ObserveInjection var inject
     let blocks: [DayBlock]
     let weekStart: Date
     let selection: Set<String>
@@ -92,6 +94,7 @@ struct WeekGrid: View {
                     .onChange(of: proxy.size.height) { _, newValue in availableHeight = newValue }
             }
         )
+        .enableInjection()
     }
 
     // MARK: Chrome

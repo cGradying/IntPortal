@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Inject
 
 /// The menu bar item itself: an icon, plus the next class when there is one.
 /// Kept short — the menu bar is scarce space, so the countdown detail lives in
@@ -32,6 +33,7 @@ struct MenuBarLabel: View {
 /// The dropdown. Next class up top, the rest of today under it, then the
 /// controls that make a windowless app usable: open, refresh, quit.
 struct MenuBarPanel: View {
+    @ObserveInjection var inject
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
     @Environment(\.openWindow) private var openWindow
@@ -77,6 +79,7 @@ struct MenuBarPanel: View {
         .padding(14)
         .frame(width: 260)
         .environment(\.palette, palette)
+        .enableInjection()
     }
 
     // MARK: Sections

@@ -1,10 +1,12 @@
 import AppKit
 import SwiftUI
+import Inject
 
 /// The Schedule screen's shell: which week, which scale, what's selected, and
 /// where the editor pops from. The grid itself lives in `WeekGrid`, and every
 /// calendar mutation goes through `EventEditor` so undo has one hook.
 struct CalendarView: View {
+    @ObserveInjection var inject
     @ObservedObject var controller: PortalController
     @ObservedObject var preferences: Preferences
     @ObservedObject var calendar: CalendarBridge
@@ -302,6 +304,7 @@ struct CalendarView: View {
             Button("All Future Events") { pendingScope?.apply(.futureEvents); pendingScope = nil }
             Button("Cancel", role: .cancel) { pendingScope = nil }
         }
+        .enableInjection()
     }
 
     private var weekGrid: some View {

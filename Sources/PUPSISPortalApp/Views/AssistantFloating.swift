@@ -1,4 +1,5 @@
 import SwiftUI
+import Inject
 
 /// The assistant's one piece of floating chrome — bottom-left, reachable from
 /// every screen. Idle it's a small orb; tapped it expands into the chat panel.
@@ -7,6 +8,7 @@ import SwiftUI
 /// they're never on screen at once, so there's nothing for
 /// `GlassEffectContainer` to blend.
 struct AssistantFloating: View {
+    @ObserveInjection var inject
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
     // Must be its own @ObservedObject, not a computed `appState.assistant` —
@@ -34,6 +36,7 @@ struct AssistantFloating: View {
             }
         }
         .animation(Motion.island(reduced: reduceMotion), value: session.isOpen)
+        .enableInjection()
     }
 
     private var orb: some View {

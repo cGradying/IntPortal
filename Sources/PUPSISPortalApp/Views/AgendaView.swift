@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Inject
 
 /// Today, read top to bottom. A daily companion to the week grid: the class
 /// happening now, what's already done, what's still coming with a countdown,
@@ -13,6 +14,7 @@ import AppKit
 /// (the shared minute clock) so it re-renders on the minute without a timer of
 /// its own, the same clock the menu bar rides.
 struct AgendaView: View {
+    @ObserveInjection var inject
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
     @ObservedObject var calendar: CalendarBridge
@@ -136,6 +138,7 @@ struct AgendaView: View {
         } message: { node in
             Text(node.isFolder ? "This deletes the folder and everything inside it." : "This note will be deleted.")
         }
+        .enableInjection()
     }
 
     private var namingPresented: Binding<Bool> {
