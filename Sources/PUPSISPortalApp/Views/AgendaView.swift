@@ -153,7 +153,8 @@ struct AgendaView: View {
     private var noteEditorPane: some View {
         VStack(alignment: .leading, spacing: 6) {
             tabBar
-            Text(noteTitle(for: currentKey))
+            TextField("Title", text: titleBinding)
+                .textFieldStyle(.plain)
                 .font(typography.detailTitle)
                 .lineLimit(1)
 
@@ -1026,11 +1027,13 @@ struct AgendaView: View {
     /// Today's day-note key — the editor's default when nothing else is selected.
     private var dayKey: String { dayKey(for: now) }
 
-    /// A human title for any note key — today's entry title when the class/event
-    /// is on today's schedule, else derived from the key (or a stored title, for
-    /// history notes whose class/event isn't scheduled today).
+    /// A human title for any note key. A user-set title (typed into the title
+    /// field, `notes.setTitle`/`renameVaultFile`) always wins; otherwise it's
+    /// today's entry title when the class/event is on today's schedule, else
+    /// derived from the key.
     private func noteTitle(for key: String) -> String {
         if key.hasPrefix("vault:") { return notes.vaultName(forKey: key) ?? "Untitled" }
+        if let override = notes.note(for: key)?.title { return override }
         if let entry = entries.first(where: { noteKey($0) == key }) { return entry.title }
         if key.hasPrefix("class:") { return String(key.dropFirst("class:".count)) }
         if key.hasPrefix("day:") {
@@ -1038,7 +1041,23 @@ struct AgendaView: View {
             if let date = Self.isoDay.date(from: iso) { return Self.shortDate.string(from: date) }
             return iso
         }
-        return notes.note(for: key)?.title ?? "Note"
+        return "Note"
+    }
+
+    /// The title field's binding: reads the resolved title, writes back through
+    /// `renameVaultFile` for vault-backed notes (keeps the sidebar name in
+    /// step) or `setTitle` for everything else.
+    private var titleBinding: Binding<String> {
+        Binding(
+            get: { noteTitle(for: currentKey) },
+            set: { newValue in
+                if currentKey.hasPrefix("vault:") {
+                    notes.renameVaultFile(forKey: currentKey, to: newValue)
+                } else {
+                    notes.setTitle(newValue, for: currentKey)
+                }
+            }
+        )
     }
 
     private static let isoDay: DateFormatter = {

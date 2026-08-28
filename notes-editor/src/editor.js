@@ -5,6 +5,7 @@ import { EditorView, Decoration, WidgetType, ViewPlugin, keymap, drawSelection, 
 import { EditorState, StateField, StateEffect, RangeSetBuilder } from "@codemirror/state";
 import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
+import { Strikethrough } from "@lezer/markdown";
 import { syntaxHighlighting, HighlightStyle, LanguageDescription, syntaxTree } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import katex from "katex";
@@ -383,6 +384,38 @@ const headingPlugin = ViewPlugin.fromClass(
   { decorations: (v) => v.decorations }
 );
 
+// --- Inline emphasis marks: hide **/__ (strong), */_ (emphasis), ~~ (strike),
+// ` (inline code) — the line stays styled via `highlight` below; reveal the
+// marks when the caret is anywhere inside the marked span (both delimiters
+// together, like headingDecorations reveals a whole line). ---
+const INLINE_MARK_NODES = new Set(["EmphasisMark", "CodeMark", "StrikethroughMark"]);
+
+function inlineMarkDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const sel = view.state.selection.main;
+  syntaxTree(view.state).iterate({
+    enter(node) {
+      if (!INLINE_MARK_NODES.has(node.name)) return;
+      const parent = node.node.parent;
+      const from = parent ? parent.from : node.from;
+      const to = parent ? parent.to : node.to;
+      if (sel.from <= to && sel.to >= from) return; // caret inside → show marks
+      builder.add(node.from, node.to, Decoration.replace({}));
+    },
+  });
+  return builder.finish();
+}
+
+const inlineMarkPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = inlineMarkDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.selectionSet) this.decorations = inlineMarkDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
 // --- Note connections: [[Title]] renders as a clickable link to another note ---
 const WIKILINK_RE = /\[\[([^\[\]]+)\]\]/g;
 
@@ -464,6 +497,42 @@ const colorPlugin = ViewPlugin.fromClass(
     constructor(view) { this.decorations = colorDecorations(view); }
     update(u) {
       if (u.docChanged || u.selectionSet) this.decorations = colorDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+// --- Highlighted text: ==text== renders `text` with a highlight background,
+// hiding the `==` marks (matches cmd("highlight")). Neither CommonMark nor
+// GFM has a node for this, so it's regex-based like colorPlugin above — it
+// was previously a dead command: cmd("highlight") inserted `==` markers that
+// rendered as literal text with no styling and nothing hiding them. ---
+const HIGHLIGHT_RE = /==([^=]+)==/g;
+
+function highlightMarkDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const sel = view.state.selection.main;
+  const text = view.state.doc.toString();
+  const regions = latexRegions(text);
+  HIGHLIGHT_RE.lastIndex = 0;
+  let m;
+  while ((m = HIGHLIGHT_RE.exec(text))) {
+    const from = m.index, to = m.index + m[0].length;
+    if (sel.from <= to && sel.to >= from) continue; // editing → show source
+    if (inRegions(from, to, regions)) continue;
+    const innerFrom = from + 2, innerTo = to - 2;
+    builder.add(from, innerFrom, Decoration.replace({}));
+    builder.add(innerFrom, innerTo, Decoration.mark({ class: "pup-highlight" }));
+    builder.add(innerTo, to, Decoration.replace({}));
+  }
+  return builder.finish();
+}
+
+const highlightMarkPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = highlightMarkDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.selectionSet) this.decorations = highlightMarkDecorations(u.view);
     }
   },
   { decorations: (v) => v.decorations }
@@ -1148,16 +1217,22 @@ export function initEditor(initialText, key) {
         drawSelection(),
         EditorView.lineWrapping,
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
-        markdown({ codeLanguages }),
+        // Base CommonMark already tags Emphasis/StrongEmphasis/InlineCode; add
+        // GFM's Strikethrough only (not the full GFM set) so `~~text~~` gets a
+        // node to style/hide — the checkbox and pupdb-table constructs already
+        // have their own regex-based plugins and don't need GFM's TaskList/Table.
+        markdown({ codeLanguages, extensions: [Strikethrough] }),
         syntaxHighlighting(highlight),
         codeBlockPlugin,
         fencePlugin,
         mathPlugin,
         hrPlugin,
         headingPlugin,
+        inlineMarkPlugin,
         checkboxPlugin,
         wikilinkPlugin,
         colorPlugin,
+        highlightMarkPlugin,
         imagePlugin,
         tableField,
         latexDocField,

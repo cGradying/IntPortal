@@ -141,6 +141,30 @@ final class NotesStore: ObservableObject {
         persist()
     }
 
+    /// Rename the vault file holding `key`, if `key` is vault-backed. No-op
+    /// otherwise (and no-op on an empty name, via `renameItem`) — the title
+    /// field in the editor pane calls this for `vault:` keys so the sidebar
+    /// name and the note stay in sync, same as the sidebar's rename alert.
+    func renameVaultFile(forKey key: String, to name: String) {
+        guard let id = node(withKey: key, in: vault)?.id else { return }
+        renameItem(id, to: name)
+    }
+
+    /// Sets only a note's stored title, independent of its text — a title-only
+    /// edit on a note with no content yet must not be silently dropped the way
+    /// `setText`'s empty-text-deletes-note rule would drop it. Clearing the
+    /// title on an already-empty note deletes the note, matching `setText`.
+    func setTitle(_ title: String, for key: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = notes[key]?.text ?? ""
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, trimmed.isEmpty {
+            notes[key] = nil
+        } else {
+            notes[key] = Note(text: text, updated: notes[key]?.updated ?? Date(), title: trimmed.isEmpty ? nil : trimmed)
+        }
+        persist()
+    }
+
     /// Move a node into `newParentID` (root when nil). No-ops if the target is the
     /// node itself or one of its descendants (which would detach the subtree).
     func move(_ id: UUID, to newParentID: UUID?) {

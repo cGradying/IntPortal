@@ -615,6 +615,10 @@ private struct WebNoteView: NSViewRepresentable {
           }
           .pup-wikilink:hover { background:color-mix(in srgb, #3b7dd8 22%, transparent); }
           .pup-image { max-width:100%; border-radius:8px; display:block; margin:6px 0; }
+          .pup-highlight {
+            background:color-mix(in srgb, var(--accent) 30%, transparent);
+            border-radius:3px; padding:0 2px;
+          }
           /* pupdb: the interactive table / checklist-database widget. */
           .pup-db { margin:10px 0; overflow-x:auto; }
           .pup-db table { border-collapse:collapse; table-layout:fixed; width:auto; font:13px -apple-system, system-ui, sans-serif; }
