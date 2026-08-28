@@ -60,19 +60,28 @@ struct AssistantFloating: View {
             case .hidden:
                 EmptyView()
             case .orb:
-                orb.transition(.opacity)
+                orb.transition(Self.morphTransition)
             case .toolbar:
-                toolbarDeck.transition(.opacity)
+                toolbarDeck.transition(Self.morphTransition)
             case .chat:
                 AssistantChat(appState: appState, preferences: preferences, session: session, morph: morph)
                     .frame(width: preferences.assistantPanelWidth, height: preferences.assistantPanelHeight)
                     .matchedGeometryEffect(id: "assistant", in: morph)
-                    .transition(.opacity)
+                    .transition(Self.morphTransition)
             }
         }
         .animation(Motion.island(reduced: reduceMotion), value: deckState)
         .enableInjection()
     }
+
+    /// Anchored at the deck's own bottom-leading corner (where it's pinned in
+    /// `PUPSISPortalApp.swift`) — content scales in/out from that corner
+    /// while `matchedGeometryEffect` resizes the shared capsule, so the
+    /// whole thing reads as one shape expanding/compressing rather than a
+    /// flat crossfade in place. Confirmed live: crossfade-only was the
+    /// original prototype and read as "the UI fades" rather than "the UI
+    /// grows/shrinks" — this is the fix.
+    private static let morphTransition: AnyTransition = .scale(scale: 0.82, anchor: .bottomLeading).combined(with: .opacity)
 
     private func go(open: Bool) {
         withAnimation(Motion.island(reduced: reduceMotion)) { session.isOpen = open }
@@ -107,51 +116,58 @@ struct AssistantFloating: View {
     // instead of a `@StateObject` local to whichever `WebNoteEditor` happened
     // to be on screen.
     //
-    // Narrow-width wrap-vs-scroll is explicitly NOT decided here — sent to
-    // ticket #3 ("Where the toolbar commands go") along with which of these
-    // commands should even survive. This keeps today's behavior (horizontal
-    // scroll) until that's resolved.
+    // Narrow-width overflow is explicitly NOT decided here — sent to ticket
+    // #3 ("Where the toolbar commands go") along with which of these
+    // commands should even survive. `.fixedSize()` is the deliberate
+    // ponytail stand-in until then: the capsule hugs exactly what it holds
+    // (confirmed live: an unconstrained-width `ScrollView` stretched to fill
+    // whatever space the floating layer offered, showing a mostly-empty
+    // capsule at typical window widths) and simply grows past the window
+    // edge rather than wrapping/scrolling if it's ever too wide. Revisit
+    // once #3 settles which commands actually stay.
     private var toolbarDeck: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 1) {
-                headingMenu
-                divider
-                button("bold", "Bold") { appState.noteBridge.cmd("bold") }
-                button("italic", "Italic") { appState.noteBridge.cmd("italic") }
-                button("strikethrough", "Strikethrough") { appState.noteBridge.cmd("strike") }
-                button("highlighter", "Highlight") { appState.noteBridge.cmd("highlight") }
-                colorButton
-                codeButton
-                button("x.squareroot", "Math") { appState.noteBridge.cmd("math") }
-                button("function", "LaTeX document") { appState.noteBridge.cmd("latexdoc") }
-                divider
-                button("list.bullet", "Bullet list") { appState.noteBridge.cmd("bullet") }
-                button("list.number", "Numbered list") { appState.noteBridge.cmd("numbered") }
-                button("checklist", "Checklist") { appState.noteBridge.cmd("checklist") }
-                button("text.quote", "Quote") { appState.noteBridge.cmd("quote") }
-                button("minus", "Divider") { appState.noteBridge.cmd("rule") }
-                button("tablecells", "Table") { appState.noteBridge.cmd("table") }
-                divider
-                button("photo", "Insert image…") { pickImage() }
-                button("link", "Link") { appState.noteBridge.cmd("link") }
-                button("link.badge.plus", "Link to another note") { appState.noteBridge.cmd("wikilink") }
-                if let options = appState.noteAddDateOptions {
-                    divider
-                    dateMenu(options)
-                }
-                if preferences.aiEnabled {
-                    divider
-                    Button { go(open: true) } label: {
-                        Image(systemName: "sparkles").frame(width: 20, height: 20).contentShape(Rectangle())
-                    }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(palette.accent)
-                    .help("IntAssis")
-                }
+        HStack(spacing: 1) {
+            headingMenu
+            divider
+            button("bold", "Bold", shortcut: "b") { appState.noteBridge.cmd("bold") }
+            button("italic", "Italic", shortcut: "i") { appState.noteBridge.cmd("italic") }
+            button("strikethrough", "Strikethrough", shortcut: "x", modifiers: [.command, .shift]) {
+                appState.noteBridge.cmd("strike")
             }
-            .padding(.horizontal, 8).padding(.vertical, 6)
+            button("highlighter", "Highlight", shortcut: "h", modifiers: [.command, .shift]) {
+                appState.noteBridge.cmd("highlight")
+            }
+            colorButton
+            codeButton
+            button("x.squareroot", "Math") { appState.noteBridge.cmd("math") }
+            button("function", "LaTeX document") { appState.noteBridge.cmd("latexdoc") }
+            divider
+            button("list.bullet", "Bullet list") { appState.noteBridge.cmd("bullet") }
+            button("list.number", "Numbered list") { appState.noteBridge.cmd("numbered") }
+            button("checklist", "Checklist") { appState.noteBridge.cmd("checklist") }
+            button("text.quote", "Quote") { appState.noteBridge.cmd("quote") }
+            button("minus", "Divider") { appState.noteBridge.cmd("rule") }
+            button("tablecells", "Table") { appState.noteBridge.cmd("table") }
+            divider
+            button("photo", "Insert image…") { pickImage() }
+            button("link", "Link", shortcut: "k") { appState.noteBridge.cmd("link") }
+            button("link.badge.plus", "Link to another note") { appState.noteBridge.cmd("wikilink") }
+            if let options = appState.noteAddDateOptions {
+                divider
+                dateMenu(options)
+            }
+            if preferences.aiEnabled {
+                divider
+                Button { go(open: true) } label: {
+                    Image(systemName: "sparkles").frame(width: 20, height: 20).contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(palette.accent)
+                .help("IntAssis")
+            }
         }
-        .frame(maxWidth: 640)
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .fixedSize()
         .glassInteractive(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .matchedGeometryEffect(id: "assistant", in: morph)
     }
@@ -287,11 +303,42 @@ struct AssistantFloating: View {
 
     private var divider: some View { Divider().frame(height: 14).padding(.horizontal, 2) }
 
-    private func button(_ symbol: String, _ help: String, _ action: @escaping () -> Void) -> some View {
+    /// `shortcut` covers the handful of commands with a universal text-editor
+    /// convention (bold/italic/strike/highlight/link) — block-level commands
+    /// (headings, lists, table, image, quote, rule, math, date) have no such
+    /// convention and stay mouse-only. Scoped for free: the shortcut only
+    /// fires while its `Button` is actually in the tree, i.e. only while the
+    /// toolbar deck is showing (Notebook, Vault tab) — nowhere else.
+    private func button(
+        _ symbol: String, _ help: String,
+        shortcut: KeyEquivalent? = nil, modifiers: EventModifiers = .command,
+        _ action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Image(systemName: symbol).frame(width: 20, height: 20).contentShape(Rectangle())
         }
-        .buttonStyle(.borderless).help(help)
+        .buttonStyle(.borderless)
+        .help(shortcut.map { "\(help) (\(Self.shortcutLabel($0, modifiers)))" } ?? help)
+        .modify(shortcut) { view, key in view.keyboardShortcut(key, modifiers: modifiers) }
+    }
+
+    /// Apple's own modifier ordering: ⌃⌥⇧⌘, key last.
+    private static func shortcutLabel(_ key: KeyEquivalent, _ modifiers: EventModifiers) -> String {
+        var s = ""
+        if modifiers.contains(.control) { s += "⌃" }
+        if modifiers.contains(.option) { s += "⌥" }
+        if modifiers.contains(.shift) { s += "⇧" }
+        if modifiers.contains(.command) { s += "⌘" }
+        return s + String(key.character).uppercased()
+    }
+}
+
+private extension View {
+    /// Conditionally applies `transform` only when `value` is non-nil —
+    /// `.keyboardShortcut` needs an actual `KeyEquivalent`, not an optional one.
+    @ViewBuilder
+    func modify<T>(_ value: T?, _ transform: (Self, T) -> some View) -> some View {
+        if let value { transform(self, value) } else { self }
     }
 }
 
