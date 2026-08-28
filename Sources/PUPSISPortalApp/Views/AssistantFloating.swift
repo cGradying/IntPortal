@@ -2,12 +2,17 @@ import SwiftUI
 import Inject
 
 /// The app's one piece of floating chrome that isn't `NavIsland` — bottom-left,
-/// reachable from every screen. One glass surface that morphs between three
-/// shapes rather than several overlapping views (`matchedGeometryEffect(id:
+/// reachable from every screen. One glass surface that morphs between shapes
+/// rather than several overlapping views (`matchedGeometryEffect(id:
 /// "assistant", ...)`, the same vocabulary `NavIsland` uses for its own
 /// centre↔top morph):
 ///
 /// - **orb** — idle, everywhere except an open note.
+/// - **orb + hover rail** — hovering the orb (wayfinder ticket #8,
+///   https://github.com/cGradying/IntPortal/issues/8) grows it sideways into
+///   2 page-specific quick actions ("jump + narrate": switch screen if
+///   needed, open chat, run the matching command immediately). Clicking the
+///   orb itself — not a rail icon — always opens plain chat, same as before.
 /// - **toolbar** — Notebook, Vault tab: the note-formatting commands that used
 ///   to be `WebNoteEditor`'s own static top strip (wayfinder ticket #7,
 ///   https://github.com/cGradying/IntPortal/issues/7 — prototyped and
@@ -39,10 +44,16 @@ struct AssistantFloating: View {
     @State private var showLanguages = false
     @State private var showColors = false
     @State private var customColor: Color = .red
+    /// Debounced hover state driving `.orbHovered` — see `scheduleHover`.
+    @State private var railExpanded = false
+    /// Invalidates a pending debounced hover toggle when a newer one
+    /// supersedes it (mouse left then re-entered before the leave timer fired).
+    @State private var hoverGeneration = 0
 
     private enum DeckState: Equatable {
         case hidden   // AI off and not on an open note — nothing floats.
         case orb
+        case orbHovered
         case toolbar
         case chat
     }
@@ -51,7 +62,8 @@ struct AssistantFloating: View {
         if preferences.aiEnabled, session.isOpen { return .chat }
         // Vault tab specifically — Quizzes has no `WebNoteEditor` to drive.
         if appState.selection == .today, appState.notebook.tab == .vault { return .toolbar }
-        return preferences.aiEnabled ? .orb : .hidden
+        guard preferences.aiEnabled else { return .hidden }
+        return railExpanded ? .orbHovered : .orb
     }
 
     var body: some View {
@@ -61,6 +73,8 @@ struct AssistantFloating: View {
                 EmptyView()
             case .orb:
                 orb.transition(Self.morphTransition)
+            case .orbHovered:
+                orbWithRail.transition(Self.morphTransition)
             case .toolbar:
                 toolbarDeck.transition(Self.morphTransition)
             case .chat:
@@ -71,7 +85,31 @@ struct AssistantFloating: View {
             }
         }
         .animation(Motion.island(reduced: reduceMotion), value: deckState)
+        // Attached at this level (not inside `orb`/`orbWithRail` individually)
+        // so hovering never drops mid-expand when the two views swap out
+        // under the pointer. Ignored outside the orb states — the toolbar
+        // and chat panel have their own content to hover.
+        .onHover { inside in
+            guard deckState == .orb || deckState == .orbHovered else { return }
+            scheduleHover(inside)
+        }
         .enableInjection()
+    }
+
+    /// 120ms to expand (ignores a cursor just passing over), 300ms grace to
+    /// collapse (survives the pointer moving from the orb toward a rail
+    /// icon). `hoverGeneration` cancels a stale timer: re-entering during the
+    /// collapse grace invalidates the pending `false`, so the rail never
+    /// flickers shut and immediately back open.
+    private func scheduleHover(_ hovering: Bool) {
+        hoverGeneration += 1
+        let generation = hoverGeneration
+        let delay = hovering ? 0.12 : 0.30
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard generation == hoverGeneration else { return }
+            withAnimation(Motion.island(reduced: reduceMotion)) { railExpanded = hovering }
+        }
     }
 
     /// Anchored at the deck's own bottom-leading corner (where it's pinned in
@@ -104,6 +142,98 @@ struct AssistantFloating: View {
         .overlay(Circle().strokeBorder(palette.accent.opacity(0.35), lineWidth: 1))
         .matchedGeometryEffect(id: "assistant", in: morph)
         .help("IntAssis")
+    }
+
+    // MARK: Hover rail (orb states, not Notebook/Vault)
+    //
+    // "Jump + narrate": clicking a rail item switches to the page it's
+    // about (a no-op if already there), opens chat, and runs the matching
+    // deterministic slash command (`AssistantCommand`, same parser/runner
+    // `AssistantChat.send()` already uses for typed commands) — so the
+    // answer appears the same way it would if the user had typed and sent
+    // it themselves, just pre-asked.
+
+    private struct RailItem: Identifiable {
+        let id: String
+        let symbol: String
+        let help: String
+        let command: String
+        /// Where "Next class" etc. actually lives, regardless of which page
+        /// the rail itself is showing on — e.g. Notebook's "Next class" jumps
+        /// to Schedule; Schedule's own items stay on Schedule.
+        let destination: Destination
+    }
+
+    private static let isoDay: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f
+    }()
+
+    private var railItems: [RailItem] {
+        let today = Self.isoDay.string(from: appState.now)
+        let nextClass = RailItem(
+            id: "next", symbol: "calendar.badge.clock", help: "Next class",
+            command: "/date \(today)", destination: .schedule
+        )
+        switch appState.selection {
+        case .schedule:
+            return [
+                nextClass,
+                RailItem(id: "week", symbol: "calendar", help: "This week", command: "/week", destination: .schedule),
+            ]
+        case .grades:
+            return [
+                RailItem(id: "gpa", symbol: "chart.line.uptrend.xyaxis", help: "GPA trend", command: "/grades", destination: .grades),
+                nextClass,
+            ]
+        case .today:
+            // Reached only outside the Vault tab (`.toolbar` wins there) —
+            // Quizzes, or no note open.
+            return [
+                RailItem(id: "notes", symbol: "magnifyingglass", help: "List notes", command: "/notes", destination: .today),
+                nextClass,
+            ]
+        }
+    }
+
+    /// Switches to the rail item's screen (no-op if already there), then
+    /// opens chat and queues its command — `AssistantChat.runPendingCommand`
+    /// sends it the moment the panel appears.
+    private func jumpAndNarrate(_ item: RailItem) -> some View {
+        Button {
+            withAnimation(Motion.island(reduced: reduceMotion)) {
+                appState.selection = item.destination
+                session.isOpen = true
+            }
+            session.pendingCommand = item.command
+        } label: {
+            Image(systemName: item.symbol).frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .help(item.help)
+    }
+
+    private var orbWithRail: some View {
+        HStack(spacing: 4) {
+            // Orb face stays a plain open-chat button, not a rail item —
+            // hovering reveals shortcuts, but clicking the orb itself is
+            // always "just open chat", same as the plain `.orb` state.
+            Button { go(open: true) } label: {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 32, height: 32)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            Divider().frame(height: 14)
+            ForEach(railItems) { item in
+                jumpAndNarrate(item)
+            }
+        }
+        .foregroundStyle(palette.accent)
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .glassInteractive(in: Capsule())
+        .overlay(Capsule().strokeBorder(palette.accent.opacity(0.35), lineWidth: 1))
+        .matchedGeometryEffect(id: "assistant", in: morph)
     }
 
     // MARK: Toolbar deck (Notebook, Vault tab)
@@ -383,7 +513,11 @@ private struct AssistantChat: View {
         .overlay(alignment: .topTrailing) { resizeGrip }
         .animation(Motion.arrival(reduced: reduceMotion), value: session.pendingActions.isEmpty)
         .animation(Motion.arrival(reduced: reduceMotion), value: session.lastError)
-        .onAppear { inputFocused = true }
+        .onAppear {
+            inputFocused = true
+            runPendingCommand()
+        }
+        .onChange(of: session.pendingCommand) { _, _ in runPendingCommand() }
     }
 
     /// A small handle poking past the panel's own top-trailing corner —
@@ -898,6 +1032,17 @@ private struct AssistantChat: View {
         let count = commandSuggestions.count
         highlightedSuggestion = ((highlightedSuggestion + delta) % count + count) % count
         return .handled
+    }
+
+    /// Runs the deck's hover-rail command, if one is waiting — fired from
+    /// both `.onAppear` (rail click opened the panel fresh) and
+    /// `.onChange(of: session.pendingCommand)` (panel was already open on
+    /// this screen; clicking a rail item queues a second command into it).
+    private func runPendingCommand() {
+        guard let command = session.pendingCommand else { return }
+        session.pendingCommand = nil
+        input = command
+        send()
     }
 
     private func send() {

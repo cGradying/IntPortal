@@ -31,6 +31,13 @@ final class AssistantSession: ObservableObject {
     /// transcript — it's the model's scratch work, not part of the reply.
     @Published var lastThinking = ""
 
+    /// A slash-command string set by the floating deck's hover-rail
+    /// ("jump + narrate" cross-page shortcuts, wayfinder ticket #8) — opens
+    /// chat and sends this immediately, same as if the user had typed and
+    /// submitted it themselves. `AssistantChat` consumes and clears it on
+    /// appear/change; nil the rest of the time.
+    @Published var pendingCommand: String?
+
     /// A reply the model produced but that isn't fit to show as-is — the
     /// Phase 0 spike's `"reply": "[]"` rough edge, or a genuinely empty
     /// string. Falls back to something that still reflects what happened,
