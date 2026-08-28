@@ -1,0 +1,261 @@
+/* Notes editor chrome. Moved out of the Swift-generated HTML shell
+   (wayfinder ticket #11, https://github.com/cGradying/IntPortal/issues/11) —
+   esbuild's `--loader:.css=text` is already wired up for latex.js's imports,
+   so this is a plain text import, injected as a <style> tag by initEditor()
+   the same way editor.js already injects latex.js's CSS into the LaTeX
+   widget's shadow DOM. Only the handful of rules that need a per-launch
+   Swift-interpolated value (--accent's initial hex) stay in the HTML shell's
+   own small inline <style> — everything else lives here now.
+
+   --fg / --accent / --surface / --surface-border / --pup-noise are CSS
+   custom properties still declared in that inline :root block. */
+
+html,body { margin:0; height:100%; background:transparent; }
+#editor { height:100%; }
+.cm-editor { height:100%; background:transparent; color:var(--fg);
+  font:16.5px/1.7 -apple-system, system-ui, sans-serif; }
+.cm-editor.cm-focused { outline:none; }
+.cm-scroller { padding:6px 10px; overflow:auto; }
+/* A measured reading column instead of the note stretching edge-to-edge —
+   `margin:auto` centers it inside `.cm-scroller`'s flex row; `max-width`
+   still wins over CodeMirror's own `flex-grow` on this element, so it caps
+   correctly rather than the flex trying to fill past 68ch. */
+.cm-content { max-width:68ch; margin:0 auto; }
+.cm-cursor { border-left-color:var(--fg); }
+.pup-math { font-size:1.05em; }
+.pup-math-block { display:block; margin:6px 0; }
+/* Fenced code block: rounded box in the app's own surface tokens (was a
+   fixed Discord-dark box regardless of theme — now reads as the current
+   theme's own chrome, same as .pup-ai-* below already did). */
+.cm-line.pup-code {
+  background:var(--surface); color:var(--fg);
+  border-left:1px solid var(--surface-border); border-right:1px solid var(--surface-border);
+  font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:0.9em;
+  padding-left:14px; padding-right:14px;
+}
+.cm-line.pup-code-first {
+  border-top:1px solid var(--surface-border);
+  border-top-left-radius:6px; border-top-right-radius:6px;
+  padding-top:8px; margin-top:4px;
+}
+.cm-line.pup-code-last {
+  border-bottom:1px solid var(--surface-border);
+  border-bottom-left-radius:6px; border-bottom-right-radius:6px;
+  padding-bottom:8px; margin-bottom:4px;
+}
+/* Language badge + copy button header (replaces the ```lang line). */
+.pup-code-header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.pup-lang {
+  font-family:-apple-system, system-ui, sans-serif; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.04em; color:color-mix(in srgb, var(--fg) 55%, transparent);
+}
+.pup-copy {
+  font:11px -apple-system, system-ui, sans-serif; color:var(--fg);
+  background:color-mix(in srgb, var(--fg) 8%, transparent); border:1px solid var(--surface-border);
+  border-radius:4px; padding:1px 8px; cursor:pointer;
+}
+.pup-copy:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+.pup-hidden-fence { display:none; }
+.pup-hr { display:block; width:100%; height:0; border-top:2px solid color-mix(in srgb, var(--fg) 40%, transparent); margin:12px 0; }
+.pup-checkbox { width:14px; height:14px; margin:0 2px 0 0; vertical-align:-2px; cursor:pointer; }
+.pup-wikilink {
+  color:#3b7dd8; background:color-mix(in srgb, #3b7dd8 12%, transparent);
+  border-radius:4px; padding:0 4px; cursor:pointer;
+}
+.pup-wikilink:hover { background:color-mix(in srgb, #3b7dd8 22%, transparent); }
+.pup-image { max-width:100%; border-radius:8px; display:block; margin:6px 0; }
+.pup-highlight {
+  background:color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius:3px; padding:0 2px;
+}
+/* pupdb: the interactive table / checklist-database widget. Deliberately
+   left as its own fixed dark palette (out of scope for this ticket — only
+   the fenced code block above was called out for theme-matching; pupdb's
+   own look wasn't). */
+.pup-db { margin:10px 0; overflow-x:auto; }
+.pup-db table { border-collapse:collapse; table-layout:fixed; width:auto; font:13px -apple-system, system-ui, sans-serif; }
+.pup-db th, .pup-db td { border:1px solid color-mix(in srgb, var(--fg) 14%, transparent); padding:4px 6px; text-align:left; overflow:hidden; position:relative; }
+.pup-db th { background:color-mix(in srgb, var(--fg) 6%, transparent); }
+.pup-db-cell { padding-right:14px; }
+.pup-db-cellcolor {
+  position:absolute; right:3px; top:50%; transform:translateY(-50%);
+  border:none; background:transparent; cursor:pointer; font-size:9px; padding:0; line-height:1;
+  color:color-mix(in srgb, var(--fg) 45%, transparent); opacity:0; transition:opacity 0.12s;
+}
+.pup-db td:hover .pup-db-cellcolor { opacity:0.7; }
+.pup-db-cellcolor:hover { opacity:1; }
+.pup-db-actioncol { width:34px; }
+.pup-db-name { border:none; background:transparent; color:var(--fg); font:inherit; font-weight:600; width:calc(100% - 30px); }
+.pup-db-name:focus { outline:none; }
+/* Drag handle on a column's right edge. */
+.pup-db-resize { position:absolute; top:0; right:-3px; width:6px; height:100%; cursor:col-resize; z-index:2; }
+.pup-db-resize:hover { background:color-mix(in srgb, #3b7dd8 50%, transparent); }
+.pup-db-add, .pup-db-addrow {
+  border:none; background:transparent; color:color-mix(in srgb, var(--fg) 55%, transparent);
+  cursor:pointer; font:12px -apple-system, system-ui, sans-serif;
+}
+/* × / ▾ column and row controls: hidden until the cursor is over that
+   header or row (kept out of the way, revealed when near). */
+.pup-db-colmenu, .pup-db-del {
+  border:none; background:transparent; color:color-mix(in srgb, var(--fg) 55%, transparent);
+  cursor:pointer; font:12px -apple-system, system-ui, sans-serif;
+  opacity:0; transition:opacity 0.12s;
+}
+.pup-db th:hover .pup-db-colmenu, .pup-db tbody tr:hover .pup-db-del { opacity:1; }
+.pup-db-colmenu:hover, .pup-db-del:hover { color:#e5484d; }
+.pup-db-add { font-weight:700; }
+.pup-db-addrow {
+  margin-top:6px; padding:2px 10px; border:1px dashed color-mix(in srgb, var(--fg) 25%, transparent);
+  border-radius:5px;
+}
+.pup-db-cell { border:none; background:transparent; color:var(--fg); font:inherit; width:100%; }
+.pup-db-cell:focus { outline:none; }
+.pup-db-pill {
+  border:none; border-radius:5px; padding:2px 8px; font:12px -apple-system, system-ui, sans-serif;
+  font-weight:600; color:#fff; background:var(--pill, #8a8f98); cursor:pointer;
+}
+.pup-db-pill-empty { background:color-mix(in srgb, var(--fg) 15%, transparent); color:var(--fg); }
+.pup-db-menu {
+  position:fixed; background:#26282c; border:1px solid #3f4147; border-radius:6px; padding:4px;
+  z-index:1000; min-width:140px; box-shadow:0 4px 16px rgba(0,0,0,0.3);
+}
+.pup-db-menuitem {
+  display:flex; align-items:center; gap:6px; padding:4px 8px; border-radius:4px;
+  cursor:pointer; color:#dbdee1; font:12px -apple-system, system-ui, sans-serif;
+}
+.pup-db-menuitem:hover { background:#313338; }
+.pup-db-menuitem:not(.pup-db-menuitem-plain)::before {
+  content:""; width:8px; height:8px; border-radius:50%; background:var(--pill, #8a8f98); flex:none;
+}
+.pup-db-opt-del { color:#8a8f98; padding:0 2px; }
+.pup-db-opt-del:hover { color:#e5484d; }
+.pup-db-addopt { border-top:1px solid #3f4147; margin-top:4px; padding-top:6px; }
+.pup-db-optinput {
+  width:100%; box-sizing:border-box; background:#1e1f22; border:1px solid #3f4147;
+  border-radius:4px; color:#dbdee1; font:12px -apple-system, system-ui, sans-serif; padding:4px 6px;
+}
+.pup-db-optinput:focus { outline:none; border-color:#5865f2; }
+.pup-db-swatches { display:flex; gap:4px; margin:6px 0; flex-wrap:wrap; }
+.pup-db-swatch { width:16px; height:16px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; }
+.pup-db-swatch.sel { border-color:#fff; }
+.pup-db-optadd {
+  width:100%; background:#5865f2; border:none; border-radius:4px; color:#fff;
+  font:12px -apple-system, system-ui, sans-serif; font-weight:600; padding:5px; cursor:pointer;
+}
+.pup-db-optadd:hover { background:#4752c4; }
+/* AI selection assist: the floating pill and its menu. Uses the app's own
+   accent (--accent, injected per theme) and the same light/dark surface
+   tokens as the rest of the editor chrome — unlike the pupdb widgets above,
+   this is meant to look like it belongs to whichever theme (Maroon / Ivory /
+   Astra Moon) is active. */
+.pup-ai-pill {
+  position:fixed; z-index:1000; border:none; border-radius:999px; padding:5px 12px;
+  font:12px -apple-system, system-ui, sans-serif; font-weight:600; color:#fff;
+  background:var(--accent); cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,0.18);
+}
+.pup-ai-pill:hover { filter:brightness(1.08); }
+.pup-ai-menu {
+  position:fixed; background:var(--surface); border:1px solid var(--surface-border);
+  border-radius:10px; padding:6px; z-index:1000; min-width:200px; max-width:320px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.18); color:var(--fg);
+}
+.pup-ai-menuitem {
+  padding:7px 9px; border-radius:6px; cursor:pointer; color:var(--fg);
+  font:12px -apple-system, system-ui, sans-serif;
+}
+.pup-ai-menuitem:hover { background:color-mix(in srgb, var(--accent) 14%, transparent); }
+.pup-ai-custom { border-top:1px solid var(--surface-border); margin-top:4px; padding-top:6px; }
+.pup-ai-custom-input {
+  width:100%; box-sizing:border-box; background:color-mix(in srgb, var(--fg) 5%, transparent);
+  border:1px solid var(--surface-border); border-radius:6px; color:var(--fg);
+  font:12px -apple-system, system-ui, sans-serif; padding:6px 8px;
+}
+.pup-ai-custom-input:focus { outline:none; border-color:var(--accent); }
+.pup-ai-status {
+  padding:7px 9px; color:color-mix(in srgb, var(--fg) 55%, transparent);
+  font:12px -apple-system, system-ui, sans-serif;
+}
+.pup-ai-error { color:#e5484d; }
+.pup-ai-preview {
+  padding:7px 9px; color:var(--fg); font:12px -apple-system, system-ui, sans-serif;
+  max-height:200px; overflow-y:auto; white-space:pre-wrap;
+}
+.pup-ai-actions { display:flex; gap:6px; padding:6px 6px 2px; }
+.pup-ai-actionbtn {
+  flex:1; border:none; border-radius:6px; padding:6px 8px; cursor:pointer;
+  font:11px -apple-system, system-ui, sans-serif; font-weight:600;
+  background:color-mix(in srgb, var(--fg) 8%, transparent); color:var(--fg);
+}
+.pup-ai-actionbtn:hover { background:var(--accent); color:#fff; }
+/* Siri-style reveal for AI-inserted text (Replace / Insert below), two
+   styles picked in Settings (AIRevealAnimation):
+   - .pup-fade-word alone (Sweep, default): the word just fades/un-blurs/
+     settles in — smoothed, no per-word pulse of its own. The connecting
+     glow is .pup-sweep-band below, one continuous band per line traveling
+     start-to-end, not tied to individual words at all.
+   - .pup-fade-word.pup-glow (Word blink): the original — each word
+     additionally gets its own independent glow pulse (::before), which is
+     what reads as "blinking" rather than connected.
+   Either way the word's real color is never touched — that stays whatever
+   syntax highlighting/color spans already gave it; both styles only add
+   opacity/blur/glow layers on top. */
+.pup-fade-word {
+  position:relative; display:inline-block;
+  animation: pupFadeWordIn 560ms cubic-bezier(.22,.85,.32,1) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger, 16ms));
+}
+.pup-fade-word.pup-glow::before {
+  content:""; position:absolute; inset:-3px -2px; z-index:-1;
+  border-radius:4px; pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 70%, transparent), transparent 70%),
+    var(--pup-noise);
+  background-size: 100% 100%, 72px 72px;
+  mix-blend-mode: overlay;
+  opacity:0;
+  animation: pupWordGlow 460ms cubic-bezier(.16,.8,.24,1) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger, 16ms));
+}
+@keyframes pupFadeWordIn {
+  0%   { opacity:0; filter:blur(6px); transform:translateY(4px); }
+  70%  { opacity:1; filter:blur(0); transform:translateY(0); }
+  100% { opacity:1; filter:blur(0); transform:translateY(0); }
+}
+@keyframes pupWordGlow {
+  0%   { opacity:0; }
+  35%  { opacity:0.9; }
+  100% { opacity:0; }
+}
+/* Sweep (default): one continuous glow band per line, positioned from real
+   measured coordinates (coordsAtPos — same technique the AI pill/menu
+   already use, so it can't be thrown off by inline text wrapping the way a
+   pure-CSS width trick on a text span would be) and appended as a child of
+   the editor's own scroller (.cm-scroller, position:relative already), not
+   <body> — so it scrolls along with the text it's escorting instead of
+   staying glued to the screen position it was born at while the content
+   scrolls out from under it. */
+.pup-sweep-band {
+  position:absolute; z-index:998; pointer-events:none;
+  border-radius:5px; overflow:hidden;
+}
+.pup-sweep-beam {
+  position:absolute; top:0; bottom:0; left:-40%; width:40%;
+  background:
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 80%, transparent) 50%, transparent),
+    var(--pup-noise);
+  background-size: 100% 100%, 72px 72px;
+  mix-blend-mode: overlay;
+  animation: pupSweepTravel linear both;
+}
+@keyframes pupSweepTravel {
+  0%   { left:-40%; }
+  100% { left:100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pup-fade-word {
+    animation: pupFadeWordInReduced 120ms linear both; animation-delay:0ms;
+  }
+  .pup-fade-word.pup-glow::before { display:none; }
+  .pup-sweep-band { display:none; }
+}
+@keyframes pupFadeWordInReduced { from { opacity:0; } to { opacity:1; } }

@@ -15,6 +15,11 @@ import { parse as latexParse, HtmlGenerator as LatexHtmlGenerator } from "latex.
 import latexBaseCss from "../node_modules/latex.js/dist/css/base.css";
 import latexArticleCss from "../node_modules/latex.js/dist/css/article.css";
 import latexKatexCss from "../node_modules/latex.js/dist/css/katex.css";
+// The editor's own chrome (wayfinder ticket #11) — was inline in the Swift
+// HTML shell, moved here for the same reason latex.js's CSS above is a text
+// import rather than hand-copied: real CSS tooling instead of a Swift
+// string literal. Injected as a <style> tag in initEditor(), below.
+import editorCss from "./editor.css";
 
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
@@ -1170,9 +1175,11 @@ function spawnSweepBand(rect, delayMs, durationMs) {
 
 // --- Syntax highlighting: markdown structure + code tokens (Discord-ish) ---
 const highlight = HighlightStyle.define([
-  { tag: t.heading1, fontSize: "1.6em", fontWeight: "700" },
+  // Clearer step between levels (wayfinder ticket #11) — was 1.6/1.4/1.25,
+  // a narrowing gap that read muddier the deeper it went.
+  { tag: t.heading1, fontSize: "1.75em", fontWeight: "700" },
   { tag: t.heading2, fontSize: "1.4em", fontWeight: "700" },
-  { tag: t.heading3, fontSize: "1.25em", fontWeight: "600" },
+  { tag: t.heading3, fontSize: "1.15em", fontWeight: "600" },
   { tag: [t.heading4, t.heading5, t.heading6], fontWeight: "600" },
   { tag: t.strong, fontWeight: "700" },
   { tag: t.emphasis, fontStyle: "italic" },
@@ -1208,7 +1215,17 @@ function post(handler, payload) {
   } catch (e) {}
 }
 
+let editorStyleInjected = false;
+
 export function initEditor(initialText, key) {
+  // Once per document load, not per note switch — this doesn't change
+  // between notes the way setContent's doc/key do.
+  if (!editorStyleInjected) {
+    const style = document.createElement("style");
+    style.textContent = editorCss;
+    document.head.appendChild(style);
+    editorStyleInjected = true;
+  }
   docKey = key || null;
   const parent = document.getElementById("editor");
   parent.innerHTML = "";
