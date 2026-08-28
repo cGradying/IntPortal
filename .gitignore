@@ -25,3 +25,4 @@ windows/**/obj/
 # Support (ModelCatalog.modelsDirectory), never the repo.
 *.gguf
 gguf/
+.vscode/

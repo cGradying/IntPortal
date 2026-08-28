@@ -6,7 +6,7 @@ struct Frame1: View {
           .foregroundColor(.clear)
           .frame(width: 1680, height: 1050)
           .background(.white)
-          .offset(x: 420, y: 0)
+          .offset(x: 420, y: 0) 
         Rectangle()
           .foregroundColor(.clear)
           .frame(width: 840, height: 1051)
@@ -103,7 +103,7 @@ struct Frame1: View {
                 .frame(width: 27, height: 25)
                 .offset(x: 35, y: 0.50)
               }
-              .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+              .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))    
               .cornerRadius(8)
               .overlay(
                 RoundedRectangle(cornerRadius: 8)
