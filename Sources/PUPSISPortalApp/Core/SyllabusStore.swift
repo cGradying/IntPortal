@@ -1,0 +1,201 @@
+import Foundation
+
+/// What kind of syllabus entry this is — drives icon/color in the table and
+/// timeline views (wayfinder tickets #13/#14), not stored logic here.
+enum SyllabusItemType: String, Codable, CaseIterable, Identifiable {
+    case lecture, quiz, exam, project
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .lecture: "Lecture"
+        case .quiz: "Quiz"
+        case .exam: "Exam"
+        case .project: "Project"
+        }
+    }
+}
+
+/// How an item entered the syllabus — not shown prominently anywhere yet,
+/// but distinguishes "the AI wrote this" from "you typed this in" for
+/// whatever surface ends up caring (a future re-import shouldn't clobber a
+/// manual edit, for one).
+enum SyllabusItemSource: String, Codable, CaseIterable {
+    case imported, generated, manual
+}
+
+/// done / ongoing / upcoming — computed by `SyllabusItem.status(now:weekOf:)`,
+/// never stored. See that method for the derivation rule.
+enum SyllabusStatus {
+    case done, ongoing, upcoming
+}
+
+/// One entry in a subject's syllabus — a week's topic, a quiz, an exam, a
+/// project deadline. Replaces `SubjectTask` (`Core/Preferences.swift`) for
+/// anything the syllabus engine (wayfinder ticket #6) touches; `SubjectTask`
+/// itself is untouched by this ticket, out of scope for #12 alone.
+struct SyllabusItem: Codable, Identifiable, Equatable {
+    let id: UUID
+    var subjectCode: String
+    /// Week number within the term, if the source syllabus is organized that
+    /// way — optional because a generated-from-scratch or manually-added
+    /// item may only have a date, no week grid to place it in.
+    var week: Int?
+    var topic: String
+    /// Optional — an imported syllabus item may not carry a real date until
+    /// the user (or a later AI pass) maps it onto the actual term calendar.
+    var date: Date?
+    var type: SyllabusItemType
+    var source: SyllabusItemSource
+    /// Links this item to a full write-up in the notes vault — nil until the
+    /// user (or the AI) actually creates one. Not a `class:`/`day:` key; a
+    /// `vault:<uuid>` key like any other vault file.
+    var notesKey: String?
+    /// Wins over the live date-derived status when non-nil: `true` marks it
+    /// done regardless of date (finished early); `false` keeps it visibly
+    /// not-done even past its date (fell behind) — mirrors how
+    /// `Preferences.status(for:)` already overrides a class's derived
+    /// in-person/vacant/online state rather than storing the live state
+    /// itself.
+    var completedOverride: Bool?
+
+    init(
+        id: UUID = UUID(), subjectCode: String, week: Int? = nil, topic: String,
+        date: Date? = nil, type: SyllabusItemType, source: SyllabusItemSource,
+        notesKey: String? = nil, completedOverride: Bool? = nil
+    ) {
+        self.id = id
+        self.subjectCode = subjectCode
+        self.week = week
+        self.topic = topic
+        self.date = date
+        self.type = type
+        self.source = source
+        self.notesKey = notesKey
+        self.completedOverride = completedOverride
+    }
+
+    /// Live derivation, not a stored field, so it can't drift out of sync
+    /// with the calendar the way a cached status would — same reasoning
+    /// `DayAgenda`/`ClassSession` already apply to "is this happening now."
+    /// `weekOf` is injected (not `Weekday.weekStart` called directly) so
+    /// tests don't need a real calendar week to reason about.
+    func status(now: Date, weekOf: (Date) -> Date) -> SyllabusStatus {
+        if let override = completedOverride {
+            if override { return .done }
+            guard let date else { return .upcoming }
+            return weekOf(date) == weekOf(now) ? .ongoing : .upcoming
+        }
+        guard let date else { return .upcoming }
+        // Same-week wins first: a Monday item is still "this week" — i.e.
+        // ongoing — on Thursday, even though Monday itself is already in
+        // the past by the strict day comparison below.
+        if weekOf(date) == weekOf(now) { return .ongoing }
+        return Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: now) ? .done : .upcoming
+    }
+}
+
+/// The syllabus vault: every subject's items, one JSON document — same shape
+/// as `NotesStore` (`~/Library/Application Support/PUPSISPortal/syllabus.json`,
+/// file `0600`, injectable `@MainActor ObservableObject`) rather than
+/// `Preferences`/`UserDefaults`. A syllabus holds real content (topics, a
+/// generated guide's own text via `notesKey`) growing across a whole term —
+/// document-shaped, not preference-shaped, unlike the flat `SubjectTask` it
+/// replaces for anything the syllabus engine touches.
+@MainActor
+final class SyllabusStore: ObservableObject {
+    @Published private(set) var items: [String: [SyllabusItem]]
+    private let url: URL
+
+    private struct Document: Codable {
+        var items: [String: [SyllabusItem]]
+    }
+
+    static let defaultURL: URL = {
+        let support = (try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )) ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        return support
+            .appendingPathComponent("PUPSISPortal", isDirectory: true)
+            .appendingPathComponent("syllabus.json")
+    }()
+
+    init(url: URL = defaultURL) {
+        self.url = url
+        items = Self.load(from: url).items
+    }
+
+    /// A subject's items, in the order they were added — callers wanting
+    /// date/week order sort themselves (the table and timeline views want
+    /// different orderings, so there's no one "right" sort to bake in here).
+    func items(for subjectCode: String) -> [SyllabusItem] {
+        items[subjectCode] ?? []
+    }
+
+    /// Every item across every subject — `read_syllabus`/assistant tools
+    /// (wayfinder ticket #15) and any cross-subject view want this flat.
+    func allItems() -> [SyllabusItem] {
+        items.values.flatMap { $0 }
+    }
+
+    @discardableResult
+    func addItem(_ item: SyllabusItem) -> SyllabusItem {
+        items[item.subjectCode, default: []].append(item)
+        persist()
+        return item
+    }
+
+    /// Matched by `id` within `updated.subjectCode`'s list — if the subject
+    /// code itself changed, the item is removed from its old subject's list
+    /// first so it doesn't end up listed twice.
+    func updateItem(_ updated: SyllabusItem) {
+        for subject in items.keys where subject != updated.subjectCode {
+            items[subject]?.removeAll { $0.id == updated.id }
+        }
+        var list = items[updated.subjectCode] ?? []
+        if let index = list.firstIndex(where: { $0.id == updated.id }) {
+            list[index] = updated
+        } else {
+            list.append(updated)
+        }
+        items[updated.subjectCode] = list
+        persist()
+    }
+
+    func removeItem(_ id: UUID, subjectCode: String) {
+        items[subjectCode]?.removeAll { $0.id == id }
+        persist()
+    }
+
+    /// Settings ▸ Misc's eventual "Delete All Syllabus Data" action, same
+    /// shape as `NotesStore.wipeAll` — nothing computed as "still referenced
+    /// elsewhere" first, there's nothing left to keep.
+    func wipeAll() {
+        items = [:]
+        persist()
+    }
+
+    // MARK: Disk
+
+    private func persist() {
+        guard let data = try? JSONEncoder().encode(Document(items: items)) else { return }
+        let directory = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        guard (try? data.write(to: url, options: .atomic)) != nil else { return }
+        // The user's own syllabus data — readable by them, nobody else on the machine.
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+
+    private static func load(from url: URL) -> Document {
+        guard let data = try? Data(contentsOf: url),
+              let document = try? JSONDecoder().decode(Document.self, from: data)
+        else { return Document(items: [:]) }
+        return document
+    }
+}
