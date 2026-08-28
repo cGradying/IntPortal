@@ -9,11 +9,13 @@ import XCTest
 final class AssistantCommandRunnerTests: XCTestCase {
     private var notesURL: URL!
     private var notesStore: NotesStore!
+    private var syllabusURL: URL!
 
     override func setUpWithError() throws {
-        notesURL = URL(fileURLWithPath: NSTemporaryDirectory())
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("AssistantCommandRunnerTests-\(UUID().uuidString)", isDirectory: true)
-            .appendingPathComponent("notes.json")
+        notesURL = directory.appendingPathComponent("notes.json")
+        syllabusURL = directory.appendingPathComponent("syllabus.json")
         notesStore = NotesStore(url: notesURL)
     }
 
@@ -40,7 +42,8 @@ final class AssistantCommandRunnerTests: XCTestCase {
         // touching real EventKit or the user's cached schedule.
         let executor = RealAssistantExecutor(
             notes: notesStore, editor: EventEditor(bridge: CalendarBridge()), calendar: CalendarBridge(),
-            portal: PortalController(), preferences: preferences, openNoteKey: { openKey }
+            portal: PortalController(), preferences: preferences, syllabus: SyllabusStore(url: syllabusURL),
+            openNoteKey: { openKey }
         )
         return AssistantCommandRunner(
             notes: notesStore, openNoteKey: { openKey }, model: "test-model", preferences: preferences,

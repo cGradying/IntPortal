@@ -628,6 +628,7 @@ private struct AssistantChat: View {
             }),
             ("Notes", AssistantTool.catalog.filter { $0.name.hasSuffix("note") || $0.name.hasSuffix("notes") }),
             ("Grades", AssistantTool.catalog.filter { $0.name == "read_grades" }),
+            ("Syllabus", AssistantTool.catalog.filter { $0.name.hasPrefix("read_syllabus") || $0.name.hasSuffix("syllabus_item") }),
         ]
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -1126,6 +1127,7 @@ private struct AssistantChat: View {
             calendar: appState.calendar,
             portal: appState.portal,
             preferences: preferences,
+            syllabus: appState.syllabus,
             openNoteKey: { appState.openNoteKey }
         )
     }

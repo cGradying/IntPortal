@@ -17,6 +17,7 @@ final class RealAssistantExecutor: AssistantExecutor {
     private let calendar: CalendarBridge
     private let portal: PortalController
     private let preferences: Preferences
+    private let syllabusStore: SyllabusStore
     /// The note the user currently has open, if any — resolved fresh on every
     /// call rather than captured once, since it can change mid-conversation.
     private let openNoteKey: () -> String?
@@ -38,6 +39,7 @@ final class RealAssistantExecutor: AssistantExecutor {
         calendar: CalendarBridge,
         portal: PortalController,
         preferences: Preferences,
+        syllabus: SyllabusStore,
         openNoteKey: @escaping () -> String?,
         client: LlamaCppClient = LlamaCppClient(),
         ensureChatServerRunning: (() async -> Bool)? = nil,
@@ -48,6 +50,7 @@ final class RealAssistantExecutor: AssistantExecutor {
         self.calendar = calendar
         self.portal = portal
         self.preferences = preferences
+        self.syllabusStore = syllabus
         self.openNoteKey = openNoteKey
         self.ragQuery = RAGQuery(
             notes: notes, client: client,
@@ -75,6 +78,9 @@ final class RealAssistantExecutor: AssistantExecutor {
         case "set_class_status": return setClassStatus(action)
         case "set_class_time": return setClassTime(action)
         case "read_grades": return readGrades(action)
+        case "read_syllabus": return readSyllabus(action)
+        case "add_syllabus_item": return addSyllabusItem(action)
+        case "set_syllabus_item_status": return setSyllabusItemStatus(action)
         default:
             return AssistantToolResult(action: action, ok: false, message: "Unknown tool '\(action.tool)'.")
         }
@@ -455,6 +461,63 @@ final class RealAssistantExecutor: AssistantExecutor {
             lines.append("GPA: \(String(format: "%.2f", gpa))")
         }
         return AssistantToolResult(action: action, ok: true, message: Self.truncated(lines.joined(separator: "\n")))
+    }
+
+    // MARK: Syllabus
+
+    private func readSyllabus(_ action: AssistantAction) -> AssistantToolResult {
+        let subject = action.string("subject_code")
+        let items = subject.map(syllabusStore.items(for:)) ?? syllabusStore.allItems()
+        guard !items.isEmpty else {
+            return AssistantToolResult(action: action, ok: true,
+                message: subject.map { "No syllabus items for \($0) yet." } ?? "No syllabus items yet.")
+        }
+        let lines = items
+            .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
+            .map { item -> String in
+                let dateText = item.date.map { Self.dateFormat.string(from: $0) } ?? "no date"
+                let weekText = item.week.map { "wk\($0) " } ?? ""
+                return "\(item.subjectCode): \(weekText)\(item.topic) (\(item.type.rawValue), \(dateText))"
+            }
+        return AssistantToolResult(action: action, ok: true, message: Self.truncated(lines.joined(separator: "\n")))
+    }
+
+    private func addSyllabusItem(_ action: AssistantAction) -> AssistantToolResult {
+        guard let subject = action.string("subject_code"), !subject.isEmpty else {
+            return AssistantToolResult(action: action, ok: false, message: "Need a subject code.")
+        }
+        guard let topic = action.string("topic"), !topic.isEmpty else {
+            return AssistantToolResult(action: action, ok: false, message: "Need a topic.")
+        }
+        guard let typeString = action.string("type"), let type = SyllabusItemType(rawValue: typeString.lowercased()) else {
+            return AssistantToolResult(action: action, ok: false,
+                message: "Need a type: \"lecture\", \"quiz\", \"exam\", or \"project\".")
+        }
+        // A date the tool can't parse is treated as "no date given" rather
+        // than a hard failure — a syllabus that only names weeks, not real
+        // dates, is common, and the item is still worth adding.
+        let date = action.string("date").flatMap { Self.dateFormat.date(from: $0) }
+        let item = SyllabusItem(
+            subjectCode: subject, week: action.int("week"), topic: topic,
+            date: date, type: type, source: .generated
+        )
+        syllabusStore.addItem(item)
+        let dateNote = date == nil ? "" : " on \(Self.dateFormat.string(from: date!))"
+        return AssistantToolResult(action: action, ok: true, message: "Added \"\(topic)\" to \(subject)\(dateNote).")
+    }
+
+    private func setSyllabusItemStatus(_ action: AssistantAction) -> AssistantToolResult {
+        guard let subject = action.string("subject_code"), let topic = action.string("topic") else {
+            return AssistantToolResult(action: action, ok: false, message: "Need a subject code and topic to find the item.")
+        }
+        guard let item = syllabusStore.items(for: subject).first(where: { $0.topic == topic }) else {
+            return AssistantToolResult(action: action, ok: false, message: "No syllabus item found for \(subject) called \"\(topic)\".")
+        }
+        let done = action.string("done") == "true"
+        var updated = item
+        updated.completedOverride = done ? true : nil
+        syllabusStore.updateItem(updated)
+        return AssistantToolResult(action: action, ok: true, message: "Marked \"\(topic)\" \(done ? "done" : "back to automatic status").")
     }
 
     private static func truncated(_ text: String) -> String {

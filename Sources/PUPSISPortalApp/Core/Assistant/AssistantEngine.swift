@@ -292,6 +292,20 @@ final class AssistantEngine {
         — which date is meant, or which meeting when a subject meets more \
         than once that day — ask the student in your reply instead of \
         guessing. Leave actions empty until you actually know.
+        - Structuring a pasted/imported syllabus: call add_syllabus_item once \
+        per item you can identify — several times in the same turn is normal \
+        and expected for a whole syllabus, not just one call. Keep topic text \
+        close to the source rather than paraphrasing it. Use week when the \
+        source organizes by week number; use date only when a real calendar \
+        date is actually given or unambiguous from context — don't invent one.
+        - Generating a syllabus from scratch (no source text given): base it \
+        on the subject's real class days from the schedule context below and \
+        the term's start/end dates, spacing weekly topics across the actual \
+        term length — clearly say in your reply that this is a generated \
+        guide, not the real course syllabus.
+        - There is no tool to delete or rename a syllabus item, same as \
+        notes/events. set_syllabus_item_status only ever toggles done vs \
+        automatic — it never edits the topic, date, or type.
         - Reply with JSON only, matching the given schema. No prose outside it.
         """
 
