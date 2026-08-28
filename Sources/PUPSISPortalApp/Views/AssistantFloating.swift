@@ -246,17 +246,20 @@ struct AssistantFloating: View {
     // instead of a `@StateObject` local to whichever `WebNoteEditor` happened
     // to be on screen.
     //
-    // Narrow-width overflow is explicitly NOT decided here — sent to ticket
-    // #3 ("Where the toolbar commands go") along with which of these
-    // commands should even survive. `.fixedSize()` is the deliberate
-    // ponytail stand-in until then: the capsule hugs exactly what it holds
-    // (confirmed live: an unconstrained-width `ScrollView` stretched to fill
-    // whatever space the floating layer offered, showing a mostly-empty
-    // capsule at typical window widths) and simply grows past the window
-    // edge rather than wrapping/scrolling if it's ever too wide. Revisit
-    // once #3 settles which commands actually stay.
+    // Ticket #9 ("Where the toolbar commands go") settled both open
+    // questions left over from #7: all 19 commands always show (the deck
+    // floats over the canvas rather than sharing its width, so there's no
+    // real pressure to hide any on focus), and a window too narrow for one
+    // row wraps to two via `FlowLayout` rather than scrolling or clipping.
+    // `560` is an estimate of the full row's natural width (roughly 18
+    // buttons/menus × ~20pt + 3 dividers + padding), not a measured
+    // constant — it's a *ceiling*, not a target: `.frame(maxWidth:)` only
+    // constrains, so on any window wider than that the row still reports
+    // its own smaller intrinsic width rather than stretching to fill it.
+    private static let toolbarWidthCeiling: CGFloat = 560
+
     private var toolbarDeck: some View {
-        HStack(spacing: 1) {
+        FlowLayout(spacing: 1, lineSpacing: 3) {
             headingMenu
             divider
             button("bold", "Bold", shortcut: "b") { appState.noteBridge.cmd("bold") }
@@ -297,7 +300,13 @@ struct AssistantFloating: View {
             }
         }
         .padding(.horizontal, 8).padding(.vertical, 6)
-        .fixedSize()
+        .frame(maxWidth: Self.toolbarWidthCeiling)
+        // Horizontal: let the ceiling above (or a narrower window) drive
+        // wrapping. Vertical: hug exactly the 1 or 2 rows that produces —
+        // an outer `maxHeight: .infinity` alignment frame elsewhere would
+        // otherwise stretch this the same way the old unconstrained
+        // `ScrollView` stretched horizontally (see WebNoteEditor history).
+        .fixedSize(horizontal: false, vertical: true)
         .glassInteractive(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .matchedGeometryEffect(id: "assistant", in: morph)
     }
@@ -1224,5 +1233,44 @@ private struct PixelThinkingDots: View {
     private func blink(_ date: Date, offset: Int) -> Double {
         let t = date.timeIntervalSinceReferenceDate / 0.35 + Double(offset) * 0.6
         return 0.625 + 0.375 * sin(t * .pi)
+    }
+}
+
+/// A left-to-right, top-to-bottom flow: each child at its own intrinsic
+/// size, wrapping to a new row once the next one wouldn't fit the proposed
+/// width. Used only by `toolbarDeck` (wayfinder ticket #9) so a narrow
+/// window wraps its 19 commands to a second row instead of scrolling or
+/// running past the edge — everything reachable without a gesture.
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 4
+    var lineSpacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, widestRow: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > maxWidth {
+                widestRow = max(widestRow, x - spacing)
+                x = 0; y += rowHeight + lineSpacing; rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        widestRow = max(widestRow, x - spacing)
+        return CGSize(width: maxWidth.isFinite ? maxWidth : widestRow, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x: CGFloat = bounds.minX, y: CGFloat = bounds.minY, rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX; y += rowHeight + lineSpacing; rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }
