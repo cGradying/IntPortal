@@ -145,7 +145,7 @@ struct CredentialsView: View {
             // password — said nothing about where it goes. The fuller
             // version of this already exists in Settings › About, filed
             // where nobody sees it at the moment it would matter.
-            Text("Stored in your Mac's Keychain. Sent only to the PUP SIS.")
+            Text("Locked in your Mac's Keychain. This portal only ever talks to PUP SIS.")
                 .font(typography.footer)
                 .foregroundStyle(.secondary)
 

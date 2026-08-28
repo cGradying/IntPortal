@@ -242,6 +242,7 @@ struct SettingsView: View {
                         in: Double(Preferences.aiContextSizeRange.lowerBound)...Double(Preferences.aiContextSizeRange.upperBound),
                         step: 512
                     )
+                    ramEstimateRow
                 }
                 Text("How much conversation, notes, and tool results the model can hold at once. Restarts the local model process when changed.")
                     .font(.caption)
@@ -403,6 +404,27 @@ struct SettingsView: View {
         downloadedIDs = Set(ModelCatalog.entries.filter(ModelCatalog.isDownloaded).map(\.id))
     }
 
+    /// Live estimate of what `llama-server` will actually hold in RAM at the
+    /// slider's current position — weights + KV cache + a flat compute-buffer
+    /// overhead (`ModelCatalog.estimatedRAMBytes`). Turns red past the same
+    /// 60%-of-available-RAM threshold `SystemMemory.shouldWarn` already gates
+    /// the model-download confirmation with, so the two "is this too much
+    /// RAM" checks in Settings agree with each other.
+    private var ramEstimateRow: some View {
+        let entry = ModelCatalog.entry(for: preferences.aiModel) ?? ModelCatalog.entries[0]
+        let estimate = ModelCatalog.estimatedRAMBytes(for: entry, contextSize: preferences.aiContextSize)
+        let estimateGB = Double(estimate) / 1_073_741_824
+        let tooMuch = SystemMemory.availableBytes().map {
+            SystemMemory.shouldWarn(modelBytes: estimate, availableBytes: $0)
+        } ?? false
+        return HStack(spacing: 4) {
+            Image(systemName: tooMuch ? "exclamationmark.triangle.fill" : "memorychip")
+            Text(String(format: "~%.1f GB RAM at this context size", estimateGB))
+        }
+        .font(.caption)
+        .foregroundStyle(tooMuch ? .red : .secondary)
+    }
+
     /// Same "?" popover language as `AssistantFloating`'s capabilities/thinking
     /// buttons — this app's one pattern for "explain the knob before you turn it."
     private var contextSizeInfoPopover: some View {
@@ -468,15 +490,31 @@ struct SettingsView: View {
             }
 
             Section {
-                Stepper(value: $preferences.ragChunkSize, in: 200...2000, step: 100) {
+                VStack(alignment: .leading) {
                     LabeledContent("Chunk size", value: "\(preferences.ragChunkSize) chars")
+                    Slider(
+                        value: Binding(
+                            get: { Double(preferences.ragChunkSize) },
+                            set: { preferences.ragChunkSize = Int($0) }
+                        ),
+                        in: 200...2000,
+                        step: 100
+                    )
                 }
                 VStack(alignment: .leading) {
                     LabeledContent("Similarity floor", value: String(format: "%.2f", preferences.ragSimilarityFloor))
                     Slider(value: $preferences.ragSimilarityFloor, in: 0...1, step: 0.05)
                 }
-                Stepper(value: $preferences.ragContextBudget, in: 1000...20000, step: 500) {
+                VStack(alignment: .leading) {
                     LabeledContent("Context budget", value: "\(preferences.ragContextBudget) chars")
+                    Slider(
+                        value: Binding(
+                            get: { Double(preferences.ragContextBudget) },
+                            set: { preferences.ragContextBudget = Int($0) }
+                        ),
+                        in: 1000...20000,
+                        step: 500
+                    )
                 }
                 VStack(alignment: .leading) {
                     LabeledContent("Answer temperature", value: String(format: "%.2f", preferences.ragAnswerTemperature))
