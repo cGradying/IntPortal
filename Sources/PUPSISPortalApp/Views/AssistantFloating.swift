@@ -1,12 +1,24 @@
 import SwiftUI
 import Inject
 
-/// The assistant's one piece of floating chrome — bottom-left, reachable from
-/// every screen. Idle it's a small orb; tapped it expands into the chat panel.
-/// One glass surface that morphs, the same shape `NavIsland` uses for its own
-/// home↔bar transition, rather than two separate overlapping glass views —
-/// they're never on screen at once, so there's nothing for
-/// `GlassEffectContainer` to blend.
+/// The app's one piece of floating chrome that isn't `NavIsland` — bottom-left,
+/// reachable from every screen. One glass surface that morphs between three
+/// shapes rather than several overlapping views (`matchedGeometryEffect(id:
+/// "assistant", ...)`, the same vocabulary `NavIsland` uses for its own
+/// centre↔top morph):
+///
+/// - **orb** — idle, everywhere except an open note.
+/// - **toolbar** — Notebook, Vault tab: the note-formatting commands that used
+///   to be `WebNoteEditor`'s own static top strip (wayfinder ticket #7,
+///   https://github.com/cGradying/IntPortal/issues/7 — prototyped and
+///   confirmed live before this landed).
+/// - **chat** — tapped open, unchanged from before this ticket.
+///
+/// Prototype finding worth keeping: a `matchedGeometryEffect`-driven morph
+/// needs the state change wrapped in an explicit `withAnimation` (`go`
+/// below) — the implicit `.animation(_:value:)` modifier alone reads as a
+/// snap even though it's attached correctly, and each branch needs its own
+/// `.transition(.opacity)` so content cross-fades instead of popping.
 struct AssistantFloating: View {
     @ObserveInjection var inject
     @ObservedObject var appState: AppState
@@ -24,23 +36,50 @@ struct AssistantFloating: View {
     @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var morph
+    @State private var showLanguages = false
+    @State private var showColors = false
+    @State private var customColor: Color = .red
+
+    private enum DeckState: Equatable {
+        case hidden   // AI off and not on an open note — nothing floats.
+        case orb
+        case toolbar
+        case chat
+    }
+
+    private var deckState: DeckState {
+        if preferences.aiEnabled, session.isOpen { return .chat }
+        // Vault tab specifically — Quizzes has no `WebNoteEditor` to drive.
+        if appState.selection == .today, appState.notebook.tab == .vault { return .toolbar }
+        return preferences.aiEnabled ? .orb : .hidden
+    }
 
     var body: some View {
         Group {
-            if session.isOpen {
+            switch deckState {
+            case .hidden:
+                EmptyView()
+            case .orb:
+                orb.transition(.opacity)
+            case .toolbar:
+                toolbarDeck.transition(.opacity)
+            case .chat:
                 AssistantChat(appState: appState, preferences: preferences, session: session, morph: morph)
                     .frame(width: preferences.assistantPanelWidth, height: preferences.assistantPanelHeight)
                     .matchedGeometryEffect(id: "assistant", in: morph)
-            } else {
-                orb
+                    .transition(.opacity)
             }
         }
-        .animation(Motion.island(reduced: reduceMotion), value: session.isOpen)
+        .animation(Motion.island(reduced: reduceMotion), value: deckState)
         .enableInjection()
     }
 
+    private func go(open: Bool) {
+        withAnimation(Motion.island(reduced: reduceMotion)) { session.isOpen = open }
+    }
+
     private var orb: some View {
-        Button { session.isOpen = true } label: {
+        Button { go(open: true) } label: {
             Image(systemName: "sparkles")
                 .font(.system(size: 17, weight: .medium))
                 .frame(width: 44, height: 44)
@@ -56,6 +95,203 @@ struct AssistantFloating: View {
         .overlay(Circle().strokeBorder(palette.accent.opacity(0.35), lineWidth: 1))
         .matchedGeometryEffect(id: "assistant", in: morph)
         .help("IntAssis")
+    }
+
+    // MARK: Toolbar deck (Notebook, Vault tab)
+    //
+    // Every command below is unchanged from `WebNoteEditor`'s old static
+    // toolbar — same `AssistantEngine`-agnostic `WebNoteBridge.cmd(...)`
+    // calls, just relocated into this floating deck and driven through
+    // `appState.noteBridge` (one shared bridge, mirrored the same way
+    // `appState.openNoteKey` already tracks "the note you're looking at")
+    // instead of a `@StateObject` local to whichever `WebNoteEditor` happened
+    // to be on screen.
+    //
+    // Narrow-width wrap-vs-scroll is explicitly NOT decided here — sent to
+    // ticket #3 ("Where the toolbar commands go") along with which of these
+    // commands should even survive. This keeps today's behavior (horizontal
+    // scroll) until that's resolved.
+    private var toolbarDeck: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 1) {
+                headingMenu
+                divider
+                button("bold", "Bold") { appState.noteBridge.cmd("bold") }
+                button("italic", "Italic") { appState.noteBridge.cmd("italic") }
+                button("strikethrough", "Strikethrough") { appState.noteBridge.cmd("strike") }
+                button("highlighter", "Highlight") { appState.noteBridge.cmd("highlight") }
+                colorButton
+                codeButton
+                button("x.squareroot", "Math") { appState.noteBridge.cmd("math") }
+                button("function", "LaTeX document") { appState.noteBridge.cmd("latexdoc") }
+                divider
+                button("list.bullet", "Bullet list") { appState.noteBridge.cmd("bullet") }
+                button("list.number", "Numbered list") { appState.noteBridge.cmd("numbered") }
+                button("checklist", "Checklist") { appState.noteBridge.cmd("checklist") }
+                button("text.quote", "Quote") { appState.noteBridge.cmd("quote") }
+                button("minus", "Divider") { appState.noteBridge.cmd("rule") }
+                button("tablecells", "Table") { appState.noteBridge.cmd("table") }
+                divider
+                button("photo", "Insert image…") { pickImage() }
+                button("link", "Link") { appState.noteBridge.cmd("link") }
+                button("link.badge.plus", "Link to another note") { appState.noteBridge.cmd("wikilink") }
+                if let options = appState.noteAddDateOptions {
+                    divider
+                    dateMenu(options)
+                }
+                if preferences.aiEnabled {
+                    divider
+                    Button { go(open: true) } label: {
+                        Image(systemName: "sparkles").frame(width: 20, height: 20).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(palette.accent)
+                    .help("IntAssis")
+                }
+            }
+            .padding(.horizontal, 8).padding(.vertical, 6)
+        }
+        .frame(maxWidth: 640)
+        .glassInteractive(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .matchedGeometryEffect(id: "assistant", in: morph)
+    }
+
+    private static let colors: [(name: String, hex: String)] = [
+        ("Red", "e5484d"), ("Orange", "e57a00"), ("Yellow", "d4a300"), ("Green", "2f9e44"),
+        ("Teal", "0d9488"), ("Blue", "3b7dd8"), ("Purple", "8f5cd8"), ("Pink", "d6409f"),
+    ]
+
+    // Fenced-code languages (canonical ids match editor.js codeLanguages).
+    private static let languages: [(label: String, id: String)] = [
+        ("Plain", ""), ("Python", "python"), ("JavaScript", "javascript"), ("TypeScript", "typescript"),
+        ("C++", "cpp"), ("C", "c"), ("Java", "java"), ("Rust", "rust"), ("Go", "go"),
+        ("HTML", "html"), ("CSS", "css"), ("JSON", "json"), ("SQL", "sql"), ("PHP", "php"), ("XML", "xml"),
+    ]
+
+    private func dateMenu(_ options: (next: String, today: String)) -> some View {
+        Menu {
+            Button("Next class · \(options.next)") { appState.noteBridge.cmd("datestamp", options.next) }
+            if options.today != options.next {
+                Button("Today · \(options.today)") { appState.noteBridge.cmd("datestamp", options.today) }
+            }
+        } label: {
+            Image(systemName: "calendar.badge.plus").frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.borderless)
+        .menuIndicator(.hidden).fixedSize().help("Add dated entry")
+    }
+
+    private var headingMenu: some View {
+        Menu {
+            Button("Heading 1") { appState.noteBridge.cmd("heading", "1") }
+            Button("Heading 2") { appState.noteBridge.cmd("heading", "2") }
+            Button("Heading 3") { appState.noteBridge.cmd("heading", "3") }
+            Divider()
+            Button("Normal text") { appState.noteBridge.cmd("heading", "0") }
+        } label: {
+            Image(systemName: "number").frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.borderless)
+        .menuIndicator(.hidden).fixedSize().help("Heading level")
+    }
+
+    // A visual color picker: a grid of preset swatches plus a native color well
+    // for any custom color. Applies to the selected text via cmd("color", hex).
+    private var colorButton: some View {
+        Button { showColors = true } label: {
+            Image(systemName: "paintpalette").frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless).help("Text color")
+        .popover(isPresented: $showColors, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Text color").font(.caption).foregroundStyle(.secondary)
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(24), spacing: 8), count: 4), spacing: 8) {
+                    ForEach(Self.colors, id: \.hex) { c in
+                        Button {
+                            appState.noteBridge.cmd("color", c.hex)
+                            showColors = false
+                        } label: {
+                            Circle()
+                                .fill(Color(hex: c.hex) ?? .gray)
+                                .frame(width: 22, height: 22)
+                                .overlay(Circle().strokeBorder(.primary.opacity(0.15), lineWidth: 1))
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain).help(c.name)
+                    }
+                }
+                Divider()
+                HStack(spacing: 8) {
+                    ColorPicker("Custom", selection: $customColor, supportsOpacity: false)
+                        .labelsHidden()
+                    Button("Apply custom") {
+                        if let hex = customColor.hex {
+                            appState.noteBridge.cmd("color", String(hex.dropFirst())) // strip '#'
+                        }
+                        showColors = false
+                    }
+                    .font(.caption)
+                }
+            }
+            .padding(12)
+            .frame(width: 188)
+        }
+    }
+
+    // Native file picker → copy the image into app storage → insert it inline
+    // at the caret (same pupimg:// pipeline as paste/drop).
+    private func pickImage() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.prompt = "Insert"
+        panel.message = "Choose an image to insert"
+        guard panel.runModal() == .OK, let url = panel.url,
+              let data = try? Data(contentsOf: url),
+              let inserted = NoteImages.save(base64: data.base64EncodedString(), ext: url.pathExtension)
+        else { return }
+        appState.noteBridge.insertImage(inserted)
+    }
+
+    private var codeButton: some View {
+        Button { showLanguages = true } label: {
+            Image(systemName: "chevron.left.forwardslash.chevron.right")
+                .frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless).help("Code block")
+        .popover(isPresented: $showLanguages, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Code block").font(.caption).foregroundStyle(.secondary)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 78), spacing: 6)], alignment: .leading, spacing: 6) {
+                    ForEach(Self.languages, id: \.id) { lang in
+                        Button {
+                            appState.noteBridge.cmd("codeblock", lang.id)
+                            showLanguages = false
+                        } label: {
+                            Text(lang.label)
+                                .font(.system(size: 12, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                                .background(palette.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 6))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(12)
+            .frame(width: 300)
+        }
+    }
+
+    private var divider: some View { Divider().frame(height: 14).padding(.horizontal, 2) }
+
+    private func button(_ symbol: String, _ help: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless).help(help)
     }
 }
 

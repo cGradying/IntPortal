@@ -26,3 +26,6 @@ windows/**/obj/
 *.gguf
 gguf/
 .vscode/
+
+# scratch prototypes for wayfinder tickets, never shipped
+.claude-prototypes/

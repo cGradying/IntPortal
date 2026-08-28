@@ -163,8 +163,8 @@ struct AgendaView: View {
                 preferences: preferences,
                 noteKey: currentKey,
                 title: noteTitle(for: currentKey),
-                onOpenNote: openNote(titled:),
-                addDateOptions: addDateOptions(for: currentKey)
+                bridge: appState.noteBridge,
+                onOpenNote: openNote(titled:)
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -182,9 +182,18 @@ struct AgendaView: View {
         // "the note you're looking at" — selectedKey/openTabs stay private
         // (they're this screen's own tab-bar bookkeeping), but the resolved
         // key is mirrored up so a request like "summarize this note" works
-        // from anywhere, not just from inside AgendaView.
-        .onChange(of: currentKey) { _, new in appState.openNoteKey = new }
-        .onAppear { appState.openNoteKey = currentKey }
+        // from anywhere, not just from inside AgendaView. `noteAddDateOptions`
+        // rides along the same mirror — the floating deck's date menu
+        // (`Views/AssistantFloating.swift`) needs it and lives outside this
+        // view too.
+        .onChange(of: currentKey) { _, new in
+            appState.openNoteKey = new
+            appState.noteAddDateOptions = addDateOptions(for: new)
+        }
+        .onAppear {
+            appState.openNoteKey = currentKey
+            appState.noteAddDateOptions = addDateOptions(for: currentKey)
+        }
     }
 
     /// Open notes as closeable tabs. A vault file dragged onto the bar opens too.

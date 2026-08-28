@@ -82,6 +82,17 @@ final class AppState: ObservableObject {
     /// "summarize this note" without the model needing a key it was never told.
     @Published var openNoteKey: String?
 
+    /// The "Add dated entry" menu's labels for whichever note is open, mirrored
+    /// up the same way `openNoteKey` is — non-nil only for a shared per-subject
+    /// `class:` note. See `AgendaView.addDateOptions(for:)`.
+    @Published var noteAddDateOptions: (next: String, today: String)?
+
+    /// One shared bridge to whichever `WKWebView` the open note is rendering.
+    /// Was a `@StateObject` local to `WebNoteEditor` before the floating deck
+    /// (wayfinder ticket #7) needed to drive editor commands from outside
+    /// that view entirely — same reasoning as `openNoteKey` above.
+    let noteBridge = WebNoteBridge()
+
     /// The floating assistant's own conversation state.
     let assistant = AssistantSession()
 
@@ -412,18 +423,19 @@ struct ContentView: View {
                            alignment: appState.isHome ? .center : .top)
                     .padding(.top, appState.isHome ? 0 : 4)
 
-                // Floating, reachable from every screen — only exists at all
-                // once the beta toggle is on (Settings › Grades › AI (beta)).
-                if preferences.aiEnabled {
-                    AssistantFloating(appState: appState, preferences: preferences, session: appState.assistant)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .padding(.leading, 16)
-                        // Confirmed live: at the old uniform 16pt bottom inset,
-                        // this sat directly over Grades' bottom status bar,
-                        // covering "Updated N minutes ago" entirely. Cleared
-                        // to sit above a typical footer bar's height instead.
-                        .padding(.bottom, 56)
-                }
+                // Floating, reachable from every screen. Always mounted now —
+                // it doubles as the Notebook note toolbar (wayfinder ticket
+                // #7), which must keep working with the AI beta toggle off;
+                // `AssistantFloating` renders `EmptyView` itself whenever
+                // neither the toolbar nor chat has anything to show.
+                AssistantFloating(appState: appState, preferences: preferences, session: appState.assistant)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .padding(.leading, 16)
+                    // Confirmed live: at the old uniform 16pt bottom inset,
+                    // this sat directly over Grades' bottom status bar,
+                    // covering "Updated N minutes ago" entirely. Cleared
+                    // to sit above a typical footer bar's height instead.
+                    .padding(.bottom, 56)
             }
             // Fill the whole window — including the hidden title bar's strip — so
             // no grey window background shows there.
