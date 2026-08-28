@@ -187,7 +187,7 @@ struct AssistantFloating: View {
             ]
         case .today:
             // Reached only outside the Vault tab (`.toolbar` wins there) —
-            // Quizzes, or no note open.
+            // Quizzes or Syllabus.
             return [
                 RailItem(id: "notes", symbol: "magnifyingglass", help: "List notes", command: "/notes", destination: .today),
                 nextClass,

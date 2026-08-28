@@ -53,6 +53,12 @@ struct CalendarView: View {
     /// convention as `AgendaView`'s own `sidebarWidthAtDragStart`.
     @State private var sidebarWidthAtDragStart: Double?
     @State private var sidebarHandleHovered = false
+    /// The screen's own available height (wayfinder ticket #13/#14) — the
+    /// calendar row is pinned to exactly this, same technique `WeekGrid`
+    /// already uses for its own `availableHeight`, so the grid still fills
+    /// the visible screen before a scroll reveals the syllabus section
+    /// below it, rather than the calendar shrinking to share space.
+    @State private var scheduleAreaHeight: CGFloat = 0
 
     // The lifted state now lives on `schedule`; these keep the body readable.
     private var weekOffset: Int {
@@ -177,71 +183,92 @@ struct CalendarView: View {
             if controller.sessions.isEmpty && calendar.events.isEmpty {
                 startupState
             } else {
-                ZStack {
-                    HStack(spacing: 0) {
-                        weekGrid
-                            .id(weekStart)
-                            .overlay(alignment: .bottom) {
-                                if !selection.isEmpty {
-                                    SelectionBar(
-                                        count: selection.count,
-                                        onDelete: deleteSelection,
-                                        onDuplicate: duplicateSelection,
-                                        onDone: { selection.removeAll() }
-                                    )
-                                    .padding(.bottom, 20)
-                                }
+                // Scrolling down past the calendar row reveals the syllabus
+                // section (wayfinder ticket #14) — the row itself is pinned
+                // to `scheduleAreaHeight` (the screen's own available
+                // height) so the grid still fills the visible screen first,
+                // exactly as before this ticket, rather than shrinking to
+                // share space with what's below.
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ZStack {
+                            HStack(spacing: 0) {
+                                weekGrid
+                                    .id(weekStart)
+                                    .overlay(alignment: .bottom) {
+                                        if !selection.isEmpty {
+                                            SelectionBar(
+                                                count: selection.count,
+                                                onDelete: deleteSelection,
+                                                onDuplicate: duplicateSelection,
+                                                onDone: { selection.removeAll() }
+                                            )
+                                            .padding(.bottom, 20)
+                                        }
+                                    }
+                                    .calendarScroll(enabled: !settingsShowing, scale: scale, atTop: atTop, perform: handleScroll)
+
+                                scheduleSidebarResizeHandle
+                                ScheduleSidebar(
+                                    lastUpdated: controller.lastUpdated,
+                                    refreshError: controller.refreshError ?? calendar.lastError,
+                                    update: updaterBridge.availableVersion,
+                                    onCheckForUpdates: onCheckForUpdates,
+                                    sessions: controller.sessions,
+                                    isVacant: { session, date in
+                                        preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
+                                    },
+                                    time: { session, date in
+                                        preferences.time(for: session, on: Weekday.weekStart(containing: date))
+                                    },
+                                    tint: { preferences.color(for: $0.subjectCode, in: palette) },
+                                    onRetry: retry,
+                                    onPrint: printWeek,
+                                    preferences: preferences
+                                )
+                                .frame(width: preferences.scheduleSidebarWidth)
                             }
-                            .calendarScroll(enabled: !settingsShowing, scale: scale, atTop: atTop, perform: handleScroll)
+                            // The year overlay below blurs and dims the *whole*
+                            // screen — grid and sidebar both — rather than leaving
+                            // the sidebar sharp beside a blurred grid.
+                            .blur(radius: scale == .year ? 14 : 0)
+                            .allowsHitTesting(scale == .week)
 
-                        scheduleSidebarResizeHandle
-                        ScheduleSidebar(
-                            lastUpdated: controller.lastUpdated,
-                            refreshError: controller.refreshError ?? calendar.lastError,
-                            update: updaterBridge.availableVersion,
-                            onCheckForUpdates: onCheckForUpdates,
-                            sessions: controller.sessions,
-                            isVacant: { session, date in
-                                preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
-                            },
-                            time: { session, date in
-                                preferences.time(for: session, on: Weekday.weekStart(containing: date))
-                            },
-                            tint: { preferences.color(for: $0.subjectCode, in: palette) },
-                            onRetry: retry,
-                            onPrint: printWeek,
-                            preferences: preferences
-                        )
-                        .frame(width: preferences.scheduleSidebarWidth)
-                    }
-                    // The year overlay below blurs and dims the *whole*
-                    // screen — grid and sidebar both — rather than leaving
-                    // the sidebar sharp beside a blurred grid.
-                    .blur(radius: scale == .year ? 14 : 0)
-                    .allowsHitTesting(scale == .week)
+                            if scale == .year {
+                                Color.black.opacity(0.25)
+                                    .ignoresSafeArea()
+                                    .onTapGesture { scale = .week }
+                                    .transition(.opacity)
 
-                    if scale == .year {
-                        Color.black.opacity(0.25)
-                            .ignoresSafeArea()
-                            .onTapGesture { scale = .week }
-                            .transition(.opacity)
+                                YearView(
+                                    months: MonthLayout.months(around: weekStart, count: 4),
+                                    selectedWeekStart: weekStart,
+                                    weekdayColors: weekdayColors,
+                                    eventDotsByDate: eventDotsByDate,
+                                    termEndDate: preferences.termEndDate,
+                                    onSelect: { open($0) }
+                                )
+                                // Width only — height sizes to the 4-month grid's
+                                // actual content instead of a guessed fixed number,
+                                // so there's no leftover empty space in the panel.
+                                .frame(width: 860)
+                                .glassPanel(cornerRadius: 24)
+                                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                            }
+                        }
+                        .frame(height: scheduleAreaHeight)
 
-                        YearView(
-                            months: MonthLayout.months(around: weekStart, count: 4),
-                            selectedWeekStart: weekStart,
-                            weekdayColors: weekdayColors,
-                            eventDotsByDate: eventDotsByDate,
-                            termEndDate: preferences.termEndDate,
-                            onSelect: { open($0) }
-                        )
-                        // Width only — height sizes to the 4-month grid's
-                        // actual content instead of a guessed fixed number,
-                        // so there's no leftover empty space in the panel.
-                        .frame(width: 860)
-                        .glassPanel(cornerRadius: 24)
-                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                        SyllabusView(syllabus: syllabus)
+                            .padding(.top, 8)
                     }
                 }
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear { scheduleAreaHeight = proxy.size.height }
+                            .onChange(of: proxy.size.height) { _, newValue in scheduleAreaHeight = newValue }
+                    }
+                )
             }
         }
         .animation(Motion.arrival(reduced: reduceMotion), value: weekStart)

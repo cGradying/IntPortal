@@ -27,8 +27,15 @@ final class NotebookModel: ObservableObject {
 enum NotebookTab: String, CaseIterable, Identifiable {
     case vault
     case quizzes
+    case syllabus
     var id: String { rawValue }
-    var label: String { self == .vault ? "Vault" : "Quizzes" }
+    var label: String {
+        switch self {
+        case .vault: "Vault"
+        case .quizzes: "Quizzes"
+        case .syllabus: "Syllabus"
+        }
+    }
 }
 
 @MainActor

@@ -111,9 +111,12 @@ struct AgendaView: View {
 
     var body: some View {
         Group {
-            if notebook.tab == .quizzes {
+            switch notebook.tab {
+            case .quizzes:
                 QuizzesView(store: quizzes, center: generation, preferences: preferences, notes: notes, aiModel: preferences.aiModel)
-            } else {
+            case .syllabus:
+                ScrollView { SyllabusView(syllabus: appState.syllabus) }
+            case .vault:
                 HStack(spacing: 0) {
                     noteEditorPane
                     sidebarResizeHandle
