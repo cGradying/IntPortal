@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Inject
 
 /// A scraped class. Its time is SIS-owned and `ClassSession` itself is never
 /// mutated — a local edit would be wiped by the next refresh, and
@@ -9,6 +10,7 @@ import SwiftUI
 /// Colour, status, and time are all local overrides. The block still isn't
 /// draggable — the popover below is the one edit surface for all three.
 struct ClassBlock: View {
+    @ObserveInjection var inject
     let session: ClassSession
     /// The Monday of the week this block is drawn in, so status can be set for
     /// just this week rather than every week.
@@ -107,6 +109,7 @@ struct ClassBlock: View {
         .accessibilityHint(isPast ? "Already finished" : "Show details")
         .accessibilityAddTraits(.isButton)
         .popover(isPresented: $showingDetail) { detail }
+        .enableInjection()
     }
 
     private var fill: Color {
@@ -445,6 +448,7 @@ private struct SwatchRow: View {
 /// no colour or status controls — but unlike a class it can be moved, resized,
 /// renamed and deleted.
 struct EventBlock: View {
+    @ObserveInjection var inject
     let block: DayBlock
     let isPast: Bool
     let isSelected: Bool
@@ -540,6 +544,7 @@ struct EventBlock: View {
         .accessibilityLabel("\(block.title), \(block.subtitle)\(isRecurring ? ", repeating" : "")")
         .accessibilityHint("Click to edit")
         .accessibilityAddTraits(.isButton)
+        .enableInjection()
     }
 
     @ViewBuilder

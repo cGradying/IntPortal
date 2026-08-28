@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Inject
 
 /// What a gesture on the grid is currently doing.
 enum GridGesture: Equatable {
@@ -21,6 +22,7 @@ enum GridGesture: Equatable {
 /// to one column's `GeometryReader`. This owns the whole width and resolves
 /// x itself through `GridGeometry`.
 struct GridInteractionLayer: View {
+    @ObserveInjection var inject
     let geometry: GridGeometry
     /// Blocks in the week, so a press can tell whether it landed on one.
     let blocks: [DayBlock]
@@ -54,6 +56,7 @@ struct GridInteractionLayer: View {
             .contextMenu { contextMenu }
             .overlay(alignment: .topLeading) { draftOverlay }
             .overlay(alignment: .topLeading) { bandOverlay }
+            .enableInjection()
     }
 
     // MARK: Gesture

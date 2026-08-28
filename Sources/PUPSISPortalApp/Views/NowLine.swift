@@ -1,4 +1,5 @@
 import SwiftUI
+import Inject
 
 /// The present moment, drawn across the week: a hairline in the accent plus a
 /// glass lozenge in the gutter carrying the live clock.
@@ -10,6 +11,7 @@ import SwiftUI
 /// The clock ticks from a `TimelineView` one level up, in `WeekGrid`, because
 /// the same minute also decides which blocks have already finished.
 struct NowLine: View {
+    @ObserveInjection var inject
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -29,30 +31,33 @@ struct NowLine: View {
     var body: some View {
         let offset = CGFloat(minutes - axisStart)
 
-        if offset >= 0, offset <= span {
-            HStack(spacing: 0) {
-                Text(ClassSession.format(minutes))
-                    .font(typography.nowClock)
-                    .foregroundStyle(palette.nowTint)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .glassTintedCapsule(palette.nowTint.opacity(0.22))
-                    .frame(width: gutter, alignment: .trailing)
-                    .accessibilityLabel("Now, \(ClassSession.format(minutes))")
+        Group {
+            if offset >= 0, offset <= span {
+                HStack(spacing: 0) {
+                    Text(ClassSession.format(minutes))
+                        .font(typography.nowClock)
+                        .foregroundStyle(palette.nowTint)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .glassTintedCapsule(palette.nowTint.opacity(0.22))
+                        .frame(width: gutter, alignment: .trailing)
+                        .accessibilityLabel("Now, \(ClassSession.format(minutes))")
 
-                // 1pt disappears against a dark canvas once the accent is
-                // desaturated by the wash; 1.5 reads without becoming a bar.
-                Rectangle()
-                    .fill(palette.nowTint)
-                    .frame(height: 1.5)
-                    .accessibilityHidden(true)
+                    // 1pt disappears against a dark canvas once the accent is
+                    // desaturated by the wash; 1.5 reads without becoming a bar.
+                    Rectangle()
+                        .fill(palette.nowTint)
+                        .frame(height: 1.5)
+                        .accessibilityHidden(true)
+                }
+                .frame(height: lozengeHeight)
+                .offset(y: offset / span * height - lozengeHeight / 2)
+                // Glides to the new minute instead of jumping, which is the
+                // difference between a clock and a thing that flickers.
+                .animation(Motion.drift(reduced: reduceMotion), value: minutes)
             }
-            .frame(height: lozengeHeight)
-            .offset(y: offset / span * height - lozengeHeight / 2)
-            // Glides to the new minute instead of jumping, which is the
-            // difference between a clock and a thing that flickers.
-            .animation(Motion.drift(reduced: reduceMotion), value: minutes)
         }
+        .enableInjection()
     }
 
     /// Ticking on a plain 60-second period drifts off the minute boundary, so

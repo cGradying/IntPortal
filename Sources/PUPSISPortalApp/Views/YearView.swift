@@ -1,9 +1,11 @@
 import SwiftUI
+import Inject
 
 /// A compact window of months at once, the way Apple Calendar's year view
 /// works: a place to see where you are and jump somewhere, not a place to
 /// read a schedule. Picking any date opens that week in the grid.
 struct YearView: View {
+    @ObserveInjection var inject
     /// The months to show, in order — a compact 4-month window around
     /// wherever's currently browsed (`MonthLayout.months(around:count:)`),
     /// not a calendar-year slice. Presentation-only: the view just lays out
@@ -53,6 +55,7 @@ struct YearView: View {
             }
         }
         .padding(44)
+        .enableInjection()
     }
 }
 

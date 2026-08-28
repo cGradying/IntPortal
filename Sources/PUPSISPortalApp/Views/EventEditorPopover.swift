@@ -1,4 +1,5 @@
 import SwiftUI
+import Inject
 
 /// Create and edit in one view, anchored beside the block it belongs to.
 ///
@@ -6,6 +7,7 @@ import SwiftUI
 /// create, which is the opposite of what a calendar needs. Here the eye never
 /// leaves the block being drawn.
 struct EventEditorPopover: View {
+    @ObserveInjection var inject
     @State var draft: EventSnapshot
     let calendars: [CalendarInfo]
     /// Nil when creating; set when editing an existing block.
@@ -42,6 +44,7 @@ struct EventEditorPopover: View {
         .frame(width: 320 * uiScale)
         .tint(palette.accent)
         .onAppear { titleFocused = existing == nil }
+        .enableInjection()
     }
 
     // MARK: Sections

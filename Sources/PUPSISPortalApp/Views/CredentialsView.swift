@@ -1,4 +1,5 @@
 import SwiftUI
+import Inject
 
 /// The login screen — the one place `AppState.credentials == nil` shows
 /// anything at all (`ContentView`'s gate). Split-screen: a dark hero side
@@ -11,6 +12,7 @@ import SwiftUI
 /// failure screen with retry. A second copy of that here would just be a
 /// second source of truth for the same `LoginStatus`.
 struct CredentialsView: View {
+    @ObserveInjection var inject
     var existing: Credentials?
     var onSave: (Credentials) -> Void
     /// The only pre-login navigation affordance — no nav island exists yet,
@@ -58,6 +60,7 @@ struct CredentialsView: View {
         .opacity(arrived ? 1 : 0)
         .animation(Motion.arrival(reduced: reduceMotion), value: arrived)
         .task { arrived = true }
+        .enableInjection()
     }
 
     private var settingsButton: some View {

@@ -21,6 +21,11 @@ let package = Package(
         // for how it gets embedded into the hand-rolled .app bundle Xcode
         // would otherwise do for us.
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.6"),
+        // Hot reload for `swift run` dev builds — edit a view, save, the
+        // already-running app swaps it in with state intact, no relaunch.
+        // Only wired into Views/ (see each file's `@ObserveInjection`); a
+        // no-op in a release build, see the `-interposable` note below.
+        .package(url: "https://github.com/krzysztofzablocki/Inject.git", from: "1.5.2"),
     ],
     targets: [
         .executableTarget(
@@ -28,6 +33,7 @@ let package = Package(
             dependencies: [
                 .product(name: "FSRS", package: "SwiftFSRS"),
                 .product(name: "Sparkle", package: "Sparkle"),
+                .product(name: "Inject", package: "Inject"),
             ],
             path: "Sources/PUPSISPortalApp",
             resources: [
@@ -41,7 +47,16 @@ let package = Package(
                 // at launch. (Sparkle docs: "Add the framework to your project".)
                 // Split into separate -Xlinker args — swiftc's linker driver
                 // rejects one comma-joined "-Wl,-rpath,..." token.
-                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]),
+                // Inject's own requirement for a plain SwiftPM/command-line
+                // build (no Xcode project managing this): forces every
+                // symbol to resolve indirectly through the dynamic linker,
+                // which is what lets InjectionIII swap a recompiled file's
+                // code into the already-running process. Debug only —
+                // `-interposable` disables dead-stripping and meaningfully
+                // slows startup, and `make_mac_app.sh`/CI always build
+                // `-c release`, so shipped builds never carry this.
+                .unsafeFlags(["-Xlinker", "-interposable"], .when(configuration: .debug)),
             ]
         ),
         .testTarget(
