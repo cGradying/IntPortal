@@ -252,6 +252,42 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(aiPermission.rawValue, forKey: Key.aiPermission) }
     }
 
+    /// Which model actually answers — local `llama-server` (the default,
+    /// see `AIProvider`'s own doc comment on why it stays that way) or a
+    /// named cloud provider the student's own key (`AIProviderKeyStore`)
+    /// unlocks. Scoped to chat/generate only for now — RAG's embedding step
+    /// always uses the local `.embed`-role server regardless of this.
+    @Published var aiProvider: AIProvider {
+        didSet { defaults.set(aiProvider.rawValue, forKey: Key.aiProvider) }
+    }
+
+    /// The cloud model id to request — empty/ignored for `.local`. Defaults
+    /// to `aiProvider.defaultModel` when the provider changes and this
+    /// hasn't been set explicitly; stored separately per provider isn't
+    /// worth the complexity for a field the student can just retype on
+    /// switching providers.
+    @Published var aiProviderModel: String {
+        didSet { defaults.set(aiProviderModel, forKey: Key.aiProviderModel) }
+    }
+
+    /// The one place `aiProvider`/`AIProviderKeyStore` turn into an actual
+    /// `LlamaCppClient` — every call site that builds one for chat/generate
+    /// should go through this rather than hardcoding `LlamaCppClient()`, or
+    /// it silently ignores the student's provider choice. Falls back to
+    /// local — never throws, never blocks the assistant — when a cloud
+    /// provider is selected but its key isn't in the Keychain; Settings is
+    /// what should stop that combination from being reachable in the first
+    /// place, this is the belt-and-suspenders behind it.
+    func resolvedAIClient() -> LlamaCppClient {
+        guard aiProvider != .local, let key = AIProviderKeyStore.load(for: aiProvider), !key.isEmpty else {
+            return LlamaCppClient()
+        }
+        let model = aiProviderModel.isEmpty ? aiProvider.defaultModel : aiProviderModel
+        return aiProvider.isOpenAICompatible
+            ? .forOpenAICompatibleProvider(aiProvider, apiKey: key, model: model)
+            : .forAnthropicProvider(apiKey: key, model: model)
+    }
+
     /// How AI-inserted text (Replace / Insert below in the note editor) reveals
     /// itself — see `AIRevealAnimation`. `.sweep` is the default: one
     /// continuous glow traveling start-of-line to end, rather than each word
@@ -450,6 +486,8 @@ final class Preferences: ObservableObject {
         static let trafficLightsAutoHide = "trafficLightsAutoHide"
         static let aiEnabled = "aiEnabled"
         static let aiModel = "aiModel"
+        static let aiProvider = "aiProvider"
+        static let aiProviderModel = "aiProviderModel"
         static let aiPermission = "aiPermission"
         static let aiRevealAnimation = "aiRevealAnimation"
         static let aiThinking = "aiThinking"
@@ -507,6 +545,8 @@ final class Preferences: ObservableObject {
         trafficLightsAutoHide = (defaults.object(forKey: Key.trafficLightsAutoHide) as? Bool) ?? true
         aiEnabled = (defaults.object(forKey: Key.aiEnabled) as? Bool) ?? false
         aiModel = defaults.string(forKey: Key.aiModel) ?? ModelCatalog.defaultID
+        aiProvider = defaults.string(forKey: Key.aiProvider).flatMap(AIProvider.init(rawValue:)) ?? .local
+        aiProviderModel = defaults.string(forKey: Key.aiProviderModel) ?? ""
         aiPermission = defaults.string(forKey: Key.aiPermission)
             .flatMap(AssistantPermission.init(rawValue:)) ?? .confirm
         aiRevealAnimation = defaults.string(forKey: Key.aiRevealAnimation)

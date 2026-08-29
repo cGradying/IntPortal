@@ -38,6 +38,10 @@ struct SettingsView: View {
     @State private var confirmingWipe = false
     /// Whether the context-size explainer popover is showing.
     @State private var showingContextInfo = false
+    /// A local buffer for the selected provider's API key (wayfinder ticket
+    /// #17) — deliberately not a `Preferences` field; it's loaded from/saved
+    /// straight to `AIProviderKeyStore` (Keychain), never `UserDefaults`.
+    @State private var apiKeyDraft = ""
 
     /// Subjects the user can actually recolor: whatever is on screen right now.
     private var subjectCodes: [String] {
@@ -195,6 +199,28 @@ struct SettingsView: View {
         Section {
             Toggle("IntAssis", isOn: $preferences.aiEnabled)
             if preferences.aiEnabled {
+                Picker("Model source", selection: $preferences.aiProvider) {
+                    ForEach(AIProvider.allCases) { provider in
+                        Text(provider.label).tag(provider)
+                    }
+                }
+                if preferences.aiProvider.needsAPIKey {
+                    TextField(
+                        "Model", text: $preferences.aiProviderModel,
+                        prompt: Text(preferences.aiProvider.defaultModel)
+                    )
+                    SecureField("API key", text: $apiKeyDraft)
+                        .onChange(of: apiKeyDraft) { _, newValue in
+                            if newValue.isEmpty {
+                                AIProviderKeyStore.delete(for: preferences.aiProvider)
+                            } else {
+                                try? AIProviderKeyStore.save(newValue, for: preferences.aiProvider)
+                            }
+                        }
+                    Text("Stored in your Keychain, sent only to \(preferences.aiProvider.label)'s own API — never through this Mac's local model.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Picker("Permission", selection: $preferences.aiPermission) {
                     ForEach(AssistantPermission.allCases) { level in
                         Text(level.label).tag(level)
@@ -255,14 +281,16 @@ struct SettingsView: View {
             IntAssis: a floating assistant (bottom-left, when this is on) \
             that can read and add to your notes, read and add calendar \
             events, and read your grades — never delete, move, or change \
-            one. Pick a model below — everything downloads and runs itself, \
-            no separate app needed.
+            one. Local is the default — pick a model below and everything \
+            downloads and runs itself, no separate app needed, nothing \
+            leaves this Mac.
 
-            Everything it sees and does stays on this Mac, talking only to a \
-            `llama-server` process this app starts and stops on its own. \
-            There is no cloud provider and no way to point this at one.
+            A cloud provider (OpenAI/Google/Anthropic) is opt-in: pick one \
+            under Model source and paste in your own API key. That key and \
+            your prompts go straight to the provider's own API — this \
+            app's local model, and RAG note search, are untouched either way.
 
-            **It runs locally and can be wrong.** Treat anything it tells you \
+            **It can be wrong, local or cloud.** Treat anything it tells you \
             — a summary, a date, an answer from your notes — as a draft to \
             check, not a fact.
             """)
@@ -276,6 +304,13 @@ struct SettingsView: View {
                 // so turning the assistant off is also turning it off.
                 LlamaServerManager.shared.stop()
             }
+        }
+        // Reloads whenever the provider switches (or the section first
+        // appears) — the field must show *that* provider's own key, not
+        // whichever one was on screen before, and must never leak one
+        // provider's key into another's SecureField.
+        .task(id: preferences.aiProvider) {
+            apiKeyDraft = AIProviderKeyStore.load(for: preferences.aiProvider) ?? ""
         }
         .alert(item: $pendingModelLoad) { pending in
             Alert(

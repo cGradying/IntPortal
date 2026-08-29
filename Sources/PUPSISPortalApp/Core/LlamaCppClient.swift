@@ -66,16 +66,54 @@ struct LlamaCppClient {
         self.sendEmbed = sendEmbed ?? { try await Self.post($0, to: Self.embedEndpoint) }
     }
 
-    private static func post(_ body: Data, to url: URL) async throws -> (Data, Int) {
+    private static func post(_ body: Data, to url: URL, bearer: String? = nil) async throws -> (Data, Int) {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         request.httpBody = body
         // A cold local model can genuinely take a while on the first request.
+        // A cloud provider is never this slow, but the same generous timeout
+        // does no harm on a fast connection.
         request.timeoutInterval = 180
         let (data, response) = try await URLSession.shared.data(for: request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         return (data, code)
+    }
+
+    /// A client posting to `provider`'s OpenAI-compatible endpoint with
+    /// `apiKey` as a Bearer token and `model` in the body, instead of the
+    /// local hardcoded default — only for `.openai`/`.google` (see
+    /// `AIProvider.isOpenAICompatible`). Every request/response method
+    /// (`generate`, `chat`, `embed`, parsing) is reused completely
+    /// unchanged; only where `send` posts to, and what it posts, differs.
+    /// `sendEmbed` still targets nothing real for a cloud provider — neither
+    /// OpenAI's nor Google's key covers the local `.embed`-role server, and
+    /// RAG stays local-only regardless of `aiProvider` (wayfinder ticket #17
+    /// deliberately scoped this to chat/generate only).
+    static func forOpenAICompatibleProvider(_ provider: AIProvider, apiKey: String, model: String) -> LlamaCppClient {
+        precondition(provider.isOpenAICompatible, "forOpenAICompatibleProvider called with \(provider)")
+        let endpoint = provider.chatEndpoint!
+        return LlamaCppClient(send: { body in
+            try await Self.post(Self.injectingModel(model, into: body), to: endpoint, bearer: apiKey)
+        })
+    }
+
+    /// A real cloud provider requires a top-level `"model"` field the local
+    /// path deliberately never sends (see this type's own doc comment on
+    /// why) — injected here, after the shared request-body builders already
+    /// ran, rather than threading a cloud-only parameter through every one
+    /// of them and risking it leaking into a local request. Also strips
+    /// `reasoning_effort` — an llama.cpp/vLLM extension, not part of the
+    /// OpenAI Chat Completions spec; several providers 400 on an unrecognized
+    /// top-level field rather than silently ignoring it, so `AssistantThinking`
+    /// has no effect on a cloud provider for now rather than breaking the
+    /// request outright.
+    static func injectingModel(_ model: String, into body: Data) -> Data {
+        guard var json = try? JSONSerialization.jsonObject(with: body) as? [String: Any] else { return body }
+        json["model"] = model
+        json["reasoning_effort"] = nil
+        return (try? JSONSerialization.data(withJSONObject: json)) ?? body
     }
 
     // MARK: Plain completion — note drafting, /summary, /create, quiz explanations

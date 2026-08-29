@@ -1128,12 +1128,16 @@ private struct AssistantChat: View {
             portal: appState.portal,
             preferences: preferences,
             syllabus: appState.syllabus,
-            openNoteKey: { appState.openNoteKey }
+            openNoteKey: { appState.openNoteKey },
+            // preferences.aiProvider (wayfinder ticket #17) — .local resolves
+            // to the same LlamaCppClient() this defaulted to before; a cloud
+            // provider only takes effect once its own key is actually saved.
+            client: preferences.resolvedAIClient()
         )
     }
 
     private func makeEngine() -> AssistantEngine {
-        AssistantEngine(model: preferences.aiModel, executor: makeExecutor())
+        AssistantEngine(client: preferences.resolvedAIClient(), model: preferences.aiModel, executor: makeExecutor())
     }
 
     private func buildContext() -> AssistantContext {

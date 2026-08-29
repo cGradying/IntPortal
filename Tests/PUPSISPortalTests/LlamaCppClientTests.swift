@@ -194,6 +194,60 @@ final class LlamaCppClientTests: XCTestCase {
         XCTAssertTrue(embedCalled)
         XCTAssertFalse(chatCalled)
     }
+
+    // MARK: injectingModel — the cloud-provider request-body patch (ticket #17)
+
+    func testInjectingModelAddsTheModelField() throws {
+        let body = try LlamaCppClient.requestBody(selection: "u", instruction: "s")
+        let patched = LlamaCppClient.injectingModel("gpt-4o-mini", into: body)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: patched) as? [String: Any])
+        XCTAssertEqual(json["model"] as? String, "gpt-4o-mini")
+        // The local builders are untouched — this only ever runs on the
+        // outgoing cloud request, never mutates what local requests send.
+        XCTAssertNil(try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])["model"])
+    }
+
+    /// llama.cpp/vLLM-specific — several cloud providers 400 on an
+    /// unrecognized top-level field rather than ignoring it.
+    func testInjectingModelStripsReasoningEffort() throws {
+        let body = try LlamaCppClient.chatRequestBody(
+            messages: [.init(role: .user, content: "hi")], schema: ["type": "object"], think: .low
+        )
+        XCTAssertNotNil(try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])["reasoning_effort"])
+
+        let patched = LlamaCppClient.injectingModel("gpt-4o-mini", into: body)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: patched) as? [String: Any])
+        XCTAssertNil(json["reasoning_effort"])
+    }
+
+    // MARK: Anthropic translation (ticket #17) — reenvelopingAsOpenAI
+
+    func testReenvelopingAsOpenAIExtractsPlainTextReply() throws {
+        let anthropicData = Data(#"{"content":[{"type":"text","text":"The answer is 42."}]}"#.utf8)
+        let openAIShaped = LlamaCppClient.reenvelopingAsOpenAI(anthropicData, forcedToolName: nil)
+        XCTAssertEqual(try LlamaCppClient.parseContent(openAIShaped), "The answer is 42.")
+    }
+
+    /// A schema-locked turn forces a tool call — the reply arrives as
+    /// content[0].input, already a structured object, not a string; it must
+    /// be re-serialized to a JSON *string* to land in the same "content"
+    /// field a plain-text reply would, since that's what parseChatContent
+    /// (and AssistantReply.decode downstream of it) expect to parse.
+    func testReenvelopingAsOpenAIExtractsForcedToolInputAsJSONString() throws {
+        let anthropicData = Data(#"""
+        {"content":[{"type":"tool_use","name":"reply","input":{"reply":"hi","actions":[]}}]}
+        """#.utf8)
+        let openAIShaped = LlamaCppClient.reenvelopingAsOpenAI(anthropicData, forcedToolName: "reply")
+        let (content, thinking) = try LlamaCppClient.parseChatContent(openAIShaped)
+        XCTAssertEqual(thinking, "")
+        let decoded = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(content.utf8)) as? [String: Any])
+        XCTAssertEqual(decoded["reply"] as? String, "hi")
+    }
+
+    func testReenvelopingAsOpenAIPassesThroughUnrecognizedShapeUnchanged() {
+        let malformed = Data(#"{"not":"anthropic-shaped"}"#.utf8)
+        XCTAssertEqual(LlamaCppClient.reenvelopingAsOpenAI(malformed, forcedToolName: nil), malformed)
+    }
 }
 
 // download() itself isn't unit-tested here — it reports progress via
