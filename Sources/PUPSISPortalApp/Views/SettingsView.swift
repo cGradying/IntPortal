@@ -76,44 +76,41 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
     }
 
-    /// Replaces `.pickerStyle(.inline)`, which rendered as a bare, unstyled
-    /// system radio list — confirmed live as jarring the moment someone
-    /// opens Settings to change the very thing this whole app is themed by.
-    /// Same circle-with-selection-ring language `Blocks.swift`'s `SwatchRow`
+    /// One row of swatches instead of a label-per-row grid — six themes read
+    /// fine as circles alone (the accent color *is* the identity here), so
+    /// the name moves to `.help()` rather than costing its own line. Same
+    /// circle-with-selection-ring language `Blocks.swift`'s `SwatchRow`
     /// already uses for subject colors, adapted to a named room instead of
-    /// a raw color.
-    private var themeSwatchGrid: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
+    /// a raw color. Replaces the old 2-column label grid, confirmed live as
+    /// three rows tall for something that's just "which dot".
+    private var themeSwatchRow: some View {
+        HStack(spacing: 10) {
             ForEach(ThemeChoice.allCases) { choice in
                 let selected = preferences.theme == choice
-                Button {
-                    preferences.theme = choice
-                } label: {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(choice.palette(for: systemScheme).accent)
-                            .frame(width: 16, height: 16)
-                            .overlay {
-                                Circle().strokeBorder(.primary, lineWidth: 2).opacity(selected ? 1 : 0)
-                            }
-                        Text(choice.label)
-                            .font(.callout)
-                            .foregroundStyle(selected ? .primary : .secondary)
-                        Spacer(minLength: 0)
-                    }
+                Button { preferences.theme = choice } label: {
+                    Circle()
+                        .fill(choice.palette(for: systemScheme).accent)
+                        .frame(width: 22, height: 22)
+                        .overlay(Circle().strokeBorder(.primary, lineWidth: 2).opacity(selected ? 1 : 0))
+                        .overlay(Circle().strokeBorder(.primary.opacity(0.12), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+                .help(choice.label)
+                .accessibilityLabel(choice.label)
             }
+            Spacer(minLength: 0)
         }
     }
 
+    /// Compact: one section for theme+font+scale (the three "how it looks"
+    /// knobs, all one-line-each), captions trimmed to a single line or
+    /// folded into `.help()` — the previous version ran three verbose
+    /// paragraphs of always-visible footer text for toggles that are
+    /// self-explanatory from their own labels.
     private var appearanceTab: some View {
         settingsForm {
-            Section("Appearance") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Theme").font(.callout)
-                    themeSwatchGrid
-                }
+            Section("Theme") {
+                themeSwatchRow
                 Picker("Font", selection: $preferences.fontChoice) {
                     ForEach(FontChoice.allCases) { choice in
                         Text(choice.label)
@@ -126,12 +123,13 @@ struct SettingsView: View {
                         Text("\(Int(preferences.uiScale * 100))%")
                     }
                 }
+                .help("\u{2318}+ / \u{2318}\u{2212} anywhere, \u{2325}\u{2318}0 to reset")
                 if preferences.uiScale != 1.0 {
                     Button("Reset to 100%") { preferences.resetUIScale() }
+                        .font(.caption)
                 }
-                Text("Scales the whole app — \u{2318}+/\u{2318}\u{2212} also work from anywhere, \u{2325}\u{2318}0 to reset.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
+
             Section {
                 Toggle("Open on the home launcher", isOn: $preferences.islandStartHome)
                 Toggle("Expand island on hover", isOn: $preferences.islandExpandOnHover)
@@ -139,7 +137,8 @@ struct SettingsView: View {
             } header: {
                 Text("Dynamic Island")
             } footer: {
-                Text("The floating island is the app's top bar. When it starts on the home launcher it sits centred and flies to the top when you open a screen. Expand-on-hover keeps it a compact pill until you point at it. Auto-hide keeps the red/yellow/green window buttons hidden until your cursor nears the top-left corner.")
+                Text("The app's floating top bar, and the red/yellow/green window buttons.")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
@@ -154,9 +153,6 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("Subject Colors")
-            } footer: {
-                Text("Colors are remembered per subject code and survive a refresh.")
-                    .foregroundStyle(.secondary)
             }
         }
     }
