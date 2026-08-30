@@ -26,6 +26,17 @@ final class LlamaCppClientTests: XCTestCase {
         XCTAssertNil(json["model"])
     }
 
+    /// Regression: the real cause behind "Ask AI" returning
+    /// ClientError.empty, independent of input length — Qwen3 (the default
+    /// local model) reasons by default when this is omitted, and its
+    /// <think> block can burn the entire fixed max_tokens budget before
+    /// ever writing the actual answer `parseContent` reads.
+    func testRequestBodyForcesReasoningOff() throws {
+        let data = try LlamaCppClient.requestBody(selection: "u", instruction: "s")
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["reasoning_effort"] as? String, "none")
+    }
+
     // MARK: truncatedForContext — the note editor's "Ask AI" pill
 
     func testTruncatedForContextLeavesAShortSelectionUntouched() {

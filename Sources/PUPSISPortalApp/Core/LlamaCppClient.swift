@@ -165,6 +165,19 @@ struct LlamaCppClient {
         return String(selection.prefix(availableChars)) + "\n[...truncated to fit the configured context size]"
     }
 
+    /// Confirmed live — the real cause behind `ClientError.empty` on the
+    /// note editor's "Ask AI" pill, independent of `truncatedForContext`
+    /// above (that fix alone didn't resolve it): unlike `chatRequestBody`,
+    /// this never set `reasoning_effort` at all. Qwen3 (this app's default
+    /// local model) reasons by default when the field is omitted — its
+    /// `<think>…</think>` block can burn through the entire fixed
+    /// `generateMaxTokens` (800) budget before the model ever starts
+    /// writing the actual answer, leaving `parseContent`'s `content` field
+    /// genuinely empty even though `reasoning_content` has text (`parseContent`
+    /// doesn't read that field at all — this is a plain completion, not a
+    /// chat turn with its own thinking UI to show it in). A quick
+    /// structure/summarize/answer transform has no need for chain-of-thought
+    /// regardless, so it's forced off outright rather than budgeted for.
     static func requestBody(selection: String, instruction: String = Self.instruction) throws -> Data {
         let payload: [String: Any] = [
             "messages": [
@@ -173,6 +186,7 @@ struct LlamaCppClient {
             ],
             "temperature": 0.2,
             "max_tokens": generateMaxTokens,
+            "reasoning_effort": "none",
         ]
         return try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
     }
