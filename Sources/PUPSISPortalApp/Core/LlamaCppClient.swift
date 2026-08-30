@@ -118,22 +118,36 @@ struct LlamaCppClient {
 
     // MARK: Plain completion — note drafting, /summary, /create, quiz explanations
 
-    /// Fixed at 800 in `requestBody` — kept as its own constant so
-    /// `truncatedForContext` reserves exactly what the request actually
-    /// asks the server for, not a guess that could drift from it.
-    static let generateMaxTokens = 800
+    /// The floor/default output cap — used directly by short transforms and
+    /// as `requestBody`/`truncatedForContext`'s default when a caller
+    /// doesn't compute its own via `generateMaxTokens(forSelectionLength:)`.
+    static let generateMaxTokensFloor = 800
+
+    /// Structuring/expanding a note can legitimately produce more output
+    /// than the input, unlike a summary — scale to input size rather than
+    /// guessing one fixed number for every mode (confirmed live: "Structure
+    /// this" on a long note just stopped at the old flat 800 with no way to
+    /// ask for more). Floor matches the old flat cap; ceiling keeps a
+    /// single request from running away.
+    static func generateMaxTokens(forSelectionLength charCount: Int) -> Int {
+        min(max(charCount / 3, generateMaxTokensFloor), 2400)
+    }
 
     /// Deliberately no JSON schema and no tool menu in the prompt — a plain
     /// "here's context, answer/continue" completion. `model` is accepted and
     /// ignored, see the type's own doc comment. `contextSize` bounds
     /// `selection` before it's ever sent — see `truncatedForContext`'s own
-    /// doc comment for the bug this fixes.
+    /// doc comment for the bug this fixes. The output cap scales with
+    /// `selection`'s length (`generateMaxTokens(forSelectionLength:)`), and
+    /// the *same* computed value is what `truncatedForContext` reserves
+    /// room for — one number, not two independent guesses.
     func generate(
         model: String = "", selection: String, instruction: String = Self.instruction,
         contextSize: Int = Preferences.aiDefaultContextSize
     ) async throws -> String {
-        let bounded = Self.truncatedForContext(selection, instruction: instruction, contextSize: contextSize)
-        let body = try Self.requestBody(selection: bounded, instruction: instruction)
+        let maxTokens = Self.generateMaxTokens(forSelectionLength: selection.count)
+        let bounded = Self.truncatedForContext(selection, instruction: instruction, contextSize: contextSize, maxTokens: maxTokens)
+        let body = try Self.requestBody(selection: bounded, instruction: instruction, maxTokens: maxTokens)
         let (data, code): (Data, Int)
         do {
             (data, code) = try await send(body)
@@ -147,19 +161,24 @@ struct LlamaCppClient {
     /// Confirmed live bug this fixes: the note editor's "Ask AI" pill
     /// (Structure/Summarize/Answer) sent the selected text completely
     /// unbounded — a long note plus `structureInstruction`'s own ~400 tokens
-    /// plus the fixed 800-token output reserve could exceed the configured
-    /// context size with no warning, and llama-server's response to that is
-    /// an *empty* completion (`ClientError.empty`), not a clear error. Same
-    /// underlying problem, same ~4 chars/token heuristic, as
+    /// plus the output reserve could exceed the configured context size
+    /// with no warning, and llama-server's response to that is an *empty*
+    /// completion (`ClientError.empty`), not a clear error. Same underlying
+    /// problem, same ~4 chars/token heuristic, as
     /// `AssistantContext.noteCharLimit` fixes for the chat/tool path — this
-    /// is that fix's sibling for the plain-completion path.
-    static func truncatedForContext(_ selection: String, instruction: String, contextSize: Int) -> String {
+    /// is that fix's sibling for the plain-completion path. `maxTokens`
+    /// must be the same value the actual request reserves via
+    /// `requestBody` — not read from `generateMaxTokensFloor` independently
+    /// — or this reserves room for the wrong output size.
+    static func truncatedForContext(
+        _ selection: String, instruction: String, contextSize: Int, maxTokens: Int = generateMaxTokensFloor
+    ) -> String {
         let charsPerToken = AssistantContext.charsPerTokenEstimate
         let instructionTokens = instruction.count / charsPerToken
         // 100-token safety margin for message-formatting overhead the raw
         // char count doesn't capture; floored at 200 tokens so a very small
         // context size still gets *something* rather than an empty prompt.
-        let availableTokens = max(contextSize - instructionTokens - generateMaxTokens - 100, 200)
+        let availableTokens = max(contextSize - instructionTokens - maxTokens - 100, 200)
         let availableChars = availableTokens * charsPerToken
         guard selection.count > availableChars else { return selection }
         return String(selection.prefix(availableChars)) + "\n[...truncated to fit the configured context size]"
@@ -178,14 +197,16 @@ struct LlamaCppClient {
     /// chat turn with its own thinking UI to show it in). A quick
     /// structure/summarize/answer transform has no need for chain-of-thought
     /// regardless, so it's forced off outright rather than budgeted for.
-    static func requestBody(selection: String, instruction: String = Self.instruction) throws -> Data {
+    static func requestBody(
+        selection: String, instruction: String = Self.instruction, maxTokens: Int = generateMaxTokensFloor
+    ) throws -> Data {
         let payload: [String: Any] = [
             "messages": [
                 ["role": "system", "content": instruction],
                 ["role": "user", "content": selection],
             ],
             "temperature": 0.2,
-            "max_tokens": generateMaxTokens,
+            "max_tokens": maxTokens,
             "reasoning_effort": "none",
         ]
         return try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])

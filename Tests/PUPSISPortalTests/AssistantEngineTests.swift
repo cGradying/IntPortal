@@ -62,6 +62,34 @@ final class AssistantEngineTests: XCTestCase {
         XCTAssertEqual(outcome.results, [])
     }
 
+    /// Regression: every `chat(...)` call used to omit `numPredict` entirely,
+    /// so generation ran until *remaining context* ran out rather than a
+    /// real output budget — the direct mechanism behind "generation
+    /// sometimes incomplete" (a model that runs out of room mid-JSON throws
+    /// `.malformedReply`). `max_tokens` must now actually be present in the
+    /// real request body, equal to `AssistantEngine.replyTokenBudget`.
+    func testRespondReservesARealOutputBudget() async throws {
+        var capturedBody: [String: Any]?
+        let sut = engine { body in
+            capturedBody = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
+            return self.jsonResponse(#"{"reply":"ok","actions":[]}"#)
+        }
+        _ = try await sut.respond(to: "hello", context: context, permission: .confirm)
+        XCTAssertEqual(capturedBody?["max_tokens"] as? Int, AssistantEngine.replyTokenBudget)
+    }
+
+    /// Same reservation in `.auto` mode's loop, not just the propose/confirm
+    /// single-request path.
+    func testRespondReservesARealOutputBudgetInAutoMode() async throws {
+        var capturedBody: [String: Any]?
+        let sut = engine { body in
+            capturedBody = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
+            return self.jsonResponse(#"{"reply":"done","actions":[]}"#)
+        }
+        _ = try await sut.respond(to: "hello", context: context, permission: .auto)
+        XCTAssertEqual(capturedBody?["max_tokens"] as? Int, AssistantEngine.replyTokenBudget)
+    }
+
     func testDecodesAReplyWithAProposedAction() async throws {
         let sut = engine { _ in
             self.jsonResponse(#"{"reply":"Adding that.","actions":[{"tool":"append_note","args":{"text":"review pointers"}}]}"#)

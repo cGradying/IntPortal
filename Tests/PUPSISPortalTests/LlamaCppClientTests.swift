@@ -26,6 +26,16 @@ final class LlamaCppClientTests: XCTestCase {
         XCTAssertNil(json["model"])
     }
 
+    /// requestBody's max_tokens must be whatever the caller actually
+    /// computed (`generateMaxTokens(forSelectionLength:)`), not silently
+    /// fall back to the floor — that's the whole point of threading it
+    /// through instead of reading a static constant independently.
+    func testRequestBodyUsesTheProvidedMaxTokensNotJustTheFloor() throws {
+        let data = try LlamaCppClient.requestBody(selection: "u", instruction: "s", maxTokens: 1500)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["max_tokens"] as? Int, 1500)
+    }
+
     /// Regression: the real cause behind "Ask AI" returning
     /// ClientError.empty, independent of input length — Qwen3 (the default
     /// local model) reasons by default when this is omitted, and its
@@ -67,6 +77,33 @@ final class LlamaCppClientTests: XCTestCase {
         let selection = String(repeating: "a page of real notes. ", count: 100) // ~2,300 chars
         let result = LlamaCppClient.truncatedForContext(selection, instruction: "Summarize.", contextSize: 32768)
         XCTAssertEqual(result, selection)
+    }
+
+    /// A bigger reserved output budget leaves less room for input at the
+    /// same context size — proves the two aren't independent guesses.
+    func testTruncatedForContextReservesMoreRoomForALargerMaxTokens() {
+        let selection = String(repeating: "lecture notes ", count: 2000)
+        let small = LlamaCppClient.truncatedForContext(selection, instruction: "s", contextSize: 8192, maxTokens: 800)
+        let large = LlamaCppClient.truncatedForContext(selection, instruction: "s", contextSize: 8192, maxTokens: 2400)
+        XCTAssertGreaterThan(small.count, large.count)
+    }
+
+    // MARK: generateMaxTokens(forSelectionLength:) — scales the note editor's output cap
+
+    /// Regression: "Structure this" on a long note used to stop at a flat
+    /// 800 tokens no matter how much input there was to restructure.
+    func testGenerateMaxTokensFloorsAtTheOldFlatCapForAShortSelection() {
+        XCTAssertEqual(LlamaCppClient.generateMaxTokens(forSelectionLength: 10), LlamaCppClient.generateMaxTokensFloor)
+    }
+
+    func testGenerateMaxTokensScalesUpWithSelectionLength() {
+        let short = LlamaCppClient.generateMaxTokens(forSelectionLength: 3000)
+        let long = LlamaCppClient.generateMaxTokens(forSelectionLength: 6000)
+        XCTAssertGreaterThan(long, short)
+    }
+
+    func testGenerateMaxTokensNeverExceedsItsCeiling() {
+        XCTAssertEqual(LlamaCppClient.generateMaxTokens(forSelectionLength: 1_000_000), 2400)
     }
 
     // MARK: parseContent — the OpenAI-compatible plain-text shape

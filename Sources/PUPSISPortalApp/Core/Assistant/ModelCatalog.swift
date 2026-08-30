@@ -13,14 +13,19 @@ enum ModelCatalog {
         let url: URL
         let sizeBytes: Int64
         let description: String
-        /// KV cache bytes per token of context, at llama.cpp's default
-        /// (unquantized, fp16) cache type: `2 (K+V) * layers * kvHeads *
-        /// headDim * 2 bytes`. Architecture-specific — from Qwen3-1.7B's
-        /// published config (28 layers, 8 KV heads via GQA, head_dim 128):
-        /// `2 * 28 * 8 * 128 * 2 = 114,688`. Used only for the Settings
-        /// RAM estimate (`ModelCatalog.estimatedRAMBytes`), not by
-        /// `llama-server` itself — it works this out on its own from the
-        /// GGUF's real metadata.
+        /// KV cache bytes per token of context, at the cache type
+        /// `LlamaServerManager` actually launches with — q8_0 (1 byte per
+        /// K/V element), not llama.cpp's fp16 default (2 bytes), since
+        /// `--cache-type-k/v q8_0` is now always passed. Architecture-
+        /// specific: `2 (K+V) * layers * kvHeads * headDim * 1 byte`. From
+        /// Qwen3-1.7B's published config (28 layers, 8 KV heads via GQA,
+        /// head_dim 128): `2 * 28 * 8 * 128 * 1 = 57,344` — half the old
+        /// fp16 figure (114,688). Used only for the Settings RAM estimate
+        /// (`ModelCatalog.estimatedRAMBytes`), not by `llama-server` itself
+        /// — it works this out on its own from the GGUF's real metadata.
+        /// Keep this in step with `LlamaServerManager`'s actual cache-type
+        /// flags — a change there without a matching change here makes the
+        /// Settings slider's RAM estimate wrong, silently.
         let kvCacheBytesPerToken: Int64
     }
 
@@ -35,7 +40,7 @@ enum ModelCatalog {
             url: URL(string: "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf")!,
             sizeBytes: 1_107_409_472,
             description: "1.1GB · general chat, tools, and thinking. The default — runs comfortably on any Mac.",
-            kvCacheBytesPerToken: 114_688
+            kvCacheBytesPerToken: 57_344
         ),
     ]
 
@@ -75,8 +80,8 @@ enum ModelCatalog {
         description: "Powers note search — downloaded automatically alongside your first chat model.",
         // Unused (no context slider for the fixed embed role) — filled in for
         // `Entry`'s sake from nomic-embed-text-v1.5's own config (12 layers,
-        // 12 heads, head_dim 64): `2 * 12 * 12 * 64 * 2 = 36,864`.
-        kvCacheBytesPerToken: 36_864
+        // 12 heads, head_dim 64) at q8_0: `2 * 12 * 12 * 64 * 1 = 18,432`.
+        kvCacheBytesPerToken: 18_432
     )
 
     /// Downloaded weights live under Application Support, same convention

@@ -78,6 +78,14 @@ final class LlamaServerManager {
         launched.executableURL = URL(fileURLWithPath: binary)
         launched.arguments = [
             "-m", modelPath.path, "--port", String(role.port), "--ctx-size", String(contextSize),
+            // KV cache quantized to q8_0 (1 byte/element) instead of
+            // llama.cpp's fp16 default (2 bytes/element) — roughly halves
+            // the RAM `--ctx-size` tokens cost, so raising context no
+            // longer means raising RAM 1:1. Same GGUF, same disk footprint,
+            // no model change. `ModelCatalog.Entry.kvCacheBytesPerToken` is
+            // calibrated to this — if these flags ever change, that needs
+            // updating too or the Settings RAM estimate goes wrong.
+            "--cache-type-k", "q8_0", "--cache-type-v", "q8_0",
         ] + role.extraArguments
         launched.standardOutput = FileHandle.nullDevice
         launched.standardError = FileHandle.nullDevice
