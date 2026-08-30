@@ -257,7 +257,10 @@ private struct WebNoteView: NSViewRepresentable {
                     return
                 }
                 do {
-                    let result = try await LlamaCppClient().generate(model: model, selection: text, instruction: instruction)
+                    let result = try await LlamaCppClient().generate(
+                        model: model, selection: text, instruction: instruction,
+                        contextSize: parent.preferences.aiContextSize
+                    )
                     deliver(webView, id: id, text: WebNoteEditor.strippingOuterMarkdownFence(result), error: nil)
                 } catch {
                     deliver(webView, id: id, text: nil, error: error.localizedDescription)

@@ -26,6 +26,38 @@ final class LlamaCppClientTests: XCTestCase {
         XCTAssertNil(json["model"])
     }
 
+    // MARK: truncatedForContext — the note editor's "Ask AI" pill
+
+    func testTruncatedForContextLeavesAShortSelectionUntouched() {
+        let selection = "Just a short highlighted sentence."
+        let result = LlamaCppClient.truncatedForContext(selection, instruction: "Summarize.", contextSize: 4096)
+        XCTAssertEqual(result, selection)
+    }
+
+    /// Regression: the note editor's "Ask AI" pill sent the selected text
+    /// completely unbounded, which could exceed the configured context size
+    /// with a long note — llama-server's response to that overflow is an
+    /// *empty* completion (ClientError.empty), not a clear error.
+    func testTruncatedForContextShortensAVeryLongSelectionAtASmallContextSize() {
+        let longSelection = String(repeating: "lecture notes ", count: 2000) // ~28,000 chars
+        let result = LlamaCppClient.truncatedForContext(longSelection, instruction: "Structure this.", contextSize: 3072)
+        XCTAssertLessThan(result.count, longSelection.count)
+        XCTAssertTrue(result.hasSuffix("[...truncated to fit the configured context size]"))
+    }
+
+    func testTruncatedForContextNeverGoesBelowTheFloorEvenAtATinyContextSize() {
+        let longSelection = String(repeating: "x", count: 10000)
+        let result = LlamaCppClient.truncatedForContext(longSelection, instruction: "s", contextSize: 0)
+        // Floored at 200 tokens * 4 chars/token = 800, plus the suffix.
+        XCTAssertLessThanOrEqual(result.count, 800 + "\n[...truncated to fit the configured context size]".count)
+    }
+
+    func testTruncatedForContextAtHighContextLeavesAModeratelyLongNoteUntouched() {
+        let selection = String(repeating: "a page of real notes. ", count: 100) // ~2,300 chars
+        let result = LlamaCppClient.truncatedForContext(selection, instruction: "Summarize.", contextSize: 32768)
+        XCTAssertEqual(result, selection)
+    }
+
     // MARK: parseContent — the OpenAI-compatible plain-text shape
 
     func testParseContentExtractsMessageContent() throws {
