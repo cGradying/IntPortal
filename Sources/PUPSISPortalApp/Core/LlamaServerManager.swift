@@ -59,25 +59,32 @@ final class LlamaServerManager {
     /// duplicate.
     ///
     /// Switching `.chat` models (a different `modelPath` than what's already
-    /// running), or changing `contextSize`, restarts the process —
-    /// `llama-server` serves one model at one context length for its whole
-    /// lifetime, there's no in-place swap of either. `contextSize` only
-    /// matters for `.chat` (`Preferences.aiContextSize`); `.embed` passes its
-    /// own fixed default since embedding requests are one short chunk at a
-    /// time, never the long context a chat/RAG turn needs.
-    func ensureRunning(_ role: Role, modelPath: URL, contextSize: Int = Preferences.aiDefaultContextSize) async -> Bool {
-        if await isHealthy(role), currentModelPath[role] == modelPath, currentContextSize[role] == contextSize {
+    /// running), changing `contextSize`, or flipping `kvQuantized`/`useGPU`,
+    /// restarts the process — `llama-server` serves one model at one context
+    /// length with one set of launch flags for its whole lifetime, there's no
+    /// in-place change to any of them. `contextSize`/`kvQuantized`/`useGPU`
+    /// only matter for `.chat` (`Preferences.aiContextSize`/
+    /// `aiKVCacheQuantized`/`aiUseGPU`); `.embed` passes its own fixed
+    /// defaults since embedding requests are one short chunk at a time, never
+    /// the long context a chat/RAG turn needs.
+    func ensureRunning(
+        _ role: Role, modelPath: URL, contextSize: Int = Preferences.aiDefaultContextSize,
+        kvQuantized: Bool = true, useGPU: Bool = true
+    ) async -> Bool {
+        if await isHealthy(role), currentModelPath[role] == modelPath, currentContextSize[role] == contextSize,
+           currentKVQuantized[role] == kvQuantized, currentUseGPU[role] == useGPU {
             return true
         }
-        if currentModelPath[role] != modelPath || currentContextSize[role] != contextSize { stop(role) }
+        if currentModelPath[role] != modelPath || currentContextSize[role] != contextSize
+            || currentKVQuantized[role] != kvQuantized || currentUseGPU[role] != useGPU {
+            stop(role)
+        }
         if processes[role] != nil { return await waitUntilHealthy(role) }
 
         guard let binary = Self.locateBinary() else { return false }
 
-        let launched = Process()
-        launched.executableURL = URL(fileURLWithPath: binary)
-        launched.arguments = [
-            "-m", modelPath.path, "--port", String(role.port), "--ctx-size", String(contextSize),
+        var arguments = ["-m", modelPath.path, "--port", String(role.port), "--ctx-size", String(contextSize)]
+        if kvQuantized {
             // KV cache quantized to q8_0 (1 byte/element) instead of
             // llama.cpp's fp16 default (2 bytes/element) — roughly halves
             // the RAM `--ctx-size` tokens cost, so raising context no
@@ -85,8 +92,18 @@ final class LlamaServerManager {
             // no model change. `ModelCatalog.Entry.kvCacheBytesPerToken` is
             // calibrated to this — if these flags ever change, that needs
             // updating too or the Settings RAM estimate goes wrong.
-            "--cache-type-k", "q8_0", "--cache-type-v", "q8_0",
-        ] + role.extraArguments
+            arguments += ["--cache-type-k", "q8_0", "--cache-type-v", "q8_0"]
+        }
+        if !useGPU {
+            // Forces CPU-only — off by default, a debugging knob for
+            // isolating whether a slowdown or crash is GPU-related.
+            arguments += ["-ngl", "0"]
+        }
+        arguments += role.extraArguments
+
+        let launched = Process()
+        launched.executableURL = URL(fileURLWithPath: binary)
+        launched.arguments = arguments
         launched.standardOutput = FileHandle.nullDevice
         launched.standardError = FileHandle.nullDevice
 
@@ -98,15 +115,18 @@ final class LlamaServerManager {
         processes[role] = launched
         currentModelPath[role] = modelPath
         currentContextSize[role] = contextSize
+        currentKVQuantized[role] = kvQuantized
+        currentUseGPU[role] = useGPU
         return await waitUntilHealthy(role)
     }
 
-    /// Tracks which model (and context size) each role's currently-running
-    /// process was started with, so `ensureRunning` knows to restart rather
-    /// than reuse when the user switches `Preferences.aiModel` or
-    /// `Preferences.aiContextSize`.
+    /// Tracks which model (context size, KV quantization, GPU offload) each
+    /// role's currently-running process was started with, so `ensureRunning`
+    /// knows to restart rather than reuse when any of them changes.
     private var currentModelPath: [Role: URL] = [:]
     private var currentContextSize: [Role: Int] = [:]
+    private var currentKVQuantized: [Role: Bool] = [:]
+    private var currentUseGPU: [Role: Bool] = [:]
 
     /// Clean SIGTERM — llama-server shuts down on it. Called when AI is
     /// toggled off and when the app quits (`AppState`'s termination observer).
@@ -120,6 +140,8 @@ final class LlamaServerManager {
         processes[role] = nil
         currentModelPath[role] = nil
         currentContextSize[role] = nil
+        currentKVQuantized[role] = nil
+        currentUseGPU[role] = nil
     }
 
     private func isHealthy(_ role: Role) async -> Bool {

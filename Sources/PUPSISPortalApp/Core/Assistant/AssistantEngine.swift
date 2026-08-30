@@ -143,22 +143,6 @@ final class AssistantEngine {
     /// getting slower and closer to overflowing.
     static let maxHistoryTurns = 20
 
-    /// Confirmed live: every `client.chat(...)` call omitted `numPredict`
-    /// entirely — `chatRequestBody` only sends `max_tokens` when it's
-    /// non-nil, so generation ran until *remaining context* ran out, not a
-    /// real budget. At the default context size, the tool catalog + rules
-    /// (`AssistantContext.promptOverheadTokens`) plus a note plus history
-    /// could leave almost nothing for the reply itself, and a model that
-    /// runs out of room mid-JSON throws `.malformedReply` — this was
-    /// "generation sometimes incomplete." 600 is generous for a normal
-    /// schema-locked reply plus a `.low`-effort thinking pass, while still
-    /// leaving real room for notes/history even at `aiContextSizeRange`'s
-    /// floor. The `contextTooSmall` guard below reserves exactly this same
-    /// number, not a second independent guess — see its own history
-    /// (`promptOverheadTokens` and this constant already drifted apart
-    /// once, at 1400 vs the real ~1860).
-    static let replyTokenBudget = 600
-
     private let client: LlamaCppClient
     private let model: String
     private let executor: AssistantExecutor
@@ -186,10 +170,15 @@ final class AssistantEngine {
         guard await ensureServerRunning() else { throw AssistantEngineError.serverUnavailable }
 
         // At least enough room past the fixed catalog/rules overhead for
-        // the reply budget every request below actually asks for — the
-        // same replyTokenBudget, not a separate guess. See
-        // AssistantEngineError.contextTooSmall's own doc comment.
-        let minimumViableTokens = AssistantContext.promptOverheadTokens + Self.replyTokenBudget
+        // the reply budget every request below actually asks for — the same
+        // configured budget, not a separate guess. See
+        // AssistantEngineError.contextTooSmall's own doc comment, and
+        // Preferences.aiOutputTokenBudget for where this now lives (was a
+        // fixed 600 here; user-configurable via Settings ▸ Intelligence ▸
+        // Advanced AI tuning).
+        let replyTokenBudget = Preferences.storedOutputTokenBudget()
+        let temperature = Preferences.storedTemperature()
+        let minimumViableTokens = AssistantContext.promptOverheadTokens + replyTokenBudget
         guard context.tokenBudget >= minimumViableTokens else {
             throw AssistantEngineError.contextTooSmall(needed: minimumViableTokens, configured: context.tokenBudget)
         }
@@ -208,7 +197,7 @@ final class AssistantEngine {
         guard permission == .auto else {
             let raw = try await client.chat(
                 model: model, messages: messages, schema: Self.responseSchema(),
-                numPredict: Self.replyTokenBudget, think: think
+                numPredict: replyTokenBudget, think: think, temperature: temperature
             )
             let parsed = try Self.decodeOrThrow(raw.content)
             return AssistantOutcome(reply: parsed.reply, actions: parsed.actions, results: [], thinking: raw.thinking)
@@ -218,7 +207,7 @@ final class AssistantEngine {
         for iteration in 1...Self.maxIterations {
             let raw = try await client.chat(
                 model: model, messages: messages, schema: Self.responseSchema(),
-                numPredict: Self.replyTokenBudget, think: think
+                numPredict: replyTokenBudget, think: think, temperature: temperature
             )
             let parsed = try Self.decodeOrThrow(raw.content)
 

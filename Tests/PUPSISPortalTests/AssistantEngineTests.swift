@@ -67,7 +67,7 @@ final class AssistantEngineTests: XCTestCase {
     /// real output budget — the direct mechanism behind "generation
     /// sometimes incomplete" (a model that runs out of room mid-JSON throws
     /// `.malformedReply`). `max_tokens` must now actually be present in the
-    /// real request body, equal to `AssistantEngine.replyTokenBudget`.
+    /// real request body, equal to `Preferences.storedOutputTokenBudget()`.
     func testRespondReservesARealOutputBudget() async throws {
         var capturedBody: [String: Any]?
         let sut = engine { body in
@@ -75,7 +75,7 @@ final class AssistantEngineTests: XCTestCase {
             return self.jsonResponse(#"{"reply":"ok","actions":[]}"#)
         }
         _ = try await sut.respond(to: "hello", context: context, permission: .confirm)
-        XCTAssertEqual(capturedBody?["max_tokens"] as? Int, AssistantEngine.replyTokenBudget)
+        XCTAssertEqual(capturedBody?["max_tokens"] as? Int, Preferences.storedOutputTokenBudget())
     }
 
     /// Same reservation in `.auto` mode's loop, not just the propose/confirm
@@ -87,7 +87,7 @@ final class AssistantEngineTests: XCTestCase {
             return self.jsonResponse(#"{"reply":"done","actions":[]}"#)
         }
         _ = try await sut.respond(to: "hello", context: context, permission: .auto)
-        XCTAssertEqual(capturedBody?["max_tokens"] as? Int, AssistantEngine.replyTokenBudget)
+        XCTAssertEqual(capturedBody?["max_tokens"] as? Int, Preferences.storedOutputTokenBudget())
     }
 
     func testDecodesAReplyWithAProposedAction() async throws {

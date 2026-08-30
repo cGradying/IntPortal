@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
+import ServiceManagement
 import Inject
 
 struct SettingsView: View {
@@ -48,15 +49,54 @@ struct SettingsView: View {
         ClassSession.subjectCodes(in: appState.portal.sessions)
     }
 
+    /// Sidebar destinations. Replaces the old 7-tab `TabView` — Misc and
+    /// Grades (a dumping ground and a single stepper) are gone, folded into
+    /// the panes their contents actually belong to.
+    private enum Pane: String, CaseIterable, Identifiable {
+        case general, appearance, schedule, notifications, intelligence, dataStorage, account, about
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .general: "General"
+            case .appearance: "Appearance"
+            case .schedule: "Schedule"
+            case .notifications: "Notifications"
+            case .intelligence: "Intelligence"
+            case .dataStorage: "Data & Storage"
+            case .account: "Account"
+            case .about: "About"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .general: "gearshape"
+            case .appearance: "paintbrush"
+            case .schedule: "calendar"
+            case .notifications: "bell.badge"
+            case .intelligence: "sparkles"
+            case .dataStorage: "internaldrive"
+            case .account: "person.crop.circle"
+            case .about: "info.circle"
+            }
+        }
+    }
+
+    // Optional, not `Pane` — `List`'s sidebar-selection initializer takes
+    // `Binding<SelectionValue?>`; a non-optional binding here type-checks
+    // against a different, row-less overload and renders an empty list.
+    @State private var pane: Pane? = .appearance
+
     var body: some View {
-        TabView {
-            appearanceTab.tabItem { Label("Appearance", systemImage: "paintbrush") }
-            calendarTab.tabItem { Label("Calendar", systemImage: "calendar") }
-            notificationsTab.tabItem { Label("Notifications", systemImage: "bell.badge") }
-            gradesTab.tabItem { Label("Grades", systemImage: "graduationcap") }
-            accountTab.tabItem { Label("Account", systemImage: "person.crop.circle") }
-            miscTab.tabItem { Label("Misc", systemImage: "ellipsis.circle") }
-            aboutTab.tabItem { Label("About", systemImage: "info.circle") }
+        NavigationSplitView {
+            List(Pane.allCases, selection: $pane) { pane in
+                Label(pane.label, systemImage: pane.symbol).tag(pane)
+            }
+            .navigationSplitViewColumnWidth(min: 180, ideal: 190, max: 220)
+        } detail: {
+            settingsForm { paneContent }
+                .navigationTitle(pane?.label ?? "Settings")
         }
         .tint(palette.accent)
         .background(palette.canvasWash.ignoresSafeArea())
@@ -68,12 +108,43 @@ struct SettingsView: View {
         .enableInjection()
     }
 
-    /// One grouped, wash-backed form per tab — the shared chrome lives here.
+    @ViewBuilder
+    private var paneContent: some View {
+        switch pane {
+        case .general: generalTab
+        case .appearance: appearanceTab
+        case .schedule: scheduleTab
+        case .notifications: notificationsTab
+        case .intelligence: intelligenceTab
+        case .dataStorage: dataStorageTab
+        case .account: accountTab
+        case .about: aboutTab
+        case nil: appearanceTab
+        }
+    }
+
+    /// One grouped, wash-backed form per pane — the shared chrome lives here.
     @ViewBuilder
     private func settingsForm<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         Form { content() }
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
+    }
+
+    /// Always-visible technical facts for a pane — real paths, identifiers,
+    /// and raw statuses, monospaced and selectable. Every pane ends with one:
+    /// the point of "technical" is that it's on screen, not a click away.
+    private func technicalSection(_ rows: [(String, String)]) -> some View {
+        Section("Technical Details") {
+            ForEach(rows, id: \.0) { row in
+                LabeledContent(row.0) {
+                    Text(row.1)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+        }
     }
 
     /// One row of swatches instead of a label-per-row grid — six themes read
@@ -102,11 +173,69 @@ struct SettingsView: View {
         }
     }
 
+    /// Everything else — window/launcher behavior, the notes database
+    /// location, and the destructive wipe, last. Folds in what used to be
+    /// stranded on Misc (notes reveal, Delete All Notes) plus the island
+    /// toggles, which were never really about *appearance*.
+    private var generalTab: some View {
+        settingsForm {
+            Section {
+                Toggle("Open on the home launcher", isOn: $preferences.islandStartHome)
+                Toggle("Expand island on hover", isOn: $preferences.islandExpandOnHover)
+                Toggle("Auto-hide window buttons", isOn: $preferences.trafficLightsAutoHide)
+            } header: {
+                Text("Dynamic Island")
+            } footer: {
+                Text("The app's floating top bar, and the red/yellow/green window buttons.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Toggle("Start at login", isOn: $launchAtLogin)
+                .onChange(of: launchAtLogin) { _, wants in
+                    LoginItem.setEnabled(wants)
+                    // Reflect what actually took effect, in case registration failed.
+                    launchAtLogin = LoginItem.isEnabled
+                }
+
+            Section {
+                Button("Reveal in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([NotesStore.defaultURL])
+                }
+            } header: {
+                Text("Notes Database")
+            } footer: {
+                Text("Opens Finder with notes.json selected — the file everything in Notes is stored in.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Button("Delete All Notes…", role: .destructive) { confirmingWipe = true }
+            } header: {
+                Text("Wipe Notes")
+            } footer: {
+                Text("Deletes every note, folder, and pasted image. Login, schedule/grades cache, and settings are untouched.")
+                    .foregroundStyle(.secondary)
+            }
+            .confirmationDialog(
+                "Delete all notes?",
+                isPresented: $confirmingWipe
+            ) {
+                Button("Delete Everything", role: .destructive) { appState.notes.wipeAll() }
+            } message: {
+                Text("This deletes every note, folder, and pasted image. This cannot be undone.")
+            }
+
+            technicalSection([
+                ("App Support directory", NotesStore.defaultURL.deletingLastPathComponent().path),
+                ("Login item status", "\(SMAppService.mainApp.status)"),
+            ])
+        }
+    }
+
     /// Compact: one section for theme+font+scale (the three "how it looks"
     /// knobs, all one-line-each), captions trimmed to a single line or
-    /// folded into `.help()` — the previous version ran three verbose
-    /// paragraphs of always-visible footer text for toggles that are
-    /// self-explanatory from their own labels.
+    /// folded into `.help()`.
     private var appearanceTab: some View {
         settingsForm {
             Section("Theme") {
@@ -131,18 +260,6 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("Open on the home launcher", isOn: $preferences.islandStartHome)
-                Toggle("Expand island on hover", isOn: $preferences.islandExpandOnHover)
-                Toggle("Auto-hide window buttons", isOn: $preferences.trafficLightsAutoHide)
-            } header: {
-                Text("Dynamic Island")
-            } footer: {
-                Text("The app's floating top bar, and the red/yellow/green window buttons.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
                 if subjectCodes.isEmpty {
                     Text("Subjects appear here once your schedule loads.")
                         .foregroundStyle(.secondary)
@@ -154,22 +271,24 @@ struct SettingsView: View {
             } header: {
                 Text("Subject Colors")
             }
+
+            technicalSection([
+                ("Accent", palette.accent.hex ?? "—"),
+                ("Canvas top", palette.canvasTop.hex ?? "—"),
+                ("Canvas bottom", palette.canvasBottom.hex ?? "—"),
+                ("Font family", preferences.fontChoice.familyName ?? "system"),
+                ("UI scale factor", String(format: "%.2f", preferences.uiScale)),
+            ])
         }
     }
 
-    private var calendarTab: some View {
+    /// Calendar export, Google export, and program units — everything about
+    /// the schedule the user set up once and rarely touches again.
+    private var scheduleTab: some View {
         settingsForm {
             calendarSection
             googleSection
-        }
-    }
 
-    private var notificationsTab: some View {
-        settingsForm { notificationSection }
-    }
-
-    private var gradesTab: some View {
-        settingsForm {
             Section {
                 Stepper(value: $preferences.programTotalUnits, in: 0...400, step: 3) {
                     LabeledContent("Program total units") {
@@ -185,12 +304,103 @@ struct SettingsView: View {
                 Text("Your program's total required units, for the completed-units progress on the Grades trend. SIS doesn't publish it.")
                     .foregroundStyle(.secondary)
             }
+
+            technicalSection([
+                ("Export calendar", preferences.exportCalendarID.isEmpty ? "none" : preferences.exportCalendarID),
+                ("Online calendar", preferences.onlineExportCalendarID.isEmpty ? "none" : preferences.onlineExportCalendarID),
+                ("Google calendar", preferences.googleCalendarID.isEmpty ? "none" : preferences.googleCalendarID),
+                ("Cached sessions", "\(appState.portal.sessions.count)"),
+                ("Last updated", appState.portal.lastUpdated.map { ISO8601DateFormatter().string(from: $0) } ?? "never"),
+            ])
         }
     }
 
-    /// Beta, off by default. Lives on the Misc tab alongside the local-model
-    /// download steps and the RAG tuning knobs — everything AI-related in
-    /// one place, rather than a toggle stranded on the Grades tab.
+    private var notificationsTab: some View {
+        settingsForm {
+            notificationSection
+            technicalSection([
+                ("Authorization status", notifier.authorization.map { "\($0)" } ?? "unknown"),
+                ("Lead time", "\(preferences.notificationLeadMinutes) minutes"),
+                ("Start at login", LoginItem.isEnabled ? "enabled" : "disabled"),
+            ])
+        }
+    }
+
+    /// IntAssis, its models, the RAG tuning knobs, and the advanced
+    /// generation/runtime knobs — everything AI-related in one place instead
+    /// of stranded on a Misc tab.
+    private var intelligenceTab: some View {
+        settingsForm {
+            aiSection
+            downloadModelsSection
+            advancedAITuningSection
+            ragTuningSection
+            technicalSection([
+                ("llama-server binary", LlamaServerManager.locateBinary() ?? "not found"),
+                ("Selected model path", ModelCatalog.entry(for: preferences.aiModel)
+                    .map { ModelCatalog.localURL(for: $0).path } ?? "—"),
+                ("Chat port", "8080"),
+                ("Embed port", "8081"),
+            ])
+        }
+    }
+
+    /// Knobs the app already had fixed constants for — sampling temperature,
+    /// the reply token budget, KV cache quantization, GPU offload — surfaced
+    /// as real controls instead of staying hardcoded. Gated on `aiEnabled`
+    /// like the rest of the pane; footers stay on screen, not behind a "?".
+    private var advancedAITuningSection: some View {
+        Section {
+            if preferences.aiEnabled {
+                VStack(alignment: .leading) {
+                    LabeledContent("Response temperature", value: String(format: "%.2f", preferences.aiTemperature))
+                    Slider(value: $preferences.aiTemperature, in: 0...1, step: 0.05)
+                }
+                VStack(alignment: .leading) {
+                    LabeledContent("Output token budget", value: "\(preferences.aiOutputTokenBudget) tokens")
+                    Slider(
+                        value: Binding(
+                            get: { Double(preferences.aiOutputTokenBudget) },
+                            set: { preferences.aiOutputTokenBudget = Int($0) }
+                        ),
+                        in: Double(Preferences.aiOutputTokenBudgetRange.lowerBound)...Double(Preferences.aiOutputTokenBudgetRange.upperBound),
+                        step: 128
+                    )
+                }
+                Toggle("Quantize KV cache (q8_0)", isOn: $preferences.aiKVCacheQuantized)
+                Toggle("Use GPU (Metal)", isOn: $preferences.aiUseGPU)
+                Button("Reset to Defaults") {
+                    preferences.aiTemperature = Preferences.aiDefaultTemperature
+                    preferences.aiOutputTokenBudget = Preferences.aiDefaultOutputTokenBudget
+                    preferences.aiKVCacheQuantized = true
+                    preferences.aiUseGPU = true
+                }
+                .font(.caption)
+            } else {
+                Text("Turn on IntAssis above to tune these.")
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Advanced AI Tuning")
+        } footer: {
+            Text("""
+            Temperature: lower is more focused and repeatable, higher is more varied. \
+            Output token budget: the ceiling on a single reply — raising it without \
+            enough context headroom can make a turn refuse to run rather than truncate. \
+            Quantizing the KV cache roughly halves its RAM cost per token of context; \
+            turning it off approximates the older, more precise fp16 cache. GPU off \
+            forces CPU-only, mainly useful for isolating a slowdown or crash. All four \
+            restart the local model process when changed, and only affect the \
+            `llama-server`-backed (Intel) chat model — the Apple Silicon MLX runtime \
+            manages its own KV cache and always uses the GPU.
+            """)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Beta, off by default. Lives on the Intelligence pane alongside the
+    /// local-model download steps and the RAG tuning knobs — everything
+    /// AI-related in one place.
     private var aiSection: some View {
         Section {
             Toggle("IntAssis", isOn: $preferences.aiEnabled)
@@ -410,15 +620,13 @@ struct SettingsView: View {
         do {
             installingLabel = "Downloading \(entry.label)…"
             installProgress = 0
-            for try await fraction in LlamaCppClient.download(from: entry.url, to: ModelCatalog.localURL(for: entry)) {
+            for try await fraction in ModelCatalog.download(entry) {
                 installProgress = fraction
             }
             if !ModelCatalog.isDownloaded(ModelCatalog.embedModel) {
                 installingLabel = "Downloading \(ModelCatalog.embedModel.label)…"
                 installProgress = 0
-                for try await fraction in LlamaCppClient.download(
-                    from: ModelCatalog.embedModel.url, to: ModelCatalog.localURL(for: ModelCatalog.embedModel)
-                ) {
+                for try await fraction in ModelCatalog.download(ModelCatalog.embedModel) {
                     installProgress = fraction
                 }
             }
@@ -443,7 +651,9 @@ struct SettingsView: View {
     /// RAM" checks in Settings agree with each other.
     private var ramEstimateRow: some View {
         let entry = ModelCatalog.entry(for: preferences.aiModel) ?? ModelCatalog.entries[0]
-        let estimate = ModelCatalog.estimatedRAMBytes(for: entry, contextSize: preferences.aiContextSize)
+        let estimate = ModelCatalog.estimatedRAMBytes(
+            for: entry, contextSize: preferences.aiContextSize, quantizedKVCache: preferences.aiKVCacheQuantized
+        )
         let estimateGB = Double(estimate) / 1_073_741_824
         let tooMuch = SystemMemory.availableBytes().map {
             SystemMemory.shouldWarn(modelBytes: estimate, availableBytes: $0)
@@ -487,89 +697,156 @@ struct SettingsView: View {
         .frame(width: 320)
     }
 
-    private var miscTab: some View {
-        settingsForm {
+    /// How the assistant searches notes — chunk size, similarity floor,
+    /// context budget, answer temperature. Sits with the rest of Intelligence
+    /// rather than a Misc tab.
+    private var ragTuningSection: some View {
+        Section {
+            VStack(alignment: .leading) {
+                LabeledContent("Chunk size", value: "\(preferences.ragChunkSize) chars")
+                Slider(
+                    value: Binding(
+                        get: { Double(preferences.ragChunkSize) },
+                        set: { preferences.ragChunkSize = Int($0) }
+                    ),
+                    in: 200...2000,
+                    step: 100
+                )
+            }
+            VStack(alignment: .leading) {
+                LabeledContent("Similarity floor", value: String(format: "%.2f", preferences.ragSimilarityFloor))
+                Slider(value: $preferences.ragSimilarityFloor, in: 0...1, step: 0.05)
+            }
+            VStack(alignment: .leading) {
+                LabeledContent("Context budget", value: "\(preferences.ragContextBudget) chars")
+                Slider(
+                    value: Binding(
+                        get: { Double(preferences.ragContextBudget) },
+                        set: { preferences.ragContextBudget = Int($0) }
+                    ),
+                    in: 1000...20000,
+                    step: 500
+                )
+            }
+            VStack(alignment: .leading) {
+                LabeledContent("Answer temperature", value: String(format: "%.2f", preferences.ragAnswerTemperature))
+                Slider(value: $preferences.ragAnswerTemperature, in: 0...1, step: 0.05)
+            }
+            Button("Reset to Defaults") {
+                preferences.ragChunkSize = Preferences.ragDefaultChunkSize
+                preferences.ragSimilarityFloor = Preferences.ragDefaultSimilarityFloor
+                preferences.ragContextBudget = Preferences.ragDefaultContextBudget
+                preferences.ragAnswerTemperature = Preferences.ragDefaultAnswerTemperature
+            }
+            .font(.caption)
+        } header: {
+            Text("AI Tuning")
+        } footer: {
+            Text("""
+            How the assistant searches your notes (the AI's own search, and `/rag`). Chunk size is how much \
+            text is grouped per match; similarity floor is how loose a match counts as relevant — lower finds \
+            more, at the risk of an unrelated note slipping in. Context budget caps how much matched text \
+            reaches the answer model.
+            """)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Every file this app writes to disk, with its real size and a way to
+    /// get to it or clear it — the same paths `generalTab`'s Notes Database
+    /// row and `downloadModelsSection` already compute, just gathered in one
+    /// technical place instead of scattered across panes.
+    private var dataStorageTab: some View {
+        let files: [(label: String, url: URL)] = [
+            ("Schedule cache", ScheduleStore.fileURL),
+            ("Notes & vault", NotesStore.defaultURL),
+            ("Syllabus", SyllabusStore.defaultURL),
+            ("Quiz decks", QuizStore.defaultRoot),
+        ]
+        let downloadedModels = (ModelCatalog.entries + [ModelCatalog.embedModel]).filter(ModelCatalog.isDownloaded)
+        let modelsTotal = downloadedModels.reduce(Int64(0)) { $0 + fileSize(at: ModelCatalog.localURL(for: $1)) }
+        let filesTotal = files.reduce(Int64(0)) { $0 + fileSize(at: $1.url) }
+
+        return settingsForm {
             Section {
-                Button("Reveal in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([NotesStore.defaultURL])
+                LabeledContent("Total on disk", value: byteCountFormatter.string(fromByteCount: filesTotal + modelsTotal))
+                    .fontWeight(.semibold)
+            }
+
+            Section {
+                ForEach(files, id: \.label) { file in
+                    LabeledContent(file.label) {
+                        HStack(spacing: 8) {
+                            Text(byteCountFormatter.string(fromByteCount: fileSize(at: file.url)))
+                                .foregroundStyle(.secondary)
+                            Button("Reveal in Finder") {
+                                NSWorkspace.shared.activateFileViewerSelecting([file.url])
+                            }
+                            .font(.caption)
+                        }
+                    }
                 }
             } header: {
-                Text("Notes Database")
+                Text("Files")
             } footer: {
-                Text("Opens Finder with notes.json selected — the file everything in Notes is stored in.")
+                Text("Everything this app stores — schedule, notes, syllabus, quiz decks. Reveal opens Finder with the file (or folder) selected; nothing here is deleted from this list.")
                     .foregroundStyle(.secondary)
             }
 
-            aiSection
-            downloadModelsSection
-
             Section {
-                Button("Delete All Notes…", role: .destructive) { confirmingWipe = true }
+                if downloadedModels.isEmpty {
+                    Text("No models downloaded yet — see Intelligence.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(downloadedModels) { entry in
+                        LabeledContent(entry.label) {
+                            HStack(spacing: 8) {
+                                Text(byteCountFormatter.string(fromByteCount: fileSize(at: ModelCatalog.localURL(for: entry))))
+                                    .foregroundStyle(.secondary)
+                                Button("Delete", role: .destructive) {
+                                    try? FileManager.default.removeItem(at: ModelCatalog.localURL(for: entry))
+                                    refreshDownloaded()
+                                }
+                                .font(.caption)
+                                .disabled(entry.id == preferences.aiModel)
+                            }
+                        }
+                    }
+                }
             } header: {
-                Text("Wipe Notes")
+                Text("AI Models")
             } footer: {
-                Text("Deletes every note, folder, and pasted image. Login, schedule/grades cache, and settings are untouched.")
+                Text("Deleting the model currently selected in Intelligence is disabled — switch models first. Deleting frees disk space immediately; re-downloading is the only way back.")
                     .foregroundStyle(.secondary)
-            }
-            .confirmationDialog(
-                "Delete all notes?",
-                isPresented: $confirmingWipe
-            ) {
-                Button("Delete Everything", role: .destructive) { appState.notes.wipeAll() }
-            } message: {
-                Text("This deletes every note, folder, and pasted image. This cannot be undone.")
-            }
-
-            Section {
-                VStack(alignment: .leading) {
-                    LabeledContent("Chunk size", value: "\(preferences.ragChunkSize) chars")
-                    Slider(
-                        value: Binding(
-                            get: { Double(preferences.ragChunkSize) },
-                            set: { preferences.ragChunkSize = Int($0) }
-                        ),
-                        in: 200...2000,
-                        step: 100
-                    )
-                }
-                VStack(alignment: .leading) {
-                    LabeledContent("Similarity floor", value: String(format: "%.2f", preferences.ragSimilarityFloor))
-                    Slider(value: $preferences.ragSimilarityFloor, in: 0...1, step: 0.05)
-                }
-                VStack(alignment: .leading) {
-                    LabeledContent("Context budget", value: "\(preferences.ragContextBudget) chars")
-                    Slider(
-                        value: Binding(
-                            get: { Double(preferences.ragContextBudget) },
-                            set: { preferences.ragContextBudget = Int($0) }
-                        ),
-                        in: 1000...20000,
-                        step: 500
-                    )
-                }
-                VStack(alignment: .leading) {
-                    LabeledContent("Answer temperature", value: String(format: "%.2f", preferences.ragAnswerTemperature))
-                    Slider(value: $preferences.ragAnswerTemperature, in: 0...1, step: 0.05)
-                }
-                Button("Reset to Defaults") {
-                    preferences.ragChunkSize = Preferences.ragDefaultChunkSize
-                    preferences.ragSimilarityFloor = Preferences.ragDefaultSimilarityFloor
-                    preferences.ragContextBudget = Preferences.ragDefaultContextBudget
-                    preferences.ragAnswerTemperature = Preferences.ragDefaultAnswerTemperature
-                }
-                .font(.caption)
-            } header: {
-                Text("AI Tuning")
-            } footer: {
-                Text("""
-                How the assistant searches your notes (the AI's own search, and `/rag`). Chunk size is how much \
-                text is grouped per match; similarity floor is how loose a match counts as relevant — lower finds \
-                more, at the risk of an unrelated note slipping in. Context budget caps how much matched text \
-                reaches the answer model.
-                """)
-                .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private let byteCountFormatter: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter
+    }()
+
+    /// A file's size, or a directory's recursive total — `NotesStore`'s
+    /// vault and a downloaded `.mlx` model are both directories; a shallow
+    /// `enumerator` sum treats either the same as a single file's
+    /// `attributesOfItem`. Missing paths (nothing downloaded/written yet)
+    /// read as zero rather than erroring.
+    private func fileSize(at url: URL) -> Int64 {
+        let fm = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return 0 }
+        if !isDirectory.boolValue {
+            let attributes = try? fm.attributesOfItem(atPath: url.path)
+            return (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+        }
+        guard let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
+        var total: Int64 = 0
+        for case let fileURL as URL in enumerator {
+            total += Int64((try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+        return total
     }
 
     private var accountTab: some View {
@@ -591,6 +868,11 @@ struct SettingsView: View {
                     Button("Sign Out", role: .destructive) { appState.signOut() }
                 }
             }
+
+            technicalSection([
+                ("SIS endpoint", "sis8.pup.edu.ph"),
+                ("Keychain service", "ph.edu.pup.sis8.portal"),
+            ])
         }
     }
 
@@ -656,6 +938,12 @@ struct SettingsView: View {
             } header: {
                 Text("Terms of Use")
             }
+
+            technicalSection([
+                ("Build", Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"),
+                ("Bundle identifier", Bundle.main.bundleIdentifier ?? "unknown"),
+                ("macOS", ProcessInfo.processInfo.operatingSystemVersionString),
+            ])
         }
     }
 }
@@ -702,21 +990,14 @@ private extension SettingsView {
                 }
                 .foregroundStyle(.secondary)
             }
-
-            Toggle("Start at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, wants in
-                    LoginItem.setEnabled(wants)
-                    // Reflect what actually took effect, in case registration failed.
-                    launchAtLogin = LoginItem.isEnabled
-                }
         } header: {
             Text("Notifications")
         } footer: {
             Text("""
             One reminder per class meeting, repeating weekly. Meetings you've \
             marked vacant are skipped. Reminders fire only while PUPSISPortal is \
-            running — turn on Start at login so it's always there to fire them, \
-            even after a restart.
+            running — turn on Start at login (General) so it's always there to \
+            fire them, even after a restart.
             """)
             .foregroundStyle(.secondary)
         }

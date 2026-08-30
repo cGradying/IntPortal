@@ -504,8 +504,9 @@ struct ContentView: View {
         // controls read `.tint`, not the custom environment key.
         .tint(preferences.theme.palette(for: systemScheme).accent)
         // min/ideal/max instead of a fixed size — same starting size, but
-        // the sheet now offers macOS's native drag-to-resize edge.
-        .frame(minWidth: 480, idealWidth: 560, maxWidth: 760, minHeight: 480, idealHeight: 620, maxHeight: 860)
+        // the sheet now offers macOS's native drag-to-resize edge. Widened
+        // for the sidebar (`NavigationSplitView`) the settings shell moved to.
+        .frame(minWidth: 700, idealWidth: 820, maxWidth: 1000, minHeight: 480, idealHeight: 620, maxHeight: 860)
     }
 }
 

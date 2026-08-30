@@ -332,6 +332,67 @@ final class Preferences: ObservableObject {
         (defaults.object(forKey: Key.aiContextSize) as? Int) ?? aiDefaultContextSize
     }
 
+    // MARK: Advanced AI tuning (Settings ▸ Intelligence)
+
+    /// The interactive assistant's sampling temperature —
+    /// `AssistantEngine.respond`'s `client.chat(temperature:)`. Distinct from
+    /// `ragAnswerTemperature` below (the grounded-answer/`/rag` path); this
+    /// one governs ordinary chat replies and tool-call turns.
+    @Published var aiTemperature: Double {
+        didSet { defaults.set(aiTemperature, forKey: Key.aiTemperature) }
+    }
+    static let aiDefaultTemperature = 0.2
+
+    /// Max tokens the assistant's reply is allowed — `AssistantEngine`'s
+    /// `numPredict`. 600 is the calibrated default (see the removed
+    /// `AssistantEngine.replyTokenBudget`'s history: generous for a
+    /// schema-locked reply plus a `.low`-effort thinking pass, while still
+    /// leaving room for notes/history even at `aiContextSizeRange`'s floor).
+    /// `AssistantEngine.respond` also reserves exactly this many tokens
+    /// against `aiContextSize` before it will even try a turn — raising this
+    /// without enough context headroom trips `.contextTooSmall`, not a
+    /// truncated reply.
+    @Published var aiOutputTokenBudget: Int {
+        didSet { defaults.set(aiOutputTokenBudget, forKey: Key.aiOutputTokenBudget) }
+    }
+    static let aiDefaultOutputTokenBudget = 600
+    static let aiOutputTokenBudgetRange = 128...4096
+
+    /// `LlamaServerManager`'s `--cache-type-k/v` — q8_0 (on, the default)
+    /// roughly halves the KV cache's RAM cost per token versus llama.cpp's
+    /// fp16 default; `ModelCatalog.estimatedRAMBytes` doubles its KV term
+    /// when this is off, so the Settings RAM estimate stays honest either way.
+    @Published var aiKVCacheQuantized: Bool {
+        didSet { defaults.set(aiKVCacheQuantized, forKey: Key.aiKVCacheQuantized) }
+    }
+
+    /// `LlamaServerManager`'s GPU (Metal) offload — off passes `-ngl 0` to
+    /// force CPU-only, useful for isolating whether a slowdown or a crash is
+    /// GPU-related. On (the default) leaves llama-server's own auto-offload
+    /// alone.
+    @Published var aiUseGPU: Bool {
+        didSet { defaults.set(aiUseGPU, forKey: Key.aiUseGPU) }
+    }
+
+    /// Reads straight from `UserDefaults`, same decoupling reason as
+    /// `storedContextSize` above — `AssistantEngine` never holds a
+    /// `Preferences` instance.
+    nonisolated static func storedTemperature(defaults: UserDefaults = .standard) -> Double {
+        (defaults.object(forKey: Key.aiTemperature) as? Double) ?? aiDefaultTemperature
+    }
+
+    nonisolated static func storedOutputTokenBudget(defaults: UserDefaults = .standard) -> Int {
+        (defaults.object(forKey: Key.aiOutputTokenBudget) as? Int) ?? aiDefaultOutputTokenBudget
+    }
+
+    nonisolated static func storedKVCacheQuantized(defaults: UserDefaults = .standard) -> Bool {
+        (defaults.object(forKey: Key.aiKVCacheQuantized) as? Bool) ?? true
+    }
+
+    nonisolated static func storedUseGPU(defaults: UserDefaults = .standard) -> Bool {
+        (defaults.object(forKey: Key.aiUseGPU) as? Bool) ?? true
+    }
+
     // MARK: RAG tuning (Settings ▸ Misc)
 
     /// Defaults mirror what was hand-calibrated live against a real vault —
@@ -499,6 +560,10 @@ final class Preferences: ObservableObject {
         static let aiRevealAnimation = "aiRevealAnimation"
         static let aiThinking = "aiThinking"
         static let aiContextSize = "aiContextSize"
+        static let aiTemperature = "aiTemperature"
+        static let aiOutputTokenBudget = "aiOutputTokenBudget"
+        static let aiKVCacheQuantized = "aiKVCacheQuantized"
+        static let aiUseGPU = "aiUseGPU"
         static let ragChunkSize = "ragChunkSize"
         static let ragSimilarityFloor = "ragSimilarityFloor"
         static let ragContextBudget = "ragContextBudget"
@@ -568,6 +633,10 @@ final class Preferences: ObservableObject {
             (defaults.object(forKey: Key.aiContextSize) as? Int) ?? Preferences.aiDefaultContextSize,
             Preferences.aiContextSizeRange.lowerBound
         )
+        aiTemperature = (defaults.object(forKey: Key.aiTemperature) as? Double) ?? Preferences.aiDefaultTemperature
+        aiOutputTokenBudget = (defaults.object(forKey: Key.aiOutputTokenBudget) as? Int) ?? Preferences.aiDefaultOutputTokenBudget
+        aiKVCacheQuantized = (defaults.object(forKey: Key.aiKVCacheQuantized) as? Bool) ?? true
+        aiUseGPU = (defaults.object(forKey: Key.aiUseGPU) as? Bool) ?? true
         ragChunkSize = (defaults.object(forKey: Key.ragChunkSize) as? Int) ?? Preferences.ragDefaultChunkSize
         ragSimilarityFloor = (defaults.object(forKey: Key.ragSimilarityFloor) as? Double) ?? Preferences.ragDefaultSimilarityFloor
         ragContextBudget = (defaults.object(forKey: Key.ragContextBudget) as? Int) ?? Preferences.ragDefaultContextBudget

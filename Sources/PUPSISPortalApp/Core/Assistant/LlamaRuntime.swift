@@ -15,11 +15,17 @@ import Foundation
 enum LlamaRuntime {
     static func ensureChatServer(modelID: String, contextSize: Int = Preferences.storedContextSize()) async -> Bool {
         guard let entry = ModelCatalog.entry(for: modelID), ModelCatalog.isDownloaded(entry) else { return false }
-        return await LlamaServerManager.shared.ensureRunning(.chat, modelPath: ModelCatalog.localURL(for: entry), contextSize: contextSize)
+        return await LlamaServerManager.shared.ensureRunning(
+            .chat, modelPath: ModelCatalog.localURL(for: entry), contextSize: contextSize,
+            kvQuantized: Preferences.storedKVCacheQuantized(), useGPU: Preferences.storedUseGPU()
+        )
     }
 
     static func ensureEmbedServer() async -> Bool {
         guard ModelCatalog.isDownloaded(ModelCatalog.embedModel) else { return false }
-        return await LlamaServerManager.shared.ensureRunning(.embed, modelPath: ModelCatalog.localURL(for: ModelCatalog.embedModel))
+        return await LlamaServerManager.shared.ensureRunning(
+            .embed, modelPath: ModelCatalog.localURL(for: ModelCatalog.embedModel),
+            kvQuantized: Preferences.storedKVCacheQuantized(), useGPU: Preferences.storedUseGPU()
+        )
     }
 }

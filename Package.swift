@@ -26,6 +26,15 @@ let package = Package(
         // Only wired into Views/ (see each file's `@ObserveInjection`); a
         // no-op in a release build, see the `-interposable` note below.
         .package(url: "https://github.com/krzysztofzablocki/Inject.git", from: "1.5.2"),
+        // MLX runtime for Qwen3.5 on Apple Silicon — see
+        // .claude/plans/qwen3-5-0-8b-mlx-mlx-1-2gb-256k-effervescent-panda.md.
+        // Stage-1 checkpoint: does this even resolve under our tools-version.
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm", branch: "main"),
+        // Adapts a local directory's tokenizer files into mlx-swift-lm's
+        // `Tokenizer`/`TokenizerLoader` protocols (`Core/MLXBackend.swift`) —
+        // BPE + chat-template parsing is exactly what this HF-maintained
+        // package already does; not worth reimplementing.
+        .package(url: "https://github.com/huggingface/swift-transformers", from: "0.1.0"),
     ],
     targets: [
         .executableTarget(
@@ -34,6 +43,10 @@ let package = Package(
                 .product(name: "FSRS", package: "SwiftFSRS"),
                 .product(name: "Sparkle", package: "Sparkle"),
                 .product(name: "Inject", package: "Inject"),
+                .product(name: "MLXLLM", package: "mlx-swift-lm"),
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+                .product(name: "MLXGuidedGeneration", package: "mlx-swift-lm"),
+                .product(name: "Transformers", package: "swift-transformers"),
             ],
             path: "Sources/PUPSISPortalApp",
             resources: [
