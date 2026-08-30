@@ -569,6 +569,24 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.assistantPanelWidth, Preferences.assistantPanelDefaultWidth)
         XCTAssertEqual(prefs.assistantPanelHeight, Preferences.assistantPanelDefaultHeight)
     }
+
+    /// Regression: `aiContextSizeRange`'s floor was raised once already
+    /// (`AssistantContextTests` — the old 2048 floor was already too small
+    /// for the real tool catalog). A value saved before that change must not
+    /// stay stuck below the new floor forever, silently failing every
+    /// assistant turn — loading clamps up, not just defaults for a missing key.
+    func testAiContextSizeBelowTheCurrentFloorIsClampedUpOnLoad() {
+        defaults.set(2048, forKey: "aiContextSize") // a value from before the floor was raised
+        let prefs = Preferences(defaults: defaults)
+        XCTAssertEqual(prefs.aiContextSize, Preferences.aiContextSizeRange.lowerBound)
+    }
+
+    func testAiContextSizeAboveTheFloorIsLeftUntouchedOnLoad() {
+        let aboveFloor = Preferences.aiContextSizeRange.lowerBound + 1024
+        defaults.set(aboveFloor, forKey: "aiContextSize")
+        let prefs = Preferences(defaults: defaults)
+        XCTAssertEqual(prefs.aiContextSize, aboveFloor)
+    }
 }
 
 /// Reduce Motion is an accessibility setting, not a preference to soften —

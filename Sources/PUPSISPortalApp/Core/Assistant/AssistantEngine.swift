@@ -95,6 +95,14 @@ enum AssistantEngineError: LocalizedError {
     /// downloaded yet in Settings ▸ AI, or (on the plain, non-`-with-AI`
     /// build) `llama-server` itself isn't installed.
     case serverUnavailable
+    /// Confirmed live: at `Preferences.aiContextSizeRange`'s own minimum
+    /// (2048), the tool catalog + rules text alone can already eat nearly
+    /// the whole window before any note/conversation/reply room is left —
+    /// the request would otherwise just fail against the real server with a
+    /// generic HTTP/timeout error that reads as "the assistant is broken"
+    /// rather than "raise Context size in Settings". Caught here, before
+    /// ever making the request, so the failure is actually explainable.
+    case contextTooSmall(needed: Int, configured: Int)
 
     var errorDescription: String? {
         switch self {
@@ -104,6 +112,8 @@ enum AssistantEngineError: LocalizedError {
             "The assistant took too many steps without finishing."
         case .serverUnavailable:
             "Couldn't start the local model server. Is a model downloaded in Settings ▸ AI? If you installed the plain (non-AI-bundled) build, it also needs `llama-server` — `brew install llama.cpp`."
+        case .contextTooSmall(let needed, let configured):
+            "Context size (\(configured) tokens) is too small for the assistant's own tools and instructions (needs at least ~\(needed)). Raise Context size in Settings ▸ AI."
         }
     }
 }
@@ -121,6 +131,17 @@ enum AssistantEngineError: LocalizedError {
 /// (`.malformedReply`) rather than silently misbehaving.
 final class AssistantEngine {
     static let maxIterations = 4
+    /// Confirmed live: `history` (the full `AssistantSession.transcript`)
+    /// was sent in full every turn, uncapped — a long-running conversation
+    /// grows the prompt forever regardless of `aiContextSize`, so even the
+    /// largest window (32768) eventually overflows, and every turn well
+    /// before that costs latency for context the model doesn't need anymore.
+    /// 20 turns (10 exchanges) is generous for a study-assistant chat; older
+    /// turns are simply dropped, not summarized — there's no cheap way to
+    /// summarize without another model call, and losing detail from ten
+    /// exchanges ago is an acceptable trade against every turn silently
+    /// getting slower and closer to overflowing.
+    static let maxHistoryTurns = 20
 
     private let client: LlamaCppClient
     private let model: String
@@ -148,10 +169,18 @@ final class AssistantEngine {
     ) async throws -> AssistantOutcome {
         guard await ensureServerRunning() else { throw AssistantEngineError.serverUnavailable }
 
+        // At least a little room past the fixed catalog/rules overhead for
+        // an actual note/conversation/reply — not just "doesn't divide by
+        // zero". See AssistantEngineError.contextTooSmall's own doc comment.
+        let minimumViableTokens = AssistantContext.promptOverheadTokens + 300
+        guard context.tokenBudget >= minimumViableTokens else {
+            throw AssistantEngineError.contextTooSmall(needed: minimumViableTokens, configured: context.tokenBudget)
+        }
+
         var messages: [LlamaCppClient.ChatMessage] = [
             LlamaCppClient.ChatMessage(role: .system, content: Self.systemPrompt(context: context)),
         ]
-        messages += history.map {
+        messages += history.suffix(Self.maxHistoryTurns).map {
             LlamaCppClient.ChatMessage(role: $0.role == .user ? .user : .assistant, content: $0.content)
         }
         messages.append(LlamaCppClient.ChatMessage(role: .user, content: userMessage))

@@ -313,7 +313,14 @@ final class Preferences: ObservableObject {
     }
 
     nonisolated static let aiDefaultContextSize = 4096
-    static let aiContextSizeRange = 2048...32768
+    /// Confirmed live (`AssistantContextTests`): the old floor of 2048 was
+    /// already too small the moment the tool catalog grew to 16 entries —
+    /// the catalog + rules text alone need ~1860 tokens, leaving under 200
+    /// for a note, conversation, or reply, and `AssistantEngine.respond`
+    /// now refuses to even try below that (`.contextTooSmall`). 3072 keeps
+    /// real margin above today's requirement for a few more tools before
+    /// this needs raising again.
+    static let aiContextSizeRange = 3072...32768
 
     /// Reads the live value straight from `UserDefaults` rather than an
     /// injected `Preferences` instance — `LlamaRuntime`'s call sites (engine,
@@ -553,7 +560,14 @@ final class Preferences: ObservableObject {
             .flatMap(AIRevealAnimation.init(rawValue:)) ?? .sweep
         aiThinking = defaults.string(forKey: Key.aiThinking)
             .flatMap(AssistantThinking.init(rawValue:)) ?? .low
-        aiContextSize = (defaults.object(forKey: Key.aiContextSize) as? Int) ?? Preferences.aiDefaultContextSize
+        // Clamped to the current floor, not just defaulted — a value saved
+        // before aiContextSizeRange's floor was raised (see its own doc
+        // comment) would otherwise stay stuck below it forever, silently
+        // failing every assistant turn.
+        aiContextSize = max(
+            (defaults.object(forKey: Key.aiContextSize) as? Int) ?? Preferences.aiDefaultContextSize,
+            Preferences.aiContextSizeRange.lowerBound
+        )
         ragChunkSize = (defaults.object(forKey: Key.ragChunkSize) as? Int) ?? Preferences.ragDefaultChunkSize
         ragSimilarityFloor = (defaults.object(forKey: Key.ragSimilarityFloor) as? Double) ?? Preferences.ragDefaultSimilarityFloor
         ragContextBudget = (defaults.object(forKey: Key.ragContextBudget) as? Int) ?? Preferences.ragDefaultContextBudget

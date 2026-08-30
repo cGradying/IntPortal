@@ -1174,7 +1174,13 @@ private struct AssistantChat: View {
             todayClasses: todayClasses,
             gradesSummary: gradesSummary,
             schedule: schedule,
-            pinnedNote: session.pinnedNote
+            pinnedNote: session.pinnedNote,
+            // Real usage of AssistantContext.tokenBudget — see its own doc
+            // comment. A cloud provider (preferences.aiProvider != .local)
+            // isn't limited by this local server setting at all, but using
+            // it as the estimate anyway just means a cloud turn truncates a
+            // bit more conservatively than it strictly needed to, never less.
+            tokenBudget: preferences.aiContextSize
         )
     }
 }
