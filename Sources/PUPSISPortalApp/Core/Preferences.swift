@@ -225,6 +225,16 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(trafficLightsAutoHide, forKey: Key.trafficLightsAutoHide) }
     }
 
+    /// Forces the Settings window's own animations to their reduced form,
+    /// independent of System Settings' Reduce Motion — `SettingsView.
+    /// effectiveReduceMotion` ORs this with the real
+    /// `\.accessibilityReduceMotion` environment value. Scoped to Settings
+    /// only: that key has no public setter in this SDK, so it can't be
+    /// overridden for the rest of the app from one injection point.
+    @Published var forceReducedMotion: Bool {
+        didSet { defaults.set(forceReducedMotion, forKey: Key.forceReducedMotion) }
+    }
+
     // MARK: AI (beta)
 
     /// Drafting help in the notes editor from a model running locally via
@@ -552,6 +562,7 @@ final class Preferences: ObservableObject {
         static let islandStartHome = "islandStartHome"
         static let islandExpandOnHover = "islandExpandOnHover"
         static let trafficLightsAutoHide = "trafficLightsAutoHide"
+        static let forceReducedMotion = "forceReducedMotion"
         static let aiEnabled = "aiEnabled"
         static let aiModel = "aiModel"
         static let aiProvider = "aiProvider"
@@ -615,6 +626,7 @@ final class Preferences: ObservableObject {
         islandStartHome = (defaults.object(forKey: Key.islandStartHome) as? Bool) ?? true
         islandExpandOnHover = (defaults.object(forKey: Key.islandExpandOnHover) as? Bool) ?? true
         trafficLightsAutoHide = (defaults.object(forKey: Key.trafficLightsAutoHide) as? Bool) ?? true
+        forceReducedMotion = (defaults.object(forKey: Key.forceReducedMotion) as? Bool) ?? false
         aiEnabled = (defaults.object(forKey: Key.aiEnabled) as? Bool) ?? false
         aiModel = defaults.string(forKey: Key.aiModel) ?? ModelCatalog.defaultID
         aiProvider = defaults.string(forKey: Key.aiProvider).flatMap(AIProvider.init(rawValue:)) ?? .local
@@ -840,6 +852,59 @@ final class Preferences: ObservableObject {
 
     func deleteTask(_ id: SubjectTask.ID) {
         subjectTasks.removeAll { $0.id == id }
+    }
+
+    // MARK: Reset to defaults
+
+    /// Every field a Settings pane actually exposes a control for, back to
+    /// its first-launch default — same shape as the existing scoped resets
+    /// (`resetUIScale`, `ragTuningSection`/`advancedAITuningSection`'s own
+    /// "Reset to Defaults" buttons in `SettingsView`): direct assignment, so
+    /// each field's own `didSet` persists it, no separate reload path.
+    ///
+    /// Deliberately **not** included: `subjectColors`, `termStatuses`,
+    /// `occurrenceStatuses`, `onlineStripColors`, `termTimes`,
+    /// `occurrenceTimes`, `classInfo`, `permaSubjects`, `subjectTasks`,
+    /// `eventColors` — per-class personalization (colors, online/vacant
+    /// marks, moved times, notes, syllabus tasks) set from the week grid and
+    /// Appearance's own subject rows, not a Settings control. Wiping those
+    /// under "reset settings" would silently destroy real class data the
+    /// footer promises is untouched. Also not included: the assistant/
+    /// notebook/schedule sidebar width-and-height persistence — incidental
+    /// window state, not a setting anyone tweaks here.
+    func resetAllToDefaults() {
+        theme = .auto
+        fontChoice = .system
+        exportCalendarID = ""
+        onlineExportCalendarID = ""
+        googleClientID = ""
+        googleCalendarID = ""
+        termEndDate = Self.defaultTermEnd()
+        programTotalUnits = 0
+        visibleCalendarIDs = []
+        notificationsEnabled = false
+        notificationLeadMinutes = 15
+        islandStartHome = true
+        islandExpandOnHover = true
+        trafficLightsAutoHide = true
+        forceReducedMotion = false
+        aiEnabled = false
+        aiModel = ModelCatalog.defaultID
+        aiProvider = .local
+        aiProviderModel = ""
+        aiPermission = .confirm
+        aiRevealAnimation = .sweep
+        aiThinking = .low
+        aiContextSize = Preferences.aiDefaultContextSize
+        aiTemperature = Preferences.aiDefaultTemperature
+        aiOutputTokenBudget = Preferences.aiDefaultOutputTokenBudget
+        aiKVCacheQuantized = true
+        aiUseGPU = true
+        ragChunkSize = Preferences.ragDefaultChunkSize
+        ragSimilarityFloor = Preferences.ragDefaultSimilarityFloor
+        ragContextBudget = Preferences.ragDefaultContextBudget
+        ragAnswerTemperature = Preferences.ragDefaultAnswerTemperature
+        uiScale = 1.0
     }
 }
 

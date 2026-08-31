@@ -587,6 +587,49 @@ final class PreferencesTests: XCTestCase {
         let prefs = Preferences(defaults: defaults)
         XCTAssertEqual(prefs.aiContextSize, aboveFloor)
     }
+
+    // MARK: forceReducedMotion / resetAllToDefaults
+
+    func testForceReducedMotionDefaultsOffAndSurvivesRelaunch() {
+        XCTAssertFalse(Preferences(defaults: defaults).forceReducedMotion)
+
+        Preferences(defaults: defaults).forceReducedMotion = true
+
+        XCTAssertTrue(Preferences(defaults: defaults).forceReducedMotion)
+    }
+
+    func testResetAllToDefaultsRestoresChangedSettingsFields() {
+        let prefs = Preferences(defaults: defaults)
+        prefs.theme = .matrix
+        prefs.fontChoice = .poppins
+        prefs.uiScale = 1.5
+        prefs.aiEnabled = true
+        prefs.aiTemperature = 0.9
+        prefs.notificationLeadMinutes = 30
+        prefs.forceReducedMotion = true
+
+        prefs.resetAllToDefaults()
+
+        XCTAssertEqual(prefs.theme, .auto)
+        XCTAssertEqual(prefs.fontChoice, .system)
+        XCTAssertEqual(prefs.uiScale, 1.0)
+        XCTAssertFalse(prefs.aiEnabled)
+        XCTAssertEqual(prefs.aiTemperature, Preferences.aiDefaultTemperature)
+        XCTAssertEqual(prefs.notificationLeadMinutes, 15)
+        XCTAssertFalse(prefs.forceReducedMotion)
+    }
+
+    /// The whole reason it's not a blanket `UserDefaults` wipe: per-class
+    /// personalization (a subject's custom color, here) isn't a "setting" —
+    /// wiping it under "Reset All Settings" would silently destroy real data.
+    func testResetAllToDefaultsLeavesSubjectColorsUntouched() {
+        let prefs = Preferences(defaults: defaults)
+        prefs.setColor(Color(red: 0, green: 0.5, blue: 1), for: "COMP 20073")
+
+        prefs.resetAllToDefaults()
+
+        XCTAssertTrue(prefs.hasCustomColor(for: "COMP 20073"))
+    }
 }
 
 /// Reduce Motion is an accessibility setting, not a preference to soften —

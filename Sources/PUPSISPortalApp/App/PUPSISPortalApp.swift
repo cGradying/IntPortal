@@ -482,20 +482,18 @@ struct ContentView: View {
     }
 
     private var settingsSheet: some View {
-        NavigationStack {
-            SettingsView(
-                appState: appState,
-                updaterBridge: appState.updaterBridge,
-                preferences: preferences,
-                calendar: appState.calendar,
-                googleAuth: appState.googleAuth
-            )
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { appState.showingSettings = false }
-                }
-            }
-        }
+        // No NavigationStack: Settings owns its full chrome itself now (a
+        // hand-built top tab strip through its own slim bottom Done bar) —
+        // nothing here uses push/pop, and the stack only ever existed to
+        // host the `.toolbar` that lived below (now gone too, replaced by
+        // SettingsView's own `bottomBar`).
+        SettingsView(
+            appState: appState,
+            updaterBridge: appState.updaterBridge,
+            preferences: preferences,
+            calendar: appState.calendar,
+            googleAuth: appState.googleAuth
+        )
         // Confirmed live: with no tint set, every native control here (tab
         // selection, Done, toggles/radios) fell back to the system accent
         // instead of the room's own — a maroon app with a green Settings
@@ -504,9 +502,11 @@ struct ContentView: View {
         // controls read `.tint`, not the custom environment key.
         .tint(preferences.theme.palette(for: systemScheme).accent)
         // min/ideal/max instead of a fixed size — same starting size, but
-        // the sheet now offers macOS's native drag-to-resize edge. Widened
-        // for the sidebar (`NavigationSplitView`) the settings shell moved to.
-        .frame(minWidth: 700, idealWidth: 820, maxWidth: 1000, minHeight: 480, idealHeight: 620, maxHeight: 860)
+        // the sheet now offers macOS's native drag-to-resize edge. Close to
+        // the original (pre-sidebar) numbers, widened a bit from those:
+        // confirmed live, 8 tabs (up from the original 7 — Data & Storage is
+        // new) truncate their labels below ~620pt.
+        .frame(minWidth: 640, idealWidth: 700, maxWidth: 820, minHeight: 480, idealHeight: 620, maxHeight: 860)
     }
 }
 

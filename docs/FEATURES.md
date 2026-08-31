@@ -494,3 +494,60 @@ loses that week's date, and an online class is relabelled "(Online)" — no manu
 re-export. (The calendar only syncs once you've picked an export calendar in
 Settings.) Reminders and the next-class banner still act on whole-term status
 only — a weekly reminder can't skip a single week.
+
+---
+
+## Settings
+
+### Data & Storage
+**What it does** — Shows the real, current disk usage of everything the app
+stores — the schedule cache, notes vault, syllabus, quiz decks, and every
+downloaded AI model — with a running total and a Reveal-in-Finder button per
+item.
+
+**How to use it** — **Settings → Storage**. Delete a downloaded model
+straight from the list to free space; the model currently selected in
+**Settings → Intelligence** can't be deleted until you switch off it first.
+
+**Notes & limits** — Sizes are read once when the pane appears (and again
+after a delete), not recomputed on every redraw — a large quiz-deck folder
+doesn't cause a stall just from having the pane open.
+
+### Advanced AI tuning
+**What it does** — Four knobs the local assistant always had fixed values
+for, now real controls: response **temperature** (focused vs. varied),
+**output token budget** (the ceiling on one reply), **KV cache
+quantization** (roughly halves the running model's RAM cost per token of
+context), and **GPU (Metal) offload** — off forces CPU-only, useful for
+isolating a slowdown or crash.
+
+**How to use it** — **Settings → Intelligence → Advanced AI Tuning**, gated
+behind IntAssis being on. **Reset to Defaults** restores all four at once.
+
+**Notes & limits** — All four restart the local model process when changed.
+On Apple Silicon the default model runs on MLX, which manages its own KV
+cache and always uses the GPU — the quantization and GPU toggles only reach
+the Intel-fallback `llama-server` model.
+
+### Reset to Defaults
+**What it does** — Every pane with its own settings (General, Appearance,
+Schedule, Notifications, Intelligence) has a **Reset This Pane to Defaults**
+button that puts just that pane's controls back to first-launch values.
+General also has **Reset All Settings…**, a true factory reset of every
+setting in the app.
+
+**How to use it** — Bottom of each pane; the global reset asks for
+confirmation first.
+
+**Notes & limits** — Deliberately narrow: per-class colors, online/vacant
+marks, moved times, class notes/links, and syllabus tasks are real data set
+from the week grid and Appearance's subject rows, not a "setting" — none of
+that is touched by either reset, nor is your schedule cache, notes, or quiz
+decks.
+
+### Force Reduce Motion
+**What it does** — An in-app override, independent of System Settings' own
+Reduce Motion, for this Settings window's own animations (deleting a
+downloaded model, the RAM-estimate warning color).
+
+**How to use it** — **Settings → General → Motion**.

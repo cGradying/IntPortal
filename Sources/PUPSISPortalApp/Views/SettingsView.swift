@@ -28,6 +28,16 @@ struct SettingsView: View {
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
     @Environment(\.colorScheme) private var systemScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// System Reduce Motion, OR'd with General's own "Force Reduce Motion"
+    /// toggle. `\.accessibilityReduceMotion` has no public setter in this
+    /// SDK — a `.environment(\.accessibilityReduceMotion, _)` override
+    /// doesn't reach child views — so the toggle is scoped to this window's
+    /// own animations (the RAM warning, a deleted model row), not the whole
+    /// app. Tab switching itself is `TabView`'s own native, unanimated-by-us
+    /// transition — no `.id()`/`.transition()` on top of it, which is what
+    /// made pane switching feel heavy in the sidebar version.
+    private var effectiveReduceMotion: Bool { preferences.forceReducedMotion || reduceMotion }
     @State fileprivate var exportResult: String?
     @State fileprivate var googleCalendars: [GoogleCalendar] = []
     @State fileprivate var googleBusy = false
@@ -37,21 +47,25 @@ struct SettingsView: View {
     @State fileprivate var launchAtLogin = LoginItem.isEnabled
     /// Gates the Misc tab's "Delete All Notes" confirmation dialog.
     @State private var confirmingWipe = false
+    /// Gates General's "Reset All Settings…" confirmation dialog.
+    @State private var confirmingReset = false
     /// Whether the context-size explainer popover is showing.
     @State private var showingContextInfo = false
     /// A local buffer for the selected provider's API key (wayfinder ticket
     /// #17) — deliberately not a `Preferences` field; it's loaded from/saved
     /// straight to `AIProviderKeyStore` (Keychain), never `UserDefaults`.
     @State private var apiKeyDraft = ""
+    /// Data & Storage's file/model sizes, computed off the render path —
+    /// see `refreshDiskUsage()`. A synchronous recursive `FileManager` walk
+    /// on every body evaluation was a real, measurable lag source.
+    @State private var fileSizes: [String: Int64] = [:]
+    @State private var modelSizes: [String: Int64] = [:]
 
     /// Subjects the user can actually recolor: whatever is on screen right now.
     private var subjectCodes: [String] {
         ClassSession.subjectCodes(in: appState.portal.sessions)
     }
 
-    /// Sidebar destinations. Replaces the old 7-tab `TabView` — Misc and
-    /// Grades (a dumping ground and a single stepper) are gone, folded into
-    /// the panes their contents actually belong to.
     private enum Pane: String, CaseIterable, Identifiable {
         case general, appearance, schedule, notifications, intelligence, dataStorage, account, about
         var id: String { rawValue }
@@ -63,7 +77,10 @@ struct SettingsView: View {
             case .schedule: "Schedule"
             case .notifications: "Notifications"
             case .intelligence: "Intelligence"
-            case .dataStorage: "Data & Storage"
+            // Short for the tab strip — 8 tabs have real width pressure a
+            // vertical list never had. "Data & Storage" elsewhere (the pane's
+            // own content) still spells it out.
+            case .dataStorage: "Storage"
             case .account: "Account"
             case .about: "About"
             }
@@ -83,24 +100,21 @@ struct SettingsView: View {
         }
     }
 
-    // Optional, not `Pane` — `List`'s sidebar-selection initializer takes
-    // `Binding<SelectionValue?>`; a non-optional binding here type-checks
-    // against a different, row-less overload and renders an empty list.
-    @State private var pane: Pane? = .appearance
+    @State private var pane: Pane = .general
+    /// Drives the tab indicator line's slide between tabs — same technique
+    /// `NavIsland`'s own segment-selection capsule already uses.
+    @Namespace private var tabIndicatorNamespace
 
     var body: some View {
-        NavigationSplitView {
-            List(Pane.allCases, selection: $pane) { pane in
-                Label(pane.label, systemImage: pane.symbol).tag(pane)
-            }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 190, max: 220)
-        } detail: {
-            settingsForm { paneContent }
-                .navigationTitle(pane?.label ?? "Settings")
+        VStack(spacing: 0) {
+            tabStrip
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+            compactPane { paneContent(for: pane) }
+            bottomBar
         }
         .tint(palette.accent)
         .background(palette.canvasWash.ignoresSafeArea())
-        .navigationTitle("Settings")
         .task { await notifier.refreshAuthorization() }
         .task(id: googleAuth.isConnected) {
             if googleAuth.isConnected { await loadGoogleCalendars() }
@@ -108,8 +122,67 @@ struct SettingsView: View {
         .enableInjection()
     }
 
+    /// Replaces `.tabItem`/native `TabView` chrome — macOS exposes no
+    /// modifier to resize that strip at all, which is exactly why it read
+    /// as too thin. Text-only, no icon: dropping the icon (and its ~20pt of
+    /// padding/spacing per tab) is what actually buys 8 tabs enough room to
+    /// stay full-size and readable — no `.minimumScaleFactor` shrinking
+    /// (confirmed live that reads as broken, and `Label`'s icon+title
+    /// composition doesn't reliably honor it anyway), no truncation.
+    ///
+    /// Selection reads as a thin pixel-dither line under the current tab,
+    /// not a full capsule wash — it glides between tabs via
+    /// `matchedGeometryEffect` on switch, and idles with the same
+    /// wave-dither ambient drift `HomeNoiseField` already uses for the home
+    /// launcher (this app's one other continuous ambient loop) rather than
+    /// sitting static.
+    private var tabStrip: some View {
+        HStack(spacing: 2) {
+            ForEach(Pane.allCases) { item in
+                let selected = pane == item
+                Button {
+                    withAnimation(Motion.selection(reduced: effectiveReduceMotion)) { pane = item }
+                } label: {
+                    VStack(spacing: 6) {
+                        Text(item.label)
+                            .font(.callout.weight(selected ? .semibold : .regular))
+                            .lineLimit(1)
+                            .foregroundStyle(selected ? palette.accent : .secondary)
+                        Group {
+                            if selected {
+                                TabIndicatorLine(color: palette.accent, reduced: effectiveReduceMotion)
+                                    .matchedGeometryEffect(id: "tabIndicator", in: tabIndicatorNamespace)
+                            } else {
+                                Color.clear.frame(height: 3)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 8)
+        .glassPanel(cornerRadius: 12)
+    }
+
+    /// Replaces the sheet's `.toolbar { ToolbarItem(.confirmationAction) }`
+    /// — macOS reserves a full-width band for that placement on a sheet far
+    /// taller than one button needs. A plain row gives real height control.
+    private var bottomBar: some View {
+        HStack {
+            Spacer()
+            Button("Done") { appState.showingSettings = false }
+                .glassProminentButton()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
     @ViewBuilder
-    private var paneContent: some View {
+    private func paneContent(for pane: Pane) -> some View {
         switch pane {
         case .general: generalTab
         case .appearance: appearanceTab
@@ -119,29 +192,88 @@ struct SettingsView: View {
         case .dataStorage: dataStorageTab
         case .account: accountTab
         case .about: aboutTab
-        case nil: appearanceTab
         }
     }
 
-    /// One grouped, wash-backed form per pane — the shared chrome lives here.
-    @ViewBuilder
-    private func settingsForm<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        Form { content() }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
+    // MARK: Compact layout primitives
+
+    /// Replaces `Form`/`.formStyle(.grouped)` — a plain scroll view over a
+    /// tight `VStack`, none of `Form`'s generous list-row insets or
+    /// grouped-list chrome. Section-to-section rhythm comes from this
+    /// `VStack`'s own spacing, not per-section padding.
+    private func compactPane<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) { content() }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// Replaces `Section(header:footer:)` — a small-caps label above a real
+    /// glass card (the app's own structural-chrome material, same helper the
+    /// nav island and popovers use — `GlassCompat.swift`'s "Chrome-Not-
+    /// Decoration Rule": a card grouping settings rows is structure, same
+    /// job the island's own panel does), tight rows with hairline
+    /// separators, an optional footer caption below.
+    private func compactSection<Content: View>(
+        _ title: String, footer: String? = nil, @ViewBuilder rows: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title.uppercased())
+                .font(.system(.caption, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 0) { rows() }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .glassPanel(cornerRadius: 12)
+            if let footer {
+                Text(footer)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
+        }
+    }
+
+    /// Replaces a bare `Toggle`/`Picker`/`LabeledContent` row — fixed label
+    /// left, control right, one consistent row height instead of each
+    /// control's own native sizing, a hairline (`palette.gridLine` — the
+    /// same token the week grid's own hour rules use) separating it from
+    /// the row below. Pass a control with `.labelsHidden()` already applied
+    /// (SwiftUI controls draw their own label otherwise, which would repeat
+    /// the text this row already shows).
+    private func compactRow<Content: View>(_ label: String, @ViewBuilder control: () -> Content) -> some View {
+        HStack {
+            Text(label).font(.callout).fontWeight(.medium)
+            Spacer(minLength: 12)
+            control()
+        }
+        // Without this, each row sizes to its own content's natural width
+        // inside compactSection's VStack(alignment: .leading) — a row with
+        // wider trailing content (a value + an icon) ends further right
+        // than a row with a tight Picker box. Forcing every row to the
+        // card's full width is what lets Spacer push every trailing
+        // control to the same shared right edge.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 7)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(palette.gridLine).frame(height: 1)
+        }
     }
 
     /// Always-visible technical facts for a pane — real paths, identifiers,
-    /// and raw statuses, monospaced and selectable. Every pane ends with one:
-    /// the point of "technical" is that it's on screen, not a click away.
+    /// and raw statuses, monospaced and selectable.
     private func technicalSection(_ rows: [(String, String)]) -> some View {
-        Section("Technical Details") {
+        compactSection("Technical Details") {
             ForEach(rows, id: \.0) { row in
-                LabeledContent(row.0) {
+                compactRow(row.0) {
                     Text(row.1)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
             }
         }
@@ -149,11 +281,7 @@ struct SettingsView: View {
 
     /// One row of swatches instead of a label-per-row grid — six themes read
     /// fine as circles alone (the accent color *is* the identity here), so
-    /// the name moves to `.help()` rather than costing its own line. Same
-    /// circle-with-selection-ring language `Blocks.swift`'s `SwatchRow`
-    /// already uses for subject colors, adapted to a named room instead of
-    /// a raw color. Replaces the old 2-column label grid, confirmed live as
-    /// three rows tall for something that's just "which dot".
+    /// the name moves to `.help()` rather than costing its own line.
     private var themeSwatchRow: some View {
         HStack(spacing: 10) {
             ForEach(ThemeChoice.allCases) { choice in
@@ -173,49 +301,68 @@ struct SettingsView: View {
         }
     }
 
-    /// Everything else — window/launcher behavior, the notes database
-    /// location, and the destructive wipe, last. Folds in what used to be
-    /// stranded on Misc (notes reveal, Delete All Notes) plus the island
-    /// toggles, which were never really about *appearance*.
+    // MARK: General
+
+    /// Window/launcher behavior, motion, the notes database location, and
+    /// the two destructive resets, last.
     private var generalTab: some View {
-        settingsForm {
-            Section {
-                Toggle("Open on the home launcher", isOn: $preferences.islandStartHome)
-                Toggle("Expand island on hover", isOn: $preferences.islandExpandOnHover)
-                Toggle("Auto-hide window buttons", isOn: $preferences.trafficLightsAutoHide)
-            } header: {
-                Text("Dynamic Island")
-            } footer: {
-                Text("The app's floating top bar, and the red/yellow/green window buttons.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 20) {
+            compactSection("Dynamic Island", footer: "The app's floating top bar, and the red/yellow/green window buttons.") {
+                compactRow("Open on the home launcher") {
+                    Toggle("", isOn: $preferences.islandStartHome).labelsHidden().toggleStyle(.switch)
+                }
+                compactRow("Expand island on hover") {
+                    Toggle("", isOn: $preferences.islandExpandOnHover).labelsHidden().toggleStyle(.switch)
+                }
+                compactRow("Auto-hide window buttons") {
+                    Toggle("", isOn: $preferences.trafficLightsAutoHide).labelsHidden().toggleStyle(.switch)
+                }
+                compactRow("Start at login") {
+                    Toggle("", isOn: $launchAtLogin).labelsHidden().toggleStyle(.switch)
+                        .onChange(of: launchAtLogin) { _, wants in
+                            LoginItem.setEnabled(wants)
+                            // Reflect what actually took effect, in case registration failed.
+                            launchAtLogin = LoginItem.isEnabled
+                        }
+                }
             }
 
-            Toggle("Start at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, wants in
-                    LoginItem.setEnabled(wants)
-                    // Reflect what actually took effect, in case registration failed.
-                    launchAtLogin = LoginItem.isEnabled
+            compactSection(
+                "Motion",
+                footer: "Forces this Settings window's own animations (deleting a model, the RAM warning) to their reduced form, independent of System Settings' own Reduce Motion."
+            ) {
+                compactRow("Force Reduce Motion") {
+                    Toggle("", isOn: $preferences.forceReducedMotion).labelsHidden().toggleStyle(.switch)
                 }
+            }
 
-            Section {
+            compactSection(
+                "Notes Database",
+                footer: "Opens Finder with notes.json selected — the file everything in Notes is stored in."
+            ) {
                 Button("Reveal in Finder") {
                     NSWorkspace.shared.activateFileViewerSelecting([NotesStore.defaultURL])
                 }
-            } header: {
-                Text("Notes Database")
-            } footer: {
-                Text("Opens Finder with notes.json selected — the file everything in Notes is stored in.")
-                    .foregroundStyle(.secondary)
+                .glassButton()
+                .controlSize(.small)
             }
 
-            Section {
+            Button("Reset This Pane to Defaults") {
+                preferences.islandStartHome = true
+                preferences.islandExpandOnHover = true
+                preferences.trafficLightsAutoHide = true
+                preferences.forceReducedMotion = false
+            }
+            .glassButton()
+            .controlSize(.small)
+
+            compactSection(
+                "Wipe Notes",
+                footer: "Deletes every note, folder, and pasted image. Login, schedule/grades cache, and settings are untouched."
+            ) {
                 Button("Delete All Notes…", role: .destructive) { confirmingWipe = true }
-            } header: {
-                Text("Wipe Notes")
-            } footer: {
-                Text("Deletes every note, folder, and pasted image. Login, schedule/grades cache, and settings are untouched.")
-                    .foregroundStyle(.secondary)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
             }
             .confirmationDialog(
                 "Delete all notes?",
@@ -226,6 +373,23 @@ struct SettingsView: View {
                 Text("This deletes every note, folder, and pasted image. This cannot be undone.")
             }
 
+            compactSection(
+                "Danger Zone",
+                footer: "Resets every setting in this app — theme, AI configuration, calendar exports, notification preferences, everything each pane's own controls expose — back to first-launch defaults. Per-class colors, online/vacant marks, moved times, notes, and syllabus tasks, plus your schedule cache, notes, and quiz decks, are untouched."
+            ) {
+                Button("Reset All Settings…", role: .destructive) { confirmingReset = true }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+            .confirmationDialog(
+                "Reset all settings?",
+                isPresented: $confirmingReset
+            ) {
+                Button("Reset Everything", role: .destructive) { preferences.resetAllToDefaults() }
+            } message: {
+                Text("This resets every setting to its default. This cannot be undone.")
+            }
+
             technicalSection([
                 ("App Support directory", NotesStore.defaultURL.deletingLastPathComponent().path),
                 ("Login item status", "\(SMAppService.mainApp.status)"),
@@ -233,44 +397,60 @@ struct SettingsView: View {
         }
     }
 
-    /// Compact: one section for theme+font+scale (the three "how it looks"
-    /// knobs, all one-line-each), captions trimmed to a single line or
-    /// folded into `.help()`.
+    // MARK: Appearance
+
     private var appearanceTab: some View {
-        settingsForm {
-            Section("Theme") {
+        VStack(alignment: .leading, spacing: 20) {
+            compactSection("Theme") {
                 themeSwatchRow
-                Picker("Font", selection: $preferences.fontChoice) {
-                    ForEach(FontChoice.allCases) { choice in
-                        Text(choice.label)
-                            .font(Typography(choice).screenTitle.weight(.regular))
-                            .tag(choice)
+                    .padding(.vertical, 4)
+                compactRow("Font") {
+                    Picker("", selection: $preferences.fontChoice) {
+                        ForEach(FontChoice.allCases) { choice in
+                            Text(choice.label)
+                                .font(Typography(choice).screenTitle.weight(.regular))
+                                .tag(choice)
+                        }
                     }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 180, alignment: .trailing)
                 }
-                Stepper(value: $preferences.uiScale, in: Preferences.uiScaleRange, step: Preferences.uiScaleStep) {
-                    LabeledContent("UI Scale") {
-                        Text("\(Int(preferences.uiScale * 100))%")
+                compactRow("UI Scale") {
+                    HStack(spacing: 8) {
+                        Text("\(Int(preferences.uiScale * 100))%").foregroundStyle(.secondary)
+                        Stepper("", value: $preferences.uiScale, in: Preferences.uiScaleRange, step: Preferences.uiScaleStep)
+                            .labelsHidden()
                     }
                 }
                 .help("\u{2318}+ / \u{2318}\u{2212} anywhere, \u{2325}\u{2318}0 to reset")
                 if preferences.uiScale != 1.0 {
                     Button("Reset to 100%") { preferences.resetUIScale() }
+                        .glassButton()
+                        .controlSize(.small)
                         .font(.caption)
                 }
             }
 
-            Section {
+            compactSection("Subject Colors", footer: "Each row has its own Reset button.") {
                 if subjectCodes.isEmpty {
                     Text("Subjects appear here once your schedule loads.")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(subjectCodes, id: \.self) { code in
                         SubjectColorRow(code: code, preferences: preferences, palette: palette)
                     }
                 }
-            } header: {
-                Text("Subject Colors")
             }
+
+            Button("Reset This Pane to Defaults") {
+                preferences.theme = .auto
+                preferences.fontChoice = .system
+                preferences.uiScale = 1.0
+            }
+            .glassButton()
+            .controlSize(.small)
 
             technicalSection([
                 ("Accent", palette.accent.hex ?? "—"),
@@ -282,28 +462,39 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: Schedule
+
     /// Calendar export, Google export, and program units — everything about
     /// the schedule the user set up once and rarely touches again.
     private var scheduleTab: some View {
-        settingsForm {
+        VStack(alignment: .leading, spacing: 20) {
             calendarSection
             googleSection
 
-            Section {
-                Stepper(value: $preferences.programTotalUnits, in: 0...400, step: 3) {
-                    LabeledContent("Program total units") {
-                        Text(preferences.programTotalUnits == 0
-                             ? "Not set"
-                             : "\(preferences.programTotalUnits)")
+            compactSection(
+                "Grades",
+                footer: "Your program's total required units, for the completed-units progress on the Grades trend. SIS doesn't publish it."
+            ) {
+                compactRow("Program total units") {
+                    HStack(spacing: 8) {
+                        Text(preferences.programTotalUnits == 0 ? "Not set" : "\(preferences.programTotalUnits)")
                             .foregroundStyle(.secondary)
+                        Stepper("", value: $preferences.programTotalUnits, in: 0...400, step: 3).labelsHidden()
                     }
                 }
-            } header: {
-                Text("Grades")
-            } footer: {
-                Text("Your program's total required units, for the completed-units progress on the Grades trend. SIS doesn't publish it.")
-                    .foregroundStyle(.secondary)
             }
+
+            Button("Reset This Pane to Defaults") {
+                preferences.exportCalendarID = ""
+                preferences.onlineExportCalendarID = ""
+                preferences.googleClientID = ""
+                preferences.googleCalendarID = ""
+                preferences.termEndDate = Preferences.defaultTermEnd()
+                preferences.programTotalUnits = 0
+                preferences.visibleCalendarIDs = []
+            }
+            .glassButton()
+            .controlSize(.small)
 
             technicalSection([
                 ("Export calendar", preferences.exportCalendarID.isEmpty ? "none" : preferences.exportCalendarID),
@@ -315,9 +506,19 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: Notifications
+
     private var notificationsTab: some View {
-        settingsForm {
+        VStack(alignment: .leading, spacing: 20) {
             notificationSection
+
+            Button("Reset This Pane to Defaults") {
+                preferences.notificationsEnabled = false
+                preferences.notificationLeadMinutes = 15
+            }
+            .glassButton()
+            .controlSize(.small)
+
             technicalSection([
                 ("Authorization status", notifier.authorization.map { "\($0)" } ?? "unknown"),
                 ("Lead time", "\(preferences.notificationLeadMinutes) minutes"),
@@ -326,11 +527,12 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: Intelligence
+
     /// IntAssis, its models, the RAG tuning knobs, and the advanced
-    /// generation/runtime knobs — everything AI-related in one place instead
-    /// of stranded on a Misc tab.
+    /// generation/runtime knobs — everything AI-related in one place.
     private var intelligenceTab: some View {
-        settingsForm {
+        VStack(alignment: .leading, spacing: 20) {
             aiSection
             downloadModelsSection
             advancedAITuningSection
@@ -350,40 +552,9 @@ struct SettingsView: View {
     /// as real controls instead of staying hardcoded. Gated on `aiEnabled`
     /// like the rest of the pane; footers stay on screen, not behind a "?".
     private var advancedAITuningSection: some View {
-        Section {
-            if preferences.aiEnabled {
-                VStack(alignment: .leading) {
-                    LabeledContent("Response temperature", value: String(format: "%.2f", preferences.aiTemperature))
-                    Slider(value: $preferences.aiTemperature, in: 0...1, step: 0.05)
-                }
-                VStack(alignment: .leading) {
-                    LabeledContent("Output token budget", value: "\(preferences.aiOutputTokenBudget) tokens")
-                    Slider(
-                        value: Binding(
-                            get: { Double(preferences.aiOutputTokenBudget) },
-                            set: { preferences.aiOutputTokenBudget = Int($0) }
-                        ),
-                        in: Double(Preferences.aiOutputTokenBudgetRange.lowerBound)...Double(Preferences.aiOutputTokenBudgetRange.upperBound),
-                        step: 128
-                    )
-                }
-                Toggle("Quantize KV cache (q8_0)", isOn: $preferences.aiKVCacheQuantized)
-                Toggle("Use GPU (Metal)", isOn: $preferences.aiUseGPU)
-                Button("Reset to Defaults") {
-                    preferences.aiTemperature = Preferences.aiDefaultTemperature
-                    preferences.aiOutputTokenBudget = Preferences.aiDefaultOutputTokenBudget
-                    preferences.aiKVCacheQuantized = true
-                    preferences.aiUseGPU = true
-                }
-                .font(.caption)
-            } else {
-                Text("Turn on IntAssis above to tune these.")
-                    .foregroundStyle(.secondary)
-            }
-        } header: {
-            Text("Advanced AI Tuning")
-        } footer: {
-            Text("""
+        compactSection(
+            "Advanced AI Tuning",
+            footer: """
             Temperature: lower is more focused and repeatable, higher is more varied. \
             Output token budget: the ceiling on a single reply — raising it without \
             enough context headroom can make a turn refuse to run rather than truncate. \
@@ -391,99 +562,55 @@ struct SettingsView: View {
             turning it off approximates the older, more precise fp16 cache. GPU off \
             forces CPU-only, mainly useful for isolating a slowdown or crash. All four \
             restart the local model process when changed, and only affect the \
-            `llama-server`-backed (Intel) chat model — the Apple Silicon MLX runtime \
+            llama-server-backed (Intel) chat model — the Apple Silicon MLX runtime \
             manages its own KV cache and always uses the GPU.
-            """)
-            .foregroundStyle(.secondary)
+            """
+        ) {
+            if preferences.aiEnabled {
+                compactRow("Response temperature") {
+                    Text(String(format: "%.2f", preferences.aiTemperature)).foregroundStyle(.secondary)
+                }
+                Slider(value: $preferences.aiTemperature, in: 0...1, step: 0.05)
+                compactRow("Output token budget") {
+                    Text("\(preferences.aiOutputTokenBudget) tokens").foregroundStyle(.secondary)
+                }
+                Slider(
+                    value: Binding(
+                        get: { Double(preferences.aiOutputTokenBudget) },
+                        set: { preferences.aiOutputTokenBudget = Int($0) }
+                    ),
+                    in: Double(Preferences.aiOutputTokenBudgetRange.lowerBound)...Double(Preferences.aiOutputTokenBudgetRange.upperBound),
+                    step: 128
+                )
+                compactRow("Quantize KV cache (q8_0)") {
+                    Toggle("", isOn: $preferences.aiKVCacheQuantized).labelsHidden().toggleStyle(.switch)
+                }
+                compactRow("Use GPU (Metal)") {
+                    Toggle("", isOn: $preferences.aiUseGPU).labelsHidden().toggleStyle(.switch)
+                }
+                Button("Reset to Defaults") {
+                    preferences.aiTemperature = Preferences.aiDefaultTemperature
+                    preferences.aiOutputTokenBudget = Preferences.aiDefaultOutputTokenBudget
+                    preferences.aiKVCacheQuantized = true
+                    preferences.aiUseGPU = true
+                }
+                .glassButton()
+                .controlSize(.small)
+                .font(.caption)
+            } else {
+                Text("Turn on IntAssis above to tune these.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
     /// Beta, off by default. Lives on the Intelligence pane alongside the
-    /// local-model download steps and the RAG tuning knobs — everything
-    /// AI-related in one place.
+    /// local-model download steps and the RAG tuning knobs.
     private var aiSection: some View {
-        Section {
-            Toggle("IntAssis", isOn: $preferences.aiEnabled)
-            if preferences.aiEnabled {
-                Picker("Model source", selection: $preferences.aiProvider) {
-                    ForEach(AIProvider.allCases) { provider in
-                        Text(provider.label).tag(provider)
-                    }
-                }
-                if preferences.aiProvider.needsAPIKey {
-                    TextField(
-                        "Model", text: $preferences.aiProviderModel,
-                        prompt: Text(preferences.aiProvider.defaultModel)
-                    )
-                    SecureField("API key", text: $apiKeyDraft)
-                        .onChange(of: apiKeyDraft) { _, newValue in
-                            if newValue.isEmpty {
-                                AIProviderKeyStore.delete(for: preferences.aiProvider)
-                            } else {
-                                try? AIProviderKeyStore.save(newValue, for: preferences.aiProvider)
-                            }
-                        }
-                    Text("Stored in your Keychain, sent only to \(preferences.aiProvider.label)'s own API — never through this Mac's local model.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Picker("Permission", selection: $preferences.aiPermission) {
-                    ForEach(AssistantPermission.allCases) { level in
-                        Text(level.label).tag(level)
-                    }
-                }
-                Text(preferences.aiPermission.explanation)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Picker("Text reveal", selection: $preferences.aiRevealAnimation) {
-                    ForEach(AIRevealAnimation.allCases) { style in
-                        Text(style.label).tag(style)
-                    }
-                }
-                Text("How Replace/Insert below animates in — a connected sweep down each line, or each word fading in on its own.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Edit IntAssis instructions…") {
-                    NSWorkspace.shared.open(AssistantInstructions.ensureExists())
-                }
-                .font(.caption)
-                Picker("Thinking", selection: $preferences.aiThinking) {
-                    ForEach(AssistantThinking.allCases) { level in
-                        Text(level.label).tag(level)
-                    }
-                }
-                Text(preferences.aiThinking.explanation)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        LabeledContent("Context size", value: "\(preferences.aiContextSize) tokens")
-                        Button { showingContextInfo = true } label: {
-                            Image(systemName: "questionmark.circle").font(.system(size: 12, weight: .medium))
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .help("What does raising this do?")
-                        .popover(isPresented: $showingContextInfo, arrowEdge: .bottom) { contextSizeInfoPopover }
-                    }
-                    Slider(
-                        value: Binding(
-                            get: { Double(preferences.aiContextSize) },
-                            set: { preferences.aiContextSize = Int($0) }
-                        ),
-                        in: Double(Preferences.aiContextSizeRange.lowerBound)...Double(Preferences.aiContextSizeRange.upperBound),
-                        step: 512
-                    )
-                    ramEstimateRow
-                }
-                Text("How much conversation, notes, and tool results the model can hold at once. Restarts the local model process when changed.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        } header: {
-            Text("AI (beta)")
-        } footer: {
-            Text("""
+        compactSection(
+            "AI (beta)",
+            footer: """
             IntAssis: a floating assistant (bottom-left, when this is on) \
             that can read and add to your notes, read and add calendar \
             events, and read your grades — never delete, move, or change \
@@ -496,11 +623,116 @@ struct SettingsView: View {
             your prompts go straight to the provider's own API — this \
             app's local model, and RAG note search, are untouched either way.
 
-            **It can be wrong, local or cloud.** Treat anything it tells you \
+            It can be wrong, local or cloud. Treat anything it tells you \
             — a summary, a date, an answer from your notes — as a draft to \
             check, not a fact.
-            """)
-            .foregroundStyle(.secondary)
+            """
+        ) {
+            compactRow("IntAssis") {
+                Toggle("", isOn: $preferences.aiEnabled).labelsHidden().toggleStyle(.switch)
+            }
+            if preferences.aiEnabled {
+                compactRow("Model source") {
+                    Picker("", selection: $preferences.aiProvider) {
+                        ForEach(AIProvider.allCases) { provider in
+                            Text(provider.label).tag(provider)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 160, alignment: .trailing)
+                }
+                if preferences.aiProvider.needsAPIKey {
+                    compactRow("Model") {
+                        TextField("", text: $preferences.aiProviderModel, prompt: Text(preferences.aiProvider.defaultModel))
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 200, alignment: .trailing)
+                    }
+                    compactRow("API key") {
+                        SecureField("", text: $apiKeyDraft)
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 200, alignment: .trailing)
+                            .onChange(of: apiKeyDraft) { _, newValue in
+                                if newValue.isEmpty {
+                                    AIProviderKeyStore.delete(for: preferences.aiProvider)
+                                } else {
+                                    try? AIProviderKeyStore.save(newValue, for: preferences.aiProvider)
+                                }
+                            }
+                    }
+                    Text("Stored in your Keychain, sent only to \(preferences.aiProvider.label)'s own API — never through this Mac's local model.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                compactRow("Permission") {
+                    Picker("", selection: $preferences.aiPermission) {
+                        ForEach(AssistantPermission.allCases) { level in
+                            Text(level.label).tag(level)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 180, alignment: .trailing)
+                }
+                Text(preferences.aiPermission.explanation)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                compactRow("Text reveal") {
+                    Picker("", selection: $preferences.aiRevealAnimation) {
+                        ForEach(AIRevealAnimation.allCases) { style in
+                            Text(style.label).tag(style)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 160, alignment: .trailing)
+                }
+                Button("Edit IntAssis instructions…") {
+                    NSWorkspace.shared.open(AssistantInstructions.ensureExists())
+                }
+                .glassButton()
+                .controlSize(.small)
+                .font(.caption)
+                compactRow("Thinking") {
+                    Picker("", selection: $preferences.aiThinking) {
+                        ForEach(AssistantThinking.allCases) { level in
+                            Text(level.label).tag(level)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 140, alignment: .trailing)
+                }
+                Text(preferences.aiThinking.explanation)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    compactRow("Context size") {
+                        Text("\(preferences.aiContextSize) tokens").foregroundStyle(.secondary)
+                    }
+                    Button { showingContextInfo = true } label: {
+                        Image(systemName: "questionmark.circle").font(.system(size: 12, weight: .medium))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("What does raising this do?")
+                    .popover(isPresented: $showingContextInfo, arrowEdge: .bottom) { contextSizeInfoPopover }
+                }
+                Slider(
+                    value: Binding(
+                        get: { Double(preferences.aiContextSize) },
+                        set: { preferences.aiContextSize = Int($0) }
+                    ),
+                    in: Double(Preferences.aiContextSizeRange.lowerBound)...Double(Preferences.aiContextSizeRange.upperBound),
+                    step: 512
+                )
+                ramEstimateRow
+                Text("How much conversation, notes, and tool results the model can hold at once. Restarts the local model process when changed.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
         .task(id: preferences.aiEnabled) {
             if preferences.aiEnabled {
@@ -535,7 +767,12 @@ struct SettingsView: View {
     /// it there first); the plain dmg still needs it once from Homebrew — the
     /// footer below only says so when neither is already present.
     private var downloadModelsSection: some View {
-        Section {
+        compactSection(
+            "Models",
+            footer: LlamaServerManager.locateBinary() == nil
+                ? "Needs llama-server itself installed once — brew install llama.cpp — that one step can't be done from inside the app. (The download-with-AI build ships it already and skips this.) Every model above downloads and runs itself after that."
+                : "Every model above downloads and runs itself — nothing else to install."
+        ) {
             ForEach(ModelCatalog.entries) { entry in
                 modelRow(entry)
             }
@@ -547,41 +784,31 @@ struct SettingsView: View {
             if let error = installError {
                 Text(error).font(.caption2).foregroundStyle(.red)
             }
-        } header: {
-            Text("Models")
-        } footer: {
-            if LlamaServerManager.locateBinary() == nil {
-                Text("Needs `llama-server` itself installed once — `brew install llama.cpp` — that one step can't be done from inside the app. (The download-with-AI build ships it already and skips this.) Every model above downloads and runs itself after that.")
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("Every model above downloads and runs itself — nothing else to install.")
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 
     private func modelRow(_ entry: ModelCatalog.Entry) -> some View {
         let isSelected = preferences.aiModel == entry.id
         let isDownloaded = downloadedIDs.contains(entry.id)
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.label).font(.callout).fontWeight(isSelected ? .semibold : .regular)
-                    Text(entry.description).font(.caption2).foregroundStyle(.secondary)
-                }
-                Spacer()
-                if isSelected {
-                    Label("Selected", systemImage: "checkmark.circle.fill")
-                        .font(.caption).foregroundStyle(.green).labelStyle(.titleAndIcon)
-                } else if isDownloaded {
-                    Button("Use this model") { considerSelecting(entry) }.font(.caption)
-                } else {
-                    Button("Download") { Task { await installModel(entry) } }
-                        .font(.caption).disabled(installProgress != nil)
-                }
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.label).font(.callout).fontWeight(isSelected ? .semibold : .regular)
+                Text(entry.description).font(.caption2).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if isSelected {
+                Label("Selected", systemImage: "checkmark.circle.fill")
+                    .font(.caption).foregroundStyle(.green).labelStyle(.titleAndIcon)
+            } else if isDownloaded {
+                Button("Use this model") { considerSelecting(entry) }
+                    .glassButton().controlSize(.small).font(.caption)
+            } else {
+                Button("Download") { Task { await installModel(entry) } }
+                    .glassButton().controlSize(.small).font(.caption)
+                    .disabled(installProgress != nil)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 
     /// A model whose size crossed the memory-check threshold, held for
@@ -662,8 +889,9 @@ struct SettingsView: View {
             Image(systemName: tooMuch ? "exclamationmark.triangle.fill" : "memorychip")
             Text(String(format: "~%.1f GB RAM at this context size", estimateGB))
         }
-        .font(.caption)
+        .font(.caption2)
         .foregroundStyle(tooMuch ? .red : .secondary)
+        .animation(Motion.drift(reduced: effectiveReduceMotion), value: tooMuch)
     }
 
     /// Same "?" popover language as `AssistantFloating`'s capabilities/thinking
@@ -698,128 +926,133 @@ struct SettingsView: View {
     }
 
     /// How the assistant searches notes — chunk size, similarity floor,
-    /// context budget, answer temperature. Sits with the rest of Intelligence
-    /// rather than a Misc tab.
+    /// context budget, answer temperature.
     private var ragTuningSection: some View {
-        Section {
-            VStack(alignment: .leading) {
-                LabeledContent("Chunk size", value: "\(preferences.ragChunkSize) chars")
-                Slider(
-                    value: Binding(
-                        get: { Double(preferences.ragChunkSize) },
-                        set: { preferences.ragChunkSize = Int($0) }
-                    ),
-                    in: 200...2000,
-                    step: 100
-                )
+        compactSection(
+            "AI Tuning",
+            footer: """
+            How the assistant searches your notes (the AI's own search, and /rag). Chunk size is how much \
+            text is grouped per match; similarity floor is how loose a match counts as relevant — lower finds \
+            more, at the risk of an unrelated note slipping in. Context budget caps how much matched text \
+            reaches the answer model.
+            """
+        ) {
+            compactRow("Chunk size") {
+                Text("\(preferences.ragChunkSize) chars").foregroundStyle(.secondary)
             }
-            VStack(alignment: .leading) {
-                LabeledContent("Similarity floor", value: String(format: "%.2f", preferences.ragSimilarityFloor))
-                Slider(value: $preferences.ragSimilarityFloor, in: 0...1, step: 0.05)
+            Slider(
+                value: Binding(
+                    get: { Double(preferences.ragChunkSize) },
+                    set: { preferences.ragChunkSize = Int($0) }
+                ),
+                in: 200...2000,
+                step: 100
+            )
+            compactRow("Similarity floor") {
+                Text(String(format: "%.2f", preferences.ragSimilarityFloor)).foregroundStyle(.secondary)
             }
-            VStack(alignment: .leading) {
-                LabeledContent("Context budget", value: "\(preferences.ragContextBudget) chars")
-                Slider(
-                    value: Binding(
-                        get: { Double(preferences.ragContextBudget) },
-                        set: { preferences.ragContextBudget = Int($0) }
-                    ),
-                    in: 1000...20000,
-                    step: 500
-                )
+            Slider(value: $preferences.ragSimilarityFloor, in: 0...1, step: 0.05)
+            compactRow("Context budget") {
+                Text("\(preferences.ragContextBudget) chars").foregroundStyle(.secondary)
             }
-            VStack(alignment: .leading) {
-                LabeledContent("Answer temperature", value: String(format: "%.2f", preferences.ragAnswerTemperature))
-                Slider(value: $preferences.ragAnswerTemperature, in: 0...1, step: 0.05)
+            Slider(
+                value: Binding(
+                    get: { Double(preferences.ragContextBudget) },
+                    set: { preferences.ragContextBudget = Int($0) }
+                ),
+                in: 1000...20000,
+                step: 500
+            )
+            compactRow("Answer temperature") {
+                Text(String(format: "%.2f", preferences.ragAnswerTemperature)).foregroundStyle(.secondary)
             }
+            Slider(value: $preferences.ragAnswerTemperature, in: 0...1, step: 0.05)
             Button("Reset to Defaults") {
                 preferences.ragChunkSize = Preferences.ragDefaultChunkSize
                 preferences.ragSimilarityFloor = Preferences.ragDefaultSimilarityFloor
                 preferences.ragContextBudget = Preferences.ragDefaultContextBudget
                 preferences.ragAnswerTemperature = Preferences.ragDefaultAnswerTemperature
             }
+            .glassButton()
+            .controlSize(.small)
             .font(.caption)
-        } header: {
-            Text("AI Tuning")
-        } footer: {
-            Text("""
-            How the assistant searches your notes (the AI's own search, and `/rag`). Chunk size is how much \
-            text is grouped per match; similarity floor is how loose a match counts as relevant — lower finds \
-            more, at the risk of an unrelated note slipping in. Context budget caps how much matched text \
-            reaches the answer model.
-            """)
-            .foregroundStyle(.secondary)
         }
     }
 
-    /// Every file this app writes to disk, with its real size and a way to
-    /// get to it or clear it — the same paths `generalTab`'s Notes Database
-    /// row and `downloadModelsSection` already compute, just gathered in one
-    /// technical place instead of scattered across panes.
-    private var dataStorageTab: some View {
-        let files: [(label: String, url: URL)] = [
+    // MARK: Data & Storage
+
+    /// The 4 fixed (label, url) pairs `refreshDiskUsage()` and
+    /// `dataStorageTab` both need — one source, not two hand-kept copies.
+    private var dataStorageFiles: [(label: String, url: URL)] {
+        [
             ("Schedule cache", ScheduleStore.fileURL),
             ("Notes & vault", NotesStore.defaultURL),
             ("Syllabus", SyllabusStore.defaultURL),
             ("Quiz decks", QuizStore.defaultRoot),
         ]
+    }
+
+    /// Every file this app writes to disk, with its real (cached) size and a
+    /// way to get to it or clear it.
+    private var dataStorageTab: some View {
         let downloadedModels = (ModelCatalog.entries + [ModelCatalog.embedModel]).filter(ModelCatalog.isDownloaded)
-        let modelsTotal = downloadedModels.reduce(Int64(0)) { $0 + fileSize(at: ModelCatalog.localURL(for: $1)) }
-        let filesTotal = files.reduce(Int64(0)) { $0 + fileSize(at: $1.url) }
+        let modelsTotal = downloadedModels.reduce(Int64(0)) { $0 + (modelSizes[$1.id] ?? 0) }
+        let filesTotal = dataStorageFiles.reduce(Int64(0)) { $0 + (fileSizes[$1.label] ?? 0) }
 
-        return settingsForm {
-            Section {
-                LabeledContent("Total on disk", value: byteCountFormatter.string(fromByteCount: filesTotal + modelsTotal))
-                    .fontWeight(.semibold)
-            }
-
-            Section {
-                ForEach(files, id: \.label) { file in
-                    LabeledContent(file.label) {
+        return VStack(alignment: .leading, spacing: 20) {
+            compactSection(
+                "Files",
+                footer: "Everything this app stores — schedule, notes, syllabus, quiz decks. Reveal opens Finder with the file (or folder) selected; nothing here is deleted from this list."
+            ) {
+                compactRow("Total on disk") {
+                    Text(byteCountFormatter.string(fromByteCount: filesTotal + modelsTotal))
+                        .fontWeight(.semibold)
+                }
+                ForEach(dataStorageFiles, id: \.label) { file in
+                    compactRow(file.label) {
                         HStack(spacing: 8) {
-                            Text(byteCountFormatter.string(fromByteCount: fileSize(at: file.url)))
+                            Text(byteCountFormatter.string(fromByteCount: fileSizes[file.label] ?? 0))
                                 .foregroundStyle(.secondary)
-                            Button("Reveal in Finder") {
+                            Button("Reveal") {
                                 NSWorkspace.shared.activateFileViewerSelecting([file.url])
                             }
-                            .font(.caption)
+                            .glassButton().controlSize(.small).font(.caption)
                         }
                     }
                 }
-            } header: {
-                Text("Files")
-            } footer: {
-                Text("Everything this app stores — schedule, notes, syllabus, quiz decks. Reveal opens Finder with the file (or folder) selected; nothing here is deleted from this list.")
-                    .foregroundStyle(.secondary)
             }
 
-            Section {
+            compactSection(
+                "AI Models",
+                footer: "Deleting the model currently selected in Intelligence is disabled — switch models first. Deleting frees disk space immediately; re-downloading is the only way back."
+            ) {
                 if downloadedModels.isEmpty {
                     Text("No models downloaded yet — see Intelligence.")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(downloadedModels) { entry in
-                        LabeledContent(entry.label) {
+                        compactRow(entry.label) {
                             HStack(spacing: 8) {
-                                Text(byteCountFormatter.string(fromByteCount: fileSize(at: ModelCatalog.localURL(for: entry))))
+                                Text(byteCountFormatter.string(fromByteCount: modelSizes[entry.id] ?? 0))
                                     .foregroundStyle(.secondary)
                                 Button("Delete", role: .destructive) {
-                                    try? FileManager.default.removeItem(at: ModelCatalog.localURL(for: entry))
-                                    refreshDownloaded()
+                                    withAnimation(Motion.selection(reduced: effectiveReduceMotion)) {
+                                        try? FileManager.default.removeItem(at: ModelCatalog.localURL(for: entry))
+                                        refreshDownloaded()
+                                    }
+                                    refreshDiskUsage()
                                 }
-                                .font(.caption)
+                                .buttonStyle(.borderless).controlSize(.small).font(.caption)
                                 .disabled(entry.id == preferences.aiModel)
                             }
                         }
+                        .transition(.opacity)
                     }
                 }
-            } header: {
-                Text("AI Models")
-            } footer: {
-                Text("Deleting the model currently selected in Intelligence is disabled — switch models first. Deleting frees disk space immediately; re-downloading is the only way back.")
-                    .foregroundStyle(.secondary)
             }
         }
+        .task { refreshDiskUsage() }
     }
 
     private let byteCountFormatter: ByteCountFormatter = {
@@ -832,8 +1065,9 @@ struct SettingsView: View {
     /// vault and a downloaded `.mlx` model are both directories; a shallow
     /// `enumerator` sum treats either the same as a single file's
     /// `attributesOfItem`. Missing paths (nothing downloaded/written yet)
-    /// read as zero rather than erroring.
-    private func fileSize(at url: URL) -> Int64 {
+    /// read as zero rather than erroring. Pure — safe to call off the main
+    /// actor from `refreshDiskUsage()`'s detached task.
+    nonisolated private func fileSize(at url: URL) -> Int64 {
         let fm = FileManager.default
         var isDirectory: ObjCBool = false
         guard fm.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return 0 }
@@ -849,16 +1083,39 @@ struct SettingsView: View {
         return total
     }
 
+    /// Computes every file/model size off the render path — the walk itself
+    /// (`fileSize(at:)`) is unchanged, just moved to a detached background
+    /// task instead of running synchronously in the view body on every
+    /// SwiftUI re-evaluation. Called once when Data & Storage appears, and
+    /// again right after a model delete.
+    private func refreshDiskUsage() {
+        let files = dataStorageFiles
+        let models = (ModelCatalog.entries + [ModelCatalog.embedModel]).filter(ModelCatalog.isDownloaded)
+        Task.detached(priority: .utility) { [self] in
+            var newFileSizes: [String: Int64] = [:]
+            for file in files { newFileSizes[file.label] = fileSize(at: file.url) }
+            var newModelSizes: [String: Int64] = [:]
+            for entry in models { newModelSizes[entry.id] = fileSize(at: ModelCatalog.localURL(for: entry)) }
+            let finalFileSizes = newFileSizes
+            let finalModelSizes = newModelSizes
+            await MainActor.run {
+                fileSizes = finalFileSizes
+                modelSizes = finalModelSizes
+            }
+        }
+    }
+
+    // MARK: Account
+
     private var accountTab: some View {
-        settingsForm {
-            Section("Account") {
-                LabeledContent("Last updated") {
+        VStack(alignment: .leading, spacing: 20) {
+            compactSection("Account") {
+                compactRow("Last updated") {
                     Text(appState.portal.lastUpdated.map {
                         $0.formatted(date: .abbreviated, time: .shortened)
                     } ?? "Never")
                     .foregroundStyle(.secondary)
                 }
-
                 HStack {
                     Button("Refresh Schedule") {
                         Task { await appState.portal.loadSchedule() }
@@ -867,6 +1124,8 @@ struct SettingsView: View {
                     Spacer()
                     Button("Sign Out", role: .destructive) { appState.signOut() }
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
 
             technicalSection([
@@ -875,6 +1134,8 @@ struct SettingsView: View {
             ])
         }
     }
+
+    // MARK: About
 
     /// Read through `UpdateCheck` so the version shown here and the version the
     /// update check compares against can't drift apart. Unknown when there's no
@@ -885,37 +1146,41 @@ struct SettingsView: View {
     }
 
     private var aboutTab: some View {
-        settingsForm {
-            Section("About") {
-                LabeledContent("PUPSISPortal") {
-                    HStack {
+        VStack(alignment: .leading, spacing: 20) {
+            compactSection("About") {
+                compactRow("PUPSISPortal") {
+                    HStack(spacing: 8) {
                         Text(updaterBridge.availableVersion.map { "v\(appVersion) — v\($0) available" } ?? "v\(appVersion)")
+                            .foregroundStyle(.secondary)
                         Button("Check for Updates…") { appState.updaterController.checkForUpdates(nil) }
+                            .glassButton().controlSize(.small).font(.caption)
                             .disabled(!appState.updaterController.updater.canCheckForUpdates)
                     }
                 }
-                Toggle("Check for updates automatically", isOn: Binding(
-                    get: { appState.updaterController.updater.automaticallyChecksForUpdates },
-                    set: { appState.updaterController.updater.automaticallyChecksForUpdates = $0 }
-                ))
-                LabeledContent("Author", value: "Janvin D. Salvador")
-                LabeledContent("Contact") {
-                    Link("cgradying@gmail.com", destination: URL(string: "mailto:cgradying@gmail.com")!)
+                compactRow("Check for updates automatically") {
+                    Toggle("", isOn: Binding(
+                        get: { appState.updaterController.updater.automaticallyChecksForUpdates },
+                        set: { appState.updaterController.updater.automaticallyChecksForUpdates = $0 }
+                    )).labelsHidden().toggleStyle(.switch)
                 }
-                LabeledContent("LinkedIn") {
+                compactRow("Author") { Text("Janvin D. Salvador").foregroundStyle(.secondary) }
+                compactRow("Contact") {
+                    Link("cgradying@gmail.com", destination: URL(string: "mailto:cgradying@gmail.com")!)
+                        .font(.callout)
+                }
+                compactRow("LinkedIn") {
                     // ponytail: people-search link (safe) until the exact profile URL is known.
                     Link("Janvin D. Salvador",
                          destination: URL(string: "https://www.linkedin.com/search/results/people/?keywords=Janvin%20D.%20Salvador")!)
+                        .font(.callout)
                 }
             }
 
-            Section("Support") {
-                LabeledContent("Donate") {
-                    Text("Coming soon").foregroundStyle(.secondary)
-                }
+            compactSection("Support") {
+                compactRow("Donate") { Text("Coming soon").foregroundStyle(.secondary) }
             }
 
-            Section {
+            compactSection("Terms of Use") {
                 Text("""
                 PUPSISPortal is an unofficial, independent client for the PUP \
                 Student Information System. It is not affiliated with, endorsed by, \
@@ -935,8 +1200,6 @@ struct SettingsView: View {
                 """)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            } header: {
-                Text("Terms of Use")
             }
 
             technicalSection([
@@ -951,67 +1214,74 @@ struct SettingsView: View {
 private extension SettingsView {
     @ViewBuilder
     var notificationSection: some View {
-        Section {
-            Toggle("Remind me before class", isOn: Binding(
-                // Not a plain binding: turning it on is what asks for
-                // authorization, and a toggle that stays on while nothing can
-                // fire is worse than one that refuses.
-                get: { preferences.notificationsEnabled },
-                set: { wants in
-                    guard wants else {
-                        preferences.notificationsEnabled = false
-                        syncNotifications()
-                        return
+        compactSection(
+            "Notifications",
+            footer: """
+            One reminder per class meeting, repeating weekly. Meetings you've \
+            marked vacant are skipped. Reminders fire only while PUPSISPortal is \
+            running — turn on Start at login (General) so it's always there to \
+            fire them, even after a restart.
+            """
+        ) {
+            compactRow("Remind me before class") {
+                Toggle("", isOn: Binding(
+                    // Not a plain binding: turning it on is what asks for
+                    // authorization, and a toggle that stays on while nothing can
+                    // fire is worse than one that refuses.
+                    get: { preferences.notificationsEnabled },
+                    set: { wants in
+                        guard wants else {
+                            preferences.notificationsEnabled = false
+                            syncNotifications()
+                            return
+                        }
+                        Task {
+                            preferences.notificationsEnabled = await notifier.requestAuthorization()
+                            syncNotifications()
+                        }
                     }
-                    Task {
-                        preferences.notificationsEnabled = await notifier.requestAuthorization()
-                        syncNotifications()
-                    }
-                }
-            ))
-
-            Picker("How early", selection: $preferences.notificationLeadMinutes) {
-                ForEach(Preferences.leadOptions, id: \.self) { minutes in
-                    Text("\(minutes) minutes before").tag(minutes)
-                }
+                )).labelsHidden().toggleStyle(.switch)
             }
-            .disabled(!preferences.notificationsEnabled)
-            // Rebuilt from here, not only from the calendar: that view isn't
-            // alive while this pane is on screen, so it can't do it for us.
-            .onChange(of: preferences.notificationLeadMinutes) { syncNotifications() }
+
+            compactRow("How early") {
+                Picker("", selection: $preferences.notificationLeadMinutes) {
+                    ForEach(Preferences.leadOptions, id: \.self) { minutes in
+                        Text("\(minutes) minutes before").tag(minutes)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 180, alignment: .trailing)
+                .disabled(!preferences.notificationsEnabled)
+                // Rebuilt from here, not only from the calendar: that view isn't
+                // alive while this pane is on screen, so it can't do it for us.
+                .onChange(of: preferences.notificationLeadMinutes) { syncNotifications() }
+            }
 
             if notifier.authorization == .denied {
-                LabeledContent("Notifications are turned off for this app") {
+                compactRow("Notifications are turned off for this app") {
                     Button("Open System Settings…") {
                         guard let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")
                         else { return }
                         NSWorkspace.shared.open(url)
                     }
+                    .glassButton().controlSize(.small).font(.caption)
                 }
                 .foregroundStyle(.secondary)
             }
-        } header: {
-            Text("Notifications")
-        } footer: {
-            Text("""
-            One reminder per class meeting, repeating weekly. Meetings you've \
-            marked vacant are skipped. Reminders fire only while PUPSISPortal is \
-            running — turn on Start at login (General) so it's always there to \
-            fire them, even after a restart.
-            """)
-            .foregroundStyle(.secondary)
         }
     }
 
     @ViewBuilder
     var calendarSection: some View {
-        Section {
+        compactSection("Calendar", footer: calendarFooter) {
             switch calendar.access {
             case .notDetermined:
-                LabeledContent("Calendar.app") {
+                compactRow("Calendar.app") {
                     Button("Connect…") {
                         Task { await calendar.requestAccess() }
                     }
+                    .glassButton().controlSize(.small).font(.caption)
                 }
 
             case .denied:
@@ -1019,29 +1289,24 @@ private extension SettingsView {
                     "Calendar access is off. Turn it on in System Settings › Privacy & Security › Calendars.",
                     systemImage: "exclamationmark.triangle"
                 )
+                .font(.caption)
                 .foregroundStyle(.secondary)
 
             case .granted:
                 if calendar.calendars.isEmpty {
                     Text("No calendars found.")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(calendar.calendars) { info in
-                        Toggle(isOn: Binding(
-                            get: { preferences.visibleCalendarIDs.contains(info.id) },
-                            set: { preferences.setCalendar(info.id, visible: $0) }
-                        )) {
-                            Label {
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(info.title)
-                                    // The account, so a Google calendar is
-                                    // identifiable next to an iCloud one.
-                                    Text(info.source)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            } icon: {
-                                Circle().fill(info.color).frame(width: 10, height: 10)
+                        compactRow(info.title) {
+                            HStack(spacing: 6) {
+                                Circle().fill(info.color).frame(width: 8, height: 8)
+                                Text(info.source).font(.caption2).foregroundStyle(.secondary)
+                                Toggle("", isOn: Binding(
+                                    get: { preferences.visibleCalendarIDs.contains(info.id) },
+                                    set: { preferences.setCalendar(info.id, visible: $0) }
+                                )).labelsHidden().toggleStyle(.switch)
                             }
                         }
                     }
@@ -1049,33 +1314,40 @@ private extension SettingsView {
 
                 if calendar.writableCalendars.isEmpty {
                     Text("None of your calendars can be edited, so classes can't be exported.")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    Picker("In-person classes to", selection: $preferences.exportCalendarID) {
-                        Text("Choose a calendar…").tag("")
-                        ForEach(calendar.writableCalendars) { info in
-                            Text("\(info.title) · \(info.source)").tag(info.id)
+                    compactRow("In-person classes to") {
+                        Picker("", selection: $preferences.exportCalendarID) {
+                            Text("Choose a calendar…").tag("")
+                            ForEach(calendar.writableCalendars) { info in
+                                Text("\(info.title) · \(info.source)").tag(info.id)
+                            }
                         }
+                        .labelsHidden().pickerStyle(.menu).frame(maxWidth: 200, alignment: .trailing)
                     }
 
                     // Route online classes to their own calendar — a separate
                     // "label" in Apple/Google Calendar — or leave them with the rest.
-                    Picker("Online classes to", selection: $preferences.onlineExportCalendarID) {
-                        Text("Same as in-person").tag("")
-                        ForEach(calendar.writableCalendars) { info in
-                            Text("\(info.title) · \(info.source)").tag(info.id)
+                    compactRow("Online classes to") {
+                        Picker("", selection: $preferences.onlineExportCalendarID) {
+                            Text("Same as in-person").tag("")
+                            ForEach(calendar.writableCalendars) { info in
+                                Text("\(info.title) · \(info.source)").tag(info.id)
+                            }
                         }
+                        .labelsHidden().pickerStyle(.menu).frame(maxWidth: 200, alignment: .trailing)
+                        .disabled(preferences.exportCalendarID.isEmpty)
                     }
-                    .disabled(preferences.exportCalendarID.isEmpty)
 
-                    DatePicker(
-                        "Repeat until",
-                        selection: $preferences.termEndDate,
-                        displayedComponents: .date
-                    )
+                    compactRow("Repeat until") {
+                        DatePicker("", selection: $preferences.termEndDate, displayedComponents: .date)
+                            .labelsHidden()
+                    }
 
-                    LabeledContent("Your classes") {
+                    compactRow("Your classes") {
                         Button("Add to Calendar…", action: exportClasses)
+                            .glassButton().controlSize(.small).font(.caption)
                             .disabled(appState.portal.sessions.isEmpty
                                       || preferences.exportCalendarID.isEmpty)
                     }
@@ -1084,37 +1356,29 @@ private extension SettingsView {
 
             // Google (and any other) calendars flow into the app through
             // EventKit once the account is added to macOS — this is the way in.
-            LabeledContent("Google & other accounts") {
+            compactRow("Google & other accounts") {
                 Button("Open Internet Accounts…") {
                     guard let url = URL(string: "x-apple.systempreferences:com.apple.Internet-Accounts-Settings.extension")
                     else { return }
                     NSWorkspace.shared.open(url)
                 }
+                .glassButton().controlSize(.small).font(.caption)
             }
 
             // A plain file, so the schedule can go anywhere — Google Calendar's
             // web import, a phone — without granting calendar access at all.
-            LabeledContent("Schedule file") {
+            compactRow("Schedule file") {
                 Button("Export .ics…", action: exportICS)
+                    .glassButton().controlSize(.small).font(.caption)
                     .disabled(appState.portal.sessions.isEmpty)
             }
 
             if let result = exportResult {
-                Text(result)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(result).font(.caption2).foregroundStyle(.secondary)
             }
-
             if let error = calendar.lastError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                Text(error).font(.caption2).foregroundStyle(.orange)
             }
-        } header: {
-            Text("Calendar")
-        } footer: {
-            Text(calendarFooter)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -1140,47 +1404,9 @@ private extension SettingsView {
 
     @ViewBuilder
     var googleSection: some View {
-        Section {
-            if !googleAuth.isConnected {
-                TextField("OAuth client ID", text: $preferences.googleClientID)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                LabeledContent("Google account") {
-                    Button("Connect Google") { connectGoogle() }
-                        .disabled(preferences.googleClientID.trimmingCharacters(in: .whitespaces).isEmpty || googleBusy)
-                }
-            } else {
-                Picker("Export to", selection: $preferences.googleCalendarID) {
-                    Text("Choose a calendar…").tag("")
-                    ForEach(googleCalendars) { cal in
-                        Text(cal.summary).tag(cal.id)
-                    }
-                }
-
-                LabeledContent("Your classes") {
-                    Button("Export to Google", action: exportToGoogle)
-                        .disabled(appState.portal.sessions.isEmpty
-                                  || preferences.googleCalendarID.isEmpty
-                                  || googleBusy)
-                }
-
-                Button("Disconnect Google", role: .destructive) {
-                    googleAuth.disconnect()
-                    googleCalendars = []
-                    googleResult = nil
-                }
-            }
-
-            if googleBusy {
-                HStack { ProgressView().controlSize(.small); Text("Working…").foregroundStyle(.secondary) }
-            }
-            if let googleResult {
-                Text(googleResult).font(.caption).foregroundStyle(.secondary)
-            }
-        } header: {
-            Text("Google Calendar (direct)")
-        } footer: {
-            Text("""
+        compactSection(
+            "Google Calendar (direct)",
+            footer: """
             Writes classes straight to Google, bypassing Apple Calendar (whose \
             Google sync is unreliable for repeating events). One-time setup: at \
             console.cloud.google.com create a project, enable the Google Calendar \
@@ -1189,8 +1415,52 @@ private extension SettingsView {
             com.cgradying.pupsisportal and paste its Client ID above. While the \
             consent screen stays in testing, Google asks you to reconnect about \
             once a week.
-            """)
-            .foregroundStyle(.secondary)
+            """
+        ) {
+            if !googleAuth.isConnected {
+                compactRow("OAuth client ID") {
+                    TextField("", text: $preferences.googleClientID)
+                        .labelsHidden()
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.caption, design: .monospaced))
+                        .frame(maxWidth: 220, alignment: .trailing)
+                }
+                compactRow("Google account") {
+                    Button("Connect Google") { connectGoogle() }
+                        .glassButton().controlSize(.small).font(.caption)
+                        .disabled(preferences.googleClientID.trimmingCharacters(in: .whitespaces).isEmpty || googleBusy)
+                }
+            } else {
+                compactRow("Export to") {
+                    Picker("", selection: $preferences.googleCalendarID) {
+                        Text("Choose a calendar…").tag("")
+                        ForEach(googleCalendars) { cal in
+                            Text(cal.summary).tag(cal.id)
+                        }
+                    }
+                    .labelsHidden().pickerStyle(.menu).frame(maxWidth: 200, alignment: .trailing)
+                }
+                compactRow("Your classes") {
+                    Button("Export to Google", action: exportToGoogle)
+                        .glassButton().controlSize(.small).font(.caption)
+                        .disabled(appState.portal.sessions.isEmpty
+                                  || preferences.googleCalendarID.isEmpty
+                                  || googleBusy)
+                }
+                Button("Disconnect Google", role: .destructive) {
+                    googleAuth.disconnect()
+                    googleCalendars = []
+                    googleResult = nil
+                }
+                .buttonStyle(.borderless).controlSize(.small).font(.caption)
+            }
+
+            if googleBusy {
+                HStack { ProgressView().controlSize(.small); Text("Working…").font(.caption2).foregroundStyle(.secondary) }
+            }
+            if let googleResult {
+                Text(googleResult).font(.caption2).foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -1276,6 +1546,30 @@ private extension SettingsView {
     }
 }
 
+/// The tab strip's "which page am I on" mark — a thin pixel-dither line
+/// under the selected tab. Same `DitherFill`/`TimelineView` pairing
+/// `HomeNoiseField.swift` already uses for its own ambient wave, scaled
+/// down to a 3pt line instead of a full field: idles with a slow drift
+/// rather than sitting static, pauses to one still frame under Reduce
+/// Motion rather than merely slowing down.
+private struct TabIndicatorLine: View {
+    let color: Color
+    let reduced: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: reduced ? nil : 0.16, paused: reduced)) { context in
+            DitherFill(
+                color: color,
+                cell: 2,
+                ramp: .wave(0.6),
+                phase: reduced ? 0 : context.date.timeIntervalSinceReferenceDate * 0.5
+            )
+        }
+        .frame(height: 3)
+        .clipShape(Capsule())
+    }
+}
+
 private struct SubjectColorRow: View {
     let code: String
     @ObservedObject var preferences: Preferences
@@ -1302,7 +1596,9 @@ private struct SubjectColorRow: View {
 
             Button("Reset") { preferences.resetColor(for: code) }
                 .buttonStyle(.link)
+                .font(.caption)
                 .disabled(!preferences.hasCustomColor(for: code))
         }
+        .padding(.vertical, 2)
     }
 }
