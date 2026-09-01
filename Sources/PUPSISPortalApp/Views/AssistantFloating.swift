@@ -1202,7 +1202,7 @@ private struct RevealText: View {
     }
 
     var body: some View {
-        Text(words.prefix(shown).joined(separator: " "))
+        Text(words.prefix(shown).map(Self.displayWord).joined(separator: " "))
             .animation(.easeOut(duration: 0.08), value: shown)
             // `.task(id:)`, not `.onAppear` — an `Int` isn't `VectorArithmetic`,
             // so `withAnimation { shown = words.count }` would just snap
@@ -1217,6 +1217,19 @@ private struct RevealText: View {
                     if index < words.count { try? await Task.sleep(nanoseconds: perWord) }
                 }
             }
+    }
+
+    /// Strips the markdown this reveal renders as plain text before it's
+    /// parsed as markdown — confirmed live: a reply with `**bold**` or a
+    /// `- ` list visibly "unwraps" its own syntax mid-reveal, the same
+    /// literal-`*` symptom the note editor's `listMarkPlugin` fixes. Display
+    /// only; `text`/`words` above stay the model's real output.
+    private static func displayWord(_ word: String) -> String {
+        if word == "-" || word == "*" || word == "+" { return "\u{2022}" }
+        var trimmed = Substring(word)
+        while let first = trimmed.first, "*_`".contains(first) { trimmed.removeFirst() }
+        while let last = trimmed.last, "*_`".contains(last) { trimmed.removeLast() }
+        return trimmed.isEmpty ? word : String(trimmed)
     }
 }
 
