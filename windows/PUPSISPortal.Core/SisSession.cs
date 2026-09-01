@@ -35,7 +35,7 @@ public sealed record SisScripts(
 /// </summary>
 public sealed class SisSession
 {
-    private const string Base = "https://sis8.pup.edu.ph/student";
+    private const string Base = "https://sis1.pup.edu.ph/student";
     public const string LoginUrl = Base + "/";
     public const string ScheduleUrl = Base + "/schedule";
     public const string GradesUrl = Base + "/grades";

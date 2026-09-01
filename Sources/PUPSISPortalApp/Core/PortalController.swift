@@ -48,7 +48,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
 
     private static let genericFailure = "Sign-in didn't go through — check your student number, birthdate, and password."
 
-    private static let base = "https://sis8.pup.edu.ph/student"
+    private static let base = "https://sis1.pup.edu.ph/student"
     private static let loginURL = URL(string: "\(base)/")!
     private static let scheduleURL = URL(string: "\(base)/schedule")!
     private static let gradesURL = URL(string: "\(base)/grades")!

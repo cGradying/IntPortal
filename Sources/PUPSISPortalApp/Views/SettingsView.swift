@@ -1129,7 +1129,7 @@ struct SettingsView: View {
             }
 
             technicalSection([
-                ("SIS endpoint", "sis8.pup.edu.ph"),
+                ("SIS endpoint", "sis1.pup.edu.ph"),
                 ("Keychain service", "ph.edu.pup.sis8.portal"),
             ])
         }
