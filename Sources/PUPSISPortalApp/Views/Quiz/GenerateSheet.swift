@@ -212,7 +212,7 @@ struct GenerateSheet: View {
             $0.mode == .append ? .append(deckID: $0.deck.id) : .regenerate(deckID: $0.deck.id)
         } ?? .new(name: deckName, sourceKind: sourceKindForNewDeck, sourceQuery: sourceQueryForNewDeck)
         jobID = center.start(
-            label: deckName, source: source, model: aiModel, client: LlamaCppClient(),
+            label: deckName, source: source, model: aiModel, client: Preferences.localAIClient(modelID: aiModel),
             ragQuery: ragQuery, chunkSize: preferences.ragChunkSize, target: target
         )
     }

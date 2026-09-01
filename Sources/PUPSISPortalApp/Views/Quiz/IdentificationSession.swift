@@ -143,7 +143,7 @@ struct IdentificationSession: View {
         guard explanation == nil, preferences.aiEnabled, !preferences.aiModel.isEmpty else { return }
         explaining = true
         let text = await AnswerExplainer.explain(
-            card: current, studentAnswered: typed, model: preferences.aiModel, client: LlamaCppClient()
+            card: current, studentAnswered: typed, model: preferences.aiModel, client: Preferences.localAIClient(modelID: preferences.aiModel)
         )
         explaining = false
         guard let text else { return }

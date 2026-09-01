@@ -152,7 +152,7 @@ struct MultipleChoiceSession: View {
         guard explanation == nil, preferences.aiEnabled, !preferences.aiModel.isEmpty else { return }
         explaining = true
         let text = await AnswerExplainer.explain(
-            card: card, studentAnswered: picked, model: preferences.aiModel, client: LlamaCppClient()
+            card: card, studentAnswered: picked, model: preferences.aiModel, client: Preferences.localAIClient(modelID: preferences.aiModel)
         )
         explaining = false
         guard let text else { return }
