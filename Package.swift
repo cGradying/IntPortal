@@ -26,6 +26,20 @@ let package = Package(
         // Only wired into Views/ (see each file's `@ObserveInjection`); a
         // no-op in a release build, see the `-interposable` note below.
         .package(url: "https://github.com/krzysztofzablocki/Inject.git", from: "1.5.2"),
+        // MLX runtime for Qwen3.5 on Apple Silicon — see
+        // .claude/plans/qwen3-5-0-8b-mlx-mlx-1-2gb-256k-effervescent-panda.md.
+        // Stage-1 checkpoint: does this even resolve under our tools-version.
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm", branch: "main"),
+        // Adapts a local directory's tokenizer files into mlx-swift-lm's
+        // `Tokenizer`/`TokenizerLoader` protocols (`Core/MLXBackend.swift`) —
+        // BPE + chat-template parsing is exactly what this HF-maintained
+        // package already does; not worth reimplementing.
+        // 1.1.4+ specifically — that's where TokenizersBackend support
+        // (transformers v5's newer tokenizer_class naming, which Qwen3.5's
+        // real tokenizer_config.json uses) landed. The earlier `from: "0.1.0"`
+        // constraint resolved to a pre-1.0 commit that predates it and threw
+        // `unsupportedTokenizer("TokenizersBackend")` on load.
+        .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.4"),
     ],
     targets: [
         .executableTarget(
@@ -34,6 +48,10 @@ let package = Package(
                 .product(name: "FSRS", package: "SwiftFSRS"),
                 .product(name: "Sparkle", package: "Sparkle"),
                 .product(name: "Inject", package: "Inject"),
+                .product(name: "MLXLLM", package: "mlx-swift-lm"),
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+                .product(name: "MLXGuidedGeneration", package: "mlx-swift-lm"),
+                .product(name: "Transformers", package: "swift-transformers"),
             ],
             path: "Sources/PUPSISPortalApp",
             resources: [

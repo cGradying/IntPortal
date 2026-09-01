@@ -5,6 +5,7 @@ import { EditorView, Decoration, WidgetType, ViewPlugin, keymap, drawSelection, 
 import { EditorState, StateField, StateEffect, RangeSetBuilder } from "@codemirror/state";
 import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
+import { Strikethrough } from "@lezer/markdown";
 import { syntaxHighlighting, HighlightStyle, LanguageDescription, syntaxTree } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import katex from "katex";
@@ -14,6 +15,11 @@ import { parse as latexParse, HtmlGenerator as LatexHtmlGenerator } from "latex.
 import latexBaseCss from "../node_modules/latex.js/dist/css/base.css";
 import latexArticleCss from "../node_modules/latex.js/dist/css/article.css";
 import latexKatexCss from "../node_modules/latex.js/dist/css/katex.css";
+// The editor's own chrome (wayfinder ticket #11) — was inline in the Swift
+// HTML shell, moved here for the same reason latex.js's CSS above is a text
+// import rather than hand-copied: real CSS tooling instead of a Swift
+// string literal. Injected as a <style> tag in initEditor(), below.
+import editorCss from "./editor.css";
 
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
@@ -75,6 +81,51 @@ function inRegions(from, to, regions) {
   return regions.some((r) => from < r.to && to > r.from);
 }
 
+// Fenced code content is verbatim — CONFIRMED LIVE BUG this fixes: every
+// other "render this markdown construct" decorator below (headings, hr,
+// checkboxes, wikilinks, colors, highlight, images, the LaTeX-document
+// renderer) scans either the raw document text with a regex or the document
+// line-by-line, with NO awareness of block structure — only the syntax-tree
+// -based ones (inlineMarkDecorations, fenceDecorations itself) respect it
+// natively. So typing `# not a heading` or `- [ ] not a checkbox` or `---`
+// as literal example text *inside* a ```fenced block``` got rendered as a
+// real heading/checkbox/rule anyway — markdown from outside the block
+// leaking into content that should stay exactly what was typed. One shared
+// `codeRegions` (mirrors `latexRegions`, syntax-tree based since a regex
+// can't reliably find fence boundaries around arbitrary content) plus
+// `excludedRegions` combining both is used everywhere `latexRegions` was
+// checked instead of sprinkling a second one-off check at each site.
+function codeRegions(state) {
+  const regions = [];
+  syntaxTree(state).iterate({
+    enter(node) {
+      if (node.name === "FencedCode") regions.push({ from: node.from, to: node.to });
+    },
+  });
+  return regions;
+}
+
+function excludedRegions(state) {
+  return latexRegions(state.doc.toString()).concat(codeRegions(state));
+}
+
+// Every "reveal raw syntax while editing" decorator (math, fences, hr,
+// headings, inline marks, wikilinks, colors, highlight, images) asks the
+// same question: is the caret inside this construct right now? Confirmed
+// live bug this fixes: CodeMirror's default selection sits at document
+// offset 0 even before the webview has ever been focused, so a note whose
+// very first line was a heading (or any other of these constructs) showed
+// its raw marks on first load — nothing had "clicked into" it, but the
+// selection-only check couldn't tell the difference. Requiring focus too is
+// the fix; every call site below routes through this instead of repeating
+// `sel.from <= to && sel.to >= from` (and forgetting the focus half) on its
+// own.
+function caretOverlaps(view, from, to) {
+  if (!view.hasFocus) return false;
+  const sel = view.state.selection.main;
+  return sel.from <= to && sel.to >= from;
+}
+
 function findMath(text) {
   const found = [];
   for (const p of MATH_PATTERNS) {
@@ -107,13 +158,11 @@ class MathWidget extends WidgetType {
 
 function mathDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const text = view.state.doc.toString();
-  const regions = latexRegions(text);
+  const regions = excludedRegions(view.state);
   for (const m of findMath(text)) {
     // Show raw source while the caret is inside/adjacent, so it stays editable.
-    const editing = sel.from <= m.to && sel.to >= m.from;
-    if (editing) continue;
+    if (caretOverlaps(view, m.from, m.to)) continue;
     if (inRegions(m.from, m.to, regions)) continue; // rendered by the LaTeX document
     builder.add(m.from, m.to, Decoration.replace({ widget: new MathWidget(m.latex, m.display) }));
   }
@@ -214,6 +263,9 @@ class CodeHeaderWidget extends WidgetType {
       e.preventDefault(); e.stopPropagation();
       copyToClipboard(this.code);
       copy.textContent = "Copied";
+      copy.classList.remove("pup-copy-flash");
+      void copy.offsetWidth; // restart the animation on a repeat click
+      copy.classList.add("pup-copy-flash");
       setTimeout(() => { copy.textContent = "Copy"; }, 1200);
     };
     row.appendChild(badge);
@@ -229,7 +281,6 @@ class HiddenWidget extends WidgetType {
 }
 
 function fenceDecorations(view) {
-  const sel = view.state.selection.main;
   const items = [];
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
@@ -237,7 +288,7 @@ function fenceDecorations(view) {
       enter: (node) => {
         if (node.name !== "FencedCode") return;
         // Editing this block? Show the raw fences so they're changeable.
-        if (sel.from <= node.to && sel.to >= node.from) return;
+        if (caretOverlaps(view, node.from, node.to)) return;
         const open = view.state.doc.lineAt(node.from);
         const close = view.state.doc.lineAt(node.to);
         if (close.number <= open.number) return;
@@ -282,14 +333,12 @@ class HrWidget extends WidgetType {
 
 function hrDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const doc = view.state.doc;
-  const regions = latexRegions(doc.toString());
+  const regions = excludedRegions(view.state);
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     if (!HR_RE.test(line.text.trim())) continue;
-    const editing = sel.from <= line.to && sel.to >= line.from;
-    if (editing) continue;
+    if (caretOverlaps(view, line.from, line.to)) continue;
     if (inRegions(line.from, line.to, regions)) continue;
     builder.add(line.from, line.to, Decoration.replace({ widget: new HrWidget() }));
   }
@@ -307,7 +356,7 @@ const hrPlugin = ViewPlugin.fromClass(
 );
 
 // --- Interactive checkboxes: "- [ ] " / "- [x] " get a clickable box ---
-const CHECKBOX_RE = /^(\s*[-*] )\[( |x|X)\] /;
+const CHECKBOX_RE = /^(\s*)([-*]) \[( |x|X)\] /;
 
 class CheckboxWidget extends WidgetType {
   constructor(checked, pos) { super(); this.checked = checked; this.pos = pos; }
@@ -330,15 +379,20 @@ class CheckboxWidget extends WidgetType {
 function checkboxDecorations(view) {
   const builder = new RangeSetBuilder();
   const doc = view.state.doc;
-  const regions = latexRegions(doc.toString());
+  const regions = excludedRegions(view.state);
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     const m = line.text.match(CHECKBOX_RE);
     if (!m) continue;
     if (inRegions(line.from, line.to, regions)) continue;
-    const bracketOpen = line.from + m[1].length;
+    // Replaces the leading "- "/"* " marker along with the brackets (not
+    // just the brackets alone) — confirmed live: leaving the marker meant
+    // every checked item rendered as a literal "* " ahead of its checkbox.
+    // Indentation (m[1]) stays untouched, so nested checklists keep depth.
+    const markerStart = line.from + m[1].length;
+    const bracketOpen = markerStart + m[2].length + 1;
     const charPos = bracketOpen + 1;
-    builder.add(bracketOpen, bracketOpen + 3, Decoration.replace({ widget: new CheckboxWidget(m[2].toLowerCase() === "x", charPos) }));
+    builder.add(markerStart, bracketOpen + 3, Decoration.replace({ widget: new CheckboxWidget(m[3].toLowerCase() === "x", charPos) }));
   }
   return builder.finish();
 }
@@ -359,14 +413,13 @@ const HEADING_RE = /^(#{1,6})\s/;
 
 function headingDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const doc = view.state.doc;
-  const regions = latexRegions(doc.toString());
+  const regions = excludedRegions(view.state);
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     const m = line.text.match(HEADING_RE);
     if (!m) continue;
-    if (sel.from <= line.to && sel.to >= line.from) continue; // caret on line → show marks
+    if (caretOverlaps(view, line.from, line.to)) continue; // caret on line, focused → show marks
     if (inRegions(line.from, line.to, regions)) continue;
     builder.add(line.from, line.from + m[0].length, Decoration.replace({}));
   }
@@ -378,6 +431,85 @@ const headingPlugin = ViewPlugin.fromClass(
     constructor(view) { this.decorations = headingDecorations(view); }
     update(u) {
       if (u.docChanged || u.selectionSet) this.decorations = headingDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+// --- Bullet lists: replace the leading "- "/"* "/"+ " marker with a real
+// bullet glyph. Confirmed live: base CommonMark's marks-to-hide set only
+// covers EmphasisMark/CodeMark/StrikethroughMark (see INLINE_MARK_NODES
+// below) — ListMark was never in it, so every "* item" showed a literal
+// asterisk. A widget, not a bare Decoration.replace({}) — an empty replace
+// would swallow the marker's trailing space along with it, collapsing the
+// indent a nested list needs. Ordered lists ("1. ") are left alone; the
+// number is real content, not a mark. Reveals on caret, same as headings. */
+const LIST_MARK_RE = /^(\s*)([-*+]) /;
+
+class BulletWidget extends WidgetType {
+  toDOM() {
+    const span = document.createElement("span");
+    span.className = "pup-bullet";
+    span.textContent = "•";
+    return span;
+  }
+  ignoreEvent() { return true; }
+}
+
+function listMarkDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const doc = view.state.doc;
+  const regions = excludedRegions(view.state);
+  for (let n = 1; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    const m = line.text.match(LIST_MARK_RE);
+    if (!m) continue;
+    if (CHECKBOX_RE.test(line.text)) continue; // checkboxPlugin already owns this line's marker
+    if (caretOverlaps(view, line.from, line.to)) continue;
+    if (inRegions(line.from, line.to, regions)) continue;
+    const markStart = line.from + m[1].length;
+    const markEnd = markStart + m[2].length + 1; // marker + its trailing space
+    builder.add(markStart, markEnd, Decoration.replace({ widget: new BulletWidget() }));
+  }
+  return builder.finish();
+}
+
+const listMarkPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = listMarkDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.selectionSet) this.decorations = listMarkDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+// --- Inline emphasis marks: hide **/__ (strong), */_ (emphasis), ~~ (strike),
+// ` (inline code) — the line stays styled via `highlight` below; reveal the
+// marks when the caret is anywhere inside the marked span (both delimiters
+// together, like headingDecorations reveals a whole line). ---
+const INLINE_MARK_NODES = new Set(["EmphasisMark", "CodeMark", "StrikethroughMark"]);
+
+function inlineMarkDecorations(view) {
+  const builder = new RangeSetBuilder();
+  syntaxTree(view.state).iterate({
+    enter(node) {
+      if (!INLINE_MARK_NODES.has(node.name)) return;
+      const parent = node.node.parent;
+      const from = parent ? parent.from : node.from;
+      const to = parent ? parent.to : node.to;
+      if (caretOverlaps(view, from, to)) return; // caret inside, focused → show marks
+      builder.add(node.from, node.to, Decoration.replace({}));
+    },
+  });
+  return builder.finish();
+}
+
+const inlineMarkPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = inlineMarkDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.selectionSet) this.decorations = inlineMarkDecorations(u.view);
     }
   },
   { decorations: (v) => v.decorations }
@@ -405,15 +537,13 @@ class WikilinkWidget extends WidgetType {
 
 function wikilinkDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const text = view.state.doc.toString();
-  const regions = latexRegions(text);
+  const regions = excludedRegions(view.state);
   WIKILINK_RE.lastIndex = 0;
   let m;
   while ((m = WIKILINK_RE.exec(text))) {
     const from = m.index, to = m.index + m[0].length;
-    const editing = sel.from <= to && sel.to >= from;
-    if (editing) continue;
+    if (caretOverlaps(view, from, to)) continue;
     if (inRegions(from, to, regions)) continue;
     builder.add(from, to, Decoration.replace({ widget: new WikilinkWidget(m[1]) }));
   }
@@ -440,14 +570,13 @@ const COLOR_RE = /\{#([0-9a-fA-F]{3,8}):([^{}]*)\}/g;
 // empty replace decorations.
 function colorDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const text = view.state.doc.toString();
-  const regions = latexRegions(text);
+  const regions = excludedRegions(view.state);
   COLOR_RE.lastIndex = 0;
   let m;
   while ((m = COLOR_RE.exec(text))) {
     const from = m.index, to = m.index + m[0].length;
-    if (sel.from <= to && sel.to >= from) continue; // editing → show source
+    if (caretOverlaps(view, from, to)) continue; // editing, focused → show source
     if (inRegions(from, to, regions)) continue;
     const innerFrom = from + 2 + m[1].length + 1; // past "{#" + hex + ":"
     const innerTo = to - 1;                        // before "}"
@@ -464,6 +593,41 @@ const colorPlugin = ViewPlugin.fromClass(
     constructor(view) { this.decorations = colorDecorations(view); }
     update(u) {
       if (u.docChanged || u.selectionSet) this.decorations = colorDecorations(u.view);
+    }
+  },
+  { decorations: (v) => v.decorations }
+);
+
+// --- Highlighted text: ==text== renders `text` with a highlight background,
+// hiding the `==` marks (matches cmd("highlight")). Neither CommonMark nor
+// GFM has a node for this, so it's regex-based like colorPlugin above — it
+// was previously a dead command: cmd("highlight") inserted `==` markers that
+// rendered as literal text with no styling and nothing hiding them. ---
+const HIGHLIGHT_RE = /==([^=]+)==/g;
+
+function highlightMarkDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const text = view.state.doc.toString();
+  const regions = excludedRegions(view.state);
+  HIGHLIGHT_RE.lastIndex = 0;
+  let m;
+  while ((m = HIGHLIGHT_RE.exec(text))) {
+    const from = m.index, to = m.index + m[0].length;
+    if (caretOverlaps(view, from, to)) continue; // editing, focused → show source
+    if (inRegions(from, to, regions)) continue;
+    const innerFrom = from + 2, innerTo = to - 2;
+    builder.add(from, innerFrom, Decoration.replace({}));
+    builder.add(innerFrom, innerTo, Decoration.mark({ class: "pup-highlight" }));
+    builder.add(innerTo, to, Decoration.replace({}));
+  }
+  return builder.finish();
+}
+
+const highlightMarkPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.decorations = highlightMarkDecorations(view); }
+    update(u) {
+      if (u.docChanged || u.selectionSet) this.decorations = highlightMarkDecorations(u.view);
     }
   },
   { decorations: (v) => v.decorations }
@@ -488,15 +652,13 @@ class ImageWidget extends WidgetType {
 
 function imageDecorations(view) {
   const builder = new RangeSetBuilder();
-  const sel = view.state.selection.main;
   const text = view.state.doc.toString();
-  const regions = latexRegions(text);
+  const regions = excludedRegions(view.state);
   IMAGE_RE.lastIndex = 0;
   let m;
   while ((m = IMAGE_RE.exec(text))) {
     const from = m.index, to = m.index + m[0].length;
-    const editing = sel.from <= to && sel.to >= from;
-    if (editing) continue;
+    if (caretOverlaps(view, from, to)) continue;
     if (inRegions(from, to, regions)) continue;
     const url = m[2].trim();
     if (!/^(https?:|pupimg:)/.test(url)) continue;
@@ -928,8 +1090,10 @@ function latexDocDecorations(state) {
   const sel = state.selection.main;
   const text = state.doc.toString();
   const items = [];
+  const codeBlocks = codeRegions(state);
   for (const r of latexRegions(text)) {
     if (sel.from <= r.to && sel.to >= r.from) continue; // editing → show source
+    if (inRegions(r.from, r.to, codeBlocks)) continue; // a \documentclass sample shown as code, not a live document
     const src = text.slice(r.from, r.to);
     items.push({ from: r.from, to: r.to, deco: Decoration.replace({ widget: new LatexDocWidget(src), block: true }) });
   }
@@ -1097,9 +1261,11 @@ function spawnSweepBand(rect, delayMs, durationMs) {
 
 // --- Syntax highlighting: markdown structure + code tokens (Discord-ish) ---
 const highlight = HighlightStyle.define([
-  { tag: t.heading1, fontSize: "1.6em", fontWeight: "700" },
+  // Clearer step between levels (wayfinder ticket #11) — was 1.6/1.4/1.25,
+  // a narrowing gap that read muddier the deeper it went.
+  { tag: t.heading1, fontSize: "1.75em", fontWeight: "700" },
   { tag: t.heading2, fontSize: "1.4em", fontWeight: "700" },
-  { tag: t.heading3, fontSize: "1.25em", fontWeight: "600" },
+  { tag: t.heading3, fontSize: "1.15em", fontWeight: "600" },
   { tag: [t.heading4, t.heading5, t.heading6], fontWeight: "600" },
   { tag: t.strong, fontWeight: "700" },
   { tag: t.emphasis, fontStyle: "italic" },
@@ -1107,17 +1273,26 @@ const highlight = HighlightStyle.define([
   { tag: [t.monospace], fontFamily: "ui-monospace, Menlo, monospace" },
   { tag: [t.link, t.url], color: "#3b7dd8", textDecoration: "underline" },
   { tag: [t.contentSeparator], color: "#999" },
-  { tag: t.processingInstruction, color: "#8a8f98" }, // markdown marks (#, *, `)
-  // Code tokens (readable on the dark code box and on the page).
-  { tag: [t.keyword, t.moduleKeyword, t.controlKeyword, t.operatorKeyword], color: "#c586c0" },
-  { tag: [t.string, t.special(t.string), t.regexp], color: "#7ec699" },
-  { tag: [t.comment, t.lineComment, t.blockComment], color: "#7a7d84", fontStyle: "italic" },
-  { tag: [t.number, t.bool, t.null, t.atom], color: "#d19a66" },
-  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: "#61afef" },
-  { tag: [t.typeName, t.className, t.namespace], color: "#e5c07b" },
-  { tag: [t.variableName, t.propertyName, t.attributeName], color: "#9cdcfe" },
-  { tag: [t.operator, t.punctuation, t.bracket, t.derefOperator], color: "#c9ccd3" },
-  { tag: [t.definitionKeyword, t.self], color: "#c586c0" },
+  { tag: t.processingInstruction, color: "var(--tok-mark)" }, // markdown marks (#, *, `)
+  // Code tokens: `var(--tok-*)` (editor.css) is a light/dark pair picked by
+  // `[data-scheme]`, not a single dark-only palette — confirmed unreadable
+  // set against a light code box otherwise.
+  { tag: [t.keyword, t.moduleKeyword, t.controlKeyword, t.operatorKeyword], color: "var(--tok-keyword)" },
+  { tag: [t.string, t.special(t.string), t.regexp], color: "var(--tok-string)" },
+  { tag: [t.comment, t.lineComment, t.blockComment], color: "var(--tok-comment)", fontStyle: "italic" },
+  { tag: [t.number, t.bool, t.null, t.atom], color: "var(--tok-number)" },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: "var(--tok-function)" },
+  { tag: [t.typeName, t.className, t.namespace], color: "var(--tok-type)" },
+  { tag: [t.variableName, t.propertyName, t.attributeName], color: "var(--tok-variable)" },
+  { tag: [t.operator, t.punctuation, t.bracket, t.derefOperator], color: "var(--tok-punct)" },
+  { tag: [t.definitionKeyword, t.self], color: "var(--tok-keyword)" },
+  // Inline `code` — a real chip (background/border/radius), not just a font
+  // swap. HighlightStyle accepts any CSS property, so no separate widget or
+  // wrapper class is needed for this.
+  {
+    tag: [t.monospace], fontFamily: "ui-monospace, Menlo, monospace",
+    backgroundColor: "var(--code-bg)", borderRadius: "4px", padding: "1px 4px",
+  },
 ]);
 
 // --- The editor instance + native bridge ---
@@ -1135,7 +1310,135 @@ function post(handler, payload) {
   } catch (e) {}
 }
 
+let editorStyleInjected = false;
+
+// --- Reading column resize: the centered writing column's width is
+// user-adjustable, not a fixed 68ch. `--note-width` (editor.css's
+// `.cm-content`, seeded from `Preferences.noteReadingWidth`) is the single
+// source of truth; these two handles just drag it. Only visible near the
+// cursor — a persistent visible rail on both edges of every note would be
+// a permanent UI element for something used rarely. ---
+const NOTE_WIDTH_MIN = 420, NOTE_WIDTH_MAX = 1100;
+let noteResizeObserver = null;
+let noteHandles = null; // { left, right }
+let noteDrag = null; // { side, startX, startWidth }
+
+function currentNoteWidth() {
+  const px = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--note-width"));
+  return Number.isFinite(px) ? px : 640;
+}
+
+function setNoteWidthVar(px) {
+  document.documentElement.style.setProperty("--note-width", `${px}px`);
+}
+
+// Called from native (WebNoteEditor.pushReadingWidth) on a Settings change
+// or a reset — a drag in *this* webview never round-trips back through
+// here, it only ever pushes forward via `post("width", …)`.
+export function setReadingWidth(px) {
+  setNoteWidthVar(px);
+  positionNoteHandles();
+}
+
+// Handles span the full visible pane, not just the current note's content
+// height — a short note should still expose the control across the whole
+// column, since it's resizing the *section*, not decorating the text.
+function positionNoteHandles() {
+  if (!view || !noteHandles) return;
+  const scroller = view.scrollDOM;
+  const sr = scroller.getBoundingClientRect();
+  const cr = view.contentDOM.getBoundingClientRect(); // .cm-content
+  const left = cr.left - sr.left + scroller.scrollLeft;
+  const right = cr.right - sr.left + scroller.scrollLeft;
+  for (const [handle, x] of [[noteHandles.left, left], [noteHandles.right, right]]) {
+    handle.style.left = `${x}px`;
+    handle.style.top = `${scroller.scrollTop}px`;
+    handle.style.height = `${scroller.clientHeight}px`;
+  }
+}
+
+function startNoteDrag(side, e) {
+  e.preventDefault();
+  noteDrag = { side, startX: e.clientX, startWidth: currentNoteWidth() };
+  noteHandles[side].classList.add("pup-dragging");
+  document.addEventListener("pointermove", onNoteDrag);
+  document.addEventListener("pointerup", endNoteDrag, { once: true });
+}
+
+function onNoteDrag(e) {
+  if (!noteDrag) return;
+  const dx = e.clientX - noteDrag.startX;
+  // The column stays centered, so widening from one edge moves both edges —
+  // dragging the right handle right by dx grows the box by 2·dx.
+  const signedDx = noteDrag.side === "right" ? dx : -dx;
+  const width = Math.min(NOTE_WIDTH_MAX, Math.max(NOTE_WIDTH_MIN, noteDrag.startWidth + signedDx * 2));
+  setNoteWidthVar(width);
+  positionNoteHandles();
+}
+
+function endNoteDrag() {
+  if (!noteDrag) return;
+  noteHandles[noteDrag.side].classList.remove("pup-dragging");
+  document.removeEventListener("pointermove", onNoteDrag);
+  noteDrag = null;
+  post("width", { px: currentNoteWidth() }); // persists via Preferences
+}
+
+function onNoteScrollerMove(e) {
+  if (noteDrag || !noteHandles) return;
+  const margin = 24;
+  for (const handle of [noteHandles.left, noteHandles.right]) {
+    const r = handle.getBoundingClientRect();
+    const near = e.clientX >= r.left - margin && e.clientX <= r.right + margin
+      && e.clientY >= r.top && e.clientY <= r.bottom;
+    handle.classList.toggle("pup-near", near);
+  }
+}
+
+function setupNoteResize() {
+  const scroller = view.scrollDOM;
+  const makeHandle = (side) => {
+    const el = document.createElement("div");
+    el.className = "pup-note-resize";
+    el.addEventListener("pointerdown", (e) => startNoteDrag(side, e));
+    // Double-click to reset, same convention as the native sidebar resize
+    // handles (`AgendaView.sidebarResizeHandle`). 640 mirrors
+    // `Preferences.noteReadingWidthDefault` — JS can't reach that constant
+    // directly, so it's restated here.
+    el.addEventListener("dblclick", () => {
+      setNoteWidthVar(640);
+      positionNoteHandles();
+      post("width", { px: 640 });
+    });
+    scroller.appendChild(el);
+    return el;
+  };
+  noteHandles = { left: makeHandle("left"), right: makeHandle("right") };
+  scroller.addEventListener("mousemove", onNoteScrollerMove);
+  scroller.addEventListener("mouseleave", () => {
+    if (noteDrag) return;
+    noteHandles.left.classList.remove("pup-near");
+    noteHandles.right.classList.remove("pup-near");
+  });
+  scroller.addEventListener("scroll", positionNoteHandles);
+  // A fresh `initEditor()` call (only happens if `view` was ever null)
+  // replaces the scroller entirely — disconnect the old observer rather
+  // than leaking one per reinit.
+  if (noteResizeObserver) noteResizeObserver.disconnect();
+  noteResizeObserver = new ResizeObserver(positionNoteHandles);
+  noteResizeObserver.observe(scroller);
+  positionNoteHandles();
+}
+
 export function initEditor(initialText, key) {
+  // Once per document load, not per note switch — this doesn't change
+  // between notes the way setContent's doc/key do.
+  if (!editorStyleInjected) {
+    const style = document.createElement("style");
+    style.textContent = editorCss;
+    document.head.appendChild(style);
+    editorStyleInjected = true;
+  }
   docKey = key || null;
   const parent = document.getElementById("editor");
   parent.innerHTML = "";
@@ -1148,16 +1451,23 @@ export function initEditor(initialText, key) {
         drawSelection(),
         EditorView.lineWrapping,
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
-        markdown({ codeLanguages }),
+        // Base CommonMark already tags Emphasis/StrongEmphasis/InlineCode; add
+        // GFM's Strikethrough only (not the full GFM set) so `~~text~~` gets a
+        // node to style/hide — the checkbox and pupdb-table constructs already
+        // have their own regex-based plugins and don't need GFM's TaskList/Table.
+        markdown({ codeLanguages, extensions: [Strikethrough] }),
         syntaxHighlighting(highlight),
         codeBlockPlugin,
         fencePlugin,
         mathPlugin,
         hrPlugin,
         headingPlugin,
+        listMarkPlugin,
+        inlineMarkPlugin,
         checkboxPlugin,
         wikilinkPlugin,
         colorPlugin,
+        highlightMarkPlugin,
         imagePlugin,
         tableField,
         latexDocField,
@@ -1172,6 +1482,7 @@ export function initEditor(initialText, key) {
   view.dom.addEventListener("paste", handlePaste);
   view.dom.addEventListener("drop", handleDrop);
   view.dom.addEventListener("dragover", (e) => e.preventDefault());
+  setupNoteResize();
   view.focus();
 }
 
@@ -1270,29 +1581,53 @@ function removeAIPill() {
   closeAIMenus();
 }
 
-// Places `el` (already appended, so its real size is measurable) below `r`
-// by default — that's the requested placement — but flips above `r` when
-// there isn't room below, and always clamps left/right so the element can
-// never render partly off the visible viewport regardless of where the
-// selection sits.
-function positionBelow(el, r) {
+// The safe area a spawned popover must stay inside: the editor's own
+// scroller, not the whole window — confirmed live: clamping against
+// window.innerWidth/Height alone let a pill spawned near the bottom of a
+// long note (or inside a scrolled code block) pin to the screen's corner,
+// disconnected from the selection it belongs to.
+function safeArea() {
+  const sr = view.scrollDOM.getBoundingClientRect();
   const margin = 8;
-  const rect = el.getBoundingClientRect();
+  return {
+    left: Math.max(sr.left, 0) + margin,
+    top: Math.max(sr.top, 0) + margin,
+    right: Math.min(sr.right, window.innerWidth) - margin,
+    bottom: Math.min(sr.bottom, window.innerHeight) - margin,
+  };
+}
 
-  let left = r.left;
-  if (left + rect.width + margin > window.innerWidth) {
-    left = window.innerWidth - rect.width - margin;
-  }
-  left = Math.max(margin, left);
+// Resolves where `el` (already appended, so its real size is measurable)
+// should land near `r` (a getBoundingClientRect-shaped rect, viewport
+// coordinates) — below by default, flipped above when there's no room,
+// always clamped inside `safeArea()`. Hands the resolved {left, top} to
+// `place`, in whatever coordinate space `el` is actually positioned in —
+// callers differ only in that. Also sets `--pup-dy` so the spawn animation
+// (editor.css) travels away from the anchor: down when placed below,
+// up when flipped above.
+function placeNear(el, r, place) {
+  const safe = safeArea();
+  const rect = el.getBoundingClientRect();
+  const w = rect.width, h = rect.height;
+
+  let left = Math.min(Math.max(r.left, safe.left), Math.max(safe.right - w, safe.left));
 
   let top = r.bottom + 6;
-  if (top + rect.height + margin > window.innerHeight) {
-    const above = r.top - rect.height - 6;
-    top = above >= margin ? above : Math.max(margin, window.innerHeight - rect.height - margin);
+  let dy = 8;
+  if (top + h > safe.bottom) {
+    const above = r.top - h - 6;
+    if (above >= safe.top) { top = above; dy = -8; }
+    else { top = Math.max(safe.bottom - h, safe.top); dy = 8; }
   }
 
-  el.style.left = `${left}px`;
-  el.style.top = `${top}px`;
+  el.style.setProperty("--pup-dy", `${dy}px`);
+  place(left, top);
+}
+
+// `position:fixed` popovers (the AI menu, pupdb menu) — `place` writes
+// viewport coordinates straight through.
+function positionBelow(el, r) {
+  placeNear(el, r, (left, top) => { el.style.left = `${left}px`; el.style.top = `${top}px`; });
 }
 
 function updateAIPill() {
@@ -1303,6 +1638,7 @@ function updateAIPill() {
   // just finished selecting rather than over the start of it.
   const coords = view.coordsAtPos(to) || view.coordsAtPos(from);
   if (!coords) { removeAIPill(); return; }
+  const scroller = view.scrollDOM;
   if (!aiPill) {
     aiPill = document.createElement("button");
     aiPill.className = "pup-ai-pill";
@@ -1310,11 +1646,27 @@ function updateAIPill() {
     // Keep the editor's selection alive through the click — a plain click
     // would collapse it before openAIMenu ever reads `from`/`to`.
     aiPill.addEventListener("mousedown", (e) => e.preventDefault());
-    document.body.appendChild(aiPill);
+    // Lives inside the scroller, not document.body, so it scrolls with the
+    // text it's anchored to instead of staying glued to a screen position
+    // (the same technique spawnSweepBand below already uses).
+    scroller.appendChild(aiPill);
   }
   aiPill.onclick = () => openAIMenu(aiPill, from, to);
-  positionBelow(aiPill, coords);
+  placeNear(aiPill, coords, (left, top) => {
+    const sr = scroller.getBoundingClientRect();
+    aiPill.style.left = `${left - sr.left + scroller.scrollLeft}px`;
+    aiPill.style.top = `${top - sr.top + scroller.scrollTop}px`;
+  });
 }
+
+// A window resize can shrink the safe area out from under an already-placed
+// pill/menu (or the note pane itself resizing) — re-clamp rather than leave
+// it stranded.
+window.addEventListener("resize", () => {
+  if (aiPill) updateAIPill();
+  const menu = document.querySelector(".pup-ai-menu");
+  if (menu && menu._anchorRect) positionBelow(menu, aiPill ? aiPill.getBoundingClientRect() : menu._anchorRect);
+});
 
 function openAIMenu(anchor, from, to) {
   closeAIMenus();

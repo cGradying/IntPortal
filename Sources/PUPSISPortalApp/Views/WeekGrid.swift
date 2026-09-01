@@ -10,6 +10,10 @@ struct WeekGrid: View {
     let selection: Set<String>
     let recurringIDs: Set<String>
     @ObservedObject var preferences: Preferences
+    /// Not drawn as a `DayBlock` (wayfinder ticket #13) — a syllabus item
+    /// usually has no class-time, just a date, so it surfaces as an all-day
+    /// badge on the day header instead of inventing a fake timed slot.
+    @ObservedObject var syllabus: SyllabusStore
     /// Nil when calendar access hasn't been granted — the grid stays read-only
     /// rather than offering drags that can't go anywhere.
     let editing: Editing?
@@ -106,12 +110,20 @@ struct WeekGrid: View {
             Color.clear.frame(width: gutter)
             ForEach(Weekday.allCases) { day in
                 let isToday = isToday(day, now: now)
+                let dueToday = syllabusItems(on: day)
 
                 VStack(spacing: 1) {
                     Text(day.short)
                         .font(typography.dayName)
                     Text(dayNumber(day))
                         .font(typography.gutter)
+                    // A dot, not a badge — one thing taken off, per the
+                    // now-line's own restraint doctrine. Count/detail lives
+                    // in the syllabus table/timeline (ticket #14), not here.
+                    Circle()
+                        .fill(palette.accent)
+                        .frame(width: 4, height: 4)
+                        .opacity(dueToday.isEmpty ? 0 : 1)
                 }
                 // Confirmed live: an extra .opacity(0.8) on top of .secondary
                 // compounded into near-illegible day headers on non-today
@@ -122,8 +134,7 @@ struct WeekGrid: View {
                 .background(Capsule().fill(palette.accent.opacity(isToday ? 0.16 : 0)))
                 .frame(maxWidth: .infinity)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(isToday ? "\(day.short) \(dayNumber(day)), today"
-                                            : "\(day.short) \(dayNumber(day))")
+                .accessibilityLabel(accessibilityLabel(for: day, isToday: isToday, dueToday: dueToday))
             }
         }
         .frame(height: headerHeight)
@@ -407,6 +418,18 @@ struct WeekGrid: View {
 
     private func isToday(_ day: Weekday, now: Date) -> Bool {
         Calendar.current.isDate(day.date(inWeekStarting: weekStart), inSameDayAs: now)
+    }
+
+    private func syllabusItems(on day: Weekday) -> [SyllabusItem] {
+        syllabus.items(on: day.date(inWeekStarting: weekStart))
+    }
+
+    private func accessibilityLabel(for day: Weekday, isToday: Bool, dueToday: [SyllabusItem]) -> String {
+        var label = isToday ? "\(day.short) \(dayNumber(day)), today" : "\(day.short) \(dayNumber(day))"
+        if !dueToday.isEmpty {
+            label += ", \(dueToday.count) syllabus \(dueToday.count == 1 ? "item" : "items") due"
+        }
+        return label
     }
 
     private func showsNowLine(_ now: Date) -> Bool {

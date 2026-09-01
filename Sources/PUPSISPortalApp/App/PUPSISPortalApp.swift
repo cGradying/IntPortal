@@ -27,8 +27,15 @@ final class NotebookModel: ObservableObject {
 enum NotebookTab: String, CaseIterable, Identifiable {
     case vault
     case quizzes
+    case syllabus
     var id: String { rawValue }
-    var label: String { self == .vault ? "Vault" : "Quizzes" }
+    var label: String {
+        switch self {
+        case .vault: "Vault"
+        case .quizzes: "Quizzes"
+        case .syllabus: "Syllabus"
+        }
+    }
 }
 
 @MainActor
@@ -42,6 +49,7 @@ final class AppState: ObservableObject {
     let preferences = Preferences()
     let calendar = CalendarBridge()
     let notes = NotesStore()
+    let syllabus = SyllabusStore()
     let quizzes = QuizStore()
     let generation = GenerationCenter()
     lazy var googleAuth = GoogleAuth { [preferences] in preferences.googleClientID }
@@ -81,6 +89,17 @@ final class AppState: ObservableObject {
     /// at its `.onChange`/`.onAppear` there. Read by the assistant to answer
     /// "summarize this note" without the model needing a key it was never told.
     @Published var openNoteKey: String?
+
+    /// The "Add dated entry" menu's labels for whichever note is open, mirrored
+    /// up the same way `openNoteKey` is — non-nil only for a shared per-subject
+    /// `class:` note. See `AgendaView.addDateOptions(for:)`.
+    @Published var noteAddDateOptions: (next: String, today: String)?
+
+    /// One shared bridge to whichever `WKWebView` the open note is rendering.
+    /// Was a `@StateObject` local to `WebNoteEditor` before the floating deck
+    /// (wayfinder ticket #7) needed to drive editor commands from outside
+    /// that view entirely — same reasoning as `openNoteKey` above.
+    let noteBridge = WebNoteBridge()
 
     /// The floating assistant's own conversation state.
     let assistant = AssistantSession()
@@ -412,18 +431,15 @@ struct ContentView: View {
                            alignment: appState.isHome ? .center : .top)
                     .padding(.top, appState.isHome ? 0 : 4)
 
-                // Floating, reachable from every screen — only exists at all
-                // once the beta toggle is on (Settings › Grades › AI (beta)).
-                if preferences.aiEnabled {
-                    AssistantFloating(appState: appState, preferences: preferences, session: appState.assistant)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .padding(.leading, 16)
-                        // Confirmed live: at the old uniform 16pt bottom inset,
-                        // this sat directly over Grades' bottom status bar,
-                        // covering "Updated N minutes ago" entirely. Cleared
-                        // to sit above a typical footer bar's height instead.
-                        .padding(.bottom, 56)
-                }
+                // Floating, reachable from every screen. Always mounted now —
+                // it doubles as the Notebook note toolbar (wayfinder ticket
+                // #7), which must keep working with the AI beta toggle off;
+                // `AssistantFloating` renders `EmptyView` itself whenever
+                // neither the toolbar nor chat has anything to show.
+                AssistantFloating(appState: appState, preferences: preferences, session: appState.assistant)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .padding(.leading, 16)
+                    .padding(.bottom, 16)
             }
             // Fill the whole window — including the hidden title bar's strip — so
             // no grey window background shows there.
@@ -442,6 +458,7 @@ struct ContentView: View {
                 controller: appState.portal,
                 preferences: preferences,
                 calendar: appState.calendar,
+                syllabus: appState.syllabus,
                 credentials: credentials,
                 schedule: appState.schedule,
                 updaterBridge: appState.updaterBridge,
@@ -461,20 +478,18 @@ struct ContentView: View {
     }
 
     private var settingsSheet: some View {
-        NavigationStack {
-            SettingsView(
-                appState: appState,
-                updaterBridge: appState.updaterBridge,
-                preferences: preferences,
-                calendar: appState.calendar,
-                googleAuth: appState.googleAuth
-            )
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { appState.showingSettings = false }
-                }
-            }
-        }
+        // No NavigationStack: Settings owns its full chrome itself now (a
+        // hand-built top tab strip through its own slim bottom Done bar) —
+        // nothing here uses push/pop, and the stack only ever existed to
+        // host the `.toolbar` that lived below (now gone too, replaced by
+        // SettingsView's own `bottomBar`).
+        SettingsView(
+            appState: appState,
+            updaterBridge: appState.updaterBridge,
+            preferences: preferences,
+            calendar: appState.calendar,
+            googleAuth: appState.googleAuth
+        )
         // Confirmed live: with no tint set, every native control here (tab
         // selection, Done, toggles/radios) fell back to the system accent
         // instead of the room's own — a maroon app with a green Settings
@@ -483,8 +498,11 @@ struct ContentView: View {
         // controls read `.tint`, not the custom environment key.
         .tint(preferences.theme.palette(for: systemScheme).accent)
         // min/ideal/max instead of a fixed size — same starting size, but
-        // the sheet now offers macOS's native drag-to-resize edge.
-        .frame(minWidth: 480, idealWidth: 560, maxWidth: 760, minHeight: 480, idealHeight: 620, maxHeight: 860)
+        // the sheet now offers macOS's native drag-to-resize edge. Close to
+        // the original (pre-sidebar) numbers, widened a bit from those:
+        // confirmed live, 8 tabs (up from the original 7 — Data & Storage is
+        // new) truncate their labels below ~620pt.
+        .frame(minWidth: 640, idealWidth: 700, maxWidth: 820, minHeight: 480, idealHeight: 620, maxHeight: 860)
     }
 }
 

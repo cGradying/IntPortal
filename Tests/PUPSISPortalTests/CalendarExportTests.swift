@@ -19,4 +19,34 @@ final class CalendarExportTests: XCTestCase {
     func testVacantClassesAreSkipped() {
         XCTAssertEqual(CalendarBridge.ClassExport.plan(for: .vacant), .skip)
     }
+
+    // MARK: exportableDeadlines
+
+    private func item(
+        topic: String = "Topic", date: Date? = Date(), type: SyllabusItemType = .exam
+    ) -> SyllabusItem {
+        SyllabusItem(subjectCode: "MATH01", topic: topic, date: date, type: type, source: .imported)
+    }
+
+    func testExportableDeadlinesKeepsDatedNonLectureItems() {
+        let deadline = item(type: .exam)
+        XCTAssertEqual(CalendarBridge.exportableDeadlines([deadline]).map(\.id), [deadline.id])
+    }
+
+    func testExportableDeadlinesDropsLectureTopicsEvenWhenDated() {
+        let lecture = item(type: .lecture)
+        XCTAssertTrue(CalendarBridge.exportableDeadlines([lecture]).isEmpty)
+    }
+
+    func testExportableDeadlinesDropsUndatedItemsRegardlessOfType() {
+        let undated = item(date: nil, type: .quiz)
+        XCTAssertTrue(CalendarBridge.exportableDeadlines([undated]).isEmpty)
+    }
+
+    func testExportableDeadlinesKeepsQuizAndProjectToo() {
+        let quiz = item(type: .quiz)
+        let project = item(type: .project)
+        let result = CalendarBridge.exportableDeadlines([quiz, project])
+        XCTAssertEqual(Set(result.map(\.id)), Set([quiz.id, project.id]))
+    }
 }

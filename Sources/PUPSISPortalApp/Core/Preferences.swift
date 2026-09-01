@@ -176,6 +176,14 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(termEndDate.timeIntervalSince1970, forKey: Key.termEndDate) }
     }
 
+    /// The Monday a syllabus's "Week N" counts from — the SIS doesn't publish
+    /// this either, and a syllabus PDF/DOCX almost never prints real dates
+    /// next to its weeks. `SyllabusExtractor` maps week → date from this one
+    /// value instead of asking the model to compute a date.
+    @Published var termStartDate: Date {
+        didSet { defaults.set(termStartDate.timeIntervalSince1970, forKey: Key.termStartDate) }
+    }
+
     /// Off until asked for. Turning it on is what triggers the authorization
     /// prompt, so defaulting it to true would prompt at first launch.
     @Published var notificationsEnabled: Bool {
@@ -225,6 +233,16 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(trafficLightsAutoHide, forKey: Key.trafficLightsAutoHide) }
     }
 
+    /// Forces the Settings window's own animations to their reduced form,
+    /// independent of System Settings' Reduce Motion — `SettingsView.
+    /// effectiveReduceMotion` ORs this with the real
+    /// `\.accessibilityReduceMotion` environment value. Scoped to Settings
+    /// only: that key has no public setter in this SDK, so it can't be
+    /// overridden for the rest of the app from one injection point.
+    @Published var forceReducedMotion: Bool {
+        didSet { defaults.set(forceReducedMotion, forKey: Key.forceReducedMotion) }
+    }
+
     // MARK: AI (beta)
 
     /// Drafting help in the notes editor from a model running locally via
@@ -252,6 +270,58 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(aiPermission.rawValue, forKey: Key.aiPermission) }
     }
 
+    /// Which model actually answers — local `llama-server` (the default,
+    /// see `AIProvider`'s own doc comment on why it stays that way) or a
+    /// named cloud provider the student's own key (`AIProviderKeyStore`)
+    /// unlocks. Scoped to chat/generate only for now — RAG's embedding step
+    /// always uses the local `.embed`-role server regardless of this.
+    @Published var aiProvider: AIProvider {
+        didSet { defaults.set(aiProvider.rawValue, forKey: Key.aiProvider) }
+    }
+
+    /// The cloud model id to request — empty/ignored for `.local`. Defaults
+    /// to `aiProvider.defaultModel` when the provider changes and this
+    /// hasn't been set explicitly; stored separately per provider isn't
+    /// worth the complexity for a field the student can just retype on
+    /// switching providers.
+    @Published var aiProviderModel: String {
+        didSet { defaults.set(aiProviderModel, forKey: Key.aiProviderModel) }
+    }
+
+    /// The one place `aiProvider`/`AIProviderKeyStore` turn into an actual
+    /// `LlamaCppClient` — every call site that builds one for chat/generate
+    /// should go through this rather than hardcoding `LlamaCppClient()`, or
+    /// it silently ignores the student's provider choice. Falls back to
+    /// local — never throws, never blocks the assistant — when a cloud
+    /// provider is selected but its key isn't in the Keychain; Settings is
+    /// what should stop that combination from being reachable in the first
+    /// place, this is the belt-and-suspenders behind it.
+    func resolvedAIClient() -> LlamaCppClient {
+        guard aiProvider != .local, let key = AIProviderKeyStore.load(for: aiProvider), !key.isEmpty else {
+            return Self.localAIClient(modelID: aiModel)
+        }
+        let model = aiProviderModel.isEmpty ? aiProvider.defaultModel : aiProviderModel
+        return aiProvider.isOpenAICompatible
+            ? .forOpenAICompatibleProvider(aiProvider, apiKey: key, model: model)
+            : .forAnthropicProvider(apiKey: key, model: model)
+    }
+
+    /// The local chat client for whichever runtime `modelID` actually
+    /// selects — bare `LlamaCppClient()` (its default `send` posts to
+    /// `llama-server`'s fixed localhost port) for a `.gguf` catalog entry,
+    /// `MLXBackend`'s in-process `send` for an `.mlx` one. Quiz generation,
+    /// quiz explanations, and the note editor's "Ask AI" pill are always
+    /// local regardless of `aiProvider` (never routed through
+    /// `resolvedAIClient()`'s cloud branch) — they call this directly rather
+    /// than hardcoding `LlamaCppClient()`, or selecting an MLX model would
+    /// leave them silently talking to a `llama-server` that was never
+    /// started for it (`LlamaRuntime.ensureChatServer` already routes the
+    /// *server-readiness* half of this same decision).
+    static func localAIClient(modelID: String) -> LlamaCppClient {
+        guard case .mlx = ModelCatalog.entry(for: modelID)?.kind else { return LlamaCppClient() }
+        return LlamaCppClient(send: { try await MLXBackend.shared.send($0) })
+    }
+
     /// How AI-inserted text (Replace / Insert below in the note editor) reveals
     /// itself — see `AIRevealAnimation`. `.sweep` is the default: one
     /// continuous glow traveling start-of-line to end, rather than each word
@@ -277,7 +347,14 @@ final class Preferences: ObservableObject {
     }
 
     nonisolated static let aiDefaultContextSize = 4096
-    static let aiContextSizeRange = 2048...32768
+    /// Confirmed live (`AssistantContextTests`): the old floor of 2048 was
+    /// already too small the moment the tool catalog grew to 16 entries —
+    /// the catalog + rules text alone need ~1860 tokens, leaving under 200
+    /// for a note, conversation, or reply, and `AssistantEngine.respond`
+    /// now refuses to even try below that (`.contextTooSmall`). 3072 keeps
+    /// real margin above today's requirement for a few more tools before
+    /// this needs raising again.
+    static let aiContextSizeRange = 3072...32768
 
     /// Reads the live value straight from `UserDefaults` rather than an
     /// injected `Preferences` instance — `LlamaRuntime`'s call sites (engine,
@@ -287,6 +364,67 @@ final class Preferences: ObservableObject {
     /// argument, never a per-request value.
     nonisolated static func storedContextSize(defaults: UserDefaults = .standard) -> Int {
         (defaults.object(forKey: Key.aiContextSize) as? Int) ?? aiDefaultContextSize
+    }
+
+    // MARK: Advanced AI tuning (Settings ▸ Intelligence)
+
+    /// The interactive assistant's sampling temperature —
+    /// `AssistantEngine.respond`'s `client.chat(temperature:)`. Distinct from
+    /// `ragAnswerTemperature` below (the grounded-answer/`/rag` path); this
+    /// one governs ordinary chat replies and tool-call turns.
+    @Published var aiTemperature: Double {
+        didSet { defaults.set(aiTemperature, forKey: Key.aiTemperature) }
+    }
+    static let aiDefaultTemperature = 0.2
+
+    /// Max tokens the assistant's reply is allowed — `AssistantEngine`'s
+    /// `numPredict`. 600 is the calibrated default (see the removed
+    /// `AssistantEngine.replyTokenBudget`'s history: generous for a
+    /// schema-locked reply plus a `.low`-effort thinking pass, while still
+    /// leaving room for notes/history even at `aiContextSizeRange`'s floor).
+    /// `AssistantEngine.respond` also reserves exactly this many tokens
+    /// against `aiContextSize` before it will even try a turn — raising this
+    /// without enough context headroom trips `.contextTooSmall`, not a
+    /// truncated reply.
+    @Published var aiOutputTokenBudget: Int {
+        didSet { defaults.set(aiOutputTokenBudget, forKey: Key.aiOutputTokenBudget) }
+    }
+    static let aiDefaultOutputTokenBudget = 600
+    static let aiOutputTokenBudgetRange = 128...4096
+
+    /// `LlamaServerManager`'s `--cache-type-k/v` — q8_0 (on, the default)
+    /// roughly halves the KV cache's RAM cost per token versus llama.cpp's
+    /// fp16 default; `ModelCatalog.estimatedRAMBytes` doubles its KV term
+    /// when this is off, so the Settings RAM estimate stays honest either way.
+    @Published var aiKVCacheQuantized: Bool {
+        didSet { defaults.set(aiKVCacheQuantized, forKey: Key.aiKVCacheQuantized) }
+    }
+
+    /// `LlamaServerManager`'s GPU (Metal) offload — off passes `-ngl 0` to
+    /// force CPU-only, useful for isolating whether a slowdown or a crash is
+    /// GPU-related. On (the default) leaves llama-server's own auto-offload
+    /// alone.
+    @Published var aiUseGPU: Bool {
+        didSet { defaults.set(aiUseGPU, forKey: Key.aiUseGPU) }
+    }
+
+    /// Reads straight from `UserDefaults`, same decoupling reason as
+    /// `storedContextSize` above — `AssistantEngine` never holds a
+    /// `Preferences` instance.
+    nonisolated static func storedTemperature(defaults: UserDefaults = .standard) -> Double {
+        (defaults.object(forKey: Key.aiTemperature) as? Double) ?? aiDefaultTemperature
+    }
+
+    nonisolated static func storedOutputTokenBudget(defaults: UserDefaults = .standard) -> Int {
+        (defaults.object(forKey: Key.aiOutputTokenBudget) as? Int) ?? aiDefaultOutputTokenBudget
+    }
+
+    nonisolated static func storedKVCacheQuantized(defaults: UserDefaults = .standard) -> Bool {
+        (defaults.object(forKey: Key.aiKVCacheQuantized) as? Bool) ?? true
+    }
+
+    nonisolated static func storedUseGPU(defaults: UserDefaults = .standard) -> Bool {
+        (defaults.object(forKey: Key.aiUseGPU) as? Bool) ?? true
     }
 
     // MARK: RAG tuning (Settings ▸ Misc)
@@ -366,6 +504,37 @@ final class Preferences: ObservableObject {
         notebookSidebarWidth = Self.notebookSidebarDefaultWidth
     }
 
+    /// Which side the Notebook's vault/history sidebar sits on. Schedule's
+    /// own sidebar (`ScheduleSidebar`) is unaffected — its own setting, if it
+    /// ever needs one.
+    @Published var notebookSidebarOnLeft: Bool {
+        didSet { defaults.set(notebookSidebarOnLeft, forKey: Key.notebookSidebarOnLeft) }
+    }
+
+    // MARK: Note reading width
+
+    /// The centered reading column's width inside the note editor — was a
+    /// fixed `68ch` baked into `editor.css`, confirmed live to read as
+    /// hugging the left edge with the rest of the pane empty rather than
+    /// actually centered. Now user-adjustable, dragged from inside the
+    /// webview (`editor.js`'s resize handles) and echoed back here over the
+    /// same script-message bridge `WebNoteEditor` already uses for notes/
+    /// images/AI, so it persists and restores like every other pane size.
+    static let noteReadingWidthDefault: Double = 640
+    static let noteReadingWidthRange: ClosedRange<Double> = 420...1100
+
+    @Published private(set) var noteReadingWidth: Double {
+        didSet { defaults.set(noteReadingWidth, forKey: Key.noteReadingWidth) }
+    }
+
+    func setNoteReadingWidth(_ width: Double) {
+        noteReadingWidth = min(max(width, Self.noteReadingWidthRange.lowerBound), Self.noteReadingWidthRange.upperBound)
+    }
+
+    func resetNoteReadingWidth() {
+        noteReadingWidth = Self.noteReadingWidthDefault
+    }
+
     // MARK: Schedule sidebar width
 
     /// Same convention as the notebook sidebar above, independent state —
@@ -440,6 +609,7 @@ final class Preferences: ObservableObject {
         static let onlineExportCalendarID = "onlineExportCalendarID"
         static let eventColors = "eventColors"
         static let termEndDate = "termEndDate"
+        static let termStartDate = "termStartDate"
         static let notificationsEnabled = "notificationsEnabled"
         static let notificationLeadMinutes = "notificationLeadMinutes"
         static let programTotalUnits = "programTotalUnits"
@@ -448,12 +618,19 @@ final class Preferences: ObservableObject {
         static let islandStartHome = "islandStartHome"
         static let islandExpandOnHover = "islandExpandOnHover"
         static let trafficLightsAutoHide = "trafficLightsAutoHide"
+        static let forceReducedMotion = "forceReducedMotion"
         static let aiEnabled = "aiEnabled"
         static let aiModel = "aiModel"
+        static let aiProvider = "aiProvider"
+        static let aiProviderModel = "aiProviderModel"
         static let aiPermission = "aiPermission"
         static let aiRevealAnimation = "aiRevealAnimation"
         static let aiThinking = "aiThinking"
         static let aiContextSize = "aiContextSize"
+        static let aiTemperature = "aiTemperature"
+        static let aiOutputTokenBudget = "aiOutputTokenBudget"
+        static let aiKVCacheQuantized = "aiKVCacheQuantized"
+        static let aiUseGPU = "aiUseGPU"
         static let ragChunkSize = "ragChunkSize"
         static let ragSimilarityFloor = "ragSimilarityFloor"
         static let ragContextBudget = "ragContextBudget"
@@ -461,6 +638,8 @@ final class Preferences: ObservableObject {
         static let assistantPanelWidth = "assistantPanelWidth"
         static let assistantPanelHeight = "assistantPanelHeight"
         static let notebookSidebarWidth = "notebookSidebarWidth"
+        static let notebookSidebarOnLeft = "notebookSidebarOnLeft"
+        static let noteReadingWidth = "noteReadingWidth"
         static let scheduleSidebarWidth = "scheduleSidebarWidth"
         static let uiScale = "uiScale"
     }
@@ -493,6 +672,8 @@ final class Preferences: ObservableObject {
         onlineExportCalendarID = defaults.string(forKey: Key.onlineExportCalendarID) ?? ""
         termEndDate = (defaults.object(forKey: Key.termEndDate) as? Double)
             .map(Date.init(timeIntervalSince1970:)) ?? Self.defaultTermEnd()
+        termStartDate = (defaults.object(forKey: Key.termStartDate) as? Double)
+            .map(Date.init(timeIntervalSince1970:)) ?? Weekday.weekStart(containing: .now)
         notificationsEnabled = defaults.bool(forKey: Key.notificationsEnabled)
         // `integer(forKey:)` returns 0 for a missing key, and 0 is a legal lead
         // ("as it starts") — so check for the key rather than trusting the zero.
@@ -505,21 +686,37 @@ final class Preferences: ObservableObject {
         islandStartHome = (defaults.object(forKey: Key.islandStartHome) as? Bool) ?? true
         islandExpandOnHover = (defaults.object(forKey: Key.islandExpandOnHover) as? Bool) ?? true
         trafficLightsAutoHide = (defaults.object(forKey: Key.trafficLightsAutoHide) as? Bool) ?? true
+        forceReducedMotion = (defaults.object(forKey: Key.forceReducedMotion) as? Bool) ?? false
         aiEnabled = (defaults.object(forKey: Key.aiEnabled) as? Bool) ?? false
         aiModel = defaults.string(forKey: Key.aiModel) ?? ModelCatalog.defaultID
+        aiProvider = defaults.string(forKey: Key.aiProvider).flatMap(AIProvider.init(rawValue:)) ?? .local
+        aiProviderModel = defaults.string(forKey: Key.aiProviderModel) ?? ""
         aiPermission = defaults.string(forKey: Key.aiPermission)
             .flatMap(AssistantPermission.init(rawValue:)) ?? .confirm
         aiRevealAnimation = defaults.string(forKey: Key.aiRevealAnimation)
             .flatMap(AIRevealAnimation.init(rawValue:)) ?? .sweep
         aiThinking = defaults.string(forKey: Key.aiThinking)
             .flatMap(AssistantThinking.init(rawValue:)) ?? .low
-        aiContextSize = (defaults.object(forKey: Key.aiContextSize) as? Int) ?? Preferences.aiDefaultContextSize
+        // Clamped to the current floor, not just defaulted — a value saved
+        // before aiContextSizeRange's floor was raised (see its own doc
+        // comment) would otherwise stay stuck below it forever, silently
+        // failing every assistant turn.
+        aiContextSize = max(
+            (defaults.object(forKey: Key.aiContextSize) as? Int) ?? Preferences.aiDefaultContextSize,
+            Preferences.aiContextSizeRange.lowerBound
+        )
+        aiTemperature = (defaults.object(forKey: Key.aiTemperature) as? Double) ?? Preferences.aiDefaultTemperature
+        aiOutputTokenBudget = (defaults.object(forKey: Key.aiOutputTokenBudget) as? Int) ?? Preferences.aiDefaultOutputTokenBudget
+        aiKVCacheQuantized = (defaults.object(forKey: Key.aiKVCacheQuantized) as? Bool) ?? true
+        aiUseGPU = (defaults.object(forKey: Key.aiUseGPU) as? Bool) ?? true
         ragChunkSize = (defaults.object(forKey: Key.ragChunkSize) as? Int) ?? Preferences.ragDefaultChunkSize
         ragSimilarityFloor = (defaults.object(forKey: Key.ragSimilarityFloor) as? Double) ?? Preferences.ragDefaultSimilarityFloor
         ragContextBudget = (defaults.object(forKey: Key.ragContextBudget) as? Int) ?? Preferences.ragDefaultContextBudget
         ragAnswerTemperature = (defaults.object(forKey: Key.ragAnswerTemperature) as? Double) ?? Preferences.ragDefaultAnswerTemperature
         assistantPanelWidth = (defaults.object(forKey: Key.assistantPanelWidth) as? Double) ?? Preferences.assistantPanelDefaultWidth
         notebookSidebarWidth = (defaults.object(forKey: Key.notebookSidebarWidth) as? Double) ?? Preferences.notebookSidebarDefaultWidth
+        notebookSidebarOnLeft = defaults.bool(forKey: Key.notebookSidebarOnLeft)
+        noteReadingWidth = (defaults.object(forKey: Key.noteReadingWidth) as? Double) ?? Preferences.noteReadingWidthDefault
         scheduleSidebarWidth = (defaults.object(forKey: Key.scheduleSidebarWidth) as? Double) ?? Preferences.scheduleSidebarDefaultWidth
         uiScale = (defaults.object(forKey: Key.uiScale) as? Double) ?? 1.0
         assistantPanelHeight = (defaults.object(forKey: Key.assistantPanelHeight) as? Double) ?? Preferences.assistantPanelDefaultHeight
@@ -717,6 +914,60 @@ final class Preferences: ObservableObject {
 
     func deleteTask(_ id: SubjectTask.ID) {
         subjectTasks.removeAll { $0.id == id }
+    }
+
+    // MARK: Reset to defaults
+
+    /// Every field a Settings pane actually exposes a control for, back to
+    /// its first-launch default — same shape as the existing scoped resets
+    /// (`resetUIScale`, `ragTuningSection`/`advancedAITuningSection`'s own
+    /// "Reset to Defaults" buttons in `SettingsView`): direct assignment, so
+    /// each field's own `didSet` persists it, no separate reload path.
+    ///
+    /// Deliberately **not** included: `subjectColors`, `termStatuses`,
+    /// `occurrenceStatuses`, `onlineStripColors`, `termTimes`,
+    /// `occurrenceTimes`, `classInfo`, `permaSubjects`, `subjectTasks`,
+    /// `eventColors` — per-class personalization (colors, online/vacant
+    /// marks, moved times, notes, syllabus tasks) set from the week grid and
+    /// Appearance's own subject rows, not a Settings control. Wiping those
+    /// under "reset settings" would silently destroy real class data the
+    /// footer promises is untouched. Also not included: the assistant/
+    /// notebook/schedule sidebar width-and-height persistence — incidental
+    /// window state, not a setting anyone tweaks here.
+    func resetAllToDefaults() {
+        theme = .auto
+        fontChoice = .system
+        exportCalendarID = ""
+        onlineExportCalendarID = ""
+        googleClientID = ""
+        googleCalendarID = ""
+        termEndDate = Self.defaultTermEnd()
+        termStartDate = Weekday.weekStart(containing: .now)
+        programTotalUnits = 0
+        visibleCalendarIDs = []
+        notificationsEnabled = false
+        notificationLeadMinutes = 15
+        islandStartHome = true
+        islandExpandOnHover = true
+        trafficLightsAutoHide = true
+        forceReducedMotion = false
+        aiEnabled = false
+        aiModel = ModelCatalog.defaultID
+        aiProvider = .local
+        aiProviderModel = ""
+        aiPermission = .confirm
+        aiRevealAnimation = .sweep
+        aiThinking = .low
+        aiContextSize = Preferences.aiDefaultContextSize
+        aiTemperature = Preferences.aiDefaultTemperature
+        aiOutputTokenBudget = Preferences.aiDefaultOutputTokenBudget
+        aiKVCacheQuantized = true
+        aiUseGPU = true
+        ragChunkSize = Preferences.ragDefaultChunkSize
+        ragSimilarityFloor = Preferences.ragDefaultSimilarityFloor
+        ragContextBudget = Preferences.ragDefaultContextBudget
+        ragAnswerTemperature = Preferences.ragDefaultAnswerTemperature
+        uiScale = 1.0
     }
 }
 

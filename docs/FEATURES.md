@@ -137,6 +137,90 @@ it stays portable. Pasted/dropped images are copied into the app's storage
 
 ---
 
+## Syllabus
+
+### Import or generate a syllabus
+**What it does** — Turns a real course syllabus — or a subject with no
+syllabus at all — into a structured list of weekly topics, quizzes, exams,
+and project deadlines, per subject.
+
+**How to use it** — In Notebook's **Syllabus** tab (or the section below the
+week grid on Schedule), click **+**. Pick a subject, then a source: import a
+file (PDF, Word, PowerPoint, Markdown, or plain text), paste text directly,
+or — if you don't have the syllabus yet — **Generate from scratch**, which
+drafts a plausible study-guide outline from the subject alone.
+
+**Notes & limits** — A generated outline is clearly labeled as a study guide,
+not the real course syllabus — check it against what your professor actually
+assigned. Imported items are labeled separately, so the two never get
+confused later.
+
+### AI extraction and review
+**What it does** — Reads the imported or pasted text and pulls out each
+week's topic, quiz, exam, or project deadline, running entirely on your Mac.
+Nothing you import leaves the device.
+
+**How to use it** — After picking a source, extraction runs automatically —
+a progress bar shows it working through the material in chunks for a long
+document. The result lands on a review screen where every item — topic,
+week, date, type — is editable, and any item can be dropped, before anything
+is saved.
+
+**Notes & limits** — The AI never invents a calendar date. A `Week N` item is
+dated from a **term start** you set once (defaults to the Monday of the
+current week); a real date is only used when the source text actually
+printed one. If the syllabus prints a grading breakdown (e.g. "Midterm 30%,
+Final 70%"), it's extracted too and reviewable alongside the items — see
+**Grading calculator** below.
+
+### Table and timeline views
+**What it does** — Every subject's syllabus items, read two ways: a sortable
+table (week, topic, date, type, status), or a timeline with a status ring per
+item — hollow for upcoming, filled solid once this week, filled in once
+done.
+
+**How to use it** — Switch **Table / Timeline** in the Syllabus view's
+toolbar. Status updates live from today's date; nothing needs manual
+checking off unless you want to override it.
+
+### Export deadlines to your calendar
+**What it does** — Writes every dated quiz, exam, and project deadline into
+Calendar.app as a one-shot all-day event — a real reminder outside the app,
+not just a marker inside it.
+
+**How to use it** — Click the calendar icon in the Syllabus toolbar. Deadlines
+go to the same calendar your classes export to (Settings ▸ Calendar).
+Re-exporting replaces the previous batch rather than stacking duplicates.
+
+**Notes & limits** — Only dated quiz/exam/project items export — a plain
+lecture topic isn't a deadline, and an undated item has no calendar slot to
+go in.
+
+### Generate a quiz from a topic
+**What it does** — Turns one week's lecture topic straight into a flashcard
+deck, searching your notes vault for material on that topic the same way a
+manual "generate from vault topic" deck does.
+
+**How to use it** — In the Syllabus timeline, click the deck icon next to a
+lecture-topic row. Generation starts in the background and the app switches
+to Notebook's Quizzes tab so you can watch it land.
+
+### Grading calculator
+**What it does** — Once a syllabus's grading breakdown (component name +
+weight) has been extracted, a per-subject calculator shows what average
+score you still need on the ungraded components to land at a target overall
+percentage.
+
+**How to use it** — Open a subject's **Grading breakdown** disclosure in the
+Syllabus view. Type in a score as each component comes back, and set your
+target — the needed-average line updates live.
+
+**Notes & limits** — Weights are only ever extracted from a real syllabus,
+never invented for a generated outline. Scores you type in are yours to
+enter; the AI never fills them in.
+
+---
+
 ## AI Assistant
 
 ### Floating assistant chat
@@ -189,6 +273,11 @@ acts**.
   session, what's free time.
 - **Read posted grades** — the grades you have and your current GPA.
 - **Add calendar events** — create an event for any time/date you ask for.
+- **Read and add syllabus items** — pull up a subject's syllabus, or add
+  items one at a time as you describe them ("mark week 5's quiz as done").
+  It can't delete or rename an item, and it can't invent a date — see
+  **AI extraction and review** under Syllabus for how a whole syllabus is
+  meant to be structured instead.
 
 The assistant never deletes, renames, or moves anything — no class block
 changes, no grade edits, no existing event mutations. Every action it takes
@@ -494,3 +583,60 @@ loses that week's date, and an online class is relabelled "(Online)" — no manu
 re-export. (The calendar only syncs once you've picked an export calendar in
 Settings.) Reminders and the next-class banner still act on whole-term status
 only — a weekly reminder can't skip a single week.
+
+---
+
+## Settings
+
+### Data & Storage
+**What it does** — Shows the real, current disk usage of everything the app
+stores — the schedule cache, notes vault, syllabus, quiz decks, and every
+downloaded AI model — with a running total and a Reveal-in-Finder button per
+item.
+
+**How to use it** — **Settings → Storage**. Delete a downloaded model
+straight from the list to free space; the model currently selected in
+**Settings → Intelligence** can't be deleted until you switch off it first.
+
+**Notes & limits** — Sizes are read once when the pane appears (and again
+after a delete), not recomputed on every redraw — a large quiz-deck folder
+doesn't cause a stall just from having the pane open.
+
+### Advanced AI tuning
+**What it does** — Four knobs the local assistant always had fixed values
+for, now real controls: response **temperature** (focused vs. varied),
+**output token budget** (the ceiling on one reply), **KV cache
+quantization** (roughly halves the running model's RAM cost per token of
+context), and **GPU (Metal) offload** — off forces CPU-only, useful for
+isolating a slowdown or crash.
+
+**How to use it** — **Settings → Intelligence → Advanced AI Tuning**, gated
+behind IntAssis being on. **Reset to Defaults** restores all four at once.
+
+**Notes & limits** — All four restart the local model process when changed.
+On Apple Silicon the default model runs on MLX, which manages its own KV
+cache and always uses the GPU — the quantization and GPU toggles only reach
+the Intel-fallback `llama-server` model.
+
+### Reset to Defaults
+**What it does** — Every pane with its own settings (General, Appearance,
+Schedule, Notifications, Intelligence) has a **Reset This Pane to Defaults**
+button that puts just that pane's controls back to first-launch values.
+General also has **Reset All Settings…**, a true factory reset of every
+setting in the app.
+
+**How to use it** — Bottom of each pane; the global reset asks for
+confirmation first.
+
+**Notes & limits** — Deliberately narrow: per-class colors, online/vacant
+marks, moved times, class notes/links, and syllabus tasks are real data set
+from the week grid and Appearance's subject rows, not a "setting" — none of
+that is touched by either reset, nor is your schedule cache, notes, or quiz
+decks.
+
+### Force Reduce Motion
+**What it does** — An in-app override, independent of System Settings' own
+Reduce Motion, for this Settings window's own animations (deleting a
+downloaded model, the RAM-estimate warning color).
+
+**How to use it** — **Settings → General → Motion**.

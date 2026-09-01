@@ -159,7 +159,7 @@ struct TrueFalseSession: View {
         explaining = true
         let text = await AnswerExplainer.explain(
             card: judgmentCard, studentAnswered: isActuallyTrue ? "False" : "True",
-            model: preferences.aiModel, client: LlamaCppClient()
+            model: preferences.aiModel, client: Preferences.localAIClient(modelID: preferences.aiModel)
         )
         explaining = false
         guard let text else { return }

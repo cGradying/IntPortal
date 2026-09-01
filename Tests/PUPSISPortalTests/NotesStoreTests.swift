@@ -42,6 +42,56 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.note(for: "class:MATH")?.title, "MATH 101")
     }
 
+    /// Title-only edits (the note-pane title field) work on a note that has no
+    /// content yet — `setText`'s empty-text-deletes-note rule must not eat them.
+    func testSetTitleOnEmptyNoteCreatesATitleOnlyRecord() {
+        let store = NotesStore(url: url)
+        store.setTitle("Chain rule", for: "class:MATH")
+
+        XCTAssertEqual(store.note(for: "class:MATH")?.title, "Chain rule")
+        XCTAssertEqual(store.text(for: "class:MATH"), "")
+        XCTAssertFalse(store.hasNote(for: "class:MATH")) // no content, just a title
+
+        let reloaded = NotesStore(url: url)
+        XCTAssertEqual(reloaded.note(for: "class:MATH")?.title, "Chain rule")
+    }
+
+    /// Clearing the title back to empty on a note with no text deletes the
+    /// record, matching `setText`'s blank-deletes-note rule; on a note that
+    /// does have text, only the title is cleared.
+    func testClearingTitleFallsBackToDerived() {
+        let store = NotesStore(url: url)
+        store.setTitle("Chain rule", for: "class:MATH")
+        store.setTitle("", for: "class:MATH")
+        XCTAssertNil(store.note(for: "class:MATH"))
+
+        store.setText("bring calculator", for: "class:PHYS", title: "Physics 1")
+        store.setTitle("", for: "class:PHYS")
+        XCTAssertNil(store.note(for: "class:PHYS")?.title)
+        XCTAssertEqual(store.text(for: "class:PHYS"), "bring calculator")
+    }
+
+    /// The title field routes vault-backed notes through `renameVaultFile` so
+    /// the sidebar name and the note's own stored title stay in sync.
+    func testRenameVaultFileKeepsSidebarAndTitleInSync() {
+        let store = NotesStore(url: url)
+        let fileKey = store.addFile(name: "Untitled", to: nil)
+        store.setText("lim x->0", for: fileKey)
+
+        store.renameVaultFile(forKey: fileKey, to: "Limits")
+
+        XCTAssertEqual(store.vaultName(forKey: fileKey), "Limits")
+        XCTAssertEqual(store.note(for: fileKey)?.title, "Limits")
+
+        // An empty name is a no-op, same as the sidebar's own rename alert.
+        store.renameVaultFile(forKey: fileKey, to: "   ")
+        XCTAssertEqual(store.vaultName(forKey: fileKey), "Limits")
+
+        // No-op for a key that isn't vault-backed.
+        store.renameVaultFile(forKey: "class:MATH", to: "Math")
+        XCTAssertNil(store.note(for: "class:MATH"))
+    }
+
     /// Folders and files nest, files carry a note key, and the whole tree +
     /// contents survive a reload — including the legacy bare-dict migration.
     func testVaultCreateNestAndPersist() {

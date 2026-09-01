@@ -5,7 +5,7 @@
 **Your PUP class schedule, as a native Mac app.**
 Signs into SIS headlessly — you never see the web portal, only your week.
 
-[![Version](https://img.shields.io/badge/version-v1.2.1-8B0000?style=for-the-badge&labelColor=0B1120)](#release-history)
+[![Version](https://img.shields.io/badge/version-v1.7.0-8B0000?style=for-the-badge&labelColor=0B1120)](#release-history)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-8B0000?style=for-the-badge&labelColor=0B1120)](#install)
 [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-8B0000?style=for-the-badge&labelColor=0B1120)](LICENSE)
 [![Download](https://img.shields.io/badge/download-.dmg-8B0000?style=for-the-badge&labelColor=0B1120)](https://github.com/cGradying/IntPortal/releases)
@@ -64,6 +64,7 @@ Keychain, never on disk. Prefer a prebuilt `.dmg` instead? See
   - [Calendar sync & export](#calendar-sync--export)
   - [Reminders & menu bar](#reminders--menu-bar)
   - [Appearance](#appearance)
+  - [Settings: Data & Storage, Advanced AI Tuning, Reset](#settings-data--storage-advanced-ai-tuning-reset)
 - [Setting up Google Calendar export](#setting-up-google-calendar-export)
 - [Build from source](#build-from-source)
 - [Architecture](#architecture)
@@ -311,6 +312,20 @@ units in **Settings → Grades** for the completed-units progress.
 **Settings → Appearance** — themes **PUP Maroon**, **Ivory**, **Astra Moon**, or
 **Match System**, plus per-subject color overrides.
 
+### Settings: Data & Storage, Advanced AI Tuning, Reset
+
+- **Settings → Storage** — real disk usage for the schedule cache, notes,
+  syllabus, quiz decks, and every downloaded AI model, with Reveal in Finder
+  and per-model delete.
+- **Settings → Intelligence → Advanced AI Tuning** — response temperature,
+  output token budget, KV-cache quantization, and GPU (Metal) offload, wired
+  into the running local model.
+- **Reset This Pane to Defaults** on every pane, plus **Reset All
+  Settings…** in General for a full factory reset — never touches per-class
+  colors, status marks, notes, or your schedule/quiz data.
+- **Settings → General → Motion** — Force Reduce Motion, independent of
+  System Settings' own, for this window's animations.
+
 ---
 
 ## Setting up Google Calendar export
@@ -448,8 +463,9 @@ packaged app.
 
 ## Release history
 
-Builds are self-signed/unsigned (see [Install](#install)); `CFBundleShortVersionString`
-is `1.1.2` in `Scripts/make_mac_app.sh`. Grouped by what actually shipped, oldest first:
+Builds are self-signed/unsigned (see [Install](#install)); the version is
+derived from the latest git tag (`Scripts/make_dmg.sh`), not hardcoded.
+Grouped by what actually shipped, oldest first:
 
 | Version | Date | Shipped |
 |---|---|---|
@@ -462,7 +478,9 @@ is `1.1.2` in `Scripts/make_mac_app.sh`. Grouped by what actually shipped, oldes
 | v1.1.1 | 2026-08-13 | Window chrome rework — nav island, dither band; switched licensing to PolyForm Noncommercial 1.0.0. |
 | v1.1.2 | 2026-08-14 | Fixed drag-to-create-event dragging the whole window instead of drawing an event (the chrome now has its own explicit drag strip). |
 | v1.2.0 | 2026-08-17 | **AI Assistant, beta**, built up over several stages: a floating chat (orb → panel, Propose/Confirm/Auto permission) that reads/adds notes, reads schedule and grades, and adds calendar events — never deletes, moves, or changes a grade. Slash commands (`/read`, `/summary`, `/create`, `/rag`, `/help`) bypass the model's own tool-picking entirely, with a keyboard-navigable autocomplete palette. Real retrieval over the notes vault — embeddings (`nomic-embed-text`) ranked by cosine similarity with a keyword-matching fallback, paragraph-chunked so one long note can't blow past the answer budget or get silently dropped like it originally did — and a local llama.cpp model writes one grounded answer citing which notes it drew from. Per-note/folder "Include in AI search" toggle and color labels; note export as Markdown/plain text/typeset PDF. In the editor: a selection popup (Summarize / Answer this / Structure this / custom prompt → Replace / Insert below / Copy) and a Siri-style word-by-word reveal for AI-inserted text (Sweep or Word blink, Reduce-Motion aware), fixed to track scrolling correctly and to never stop partway through a long insert. New Settings → Misc tab: reveal the notes database in Finder, wipe all notes, and tune the retrieval pipeline (chunk size, match strictness, context budget, answer creativity, embedding model). Also this cycle: memory check before loading a model plus clean AI shutdown on quit, a user-editable house-style instructions file, per-class time overrides (this week / every week) and a per-class description + join link on the calendar, and printing/exporting the week as a PDF. |
-| **v1.2.1** | 2026-08-17 | UI polish pass: fixed a visible seam under the Today screen's top bar and pane divider (two panes were each repainting the background wash on their own bounds instead of sharing the window's one gradient), and the dither band no longer clips raggedly past the window's rounded corner. Dither promoted to a reusable `DitherFill` primitive used where it signals state — finished agenda rows read as pixel-eroded, free-time gaps and the empty-day state carry a faint texture — instead of being one decorative strip. The assistant panel is now resizable (drag the corner grip, size persists) and its orb↔panel transition is a real morph; replies render Markdown and are selectable, source chips scroll instead of overflowing, there's a clear-conversation button, and the "thinking" spinner is a pixel-blink indicator. Added motion to the previously-static Today sidebar (selection, folder expand, tab open) — all Reduce-Motion compliant. README architecture diagram recolored to the app's own PUP Maroon palette on white paper and trimmed to essentials. Current. |
+| v1.2.1 | 2026-08-17 | UI polish pass: fixed a visible seam under the Today screen's top bar and pane divider (two panes were each repainting the background wash on their own bounds instead of sharing the window's one gradient), and the dither band no longer clips raggedly past the window's rounded corner. Dither promoted to a reusable `DitherFill` primitive used where it signals state — finished agenda rows read as pixel-eroded, free-time gaps and the empty-day state carry a faint texture — instead of being one decorative strip. The assistant panel is now resizable (drag the corner grip, size persists) and its orb↔panel transition is a real morph; replies render Markdown and are selectable, source chips scroll instead of overflowing, there's a clear-conversation button, and the "thinking" spinner is a pixel-blink indicator. Added motion to the previously-static Today sidebar (selection, folder expand, tab open) — all Reduce-Motion compliant. README architecture diagram recolored to the app's own PUP Maroon palette on white paper and trimmed to essentials. |
+| v1.3.0 – v1.6.5 | — | *(shipped without a README update — see git history/tags for what changed.)* |
+| **v1.7.0** | 2026-08-31 | Settings rebuilt from a native tab view into a hand-built compact shell: dense two-column rows in glass-panel cards (real height/spacing control native `Form` chrome never gave), a text tab strip with a pixel-dither line marking the current pane — glides between tabs on switch, idles with the same wave-dither drift `HomeNoiseField` uses for the home launcher. New **Data & Storage** pane: real disk usage for the schedule cache, notes, syllabus, quiz decks, and every downloaded AI model, computed off the render path, with Reveal-in-Finder and per-model delete. New **Advanced AI Tuning**: response temperature, output token budget, KV-cache quantization, and GPU (Metal) offload are now real controls, wired into the running local model, not fixed constants. New **Reset to Defaults**, per-pane and a true global reset — deliberately narrow, never touches per-class colors/status/notes or your schedule/notes/quiz data. New **Force Reduce Motion** toggle for this window's own animations. Current. |
 
 ---
 

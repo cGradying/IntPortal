@@ -29,6 +29,32 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(Preferences(defaults: defaults).theme, .astraMoon)
     }
 
+    func testNotebookSidebarDefaultsToTheRight() {
+        XCTAssertFalse(Preferences(defaults: defaults).notebookSidebarOnLeft)
+    }
+
+    func testNotebookSidebarSideSurvivesRelaunch() {
+        Preferences(defaults: defaults).notebookSidebarOnLeft = true
+
+        XCTAssertTrue(Preferences(defaults: defaults).notebookSidebarOnLeft)
+    }
+
+    func testNoteReadingWidthSurvivesRelaunch() {
+        Preferences(defaults: defaults).setNoteReadingWidth(800)
+
+        XCTAssertEqual(Preferences(defaults: defaults).noteReadingWidth, 800)
+    }
+
+    func testNoteReadingWidthClampsToItsRange() {
+        let preferences = Preferences(defaults: defaults)
+
+        preferences.setNoteReadingWidth(50)
+        XCTAssertEqual(preferences.noteReadingWidth, Preferences.noteReadingWidthRange.lowerBound)
+
+        preferences.setNoteReadingWidth(9999)
+        XCTAssertEqual(preferences.noteReadingWidth, Preferences.noteReadingWidthRange.upperBound)
+    }
+
     func testFontChoiceSurvivesRelaunch() {
         Preferences(defaults: defaults).fontChoice = .poppins
 
@@ -568,6 +594,67 @@ final class PreferencesTests: XCTestCase {
         prefs.resetAssistantPanelSize()
         XCTAssertEqual(prefs.assistantPanelWidth, Preferences.assistantPanelDefaultWidth)
         XCTAssertEqual(prefs.assistantPanelHeight, Preferences.assistantPanelDefaultHeight)
+    }
+
+    /// Regression: `aiContextSizeRange`'s floor was raised once already
+    /// (`AssistantContextTests` — the old 2048 floor was already too small
+    /// for the real tool catalog). A value saved before that change must not
+    /// stay stuck below the new floor forever, silently failing every
+    /// assistant turn — loading clamps up, not just defaults for a missing key.
+    func testAiContextSizeBelowTheCurrentFloorIsClampedUpOnLoad() {
+        defaults.set(2048, forKey: "aiContextSize") // a value from before the floor was raised
+        let prefs = Preferences(defaults: defaults)
+        XCTAssertEqual(prefs.aiContextSize, Preferences.aiContextSizeRange.lowerBound)
+    }
+
+    func testAiContextSizeAboveTheFloorIsLeftUntouchedOnLoad() {
+        let aboveFloor = Preferences.aiContextSizeRange.lowerBound + 1024
+        defaults.set(aboveFloor, forKey: "aiContextSize")
+        let prefs = Preferences(defaults: defaults)
+        XCTAssertEqual(prefs.aiContextSize, aboveFloor)
+    }
+
+    // MARK: forceReducedMotion / resetAllToDefaults
+
+    func testForceReducedMotionDefaultsOffAndSurvivesRelaunch() {
+        XCTAssertFalse(Preferences(defaults: defaults).forceReducedMotion)
+
+        Preferences(defaults: defaults).forceReducedMotion = true
+
+        XCTAssertTrue(Preferences(defaults: defaults).forceReducedMotion)
+    }
+
+    func testResetAllToDefaultsRestoresChangedSettingsFields() {
+        let prefs = Preferences(defaults: defaults)
+        prefs.theme = .matrix
+        prefs.fontChoice = .poppins
+        prefs.uiScale = 1.5
+        prefs.aiEnabled = true
+        prefs.aiTemperature = 0.9
+        prefs.notificationLeadMinutes = 30
+        prefs.forceReducedMotion = true
+
+        prefs.resetAllToDefaults()
+
+        XCTAssertEqual(prefs.theme, .auto)
+        XCTAssertEqual(prefs.fontChoice, .system)
+        XCTAssertEqual(prefs.uiScale, 1.0)
+        XCTAssertFalse(prefs.aiEnabled)
+        XCTAssertEqual(prefs.aiTemperature, Preferences.aiDefaultTemperature)
+        XCTAssertEqual(prefs.notificationLeadMinutes, 15)
+        XCTAssertFalse(prefs.forceReducedMotion)
+    }
+
+    /// The whole reason it's not a blanket `UserDefaults` wipe: per-class
+    /// personalization (a subject's custom color, here) isn't a "setting" —
+    /// wiping it under "Reset All Settings" would silently destroy real data.
+    func testResetAllToDefaultsLeavesSubjectColorsUntouched() {
+        let prefs = Preferences(defaults: defaults)
+        prefs.setColor(Color(red: 0, green: 0.5, blue: 1), for: "COMP 20073")
+
+        prefs.resetAllToDefaults()
+
+        XCTAssertTrue(prefs.hasCustomColor(for: "COMP 20073"))
     }
 }
 

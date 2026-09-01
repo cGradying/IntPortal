@@ -109,16 +109,49 @@ struct AgendaView: View {
     /// scratchpad when nothing is explicitly selected.
     private var currentKey: String { selectedKey ?? dayKey(for: browsedDay) }
 
+    /// A syllabus row's "generate quiz" button — same `RAGQuery`/
+    /// `GenerationCenter.start` call `GenerateSheet` makes for a vault-topic
+    /// deck (`Views/Quiz/GenerateSheet.swift:210-217`), just triggered from
+    /// outside the Quiz tab. Switches to Quizzes afterward so the running job
+    /// shows up in its banner immediately rather than generating unseen.
+    private func generateQuiz(from item: SyllabusItem) {
+        let topic = item.topic
+        generation.start(
+            label: topic, source: .vaultTopic(topic), model: preferences.aiModel,
+            client: Preferences.localAIClient(modelID: preferences.aiModel),
+            ragQuery: RAGQuery(notes: notes), chunkSize: preferences.ragChunkSize,
+            target: .new(name: topic, sourceKind: .vaultTopic, sourceQuery: topic)
+        )
+        notebook.tab = .quizzes
+    }
+
     var body: some View {
         Group {
-            if notebook.tab == .quizzes {
+            switch notebook.tab {
+            case .quizzes:
                 QuizzesView(store: quizzes, center: generation, preferences: preferences, notes: notes, aiModel: preferences.aiModel)
-            } else {
+            case .syllabus:
+                ScrollView {
+                    SyllabusView(
+                        syllabus: appState.syllabus, preferences: preferences,
+                        subjectCodes: ClassSession.subjectCodes(in: appState.portal.sessions),
+                        aiModel: preferences.aiModel, calendar: calendar,
+                        onGenerateQuiz: generateQuiz
+                    )
+                }
+            case .vault:
                 HStack(spacing: 0) {
-                    noteEditorPane
-                    sidebarResizeHandle
-                    sidebar
-                        .frame(width: preferences.notebookSidebarWidth)
+                    if preferences.notebookSidebarOnLeft {
+                        sidebar
+                            .frame(width: preferences.notebookSidebarWidth)
+                        sidebarResizeHandle
+                        noteEditorPane
+                    } else {
+                        noteEditorPane
+                        sidebarResizeHandle
+                        sidebar
+                            .frame(width: preferences.notebookSidebarWidth)
+                    }
                 }
             }
         }
@@ -153,7 +186,8 @@ struct AgendaView: View {
     private var noteEditorPane: some View {
         VStack(alignment: .leading, spacing: 6) {
             tabBar
-            Text(noteTitle(for: currentKey))
+            TextField("Title", text: titleBinding)
+                .textFieldStyle(.plain)
                 .font(typography.detailTitle)
                 .lineLimit(1)
 
@@ -162,8 +196,8 @@ struct AgendaView: View {
                 preferences: preferences,
                 noteKey: currentKey,
                 title: noteTitle(for: currentKey),
-                onOpenNote: openNote(titled:),
-                addDateOptions: addDateOptions(for: currentKey)
+                bridge: appState.noteBridge,
+                onOpenNote: openNote(titled:)
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -181,9 +215,18 @@ struct AgendaView: View {
         // "the note you're looking at" — selectedKey/openTabs stay private
         // (they're this screen's own tab-bar bookkeeping), but the resolved
         // key is mirrored up so a request like "summarize this note" works
-        // from anywhere, not just from inside AgendaView.
-        .onChange(of: currentKey) { _, new in appState.openNoteKey = new }
-        .onAppear { appState.openNoteKey = currentKey }
+        // from anywhere, not just from inside AgendaView. `noteAddDateOptions`
+        // rides along the same mirror — the floating deck's date menu
+        // (`Views/AssistantFloating.swift`) needs it and lives outside this
+        // view too.
+        .onChange(of: currentKey) { _, new in
+            appState.openNoteKey = new
+            appState.noteAddDateOptions = addDateOptions(for: new)
+        }
+        .onAppear {
+            appState.openNoteKey = currentKey
+            appState.noteAddDateOptions = addDateOptions(for: currentKey)
+        }
     }
 
     /// Open notes as closeable tabs. A vault file dragged onto the bar opens too.
@@ -265,9 +308,11 @@ struct AgendaView: View {
                     .onChanged { value in
                         let start = sidebarWidthAtDragStart ?? preferences.notebookSidebarWidth
                         if sidebarWidthAtDragStart == nil { sidebarWidthAtDragStart = start }
-                        // The sidebar sits to the right of this handle: dragging
-                        // left (negative dx) widens it.
-                        preferences.setNotebookSidebarWidth(start - value.translation.width)
+                        // Sign flips with which side the sidebar is on: on
+                        // the right, dragging left (negative dx) widens it;
+                        // on the left, dragging right (positive dx) does.
+                        let dx = preferences.notebookSidebarOnLeft ? value.translation.width : -value.translation.width
+                        preferences.setNotebookSidebarWidth(start + dx)
                     }
                     .onEnded { _ in sidebarWidthAtDragStart = nil }
             )
@@ -281,6 +326,7 @@ struct AgendaView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     header
                     dailyNoteRow
+                    syllabusMarker
 
                     if entries.isEmpty {
                         emptyDay
@@ -342,8 +388,8 @@ struct AgendaView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 8).fill(key == currentKey ? palette.accent.opacity(0.14) : .clear))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.accent.opacity(key == currentKey ? 0.4 : 0), lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: 12).fill(key == currentKey ? palette.accent.opacity(0.14) : .clear))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(palette.accent.opacity(key == currentKey ? 0.4 : 0), lineWidth: 1))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -715,6 +761,32 @@ struct AgendaView: View {
         .padding(.bottom, 4)
     }
 
+    // MARK: Syllabus (wayfinder ticket #13)
+
+    /// The browsed day's syllabus items — an all-day marker line above the
+    /// timed timeline, not a `DayBlock`/`AgendaEntry` (see `WeekGrid`'s own
+    /// doc comment on the same call): a syllabus item usually has no
+    /// class-time, just a date, so it doesn't belong in a minutes-based row.
+    @ViewBuilder private var syllabusMarker: some View {
+        let items = appState.syllabus.items(on: referenceNow)
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(items) { item in
+                    HStack(spacing: 6) {
+                        Image(systemName: item.type.symbol)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(palette.accent)
+                        Text(item.topic).font(typography.footer).lineLimit(1)
+                        Text(item.subjectCode)
+                            .font(typography.detailMeta)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.bottom, 2)
+        }
+    }
+
     // MARK: Timeline
 
     private var timeline: some View {
@@ -909,40 +981,51 @@ struct AgendaView: View {
 
     @ViewBuilder
     private func rowBackground(phase: ClassPhase) -> some View {
-        // ponytail: one Canvas per finished row, capped by a day's own class
-        // count (≤10 in practice) — fine at this scale. If a busy schedule ever
-        // shows up in a profile, replace with one full-height dither masked by
-        // the row rects instead of per-row Canvases.
         let shape = RoundedRectangle(cornerRadius: 12)
         if phase == .inSession {
             shape
                 .fill(palette.accent.opacity(0.10))
                 .stroke(palette.accent.opacity(0.35), lineWidth: 1)
         } else if phase == .past {
-            // A finished class reads as literally eroded, not just dimmed.
+            // A finished class reads as quietly closed out — a flatter fill
+            // and a hairline, matching the "Done" badge rather than a
+            // separate texture.
             shape
-                .fill(.quaternary.opacity(0.4))
-                .overlay(DitherFill(color: palette.canvasBottom.opacity(0.7), ramp: .flat(0.4)).clipShape(shape))
+                .fill(.quaternary.opacity(0.22))
+                .stroke(palette.gridLine, lineWidth: 1)
         } else {
             shape
                 .fill(.quaternary.opacity(0.4))
         }
     }
 
+    /// A free stretch between two entries — a dashed rail in the same column
+    /// the class rows' subject strip occupies, so the timeline reads as one
+    /// continuous line rather than a gap. `minutes` is a duration, so it's
+    /// set in mono (the No-Reflow Rule) rather than the row's usual sans.
     private func gapRow(minutes: Int, passed: Bool) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "arrow.down")
-                .accessibilityHidden(true)
+        HStack(alignment: .top, spacing: 12) {
+            Rectangle()
+                .fill(.clear)
+                .overlay(
+                    Rectangle()
+                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
+                )
+                .foregroundStyle(palette.gridLine)
+                .frame(width: 4)
+
             Text("\(duration(minutes)) free")
+                .font(typography.gutter)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(palette.canvasTop, in: .capsule)
+                .overlay(Capsule().stroke(palette.gridLine, lineWidth: 1))
         }
-        .font(typography.detailMeta)
-        .foregroundStyle(.secondary)
         .opacity(passed ? 0.4 : 1)
-        .padding(.leading, 18)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // A free stretch reads as textured distance rather than a bare caption.
-        .background(DitherFill(color: palette.secondary.opacity(0.5), ramp: .flat(0.22)))
     }
 
     /// The day's empty state — plain and legible. Used to sit on a dither
@@ -1026,11 +1109,13 @@ struct AgendaView: View {
     /// Today's day-note key — the editor's default when nothing else is selected.
     private var dayKey: String { dayKey(for: now) }
 
-    /// A human title for any note key — today's entry title when the class/event
-    /// is on today's schedule, else derived from the key (or a stored title, for
-    /// history notes whose class/event isn't scheduled today).
+    /// A human title for any note key. A user-set title (typed into the title
+    /// field, `notes.setTitle`/`renameVaultFile`) always wins; otherwise it's
+    /// today's entry title when the class/event is on today's schedule, else
+    /// derived from the key.
     private func noteTitle(for key: String) -> String {
         if key.hasPrefix("vault:") { return notes.vaultName(forKey: key) ?? "Untitled" }
+        if let override = notes.note(for: key)?.title { return override }
         if let entry = entries.first(where: { noteKey($0) == key }) { return entry.title }
         if key.hasPrefix("class:") { return String(key.dropFirst("class:".count)) }
         if key.hasPrefix("day:") {
@@ -1038,7 +1123,23 @@ struct AgendaView: View {
             if let date = Self.isoDay.date(from: iso) { return Self.shortDate.string(from: date) }
             return iso
         }
-        return notes.note(for: key)?.title ?? "Note"
+        return "Note"
+    }
+
+    /// The title field's binding: reads the resolved title, writes back through
+    /// `renameVaultFile` for vault-backed notes (keeps the sidebar name in
+    /// step) or `setTitle` for everything else.
+    private var titleBinding: Binding<String> {
+        Binding(
+            get: { noteTitle(for: currentKey) },
+            set: { newValue in
+                if currentKey.hasPrefix("vault:") {
+                    notes.renameVaultFile(forKey: currentKey, to: newValue)
+                } else {
+                    notes.setTitle(newValue, for: currentKey)
+                }
+            }
+        )
     }
 
     private static let isoDay: DateFormatter = {

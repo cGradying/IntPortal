@@ -16,12 +16,14 @@ import XCTest
 final class RealAssistantExecutorTests: XCTestCase {
     private var notesURL: URL!
     private var notesStore: NotesStore!
+    private var syllabusStore: SyllabusStore!
 
     override func setUpWithError() throws {
-        notesURL = URL(fileURLWithPath: NSTemporaryDirectory())
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("RealAssistantExecutorTests-\(UUID().uuidString)", isDirectory: true)
-            .appendingPathComponent("notes.json")
+        notesURL = directory.appendingPathComponent("notes.json")
         notesStore = NotesStore(url: notesURL)
+        syllabusStore = SyllabusStore(url: directory.appendingPathComponent("syllabus.json"))
     }
 
     override func tearDownWithError() throws {
@@ -47,6 +49,7 @@ final class RealAssistantExecutorTests: XCTestCase {
             calendar: CalendarBridge(),
             portal: PortalController(),
             preferences: preferences,
+            syllabus: syllabusStore,
             openNoteKey: { openKey },
             client: client,
             ensureChatServerRunning: ensureChatServerRunning,
@@ -483,6 +486,73 @@ final class RealAssistantExecutorTests: XCTestCase {
         let action = AssistantAction(tool: "set_class_time",
             args: ["subject_code": .string("COMP 20073"), "date": .string("2026-08-18")])
         let result = await executor().execute(action)
+        XCTAssertFalse(result.ok)
+    }
+
+    // MARK: read_syllabus / add_syllabus_item / set_syllabus_item_status
+
+    func testReadSyllabusReportsEmpty() async {
+        let result = await executor().execute(AssistantAction(tool: "read_syllabus", args: [:]))
+        XCTAssertTrue(result.ok)
+        XCTAssertTrue(result.message.lowercased().contains("no syllabus items"))
+    }
+
+    func testAddSyllabusItemThenReadItBack() async {
+        let exec = executor()
+        let add = await exec.execute(AssistantAction(tool: "add_syllabus_item", args: [
+            "subject_code": .string("MATH01"), "topic": .string("Chain rule"),
+            "type": .string("quiz"), "date": .string("2026-08-28"), "week": .int(3),
+        ]))
+        XCTAssertTrue(add.ok)
+        XCTAssertEqual(syllabusStore.items(for: "MATH01").first?.topic, "Chain rule")
+        XCTAssertEqual(syllabusStore.items(for: "MATH01").first?.source, .generated)
+
+        let read = await exec.execute(AssistantAction(tool: "read_syllabus", args: ["subject_code": .string("MATH01")]))
+        XCTAssertTrue(read.ok)
+        XCTAssertTrue(read.message.contains("Chain rule"))
+    }
+
+    /// A syllabus organized by week, not real dates, is common — the tool
+    /// must not hard-fail just because no date was given.
+    func testAddSyllabusItemWithNoDateStillSucceeds() async {
+        let result = await executor().execute(AssistantAction(tool: "add_syllabus_item", args: [
+            "subject_code": .string("MATH01"), "topic": .string("Limits"), "type": .string("lecture"),
+        ]))
+        XCTAssertTrue(result.ok)
+        XCTAssertNil(syllabusStore.items(for: "MATH01").first?.date)
+    }
+
+    func testAddSyllabusItemRefusesUnknownType() async {
+        let result = await executor().execute(AssistantAction(tool: "add_syllabus_item", args: [
+            "subject_code": .string("MATH01"), "topic": .string("Chain rule"), "type": .string("midterm"),
+        ]))
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(syllabusStore.items(for: "MATH01").isEmpty)
+    }
+
+    func testAddSyllabusItemRefusesMissingTopic() async {
+        let result = await executor().execute(AssistantAction(tool: "add_syllabus_item", args: [
+            "subject_code": .string("MATH01"), "type": .string("quiz"),
+        ]))
+        XCTAssertFalse(result.ok)
+    }
+
+    func testSetSyllabusItemStatusMarksDone() async {
+        let exec = executor()
+        _ = await exec.execute(AssistantAction(tool: "add_syllabus_item", args: [
+            "subject_code": .string("MATH01"), "topic": .string("Chain rule"), "type": .string("quiz"),
+        ]))
+        let result = await exec.execute(AssistantAction(tool: "set_syllabus_item_status", args: [
+            "subject_code": .string("MATH01"), "topic": .string("Chain rule"), "done": .string("true"),
+        ]))
+        XCTAssertTrue(result.ok)
+        XCTAssertEqual(syllabusStore.items(for: "MATH01").first?.completedOverride, true)
+    }
+
+    func testSetSyllabusItemStatusFailsForUnknownItem() async {
+        let result = await executor().execute(AssistantAction(tool: "set_syllabus_item_status", args: [
+            "subject_code": .string("MATH01"), "topic": .string("Nonexistent"), "done": .string("true"),
+        ]))
         XCTAssertFalse(result.ok)
     }
 

@@ -1,12 +1,29 @@
 import SwiftUI
 import Inject
 
-/// The assistant's one piece of floating chrome — bottom-left, reachable from
-/// every screen. Idle it's a small orb; tapped it expands into the chat panel.
-/// One glass surface that morphs, the same shape `NavIsland` uses for its own
-/// home↔bar transition, rather than two separate overlapping glass views —
-/// they're never on screen at once, so there's nothing for
-/// `GlassEffectContainer` to blend.
+/// The app's one piece of floating chrome that isn't `NavIsland` — bottom-left,
+/// reachable from every screen. One glass surface that morphs between shapes
+/// rather than several overlapping views (`matchedGeometryEffect(id:
+/// "assistant", ...)`, the same vocabulary `NavIsland` uses for its own
+/// centre↔top morph):
+///
+/// - **orb** — idle, everywhere except an open note.
+/// - **orb + hover rail** — hovering the orb (wayfinder ticket #8,
+///   https://github.com/cGradying/IntPortal/issues/8) grows it sideways into
+///   2 page-specific quick actions ("jump + narrate": switch screen if
+///   needed, open chat, run the matching command immediately). Clicking the
+///   orb itself — not a rail icon — always opens plain chat, same as before.
+/// - **toolbar** — Notebook, Vault tab: the note-formatting commands that used
+///   to be `WebNoteEditor`'s own static top strip (wayfinder ticket #7,
+///   https://github.com/cGradying/IntPortal/issues/7 — prototyped and
+///   confirmed live before this landed).
+/// - **chat** — tapped open, unchanged from before this ticket.
+///
+/// Prototype finding worth keeping: a `matchedGeometryEffect`-driven morph
+/// needs the state change wrapped in an explicit `withAnimation` (`go`
+/// below) — the implicit `.animation(_:value:)` modifier alone reads as a
+/// snap even though it's attached correctly, and each branch needs its own
+/// `.transition(.opacity)` so content cross-fades instead of popping.
 struct AssistantFloating: View {
     @ObserveInjection var inject
     @ObservedObject var appState: AppState
@@ -24,23 +41,92 @@ struct AssistantFloating: View {
     @Environment(\.typography) private var typography
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var morph
+    @State private var showLanguages = false
+    @State private var showColors = false
+    @State private var customColor: Color = .red
+    /// Debounced hover state driving `.orbHovered` — see `scheduleHover`.
+    @State private var railExpanded = false
+    /// Invalidates a pending debounced hover toggle when a newer one
+    /// supersedes it (mouse left then re-entered before the leave timer fired).
+    @State private var hoverGeneration = 0
+
+    private enum DeckState: Equatable {
+        case hidden   // AI off and not on an open note — nothing floats.
+        case orb
+        case orbHovered
+        case toolbar
+        case chat
+    }
+
+    private var deckState: DeckState {
+        if preferences.aiEnabled, session.isOpen { return .chat }
+        // Vault tab specifically — Quizzes has no `WebNoteEditor` to drive.
+        if appState.selection == .today, appState.notebook.tab == .vault { return .toolbar }
+        guard preferences.aiEnabled else { return .hidden }
+        return railExpanded ? .orbHovered : .orb
+    }
 
     var body: some View {
         Group {
-            if session.isOpen {
+            switch deckState {
+            case .hidden:
+                EmptyView()
+            case .orb:
+                orb.transition(Self.morphTransition)
+            case .orbHovered:
+                orbWithRail.transition(Self.morphTransition)
+            case .toolbar:
+                toolbarDeck.transition(Self.morphTransition)
+            case .chat:
                 AssistantChat(appState: appState, preferences: preferences, session: session, morph: morph)
                     .frame(width: preferences.assistantPanelWidth, height: preferences.assistantPanelHeight)
                     .matchedGeometryEffect(id: "assistant", in: morph)
-            } else {
-                orb
+                    .transition(Self.morphTransition)
             }
         }
-        .animation(Motion.island(reduced: reduceMotion), value: session.isOpen)
+        .animation(Motion.island(reduced: reduceMotion), value: deckState)
+        // Attached at this level (not inside `orb`/`orbWithRail` individually)
+        // so hovering never drops mid-expand when the two views swap out
+        // under the pointer. Ignored outside the orb states — the toolbar
+        // and chat panel have their own content to hover.
+        .onHover { inside in
+            guard deckState == .orb || deckState == .orbHovered else { return }
+            scheduleHover(inside)
+        }
         .enableInjection()
     }
 
+    /// 120ms to expand (ignores a cursor just passing over), 300ms grace to
+    /// collapse (survives the pointer moving from the orb toward a rail
+    /// icon). `hoverGeneration` cancels a stale timer: re-entering during the
+    /// collapse grace invalidates the pending `false`, so the rail never
+    /// flickers shut and immediately back open.
+    private func scheduleHover(_ hovering: Bool) {
+        hoverGeneration += 1
+        let generation = hoverGeneration
+        let delay = hovering ? 0.12 : 0.30
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard generation == hoverGeneration else { return }
+            withAnimation(Motion.island(reduced: reduceMotion)) { railExpanded = hovering }
+        }
+    }
+
+    /// Anchored at the deck's own bottom-leading corner (where it's pinned in
+    /// `PUPSISPortalApp.swift`) — content scales in/out from that corner
+    /// while `matchedGeometryEffect` resizes the shared capsule, so the
+    /// whole thing reads as one shape expanding/compressing rather than a
+    /// flat crossfade in place. Confirmed live: crossfade-only was the
+    /// original prototype and read as "the UI fades" rather than "the UI
+    /// grows/shrinks" — this is the fix.
+    private static let morphTransition: AnyTransition = .scale(scale: 0.82, anchor: .bottomLeading).combined(with: .opacity)
+
+    private func go(open: Bool) {
+        withAnimation(Motion.island(reduced: reduceMotion)) { session.isOpen = open }
+    }
+
     private var orb: some View {
-        Button { session.isOpen = true } label: {
+        Button { go(open: true) } label: {
             Image(systemName: "sparkles")
                 .font(.system(size: 17, weight: .medium))
                 .frame(width: 44, height: 44)
@@ -56,6 +142,342 @@ struct AssistantFloating: View {
         .overlay(Circle().strokeBorder(palette.accent.opacity(0.35), lineWidth: 1))
         .matchedGeometryEffect(id: "assistant", in: morph)
         .help("IntAssis")
+    }
+
+    // MARK: Hover rail (orb states, not Notebook/Vault)
+    //
+    // "Jump + narrate": clicking a rail item switches to the page it's
+    // about (a no-op if already there), opens chat, and runs the matching
+    // deterministic slash command (`AssistantCommand`, same parser/runner
+    // `AssistantChat.send()` already uses for typed commands) — so the
+    // answer appears the same way it would if the user had typed and sent
+    // it themselves, just pre-asked.
+
+    private struct RailItem: Identifiable {
+        let id: String
+        let symbol: String
+        let help: String
+        let command: String
+        /// Where "Next class" etc. actually lives, regardless of which page
+        /// the rail itself is showing on — e.g. Notebook's "Next class" jumps
+        /// to Schedule; Schedule's own items stay on Schedule.
+        let destination: Destination
+    }
+
+    private static let isoDay: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f
+    }()
+
+    private var railItems: [RailItem] {
+        let today = Self.isoDay.string(from: appState.now)
+        let nextClass = RailItem(
+            id: "next", symbol: "calendar.badge.clock", help: "Next class",
+            command: "/date \(today)", destination: .schedule
+        )
+        switch appState.selection {
+        case .schedule:
+            return [
+                nextClass,
+                RailItem(id: "week", symbol: "calendar", help: "This week", command: "/week", destination: .schedule),
+            ]
+        case .grades:
+            return [
+                RailItem(id: "gpa", symbol: "chart.line.uptrend.xyaxis", help: "GPA trend", command: "/grades", destination: .grades),
+                nextClass,
+            ]
+        case .today:
+            // Reached only outside the Vault tab (`.toolbar` wins there) —
+            // Quizzes or Syllabus.
+            return [
+                RailItem(id: "notes", symbol: "magnifyingglass", help: "List notes", command: "/notes", destination: .today),
+                nextClass,
+            ]
+        }
+    }
+
+    /// Switches to the rail item's screen (no-op if already there), then
+    /// opens chat and queues its command — `AssistantChat.runPendingCommand`
+    /// sends it the moment the panel appears.
+    private func jumpAndNarrate(_ item: RailItem) -> some View {
+        Button {
+            withAnimation(Motion.island(reduced: reduceMotion)) {
+                appState.selection = item.destination
+                session.isOpen = true
+            }
+            session.pendingCommand = item.command
+        } label: {
+            Image(systemName: item.symbol).frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .help(item.help)
+    }
+
+    private var orbWithRail: some View {
+        HStack(spacing: 4) {
+            // Orb face stays a plain open-chat button, not a rail item —
+            // hovering reveals shortcuts, but clicking the orb itself is
+            // always "just open chat", same as the plain `.orb` state.
+            Button { go(open: true) } label: {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 32, height: 32)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            Divider().frame(height: 14)
+            ForEach(railItems) { item in
+                jumpAndNarrate(item)
+            }
+        }
+        .foregroundStyle(palette.accent)
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .glassInteractive(in: Capsule())
+        .overlay(Capsule().strokeBorder(palette.accent.opacity(0.35), lineWidth: 1))
+        .matchedGeometryEffect(id: "assistant", in: morph)
+    }
+
+    // MARK: Toolbar deck (Notebook, Vault tab)
+    //
+    // Every command below is unchanged from `WebNoteEditor`'s old static
+    // toolbar — same `AssistantEngine`-agnostic `WebNoteBridge.cmd(...)`
+    // calls, just relocated into this floating deck and driven through
+    // `appState.noteBridge` (one shared bridge, mirrored the same way
+    // `appState.openNoteKey` already tracks "the note you're looking at")
+    // instead of a `@StateObject` local to whichever `WebNoteEditor` happened
+    // to be on screen.
+    //
+    // Ticket #9 ("Where the toolbar commands go") settled both open
+    // questions left over from #7: all 19 commands always show (the deck
+    // floats over the canvas rather than sharing its width, so there's no
+    // real pressure to hide any on focus), and a window too narrow for one
+    // row wraps to two via `FlowLayout` rather than scrolling or clipping.
+    // `560` is an estimate of the full row's natural width (roughly 18
+    // buttons/menus × ~20pt + 3 dividers + padding), not a measured
+    // constant — it's a *ceiling*, not a target: `.frame(maxWidth:)` only
+    // constrains, so on any window wider than that the row still reports
+    // its own smaller intrinsic width rather than stretching to fill it.
+    private static let toolbarWidthCeiling: CGFloat = 560
+
+    private var toolbarDeck: some View {
+        FlowLayout(spacing: 1, lineSpacing: 3) {
+            headingMenu
+            divider
+            button("bold", "Bold", shortcut: "b") { appState.noteBridge.cmd("bold") }
+            button("italic", "Italic", shortcut: "i") { appState.noteBridge.cmd("italic") }
+            button("strikethrough", "Strikethrough", shortcut: "x", modifiers: [.command, .shift]) {
+                appState.noteBridge.cmd("strike")
+            }
+            button("highlighter", "Highlight", shortcut: "h", modifiers: [.command, .shift]) {
+                appState.noteBridge.cmd("highlight")
+            }
+            colorButton
+            codeButton
+            button("x.squareroot", "Math") { appState.noteBridge.cmd("math") }
+            button("function", "LaTeX document") { appState.noteBridge.cmd("latexdoc") }
+            divider
+            button("list.bullet", "Bullet list") { appState.noteBridge.cmd("bullet") }
+            button("list.number", "Numbered list") { appState.noteBridge.cmd("numbered") }
+            button("checklist", "Checklist") { appState.noteBridge.cmd("checklist") }
+            button("text.quote", "Quote") { appState.noteBridge.cmd("quote") }
+            button("minus", "Divider") { appState.noteBridge.cmd("rule") }
+            button("tablecells", "Table") { appState.noteBridge.cmd("table") }
+            divider
+            button("photo", "Insert image…") { pickImage() }
+            button("link", "Link", shortcut: "k") { appState.noteBridge.cmd("link") }
+            button("link.badge.plus", "Link to another note") { appState.noteBridge.cmd("wikilink") }
+            if let options = appState.noteAddDateOptions {
+                divider
+                dateMenu(options)
+            }
+            if preferences.aiEnabled {
+                divider
+                Button { go(open: true) } label: {
+                    Image(systemName: "sparkles").frame(width: 20, height: 20).contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(palette.accent)
+                .help("IntAssis")
+            }
+        }
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .frame(maxWidth: Self.toolbarWidthCeiling)
+        // Horizontal: let the ceiling above (or a narrower window) drive
+        // wrapping. Vertical: hug exactly the 1 or 2 rows that produces —
+        // an outer `maxHeight: .infinity` alignment frame elsewhere would
+        // otherwise stretch this the same way the old unconstrained
+        // `ScrollView` stretched horizontally (see WebNoteEditor history).
+        .fixedSize(horizontal: false, vertical: true)
+        .glassInteractive(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .matchedGeometryEffect(id: "assistant", in: morph)
+    }
+
+    private static let colors: [(name: String, hex: String)] = [
+        ("Red", "e5484d"), ("Orange", "e57a00"), ("Yellow", "d4a300"), ("Green", "2f9e44"),
+        ("Teal", "0d9488"), ("Blue", "3b7dd8"), ("Purple", "8f5cd8"), ("Pink", "d6409f"),
+    ]
+
+    // Fenced-code languages (canonical ids match editor.js codeLanguages).
+    private static let languages: [(label: String, id: String)] = [
+        ("Plain", ""), ("Python", "python"), ("JavaScript", "javascript"), ("TypeScript", "typescript"),
+        ("C++", "cpp"), ("C", "c"), ("Java", "java"), ("Rust", "rust"), ("Go", "go"),
+        ("HTML", "html"), ("CSS", "css"), ("JSON", "json"), ("SQL", "sql"), ("PHP", "php"), ("XML", "xml"),
+    ]
+
+    private func dateMenu(_ options: (next: String, today: String)) -> some View {
+        Menu {
+            Button("Next class · \(options.next)") { appState.noteBridge.cmd("datestamp", options.next) }
+            if options.today != options.next {
+                Button("Today · \(options.today)") { appState.noteBridge.cmd("datestamp", options.today) }
+            }
+        } label: {
+            Image(systemName: "calendar.badge.plus").frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.borderless)
+        .menuIndicator(.hidden).fixedSize().help("Add dated entry")
+    }
+
+    private var headingMenu: some View {
+        Menu {
+            Button("Heading 1") { appState.noteBridge.cmd("heading", "1") }
+            Button("Heading 2") { appState.noteBridge.cmd("heading", "2") }
+            Button("Heading 3") { appState.noteBridge.cmd("heading", "3") }
+            Divider()
+            Button("Normal text") { appState.noteBridge.cmd("heading", "0") }
+        } label: {
+            Image(systemName: "number").frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.borderless)
+        .menuIndicator(.hidden).fixedSize().help("Heading level")
+    }
+
+    // A visual color picker: a grid of preset swatches plus a native color well
+    // for any custom color. Applies to the selected text via cmd("color", hex).
+    private var colorButton: some View {
+        Button { showColors = true } label: {
+            Image(systemName: "paintpalette").frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless).help("Text color")
+        .popover(isPresented: $showColors, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Text color").font(.caption).foregroundStyle(.secondary)
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(24), spacing: 8), count: 4), spacing: 8) {
+                    ForEach(Self.colors, id: \.hex) { c in
+                        Button {
+                            appState.noteBridge.cmd("color", c.hex)
+                            showColors = false
+                        } label: {
+                            Circle()
+                                .fill(Color(hex: c.hex) ?? .gray)
+                                .frame(width: 22, height: 22)
+                                .overlay(Circle().strokeBorder(.primary.opacity(0.15), lineWidth: 1))
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain).help(c.name)
+                    }
+                }
+                Divider()
+                HStack(spacing: 8) {
+                    ColorPicker("Custom", selection: $customColor, supportsOpacity: false)
+                        .labelsHidden()
+                    Button("Apply custom") {
+                        if let hex = customColor.hex {
+                            appState.noteBridge.cmd("color", String(hex.dropFirst())) // strip '#'
+                        }
+                        showColors = false
+                    }
+                    .font(.caption)
+                }
+            }
+            .padding(12)
+            .frame(width: 188)
+        }
+    }
+
+    // Native file picker → copy the image into app storage → insert it inline
+    // at the caret (same pupimg:// pipeline as paste/drop).
+    private func pickImage() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.prompt = "Insert"
+        panel.message = "Choose an image to insert"
+        guard panel.runModal() == .OK, let url = panel.url,
+              let data = try? Data(contentsOf: url),
+              let inserted = NoteImages.save(base64: data.base64EncodedString(), ext: url.pathExtension)
+        else { return }
+        appState.noteBridge.insertImage(inserted)
+    }
+
+    private var codeButton: some View {
+        Button { showLanguages = true } label: {
+            Image(systemName: "chevron.left.forwardslash.chevron.right")
+                .frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless).help("Code block")
+        .popover(isPresented: $showLanguages, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Code block").font(.caption).foregroundStyle(.secondary)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 78), spacing: 6)], alignment: .leading, spacing: 6) {
+                    ForEach(Self.languages, id: \.id) { lang in
+                        Button {
+                            appState.noteBridge.cmd("codeblock", lang.id)
+                            showLanguages = false
+                        } label: {
+                            Text(lang.label)
+                                .font(.system(size: 12, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                                .background(palette.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 6))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(12)
+            .frame(width: 300)
+        }
+    }
+
+    private var divider: some View { Divider().frame(height: 14).padding(.horizontal, 2) }
+
+    /// `shortcut` covers the handful of commands with a universal text-editor
+    /// convention (bold/italic/strike/highlight/link) — block-level commands
+    /// (headings, lists, table, image, quote, rule, math, date) have no such
+    /// convention and stay mouse-only. Scoped for free: the shortcut only
+    /// fires while its `Button` is actually in the tree, i.e. only while the
+    /// toolbar deck is showing (Notebook, Vault tab) — nowhere else.
+    private func button(
+        _ symbol: String, _ help: String,
+        shortcut: KeyEquivalent? = nil, modifiers: EventModifiers = .command,
+        _ action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .help(shortcut.map { "\(help) (\(Self.shortcutLabel($0, modifiers)))" } ?? help)
+        .modify(shortcut) { view, key in view.keyboardShortcut(key, modifiers: modifiers) }
+    }
+
+    /// Apple's own modifier ordering: ⌃⌥⇧⌘, key last.
+    private static func shortcutLabel(_ key: KeyEquivalent, _ modifiers: EventModifiers) -> String {
+        var s = ""
+        if modifiers.contains(.control) { s += "⌃" }
+        if modifiers.contains(.option) { s += "⌥" }
+        if modifiers.contains(.shift) { s += "⇧" }
+        if modifiers.contains(.command) { s += "⌘" }
+        return s + String(key.character).uppercased()
+    }
+}
+
+private extension View {
+    /// Conditionally applies `transform` only when `value` is non-nil —
+    /// `.keyboardShortcut` needs an actual `KeyEquivalent`, not an optional one.
+    @ViewBuilder
+    func modify<T>(_ value: T?, _ transform: (Self, T) -> some View) -> some View {
+        if let value { transform(self, value) } else { self }
     }
 }
 
@@ -100,7 +522,11 @@ private struct AssistantChat: View {
         .overlay(alignment: .topTrailing) { resizeGrip }
         .animation(Motion.arrival(reduced: reduceMotion), value: session.pendingActions.isEmpty)
         .animation(Motion.arrival(reduced: reduceMotion), value: session.lastError)
-        .onAppear { inputFocused = true }
+        .onAppear {
+            inputFocused = true
+            runPendingCommand()
+        }
+        .onChange(of: session.pendingCommand) { _, _ in runPendingCommand() }
     }
 
     /// A small handle poking past the panel's own top-trailing corner —
@@ -202,6 +628,7 @@ private struct AssistantChat: View {
             }),
             ("Notes", AssistantTool.catalog.filter { $0.name.hasSuffix("note") || $0.name.hasSuffix("notes") }),
             ("Grades", AssistantTool.catalog.filter { $0.name == "read_grades" }),
+            ("Syllabus", AssistantTool.catalog.filter { $0.name.hasPrefix("read_syllabus") || $0.name.hasSuffix("syllabus_item") }),
         ]
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -617,6 +1044,17 @@ private struct AssistantChat: View {
         return .handled
     }
 
+    /// Runs the deck's hover-rail command, if one is waiting — fired from
+    /// both `.onAppear` (rail click opened the panel fresh) and
+    /// `.onChange(of: session.pendingCommand)` (panel was already open on
+    /// this screen; clicking a rail item queues a second command into it).
+    private func runPendingCommand() {
+        guard let command = session.pendingCommand else { return }
+        session.pendingCommand = nil
+        input = command
+        send()
+    }
+
     private func send() {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !session.isThinking else { return }
@@ -689,12 +1127,17 @@ private struct AssistantChat: View {
             calendar: appState.calendar,
             portal: appState.portal,
             preferences: preferences,
-            openNoteKey: { appState.openNoteKey }
+            syllabus: appState.syllabus,
+            openNoteKey: { appState.openNoteKey },
+            // preferences.aiProvider (wayfinder ticket #17) — .local resolves
+            // to the same LlamaCppClient() this defaulted to before; a cloud
+            // provider only takes effect once its own key is actually saved.
+            client: preferences.resolvedAIClient()
         )
     }
 
     private func makeEngine() -> AssistantEngine {
-        AssistantEngine(model: preferences.aiModel, executor: makeExecutor())
+        AssistantEngine(client: preferences.resolvedAIClient(), model: preferences.aiModel, executor: makeExecutor())
     }
 
     private func buildContext() -> AssistantContext {
@@ -731,7 +1174,13 @@ private struct AssistantChat: View {
             todayClasses: todayClasses,
             gradesSummary: gradesSummary,
             schedule: schedule,
-            pinnedNote: session.pinnedNote
+            pinnedNote: session.pinnedNote,
+            // Real usage of AssistantContext.tokenBudget — see its own doc
+            // comment. A cloud provider (preferences.aiProvider != .local)
+            // isn't limited by this local server setting at all, but using
+            // it as the estimate anyway just means a cloud turn truncates a
+            // bit more conservatively than it strictly needed to, never less.
+            tokenBudget: preferences.aiContextSize
         )
     }
 }
@@ -753,7 +1202,7 @@ private struct RevealText: View {
     }
 
     var body: some View {
-        Text(words.prefix(shown).joined(separator: " "))
+        Text(words.prefix(shown).map(Self.displayWord).joined(separator: " "))
             .animation(.easeOut(duration: 0.08), value: shown)
             // `.task(id:)`, not `.onAppear` — an `Int` isn't `VectorArithmetic`,
             // so `withAnimation { shown = words.count }` would just snap
@@ -768,6 +1217,19 @@ private struct RevealText: View {
                     if index < words.count { try? await Task.sleep(nanoseconds: perWord) }
                 }
             }
+    }
+
+    /// Strips the markdown this reveal renders as plain text before it's
+    /// parsed as markdown — confirmed live: a reply with `**bold**` or a
+    /// `- ` list visibly "unwraps" its own syntax mid-reveal, the same
+    /// literal-`*` symptom the note editor's `listMarkPlugin` fixes. Display
+    /// only; `text`/`words` above stay the model's real output.
+    private static func displayWord(_ word: String) -> String {
+        if word == "-" || word == "*" || word == "+" { return "\u{2022}" }
+        var trimmed = Substring(word)
+        while let first = trimmed.first, "*_`".contains(first) { trimmed.removeFirst() }
+        while let last = trimmed.last, "*_`".contains(last) { trimmed.removeLast() }
+        return trimmed.isEmpty ? word : String(trimmed)
     }
 }
 
@@ -796,5 +1258,44 @@ private struct PixelThinkingDots: View {
     private func blink(_ date: Date, offset: Int) -> Double {
         let t = date.timeIntervalSinceReferenceDate / 0.35 + Double(offset) * 0.6
         return 0.625 + 0.375 * sin(t * .pi)
+    }
+}
+
+/// A left-to-right, top-to-bottom flow: each child at its own intrinsic
+/// size, wrapping to a new row once the next one wouldn't fit the proposed
+/// width. Used only by `toolbarDeck` (wayfinder ticket #9) so a narrow
+/// window wraps its 19 commands to a second row instead of scrolling or
+/// running past the edge — everything reachable without a gesture.
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 4
+    var lineSpacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, widestRow: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > maxWidth {
+                widestRow = max(widestRow, x - spacing)
+                x = 0; y += rowHeight + lineSpacing; rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        widestRow = max(widestRow, x - spacing)
+        return CGSize(width: maxWidth.isFinite ? maxWidth : widestRow, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x: CGFloat = bounds.minX, y: CGFloat = bounds.minY, rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX; y += rowHeight + lineSpacing; rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }

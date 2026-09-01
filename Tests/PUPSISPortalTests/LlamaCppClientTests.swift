@@ -26,6 +26,86 @@ final class LlamaCppClientTests: XCTestCase {
         XCTAssertNil(json["model"])
     }
 
+    /// requestBody's max_tokens must be whatever the caller actually
+    /// computed (`generateMaxTokens(forSelectionLength:)`), not silently
+    /// fall back to the floor — that's the whole point of threading it
+    /// through instead of reading a static constant independently.
+    func testRequestBodyUsesTheProvidedMaxTokensNotJustTheFloor() throws {
+        let data = try LlamaCppClient.requestBody(selection: "u", instruction: "s", maxTokens: 1500)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["max_tokens"] as? Int, 1500)
+    }
+
+    /// Regression: the real cause behind "Ask AI" returning
+    /// ClientError.empty, independent of input length — Qwen3 (the default
+    /// local model) reasons by default when this is omitted, and its
+    /// <think> block can burn the entire fixed max_tokens budget before
+    /// ever writing the actual answer `parseContent` reads.
+    func testRequestBodyForcesReasoningOff() throws {
+        let data = try LlamaCppClient.requestBody(selection: "u", instruction: "s")
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["reasoning_effort"] as? String, "none")
+    }
+
+    // MARK: truncatedForContext — the note editor's "Ask AI" pill
+
+    func testTruncatedForContextLeavesAShortSelectionUntouched() {
+        let selection = "Just a short highlighted sentence."
+        let result = LlamaCppClient.truncatedForContext(selection, instruction: "Summarize.", contextSize: 4096)
+        XCTAssertEqual(result, selection)
+    }
+
+    /// Regression: the note editor's "Ask AI" pill sent the selected text
+    /// completely unbounded, which could exceed the configured context size
+    /// with a long note — llama-server's response to that overflow is an
+    /// *empty* completion (ClientError.empty), not a clear error.
+    func testTruncatedForContextShortensAVeryLongSelectionAtASmallContextSize() {
+        let longSelection = String(repeating: "lecture notes ", count: 2000) // ~28,000 chars
+        let result = LlamaCppClient.truncatedForContext(longSelection, instruction: "Structure this.", contextSize: 3072)
+        XCTAssertLessThan(result.count, longSelection.count)
+        XCTAssertTrue(result.hasSuffix("[...truncated to fit the configured context size]"))
+    }
+
+    func testTruncatedForContextNeverGoesBelowTheFloorEvenAtATinyContextSize() {
+        let longSelection = String(repeating: "x", count: 10000)
+        let result = LlamaCppClient.truncatedForContext(longSelection, instruction: "s", contextSize: 0)
+        // Floored at 200 tokens * 4 chars/token = 800, plus the suffix.
+        XCTAssertLessThanOrEqual(result.count, 800 + "\n[...truncated to fit the configured context size]".count)
+    }
+
+    func testTruncatedForContextAtHighContextLeavesAModeratelyLongNoteUntouched() {
+        let selection = String(repeating: "a page of real notes. ", count: 100) // ~2,300 chars
+        let result = LlamaCppClient.truncatedForContext(selection, instruction: "Summarize.", contextSize: 32768)
+        XCTAssertEqual(result, selection)
+    }
+
+    /// A bigger reserved output budget leaves less room for input at the
+    /// same context size — proves the two aren't independent guesses.
+    func testTruncatedForContextReservesMoreRoomForALargerMaxTokens() {
+        let selection = String(repeating: "lecture notes ", count: 2000)
+        let small = LlamaCppClient.truncatedForContext(selection, instruction: "s", contextSize: 8192, maxTokens: 800)
+        let large = LlamaCppClient.truncatedForContext(selection, instruction: "s", contextSize: 8192, maxTokens: 2400)
+        XCTAssertGreaterThan(small.count, large.count)
+    }
+
+    // MARK: generateMaxTokens(forSelectionLength:) — scales the note editor's output cap
+
+    /// Regression: "Structure this" on a long note used to stop at a flat
+    /// 800 tokens no matter how much input there was to restructure.
+    func testGenerateMaxTokensFloorsAtTheOldFlatCapForAShortSelection() {
+        XCTAssertEqual(LlamaCppClient.generateMaxTokens(forSelectionLength: 10), LlamaCppClient.generateMaxTokensFloor)
+    }
+
+    func testGenerateMaxTokensScalesUpWithSelectionLength() {
+        let short = LlamaCppClient.generateMaxTokens(forSelectionLength: 3000)
+        let long = LlamaCppClient.generateMaxTokens(forSelectionLength: 6000)
+        XCTAssertGreaterThan(long, short)
+    }
+
+    func testGenerateMaxTokensNeverExceedsItsCeiling() {
+        XCTAssertEqual(LlamaCppClient.generateMaxTokens(forSelectionLength: 1_000_000), 2400)
+    }
+
     // MARK: parseContent — the OpenAI-compatible plain-text shape
 
     func testParseContentExtractsMessageContent() throws {
@@ -193,6 +273,60 @@ final class LlamaCppClientTests: XCTestCase {
         _ = try await client.embed(texts: ["hello"])
         XCTAssertTrue(embedCalled)
         XCTAssertFalse(chatCalled)
+    }
+
+    // MARK: injectingModel — the cloud-provider request-body patch (ticket #17)
+
+    func testInjectingModelAddsTheModelField() throws {
+        let body = try LlamaCppClient.requestBody(selection: "u", instruction: "s")
+        let patched = LlamaCppClient.injectingModel("gpt-4o-mini", into: body)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: patched) as? [String: Any])
+        XCTAssertEqual(json["model"] as? String, "gpt-4o-mini")
+        // The local builders are untouched — this only ever runs on the
+        // outgoing cloud request, never mutates what local requests send.
+        XCTAssertNil(try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])["model"])
+    }
+
+    /// llama.cpp/vLLM-specific — several cloud providers 400 on an
+    /// unrecognized top-level field rather than ignoring it.
+    func testInjectingModelStripsReasoningEffort() throws {
+        let body = try LlamaCppClient.chatRequestBody(
+            messages: [.init(role: .user, content: "hi")], schema: ["type": "object"], think: .low
+        )
+        XCTAssertNotNil(try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])["reasoning_effort"])
+
+        let patched = LlamaCppClient.injectingModel("gpt-4o-mini", into: body)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: patched) as? [String: Any])
+        XCTAssertNil(json["reasoning_effort"])
+    }
+
+    // MARK: Anthropic translation (ticket #17) — reenvelopingAsOpenAI
+
+    func testReenvelopingAsOpenAIExtractsPlainTextReply() throws {
+        let anthropicData = Data(#"{"content":[{"type":"text","text":"The answer is 42."}]}"#.utf8)
+        let openAIShaped = LlamaCppClient.reenvelopingAsOpenAI(anthropicData, forcedToolName: nil)
+        XCTAssertEqual(try LlamaCppClient.parseContent(openAIShaped), "The answer is 42.")
+    }
+
+    /// A schema-locked turn forces a tool call — the reply arrives as
+    /// content[0].input, already a structured object, not a string; it must
+    /// be re-serialized to a JSON *string* to land in the same "content"
+    /// field a plain-text reply would, since that's what parseChatContent
+    /// (and AssistantReply.decode downstream of it) expect to parse.
+    func testReenvelopingAsOpenAIExtractsForcedToolInputAsJSONString() throws {
+        let anthropicData = Data(#"""
+        {"content":[{"type":"tool_use","name":"reply","input":{"reply":"hi","actions":[]}}]}
+        """#.utf8)
+        let openAIShaped = LlamaCppClient.reenvelopingAsOpenAI(anthropicData, forcedToolName: "reply")
+        let (content, thinking) = try LlamaCppClient.parseChatContent(openAIShaped)
+        XCTAssertEqual(thinking, "")
+        let decoded = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(content.utf8)) as? [String: Any])
+        XCTAssertEqual(decoded["reply"] as? String, "hi")
+    }
+
+    func testReenvelopingAsOpenAIPassesThroughUnrecognizedShapeUnchanged() {
+        let malformed = Data(#"{"not":"anthropic-shaped"}"#.utf8)
+        XCTAssertEqual(LlamaCppClient.reenvelopingAsOpenAI(malformed, forcedToolName: nil), malformed)
     }
 }
 

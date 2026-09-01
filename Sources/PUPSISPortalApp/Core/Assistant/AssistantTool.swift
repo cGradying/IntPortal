@@ -129,6 +129,31 @@ struct AssistantTool: Equatable {
             description: "Read the student's posted grades and GPA. Grades cannot be changed by this tool or any other.",
             args: []
         ),
+        AssistantTool(
+            name: "read_syllabus",
+            description: "Read the student's syllabus items for a subject, or every subject if omitted.",
+            args: [Arg(name: "subject_code", description: "e.g. \"COMP 20073\", or omitted for every subject", required: false)]
+        ),
+        AssistantTool(
+            name: "add_syllabus_item",
+            description: "Add one syllabus item — a week's topic, a quiz, an exam, or a project deadline. When structuring a pasted syllabus or generating one from scratch, call this once per item — several times in the same turn to add a whole syllabus at once.",
+            args: [
+                Arg(name: "subject_code", description: "e.g. \"COMP 20073\""),
+                Arg(name: "topic", description: "what the item is, e.g. \"Chain rule\" or \"Midterm exam\""),
+                Arg(name: "type", description: "\"lecture\", \"quiz\", \"exam\", or \"project\""),
+                Arg(name: "date", description: "yyyy-MM-dd, or omitted if no real date is known for it yet", required: false),
+                Arg(name: "week", description: "week number within the term, or omitted", type: "integer", required: false),
+            ]
+        ),
+        AssistantTool(
+            name: "set_syllabus_item_status",
+            description: "Mark a syllabus item done, or clear that back to automatic (date-derived) status. Cannot rename or delete the item.",
+            args: [
+                Arg(name: "subject_code", description: "the item's subject code"),
+                Arg(name: "topic", description: "the item's topic, to find it — must match an existing item exactly"),
+                Arg(name: "done", description: "\"true\" to mark it done, \"false\" to un-mark it and go back to automatic status"),
+            ]
+        ),
     ]
 
     static func named(_ name: String) -> AssistantTool? {

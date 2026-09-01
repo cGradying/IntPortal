@@ -110,6 +110,58 @@ final class GradesParserTests: XCTestCase {
         XCTAssertEqual(Set(subjects.map(\.id)).count, 2)
     }
 
+    // MARK: neededAverage
+
+    func testNeededAverageSolvesForTheRemainingUnitsAtTargetGPA() throws {
+        let subjects = GradesParser.parse([
+            row("COMP 20073", units: "3", grade: "1.00"), // posted
+            row("MATH 20073", units: "3", grade: ""), // unposted
+        ])
+        // Target 1.50 over 6 total units = 9.00 weighted total.
+        // Posted side already contributes 1.00·3 = 3.00, so the remaining
+        // 3 units need (9.00 - 3.00) / 3 = 2.00.
+        let needed = try XCTUnwrap(GradesParser.neededAverage(for: subjects, target: 1.50))
+        XCTAssertEqual(needed, 2.00, accuracy: 0.0001)
+    }
+
+    func testNeededAverageIsNilWhenNothingIsUnposted() {
+        let subjects = GradesParser.parse([row("COMP 20073", units: "3", grade: "1.00")])
+        XCTAssertNil(GradesParser.neededAverage(for: subjects, target: 1.50))
+    }
+
+    /// Nothing posted yet, everything to solve for: needed average is just
+    /// the target itself (the posted side contributes zero weight).
+    func testNeededAverageWithNothingPostedYetEqualsTheTargetItself() throws {
+        let subjects = GradesParser.parse([row("COMP 20073", units: "3", grade: "")])
+        let needed = try XCTUnwrap(GradesParser.neededAverage(for: subjects, target: 1.75))
+        XCTAssertEqual(needed, 1.75, accuracy: 0.0001)
+    }
+
+    /// Already comfortably better than a lax target — the remaining units
+    /// could average worse than 5.00 and the term would still land on
+    /// target. Outside PUP's real scale, which the UI reports plainly rather
+    /// than this function silently clamping away.
+    func testNeededAverageCanExceedFivePointZeroWhenAlreadyWellAheadOfALaxTarget() throws {
+        let subjects = GradesParser.parse([
+            row("COMP 20073", units: "3", grade: "1.00"),
+            row("MATH 20073", units: "3", grade: ""),
+        ])
+        let needed = try XCTUnwrap(GradesParser.neededAverage(for: subjects, target: 4.00))
+        // (4.00·6 - 1.00·3) / 3 = 7.00 — worse than the 5.00 floor, meaning
+        // "any grade at all secures it."
+        XCTAssertEqual(needed, 7.00, accuracy: 0.0001)
+    }
+
+    /// A zero-unit unposted subject can't be solved for either — same
+    /// division-by-zero guard as `gpa(of:)`.
+    func testNeededAverageIgnoresZeroUnitUnpostedSubjects() {
+        let subjects = GradesParser.parse([
+            row("COMP 20073", units: "3", grade: "1.00"),
+            row("NSTP 001", units: "0", grade: ""),
+        ])
+        XCTAssertNil(GradesParser.neededAverage(for: subjects, target: 1.50))
+    }
+
     func testTheStoreRoundTripsAReport() throws {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("GradesStoreTests-\(UUID().uuidString)", isDirectory: true)
