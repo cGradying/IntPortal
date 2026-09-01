@@ -290,12 +290,28 @@ final class Preferences: ObservableObject {
     /// place, this is the belt-and-suspenders behind it.
     func resolvedAIClient() -> LlamaCppClient {
         guard aiProvider != .local, let key = AIProviderKeyStore.load(for: aiProvider), !key.isEmpty else {
-            return LlamaCppClient()
+            return Self.localAIClient(modelID: aiModel)
         }
         let model = aiProviderModel.isEmpty ? aiProvider.defaultModel : aiProviderModel
         return aiProvider.isOpenAICompatible
             ? .forOpenAICompatibleProvider(aiProvider, apiKey: key, model: model)
             : .forAnthropicProvider(apiKey: key, model: model)
+    }
+
+    /// The local chat client for whichever runtime `modelID` actually
+    /// selects — bare `LlamaCppClient()` (its default `send` posts to
+    /// `llama-server`'s fixed localhost port) for a `.gguf` catalog entry,
+    /// `MLXBackend`'s in-process `send` for an `.mlx` one. Quiz generation,
+    /// quiz explanations, and the note editor's "Ask AI" pill are always
+    /// local regardless of `aiProvider` (never routed through
+    /// `resolvedAIClient()`'s cloud branch) — they call this directly rather
+    /// than hardcoding `LlamaCppClient()`, or selecting an MLX model would
+    /// leave them silently talking to a `llama-server` that was never
+    /// started for it (`LlamaRuntime.ensureChatServer` already routes the
+    /// *server-readiness* half of this same decision).
+    static func localAIClient(modelID: String) -> LlamaCppClient {
+        guard case .mlx = ModelCatalog.entry(for: modelID)?.kind else { return LlamaCppClient() }
+        return LlamaCppClient(send: { try await MLXBackend.shared.send($0) })
     }
 
     /// How AI-inserted text (Replace / Insert below in the note editor) reveals

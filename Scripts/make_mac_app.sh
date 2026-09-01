@@ -19,14 +19,41 @@ VERSION="${VERSION:-0.0.0}"
 SPARKLE_PUBLIC_ED_KEY="z5o63RKeioPEdrM0+1v9VVPA35kU1zQ1b3NsMxW2kKo="
 
 cd "$ROOT"
+# xcodebuild, not `swift build` — mlx-swift's Metal shaders (Cmlx, an
+# unconditional dependency of the app target since MLXBackend.swift) can
+# only be compiled by Xcode's own Metal toolchain; plain SwiftPM CLI never
+# builds a working default.metallib and every real generation call fails at
+# runtime with "Failed to load the default metallib" even though the build
+# itself reports success. See mlx-swift/README.md's own "SwiftPM (command
+# line) cannot build the Metal shaders" note. A pinned -derivedDataPath keeps
+# BIN below deterministic instead of depending on Xcode's shared global
+# DerivedData cache. -skipPackagePluginValidation bypasses the interactive
+# "trust this plugin?" prompt for mlx-swift's CudaBuild plugin, which is a
+# no-op on macOS anyway (it only fires when CUDA is enabled).
 echo "Building PUPSISPortal (release)..."
-swift build -c release --product PUPSISPortal
+DERIVED_DATA="$ROOT/.build/xcodebuild"
+xcodebuild build -scheme PUPSISPortal -configuration Release -destination 'platform=macOS' \
+  -derivedDataPath "$DERIVED_DATA" -skipPackagePluginValidation
 
-BIN="$(swift build -c release --product PUPSISPortal --show-bin-path)/PUPSISPortal"
+BIN="$DERIVED_DATA/Build/Products/Release/PUPSISPortal"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/PUPSISPortal"
+
+# mlx-swift's own Metal shader library. `Cmlx/mlx/backend/metal/device.cpp`'s
+# `load_default_library` tries, in order: <bindir>/mlx.metallib,
+# <bindir>/Resources/mlx.metallib, a Bundle.main/SwiftPM-bundle search, then
+# <bindir>/Resources/default.metallib. A bare file directly in
+# Contents/MacOS (the first candidate) fails `codesign --verify --strict`
+# ("code object is not signed at all" on that subcomponent — confirmed
+# live); Contents/MacOS/Resources/ (the second candidate, `bindir` being
+# Contents/MacOS itself) passes, so that's what's used here. NOT the
+# sibling Contents/Resources/ — device.cpp never looks there.
+CMLX_BUNDLE="$(find "$DERIVED_DATA/Build/Products/Release" -maxdepth 1 -name 'mlx-swift_Cmlx.bundle' -print -quit)"
+[ -n "$CMLX_BUNDLE" ] || { echo "mlx-swift_Cmlx.bundle not found — did the xcodebuild step above actually run?" >&2; exit 1; }
+mkdir -p "$APP/Contents/MacOS/Resources"
+cp "$CMLX_BUNDLE/Contents/Resources/default.metallib" "$APP/Contents/MacOS/Resources/mlx.metallib"
 
 # Bundle the web notes editor (CodeMirror + KaTeX, offline) into Resources.
 NOTES_BUNDLE="$ROOT/Sources/PUPSISPortalApp/Resources/notes-editor.bundle.js"
@@ -153,6 +180,16 @@ if [ -f "$APP/Contents/MacOS/llama-server" ]; then
   # differently-signed nested binary under the ad-hoc dev fallback, where
   # every rebuild is a new identity.
   codesign --force --sign "$SIGN_ID" "$APP/Contents/MacOS/llama-server"
+fi
+# mlx.metallib is a bare data file, not a Mach-O binary — but confirmed live
+# that `codesign --verify --strict` still treats any unsigned file it finds
+# under Contents/MacOS (bare or nested one level under Resources/) as an
+# unsealed "subcomponent" and fails the whole app's verification. `codesign
+# --sign` accepts a plain file target fine (confirmed live too), so it gets
+# the same explicit per-item signing as llama-server above rather than
+# relying on the outer app signature to seal it implicitly.
+if [ -f "$APP/Contents/MacOS/Resources/mlx.metallib" ]; then
+  codesign --force --sign "$SIGN_ID" "$APP/Contents/MacOS/Resources/mlx.metallib"
 fi
 FW="$APP/Contents/Frameworks/Sparkle.framework"
 codesign --force --sign "$SIGN_ID" --options runtime \

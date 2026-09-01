@@ -34,7 +34,12 @@ let package = Package(
         // `Tokenizer`/`TokenizerLoader` protocols (`Core/MLXBackend.swift`) —
         // BPE + chat-template parsing is exactly what this HF-maintained
         // package already does; not worth reimplementing.
-        .package(url: "https://github.com/huggingface/swift-transformers", from: "0.1.0"),
+        // 1.1.4+ specifically — that's where TokenizersBackend support
+        // (transformers v5's newer tokenizer_class naming, which Qwen3.5's
+        // real tokenizer_config.json uses) landed. The earlier `from: "0.1.0"`
+        // constraint resolved to a pre-1.0 commit that predates it and threw
+        // `unsupportedTokenizer("TokenizersBackend")` on load.
+        .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.4"),
     ],
     targets: [
         .executableTarget(
