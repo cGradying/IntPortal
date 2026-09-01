@@ -496,6 +496,37 @@ final class Preferences: ObservableObject {
         notebookSidebarWidth = Self.notebookSidebarDefaultWidth
     }
 
+    /// Which side the Notebook's vault/history sidebar sits on. Schedule's
+    /// own sidebar (`ScheduleSidebar`) is unaffected — its own setting, if it
+    /// ever needs one.
+    @Published var notebookSidebarOnLeft: Bool {
+        didSet { defaults.set(notebookSidebarOnLeft, forKey: Key.notebookSidebarOnLeft) }
+    }
+
+    // MARK: Note reading width
+
+    /// The centered reading column's width inside the note editor — was a
+    /// fixed `68ch` baked into `editor.css`, confirmed live to read as
+    /// hugging the left edge with the rest of the pane empty rather than
+    /// actually centered. Now user-adjustable, dragged from inside the
+    /// webview (`editor.js`'s resize handles) and echoed back here over the
+    /// same script-message bridge `WebNoteEditor` already uses for notes/
+    /// images/AI, so it persists and restores like every other pane size.
+    static let noteReadingWidthDefault: Double = 640
+    static let noteReadingWidthRange: ClosedRange<Double> = 420...1100
+
+    @Published private(set) var noteReadingWidth: Double {
+        didSet { defaults.set(noteReadingWidth, forKey: Key.noteReadingWidth) }
+    }
+
+    func setNoteReadingWidth(_ width: Double) {
+        noteReadingWidth = min(max(width, Self.noteReadingWidthRange.lowerBound), Self.noteReadingWidthRange.upperBound)
+    }
+
+    func resetNoteReadingWidth() {
+        noteReadingWidth = Self.noteReadingWidthDefault
+    }
+
     // MARK: Schedule sidebar width
 
     /// Same convention as the notebook sidebar above, independent state —
@@ -598,6 +629,8 @@ final class Preferences: ObservableObject {
         static let assistantPanelWidth = "assistantPanelWidth"
         static let assistantPanelHeight = "assistantPanelHeight"
         static let notebookSidebarWidth = "notebookSidebarWidth"
+        static let notebookSidebarOnLeft = "notebookSidebarOnLeft"
+        static let noteReadingWidth = "noteReadingWidth"
         static let scheduleSidebarWidth = "scheduleSidebarWidth"
         static let uiScale = "uiScale"
     }
@@ -671,6 +704,8 @@ final class Preferences: ObservableObject {
         ragAnswerTemperature = (defaults.object(forKey: Key.ragAnswerTemperature) as? Double) ?? Preferences.ragDefaultAnswerTemperature
         assistantPanelWidth = (defaults.object(forKey: Key.assistantPanelWidth) as? Double) ?? Preferences.assistantPanelDefaultWidth
         notebookSidebarWidth = (defaults.object(forKey: Key.notebookSidebarWidth) as? Double) ?? Preferences.notebookSidebarDefaultWidth
+        notebookSidebarOnLeft = defaults.bool(forKey: Key.notebookSidebarOnLeft)
+        noteReadingWidth = (defaults.object(forKey: Key.noteReadingWidth) as? Double) ?? Preferences.noteReadingWidthDefault
         scheduleSidebarWidth = (defaults.object(forKey: Key.scheduleSidebarWidth) as? Double) ?? Preferences.scheduleSidebarDefaultWidth
         uiScale = (defaults.object(forKey: Key.uiScale) as? Double) ?? 1.0
         assistantPanelHeight = (defaults.object(forKey: Key.assistantPanelHeight) as? Double) ?? Preferences.assistantPanelDefaultHeight

@@ -139,6 +139,9 @@ private struct WebNoteView: NSViewRepresentable {
         config.userContentController.add(context.coordinator, name: "open")
         config.userContentController.add(context.coordinator, name: "image")
         config.userContentController.add(context.coordinator, name: "ai")
+        // Drag-resized reading column (editor.js's resize handles) echoes
+        // its width back so it persists, same shape as every other message.
+        config.userContentController.add(context.coordinator, name: "width")
         // loadHTMLString(baseURL: nil) can't reach file://, so pasted/dropped
         // images round-trip through this custom scheme instead.
         config.setURLSchemeHandler(PupImageSchemeHandler(), forURLScheme: "pupimg")
@@ -149,7 +152,10 @@ private struct WebNoteView: NSViewRepresentable {
         bridge.webView = webView
         context.coordinator.currentKey = noteKey
         context.coordinator.loaded = false
-        webView.loadHTMLString(Self.html(initial: notes.text(for: noteKey), key: noteKey, accentHex: palette.accent.hex ?? "#5865f2"), baseURL: nil)
+        webView.loadHTMLString(
+            Self.html(initial: notes.text(for: noteKey), key: noteKey, palette: palette, readingWidth: preferences.noteReadingWidth),
+            baseURL: nil
+        )
         return webView
     }
 
@@ -170,15 +176,21 @@ private struct WebNoteView: NSViewRepresentable {
         if context.coordinator.loaded, context.coordinator.lastPushedAIEnabled != preferences.aiEnabled {
             context.coordinator.pushAIEnabled(to: webView)
         }
-        // Switching the app theme in Settings restyles the pill/menu live too —
-        // otherwise an already-open note keeps whatever accent it loaded with.
-        let accentHex = palette.accent.hex ?? "#5865f2"
-        if context.coordinator.loaded, context.coordinator.lastPushedAccentHex != accentHex {
-            context.coordinator.pushAccent(accentHex, to: webView)
+        // Switching the app theme in Settings restyles the whole editor live
+        // too — otherwise an already-open note keeps whatever room it loaded
+        // with. `palette` is `Equatable`, so this only fires on a real switch.
+        if context.coordinator.loaded, context.coordinator.lastPushedPalette != palette {
+            context.coordinator.pushPalette(palette, to: webView)
         }
         // Same for switching Sweep/Word blink in Settings.
         if context.coordinator.loaded, context.coordinator.lastPushedRevealMode != preferences.aiRevealAnimation {
             context.coordinator.pushRevealMode(preferences.aiRevealAnimation, to: webView)
+        }
+        // Reset-to-default (or another window) moving the width outside what
+        // this webview last echoed — drag itself doesn't round-trip through
+        // here, `lastPushedReadingWidth` already matches mid-drag.
+        if context.coordinator.loaded, context.coordinator.lastPushedReadingWidth != preferences.noteReadingWidth {
+            context.coordinator.pushReadingWidth(preferences.noteReadingWidth, to: webView)
         }
     }
 
@@ -187,6 +199,7 @@ private struct WebNoteView: NSViewRepresentable {
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "open")
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "image")
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "ai")
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "width")
     }
 
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
@@ -197,10 +210,14 @@ private struct WebNoteView: NSViewRepresentable {
         /// (called on every SwiftUI re-render) only actually talks to the
         /// webview when the toggle really changed.
         var lastPushedAIEnabled: Bool?
-        /// Same idea for the `--accent` CSS variable, pushed on a theme switch.
-        var lastPushedAccentHex: String?
+        /// Same idea for the palette's CSS variables, pushed on a theme switch.
+        var lastPushedPalette: Palette?
         /// Same idea for Sweep vs. Word blink, pushed on a Settings switch.
         var lastPushedRevealMode: AIRevealAnimation?
+        /// Same idea for the reading column's width — also updated the
+        /// instant a drag reports back, so `updateNSView`'s own comparison
+        /// doesn't immediately re-push the value the webview just sent.
+        var lastPushedReadingWidth: Double?
         init(_ parent: WebNoteView) { self.parent = parent }
 
         // JS → Swift: either the doc changed ("notes") or a [[wikilink]] was
@@ -226,6 +243,10 @@ private struct WebNoteView: NSViewRepresentable {
                 message.webView?.evaluateJavaScript(js, completionHandler: nil)
             case "ai":
                 handleAI(body, webView: message.webView)
+            case "width":
+                guard let px = body["px"] as? Double else { return }
+                parent.preferences.setNoteReadingWidth(px)
+                lastPushedReadingWidth = parent.preferences.noteReadingWidth
             default:
                 break
             }
@@ -257,7 +278,7 @@ private struct WebNoteView: NSViewRepresentable {
                     return
                 }
                 do {
-                    let result = try await LlamaCppClient().generate(
+                    let result = try await Preferences.localAIClient(modelID: model).generate(
                         model: model, selection: text, instruction: instruction,
                         contextSize: parent.preferences.aiContextSize
                     )
@@ -279,12 +300,16 @@ private struct WebNoteView: NSViewRepresentable {
             webView.evaluateJavaScript("PUPNotes.setAIEnabled(\(parent.preferences.aiEnabled));", completionHandler: nil)
         }
 
-        /// Only the CSS variable needs updating — the popup's shape and copy
-        /// don't change with theme, just its accent color.
-        func pushAccent(_ hex: String, to webView: WKWebView) {
-            lastPushedAccentHex = hex
+        /// Pushes every theme-derived CSS variable in one round trip — the
+        /// popup/editor shapes don't change with theme, just these tokens.
+        func pushPalette(_ palette: Palette, to webView: WKWebView) {
+            lastPushedPalette = palette
+            let root = "document.documentElement"
+            let js = WebNoteView.paletteTokens(palette).map { name, value in
+                "\(root).style.setProperty('\(name)', \(WebNoteView.jsonString(value)));"
+            }.joined()
             webView.evaluateJavaScript(
-                "document.documentElement.style.setProperty('--accent', \(WebNoteView.jsonString(hex)));",
+                "\(root).dataset.scheme = \(WebNoteView.jsonString(WebNoteView.isDark(palette) ? "dark" : "light")); \(js)",
                 completionHandler: nil
             )
         }
@@ -294,11 +319,17 @@ private struct WebNoteView: NSViewRepresentable {
             webView.evaluateJavaScript("PUPNotes.setAIRevealMode(\(WebNoteView.jsonString(mode.rawValue)));", completionHandler: nil)
         }
 
+        func pushReadingWidth(_ width: Double, to webView: WKWebView) {
+            lastPushedReadingWidth = width
+            webView.evaluateJavaScript("PUPNotes.setReadingWidth(\(width));", completionHandler: nil)
+        }
+
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             loaded = true
             pushAIEnabled(to: webView)
             pushRevealMode(parent.preferences.aiRevealAnimation, to: webView)
-            lastPushedAccentHex = parent.palette.accent.hex ?? "#5865f2" // already baked into the loaded HTML
+            lastPushedPalette = parent.palette // already baked into the loaded HTML
+            lastPushedReadingWidth = parent.preferences.noteReadingWidth // ditto
         }
 
         private static let summarizeInstruction = """
@@ -376,27 +407,46 @@ private struct WebNoteView: NSViewRepresentable {
 
     private static func jsonString(_ s: String) -> String { jsNoteString(s) }
 
-    private static func html(initial: String, key: String, accentHex: String) -> String {
+    /// Light or dark box for the editor's own `[data-scheme]` CSS rules
+    /// (`editor.css`) — driven by the *palette*, not the OS, so a room like
+    /// Astra Moon reads dark inside the note even when macOS itself is set
+    /// to Light. `legibleForeground` already answers "is this background
+    /// dark or light" via its luminance check; `.white` means dark ground.
+    private static func isDark(_ palette: Palette) -> Bool {
+        Color.legibleForeground(on: palette.canvasTop).hex == "#FFFFFF"
+    }
+
+    /// Every CSS variable the editor's chrome needs from the current room.
+    /// Only `--accent` and `--fg` are genuinely per-palette values — the code
+    /// box, borders, and syntax-token colors are two fixed sets in
+    /// `editor.css`, selected by the `data-scheme` attribute `pushPalette`
+    /// sets alongside these.
+    private static func paletteTokens(_ palette: Palette) -> [(String, String)] {
+        [
+            ("--accent", palette.accent.hex ?? "#5865f2"),
+            ("--fg", Color.legibleForeground(on: palette.canvasTop).hex ?? "#1a1a1a"),
+        ]
+    }
+
+    private static func html(initial: String, key: String, palette: Palette, readingWidth: Double) -> String {
         guard let bundle else {
             return "<html><body style=\"font-family:-apple-system;padding:16px;color:#900\">Notes editor bundle missing.</body></html>"
         }
         // The rest of the editor's CSS (wayfinder ticket #11) moved to
         // `notes-editor/src/editor.css`, injected by `initEditor()` itself —
-        // only the tokens that need a per-launch Swift value (--accent's
-        // initial hex) stay inline here.
+        // only the tokens that need a per-launch Swift value stay inline
+        // here, keyed off `[data-scheme]` rather than `prefers-color-scheme`
+        // so the six theme rooms drive the code box, not the OS setting.
+        let tokenCSS = paletteTokens(palette).map { "\($0):\($1);" }.joined()
         return """
-        <!DOCTYPE html><html><head><meta charset="utf-8">
+        <!DOCTYPE html><html data-scheme="\(isDark(palette) ? "dark" : "light")"><head><meta charset="utf-8">
         <style>
           :root {
-            color-scheme: light dark; --fg:#1a1a1a; --accent:\(accentHex);
-            --surface:#ffffff; --surface-border:rgba(0,0,0,0.10);
+            color-scheme: light dark; \(tokenCSS) --note-width:\(readingWidth)px;
             /* Monochrome fractal noise; mix-blend-mode does the theme-tinting
                (see .pup-fade-word::before in editor.css) rather than needing
                a per-theme asset. */
             --pup-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-          }
-          @media (prefers-color-scheme: dark) {
-            :root { --fg:#e8e8e8; --surface:#242426; --surface-border:rgba(255,255,255,0.12); }
           }
         </style>
         <script>\(bundle)</script>

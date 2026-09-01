@@ -29,6 +29,32 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(Preferences(defaults: defaults).theme, .astraMoon)
     }
 
+    func testNotebookSidebarDefaultsToTheRight() {
+        XCTAssertFalse(Preferences(defaults: defaults).notebookSidebarOnLeft)
+    }
+
+    func testNotebookSidebarSideSurvivesRelaunch() {
+        Preferences(defaults: defaults).notebookSidebarOnLeft = true
+
+        XCTAssertTrue(Preferences(defaults: defaults).notebookSidebarOnLeft)
+    }
+
+    func testNoteReadingWidthSurvivesRelaunch() {
+        Preferences(defaults: defaults).setNoteReadingWidth(800)
+
+        XCTAssertEqual(Preferences(defaults: defaults).noteReadingWidth, 800)
+    }
+
+    func testNoteReadingWidthClampsToItsRange() {
+        let preferences = Preferences(defaults: defaults)
+
+        preferences.setNoteReadingWidth(50)
+        XCTAssertEqual(preferences.noteReadingWidth, Preferences.noteReadingWidthRange.lowerBound)
+
+        preferences.setNoteReadingWidth(9999)
+        XCTAssertEqual(preferences.noteReadingWidth, Preferences.noteReadingWidthRange.upperBound)
+    }
+
     func testFontChoiceSurvivesRelaunch() {
         Preferences(defaults: defaults).fontChoice = .poppins
 

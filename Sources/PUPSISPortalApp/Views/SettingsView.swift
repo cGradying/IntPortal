@@ -432,6 +432,18 @@ struct SettingsView: View {
                 }
             }
 
+            compactSection("Layout") {
+                compactRow("Notes sidebar") {
+                    Picker("", selection: $preferences.notebookSidebarOnLeft) {
+                        Text("Right").tag(false)
+                        Text("Left").tag(true)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 140)
+                }
+            }
+
             compactSection("Subject Colors", footer: "Each row has its own Reset button.") {
                 if subjectCodes.isEmpty {
                     Text("Subjects appear here once your schedule loads.")
@@ -448,6 +460,7 @@ struct SettingsView: View {
                 preferences.theme = .auto
                 preferences.fontChoice = .system
                 preferences.uiScale = 1.0
+                preferences.notebookSidebarOnLeft = false
             }
             .glassButton()
             .controlSize(.small)
