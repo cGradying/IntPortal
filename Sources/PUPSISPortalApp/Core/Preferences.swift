@@ -176,6 +176,14 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(termEndDate.timeIntervalSince1970, forKey: Key.termEndDate) }
     }
 
+    /// The Monday a syllabus's "Week N" counts from — the SIS doesn't publish
+    /// this either, and a syllabus PDF/DOCX almost never prints real dates
+    /// next to its weeks. `SyllabusExtractor` maps week → date from this one
+    /// value instead of asking the model to compute a date.
+    @Published var termStartDate: Date {
+        didSet { defaults.set(termStartDate.timeIntervalSince1970, forKey: Key.termStartDate) }
+    }
+
     /// Off until asked for. Turning it on is what triggers the authorization
     /// prompt, so defaulting it to true would prompt at first launch.
     @Published var notificationsEnabled: Bool {
@@ -601,6 +609,7 @@ final class Preferences: ObservableObject {
         static let onlineExportCalendarID = "onlineExportCalendarID"
         static let eventColors = "eventColors"
         static let termEndDate = "termEndDate"
+        static let termStartDate = "termStartDate"
         static let notificationsEnabled = "notificationsEnabled"
         static let notificationLeadMinutes = "notificationLeadMinutes"
         static let programTotalUnits = "programTotalUnits"
@@ -663,6 +672,8 @@ final class Preferences: ObservableObject {
         onlineExportCalendarID = defaults.string(forKey: Key.onlineExportCalendarID) ?? ""
         termEndDate = (defaults.object(forKey: Key.termEndDate) as? Double)
             .map(Date.init(timeIntervalSince1970:)) ?? Self.defaultTermEnd()
+        termStartDate = (defaults.object(forKey: Key.termStartDate) as? Double)
+            .map(Date.init(timeIntervalSince1970:)) ?? Weekday.weekStart(containing: .now)
         notificationsEnabled = defaults.bool(forKey: Key.notificationsEnabled)
         // `integer(forKey:)` returns 0 for a missing key, and 0 is a legal lead
         // ("as it starts") — so check for the key rather than trusting the zero.
@@ -931,6 +942,7 @@ final class Preferences: ObservableObject {
         googleClientID = ""
         googleCalendarID = ""
         termEndDate = Self.defaultTermEnd()
+        termStartDate = Weekday.weekStart(containing: .now)
         programTotalUnits = 0
         visibleCalendarIDs = []
         notificationsEnabled = false

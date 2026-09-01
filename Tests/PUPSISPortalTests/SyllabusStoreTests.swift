@@ -92,11 +92,65 @@ final class SyllabusStoreTests: XCTestCase {
     func testWipeAllClears() {
         let store = SyllabusStore(url: url)
         store.addItem(item())
+        store.setComponents([GradingComponent(name: "Exam", weight: 50)], for: "MATH01")
         store.wipeAll()
         XCTAssertEqual(store.allItems(), [])
+        XCTAssertEqual(store.components(for: "MATH01"), [])
 
         let reloaded = SyllabusStore(url: url)
         XCTAssertEqual(reloaded.allItems(), [])
+        XCTAssertEqual(reloaded.components(for: "MATH01"), [])
+    }
+
+    // MARK: Grading components
+
+    func testSetComponentsReplacesAndPersists() {
+        let store = SyllabusStore(url: url)
+        store.setComponents([
+            GradingComponent(name: "Midterm", weight: 30),
+            GradingComponent(name: "Final", weight: 70),
+        ], for: "MATH01")
+
+        XCTAssertEqual(store.components(for: "MATH01").map(\.name), ["Midterm", "Final"])
+        XCTAssertEqual(store.components(for: "PHYS01"), [])
+
+        let reloaded = SyllabusStore(url: url)
+        XCTAssertEqual(reloaded.components(for: "MATH01").map(\.weight), [30, 70])
+    }
+
+    func testSetScoreUpdatesOnlyTheMatchingComponent() {
+        let store = SyllabusStore(url: url)
+        let midterm = GradingComponent(name: "Midterm", weight: 30)
+        let final = GradingComponent(name: "Final", weight: 70)
+        store.setComponents([midterm, final], for: "MATH01")
+
+        store.setScore(88, forComponent: midterm.id, subjectCode: "MATH01")
+
+        let updated = store.components(for: "MATH01")
+        XCTAssertEqual(updated.first { $0.id == midterm.id }?.score, 88)
+        XCTAssertNil(updated.first { $0.id == final.id }?.score)
+    }
+
+    func testSetScoreForAnUnknownComponentIsANoOp() {
+        let store = SyllabusStore(url: url)
+        store.setComponents([GradingComponent(name: "Midterm", weight: 30)], for: "MATH01")
+
+        store.setScore(50, forComponent: UUID(), subjectCode: "MATH01")
+
+        XCTAssertNil(store.components(for: "MATH01").first?.score)
+    }
+
+    /// A `syllabus.json` written before grading components existed has no
+    /// `gradingComponents` key at all — must still load, reading as empty
+    /// rather than failing the whole document.
+    func testMissingGradingComponentsKeyDecodesAsEmpty() throws {
+        let legacy = try JSONEncoder().encode(["items": ["MATH01": [item(topic: "Limits")]]])
+        try legacy.write(to: url)
+
+        let store = SyllabusStore(url: url)
+
+        XCTAssertEqual(store.items(for: "MATH01").map(\.topic), ["Limits"])
+        XCTAssertEqual(store.components(for: "MATH01"), [])
     }
 
     // MARK: Status derivation

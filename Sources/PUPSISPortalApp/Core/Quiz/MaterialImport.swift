@@ -13,8 +13,8 @@ enum MaterialImport {
 
         var errorDescription: String? {
             switch self {
-            case .unsupportedType: "Only Markdown, plain text, and PDF files are supported."
-            case .noExtractableText: "This PDF has no extractable text — it looks like a scan. Paste the text directly instead."
+            case .unsupportedType: "Only Markdown, plain text, PDF, Word, and PowerPoint files are supported."
+            case .noExtractableText: "This file has no extractable text — a scanned PDF, for one. Paste the text directly instead."
             case .unreadable: "Couldn't read that file."
             }
         }
@@ -33,8 +33,23 @@ enum MaterialImport {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { throw ImportError.noExtractableText }
             return text
+        case "docx":
+            return try convert(OPCContainer.docxText(from: url))
+        case "pptx":
+            return try convert(OPCContainer.pptxText(from: url))
         default:
             throw ImportError.unsupportedType
+        }
+    }
+
+    private static func convert(_ work: @autoclosure () throws -> String) rethrows -> String {
+        do {
+            return try work()
+        } catch let error as OPCContainer.ExtractError {
+            switch error {
+            case .unreadable: throw ImportError.unreadable
+            case .noExtractableText: throw ImportError.noExtractableText
+            }
         }
     }
 }

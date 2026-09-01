@@ -109,19 +109,49 @@ struct AgendaView: View {
     /// scratchpad when nothing is explicitly selected.
     private var currentKey: String { selectedKey ?? dayKey(for: browsedDay) }
 
+    /// A syllabus row's "generate quiz" button — same `RAGQuery`/
+    /// `GenerationCenter.start` call `GenerateSheet` makes for a vault-topic
+    /// deck (`Views/Quiz/GenerateSheet.swift:210-217`), just triggered from
+    /// outside the Quiz tab. Switches to Quizzes afterward so the running job
+    /// shows up in its banner immediately rather than generating unseen.
+    private func generateQuiz(from item: SyllabusItem) {
+        let topic = item.topic
+        generation.start(
+            label: topic, source: .vaultTopic(topic), model: preferences.aiModel,
+            client: Preferences.localAIClient(modelID: preferences.aiModel),
+            ragQuery: RAGQuery(notes: notes), chunkSize: preferences.ragChunkSize,
+            target: .new(name: topic, sourceKind: .vaultTopic, sourceQuery: topic)
+        )
+        notebook.tab = .quizzes
+    }
+
     var body: some View {
         Group {
             switch notebook.tab {
             case .quizzes:
                 QuizzesView(store: quizzes, center: generation, preferences: preferences, notes: notes, aiModel: preferences.aiModel)
             case .syllabus:
-                ScrollView { SyllabusView(syllabus: appState.syllabus) }
+                ScrollView {
+                    SyllabusView(
+                        syllabus: appState.syllabus, preferences: preferences,
+                        subjectCodes: ClassSession.subjectCodes(in: appState.portal.sessions),
+                        aiModel: preferences.aiModel, calendar: calendar,
+                        onGenerateQuiz: generateQuiz
+                    )
+                }
             case .vault:
                 HStack(spacing: 0) {
-                    noteEditorPane
-                    sidebarResizeHandle
-                    sidebar
-                        .frame(width: preferences.notebookSidebarWidth)
+                    if preferences.notebookSidebarOnLeft {
+                        sidebar
+                            .frame(width: preferences.notebookSidebarWidth)
+                        sidebarResizeHandle
+                        noteEditorPane
+                    } else {
+                        noteEditorPane
+                        sidebarResizeHandle
+                        sidebar
+                            .frame(width: preferences.notebookSidebarWidth)
+                    }
                 }
             }
         }
@@ -278,9 +308,11 @@ struct AgendaView: View {
                     .onChanged { value in
                         let start = sidebarWidthAtDragStart ?? preferences.notebookSidebarWidth
                         if sidebarWidthAtDragStart == nil { sidebarWidthAtDragStart = start }
-                        // The sidebar sits to the right of this handle: dragging
-                        // left (negative dx) widens it.
-                        preferences.setNotebookSidebarWidth(start - value.translation.width)
+                        // Sign flips with which side the sidebar is on: on
+                        // the right, dragging left (negative dx) widens it;
+                        // on the left, dragging right (positive dx) does.
+                        let dx = preferences.notebookSidebarOnLeft ? value.translation.width : -value.translation.width
+                        preferences.setNotebookSidebarWidth(start + dx)
                     }
                     .onEnded { _ in sidebarWidthAtDragStart = nil }
             )
@@ -356,8 +388,8 @@ struct AgendaView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 8).fill(key == currentKey ? palette.accent.opacity(0.14) : .clear))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.accent.opacity(key == currentKey ? 0.4 : 0), lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: 12).fill(key == currentKey ? palette.accent.opacity(0.14) : .clear))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(palette.accent.opacity(key == currentKey ? 0.4 : 0), lineWidth: 1))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -949,40 +981,51 @@ struct AgendaView: View {
 
     @ViewBuilder
     private func rowBackground(phase: ClassPhase) -> some View {
-        // ponytail: one Canvas per finished row, capped by a day's own class
-        // count (≤10 in practice) — fine at this scale. If a busy schedule ever
-        // shows up in a profile, replace with one full-height dither masked by
-        // the row rects instead of per-row Canvases.
         let shape = RoundedRectangle(cornerRadius: 12)
         if phase == .inSession {
             shape
                 .fill(palette.accent.opacity(0.10))
                 .stroke(palette.accent.opacity(0.35), lineWidth: 1)
         } else if phase == .past {
-            // A finished class reads as literally eroded, not just dimmed.
+            // A finished class reads as quietly closed out — a flatter fill
+            // and a hairline, matching the "Done" badge rather than a
+            // separate texture.
             shape
-                .fill(.quaternary.opacity(0.4))
-                .overlay(DitherFill(color: palette.canvasBottom.opacity(0.7), ramp: .flat(0.4)).clipShape(shape))
+                .fill(.quaternary.opacity(0.22))
+                .stroke(palette.gridLine, lineWidth: 1)
         } else {
             shape
                 .fill(.quaternary.opacity(0.4))
         }
     }
 
+    /// A free stretch between two entries — a dashed rail in the same column
+    /// the class rows' subject strip occupies, so the timeline reads as one
+    /// continuous line rather than a gap. `minutes` is a duration, so it's
+    /// set in mono (the No-Reflow Rule) rather than the row's usual sans.
     private func gapRow(minutes: Int, passed: Bool) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "arrow.down")
-                .accessibilityHidden(true)
+        HStack(alignment: .top, spacing: 12) {
+            Rectangle()
+                .fill(.clear)
+                .overlay(
+                    Rectangle()
+                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
+                )
+                .foregroundStyle(palette.gridLine)
+                .frame(width: 4)
+
             Text("\(duration(minutes)) free")
+                .font(typography.gutter)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(palette.canvasTop, in: .capsule)
+                .overlay(Capsule().stroke(palette.gridLine, lineWidth: 1))
         }
-        .font(typography.detailMeta)
-        .foregroundStyle(.secondary)
         .opacity(passed ? 0.4 : 1)
-        .padding(.leading, 18)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // A free stretch reads as textured distance rather than a bare caption.
-        .background(DitherFill(color: palette.secondary.opacity(0.5), ramp: .flat(0.22)))
     }
 
     /// The day's empty state — plain and legible. Used to sit on a dither

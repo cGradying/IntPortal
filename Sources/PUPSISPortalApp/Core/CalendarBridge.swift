@@ -50,6 +50,13 @@ final class CalendarBridge: ObservableObject {
     /// and a re-export still only ever deletes events this app wrote.
     static let exportTag = "[PUPSISPortal]"
 
+    /// Stamped into syllabus-deadline exports specifically — deliberately not
+    /// a substring of `exportTag` ("[PUPSISPortal]" needs the closing
+    /// bracket right after; this doesn't have one), so a class re-export's
+    /// `clearExported` and a deadline re-export's `clearExportedSyllabus`
+    /// never clear each other's events off the same calendar.
+    static let syllabusExportTag = "[PUPSISPortal Syllabus]"
+
     /// When recurring events stop repeating. Mirrored from `Preferences` so
     /// writers don't each need a reference to it.
     var termEnd: Date = Preferences.defaultTermEnd()
@@ -545,6 +552,83 @@ final class CalendarBridge: ObservableObject {
             lastError = error.localizedDescription
             return nil
         }
+    }
+
+    /// Writes every dated, non-lecture syllabus item (quiz/exam/project) as a
+    /// one-shot all-day event — a real deadline, not a repeating class
+    /// meeting, so this mirrors `exportClasses`'s tag/clear/save shape but
+    /// skips its weekly-recurrence and vacant/online status machinery
+    /// entirely. Undated items and plain lecture topics are never exported;
+    /// there's no calendar slot for "no date" and a weekly lecture topic
+    /// isn't a deadline.
+    @discardableResult
+    func exportSyllabusDeadlines(_ items: [SyllabusItem], toCalendarID id: String) -> String? {
+        guard access == .granted else {
+            lastError = "Grant calendar access first."
+            return nil
+        }
+        guard let target = store.calendars(for: .event).first(where: { $0.calendarIdentifier == id && $0.allowsContentModifications }) else {
+            lastError = "That calendar is unavailable or read-only. Pick one you can edit."
+            return nil
+        }
+        let deadlines = Self.exportableDeadlines(items)
+
+        do {
+            let removed = try clearExportedSyllabus(from: target)
+
+            let calendar = Calendar.current
+            var written = 0
+            for item in deadlines {
+                guard let date = item.date else { continue }
+                let event = EKEvent(eventStore: store)
+                event.title = "\(item.subjectCode): \(item.topic)"
+                event.isAllDay = true
+                event.startDate = calendar.startOfDay(for: date)
+                event.endDate = event.startDate
+                event.notes = "\(item.type.label)\n\n\(Self.syllabusExportTag)"
+                event.calendar = target
+                try store.save(event, span: .thisEvent, commit: false)
+                written += 1
+            }
+            try store.commit()
+
+            lastError = nil
+            let replaced = removed > 0 ? ", replacing \(removed)" : ""
+            return "Exported \(written) deadline\(written == 1 ? "" : "s") to \u{201C}\(target.title)\u{201D}\(replaced)."
+        } catch {
+            store.reset()
+            lastError = error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Which syllabus items are real deadlines to export — a dated
+    /// quiz/exam/project, never an undated item (no calendar slot for "no
+    /// date") or a plain lecture topic (not a deadline). Pure, same reasoning
+    /// `ClassExport.plan(for:)` is pure: testable without a live EventKit
+    /// store.
+    nonisolated static func exportableDeadlines(_ items: [SyllabusItem]) -> [SyllabusItem] {
+        items.filter { $0.type != .lecture && $0.date != nil }
+    }
+
+    /// Removes only events carrying the syllabus tag — a class re-export's
+    /// own `clearExported` never touches these and vice versa (see
+    /// `syllabusExportTag`'s doc comment).
+    private func clearExportedSyllabus(from target: EKCalendar) throws -> Int {
+        let calendar = Calendar.current
+        guard let from = calendar.date(byAdding: .year, value: -1, to: .now),
+              let to = calendar.date(byAdding: .year, value: 2, to: .now)
+        else { return 0 }
+
+        let predicate = store.predicateForEvents(withStart: from, end: to, calendars: [target])
+        let ours = store.events(matching: predicate).filter {
+            $0.notes?.contains(Self.syllabusExportTag) == true
+        }
+        for event in ours {
+            try store.remove(event, span: .thisEvent, commit: false)
+        }
+        if !ours.isEmpty { try store.commit() }
+        return ours.count
     }
 
     /// Distinct calendars by identifier — in-person and online may be the same

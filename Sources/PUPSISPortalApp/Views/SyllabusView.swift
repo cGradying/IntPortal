@@ -12,9 +12,25 @@ import SwiftUI
 /// Vault/Quizzes) and a section below the Schedule screen's week grid.
 struct SyllabusView: View {
     @ObservedObject var syllabus: SyllabusStore
+    @ObservedObject var preferences: Preferences
+    /// Every subject code currently on the schedule — the import sheet's
+    /// subject picker.
+    let subjectCodes: [String]
+    let aiModel: String
+    /// Nil on the Schedule screen's mount, which doesn't carry `CalendarBridge`
+    /// today — "Export deadlines" only shows where this is non-nil.
+    /// ponytail: Notebook-only for now; wire the Schedule mount too if that
+    /// screen turns out to be where people actually want the button.
+    var calendar: CalendarBridge? = nil
+    /// Same reasoning: only `AgendaView`'s mount has `GenerationCenter`/
+    /// `NotesStore` in scope, so only it passes this — the "make a deck from
+    /// this topic" button is hidden everywhere else.
+    var onGenerateQuiz: ((SyllabusItem) -> Void)? = nil
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
     @State private var mode: Mode = .timeline
+    @State private var showingImport = false
+    @State private var exportMessage: String?
 
     enum Mode: String, CaseIterable, Identifiable {
         case table, timeline
@@ -57,6 +73,17 @@ struct SyllabusView: View {
                     }
                 }
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
+                if let calendar {
+                    Button { exportDeadlines(via: calendar) } label: {
+                        Image(systemName: "calendar.badge.plus")
+                    }
+                    .accessibilityLabel("Export deadlines to calendar")
+                    .disabled(CalendarBridge.exportableDeadlines(syllabus.allItems()).isEmpty)
+                }
+                Button { showingImport = true } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Add syllabus")
             }
 
             if bySubject.isEmpty {
@@ -69,19 +96,30 @@ struct SyllabusView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .sheet(isPresented: $showingImport) {
+            SyllabusImportSheet(syllabus: syllabus, preferences: preferences, subjectCodes: subjectCodes, aiModel: aiModel)
+        }
+        .alert("Export deadlines", isPresented: Binding(get: { exportMessage != nil }, set: { if !$0 { exportMessage = nil } })) {
+            Button("OK") { exportMessage = nil }
+        } message: {
+            Text(exportMessage ?? "")
+        }
     }
 
-    // Nothing creates a syllabus item yet — that's ticket #15 (import +
-    // AI generation). This view is built ahead of its own data source, same
-    // as #13 was; verified against hand-seeded SyllabusStore data.
+    private func exportDeadlines(via calendar: CalendarBridge) {
+        let result = calendar.exportSyllabusDeadlines(syllabus.allItems(), toCalendarID: preferences.exportCalendarID)
+        exportMessage = result ?? calendar.lastError ?? "Couldn't export — check Settings ▸ Calendar for a writable calendar."
+    }
+
     private var emptyState: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 10) {
             Image(systemName: "text.book.closed")
                 .font(.system(size: 28))
                 .foregroundStyle(.secondary)
             Text("No syllabus items yet")
                 .font(typography.detailBody)
                 .foregroundStyle(.secondary)
+            Button("Add syllabus") { showingImport = true }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
@@ -94,6 +132,9 @@ struct SyllabusView: View {
             switch mode {
             case .table: tableView(items)
             case .timeline: timelineView(items)
+            }
+            if !syllabus.components(for: subject).isEmpty {
+                GradingBreakdownCalculator(syllabus: syllabus, subjectCode: subject)
             }
         }
         .padding(12)
@@ -164,6 +205,17 @@ struct SyllabusView: View {
                             .font(typography.detailMeta)
                             .foregroundStyle(.secondary)
                     }
+                    // Only a lecture topic makes a sensible quiz source — an
+                    // exam/project deadline has no material of its own to
+                    // study from.
+                    if item.type == .lecture, let onGenerateQuiz {
+                        Button { onGenerateQuiz(item) } label: {
+                            Image(systemName: "rectangle.stack.badge.plus")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Generate quiz from \(item.topic)")
+                    }
                 }
             }
         }
@@ -190,6 +242,85 @@ struct SyllabusView: View {
         case .done: "Done"
         case .ongoing: "This week"
         case .upcoming: "Upcoming"
+        }
+    }
+}
+
+/// A subject's grading-system breakdown, collapsed by default — component
+/// weights plus a place to type in each score once it comes back, and the
+/// average still needed on what's left to hit a target. Only shown when
+/// `SyllabusStore` actually has a breakdown for the subject (extracted from
+/// a real syllabus, never invented — see `SyllabusExtractor`'s
+/// `.fromScratch` exclusion).
+private struct GradingBreakdownCalculator: View {
+    @ObservedObject var syllabus: SyllabusStore
+    let subjectCode: String
+    @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
+    @State private var expanded = false
+    @State private var target: Double = 75
+
+    private var components: [GradingComponent] { syllabus.components(for: subjectCode) }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(components) { component in
+                    componentRow(component)
+                }
+                Divider()
+                HStack {
+                    Text("Target overall").font(typography.footer).foregroundStyle(.secondary)
+                    Spacer()
+                    TextField("Target", value: $target, format: .number)
+                        .frame(width: 50)
+                        .multilineTextAlignment(.trailing)
+                    Text("%").foregroundStyle(.secondary)
+                }
+                neededSummary
+            }
+            .padding(.top, 8)
+        } label: {
+            Text("Grading breakdown").font(typography.detailMeta).foregroundStyle(.secondary)
+        }
+    }
+
+    private func componentRow(_ component: GradingComponent) -> some View {
+        HStack {
+            Text(component.name).font(typography.footer)
+            Text("\(Int(component.weight))%")
+                .font(typography.detailMeta)
+                .foregroundStyle(.secondary)
+            Spacer()
+            TextField(
+                "Score",
+                value: Binding(
+                    get: { component.score },
+                    set: { syllabus.setScore($0, forComponent: component.id, subjectCode: subjectCode) }
+                ),
+                format: .number
+            )
+            .frame(width: 50)
+            .multilineTextAlignment(.trailing)
+            Text("%").font(typography.detailMeta).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var neededSummary: some View {
+        if let needed = GradingCalculator.neededAverage(components, target: target) {
+            let outOfRange = needed < 0 || needed > 100
+            Text(outOfRange
+                 ? (needed < 0
+                    ? "Already past \(Int(target))% on what's scored \u{2014} the rest can average anything."
+                    : "Even 100% on what's left can't reach \(Int(target))% anymore.")
+                 : "Average **\(String(format: "%.1f", needed))%** on what's left to land at \(Int(target))%.")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(outOfRange ? .secondary : palette.accent)
+        } else {
+            Text("Every component is scored \u{2014} current: \(String(format: "%.1f", GradingCalculator.currentWeightedScore(components)))%.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
         }
     }
 }

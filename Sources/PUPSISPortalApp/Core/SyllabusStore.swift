@@ -114,10 +114,32 @@ struct SyllabusItem: Codable, Identifiable, Equatable {
 @MainActor
 final class SyllabusStore: ObservableObject {
     @Published private(set) var items: [String: [SyllabusItem]]
+    /// Each subject's grading-system breakdown, keyed by subject code — same
+    /// key space as `items`, a second dictionary rather than a field on
+    /// `SyllabusItem` because a grading breakdown belongs to the *subject*,
+    /// not to any one week's topic.
+    @Published private(set) var gradingComponents: [String: [GradingComponent]]
     private let url: URL
 
     private struct Document: Codable {
         var items: [String: [SyllabusItem]]
+        var gradingComponents: [String: [GradingComponent]]
+
+        /// Manual `Codable` so a `syllabus.json` written before grading
+        /// components existed still loads — a missing key decodes as empty
+        /// rather than failing the whole document.
+        enum CodingKeys: String, CodingKey { case items, gradingComponents }
+
+        init(items: [String: [SyllabusItem]], gradingComponents: [String: [GradingComponent]] = [:]) {
+            self.items = items
+            self.gradingComponents = gradingComponents
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            items = try container.decode([String: [SyllabusItem]].self, forKey: .items)
+            gradingComponents = try container.decodeIfPresent([String: [GradingComponent]].self, forKey: .gradingComponents) ?? [:]
+        }
     }
 
     static let defaultURL: URL = {
@@ -134,7 +156,9 @@ final class SyllabusStore: ObservableObject {
 
     init(url: URL = defaultURL) {
         self.url = url
-        items = Self.load(from: url).items
+        let document = Self.load(from: url)
+        items = document.items
+        gradingComponents = document.gradingComponents
     }
 
     /// A subject's items, in the order they were added — callers wanting
@@ -196,13 +220,40 @@ final class SyllabusStore: ObservableObject {
     /// elsewhere" first, there's nothing left to keep.
     func wipeAll() {
         items = [:]
+        gradingComponents = [:]
+        persist()
+    }
+
+    // MARK: Grading components
+
+    func components(for subjectCode: String) -> [GradingComponent] {
+        gradingComponents[subjectCode] ?? []
+    }
+
+    /// Replaces a subject's whole breakdown — extraction always hands back
+    /// the complete list for a subject, never one component at a time, so
+    /// there's no separate add/remove pair to keep in sync with it.
+    func setComponents(_ components: [GradingComponent], for subjectCode: String) {
+        gradingComponents[subjectCode] = components
+        persist()
+    }
+
+    /// The one field the student actually edits after extraction — what they
+    /// scored on a component, once it's back. Everything else about a
+    /// component (name, weight) came from the syllabus and stays fixed.
+    func setScore(_ score: Double?, forComponent id: UUID, subjectCode: String) {
+        guard var list = gradingComponents[subjectCode],
+              let index = list.firstIndex(where: { $0.id == id })
+        else { return }
+        list[index].score = score
+        gradingComponents[subjectCode] = list
         persist()
     }
 
     // MARK: Disk
 
     private func persist() {
-        guard let data = try? JSONEncoder().encode(Document(items: items)) else { return }
+        guard let data = try? JSONEncoder().encode(Document(items: items, gradingComponents: gradingComponents)) else { return }
         let directory = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(
             at: directory,

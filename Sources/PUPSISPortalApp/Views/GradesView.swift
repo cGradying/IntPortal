@@ -60,6 +60,9 @@ struct GradesView: View {
                             unitsCard
                             if allTerms.count > 1 { termPicker }
                             summaryCard(shown)
+                            if shown.subjects.contains(where: { !$0.isPosted && $0.units > 0 }) {
+                                neededGradeCard(shown)
+                            }
                             subjectList(shown)
                             historyControl
                         }
@@ -204,6 +207,55 @@ struct GradesView: View {
 
     private func unitString(_ units: Double) -> String {
         units.rounded() == units ? String(Int(units)) : String(format: "%.1f", units)
+    }
+
+    // MARK: What do I need
+
+    /// Target GPA is per-term, not persisted — a stray "3.00" typed while
+    /// browsing a past term shouldn't survive to the next launch or leak
+    /// into a different term's card.
+    @State private var targetGPA: Double = 2.0
+
+    @ViewBuilder
+    private func neededGradeCard(_ report: GradeReport) -> some View {
+        let needed = GradesParser.neededAverage(for: report.subjects, target: targetGPA)
+
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("What do I need")
+                    .font(typography.detailMeta)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Stepper(value: $targetGPA, in: 1...5, step: 0.25) {
+                    Text("Target: \(String(format: "%.2f", targetGPA))")
+                        .font(typography.footer)
+                }
+                .fixedSize()
+            }
+
+            if let needed {
+                let impossible = needed < 1.0
+                let alreadyLocked = needed > 5.0
+                Group {
+                    if impossible {
+                        Text("Already better than \(String(format: "%.2f", targetGPA)) is possible on what's posted \u{2014} you can't average below 1.00.")
+                    } else if alreadyLocked {
+                        Text("Even a 5.00 on what's left can't reach \(String(format: "%.2f", targetGPA)) anymore.")
+                    } else {
+                        Text("Average **\(String(format: "%.2f", needed))** on your unposted subjects to land at \(String(format: "%.2f", targetGPA)).")
+                    }
+                }
+                .font(.system(.title3, design: .serif).weight(.semibold))
+                .foregroundStyle(impossible ? palette.accent : (alreadyLocked ? .red : .primary))
+            }
+
+            Text("Remember: lower is better on PUP's 1.00\u{2013}5.00 scale. This only weights units, not any exam/lab breakdown \u{2014} SIS doesn't publish one.")
+                .font(typography.footer)
+                .foregroundStyle(.secondary)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassPanel(cornerRadius: 16)
     }
 
     // MARK: Summary

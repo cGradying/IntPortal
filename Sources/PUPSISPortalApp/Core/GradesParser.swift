@@ -154,4 +154,32 @@ enum GradesParser {
         let weighted = posted.reduce(0) { $0 + $1.grade * $1.units }
         return (weighted / totalUnits * 100).rounded() / 100
     }
+
+    /// The units-weighted average grade needed on every unposted subject to
+    /// land the term at `target` overall — algebra on the same weighting
+    /// `gpa(of:)` already does, solved for the unknown side instead of read
+    /// off both. `nil` when there's nothing left to post (already fully
+    /// posted) or nothing carries units at all — there's no equation to
+    /// solve either way.
+    ///
+    /// PUP grades run 1.00 (best) to 5.00 (fail); the caller decides what to
+    /// do with a result outside that range (already locked in below/above
+    /// target regardless of what's left) rather than this clamping it away.
+    static func neededAverage(for subjects: [SubjectGrade], target: Double) -> Double? {
+        let posted = subjects.compactMap { subject -> (grade: Double, units: Double)? in
+            guard let grade = subject.numericGrade, subject.units > 0 else { return nil }
+            return (grade, subject.units)
+        }
+        let remainingUnits = subjects
+            .filter { !$0.isPosted && $0.units > 0 }
+            .reduce(0) { $0 + $1.units }
+        guard remainingUnits > 0 else { return nil }
+
+        let postedUnits = posted.reduce(0) { $0 + $1.units }
+        let postedWeighted = posted.reduce(0) { $0 + $1.grade * $1.units }
+        let totalUnits = postedUnits + remainingUnits
+
+        let needed = (target * totalUnits - postedWeighted) / remainingUnits
+        return (needed * 100).rounded() / 100
+    }
 }

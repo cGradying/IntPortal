@@ -258,8 +258,12 @@ struct CalendarView: View {
                         }
                         .frame(height: scheduleAreaHeight)
 
-                        SyllabusView(syllabus: syllabus)
-                            .padding(.top, 8)
+                        SyllabusView(
+                            syllabus: syllabus, preferences: preferences,
+                            subjectCodes: ClassSession.subjectCodes(in: controller.sessions),
+                            aiModel: preferences.aiModel, calendar: calendar
+                        )
+                        .padding(.top, 8)
                     }
                 }
                 .background(
