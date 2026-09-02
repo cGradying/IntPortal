@@ -156,6 +156,24 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(Array(visibleCalendarIDs), forKey: Key.visibleCalendarIDs) }
     }
 
+    /// Which Settings sections are expanded — every one collapsed by
+    /// default. Keyed on the section's own title string rather than a
+    /// pane-qualified id: titles are already unique per pane, and a
+    /// collision across two panes only means they share an expanded state.
+    /// ponytail: good enough — a real id would mean threading one through
+    /// every `compactSection` call for no visible gain.
+    @Published var expandedSettingsSections: Set<String> {
+        didSet { defaults.set(Array(expandedSettingsSections), forKey: Key.expandedSettingsSections) }
+    }
+
+    func setSettingsSection(_ title: String, expanded: Bool) {
+        if expanded {
+            expandedSettingsSections.insert(title)
+        } else {
+            expandedSettingsSections.remove(title)
+        }
+    }
+
     /// Which calendar in-person classes get exported into. Empty until the user
     /// picks — there's no safe default guess for someone else's calendar.
     @Published var exportCalendarID: String {
@@ -605,6 +623,7 @@ final class Preferences: ObservableObject {
         static let permaSubjects = "permaSubjects"
         static let subjectTasks = "subjectTasks"
         static let visibleCalendarIDs = "visibleCalendarIDs"
+        static let expandedSettingsSections = "expandedSettingsSections"
         static let exportCalendarID = "exportCalendarID"
         static let onlineExportCalendarID = "onlineExportCalendarID"
         static let eventColors = "eventColors"
@@ -668,6 +687,7 @@ final class Preferences: ObservableObject {
         eventColors = defaults.data(forKey: Key.eventColors)
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         visibleCalendarIDs = Set(defaults.stringArray(forKey: Key.visibleCalendarIDs) ?? [])
+        expandedSettingsSections = Set(defaults.stringArray(forKey: Key.expandedSettingsSections) ?? [])
         exportCalendarID = defaults.string(forKey: Key.exportCalendarID) ?? ""
         onlineExportCalendarID = defaults.string(forKey: Key.onlineExportCalendarID) ?? ""
         termEndDate = (defaults.object(forKey: Key.termEndDate) as? Double)
@@ -945,6 +965,7 @@ final class Preferences: ObservableObject {
         termStartDate = Weekday.weekStart(containing: .now)
         programTotalUnits = 0
         visibleCalendarIDs = []
+        expandedSettingsSections = []
         notificationsEnabled = false
         notificationLeadMinutes = 15
         islandStartHome = true

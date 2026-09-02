@@ -179,6 +179,168 @@ extension Palette {
         panel: Color(red: 0.000, green: 0.000, blue: 0.000),
         onPanel: Color(red: 0.000, green: 1.000, blue: 0.255)
     )
+
+    // MARK: Famous editor themes
+
+    /// Dracula.
+    static let dracula = Palette(
+        accent: Color(red: 0.741, green: 0.576, blue: 0.976),
+        secondary: Color(red: 0.384, green: 0.447, blue: 0.643),
+        canvasTop: Color(red: 0.157, green: 0.165, blue: 0.212),
+        canvasBottom: Color(red: 0.114, green: 0.121, blue: 0.157),
+        gridLine: Color.white.opacity(0.10),
+        onlineStrip: Color(red: 1.000, green: 0.475, blue: 0.776),
+        subjectColors: [
+            Color(red: 0.741, green: 0.576, blue: 0.976),
+            Color(red: 1.000, green: 0.475, blue: 0.776),
+            Color(red: 0.545, green: 0.914, blue: 0.992),
+            Color(red: 0.314, green: 0.980, blue: 0.482),
+            Color(red: 1.000, green: 0.722, blue: 0.424),
+            Color(red: 1.000, green: 0.333, blue: 0.333),
+        ],
+        panel: Color(red: 0.078, green: 0.082, blue: 0.106),
+        onPanel: Color(red: 0.973, green: 0.973, blue: 0.949)
+    )
+
+    /// Nord.
+    static let nord = Palette(
+        accent: Color(red: 0.533, green: 0.753, blue: 0.816),
+        secondary: Color(red: 0.463, green: 0.514, blue: 0.635),
+        canvasTop: Color(red: 0.180, green: 0.204, blue: 0.251),
+        canvasBottom: Color(red: 0.145, green: 0.161, blue: 0.200),
+        gridLine: Color.white.opacity(0.10),
+        onlineStrip: Color(red: 0.922, green: 0.796, blue: 0.545),
+        subjectColors: [
+            Color(red: 0.533, green: 0.753, blue: 0.816),
+            Color(red: 0.506, green: 0.631, blue: 0.757),
+            Color(red: 0.365, green: 0.506, blue: 0.675),
+            Color(red: 0.639, green: 0.745, blue: 0.549),
+            Color(red: 0.922, green: 0.796, blue: 0.545),
+            Color(red: 0.706, green: 0.557, blue: 0.678),
+        ],
+        panel: Color(red: 0.106, green: 0.118, blue: 0.145),
+        onPanel: Color(red: 0.925, green: 0.937, blue: 0.957)
+    )
+
+    /// Gruvbox (dark, hard contrast).
+    static let gruvbox = Palette(
+        accent: Color(red: 0.980, green: 0.741, blue: 0.184),
+        secondary: Color(red: 0.573, green: 0.514, blue: 0.455),
+        canvasTop: Color(red: 0.157, green: 0.157, blue: 0.157),
+        canvasBottom: Color(red: 0.114, green: 0.125, blue: 0.129),
+        gridLine: Color.white.opacity(0.10),
+        onlineStrip: Color(red: 0.984, green: 0.286, blue: 0.204),
+        subjectColors: [
+            Color(red: 0.980, green: 0.741, blue: 0.184),
+            Color(red: 0.722, green: 0.733, blue: 0.149),
+            Color(red: 0.514, green: 0.647, blue: 0.596),
+            Color(red: 0.827, green: 0.525, blue: 0.608),
+            Color(red: 0.984, green: 0.286, blue: 0.204),
+            Color(red: 0.686, green: 0.502, blue: 0.792),
+        ],
+        panel: Color(red: 0.098, green: 0.098, blue: 0.098),
+        onPanel: Color(red: 0.922, green: 0.859, blue: 0.698)
+    )
+
+    /// Solarized Dark.
+    static let solarizedDark = Palette(
+        accent: Color(red: 0.149, green: 0.545, blue: 0.824),
+        secondary: Color(red: 0.396, green: 0.482, blue: 0.514),
+        canvasTop: Color(red: 0.027, green: 0.212, blue: 0.259),
+        canvasBottom: Color(red: 0.000, green: 0.169, blue: 0.212),
+        gridLine: Color.white.opacity(0.09),
+        onlineStrip: Color(red: 0.796, green: 0.294, blue: 0.086),
+        subjectColors: [
+            Color(red: 0.149, green: 0.545, blue: 0.824),
+            Color(red: 0.518, green: 0.600, blue: 0.000),
+            Color(red: 0.835, green: 0.212, blue: 0.510),
+            Color(red: 0.710, green: 0.537, blue: 0.000),
+            Color(red: 0.165, green: 0.631, blue: 0.596),
+            Color(red: 0.427, green: 0.443, blue: 0.769),
+        ],
+        panel: Color(red: 0.020, green: 0.161, blue: 0.196),
+        onPanel: Color(red: 0.933, green: 0.910, blue: 0.835)
+    )
+
+    /// Solarized Light.
+    static let solarizedLight = Palette(
+        accent: Color(red: 0.149, green: 0.545, blue: 0.824),
+        secondary: Color(red: 0.576, green: 0.631, blue: 0.631),
+        canvasTop: Color(red: 0.992, green: 0.965, blue: 0.890),
+        canvasBottom: Color(red: 0.933, green: 0.910, blue: 0.835),
+        gridLine: Color.black.opacity(0.07),
+        onlineStrip: Color(red: 0.796, green: 0.294, blue: 0.086),
+        subjectColors: [
+            Color(red: 0.149, green: 0.545, blue: 0.824),
+            Color(red: 0.518, green: 0.600, blue: 0.000),
+            Color(red: 0.835, green: 0.212, blue: 0.510),
+            Color(red: 0.710, green: 0.537, blue: 0.000),
+            Color(red: 0.165, green: 0.631, blue: 0.596),
+            Color(red: 0.427, green: 0.443, blue: 0.769),
+        ],
+        panel: Color(red: 0.027, green: 0.212, blue: 0.259),
+        onPanel: Color(red: 0.933, green: 0.910, blue: 0.835)
+    )
+
+    /// Tokyo Night.
+    static let tokyoNight = Palette(
+        accent: Color(red: 0.478, green: 0.635, blue: 0.969),
+        secondary: Color(red: 0.322, green: 0.337, blue: 0.443),
+        canvasTop: Color(red: 0.102, green: 0.106, blue: 0.149),
+        canvasBottom: Color(red: 0.071, green: 0.075, blue: 0.106),
+        gridLine: Color.white.opacity(0.10),
+        onlineStrip: Color(red: 0.878, green: 0.596, blue: 0.376),
+        subjectColors: [
+            Color(red: 0.478, green: 0.635, blue: 0.969),
+            Color(red: 0.741, green: 0.573, blue: 0.976),
+            Color(red: 0.416, green: 0.847, blue: 0.937),
+            Color(red: 0.616, green: 0.804, blue: 0.427),
+            Color(red: 0.878, green: 0.596, blue: 0.376),
+            Color(red: 0.969, green: 0.463, blue: 0.557),
+        ],
+        panel: Color(red: 0.055, green: 0.059, blue: 0.086),
+        onPanel: Color(red: 0.773, green: 0.792, blue: 0.902)
+    )
+
+    /// Catppuccin Mocha.
+    static let catppuccin = Palette(
+        accent: Color(red: 0.796, green: 0.651, blue: 0.969),
+        secondary: Color(red: 0.541, green: 0.561, blue: 0.702),
+        canvasTop: Color(red: 0.180, green: 0.184, blue: 0.251),
+        canvasBottom: Color(red: 0.118, green: 0.118, blue: 0.180),
+        gridLine: Color.white.opacity(0.10),
+        onlineStrip: Color(red: 0.980, green: 0.702, blue: 0.529),
+        subjectColors: [
+            Color(red: 0.796, green: 0.651, blue: 0.969),
+            Color(red: 0.957, green: 0.761, blue: 0.847),
+            Color(red: 0.573, green: 0.882, blue: 0.980),
+            Color(red: 0.651, green: 0.890, blue: 0.631),
+            Color(red: 0.980, green: 0.702, blue: 0.529),
+            Color(red: 0.953, green: 0.545, blue: 0.659),
+        ],
+        panel: Color(red: 0.090, green: 0.094, blue: 0.145),
+        onPanel: Color(red: 0.804, green: 0.839, blue: 0.957)
+    )
+
+    /// One Dark (Atom).
+    static let oneDark = Palette(
+        accent: Color(red: 0.380, green: 0.686, blue: 0.937),
+        secondary: Color(red: 0.353, green: 0.388, blue: 0.443),
+        canvasTop: Color(red: 0.173, green: 0.180, blue: 0.204),
+        canvasBottom: Color(red: 0.129, green: 0.135, blue: 0.153),
+        gridLine: Color.white.opacity(0.10),
+        onlineStrip: Color(red: 0.820, green: 0.604, blue: 0.400),
+        subjectColors: [
+            Color(red: 0.380, green: 0.686, blue: 0.937),
+            Color(red: 0.776, green: 0.471, blue: 0.867),
+            Color(red: 0.337, green: 0.714, blue: 0.761),
+            Color(red: 0.596, green: 0.765, blue: 0.475),
+            Color(red: 0.820, green: 0.604, blue: 0.400),
+            Color(red: 0.878, green: 0.424, blue: 0.459),
+        ],
+        panel: Color(red: 0.106, green: 0.110, blue: 0.125),
+        onPanel: Color(red: 0.671, green: 0.698, blue: 0.749)
+    )
 }
 
 /// What the user picked in Settings. `auto` is the app's original behavior —
@@ -191,6 +353,14 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
     case sakura
     case monochrome
     case matrix
+    case dracula
+    case nord
+    case gruvbox
+    case solarizedDark
+    case solarizedLight
+    case tokyoNight
+    case catppuccin
+    case oneDark
 
     var id: String { rawValue }
 
@@ -203,6 +373,14 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
         case .sakura: "Sakura"
         case .monochrome: "Monochrome"
         case .matrix: "Matrix"
+        case .dracula: "Dracula"
+        case .nord: "Nord"
+        case .gruvbox: "Gruvbox"
+        case .solarizedDark: "Solarized Dark"
+        case .solarizedLight: "Solarized Light"
+        case .tokyoNight: "Tokyo Night"
+        case .catppuccin: "Catppuccin Mocha"
+        case .oneDark: "One Dark"
         }
     }
 
@@ -215,6 +393,14 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
         case .sakura: .sakura
         case .monochrome: .monochrome
         case .matrix: .matrix
+        case .dracula: .dracula
+        case .nord: .nord
+        case .gruvbox: .gruvbox
+        case .solarizedDark: .solarizedDark
+        case .solarizedLight: .solarizedLight
+        case .tokyoNight: .tokyoNight
+        case .catppuccin: .catppuccin
+        case .oneDark: .oneDark
         }
     }
 
@@ -230,6 +416,14 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
         case .sakura: .light
         case .monochrome: .light
         case .matrix: .dark
+        case .dracula: .dark
+        case .nord: .dark
+        case .gruvbox: .dark
+        case .solarizedDark: .dark
+        case .solarizedLight: .light
+        case .tokyoNight: .dark
+        case .catppuccin: .dark
+        case .oneDark: .dark
         }
     }
 }

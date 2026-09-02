@@ -150,7 +150,8 @@ struct SettingsView: View {
                             .foregroundStyle(selected ? palette.accent : .secondary)
                         Group {
                             if selected {
-                                TabIndicatorLine(color: palette.accent, reduced: effectiveReduceMotion)
+                                DitherRule(color: palette.accent, reduced: effectiveReduceMotion, height: 3, intensity: 0.6)
+                                    .clipShape(Capsule())
                                     .matchedGeometryEffect(id: "tabIndicator", in: tabIndicatorNamespace)
                             } else {
                                 Color.clear.frame(height: 3)
@@ -203,37 +204,81 @@ struct SettingsView: View {
     /// `VStack`'s own spacing, not per-section padding.
     private func compactPane<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) { content() }
+            VStack(alignment: .leading, spacing: 10) { content() }
                 .padding(16)
+                .padding(.top, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .overlay(alignment: .top) {
+            // Fades the tab strip into the scrolling content instead of a
+            // hard seam — the same topDown DitherFill + gradient mask
+            // treatment the window's own chrome band uses
+            // (PUPSISPortalApp.swift). Static, not a TimelineView: an
+            // always-animating band under a settings pane is noise the eye
+            // never asked for, and Reduce Motion would just have to kill it.
+            DitherFill(color: palette.accent.opacity(0.35), ramp: .topDown)
+                .frame(height: 24)
+                .mask(LinearGradient(colors: [.black, .black.opacity(0)], startPoint: .top, endPoint: .bottom))
+                .allowsHitTesting(false)
         }
     }
 
-    /// Replaces `Section(header:footer:)` — a small-caps label above a real
-    /// glass card (the app's own structural-chrome material, same helper the
-    /// nav island and popovers use — `GlassCompat.swift`'s "Chrome-Not-
-    /// Decoration Rule": a card grouping settings rows is structure, same
-    /// job the island's own panel does), tight rows with hairline
-    /// separators, an optional footer caption below.
+    /// Replaces `Section(header:footer:)` — a collapsible glass button: the
+    /// header alone *is* the card when collapsed, expanding reveals a thin
+    /// pixel-dither rule (`DitherRule`, the same primitive the tab strip's
+    /// own selection line uses — the one thing in this window that reads as
+    /// *this app* rather than generic glass chrome), then the rows, then an
+    /// optional footer. Expanded state persists per section title in
+    /// `Preferences.expandedSettingsSections` — collapsed on first launch.
     private func compactSection<Content: View>(
-        _ title: String, footer: String? = nil, @ViewBuilder rows: () -> Content
+        _ title: String, summary: String? = nil, footer: String? = nil,
+        @ViewBuilder rows: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title.uppercased())
-                .font(.system(.caption, weight: .semibold))
-                .tracking(0.6)
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 0) { rows() }
+        let expanded = preferences.expandedSettingsSections.contains(title)
+        return VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(Motion.selection(reduced: effectiveReduceMotion)) {
+                    preferences.setSettingsSection(title, expanded: !expanded)
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                        .foregroundStyle(expanded ? palette.accent : .secondary)
+                    Text(title.uppercased())
+                        .font(.system(.caption, weight: .semibold))
+                        .tracking(0.6)
+                    Spacer(minLength: 12)
+                    if let summary, !expanded {
+                        Text(summary)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .glassPanel(cornerRadius: 12)
-            if let footer {
-                Text(footer)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 2)
+                .padding(.vertical, 9)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if expanded {
+                DitherRule(color: palette.accent, reduced: effectiveReduceMotion)
+                    .padding(.horizontal, 12)
+                VStack(alignment: .leading, spacing: 0) { rows() }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                if let footer {
+                    Text(footer)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                }
             }
         }
+        .glassPanel(cornerRadius: 12)
     }
 
     /// Replaces a bare `Toggle`/`Picker`/`LabeledContent` row — fixed label
@@ -279,25 +324,39 @@ struct SettingsView: View {
         }
     }
 
-    /// One row of swatches instead of a label-per-row grid — six themes read
-    /// fine as circles alone (the accent color *is* the identity here), so
-    /// the name moves to `.help()` rather than costing its own line.
+    /// 14 themes is too many for a bare row of unlabeled circles — a named
+    /// card grid, each previewing the theme it names (its own accent dot on
+    /// its own canvas, so a dark theme reads as dark before it's applied).
+    /// Selection is the same `DitherRule` every other "you are here" mark in
+    /// this window uses, not a third selection idiom.
     private var themeSwatchRow: some View {
-        HStack(spacing: 10) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 8)], spacing: 8) {
             ForEach(ThemeChoice.allCases) { choice in
+                let choicePalette = choice.palette(for: systemScheme)
                 let selected = preferences.theme == choice
                 Button { preferences.theme = choice } label: {
-                    Circle()
-                        .fill(choice.palette(for: systemScheme).accent)
-                        .frame(width: 22, height: 22)
-                        .overlay(Circle().strokeBorder(.primary, lineWidth: 2).opacity(selected ? 1 : 0))
-                        .overlay(Circle().strokeBorder(.primary.opacity(0.12), lineWidth: 1))
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 8) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 5).fill(choicePalette.canvasBottom)
+                                Circle().fill(choicePalette.accent).frame(width: 10, height: 10)
+                            }
+                            .frame(width: 26, height: 18)
+                            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(.primary.opacity(0.12)))
+                            Text(choice.label).font(.caption).lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 5)
+                        if selected {
+                            DitherRule(color: palette.accent, reduced: effectiveReduceMotion, height: 2)
+                        }
+                    }
+                    .background(RoundedRectangle(cornerRadius: 7).fill(palette.accent.opacity(selected ? 0.12 : 0)))
                 }
                 .buttonStyle(.plain)
-                .help(choice.label)
                 .accessibilityLabel(choice.label)
             }
-            Spacer(minLength: 0)
         }
     }
 
@@ -401,7 +460,7 @@ struct SettingsView: View {
 
     private var appearanceTab: some View {
         VStack(alignment: .leading, spacing: 20) {
-            compactSection("Theme") {
+            compactSection("Theme", summary: preferences.theme.label) {
                 themeSwatchRow
                     .padding(.vertical, 4)
                 compactRow("Font") {
@@ -782,6 +841,7 @@ struct SettingsView: View {
     private var downloadModelsSection: some View {
         compactSection(
             "Models",
+            summary: ModelCatalog.entry(for: preferences.aiModel)?.label,
             footer: LlamaServerManager.locateBinary() == nil
                 ? "Needs llama-server itself installed once — brew install llama.cpp — that one step can't be done from inside the app. (The download-with-AI build ships it already and skips this.) Every model above downloads and runs itself after that."
                 : "Every model above downloads and runs itself — nothing else to install."
@@ -1015,6 +1075,7 @@ struct SettingsView: View {
         return VStack(alignment: .leading, spacing: 20) {
             compactSection(
                 "Files",
+                summary: byteCountFormatter.string(fromByteCount: filesTotal + modelsTotal),
                 footer: "Everything this app stores — schedule, notes, syllabus, quiz decks. Reveal opens Finder with the file (or folder) selected; nothing here is deleted from this list."
             ) {
                 compactRow("Total on disk") {
@@ -1037,6 +1098,7 @@ struct SettingsView: View {
 
             compactSection(
                 "AI Models",
+                summary: "\(downloadedModels.count) downloaded",
                 footer: "Deleting the model currently selected in Intelligence is disabled — switch models first. Deleting frees disk space immediately; re-downloading is the only way back."
             ) {
                 if downloadedModels.isEmpty {
@@ -1559,27 +1621,29 @@ private extension SettingsView {
     }
 }
 
-/// The tab strip's "which page am I on" mark — a thin pixel-dither line
-/// under the selected tab. Same `DitherFill`/`TimelineView` pairing
-/// `HomeNoiseField.swift` already uses for its own ambient wave, scaled
-/// down to a 3pt line instead of a full field: idles with a slow drift
-/// rather than sitting static, pauses to one still frame under Reduce
-/// Motion rather than merely slowing down.
-private struct TabIndicatorLine: View {
+/// This app's one recurring "you are here" mark: a thin, idly-drifting
+/// pixel-dither line. Same `DitherFill`/`TimelineView` pairing
+/// `HomeNoiseField.swift` uses for its own ambient wave, scaled down to a
+/// line — the tab strip's selection indicator, an expanded section's header
+/// rule, the theme picker's selected card. Idles with a slow drift rather
+/// than sitting static; pauses to one still frame under Reduce Motion
+/// rather than merely slowing down.
+private struct DitherRule: View {
     let color: Color
     let reduced: Bool
+    var height: CGFloat = 2
+    var intensity: Double = 0.5
 
     var body: some View {
         TimelineView(.animation(minimumInterval: reduced ? nil : 0.16, paused: reduced)) { context in
             DitherFill(
                 color: color,
                 cell: 2,
-                ramp: .wave(0.6),
+                ramp: .wave(intensity),
                 phase: reduced ? 0 : context.date.timeIntervalSinceReferenceDate * 0.5
             )
         }
-        .frame(height: 3)
-        .clipShape(Capsule())
+        .frame(height: height)
     }
 }
 

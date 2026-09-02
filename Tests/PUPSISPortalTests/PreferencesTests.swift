@@ -656,6 +656,24 @@ final class PreferencesTests: XCTestCase {
 
         XCTAssertTrue(prefs.hasCustomColor(for: "COMP 20073"))
     }
+
+    /// Collapsed by default (no section has ever been opened), survives a
+    /// relaunch once one is, and gets wiped by Reset All Settings — same
+    /// shape as `visibleCalendarIDs`.
+    func testExpandedSettingsSectionsDefaultsEmptyPersistsAndResets() {
+        XCTAssertTrue(Preferences(defaults: defaults).expandedSettingsSections.isEmpty)
+
+        let prefs = Preferences(defaults: defaults)
+        prefs.setSettingsSection("Theme", expanded: true)
+        XCTAssertTrue(Preferences(defaults: defaults).expandedSettingsSections.contains("Theme"))
+
+        prefs.setSettingsSection("Theme", expanded: false)
+        XCTAssertFalse(Preferences(defaults: defaults).expandedSettingsSections.contains("Theme"))
+
+        prefs.setSettingsSection("Layout", expanded: true)
+        prefs.resetAllToDefaults()
+        XCTAssertTrue(prefs.expandedSettingsSections.isEmpty)
+    }
 }
 
 /// Reduce Motion is an accessibility setting, not a preference to soften —
@@ -720,6 +738,26 @@ final class PaletteTests: XCTestCase {
         XCTAssertEqual(ThemeChoice.monochrome.colorScheme, .light)
         XCTAssertEqual(ThemeChoice.matrix.palette(for: .light), .matrix)
         XCTAssertEqual(ThemeChoice.matrix.colorScheme, .dark)
+    }
+
+    /// The 8 famous-editor themes — same "resolves regardless of system
+    /// appearance, pairs with its own color scheme" contract as above.
+    func testFamousThemesResolveWithTheirOwnColorScheme() {
+        let darkThemes: [ThemeChoice] = [.dracula, .nord, .gruvbox, .solarizedDark, .tokyoNight, .catppuccin, .oneDark]
+        for choice in darkThemes {
+            XCTAssertEqual(choice.palette(for: .light), choice.palette(for: .dark), "\(choice) must ignore system appearance")
+            XCTAssertEqual(choice.colorScheme, .dark, "\(choice) should force dark controls")
+        }
+        XCTAssertEqual(ThemeChoice.solarizedLight.palette(for: .dark), .solarizedLight)
+        XCTAssertEqual(ThemeChoice.solarizedLight.colorScheme, .light)
+    }
+
+    /// `rawValue` persistence has to round-trip for a newly-added case too —
+    /// `Preferences` reads `theme` back via `ThemeChoice(rawValue:)`.
+    func testFamousThemeRawValueRoundTrips() {
+        for choice: ThemeChoice in [.dracula, .nord, .gruvbox, .solarizedDark, .solarizedLight, .tokyoNight, .catppuccin, .oneDark] {
+            XCTAssertEqual(ThemeChoice(rawValue: choice.rawValue), choice)
+        }
     }
 
     /// Deterministic, not `Hashable` — Swift reseeds that per process, which
