@@ -57,6 +57,16 @@ final class ScheduleParserTests: XCTestCase {
         XCTAssertEqual(earlyMorning.first?.end, 90)
     }
 
+    /// A faculty name that didn't split off via `<br>` leaks into the same
+    /// line as the schedule — the times must still parse.
+    func testTrailingTextAfterTimesDoesntBreakTheMatch() {
+        let sessions = parse("4 - BSEE 1-4 - M/TH 07:30AM-10:30AM/07:30AM-10:30AM TAROY, JOSE CARLOS BASILIO")
+        XCTAssertEqual(sessions.count, 2)
+        XCTAssertEqual(sessions[0].day, .monday)
+        XCTAssertEqual(sessions[0].start, 7 * 60 + 30)
+        XCTAssertEqual(sessions[1].day, .thursday)
+    }
+
     func testUnparseableRowsAreSkippedNotCrashed() {
         XCTAssertTrue(parse("").isEmpty)
         XCTAssertTrue(parse("1N - BSCS 1-1N - TBA").isEmpty)

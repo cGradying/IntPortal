@@ -1628,7 +1628,7 @@ private extension SettingsView {
 /// rule, the theme picker's selected card. Idles with a slow drift rather
 /// than sitting static; pauses to one still frame under Reduce Motion
 /// rather than merely slowing down.
-private struct DitherRule: View {
+struct DitherRule: View {
     let color: Color
     let reduced: Bool
     var height: CGFloat = 2

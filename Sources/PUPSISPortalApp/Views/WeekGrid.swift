@@ -124,6 +124,16 @@ struct WeekGrid: View {
                         .fill(palette.accent)
                         .frame(width: 4, height: 4)
                         .opacity(dueToday.isEmpty ? 0 : 1)
+
+                    // Same "you are here" mark as Settings' tab strip
+                    // (`SettingsView.swift`'s `DitherRule`) rather than a
+                    // capsule wash — one dither-underline language app-wide.
+                    if isToday {
+                        DitherRule(color: palette.accent, reduced: reduceMotion, height: 3, intensity: 0.6)
+                            .clipShape(Capsule())
+                    } else {
+                        Color.clear.frame(height: 3)
+                    }
                 }
                 // Confirmed live: an extra .opacity(0.8) on top of .secondary
                 // compounded into near-illegible day headers on non-today
@@ -131,7 +141,6 @@ struct WeekGrid: View {
                 .foregroundStyle(isToday ? palette.accent : .secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(palette.accent.opacity(isToday ? 0.16 : 0)))
                 .frame(maxWidth: .infinity)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(accessibilityLabel(for: day, isToday: isToday, dueToday: dueToday))

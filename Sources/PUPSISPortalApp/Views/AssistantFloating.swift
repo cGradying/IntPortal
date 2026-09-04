@@ -1116,7 +1116,8 @@ private struct AssistantChat: View {
             openNoteKey: { appState.openNoteKey },
             model: preferences.aiModel,
             preferences: preferences,
-            executor: makeExecutor()
+            executor: makeExecutor(),
+            client: Preferences.localAIClient(modelID: preferences.aiModel)
         )
     }
 

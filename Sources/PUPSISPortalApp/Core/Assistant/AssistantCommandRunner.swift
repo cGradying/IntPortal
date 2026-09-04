@@ -58,7 +58,7 @@ struct AssistantCommandRunner {
         self.preferences = preferences
         self.ensureServerRunning = ensureServerRunning ?? { await LlamaRuntime.ensureChatServer(modelID: model) }
         self.ragQuery = ragQuery ?? RAGQuery(
-            notes: notes,
+            notes: notes, client: client,
             chunkSize: preferences.ragChunkSize,
             similarityFloor: preferences.ragSimilarityFloor, contextBudget: preferences.ragContextBudget,
             answerTemperature: preferences.ragAnswerTemperature,

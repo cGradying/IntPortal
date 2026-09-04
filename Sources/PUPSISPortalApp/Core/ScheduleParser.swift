@@ -36,10 +36,16 @@ enum ScheduleParser {
         }
     }
 
-    /// Pulls the trailing "<DAYS> <TIMES>" off the end of the schedule line,
-    /// ignoring the section prefix (which contains digits and hyphens).
+    /// Pulls the "<DAYS> <TIMES>" block out of the schedule line, ignoring
+    /// the section prefix (which contains digits and hyphens).
+    ///
+    /// Deliberately not end-anchored: some rows leak trailing text after the
+    /// times (a faculty name that didn't split on `<br>` the way
+    /// `SISScraper` expects for most rows) — the section prefix is already
+    /// found mid-string, so there's no reason the times must be the last
+    /// thing either.
     private static func splitDaysAndTimes(_ line: String) -> (String, String)? {
-        let pattern = #"([A-Z]+(?:/[A-Z]+)*)\s+((?:\d{1,2}:\d{2}[AP]M-\d{1,2}:\d{2}[AP]M)(?:/\d{1,2}:\d{2}[AP]M-\d{1,2}:\d{2}[AP]M)*)\s*$"#
+        let pattern = #"([A-Z]+(?:/[A-Z]+)*)\s+((?:\d{1,2}:\d{2}[AP]M-\d{1,2}:\d{2}[AP]M)(?:/\d{1,2}:\d{2}[AP]M-\d{1,2}:\d{2}[AP]M)*)"#
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)),
               let dayRange = Range(match.range(at: 1), in: line),

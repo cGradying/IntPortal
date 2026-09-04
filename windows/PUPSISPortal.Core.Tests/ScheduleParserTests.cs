@@ -82,6 +82,18 @@ public class ScheduleParserTests
         Assert.Equal(90, earlyMorning.First().End);
     }
 
+    /// A faculty name that didn't split off cleanly leaks into the same
+    /// line as the schedule — the times must still parse.
+    [Fact]
+    public void TrailingTextAfterTimesDoesntBreakTheMatch()
+    {
+        var sessions = Parse("4 - BSEE 1-4 - M/TH 07:30AM-10:30AM/07:30AM-10:30AM TAROY, JOSE CARLOS BASILIO");
+        Assert.Equal(2, sessions.Count);
+        Assert.Equal(Weekday.Monday, sessions[0].Day);
+        Assert.Equal(7 * 60 + 30, sessions[0].Start);
+        Assert.Equal(Weekday.Thursday, sessions[1].Day);
+    }
+
     [Fact]
     public void UnparseableRowsAreSkippedNotCrashed()
     {

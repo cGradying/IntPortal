@@ -207,7 +207,9 @@ struct GenerateSheet: View {
         if deckName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             deckName = defaultDeckName(for: source)
         }
-        let ragQuery = sourceKind == .topic || existing?.mode == .regenerate ? RAGQuery(notes: notes) : nil
+        let ragQuery = sourceKind == .topic || existing?.mode == .regenerate
+            ? RAGQuery(notes: notes, client: Preferences.localAIClient(modelID: aiModel), answerModel: aiModel)
+            : nil
         let target: GenerationCenter.Target = existing.map {
             $0.mode == .append ? .append(deckID: $0.deck.id) : .regenerate(deckID: $0.deck.id)
         } ?? .new(name: deckName, sourceKind: sourceKindForNewDeck, sourceQuery: sourceQueryForNewDeck)

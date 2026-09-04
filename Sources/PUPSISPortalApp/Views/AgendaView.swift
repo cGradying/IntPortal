@@ -119,7 +119,9 @@ struct AgendaView: View {
         generation.start(
             label: topic, source: .vaultTopic(topic), model: preferences.aiModel,
             client: Preferences.localAIClient(modelID: preferences.aiModel),
-            ragQuery: RAGQuery(notes: notes), chunkSize: preferences.ragChunkSize,
+            ragQuery: RAGQuery(
+                notes: notes, client: Preferences.localAIClient(modelID: preferences.aiModel), answerModel: preferences.aiModel
+            ), chunkSize: preferences.ragChunkSize,
             target: .new(name: topic, sourceKind: .vaultTopic, sourceQuery: topic)
         )
         notebook.tab = .quizzes

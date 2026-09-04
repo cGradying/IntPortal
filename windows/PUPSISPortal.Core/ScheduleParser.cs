@@ -63,8 +63,13 @@ public static class ScheduleParser
     }
 
     /// <summary>
-    /// Pulls the trailing "<DAYS> <TIMES>" off the end of the schedule line,
-    /// ignoring the section prefix (which contains digits and hyphens).
+    /// Pulls the "<DAYS> <TIMES>" block out of the schedule line, ignoring
+    /// the section prefix (which contains digits and hyphens).
+    ///
+    /// Deliberately not end-anchored: some rows leak trailing text after the
+    /// times (a faculty name that didn't split out the way most rows do) —
+    /// the section prefix is already found mid-string, so there's no reason
+    /// the times must be the last thing either.
     /// </summary>
     private static (string dayField, string timeField)? SplitDaysAndTimes(string line)
     {
@@ -74,7 +79,7 @@ public static class ScheduleParser
         // Pattern: day codes followed by time ranges
         // Day codes: one or more uppercase letters and slashes, at least two letters
         // Time ranges: one or more "H:MM(AM|PM)-H:MM(AM|PM)" separated by slashes
-        const string pattern = @"([A-Z]+(?:/[A-Z]+)*)\s+((?:\d{1,2}:\d{2}[AP]M-\d{1,2}:\d{2}[AP]M)(?:/\d{1,2}:\d{2}[AP]M-\d{1,2}:\d{2}[AP]M)*)\s*$";
+        const string pattern = @"([A-Z]+(?:/[A-Z]+)*)\s+((?:\d{1,2}:\d{2}[AP]M-\d{1,2}:\d{2}[AP]M)(?:/\d{1,2}:\d{2}[AP]M-\d{1,2}:\d{2}[AP]M)*)";
         var match = Regex.Match(line, pattern);
         if (!match.Success || match.Groups.Count < 3)
             return null;
