@@ -48,10 +48,50 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
 
     private static let genericFailure = "Sign-in didn't go through — check your student number, birthdate, and password."
 
-    private static let base = "https://sis1.pup.edu.ph/student"
-    private static let loginURL = URL(string: "\(base)/")!
-    private static let scheduleURL = URL(string: "\(base)/schedule")!
-    private static let gradesURL = URL(string: "\(base)/grades")!
+    // PUP SIS load-balances across several numbered hosts (sis1, sis8, …) and
+    // the post-login redirect chain can land a session on a different one
+    // than we started on — requesting /schedule against the wrong host hits
+    // an unauthenticated instance and scrapes nothing. Start from whichever
+    // host we last actually landed on (persisted across launches), falling
+    // back to sis1 the very first time.
+    private static let defaultBase = "https://sis1.pup.edu.ph/student"
+    private static let baseDefaultsKey = "sisBaseHost"
+
+    private var base: String {
+        get {
+            guard let stored = UserDefaults.standard.string(forKey: Self.baseDefaultsKey),
+                  Self.isTrustedHost(stored)
+            else { return Self.defaultBase }
+            return stored
+        }
+        set { UserDefaults.standard.set(newValue, forKey: Self.baseDefaultsKey) }
+    }
+
+    private var loginURL: URL { URL(string: "\(base)/")! }
+    private var scheduleURL: URL { URL(string: "\(base)/schedule")! }
+    private var gradesURL: URL { URL(string: "\(base)/grades")! }
+
+    /// Reconciles `base` with wherever the web view actually ended up —
+    /// called right after sign-in settles. If the SIS bounced us to a
+    /// different host, every later refresh in this run (and future launches)
+    /// follows it instead of retrying the stale one.
+    ///
+    /// Only ever adopts an actual `pup.edu.ph` host over https — the web view
+    /// could in principle be sitting on anything (a captive portal, a
+    /// malicious redirect), and credentials go to whatever `base` resolves
+    /// to next, so this can't trust the navigated URL blindly.
+    private func adoptActualHost() {
+        guard let url = webView.url, let host = url.host, url.scheme == "https",
+              Self.isTrustedHost("https://\(host)")
+        else { return }
+        let actual = "https://\(host)/student"
+        if actual != base { base = actual }
+    }
+
+    private static func isTrustedHost(_ base: String) -> Bool {
+        guard let host = URL(string: base)?.host?.lowercased() else { return false }
+        return host == "pup.edu.ph" || host.hasSuffix(".pup.edu.ph")
+    }
 
     override init() {
         webView = WKWebView()
@@ -76,21 +116,30 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     private func runSignIn(_ credentials: Credentials) async {
         status = .loggingIn
         do {
-            try await load(Self.loginURL)
+            // The web view's cookie store is persistent, so a session from an
+            // earlier launch is often still good. Try the schedule page first
+            // and only pay for a full login when the SIS actually bounces us
+            // back to the login form — skips a full navigation plus the 25s
+            // sign-in poll on every launch where the cookie still works.
+            try await load(scheduleURL)
+            let probe = try? await probeLoginPage()
 
-            // Don't wait on navigation events here: signing in runs through a
-            // redirect chain (POST to /student/ then on to /student/home), so
-            // any single didFinish can land mid-chain — and a validation error
-            // shows a modal with no navigation at all. Poll the DOM until the
-            // outcome actually settles instead.
-            webView.evaluateJavaScript(fillAndSubmitScript(for: credentials), completionHandler: nil)
+            if probe?.stillOnLoginForm != false {
+                webView.evaluateJavaScript(fillAndSubmitScript(for: credentials), completionHandler: nil)
 
-            let outcome = await awaitSignInOutcome()
-            guard outcome.success else {
-                report(outcome.message)
-                return
+                // Don't wait on navigation events here: signing in runs through
+                // a redirect chain (POST to /student/ then on to /student/home),
+                // so any single didFinish can land mid-chain — and a validation
+                // error shows a modal with no navigation at all. Poll the DOM
+                // until the outcome actually settles instead.
+                let outcome = await awaitSignInOutcome()
+                guard outcome.success else {
+                    report(outcome.message)
+                    return
+                }
             }
 
+            adoptActualHost()
             status = .success
             await loadSchedule()
             await loadGrades()
@@ -101,7 +150,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
 
     func loadSchedule() async {
         do {
-            try await load(Self.scheduleURL)
+            try await load(scheduleURL)
             let rows = try await awaitPageRows(suffix: "/schedule") {
                 try await SISScraper.scrapeSchedule(from: $0)
             } isEmpty: { $0.isEmpty }
@@ -131,7 +180,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// pages fail independently.
     func loadGrades() async {
         do {
-            try await load(Self.gradesURL)
+            try await load(gradesURL)
             // The subject rows carry the page; an empty summary is fine, but an
             // empty row set is what "page not settled yet" looks like.
             let scraped = try await awaitPageRows(suffix: "/grades") {
@@ -188,7 +237,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         defer { isLoadingHistory = false }
 
         do {
-            try await load(Self.gradesURL)
+            try await load(gradesURL)
             let options = try await SISScraper.gradeTermOptions(from: webView)
             let combos = options.combinations
             // No dropdowns found (or an unexpected page shape): keep whatever
