@@ -53,8 +53,8 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     // than we started on — requesting /schedule against the wrong host hits
     // an unauthenticated instance and scrapes nothing. Start from whichever
     // host we last actually landed on (persisted across launches), falling
-    // back to sis1 the very first time.
-    private static let defaultBase = "https://sis1.pup.edu.ph/student"
+    // back to sis8 the very first time.
+    private static let defaultBase = "https://sis8.pup.edu.ph/student"
     private static let baseDefaultsKey = "sisBaseHost"
 
     private var base: String {
@@ -70,6 +70,11 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     private var loginURL: URL { URL(string: "\(base)/")! }
     private var scheduleURL: URL { URL(string: "\(base)/schedule")! }
     private var gradesURL: URL { URL(string: "\(base)/grades")! }
+
+    /// The SIS host actually in use right now, for the Settings pane's
+    /// Technical Details — a hardcoded display string goes stale the moment
+    /// `adoptActualHost()` follows the SIS to a different numbered host.
+    var currentHost: String { URL(string: base)?.host ?? "unknown" }
 
     /// Reconciles `base` with wherever the web view actually ended up —
     /// called right after sign-in settles. If the SIS bounced us to a
@@ -116,27 +121,19 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     private func runSignIn(_ credentials: Credentials) async {
         status = .loggingIn
         do {
-            // The web view's cookie store is persistent, so a session from an
-            // earlier launch is often still good. Try the schedule page first
-            // and only pay for a full login when the SIS actually bounces us
-            // back to the login form — skips a full navigation plus the 25s
-            // sign-in poll on every launch where the cookie still works.
-            try await load(scheduleURL)
-            let probe = try? await probeLoginPage()
+            try await load(loginURL)
 
-            if probe?.stillOnLoginForm != false {
-                webView.evaluateJavaScript(fillAndSubmitScript(for: credentials), completionHandler: nil)
+            // Don't wait on navigation events here: signing in runs through a
+            // redirect chain (POST to /student/ then on to /student/home), so
+            // any single didFinish can land mid-chain — and a validation error
+            // shows a modal with no navigation at all. Poll the DOM until the
+            // outcome actually settles instead.
+            webView.evaluateJavaScript(fillAndSubmitScript(for: credentials), completionHandler: nil)
 
-                // Don't wait on navigation events here: signing in runs through
-                // a redirect chain (POST to /student/ then on to /student/home),
-                // so any single didFinish can land mid-chain — and a validation
-                // error shows a modal with no navigation at all. Poll the DOM
-                // until the outcome actually settles instead.
-                let outcome = await awaitSignInOutcome()
-                guard outcome.success else {
-                    report(outcome.message)
-                    return
-                }
+            let outcome = await awaitSignInOutcome()
+            guard outcome.success else {
+                report(outcome.message)
+                return
             }
 
             adoptActualHost()

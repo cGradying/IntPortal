@@ -1204,7 +1204,7 @@ struct SettingsView: View {
             }
 
             technicalSection([
-                ("SIS endpoint", "sis1.pup.edu.ph"),
+                ("SIS endpoint", appState.portal.currentHost),
                 ("Keychain service", "ph.edu.pup.sis8.portal"),
             ])
         }
