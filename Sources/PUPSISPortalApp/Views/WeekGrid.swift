@@ -124,16 +124,6 @@ struct WeekGrid: View {
                         .fill(palette.accent)
                         .frame(width: 4, height: 4)
                         .opacity(dueToday.isEmpty ? 0 : 1)
-
-                    // Same "you are here" mark as Settings' tab strip
-                    // (`SettingsView.swift`'s `DitherRule`) rather than a
-                    // capsule wash — one dither-underline language app-wide.
-                    if isToday {
-                        DitherRule(color: palette.accent, reduced: reduceMotion, height: 3, intensity: 0.6)
-                            .clipShape(Capsule())
-                    } else {
-                        Color.clear.frame(height: 3)
-                    }
                 }
                 // Confirmed live: an extra .opacity(0.8) on top of .secondary
                 // compounded into near-illegible day headers on non-today
@@ -141,6 +131,25 @@ struct WeekGrid: View {
                 .foregroundStyle(isToday ? palette.accent : .secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
+                // Same "you are here" texture as Settings' tab strip
+                // (`SettingsView.swift`'s `DitherRule`), but as a backing
+                // wash rather than a thin rule: sits *behind* the day
+                // name/number/dot, low-intensity so the text stays legible
+                // on top, and only ever drawn on today's column — every
+                // other day gets no background at all.
+                .background {
+                    if isToday {
+                        TimelineView(.animation(minimumInterval: reduceMotion ? nil : 0.16, paused: reduceMotion)) { context in
+                            DitherFill(
+                                color: palette.accent,
+                                cell: 2,
+                                ramp: .wave(0.35),
+                                phase: reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate * 0.5
+                            )
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                }
                 .frame(maxWidth: .infinity)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(accessibilityLabel(for: day, isToday: isToday, dueToday: dueToday))
