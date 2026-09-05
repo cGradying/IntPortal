@@ -121,14 +121,18 @@ struct WeekGrid: View {
                     // now-line's own restraint doctrine. Count/detail lives
                     // in the syllabus table/timeline (ticket #14), not here.
                     Circle()
-                        .fill(palette.accent)
+                        .fill(isToday ? Color.legibleForeground(on: palette.accent) : palette.accent)
                         .frame(width: 4, height: 4)
                         .opacity(dueToday.isEmpty ? 0 : 1)
                 }
                 // Confirmed live: an extra .opacity(0.8) on top of .secondary
                 // compounded into near-illegible day headers on non-today
                 // columns — .secondary alone already reads as "not today".
-                .foregroundStyle(isToday ? palette.accent : .secondary)
+                // Today's text sits on top of an accent-colored dither wash,
+                // so it needs the *inverse* of accent, not accent itself —
+                // same reused contrast helper `WebNoteEditor` picks light/
+                // dark tokens with.
+                .foregroundStyle(isToday ? Color.legibleForeground(on: palette.accent) : .secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
                 // Same "you are here" texture as Settings' tab strip
