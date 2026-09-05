@@ -121,35 +121,40 @@ struct WeekGrid: View {
                     // now-line's own restraint doctrine. Count/detail lives
                     // in the syllabus table/timeline (ticket #14), not here.
                     Circle()
-                        .fill(isToday ? Color.legibleForeground(on: palette.accent) : palette.accent)
+                        .fill(palette.accent)
                         .frame(width: 4, height: 4)
                         .opacity(dueToday.isEmpty ? 0 : 1)
                 }
                 // Confirmed live: an extra .opacity(0.8) on top of .secondary
                 // compounded into near-illegible day headers on non-today
                 // columns — .secondary alone already reads as "not today".
-                // Today's text sits on top of an accent-colored dither wash,
-                // so it needs the *inverse* of accent, not accent itself —
-                // same reused contrast helper `WebNoteEditor` picks light/
-                // dark tokens with.
-                .foregroundStyle(isToday ? Color.legibleForeground(on: palette.accent) : .secondary)
+                .foregroundStyle(isToday ? palette.accent : .secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
-                // Same "you are here" texture as Settings' tab strip
-                // (`SettingsView.swift`'s `DitherRule`), but as a backing
-                // wash rather than a thin rule: sits *behind* the day
-                // name/number/dot, low-intensity so the text stays legible
-                // on top, and only ever drawn on today's column — every
-                // other day gets no background at all.
+                // Confirmed live: a dither wash sitting directly *behind* the
+                // glyphs is an occlusion problem, not a contrast one — solid
+                // accent squares land right on top of letter strokes and no
+                // text color wins against that. Fixed by inverting the
+                // layering instead: the dither wash fills the whole box as a
+                // "you are here" halo (Settings tab strip's `DitherRule`
+                // language, same wave drift), then a solid canvas-colored
+                // plate sits on top of it, inset just enough to leave a thin
+                // dithered ring showing at the edge — the text draws on that
+                // clean plate, never on noise.
                 .background {
                     if isToday {
-                        TimelineView(.animation(minimumInterval: reduceMotion ? nil : 0.16, paused: reduceMotion)) { context in
-                            DitherFill(
-                                color: palette.accent,
-                                cell: 2,
-                                ramp: .wave(0.35),
-                                phase: reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate * 0.5
-                            )
+                        ZStack {
+                            TimelineView(.animation(minimumInterval: reduceMotion ? nil : 0.16, paused: reduceMotion)) { context in
+                                DitherFill(
+                                    color: palette.accent,
+                                    cell: 2,
+                                    ramp: .wave(0.6),
+                                    phase: reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate * 0.5
+                                )
+                            }
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(palette.canvasTop)
+                                .padding(3)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
