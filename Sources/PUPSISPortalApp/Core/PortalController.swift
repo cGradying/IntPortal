@@ -1,11 +1,20 @@
 import Foundation
 import WebKit
 
-enum PortalError: LocalizedError {
+enum PortalError: LocalizedError, Equatable {
     case timedOut
+    /// A second navigation wait arrived while one was still outstanding —
+    /// the older one is failed instead of being silently orphaned. See
+    /// `NavigationGate.wait`.
+    case superseded
 
     var errorDescription: String? {
-        "The SIS took too long to respond. Check your connection and try again."
+        switch self {
+        case .timedOut:
+            return "The SIS took too long to respond. Check your connection and try again."
+        case .superseded:
+            return "Another request took over the connection."
+        }
     }
 }
 
@@ -14,6 +23,69 @@ enum LoginStatus: Equatable {
     case loggingIn
     case success
     case failed(String)
+}
+
+/// Serializes every piece of web-view work that has to wait for a navigation
+/// to settle — a page load, or a script that triggers one. Only one waiter
+/// can be outstanding: arming a second used to just overwrite the first,
+/// orphaning it with nothing left to ever resume it — that's what hung
+/// sign-in forever (status stuck `.loggingIn`) when a menu-bar/Grades-tab
+/// refresh fired mid sign-in. Now the older waiter is failed first.
+///
+/// Also the one place that knows about sign-out: `cancelAll()` bumps
+/// `generation`, so a flow that captured its generation before awaiting can
+/// tell, once its wait resolves (even in failure), whether it's still
+/// current — and skip writing `@Published` state or a disk cache if not.
+///
+/// Internal (not private) and its own type so it can be driven directly by
+/// a fake navigation driver in tests, without a real `WKWebView`.
+@MainActor
+final class NavigationGate {
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var token: UUID?
+    private(set) var generation = 0
+
+    func isCurrent(_ gen: Int) -> Bool { gen == generation }
+
+    /// Arms the wait, then runs `action` (kicking off the navigation) —
+    /// arming first so a fast, synchronous completion can't resume nothing.
+    func wait(timeout: TimeInterval = 25, _ action: @escaping () -> Void) async throws {
+        fail(PortalError.superseded)
+
+        let current = UUID()
+        token = current
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            self.continuation = continuation
+            action()
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                guard self.token == current else { return }
+                self.fail(PortalError.timedOut)
+            }
+        }
+    }
+
+    func resume() {
+        guard let continuation else { return }
+        self.continuation = nil
+        token = nil
+        continuation.resume()
+    }
+
+    func fail(_ error: Error) {
+        guard let continuation else { return }
+        self.continuation = nil
+        token = nil
+        continuation.resume(throwing: error)
+    }
+
+    /// Sign-out: invalidate every in-flight flow's generation, and fail
+    /// whatever navigation wait is outstanding right now rather than
+    /// leaving it to run for up to 25s in the background.
+    func cancelAll() {
+        generation += 1
+        fail(CancellationError())
+    }
 }
 
 /// Drives the headless SIS session: signs in, then scrapes the schedule.
@@ -43,8 +115,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     @Published var isLoadingHistory = false
 
     private let webView: WKWebView
-    private var pendingContinuation: CheckedContinuation<Void, Error>?
-    private var pendingToken: UUID?
+    private let gate = NavigationGate()
 
     private static let genericFailure = "Sign-in didn't go through — check your student number, birthdate, and password."
 
@@ -120,6 +191,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     }
 
     private func runSignIn(_ credentials: Credentials) async {
+        let gen = gate.generation
         status = .loggingIn
         do {
             try await load(loginURL)
@@ -132,6 +204,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             webView.evaluateJavaScript(fillAndSubmitScript(for: credentials), completionHandler: nil)
 
             let outcome = await awaitSignInOutcome()
+            guard gate.isCurrent(gen) else { return }
             guard outcome.success else {
                 report(outcome.message)
                 return
@@ -139,22 +212,44 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
 
             adoptActualHost()
             status = .success
-            await loadSchedule()
-            await loadGrades()
+            await loadScheduleThenGrades(gen)
         } catch {
+            guard gate.isCurrent(gen) else { return }
             report(error.localizedDescription)
         }
     }
 
+    /// Schedule then grades, back-to-back, under one captured generation —
+    /// `loadSchedule()`/`loadGrades()` each guard *their own* writes, but a
+    /// sign-out landing in the gap between the two calls would otherwise let
+    /// the second one start completely fresh, see itself as perfectly
+    /// current, and legitimately write a grades cache the user just asked
+    /// deleted. Shared by `runSignIn` and the public `refresh()` so neither
+    /// caller has to remember the guard itself.
+    private func loadScheduleThenGrades(_ gen: Int) async {
+        await loadSchedule()
+        guard gate.isCurrent(gen) else { return }
+        await loadGrades()
+    }
+
+    /// "Refresh from anywhere" — the app menu, the menu bar, Settings. Single
+    /// entry point so schedule+grades sequencing (and the sign-out guard
+    /// between them) lives in one place rather than in every caller.
+    func refresh() async {
+        await loadScheduleThenGrades(gate.generation)
+    }
+
     func loadSchedule() async {
         guard !Demo.isOn else { return }
+        let gen = gate.generation
         do {
             try await load(scheduleURL)
             let rows = try await awaitPageRows(suffix: "/schedule") {
                 try await SISScraper.scrapeSchedule(from: $0)
             } isEmpty: { $0.isEmpty }
-            let scraped = rows.flatMap(ScheduleParser.parse)
+            let scraped = ScheduleParser.parse(rows)
             let now = Date()
+            guard gate.isCurrent(gen) else { return }
 
             // A scrape that parses to nothing while we already hold a schedule is
             // almost always a hiccup (page not settled, markup drift), not a real
@@ -170,6 +265,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             refreshError = nil
             ScheduleStore.save(scraped, lastUpdated: now)
         } catch {
+            guard gate.isCurrent(gen) else { return }
             report("Couldn't refresh your schedule: \(error.localizedDescription)")
         }
     }
@@ -179,6 +275,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// pages fail independently.
     func loadGrades() async {
         guard !Demo.isOn else { return }
+        let gen = gate.generation
         do {
             try await load(gradesURL)
             // The subject rows carry the page; an empty summary is fine, but an
@@ -195,6 +292,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
                 schoolYear: options?.currentSchoolYear,
                 semester: options?.currentSemester
             )
+            guard gate.isCurrent(gen) else { return }
             // Same protection as the schedule: don't let an empty parse wipe grades
             // we already hold.
             if report.subjects.isEmpty, let existing = grades, !existing.subjects.isEmpty {
@@ -217,6 +315,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
                 GradesStore.saveHistory(gradeHistory)
             }
         } catch {
+            guard gate.isCurrent(gen) else { return }
             // Never through `report(_:)` — that governs the schedule screen.
             gradesError = "Couldn't refresh your grades: \(error.localizedDescription)"
         }
@@ -233,6 +332,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// every sign-in, so its cost is only paid when asked for.
     func loadGradeHistory() async {
         guard !isLoadingHistory else { return }
+        let gen = gate.generation
         isLoadingHistory = true
         defer { isLoadingHistory = false }
 
@@ -246,13 +346,14 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
 
             var collected = gradeHistory
             for combo in combos {
+                guard gate.isCurrent(gen) else { return }
                 // Arm the navigation wait *before* the submit fires it.
                 let script = SISScraper.selectGradeTermScript(
                     schoolYear: combo.schoolYear,
                     semester: combo.semester
                 )
                 do {
-                    try await performAndWait { [weak self] in
+                    try await gate.wait { [weak self] in
                         self?.webView.evaluateJavaScript(script, completionHandler: nil)
                     }
                 } catch {
@@ -277,10 +378,12 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
                 }
             }
 
+            guard gate.isCurrent(gen) else { return }
             gradeHistory = collected
             gradesError = nil
             GradesStore.saveHistory(collected)
         } catch {
+            guard gate.isCurrent(gen) else { return }
             gradesError = "Couldn't load your grade history: \(error.localizedDescription)"
         }
     }
@@ -384,25 +487,8 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     }
 
     private func load(_ url: URL) async throws {
-        try await performAndWait { [weak self] in
+        try await gate.wait { [weak self] in
             self?.webView.load(URLRequest(url: url))
-        }
-    }
-
-    /// Arms the continuation *before* kicking off the navigation — otherwise a
-    /// fast `didFinish` resumes nothing and the next navigation resumes the
-    /// wrong await.
-    private func performAndWait(timeout: TimeInterval = 25, _ action: @escaping () -> Void) async throws {
-        let token = UUID()
-        pendingToken = token
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            pendingContinuation = continuation
-            action()
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                guard pendingToken == token else { return }
-                resumePending(throwing: PortalError.timedOut)
-            }
         }
     }
 
@@ -432,19 +518,15 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         """
     }
 
-    private func resumePending(throwing error: Error?) {
-        guard let continuation = pendingContinuation else { return }
-        pendingContinuation = nil
-        pendingToken = nil
-        if let error {
-            continuation.resume(throwing: error)
-        } else {
-            continuation.resume()
-        }
+    /// Call on sign-out: any sign-in or refresh already running must not
+    /// touch `@Published` state or write a cache after the caches were just
+    /// deleted. See `NavigationGate.cancelAll()`.
+    func cancelInFlight() {
+        gate.cancelAll()
     }
 
     nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        Task { @MainActor in resumePending(throwing: nil) }
+        Task { @MainActor in gate.resume() }
     }
 
     nonisolated func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -460,9 +542,9 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// when we ask for `/student/schedule`, so the older load gets cancelled
     /// and reports here. Surfacing it turned a working sign-in into
     /// "error -999". The superseding navigation reports for itself, and the
-    /// timeout in `performAndWait` covers the case where nothing does.
+    /// timeout in `NavigationGate.wait` covers the case where nothing does.
     private nonisolated func fail(with error: Error) {
         guard (error as NSError).code != NSURLErrorCancelled else { return }
-        Task { @MainActor in resumePending(throwing: error) }
+        Task { @MainActor in gate.fail(error) }
     }
 }

@@ -266,9 +266,13 @@ final class SyllabusStore: ObservableObject {
     }
 
     private static func load(from url: URL) -> Document {
-        guard let data = try? Data(contentsOf: url),
-              let document = try? JSONDecoder().decode(Document.self, from: data)
-        else { return Document(items: [:]) }
+        guard let data = try? Data(contentsOf: url) else { return Document(items: [:]) }
+        guard let document = try? JSONDecoder().decode(Document.self, from: data) else {
+            // Corrupt, not "no syllabus yet" — move it aside so the next
+            // persist() (any edit) can't silently overwrite it.
+            CorruptedFile.quarantine(url)
+            return Document(items: [:])
+        }
         return document
     }
 }

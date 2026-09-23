@@ -167,7 +167,12 @@ final class QuizStore: ObservableObject {
 
     private func loadReviews(_ deckID: UUID) -> [QuizReviewRecord] {
         guard let data = try? Data(contentsOf: reviewsURL(deckID)) else { return [] }
-        return (try? JSONDecoder().decode([QuizReviewRecord].self, from: data)) ?? []
+        if let records = try? JSONDecoder().decode([QuizReviewRecord].self, from: data) { return records }
+        // Corrupt, not "no reviews yet" — move it aside so the next
+        // appendReview() can't silently overwrite the whole log with just
+        // the one new record.
+        CorruptedFile.quarantine(reviewsURL(deckID))
+        return []
     }
 
     private func persistReviews(_ records: [QuizReviewRecord], deckID: UUID) {
@@ -192,12 +197,21 @@ final class QuizStore: ObservableObject {
         return entries.compactMap { dir -> QuizDeck? in
             let deckURL = dir.appendingPathComponent("deck.json")
             guard let data = try? Data(contentsOf: deckURL) else { return nil }
-            return try? JSONDecoder().decode(QuizDeck.self, from: data)
+            if let deck = try? JSONDecoder().decode(QuizDeck.self, from: data) { return deck }
+            // Corrupt, not "no deck here" — move it aside for recovery
+            // rather than leaving it to silently vanish from the list.
+            CorruptedFile.quarantine(deckURL)
+            return nil
         }.sorted { $0.created > $1.created }
     }
 
     private static func loadStats(from url: URL) -> QuizStats {
         guard let data = try? Data(contentsOf: url) else { return QuizStats() }
-        return (try? JSONDecoder().decode(QuizStats.self, from: data)) ?? QuizStats()
+        if let stats = try? JSONDecoder().decode(QuizStats.self, from: data) { return stats }
+        // Corrupt, not "no stats yet" — move it aside so the next
+        // persistStats() (any review) can't silently overwrite it, resetting
+        // the streak.
+        CorruptedFile.quarantine(url)
+        return QuizStats()
     }
 }

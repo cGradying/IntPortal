@@ -157,6 +157,33 @@ final class NextClassTests: XCTestCase {
         let now = try date("2026-08-03", 17)   // Monday done; next is Friday
         XCTAssertEqual(try upcoming(at: now).countdown(now: now, calendar: calendar), "FRI 1:30PM")
     }
+
+    // MARK: DST
+
+    /// 2026-03-08 is when US Eastern springs forward (2:00 AM clocks jump to
+    /// 3:00 AM). Building the start time as "midnight + 510 elapsed minutes"
+    /// lands on 9:30 — an hour late — because 60 of those minutes are spent
+    /// crossing the gap the clock skips; reading the wall-clock hour/minute
+    /// directly still gives 8:30, exactly what the SIS shows.
+    func testClassStartTimeDoesNotDriftAcrossASpringForwardTransition() throws {
+        var dstCalendar = Calendar(identifier: .gregorian)
+        dstCalendar.timeZone = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+
+        let sunday = session("COMP 20073", .sunday, 8 * 60 + 30, 10 * 60)
+        var midnightComponents = DateComponents()
+        (midnightComponents.year, midnightComponents.month, midnightComponents.day) = (2026, 3, 8)
+        (midnightComponents.hour, midnightComponents.minute) = (0, 30)
+        let now = try XCTUnwrap(dstCalendar.date(from: midnightComponents))
+
+        let upcoming = try XCTUnwrap(NextClass.next(in: [sunday], at: now, calendar: dstCalendar))
+
+        var expectedComponents = DateComponents()
+        (expectedComponents.year, expectedComponents.month, expectedComponents.day) = (2026, 3, 8)
+        (expectedComponents.hour, expectedComponents.minute) = (8, 30)
+        let expectedStart = try XCTUnwrap(dstCalendar.date(from: expectedComponents))
+
+        XCTAssertEqual(upcoming.start, expectedStart)
+    }
 }
 
 /// The reminder's fire time is plain arithmetic, and the only part of

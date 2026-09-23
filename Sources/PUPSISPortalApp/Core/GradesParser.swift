@@ -13,9 +13,36 @@ struct SubjectGrade: Identifiable, Equatable, Codable {
     let finalGrade: String
     let gradeStatus: String
 
+    /// Set by `GradesParser.parse(_ rows:)` when a scraped row duplicates an
+    /// earlier one's subject/section key (a literal repeated `<tr>`, the same
+    /// SIS/DataTables scrape quirk `ClassSession` guards against) — 0 for the
+    /// first occurrence, 1+ for each repeat, so `id` stays unique. Excluded
+    /// from `Codable` (recomputed fresh on every parse, never persisted) so
+    /// old cached grades JSON keeps decoding, and given a manual `==` that
+    /// ignores it — it's a parse-time artifact, not part of the grade itself.
+    var occurrenceIndex: Int = 0
+
+    private enum CodingKeys: String, CodingKey {
+        case subjectCode, description, faculty, units, sectionCode, finalGrade, gradeStatus
+    }
+
     /// Section code disambiguates the same subject taken twice; falling back to
-    /// the code keeps the id stable when a section isn't listed.
-    var id: String { sectionCode.isEmpty ? subjectCode : "\(subjectCode)-\(sectionCode)" }
+    /// the code keeps the id stable when a section isn't listed. Duplicate rows
+    /// get `occurrenceIndex` appended so repeats don't collide.
+    var id: String {
+        let base = sectionCode.isEmpty ? subjectCode : "\(subjectCode)-\(sectionCode)"
+        return occurrenceIndex == 0 ? base : "\(base)-\(occurrenceIndex)"
+    }
+
+    static func == (lhs: SubjectGrade, rhs: SubjectGrade) -> Bool {
+        lhs.subjectCode == rhs.subjectCode
+            && lhs.description == rhs.description
+            && lhs.faculty == rhs.faculty
+            && lhs.units == rhs.units
+            && lhs.sectionCode == rhs.sectionCode
+            && lhs.finalGrade == rhs.finalGrade
+            && lhs.gradeStatus == rhs.gradeStatus
+    }
 
     /// The numeric value only when the grade is posted *and* numeric. PUP grades
     /// run 1.00 (best) to 5.00 (fail); "INC", "DRP", and a blank cell all return
@@ -118,7 +145,15 @@ struct GradeReport: Codable, Equatable {
 /// Turns scraped grade rows into typed values, and computes the GPA.
 enum GradesParser {
     static func parse(_ rows: [[String: String]]) -> [SubjectGrade] {
-        rows.compactMap(parse)
+        var seen: [String: Int] = [:]
+        return rows.compactMap(parse).map { grade in
+            let key = grade.sectionCode.isEmpty ? grade.subjectCode : "\(grade.subjectCode)-\(grade.sectionCode)"
+            let index = seen[key, default: 0]
+            seen[key] = index + 1
+            var copy = grade
+            copy.occurrenceIndex = index
+            return copy
+        }
     }
 
     /// A row with no subject code is a spacer or a totals line, not a subject —
