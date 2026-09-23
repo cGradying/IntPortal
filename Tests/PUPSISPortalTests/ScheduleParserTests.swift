@@ -92,6 +92,31 @@ final class ScheduleParserTests: XCTestCase {
         XCTAssertEqual(sessions[0].day, .monday)
         XCTAssertEqual(sessions[1].day, .wednesday)
     }
+
+    /// One day group against several range groups: a single written day
+    /// meeting more than once (Lec then Lab) — the same shape `SUN/SUN
+    /// times/times` covers, just spelled with one day token instead of a
+    /// repeated one. Regression: positional `min(dayGroups, rangeGroups)`
+    /// pairing silently dropped the second range because there was only one
+    /// day group to pair it against.
+    func testSingleDayGroupWithSeveralRangesCoversEveryRange() {
+        let sessions = parse("1N - X - S 07:30AM-10:30AM/01:00PM-04:00PM")
+        XCTAssertEqual(sessions.count, 2)
+        XCTAssertTrue(sessions.allSatisfy { $0.day == .saturday })
+        XCTAssertEqual(sessions[0].start, 7 * 60 + 30)
+        XCTAssertEqual(sessions[0].end, 10 * 60 + 30)
+        XCTAssertEqual(sessions[1].start, 13 * 60)
+        XCTAssertEqual(sessions[1].end, 16 * 60)
+    }
+
+    /// The mirror shape: several day groups (one of them a multi-day run)
+    /// sharing a single written time range.
+    func testSeveralDayGroupsWithOneRangeCoverEveryGroup() {
+        let sessions = parse("1N - X - TTH/S 01:00PM-02:30PM")
+        XCTAssertEqual(sessions.count, 3)
+        XCTAssertEqual(sessions.map(\.day), [.tuesday, .thursday, .saturday])
+        XCTAssertTrue(sessions.allSatisfy { $0.start == 13 * 60 && $0.end == 14 * 60 + 30 })
+    }
 }
 
 /// Duplicate scraped rows (a literal repeated `<tr>`, a known SIS/DataTables

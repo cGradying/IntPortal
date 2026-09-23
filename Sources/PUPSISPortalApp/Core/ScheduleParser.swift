@@ -29,11 +29,9 @@ enum ScheduleParser {
         let line = row["scheduleLine"] ?? ""
         guard let (dayField, timeField) = splitDaysAndTimes(line) else { return [] }
 
-        // Each slash-separated segment is a group; day and time groups pair
-        // positionally. A group whose day run expands to more than one day
-        // (`TTH`, `MW`) repeats that group's own single time range across
-        // every day in it, rather than losing the extra days to a flattened
-        // day/range count mismatch.
+        // Each slash-separated segment is a group. A group whose day run
+        // expands to more than one day (`TTH`, `MW`) repeats that group's own
+        // single time range across every day in it.
         let dayGroups = dayField.split(separator: "/").map { tokenizeDays(String($0)) }
         let rangeGroups = timeField.split(separator: "/").compactMap { parseRange(String($0)) }
         guard !dayGroups.isEmpty, !rangeGroups.isEmpty else { return [] }
@@ -42,19 +40,33 @@ enum ScheduleParser {
         let description = row["description"] ?? ""
         let faculty = row["faculty"] ?? ""
 
+        func session(_ day: Weekday, _ range: (Int, Int)) -> ClassSession {
+            ClassSession(
+                subjectCode: subjectCode,
+                description: description,
+                faculty: faculty,
+                day: day,
+                start: range.0,
+                end: range.1
+            )
+        }
+
+        // A lone group on one side repeats across every group on the other
+        // side: `S 07:30AM-10:30AM/01:00PM-04:00PM` is Saturday twice (Lec
+        // then Lab, one day group against two range groups); `TTH/S
+        // 01:00PM-02:30PM` is three days sharing the one written time (two
+        // day groups against one range group). Only when *both* sides carry
+        // several groups do they pair positionally, group to group.
+        if dayGroups.count == 1, rangeGroups.count > 1 {
+            return rangeGroups.flatMap { range in dayGroups[0].map { session($0, range) } }
+        }
+        if rangeGroups.count == 1, dayGroups.count > 1 {
+            return dayGroups.flatMap { days in days.map { session($0, rangeGroups[0]) } }
+        }
+
         let groupCount = min(dayGroups.count, rangeGroups.count)
-        return (0..<groupCount).flatMap { index -> [ClassSession] in
-            let range = rangeGroups[index]
-            return dayGroups[index].map { day in
-                ClassSession(
-                    subjectCode: subjectCode,
-                    description: description,
-                    faculty: faculty,
-                    day: day,
-                    start: range.0,
-                    end: range.1
-                )
-            }
+        return (0..<groupCount).flatMap { index in
+            dayGroups[index].map { session($0, rangeGroups[index]) }
         }
     }
 
