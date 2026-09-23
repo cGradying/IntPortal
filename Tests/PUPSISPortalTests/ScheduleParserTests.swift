@@ -72,6 +72,48 @@ final class ScheduleParserTests: XCTestCase {
         XCTAssertTrue(parse("1N - BSCS 1-1N - TBA").isEmpty)
         XCTAssertTrue(parse("no times here at all").isEmpty)
     }
+
+    /// A single day-run token (`TTH`, `MW`) paired with one time range must
+    /// expand to one session per day, not just the first — the old
+    /// `min(days.count, ranges.count)` pairing silently dropped every day
+    /// after the first once `tokenizeDays` split the run into more than one
+    /// `Weekday`.
+    func testDayRunWithSingleRangeCoversEveryDay() {
+        let sessions = parse("1N - X - TTH 01:00PM-02:30PM")
+        XCTAssertEqual(sessions.count, 2)
+        XCTAssertEqual(sessions[0].day, .tuesday)
+        XCTAssertEqual(sessions[1].day, .thursday)
+        XCTAssertTrue(sessions.allSatisfy { $0.start == 13 * 60 && $0.end == 14 * 60 + 30 })
+    }
+
+    func testMWDayRunDoesntLoseWednesday() {
+        let sessions = parse("1N - X - MW 08:00AM-09:30AM")
+        XCTAssertEqual(sessions.count, 2)
+        XCTAssertEqual(sessions[0].day, .monday)
+        XCTAssertEqual(sessions[1].day, .wednesday)
+    }
+}
+
+/// Duplicate scraped rows (a literal repeated `<tr>`, a known SIS/DataTables
+/// quirk) must not collide on `ClassSession.id` — Preferences and SwiftUI
+/// identity key on it.
+final class ScheduleParserDuplicateRowsTests: XCTestCase {
+    private func row(_ line: String, subject: String = "TEST 001") -> [String: String] {
+        ["subjectCode": subject, "description": "Test Subject", "faculty": "SANTOS, JUAN", "scheduleLine": line]
+    }
+
+    func testDuplicateRowsGetUniqueIDs() {
+        let line = "1N - X - S 07:30AM-10:30AM"
+        let sessions = ScheduleParser.parse([row(line), row(line)])
+
+        XCTAssertEqual(sessions.count, 2)
+        XCTAssertEqual(Set(sessions.map(\.id)).count, 2)
+    }
+
+    func testNonDuplicateRowsKeepTheirOriginalID() {
+        let sessions = ScheduleParser.parse([row("1N - X - S 07:30AM-10:30AM")])
+        XCTAssertEqual(sessions.first?.id, "TEST 001-\(Weekday.saturday.rawValue)-450-630")
+    }
 }
 
 /// The floating month calendar's dot colors read off this — a subject

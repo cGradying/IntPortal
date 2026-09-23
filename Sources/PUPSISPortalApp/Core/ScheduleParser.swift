@@ -7,32 +7,54 @@ import Foundation
 /// Days and time ranges are `/`-separated and paired positionally, so the
 /// same day twice (`SUN/SUN`) means two blocks that day (Lec then Lab).
 enum ScheduleParser {
+    /// Parses every scraped row and flattens the result, giving each repeat of
+    /// an already-seen subject/day/time an `occurrenceIndex` so duplicate rows
+    /// (a literal repeated `<tr>` — a known SIS/DataTables scrape quirk) don't
+    /// collide on `ClassSession.id`, which Preferences and SwiftUI identity key
+    /// on. A non-duplicate session keeps `occurrenceIndex == 0`, the same `id`
+    /// as before this existed.
+    static func parse(_ rows: [[String: String]]) -> [ClassSession] {
+        var seen: [String: Int] = [:]
+        return rows.flatMap(parse).map { session in
+            let key = "\(session.subjectCode)-\(session.day.rawValue)-\(session.start)-\(session.end)"
+            let index = seen[key, default: 0]
+            seen[key] = index + 1
+            var copy = session
+            copy.occurrenceIndex = index
+            return copy
+        }
+    }
+
     static func parse(_ row: [String: String]) -> [ClassSession] {
         let line = row["scheduleLine"] ?? ""
         guard let (dayField, timeField) = splitDaysAndTimes(line) else { return [] }
 
-        let days = dayField.split(separator: "/").flatMap { tokenizeDays(String($0)) }
-        let ranges = timeField.split(separator: "/").compactMap { parseRange(String($0)) }
-        guard !days.isEmpty, !ranges.isEmpty else { return [] }
+        // Each slash-separated segment is a group; day and time groups pair
+        // positionally. A group whose day run expands to more than one day
+        // (`TTH`, `MW`) repeats that group's own single time range across
+        // every day in it, rather than losing the extra days to a flattened
+        // day/range count mismatch.
+        let dayGroups = dayField.split(separator: "/").map { tokenizeDays(String($0)) }
+        let rangeGroups = timeField.split(separator: "/").compactMap { parseRange(String($0)) }
+        guard !dayGroups.isEmpty, !rangeGroups.isEmpty else { return [] }
 
         let subjectCode = row["subjectCode"] ?? ""
         let description = row["description"] ?? ""
         let faculty = row["faculty"] ?? ""
 
-        // One day with several ranges means the same day meets more than once;
-        // otherwise days and ranges line up one-to-one.
-        let count = days.count == 1 ? ranges.count : min(days.count, ranges.count)
-        return (0..<count).map { index in
-            let day = days.count == 1 ? days[0] : days[index]
-            let range = ranges[min(index, ranges.count - 1)]
-            return ClassSession(
-                subjectCode: subjectCode,
-                description: description,
-                faculty: faculty,
-                day: day,
-                start: range.0,
-                end: range.1
-            )
+        let groupCount = min(dayGroups.count, rangeGroups.count)
+        return (0..<groupCount).flatMap { index -> [ClassSession] in
+            let range = rangeGroups[index]
+            return dayGroups[index].map { day in
+                ClassSession(
+                    subjectCode: subjectCode,
+                    description: description,
+                    faculty: faculty,
+                    day: day,
+                    start: range.0,
+                    end: range.1
+                )
+            }
         }
     }
 

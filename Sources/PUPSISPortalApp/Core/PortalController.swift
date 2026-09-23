@@ -151,7 +151,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             let rows = try await awaitPageRows(suffix: "/schedule") {
                 try await SISScraper.scrapeSchedule(from: $0)
             } isEmpty: { $0.isEmpty }
-            let scraped = rows.flatMap(ScheduleParser.parse)
+            let scraped = ScheduleParser.parse(rows)
             let now = Date()
 
             // A scrape that parses to nothing while we already hold a schedule is
