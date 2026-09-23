@@ -1,5 +1,42 @@
 import Foundation
 
+extension Calendar {
+    /// Resolves minutes-from-midnight to a concrete wall-clock `Date` by
+    /// setting the hour/minute directly on `day`, rather than adding elapsed
+    /// minutes to its midnight. On a DST transition day, adding elapsed
+    /// minutes drifts by the DST offset (a class scraped as starting at 8:30
+    /// lands at 9:30 or 7:30), while `bySettingHour:minute:` always resolves
+    /// to that literal wall-clock time.
+    ///
+    /// Returns `nil` for a wall-clock time a spring-forward gap skips (e.g.
+    /// 2:30 on a day that jumps 2:00→3:00) — no class actually meets at a
+    /// time that never happened that day. Callers decide what a `nil` means
+    /// for them.
+    ///
+    /// Neither `bySettingHour:minute:second:of:` nor `date(from:)` actually
+    /// fail on a skipped time — every `matchingPolicy`, `.strict` included,
+    /// silently normalizes it to some *other* valid moment (the next hour,
+    /// sometimes the next day entirely) instead of returning nil. So this
+    /// builds the date and round-trips its components back out: if what
+    /// comes back isn't the literal day/hour/minute that was asked for, the
+    /// requested time never happened and the occurrence is invalid.
+    func wallClock(minutes: Int, on day: Date) -> Date? {
+        var components = dateComponents([.year, .month, .day], from: day)
+        components.hour = minutes / 60
+        components.minute = minutes % 60
+        components.second = 0
+
+        guard let resolved = date(from: components) else { return nil }
+        let actual = dateComponents([.year, .month, .day, .hour, .minute], from: resolved)
+        guard actual.year == components.year, actual.month == components.month,
+              actual.day == components.day, actual.hour == components.hour,
+              actual.minute == components.minute
+        else { return nil }
+
+        return resolved
+    }
+}
+
 /// "What's next" — the one glance that makes the app worth opening daily.
 ///
 /// Pure logic on purpose: no `Preferences`, no views, no clock of its own. The
@@ -67,19 +104,10 @@ enum NextClass {
             sessions.compactMap { session -> Upcoming? in
                 let midnight = session.day.date(inWeekStarting: weekStart, calendar: calendar)
                 let (startMinutes, endMinutes) = time(session, midnight)
-                // Set the wall-clock hour/minute directly rather than adding
-                // elapsed minutes to midnight: on a DST transition day, the
-                // clock itself jumps, so "midnight + 510 elapsed minutes"
-                // lands an hour off the 8:30 the SIS actually shows, while
-                // `bySettingHour:minute:` always resolves to that literal
-                // wall-clock time.
-                // `bySettingHour` returns nil for a wall-clock time the
-                // spring-forward gap skips (e.g. 2:30 on a day that jumps
-                // 2:00→3:00); that occurrence is silently dropped here, which
-                // is correct — no class actually meets at a time that never
-                // happened that day.
-                guard let start = calendar.date(bySettingHour: startMinutes / 60, minute: startMinutes % 60, second: 0, of: midnight),
-                      let end = calendar.date(bySettingHour: endMinutes / 60, minute: endMinutes % 60, second: 0, of: midnight),
+                // A skipped spring-forward occurrence is dropped here — no
+                // class actually meets at a time that never happened that day.
+                guard let start = calendar.wallClock(minutes: startMinutes, on: midnight),
+                      let end = calendar.wallClock(minutes: endMinutes, on: midnight),
                       end > now
                 else { return nil }
 

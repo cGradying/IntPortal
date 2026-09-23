@@ -159,7 +159,10 @@ final class Notifier: ObservableObject {
 
             case .dated(let occurrences):
                 for (index, occurrence) in occurrences.enumerated() {
-                    guard let classStart = calendar.date(byAdding: .minute, value: occurrence.start, to: occurrence.midnight),
+                    // classStart is wall-clock (see Calendar.wallClock in
+                    // NextClass.swift); the lead-time offset below is a real
+                    // elapsed duration before it, so it stays `byAdding`.
+                    guard let classStart = calendar.wallClock(minutes: occurrence.start, on: occurrence.midnight),
                           let fireDate = calendar.date(byAdding: .minute, value: -leadMinutes, to: classStart),
                           fireDate > now
                     else { continue }

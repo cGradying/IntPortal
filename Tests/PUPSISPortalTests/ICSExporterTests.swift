@@ -119,6 +119,29 @@ final class ICSExporterTests: XCTestCase {
         XCTAssertTrue(text.contains("DTEND:20260806T150000"), text)
     }
 
+    // MARK: DST
+
+    /// Caller-level check for W12: a class on the US Eastern spring-forward
+    /// date must still export at its literal wall-clock time. Before routing
+    /// through `Calendar.wallClock`, `.ics` built the start by adding elapsed
+    /// minutes to midnight, which landed an hour late on this date.
+    func testDSTTransitionDateExportsTheLiteralWallClockTime() throws {
+        var newYork = Calendar(identifier: .gregorian)
+        newYork.timeZone = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+
+        // 2026-03-08 is the Sunday US Eastern springs forward; `weekStart` is
+        // the app's Monday-anchored week start, so that's 2026-03-02.
+        let weekStart = try XCTUnwrap(newYork.date(from: DateComponents(year: 2026, month: 3, day: 2)))
+        let termEnd = try XCTUnwrap(newYork.date(from: DateComponents(year: 2026, month: 3, day: 31)))
+        let session = session("COMP", .sunday, 8 * 60 + 30, 10 * 60)
+
+        let text = ICSExporter.ics(for: [session], weekStart: weekStart, until: termEnd,
+                                   calendar: newYork, now: weekStart)
+
+        XCTAssertTrue(text.contains("DTSTART:20260308T083000"), text)
+        XCTAssertTrue(text.contains("DTEND:20260308T100000"), text)
+    }
+
     // MARK: Escaping
 
     func testSpecialCharactersAreEscaped() {

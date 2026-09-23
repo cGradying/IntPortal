@@ -1158,7 +1158,7 @@ struct AgendaView: View {
         let cal = Calendar.current
         let midnight = session.day.date(inWeekStarting: weekStart)
         let (startMinutes, endMinutes) = preferences.time(for: session, on: weekStart)
-        let start = cal.date(byAdding: .minute, value: startMinutes, to: midnight) ?? midnight
+        let start = cal.wallClock(minutes: startMinutes, on: midnight) ?? midnight
         return NextClass.Upcoming(
             session: session, start: start,
             startMinutes: startMinutes, endMinutes: endMinutes, isNow: false

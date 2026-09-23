@@ -49,8 +49,10 @@ enum ICSExporter {
 
             let day = session.day.date(inWeekStarting: weekStart, calendar: calendar)
             let (startMinutes, endMinutes) = time(session, weekStart)
-            guard let start = calendar.date(byAdding: .minute, value: startMinutes, to: day),
-                  let end = calendar.date(byAdding: .minute, value: endMinutes, to: day)
+            // Wall-clock, not elapsed-minute, so a DST transition day doesn't
+            // drift the exported time — see Calendar.wallClock in NextClass.swift.
+            guard let start = calendar.wallClock(minutes: startMinutes, on: day),
+                  let end = calendar.wallClock(minutes: endMinutes, on: day)
             else { continue }
 
             lines.append("BEGIN:VEVENT")
