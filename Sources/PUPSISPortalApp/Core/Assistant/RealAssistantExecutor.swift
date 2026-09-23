@@ -102,9 +102,21 @@ final class RealAssistantExecutor: AssistantExecutor {
     /// are checked, and checked by membership in that same Set rather than
     /// re-walking the tree, so this and `search_notes`/`ask_notes` never
     /// disagree about what's excluded.
-    private func isExcludedFromAI(_ key: String) -> Bool {
+    ///
+    /// Static (not just the instance-scoped wrapper below) so every place
+    /// that reads a note's *content* into the model's context goes through
+    /// this one check instead of each reimplementing — or forgetting — the
+    /// same toggle: `AssistantFloating.buildContext()`'s open-note system
+    /// prompt text, and `AssistantCommandRunner`'s `/read` (which pins a
+    /// note into every later turn) and `/summarize`, both used to read
+    /// `NotesStore.text(for:)` straight through with no check at all.
+    static func isExcludedFromAI(_ key: String, in notes: NotesStore) -> Bool {
         guard key.hasPrefix("vault:") else { return false }
-        return !notesStore.ragIncludedKeys().contains(key)
+        return !notes.ragIncludedKeys().contains(key)
+    }
+
+    private func isExcludedFromAI(_ key: String) -> Bool {
+        Self.isExcludedFromAI(key, in: notesStore)
     }
 
     /// Confirmed live: this and `listNotes` below fed the model a note's full

@@ -1182,7 +1182,15 @@ private struct AssistantChat: View {
                 let time = preferences.time(for: session, on: weekStart)
                 return AssistantContext.ClassEntry(session: session, start: time.start, end: time.end)
             }
-        let noteText = appState.openNoteKey.map { appState.notes.text(for: $0) }
+        // Regression: this used to read the open note's text unconditionally
+        // — a note the student excluded from AI still leaked into the system
+        // prompt just by being open. An excluded note is treated as if none
+        // were open at all, same refusal `RealAssistantExecutor.readNote`
+        // gives the model directly.
+        let openNoteKey = appState.openNoteKey.flatMap {
+            RealAssistantExecutor.isExcludedFromAI($0, in: appState.notes) ? nil : $0
+        }
+        let noteText = openNoteKey.map { appState.notes.text(for: $0) }
         let gradesSummary = appState.portal.grades.flatMap { report -> String? in
             guard report.hasPostedGrades else { return nil }
             let gpa = report.computedGPA.map { String(format: "%.2f", $0) } ?? "n/a"
@@ -1202,7 +1210,7 @@ private struct AssistantChat: View {
         schedule.save()
         return AssistantContext(
             destination: appState.selection,
-            openNoteKey: appState.openNoteKey,
+            openNoteKey: openNoteKey,
             openNoteText: noteText,
             todayClasses: todayClasses,
             gradesSummary: gradesSummary,
