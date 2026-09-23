@@ -107,8 +107,13 @@ final class Notifier: ObservableObject {
             calendar.date(byAdding: .day, value: $0 * 7, to: thisWeek)
         }
         let starts = weekStarts.map(resolvedStart)
+        // A vacant week still breaks the "one weekly trigger" case even when
+        // every start time in the horizon agrees — a repeating trigger has no
+        // way to skip a single occurrence, so it would fire into a week the
+        // class isn't happening.
+        let anyVacant = weekStarts.contains(where: isVacant)
 
-        guard let first = starts.first, starts.allSatisfy({ $0 == first }) else {
+        guard let first = starts.first, !anyVacant, starts.allSatisfy({ $0 == first }) else {
             let occurrences = zip(weekStarts, starts).compactMap { weekStart, start -> Plan.Occurrence? in
                 guard !isVacant(weekStart) else { return nil }
                 return Plan.Occurrence(midnight: session.day.date(inWeekStarting: weekStart, calendar: calendar), start: start)

@@ -1579,7 +1579,8 @@ private extension SettingsView {
                     weekStart: Weekday.weekStart(containing: .now),
                     until: preferences.termEndDate,
                     toCalendarID: preferences.googleCalendarID,
-                    status: { preferences.termStatus(for: $0) }
+                    status: { preferences.termStatus(for: $0) },
+                    time: { preferences.time(for: $0, on: $1) }
                 )
             } catch {
                 googleResult = error.localizedDescription
@@ -1605,7 +1606,8 @@ private extension SettingsView {
             until: preferences.termEndDate,
             // Term status: an .ics VEVENT is a single repeating series, so it
             // carries whole-term status, not a single week's exception.
-            status: { preferences.termStatus(for: $0) }
+            status: { preferences.termStatus(for: $0) },
+            time: { preferences.time(for: $0, on: $1) }
         )
         do {
             try text.write(to: url, atomically: true, encoding: .utf8)
