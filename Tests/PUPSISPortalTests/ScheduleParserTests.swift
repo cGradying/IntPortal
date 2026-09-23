@@ -12,6 +12,12 @@ final class ScheduleParserTests: XCTestCase {
         ])
     }
 
+    func testJoinedDayRunWithOneRangePerDayPairsPositionally() {
+        let sessions = parse("1N - BSCS 1-1N - TTH 07:30AM-09:00AM/10:30AM-12:00PM")
+        XCTAssertEqual(sessions.map(\.day), [.tuesday, .thursday])
+        XCTAssertEqual(sessions.map(\.start), [450, 630])
+    }
+
     func testTwoDaysPairWithTheirOwnTimes() {
         let sessions = parse("1N - BSCS 1-1N - T/F 02:00PM-04:00PM/01:30PM-04:30PM")
         XCTAssertEqual(sessions.count, 2)

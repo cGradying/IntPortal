@@ -58,7 +58,14 @@ enum ScheduleParser {
         // day groups against one range group). Only when *both* sides carry
         // several groups do they pair positionally, group to group.
         if dayGroups.count == 1, rangeGroups.count > 1 {
-            return rangeGroups.flatMap { range in dayGroups[0].map { session($0, range) } }
+            let days = dayGroups[0]
+            // A joined run with one range per day (`TTH a/b`) still pairs
+            // positionally, Tuesday with `a` and Thursday with `b`, per the
+            // SIS rule; only a single day (`S a/b`) repeats across ranges.
+            if days.count == rangeGroups.count {
+                return zip(days, rangeGroups).map { session($0, $1) }
+            }
+            return rangeGroups.flatMap { range in days.map { session($0, range) } }
         }
         if rangeGroups.count == 1, dayGroups.count > 1 {
             return dayGroups.flatMap { days in days.map { session($0, rangeGroups[0]) } }
