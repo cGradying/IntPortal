@@ -123,7 +123,7 @@ struct SettingsView: View {
     /// Selection reads as a thin pixel-dither line under the current tab,
     /// not a full capsule wash — it glides between tabs via
     /// `matchedGeometryEffect` on switch, and idles with the same
-    /// wave-dither ambient drift `HomeNoiseField` already uses for the home
+    /// wave-dither ambient drift the old home launcher used for the home
     /// launcher (this app's one other continuous ambient loop) rather than
     /// sitting static.
     private var tabStrip: some View {
@@ -356,7 +356,10 @@ struct SettingsView: View {
     /// the two destructive resets, last.
     private var generalTab: some View {
         VStack(alignment: .leading, spacing: 20) {
-            compactSection("Window", footer: "The red/yellow/green window buttons, and launching with your Mac.") {
+            compactSection("Window", footer: "The launch portal, the red/yellow/green window buttons, and launching with your Mac.") {
+                compactRow("Play portal intro") {
+                    Toggle("", isOn: $preferences.playPortalIntro).labelsHidden().toggleStyle(.switch)
+                }
                 compactRow("Auto-hide window buttons") {
                     Toggle("", isOn: $preferences.trafficLightsAutoHide).labelsHidden().toggleStyle(.switch)
                 }
@@ -393,6 +396,7 @@ struct SettingsView: View {
             Button("Reset This Pane to Defaults") {
                 preferences.trafficLightsAutoHide = true
                 preferences.forceReducedMotion = false
+                preferences.playPortalIntro = true
             }
             .glassButton()
             .controlSize(.small)
@@ -1622,7 +1626,7 @@ private extension SettingsView {
 
 /// This app's one recurring "you are here" mark: a thin, idly-drifting
 /// pixel-dither line. Same `DitherFill`/`TimelineView` pairing
-/// `HomeNoiseField.swift` uses for its own ambient wave, scaled down to a
+/// the old home launcher used for its ambient wave, scaled down to a
 /// line — the tab strip's selection indicator, an expanded section's header
 /// rule, the theme picker's selected card. Idles with a slow drift rather
 /// than sitting static; pauses to one still frame under Reduce Motion

@@ -19,6 +19,7 @@ struct Sidebar: View {
     let onSettings: () -> Void
     let onRetry: () -> Void
     var onUpdate: () -> Void = {}
+    var onHub: () -> Void = {}
     /// Off for offscreen renders, which can't draw the AppKit drag view.
     var dragArea = true
     @Environment(\.palette) private var palette
@@ -31,14 +32,19 @@ struct Sidebar: View {
                 if dragArea { WindowDragArea() } else { Color.clear }
             }
             .frame(height: 26)
-            HStack(spacing: 10) {
-                PortalGlyph(busy: busy)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("IntPortal").font(typography.display(size: 21, weight: .bold)).foregroundStyle(roles.onMenu)
-                    Text("PUP SIS · Student Module").font(typography.reading(size: 11.5)).foregroundStyle(roles.onMenu2)
+            Button(action: onHub) {
+                HStack(spacing: 10) {
+                    PortalGlyph(busy: busy)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("IntPortal").font(typography.display(size: 21, weight: .bold)).foregroundStyle(roles.onMenu)
+                        Text("PUP SIS · Student Module").font(typography.reading(size: 11.5)).foregroundStyle(roles.onMenu2)
+                    }
                 }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .padding(.horizontal, 4)
+            .accessibilityLabel("Back to the portal hub")
 
             VStack(alignment: .leading, spacing: 1) {
                 section("Main")

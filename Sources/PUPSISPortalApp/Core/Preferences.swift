@@ -238,6 +238,12 @@ final class Preferences: ObservableObject {
 
     /// Auto-hide the window's traffic-light buttons, revealing them when the
     /// cursor nears the top-left corner. Off keeps them always visible.
+    /// Settings › General › Play portal intro. Off lands on the hub (or the
+    /// sign-in panel) with the portal already built.
+    @Published var playPortalIntro: Bool {
+        didSet { defaults.set(playPortalIntro, forKey: Key.playPortalIntro) }
+    }
+
     @Published var trafficLightsAutoHide: Bool {
         didSet { defaults.set(trafficLightsAutoHide, forKey: Key.trafficLightsAutoHide) }
     }
@@ -638,6 +644,7 @@ final class Preferences: ObservableObject {
         static let googleCalendarID = "googleCalendarID"
         static let trafficLightsAutoHide = "trafficLightsAutoHide"
         static let forceReducedMotion = "forceReducedMotion"
+        static let playPortalIntro = "playPortalIntro"
         static let aiEnabled = "aiEnabled"
         static let aiModel = "aiModel"
         static let aiProvider = "aiProvider"
@@ -715,6 +722,7 @@ final class Preferences: ObservableObject {
         // missing key, so check the key instead.
         trafficLightsAutoHide = (defaults.object(forKey: Key.trafficLightsAutoHide) as? Bool) ?? true
         forceReducedMotion = (defaults.object(forKey: Key.forceReducedMotion) as? Bool) ?? false
+        playPortalIntro = (defaults.object(forKey: Key.playPortalIntro) as? Bool) ?? true
         aiEnabled = (defaults.object(forKey: Key.aiEnabled) as? Bool) ?? false
         aiModel = defaults.string(forKey: Key.aiModel) ?? ModelCatalog.defaultID
         aiProvider = defaults.string(forKey: Key.aiProvider).flatMap(AIProvider.init(rawValue:)) ?? .local
@@ -1050,6 +1058,7 @@ final class Preferences: ObservableObject {
         notificationLeadMinutes = 15
         trafficLightsAutoHide = true
         forceReducedMotion = false
+        playPortalIntro = true
         aiEnabled = false
         aiModel = ModelCatalog.defaultID
         aiProvider = .local
