@@ -139,6 +139,14 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     private let injectedFetchScheduleRows: (() async throws -> [ClassSession])?
     private let injectedReauthenticate: (() async -> Bool)?
 
+    /// Same idea, for the grades side (W1d): standing in for the `/grades`
+    /// navigation that `loadGrades()`/`loadGradeHistory()` both start with,
+    /// and for one term's fetch inside the history backfill loop. Both `nil`
+    /// in production.
+    private let injectedLoadGradesPage: (() async throws -> Void)?
+    private let injectedGradeTermOptions: (() async throws -> SISScraper.GradeTermOptions)?
+    private let injectedFetchGradeTermReport: (((schoolYear: String, semester: String)) async throws -> GradeReport)?
+
     private static let genericFailure = "Sign-in didn't go through — check your student number, birthdate, and password."
 
     // PUP SIS load-balances across several numbered hosts (sis1, sis8, …) and
@@ -219,7 +227,10 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         loadCredentials: @escaping () -> Credentials? = { KeychainStore.load() },
         clearWebsiteData: (() async -> Void)? = nil,
         fetchScheduleRows: (() async throws -> [ClassSession])? = nil,
-        reauthenticate: (() async -> Bool)? = nil
+        reauthenticate: (() async -> Bool)? = nil,
+        loadGradesPage: (() async throws -> Void)? = nil,
+        gradeTermOptions: (() async throws -> SISScraper.GradeTermOptions)? = nil,
+        fetchGradeTermReport: (((schoolYear: String, semester: String)) async throws -> GradeReport)? = nil
     ) {
         self.defaults = defaults
         self.hasCredentials = hasCredentials
@@ -227,6 +238,9 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         self.injectedClearWebsiteData = clearWebsiteData
         self.injectedFetchScheduleRows = fetchScheduleRows
         self.injectedReauthenticate = reauthenticate
+        self.injectedLoadGradesPage = loadGradesPage
+        self.injectedGradeTermOptions = gradeTermOptions
+        self.injectedFetchGradeTermReport = fetchGradeTermReport
         webView = WKWebView()
         activeBase = Self.persistedBase(defaults: defaults)
         super.init()
@@ -456,7 +470,11 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         guard hasCredentials() else { return }
         let gen = gate.generation
         do {
-            try await load(gradesURL)
+            if let injectedLoadGradesPage {
+                try await injectedLoadGradesPage()
+            } else {
+                try await load(gradesURL)
+            }
             // The subject rows carry the page; an empty summary is fine, but an
             // empty row set is what "page not settled yet" looks like.
             let scraped = try await awaitPageRows(suffix: "/grades") {
@@ -495,6 +513,10 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             }
         } catch {
             guard gate.isCurrent(gen) else { return }
+            // Same expired-session path `loadSchedule()` uses — GradesView's
+            // "Try again"/"Refresh" call this directly, so the reauth has to
+            // live here rather than at each button (W1d).
+            if await reauthenticateAfterExpiredSession() { return }
             // Never through `report(_:)` — that governs the schedule screen.
             gradesError = "Couldn't refresh your grades: \(error.localizedDescription)"
         }
@@ -516,8 +538,17 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         defer { isLoadingHistory = false }
 
         do {
-            try await load(gradesURL)
-            let options = try await SISScraper.gradeTermOptions(from: webView)
+            if let injectedLoadGradesPage {
+                try await injectedLoadGradesPage()
+            } else {
+                try await load(gradesURL)
+            }
+            let options: SISScraper.GradeTermOptions
+            if let injectedGradeTermOptions {
+                options = try await injectedGradeTermOptions()
+            } else {
+                options = try await SISScraper.gradeTermOptions(from: webView)
+            }
             let combos = options.combinations
             // No dropdowns found (or an unexpected page shape): keep whatever
             // history we already have rather than erroring.
@@ -526,34 +557,26 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             var collected = gradeHistory
             for combo in combos {
                 guard gate.isCurrent(gen) else { return }
-                // Arm the navigation wait *before* the submit fires it.
-                let script = SISScraper.selectGradeTermScript(
-                    schoolYear: combo.schoolYear,
-                    semester: combo.semester
-                )
+                // Each term's whole fetch (submit + settle + scrape) is its
+                // own do/catch — this used to only wrap the submit, so a term
+                // whose page never settled (`awaitPageRows` timing out) threw
+                // past the loop into the outer catch and discarded every term
+                // already collected, not just the one that failed.
                 do {
-                    try await gate.wait { [weak self] in
-                        self?.webView.evaluateJavaScript(script, completionHandler: nil)
+                    let report: GradeReport
+                    if let injectedFetchGradeTermReport {
+                        report = try await injectedFetchGradeTermReport(combo)
+                    } else {
+                        report = try await fetchGradeTermReport(combo)
+                    }
+                    // Empty or unposted terms don't belong on a GPA trend.
+                    if report.hasPostedGrades {
+                        collected = GradesStore.merged(report, into: collected)
                     }
                 } catch {
-                    // This term's submit didn't navigate — skip it, keep going.
+                    // This term's submit didn't navigate, or its page never
+                    // settled — skip it, keep what succeeded for the rest.
                     continue
-                }
-
-                let scraped = try await awaitPageRows(suffix: "/grades") {
-                    try await SISScraper.scrapeGrades(from: $0)
-                } isEmpty: { $0.rows.isEmpty }
-
-                let report = GradeReport(
-                    lastUpdated: Date(),
-                    subjects: GradesParser.parse(scraped.rows),
-                    summary: scraped.summary,
-                    schoolYear: combo.schoolYear,
-                    semester: combo.semester
-                )
-                // Empty or unposted terms don't belong on a GPA trend.
-                if report.hasPostedGrades {
-                    collected = GradesStore.merged(report, into: collected)
                 }
             }
 
@@ -563,8 +586,39 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             GradesStore.saveHistory(collected)
         } catch {
             guard gate.isCurrent(gen) else { return }
+            // Same reauth as loadGrades()/loadSchedule() — "Load past terms"
+            // calls this directly too (W1d).
+            if await reauthenticateAfterExpiredSession() { return }
             gradesError = "Couldn't load your grade history: \(error.localizedDescription)"
         }
+    }
+
+    /// Selects one school-year/semester combo on the grades page and scrapes
+    /// the result — the unit of work `loadGradeHistory` repeats once per
+    /// term. Broken out (like `fetchScheduleRows`) so it's independently
+    /// injectable in tests, and so the loop above can catch its failure
+    /// per-term instead of per-run.
+    private func fetchGradeTermReport(_ combo: (schoolYear: String, semester: String)) async throws -> GradeReport {
+        // Arm the navigation wait *before* the submit fires it.
+        let script = SISScraper.selectGradeTermScript(
+            schoolYear: combo.schoolYear,
+            semester: combo.semester
+        )
+        try await gate.wait { [weak self] in
+            self?.webView.evaluateJavaScript(script, completionHandler: nil)
+        }
+
+        let scraped = try await awaitPageRows(suffix: "/grades") {
+            try await SISScraper.scrapeGrades(from: $0)
+        } isEmpty: { $0.rows.isEmpty }
+
+        return GradeReport(
+            lastUpdated: Date(),
+            subjects: GradesParser.parse(scraped.rows),
+            summary: scraped.summary,
+            schoolYear: combo.schoolYear,
+            semester: combo.semester
+        )
     }
 
     /// A failed refresh must never replace a schedule we already have — the
@@ -594,6 +648,30 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     ///
     /// Generic over the scrape so Schedule and Grades share one settling loop
     /// rather than each keeping its own copy of the race handling.
+    ///
+    /// `pageRowsPollOutcome` below is `awaitPageRows`'s per-poll decision,
+    /// pulled out the same way `signInOutcome` is: a stateless function
+    /// tested directly with fixture-shaped inputs, so the empty-settle
+    /// window (`emptyPageSettleDelay`) can't drift from what's exercised
+    /// here. `nil`/`.keepPolling` means "not resolved yet, poll again".
+    enum PageRowsPoll: Equatable {
+        case keepPolling
+        case gotRows
+        /// Reached the page and a stable empty scrape has held for
+        /// `emptyPageSettleDelay` — a genuinely empty term, not a still-
+        /// loading table. Stops `awaitPageRows` from burning the rest of its
+        /// timeout on a real "no classes"/"no grades yet" page.
+        case settledEmpty
+    }
+
+    static func pageRowsPollOutcome(
+        scrapeSucceeded: Bool, isEmpty: Bool, emptySettledDuration: TimeInterval
+    ) -> PageRowsPoll {
+        guard scrapeSucceeded else { return .keepPolling }
+        if !isEmpty { return .gotRows }
+        return emptySettledDuration >= emptyPageSettleDelay ? .settledEmpty : .keepPolling
+    }
+
     private func awaitPageRows<T>(
         suffix: String,
         timeout: TimeInterval = 12,
@@ -603,14 +681,28 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         let deadline = Date().addingTimeInterval(timeout)
         var reachedPage = false
         var lastScrape: T?
+        // When a stable empty scrape was first observed — reset the instant
+        // it isn't (wrong page, scrape error, or rows show up), so a brief
+        // empty blip while DataTables is still filling can't bank time
+        // toward the early return.
+        var emptySince: Date?
 
         while Date() < deadline {
-            if await isOnPage(suffix: suffix) {
+            let onPage = await isOnPage(suffix: suffix)
+            let scraped = onPage ? try? await scrape(webView) : nil
+            if let scraped {
                 reachedPage = true
-                if let scraped = try? await scrape(webView) {
-                    lastScrape = scraped
-                    if !isEmpty(scraped) { return scraped }
-                }
+                lastScrape = scraped
+            }
+            let empty = scraped.map(isEmpty) ?? false
+            emptySince = (scraped != nil && empty) ? (emptySince ?? Date()) : nil
+            let emptySettledDuration = emptySince.map { Date().timeIntervalSince($0) } ?? 0
+
+            switch Self.pageRowsPollOutcome(
+                scrapeSucceeded: scraped != nil, isEmpty: empty, emptySettledDuration: emptySettledDuration
+            ) {
+            case .keepPolling: break
+            case .gotRows, .settledEmpty: return scraped!
             }
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
@@ -661,6 +753,14 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// page settles itself well under a second); short enough not to read as
     /// a hang.
     static let markerFallbackDelay: TimeInterval = 3
+
+    /// How long `awaitPageRows` waits with a *stable* empty scrape, on the
+    /// right page, before treating it as a genuinely empty term rather than
+    /// polling out the whole `timeout`. Same settled-state reasoning as
+    /// `markerFallbackDelay` above: any single empty poll can't tell "empty
+    /// term" apart from "DataTables hasn't filled the body yet", but a result
+    /// that holds steady for a beat can.
+    static let emptyPageSettleDelay: TimeInterval = 1.5
 
     /// Interprets the DOM probe's raw signals into a settled outcome —
     /// pulled out as its own pure function, same reasoning as
