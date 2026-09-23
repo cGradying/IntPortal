@@ -87,6 +87,55 @@ final class RealAssistantExecutorTests: XCTestCase {
         XCTAssertTrue(result.message.contains("class:COMP 001"))
     }
 
+    /// Regression: `read_note` used to ignore the right-click "Include in AI
+    /// search" toggle entirely — a note the student explicitly excluded from
+    /// AI could still be read straight into the model's context by name.
+    func testReadNoteRefusesAnExcludedNote() async {
+        let key = notesStore.addFile(name: "Private", to: nil)
+        let id = notesStore.vault.first { $0.noteKey == key }!.id
+        notesStore.setText("sensitive contents", for: key)
+        notesStore.setRAGExcluded(true, for: id)
+
+        let result = await executor().execute(AssistantAction(tool: "read_note", args: ["key": .string(key)]))
+        XCTAssertFalse(result.ok)
+        XCTAssertFalse(result.message.contains("sensitive contents"))
+    }
+
+    /// Same toggle, reached via the fallback-to-open-note path rather than an
+    /// explicit key — must be refused the same way.
+    func testReadNoteRefusesTheOpenNoteWhenItIsExcluded() async {
+        let key = notesStore.addFile(name: "Private", to: nil)
+        let id = notesStore.vault.first { $0.noteKey == key }!.id
+        notesStore.setText("sensitive contents", for: key)
+        notesStore.setRAGExcluded(true, for: id)
+
+        let result = await executor(openKey: key).execute(AssistantAction(tool: "read_note"))
+        XCTAssertFalse(result.ok)
+    }
+
+    /// A `class:`/`day:` note has no vault node to carry the toggle and is
+    /// always readable — confirms the exclusion check doesn't over-reach.
+    func testReadNoteStillWorksForClassNotesWhichHaveNoExclusionToggle() async {
+        notesStore.setText("Lecture 1.", for: "class:COMP 001")
+        let result = await executor().execute(AssistantAction(tool: "read_note", args: ["key": .string("class:COMP 001")]))
+        XCTAssertTrue(result.ok)
+    }
+
+    /// `list_notes` must not even name an excluded vault file — otherwise
+    /// the model just turns around and asks to `read_note` it.
+    func testListNotesOmitsAnExcludedVaultFile() async {
+        let key = notesStore.addFile(name: "Private", to: nil)
+        let id = notesStore.vault.first { $0.noteKey == key }!.id
+        notesStore.setText("x", for: key)
+        notesStore.setRAGExcluded(true, for: id)
+        _ = notesStore.addFile(name: "Midterm plan", to: nil)
+
+        let result = await executor().execute(AssistantAction(tool: "list_notes"))
+        XCTAssertTrue(result.ok)
+        XCTAssertFalse(result.message.contains("Private"))
+        XCTAssertTrue(result.message.contains("Midterm plan"))
+    }
+
     // MARK: search_notes
 
     func testSearchNotesFindsAMatchWithASnippet() async {

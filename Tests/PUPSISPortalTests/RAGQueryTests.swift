@@ -165,4 +165,52 @@ final class RAGQueryTests: XCTestCase {
             XCTFail("expected an answer, got \(error)")
         }
     }
+
+    /// Regression: `answer()`'s `client.chat(...)` call used to omit
+    /// `numPredict` entirely — no cap on the generated answer's length at
+    /// all. Confirmed by capturing the real request body and checking
+    /// `max_tokens` is actually present, same shape as
+    /// `AssistantEngineTests.testRespondReservesARealOutputBudget`.
+    func testAskCapsTheAnswerRequestsOutputBudget() async {
+        notesStore.setText("Recursion has a base case and a recursive case.", for: "class:COMP 001")
+        var capturedBody: [String: Any]?
+        let client = LlamaCppClient(
+            send: { body in
+                capturedBody = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
+                return self.envelope(#"{"answer":"ok"}"#)
+            },
+            sendEmbed: { _ in throw URLError(.notConnectedToInternet) }
+        )
+        let query = RAGQuery(
+            notes: notesStore, client: client, ensureChatServerRunning: { true }, ensureEmbedServerRunning: { false },
+            answerTokenBudget: 250
+        )
+        _ = try? await query.ask("recursion")
+        XCTAssertEqual(capturedBody?["max_tokens"] as? Int, 250)
+    }
+
+    // MARK: cloud provider — no local-server requirement
+
+    /// Same fix as `AssistantEngine`: a cloud `client` needs no local
+    /// `llama-server`, so `ensureChatServerRunning`'s default must be
+    /// skipped rather than consulted (and failing) when `isCloudProvider`
+    /// is true. Deliberately doesn't override `ensureChatServerRunning`
+    /// itself — that's the whole point, the default has to already do this.
+    func testAskCloudProviderSkipsTheLocalServerRequirement() async {
+        notesStore.setText("Recursion has a base case and a recursive case.", for: "class:COMP 001")
+        let client = LlamaCppClient(
+            send: { _ in self.envelope(#"{"answer":"ok"}"#) },
+            sendEmbed: { _ in throw URLError(.notConnectedToInternet) }
+        )
+        let query = RAGQuery(
+            notes: notesStore, client: client, ensureEmbedServerRunning: { false },
+            isCloudProvider: true
+        )
+        do {
+            let answer = try await query.ask("recursion")
+            XCTAssertEqual(answer.text, "ok")
+        } catch {
+            XCTFail("expected an answer, got \(error)")
+        }
+    }
 }

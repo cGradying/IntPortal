@@ -104,6 +104,48 @@ final class ModelCatalogTests: XCTestCase {
         let unquantized = ModelCatalog.estimatedRAMBytes(for: entry, contextSize: 4096, quantizedKVCache: false)
         XCTAssertEqual(quantized, unquantized)
     }
+
+    // MARK: isDownloaded's .complete marker (W8) — config.json alone isn't
+    // proof a snapshot finished. Uses a throwaway fixture entry with a
+    // random never-downloaded repo id (never one of the real catalog
+    // entries) so this can safely create/delete its directory without any
+    // risk of touching a real model a developer already downloaded.
+
+    private func fixtureMLXEntry() -> ModelCatalog.Entry {
+        let unique = UUID().uuidString
+        return ModelCatalog.Entry(
+            id: "test-fixture-\(unique)", label: "Test Fixture",
+            kind: .mlx(repoID: "test-fixture/never-downloaded-\(unique)"),
+            sizeBytes: 1, description: "", kvCacheBytesPerToken: 0
+        )
+    }
+
+    func testIsDownloadedForMLXIsFalseWithOnlyConfigJSON() throws {
+        let entry = fixtureMLXEntry()
+        let directory = ModelCatalog.localURL(for: entry)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path), "fixture repo id must be one nobody has actually downloaded")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        // Removes the whole synthetic "test-fixture" namespace directory
+        // (directory's parent), not just this leaf — createDirectory made
+        // both, and nothing real ever uses that fake repo owner name.
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory.deletingLastPathComponent()) }
+
+        // What HubApi.snapshot writes first — the tiny files, well before
+        // the multi-GB .safetensors shards.
+        FileManager.default.createFile(atPath: directory.appendingPathComponent("config.json").path, contents: nil)
+        XCTAssertFalse(ModelCatalog.isDownloaded(entry), "config.json landing must not count as a finished download — that's the bug this fixes")
+    }
+
+    func testIsDownloadedForMLXIsTrueOnlyAfterTheCompleteMarker() throws {
+        let entry = fixtureMLXEntry()
+        let directory = ModelCatalog.localURL(for: entry)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory.deletingLastPathComponent()) }
+
+        FileManager.default.createFile(atPath: directory.appendingPathComponent("config.json").path, contents: nil)
+        FileManager.default.createFile(atPath: directory.appendingPathComponent(".complete").path, contents: nil)
+        XCTAssertTrue(ModelCatalog.isDownloaded(entry))
+    }
 }
 
 private extension ModelCatalog.Entry.Kind {

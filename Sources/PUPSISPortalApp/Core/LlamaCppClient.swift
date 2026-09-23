@@ -8,7 +8,10 @@ import Foundation
 /// `LlamaServerManager`'s two roles (`.chat`/`.embed`).
 ///
 /// **Localhost only, deliberately** — same promise every local-model client
-/// in this app makes: the endpoint is a constant, not a setting.
+/// in this app makes: never configurable, never a setting. The exact port
+/// and bearer key change every launch (`LlamaServerManager`, W8) — looked up
+/// fresh per request rather than baked in as a constant, so a request can
+/// never be sent to a stale or orphaned process's old port.
 ///
 /// No `model` field in any request body: llama-server serves exactly one
 /// model per process, so which model answers is `LlamaServerManager`'s job
@@ -18,12 +21,6 @@ import Foundation
 /// old Ollama shape (`generate(model: preferences.aiModel, ...)`) didn't all
 /// need editing just to drop it.
 struct LlamaCppClient {
-    /// The `.chat`-role server — assistant chat/tools, RAG answering, quiz
-    /// generation/explanation, note-editor AI help.
-    static let endpoint = URL(string: "http://127.0.0.1:8080/v1/chat/completions")!
-    /// The `.embed`-role server — note search embeddings only.
-    static let embedEndpoint = URL(string: "http://127.0.0.1:8081/v1/embeddings")!
-
     /// The house style for note drafting. Kept here rather than in the view so
     /// it's one string to tune, and so the request builder is testable whole.
     static let instruction = """
@@ -62,8 +59,21 @@ struct LlamaCppClient {
         send: ((Data) async throws -> (Data, Int))? = nil,
         sendEmbed: ((Data) async throws -> (Data, Int))? = nil
     ) {
-        self.send = send ?? { try await Self.post($0, to: Self.endpoint) }
-        self.sendEmbed = sendEmbed ?? { try await Self.post($0, to: Self.embedEndpoint) }
+        self.send = send ?? { try await Self.postToLocalServer(.chat, body: $0) }
+        self.sendEmbed = sendEmbed ?? { try await Self.postToLocalServer(.embed, body: $0) }
+    }
+
+    /// Posts to whatever loopback port and per-launch API key
+    /// `LlamaServerManager` currently has `role` running on (W8) — never a
+    /// fixed URL. `.offline` when nothing is running for `role` yet, same
+    /// error a caller would get from a real connection failure, rather than
+    /// guessing a stale port.
+    private static func postToLocalServer(_ role: LlamaServerManager.Role, body: Data) async throws -> (Data, Int) {
+        let (url, apiKey) = await MainActor.run {
+            (LlamaServerManager.shared.endpoint(for: role), LlamaServerManager.shared.apiKey(for: role))
+        }
+        guard let url else { throw ClientError.offline }
+        return try await post(body, to: url, bearer: apiKey)
     }
 
     private static func post(_ body: Data, to url: URL, bearer: String? = nil) async throws -> (Data, Int) {
@@ -330,18 +340,74 @@ struct LlamaCppClient {
 
     // MARK: Model download (Settings ▸ AI's in-app installer)
 
+    /// W8: never move a downloaded file into place on trust alone — a
+    /// redirect chain landing on an expired-link or rate-limit HTML page
+    /// must not get saved as a `.gguf` and then handed to `llama-server`.
+    /// Requires a 2xx response. Then, when the catalog knows the exact
+    /// expected size (every entry's was confirmed against the real HF
+    /// file), the downloaded byte count must match it exactly; otherwise
+    /// falls back to checking the file actually starts with GGUF's own
+    /// magic header (`0x47475546`, ASCII "GGUF") as a floor. Pure/testable
+    /// against a small fixture file — no network, no real download.
+    static func validateDownload(fileAt location: URL, httpStatus: Int, expectedSizeBytes: Int64?) throws {
+        guard (200..<300).contains(httpStatus) else { throw DownloadValidationError.httpStatus(httpStatus) }
+
+        let attributes = try? FileManager.default.attributesOfItem(atPath: location.path)
+        let actualSize = (attributes?[.size] as? NSNumber)?.int64Value
+
+        if let expectedSizeBytes {
+            guard actualSize == expectedSizeBytes else {
+                throw DownloadValidationError.sizeMismatch(expected: expectedSizeBytes, actual: actualSize ?? -1)
+            }
+            return
+        }
+
+        guard let handle = try? FileHandle(forReadingFrom: location) else { throw DownloadValidationError.notGGUF }
+        defer { try? handle.close() }
+        guard let magic = try? handle.read(upToCount: 4), magic == Data("GGUF".utf8) else {
+            throw DownloadValidationError.notGGUF
+        }
+    }
+
     /// A real `URLSessionDownloadTask` — the OS streams straight to a temp
     /// file (no multi-GB `Data` ever held in memory) and reports progress via
     /// the delegate below, moved to `destination` on completion, replacing
     /// anything already there. `AsyncThrowingStream` so a SwiftUI `.task` can
     /// `for try await` it directly; cancelling the stream cancels the task.
-    static func download(from url: URL, to destination: URL) -> AsyncThrowingStream<Double, Error> {
+    ///
+    /// `expectedSizeBytes`, when known (every `ModelCatalog` entry's was
+    /// confirmed against the real HF file), is checked exactly against the
+    /// downloaded byte count before the move into place — see
+    /// `validateDownload` (W8): a redirect to an HTML error page (expired
+    /// link, rate limit, moved repo) must never get saved as a `.gguf` and
+    /// then handed to `llama-server`.
+    static func download(from url: URL, to destination: URL, expectedSizeBytes: Int64? = nil) -> AsyncThrowingStream<Double, Error> {
         AsyncThrowingStream { continuation in
-            let delegate = DownloadProgressDelegate(destination: destination, continuation: continuation)
+            let delegate = DownloadProgressDelegate(destination: destination, expectedSizeBytes: expectedSizeBytes, continuation: continuation)
             let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
             let task = session.downloadTask(with: url)
             continuation.onTermination = { _ in task.cancel() }
             task.resume()
+        }
+    }
+}
+
+/// What `DownloadProgressDelegate.validate` rejects a downloaded file for —
+/// surfaced through `AsyncThrowingStream`'s `Error` so `SettingsView`'s
+/// installer shows a real reason instead of a generic move/IO failure.
+enum DownloadValidationError: LocalizedError {
+    case httpStatus(Int)
+    case sizeMismatch(expected: Int64, actual: Int64)
+    case notGGUF
+
+    var errorDescription: String? {
+        switch self {
+        case .httpStatus(let code):
+            "The download server returned HTTP \(code) instead of the model file."
+        case .sizeMismatch(let expected, let actual):
+            "Downloaded \(actual) bytes, expected \(expected) — the file looks incomplete or wrong. Try again."
+        case .notGGUF:
+            "The downloaded file doesn't look like a GGUF model. Try again."
         }
     }
 }
@@ -352,10 +418,12 @@ struct LlamaCppClient {
 /// finished file and report progress.
 private final class DownloadProgressDelegate: NSObject, URLSessionDownloadDelegate {
     private let destination: URL
+    private let expectedSizeBytes: Int64?
     private let continuation: AsyncThrowingStream<Double, Error>.Continuation
 
-    init(destination: URL, continuation: AsyncThrowingStream<Double, Error>.Continuation) {
+    init(destination: URL, expectedSizeBytes: Int64?, continuation: AsyncThrowingStream<Double, Error>.Continuation) {
         self.destination = destination
+        self.expectedSizeBytes = expectedSizeBytes
         self.continuation = continuation
     }
 
@@ -369,6 +437,8 @@ private final class DownloadProgressDelegate: NSObject, URLSessionDownloadDelega
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         do {
+            let status = (downloadTask.response as? HTTPURLResponse)?.statusCode ?? 0
+            try LlamaCppClient.validateDownload(fileAt: location, httpStatus: status, expectedSizeBytes: expectedSizeBytes)
             try FileManager.default.createDirectory(
                 at: destination.deletingLastPathComponent(), withIntermediateDirectories: true
             )

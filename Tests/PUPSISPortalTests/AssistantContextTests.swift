@@ -213,4 +213,37 @@ final class AssistantContextTests: XCTestCase {
         )
         XCTAssertEqual(context.tokenBudget, Preferences.aiDefaultContextSize)
     }
+
+    // MARK: Excluded open note — the contract AssistantFloating.buildContext() relies on
+    //
+    // `buildContext()` itself lives on a `private struct` in a SwiftUI view
+    // file with no test harness in this repo, so it can't be driven directly.
+    // What it does, since the fix, is resolve the open note's key through
+    // `RealAssistantExecutor.isExcludedFromAI(_:in:)` (covered directly in
+    // `RealAssistantExecutorTests`) and pass `nil` for *both* `openNoteKey`
+    // and `openNoteText` when that's true — never the real key with nil text,
+    // which would render as "Open note is empty," a lie that could make the
+    // model claim an excluded note has no content instead of just not
+    // mentioning it. This pins that `nil`/`nil` contract's actual effect on
+    // the rendered prompt: no trace of the note, excluded or not.
+
+    func testRenderedContextHasNoTraceOfANoteWhenBothOpenNoteFieldsAreNil() {
+        let context = AssistantContext(
+            destination: .today, openNoteKey: nil, openNoteText: nil,
+            todayClasses: [], gradesSummary: nil, schedule: snapshot()
+        )
+        XCTAssertTrue(context.rendered.contains("No note is open."))
+        XCTAssertFalse(context.rendered.contains("Open note"))
+    }
+
+    /// The non-excluded case must keep working exactly as before — the real
+    /// key and text both come through.
+    func testRenderedContextIncludesAnOpenNotesTextWhenNotExcluded() {
+        let context = AssistantContext(
+            destination: .today, openNoteKey: "class:COMP 001", openNoteText: "Lecture 1.",
+            todayClasses: [], gradesSummary: nil, schedule: snapshot()
+        )
+        XCTAssertTrue(context.rendered.contains("Open note: class:COMP 001"))
+        XCTAssertTrue(context.rendered.contains("Lecture 1."))
+    }
 }

@@ -77,6 +77,31 @@ final class AssistantCommandRunnerTests: XCTestCase {
         XCTAssertFalse(modelCalled)
     }
 
+    /// Regression: `/read` used to call `notes.text(for:)` straight through
+    /// with no exclusion check at all — a note the student excluded from AI
+    /// could still be pinned into every later turn.
+    func testReadRefusesAnExcludedNote() async {
+        let key = notesStore.addFile(name: "Private", to: nil)
+        let id = notesStore.vault.first { $0.noteKey == key }!.id
+        notesStore.setText("sensitive contents", for: key)
+        notesStore.setRAGExcluded(true, for: id)
+
+        let outcome = await runner().run(.read(name: "Private"))
+        XCTAssertNil(outcome.pin)
+        XCTAssertFalse(outcome.reply.contains("sensitive contents"))
+    }
+
+    /// Same toggle, reached via the fallback-to-open-note path.
+    func testReadRefusesTheOpenNoteWhenItIsExcluded() async {
+        let key = notesStore.addFile(name: "Private", to: nil)
+        let id = notesStore.vault.first { $0.noteKey == key }!.id
+        notesStore.setText("sensitive contents", for: key)
+        notesStore.setRAGExcluded(true, for: id)
+
+        let outcome = await runner(openKey: key).run(.read(name: nil))
+        XCTAssertNil(outcome.pin)
+    }
+
     // MARK: /summary
 
     func testSummaryReturnsTheModelsText() async {
@@ -94,6 +119,22 @@ final class AssistantCommandRunnerTests: XCTestCase {
         let client = LlamaCppClient(send: { _ in modelCalled = true; return (Data(), 200) })
         _ = await runner(client: client).run(.summary(name: "Blank"))
         XCTAssertFalse(modelCalled)
+    }
+
+    /// Regression: `/summarize` used to read the note's text and send it
+    /// straight to the model with no exclusion check — the same gap as
+    /// `/read`, just reached via `client.generate` instead of a pin.
+    func testSummaryRefusesAnExcludedNoteAndCallsNoModel() async {
+        let key = notesStore.addFile(name: "Private", to: nil)
+        let id = notesStore.vault.first { $0.noteKey == key }!.id
+        notesStore.setText("sensitive contents", for: key)
+        notesStore.setRAGExcluded(true, for: id)
+
+        var modelCalled = false
+        let client = LlamaCppClient(send: { _ in modelCalled = true; return (Data(), 200) })
+        let outcome = await runner(client: client).run(.summary(name: "Private"))
+        XCTAssertFalse(modelCalled)
+        XCTAssertFalse(outcome.reply.contains("sensitive contents"))
     }
 
     // MARK: /create

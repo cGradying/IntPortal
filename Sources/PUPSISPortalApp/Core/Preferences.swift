@@ -268,9 +268,11 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(aiEnabled, forKey: Key.aiEnabled) }
     }
 
-    /// Which `ModelCatalog` entry to run — the host and port are fixed
-    /// (`LlamaCppClient.endpoint`) so "your notes stay on your Mac" can't be
-    /// configured away. Defaults to `ModelCatalog.defaultID` (Qwen3-1.7B):
+    /// Which `ModelCatalog` entry to run — the host is fixed at loopback
+    /// (`LlamaServerManager`/`LlamaCppClient`) so "your notes stay on your
+    /// Mac" can't be configured away; the port and API key are per-launch,
+    /// not configurable either way. Defaults to `ModelCatalog.defaultID`
+    /// (Qwen3-1.7B):
     /// unlike the old Ollama-name field, every catalog id is one the app can
     /// actually download itself, so there's no reason to leave it empty.
     @Published var aiModel: String {
@@ -312,7 +314,7 @@ final class Preferences: ObservableObject {
     /// what should stop that combination from being reachable in the first
     /// place, this is the belt-and-suspenders behind it.
     func resolvedAIClient() -> LlamaCppClient {
-        guard aiProvider != .local, let key = AIProviderKeyStore.load(for: aiProvider), !key.isEmpty else {
+        guard isCloudProviderActive, let key = AIProviderKeyStore.load(for: aiProvider) else {
             return Self.localAIClient(modelID: aiModel)
         }
         let model = aiProviderModel.isEmpty ? aiProvider.defaultModel : aiProviderModel
@@ -321,9 +323,21 @@ final class Preferences: ObservableObject {
             : .forAnthropicProvider(apiKey: key, model: model)
     }
 
+    /// True exactly when `resolvedAIClient()` above would return a cloud
+    /// client rather than the local one — a non-local provider selected and
+    /// its key actually present. Callers that gate the local-server
+    /// requirement (`LlamaRuntime.ensureChatServer`, which only applies to
+    /// the local branch) or copy that says "runs locally" read this instead
+    /// of re-deriving the same check.
+    var isCloudProviderActive: Bool {
+        guard aiProvider != .local, let key = AIProviderKeyStore.load(for: aiProvider) else { return false }
+        return !key.isEmpty
+    }
+
     /// The local chat client for whichever runtime `modelID` actually
-    /// selects — bare `LlamaCppClient()` (its default `send` posts to
-    /// `llama-server`'s fixed localhost port) for a `.gguf` catalog entry,
+    /// selects — bare `LlamaCppClient()` (its default `send` looks up
+    /// `llama-server`'s current loopback port/API key from
+    /// `LlamaServerManager` on every request) for a `.gguf` catalog entry,
     /// `MLXBackend`'s in-process `send` for an `.mlx` one. Quiz generation,
     /// quiz explanations, and the note editor's "Ask AI" pill are always
     /// local regardless of `aiProvider` (never routed through

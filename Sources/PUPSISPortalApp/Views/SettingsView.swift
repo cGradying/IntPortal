@@ -604,8 +604,12 @@ struct SettingsView: View {
                 ("llama-server binary", LlamaServerManager.locateBinary() ?? "not found"),
                 ("Selected model path", ModelCatalog.entry(for: preferences.aiModel)
                     .map { ModelCatalog.localURL(for: $0).path } ?? "—"),
-                ("Chat port", "8080"),
-                ("Embed port", "8081"),
+                // W8: no longer a fixed 8080/8081 — a free loopback port is
+                // picked per launch, so this reads the live value (or says
+                // so plainly when nothing's running) instead of a number
+                // that stopped being true the moment that fix landed.
+                ("Chat port", LlamaServerManager.shared.endpoint(for: .chat)?.port.map(String.init) ?? "not running (assigned per launch)"),
+                ("Embed port", LlamaServerManager.shared.endpoint(for: .embed)?.port.map(String.init) ?? "not running (assigned per launch)"),
             ])
         }
     }
@@ -803,7 +807,9 @@ struct SettingsView: View {
             } else {
                 // Not just "don't load more" — actually free what's running,
                 // so turning the assistant off is also turning it off.
-                LlamaServerManager.shared.stop()
+                // Async, bounded wait (not a blocking sleep) — see stop()'s
+                // own doc comment on why this no longer freezes the window.
+                await LlamaServerManager.shared.stop()
             }
         }
         // Reloads whenever the provider switches (or the section first
@@ -1189,6 +1195,7 @@ struct SettingsView: View {
                     Button("Edit Credentials") { appState.isEditing = true }
                     Spacer()
                     Button("Sign Out", role: .destructive) { appState.signOut() }
+                        .disabled(appState.credentials == nil)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
