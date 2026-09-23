@@ -46,16 +46,14 @@ final class GoogleAuthTests: XCTestCase {
     /// `isConnected` false rather than keep reporting a session that can't
     /// actually mint tokens anymore.
     func testInvalidGrantOnRefreshClearsStoredTokenAndDisconnects() async {
-        let original = GoogleTokenStore.load()
-        defer {
-            if let original { GoogleTokenStore.save(refreshToken: original) } else { GoogleTokenStore.delete() }
-        }
-        GoogleTokenStore.save(refreshToken: "stale-refresh-token")
+        let store = Self.isolatedTokenStore()
+        defer { store.delete() }
+        store.save(refreshToken: "stale-refresh-token")
 
         StubURLProtocol.handler = { _ in
             (400, Data(#"{"error":"invalid_grant","error_description":"Token has been expired or revoked."}"#.utf8))
         }
-        let auth = GoogleAuth(clientID: { "test-client-id" }, urlSession: Self.stubbedURLSession())
+        let auth = GoogleAuth(clientID: { "test-client-id" }, urlSession: Self.stubbedURLSession(), tokenStore: store)
         XCTAssertTrue(auth.isConnected)
 
         do {
@@ -68,22 +66,20 @@ final class GoogleAuthTests: XCTestCase {
         }
 
         XCTAssertFalse(auth.isConnected)
-        XCTAssertNil(GoogleTokenStore.load())
+        XCTAssertNil(store.load())
     }
 
     /// A non-`invalid_grant` failure (e.g. a network hiccup) must not be
     /// mistaken for a dead token — the app should retry later, not disconnect.
     func testOtherRefreshFailureLeavesTokenAndConnectionIntact() async {
-        let original = GoogleTokenStore.load()
-        defer {
-            if let original { GoogleTokenStore.save(refreshToken: original) } else { GoogleTokenStore.delete() }
-        }
-        GoogleTokenStore.save(refreshToken: "still-good-refresh-token")
+        let store = Self.isolatedTokenStore()
+        defer { store.delete() }
+        store.save(refreshToken: "still-good-refresh-token")
 
         StubURLProtocol.handler = { _ in
             (500, Data(#"{"error":"server_error","error_description":"try again"}"#.utf8))
         }
-        let auth = GoogleAuth(clientID: { "test-client-id" }, urlSession: Self.stubbedURLSession())
+        let auth = GoogleAuth(clientID: { "test-client-id" }, urlSession: Self.stubbedURLSession(), tokenStore: store)
         XCTAssertTrue(auth.isConnected)
 
         do {
@@ -96,7 +92,7 @@ final class GoogleAuthTests: XCTestCase {
         }
 
         XCTAssertTrue(auth.isConnected)
-        XCTAssertEqual(GoogleTokenStore.load(), "still-good-refresh-token")
+        XCTAssertEqual(store.load(), "still-good-refresh-token")
     }
 
     // MARK: - ASWebAuthenticationSession.start() returning false (W7)
@@ -106,7 +102,8 @@ final class GoogleAuthTests: XCTestCase {
     func testFailedSessionStartResumesWithErrorInsteadOfHanging() async {
         let auth = GoogleAuth(
             clientID: { "1234.apps.googleusercontent.com" },
-            sessionStarter: { _ in false }
+            sessionStarter: { _ in false },
+            tokenStore: Self.isolatedTokenStore()
         )
 
         do {
@@ -119,12 +116,19 @@ final class GoogleAuthTests: XCTestCase {
         }
     }
 
-    // MARK: - Stub HTTP layer
+    // MARK: - Isolated doubles
 
     private static func stubbedURLSession() -> URLSession {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [StubURLProtocol.self]
         return URLSession(configuration: config)
+    }
+
+    /// A Keychain item scoped to this test run only — never the production
+    /// `ph.edu.pup.sis8.portal` / `google-refresh` item that might hold the
+    /// user's real Google refresh token.
+    private static func isolatedTokenStore() -> GoogleTokenStore {
+        GoogleTokenStore(service: "ph.edu.pup.sis8.portal.tests.\(UUID())", account: "google-refresh")
     }
 }
 

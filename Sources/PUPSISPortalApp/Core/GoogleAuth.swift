@@ -25,18 +25,21 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
     /// Seam over `ASWebAuthenticationSession.start()` so tests can force the
     /// "failed to start" branch without presenting real system UI.
     private let sessionStarter: (ASWebAuthenticationSession) -> Bool
+    private let tokenStore: GoogleTokenStore
 
     private let scopes = "https://www.googleapis.com/auth/calendar"
 
     init(
         clientID: @escaping () -> String,
         urlSession: URLSession = .shared,
-        sessionStarter: @escaping (ASWebAuthenticationSession) -> Bool = { $0.start() }
+        sessionStarter: @escaping (ASWebAuthenticationSession) -> Bool = { $0.start() },
+        tokenStore: GoogleTokenStore = .production
     ) {
         self.clientID = clientID
         self.urlSession = urlSession
         self.sessionStarter = sessionStarter
-        isConnected = GoogleTokenStore.load() != nil
+        self.tokenStore = tokenStore
+        isConnected = tokenStore.load() != nil
     }
 
     enum AuthError: LocalizedError {
@@ -96,7 +99,7 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
 
         let token = try await exchange(code: code, verifier: pkce.verifier, redirect: redirect, clientID: id)
         if let refresh = token.refresh_token {
-            GoogleTokenStore.save(refreshToken: refresh)
+            tokenStore.save(refreshToken: refresh)
         }
         accessToken = token.access_token
         accessExpiry = Date().addingTimeInterval(token.expires_in)
@@ -104,7 +107,7 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
     }
 
     func disconnect() {
-        GoogleTokenStore.delete()
+        tokenStore.delete()
         accessToken = nil
         accessExpiry = .distantPast
         isConnected = false
@@ -114,7 +117,7 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
     /// cached one has expired. This is what `GoogleCalendarClient` calls.
     func validAccessToken() async throws -> String {
         if let token = accessToken, accessExpiry.timeIntervalSinceNow > 60 { return token }
-        guard let refresh = GoogleTokenStore.load() else { throw AuthError.notConnected }
+        guard let refresh = tokenStore.load() else { throw AuthError.notConnected }
 
         let id = clientID().trimmingCharacters(in: .whitespaces)
         guard !id.isEmpty else { throw AuthError.noClientID }
