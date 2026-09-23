@@ -141,7 +141,7 @@ struct AppShell: View {
 }
 
 /// Feeds `Sidebar` from live state; the sidebar itself stays a plain view.
-private struct ShellSidebar: View {
+struct ShellSidebar: View {
     @ObservedObject var appState: AppState
     @ObservedObject var portal: PortalController
     @ObservedObject var updater: UpdaterBridge

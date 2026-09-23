@@ -921,15 +921,15 @@ final class TypographyTests: XCTestCase {
         func describe(_ font: Font) -> String { String(describing: font) }
         let system = Typography(.system)
         XCTAssertEqual(describe(system.screenTitle), describe(Font.custom("Pixelify Sans", size: 17).weight(.bold)))
-        XCTAssertEqual(describe(system.blockTime), describe(Font.custom("Pixelify Sans", size: 10).weight(.medium)))
+        XCTAssertEqual(describe(system.blockTime), describe(Font.custom("Source Sans 3", size: 10).weight(.medium).monospacedDigit()))
         XCTAssertEqual(describe(system.detailBody), describe(Font.custom("Source Sans 3", size: 12).weight(.regular)))
         XCTAssertEqual(describe(Typography(.inter).detailBody), describe(Font.custom("Inter", size: 12).weight(.regular)))
-        XCTAssertEqual(describe(Typography(.inter).blockCode), describe(Font.custom("Pixelify Sans", size: 11).weight(.bold)))
+        XCTAssertEqual(describe(Typography(.inter).blockCode), describe(Font.custom("Pixelify Sans", size: 11).weight(.regular)))
     }
 
     func testScaleMultipliesPointSize() {
         func describe(_ font: Font) -> String { String(describing: font) }
-        XCTAssertEqual(describe(Typography(.system, scale: 2).blockTime), describe(Font.custom("Pixelify Sans", size: 20).weight(.medium)))
+        XCTAssertEqual(describe(Typography(.system, scale: 2).screenTitle), describe(Font.custom("Pixelify Sans", size: 34).weight(.bold)))
         XCTAssertEqual(describe(Typography(.jetBrainsMono, scale: 1.5).footer), describe(Font.custom("JetBrains Mono", size: 15).weight(.regular)))
     }
 

@@ -19,13 +19,18 @@ struct Sidebar: View {
     let onSettings: () -> Void
     let onRetry: () -> Void
     var onUpdate: () -> Void = {}
+    /// Off for offscreen renders, which can't draw the AppKit drag view.
+    var dragArea = true
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
 
     var body: some View {
         let roles = palette.roles
         VStack(alignment: .leading, spacing: 14) {
-            WindowDragArea().frame(height: 26)
+            Group {
+                if dragArea { WindowDragArea() } else { Color.clear }
+            }
+            .frame(height: 26)
             HStack(spacing: 10) {
                 PortalGlyph(busy: busy)
                 VStack(alignment: .leading, spacing: 3) {
@@ -74,9 +79,8 @@ struct Sidebar: View {
         let roles = palette.roles
         return VStack(alignment: .leading, spacing: 9) {
             Text(studentNumber)
-                .font(typography.display(size: 12))
+                .font(typography.numeric(size: 12.5, weight: .semibold))
                 .foregroundStyle(roles.onMenu)
-                .monospacedDigit()
             HStack(spacing: 7) {
                 Rectangle()
                     .fill(sync.failed ? roles.bad : roles.good)
@@ -92,12 +96,13 @@ struct Sidebar: View {
             if let updateVersion {
                 Button("v\(updateVersion) available", action: onUpdate)
                     .buttonStyle(.plain)
-                    .font(typography.display(size: 12))
+                    .font(typography.numeric(size: 12, weight: .semibold))
                     .foregroundStyle(roles.gold)
             }
         }
         .padding(.horizontal, 6)
         .padding(.top, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(roles.onMenu2.opacity(0.3))

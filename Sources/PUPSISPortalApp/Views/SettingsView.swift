@@ -92,8 +92,7 @@ struct SettingsView: View {
     }
 
     @State private var pane: Pane = .general
-    /// Drives the tab indicator line's slide between tabs — same technique
-    /// `NavIsland`'s own segment-selection capsule already uses.
+    /// Drives the tab indicator line's slide between tabs.
     @Namespace private var tabIndicatorNamespace
 
     var body: some View {

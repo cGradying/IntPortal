@@ -1,11 +1,9 @@
 import SwiftUI
 import Inject
 
-/// The app's one piece of floating chrome that isn't `NavIsland` — bottom-left,
-/// reachable from every screen. One glass surface that morphs between shapes
-/// rather than several overlapping views (`matchedGeometryEffect(id:
-/// "assistant", ...)`, the same vocabulary `NavIsland` uses for its own
-/// centre↔top morph):
+/// The app's floating chrome — bottom-left, reachable from every screen. One
+/// surface that morphs between shapes rather than several overlapping views
+/// (`matchedGeometryEffect(id: "assistant", ...)`):
 ///
 /// - **orb** — idle, everywhere except an open note.
 /// - **orb + hover rail** — hovering the orb (wayfinder ticket #8,

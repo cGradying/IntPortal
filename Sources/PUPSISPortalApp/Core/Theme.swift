@@ -768,17 +768,18 @@ struct Typography: Equatable {
 
     var screenTitle: Font { identity(.title2, weight: .bold) }
 
-    var dayName: Font { identity(.caption) }
-    var gutter: Font { identity(.caption2, weight: .medium) }
+    var dayName: Font { body(.caption, weight: .semibold) }
+    var gutter: Font { numeric(size: Theme.pointSize(for: .caption2)) }
 
-    var blockCode: Font { identity(.subheadline, weight: .bold) }
-    var blockTime: Font { display(size: 10, weight: .medium) }
+    /// Codes stay in the identity face, at its crispest (regular) weight.
+    var blockCode: Font { identity(.subheadline, weight: .regular) }
+    var blockTime: Font { numeric(size: 10) }
 
     var detailTitle: Font { identity(.title3, weight: .bold) }
     var detailBody: Font { body(.callout) }
-    var detailMeta: Font { identity(.caption, weight: .medium) }
+    var detailMeta: Font { numeric(size: Theme.pointSize(for: .caption)) }
 
-    var nowClock: Font { identity(.caption2) }
+    var nowClock: Font { numeric(size: Theme.pointSize(for: .caption2), weight: .semibold) }
     var footer: Font { body(.caption) }
 
     /// Pixelify Sans, the identity face (titles, codes, numbers, buttons).
@@ -788,6 +789,13 @@ struct Typography: Equatable {
     }
 
     static let displayFamily = "Pixelify Sans"
+
+    /// A number someone has to read exactly (a time, a grade, a date, the
+    /// student number) below 20pt: Pixelify's 2, 9 and C blur into 8, S and O
+    /// at those sizes, so these use the reading face with tabular figures.
+    func numeric(size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        reading(size: size, weight: weight).monospacedDigit()
+    }
 
     /// Source Sans 3, the reading face (notes, descriptions, AI replies),
     /// unless the user picked another family in Settings.
