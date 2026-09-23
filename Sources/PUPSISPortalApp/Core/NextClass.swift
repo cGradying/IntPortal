@@ -73,6 +73,11 @@ enum NextClass {
                 // lands an hour off the 8:30 the SIS actually shows, while
                 // `bySettingHour:minute:` always resolves to that literal
                 // wall-clock time.
+                // `bySettingHour` returns nil for a wall-clock time the
+                // spring-forward gap skips (e.g. 2:30 on a day that jumps
+                // 2:00→3:00); that occurrence is silently dropped here, which
+                // is correct — no class actually meets at a time that never
+                // happened that day.
                 guard let start = calendar.date(bySettingHour: startMinutes / 60, minute: startMinutes % 60, second: 0, of: midnight),
                       let end = calendar.date(bySettingHour: endMinutes / 60, minute: endMinutes % 60, second: 0, of: midnight),
                       end > now

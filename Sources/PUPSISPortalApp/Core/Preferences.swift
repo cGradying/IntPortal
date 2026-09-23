@@ -674,12 +674,12 @@ final class Preferences: ObservableObject {
         // Migrated off the old epoch-keyed format in the same expression
         // that gives these their first value — reassigning after the fact
         // would fire `didSet` before every stored property is initialized,
-        // which Swift rejects. See `dayKey`'s doc comment for why the
-        // migration exists; it's a no-op once a key is already yyyy-MM-dd.
+        // which Swift rejects. See `recoveredMonday`'s doc comment for why
+        // the migration is zone-independent; it's a no-op once a key is
+        // already yyyy-MM-dd.
         occurrenceStatuses = Preferences.migrateWeekKeys(
             defaults.data(forKey: Key.occurrenceStatuses)
-                .flatMap { try? JSONDecoder().decode([String: SessionStatus].self, from: $0) } ?? [:],
-            calendar: .current
+                .flatMap { try? JSONDecoder().decode([String: SessionStatus].self, from: $0) } ?? [:]
         )
         onlineStripColors = defaults.data(forKey: Key.onlineStripColors)
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
@@ -687,8 +687,7 @@ final class Preferences: ObservableObject {
             .flatMap { try? JSONDecoder().decode([String: TimeOverride].self, from: $0) } ?? [:]
         occurrenceTimes = Preferences.migrateWeekKeys(
             defaults.data(forKey: Key.occurrenceTimes)
-                .flatMap { try? JSONDecoder().decode([String: TimeOverride].self, from: $0) } ?? [:],
-            calendar: .current
+                .flatMap { try? JSONDecoder().decode([String: TimeOverride].self, from: $0) } ?? [:]
         )
         classInfo = defaults.data(forKey: Key.classInfo)
             .flatMap { try? JSONDecoder().decode([String: ClassInfo].self, from: $0) } ?? [:]
@@ -808,20 +807,49 @@ final class Preferences: ObservableObject {
         "\(session.id)@\(Preferences.dayKey(for: weekStart, calendar: calendar))"
     }
 
+    private static var utcCalendar: Calendar = {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        return utc
+    }()
+
+    /// Recovers the Monday a legacy epoch meant, without knowing (and without
+    /// needing to know) which zone was current when it was written — reading
+    /// it back under today's zone is exactly the bug this migration exists to
+    /// fix (a zone change between write and migration would recover the wrong
+    /// day). A local-midnight-Monday instant, in any zone from UTC−12 to
+    /// UTC+14, always falls between Sunday 10:00 UTC and Monday 12:00 UTC —
+    /// a 26-hour window centered on one Monday 00:00 UTC, with its neighbors
+    /// a full week (168h) away. So the nearest Monday 00:00 UTC to the epoch
+    /// is unique and zone-independent. `nil` if nothing is within 14h (the
+    /// widest real UTC offset) of a Monday — not a real week key.
+    private static func recoveredMonday(fromLegacyEpoch epoch: TimeInterval) -> Date? {
+        let instant = Date(timeIntervalSince1970: epoch)
+        let thisWeek = Weekday.weekStart(containing: instant, calendar: utcCalendar)
+        guard let nextWeek = utcCalendar.date(byAdding: .day, value: 7, to: thisWeek) else { return nil }
+        let candidate = abs(thisWeek.timeIntervalSince(instant)) <= abs(nextWeek.timeIntervalSince(instant))
+            ? thisWeek : nextWeek
+        guard abs(candidate.timeIntervalSince(instant)) <= 14 * 3600 else { return nil }
+        return candidate
+    }
+
     /// Rewrites any key still in the pre-`dayKey` `id@<epoch>` form to
-    /// `id@yyyy-MM-dd`, under `calendar`'s time zone. Runs once per launch in
-    /// `init`; every other key is already in the new form and passes through
-    /// unchanged, so this is a cheap no-op on every launch after the first.
-    private static func migrateWeekKeys<Value>(_ dict: [String: Value], calendar: Calendar) -> [String: Value] {
+    /// `id@yyyy-MM-dd`. Runs once per launch in `init`; every other key is
+    /// already in the new form and passes through unchanged, so this is a
+    /// cheap no-op on every launch after the first. A legacy epoch that
+    /// `recoveredMonday` can't place near a Monday is left exactly as-is —
+    /// malformed, not dropped.
+    private static func migrateWeekKeys<Value>(_ dict: [String: Value]) -> [String: Value] {
         var migrated: [String: Value] = [:]
         migrated.reserveCapacity(dict.count)
         for (key, value) in dict {
             guard let atIndex = key.lastIndex(of: "@"),
-                  let epoch = TimeInterval(key[key.index(after: atIndex)...]) else {
+                  let epoch = TimeInterval(key[key.index(after: atIndex)...]),
+                  let monday = recoveredMonday(fromLegacyEpoch: epoch) else {
                 migrated[key] = value
                 continue
             }
-            let newKey = "\(key[..<atIndex])@\(dayKey(for: Date(timeIntervalSince1970: epoch), calendar: calendar))"
+            let newKey = "\(key[..<atIndex])@\(dayKey(for: monday, calendar: utcCalendar))"
             migrated[newKey] = value
         }
         return migrated
