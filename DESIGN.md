@@ -111,7 +111,7 @@ components:
 
 # Design System: IntPortal
 
-Reference build: `docs/specs/prototypes/intportal-v2.html` (v3 adds the 3D moves once P3 lands) (open it in a browser; everything here
+Reference build: `docs/specs/prototypes/intportal-v3.html` (v2 without the 3D moves) (open it in a browser; everything here
 was measured from it). Surface specs: `docs/specs/`. This file replaces the "Six Rooms" system of
 2026-08; that history is in git.
 
@@ -272,7 +272,8 @@ window keeps its 14pt system corner. Borders are 2pt on controls, 1pt on sheets.
   sheets, green on success, a red stutter on failure. Encodes: the sync result.
 - **Deck fan-out** (`11`): opening a deck fans its due cards in 3D, then deals the first to center.
   Encodes: fan width = cards due.
-- **Thinking cube** (`06`): the IntAssis orb turns into a spinning voxel cube while the model works.
+- **Thinking cube** (`06`): the IntAssis mark (chat header, or the orb when the chat is closed) turns
+  into a spinning voxel cube while the model works.
   Encodes: waiting on the model.
 
 ## Motion

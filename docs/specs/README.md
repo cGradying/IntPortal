@@ -17,8 +17,9 @@ other way round.
 - **"The Portal and the Registrar"** (approved 2026-09-23): you land in a void, a pixel portal
   forms, you warp into the PUP SIS world drawn in the SIS portal's own grammar, pixel-forward. The
   app never embeds or shows the SIS web UI.
-- **Reference build:** [`prototypes/intportal-v2.html`](prototypes/intportal-v2.html) (open it in a
-  browser; press Return to skip the landing). `prototypes/registrar.html` is v1, kept for history.
+- **Reference build:** [`prototypes/intportal-v3.html`](prototypes/intportal-v3.html) (open it in a
+  browser; press Return to skip the landing; `?turn=cube|slab` and `?depth=push|dive` pick the 3D
+  variants). v2 is the approved base without the 3D moves; `registrar.html` is v1. Both kept for history.
 - Behaviour: the current app is the reference. What works today keeps working unless a spec
   says otherwise under **UX changes**. Each spec's "Current behaviour inventory" is the parity list.
 - Scope: macOS. Specs stay platform-neutral where they can so the WinUI port can reuse them.
@@ -50,7 +51,7 @@ Build in this order. Each row is one or more PRs; each spec lists its acceptance
 | 12 | HyperFrames trailer | 30 to 45s MP4 of void, portal, warp and app, rendered from prototype v3 for the README, releases and intportal-web. Never bundled in the app | 3 | planned |
 
 Execution plan: [`PLAN.md`](PLAN.md) (phase 1: prototype v3, tokens, pixel components, depth kit, shell, landing; built by the head, landed by the operator). Phase 2 (screen slices, sonnet workers) goes in `PLAN-2.md`.
-Prototype v3 (`prototypes/intportal-v3.html`) adds the 3D moves in DESIGN.md Signature components; it becomes the reference build once P3 lands.
+Prototype v3 adds the 3D moves in DESIGN.md Signature components. P3 review media: `reference/P3-review*`.
 
 Sign-in (former 02-login) is part of 09. Backend fix briefs: `.claude/plans/backend-fixes.md`
 (local). Any agent guidance that still prescribes Liquid Glass for content (e.g. a `liquid-glass`
