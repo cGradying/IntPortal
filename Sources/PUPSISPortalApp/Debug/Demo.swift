@@ -37,6 +37,13 @@ extension Demo {
         return Destination(rawValue: args[i + 1])
     }
 
+    /// `-IntPortalScreen gallery` shows the component gallery instead of the app.
+    static var showsGallery: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-IntPortalScreen"), i + 1 < args.count else { return false }
+        return args[i + 1] == "gallery"
+    }
+
     @MainActor
     static func seed(_ app: AppState) {
         guard ProcessInfo.processInfo.environment["CFFIXED_USER_HOME"] != nil else {

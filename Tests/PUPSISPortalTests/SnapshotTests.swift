@@ -40,7 +40,7 @@ private struct TokenSheet: View {
         let swatches: [(String, Color)] = [
             ("menuField", r.menuField), ("menuFieldDeep", r.menuFieldDeep), ("menuFieldHover", r.menuFieldHover),
             ("onMenu", r.onMenu), ("onMenu2", r.onMenu2), ("action", r.action), ("actionHover", r.actionHover),
-            ("actionSoft", r.actionSoft), ("actionInk", r.actionInk), ("gold", r.gold), ("goldInk", r.goldInk),
+            ("actionSoft", r.actionSoft), ("actionInk", r.actionInk), ("onAction", r.onAction), ("gold", r.gold), ("goldInk", r.goldInk),
             ("goldSoft", r.goldSoft), ("ground", r.ground), ("sheet", r.sheet), ("sunk", r.sunk), ("line", r.line),
             ("line2", r.line2), ("ink", r.ink), ("ink2", r.ink2), ("ink3", r.ink3), ("good", r.good), ("bad", r.bad),
         ]

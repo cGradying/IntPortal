@@ -312,12 +312,20 @@ struct ContentView: View {
     /// band, so the whole screen behind the popup dims, not just the part
     /// under `CalendarView`. The island itself is drawn after this in
     /// z-order, so it's untouched.
+    @ViewBuilder private var root: some View {
+        #if DEBUG
+        if Demo.showsGallery { ComponentGallery() } else { content }
+        #else
+        content
+        #endif
+    }
+
     private var showingMonthOverlay: Bool {
         appState.selection == .schedule && appState.schedule.scale == .year
     }
 
     var body: some View {
-        content
+        root
             // Reaches both branches of `content` (login screen and the main
             // app) — the login screen's own circular gear button sets this
             // same flag, so one sheet definition covers both.

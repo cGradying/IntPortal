@@ -173,25 +173,9 @@ struct PixelBadge: View {
 
     var body: some View {
         Canvas { context, size in
-            let grid = kind.grid
-            let rows = grid.count
-            let cols = grid.first?.count ?? 0
-            guard rows > 0, cols > 0 else { return }
-            let cell = min(size.width / CGFloat(cols), size.height / CGFloat(rows))
-            let originX = (size.width - cell * CGFloat(cols)) / 2
-            let originY = (size.height - cell * CGFloat(rows)) / 2
-
-            var index = 0
-            for row in 0..<rows {
-                for col in 0..<cols {
-                    defer { index += 1 }
-                    guard grid[row][col], index < revealed else { continue }
-                    let rect = CGRect(
-                        x: originX + CGFloat(col) * cell, y: originY + CGFloat(row) * cell,
-                        width: cell, height: cell
-                    ).insetBy(dx: 1, dy: 1)
-                    context.fill(Path(roundedRect: rect, cornerRadius: 1), with: .color(kind.color))
-                }
+            let lit = kind.grid.flatMap { $0 }.enumerated().filter(\.element).map(\.offset)
+            for (cell, index) in zip(PixelBitmap.cells(kind.grid, in: size), lit) where index < revealed {
+                context.fill(Path(roundedRect: cell.insetBy(dx: 1, dy: 1), cornerRadius: 1), with: .color(kind.color))
             }
         }
         .id(key)
