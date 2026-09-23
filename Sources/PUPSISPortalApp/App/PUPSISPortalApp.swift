@@ -227,10 +227,21 @@ final class AppState: ObservableObject {
         portal.status = .idle
     }
 
-    func signOut() {
+    /// Async: the `WKWebsiteDataStore` clear has to be awaited before
+    /// sign-out is considered done, or a fast re-sign-in could race it and
+    /// pick up the previous account's cookies/local storage.
+    func signOut() async {
         // Must come first: an in-flight sign-in/refresh that's still running
         // must not re-save the caches deleted below after the fact.
         portal.cancelInFlight()
+        // The SIS session itself: without this, `#studno` is still missing
+        // on the next sign-in (reads as "already signed in"), so any
+        // credentials typed there just resume the previous account instead
+        // of authenticating fresh.
+        await portal.clearWebsiteData()
+        // Forget which host we landed on — a fresh sign-in re-runs the full
+        // candidate order instead of retrying whatever this account landed on.
+        portal.forgetHost()
         KeychainStore.delete()
         // Both caches are this student's own data; signing out has to take them
         // off disk too, not just off screen.
@@ -572,7 +583,7 @@ struct PUPSISPortalApp: App {
                 Divider()
 
                 Button("Edit Credentials") { appState.isEditing = true }
-                Button("Sign Out") { appState.signOut() }
+                Button("Sign Out") { Task { await appState.signOut() } }
                     .disabled(appState.credentials == nil)
             }
         }
