@@ -344,7 +344,9 @@ final class CalendarBridge: ObservableObject {
 
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        // Wall-clock, not elapsed-minute — see Calendar.wallClock in NextClass.swift.
+        // Wall-clock, not elapsed-minute — see Calendar.wallClock in
+        // NextClass.swift. `nil` here means `start`/`end` names a wall-clock
+        // time a spring-forward gap skipped on `date`; nothing to create.
         guard let startDate = calendar.wallClock(minutes: start, on: day),
               let endDate = calendar.wallClock(minutes: end, on: day)
         else { return nil }
@@ -433,7 +435,9 @@ final class CalendarBridge: ObservableObject {
 
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        // Wall-clock, not elapsed-minute — see Calendar.wallClock in NextClass.swift.
+        // Wall-clock, not elapsed-minute — see Calendar.wallClock in
+        // NextClass.swift. `nil` here means the drag landed on a wall-clock
+        // time a spring-forward gap skipped; the event is left unmoved.
         guard let startDate = calendar.wallClock(minutes: start, on: day),
               let endDate = calendar.wallClock(minutes: end, on: day)
         else { return nil }
@@ -598,7 +602,10 @@ final class CalendarBridge: ObservableObject {
 
                     let day = session.day.date(inWeekStarting: week, calendar: calendar)
                     let (startMinutes, endMinutes) = time(session, week)
-                    // Wall-clock, not elapsed-minute — see Calendar.wallClock in NextClass.swift.
+                    // Wall-clock, not elapsed-minute — see Calendar.wallClock
+                    // in NextClass.swift. `nil` means this week's occurrence
+                    // fell on a spring-forward gap; that one week is skipped,
+                    // every other week's export is unaffected.
                     guard let start = calendar.wallClock(minutes: startMinutes, on: day),
                           let end = calendar.wallClock(minutes: endMinutes, on: day),
                           start <= lastDay

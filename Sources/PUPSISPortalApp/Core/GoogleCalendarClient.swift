@@ -122,6 +122,8 @@ final class GoogleCalendarClient {
         let (startMinutes, endMinutes) = time(session, weekStart)
         // Wall-clock, not elapsed-minute, so a DST transition day doesn't
         // drift the exported time — see Calendar.wallClock in NextClass.swift.
+        // `nil` here means the anchor week's occurrence fell on a
+        // spring-forward gap; same as the vacant case above, no event.
         guard let start = calendar.wallClock(minutes: startMinutes, on: midnight),
               let end = calendar.wallClock(minutes: endMinutes, on: midnight)
         else { return nil }

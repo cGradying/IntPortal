@@ -51,6 +51,8 @@ enum ICSExporter {
             let (startMinutes, endMinutes) = time(session, weekStart)
             // Wall-clock, not elapsed-minute, so a DST transition day doesn't
             // drift the exported time — see Calendar.wallClock in NextClass.swift.
+            // `nil` means the anchor week's occurrence fell on a
+            // spring-forward gap; that session is left out of the file.
             guard let start = calendar.wallClock(minutes: startMinutes, on: day),
                   let end = calendar.wallClock(minutes: endMinutes, on: day)
             else { continue }

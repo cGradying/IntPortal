@@ -1158,6 +1158,10 @@ struct AgendaView: View {
         let cal = Calendar.current
         let midnight = session.day.date(inWeekStarting: weekStart)
         let (startMinutes, endMinutes) = preferences.time(for: session, on: weekStart)
+        // `nil` (startMinutes fell in a spring-forward gap) falls back to
+        // midnight, same as the pre-existing fallback here — this only
+        // affects the countdown phrase's wording, not whether the class
+        // shows in the list.
         let start = cal.wallClock(minutes: startMinutes, on: midnight) ?? midnight
         return NextClass.Upcoming(
             session: session, start: start,
