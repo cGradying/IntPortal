@@ -321,6 +321,46 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.time(for: tuesday, on: week1).start, 13 * 60 + 30, "and the override must still resolve")
     }
 
+    // MARK: Week-key time-zone stability
+
+    /// The bug: the override was keyed by `weekStart`'s raw epoch, which is
+    /// "local midnight Monday" *in whatever time zone computed it* — a device
+    /// time-zone change (travel, a tz database update) relocalizes the same
+    /// calendar Monday to a different instant, and the epoch-keyed lookup
+    /// misses. Keying by the calendar day instead survives it.
+    func testAWeekOverrideSurvivesATimeZoneChange() throws {
+        let prefs = Preferences(defaults: defaults)
+        var manila = Calendar(identifier: .gregorian)
+        manila.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
+        var losAngeles = Calendar(identifier: .gregorian)
+        losAngeles.timeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+
+        let now = Date(timeIntervalSince1970: 1_754_060_000) // an arbitrary Tuesday
+        let weekStartBefore = Weekday.weekStart(containing: now, calendar: manila)
+        prefs.setStatus(.online, for: tuesday, on: weekStartBefore, calendar: manila)
+
+        // Simulate the time-zone change: the same calendar week now resolves
+        // to a different absolute "local midnight Monday" instant.
+        let weekStartAfter = Weekday.weekStart(containing: now, calendar: losAngeles)
+        XCTAssertNotEqual(weekStartBefore, weekStartAfter, "the two zones must actually disagree for this test to prove anything")
+
+        XCTAssertEqual(prefs.status(for: tuesday, on: weekStartAfter, calendar: losAngeles), .online)
+    }
+
+    /// Overrides saved under the old `id@<epoch>` scheme must not vanish when
+    /// the app updates — they migrate to the new `id@yyyy-MM-dd` form once,
+    /// on load.
+    func testLegacyEpochKeyedStatusesMigrateOnLoad() throws {
+        let legacyKey = "\(tuesday.id)@\(Int(week1.timeIntervalSince1970))"
+        let legacy = try JSONEncoder().encode([legacyKey: SessionStatus.online])
+        defaults.set(legacy, forKey: "occurrenceStatuses")
+
+        let prefs = Preferences(defaults: defaults)
+
+        XCTAssertEqual(prefs.status(for: tuesday, on: week1), .online)
+        XCTAssertFalse(prefs.occurrenceStatuses.keys.contains(legacyKey), "the old key must be rewritten, not left alongside the new one")
+    }
+
     func testTermEndDefaultsToAboutASemesterOut() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))

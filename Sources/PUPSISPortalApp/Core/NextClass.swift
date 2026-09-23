@@ -67,10 +67,14 @@ enum NextClass {
             sessions.compactMap { session -> Upcoming? in
                 let midnight = session.day.date(inWeekStarting: weekStart, calendar: calendar)
                 let (startMinutes, endMinutes) = time(session, midnight)
-                // Added as minutes rather than a raw interval so a DST shift
-                // moves the class with the clock instead of an hour off it.
-                guard let start = calendar.date(byAdding: .minute, value: startMinutes, to: midnight),
-                      let end = calendar.date(byAdding: .minute, value: endMinutes, to: midnight),
+                // Set the wall-clock hour/minute directly rather than adding
+                // elapsed minutes to midnight: on a DST transition day, the
+                // clock itself jumps, so "midnight + 510 elapsed minutes"
+                // lands an hour off the 8:30 the SIS actually shows, while
+                // `bySettingHour:minute:` always resolves to that literal
+                // wall-clock time.
+                guard let start = calendar.date(bySettingHour: startMinutes / 60, minute: startMinutes % 60, second: 0, of: midnight),
+                      let end = calendar.date(bySettingHour: endMinutes / 60, minute: endMinutes % 60, second: 0, of: midnight),
                       end > now
                 else { return nil }
 
