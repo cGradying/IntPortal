@@ -57,6 +57,13 @@ CMLX_BUNDLE="$(find "$DERIVED_DATA/Build/Products/$CONFIGURATION" -maxdepth 1 -n
 mkdir -p "$APP/Contents/MacOS/Resources"
 cp "$CMLX_BUNDLE/Contents/Resources/default.metallib" "$APP/Contents/MacOS/Resources/mlx.metallib"
 
+# The app's own shaders (Resources/Shaders), compiled by the build into the
+# SwiftPM resource bundle. Copied out under its own name and loaded by path
+# (Views/Depth/Shaders.swift), for the same Bundle.module reason as the fonts
+# below. Missing is not fatal: every effect has a Canvas fallback.
+PORTAL_METALLIB="$DERIVED_DATA/Build/Products/$CONFIGURATION/PUPSISPortal_PUPSISPortal.bundle/Contents/Resources/default.metallib"
+[ -f "$PORTAL_METALLIB" ] && cp "$PORTAL_METALLIB" "$APP/Contents/Resources/PortalShaders.metallib"
+
 # Bundle the web notes editor (CodeMirror + KaTeX, offline) into Resources.
 NOTES_BUNDLE="$ROOT/Sources/PUPSISPortalApp/Resources/notes-editor.bundle.js"
 [ -f "$NOTES_BUNDLE" ] && cp "$NOTES_BUNDLE" "$APP/Contents/Resources/notes-editor.bundle.js"
