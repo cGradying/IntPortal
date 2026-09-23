@@ -1589,7 +1589,15 @@ private extension SettingsView {
     }
 
     func syncNotifications() {
-        notifier.sync(appState.portal.sessions, preferences)
+        Task {
+            // Same reasoning as `AppState.refresh()`: `sync` unconditionally
+            // clears every pending reminder before deciding whether to re-add
+            // any, and with `authorization` still `nil`/stale that check
+            // fails and wipes every reminder with nothing put back. Refresh
+            // first.
+            await notifier.refreshAuthorization()
+            notifier.sync(appState.portal.sessions, preferences)
+        }
     }
 
     func exportICS() {

@@ -387,4 +387,158 @@ final class PortalControllerTests: XCTestCase {
 
         XCTAssertFalse(attempted, "must not start a second sign-in while one is already running")
     }
+
+    // MARK: - loadGrades / loadGradeHistory reauth (W1d)
+
+    /// The gap W1c's own reauth fix left open: GradesView's "Try again"/
+    /// "Refresh" call `loadGrades()` directly, so it needs the same expired-
+    /// session recovery `loadSchedule()` already has.
+    func testLoadGradesReauthenticatesAfterLandingOnLoginPage() async {
+        var reauthRan = false
+        let portal = PortalController(
+            defaults: defaults,
+            hasCredentials: { true },
+            reauthenticate: {
+                reauthRan = true
+                return true
+            },
+            loadGradesPage: { throw PortalError.timedOut } // "landed on the login page"
+        )
+
+        await portal.loadGrades()
+
+        XCTAssertTrue(reauthRan, "a grades fetch that fails must trigger reauth")
+        XCTAssertNil(portal.gradesError, "a successful reauth must not also report a generic failure")
+    }
+
+    func testLoadGradesReportsFailureWhenReauthDoesNotApply() async {
+        let portal = PortalController(
+            defaults: defaults,
+            hasCredentials: { true },
+            reauthenticate: { false },
+            loadGradesPage: { throw PortalError.timedOut }
+        )
+
+        await portal.loadGrades()
+
+        XCTAssertNotNil(portal.gradesError, "a grades failure that isn't a reauth case must still be reported")
+    }
+
+    /// Same gap for "Load past terms", which calls `loadGradeHistory()` directly.
+    func testLoadGradeHistoryReauthenticatesAfterLandingOnLoginPage() async {
+        var reauthRan = false
+        let portal = PortalController(
+            defaults: defaults,
+            hasCredentials: { true },
+            reauthenticate: {
+                reauthRan = true
+                return true
+            },
+            loadGradesPage: { throw PortalError.timedOut }
+        )
+
+        await portal.loadGradeHistory()
+
+        XCTAssertTrue(reauthRan, "a history fetch that fails must trigger reauth")
+        XCTAssertNil(portal.gradesError)
+    }
+
+    // MARK: - grade-history backfill resilience (W1d)
+
+    /// The bug: one term's fetch throwing used to escape the per-term submit's
+    /// own `do`/`catch` into the *outer* one, aborting the whole backfill and
+    /// discarding every term already collected — not just the one that failed.
+    func testLoadGradeHistoryKeepsSuccessfulTermsWhenOneTermFails() async {
+        let goodTerm = SubjectGrade(
+            subjectCode: "COMP 20073", description: "Data Structures", faculty: "SANTOS, JUAN",
+            units: 3, sectionCode: "1", finalGrade: "1.00", gradeStatus: ""
+        )
+        let portal = PortalController(
+            defaults: defaults,
+            hasCredentials: { true },
+            loadGradesPage: {},
+            gradeTermOptions: {
+                SISScraper.GradeTermOptions(
+                    schoolYears: ["2023-2024", "2024-2025"],
+                    semesters: ["1st Semester"],
+                    currentSchoolYear: "2024-2025",
+                    currentSemester: "1st Semester"
+                )
+            },
+            fetchGradeTermReport: { combo in
+                if combo.schoolYear == "2023-2024" { throw PortalError.timedOut }
+                return GradeReport(
+                    lastUpdated: Date(timeIntervalSince1970: 1_754_400_000),
+                    subjects: [goodTerm],
+                    summary: [:],
+                    schoolYear: combo.schoolYear,
+                    semester: combo.semester
+                )
+            }
+        )
+
+        await portal.loadGradeHistory()
+
+        XCTAssertEqual(
+            portal.gradeHistory.map(\.schoolYear), ["2024-2025"],
+            "the failed term must be skipped, not lose the whole backfill"
+        )
+        XCTAssertNil(portal.gradesError, "a partial backfill is still a success, not an error")
+    }
+
+    // MARK: - pageRowsPollOutcome (W1d: empty terms shouldn't poll the full timeout)
+
+    /// A scrape that hasn't succeeded yet (wrong page, or a transient scrape
+    /// error) is always "keep polling" regardless of any prior empty streak.
+    func testScrapeFailureKeepsPolling() {
+        let outcome = PortalController.pageRowsPollOutcome(
+            scrapeSucceeded: false, isEmpty: false, emptySettledDuration: 999
+        )
+        XCTAssertEqual(outcome, .keepPolling)
+    }
+
+    func testNonEmptyScrapeIsImmediateSuccess() {
+        let outcome = PortalController.pageRowsPollOutcome(
+            scrapeSucceeded: true, isEmpty: false, emptySettledDuration: 0
+        )
+        XCTAssertEqual(outcome, .gotRows)
+    }
+
+    /// A single empty poll can't tell "genuinely empty term" apart from "the
+    /// table hasn't filled in yet" — must not stop early on just one.
+    func testEmptyScrapeBelowTheSettleWindowKeepsPolling() {
+        let outcome = PortalController.pageRowsPollOutcome(
+            scrapeSucceeded: true, isEmpty: true, emptySettledDuration: 0.5
+        )
+        XCTAssertEqual(outcome, .keepPolling)
+    }
+
+    /// The fix: once empty has held steady for the settle window, stop
+    /// polling out the rest of the 12s timeout.
+    func testEmptyScrapeHeldForTheSettleWindowStopsPolling() {
+        let outcome = PortalController.pageRowsPollOutcome(
+            scrapeSucceeded: true, isEmpty: true, emptySettledDuration: PortalController.emptyPageSettleDelay
+        )
+        XCTAssertEqual(outcome, .settledEmpty)
+    }
+
+    // MARK: - AppState.didSave (W1d: surface Keychain save failures)
+
+    private let fakeCredentials = Credentials(
+        studentNumber: "2000-00000-MN-0", birthMonth: 1, birthDay: 1, birthYear: 2000, password: "x"
+    )
+
+    /// The bug: `AppState.save` used `try? KeychainStore.save`, so a write
+    /// failure was silently swallowed and the app proceeded as signed in with
+    /// nothing actually persisted. `didSave` is the pulled-out decision,
+    /// testable without a real (heavy) `AppState`.
+    func testDidSaveReturnsFalseWhenTheKeychainWriteThrows() {
+        let saved = AppState.didSave(fakeCredentials) { _ in throw KeychainError(status: -1) }
+        XCTAssertFalse(saved)
+    }
+
+    func testDidSaveReturnsTrueWhenTheKeychainWriteSucceeds() {
+        let saved = AppState.didSave(fakeCredentials) { _ in }
+        XCTAssertTrue(saved)
+    }
 }
