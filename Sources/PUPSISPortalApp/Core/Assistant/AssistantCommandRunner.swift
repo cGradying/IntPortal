@@ -177,10 +177,21 @@ struct AssistantCommandRunner {
         return Outcome(reply: result.message, pin: nil)
     }
 
+    /// Same exclusion refusal `RealAssistantExecutor.readNote` gives the
+    /// model — these two used to read `notes.text(for:)` straight through
+    /// with no check at all, so a note the student excluded from AI could
+    /// still be pinned into every later turn (`/read`) or summarized and
+    /// sent to the model (`/summarize`).
+    private func refusedIfExcluded(_ key: String) -> Outcome? {
+        guard RealAssistantExecutor.isExcludedFromAI(key, in: notes) else { return nil }
+        return Outcome(reply: "\(displayName(key)) is excluded from AI — the student turned that off for it.", pin: nil)
+    }
+
     private func read(_ name: String?) -> Outcome {
         guard let key = resolvedKey(for: name) else {
             return notFound(name)
         }
+        if let refusal = refusedIfExcluded(key) { return refusal }
         let text = notes.text(for: key)
         guard !text.isEmpty else {
             return Outcome(reply: "\(displayName(key)) is empty.", pin: nil)
@@ -191,6 +202,7 @@ struct AssistantCommandRunner {
 
     private func summary(_ name: String) async -> Outcome {
         guard let key = resolvedKey(for: name) else { return notFound(name) }
+        if let refusal = refusedIfExcluded(key) { return refusal }
         let text = notes.text(for: key)
         guard !text.isEmpty else {
             return Outcome(reply: "\(displayName(key)) is empty — nothing to summarize.", pin: nil)

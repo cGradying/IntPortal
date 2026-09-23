@@ -317,13 +317,24 @@ final class Preferences: ObservableObject {
     /// what should stop that combination from being reachable in the first
     /// place, this is the belt-and-suspenders behind it.
     func resolvedAIClient() -> LlamaCppClient {
-        guard aiProvider != .local, let key = AIProviderKeyStore.load(for: aiProvider), !key.isEmpty else {
+        guard isCloudProviderActive, let key = AIProviderKeyStore.load(for: aiProvider) else {
             return Self.localAIClient(modelID: aiModel)
         }
         let model = aiProviderModel.isEmpty ? aiProvider.defaultModel : aiProviderModel
         return aiProvider.isOpenAICompatible
             ? .forOpenAICompatibleProvider(aiProvider, apiKey: key, model: model)
             : .forAnthropicProvider(apiKey: key, model: model)
+    }
+
+    /// True exactly when `resolvedAIClient()` above would return a cloud
+    /// client rather than the local one — a non-local provider selected and
+    /// its key actually present. Callers that gate the local-server
+    /// requirement (`LlamaRuntime.ensureChatServer`, which only applies to
+    /// the local branch) or copy that says "runs locally" read this instead
+    /// of re-deriving the same check.
+    var isCloudProviderActive: Bool {
+        guard aiProvider != .local, let key = AIProviderKeyStore.load(for: aiProvider) else { return false }
+        return !key.isEmpty
     }
 
     /// The local chat client for whichever runtime `modelID` actually

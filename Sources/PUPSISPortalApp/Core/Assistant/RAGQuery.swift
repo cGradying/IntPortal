@@ -26,6 +26,7 @@ struct RAGQuery {
     private let contextBudget: Int
     private let answerTemperature: Double
     private let answerModel: String
+    private let answerTokenBudget: Int
 
     init(
         notes: NotesStore,
@@ -43,17 +44,27 @@ struct RAGQuery {
         /// resolved to a local `llama-server` process, not passed in any
         /// request body (see `LlamaCppClient`'s own doc comment on why
         /// `model` request fields are vestigial there).
-        answerModel: String = ""
+        answerModel: String = "",
+        /// Caps the grounded answer's `max_tokens` — confirmed live, this
+        /// request had no cap at all before. Same default as
+        /// `Preferences.aiDefaultOutputTokenBudget`.
+        answerTokenBudget: Int = 600,
+        /// `client` is actually talking to a cloud provider
+        /// (`Preferences.isCloudProviderActive`) — `ensureChatServerRunning`'s
+        /// default only makes sense for the local `llama-server` branch, so
+        /// it's skipped here when true.
+        isCloudProvider: Bool = false
     ) {
         self.notesStore = notes
         self.client = client
-        self.ensureChatServerRunning = ensureChatServerRunning ?? { await LlamaRuntime.ensureChatServer(modelID: answerModel) }
+        self.ensureChatServerRunning = ensureChatServerRunning ?? { isCloudProvider ? true : await LlamaRuntime.ensureChatServer(modelID: answerModel) }
         self.ensureEmbedServerRunning = ensureEmbedServerRunning
         self.chunkSize = chunkSize
         self.similarityFloor = similarityFloor
         self.contextBudget = contextBudget
         self.answerTemperature = answerTemperature
         self.answerModel = answerModel
+        self.answerTokenBudget = answerTokenBudget
     }
 
     struct Answer {
@@ -120,7 +131,7 @@ struct RAGQuery {
                 .init(role: .user, content: "Notes:\n\(packed)\n\nQuestion: \(query)"),
             ],
             schema: ["type": "object", "properties": ["answer": ["type": "string"]], "required": ["answer"]],
-            temperature: answerTemperature
+            numPredict: answerTokenBudget, temperature: answerTemperature
         )
         struct Answer: Decodable { let answer: String }
         guard let data = reply.content.data(using: .utf8),

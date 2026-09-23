@@ -42,12 +42,40 @@ final class AssistantSession: ObservableObject {
     /// Phase 0 spike's `"reply": "[]"` rough edge, or a genuinely empty
     /// string. Falls back to something that still reflects what happened,
     /// rather than showing the model's raw non-answer.
-    static func displayReply(_ reply: String, actionCount: Int) -> String {
+    ///
+    /// `ranCount` must be how many actions actually *executed*
+    /// (`AssistantOutcome.results.count`), not how many were proposed
+    /// (`.actions.count`) — in `.propose`/`.confirm` mode `.actions` is
+    /// non-empty exactly when nothing has run yet (the user hasn't applied
+    /// anything), so using it here said "Done." for a turn that only
+    /// proposed actions and did nothing.
+    static func displayReply(_ reply: String, ranCount: Int) -> String {
         let trimmed = reply.trimmingCharacters(in: .whitespacesAndNewlines)
         let looksUseless = trimmed.isEmpty || trimmed == "[]" || trimmed == "{}"
         guard looksUseless else { return trimmed }
-        return actionCount > 0 ? "Done." : "…"
+        return ranCount > 0 ? "Done." : "…"
     }
+
+    /// Incremented by `reset()` and by `beginTurn()` (once per `send()`).
+    /// A turn in flight tags its eventual write-back with the id `beginTurn()`
+    /// handed it; `isCurrent(_:)` is checked before that write actually lands.
+    /// Clear (or a fresh send while one is still running) moves this forward,
+    /// so a turn already in flight can no longer deposit its result — actions
+    /// it proposes, or (in `.auto`) tool calls it already made — into a
+    /// conversation that has since moved on. Paired with cancelling the
+    /// still-running `Task` itself (`AssistantFloating`'s `send()`/Clear
+    /// button): cancellation alone doesn't guarantee no write lands before
+    /// it's observed, and this alone doesn't stop a tool call already in
+    /// flight — together they close the race.
+    @Published private(set) var turnID = 0
+
+    @discardableResult
+    func beginTurn() -> Int {
+        turnID += 1
+        return turnID
+    }
+
+    func isCurrent(_ turn: Int) -> Bool { turn == turnID }
 
     func appendUser(_ text: String) {
         transcript.append(AssistantTurn(role: .user, content: text))
@@ -58,6 +86,7 @@ final class AssistantSession: ObservableObject {
     }
 
     func reset() {
+        turnID += 1 // invalidate any turn still in flight
         transcript = []
         pendingActions = []
         lastError = nil
