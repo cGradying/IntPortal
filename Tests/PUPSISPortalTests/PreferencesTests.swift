@@ -321,6 +321,92 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.time(for: tuesday, on: week1).start, 13 * 60 + 30, "and the override must still resolve")
     }
 
+    // MARK: Week-key time-zone stability
+
+    /// The bug: the override was keyed by `weekStart`'s raw epoch, which is
+    /// "local midnight Monday" *in whatever time zone computed it* — a device
+    /// time-zone change (travel, a tz database update) relocalizes the same
+    /// calendar Monday to a different instant, and the epoch-keyed lookup
+    /// misses. Keying by the calendar day instead survives it.
+    func testAWeekOverrideSurvivesATimeZoneChange() throws {
+        let prefs = Preferences(defaults: defaults)
+        var manila = Calendar(identifier: .gregorian)
+        manila.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
+        var losAngeles = Calendar(identifier: .gregorian)
+        losAngeles.timeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+
+        let now = Date(timeIntervalSince1970: 1_754_060_000) // an arbitrary Tuesday
+        let weekStartBefore = Weekday.weekStart(containing: now, calendar: manila)
+        prefs.setStatus(.online, for: tuesday, on: weekStartBefore, calendar: manila)
+
+        // Simulate the time-zone change: the same calendar week now resolves
+        // to a different absolute "local midnight Monday" instant.
+        let weekStartAfter = Weekday.weekStart(containing: now, calendar: losAngeles)
+        XCTAssertNotEqual(weekStartBefore, weekStartAfter, "the two zones must actually disagree for this test to prove anything")
+
+        XCTAssertEqual(prefs.status(for: tuesday, on: weekStartAfter, calendar: losAngeles), .online)
+    }
+
+    // MARK: Legacy epoch-key migration
+    //
+    // A legacy key is local-midnight Monday *in whichever zone wrote it* —
+    // reinterpreting the raw epoch under today's zone (the bug this
+    // migration exists to fix) recovers the wrong day whenever the two
+    // differ. The actual migration instead finds the nearest Monday 00:00
+    // UTC to the epoch, which is unique and needs no knowledge of either
+    // zone. 2026-01-05 is a Monday; the two epochs below are that same
+    // calendar Monday's local midnight in Manila and in Los Angeles.
+
+    func testAManilaWrittenLegacyKeyMigratesToItsMonday() throws {
+        let manilaMidnight = 1_767_542_400 // 2026-01-05 00:00 Asia/Manila
+        let legacyKey = "\(tuesday.id)@\(manilaMidnight)"
+        let legacy = try JSONEncoder().encode([legacyKey: SessionStatus.online])
+        defaults.set(legacy, forKey: "occurrenceStatuses")
+
+        let prefs = Preferences(defaults: defaults)
+
+        XCTAssertEqual(prefs.occurrenceStatuses, ["\(tuesday.id)@2026-01-05": .online])
+    }
+
+    func testALosAngelesWrittenLegacyKeyMigratesToItsOwnMonday() throws {
+        let losAngelesMidnight = 1_767_600_000 // 2026-01-05 00:00 America/Los_Angeles
+        let legacyKey = "\(tuesday.id)@\(losAngelesMidnight)"
+        let legacy = try JSONEncoder().encode([legacyKey: SessionStatus.online])
+        defaults.set(legacy, forKey: "occurrenceStatuses")
+
+        let prefs = Preferences(defaults: defaults)
+
+        XCTAssertEqual(prefs.occurrenceStatuses, ["\(tuesday.id)@2026-01-05": .online])
+    }
+
+    /// A relaunch after the migration has already run must not touch the
+    /// now-current-format keys again.
+    func testLegacyKeyMigrationIsIdempotent() throws {
+        let manilaMidnight = 1_767_542_400 // 2026-01-05 00:00 Asia/Manila
+        let legacyKey = "\(tuesday.id)@\(manilaMidnight)"
+        let legacy = try JSONEncoder().encode([legacyKey: SessionStatus.online])
+        defaults.set(legacy, forKey: "occurrenceStatuses")
+
+        _ = Preferences(defaults: defaults) // first launch: migrates and persists
+        let relaunched = Preferences(defaults: defaults) // second launch: reads the migrated form
+
+        XCTAssertEqual(relaunched.occurrenceStatuses, ["\(tuesday.id)@2026-01-05": .online])
+    }
+
+    /// An epoch nowhere near a Monday 00:00 UTC (more than 14h away, wider
+    /// than any real UTC offset) isn't a week key this migration
+    /// understands — it must be left exactly as-is rather than silently
+    /// dropped or migrated to a wrong day.
+    func testAMalformedLegacyKeyIsPreservedRatherThanDropped() throws {
+        let legacyKey = "\(tuesday.id)@0" // 1970-01-01 00:00 UTC, a Thursday
+        let legacy = try JSONEncoder().encode([legacyKey: SessionStatus.online])
+        defaults.set(legacy, forKey: "occurrenceStatuses")
+
+        let prefs = Preferences(defaults: defaults)
+
+        XCTAssertEqual(prefs.occurrenceStatuses, [legacyKey: .online])
+    }
+
     func testTermEndDefaultsToAboutASemesterOut() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
