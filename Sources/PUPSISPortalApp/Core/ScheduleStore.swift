@@ -40,14 +40,23 @@ enum ScheduleStore {
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 
-    /// `nil` for "no usable cache". A missing, unreadable, or stale-format
-    /// file is not an error worth surfacing — one refresh rebuilds it.
+    /// `nil` for "no usable cache". A missing file is not an error worth
+    /// surfacing — one refresh rebuilds it. A *present* file that won't
+    /// decode is corruption, not "no schedule yet" — it's moved aside so the
+    /// next `save()` can't silently overwrite it (that used to be how a
+    /// decode failure turned into total data loss).
     static func load(from url: URL = fileURL) -> CachedSchedule? {
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(CachedSchedule.self, from: data)
+        if let cached = try? JSONDecoder().decode(CachedSchedule.self, from: data) { return cached }
+        CorruptedFile.quarantine(url)
+        return nil
     }
 
+    /// Also removes any quarantined (`.corrupt-*`) copy — the student's own
+    /// schedule can't outlive sign-out just because a decode failure once
+    /// renamed it aside.
     static func delete(at url: URL = fileURL) {
         try? FileManager.default.removeItem(at: url)
+        CorruptedFile.removeQuarantined(for: url)
     }
 }

@@ -1,7 +1,8 @@
 import Foundation
 
 /// Shared by every JSON-document store (`NotesStore`, `SyllabusStore`,
-/// `QuizStore`) so a decode failure never turns into data loss. Without this,
+/// `QuizStore`, `GradesStore`, `ScheduleStore`) so a decode failure never
+/// turns into data loss. Without this,
 /// a file that exists but won't decode was silently treated as "no data yet"
 /// — the store then persisted an empty (or partial) document over it on the
 /// very next write, and the original content was gone for good.
@@ -22,6 +23,18 @@ enum CorruptedFile {
         let backup = url.deletingLastPathComponent()
             .appendingPathComponent(url.lastPathComponent + ".corrupt-\(stamp)")
         return (try? FileManager.default.moveItem(at: url, to: backup)) != nil
+    }
+
+    /// Deletes any quarantined copies of `url` (`<name>.corrupt-*`) — for
+    /// stores whose cache is the user's own data and must not outlive
+    /// sign-out just because it got renamed aside once.
+    static func removeQuarantined(for url: URL) {
+        let directory = url.deletingLastPathComponent()
+        let prefix = url.lastPathComponent + ".corrupt-"
+        guard let entries = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
+        for entry in entries where entry.lastPathComponent.hasPrefix(prefix) {
+            try? FileManager.default.removeItem(at: entry)
+        }
     }
 
     private static let stampFormatter: DateFormatter = {

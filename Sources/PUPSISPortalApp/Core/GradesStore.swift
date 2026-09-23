@@ -43,23 +43,35 @@ enum GradesStore {
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 
-    /// `nil` for "no usable cache" — a missing, unreadable, or stale-format file
-    /// is not an error worth surfacing; one refresh rebuilds it.
+    /// `nil` for "no usable cache" — a missing file is not an error worth
+    /// surfacing; one refresh rebuilds it. A *present* file that won't decode
+    /// is corruption, not "no grades yet" — it's moved aside so the next
+    /// `save()` can't silently overwrite it (that used to be how a decode
+    /// failure turned into total data loss).
     static func load(from url: URL = fileURL) -> GradeReport? {
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(GradeReport.self, from: data)
+        if let report = try? JSONDecoder().decode(GradeReport.self, from: data) { return report }
+        CorruptedFile.quarantine(url)
+        return nil
     }
 
     static func loadHistory(from url: URL = historyURL) -> [GradeReport] {
         guard let data = try? Data(contentsOf: url) else { return [] }
-        return (try? JSONDecoder().decode([GradeReport].self, from: data)) ?? []
+        if let history = try? JSONDecoder().decode([GradeReport].self, from: data) { return history }
+        CorruptedFile.quarantine(url)
+        return []
     }
 
     /// Clears **both** the current-term cache and the history — sign-out has to
     /// take all of the student's grades off disk, not just the visible one.
-    static func delete() {
+    /// Also removes any quarantined (`.corrupt-*`) copies of either, so a
+    /// past decode failure can't leave the student's grades on disk past
+    /// sign-out just because they'd been renamed aside.
+    static func delete(fileURL: URL = fileURL, historyURL: URL = historyURL) {
         try? FileManager.default.removeItem(at: fileURL)
         try? FileManager.default.removeItem(at: historyURL)
+        CorruptedFile.removeQuarantined(for: fileURL)
+        CorruptedFile.removeQuarantined(for: historyURL)
     }
 
     /// Fold one term's snapshot into the history: replace any existing entry for
