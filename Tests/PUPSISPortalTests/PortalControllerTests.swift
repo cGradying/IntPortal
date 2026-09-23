@@ -243,4 +243,148 @@ final class PortalControllerTests: XCTestCase {
         // back to `async`.
         let _: (AppState) -> () -> Void = AppState.signOut
     }
+
+    // MARK: - signInOutcome (the DOM probe's decision, W1c)
+
+    /// The bug being fixed: "no `#studno`" alone used to mean "signed in",
+    /// which is also true for a page still mid-parse. A settled document
+    /// (`readyState == "complete"`) plus a *positive* signed-in marker is
+    /// the fast path now; an unverified/stale marker selector degrades to a
+    /// `markerFallbackDelay`-second settled-stability wait rather than a
+    /// hard failure (head review on c668aa7: a non-matching selector must
+    /// not turn every sign-in into a 25s timeout). These are captured-shape
+    /// (redacted) signal combinations a real probe would report, exercised
+    /// as fixtures the same way `SISHost.decide` is: no real `WKWebView`,
+    /// and production can't drift from what's tested here.
+
+    func testMarkerPresentIsImmediateSuccessRegardlessOfSettledDuration() {
+        let outcome = PortalController.signInOutcome(
+            readyState: "complete", loginFormPresent: false,
+            signedInMarkerPresent: true, settledDuration: 0, validationMessage: ""
+        )
+        XCTAssertEqual(outcome, .success(viaFallback: false))
+    }
+
+    /// No marker, but the settled state has held for the full fallback
+    /// window — a stale/wrong selector must not block sign-in forever.
+    func testNoMarkerButSettledForTheFallbackWindowIsSuccess() {
+        let outcome = PortalController.signInOutcome(
+            readyState: "complete", loginFormPresent: false, signedInMarkerPresent: false,
+            settledDuration: PortalController.markerFallbackDelay, validationMessage: ""
+        )
+        XCTAssertEqual(outcome, .success(viaFallback: true))
+    }
+
+    /// No marker, settled for only a beat — short of the fallback window, so
+    /// still not a confirmed success. This is what keeps the fallback from
+    /// swallowing the mid-parse false positive the marker requirement
+    /// targeted in the first place.
+    func testNoMarkerSettledOnlyBrieflyIsNotYetSuccess() {
+        let outcome = PortalController.signInOutcome(
+            readyState: "complete", loginFormPresent: false, signedInMarkerPresent: false,
+            settledDuration: 1, validationMessage: ""
+        )
+        XCTAssertNil(outcome, "under the fallback window, an unmatched marker must not yet count as signed in")
+    }
+
+    /// The exact original regression: login form already gone, but the page
+    /// hasn't finished settling and no positive marker has shown up yet —
+    /// used to read as success, must now keep polling (and the fallback
+    /// clock hasn't even started, since `settled` itself is false here).
+    func testLoginFormGoneButNotYetSettledIsNotSuccess() {
+        let outcome = PortalController.signInOutcome(
+            readyState: "loading", loginFormPresent: false,
+            signedInMarkerPresent: false, settledDuration: 0, validationMessage: ""
+        )
+        XCTAssertNil(outcome, "a mid-parse page must not be read as signed in")
+    }
+
+    func testValidationModalOnTheLoginFormIsAValidationError() {
+        let outcome = PortalController.signInOutcome(
+            readyState: "complete", loginFormPresent: true, signedInMarkerPresent: false,
+            settledDuration: 0, validationMessage: "Invalid student number or password."
+        )
+        XCTAssertEqual(outcome, .validationError("Invalid student number or password."))
+    }
+
+    /// The login form is still up and rendering, but no modal has appeared
+    /// yet — inconclusive, not a rejection.
+    func testLoginFormPresentWithNoModalYetIsNotSettled() {
+        let outcome = PortalController.signInOutcome(
+            readyState: "complete", loginFormPresent: true, signedInMarkerPresent: false,
+            settledDuration: 0, validationMessage: ""
+        )
+        XCTAssertNil(outcome)
+    }
+
+    // MARK: - reauthenticateAfterExpiredSession (W1c: refresh re-auth)
+
+    /// The core scenario from the brief, as a stub navigation/page driver:
+    /// `fetchScheduleRows` throws (standing in for `/schedule` bouncing back
+    /// to the login page and timing out), so `loadSchedule()` must run
+    /// reauth — and once "sign-in" reports success, the schedule it commits
+    /// (standing in for `runSignIn`'s own real commit) must be what's on
+    /// screen after. Never touches a real `WKWebView` or the live SIS.
+    func testLoadScheduleReauthenticatesAfterLandingOnLoginPageThenLoads() async {
+        let freshSession = ClassSession(
+            subjectCode: "COMP 20073", description: "Data Structures",
+            faculty: "SANTOS, JUAN", day: .tuesday, start: 14 * 60, end: 16 * 60
+        )
+        var reauthRan = false
+        let portal = PortalController(
+            defaults: defaults,
+            hasCredentials: { true },
+            fetchScheduleRows: { throw PortalError.timedOut }, // "landed on the login page"
+            reauthenticate: {
+                reauthRan = true
+                return true // "sign-in ran" — nothing left for loadSchedule to do
+            }
+        )
+        // Simulates what a successful `runSignIn` would already have
+        // committed by the time it returns.
+        portal.sessions = [freshSession]
+        portal.status = .success
+
+        await portal.loadSchedule()
+
+        XCTAssertTrue(reauthRan, "a schedule fetch that fails must trigger reauth")
+        XCTAssertEqual(portal.sessions, [freshSession], "the schedule reauth loaded must survive")
+        XCTAssertNil(portal.refreshError, "a successful reauth must not also report a generic failure")
+    }
+
+    /// When reauth doesn't apply (not actually a login-page landing, or no
+    /// stored credentials), `loadSchedule()` must fall back to its ordinary
+    /// failure reporting rather than silently swallowing the error.
+    func testLoadScheduleReportsFailureWhenReauthDoesNotApply() async {
+        let portal = PortalController(
+            defaults: defaults,
+            hasCredentials: { true },
+            fetchScheduleRows: { throw PortalError.timedOut },
+            reauthenticate: { false }
+        )
+        // `report(_:)` only becomes `.failed` with nothing cached — forced
+        // empty here so this doesn't depend on whatever `ScheduleStore`'s
+        // real on-disk cache happens to hold on the machine running the test.
+        portal.sessions = []
+
+        await portal.loadSchedule()
+
+        guard case .failed = portal.status else {
+            return XCTFail("expected .failed with nothing cached, got \(portal.status)")
+        }
+    }
+
+    /// Single-flight: a reauth already in progress (`status == .loggingIn`)
+    /// must not kick off a second one. This exercises the *real*
+    /// (non-stubbed) `reauthenticateAfterExpiredSession()` — safe to call
+    /// directly because the guard returns before ever touching the
+    /// `WKWebView`-backed probe.
+    func testReauthenticateSkipsWhileASignInIsAlreadyInFlight() async {
+        let portal = PortalController(defaults: defaults, hasCredentials: { true })
+        portal.status = .loggingIn
+
+        let attempted = await portal.reauthenticateAfterExpiredSession()
+
+        XCTAssertFalse(attempted, "must not start a second sign-in while one is already running")
+    }
 }
