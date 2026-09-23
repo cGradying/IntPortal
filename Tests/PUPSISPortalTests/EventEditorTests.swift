@@ -165,8 +165,10 @@ final class ExportEchoTests: XCTestCase {
 
 /// Covers the W4 undo bugs: undo used to match a block by time slot and/or
 /// title alone, so a rename or a move could land on the wrong occurrence.
-/// The fix matches by EventKit identifier *and* the occurrence's day/time,
-/// which `findOccurrence` does directly against plain `[DayBlock]` values —
+/// The fix matches by EventKit identifier plus the occurrence's day/time,
+/// falling back to day/time/title alone when the identifier itself has
+/// drifted (saving a single occurrence can detach it under a new one).
+/// `findOccurrence` does this directly against plain `[DayBlock]` values —
 /// no live `EKEventStore` needed, same as the rest of this file.
 final class UndoOccurrenceMatchingTests: XCTestCase {
     private let monday = Date(timeIntervalSince1970: 1_754_400_000) // a Monday
@@ -201,7 +203,7 @@ final class UndoOccurrenceMatchingTests: XCTestCase {
         let sameTimeDifferentDay = block(identifier: "EVT-2", on: wednesday, day: .wednesday, start: 840, end: 960, title: "Gym")
         let blocks = [sameTimeDifferentDay, target]
 
-        let found = CalendarBridge.findOccurrence(in: blocks, identifier: "EVT-1", day: .monday, start: 840, end: 960)
+        let found = CalendarBridge.findOccurrence(in: blocks, identifier: "EVT-1", day: .monday, start: 840, end: 960, title: "Study")
 
         XCTAssertEqual(found?.id, target.id)
     }
@@ -217,7 +219,7 @@ final class UndoOccurrenceMatchingTests: XCTestCase {
 
         // Matching by title alone (the old bug) would hit `otherOccurrence`
         // since it comes first — the fix pins day/time to the destination.
-        let found = CalendarBridge.findOccurrence(in: blocks, identifier: "SERIES-1", day: .wednesday, start: 780, end: 840)
+        let found = CalendarBridge.findOccurrence(in: blocks, identifier: "SERIES-1", day: .wednesday, start: 780, end: 840, title: "Seminar")
 
         XCTAssertEqual(found?.id, moved.id)
     }
@@ -225,7 +227,36 @@ final class UndoOccurrenceMatchingTests: XCTestCase {
     func testNoMatchWhenTheIdentifierIsRightButTheSlotIsNot() {
         let existing = block(identifier: "EVT-1", on: monday, day: .monday, start: 840, end: 960, title: "Study")
 
-        XCTAssertNil(CalendarBridge.findOccurrence(in: [existing], identifier: "EVT-1", day: .monday, start: 900, end: 960))
+        XCTAssertNil(CalendarBridge.findOccurrence(in: [existing], identifier: "EVT-1", day: .monday, start: 900, end: 960, title: "Study"))
+    }
+
+    /// The head-review bug: saving a single occurrence of a repeating event
+    /// with `.thisEvent` (or forking it with `.futureEvents`) can detach it
+    /// under a brand new EventKit identifier, so the identifier captured
+    /// before the save no longer matches anything after it. Rather than
+    /// silently doing nothing, the day/time/title slot — unaffected by an
+    /// identifier change — has to find it instead.
+    func testFallsBackToDayTimeTitleWhenTheIdentifierMisses() {
+        let detached = block(identifier: "NEW-IDENTIFIER-AFTER-DETACH", on: monday, day: .monday, start: 840, end: 960, title: "Study")
+
+        let found = CalendarBridge.findOccurrence(
+            in: [detached], identifier: "STALE-IDENTIFIER-FROM-BEFORE-SAVE", day: .monday, start: 840, end: 960, title: "Study"
+        )
+
+        XCTAssertEqual(found?.id, detached.id)
+    }
+
+    /// Only give up — return nil — when neither the identifier nor the
+    /// day/time/title fallback finds anything, e.g. the event was deleted
+    /// out from under the undo entirely.
+    func testReturnsNilWhenBothIdentifierAndSlotTitleMiss() {
+        let unrelated = block(identifier: "OTHER", on: monday, day: .monday, start: 600, end: 660, title: "Gym")
+
+        let found = CalendarBridge.findOccurrence(
+            in: [unrelated], identifier: "STALE", day: .monday, start: 840, end: 960, title: "Study"
+        )
+
+        XCTAssertNil(found)
     }
 }
 

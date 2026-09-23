@@ -149,15 +149,17 @@ final class EventEditor: ObservableObject {
         actionName: String = "Move Event"
     ) {
         guard let before = snapshot(of: block) else { return }
-        // The block's own id won't survive the move — it encodes the
-        // occurrence's start time, which is exactly what's changing. The
-        // EventKit identifier does survive (even a repeating event's
-        // occurrences keep it), so capture that plus where this occurrence
-        // is landing, and use both to re-find it after the reload.
-        let identifier = bridge.event(for: block)?.eventIdentifier
+        let title = block.title
         let destinationDay = Weekday.on(date)
 
-        bridge.reschedule(block, to: date, start: start, end: end, scope: scope)
+        // Captured from the bridge's return value, *after* the save — not
+        // before. Saving one occurrence of a repeating event with
+        // `.thisEvent` (or forking it with `.futureEvents`) can detach it
+        // under a brand new identifier; a pre-save read would already be
+        // stale by the time undo needs it. `?? ""` matches nothing in
+        // `findOccurrence`'s identifier pass, which is exactly the "fall
+        // back to day/time/title" behavior wanted here.
+        let identifier = bridge.reschedule(block, to: date, start: start, end: end, scope: scope) ?? ""
         register(actionName) { editor in
             // The block is stale after a reload, so undo goes back through the
             // freshly-loaded occurrence at the moved-to slot — not just any
@@ -170,6 +172,7 @@ final class EventEditor: ObservableObject {
                 day: destinationDay,
                 start: start,
                 end: end,
+                title: title,
                 scope: scope,
                 actionName: actionName
             )
@@ -179,24 +182,27 @@ final class EventEditor: ObservableObject {
 
     func rename(_ block: DayBlock, to title: String, scope: CalendarBridge.EditScope) {
         guard let before = snapshot(of: block) else { return }
-        let identifier = bridge.event(for: block)?.eventIdentifier
         let day = block.day
 
-        bridge.rename(block, to: title, scope: scope)
+        // Post-save, not pre-save — see `move`'s comment; the same
+        // identifier drift can happen renaming a single occurrence too.
+        let identifier = bridge.rename(block, to: title, scope: scope) ?? ""
         register("Rename Event") { editor in
-            editor.renameBack(to: before, identifier: identifier, day: day, scope: scope)
+            // `title` (the new one), not `before.title` — that's what the
+            // block looks like right now, which is what undo needs to find.
+            editor.renameBack(to: before, identifier: identifier, day: day, currentTitle: title, scope: scope)
         }
         onChange?()
     }
 
     func setDetails(_ block: DayBlock, note: String, link: String, scope: CalendarBridge.EditScope) {
         guard let before = snapshot(of: block) else { return }
-        let identifier = bridge.event(for: block)?.eventIdentifier
         let day = block.day
+        let title = block.title
 
-        bridge.setDetails(block, note: note, link: link, scope: scope)
+        let identifier = bridge.setDetails(block, note: note, link: link, scope: scope) ?? ""
         register("Edit Event Details") { editor in
-            editor.setDetailsBack(to: before, identifier: identifier, day: day, scope: scope)
+            editor.setDetailsBack(to: before, identifier: identifier, day: day, title: title, scope: scope)
         }
         onChange?()
     }
@@ -271,40 +277,46 @@ final class EventEditor: ObservableObject {
         onChange?()
     }
 
-    /// Finds the loaded block for one specific occurrence. `identifier`
-    /// alone isn't enough — a repeating event's occurrences all share the
-    /// same `eventIdentifier` — so day/time pin down which one, instead of
-    /// matching the first same-title (or same-time) block in the week: wrong
-    /// when two events share a title, and wrong after a move, which needs
-    /// the destination slot, not the origin.
-    private func block(identifier: String, day: Weekday, start: Int, end: Int) -> DayBlock? {
-        CalendarBridge.findOccurrence(in: bridge.events, identifier: identifier, day: day, start: start, end: end)
+    /// Finds the loaded block for one specific occurrence, falling back from
+    /// identifier to day/time/title when the identifier doesn't land on
+    /// anything — see `CalendarBridge.findOccurrence` for why the identifier
+    /// alone can miss. Logs (never the event's title or other content) when
+    /// both miss, so an undo that can't relocate its event shows up
+    /// somewhere instead of silently falling off the stack.
+    private func block(identifier: String, day: Weekday, start: Int, end: Int, title: String, action: String) -> DayBlock? {
+        let found = CalendarBridge.findOccurrence(
+            in: bridge.events, identifier: identifier, day: day, start: start, end: end, title: title
+        )
+        if found == nil {
+            print("EventEditor.\(action): undo couldn't relocate its event — identifier and day/time/title both missed.")
+        }
+        return found
     }
 
     private func moveBack(
         to snapshot: EventSnapshot,
-        identifier: String?,
+        identifier: String,
         day: Weekday,
         start: Int,
         end: Int,
+        title: String,
         scope: CalendarBridge.EditScope,
         actionName: String
     ) {
-        guard let identifier, let block = block(identifier: identifier, day: day, start: start, end: end) else { return }
+        guard let block = block(identifier: identifier, day: day, start: start, end: end, title: title, action: "move")
+        else { return }
         move(block, to: snapshot.date, start: snapshot.start, end: snapshot.end,
              scope: scope, actionName: actionName)
     }
 
-    private func renameBack(to snapshot: EventSnapshot, identifier: String?, day: Weekday, scope: CalendarBridge.EditScope) {
-        guard let identifier,
-              let block = block(identifier: identifier, day: day, start: snapshot.start, end: snapshot.end)
+    private func renameBack(to snapshot: EventSnapshot, identifier: String, day: Weekday, currentTitle: String, scope: CalendarBridge.EditScope) {
+        guard let block = block(identifier: identifier, day: day, start: snapshot.start, end: snapshot.end, title: currentTitle, action: "rename")
         else { return }
         rename(block, to: snapshot.title, scope: scope)
     }
 
-    private func setDetailsBack(to snapshot: EventSnapshot, identifier: String?, day: Weekday, scope: CalendarBridge.EditScope) {
-        guard let identifier,
-              let block = block(identifier: identifier, day: day, start: snapshot.start, end: snapshot.end)
+    private func setDetailsBack(to snapshot: EventSnapshot, identifier: String, day: Weekday, title: String, scope: CalendarBridge.EditScope) {
+        guard let block = block(identifier: identifier, day: day, start: snapshot.start, end: snapshot.end, title: title, action: "setDetails")
         else { return }
         setDetails(block, note: snapshot.note, link: snapshot.link, scope: scope)
     }

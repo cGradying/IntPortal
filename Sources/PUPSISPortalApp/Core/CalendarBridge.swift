@@ -287,22 +287,31 @@ final class CalendarBridge: ObservableObject {
     }
 
     /// Finds the one loaded block for a specific occurrence — used by undo to
-    /// re-find an event after a reload. `eventIdentifier` alone can't do
-    /// this: a repeating event's occurrences all share it, so day and time
-    /// pin down which occurrence, rather than the first block that merely
-    /// shares a title (wrong when two events are named alike) or a time slot
-    /// that isn't where the occurrence actually is now (wrong after a move).
+    /// re-find an event after a reload.
+    ///
+    /// Tries the EventKit identifier first, pinned to day/time since a
+    /// repeating event's occurrences all share one identifier and a bare
+    /// identifier match could land on a different occurrence of the same
+    /// series. Falls back to day/time/title alone when nothing matches the
+    /// identifier: saving a single occurrence with `.thisEvent` (or forking
+    /// it with `.futureEvents`) can detach it under a brand new identifier,
+    /// and giving up there would silently drop the undo off the stack.
+    /// Returns nil only when neither matches anything loaded.
     nonisolated static func findOccurrence(
         in blocks: [DayBlock],
         identifier: String,
         day: Weekday,
         start: Int,
-        end: Int
+        end: Int,
+        title: String
     ) -> DayBlock? {
-        blocks.first {
+        if let exact = blocks.first(where: {
             $0.day == day && $0.start == start && $0.end == end
                 && Self.identifier(fromBlockID: $0.id) == identifier
+        }) {
+            return exact
         }
+        return blocks.first { $0.day == day && $0.start == start && $0.end == end && $0.title == title }
     }
 
     // MARK: Writing
@@ -403,25 +412,34 @@ final class CalendarBridge: ObservableObject {
     ///
     /// Works from the occurrence captured during `load`, never from
     /// `store.event(withIdentifier:)`, which returns the series master.
-    func reschedule(_ block: DayBlock, to date: Date, start: Int, end: Int, scope: EditScope) {
+    ///
+    /// Returns the saved event's identifier — read off the same `EKEvent`
+    /// object *after* `save`, not before, because saving one occurrence of a
+    /// repeating event with `.thisEvent` (or forking it with
+    /// `.futureEvents`) can detach it under a brand new identifier. A caller
+    /// that captured the identifier before the save would be holding a
+    /// stale one.
+    @discardableResult
+    func reschedule(_ block: DayBlock, to date: Date, start: Int, end: Int, scope: EditScope) -> String? {
         guard let event = occurrences[block.id] else {
             lastError = "That event is no longer loaded. Refresh and try again."
-            return
+            return nil
         }
         guard event.calendar.allowsContentModifications else {
             lastError = "“\(event.calendar.title)” is read-only."
-            return
+            return nil
         }
 
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
         guard let startDate = calendar.date(byAdding: .minute, value: start, to: day),
               let endDate = calendar.date(byAdding: .minute, value: end, to: day)
-        else { return }
+        else { return nil }
 
         event.startDate = startDate
         event.endDate = endDate
-        save(event, scope: scope)
+        guard save(event, scope: scope) else { return nil }
+        return event.eventIdentifier
     }
 
     func delete(_ block: DayBlock, scope: EditScope) {
@@ -444,28 +462,39 @@ final class CalendarBridge: ObservableObject {
         }
     }
 
-    func rename(_ block: DayBlock, to title: String, scope: EditScope) {
-        guard let event = occurrences[block.id] else { return }
+    /// Returns the saved event's identifier post-save — see `reschedule`'s
+    /// doc comment for why it has to be read after, not before.
+    @discardableResult
+    func rename(_ block: DayBlock, to title: String, scope: EditScope) -> String? {
+        guard let event = occurrences[block.id] else { return nil }
         event.title = title
-        save(event, scope: scope)
+        guard save(event, scope: scope) else { return nil }
+        return event.eventIdentifier
     }
 
     /// `note`/`link` map straight to `EKEvent.notes`/`.url` — an empty
     /// string clears the field rather than leaving a stale value behind.
-    func setDetails(_ block: DayBlock, note: String, link: String, scope: EditScope) {
-        guard let event = occurrences[block.id] else { return }
+    /// Returns the saved event's identifier post-save — see `reschedule`'s
+    /// doc comment for why it has to be read after, not before.
+    @discardableResult
+    func setDetails(_ block: DayBlock, note: String, link: String, scope: EditScope) -> String? {
+        guard let event = occurrences[block.id] else { return nil }
         event.notes = note.isEmpty ? nil : note
         event.url = URL(string: link)
-        save(event, scope: scope)
+        guard save(event, scope: scope) else { return nil }
+        return event.eventIdentifier
     }
 
-    private func save(_ event: EKEvent, scope: EditScope) {
+    @discardableResult
+    private func save(_ event: EKEvent, scope: EditScope) -> Bool {
         do {
             try store.save(event, span: scope.span, commit: true)
             lastError = nil
+            return true
         } catch {
             store.reset()
             lastError = error.localizedDescription
+            return false
         }
     }
 
