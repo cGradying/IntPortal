@@ -59,12 +59,52 @@ final class ScheduleStoreTests: XCTestCase {
         XCTAssertNil(ScheduleStore.load(from: url))
     }
 
+    private func quarantined() throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(at: url.deletingLastPathComponent(), includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix(url.lastPathComponent + ".corrupt-") }
+    }
+
+    /// A corrupt schedule.json used to load as "no schedule" and then get
+    /// overwritten by the very next save. It must be moved aside instead.
+    func testCorruptFileIsQuarantinedAndNotClobberedByTheNextSave() throws {
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("not json".utf8).write(to: url)
+
+        XCTAssertNil(ScheduleStore.load(from: url))
+
+        let found = try quarantined()
+        XCTAssertEqual(found.count, 1)
+        XCTAssertEqual(try Data(contentsOf: found[0]), Data("not json".utf8))
+
+        ScheduleStore.save(fixture, to: url)
+        XCTAssertEqual(try Data(contentsOf: found[0]), Data("not json".utf8))
+        XCTAssertNotNil(ScheduleStore.load(from: url))
+    }
+
     func testDeleteRemovesTheFileFromDisk() {
         ScheduleStore.save(fixture, to: url)
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
 
         ScheduleStore.delete(at: url)
         XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+    }
+
+    /// Sign-out has to take a quarantined copy off disk too, not just the
+    /// live file — otherwise a past decode failure leaves the student's
+    /// schedule sitting on disk under a different name after sign-out.
+    func testDeleteRemovesQuarantinedCopyToo() throws {
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("not json".utf8).write(to: url)
+        XCTAssertNil(ScheduleStore.load(from: url))
+        XCTAssertEqual(try quarantined().count, 1)
+
+        ScheduleStore.save(fixture, to: url)
+        ScheduleStore.delete(at: url)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+        XCTAssertEqual(try quarantined().count, 0)
     }
 
     /// The cache holds the student's own schedule; nobody else on the machine
