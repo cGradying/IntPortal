@@ -19,6 +19,11 @@ enum LlamaRuntime {
         guard let entry = ModelCatalog.entry(for: modelID), ModelCatalog.isDownloaded(entry) else { return false }
         switch entry.kind {
         case .mlx:
+            // Minor fix: free whatever the .chat role's llama-server was
+            // holding before loading weights in-process here — otherwise a
+            // gguf→mlx switch keeps both backends' memory resident at once.
+            // A cheap no-op when nothing was running for .chat.
+            await LlamaServerManager.shared.stop(.chat)
             do {
                 try await MLXBackend.shared.ensureLoaded(directory: ModelCatalog.localURL(for: entry))
                 return true
@@ -34,6 +39,9 @@ enum LlamaRuntime {
                 return false
             }
         case .gguf:
+            // Minor fix: the mirror image of the .mlx branch above — free
+            // MLXBackend's in-process weights before spawning llama-server.
+            await MLXBackend.shared.unload()
             return await LlamaServerManager.shared.ensureRunning(
                 .chat, modelPath: ModelCatalog.localURL(for: entry), contextSize: contextSize,
                 kvQuantized: Preferences.storedKVCacheQuantized(), useGPU: Preferences.storedUseGPU()

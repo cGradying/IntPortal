@@ -34,6 +34,13 @@ actor MLXBackend {
 
     private var container: ModelContainer?
     private var loadedDirectory: URL?
+    /// Coalesces concurrent `ensureLoaded` calls onto one in-flight load
+    /// (minor fix): without this, two overlapping callers — e.g. the
+    /// assistant and a background quiz-explanation request both racing to
+    /// warm the model — each saw `loadedDirectory == nil` and started their
+    /// own multi-hundred-MB `loadContainer`, doubling memory and load time
+    /// for no reason.
+    private let singleFlight = SingleFlight<URL, ModelContainer>()
 
     /// Loads (or reuses) `directory`'s weights into a `ModelContainer`. Mirrors
     /// `LlamaServerManager.ensureRunning`'s "no-op once running, restart on a
@@ -41,8 +48,20 @@ actor MLXBackend {
     /// backend's equivalent entry point for an `.mlx` catalog entry.
     func ensureLoaded(directory: URL) async throws {
         guard loadedDirectory != directory else { return }
-        container = try await LLMModelFactory.shared.loadContainer(from: directory, using: MLXTokenizerLoader())
+        let loaded = try await singleFlight.run(directory) {
+            try await LLMModelFactory.shared.loadContainer(from: directory, using: MLXTokenizerLoader())
+        }
+        container = loaded
         loadedDirectory = directory
+    }
+
+    /// Frees the loaded weights — called when `LlamaRuntime` switches the
+    /// `.chat` role to a `.gguf` entry (minor fix), so this backend doesn't
+    /// keep holding its own multi-hundred-MB `ModelContainer` in this
+    /// process's memory alongside the newly-spawned `llama-server`.
+    func unload() {
+        container = nil
+        loadedDirectory = nil
     }
 
     /// The `send` closure `LlamaCppClient(send:)` expects: request JSON in,
@@ -159,5 +178,24 @@ actor MLXBackend {
         let content = (String(raw[raw.startIndex..<openRange.lowerBound]) + String(raw[closeRange.upperBound...]))
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return (content, keepReasoning ? thinking : "")
+    }
+}
+
+/// Coalesces concurrent calls for the same `key` onto one in-flight `Task`,
+/// so two overlapping callers pay for the work once instead of each starting
+/// their own copy. Generic and deliberately unaware of MLX/`ModelContainer`
+/// — that's what makes it testable with a plain counting closure, no real
+/// model load required (`MLXBackendTests`).
+actor SingleFlight<Key: Hashable, Value: Sendable> {
+    private var inFlight: [Key: Task<Value, Error>] = [:]
+
+    func run(_ key: Key, _ operation: @escaping @Sendable () async throws -> Value) async throws -> Value {
+        if let existing = inFlight[key] {
+            return try await existing.value
+        }
+        let task = Task { try await operation() }
+        inFlight[key] = task
+        defer { inFlight[key] = nil }
+        return try await task.value
     }
 }

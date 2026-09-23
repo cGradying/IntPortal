@@ -195,12 +195,22 @@ enum ModelCatalog {
         case .gguf:
             return FileManager.default.fileExists(atPath: localURL(for: entry).path)
         case .mlx:
-            // A repo snapshot is many files; `config.json` landing is what
-            // `AutoTokenizer`/`LLMModelFactory` actually need first, and (unlike
-            // the bare directory) it doesn't exist until `HubApi.snapshot`
-            // has genuinely finished — a partial download never reads as done.
-            return FileManager.default.fileExists(atPath: localURL(for: entry).appendingPathComponent("config.json").path)
+            // W8: `config.json` landing is NOT proof the snapshot finished —
+            // `HubApi.snapshot` writes a repo's files as they arrive, and
+            // the tiny config/tokenizer files can land well before the
+            // multi-GB `.safetensors` shards do, so a killed/interrupted
+            // download could still read as "downloaded" and get loaded with
+            // missing weights. `completeMarkerURL` is written only after
+            // `download(_:)`'s `.mlx` branch (or `adoptBundledModels`)
+            // genuinely finishes — require that instead.
+            return FileManager.default.fileExists(atPath: completeMarkerURL(for: entry).path)
         }
+    }
+
+    /// The completion marker for an `.mlx` entry's snapshot directory — see
+    /// `isDownloaded`'s own comment on why `config.json` alone isn't proof.
+    private static func completeMarkerURL(for entry: Entry) -> URL {
+        localURL(for: entry).appendingPathComponent(".complete")
     }
 
     /// Downloads `entry`'s weights, reporting fractional progress the same
@@ -213,7 +223,10 @@ enum ModelCatalog {
     static func download(_ entry: Entry) -> AsyncThrowingStream<Double, Error> {
         switch entry.kind {
         case .gguf(_, let url):
-            return LlamaCppClient.download(from: url, to: localURL(for: entry))
+            // W8: every catalog entry's sizeBytes was confirmed against the
+            // real HF file — pass it through so validateDownload checks the
+            // exact byte count, not just the weaker GGUF-header fallback.
+            return LlamaCppClient.download(from: url, to: localURL(for: entry), expectedSizeBytes: entry.sizeBytes)
         case .mlx(let repoID):
             return AsyncThrowingStream { continuation in
                 Task {
@@ -221,6 +234,11 @@ enum ModelCatalog {
                         _ = try await hub.snapshot(from: repoID) { progress in
                             continuation.yield(progress.fractionCompleted)
                         }
+                        // W8: only now — every file genuinely landed — does
+                        // this entry count as downloaded. See
+                        // `isDownloaded`'s comment on why `config.json`
+                        // alone isn't proof.
+                        FileManager.default.createFile(atPath: completeMarkerURL(for: entry).path, contents: nil)
                         continuation.finish()
                     } catch {
                         continuation.finish(throwing: error)
@@ -259,12 +277,12 @@ enum ModelCatalog {
     /// already downloaded, or nothing bundled for it to adopt from.
     static func entriesToAdopt(
         from bundleDirectory: URL, fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
-    ) -> [(source: URL, destination: URL)] {
+    ) -> [(entry: Entry, source: URL, destination: URL)] {
         (entries + [embedModel]).compactMap { entry in
             guard !fileExists(localURL(for: entry).path) else { return nil }
             let source = bundleDirectory.appendingPathComponent(bundledRelativePath(for: entry))
             guard fileExists(source.path) else { return nil }
-            return (source, localURL(for: entry))
+            return (entry, source, localURL(for: entry))
         }
     }
 
@@ -283,12 +301,21 @@ enum ModelCatalog {
     /// same as a file — APFS hardlinks a whole tree in one call — so no
     /// separate recursive-copy branch is needed here.
     static func adoptBundledModels() {
-        for (source, destination) in entriesToAdopt(from: bundledModelsDirectory()) {
+        for (entry, source, destination) in entriesToAdopt(from: bundledModelsDirectory()) {
             do {
                 try FileManager.default.linkItem(at: source, to: destination)
             } catch {
                 try? FileManager.default.copyItem(at: source, to: destination)
             }
+            // W8 nit: only once something actually landed at `destination` —
+            // if both linkItem and the copyItem fallback failed (disk full,
+            // permissions), there's nothing to mark complete, and writing
+            // the marker anyway would make a failed adopt read as a
+            // successfully downloaded model. `make_mac_app.sh` stages the
+            // whole bundled snapshot in one shot, so existing here means
+            // complete, not partial.
+            guard case .mlx = entry.kind, FileManager.default.fileExists(atPath: destination.path) else { continue }
+            FileManager.default.createFile(atPath: completeMarkerURL(for: entry).path, contents: nil)
         }
     }
 }
