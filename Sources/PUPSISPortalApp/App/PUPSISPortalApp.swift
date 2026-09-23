@@ -171,7 +171,11 @@ final class AppState: ObservableObject {
                 // `llama-server` holds no state to unload — a clean SIGTERM
                 // here is the whole story, unlike Ollama's separate
                 // idle-timeout-driven unload this used to also need.
-                LlamaServerManager.shared.stop()
+                // `terminateWithoutWaiting()`, not `stop()`: this handler is
+                // synchronous with no chance to `await`, and even `stop()`'s
+                // bounded wait would be a visible hang on the way out —
+                // firing SIGTERM is enough here, nothing relaunches after.
+                LlamaServerManager.shared.terminateWithoutWaiting()
             }
         }
     }

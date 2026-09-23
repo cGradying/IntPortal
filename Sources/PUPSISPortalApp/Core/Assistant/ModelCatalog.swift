@@ -307,15 +307,15 @@ enum ModelCatalog {
             } catch {
                 try? FileManager.default.copyItem(at: source, to: destination)
             }
-            // W8: an adopted `.mlx` snapshot counts as downloaded the same
-            // way a network one does — via the marker, not `config.json`'s
-            // mere presence. `make_mac_app.sh` stages the whole bundled
-            // snapshot in one shot, so if `destination` exists at all here
-            // it's already complete; write the marker unconditionally
-            // rather than trying to verify every shard landed.
-            if case .mlx = entry.kind {
-                FileManager.default.createFile(atPath: completeMarkerURL(for: entry).path, contents: nil)
-            }
+            // W8 nit: only once something actually landed at `destination` —
+            // if both linkItem and the copyItem fallback failed (disk full,
+            // permissions), there's nothing to mark complete, and writing
+            // the marker anyway would make a failed adopt read as a
+            // successfully downloaded model. `make_mac_app.sh` stages the
+            // whole bundled snapshot in one shot, so existing here means
+            // complete, not partial.
+            guard case .mlx = entry.kind, FileManager.default.fileExists(atPath: destination.path) else { continue }
+            FileManager.default.createFile(atPath: completeMarkerURL(for: entry).path, contents: nil)
         }
     }
 }

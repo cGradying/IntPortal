@@ -23,7 +23,7 @@ enum LlamaRuntime {
             // holding before loading weights in-process here — otherwise a
             // gguf→mlx switch keeps both backends' memory resident at once.
             // A cheap no-op when nothing was running for .chat.
-            LlamaServerManager.shared.stop(.chat)
+            await LlamaServerManager.shared.stop(.chat)
             do {
                 try await MLXBackend.shared.ensureLoaded(directory: ModelCatalog.localURL(for: entry))
                 return true

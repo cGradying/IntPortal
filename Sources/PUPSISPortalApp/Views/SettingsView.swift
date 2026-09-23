@@ -816,7 +816,9 @@ struct SettingsView: View {
             } else {
                 // Not just "don't load more" — actually free what's running,
                 // so turning the assistant off is also turning it off.
-                LlamaServerManager.shared.stop()
+                // Async, bounded wait (not a blocking sleep) — see stop()'s
+                // own doc comment on why this no longer freezes the window.
+                await LlamaServerManager.shared.stop()
             }
         }
         // Reloads whenever the provider switches (or the section first

@@ -10,8 +10,8 @@ import Glibc
 /// the network for real. `register`/`stop`/`isHealthy`/`verifyOwnership` are
 /// internal (not private) specifically so this suite can drive them with a
 /// harmless stand-in `Process` (`/bin/sh`) and a fake `probe` closure —
-/// exercising the free-port/API-key/ownership-check/termination-clearing/
-/// bounded-stop logic without the real binary or a real model.
+/// exercising the free-port/API-key-file/ownership-check/termination-
+/// clearing/bounded-stop logic without the real binary or a real model.
 @MainActor
 final class LlamaServerManagerTests: XCTestCase {
 
@@ -82,22 +82,55 @@ final class LlamaServerManagerTests: XCTestCase {
         XCTAssertNotEqual(LlamaServerManager.generateAPIKey(), LlamaServerManager.generateAPIKey())
     }
 
-    // MARK: launchArguments — never the old fixed 8080/8081, always our port/key
+    // MARK: writeAPIKeyFile / removeAPIKeyFile — the key never touches argv
 
-    func testLaunchArgumentsCarryThePickedPortAndAPIKeyNotAFixedPort() {
+    func testWriteAPIKeyFileWritesThePrivateFileWithTheExactKey() throws {
+        let file = try LlamaServerManager.writeAPIKeyFile("deadbeef-test-key")
+        addTeardownBlock { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "deadbeef-test-key")
+        let permissions = try FileManager.default.attributesOfItem(atPath: file.path)[.posixPermissions] as? NSNumber
+        XCTAssertEqual(permissions?.intValue, 0o600, "the key file must be 0600 — private to this user only")
+    }
+
+    func testWriteAPIKeyFileUsesAFreshDirectoryEveryCall() throws {
+        let first = try LlamaServerManager.writeAPIKeyFile("a")
+        let second = try LlamaServerManager.writeAPIKeyFile("b")
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: first.deletingLastPathComponent())
+            try? FileManager.default.removeItem(at: second.deletingLastPathComponent())
+        }
+        XCTAssertNotEqual(first.deletingLastPathComponent(), second.deletingLastPathComponent())
+    }
+
+    // MARK: launchArguments — never the old fixed 8080/8081, never the raw key, always our host/port/key-file
+
+    func testLaunchArgumentsCarryThePickedPortAndKeyFileNotAFixedPortOrTheRawKey() {
         let args = LlamaServerManager.launchArguments(
             role: .chat, modelPath: URL(fileURLWithPath: "/models/Qwen3-1.7B-Q4_K_M.gguf"),
-            port: 54321, apiKey: "deadbeef", contextSize: 4096, kvQuantized: true, useGPU: true
+            port: 54321, apiKeyFile: URL(fileURLWithPath: "/tmp/fake-key-dir/key"),
+            contextSize: 4096, kvQuantized: true, useGPU: true
         )
         XCTAssertEqual(Self.value(after: "--port", in: args), "54321")
-        XCTAssertEqual(Self.value(after: "--api-key", in: args), "deadbeef")
+        XCTAssertEqual(Self.value(after: "--api-key-file", in: args), "/tmp/fake-key-dir/key")
+        XCTAssertFalse(args.contains("--api-key"), "the key itself must never be a bare argv entry — that's the whole point of --api-key-file")
         XCTAssertFalse(args.contains("8080"), "must never fall back to the old hardcoded chat port")
+    }
+
+    func testLaunchArgumentsAlwaysPassAnExplicitLoopbackHost() {
+        let args = LlamaServerManager.launchArguments(
+            role: .chat, modelPath: URL(fileURLWithPath: "/m.gguf"),
+            port: 1, apiKeyFile: URL(fileURLWithPath: "/tmp/k"),
+            contextSize: 4096, kvQuantized: true, useGPU: true
+        )
+        XCTAssertEqual(Self.value(after: "--host", in: args), "127.0.0.1")
     }
 
     func testLaunchArgumentsOmitCacheQuantizationFlagsWhenDisabled() {
         let args = LlamaServerManager.launchArguments(
             role: .chat, modelPath: URL(fileURLWithPath: "/m.gguf"),
-            port: 1, apiKey: "k", contextSize: 4096, kvQuantized: false, useGPU: true
+            port: 1, apiKeyFile: URL(fileURLWithPath: "/tmp/k"),
+            contextSize: 4096, kvQuantized: false, useGPU: true
         )
         XCTAssertFalse(args.contains("--cache-type-k"))
     }
@@ -105,7 +138,8 @@ final class LlamaServerManagerTests: XCTestCase {
     func testLaunchArgumentsAddCPUOnlyFlagWhenGPUDisabled() {
         let args = LlamaServerManager.launchArguments(
             role: .embed, modelPath: URL(fileURLWithPath: "/m.gguf"),
-            port: 1, apiKey: "k", contextSize: 2048, kvQuantized: true, useGPU: false
+            port: 1, apiKeyFile: URL(fileURLWithPath: "/tmp/k"),
+            contextSize: 2048, kvQuantized: true, useGPU: false
         )
         XCTAssertEqual(Self.value(after: "-ngl", in: args), "0")
         XCTAssertTrue(args.contains("--embedding"), "role.extraArguments must still be appended")
@@ -240,6 +274,24 @@ final class LlamaServerManagerTests: XCTestCase {
         XCTAssertNil(manager.endpoint(for: .chat), "an exited process must clear itself, or ensureRunning would wait the full 30s health timeout against a corpse forever")
     }
 
+    func testRegisterClearsTheAPIKeyFileWhenTheProcessExitsBeforeEverBecomingHealthy() async throws {
+        // A crash during startup — before waitUntilHealthy's own cleanup
+        // ever ran — must not leave the key file behind forever.
+        let manager = LlamaServerManager()
+        let process = try fakeProcess(["-c", "exit 1"])
+        let keyFile = try LlamaServerManager.writeAPIKeyFile("test-key")
+        manager.register(
+            .chat, process: process, port: 41117, apiKey: "test-key", apiKeyFileURL: keyFile,
+            modelPath: URL(fileURLWithPath: "/m.gguf"), contextSize: 4096, kvQuantized: true, useGPU: true
+        )
+
+        let deadline = Date().addingTimeInterval(3)
+        while FileManager.default.fileExists(atPath: keyFile.path), Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: keyFile.path), "an exited process must not leave its key file behind")
+    }
+
     func testRegisterDoesNotClearANewerRelaunchWhenAnOldHandlerFiresLate() async throws {
         // Guards clearIfCurrent's identity check: stop()ping the old process
         // and registering a new one under the same role must not let the old
@@ -250,7 +302,7 @@ final class LlamaServerManagerTests: XCTestCase {
             .chat, process: oldProcess, port: 1, apiKey: "old",
             modelPath: URL(fileURLWithPath: "/old.gguf"), contextSize: 4096, kvQuantized: true, useGPU: true
         )
-        manager.stop(.chat) // clears oldProcess's handler before terminating it — see production comment
+        await manager.stop(.chat) // clears oldProcess's handler before terminating it — see production comment
 
         let newProcess = try fakeProcess(["-c", "sleep 5"])
         defer { newProcess.terminate() }
@@ -262,9 +314,14 @@ final class LlamaServerManagerTests: XCTestCase {
         XCTAssertEqual(manager.apiKey(for: .chat), "new", "a stale handler must never clobber a newer relaunch's registration")
     }
 
-    // MARK: stop — bounded wait for actual exit, not fire-and-forget
+    // MARK: stop — async, bounded wait for actual exit, not a blocking busy-wait
 
-    func testStopWaitsForActualExitAndClearsState() throws {
+    func testStopWaitsForActualExitAndClearsStateWithoutBlockingTheMainThread() async throws {
+        // Regression: stop(_:) used to busy-wait with a blocking usleep on
+        // @MainActor, freezing the whole UI for up to 2s per role. Proving
+        // it no longer blocks: a concurrent Task on the same actor gets to
+        // run interleaved with the wait, which a real thread-block couldn't
+        // allow.
         let manager = LlamaServerManager()
         let process = try fakeProcess(["-c", "sleep 30"])
         manager.register(
@@ -272,18 +329,78 @@ final class LlamaServerManagerTests: XCTestCase {
             modelPath: URL(fileURLWithPath: "/m.gguf"), contextSize: 4096, kvQuantized: true, useGPU: true
         )
 
+        let interleaved = Counter()
+        let ticker = Task { @MainActor in
+            while !Task.isCancelled {
+                await interleaved.increment()
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+        }
+
         let start = Date()
-        manager.stop(.chat)
+        await manager.stop(.chat)
         let elapsed = Date().timeIntervalSince(start)
+        ticker.cancel()
 
         XCTAssertFalse(process.isRunning, "stop() must actually wait for the SIGTERM to take effect, not just fire terminate() and return")
         XCTAssertLessThan(elapsed, 3, "the wait must be bounded")
         XCTAssertNil(manager.endpoint(for: .chat))
+        let ticks = await interleaved.value
+        XCTAssertGreaterThan(ticks, 0, "another @MainActor task must be able to run while stop() waits — proves it yields instead of blocking")
     }
 
-    func testStopOnAnUnregisteredRoleIsANoOp() {
+    func testStopDeletesTheAPIKeyFile() async throws {
         let manager = LlamaServerManager()
-        manager.stop(.embed) // must not crash/hang with nothing registered
+        let process = try fakeProcess(["-c", "sleep 30"])
+        let keyFile = try LlamaServerManager.writeAPIKeyFile("test-key")
+        manager.register(
+            .chat, process: process, port: 41118, apiKey: "test-key", apiKeyFileURL: keyFile,
+            modelPath: URL(fileURLWithPath: "/m.gguf"), contextSize: 4096, kvQuantized: true, useGPU: true
+        )
+        await manager.stop(.chat)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: keyFile.path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: keyFile.deletingLastPathComponent().path),
+            "the whole per-launch key directory must go, not just the file"
+        )
+    }
+
+    func testStopOnAnUnregisteredRoleIsANoOp() async {
+        let manager = LlamaServerManager()
+        await manager.stop(.embed) // must not crash/hang with nothing registered
         XCTAssertNil(manager.endpoint(for: .embed))
     }
+
+    // MARK: terminateWithoutWaiting — the app-quit path, fire-and-forget
+
+    func testTerminateWithoutWaitingSignalsEveryRunningRoleAndClearsState() throws {
+        let manager = LlamaServerManager()
+        let chatProcess = try fakeProcess(["-c", "sleep 30"])
+        let embedProcess = try fakeProcess(["-c", "sleep 30"])
+        manager.register(
+            .chat, process: chatProcess, port: 1, apiKey: "a",
+            modelPath: URL(fileURLWithPath: "/m.gguf"), contextSize: 4096, kvQuantized: true, useGPU: true
+        )
+        manager.register(
+            .embed, process: embedProcess, port: 2, apiKey: "b",
+            modelPath: URL(fileURLWithPath: "/e.gguf"), contextSize: 4096, kvQuantized: true, useGPU: true
+        )
+
+        let start = Date()
+        manager.terminateWithoutWaiting()
+        let elapsed = Date().timeIntervalSince(start)
+
+        XCTAssertLessThan(elapsed, 0.5, "must return immediately — no waiting for exit at app quit")
+        XCTAssertNil(manager.endpoint(for: .chat))
+        XCTAssertNil(manager.endpoint(for: .embed))
+        // The SIGTERM was still sent even though we didn't wait for it.
+        Thread.sleep(forTimeInterval: 0.3)
+        XCTAssertFalse(chatProcess.isRunning)
+        XCTAssertFalse(embedProcess.isRunning)
+    }
+}
+
+private actor Counter {
+    private(set) var value = 0
+    func increment() { value += 1 }
 }
