@@ -94,6 +94,7 @@ struct AssistantTool: Equatable {
                 Arg(name: "new_start", description: "new start time, minutes from midnight", type: "integer"),
                 Arg(name: "new_end", description: "new end time, minutes from midnight", type: "integer"),
                 Arg(name: "scope", description: "\"this_event\" (default) for just this occurrence, or \"future_events\" for a repeating event and everything after it", required: false),
+                Arg(name: "start", description: "optional, minutes from midnight — only needed if more than one event named `title` exists on `date` and it's ambiguous which one is meant", type: "integer", required: false),
             ]
         ),
         AssistantTool(

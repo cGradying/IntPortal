@@ -1562,7 +1562,8 @@ private extension SettingsView {
                     weekStart: Weekday.weekStart(containing: .now),
                     until: preferences.termEndDate,
                     toCalendarID: preferences.googleCalendarID,
-                    status: { preferences.termStatus(for: $0) }
+                    status: { preferences.termStatus(for: $0) },
+                    time: { preferences.time(for: $0, on: $1) }
                 )
             } catch {
                 googleResult = error.localizedDescription
@@ -1571,7 +1572,15 @@ private extension SettingsView {
     }
 
     func syncNotifications() {
-        notifier.sync(appState.portal.sessions, preferences)
+        Task {
+            // Same reasoning as `AppState.refresh()`: `sync` unconditionally
+            // clears every pending reminder before deciding whether to re-add
+            // any, and with `authorization` still `nil`/stale that check
+            // fails and wipes every reminder with nothing put back. Refresh
+            // first.
+            await notifier.refreshAuthorization()
+            notifier.sync(appState.portal.sessions, preferences)
+        }
     }
 
     func exportICS() {
@@ -1588,7 +1597,8 @@ private extension SettingsView {
             until: preferences.termEndDate,
             // Term status: an .ics VEVENT is a single repeating series, so it
             // carries whole-term status, not a single week's exception.
-            status: { preferences.termStatus(for: $0) }
+            status: { preferences.termStatus(for: $0) },
+            time: { preferences.time(for: $0, on: $1) }
         )
         do {
             try text.write(to: url, atomically: true, encoding: .utf8)

@@ -513,20 +513,36 @@ struct CalendarView: View {
 
     /// Everything a pending reminder depends on. Deliberately excludes
     /// `weekStart` — the schedule repeats weekly, so paging through weeks must
-    /// not rewrite the notification set.
+    /// not rewrite the notification set. Includes per-week status/time
+    /// exceptions and term-wide moves, not just the term-vacant set: `Notifier`
+    /// resolves those per week inside its horizon (`preferences.time`/`.status`),
+    /// so a one-week override that isn't reflected here would silently rebuild
+    /// the old reminder set until something else happened to change.
     private var notificationKey: String {
-        [
+        let perWeekStatus = preferences.occurrenceStatuses
+            .map { "\($0.key):\($0.value.rawValue)" }
+            .sorted()
+        let termTimes = preferences.termTimes
+            .map { "\($0.key):\($0.value.start)-\($0.value.end)" }
+            .sorted()
+        let perWeekTimes = preferences.occurrenceTimes
+            .map { "\($0.key):\($0.value.start)-\($0.value.end)" }
+            .sorted()
+        return ([
             String(preferences.notificationsEnabled),
             String(preferences.notificationLeadMinutes),
             controller.sessions.map(\.id).joined(separator: ","),
             preferences.vacantSessionIDs.sorted().joined(separator: ","),
-        ].joined(separator: "|")
+        ] + perWeekStatus + termTimes + perWeekTimes).joined(separator: "|")
     }
 
     /// Everything the export depends on — term defaults, per-week exceptions,
-    /// and which calendars in-person and online go to — so changing any of them
-    /// re-syncs. Picking the online calendar has to reach here, or the classes
-    /// never move onto it.
+    /// term/per-week time overrides, the term end date, and which calendars
+    /// in-person and online go to — so changing any of them re-syncs. Picking
+    /// the online calendar has to reach here, or the classes never move onto
+    /// it; a moved meeting time or a shortened term has to reach here too, or
+    /// Calendar.app keeps showing the old time/end date until something else
+    /// happens to trigger a resync.
     private var exportKey: String {
         let term = controller.sessions
             .map { "\($0.id):\(preferences.termStatus(for: $0).rawValue)" }
@@ -534,8 +550,17 @@ struct CalendarView: View {
         let perWeek = preferences.occurrenceStatuses
             .map { "\($0.key):\($0.value.rawValue)" }
             .sorted()
-        return (term + perWeek + [preferences.exportCalendarID, preferences.onlineExportCalendarID])
-            .joined(separator: ",")
+        let termTimes = preferences.termTimes
+            .map { "\($0.key):\($0.value.start)-\($0.value.end)" }
+            .sorted()
+        let perWeekTimes = preferences.occurrenceTimes
+            .map { "\($0.key):\($0.value.start)-\($0.value.end)" }
+            .sorted()
+        return (term + perWeek + termTimes + perWeekTimes + [
+            preferences.exportCalendarID,
+            preferences.onlineExportCalendarID,
+            String(preferences.termEndDate.timeIntervalSince1970),
+        ]).joined(separator: ",")
     }
 
     /// Re-writes the exported classes so Calendar.app reflects the current term

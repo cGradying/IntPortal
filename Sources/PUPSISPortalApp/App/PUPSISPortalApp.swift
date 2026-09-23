@@ -242,14 +242,37 @@ final class AppState: ObservableObject {
             syncPulse += 1
         }
         await portal.refresh()
+        // `sync` unconditionally clears every pending reminder before
+        // deciding whether to re-add any (`Notifier.reschedule`) — with
+        // `authorization` still `nil` (never fetched this launch, e.g. a
+        // menu-bar refresh before the window/Settings ever opened),
+        // `enabled, authorization == .authorized` fails and it wipes every
+        // reminder with nothing put back. Refresh first, same as
+        // `CalendarView`'s own refresh already does.
+        await Notifier.shared.refreshAuthorization()
         Notifier.shared.sync(portal.sessions, preferences)
     }
 
-    func save(_ credentials: Credentials) {
-        try? KeychainStore.save(credentials)
+    /// Whether the write actually landed — pulled out of `save(_:)` as its
+    /// own testable function (no `AppState` needed) so the Keychain-failure
+    /// branch below doesn't require constructing a real one (heavy: Sparkle,
+    /// EventKit, on-disk stores — see `testSignOutIsSynchronous`'s comment).
+    static func didSave(_ credentials: Credentials, using save: (Credentials) throws -> Void = KeychainStore.save) -> Bool {
+        (try? save(credentials)) != nil
+    }
+
+    /// Returns whether the credentials were actually saved. `try?` here used
+    /// to swallow a Keychain write failure and sign the user in anyway with
+    /// nothing persisted — a relaunch then found no credentials at all.
+    /// `CredentialsView` shows "Couldn't save to Keychain" and stays on the
+    /// form when this comes back `false`, instead of proceeding as signed in.
+    @discardableResult
+    func save(_ credentials: Credentials) -> Bool {
+        guard Self.didSave(credentials) else { return false }
         self.credentials = credentials
         isEditing = false
         portal.status = .idle
+        return true
     }
 
     /// Synchronous, deliberately: every reset here has to land before this

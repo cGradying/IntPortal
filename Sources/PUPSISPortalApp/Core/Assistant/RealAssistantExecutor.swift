@@ -67,6 +67,26 @@ final class RealAssistantExecutor: AssistantExecutor {
     }
 
     func execute(_ action: AssistantAction) async -> AssistantToolResult {
+        await execute(action, isCancelled: { Task.isCancelled })
+    }
+
+    /// Test seam for `execute(_:)` above — real callers always get the
+    /// ambient `Task`'s cancellation; tests pass a deterministic closure
+    /// instead of racing a real `Task.cancel()` against `await` points, same
+    /// reasoning `AssistantEngine.respond(isCancelled:)` already documents
+    /// for itself.
+    ///
+    /// This is the one place every caller routes through — `AssistantEngine`'s
+    /// `.auto` loop *and* every `AssistantCommandRunner` slash command
+    /// (`/event`, `/move`, `/vacant`, …) — so checking here instead of at each
+    /// call site closes the gap for all of them at once. Confirmed live: the
+    /// engine loop already guarded itself before calling this, but the slash
+    /// commands called straight through with no check, so cancelling mid-command
+    /// (Clear, or sending a new message) couldn't stop one already in flight.
+    func execute(_ action: AssistantAction, isCancelled: () -> Bool) async -> AssistantToolResult {
+        guard !isCancelled() else {
+            return AssistantToolResult(action: action, ok: false, message: "Cancelled.")
+        }
         switch action.tool {
         case "read_note": return readNote(action)
         case "list_notes": return listNotes(action)
@@ -453,8 +473,9 @@ final class RealAssistantExecutor: AssistantExecutor {
     /// Finds an existing calendar event by title on a specific date — not
     /// through the currently-loaded week's `calendar.events`, which may not
     /// include that date at all, but through `CalendarBridge.events(on:calendarIDs:)`,
-    /// same as `readDate`. Fails closed on zero or more-than-one match rather
-    /// than guessing which event was meant.
+    /// same as `readDate`. Delegates the actual pick to `matchEvent`, which
+    /// fails closed on zero or unresolved-ambiguous matches rather than
+    /// guessing which event was meant.
     private func moveEvent(_ action: AssistantAction) -> AssistantToolResult {
         guard let title = action.string("title") else {
             return AssistantToolResult(action: action, ok: false, message: "No title given to find the event.")
@@ -471,19 +492,53 @@ final class RealAssistantExecutor: AssistantExecutor {
         }
 
         let dayEvents = calendar.events(on: date, calendarIDs: preferences.visibleCalendarIDs)
-        let matches = dayEvents.filter { $0.title.localizedCaseInsensitiveCompare(title) == .orderedSame }
-        guard let match = matches.first, matches.count == 1 else {
-            let found = matches.count
-            let message = found == 0
-                ? "No event named \"\(title)\" found on \(dateString)."
-                : "More than one event named \"\(title)\" on \(dateString) — be more specific, or move it by hand."
-            return AssistantToolResult(action: action, ok: false, message: message)
+        let (match, error) = Self.matchEvent(
+            in: dayEvents, title: title, dateString: dateString, disambiguatingStart: action.int("start")
+        )
+        guard let match else {
+            return AssistantToolResult(action: action, ok: false, message: error ?? "Event not found.")
         }
 
         let scope: CalendarBridge.EditScope = action.string("scope")?.lowercased() == "future_events" ? .futureEvents : .thisEvent
         editor.move(match, to: newDate, start: start, end: end, scope: scope, actionName: "Assistant: Move Event")
         return AssistantToolResult(action: action, ok: true,
             message: "Moved \"\(title)\" to \(newDateString), \(ClassSession.format(start))-\(ClassSession.format(end)).")
+    }
+
+    /// Which same-day block `move_event` means, among every block sharing
+    /// `title` that day. Each `DayBlock` already pins one exact occurrence —
+    /// `CalendarBridge.events(on:calendarIDs:)` is a single-day query, and
+    /// `DayBlock.id` embeds the EventKit identifier *and* the occurrence's
+    /// own start timestamp (`CalendarBridge.blockID(identifier:occurrence:)`),
+    /// so two occurrences of one repeating series can never collide into the
+    /// same block. What was missing was a way to pick between two genuinely
+    /// *different* events sharing a title on the same day — `set_class_status`
+    /// /`set_class_time` already take an optional disambiguating `start` for
+    /// the same reason (`findSession`, above); this gives `move_event` the
+    /// same escape hatch instead of dead-ending in "move it by hand".
+    ///
+    /// Still fails closed — never guesses — when `start` is absent or doesn't
+    /// land on exactly one candidate. Pure and `nonisolated` so it's testable
+    /// against fabricated `[DayBlock]` without touching real EventKit.
+    nonisolated static func matchEvent(
+        in candidates: [DayBlock], title: String, dateString: String, disambiguatingStart: Int?
+    ) -> (DayBlock?, String?) {
+        let named = candidates.filter { $0.title.localizedCaseInsensitiveCompare(title) == .orderedSame }
+        guard !named.isEmpty else {
+            return (nil, "No event named \"\(title)\" found on \(dateString).")
+        }
+        guard named.count > 1 else {
+            return (named[0], nil)
+        }
+        if let disambiguatingStart {
+            guard let match = named.first(where: { $0.start == disambiguatingStart }) else {
+                let times = named.map { ClassSession.format($0.start) }.joined(separator: ", ")
+                return (nil, "No \"\(title)\" event on \(dateString) starts at \(ClassSession.format(disambiguatingStart)) — it's at \(times).")
+            }
+            return (match, nil)
+        }
+        let times = named.map { ClassSession.format($0.start) }.joined(separator: ", ")
+        return (nil, "\"\(title)\" meets more than once on \(dateString) (\(times)) — give a start time to say which one.")
     }
 
     // MARK: Grades (read-only — no other case here ever writes one)

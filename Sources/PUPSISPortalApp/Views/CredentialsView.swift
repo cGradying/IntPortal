@@ -14,7 +14,7 @@ import Inject
 struct CredentialsView: View {
     @ObserveInjection var inject
     var existing: Credentials?
-    var onSave: (Credentials) -> Void
+    var onSave: (Credentials) -> Bool
     /// The only pre-login navigation affordance — no nav island exists yet,
     /// deliberately: this circular button is the one door in.
     @Binding var showingSettings: Bool
@@ -28,12 +28,15 @@ struct CredentialsView: View {
     @State private var birthYear: Int
     @State private var password: String
     @State private var arrived = false
+    /// Set when `onSave` reports the Keychain write failed — kept on the
+    /// form rather than proceeding as signed in with nothing persisted.
+    @State private var keychainError = false
 
     private let months = Array(1...12)
     private let days = Array(1...31)
     private let years = Array((1900...2016).reversed())
 
-    init(existing: Credentials?, onSave: @escaping (Credentials) -> Void, showingSettings: Binding<Bool>) {
+    init(existing: Credentials?, onSave: @escaping (Credentials) -> Bool, showingSettings: Binding<Bool>) {
         self.existing = existing
         self.onSave = onSave
         self._showingSettings = showingSettings
@@ -149,8 +152,14 @@ struct CredentialsView: View {
                 .font(typography.footer)
                 .foregroundStyle(.secondary)
 
+            if keychainError {
+                Label("Couldn't save to Keychain", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(typography.footer)
+            }
+
             Button {
-                onSave(Credentials(
+                keychainError = !onSave(Credentials(
                     studentNumber: studentNumber,
                     birthMonth: birthMonth,
                     birthDay: birthDay,

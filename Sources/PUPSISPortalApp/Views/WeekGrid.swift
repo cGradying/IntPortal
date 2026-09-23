@@ -471,7 +471,10 @@ struct WeekGrid: View {
     /// last week greys everything and next week greys nothing.
     private func isPast(_ block: DayBlock, now: Date) -> Bool {
         let date = block.day.date(inWeekStarting: weekStart)
-        guard let end = Calendar.current.date(byAdding: .minute, value: block.end, to: date) else {
+        // `nil` (block.end fell in a spring-forward gap) reads as "not past"
+        // — the safe default, since it only ever suppresses the greyed-out
+        // look rather than hiding a class that hasn't actually happened.
+        guard let end = Calendar.current.wallClock(minutes: block.end, on: date) else {
             return false
         }
         return end <= now

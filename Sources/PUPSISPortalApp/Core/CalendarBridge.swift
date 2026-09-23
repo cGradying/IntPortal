@@ -344,8 +344,11 @@ final class CalendarBridge: ObservableObject {
 
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        guard let startDate = calendar.date(byAdding: .minute, value: start, to: day),
-              let endDate = calendar.date(byAdding: .minute, value: end, to: day)
+        // Wall-clock, not elapsed-minute — see Calendar.wallClock in
+        // NextClass.swift. `nil` here means `start`/`end` names a wall-clock
+        // time a spring-forward gap skipped on `date`; nothing to create.
+        guard let startDate = calendar.wallClock(minutes: start, on: day),
+              let endDate = calendar.wallClock(minutes: end, on: day)
         else { return nil }
 
         let event = EKEvent(eventStore: store)
@@ -432,8 +435,11 @@ final class CalendarBridge: ObservableObject {
 
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        guard let startDate = calendar.date(byAdding: .minute, value: start, to: day),
-              let endDate = calendar.date(byAdding: .minute, value: end, to: day)
+        // Wall-clock, not elapsed-minute — see Calendar.wallClock in
+        // NextClass.swift. `nil` here means the drag landed on a wall-clock
+        // time a spring-forward gap skipped; the event is left unmoved.
+        guard let startDate = calendar.wallClock(minutes: start, on: day),
+              let endDate = calendar.wallClock(minutes: end, on: day)
         else { return nil }
 
         event.startDate = startDate
@@ -559,11 +565,21 @@ final class CalendarBridge: ObservableObject {
         }
 
         do {
-            // Clear both calendars first, or a class that moved calendars would
-            // leave a copy behind on the old one.
+            // Sweep every *writable* calendar the store knows about, not just
+            // the two currently-selected targets. If the user switches which
+            // calendar in-person or online goes to, the previous calendar is
+            // no longer in `[inPersonTarget, onlineTarget]` and would
+            // otherwise never get cleared again — its tagged classes just sit
+            // there as permanent duplicates. Read-only calendars are skipped:
+            // a tagged event can't live in one that's read-only *now* (we'd
+            // never have been able to write it), and `store.remove` on one
+            // throws, which would abort the whole export. Removals and the
+            // writes below share one `store.commit()` at the very end, so a
+            // mid-export failure can't leave the calendar with old classes
+            // gone and nothing written back in their place.
             var removed = 0
-            for target in dedupedCalendars([inPersonTarget, onlineTarget]) {
-                removed += try clearExported(from: target)
+            for target in store.calendars(for: .event) where target.allowsContentModifications {
+                removed += try clearExported(from: target, since: weekStart)
             }
 
             // One event per (class, week), placed by that week's resolved status
@@ -586,8 +602,12 @@ final class CalendarBridge: ObservableObject {
 
                     let day = session.day.date(inWeekStarting: week, calendar: calendar)
                     let (startMinutes, endMinutes) = time(session, week)
-                    guard let start = calendar.date(byAdding: .minute, value: startMinutes, to: day),
-                          let end = calendar.date(byAdding: .minute, value: endMinutes, to: day),
+                    // Wall-clock, not elapsed-minute — see Calendar.wallClock
+                    // in NextClass.swift. `nil` means this week's occurrence
+                    // fell on a spring-forward gap; that one week is skipped,
+                    // every other week's export is unaffected.
+                    guard let start = calendar.wallClock(minutes: startMinutes, on: day),
+                          let end = calendar.wallClock(minutes: endMinutes, on: day),
                           start <= lastDay
                     else { continue }
 
@@ -696,24 +716,20 @@ final class CalendarBridge: ObservableObject {
         return ours.count
     }
 
-    /// Distinct calendars by identifier — in-person and online may be the same
-    /// one, and clearing it twice would just waste a query.
-    private func dedupedCalendars(_ calendars: [EKCalendar]) -> [EKCalendar] {
-        var seen = Set<String>()
-        return calendars.filter { seen.insert($0.calendarIdentifier).inserted }
-    }
-
-    /// Removes only events carrying this app's tag. Anything the user put in
-    /// the same calendar is left alone — this runs against calendars they own
-    /// and use, not a scratch one we created.
+    /// Removes only events carrying this app's tag, from `weekStart` onward —
+    /// never past weeks, so a resync doesn't disturb history already sitting
+    /// in Calendar.app. Anything the user put in the same calendar is left
+    /// alone — this runs against calendars they own and use, not a scratch
+    /// one we created. Doesn't commit: `exportClasses` stages every removal
+    /// and every write with `commit: false` and commits once at the end, so
+    /// a crash mid-export can never leave the calendar with old classes gone
+    /// and nothing written back.
     @discardableResult
-    private func clearExported(from target: EKCalendar) throws -> Int {
+    private func clearExported(from target: EKCalendar, since weekStart: Date) throws -> Int {
         let calendar = Calendar.current
-        guard let from = calendar.date(byAdding: .year, value: -1, to: .now),
-              let to = calendar.date(byAdding: .year, value: 2, to: .now)
-        else { return 0 }
+        guard let to = calendar.date(byAdding: .year, value: 2, to: .now), to > weekStart else { return 0 }
 
-        let predicate = store.predicateForEvents(withStart: from, end: to, calendars: [target])
+        let predicate = store.predicateForEvents(withStart: weekStart, end: to, calendars: [target])
         let ours = store.events(matching: predicate).filter {
             $0.notes?.contains(Self.exportTag) == true
         }
@@ -721,7 +737,6 @@ final class CalendarBridge: ObservableObject {
         for event in ours {
             try store.remove(event, span: .futureEvents, commit: false)
         }
-        if !ours.isEmpty { try store.commit() }
         return ours.count
     }
 }

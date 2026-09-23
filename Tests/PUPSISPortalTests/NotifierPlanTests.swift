@@ -91,6 +91,27 @@ final class NotifierPlanTests: XCTestCase {
         XCTAssertEqual(occurrences.count, 1, "the vacant week must not produce an occurrence")
     }
 
+    /// A vacant week must break the weekly-trigger case even when every
+    /// resolved start time in the horizon still agrees — a repeating trigger
+    /// has no way to skip a single occurrence, so staying `.weekly` here would
+    /// fire a reminder into a week the class isn't happening at all.
+    func testAVacantWeekForcesDatedEvenWithUniformTimes() throws {
+        let thisWeek = try date("2026-08-03")
+
+        let plan = Notifier.plan(
+            for: session, now: thisWeek, horizonWeeks: 2,
+            resolvedStart: { _ in 14 * 60 },
+            isVacant: { weekStart in calendar.isDate(weekStart, inSameDayAs: thisWeek) },
+            calendar: calendar
+        )
+
+        guard case .dated(let occurrences) = plan else {
+            return XCTFail("expected .dated, got \(plan)")
+        }
+        XCTAssertEqual(occurrences.count, 1, "the vacant week is dropped, the other week still gets a reminder")
+        XCTAssertEqual(occurrences[0].start, 14 * 60)
+    }
+
     /// Each dated occurrence's midnight lands on the session's own weekday —
     /// the reminder shouldn't drift onto the wrong day of a moved week.
     func testDatedOccurrencesLandOnTheSessionsWeekday() throws {
