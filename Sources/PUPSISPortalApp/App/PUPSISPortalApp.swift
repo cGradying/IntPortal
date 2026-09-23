@@ -221,6 +221,14 @@ final class AppState: ObservableObject {
     /// there.
     func refresh() async {
         await portal.refresh()
+        // `sync` unconditionally clears every pending reminder before
+        // deciding whether to re-add any (`Notifier.reschedule`) — with
+        // `authorization` still `nil` (never fetched this launch, e.g. a
+        // menu-bar refresh before the window/Settings ever opened),
+        // `enabled, authorization == .authorized` fails and it wipes every
+        // reminder with nothing put back. Refresh first, same as
+        // `CalendarView`'s own refresh already does.
+        await Notifier.shared.refreshAuthorization()
         Notifier.shared.sync(portal.sessions, preferences)
     }
 

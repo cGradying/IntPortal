@@ -123,6 +123,22 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// tests never touch the real Keychain.
     private let hasCredentials: () -> Bool
 
+    /// The stored credentials, for `reauthenticateAfterExpiredSession()` to
+    /// re-sign-in with when a refresh lands back on the login page.
+    /// Injectable so tests never touch the real Keychain — mirrors
+    /// `hasCredentials` above.
+    private let loadCredentials: () -> Credentials?
+
+    /// Test seam for `loadSchedule()`'s reauth path: a stub navigation/page
+    /// driver standing in for the real WKWebView-backed
+    /// `fetchScheduleRows`/`reauthenticateAfterExpiredSession` — "the
+    /// request landed on the login page, sign-in ran, then the schedule
+    /// loaded" becomes injectable closures instead of a real `WKWebView`
+    /// round trip, the same reasoning as `NavigationGate`'s fake driver and
+    /// `injectedClearWebsiteData` below. Both `nil` in production.
+    private let injectedFetchScheduleRows: (() async throws -> [ClassSession])?
+    private let injectedReauthenticate: (() async -> Bool)?
+
     private static let genericFailure = "Sign-in didn't go through — check your student number, birthdate, and password."
 
     // PUP SIS load-balances across several numbered hosts (sis1, sis8, …) and
@@ -200,11 +216,17 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     init(
         defaults: UserDefaults = .standard,
         hasCredentials: @escaping () -> Bool = { KeychainStore.load() != nil },
-        clearWebsiteData: (() async -> Void)? = nil
+        loadCredentials: @escaping () -> Credentials? = { KeychainStore.load() },
+        clearWebsiteData: (() async -> Void)? = nil,
+        fetchScheduleRows: (() async throws -> [ClassSession])? = nil,
+        reauthenticate: (() async -> Bool)? = nil
     ) {
         self.defaults = defaults
         self.hasCredentials = hasCredentials
+        self.loadCredentials = loadCredentials
         self.injectedClearWebsiteData = clearWebsiteData
+        self.injectedFetchScheduleRows = fetchScheduleRows
+        self.injectedReauthenticate = reauthenticate
         webView = WKWebView()
         activeBase = Self.persistedBase(defaults: defaults)
         super.init()
@@ -348,7 +370,12 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         guard hasCredentials() else { return }
         let gen = gate.generation
         do {
-            let scraped = try await fetchScheduleRows(gen: gen)
+            let scraped: [ClassSession]
+            if let injectedFetchScheduleRows {
+                scraped = try await injectedFetchScheduleRows()
+            } else {
+                scraped = try await fetchScheduleRows(gen: gen)
+            }
             guard gate.isCurrent(gen) else { return }
 
             // A scrape that parses to nothing while we already hold a schedule is
@@ -363,8 +390,39 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
             commitSchedule(scraped)
         } catch {
             guard gate.isCurrent(gen) else { return }
+            if await reauthenticateAfterExpiredSession() { return }
             report("Couldn't refresh your schedule: \(error.localizedDescription)")
         }
+    }
+
+    /// A `/schedule` request that never reaches `/schedule` (the timeout
+    /// above) can mean the SIS session expired mid-refresh and bounced back
+    /// to the login page — the login form's *presence* here is a reliable
+    /// positive signal on its own (unlike its *absence*, which
+    /// `awaitSignInOutcome` no longer trusts alone). Re-runs sign-in through
+    /// the exact same single-flight, host-failover path `signIn(with:)`
+    /// uses — never retried after a validation error, since `SISHost.decide`
+    /// stops the loop right there. A successful `runSignIn` already
+    /// re-fetches and commits the schedule (and grades) as part of proving
+    /// the host, so on success there's nothing left for the caller to load;
+    /// `loadScheduleThenGrades`'s own `loadGrades()` right after this still
+    /// runs too — a harmless redundant fetch on this rare path, not worth
+    /// extra plumbing to skip.
+    ///
+    /// Returns whether a reauth was actually attempted, so the caller can
+    /// tell "handled" from "still needs its own generic failure report".
+    ///
+    /// Internal (not private) — like `awaitPendingClear` — so the guard
+    /// (`status != .loggingIn`) is directly testable without a real
+    /// `WKWebView`: that branch returns before ever touching `probeLoginPage()`.
+    func reauthenticateAfterExpiredSession() async -> Bool {
+        if let injectedReauthenticate { return await injectedReauthenticate() }
+        guard status != .loggingIn,
+              let probe = try? await probeLoginPage(), probe.loginFormPresent,
+              let credentials = loadCredentials()
+        else { return false }
+        await runSignIn(credentials)
+        return true
     }
 
     /// Loads `/schedule` on whatever host is currently active and returns
@@ -575,7 +633,11 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// carry a non-empty `genericFailure` message, indistinguishable from a
     /// real validation modal, which would have made the host-failover loop
     /// stop on a network hiccup instead of trying the next mirror.
-    private enum SignInOutcome {
+    ///
+    /// Internal (not private) so `signInOutcome(...)` below — and this type —
+    /// can be driven directly by tests, without a real `WKWebView`. Same
+    /// reasoning as `NavigationGate` and `SISHost.decide`.
+    enum SignInOutcome: Equatable {
         case success
         /// The SIS itself rejected the credentials (modal shown). Never
         /// worth retrying on another host.
@@ -585,39 +647,82 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         case timedOut
     }
 
-    /// Polls until sign-in resolves one way or the other: the login form
-    /// disappearing means we're in, a validation modal means we're not.
-    /// Polling (rather than watching navigations) is what makes this survive
-    /// the redirect chain and the no-navigation error case.
+    /// Interprets the DOM probe's raw signals into a settled outcome —
+    /// pulled out as its own pure function, same reasoning as
+    /// `SISHost.decide`: tested directly with fixture-shaped signals here,
+    /// so production behaviour can't drift from what the tests exercise.
+    ///
+    /// `nil` means "not settled yet, keep polling" — `readyState` isn't
+    /// `"complete"`, or neither the login form nor the signed-in marker
+    /// showed up. That's deliberately not "success": a page mid-parse can
+    /// momentarily lack `#studno` before its markup has fully landed, which
+    /// used to be read as "signed in" and is exactly the bug this replaces —
+    /// success now needs a *positive* marker, not just the form's absence.
+    static func signInOutcome(
+        readyState: String,
+        loginFormPresent: Bool,
+        signedInMarkerPresent: Bool,
+        validationMessage: String
+    ) -> SignInOutcome? {
+        if readyState == "complete", !loginFormPresent, signedInMarkerPresent { return .success }
+        if loginFormPresent, !validationMessage.isEmpty { return .validationError(validationMessage) }
+        return nil
+    }
+
+    /// Polls until sign-in resolves one way or the other: a positive
+    /// signed-in marker (not just the login form's absence — that's also
+    /// true mid-parse or on a stray error page) means we're in, a validation
+    /// modal means we're not. Polling (rather than watching navigations) is
+    /// what makes this survive the redirect chain and the no-navigation
+    /// error case.
     private func awaitSignInOutcome(timeout: TimeInterval = 25) async -> SignInOutcome {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             // Probing mid-navigation can throw; that just means "not settled".
-            if let probe = try? await probeLoginPage() {
-                if !probe.stillOnLoginForm { return .success }
-                if !probe.message.isEmpty { return .validationError(probe.message) }
+            if let probe = try? await probeLoginPage(),
+               let outcome = Self.signInOutcome(
+                   readyState: probe.readyState,
+                   loginFormPresent: probe.loginFormPresent,
+                   signedInMarkerPresent: probe.signedInMarkerPresent,
+                   validationMessage: probe.message
+               ) {
+                return outcome
             }
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
         return .timedOut
     }
 
-    /// Success is "the login form is gone", not a URL match — the form POSTs
-    /// to /student/ and the logged-in page can render at that same URL, so
-    /// matching on /student/home reports a failure even when sign-in worked.
-    private func probeLoginPage() async throws -> (stillOnLoginForm: Bool, message: String) {
+    /// Reads the DOM's raw signals — never decides anything itself
+    /// (`signInOutcome(...)` above does, on the Swift side, so it's
+    /// testable). Not a URL match: the form POSTs to /student/ and the
+    /// logged-in page can render at that same URL.
+    ///
+    /// ponytail: the logout-link selector below is the best-available
+    /// heuristic — no captured signed-in-page fixture exists in this repo to
+    /// confirm the SIS's actual markup. Needs one live check against a real
+    /// signed-in session; widen the selector if it never matches.
+    private func probeLoginPage() async throws -> (
+        readyState: String, loginFormPresent: Bool, signedInMarkerPresent: Bool, message: String
+    ) {
         let script = """
         (function () {
             var modal = document.querySelector('.modal.show .modal-body, .modal[style*="block"] .modal-body');
             return {
-                stillOnLoginForm: !!document.getElementById('studno'),
+                readyState: document.readyState,
+                loginFormPresent: !!document.getElementById('studno'),
+                signedInMarkerPresent: !!document.querySelector(
+                    'a[href*="logout" i], a[href*="signout" i], #logout, .logout'
+                ),
                 message: modal ? modal.textContent.trim() : ''
             };
         })();
         """
         let result = try await webView.evaluateJavaScript(script) as? [String: Any]
         return (
-            result?["stillOnLoginForm"] as? Bool ?? true,
+            result?["readyState"] as? String ?? "loading",
+            result?["loginFormPresent"] as? Bool ?? true,
+            result?["signedInMarkerPresent"] as? Bool ?? false,
             result?["message"] as? String ?? ""
         )
     }
