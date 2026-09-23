@@ -38,4 +38,115 @@ final class GoogleAuthTests: XCTestCase {
         XCTAssertEqual(GoogleAuth.formEncode(["redirect_uri": "com.x.y:/a b"]),
                        "redirect_uri=com.x.y%3A%2Fa%20b")
     }
+
+    // MARK: - invalid_grant on refresh (W7)
+
+    /// An `invalid_grant` refresh means the stored refresh token is dead, not
+    /// just momentarily unavailable — `validAccessToken` must drop it and flip
+    /// `isConnected` false rather than keep reporting a session that can't
+    /// actually mint tokens anymore.
+    func testInvalidGrantOnRefreshClearsStoredTokenAndDisconnects() async {
+        let original = GoogleTokenStore.load()
+        defer {
+            if let original { GoogleTokenStore.save(refreshToken: original) } else { GoogleTokenStore.delete() }
+        }
+        GoogleTokenStore.save(refreshToken: "stale-refresh-token")
+
+        StubURLProtocol.handler = { _ in
+            (400, Data(#"{"error":"invalid_grant","error_description":"Token has been expired or revoked."}"#.utf8))
+        }
+        let auth = GoogleAuth(clientID: { "test-client-id" }, urlSession: Self.stubbedURLSession())
+        XCTAssertTrue(auth.isConnected)
+
+        do {
+            _ = try await auth.validAccessToken()
+            XCTFail("expected an error from an invalid_grant refresh")
+        } catch GoogleAuth.AuthError.reconnectRequired {
+            // expected
+        } catch {
+            XCTFail("wrong error: \(error)")
+        }
+
+        XCTAssertFalse(auth.isConnected)
+        XCTAssertNil(GoogleTokenStore.load())
+    }
+
+    /// A non-`invalid_grant` failure (e.g. a network hiccup) must not be
+    /// mistaken for a dead token — the app should retry later, not disconnect.
+    func testOtherRefreshFailureLeavesTokenAndConnectionIntact() async {
+        let original = GoogleTokenStore.load()
+        defer {
+            if let original { GoogleTokenStore.save(refreshToken: original) } else { GoogleTokenStore.delete() }
+        }
+        GoogleTokenStore.save(refreshToken: "still-good-refresh-token")
+
+        StubURLProtocol.handler = { _ in
+            (500, Data(#"{"error":"server_error","error_description":"try again"}"#.utf8))
+        }
+        let auth = GoogleAuth(clientID: { "test-client-id" }, urlSession: Self.stubbedURLSession())
+        XCTAssertTrue(auth.isConnected)
+
+        do {
+            _ = try await auth.validAccessToken()
+            XCTFail("expected an error from the stubbed 500")
+        } catch GoogleAuth.AuthError.badResponse {
+            // expected
+        } catch {
+            XCTFail("wrong error: \(error)")
+        }
+
+        XCTAssertTrue(auth.isConnected)
+        XCTAssertEqual(GoogleTokenStore.load(), "still-good-refresh-token")
+    }
+
+    // MARK: - ASWebAuthenticationSession.start() returning false (W7)
+
+    /// `start()` returning false (e.g. no window yet) must resume the
+    /// continuation with an error, not leave `connect()` hanging forever.
+    func testFailedSessionStartResumesWithErrorInsteadOfHanging() async {
+        let auth = GoogleAuth(
+            clientID: { "1234.apps.googleusercontent.com" },
+            sessionStarter: { _ in false }
+        )
+
+        do {
+            try await auth.connect()
+            XCTFail("expected connect() to throw when the auth session fails to start")
+        } catch GoogleAuth.AuthError.badResponse {
+            // expected — resumed with an error instead of hanging
+        } catch {
+            XCTFail("wrong error: \(error)")
+        }
+    }
+
+    // MARK: - Stub HTTP layer
+
+    private static func stubbedURLSession() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [StubURLProtocol.self]
+        return URLSession(configuration: config)
+    }
+}
+
+/// Intercepts every request made through a `URLSession` configured with it, so
+/// `GoogleAuth`'s token-endpoint tests never reach `oauth2.googleapis.com`.
+private final class StubURLProtocol: URLProtocol {
+    static var handler: ((URLRequest) -> (Int, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = Self.handler, let url = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.unknown))
+            return
+        }
+        let (status, data) = handler(request)
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
