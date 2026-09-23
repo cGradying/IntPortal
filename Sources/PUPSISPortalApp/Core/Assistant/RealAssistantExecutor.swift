@@ -54,12 +54,15 @@ final class RealAssistantExecutor: AssistantExecutor {
         self.openNoteKey = openNoteKey
         self.ragQuery = RAGQuery(
             notes: notes, client: client,
-            ensureChatServerRunning: ensureChatServerRunning ?? { await LlamaRuntime.ensureChatServer(modelID: preferences.aiModel) },
+            ensureChatServerRunning: ensureChatServerRunning
+                ?? { preferences.isCloudProviderActive ? true : await LlamaRuntime.ensureChatServer(modelID: preferences.aiModel) },
             ensureEmbedServerRunning: ensureEmbedServerRunning ?? { await LlamaRuntime.ensureEmbedServer() },
             chunkSize: preferences.ragChunkSize,
             similarityFloor: preferences.ragSimilarityFloor, contextBudget: preferences.ragContextBudget,
             answerTemperature: preferences.ragAnswerTemperature,
-            answerModel: preferences.aiModel
+            answerModel: preferences.aiModel,
+            answerTokenBudget: preferences.aiOutputTokenBudget,
+            isCloudProvider: preferences.isCloudProviderActive
         )
     }
 
@@ -92,9 +95,28 @@ final class RealAssistantExecutor: AssistantExecutor {
         action.string("key") ?? openNoteKey()
     }
 
+    /// Whether `key` is opted out of the assistant — the right-click
+    /// "Include in AI search" toggle. `class:`/`day:` notes have no vault
+    /// node to carry that flag and are always in (matches
+    /// `NotesStore.ragIncludedKeys()`'s own doc comment); only `vault:` keys
+    /// are checked, and checked by membership in that same Set rather than
+    /// re-walking the tree, so this and `search_notes`/`ask_notes` never
+    /// disagree about what's excluded.
+    private func isExcludedFromAI(_ key: String) -> Bool {
+        guard key.hasPrefix("vault:") else { return false }
+        return !notesStore.ragIncludedKeys().contains(key)
+    }
+
+    /// Confirmed live: this and `listNotes` below fed the model a note's full
+    /// text / vault file names regardless of the RAG exclusion toggle — a
+    /// note the student explicitly opted out of AI could still leak through
+    /// here even though `search_notes`/`ask_notes` already honored it.
     private func readNote(_ action: AssistantAction) -> AssistantToolResult {
         guard let key = resolvedKey(action) else {
             return AssistantToolResult(action: action, ok: false, message: "No note is open and no key was given.")
+        }
+        guard !isExcludedFromAI(key) else {
+            return AssistantToolResult(action: action, ok: false, message: "That note is excluded from AI — the student turned that off for it.")
         }
         let text = notesStore.text(for: key)
         guard !text.isEmpty else {
@@ -104,7 +126,7 @@ final class RealAssistantExecutor: AssistantExecutor {
     }
 
     private func listNotes(_ action: AssistantAction) -> AssistantToolResult {
-        let vaultNames = Self.fileNames(in: notesStore.vault)
+        let vaultNames = Self.includedFileNames(in: notesStore.vault)
         let subjectAndDayKeys = notesStore.notes.keys
             .filter { $0.hasPrefix("class:") || $0.hasPrefix("day:") }
             .sorted()
@@ -118,9 +140,14 @@ final class RealAssistantExecutor: AssistantExecutor {
         return AssistantToolResult(action: action, ok: true, message: Self.truncated(lines.joined(separator: "\n")))
     }
 
-    private static func fileNames(in nodes: [VaultNode]) -> [String] {
+    /// Same exclusion inheritance as `NotesStore`'s own `includedFileNames`
+    /// (a folder's `ragExcluded` covers its whole subtree) — an excluded
+    /// note's name shouldn't be handed to the model any more than its text
+    /// should, or the model can just ask to `read_note` it by name next.
+    private static func includedFileNames(in nodes: [VaultNode]) -> [String] {
         nodes.flatMap { node -> [String] in
-            node.isFolder ? fileNames(in: node.children ?? []) : [node.name]
+            guard node.ragExcluded != true else { return [] }
+            return node.isFolder ? includedFileNames(in: node.children ?? []) : [node.name]
         }
     }
 
