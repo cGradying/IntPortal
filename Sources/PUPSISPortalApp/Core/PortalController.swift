@@ -638,7 +638,11 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// can be driven directly by tests, without a real `WKWebView`. Same
     /// reasoning as `NavigationGate` and `SISHost.decide`.
     enum SignInOutcome: Equatable {
-        case success
+        /// `viaFallback` is true when this fired from the settled-duration
+        /// fallback below rather than a matched marker — `awaitSignInOutcome`
+        /// logs a one-line note on that path so a live check can catch a
+        /// stale/wrong selector before it's the only way sign-in succeeds.
+        case success(viaFallback: Bool)
         /// The SIS itself rejected the credentials (modal shown). Never
         /// worth retrying on another host.
         case validationError(String)
@@ -647,46 +651,84 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         case timedOut
     }
 
+    /// How long the page has to sit settled (readyState complete, login form
+    /// gone) with *no* positive marker before it counts as signed in anyway.
+    /// The fallback for an unmatched/stale marker selector: without it, a
+    /// selector that doesn't match the live SIS's actual markup would make
+    /// every sign-in run the full 25s timeout and fail outright, a regression
+    /// of the whole flow over one unverified CSS selector. Long enough to
+    /// reject the mid-parse false positive the marker requirement targets (a
+    /// page settles itself well under a second); short enough not to read as
+    /// a hang.
+    static let markerFallbackDelay: TimeInterval = 3
+
     /// Interprets the DOM probe's raw signals into a settled outcome —
     /// pulled out as its own pure function, same reasoning as
     /// `SISHost.decide`: tested directly with fixture-shaped signals here,
     /// so production behaviour can't drift from what the tests exercise.
+    /// `settledDuration` is how long the *caller* has observed the page
+    /// sitting settled across consecutive polls — this function itself is
+    /// stateless, so that accumulation lives in `awaitSignInOutcome` below.
     ///
     /// `nil` means "not settled yet, keep polling" — `readyState` isn't
-    /// `"complete"`, or neither the login form nor the signed-in marker
-    /// showed up. That's deliberately not "success": a page mid-parse can
-    /// momentarily lack `#studno` before its markup has fully landed, which
-    /// used to be read as "signed in" and is exactly the bug this replaces —
-    /// success now needs a *positive* marker, not just the form's absence.
+    /// `"complete"`, or the login form is still there. That's deliberately
+    /// not "success": a page mid-parse can momentarily lack `#studno` before
+    /// its markup has fully landed, which used to be read as "signed in" and
+    /// is exactly the bug this replaces — success now needs either a
+    /// positive marker, or the settled state to have actually held for a
+    /// beat, not just a one-off poll.
     static func signInOutcome(
         readyState: String,
         loginFormPresent: Bool,
         signedInMarkerPresent: Bool,
+        settledDuration: TimeInterval,
         validationMessage: String
     ) -> SignInOutcome? {
-        if readyState == "complete", !loginFormPresent, signedInMarkerPresent { return .success }
+        let settled = readyState == "complete" && !loginFormPresent
+        if settled, signedInMarkerPresent { return .success(viaFallback: false) }
+        if settled, settledDuration >= markerFallbackDelay { return .success(viaFallback: true) }
         if loginFormPresent, !validationMessage.isEmpty { return .validationError(validationMessage) }
         return nil
     }
 
     /// Polls until sign-in resolves one way or the other: a positive
     /// signed-in marker (not just the login form's absence — that's also
-    /// true mid-parse or on a stray error page) means we're in, a validation
-    /// modal means we're not. Polling (rather than watching navigations) is
-    /// what makes this survive the redirect chain and the no-navigation
-    /// error case.
+    /// true mid-parse or on a stray error page) means we're in immediately;
+    /// failing that, the settled state holding for `markerFallbackDelay`
+    /// straight also means we're in (the marker-selector fallback). A
+    /// validation modal means we're not. Polling (rather than watching
+    /// navigations) is what makes this survive the redirect chain and the
+    /// no-navigation error case.
     private func awaitSignInOutcome(timeout: TimeInterval = 25) async -> SignInOutcome {
         let deadline = Date().addingTimeInterval(timeout)
+        // When the settled state (readyState complete, login form gone) was
+        // first observed, across consecutive polls — reset the moment it
+        // isn't, so a brief settle-then-unsettle blip can't bank time toward
+        // the fallback.
+        var settledSince: Date?
         while Date() < deadline {
             // Probing mid-navigation can throw; that just means "not settled".
-            if let probe = try? await probeLoginPage(),
-               let outcome = Self.signInOutcome(
-                   readyState: probe.readyState,
-                   loginFormPresent: probe.loginFormPresent,
-                   signedInMarkerPresent: probe.signedInMarkerPresent,
-                   validationMessage: probe.message
-               ) {
-                return outcome
+            if let probe = try? await probeLoginPage() {
+                let settledNow = probe.readyState == "complete" && !probe.loginFormPresent
+                settledSince = settledNow ? (settledSince ?? Date()) : nil
+                let settledDuration = settledSince.map { Date().timeIntervalSince($0) } ?? 0
+
+                if let outcome = Self.signInOutcome(
+                    readyState: probe.readyState,
+                    loginFormPresent: probe.loginFormPresent,
+                    signedInMarkerPresent: probe.signedInMarkerPresent,
+                    settledDuration: settledDuration,
+                    validationMessage: probe.message
+                ) {
+                    if case .success(true) = outcome {
+                        // Non-PII: names no page content, credentials, or
+                        // scraped data — just that the marker never matched.
+                        print("PortalController: signed in without a logout marker after \(Int(Self.markerFallbackDelay))s settled — selector may need updating")
+                    }
+                    return outcome
+                }
+            } else {
+                settledSince = nil
             }
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
@@ -698,10 +740,12 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// testable). Not a URL match: the form POSTs to /student/ and the
     /// logged-in page can render at that same URL.
     ///
-    /// ponytail: the logout-link selector below is the best-available
-    /// heuristic — no captured signed-in-page fixture exists in this repo to
-    /// confirm the SIS's actual markup. Needs one live check against a real
-    /// signed-in session; widen the selector if it never matches.
+    /// ponytail: the logout-link selector below is a best-guess heuristic —
+    /// no captured signed-in-page fixture exists in this repo to confirm the
+    /// SIS's actual markup. `markerFallbackDelay` above keeps a wrong/stale
+    /// selector from being a hard sign-in failure (a few seconds' delay
+    /// instead), but it should still get one live check; widen the selector
+    /// if the fallback-path log line ever fires.
     private func probeLoginPage() async throws -> (
         readyState: String, loginFormPresent: Bool, signedInMarkerPresent: Bool, message: String
     ) {

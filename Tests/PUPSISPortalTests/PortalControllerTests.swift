@@ -249,44 +249,60 @@ final class PortalControllerTests: XCTestCase {
     /// The bug being fixed: "no `#studno`" alone used to mean "signed in",
     /// which is also true for a page still mid-parse. A settled document
     /// (`readyState == "complete"`) plus a *positive* signed-in marker is
-    /// required now — these are captured-shape (redacted) signal
-    /// combinations a real probe would report, exercised as fixtures the
-    /// same way `SISHost.decide` is: no real `WKWebView`, and production
-    /// can't drift from what's tested here.
+    /// the fast path now; an unverified/stale marker selector degrades to a
+    /// `markerFallbackDelay`-second settled-stability wait rather than a
+    /// hard failure (head review on c668aa7: a non-matching selector must
+    /// not turn every sign-in into a 25s timeout). These are captured-shape
+    /// (redacted) signal combinations a real probe would report, exercised
+    /// as fixtures the same way `SISHost.decide` is: no real `WKWebView`,
+    /// and production can't drift from what's tested here.
 
-    func testFullySignedInSettledPageIsSuccess() {
+    func testMarkerPresentIsImmediateSuccessRegardlessOfSettledDuration() {
         let outcome = PortalController.signInOutcome(
             readyState: "complete", loginFormPresent: false,
-            signedInMarkerPresent: true, validationMessage: ""
+            signedInMarkerPresent: true, settledDuration: 0, validationMessage: ""
         )
-        XCTAssertEqual(outcome, .success)
+        XCTAssertEqual(outcome, .success(viaFallback: false))
     }
 
-    /// The exact regression: login form already gone, but the page hasn't
-    /// finished settling and no positive marker has shown up yet — used to
-    /// read as success, must now keep polling.
+    /// No marker, but the settled state has held for the full fallback
+    /// window — a stale/wrong selector must not block sign-in forever.
+    func testNoMarkerButSettledForTheFallbackWindowIsSuccess() {
+        let outcome = PortalController.signInOutcome(
+            readyState: "complete", loginFormPresent: false, signedInMarkerPresent: false,
+            settledDuration: PortalController.markerFallbackDelay, validationMessage: ""
+        )
+        XCTAssertEqual(outcome, .success(viaFallback: true))
+    }
+
+    /// No marker, settled for only a beat — short of the fallback window, so
+    /// still not a confirmed success. This is what keeps the fallback from
+    /// swallowing the mid-parse false positive the marker requirement
+    /// targeted in the first place.
+    func testNoMarkerSettledOnlyBrieflyIsNotYetSuccess() {
+        let outcome = PortalController.signInOutcome(
+            readyState: "complete", loginFormPresent: false, signedInMarkerPresent: false,
+            settledDuration: 1, validationMessage: ""
+        )
+        XCTAssertNil(outcome, "under the fallback window, an unmatched marker must not yet count as signed in")
+    }
+
+    /// The exact original regression: login form already gone, but the page
+    /// hasn't finished settling and no positive marker has shown up yet —
+    /// used to read as success, must now keep polling (and the fallback
+    /// clock hasn't even started, since `settled` itself is false here).
     func testLoginFormGoneButNotYetSettledIsNotSuccess() {
         let outcome = PortalController.signInOutcome(
             readyState: "loading", loginFormPresent: false,
-            signedInMarkerPresent: false, validationMessage: ""
+            signedInMarkerPresent: false, settledDuration: 0, validationMessage: ""
         )
         XCTAssertNil(outcome, "a mid-parse page must not be read as signed in")
     }
 
-    /// Settled, but the marker hasn't rendered yet (a slow-loading nav bar,
-    /// say) — still not a confirmed success.
-    func testSettledWithoutAPositiveMarkerIsNotSuccess() {
-        let outcome = PortalController.signInOutcome(
-            readyState: "complete", loginFormPresent: false,
-            signedInMarkerPresent: false, validationMessage: ""
-        )
-        XCTAssertNil(outcome)
-    }
-
     func testValidationModalOnTheLoginFormIsAValidationError() {
         let outcome = PortalController.signInOutcome(
-            readyState: "complete", loginFormPresent: true,
-            signedInMarkerPresent: false, validationMessage: "Invalid student number or password."
+            readyState: "complete", loginFormPresent: true, signedInMarkerPresent: false,
+            settledDuration: 0, validationMessage: "Invalid student number or password."
         )
         XCTAssertEqual(outcome, .validationError("Invalid student number or password."))
     }
@@ -295,8 +311,8 @@ final class PortalControllerTests: XCTestCase {
     /// yet — inconclusive, not a rejection.
     func testLoginFormPresentWithNoModalYetIsNotSettled() {
         let outcome = PortalController.signInOutcome(
-            readyState: "complete", loginFormPresent: true,
-            signedInMarkerPresent: false, validationMessage: ""
+            readyState: "complete", loginFormPresent: true, signedInMarkerPresent: false,
+            settledDuration: 0, validationMessage: ""
         )
         XCTAssertNil(outcome)
     }
