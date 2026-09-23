@@ -198,15 +198,20 @@ It never marks importance or selection.
 |---|---|---|---|---|
 | screenTitle | Pixelify | 28 | 700 | balanced wrap |
 | sheetLabel | Pixelify | 14 | 600 | uppercase, +0.06em |
-| code | Pixelify | 18 (block 15) | 700 | subject color |
-| numeric | Pixelify | 16 | 600 | times, counts, grades, GPA |
-| gutter / meta | Pixelify | 11.5–13 | 500 | time gutter, dates |
+| code | Pixelify | 18 (block 15) | 400 | subject color, regular weight stays crisp |
+| numeric | Source Sans 3 | 13–16 | 500 | times, counts, grades under 20pt, tabular (Legibility Rule) |
+| gutter / meta | Source Sans 3 | 11.5–13 | 500 | time gutter, dates, tabular |
 | body | Source Sans 3 | 15 | 400 | notes, descriptions |
 | secondary | Source Sans 3 | 13–14 | 400 | ink-2 / ink-3 |
 | stamp | Pixelify | 11 (10 on blocks) | 700 | uppercase, +0.12em |
 | GPA hero | Pixelify | 56 | 700 | Grades only |
 
 **The No-Reflow Rule** still holds: anything live and numeric uses tabular figures.
+
+**The Legibility Rule.** Pixelify Sans's 2, 9 and C read as 8, S and O below about 20pt (measured
+in F1/S1 renders). So a number someone must read exactly (a time, grade, date or student number)
+under 20pt is set in Source Sans 3 with tabular figures (`Typography.numeric`). Pixelify keeps
+titles, the GPA hero, labels, buttons, and course codes (at its crisp regular weight).
 
 ## Layout
 
