@@ -1198,6 +1198,7 @@ struct SettingsView: View {
                     Button("Edit Credentials") { appState.isEditing = true }
                     Spacer()
                     Button("Sign Out", role: .destructive) { appState.signOut() }
+                        .disabled(appState.credentials == nil)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)

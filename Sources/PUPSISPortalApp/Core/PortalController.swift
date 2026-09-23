@@ -622,7 +622,11 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         )
     }
 
+    /// Every navigation of the shared web view routes through here, so every
+    /// caller (sign-in, refresh, the Settings and Grades buttons) waits for a
+    /// sign-out's website-data clear before touching the SIS.
     private func load(_ url: URL) async throws {
+        await awaitPendingClear()
         try await gate.wait { [weak self] in
             self?.webView.load(URLRequest(url: url))
         }
@@ -689,7 +693,11 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// credentials silently re-scrapes the previous account instead of
     /// signing in fresh.
     func beginClearingWebsiteData() {
+        // Queued behind any clear still running, so a second sign-out can't
+        // drop the only handle on the first one.
+        let previous = pendingClear
         pendingClear = Task { [weak self] in
+            await previous?.value
             guard let self else { return }
             if let injectedClearWebsiteData = self.injectedClearWebsiteData {
                 await injectedClearWebsiteData()
@@ -706,8 +714,10 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// guarantee is unit-testable (via `clearWebsiteData` injection) without
     /// driving a real sign-in against the live SIS.
     func awaitPendingClear() async {
-        await pendingClear?.value
-        pendingClear = nil
+        guard let task = pendingClear else { return }
+        await task.value
+        // A newer clear may have been queued while this one ran; keep it.
+        if pendingClear == task { pendingClear = nil }
     }
 
     /// Filtered to `pup.edu.ph` hosts so the notes editor's own `WKWebView`

@@ -185,6 +185,32 @@ final class PortalControllerTests: XCTestCase {
 
     /// A second wait (e.g. a retry after the first sign-in already consumed
     /// the pending clear) must not hang re-awaiting an already-finished task.
+    /// Two quick sign-outs: the second clear queues behind the first, and a
+    /// waiter returns only when both have finished.
+    func testBackToBackClearsBothFinishBeforeTheWaitReturns() async {
+        let finished = Counter()
+        let portal = PortalController(
+            defaults: defaults,
+            hasCredentials: { true },
+            clearWebsiteData: {
+                try? await Task.sleep(nanoseconds: 60_000_000)
+                await finished.bump()
+            }
+        )
+
+        portal.beginClearingWebsiteData()
+        portal.beginClearingWebsiteData()
+        await portal.awaitPendingClear()
+
+        let count = await finished.value
+        XCTAssertEqual(count, 2)
+    }
+
+    private actor Counter {
+        private(set) var value = 0
+        func bump() { value += 1 }
+    }
+
     func testAwaitPendingClearIsIdempotent() async {
         let portal = PortalController(
             defaults: defaults,
