@@ -199,10 +199,12 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
 
     init(
         defaults: UserDefaults = .standard,
-        hasCredentials: @escaping () -> Bool = { KeychainStore.load() != nil }
+        hasCredentials: @escaping () -> Bool = { KeychainStore.load() != nil },
+        clearWebsiteData: (() async -> Void)? = nil
     ) {
         self.defaults = defaults
         self.hasCredentials = hasCredentials
+        self.injectedClearWebsiteData = clearWebsiteData
         webView = WKWebView()
         activeBase = Self.persistedBase(defaults: defaults)
         super.init()
@@ -230,6 +232,12 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// credentials) stops the whole loop immediately rather than retrying
     /// the same bad password on a second server.
     private func runSignIn(_ credentials: Credentials) async {
+        // A sign-out just before this could still be clearing the shared
+        // WKWebView's cookies/local storage — wait for that to finish before
+        // this sign-in ever touches the web view, or the old session's data
+        // could leak into (or get raced by) the new one.
+        await awaitPendingClear()
+
         let gen = gate.generation
         status = .loggingIn
 
@@ -653,27 +661,79 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         gate.cancelAll()
     }
 
-    /// Call on sign-out: strips whatever cookies/local storage the SIS
-    /// session left in the shared `WKWebsiteDataStore`. Without this,
-    /// `#studno` is still missing on the next sign-in attempt — the DOM
-    /// polling this app uses to detect "signed in" (see CLAUDE.md) reads
-    /// that as already-authenticated, so typing in a *different* account's
+    /// Sign-out's `WKWebsiteDataStore` clear, tracked so `runSignIn` can wait
+    /// on it before ever touching the shared `WKWebView`. `AppState.signOut()`
+    /// runs its synchronous reset (credentials, Keychain, on-disk caches)
+    /// *before* calling `beginClearingWebsiteData()` and never awaits this —
+    /// a fast Edit Credentials → Save → sign-in right after Sign Out must not
+    /// have its brand-new credentials undone by a sign-out call that's still
+    /// suspended, and must not let its own sign-in touch the web view while
+    /// the old session's cookies are still being stripped from under it. This
+    /// is the one place that guarantees the ordering instead.
+    private var pendingClear: Task<Void, Never>?
+
+    /// Test seam for `beginClearingWebsiteData()`: when set, replaces the
+    /// real `WKWebsiteDataStore` round trip. Lets a test make the clear
+    /// suspend for a controlled duration and then confirm `awaitPendingClear()`
+    /// — the exact call `runSignIn` makes — actually waits for it, without
+    /// ever driving a real sign-in against the live SIS to observe it. `nil`
+    /// in production, where the real store-based clear runs instead.
+    private let injectedClearWebsiteData: (() async -> Void)?
+
+    /// Call on sign-out: starts clearing whatever cookies/local storage the
+    /// SIS session left in the shared `WKWebsiteDataStore`, without blocking
+    /// the caller. Without this clear ever happening, `#studno` is still
+    /// missing on the next sign-in attempt — the DOM polling this app uses
+    /// to detect "signed in" (see CLAUDE.md) reads that as
+    /// already-authenticated, so typing in a *different* account's
     /// credentials silently re-scrapes the previous account instead of
     /// signing in fresh.
-    ///
+    func beginClearingWebsiteData() {
+        pendingClear = Task { [weak self] in
+            guard let self else { return }
+            if let injectedClearWebsiteData = self.injectedClearWebsiteData {
+                await injectedClearWebsiteData()
+            } else {
+                await self.clearSISWebsiteData()
+            }
+        }
+    }
+
+    /// Waits for any pending sign-out website-data clear, then clears the
+    /// slot. `runSignIn` calls this as its very first step so no sign-in can
+    /// touch the web view before the old session's cookies/local storage
+    /// finish clearing. Internal, not private, so this exact ordering
+    /// guarantee is unit-testable (via `clearWebsiteData` injection) without
+    /// driving a real sign-in against the live SIS.
+    func awaitPendingClear() async {
+        await pendingClear?.value
+        pendingClear = nil
+    }
+
     /// Filtered to `pup.edu.ph` hosts so the notes editor's own `WKWebView`
     /// (`WebNoteEditor.swift`, same default/shared data store) is untouched.
-    func clearWebsiteData() async {
+    private func clearSISWebsiteData() async {
         let store = webView.configuration.websiteDataStore
         let types = WKWebsiteDataStore.allWebsiteDataTypes()
         let records = await withCheckedContinuation { (continuation: CheckedContinuation<[WKWebsiteDataRecord], Never>) in
             store.fetchDataRecords(ofTypes: types) { continuation.resume(returning: $0) }
         }
-        let sisRecords = records.filter { Self.isTrustedHost("https://\($0.displayName)") }
+        let sisRecords = records.filter { Self.isSISDataRecordName($0.displayName) }
         guard !sisRecords.isEmpty else { return }
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             store.removeData(ofTypes: types, for: sisRecords) { continuation.resume() }
         }
+    }
+
+    /// Whether a `WKWebsiteDataRecord.displayName` belongs to the SIS —
+    /// pulled out as its own pure function because the filter's correctness
+    /// hinges on knowing what shape WebKit's `displayName` actually takes for
+    /// a `sisN.pup.edu.ph` cookie (the eTLD+1, e.g. `"pup.edu.ph"`, not the
+    /// full host) — get that assumption wrong and sign-out silently clears
+    /// nothing. That specific value is unverified against a live `WKWebView`;
+    /// this only locks in the matching rule once the shape is known.
+    static func isSISDataRecordName(_ displayName: String) -> Bool {
+        isTrustedHost("https://\(displayName)")
     }
 
     /// Call on sign-out: forgets which host we last landed on. Persisting a

@@ -1197,7 +1197,7 @@ struct SettingsView: View {
                     }
                     Button("Edit Credentials") { appState.isEditing = true }
                     Spacer()
-                    Button("Sign Out", role: .destructive) { Task { await appState.signOut() } }
+                    Button("Sign Out", role: .destructive) { appState.signOut() }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
