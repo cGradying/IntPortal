@@ -109,6 +109,11 @@ struct AppShell: View {
             }
         }
         .ignoresSafeArea()
+        // The shell, not any one screen, starts the session: the app opens on
+        // Today, so waiting for Schedule to appear would never sign in.
+        .task {
+            if appState.portal.status == .idle { appState.portal.signIn(with: credentials) }
+        }
         .syncRipple(trigger: appState.syncPulse, ok: appState.syncOK, from: CGPoint(x: 25 * uiScale, y: 52 * uiScale))
     }
 
@@ -152,16 +157,22 @@ struct ShellSidebar: View {
             selection: appState.selection,
             busy: appState.isRefreshing,
             studentNumber: studentNumber,
-            sync: ShellSidebar.sync(host: portal.hostLabel, lastUpdated: portal.lastUpdated, failed: portal.refreshError != nil, now: appState.now),
+            sync: ShellSidebar.sync(
+                host: portal.hostLabel, lastUpdated: portal.lastUpdated, failed: portal.refreshError != nil,
+                signInFailed: { if case .failed = portal.status { true } else { false } }(), now: appState.now
+            ),
             updateVersion: updater.availableVersion,
             onSelect: { appState.open($0) },
             onSettings: { appState.showingSettings = true },
-            onRetry: { Task { await appState.refresh() } },
+            onRetry: {
+                if case .failed = portal.status { appState.isEditing = true } else { Task { await appState.refresh() } }
+            },
             onUpdate: { appState.updaterController.checkForUpdates(nil) }
         )
     }
 
-    static func sync(host: String, lastUpdated: Date?, failed: Bool, now: Date) -> SyncStatus {
+    static func sync(host: String, lastUpdated: Date?, failed: Bool, signInFailed: Bool = false, now: Date) -> SyncStatus {
+        if signInFailed { return SyncStatus(line: "Couldn't sign in · Check your details", failed: true) }
         if failed { return SyncStatus(line: "Couldn't reach SIS · Try again", failed: true) }
         guard let lastUpdated else { return SyncStatus(line: "\(host) · not synced yet", failed: false) }
         return SyncStatus(line: "\(host) · updated \(relative.localizedString(for: lastUpdated, relativeTo: now))", failed: false)

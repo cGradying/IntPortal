@@ -26,6 +26,7 @@ final class DestinationTests: XCTestCase {
     func testSyncLineCopy() {
         let now = Date(timeIntervalSince1970: 1_790_000_000)
         XCTAssertEqual(ShellSidebar.sync(host: "sis8", lastUpdated: nil, failed: false, now: now).line, "sis8 · not synced yet")
+        XCTAssertEqual(ShellSidebar.sync(host: "sis8", lastUpdated: nil, failed: true, signInFailed: true, now: now).line, "Couldn't sign in · Check your details")
         XCTAssertEqual(ShellSidebar.sync(host: "sis8", lastUpdated: now, failed: true, now: now),
                        SyncStatus(line: "Couldn't reach SIS · Try again", failed: true))
         XCTAssertTrue(ShellSidebar.sync(host: "sis8", lastUpdated: now.addingTimeInterval(-3 * 3600), failed: false, now: now).line.hasPrefix("sis8 · updated 3"))
