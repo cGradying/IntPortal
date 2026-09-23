@@ -20,6 +20,12 @@ struct EventSnapshot: Equatable {
     /// app-specific, so Calendar.app and any other client show them too.
     var note = ""
     var link = ""
+    var location = ""
+    /// `EKAlarm.relativeOffset` values (seconds before the start, so
+    /// negative). Absolute-date alarms aren't captured — rare on a
+    /// class/study event, and the offset is what needs to travel with a
+    /// moved or recreated occurrence, not a fixed clock time.
+    var alarmOffsets: [TimeInterval] = []
 
     var isMultiDay: Bool { repeatDays.count > 1 }
 
@@ -67,6 +73,7 @@ final class EventEditor: ObservableObject {
     func create(_ snapshot: EventSnapshot, inWeekStarting weekStart: Date, actionName: String = "Add Event") {
         let notes = snapshot.note.isEmpty ? nil : snapshot.note
         let url = URL(string: snapshot.link)
+        let location = snapshot.location.isEmpty ? nil : snapshot.location
         if snapshot.repeatsWeekly {
             guard bridge.add(
                 title: snapshot.title,
@@ -77,7 +84,9 @@ final class EventEditor: ObservableObject {
                 until: termEnd,
                 calendarID: snapshot.calendarID,
                 notes: notes,
-                url: url
+                url: url,
+                location: location,
+                alarmOffsets: snapshot.alarmOffsets
             ) != nil else { return }
         } else {
             for date in snapshot.dates(inWeekStarting: weekStart) {
@@ -88,13 +97,15 @@ final class EventEditor: ObservableObject {
                     end: snapshot.end,
                     calendarID: snapshot.calendarID,
                     notes: notes,
-                    url: url
+                    url: url,
+                    location: location,
+                    alarmOffsets: snapshot.alarmOffsets
                 )
             }
         }
 
         register(actionName) { editor in
-            editor.deleteAll(matching: snapshot, inWeekStarting: weekStart)
+            editor.deleteAll(matching: snapshot, inWeekStarting: weekStart, actionName: actionName)
         }
         onChange?()
     }
@@ -108,10 +119,25 @@ final class EventEditor: ObservableObject {
         guard let snapshot = snapshot(of: block) else { return }
 
         bridge.delete(block, scope: scope)
-        register(actionName) { editor in
-            editor.create(snapshot, inWeekStarting: weekStart, actionName: actionName)
+        // A snapshot only ever describes the one occurrence that was edited,
+        // never the whole series. For a genuine one-off that's the entire
+        // event, so recreating it is exact. For a repeating event it's not —
+        // recreating a fresh series from one occurrence's snapshot would
+        // duplicate whatever `.thisEvent`/`.futureEvents` left behind, and
+        // still lose the exceptions on the occurrences that survived. No
+        // undo beats a wrong one.
+        if Self.canUndoDelete(of: snapshot) {
+            register(actionName) { editor in
+                editor.create(snapshot, inWeekStarting: weekStart, actionName: actionName)
+            }
         }
         onChange?()
+    }
+
+    /// Pure so the "don't offer undo for a repeating delete" rule is
+    /// directly testable without a live `EKEventStore`.
+    nonisolated static func canUndoDelete(of snapshot: EventSnapshot) -> Bool {
+        !snapshot.repeatsWeekly
     }
 
     func move(
@@ -123,32 +149,54 @@ final class EventEditor: ObservableObject {
         actionName: String = "Move Event"
     ) {
         guard let before = snapshot(of: block) else { return }
+        // The block's own id won't survive the move — it encodes the
+        // occurrence's start time, which is exactly what's changing. The
+        // EventKit identifier does survive (even a repeating event's
+        // occurrences keep it), so capture that plus where this occurrence
+        // is landing, and use both to re-find it after the reload.
+        let identifier = bridge.event(for: block)?.eventIdentifier
+        let destinationDay = Weekday.on(date)
 
         bridge.reschedule(block, to: date, start: start, end: end, scope: scope)
         register(actionName) { editor in
             // The block is stale after a reload, so undo goes back through the
-            // freshly-loaded occurrence at the moved-to slot.
-            editor.moveBack(to: before, scope: scope, actionName: actionName)
+            // freshly-loaded occurrence at the moved-to slot — not just any
+            // same-title event in the week, which could be a different
+            // occurrence of the same series or an unrelated event that
+            // happens to share a name.
+            editor.moveBack(
+                to: before,
+                identifier: identifier,
+                day: destinationDay,
+                start: start,
+                end: end,
+                scope: scope,
+                actionName: actionName
+            )
         }
         onChange?()
     }
 
     func rename(_ block: DayBlock, to title: String, scope: CalendarBridge.EditScope) {
         guard let before = snapshot(of: block) else { return }
+        let identifier = bridge.event(for: block)?.eventIdentifier
+        let day = block.day
 
         bridge.rename(block, to: title, scope: scope)
         register("Rename Event") { editor in
-            editor.renameBack(to: before, scope: scope)
+            editor.renameBack(to: before, identifier: identifier, day: day, scope: scope)
         }
         onChange?()
     }
 
     func setDetails(_ block: DayBlock, note: String, link: String, scope: CalendarBridge.EditScope) {
         guard let before = snapshot(of: block) else { return }
+        let identifier = bridge.event(for: block)?.eventIdentifier
+        let day = block.day
 
         bridge.setDetails(block, note: note, link: link, scope: scope)
         register("Edit Event Details") { editor in
-            editor.setDetailsBack(to: before, scope: scope)
+            editor.setDetailsBack(to: before, identifier: identifier, day: day, scope: scope)
         }
         onChange?()
     }
@@ -180,7 +228,9 @@ final class EventEditor: ObservableObject {
             repeatDays: days.isEmpty ? [block.day] : days.sorted { $0.rawValue < $1.rawValue },
             repeatsWeekly: !days.isEmpty,
             note: event.notes ?? "",
-            link: event.url?.absoluteString ?? ""
+            link: event.url?.absoluteString ?? "",
+            location: event.location ?? "",
+            alarmOffsets: event.alarms?.map(\.relativeOffset) ?? []
         )
     }
 
@@ -202,7 +252,7 @@ final class EventEditor: ObservableObject {
     /// several events and the ids are only known after each save. Two
     /// identical events in the same slot would be ambiguous — acceptable until
     /// that actually happens.
-    private func deleteAll(matching snapshot: EventSnapshot, inWeekStarting weekStart: Date) {
+    private func deleteAll(matching snapshot: EventSnapshot, inWeekStarting weekStart: Date, actionName: String) {
         let targets = bridge.events.filter {
             $0.start == snapshot.start && $0.end == snapshot.end
                 && $0.title == snapshot.title
@@ -212,26 +262,50 @@ final class EventEditor: ObservableObject {
         for block in targets {
             bridge.delete(block, scope: snapshot.repeatsWeekly ? .futureEvents : .thisEvent)
         }
+        // Without this, undoing a create leaves nothing on the redo stack —
+        // every other operation here re-registers its own inverse the same
+        // way, this one just didn't.
+        register(actionName) { editor in
+            editor.create(snapshot, inWeekStarting: weekStart, actionName: actionName)
+        }
         onChange?()
     }
 
-    private func moveBack(to snapshot: EventSnapshot, scope: CalendarBridge.EditScope, actionName: String) {
-        guard let block = bridge.events.first(where: { $0.title == snapshot.title }) else { return }
+    /// Finds the loaded block for one specific occurrence. `identifier`
+    /// alone isn't enough — a repeating event's occurrences all share the
+    /// same `eventIdentifier` — so day/time pin down which one, instead of
+    /// matching the first same-title (or same-time) block in the week: wrong
+    /// when two events share a title, and wrong after a move, which needs
+    /// the destination slot, not the origin.
+    private func block(identifier: String, day: Weekday, start: Int, end: Int) -> DayBlock? {
+        CalendarBridge.findOccurrence(in: bridge.events, identifier: identifier, day: day, start: start, end: end)
+    }
+
+    private func moveBack(
+        to snapshot: EventSnapshot,
+        identifier: String?,
+        day: Weekday,
+        start: Int,
+        end: Int,
+        scope: CalendarBridge.EditScope,
+        actionName: String
+    ) {
+        guard let identifier, let block = block(identifier: identifier, day: day, start: start, end: end) else { return }
         move(block, to: snapshot.date, start: snapshot.start, end: snapshot.end,
              scope: scope, actionName: actionName)
     }
 
-    private func renameBack(to snapshot: EventSnapshot, scope: CalendarBridge.EditScope) {
-        guard let block = bridge.events.first(where: {
-            $0.start == snapshot.start && $0.end == snapshot.end
-        }) else { return }
+    private func renameBack(to snapshot: EventSnapshot, identifier: String?, day: Weekday, scope: CalendarBridge.EditScope) {
+        guard let identifier,
+              let block = block(identifier: identifier, day: day, start: snapshot.start, end: snapshot.end)
+        else { return }
         rename(block, to: snapshot.title, scope: scope)
     }
 
-    private func setDetailsBack(to snapshot: EventSnapshot, scope: CalendarBridge.EditScope) {
-        guard let block = bridge.events.first(where: {
-            $0.start == snapshot.start && $0.end == snapshot.end
-        }) else { return }
+    private func setDetailsBack(to snapshot: EventSnapshot, identifier: String?, day: Weekday, scope: CalendarBridge.EditScope) {
+        guard let identifier,
+              let block = block(identifier: identifier, day: day, start: snapshot.start, end: snapshot.end)
+        else { return }
         setDetails(block, note: snapshot.note, link: snapshot.link, scope: scope)
     }
 }

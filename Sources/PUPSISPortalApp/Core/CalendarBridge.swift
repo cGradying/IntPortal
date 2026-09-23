@@ -275,6 +275,36 @@ final class CalendarBridge: ObservableObject {
         "\(identifier)@\(Int(occurrence.timeIntervalSince1970))"
     }
 
+    /// The reverse of `blockID(identifier:occurrence:)` — the raw EventKit
+    /// identifier a `DayBlock.id` was built from, or nil for a non-event
+    /// block (a class) or a malformed id. `DayBlock.init(id:...)` prefixes
+    /// every event id with `"event-"`.
+    nonisolated static func identifier(fromBlockID id: String) -> String? {
+        guard id.hasPrefix("event-") else { return nil }
+        let rest = id.dropFirst("event-".count)
+        guard let separator = rest.range(of: "@", options: .backwards) else { return nil }
+        return String(rest[..<separator.lowerBound])
+    }
+
+    /// Finds the one loaded block for a specific occurrence — used by undo to
+    /// re-find an event after a reload. `eventIdentifier` alone can't do
+    /// this: a repeating event's occurrences all share it, so day and time
+    /// pin down which occurrence, rather than the first block that merely
+    /// shares a title (wrong when two events are named alike) or a time slot
+    /// that isn't where the occurrence actually is now (wrong after a move).
+    nonisolated static func findOccurrence(
+        in blocks: [DayBlock],
+        identifier: String,
+        day: Weekday,
+        start: Int,
+        end: Int
+    ) -> DayBlock? {
+        blocks.first {
+            $0.day == day && $0.start == start && $0.end == end
+                && Self.identifier(fromBlockID: $0.id) == identifier
+        }
+    }
+
     // MARK: Writing
 
     /// Creates one event. A drag across several days becomes a *single* event
@@ -292,7 +322,9 @@ final class CalendarBridge: ObservableObject {
         until termEnd: Date? = nil,
         calendarID: String,
         notes: String? = nil,
-        url: URL? = nil
+        url: URL? = nil,
+        location: String? = nil,
+        alarmOffsets: [TimeInterval] = []
     ) -> String? {
         guard let target = store.calendars(for: .event).first(where: { $0.calendarIdentifier == calendarID })
                 ?? store.defaultCalendarForNewEvents
@@ -314,6 +346,10 @@ final class CalendarBridge: ObservableObject {
         event.calendar = target
         event.notes = notes
         event.url = url
+        event.location = location
+        if !alarmOffsets.isEmpty {
+            event.alarms = alarmOffsets.map { EKAlarm(relativeOffset: $0) }
+        }
 
         // A single day needs no rule — a recurrence of one weekday is just
         // noise in Calendar.app's inspector.
