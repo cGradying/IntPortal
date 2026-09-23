@@ -807,7 +807,7 @@ final class Preferences: ObservableObject {
         "\(session.id)@\(Preferences.dayKey(for: weekStart, calendar: calendar))"
     }
 
-    private static var utcCalendar: Calendar = {
+    private static let utcCalendar: Calendar = {
         var utc = Calendar(identifier: .gregorian)
         utc.timeZone = TimeZone(identifier: "UTC")!
         return utc
