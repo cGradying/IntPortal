@@ -112,6 +112,50 @@ final class QuizStoreTests: XCTestCase {
     /// The whole reason `replaceCards` matches by normalized front instead of
     /// wiping and re-inserting: a regenerated card that still says the same
     /// thing keeps the schedule the student already earned for it.
+    /// A corrupt `reviews.json` used to load as `[]` and then get overwritten
+    /// by the very next `recordReview()`, wiping the whole review log. It
+    /// must be moved aside instead, and the next review must write only to
+    /// the (now-empty) original path, leaving the quarantined copy alone.
+    func testCorruptReviewsFileIsQuarantinedAndNotClobberedByTheNextReview() throws {
+        let store = QuizStore(root: root)
+        let deck = store.addDeck(QuizDeck(name: "D", sourceKind: .material, sourceQuery: "m", cards: [card("Q1")]))
+
+        let deckDir = root.appendingPathComponent("decks/\(deck.id.uuidString)", isDirectory: true)
+        let reviewsURL = deckDir.appendingPathComponent("reviews.json")
+        try Data("not json".utf8).write(to: reviewsURL)
+
+        XCTAssertEqual(store.reviews(for: deck.id), []) // loads as empty, doesn't crash
+
+        let quarantined = try FileManager.default.contentsOfDirectory(at: deckDir, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("reviews.json.corrupt-") }
+        XCTAssertEqual(quarantined.count, 1)
+        let originalBytes = try Data(contentsOf: quarantined[0])
+
+        store.recordReview(cardID: deck.cards[0].id, deckID: deck.id, rating: .good)
+        XCTAssertEqual(try Data(contentsOf: quarantined[0]), originalBytes)
+        XCTAssertEqual(store.reviews(for: deck.id).count, 1) // the new review still recorded, just not clobbering
+    }
+
+    /// Same guarantee for `stats.json` — a corrupt streak file must not be
+    /// silently reset to zero and then persisted over the original bytes.
+    func testCorruptStatsFileIsQuarantinedAndNotClobberedByTheNextReview() throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let statsURL = root.appendingPathComponent("stats.json")
+        try Data("not json".utf8).write(to: statsURL)
+
+        let store = QuizStore(root: root)
+        XCTAssertEqual(store.stats.streak, 0) // loads as default, doesn't crash
+
+        let quarantined = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("stats.json.corrupt-") }
+        XCTAssertEqual(quarantined.count, 1)
+        let originalBytes = try Data(contentsOf: quarantined[0])
+
+        let deck = store.addDeck(QuizDeck(name: "D", sourceKind: .material, sourceQuery: "m", cards: [card("Q1")]))
+        store.recordReview(cardID: deck.cards[0].id, deckID: deck.id, rating: .good)
+        XCTAssertEqual(try Data(contentsOf: quarantined[0]), originalBytes)
+    }
+
     func testReplaceCardsPreservesFSRSStateForMatchedFronts() {
         let store = QuizStore(root: root)
         let deck = store.addDeck(QuizDeck(name: "D", sourceKind: .vaultTopic, sourceQuery: "t", cards: [card("Kept question")]))

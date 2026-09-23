@@ -232,13 +232,62 @@ struct SyllabusImportSheet: View {
             failedChunks: result.failedChunks, totalChunks: result.totalChunks,
             truncatedMaterial: result.truncatedMaterial,
             onSave: { finalItems, finalComponents in
-                for item in finalItems { syllabus.addItem(item) }
+                let code = subjectCode.trimmingCharacters(in: .whitespacesAndNewlines)
+                for item in SyllabusReimport.itemsToAdd(
+                    from: finalItems, existing: syllabus.items(for: code), subjectCode: code
+                ) {
+                    syllabus.addItem(item)
+                }
                 if !finalComponents.isEmpty {
-                    syllabus.setComponents(finalComponents, for: subjectCode)
+                    let merged = SyllabusReimport.componentsCarryingScores(
+                        from: finalComponents, existing: syllabus.components(for: code)
+                    )
+                    syllabus.setComponents(merged, for: code)
                 }
                 dismiss()
             },
             onBack: { stage = .configure }
         )
+    }
+}
+
+/// Pure merge logic for saving a (re-)extracted syllabus onto whatever
+/// already exists for the subject — pulled out of the view's `onSave` so
+/// it's unit-testable without hosting `SyllabusImportSheet`.
+enum SyllabusReimport {
+    /// `newItems` minus any that duplicate something already on the
+    /// subject — re-importing the same syllabus (the picker offers no way to
+    /// tell the app "this is a repeat") must not double every entry. Matched
+    /// on week/type/topic rather than `id`, since a re-extraction always
+    /// mints fresh ids. Each returned item carries the trimmed `subjectCode`,
+    /// so it keys the same as `SyllabusStore.setComponents` below rather than
+    /// whatever whitespace was left in the picker's text field.
+    static func itemsToAdd(from newItems: [SyllabusItem], existing: [SyllabusItem], subjectCode: String) -> [SyllabusItem] {
+        newItems.compactMap { item in
+            let isDuplicate = existing.contains {
+                $0.week == item.week && $0.type == item.type && normalized($0.topic) == normalized(item.topic)
+            }
+            guard !isDuplicate else { return nil }
+            var item = item
+            item.subjectCode = subjectCode
+            return item
+        }
+    }
+
+    /// `newComponents` with each one's `score` carried over from `existing`
+    /// by matching component name. A syllabus extraction never fills in
+    /// `score` (see `GradingComponent`) — without this, `setComponents`
+    /// replacing the whole list on a re-import would silently wipe every
+    /// score the student had already typed in.
+    static func componentsCarryingScores(from newComponents: [GradingComponent], existing: [GradingComponent]) -> [GradingComponent] {
+        newComponents.map { component in
+            var updated = component
+            updated.score = existing.first { normalized($0.name) == normalized(component.name) }?.score
+            return updated
+        }
+    }
+
+    private static func normalized(_ s: String) -> String {
+        s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }
