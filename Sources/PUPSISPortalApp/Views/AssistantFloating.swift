@@ -61,7 +61,7 @@ struct AssistantFloating: View {
     private var deckState: DeckState {
         if preferences.aiEnabled, session.isOpen { return .chat }
         // Vault tab specifically — Quizzes has no `WebNoteEditor` to drive.
-        if appState.selection == .today, appState.notebook.tab == .vault { return .toolbar }
+        if [.today, .notebook].contains(appState.selection), appState.notebook.tab == .vault { return .toolbar }
         guard preferences.aiEnabled else { return .hidden }
         return railExpanded ? .orbHovered : .orb
     }
@@ -84,7 +84,7 @@ struct AssistantFloating: View {
                     .transition(Self.morphTransition)
             }
         }
-        .animation(Motion.island(reduced: reduceMotion), value: deckState)
+        .animation(Motion.depthPush(reduced: reduceMotion), value: deckState)
         // Attached at this level (not inside `orb`/`orbWithRail` individually)
         // so hovering never drops mid-expand when the two views swap out
         // under the pointer. Ignored outside the orb states — the toolbar
@@ -108,7 +108,7 @@ struct AssistantFloating: View {
         Task {
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard generation == hoverGeneration else { return }
-            withAnimation(Motion.island(reduced: reduceMotion)) { railExpanded = hovering }
+            withAnimation(Motion.depthPush(reduced: reduceMotion)) { railExpanded = hovering }
         }
     }
 
@@ -122,7 +122,7 @@ struct AssistantFloating: View {
     private static let morphTransition: AnyTransition = .scale(scale: 0.82, anchor: .bottomLeading).combined(with: .opacity)
 
     private func go(open: Bool) {
-        withAnimation(Motion.island(reduced: reduceMotion)) { session.isOpen = open }
+        withAnimation(Motion.depthPush(reduced: reduceMotion)) { session.isOpen = open }
     }
 
     private var orb: some View {
@@ -185,11 +185,11 @@ struct AssistantFloating: View {
                 RailItem(id: "gpa", symbol: "chart.line.uptrend.xyaxis", help: "GPA trend", command: "/grades", destination: .grades),
                 nextClass,
             ]
-        case .today:
-            // Reached only outside the Vault tab (`.toolbar` wins there) —
+        case .today, .notebook, .quizzes, .syllabus:
+            // Reached only outside the Vault face (`.toolbar` wins there) —
             // Quizzes or Syllabus.
             return [
-                RailItem(id: "notes", symbol: "magnifyingglass", help: "List notes", command: "/notes", destination: .today),
+                RailItem(id: "notes", symbol: "magnifyingglass", help: "List notes", command: "/notes", destination: .notebook),
                 nextClass,
             ]
         }
@@ -200,8 +200,8 @@ struct AssistantFloating: View {
     /// sends it the moment the panel appears.
     private func jumpAndNarrate(_ item: RailItem) -> some View {
         Button {
-            withAnimation(Motion.island(reduced: reduceMotion)) {
-                appState.selection = item.destination
+            withAnimation(Motion.depthPush(reduced: reduceMotion)) {
+                appState.open(item.destination)
                 session.isOpen = true
             }
             session.pendingCommand = item.command

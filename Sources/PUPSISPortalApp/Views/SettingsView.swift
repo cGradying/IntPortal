@@ -357,13 +357,7 @@ struct SettingsView: View {
     /// the two destructive resets, last.
     private var generalTab: some View {
         VStack(alignment: .leading, spacing: 20) {
-            compactSection("Dynamic Island", footer: "The app's floating top bar, and the red/yellow/green window buttons.") {
-                compactRow("Open on the home launcher") {
-                    Toggle("", isOn: $preferences.islandStartHome).labelsHidden().toggleStyle(.switch)
-                }
-                compactRow("Expand island on hover") {
-                    Toggle("", isOn: $preferences.islandExpandOnHover).labelsHidden().toggleStyle(.switch)
-                }
+            compactSection("Window", footer: "The red/yellow/green window buttons, and launching with your Mac.") {
                 compactRow("Auto-hide window buttons") {
                     Toggle("", isOn: $preferences.trafficLightsAutoHide).labelsHidden().toggleStyle(.switch)
                 }
@@ -379,7 +373,7 @@ struct SettingsView: View {
 
             compactSection(
                 "Motion",
-                footer: "Forces this Settings window's own animations (deleting a model, the RAM warning) to their reduced form, independent of System Settings' own Reduce Motion."
+                footer: "Turns off every animation in the app, whatever System Settings says: portals, screen changes, stamps and cards."
             ) {
                 compactRow("Force Reduce Motion") {
                     Toggle("", isOn: $preferences.forceReducedMotion).labelsHidden().toggleStyle(.switch)
@@ -398,8 +392,6 @@ struct SettingsView: View {
             }
 
             Button("Reset This Pane to Defaults") {
-                preferences.islandStartHome = true
-                preferences.islandExpandOnHover = true
                 preferences.trafficLightsAutoHide = true
                 preferences.forceReducedMotion = false
             }

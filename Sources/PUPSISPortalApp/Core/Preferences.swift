@@ -234,16 +234,7 @@ final class Preferences: ObservableObject {
 
     // MARK: Dynamic island
 
-    /// Open on the centred home launcher; off opens straight into the last screen.
-    @Published var islandStartHome: Bool {
-        didSet { defaults.set(islandStartHome, forKey: Key.islandStartHome) }
-    }
 
-    /// The island rests as a compact pill and expands on hover; off keeps the
-    /// full bar shown at all times.
-    @Published var islandExpandOnHover: Bool {
-        didSet { defaults.set(islandExpandOnHover, forKey: Key.islandExpandOnHover) }
-    }
 
     /// Auto-hide the window's traffic-light buttons, revealing them when the
     /// cursor nears the top-left corner. Off keeps them always visible.
@@ -645,8 +636,6 @@ final class Preferences: ObservableObject {
         static let programTotalUnits = "programTotalUnits"
         static let googleClientID = "googleClientID"
         static let googleCalendarID = "googleCalendarID"
-        static let islandStartHome = "islandStartHome"
-        static let islandExpandOnHover = "islandExpandOnHover"
         static let trafficLightsAutoHide = "trafficLightsAutoHide"
         static let forceReducedMotion = "forceReducedMotion"
         static let aiEnabled = "aiEnabled"
@@ -724,8 +713,6 @@ final class Preferences: ObservableObject {
         googleCalendarID = defaults.string(forKey: Key.googleCalendarID) ?? ""
         // Default the island prefs on; `bool(forKey:)` returns false for a
         // missing key, so check the key instead.
-        islandStartHome = (defaults.object(forKey: Key.islandStartHome) as? Bool) ?? true
-        islandExpandOnHover = (defaults.object(forKey: Key.islandExpandOnHover) as? Bool) ?? true
         trafficLightsAutoHide = (defaults.object(forKey: Key.trafficLightsAutoHide) as? Bool) ?? true
         forceReducedMotion = (defaults.object(forKey: Key.forceReducedMotion) as? Bool) ?? false
         aiEnabled = (defaults.object(forKey: Key.aiEnabled) as? Bool) ?? false
@@ -1061,8 +1048,6 @@ final class Preferences: ObservableObject {
         expandedSettingsSections = []
         notificationsEnabled = false
         notificationLeadMinutes = 15
-        islandStartHome = true
-        islandExpandOnHover = true
         trafficLightsAutoHide = true
         forceReducedMotion = false
         aiEnabled = false

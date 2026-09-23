@@ -767,7 +767,7 @@ final class PreferencesTests: XCTestCase {
 final class MotionTests: XCTestCase {
     private let tokens: [(String, (Bool) -> Animation?)] = [
         ("arrival", Motion.arrival), ("hover", Motion.hover), ("drift", Motion.drift),
-        ("selection", Motion.selection), ("drag", Motion.drag), ("island", Motion.island),
+        ("selection", Motion.selection), ("drag", Motion.drag),
         ("thunk", Motion.thunk), ("flip", Motion.flip), ("pop", Motion.pop),
         ("portalForm", Motion.portalForm), ("ignite", Motion.ignite), ("warp", Motion.warp),
         ("sweep", Motion.sweep), ("orbit", Motion.orbit), ("turn", Motion.turn),
@@ -776,7 +776,7 @@ final class MotionTests: XCTestCase {
     ]
 
     func testEveryAnimationIsRemovedWhenMotionIsReduced() {
-        XCTAssertEqual(tokens.count, 19)
+        XCTAssertEqual(tokens.count, 18)
         for (name, token) in tokens {
             XCTAssertNil(token(true), "\(name) still animates under Reduce Motion")
         }
@@ -822,8 +822,8 @@ final class PaletteTests: XCTestCase {
     }
 
     func testAutoFollowsTheSystemAppearance() {
-        XCTAssertEqual(ThemeChoice.auto.palette(for: .light), .pupMaroon)
-        XCTAssertEqual(ThemeChoice.auto.palette(for: .dark), .astraMoon)
+        XCTAssertEqual(ThemeChoice.auto.palette(for: .light), .registrar)
+        XCTAssertEqual(ThemeChoice.auto.palette(for: .dark), .registrarNight)
     }
 
     /// An explicit pick has to ignore the system, or the picker does nothing.
@@ -913,48 +913,24 @@ final class PaletteTests: XCTestCase {
 }
 
 final class TypographyTests: XCTestCase {
-    /// `.system` has to reproduce the original hardcoded scale exactly, or
-    /// every screen changes size the moment this shipped — even for someone
-    /// who never opens the font picker.
-    /// `Font`'s `Equatable` conformance isn't reliable across independently
-    /// built values (even `Font.system(.callout) == Font.system(.callout)`
-    /// comes back `false` on this SDK) — its debug description is stable
-    /// where `==` isn't, so that's what this compares against.
-    func testSystemChoiceMatchesTheOriginalScale() {
-        let typography = Typography(.system)
+    /// The Registrar faces: identity roles in Pixelify Sans, reading roles in
+    /// Source Sans 3 unless the user picked a family, all at their text
+    /// style's size times UI Scale. `Font` isn't reliably `==`, so this
+    /// compares debug descriptions.
+    func testRolesUseTheRegistrarFaces() {
         func describe(_ font: Font) -> String { String(describing: font) }
-
-        XCTAssertEqual(describe(typography.screenTitle), describe(Font.system(.title2, design: .serif).weight(.semibold)))
-        XCTAssertEqual(describe(typography.dayName), describe(Font.system(.caption, design: .default).weight(.semibold)))
-        XCTAssertEqual(describe(typography.gutter), describe(Font.system(.caption2, design: .monospaced)))
-        XCTAssertEqual(describe(typography.blockCode), describe(Font.system(.subheadline, design: .serif).weight(.semibold)))
-        XCTAssertEqual(describe(typography.blockTime), describe(Font.system(size: 10, design: .monospaced)))
-        XCTAssertEqual(describe(typography.detailTitle), describe(Font.system(.title3, design: .serif).weight(.semibold)))
-        XCTAssertEqual(describe(typography.detailBody), describe(Font.system(.callout)))
-        XCTAssertEqual(describe(typography.detailMeta), describe(Font.system(.caption, design: .monospaced)))
-        XCTAssertEqual(describe(typography.nowClock), describe(Font.system(.caption2, design: .monospaced).weight(.semibold)))
-        XCTAssertEqual(describe(typography.footer), describe(Font.system(.caption)))
-        XCTAssertEqual(describe(typography.hero), describe(Font.system(.largeTitle, design: .serif).weight(.semibold)))
+        let system = Typography(.system)
+        XCTAssertEqual(describe(system.screenTitle), describe(Font.custom("Pixelify Sans", size: 17).weight(.bold)))
+        XCTAssertEqual(describe(system.blockTime), describe(Font.custom("Pixelify Sans", size: 10).weight(.medium)))
+        XCTAssertEqual(describe(system.detailBody), describe(Font.custom("Source Sans 3", size: 12).weight(.regular)))
+        XCTAssertEqual(describe(Typography(.inter).detailBody), describe(Font.custom("Inter", size: 12).weight(.regular)))
+        XCTAssertEqual(describe(Typography(.inter).blockCode), describe(Font.custom("Pixelify Sans", size: 11).weight(.bold)))
     }
 
-    /// The scaling this exists for: a custom family's point size actually
-    /// grows, and a `.system` choice at a non-1.0 scale stops taking the
-    /// style-based branch (which can't be resized) for the size-based one.
-    /// `Font.custom`'s debug description doesn't encode the size (unlike the
-    /// style-based branch above), so this compares against the exact
-    /// expected build rather than a not-equal check.
     func testScaleMultipliesPointSize() {
         func describe(_ font: Font) -> String { String(describing: font) }
-
-        let doubled = Typography(.jetBrainsMono, scale: 2.0)
-        XCTAssertEqual(describe(doubled.blockTime), describe(Font.custom("JetBrains Mono", size: 20)))
-        let normal = Typography(.jetBrainsMono, scale: 1.0)
-        XCTAssertEqual(describe(normal.blockTime), describe(Font.custom("JetBrains Mono", size: 10)))
-
-        // `.system` at scale 1 keeps the exact literals the test above pins;
-        // any other scale must switch off that (unresizable) branch.
-        XCTAssertEqual(describe(Typography(.system, scale: 1.0).footer), describe(Font.system(.caption)))
-        XCTAssertEqual(describe(Typography(.system, scale: 1.5).footer), describe(Font.system(size: 15)))
+        XCTAssertEqual(describe(Typography(.system, scale: 2).blockTime), describe(Font.custom("Pixelify Sans", size: 20).weight(.medium)))
+        XCTAssertEqual(describe(Typography(.jetBrainsMono, scale: 1.5).footer), describe(Font.custom("JetBrains Mono", size: 15).weight(.regular)))
     }
 
     /// Every non-system choice has to actually resolve to a registered font —

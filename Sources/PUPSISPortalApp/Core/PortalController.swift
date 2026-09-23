@@ -160,6 +160,11 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         defaults.string(forKey: Self.baseDefaultsKey).flatMap { URL(string: $0)?.host }
     }
 
+    /// The host in use, short form ("sis8"), for the sidebar's sync line.
+    var hostLabel: String {
+        URL(string: activeBase)?.host?.split(separator: ".").first.map(String.init) ?? "sis"
+    }
+
     private var loginURL: URL { URL(string: "\(activeBase)/")! }
     private var scheduleURL: URL { URL(string: "\(activeBase)/schedule")! }
     private var gradesURL: URL { URL(string: "\(activeBase)/grades")! }
