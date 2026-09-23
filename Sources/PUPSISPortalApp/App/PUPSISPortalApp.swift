@@ -212,9 +212,11 @@ final class AppState: ObservableObject {
     /// Refresh from anywhere — the app menu, the menu bar — and reschedule
     /// reminders afterward. Routed through here (not the window) so a refresh
     /// with the window closed still keeps the OS's pending reminders in step.
+    /// Schedule-then-grades sequencing (and guarding a sign-out landing
+    /// between the two) is `PortalController`'s own job — see `refresh()`
+    /// there.
     func refresh() async {
-        await portal.loadSchedule()
-        await portal.loadGrades()
+        await portal.refresh()
         Notifier.shared.sync(portal.sessions, preferences)
     }
 
@@ -226,6 +228,9 @@ final class AppState: ObservableObject {
     }
 
     func signOut() {
+        // Must come first: an in-flight sign-in/refresh that's still running
+        // must not re-save the caches deleted below after the fact.
+        portal.cancelInFlight()
         KeychainStore.delete()
         // Both caches are this student's own data; signing out has to take them
         // off disk too, not just off screen.
