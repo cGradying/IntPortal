@@ -406,6 +406,9 @@ final class NotesStore: ObservableObject {
         if let legacy = try? decoder.decode([String: Note].self, from: data) {
             return Document(notes: legacy, vault: [])
         }
+        // Neither shape decoded — corrupt, not "no notes yet". Move it aside
+        // so the next persist() (any edit) can't silently overwrite it.
+        CorruptedFile.quarantine(url)
         return Document(notes: [:], vault: [])
     }
 }
