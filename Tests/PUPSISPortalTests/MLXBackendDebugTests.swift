@@ -12,6 +12,14 @@ import XCTest
 /// that hasn't downloaded a Qwen3.5 model yet — this is a real-hardware
 /// smoke test, not a correctness gate.
 final class MLXBackendDebugTests: XCTestCase {
+    /// Minor fix: `unload()` never touches Metal/weights (it's a plain
+    /// field reset), so unlike the rest of this file it needs no gate — this
+    /// just proves it's safe to call with nothing loaded, the shape
+    /// `LlamaRuntime.ensureChatServer`'s `.gguf` branch calls it in.
+    func testUnloadIsSafeWithNothingLoaded() async {
+        await MLXBackend.shared.unload()
+    }
+
     func testGeneratesOnRealDownloadedWeights() async throws {
         // Opt-in only — a plain `swift test` run on a machine that already
         // has Qwen3.5-2B downloaded would otherwise hit the exact same

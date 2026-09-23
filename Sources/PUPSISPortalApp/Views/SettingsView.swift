@@ -613,8 +613,12 @@ struct SettingsView: View {
                 ("llama-server binary", LlamaServerManager.locateBinary() ?? "not found"),
                 ("Selected model path", ModelCatalog.entry(for: preferences.aiModel)
                     .map { ModelCatalog.localURL(for: $0).path } ?? "—"),
-                ("Chat port", "8080"),
-                ("Embed port", "8081"),
+                // W8: no longer a fixed 8080/8081 — a free loopback port is
+                // picked per launch, so this reads the live value (or says
+                // so plainly when nothing's running) instead of a number
+                // that stopped being true the moment that fix landed.
+                ("Chat port", LlamaServerManager.shared.endpoint(for: .chat)?.port.map(String.init) ?? "not running (assigned per launch)"),
+                ("Embed port", LlamaServerManager.shared.endpoint(for: .embed)?.port.map(String.init) ?? "not running (assigned per launch)"),
             ])
         }
     }

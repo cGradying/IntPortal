@@ -328,9 +328,62 @@ final class LlamaCppClientTests: XCTestCase {
         let malformed = Data(#"{"not":"anthropic-shaped"}"#.utf8)
         XCTAssertEqual(LlamaCppClient.reenvelopingAsOpenAI(malformed, forcedToolName: nil), malformed)
     }
+
+    // MARK: validateDownload (W8) — a real temp file on disk, no network
+
+    private func writeTempFile(_ bytes: [UInt8]) throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data(bytes).write(to: url)
+        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
+        return url
+    }
+
+    func testValidateDownloadRejectsANon2xxStatusEvenIfTheFileLooksRight() throws {
+        // The exact bug this fixes: an HTML error page (rate limit, expired
+        // link) saved as if it were the model.
+        let file = try writeTempFile(Array("GGUF-not-really".utf8))
+        XCTAssertThrowsError(try LlamaCppClient.validateDownload(fileAt: file, httpStatus: 404, expectedSizeBytes: nil)) { error in
+            guard case DownloadValidationError.httpStatus(404) = error else {
+                return XCTFail("expected .httpStatus(404), got \(error)")
+            }
+        }
+    }
+
+    func testValidateDownloadAcceptsAnExactSizeMatch() throws {
+        let bytes = Array(repeating: UInt8(0x42), count: 128)
+        let file = try writeTempFile(bytes)
+        XCTAssertNoThrow(try LlamaCppClient.validateDownload(fileAt: file, httpStatus: 200, expectedSizeBytes: 128))
+    }
+
+    func testValidateDownloadRejectsASizeMismatch() throws {
+        // A truncated or substituted download — the catalog's confirmed
+        // size is the strong check when it's available.
+        let file = try writeTempFile(Array(repeating: UInt8(0x42), count: 50))
+        XCTAssertThrowsError(try LlamaCppClient.validateDownload(fileAt: file, httpStatus: 200, expectedSizeBytes: 128)) { error in
+            guard case DownloadValidationError.sizeMismatch(128, 50) = error else {
+                return XCTFail("expected .sizeMismatch(128, 50), got \(error)")
+            }
+        }
+    }
+
+    func testValidateDownloadAcceptsAGGUFMagicHeaderWhenNoExpectedSizeIsKnown() throws {
+        var bytes = Array("GGUF".utf8)
+        bytes += Array(repeating: UInt8(0), count: 20)
+        let file = try writeTempFile(bytes)
+        XCTAssertNoThrow(try LlamaCppClient.validateDownload(fileAt: file, httpStatus: 200, expectedSizeBytes: nil))
+    }
+
+    func testValidateDownloadRejectsAFileMissingTheGGUFMagicHeaderWhenNoExpectedSizeIsKnown() throws {
+        let file = try writeTempFile(Array("<html>404 Not Found</html>".utf8))
+        XCTAssertThrowsError(try LlamaCppClient.validateDownload(fileAt: file, httpStatus: 200, expectedSizeBytes: nil)) { error in
+            guard case DownloadValidationError.notGGUF = error else {
+                return XCTFail("expected .notGGUF, got \(error)")
+            }
+        }
+    }
 }
 
-// download() itself isn't unit-tested here — it reports progress via
-// URLSessionDownloadDelegate callbacks against a real network stack, which
-// this suite deliberately avoids. Covered by the live packaged-app
-// verification pass instead.
+// download() itself isn't unit-tested here beyond validateDownload above —
+// the URLSessionDownloadTask/delegate wiring reports progress against a
+// real network stack, which this suite deliberately avoids. Covered by the
+// live packaged-app verification pass instead.
