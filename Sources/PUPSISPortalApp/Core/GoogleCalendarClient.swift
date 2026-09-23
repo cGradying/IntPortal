@@ -120,8 +120,12 @@ final class GoogleCalendarClient {
 
         let midnight = session.day.date(inWeekStarting: weekStart, calendar: calendar)
         let (startMinutes, endMinutes) = time(session, weekStart)
-        guard let start = calendar.date(byAdding: .minute, value: startMinutes, to: midnight),
-              let end = calendar.date(byAdding: .minute, value: endMinutes, to: midnight)
+        // Wall-clock, not elapsed-minute, so a DST transition day doesn't
+        // drift the exported time — see Calendar.wallClock in NextClass.swift.
+        // `nil` here means the anchor week's occurrence fell on a
+        // spring-forward gap; same as the vacant case above, no event.
+        guard let start = calendar.wallClock(minutes: startMinutes, on: midnight),
+              let end = calendar.wallClock(minutes: endMinutes, on: midnight)
         else { return nil }
 
         let last = ClassRecurrence.lastMoment(of: termEnd, calendar: calendar)

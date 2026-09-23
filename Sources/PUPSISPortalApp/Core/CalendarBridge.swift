@@ -344,8 +344,11 @@ final class CalendarBridge: ObservableObject {
 
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        guard let startDate = calendar.date(byAdding: .minute, value: start, to: day),
-              let endDate = calendar.date(byAdding: .minute, value: end, to: day)
+        // Wall-clock, not elapsed-minute — see Calendar.wallClock in
+        // NextClass.swift. `nil` here means `start`/`end` names a wall-clock
+        // time a spring-forward gap skipped on `date`; nothing to create.
+        guard let startDate = calendar.wallClock(minutes: start, on: day),
+              let endDate = calendar.wallClock(minutes: end, on: day)
         else { return nil }
 
         let event = EKEvent(eventStore: store)
@@ -432,8 +435,11 @@ final class CalendarBridge: ObservableObject {
 
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        guard let startDate = calendar.date(byAdding: .minute, value: start, to: day),
-              let endDate = calendar.date(byAdding: .minute, value: end, to: day)
+        // Wall-clock, not elapsed-minute — see Calendar.wallClock in
+        // NextClass.swift. `nil` here means the drag landed on a wall-clock
+        // time a spring-forward gap skipped; the event is left unmoved.
+        guard let startDate = calendar.wallClock(minutes: start, on: day),
+              let endDate = calendar.wallClock(minutes: end, on: day)
         else { return nil }
 
         event.startDate = startDate
@@ -596,8 +602,12 @@ final class CalendarBridge: ObservableObject {
 
                     let day = session.day.date(inWeekStarting: week, calendar: calendar)
                     let (startMinutes, endMinutes) = time(session, week)
-                    guard let start = calendar.date(byAdding: .minute, value: startMinutes, to: day),
-                          let end = calendar.date(byAdding: .minute, value: endMinutes, to: day),
+                    // Wall-clock, not elapsed-minute — see Calendar.wallClock
+                    // in NextClass.swift. `nil` means this week's occurrence
+                    // fell on a spring-forward gap; that one week is skipped,
+                    // every other week's export is unaffected.
+                    guard let start = calendar.wallClock(minutes: startMinutes, on: day),
+                          let end = calendar.wallClock(minutes: endMinutes, on: day),
                           start <= lastDay
                     else { continue }
 
