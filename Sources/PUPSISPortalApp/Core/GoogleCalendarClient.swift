@@ -31,8 +31,8 @@ struct GoogleEvent: Encodable, Equatable {
 /// Mirrors `CalendarBridge.exportClasses`: it clears its own previous export
 /// first (events tagged `pupsisportal=1` in `extendedProperties.private`) so a
 /// re-export replaces rather than stacks, and leaves the user's other events
-/// alone. Term status only, like the `.ics` export — a single repeating event
-/// can't carry a one-week exception.
+/// alone. Term status/time only, like the `.ics` export — a single repeating
+/// event can't carry a one-week exception.
 @MainActor
 final class GoogleCalendarClient {
     /// The tag on every event this app writes, so a re-export removes only ours.
@@ -79,6 +79,7 @@ final class GoogleCalendarClient {
         until termEnd: Date,
         toCalendarID calendarID: String,
         status: (ClassSession) -> SessionStatus,
+        time: (ClassSession, Date) -> (Int, Int) = { s, _ in (s.start, s.end) },
         calendar: Calendar = .current,
         timeZone: TimeZone = .current
     ) async throws -> String {
@@ -89,6 +90,7 @@ final class GoogleCalendarClient {
             guard let event = Self.event(
                 for: session, status: status(session),
                 weekStart: weekStart, until: termEnd,
+                time: time,
                 calendar: calendar, timeZone: timeZone
             ) else { continue }
             try await insert(event, calendarID: calendarID)
@@ -108,6 +110,7 @@ final class GoogleCalendarClient {
         status: SessionStatus,
         weekStart: Date,
         until termEnd: Date,
+        time: (ClassSession, Date) -> (Int, Int) = { s, _ in (s.start, s.end) },
         calendar: Calendar = .current,
         timeZone: TimeZone = .current
     ) -> GoogleEvent? {
@@ -116,8 +119,9 @@ final class GoogleCalendarClient {
         }
 
         let midnight = session.day.date(inWeekStarting: weekStart, calendar: calendar)
-        guard let start = calendar.date(byAdding: .minute, value: session.start, to: midnight),
-              let end = calendar.date(byAdding: .minute, value: session.end, to: midnight)
+        let (startMinutes, endMinutes) = time(session, weekStart)
+        guard let start = calendar.date(byAdding: .minute, value: startMinutes, to: midnight),
+              let end = calendar.date(byAdding: .minute, value: endMinutes, to: midnight)
         else { return nil }
 
         let last = ClassRecurrence.lastMoment(of: termEnd, calendar: calendar)
