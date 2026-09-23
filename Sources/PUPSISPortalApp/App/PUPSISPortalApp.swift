@@ -227,6 +227,16 @@ final class AppState: ObservableObject {
         portal.status = .idle
     }
 
+    /// Synchronous, deliberately: every reset here has to land before this
+    /// call returns, with nothing left pending after it. A fast Edit
+    /// Credentials → Save → sign-in right after Sign Out must see fresh,
+    /// intact credentials — not have them undone by this call still being
+    /// suspended on an await when the new ones land. The one part that *is*
+    /// async — clearing the SIS's cookies/local storage from the shared
+    /// `WKWebsiteDataStore` — runs as its own tracked task on `portal`
+    /// instead; `PortalController.runSignIn` waits for that itself before
+    /// touching the web view, so the ordering is still guaranteed without
+    /// this call blocking on it.
     func signOut() {
         // Must come first: an in-flight sign-in/refresh that's still running
         // must not re-save the caches deleted below after the fact.
@@ -245,6 +255,11 @@ final class AppState: ObservableObject {
         portal.grades = nil
         portal.gradesError = nil
         portal.gradeHistory = []
+        // Forget which host we landed on — a fresh sign-in re-runs the full
+        // candidate order instead of retrying whatever this account landed on.
+        portal.forgetHost()
+        // Not awaited — see the doc comment above.
+        portal.beginClearingWebsiteData()
     }
 }
 

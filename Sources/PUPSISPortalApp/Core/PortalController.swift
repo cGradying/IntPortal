@@ -116,6 +116,12 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
 
     private let webView: WKWebView
     private let gate = NavigationGate()
+    private let defaults: UserDefaults
+    /// Whether the user is currently signed in — `refresh()` is a no-op
+    /// without this, so a stale menu-bar/scheduled refresh firing after
+    /// sign-out can't re-scrape and rewrite `schedule.json`. Injectable so
+    /// tests never touch the real Keychain.
+    private let hasCredentials: () -> Bool
 
     private static let genericFailure = "Sign-in didn't go through — check your student number, birthdate, and password."
 
@@ -124,53 +130,83 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     // than we started on — requesting /schedule against the wrong host hits
     // an unauthenticated instance and scrapes nothing. Start from whichever
     // host we last actually landed on (persisted across launches), falling
-    // back to sis8 the very first time.
+    // back to sis8 the very first time. See `SISHost` for the failover order
+    // and docs/specs/00-sis-host.md for the full behaviour.
     private static let defaultBase = "https://sis8.pup.edu.ph/student"
     private static let baseDefaultsKey = "sisBaseHost"
 
-    private var base: String {
-        get {
-            guard let stored = UserDefaults.standard.string(forKey: Self.baseDefaultsKey),
-                  Self.isTrustedHost(stored)
-            else { return Self.defaultBase }
-            return stored
-        }
-        set { UserDefaults.standard.set(newValue, forKey: Self.baseDefaultsKey) }
+    /// The host actually in use for the current/next request. Distinct from
+    /// `base` (the *persisted* remembered host): while a sign-in is trying
+    /// candidates, this moves from host to host, and only the one that
+    /// proves good (signs in AND has schedule rows) gets written back to
+    /// `base`. Everything mid-trial stays in memory only.
+    private var activeBase: String
+
+    private static func persistedBase(defaults: UserDefaults) -> String {
+        guard let stored = defaults.string(forKey: baseDefaultsKey), isTrustedHost(stored)
+        else { return defaultBase }
+        return stored
     }
 
-    private var loginURL: URL { URL(string: "\(base)/")! }
-    private var scheduleURL: URL { URL(string: "\(base)/schedule")! }
-    private var gradesURL: URL { URL(string: "\(base)/grades")! }
+    private var base: String {
+        get { Self.persistedBase(defaults: defaults) }
+        set { defaults.set(newValue, forKey: Self.baseDefaultsKey) }
+    }
+
+    /// The bare host of whatever's remembered right now (e.g. `sis8.pup.edu.ph`),
+    /// for `SISHost.candidates(remembered:)` — `nil` the first time there's
+    /// nothing stored yet.
+    private var rememberedHost: String? {
+        defaults.string(forKey: Self.baseDefaultsKey).flatMap { URL(string: $0)?.host }
+    }
+
+    private var loginURL: URL { URL(string: "\(activeBase)/")! }
+    private var scheduleURL: URL { URL(string: "\(activeBase)/schedule")! }
+    private var gradesURL: URL { URL(string: "\(activeBase)/grades")! }
 
     /// The SIS host actually in use right now, for the Settings pane's
     /// Technical Details — a hardcoded display string goes stale the moment
     /// `adoptActualHost()` follows the SIS to a different numbered host.
-    var currentHost: String { URL(string: base)?.host ?? "unknown" }
+    var currentHost: String { URL(string: activeBase)?.host ?? "unknown" }
 
-    /// Reconciles `base` with wherever the web view actually ended up —
+    /// Reconciles `activeBase` with wherever the web view actually ended up —
     /// called right after sign-in settles. If the SIS bounced us to a
-    /// different host, every later refresh in this run (and future launches)
-    /// follows it instead of retrying the stale one.
+    /// different host, the rest of this trial (schedule/grades) follows it.
+    /// Persisting to `base` happens separately, only once the data check
+    /// (schedule has rows) passes — see `runSignIn`.
     ///
     /// Only ever adopts an actual `pup.edu.ph` host over https — the web view
     /// could in principle be sitting on anything (a captive portal, a
-    /// malicious redirect), and credentials go to whatever `base` resolves
-    /// to next, so this can't trust the navigated URL blindly.
+    /// malicious redirect), and credentials go to whatever host is active
+    /// next, so this can't trust the navigated URL blindly.
     private func adoptActualHost() {
         guard let url = webView.url, let host = url.host, url.scheme == "https",
               Self.isTrustedHost("https://\(host)")
         else { return }
         let actual = "https://\(host)/student"
-        if actual != base { base = actual }
+        if actual != activeBase { activeBase = actual }
     }
 
-    private static func isTrustedHost(_ base: String) -> Bool {
+    /// The credential gate: only ever send credentials to an https
+    /// `*.pup.edu.ph` host. Deliberately looser than `SISHost.isCandidateHost`
+    /// (which also requires the `sisN` shape) — this just has to keep
+    /// credentials off a non-PUP host; `SISHost` decides which PUP host is
+    /// worth trying. Internal, not private, so tests can drive it directly.
+    static func isTrustedHost(_ base: String) -> Bool {
         guard let host = URL(string: base)?.host?.lowercased() else { return false }
         return host == "pup.edu.ph" || host.hasSuffix(".pup.edu.ph")
     }
 
-    override init() {
+    init(
+        defaults: UserDefaults = .standard,
+        hasCredentials: @escaping () -> Bool = { KeychainStore.load() != nil },
+        clearWebsiteData: (() async -> Void)? = nil
+    ) {
+        self.defaults = defaults
+        self.hasCredentials = hasCredentials
+        self.injectedClearWebsiteData = clearWebsiteData
         webView = WKWebView()
+        activeBase = Self.persistedBase(defaults: defaults)
         super.init()
         webView.navigationDelegate = self
 
@@ -189,32 +225,93 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         Task { await runSignIn(credentials) }
     }
 
+    /// Tries each SIS mirror in `SISHost` order until one both signs in and
+    /// actually carries this account's schedule (spec 00-sis-host.md) — a
+    /// host that just signs in proves nothing (commit f763487: sis1 does,
+    /// sis8 is the one with the data). A validation error (wrong
+    /// credentials) stops the whole loop immediately rather than retrying
+    /// the same bad password on a second server.
     private func runSignIn(_ credentials: Credentials) async {
+        // A sign-out just before this could still be clearing the shared
+        // WKWebView's cookies/local storage — wait for that to finish before
+        // this sign-in ever touches the web view, or the old session's data
+        // could leak into (or get raced by) the new one.
+        await awaitPendingClear()
+
         let gen = gate.generation
         status = .loggingIn
-        do {
-            try await load(loginURL)
 
-            // Don't wait on navigation events here: signing in runs through a
-            // redirect chain (POST to /student/ then on to /student/home), so
-            // any single didFinish can land mid-chain — and a validation error
-            // shows a modal with no navigation at all. Poll the DOM until the
-            // outcome actually settles instead.
-            webView.evaluateJavaScript(fillAndSubmitScript(for: credentials), completionHandler: nil)
+        let candidates = SISHost.candidates(remembered: rememberedHost)
+        var lastFailureMessage = Self.genericFailure
+        var triedButEmpty = false
 
-            let outcome = await awaitSignInOutcome()
+        for host in candidates {
+            activeBase = "https://\(host)/student"
+            let attempt: SISHost.Attempt
+            var scraped: [ClassSession] = []
+
+            do {
+                try await load(loginURL)
+
+                // Don't wait on navigation events here: signing in runs
+                // through a redirect chain (POST to /student/ then on to
+                // /student/home), so any single didFinish can land
+                // mid-chain — and a validation error shows a modal with no
+                // navigation at all. Poll the DOM until the outcome
+                // actually settles instead.
+                webView.evaluateJavaScript(fillAndSubmitScript(for: credentials), completionHandler: nil)
+
+                let outcome = await awaitSignInOutcome()
+                guard gate.isCurrent(gen) else { return }
+
+                switch outcome {
+                case .validationError(let message):
+                    lastFailureMessage = message
+                    attempt = .validationError
+                case .timedOut:
+                    lastFailureMessage = Self.genericFailure
+                    attempt = .failed
+                case .success:
+                    adoptActualHost()
+                    scraped = try await fetchScheduleRows(gen: gen)
+                    guard gate.isCurrent(gen) else { return }
+                    attempt = scraped.isEmpty ? .signedInEmpty : .signedInWithRows
+                }
+            } catch {
+                lastFailureMessage = error.localizedDescription
+                attempt = .failed
+            }
             guard gate.isCurrent(gen) else { return }
-            guard outcome.success else {
-                report(outcome.message)
+            if case .signedInEmpty = attempt { triedButEmpty = true }
+
+            // The decision itself is `SISHost.decide` — the same pure
+            // function the tests exercise — so production behaviour can't
+            // drift from what's tested.
+            switch SISHost.decide(attempt, host: host) {
+            case .stop:
+                report(lastFailureMessage)
+                return
+            case .next:
+                continue
+            case .keep:
+                base = activeBase // persist only a host that proved good
+                status = .success
+                commitSchedule(scraped)
+                await loadGrades()
                 return
             }
+        }
 
-            adoptActualHost()
+        guard gate.isCurrent(gen) else { return }
+        if triedButEmpty {
+            // Every reachable host signed in but none had schedule rows —
+            // a real empty term, not a failure. Keep the remembered host
+            // and whatever schedule was already cached; the empty-state UI
+            // ("No classes found") covers the rest.
             status = .success
-            await loadScheduleThenGrades(gen)
-        } catch {
-            guard gate.isCurrent(gen) else { return }
-            report(error.localizedDescription)
+            await loadGrades()
+        } else {
+            report("\(lastFailureMessage) (tried \(candidates.joined(separator: ", ")))")
         }
     }
 
@@ -238,15 +335,20 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         await loadScheduleThenGrades(gate.generation)
     }
 
+    /// A no-op without credentials — guarded here, not just in `refresh()`,
+    /// because several buttons call `loadSchedule`/`loadGrades`/
+    /// `loadGradeHistory` directly: Settings' "Refresh Schedule",
+    /// GradesView's "Try again"/"Refresh"/"Load past terms". Settings in
+    /// particular stays open across sign-out (it's a sheet, not dismissed
+    /// by it), so "Refresh Schedule" sits right there, still clickable, the
+    /// moment "Sign Out" above it finishes. Without this each would
+    /// sign-in-less scrape the login page and overwrite
+    /// `schedule.json`/`grades.json` with garbage.
     func loadSchedule() async {
+        guard hasCredentials() else { return }
         let gen = gate.generation
         do {
-            try await load(scheduleURL)
-            let rows = try await awaitPageRows(suffix: "/schedule") {
-                try await SISScraper.scrapeSchedule(from: $0)
-            } isEmpty: { $0.isEmpty }
-            let scraped = ScheduleParser.parse(rows)
-            let now = Date()
+            let scraped = try await fetchScheduleRows(gen: gen)
             guard gate.isCurrent(gen) else { return }
 
             // A scrape that parses to nothing while we already hold a schedule is
@@ -258,20 +360,42 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
                 return
             }
 
-            sessions = scraped
-            lastUpdated = now
-            refreshError = nil
-            ScheduleStore.save(scraped, lastUpdated: now)
+            commitSchedule(scraped)
         } catch {
             guard gate.isCurrent(gen) else { return }
             report("Couldn't refresh your schedule: \(error.localizedDescription)")
         }
     }
 
+    /// Loads `/schedule` on whatever host is currently active and returns
+    /// the parsed rows — no side effects on `sessions`/`status`/the on-disk
+    /// cache. Shared by `loadSchedule()` (which commits the result) and the
+    /// sign-in failover loop's data check (spec 00-sis-host.md step 4):
+    /// trying a second host must never touch the screen or disk until it's
+    /// the one being kept.
+    private func fetchScheduleRows(gen: Int) async throws -> [ClassSession] {
+        try await load(scheduleURL)
+        let rows = try await awaitPageRows(suffix: "/schedule") {
+            try await SISScraper.scrapeSchedule(from: $0)
+        } isEmpty: { $0.isEmpty }
+        return ScheduleParser.parse(rows)
+    }
+
+    /// Writes freshly scraped rows into `sessions` and the on-disk cache.
+    private func commitSchedule(_ rows: [ClassSession]) {
+        let now = Date()
+        sessions = rows
+        lastUpdated = now
+        refreshError = nil
+        ScheduleStore.save(rows, lastUpdated: now)
+    }
+
     /// Same shape as `loadSchedule`, on its own error channel. A grades failure
     /// sets `gradesError` and leaves the schedule screen untouched — the two
-    /// pages fail independently.
+    /// pages fail independently. No-op without credentials — see the comment
+    /// on `loadSchedule`.
     func loadGrades() async {
+        guard hasCredentials() else { return }
         let gen = gate.generation
         do {
             try await load(gradesURL)
@@ -328,7 +452,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// (see the term-select heuristics in `SISScraper`). Kept on-demand, not on
     /// every sign-in, so its cost is only paid when asked for.
     func loadGradeHistory() async {
-        guard !isLoadingHistory else { return }
+        guard !isLoadingHistory, hasCredentials() else { return }
         let gen = gate.generation
         isLoadingHistory = true
         defer { isLoadingHistory = false }
@@ -446,21 +570,36 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         return (path ?? "")?.hasSuffix(suffix) ?? false
     }
 
+    /// Result of polling for sign-in to settle. Kept as three distinct cases
+    /// rather than a `(success, message)` tuple — a timeout used to also
+    /// carry a non-empty `genericFailure` message, indistinguishable from a
+    /// real validation modal, which would have made the host-failover loop
+    /// stop on a network hiccup instead of trying the next mirror.
+    private enum SignInOutcome {
+        case success
+        /// The SIS itself rejected the credentials (modal shown). Never
+        /// worth retrying on another host.
+        case validationError(String)
+        /// Neither the form disappeared nor a modal appeared before the
+        /// timeout — a stuck/unreachable host, worth trying the next one.
+        case timedOut
+    }
+
     /// Polls until sign-in resolves one way or the other: the login form
     /// disappearing means we're in, a validation modal means we're not.
     /// Polling (rather than watching navigations) is what makes this survive
     /// the redirect chain and the no-navigation error case.
-    private func awaitSignInOutcome(timeout: TimeInterval = 25) async -> (success: Bool, message: String) {
+    private func awaitSignInOutcome(timeout: TimeInterval = 25) async -> SignInOutcome {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             // Probing mid-navigation can throw; that just means "not settled".
             if let probe = try? await probeLoginPage() {
-                if !probe.stillOnLoginForm { return (true, "") }
-                if !probe.message.isEmpty { return (false, probe.message) }
+                if !probe.stillOnLoginForm { return .success }
+                if !probe.message.isEmpty { return .validationError(probe.message) }
             }
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
-        return (false, Self.genericFailure)
+        return .timedOut
     }
 
     /// Success is "the login form is gone", not a URL match — the form POSTs
@@ -483,7 +622,11 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
         )
     }
 
+    /// Every navigation of the shared web view routes through here, so every
+    /// caller (sign-in, refresh, the Settings and Grades buttons) waits for a
+    /// sign-out's website-data clear before touching the SIS.
     private func load(_ url: URL) async throws {
+        await awaitPendingClear()
         try await gate.wait { [weak self] in
             self?.webView.load(URLRequest(url: url))
         }
@@ -520,6 +663,97 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// deleted. See `NavigationGate.cancelAll()`.
     func cancelInFlight() {
         gate.cancelAll()
+    }
+
+    /// Sign-out's `WKWebsiteDataStore` clear, tracked so `runSignIn` can wait
+    /// on it before ever touching the shared `WKWebView`. `AppState.signOut()`
+    /// runs its synchronous reset (credentials, Keychain, on-disk caches)
+    /// *before* calling `beginClearingWebsiteData()` and never awaits this —
+    /// a fast Edit Credentials → Save → sign-in right after Sign Out must not
+    /// have its brand-new credentials undone by a sign-out call that's still
+    /// suspended, and must not let its own sign-in touch the web view while
+    /// the old session's cookies are still being stripped from under it. This
+    /// is the one place that guarantees the ordering instead.
+    private var pendingClear: Task<Void, Never>?
+
+    /// Test seam for `beginClearingWebsiteData()`: when set, replaces the
+    /// real `WKWebsiteDataStore` round trip. Lets a test make the clear
+    /// suspend for a controlled duration and then confirm `awaitPendingClear()`
+    /// — the exact call `runSignIn` makes — actually waits for it, without
+    /// ever driving a real sign-in against the live SIS to observe it. `nil`
+    /// in production, where the real store-based clear runs instead.
+    private let injectedClearWebsiteData: (() async -> Void)?
+
+    /// Call on sign-out: starts clearing whatever cookies/local storage the
+    /// SIS session left in the shared `WKWebsiteDataStore`, without blocking
+    /// the caller. Without this clear ever happening, `#studno` is still
+    /// missing on the next sign-in attempt — the DOM polling this app uses
+    /// to detect "signed in" (see CLAUDE.md) reads that as
+    /// already-authenticated, so typing in a *different* account's
+    /// credentials silently re-scrapes the previous account instead of
+    /// signing in fresh.
+    func beginClearingWebsiteData() {
+        // Queued behind any clear still running, so a second sign-out can't
+        // drop the only handle on the first one.
+        let previous = pendingClear
+        pendingClear = Task { [weak self] in
+            await previous?.value
+            guard let self else { return }
+            if let injectedClearWebsiteData = self.injectedClearWebsiteData {
+                await injectedClearWebsiteData()
+            } else {
+                await self.clearSISWebsiteData()
+            }
+        }
+    }
+
+    /// Waits for any pending sign-out website-data clear, then clears the
+    /// slot. `runSignIn` calls this as its very first step so no sign-in can
+    /// touch the web view before the old session's cookies/local storage
+    /// finish clearing. Internal, not private, so this exact ordering
+    /// guarantee is unit-testable (via `clearWebsiteData` injection) without
+    /// driving a real sign-in against the live SIS.
+    func awaitPendingClear() async {
+        guard let task = pendingClear else { return }
+        await task.value
+        // A newer clear may have been queued while this one ran; keep it.
+        if pendingClear == task { pendingClear = nil }
+    }
+
+    /// Filtered to `pup.edu.ph` hosts so the notes editor's own `WKWebView`
+    /// (`WebNoteEditor.swift`, same default/shared data store) is untouched.
+    private func clearSISWebsiteData() async {
+        let store = webView.configuration.websiteDataStore
+        let types = WKWebsiteDataStore.allWebsiteDataTypes()
+        let records = await withCheckedContinuation { (continuation: CheckedContinuation<[WKWebsiteDataRecord], Never>) in
+            store.fetchDataRecords(ofTypes: types) { continuation.resume(returning: $0) }
+        }
+        let sisRecords = records.filter { Self.isSISDataRecordName($0.displayName) }
+        guard !sisRecords.isEmpty else { return }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            store.removeData(ofTypes: types, for: sisRecords) { continuation.resume() }
+        }
+    }
+
+    /// Whether a `WKWebsiteDataRecord.displayName` belongs to the SIS —
+    /// pulled out as its own pure function because the filter's correctness
+    /// hinges on knowing what shape WebKit's `displayName` actually takes for
+    /// a `sisN.pup.edu.ph` cookie (the eTLD+1, e.g. `"pup.edu.ph"`, not the
+    /// full host) — get that assumption wrong and sign-out silently clears
+    /// nothing. That specific value is unverified against a live `WKWebView`;
+    /// this only locks in the matching rule once the shape is known.
+    static func isSISDataRecordName(_ displayName: String) -> Bool {
+        isTrustedHost("https://\(displayName)")
+    }
+
+    /// Call on sign-out: forgets which host we last landed on. Persisting a
+    /// host forever (the old `adoptActualHost` behaviour) meant a stale or
+    /// wrong host could get baked in permanently — a fresh sign-in should
+    /// always re-run the full candidate order (`SISHost.candidates`), not
+    /// retry whatever the previous account happened to land on.
+    func forgetHost() {
+        defaults.removeObject(forKey: Self.baseDefaultsKey)
+        activeBase = Self.defaultBase
     }
 
     nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
