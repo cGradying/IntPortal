@@ -26,6 +26,9 @@ struct PortalLanding: View {
     @State private var hint: String?
     @State private var shake = 0
     @State private var submitted = false
+    /// Once the intro has played, the scene is still: only the motes and the
+    /// swirl move, on their own slower clocks, so the main one can stop.
+    @State private var settled = false
     @FocusState private var focused: Bool
 
     /// Stays on the sign-in panel after a submit until the SIS says yes.
@@ -41,7 +44,7 @@ struct PortalLanding: View {
     private var front: HubPortal { HubPortal.all[OrbitRing<HubPortal, EmptyView>.wrap(ring, HubPortal.all.count)] }
 
     var body: some View {
-        TimelineView(.animation) { context in
+        TimelineView(.animation(paused: settled && warpStart == nil)) { context in
             let t = context.date.timeIntervalSince(start)
             let phase = LandingSequence(signedIn: signedIn, reduceMotion: reduceMotion, playIntro: preferences.playPortalIntro && !quick)
                 .phase(elapsed: t, warpStartedAt: warpStart.map { $0.timeIntervalSince(start) })
@@ -68,6 +71,13 @@ struct PortalLanding: View {
         .onKeyPress(.leftArrow) { orbit(-1) }
         .onKeyPress(.rightArrow) { orbit(1) }
         .onAppear { focused = true }
+        .task(id: start) {
+            settled = false
+            let intro = preferences.playPortalIntro && !quick && !reduceMotion ? LandingSequence.igniteEnd : 0
+            let remaining = intro - Date().timeIntervalSince(start)
+            if remaining > 0 { try? await Task.sleep(for: .seconds(remaining + 0.1)) }
+            settled = true
+        }
         .task(id: warpStart) {
             guard warpStart != nil else { return }
             let seconds = reduceMotion ? LandingSequence.reducedWarpDone : LandingSequence.warpDone
@@ -127,6 +137,7 @@ struct PortalLanding: View {
         }
         guard warpStart == nil else { return }
         warpStart = Date()
+        appState.warpingIn = true
     }
 }
 
@@ -151,8 +162,11 @@ struct LandingStage: View {
     let onSettings: () -> Void
     @Environment(\.reduceMotion) private var reduceMotion
     @Environment(\.typography) private var typography
+    @Environment(\.controlActiveState) private var activeState
 
     private var front: HubPortal { HubPortal.all[OrbitRing<HubPortal, EmptyView>.wrap(ring, HubPortal.all.count)] }
+    /// Motes and the swirl hold still while the window isn't key.
+    private var still: Bool { reduceMotion || activeState == .inactive }
 
     var body: some View {
         GeometryReader { geo in
@@ -174,7 +188,11 @@ struct LandingStage: View {
         let speed = phase.swirlSpeed * (signingIn ? 2 : 1)
 
         ZStack {
-            VoidBackdrop(time: reduceMotion ? 0 : time, lit: phase.lit, rising: phase.isWarp ? 6 : 1, focus: portalCenter)
+            LinearGradient(colors: [VoidPalette.top, VoidPalette.bottom], startPoint: .top, endPoint: .bottom)
+            TimelineView(.animation(minimumInterval: 1.0 / 15, paused: still)) { motes in
+                VoidBackdrop(time: still ? 0 : motes.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 10_000),
+                             lit: phase.lit, rising: phase.isWarp ? 6 : 1, focus: portalCenter)
+            }
             PlatformAndFigure(block: block, lit: phase.lit, drawsFigure: false)
                 .position(x: cx, y: baseY - 1.9 * block - 0.55 * block + 3 * block)
             OrbitRing(items: HubPortal.all, index: $ring, radius: min(size.width * 0.32, 380)) { item, _ in
@@ -198,11 +216,7 @@ struct LandingStage: View {
             .position(x: cx, y: baseY - 4 * block + 22)
         }
         .scaleEffect(phase.zoom, anchor: UnitPoint(x: portalCenter.x / max(size.width, 1), y: portalCenter.y / max(size.height, 1)))
-        .layerEffect(
-            (Shaders.library ?? ShaderLibrary.default).pixelate(.float(phase.pixelCell)),
-            maxSampleOffset: CGSize(width: 16, height: 16),
-            isEnabled: phase.isWarp && Shaders.library != nil
-        )
+        .modifier(WarpPixelate(active: phase.isWarp, cell: phase.pixelCell))
         .overlay { chrome(phase: phase, size: size) }
         .overlay {
             RadialGradient(colors: [Color(rgb: 0xFFFDF4), Color(rgb: 0xF6E7B0), Color(rgb: 0xC9A227), Color(rgb: 0x6D0E1F)],
@@ -309,6 +323,21 @@ struct LandingStage: View {
         }
     }
 
+}
+
+/// The warp's pixelation. Only attached while warping: a layer effect, even
+/// disabled, renders the whole scene offscreen on every tick.
+private struct WarpPixelate: ViewModifier {
+    let active: Bool
+    let cell: Double
+
+    func body(content: Content) -> some View {
+        if active, let library = Shaders.library {
+            content.layerEffect(library.pixelate(.float(cell)), maxSampleOffset: CGSize(width: 16, height: 16))
+        } else {
+            content
+        }
+    }
 }
 
 /// A short horizontal shake for a portal that won't open.

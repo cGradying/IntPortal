@@ -42,6 +42,7 @@ struct PortalFrame: View {
     var live: Bool
     var speed: Double = 1
     var cell: Double = 3
+    @Environment(\.controlActiveState) private var activeState
 
     private static let perimeter: [(Int, Int)] = {
         var p: [(Int, Int)] = []
@@ -56,7 +57,7 @@ struct PortalFrame: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             if lit > 0, live {
-                SwirlView(speed: speed, lit: lit, cell: cell)
+                SwirlView(speed: speed, lit: lit, cell: cell, time: activeState == .inactive ? 1.5 : nil, fps: 24)
                     .frame(width: 4 * block, height: 6 * block)
                     .offset(x: block, y: block)
                     .background(alignment: .center) {
@@ -111,7 +112,7 @@ struct PortalFrame: View {
     }
 }
 
-/// The void behind everything: a vertical gradient and slow-rising motes,
+/// The void's slow-rising motes (the gradient behind them is a static view),
 /// some gold ones drifting toward the portal once it's lit.
 struct VoidBackdrop: View {
     var time: Double
@@ -122,8 +123,6 @@ struct VoidBackdrop: View {
 
     var body: some View {
         Canvas { ctx, size in
-            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .linearGradient(
-                Gradient(colors: [VoidPalette.top, VoidPalette.bottom]), startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)))
             for i in 0..<70 {
                 let speed = 0.01 + Self.seeds[i * 5] * 0.03
                 let gold = Self.seeds[i * 5 + 1] < 0.35

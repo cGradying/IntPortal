@@ -80,11 +80,15 @@ final class AppState: ObservableObject {
     /// The portal landing over the app: shown at launch, on ⌘0 (quick, frame
     /// already built) and after sign-out (full intro). The warp hides it.
     @Published var landingVisible = true
+    /// True from the moment the warp starts; the app mounts under the flash
+    /// then, not before, so nothing renders behind a landing that hides it.
+    @Published var warpingIn = false
     @Published private(set) var landingQuick = false
     /// Bumped to restart the landing from its first beat.
     @Published private(set) var landingKey = 0
 
     func showHub() {
+        warpingIn = false
         landingQuick = true
         landingKey += 1
         landingVisible = true
@@ -299,6 +303,7 @@ final class AppState: ObservableObject {
     /// touching the web view, so the ordering is still guaranteed without
     /// this call blocking on it.
     func signOut() {
+        warpingIn = false
         landingQuick = false
         landingKey += 1
         landingVisible = true
@@ -369,15 +374,23 @@ struct ContentView: View {
     @ViewBuilder
     private var content: some View {
         ZStack {
-            if let credentials = appState.credentials, !appState.isEditing {
+            if let credentials = appState.credentials, !appState.isEditing, !appState.landingVisible || appState.warpingIn {
                 AppShell(appState: appState, preferences: preferences, credentials: credentials)
             }
             if appState.landingVisible || appState.credentials == nil || appState.isEditing {
                 PortalLanding(appState: appState, portal: appState.portal, preferences: preferences, quick: appState.landingQuick) {
                     withAnimation(.easeOut(duration: reduceMotion ? 0.2 : 0.65)) { appState.landingVisible = false }
+                    appState.warpingIn = false
                 }
                 .id(appState.landingKey)
                 .transition(.opacity)
+            }
+        }
+        // Signing in starts here, under the landing, so the SIS is already
+        // loading while the student is still at the portal.
+        .task(id: appState.credentials?.studentNumber) {
+            if let credentials = appState.credentials, !appState.isEditing, appState.portal.status == .idle {
+                appState.portal.signIn(with: credentials)
             }
         }
     }
