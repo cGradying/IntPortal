@@ -264,10 +264,11 @@ window keeps its 14pt system corner. Borders are 2pt on controls, 1pt on sheets.
 - **Hub carousel** (`09`): portal frames on a ring you orbit with the arrow keys. The lit frame is
   PUP SIS labelled with your campus; dark frames are "Not connected yet". Encodes: where you can go.
 - **Week turn** (`03`): paging Schedule turns the grid in 3D, left into the past, right into the
-  future. Encodes: direction in time. Variant (cube or slab) is picked from prototype v3.
+  future, turning about its center like a cube face (picked from prototype v3 over "slab").
+  Encodes: direction in time.
 - **Depth push** (`01`): changing screens moves along the sidebar's order in Z, forward when you go
-  down the menu, back when you go up. Encodes: where the screen sits in the menu. Variant (push or
-  dive) is picked from prototype v3.
+  down the menu, back when you go up (picked from prototype v3 over "dive"). Encodes: where the
+  screen sits in the menu.
 - **Sync ripple** (`01`): a refresh sends one pixel ring out from the portal glyph across the
   sheets, green on success, a red stutter on failure. Encodes: the sync result.
 - **Deck fan-out** (`11`): opening a deck fans its due cards in 3D, then deals the first to center.
