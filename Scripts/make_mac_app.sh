@@ -1,6 +1,7 @@
 #!/bin/sh
 # Builds PUPSISPortal in release mode and installs it as a real .app bundle
 # so macOS (and Spotlight) can see it. Usage: Scripts/make_mac_app.sh [dest-dir]
+# CONFIGURATION=Debug builds the variant that knows -IntPortalDemo (live checks).
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -30,12 +31,13 @@ cd "$ROOT"
 # DerivedData cache. -skipPackagePluginValidation bypasses the interactive
 # "trust this plugin?" prompt for mlx-swift's CudaBuild plugin, which is a
 # no-op on macOS anyway (it only fires when CUDA is enabled).
-echo "Building PUPSISPortal (release)..."
+CONFIGURATION="${CONFIGURATION:-Release}"
+echo "Building PUPSISPortal ($CONFIGURATION)..."
 DERIVED_DATA="$ROOT/.build/xcodebuild"
-xcodebuild build -scheme PUPSISPortal -configuration Release -destination 'platform=macOS' \
+xcodebuild build -scheme PUPSISPortal -configuration "$CONFIGURATION" -destination 'platform=macOS' \
   -derivedDataPath "$DERIVED_DATA" -skipPackagePluginValidation
 
-BIN="$DERIVED_DATA/Build/Products/Release/PUPSISPortal"
+BIN="$DERIVED_DATA/Build/Products/$CONFIGURATION/PUPSISPortal"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -50,7 +52,7 @@ cp "$BIN" "$APP/Contents/MacOS/PUPSISPortal"
 # live); Contents/MacOS/Resources/ (the second candidate, `bindir` being
 # Contents/MacOS itself) passes, so that's what's used here. NOT the
 # sibling Contents/Resources/ — device.cpp never looks there.
-CMLX_BUNDLE="$(find "$DERIVED_DATA/Build/Products/Release" -maxdepth 1 -name 'mlx-swift_Cmlx.bundle' -print -quit)"
+CMLX_BUNDLE="$(find "$DERIVED_DATA/Build/Products/$CONFIGURATION" -maxdepth 1 -name 'mlx-swift_Cmlx.bundle' -print -quit)"
 [ -n "$CMLX_BUNDLE" ] || { echo "mlx-swift_Cmlx.bundle not found — did the xcodebuild step above actually run?" >&2; exit 1; }
 mkdir -p "$APP/Contents/MacOS/Resources"
 cp "$CMLX_BUNDLE/Contents/Resources/default.metallib" "$APP/Contents/MacOS/Resources/mlx.metallib"

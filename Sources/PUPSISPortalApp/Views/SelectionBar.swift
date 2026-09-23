@@ -15,7 +15,7 @@ struct SelectionBar: View {
     @Environment(\.palette) private var palette
 
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 14) {

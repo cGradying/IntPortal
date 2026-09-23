@@ -35,7 +35,7 @@ struct GridInteractionLayer: View {
     @Environment(\.palette) private var palette
 
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
 
     /// Where the pointer last was, so the right-click menu knows which slot it
     /// opened on — SwiftUI's `contextMenu` doesn't report a location.

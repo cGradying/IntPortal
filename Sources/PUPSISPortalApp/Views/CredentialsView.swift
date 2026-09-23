@@ -20,7 +20,7 @@ struct CredentialsView: View {
     @Binding var showingSettings: Bool
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
 
     @State private var studentNumber: String
     @State private var birthMonth: Int

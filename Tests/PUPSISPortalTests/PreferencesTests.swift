@@ -679,20 +679,27 @@ final class PreferencesTests: XCTestCase {
 /// Reduce Motion is an accessibility setting, not a preference to soften —
 /// every animation has to actually stop, not just get shorter.
 final class MotionTests: XCTestCase {
+    private let tokens: [(String, (Bool) -> Animation?)] = [
+        ("arrival", Motion.arrival), ("hover", Motion.hover), ("drift", Motion.drift),
+        ("selection", Motion.selection), ("drag", Motion.drag), ("island", Motion.island),
+        ("thunk", Motion.thunk), ("flip", Motion.flip), ("pop", Motion.pop),
+        ("portalForm", Motion.portalForm), ("ignite", Motion.ignite), ("warp", Motion.warp),
+        ("sweep", Motion.sweep), ("orbit", Motion.orbit), ("turn", Motion.turn),
+        ("depthPush", Motion.depthPush), ("ripple", Motion.ripple), ("fan", Motion.fan),
+        ("think", Motion.think),
+    ]
+
     func testEveryAnimationIsRemovedWhenMotionIsReduced() {
-        XCTAssertNil(Motion.arrival(reduced: true))
-        XCTAssertNil(Motion.hover(reduced: true))
-        XCTAssertNil(Motion.drift(reduced: true))
-        XCTAssertNil(Motion.selection(reduced: true))
-        XCTAssertNil(Motion.drag(reduced: true))
-        XCTAssertNil(Motion.island(reduced: true))
+        XCTAssertEqual(tokens.count, 19)
+        for (name, token) in tokens {
+            XCTAssertNil(token(true), "\(name) still animates under Reduce Motion")
+        }
     }
 
     func testAnimationsExistWhenMotionIsAllowed() {
-        XCTAssertNotNil(Motion.arrival(reduced: false))
-        XCTAssertNotNil(Motion.hover(reduced: false))
-        XCTAssertNotNil(Motion.drift(reduced: false))
-        XCTAssertNotNil(Motion.island(reduced: false))
+        for (name, token) in tokens {
+            XCTAssertNotNil(token(false), "\(name) has no animation")
+        }
     }
 
     func testStaggerCollapsesToZeroWhenMotionIsReduced() {
@@ -709,6 +716,25 @@ final class MotionTests: XCTestCase {
 }
 
 final class PaletteTests: XCTestCase {
+    /// DESIGN.md's hex values, read back through the same sRGB conversion
+    /// Settings uses to persist colors.
+    func testRegistrarRolesMatchDesignTokens() {
+        let light = Palette.registrar.roles, night = Palette.registrarNight.roles
+        XCTAssertEqual(light.menuField.hex, "#6D0E1F")
+        XCTAssertEqual(light.action.hex, "#1B5DB8")
+        XCTAssertEqual(light.gold.hex, "#C9A227")
+        XCTAssertEqual(light.ground.hex, "#F4F2EF")
+        XCTAssertEqual(light.ink3.hex, "#766C6F")
+        XCTAssertEqual(night.menuField.hex, "#35060F")
+        XCTAssertEqual(night.action.hex, "#5B93F0")
+        XCTAssertEqual(night.sheet.hex, "#1C1819")
+    }
+
+    func testRoomsWithoutTheirOwnRolesBorrowRegistrar() {
+        XCTAssertEqual(Palette.dracula.roles, .registrar)
+        XCTAssertEqual(Palette.registrarNight.roles, .registrarNight)
+    }
+
     func testAutoFollowsTheSystemAppearance() {
         XCTAssertEqual(ThemeChoice.auto.palette(for: .light), .pupMaroon)
         XCTAssertEqual(ThemeChoice.auto.palette(for: .dark), .astraMoon)
@@ -862,5 +888,17 @@ final class TypographyTests: XCTestCase {
             XCTAssertNotNil(members, "\(family) is not registered")
             XCTAssertFalse(members?.isEmpty ?? true, "\(family) registered with no members")
         }
+    }
+
+    /// The Registrar's two faces: Pixelify Sans for identity at 400 to 700,
+    /// Source Sans 3 for reading.
+    func testDesignFacesAreRegistered() {
+        FontLibrary.registerBundledFonts(in: .module)
+        for family in [Typography.displayFamily, "Source Sans 3"] {
+            let members = NSFontManager.shared.availableMembers(ofFontFamily: family) ?? []
+            XCTAssertFalse(members.isEmpty, "\(family) is not registered")
+        }
+        XCTAssertNotNil(NSFont(name: "PixelifySans-Bold", size: 12) ?? NSFontManager.shared.font(
+            withFamily: Typography.displayFamily, traits: .boldFontMask, weight: 9, size: 12))
     }
 }

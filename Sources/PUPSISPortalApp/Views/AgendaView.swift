@@ -24,7 +24,7 @@ struct AgendaView: View {
     @ObservedObject var notebook: NotebookModel
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
 
     /// Flipped true on first appear so the rows animate in once, on open, rather
     /// than re-staggering every minute the clock republishes.

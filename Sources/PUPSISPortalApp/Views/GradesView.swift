@@ -13,7 +13,7 @@ struct GradesView: View {
     @ObservedObject var preferences: Preferences
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
 
     /// Which term's subject list is on screen. `nil` = the current term.
     @State private var selectedTerm: String?

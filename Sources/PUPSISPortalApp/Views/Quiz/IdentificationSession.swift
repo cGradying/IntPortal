@@ -22,7 +22,7 @@ struct IdentificationSession: View {
     @FocusState private var fieldFocused: Bool
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 20) {

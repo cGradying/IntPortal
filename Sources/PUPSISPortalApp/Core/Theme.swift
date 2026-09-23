@@ -23,6 +23,9 @@ struct Palette: Equatable {
     let panel: Color
     /// Text/marks legible on `panel`.
     let onPanel: Color
+    /// The Registrar role set from DESIGN.md. Rooms that predate it borrow
+    /// Registrar's until S1 either retunes or removes them.
+    var roles: Roles = .registrar
 
     /// The one tint with a job: it marks the present moment and nothing else.
     /// Apple's material guidance is that a tint should carry meaning rather
@@ -58,6 +61,85 @@ struct Palette: Equatable {
 }
 
 extension Palette {
+    /// DESIGN.md's roles. The menu field is the one committed color, action is
+    /// the only interactive hue, gold marks the present and stamps.
+    struct Roles: Equatable {
+        let menuField: Color
+        let menuFieldDeep: Color
+        let menuFieldHover: Color
+        let onMenu: Color
+        let onMenu2: Color
+        let action: Color
+        let actionHover: Color
+        let actionSoft: Color
+        let actionInk: Color
+        let gold: Color
+        let goldInk: Color
+        let goldSoft: Color
+        let ground: Color
+        let sheet: Color
+        let sunk: Color
+        let line: Color
+        let line2: Color
+        let ink: Color
+        let ink2: Color
+        let ink3: Color
+        let good: Color
+        let bad: Color
+
+        static let registrar = Roles(
+            menuField: Color(rgb: 0x6D0E1F), menuFieldDeep: Color(rgb: 0x560A19), menuFieldHover: Color(rgb: 0x7E1A2C),
+            onMenu: Color(rgb: 0xF7ECEC), onMenu2: Color(rgb: 0xDDB9BE),
+            action: Color(rgb: 0x1B5DB8), actionHover: Color(rgb: 0x154C98), actionSoft: Color(rgb: 0xE3ECF9), actionInk: Color(rgb: 0x1B4F99),
+            gold: Color(rgb: 0xC9A227), goldInk: Color(rgb: 0x765806), goldSoft: Color(rgb: 0xF4E8C2),
+            ground: Color(rgb: 0xF4F2EF), sheet: Color(rgb: 0xFFFFFF), sunk: Color(rgb: 0xF7F5F2),
+            line: Color(rgb: 0xE2DDD6), line2: Color(rgb: 0xCBC3B9),
+            ink: Color(rgb: 0x1C1517), ink2: Color(rgb: 0x554C4F), ink3: Color(rgb: 0x766C6F),
+            good: Color(rgb: 0x1E7249), bad: Color(rgb: 0xB42318)
+        )
+
+        /// Same roles retuned for dark, never inverted.
+        static let registrarNight = Roles(
+            menuField: Color(rgb: 0x35060F), menuFieldDeep: Color(rgb: 0x4A0C19), menuFieldHover: Color(rgb: 0x5C1424),
+            onMenu: Color(rgb: 0xF4E6E8), onMenu2: Color(rgb: 0xC99BA3),
+            action: Color(rgb: 0x5B93F0), actionHover: Color(rgb: 0x7BA8F3), actionSoft: Color(rgb: 0x1A2640), actionInk: Color(rgb: 0x8DB4F5),
+            gold: Color(rgb: 0xDDB64E), goldInk: Color(rgb: 0xE6C66A), goldSoft: Color(rgb: 0x3A3016),
+            ground: Color(rgb: 0x141112), sheet: Color(rgb: 0x1C1819), sunk: Color(rgb: 0x171415),
+            line: Color(rgb: 0x2D2728), line2: Color(rgb: 0x433A3C),
+            ink: Color(rgb: 0xF2ECE9), ink2: Color(rgb: 0xBCB2B4), ink3: Color(rgb: 0x958A8D),
+            good: Color(rgb: 0x5CC08C), bad: Color(rgb: 0xF07A6E)
+        )
+    }
+
+    /// The Registrar world, light. Legacy fields map onto the roles so views
+    /// not yet moved to `roles` still read sensibly.
+    static let registrar = Palette(
+        accent: Color(rgb: 0x6D0E1F),
+        secondary: Color(rgb: 0xC9A227),
+        canvasTop: Color(rgb: 0xF4F2EF),
+        canvasBottom: Color(rgb: 0xF4F2EF),
+        gridLine: Color(rgb: 0xE2DDD6),
+        onlineStrip: Color(rgb: 0x1B5DB8),
+        subjectColors: [0x7A1128, 0xB13E34, 0x8F6410, 0x5C315F, 0x2E5A4F, 0x3F517A].map { Color(rgb: $0) },
+        panel: Color(rgb: 0x07050A),
+        onPanel: Color(rgb: 0xF4E8D6),
+        roles: .registrar
+    )
+
+    /// The Registrar world, dark.
+    static let registrarNight = Palette(
+        accent: Color(rgb: 0xD66A7E),
+        secondary: Color(rgb: 0xDDB64E),
+        canvasTop: Color(rgb: 0x141112),
+        canvasBottom: Color(rgb: 0x141112),
+        gridLine: Color(rgb: 0x2D2728),
+        onlineStrip: Color(rgb: 0x5B93F0),
+        subjectColors: [0xD66A7E, 0xE07D70, 0xD5A544, 0xB083B3, 0x62AE94, 0x8398CD].map { Color(rgb: $0) },
+        panel: Color(rgb: 0x07050A),
+        onPanel: Color(rgb: 0xF4E8D6),
+        roles: .registrarNight
+    )
+
     /// PUP maroon and gold on warm paper.
     static let pupMaroon = Palette(
         accent: Color(red: 0.478, green: 0.067, blue: 0.157),
@@ -468,12 +550,55 @@ extension EnvironmentValues {
     }
 }
 
+/// `\.accessibilityReduceMotion` has no public setter, so Settings' "Force
+/// Reduce Motion" could never reach it. This is the value every view reads:
+/// the system setting OR'd with the in-app one, set once at the root.
+private struct ReduceMotionKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var reduceMotion: Bool {
+        get { self[ReduceMotionKey.self] }
+        set { self[ReduceMotionKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Publishes `\.reduceMotion` for everything below: the system setting
+    /// OR'd with `forced`.
+    func reduceMotion(forced: Bool) -> some View {
+        modifier(ReduceMotionRoot(forced: forced))
+    }
+}
+
+private struct ReduceMotionRoot: ViewModifier {
+    let forced: Bool
+    @Environment(\.accessibilityReduceMotion) private var system
+
+    func body(content: Content) -> some View {
+        content.environment(\.reduceMotion, system || forced)
+    }
+}
+
+// MARK: - Spacing
+
+/// DESIGN.md's 4-point scale.
+enum Spacing {
+    static let xs: CGFloat = 4
+    static let sm: CGFloat = 8
+    static let md: CGFloat = 12
+    static let lg: CGFloat = 16
+    static let xl: CGFloat = 20
+    static let xxl: CGFloat = 28
+}
+
 // MARK: - Motion
 
 /// The app's animation vocabulary, in one place so timings stay related to
 /// each other rather than being invented per call site.
 ///
-/// Every one takes `reduced` from `\.accessibilityReduceMotion` and returns
+/// Every one takes `reduced` from `\.reduceMotion` and returns
 /// `nil` when it's on — a `nil` animation is SwiftUI's "apply instantly",
 /// which is exactly what Reduce Motion asks for.
 enum Motion {
@@ -516,6 +641,74 @@ enum Motion {
     /// gentle spring so the flight reads as one continuous move, not a snap.
     static func island(reduced: Bool) -> Animation? {
         reduced ? nil : .spring(response: 0.42, dampingFraction: 0.82)
+    }
+
+    // The Registrar set. Springs keep their velocity when a new input
+    // retargets them mid-flight, which is the macOS 27 feel DESIGN.md asks for.
+
+    /// A status stamp landing.
+    static func thunk(reduced: Bool) -> Animation? {
+        reduced ? nil : .timingCurve(0.2, 0.9, 0.25, 1, duration: 0.42)
+    }
+
+    /// A flashcard turning over.
+    static func flip(reduced: Bool) -> Animation? {
+        reduced ? nil : .timingCurve(0.3, 0.7, 0.2, 1, duration: 0.55)
+    }
+
+    /// A matched pair.
+    static func pop(reduced: Bool) -> Animation? {
+        reduced ? nil : .snappy(duration: 0.35, extraBounce: 0.2)
+    }
+
+    /// The obsidian frame assembling on the landing.
+    static func portalForm(reduced: Bool) -> Animation? {
+        reduced ? nil : .linear(duration: 1.2)
+    }
+
+    /// The swirl filling the frame.
+    static func ignite(reduced: Bool) -> Animation? {
+        reduced ? nil : .easeOut(duration: 0.5)
+    }
+
+    /// The dive into a portal: slow start, hard finish.
+    static func warp(reduced: Bool) -> Animation? {
+        reduced ? nil : .timingCurve(0.55, 0, 1, 0.45, duration: 0.95)
+    }
+
+    /// The gold band that reveals AI text.
+    static func sweep(reduced: Bool) -> Animation? {
+        reduced ? nil : .timingCurve(0.3, 0.7, 0.2, 1, duration: 1.2)
+    }
+
+    /// The hub ring stepping one portal.
+    static func orbit(reduced: Bool) -> Animation? {
+        reduced ? nil : .spring(response: 0.34, dampingFraction: 0.86)
+    }
+
+    /// The Schedule week turning.
+    static func turn(reduced: Bool) -> Animation? {
+        reduced ? nil : .spring(response: 0.42, dampingFraction: 0.9)
+    }
+
+    /// A screen change moving along the sidebar's order.
+    static func depthPush(reduced: Bool) -> Animation? {
+        reduced ? nil : .spring(response: 0.3, dampingFraction: 0.92)
+    }
+
+    /// The sync ring leaving the portal glyph.
+    static func ripple(reduced: Bool) -> Animation? {
+        reduced ? nil : .linear(duration: 0.7)
+    }
+
+    /// A deck fanning out its due cards.
+    static func fan(reduced: Bool) -> Animation? {
+        reduced ? nil : .spring(response: 0.4, dampingFraction: 0.8)
+    }
+
+    /// The IntAssis cube turning while the model works.
+    static func think(reduced: Bool) -> Animation? {
+        reduced ? nil : .linear(duration: 1.6).repeatForever(autoreverses: false)
     }
 }
 
@@ -607,6 +800,14 @@ struct Typography: Equatable {
 
     var nowClock: Font { font(.caption2, design: .monospaced, weight: .semibold) }
     var footer: Font { font(.caption) }
+
+    /// Pixelify Sans, the identity face (titles, codes, numbers, buttons).
+    /// Ignores `choice`: the user's font pick applies to reading text only.
+    func display(size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        Font.custom(Self.displayFamily, size: size * scale).weight(weight)
+    }
+
+    static let displayFamily = "Pixelify Sans"
 }
 
 extension Theme {
@@ -636,6 +837,15 @@ extension Theme {
 /// Only needed because a user-picked color has to survive in `UserDefaults`,
 /// which can't store a `Color`.
 extension Color {
+    /// A design token written the way DESIGN.md writes it: `Color(rgb: 0x6D0E1F)`.
+    init(rgb: UInt32) {
+        self.init(
+            red: Double((rgb >> 16) & 0xFF) / 255,
+            green: Double((rgb >> 8) & 0xFF) / 255,
+            blue: Double(rgb & 0xFF) / 255
+        )
+    }
+
     init?(hex: String) {
         var text = hex.trimmingCharacters(in: .whitespaces)
         if text.hasPrefix("#") { text.removeFirst() }

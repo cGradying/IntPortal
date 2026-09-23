@@ -142,7 +142,7 @@ private struct NextClassBanner: View {
     let tint: (ClassSession) -> Color
 
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
 
     var body: some View {
         TimelineView(.periodic(from: NowLine.nextMinute, by: 60)) { context in

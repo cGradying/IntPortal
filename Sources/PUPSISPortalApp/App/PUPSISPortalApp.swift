@@ -46,7 +46,7 @@ final class AppState: ObservableObject {
     @Published var isEditing = false
 
     let portal = PortalController()
-    let preferences = Preferences()
+    let preferences = Preferences(defaults: Demo.defaults)
     let calendar = CalendarBridge()
     let notes = NotesStore()
     let syllabus = SyllabusStore()
@@ -133,14 +133,23 @@ final class AppState: ObservableObject {
 
     init() {
         FontLibrary.registerBundledFonts()
-        // No-op on the lite build (no `models/` in the bundle) and on any
-        // launch after the first (already adopted) — see its own doc comment.
-        ModelCatalog.adoptBundledModels()
-        credentials = KeychainStore.load()
+        if Demo.isOn {
+            #if DEBUG
+            Demo.seed(self)
+            #endif
+        } else {
+            // No-op on the lite build (no `models/` in the bundle) and on any
+            // launch after the first (already adopted) — see its own doc comment.
+            ModelCatalog.adoptBundledModels()
+            credentials = KeychainStore.load()
+            _ = updaterController // force the lazy: starts Sparkle's scheduler now, not on first UI touch
+        }
         isEditing = credentials == nil
         isHome = preferences.islandStartHome
+        #if DEBUG
+        if let screen = Demo.screen { open(screen) }
+        #endif
         startClock()
-        _ = updaterController // force the lazy: starts Sparkle's scheduler now, not on first UI touch
         observeTermination()
     }
 
@@ -273,8 +282,11 @@ struct ContentView: View {
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
     @Environment(\.colorScheme) private var systemScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.undoManager) private var undoManager
+    /// This view sits above the `.reduceMotion(forced:)` it publishes, so it
+    /// computes the same OR for its own animations.
+    private var reduceMotion: Bool { systemReduceMotion || preferences.forceReducedMotion }
     /// Flipped true just after the chrome band mounts, so it dithers in rather
     /// than appearing whole. Reset by the band's own `onAppear` each time a
     /// destination opens (the band's `if` removes/reinserts it from the tree).
@@ -315,6 +327,7 @@ struct ContentView: View {
             .environment(\.palette, preferences.theme.palette(for: systemScheme))
             .environment(\.typography, Typography(preferences.fontChoice, scale: preferences.uiScale))
             .environment(\.uiScale, preferences.uiScale)
+            .reduceMotion(forced: preferences.forceReducedMotion)
             // Keeps native controls (fields, pickers, popovers) in step with a
             // theme the user picked against their system setting.
             .preferredColorScheme(preferences.theme.colorScheme)
@@ -577,6 +590,7 @@ struct PUPSISPortalApp: App {
         // it already holds, and this is how you still see the schedule and reopen.
         MenuBarExtra {
             MenuBarPanel(appState: appState, preferences: appState.preferences)
+                .reduceMotion(forced: appState.preferences.forceReducedMotion)
         } label: {
             MenuBarLabel(appState: appState)
         }

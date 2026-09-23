@@ -251,12 +251,9 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(trafficLightsAutoHide, forKey: Key.trafficLightsAutoHide) }
     }
 
-    /// Forces the Settings window's own animations to their reduced form,
-    /// independent of System Settings' Reduce Motion — `SettingsView.
-    /// effectiveReduceMotion` ORs this with the real
-    /// `\.accessibilityReduceMotion` environment value. Scoped to Settings
-    /// only: that key has no public setter in this SDK, so it can't be
-    /// overridden for the rest of the app from one injection point.
+    /// Forces every animation to its reduced form, independent of System
+    /// Settings' Reduce Motion. The scene roots OR it with the system value
+    /// into `\.reduceMotion` (Theme.swift), which is what views read.
     @Published var forceReducedMotion: Bool {
         didSet { defaults.set(forceReducedMotion, forKey: Key.forceReducedMotion) }
     }

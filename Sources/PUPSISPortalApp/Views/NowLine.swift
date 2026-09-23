@@ -14,7 +14,7 @@ struct NowLine: View {
     @ObserveInjection var inject
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
     @Environment(\.uiScale) private var uiScale
 
     /// Minutes from midnight, right now.

@@ -23,7 +23,7 @@ import SwiftUI
 /// .timingCurve` takes the same four control points.
 private struct CardGenerationTransition: ViewModifier {
     let key: AnyHashable
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
     @State private var resolved = false
 
     func body(content: Content) -> some View {
