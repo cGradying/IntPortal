@@ -70,6 +70,26 @@ final class EventSnapshotTests: XCTestCase {
         XCTAssertEqual(created.note, "")
         XCTAssertEqual(created.link, "")
     }
+
+    /// Same reasoning as note/link: a fresh create must not carry stale
+    /// location or alarms in from wherever the snapshot value started.
+    func testLocationAndAlarmOffsetsDefaultToEmpty() {
+        let created = snapshot(days: [.monday])
+        XCTAssertEqual(created.location, "")
+        XCTAssertEqual(created.alarmOffsets, [])
+    }
+
+    /// A round-tripped snapshot (the shape undo/redo passes around) must
+    /// carry location and alarms along with everything else — this is what
+    /// was missing when a delete's undo lost them.
+    func testASnapshotCarriesLocationAndAlarmOffsets() {
+        var withExtras = snapshot(days: [.monday])
+        withExtras.location = "CSB 301"
+        withExtras.alarmOffsets = [-900, -3600]
+
+        XCTAssertEqual(withExtras.location, "CSB 301")
+        XCTAssertEqual(withExtras.alarmOffsets, [-900, -3600])
+    }
 }
 
 final class RecurrenceMappingTests: XCTestCase {
@@ -140,6 +160,131 @@ final class ExportEchoTests: XCTestCase {
     func testTheTagIsFoundAnywhereInTheNotes() {
         XCTAssertTrue(CalendarBridge.isOurExport(event(notes: "[PUPSISPortal] leading")))
         XCTAssertTrue(CalendarBridge.isOurExport(event(notes: "trailing [PUPSISPortal]")))
+    }
+}
+
+/// Covers the W4 undo bugs: undo used to match a block by time slot and/or
+/// title alone, so a rename or a move could land on the wrong occurrence.
+/// The fix matches by EventKit identifier plus the occurrence's day/time,
+/// falling back to day/time/title alone when the identifier itself has
+/// drifted (saving a single occurrence can detach it under a new one).
+/// `findOccurrence` does this directly against plain `[DayBlock]` values —
+/// no live `EKEventStore` needed, same as the rest of this file.
+final class UndoOccurrenceMatchingTests: XCTestCase {
+    private let monday = Date(timeIntervalSince1970: 1_754_400_000) // a Monday
+    private var wednesday: Date { monday.addingTimeInterval(2 * 24 * 60 * 60) }
+
+    private func block(identifier: String, on date: Date, day: Weekday, start: Int, end: Int, title: String) -> DayBlock {
+        DayBlock(
+            id: CalendarBridge.blockID(identifier: identifier, occurrence: date),
+            day: day,
+            start: start,
+            end: end,
+            title: title,
+            subtitle: ""
+        )
+    }
+
+    func testBlockIDRoundTripsToTheOriginalIdentifier() {
+        let id = CalendarBridge.blockID(identifier: "ABC-123", occurrence: monday)
+        // block.id is `DayBlock.init(id:...)`'s "event-" + the raw id.
+        XCTAssertEqual(CalendarBridge.identifier(fromBlockID: "event-\(id)"), "ABC-123")
+    }
+
+    func testAClassBlockIDHasNoEventIdentifier() {
+        XCTAssertNil(CalendarBridge.identifier(fromBlockID: "class-COMP20073-mon-840-960"))
+    }
+
+    /// The bug: undoing a rename matched the first block at the same
+    /// start/end minutes, so a same-time event on a *different* day (or a
+    /// different event entirely) got renamed instead.
+    func testFindsTheOccurrenceOnItsOwnDayNotJustAnyBlockAtTheSameTime() {
+        let target = block(identifier: "EVT-1", on: monday, day: .monday, start: 840, end: 960, title: "Study")
+        let sameTimeDifferentDay = block(identifier: "EVT-2", on: wednesday, day: .wednesday, start: 840, end: 960, title: "Gym")
+        let blocks = [sameTimeDifferentDay, target]
+
+        let found = CalendarBridge.findOccurrence(in: blocks, identifier: "EVT-1", day: .monday, start: 840, end: 960, title: "Study")
+
+        XCTAssertEqual(found?.id, target.id)
+    }
+
+    /// The bug: undoing a move picked the first same-title event anywhere in
+    /// the week, so a series with two occurrences (or two events that happen
+    /// to share a title) could have the undo land on the wrong one instead
+    /// of the slot the move actually produced.
+    func testFindsTheDestinationOccurrenceAmongIdenticallyTitledBlocks() {
+        let otherOccurrence = block(identifier: "SERIES-1", on: monday, day: .monday, start: 600, end: 660, title: "Seminar")
+        let moved = block(identifier: "SERIES-1", on: wednesday, day: .wednesday, start: 780, end: 840, title: "Seminar")
+        let blocks = [otherOccurrence, moved]
+
+        // Matching by title alone (the old bug) would hit `otherOccurrence`
+        // since it comes first — the fix pins day/time to the destination.
+        let found = CalendarBridge.findOccurrence(in: blocks, identifier: "SERIES-1", day: .wednesday, start: 780, end: 840, title: "Seminar")
+
+        XCTAssertEqual(found?.id, moved.id)
+    }
+
+    func testNoMatchWhenTheIdentifierIsRightButTheSlotIsNot() {
+        let existing = block(identifier: "EVT-1", on: monday, day: .monday, start: 840, end: 960, title: "Study")
+
+        XCTAssertNil(CalendarBridge.findOccurrence(in: [existing], identifier: "EVT-1", day: .monday, start: 900, end: 960, title: "Study"))
+    }
+
+    /// The head-review bug: saving a single occurrence of a repeating event
+    /// with `.thisEvent` (or forking it with `.futureEvents`) can detach it
+    /// under a brand new EventKit identifier, so the identifier captured
+    /// before the save no longer matches anything after it. Rather than
+    /// silently doing nothing, the day/time/title slot — unaffected by an
+    /// identifier change — has to find it instead.
+    func testFallsBackToDayTimeTitleWhenTheIdentifierMisses() {
+        let detached = block(identifier: "NEW-IDENTIFIER-AFTER-DETACH", on: monday, day: .monday, start: 840, end: 960, title: "Study")
+
+        let found = CalendarBridge.findOccurrence(
+            in: [detached], identifier: "STALE-IDENTIFIER-FROM-BEFORE-SAVE", day: .monday, start: 840, end: 960, title: "Study"
+        )
+
+        XCTAssertEqual(found?.id, detached.id)
+    }
+
+    /// Only give up — return nil — when neither the identifier nor the
+    /// day/time/title fallback finds anything, e.g. the event was deleted
+    /// out from under the undo entirely.
+    func testReturnsNilWhenBothIdentifierAndSlotTitleMiss() {
+        let unrelated = block(identifier: "OTHER", on: monday, day: .monday, start: 600, end: 660, title: "Gym")
+
+        let found = CalendarBridge.findOccurrence(
+            in: [unrelated], identifier: "STALE", day: .monday, start: 840, end: 960, title: "Study"
+        )
+
+        XCTAssertNil(found)
+    }
+}
+
+/// The W4 delete-undo bug: undo rebuilt a repeating event from a
+/// single-occurrence snapshot, which duplicated the series (and dropped
+/// location/alarms the snapshot never carried). `canUndoDelete` is the
+/// decision `EventEditor.delete` now gates registering an inverse on.
+final class DeleteUndoEligibilityTests: XCTestCase {
+    private func snapshot(repeatsWeekly: Bool) -> EventSnapshot {
+        EventSnapshot(
+            title: "Study",
+            calendarID: "cal-1",
+            date: Date(timeIntervalSince1970: 1_754_400_000),
+            start: 14 * 60,
+            end: 16 * 60,
+            repeatDays: [.monday],
+            repeatsWeekly: repeatsWeekly
+        )
+    }
+
+    func testAOneOffDeleteCanBeUndone() {
+        XCTAssertTrue(EventEditor.canUndoDelete(of: snapshot(repeatsWeekly: false)))
+    }
+
+    /// A repeating delete can't be undone from this snapshot alone without
+    /// risking a doubled series — see the comment at the call site.
+    func testARepeatingDeleteCannotBeUndoneFromASingleOccurrenceSnapshot() {
+        XCTAssertFalse(EventEditor.canUndoDelete(of: snapshot(repeatsWeekly: true)))
     }
 }
 
