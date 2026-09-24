@@ -13,6 +13,12 @@ struct WeekTurn: Transition {
     /// to the past side, +1 to the future side.
     static func angle(offset: Double) -> Double { offset * 90 }
 
+    /// The `direction` to hand `WeekTurn` for a week-paging step (`+1`/`-1`
+    /// from `CalendarView.step`): forward, into the future, turns negative —
+    /// the incoming week rotates in from the right like a page turning
+    /// left-to-right; back, into the past, turns positive.
+    static func direction(pagingBy step: Int) -> Int { step > 0 ? -1 : 1 }
+
     func body(content: Content, phase: TransitionPhase) -> some View {
         content.modifier(WeekTurnFace(offset: phase.isIdentity ? 0 : Double(phase == .willAppear ? direction : -direction), width: width))
     }

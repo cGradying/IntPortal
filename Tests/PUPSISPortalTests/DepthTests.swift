@@ -41,6 +41,11 @@ final class DepthMathTests: XCTestCase {
         XCTAssertEqual(WeekTurn.angle(offset: 0.5) - WeekTurn.angle(offset: -0.5), 90)
     }
 
+    func testWeekTurnDirectionForwardNegativeBackPositive() {
+        XCTAssertEqual(WeekTurn.direction(pagingBy: 1), -1)
+        XCTAssertEqual(WeekTurn.direction(pagingBy: -1), 1)
+    }
+
     func testDepthPushMirrorsForwardAndBack() {
         XCTAssertEqual(DepthPushFace.scale(depth: 0), 1)
         XCTAssertEqual(DepthPushFace.scale(depth: 1), 1.04, accuracy: 1e-9)

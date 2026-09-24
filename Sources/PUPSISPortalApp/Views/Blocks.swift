@@ -17,6 +17,9 @@ struct ClassBlock: View {
     let weekStart: Date
     let isPast: Bool
     let isSelected: Bool
+    /// ≥ 90pt tall (DESIGN.md's class-block spec) — only then is there room
+    /// for the description line under the code and time.
+    let isTall: Bool
     /// Where this sits in a run of consecutive days, so the shape can square
     /// off where it meets the next one.
     let position: RunPosition
@@ -26,6 +29,9 @@ struct ClassBlock: View {
     @Environment(\.reduceMotion) private var reduceMotion
     @State private var showingDetail = false
     @State private var isHovering = false
+    /// Bumped whenever `status` changes so the stamp replays its thunk —
+    /// same trigger convention `Stamp.landing` already expects.
+    @State private var stampLanding = 0
 
     private var status: SessionStatus { preferences.status(for: session, on: weekStart) }
     private var color: Color { preferences.color(for: session.subjectCode, in: palette) }
@@ -39,17 +45,15 @@ struct ClassBlock: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        let roles = palette.roles
+        return VStack(alignment: .leading, spacing: 1) {
             Text(session.subjectCode)
                 .font(typography.blockCode)
+                .foregroundStyle(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
 
             HStack(spacing: 3) {
-                if status != .regular {
-                    Image(systemName: status.symbol)
-                        .font(.system(size: 8))
-                }
                 Text(status == .vacant ? "Vacant" : resolvedTimeLabel)
                     .font(typography.blockTime)
                 if isTimeOverridden {
@@ -61,48 +65,54 @@ struct ClassBlock: View {
                         .font(.system(size: 8))
                 }
             }
-            .opacity(0.85)
+            .foregroundStyle(roles.ink2)
 
-            if !session.description.isEmpty {
-                // No line limit — a tall block has the room to show all of it;
-                // the clip on the block's own shape (below) is what keeps a
-                // short block from bleeding into the row underneath, not a
-                // line cap that would truncate even when there's space.
+            // Only a block with room for it (DESIGN.md's ≥ 90pt rule) shows
+            // the description — a 15–30min class has no space for a third
+            // line, and clipping it to a short block just crops it mid-word.
+            if isTall, !session.description.isEmpty {
                 Text(session.description)
-                    .font(.system(size: 9))
-                    .opacity(0.85)
+                    .font(typography.reading(size: 12.5))
+                    .foregroundStyle(roles.ink2)
             }
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         // Opaque on purpose. Glass belongs to the chrome; the blocks are the
-        // content, and per-subject colour has to survive being looked at.
-        .background(fill, in: BlockShape(position: position))
+        // content. Vacant swaps the tint for the hatch below instead of a
+        // flat fill, so an empty slot reads as textured, not just faded.
+        .background {
+            if status == .vacant {
+                DitherFill(color: color, cell: 2, ramp: .flat(0.5))
+            } else {
+                color.opacity(0.13)
+            }
+        }
         // A short (15-30min) block doesn't have room for three lines — clip
         // to the block's own shape so the description crops away instead of
         // bleeding into the row below, rather than gating it on a measured
         // height that isn't available here.
         .clipShape(BlockShape(position: position))
-        // A vacant class keeps its outline so the slot still reads as spoken
-        // for — it just stops looking like something you have to attend. An
-        // online class keeps its solid fill but gains a coloured strip so it
-        // reads as online at a glance.
         .overlay {
-            if status == .vacant {
-                BlockShape(position: position)
-                    .strokeBorder(color.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-            } else if status == .online {
-                BlockShape(position: position)
-                    .strokeBorder(stripColor, lineWidth: 2.5)
+            BlockShape(position: position)
+                .strokeBorder(color.opacity(0.45), lineWidth: 2)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            // In person is the default and unmarked; only a status that
+            // deviates from it earns a stamp.
+            if status != .regular {
+                Stamp(kind: status == .online ? .online : .vacant, small: true, landing: stampLanding)
+                    .padding(4)
             }
         }
-        .selectionRing(isSelected, palette: palette, reduced: reduceMotion, position: position)
-        .foregroundStyle(status == .vacant ? AnyShapeStyle(color) : AnyShapeStyle(Color.legibleForeground(on: color)))
+        .selectionRing(isSelected, color: color, reduced: reduceMotion, position: position)
+        .foregroundStyle(roles.ink)
         .lift(isHovering, base: status == .vacant ? 0 : 0.18, reduced: reduceMotion)
         .opacity(isPast ? 0.45 : 1)
         .onHover { isHovering = $0 }
         .onTapGesture { showingDetail = true }
+        .onChange(of: status) { stampLanding += 1 }
         .contextMenu { contextMenu }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
@@ -110,10 +120,6 @@ struct ClassBlock: View {
         .accessibilityAddTraits(.isButton)
         .popover(isPresented: $showingDetail) { detail }
         .enableInjection()
-    }
-
-    private var fill: Color {
-        status == .vacant ? color.opacity(0.14) : color
     }
 
     private var accessibilityLabel: String {
@@ -492,6 +498,7 @@ struct EventBlock: View {
             HStack(spacing: 3) {
                 Text(block.title)
                     .font(typography.blockCode)
+                    .foregroundStyle(color)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 if isRecurring {
@@ -502,12 +509,19 @@ struct EventBlock: View {
             }
             Text(block.subtitle)
                 .font(typography.blockTime)
-                .opacity(0.85)
+                .foregroundStyle(palette.roles.ink2)
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(color.opacity(0.22), in: BlockShape(position: position))
+        // Same 13%-tint/45%-border language as `ClassBlock`, so the two block
+        // kinds read as one family in a mixed week.
+        .background(color.opacity(0.13))
+        .clipShape(BlockShape(position: position))
+        .overlay {
+            BlockShape(position: position)
+                .strokeBorder(color.opacity(0.45), lineWidth: 2)
+        }
         .overlay(alignment: .leading) {
             // Only the first day of a run gets the accent edge; repeating it
             // mid-run would draw a seam through a continuous bar.
@@ -518,8 +532,8 @@ struct EventBlock: View {
                     .clipShape(BlockShape(position: position))
             }
         }
-        .selectionRing(isSelected, palette: palette, reduced: reduceMotion, position: position)
-        .foregroundStyle(.primary)
+        .selectionRing(isSelected, color: color, reduced: reduceMotion, position: position)
+        .foregroundStyle(palette.roles.ink)
         .lift(isHovering, base: 0.12, reduced: reduceMotion)
         .opacity(isPast ? 0.45 : 1)
         .onHover { isHovering = $0 }
@@ -660,36 +674,92 @@ struct EventBlock: View {
 
 // MARK: - Shared chrome
 
-/// A block's outline, squared where it joins the next day so a run of
-/// consecutive days reads as one bar rather than a row of separate boxes.
+/// A block's outline: `PixelNotch`'s stepped 2pt+2pt corners on a free edge,
+/// a plain right angle wherever it joins the next day — the shared corner a
+/// run bridges into stays square so consecutive days still read as one bar,
+/// now in the app's stepped-corner language instead of a smooth radius.
 struct BlockShape: InsettableShape {
     let position: RunPosition
     var inset: CGFloat = 0
 
-    private let radius: CGFloat = 8
+    private let step: CGFloat = 2
 
     func path(in rect: CGRect) -> Path {
-        UnevenRoundedRectangle(
-            topLeadingRadius: position.roundsLeft ? radius : 0,
-            bottomLeadingRadius: position.roundsLeft ? radius : 0,
-            bottomTrailingRadius: position.roundsRight ? radius : 0,
-            topTrailingRadius: position.roundsRight ? radius : 0
-        )
-        .path(in: rect.insetBy(dx: inset, dy: inset))
+        let r = rect.insetBy(dx: inset, dy: inset)
+        guard r.width >= 4 * step, r.height >= 4 * step else { return Path(r) }
+        var path = Path()
+        path.addLines(points(in: r))
+        path.closeSubpath()
+        return path
     }
 
     func inset(by amount: CGFloat) -> BlockShape {
         BlockShape(position: position, inset: inset + amount)
     }
+
+    /// Same corner-step coordinates as `PixelNotch.points(in:step:)`, walked
+    /// clockwise from the top-left, but only stepped on a corner this run
+    /// doesn't bridge through.
+    private func points(in r: CGRect) -> [CGPoint] {
+        let s = step
+        var points: [CGPoint] = []
+
+        if position.roundsLeft {
+            points += [
+                CGPoint(x: r.minX, y: r.minY + 2 * s), CGPoint(x: r.minX + s, y: r.minY + 2 * s),
+                CGPoint(x: r.minX + s, y: r.minY + s), CGPoint(x: r.minX + 2 * s, y: r.minY + s),
+                CGPoint(x: r.minX + 2 * s, y: r.minY),
+            ]
+        } else {
+            points.append(CGPoint(x: r.minX, y: r.minY))
+        }
+
+        if position.roundsRight {
+            points += [
+                CGPoint(x: r.maxX - 2 * s, y: r.minY), CGPoint(x: r.maxX - 2 * s, y: r.minY + s),
+                CGPoint(x: r.maxX - s, y: r.minY + s), CGPoint(x: r.maxX - s, y: r.minY + 2 * s),
+                CGPoint(x: r.maxX, y: r.minY + 2 * s),
+            ]
+        } else {
+            points.append(CGPoint(x: r.maxX, y: r.minY))
+        }
+
+        if position.roundsRight {
+            points += [
+                CGPoint(x: r.maxX, y: r.maxY - 2 * s), CGPoint(x: r.maxX - s, y: r.maxY - 2 * s),
+                CGPoint(x: r.maxX - s, y: r.maxY - s), CGPoint(x: r.maxX - 2 * s, y: r.maxY - s),
+                CGPoint(x: r.maxX - 2 * s, y: r.maxY),
+            ]
+        } else {
+            points.append(CGPoint(x: r.maxX, y: r.maxY))
+        }
+
+        if position.roundsLeft {
+            points += [
+                CGPoint(x: r.minX + 2 * s, y: r.maxY), CGPoint(x: r.minX + 2 * s, y: r.maxY - s),
+                CGPoint(x: r.minX + s, y: r.maxY - s), CGPoint(x: r.minX + s, y: r.maxY - 2 * s),
+                CGPoint(x: r.minX, y: r.maxY - 2 * s),
+            ]
+        } else {
+            points.append(CGPoint(x: r.minX, y: r.maxY))
+        }
+
+        return points
+    }
 }
 
 private extension View {
     /// Selection is a ring, not a badge or a toolbar — the grid stays quiet
-    /// and the ring says everything.
-    func selectionRing(_ isSelected: Bool, palette: Palette, reduced: Bool, position: RunPosition) -> some View {
+    /// and the ring says everything. 2pt inset so it doesn't double up on
+    /// the block's own 2pt subject border, and it's the subject's own colour
+    /// rather than the app accent — this is the one selection ring in the
+    /// app that isn't blue, because it's ringing something that already has
+    /// an identity colour of its own.
+    func selectionRing(_ isSelected: Bool, color: Color, reduced: Bool, position: RunPosition) -> some View {
         overlay {
             BlockShape(position: position)
-                .strokeBorder(palette.accent, lineWidth: 2)
+                .inset(by: 2)
+                .strokeBorder(color, lineWidth: 2)
                 .opacity(isSelected ? 1 : 0)
         }
         .animation(Motion.selection(reduced: reduced), value: isSelected)

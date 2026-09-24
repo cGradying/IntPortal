@@ -267,20 +267,70 @@ enum ScreenCopy {
 private struct ScheduleToolbar: View {
     @ObservedObject var appState: AppState
     @ObservedObject var schedule: ScheduleModel
+    @Environment(\.typography) private var typography
+    @Environment(\.palette) private var palette
+
+    /// Week | COR | Year, spec 03 change 1. COR isn't a real `CalendarScale`
+    /// yet — its table lands in SC2 — so this is a display-only third rung
+    /// that stays disabled until then rather than a case `CalendarScale`
+    /// itself has to grow (and every other `switch` over it has to learn).
+    private enum Tab: String, CaseIterable, Identifiable {
+        case week, cor, year
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .week: "Week"
+            case .cor: "COR"
+            case .year: "Year"
+            }
+        }
+    }
+
+    private var tab: Binding<Tab> {
+        Binding(
+            get: { schedule.scale == .year ? .year : .week },
+            set: { newValue in
+                switch newValue {
+                case .week: schedule.scale = .week
+                case .year: schedule.scale = .year
+                case .cor: break // disabled below; never actually chosen
+                }
+            }
+        )
+    }
+
+    private var weekRangeLabel: String {
+        let start = Calendar.current.date(
+            byAdding: .day, value: schedule.weekOffset * 7, to: Weekday.weekStart(containing: .now)
+        ) ?? .now
+        let end = Calendar.current.date(byAdding: .day, value: 6, to: start) ?? start
+        let short = Date.FormatStyle.dateTime.month(.abbreviated).day()
+        return "\(start.formatted(short)) – \(end.formatted(short))"
+    }
 
     var body: some View {
         HStack(spacing: Spacing.sm) {
             Button { schedule.stepIntent = -1 } label: { PixelIcon(.left) }
                 .buttonStyle(.pixelSmall)
                 .accessibilityLabel("Previous")
+            if schedule.scale == .week {
+                Text(weekRangeLabel)
+                    .font(typography.numeric(size: 13))
+                    .foregroundStyle(palette.roles.ink2)
+            }
             Button("Today") { schedule.weekOffset = 0 }
                 .buttonStyle(.pixelSmall)
                 .disabled(schedule.weekOffset == 0)
             Button { schedule.stepIntent = 1 } label: { PixelIcon(.right) }
                 .buttonStyle(.pixelSmall)
                 .accessibilityLabel("Next")
-            Picker("View", selection: $schedule.scale) {
-                ForEach(CalendarScale.allCases) { Text($0.label).tag($0) }
+            Picker("View", selection: tab) {
+                ForEach(Tab.allCases) { tab in
+                    Text(tab.label)
+                        .tag(tab)
+                        .disabled(tab == .cor)
+                        .help(tab == .cor ? "Coming in SC2" : "")
+                }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
