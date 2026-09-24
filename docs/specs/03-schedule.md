@@ -25,8 +25,8 @@ From `Views/CalendarView.swift`, `WeekGrid.swift`, `Blocks.swift`, `GridInteract
   update badge, empty and error states.
 
 ## UX changes
-1. **Toolbar row** (was the island): ‹ range › · Today · **Week | COR | Year** · Show cancelled ·
-   spacer · New event · Refresh (primary).
+1. **Island controls** (spec 12): ‹ range › · Today · **Week | COR | Year** · Show cancelled ·
+   New event · Refresh, built as a standalone `ScheduleControls` view that the island hosts.
 2. **COR strip** above the grid: School year · Semester · Units · Updated {time} from {host}.
 3. **COR view**: the week as the Certificate of Registration table (Subject, Description, Schedule,
    Room, Units, This week stamp), total units footer. Lab/Lec rows count units once.

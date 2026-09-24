@@ -176,8 +176,10 @@ Maroon, Rust, Gold, Plum, Forest, Slate. Class blocks use the subject at 13% ove
 
 ### Theme rooms
 `ThemeChoice.auto` maps to Registrar / Registrar Night. The other palettes in `Core/Theme.swift`
-stay selectable, but each must now fill the new role set (menu field, action, gold, sheet, sunk,
-ink ×3). A room that can't fill a role is removed, not approximated. See `07-settings.md`.
+stay selectable and each paints the whole shell. Rooms without hand-tuned roles derive them from
+their own colours (`Palette.Roles.derived(from:)`): menu field from the accent, action from the
+accent clamped to AA on a sheet, every text role pushed until it clears AA. Gold, good and bad stay
+Registrar's because they carry meaning. See `07-settings.md`.
 
 ### Named rules
 **The One Action Rule.** Blue means "you can do this." It never decorates.
@@ -278,6 +280,10 @@ window keeps its 14pt system corner. Borders are 2pt on controls, 1pt on sheets.
   sheets, green on success, a red stutter on failure. Encodes: the sync result.
 - **Deck fan-out** (`11`): opening a deck fans its due cards in 3D, then deals the first to center.
   Encodes: fan width = cards due.
+- **Island** (`12`): a pixel bar at the top of the content column, the student's own design brought
+  over from the pre-Registrar app. At rest it shows the glance (class in session, next class, sync
+  trouble, IntAssis thinking, tomorrow); on hover it opens into the screen's controls.
+  Encodes: what now.
 - **Thinking cube** (`06`): the IntAssis mark (chat header, or the orb when the chat is closed) turns
   into a spinning voxel cube while the model works.
   Encodes: waiting on the model.
@@ -300,6 +306,7 @@ window keeps its 14pt system corner. Borders are 2pt on controls, 1pt on sheets.
 | `ripple` | sync result | 700ms linear ring, ease-out fade |
 | `fan` | deck fan-out | spring, response 0.4, damping 0.8, 18ms per card |
 | `think` | IntAssis waiting | 1.6s per voxel turn, linear, loops |
+| `island` | island rest ↔ controls | spring, response 0.28, damping 0.9, interruptible |
 
 Reduce Motion: no zoom, no drops, static swirl frame, flash becomes a 200ms crossfade, stamps and
 cards appear without motion.

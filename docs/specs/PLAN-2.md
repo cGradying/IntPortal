@@ -863,3 +863,25 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 - Screen Recording is not granted, so live screenshots and videos wait on the operator. Snapshot lanes cover layout in the meantime.
 - Sonnet rate limits stalled phase 1 twice. Four workers at a time, and the tick restarts a stalled one.
 - `AppShell.swift` is the one shared file. Slices touch only their own case line.
+
+## Appendix D. Revisions
+
+2026-09-24 and 25, after the user asked to keep their custom environment and to take the most
+efficient path (wayfinder map "Custom environment in the new UI").
+
+- **RS, restyle through the style layer (head, #40).** The glass helpers, `canvasWash` and the
+  scene tint now draw Registrar chrome, so every older screen takes the new look at once. Slices
+  below change layout and behaviour only; none repaints a screen by hand.
+- **TH, theme roles for every room (head, #35).** Every room paints the shell through derived
+  roles.
+- **Hotfix (#39).** The sync ripple's always-on `layerEffect` blanked AppKit-backed content in
+  every screen; the ripple is an overlay now.
+- **IP, island prototype (head).** Spec 12 in prototype v3, artifact v5, then the user's review.
+- **IS, native island (after IP).** `IslandGlance` plus `Island` in the shell, hosting each
+  screen's controls; replaces the slim controls row SC1 left above the COR strip.
+- **SE moves up** to right after TH, with the audit fixes in spec 07 point 3b.
+- **SC1** builds `ScheduleControls` for the island instead of a header toolbar row (#37).
+- **T2** keeps the formatting toolbar in the floating deck; AS restyles and labels it there.
+- **Verification** is the snapshot suite plus live captures now that Screen Recording is
+  granted. The ten-lane swarm per PR is dropped for slices whose only change is layout; the head
+  reads every capture before a PR opens.

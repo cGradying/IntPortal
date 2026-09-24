@@ -40,6 +40,18 @@ _Avoid_: transition, loading
 The in-app world after the warp, drawn in the SIS's own grammar: maroon menu, sheets, stamps.
 _Avoid_: dashboard, main app
 
+**Island**:
+The pixel bar floating at the top of the Registrar's content column. At rest it shows the glance; on hover it opens into the current screen's controls. The student's own design, carried over from the pre-Registrar app.
+_Avoid_: toolbar, notch, Dynamic Island (that is Apple's)
+
+**Glance**:
+The island's one-line answer to "what now": the class in session, the next class, sync trouble, IntAssis thinking, or tomorrow's first class.
+_Avoid_: status, ticker
+
+**Floating deck**:
+IntAssis's bottom-left chrome: the orb, its rail, the note formatting toolbar and the chat.
+_Avoid_: dock; "orb" names only one part of it
+
 ### Study
 
 **IntAssis**:

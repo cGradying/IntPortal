@@ -37,10 +37,11 @@ From `Views/AgendaView.swift`, `Core/DayAgenda.swift`, `Core/NotesStore.swift`,
   dimmed when excluded). Folder heads in display caps. Current note = action-soft row.
 - Editor sheet: kicker "COMP 001 · class note" in subject color, title in display 27, meta line,
   body in Source Sans 3 15/1.45, max 66ch.
-- **Formatting toolbar moves here** (from the orb): one row above the editor, grouped (Text: heading,
-  bold, italic, strike, highlight, colour · Blocks: code, math, LaTeX, lists, checklist, quote,
-  divider, table · Insert: image, link, note link), each with a label/tooltip and accessibility
-  label. Critique fix for the 18 unlabeled icons.
+- **Formatting toolbar stays in the floating deck** (decided 2026-09-24; the deck is the student's
+  own chrome). Spec 06 restyles it in pixel and groups it (Text: heading, bold, italic, strike,
+  highlight, colour · Blocks: code, math, LaTeX, lists, checklist, quote, divider, table · Insert:
+  image, link, note link), each with a label/tooltip and accessibility label. Critique fix for the
+  18 unlabeled icons.
 - `notes-editor/src/editor.css`: map CSS variables to the new tokens (sheet, ink, line, action,
   gold); headings h1–h3 in Pixelify Sans; body Source Sans 3; code keeps its mono; selection =
   gold-soft. Pass tokens from Swift through `PUPNotes.setTheme({…})` (new bridge call) so dark mode
