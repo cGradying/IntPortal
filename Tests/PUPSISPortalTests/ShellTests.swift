@@ -63,7 +63,7 @@ private struct ShellPreview: View {
             Sidebar(
                 selection: selection, studentNumber: "2026-00000-MN-0",
                 sync: failed ? SyncStatus(line: "Couldn't reach SIS · Try again", failed: true) : SyncStatus(line: "sis8 · updated 3 hr. ago", failed: false),
-                updateVersion: "2.0.0", onSelect: { _ in }, onSettings: {}, onRetry: {}, dragArea: false
+                updateVersion: "2.0.0", onSelect: { _ in }, onRetry: {}, dragArea: false
             )
             .frame(width: 236)
             VStack(spacing: 0) {

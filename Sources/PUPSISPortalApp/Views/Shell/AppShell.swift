@@ -192,7 +192,6 @@ struct ShellSidebar: View {
             ),
             updateVersion: updater.availableVersion,
             onSelect: { appState.open($0) },
-            onSettings: { appState.open(.settings) },
             onRetry: {
                 if case .failed = portal.status { appState.isEditing = true } else { Task { await appState.refresh() } }
             },

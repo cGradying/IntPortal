@@ -19,7 +19,6 @@ struct Sidebar: View {
     var campus: CampusResolution = .incomplete
     var updateVersion: String?
     let onSelect: (Destination) -> Void
-    let onSettings: () -> Void
     let onRetry: () -> Void
     var onUpdate: () -> Void = {}
     var onHub: () -> Void = {}
@@ -51,11 +50,11 @@ struct Sidebar: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 section("Main")
-                ForEach(Destination.allCases.filter { !$0.isStudy }) { item($0) }
+                ForEach(Destination.allCases.filter { !$0.isStudy && $0 != .settings }) { item($0) }
                 section("Study")
                 ForEach(Destination.allCases.filter(\.isStudy)) { item($0) }
                 section("System")
-                SidebarItem(title: "Settings", glyph: .gear, selected: false, action: onSettings)
+                item(.settings)
             }
 
             Spacer(minLength: 0)

@@ -34,7 +34,7 @@ final class CampusSnapshotTests: XCTestCase {
         Sidebar(
             selection: .today, studentNumber: "2026-00000-MN-0",
             sync: SyncStatus(line: "sis8 · updated 3 hr. ago", failed: false), campus: campus,
-            onSelect: { _ in }, onSettings: {}, onRetry: {}, dragArea: false
+            onSelect: { _ in }, onRetry: {}, dragArea: false
         )
         .frame(width: 236, height: 500)
     }
