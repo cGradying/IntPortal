@@ -134,7 +134,7 @@ struct AppShell: View {
                 settingsShowing: appState.showingSettings
             )
         case .grades:
-            GradesView(controller: appState.portal, preferences: preferences)
+            GradesScreen(controller: appState.portal, preferences: preferences)
         case .today, .notebook, .quizzes, .syllabus:
             AgendaView(
                 appState: appState, preferences: preferences, calendar: appState.calendar,
