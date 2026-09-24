@@ -674,9 +674,12 @@ struct SettingsView: View {
             "AI (beta)",
             footer: """
             IntAssis: a floating assistant (bottom-left, when this is on) \
-            that can read and add to your notes, read and add calendar \
-            events, and read your grades — never delete, move, or change \
-            one. Local is the default — pick a model below and everything \
+            that can read and add to your notes, read, add and move \
+            calendar events, set a class to in person, online or vacant or \
+            change its time, read your grades, and add to or update your \
+            syllabus. It never deletes anything or changes a grade, and it \
+            asks before each change unless you pick Act automatically. \
+            Local is the default — pick a model below and everything \
             downloads and runs itself, no separate app needed, nothing \
             leaves this Mac.
 
