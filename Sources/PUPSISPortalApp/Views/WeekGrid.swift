@@ -95,13 +95,28 @@ struct WeekGrid: View {
             .padding(.horizontal, 16)
             .padding(.top, 12)
         }
-        .background(
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear { availableHeight = proxy.size.height }
-                    .onChange(of: proxy.size.height) { _, newValue in availableHeight = newValue }
+        .background {
+            // Only under `scrolls`: the `ScrollView` gives this a viewport
+            // height from *its* parent, independent of how tall the content
+            // inside ends up — the measurement this reads is stable. Without
+            // a `ScrollView`, `scrollingBody` reports its own natural size
+            // upward, which is `bodyHeight`, which is computed *from*
+            // `hourHeight`, which reads `availableHeight` — measuring that
+            // here would close the loop on itself: a bigger `availableHeight`
+            // stretches `hourHeight`, which grows the content, which measures
+            // bigger next pass, without settling. Confirmed live in
+            // `ScheduleSnapshotTests`: `availableHeight` climbed from 0 past
+            // 2000 across dozens of re-renders instead of converging.
+            // `scrolls: false` keeps `availableHeight` at its 0 default, which
+            // is exactly `minHourHeight` territory — deterministic.
+            if scrolls {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { availableHeight = proxy.size.height }
+                        .onChange(of: proxy.size.height) { _, newValue in availableHeight = newValue }
+                }
             }
-        )
+        }
         .enableInjection()
     }
 

@@ -32,6 +32,12 @@ struct CalendarView: View {
     /// it — `CalendarView` stays mounted underneath, so the scroll monitor
     /// needs telling explicitly not to move the schedule behind it.
     var settingsShowing: Bool = false
+    /// `AppState.isRefreshing`/`.refresh()` — `ScheduleControls`' Refresh
+    /// button used to live in `AppShell`, right next to `appState`; now it's
+    /// down here with the rest of Schedule's controls, so the shell hands
+    /// these two down instead.
+    var isRefreshing: Bool = false
+    var onRefresh: () -> Void = {}
 
     @Environment(\.palette) private var palette
 
@@ -92,7 +98,9 @@ struct CalendarView: View {
         updaterBridge: UpdaterBridge,
         onCheckForUpdates: @escaping () -> Void = {},
         onEditCredentials: @escaping () -> Void = {},
-        settingsShowing: Bool = false
+        settingsShowing: Bool = false,
+        isRefreshing: Bool = false,
+        onRefresh: @escaping () -> Void = {}
     ) {
         self.controller = controller
         self.preferences = preferences
@@ -101,6 +109,8 @@ struct CalendarView: View {
         self.credentials = credentials
         self.schedule = schedule
         self.updaterBridge = updaterBridge
+        self.isRefreshing = isRefreshing
+        self.onRefresh = onRefresh
         self.onCheckForUpdates = onCheckForUpdates
         self.onEditCredentials = onEditCredentials
         self.settingsShowing = settingsShowing
@@ -202,6 +212,24 @@ struct CalendarView: View {
                         ZStack {
                             HStack(spacing: 0) {
                                 VStack(spacing: 0) {
+                                    // Routed through `schedule.stepIntent`/
+                                    // `.newEventIntent` rather than calling
+                                    // `step`/`newEventAtDefaultSlot` directly
+                                    // — the same intents ⌘[/⌘]/⌘N already
+                                    // drive from `PUPSISPortalApp`'s menu
+                                    // commands, so there's one path, not two.
+                                    ScheduleControls(
+                                        scale: $schedule.scale,
+                                        showCancelled: $schedule.showCancelled,
+                                        weekOffset: schedule.weekOffset,
+                                        isRefreshing: isRefreshing,
+                                        onStep: { schedule.stepIntent = $0 },
+                                        onToday: { schedule.weekOffset = 0 },
+                                        onNewEvent: { schedule.newEventIntent += 1 },
+                                        onRefresh: onRefresh
+                                    )
+                                    .padding(.horizontal, Spacing.lg)
+                                    .padding(.vertical, Spacing.sm)
                                     CORStrip(controller: controller)
                                     weekGrid
                                         .id(weekStart)

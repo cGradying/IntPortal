@@ -81,6 +81,12 @@ struct AppShell: View {
             ShellSidebar(appState: appState, portal: appState.portal, updater: appState.updaterBridge, studentNumber: credentials.studentNumber)
                 .frame(width: 236 * uiScale)
             VStack(spacing: 0) {
+                // Schedule's controls (paging, Week | COR | Year, Show
+                // cancelled, New event, Refresh) used to sit in a toolbar row
+                // here. They now live in `ScheduleControls`, placed directly
+                // above the COR strip inside `CalendarView` until the IS
+                // slice gives every screen a floating controls island — the
+                // header keeps only the title and context line.
                 ScreenHeader(
                     title: ScreenCopy.title(for: appState.selection, now: appState.now),
                     context: ScreenCopy.context(
@@ -88,11 +94,7 @@ struct AppShell: View {
                         sessions: appState.portal.sessions, weekOffset: appState.schedule.weekOffset
                     ),
                     crumb: appState.selection.title
-                ) {
-                    if appState.selection == .schedule {
-                        ScheduleToolbar(appState: appState, schedule: appState.schedule)
-                    }
-                }
+                )
                 ZStack {
                     screen(appState.selection)
                         .id(appState.selection)
@@ -131,7 +133,9 @@ struct AppShell: View {
                 updaterBridge: appState.updaterBridge,
                 onCheckForUpdates: { appState.updaterController.checkForUpdates(nil) },
                 onEditCredentials: { appState.isEditing = true },
-                settingsShowing: appState.showingSettings
+                settingsShowing: appState.showingSettings,
+                isRefreshing: appState.isRefreshing,
+                onRefresh: { Task { await appState.refresh() } }
             )
         case .grades:
             GradesView(controller: appState.portal, preferences: preferences)
@@ -262,96 +266,3 @@ enum ScreenCopy {
     private static var week: DateFormatter { let f = DateFormatter(); f.dateFormat = "MMMM d"; return f }
 }
 
-/// Schedule's controls, formerly in the nav island: scale, week paging,
-/// cancelled classes, a new event, and refresh.
-private struct ScheduleToolbar: View {
-    @ObservedObject var appState: AppState
-    @ObservedObject var schedule: ScheduleModel
-    @Environment(\.typography) private var typography
-    @Environment(\.palette) private var palette
-
-    /// Week | COR | Year, spec 03 change 1. COR isn't a real `CalendarScale`
-    /// yet — its table lands in SC2 — so this is a display-only third rung
-    /// that stays disabled until then rather than a case `CalendarScale`
-    /// itself has to grow (and every other `switch` over it has to learn).
-    private enum Tab: String, CaseIterable, Identifiable {
-        case week, cor, year
-        var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .week: "Week"
-            case .cor: "COR"
-            case .year: "Year"
-            }
-        }
-    }
-
-    private var tab: Binding<Tab> {
-        Binding(
-            get: { schedule.scale == .year ? .year : .week },
-            set: { newValue in
-                switch newValue {
-                case .week: schedule.scale = .week
-                case .year: schedule.scale = .year
-                case .cor: break // disabled below; never actually chosen
-                }
-            }
-        )
-    }
-
-    private var weekRangeLabel: String {
-        let start = Calendar.current.date(
-            byAdding: .day, value: schedule.weekOffset * 7, to: Weekday.weekStart(containing: .now)
-        ) ?? .now
-        let end = Calendar.current.date(byAdding: .day, value: 6, to: start) ?? start
-        let short = Date.FormatStyle.dateTime.month(.abbreviated).day()
-        return "\(start.formatted(short)) – \(end.formatted(short))"
-    }
-
-    var body: some View {
-        HStack(spacing: Spacing.sm) {
-            Button { schedule.stepIntent = -1 } label: { PixelIcon(.left) }
-                .buttonStyle(.pixelSmall)
-                .accessibilityLabel("Previous")
-            if schedule.scale == .week {
-                Text(weekRangeLabel)
-                    .font(typography.numeric(size: 13))
-                    .foregroundStyle(palette.roles.ink2)
-            }
-            Button("Today") { schedule.weekOffset = 0 }
-                .buttonStyle(.pixelSmall)
-                .disabled(schedule.weekOffset == 0)
-            Button { schedule.stepIntent = 1 } label: { PixelIcon(.right) }
-                .buttonStyle(.pixelSmall)
-                .accessibilityLabel("Next")
-            Picker("View", selection: tab) {
-                ForEach(Tab.allCases) { tab in
-                    Text(tab.label)
-                        .tag(tab)
-                        .disabled(tab == .cor)
-                        .help(tab == .cor ? "Coming in SC2" : "")
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-            if schedule.scale == .week {
-                Button(schedule.showCancelled ? "Hide cancelled" : "Show cancelled") { schedule.showCancelled.toggle() }
-                    .buttonStyle(.pixelSmall)
-            }
-            Spacer(minLength: 0)
-            Button("New event") { schedule.newEventIntent += 1 }
-                .buttonStyle(.pixelSecondary)
-            Button {
-                Task { await appState.refresh() }
-            } label: {
-                HStack(spacing: 6) {
-                    PixelIcon(.refresh)
-                    Text(appState.isRefreshing ? "Refreshing…" : "Refresh")
-                }
-            }
-            .buttonStyle(.pixelPrimary)
-            .disabled(appState.isRefreshing)
-        }
-    }
-}

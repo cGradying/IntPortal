@@ -84,7 +84,12 @@ struct ClassBlock: View {
         // flat fill, so an empty slot reads as textured, not just faded.
         .background {
             if status == .vacant {
-                DitherFill(color: color, cell: 2, ramp: .flat(0.5))
+                // Confirmed in the first render: full-strength `color` cells
+                // at 0.5 density read as noise fighting the text sitting on
+                // top of it, not a quiet hatch behind it. A third the
+                // opacity and a coarser cell keep the texture visible
+                // without competing with what's drawn over it.
+                DitherFill(color: color.opacity(0.35), cell: 3, ramp: .flat(0.35))
             } else {
                 color.opacity(0.13)
             }
