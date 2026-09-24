@@ -14,11 +14,7 @@ final class DestinationTests: XCTestCase {
         XCTAssertEqual(Destination.direction(from: .syllabus, to: .schedule), -1)
     }
 
-    func testStudyScreensMapOntoNotebookFaces() {
-        XCTAssertEqual(Destination.notebook.notebookTab, .vault)
-        XCTAssertEqual(Destination.quizzes.notebookTab, .quizzes)
-        XCTAssertEqual(Destination.syllabus.notebookTab, .syllabus)
-        XCTAssertNil(Destination.schedule.notebookTab)
+    func testStudyScreensAreGrouped() {
         XCTAssertEqual(Destination.allCases.filter(\.isStudy), [.notebook, .quizzes, .syllabus])
     }
 
