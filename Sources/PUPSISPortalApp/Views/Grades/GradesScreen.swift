@@ -49,11 +49,18 @@ struct GradesScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if scrolls {
-                ScrollView { scrollableContent }.scrollIndicators(.hidden)
-            } else {
-                scrollableContent
+            Group {
+                if scrolls {
+                    ScrollView { scrollableContent }.scrollIndicators(.hidden)
+                } else {
+                    scrollableContent
+                }
             }
+            // A floor so the flexible columns (`maxWidth: .infinity`) have
+            // something to resolve against when nothing above proposes a
+            // width — the real window always does, but `ImageRenderer`'s
+            // ideal-size pass doesn't, and collapses them to nothing.
+            .frame(minWidth: 900)
             if let shown = displayedReport { footer(shown) }
         }
         .background(palette.roles.ground)
