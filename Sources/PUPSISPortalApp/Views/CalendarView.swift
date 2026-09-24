@@ -36,7 +36,7 @@ struct CalendarView: View {
     @Environment(\.palette) private var palette
 
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
     @Environment(\.undoManager) private var undoManager
 
     @State private var selection: Set<String> = []

@@ -114,6 +114,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     }
 
     func signIn(with credentials: Credentials) {
+        guard !Demo.isOn else { status = .success; return }
         guard status != .loggingIn else { return }
         Task { await runSignIn(credentials) }
     }
@@ -146,6 +147,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     }
 
     func loadSchedule() async {
+        guard !Demo.isOn else { return }
         do {
             try await load(scheduleURL)
             let rows = try await awaitPageRows(suffix: "/schedule") {
@@ -176,6 +178,7 @@ final class PortalController: NSObject, ObservableObject, WKNavigationDelegate {
     /// sets `gradesError` and leaves the schedule screen untouched — the two
     /// pages fail independently.
     func loadGrades() async {
+        guard !Demo.isOn else { return }
         do {
             try await load(gradesURL)
             // The subject rows carry the page; an empty summary is fine, but an

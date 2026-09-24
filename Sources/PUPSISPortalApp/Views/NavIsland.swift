@@ -16,7 +16,7 @@ struct NavIsland: View {
     @ObservedObject var preferences: Preferences
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
     @Namespace private var highlight
     @State private var hovered = false
 

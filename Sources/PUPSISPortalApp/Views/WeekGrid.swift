@@ -24,7 +24,7 @@ struct WeekGrid: View {
     @Environment(\.palette) private var palette
 
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
     @State private var gesture: GridGesture?
     /// The real height `WeekGrid` is given by its parent — what `hourHeight`
     /// stretches hours to fill, so a light day's schedule reaches the bottom

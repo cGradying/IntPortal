@@ -39,7 +39,7 @@ struct AssistantFloating: View {
     @ObservedObject var session: AssistantSession
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
     @Namespace private var morph
     @State private var showLanguages = false
     @State private var showColors = false
@@ -490,7 +490,7 @@ private struct AssistantChat: View {
     let morph: Namespace.ID
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
     @FocusState private var inputFocused: Bool
     @State private var input = ""
     /// Keyboard-highlighted row in the command autocomplete palette below —

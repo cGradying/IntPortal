@@ -10,7 +10,7 @@ import SwiftUI
 /// or a slower `minimumInterval` on the TimelineView below, not a rewrite.
 struct HomeNoiseField: View {
     var color: Color
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
 
     var body: some View {
         TimelineView(.animation(minimumInterval: reduceMotion ? nil : 0.16, paused: reduceMotion)) { context in

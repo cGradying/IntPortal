@@ -48,7 +48,7 @@ struct GlitchGradientText: View {
     let font: Font
     let gradient: [Color]
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
     @State private var seed = UInt64.random(in: .min ... .max)
 
     private var style: LinearGradient {

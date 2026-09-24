@@ -28,16 +28,7 @@ struct SettingsView: View {
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
     @Environment(\.colorScheme) private var systemScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// System Reduce Motion, OR'd with General's own "Force Reduce Motion"
-    /// toggle. `\.accessibilityReduceMotion` has no public setter in this
-    /// SDK — a `.environment(\.accessibilityReduceMotion, _)` override
-    /// doesn't reach child views — so the toggle is scoped to this window's
-    /// own animations (the RAM warning, a deleted model row), not the whole
-    /// app. Tab switching itself is `TabView`'s own native, unanimated-by-us
-    /// transition — no `.id()`/`.transition()` on top of it, which is what
-    /// made pane switching feel heavy in the sidebar version.
-    private var effectiveReduceMotion: Bool { preferences.forceReducedMotion || reduceMotion }
+    @Environment(\.reduceMotion) private var reduceMotion
     @State fileprivate var exportResult: String?
     @State fileprivate var googleCalendars: [GoogleCalendar] = []
     @State fileprivate var googleBusy = false
@@ -141,7 +132,7 @@ struct SettingsView: View {
             ForEach(Pane.allCases) { item in
                 let selected = pane == item
                 Button {
-                    withAnimation(Motion.selection(reduced: effectiveReduceMotion)) { pane = item }
+                    withAnimation(Motion.selection(reduced: reduceMotion)) { pane = item }
                 } label: {
                     VStack(spacing: 6) {
                         Text(item.label)
@@ -150,7 +141,7 @@ struct SettingsView: View {
                             .foregroundStyle(selected ? palette.accent : .secondary)
                         Group {
                             if selected {
-                                DitherRule(color: palette.accent, reduced: effectiveReduceMotion, height: 3, intensity: 0.6)
+                                DitherRule(color: palette.accent, reduced: reduceMotion, height: 3, intensity: 0.6)
                                     .clipShape(Capsule())
                                     .matchedGeometryEffect(id: "tabIndicator", in: tabIndicatorNamespace)
                             } else {
@@ -237,7 +228,7 @@ struct SettingsView: View {
         let expanded = preferences.expandedSettingsSections.contains(title)
         return VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(Motion.selection(reduced: effectiveReduceMotion)) {
+                withAnimation(Motion.selection(reduced: reduceMotion)) {
                     preferences.setSettingsSection(title, expanded: !expanded)
                 }
             } label: {
@@ -264,7 +255,7 @@ struct SettingsView: View {
             .buttonStyle(.plain)
 
             if expanded {
-                DitherRule(color: palette.accent, reduced: effectiveReduceMotion)
+                DitherRule(color: palette.accent, reduced: reduceMotion)
                     .padding(.horizontal, 12)
                 VStack(alignment: .leading, spacing: 0) { rows() }
                     .padding(.horizontal, 12)
@@ -349,7 +340,7 @@ struct SettingsView: View {
                         .padding(.horizontal, 7)
                         .padding(.vertical, 5)
                         if selected {
-                            DitherRule(color: palette.accent, reduced: effectiveReduceMotion, height: 2)
+                            DitherRule(color: palette.accent, reduced: reduceMotion, height: 2)
                         }
                     }
                     .background(RoundedRectangle(cornerRadius: 7).fill(palette.accent.opacity(selected ? 0.12 : 0)))
@@ -964,7 +955,7 @@ struct SettingsView: View {
         }
         .font(.caption2)
         .foregroundStyle(tooMuch ? .red : .secondary)
-        .animation(Motion.drift(reduced: effectiveReduceMotion), value: tooMuch)
+        .animation(Motion.drift(reduced: reduceMotion), value: tooMuch)
     }
 
     /// Same "?" popover language as `AssistantFloating`'s capabilities/thinking
@@ -1112,7 +1103,7 @@ struct SettingsView: View {
                                 Text(byteCountFormatter.string(fromByteCount: modelSizes[entry.id] ?? 0))
                                     .foregroundStyle(.secondary)
                                 Button("Delete", role: .destructive) {
-                                    withAnimation(Motion.selection(reduced: effectiveReduceMotion)) {
+                                    withAnimation(Motion.selection(reduced: reduceMotion)) {
                                         try? FileManager.default.removeItem(at: ModelCatalog.localURL(for: entry))
                                         refreshDownloaded()
                                     }

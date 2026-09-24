@@ -23,7 +23,7 @@ struct ClassBlock: View {
     @ObservedObject var preferences: Preferences
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
     @State private var showingDetail = false
     @State private var isHovering = false
 
@@ -463,7 +463,7 @@ struct EventBlock: View {
     @Environment(\.palette) private var palette
 
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
     @State private var isHovering = false
 
     /// The block owns these rather than the interaction layer, because the

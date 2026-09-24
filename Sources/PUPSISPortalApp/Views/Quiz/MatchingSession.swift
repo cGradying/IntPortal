@@ -23,7 +23,7 @@ struct MatchingSession: View {
     @State private var correctThisSession = 0
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 20) {
