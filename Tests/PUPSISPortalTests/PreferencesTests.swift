@@ -719,6 +719,11 @@ final class PreferencesTests: XCTestCase {
         prefs.aiTemperature = 0.9
         prefs.notificationLeadMinutes = 30
         prefs.forceReducedMotion = true
+        // Audit fix (2026-09-24): these two were missing from the reset.
+        prefs.notebookSidebarOnLeft = true
+        prefs.showIsland = false
+        prefs.islandExpandOnHover = false
+        prefs.launchDestination = .today
 
         prefs.resetAllToDefaults()
 
@@ -729,6 +734,10 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.aiTemperature, Preferences.aiDefaultTemperature)
         XCTAssertEqual(prefs.notificationLeadMinutes, 15)
         XCTAssertFalse(prefs.forceReducedMotion)
+        XCTAssertFalse(prefs.notebookSidebarOnLeft)
+        XCTAssertTrue(prefs.showIsland)
+        XCTAssertTrue(prefs.islandExpandOnHover)
+        XCTAssertEqual(prefs.launchDestination, .hub)
     }
 
     /// The whole reason it's not a blanket `UserDefaults` wipe: per-class
@@ -743,22 +752,56 @@ final class PreferencesTests: XCTestCase {
         XCTAssertTrue(prefs.hasCustomColor(for: "COMP 20073"))
     }
 
-    /// Collapsed by default (no section has ever been opened), survives a
-    /// relaunch once one is, and gets wiped by Reset All Settings — same
-    /// shape as `visibleCalendarIDs`.
-    func testExpandedSettingsSectionsDefaultsEmptyPersistsAndResets() {
-        XCTAssertTrue(Preferences(defaults: defaults).expandedSettingsSections.isEmpty)
+    // MARK: Island prefs (spec 12) and the "Open on" launch destination
+
+    func testIslandPrefsDefaultOnAndSurviveRelaunch() {
+        XCTAssertTrue(Preferences(defaults: defaults).showIsland)
+        XCTAssertTrue(Preferences(defaults: defaults).islandExpandOnHover)
+        XCTAssertEqual(Preferences(defaults: defaults).launchDestination, .hub)
 
         let prefs = Preferences(defaults: defaults)
-        prefs.setSettingsSection("Theme", expanded: true)
-        XCTAssertTrue(Preferences(defaults: defaults).expandedSettingsSections.contains("Theme"))
+        prefs.showIsland = false
+        prefs.islandExpandOnHover = false
+        prefs.launchDestination = .today
 
-        prefs.setSettingsSection("Theme", expanded: false)
-        XCTAssertFalse(Preferences(defaults: defaults).expandedSettingsSections.contains("Theme"))
+        let reloaded = Preferences(defaults: defaults)
+        XCTAssertFalse(reloaded.showIsland)
+        XCTAssertFalse(reloaded.islandExpandOnHover)
+        XCTAssertEqual(reloaded.launchDestination, .today)
+    }
 
-        prefs.setSettingsSection("Layout", expanded: true)
-        prefs.resetAllToDefaults()
-        XCTAssertTrue(prefs.expandedSettingsSections.isEmpty)
+    /// The old NavIsland's `islandStartHome=false` ("skip the launcher")
+    /// migrates once to `.today`, and the legacy key is gone afterward so the
+    /// migration doesn't re-run and re-derive on every later launch.
+    func testFalseIslandStartHomeMigratesToTodayOnce() {
+        defaults.set(false, forKey: "islandStartHome")
+
+        XCTAssertEqual(Preferences(defaults: defaults).launchDestination, .today)
+        XCTAssertNil(defaults.object(forKey: "islandStartHome"))
+
+        // A later relaunch keeps what migrated, even if something else set
+        // the legacy key back (it shouldn't happen, but migration must not
+        // re-fire and clobber a since-changed pick).
+        Preferences(defaults: defaults).launchDestination = .hub
+        XCTAssertEqual(Preferences(defaults: defaults).launchDestination, .hub)
+    }
+
+    /// `islandStartHome=true` (or missing) means the old launcher default —
+    /// the hub, unaffected.
+    func testTrueOrMissingIslandStartHomeLeavesTheHubDefault() {
+        defaults.set(true, forKey: "islandStartHome")
+        XCTAssertEqual(Preferences(defaults: defaults).launchDestination, .hub)
+
+        let clean = try! XCTUnwrap(UserDefaults(suiteName: "PreferencesTests-\(UUID().uuidString)"))
+        XCTAssertEqual(Preferences(defaults: clean).launchDestination, .hub)
+    }
+
+    /// The new `islandExpandOnHover` pref reuses the old NavIsland key of the
+    /// same name — a value set under the old feature must carry over, not
+    /// silently reset, since nothing here ever removes that key.
+    func testIslandExpandOnHoverCarriesOverFromTheOldKeyOfTheSameName() {
+        defaults.set(false, forKey: "islandExpandOnHover")
+        XCTAssertFalse(Preferences(defaults: defaults).islandExpandOnHover)
     }
 }
 

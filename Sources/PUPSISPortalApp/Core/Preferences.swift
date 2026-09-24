@@ -185,24 +185,6 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(Array(visibleCalendarIDs), forKey: Key.visibleCalendarIDs) }
     }
 
-    /// Which Settings sections are expanded — every one collapsed by
-    /// default. Keyed on the section's own title string rather than a
-    /// pane-qualified id: titles are already unique per pane, and a
-    /// collision across two panes only means they share an expanded state.
-    /// ponytail: good enough — a real id would mean threading one through
-    /// every `compactSection` call for no visible gain.
-    @Published var expandedSettingsSections: Set<String> {
-        didSet { defaults.set(Array(expandedSettingsSections), forKey: Key.expandedSettingsSections) }
-    }
-
-    func setSettingsSection(_ title: String, expanded: Bool) {
-        if expanded {
-            expandedSettingsSections.insert(title)
-        } else {
-            expandedSettingsSections.remove(title)
-        }
-    }
-
     /// Which calendar in-person classes get exported into. Empty until the user
     /// picks — there's no safe default guess for someone else's calendar.
     @Published var exportCalendarID: String {
@@ -261,18 +243,40 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(googleCalendarID, forKey: Key.googleCalendarID) }
     }
 
-    // MARK: Dynamic island
+    // MARK: General ▸ Island (spec 12)
 
+    /// Settings › General › Island › "Show the island". Both island prefs
+    /// default on; nothing reads either yet — the IS slice wires the island
+    /// itself into the shell.
+    @Published var showIsland: Bool {
+        didSet { defaults.set(showIsland, forKey: Key.showIsland) }
+    }
 
+    /// Settings › General › Island › "Expand on hover". Off keeps the island
+    /// expanded rather than collapsing to the compact pill.
+    @Published var islandExpandOnHover: Bool {
+        didSet { defaults.set(islandExpandOnHover, forKey: Key.islandExpandOnHover) }
+    }
 
-    /// Auto-hide the window's traffic-light buttons, revealing them when the
-    /// cursor nears the top-left corner. Off keeps them always visible.
-    /// Settings › General › Play portal intro. Off lands on the hub (or the
-    /// sign-in panel) with the portal already built.
+    /// Settings › General › "Open on": Hub (the portal landing) or Today
+    /// (skip straight past it once credentials exist). Replaces the old
+    /// "Open on the home launcher" toggle now that the home launcher is the
+    /// hub, not a standalone screen.
+    @Published var launchDestination: LaunchDestination {
+        didSet { defaults.set(launchDestination.rawValue, forKey: Key.launchDestination) }
+    }
+
+    // MARK: General ▸ Window
+
+    /// Settings › General › "Play portal intro". Off lands on the hub (or
+    /// the sign-in panel) with the portal already built, skipping the
+    /// assembly animation.
     @Published var playPortalIntro: Bool {
         didSet { defaults.set(playPortalIntro, forKey: Key.playPortalIntro) }
     }
 
+    /// Auto-hide the window's traffic-light buttons, revealing them when the
+    /// cursor nears the top-left corner. Off keeps them always visible.
     @Published var trafficLightsAutoHide: Bool {
         didSet { defaults.set(trafficLightsAutoHide, forKey: Key.trafficLightsAutoHide) }
     }
@@ -662,7 +666,6 @@ final class Preferences: ObservableObject {
         static let permaSubjects = "permaSubjects"
         static let subjectTasks = "subjectTasks"
         static let visibleCalendarIDs = "visibleCalendarIDs"
-        static let expandedSettingsSections = "expandedSettingsSections"
         static let exportCalendarID = "exportCalendarID"
         static let onlineExportCalendarID = "onlineExportCalendarID"
         static let eventColors = "eventColors"
@@ -676,6 +679,9 @@ final class Preferences: ObservableObject {
         static let trafficLightsAutoHide = "trafficLightsAutoHide"
         static let forceReducedMotion = "forceReducedMotion"
         static let playPortalIntro = "playPortalIntro"
+        static let showIsland = "showIsland"
+        static let islandExpandOnHover = "islandExpandOnHover"
+        static let launchDestination = "launchDestination"
         static let aiEnabled = "aiEnabled"
         static let aiModel = "aiModel"
         static let aiProvider = "aiProvider"
@@ -739,7 +745,6 @@ final class Preferences: ObservableObject {
         eventColors = defaults.data(forKey: Key.eventColors)
             .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         visibleCalendarIDs = Set(defaults.stringArray(forKey: Key.visibleCalendarIDs) ?? [])
-        expandedSettingsSections = Set(defaults.stringArray(forKey: Key.expandedSettingsSections) ?? [])
         exportCalendarID = defaults.string(forKey: Key.exportCalendarID) ?? ""
         onlineExportCalendarID = defaults.string(forKey: Key.onlineExportCalendarID) ?? ""
         termEndDate = (defaults.object(forKey: Key.termEndDate) as? Double)
@@ -753,11 +758,24 @@ final class Preferences: ObservableObject {
         programTotalUnits = (defaults.object(forKey: Key.programTotalUnits) as? Int) ?? 0
         googleClientID = defaults.string(forKey: Key.googleClientID) ?? ""
         googleCalendarID = defaults.string(forKey: Key.googleCalendarID) ?? ""
-        // Default the island prefs on; `bool(forKey:)` returns false for a
-        // missing key, so check the key instead.
+        // Default to on; `bool(forKey:)` returns false for a missing key, so
+        // check the key instead.
         trafficLightsAutoHide = (defaults.object(forKey: Key.trafficLightsAutoHide) as? Bool) ?? true
         forceReducedMotion = (defaults.object(forKey: Key.forceReducedMotion) as? Bool) ?? false
         playPortalIntro = (defaults.object(forKey: Key.playPortalIntro) as? Bool) ?? true
+        showIsland = (defaults.object(forKey: Key.showIsland) as? Bool) ?? true
+        // Reuses the pre-removal NavIsland key of the same name (spec 12) —
+        // reading it here picks up whatever that feature already had set,
+        // migration or not, so nothing is lost by the key surviving as-is.
+        islandExpandOnHover = (defaults.object(forKey: Key.islandExpandOnHover) as? Bool) ?? true
+        // `islandStartHome` was the old NavIsland's "start on the home
+        // launcher" toggle; `false` meant skip straight in, which `.today`
+        // means now that the home launcher is the hub rather than a screen
+        // of its own. Migrated below, once every stored property has a
+        // value; a `launchDestination` key already on disk (a later launch,
+        // past the migration) always wins.
+        launchDestination = defaults.string(forKey: Key.launchDestination).flatMap(LaunchDestination.init(rawValue:))
+            ?? ((defaults.object(forKey: Preferences.legacyIslandStartHomeKey) as? Bool) == false ? .today : .hub)
         aiEnabled = (defaults.object(forKey: Key.aiEnabled) as? Bool) ?? false
         aiModel = defaults.string(forKey: Key.aiModel) ?? ModelCatalog.defaultID
         aiProvider = defaults.string(forKey: Key.aiProvider).flatMap(AIProvider.init(rawValue:)) ?? .local
@@ -798,7 +816,23 @@ final class Preferences: ObservableObject {
         // every key is already in the new format.
         defaults.set(try? JSONEncoder().encode(occurrenceStatuses), forKey: Key.occurrenceStatuses)
         defaults.set(try? JSONEncoder().encode(occurrenceTimes), forKey: Key.occurrenceTimes)
+
+        // One-time migration off the old NavIsland key `islandStartHome`
+        // (spec 12) — persist the `launchDestination` derived from it above,
+        // then drop the old key so this only ever runs once. No migration
+        // needed for `islandExpandOnHover`: it's read straight off its own
+        // (reused) key above, nothing to move.
+        if defaults.object(forKey: Preferences.legacyIslandStartHomeKey) != nil {
+            defaults.set(launchDestination.rawValue, forKey: Key.launchDestination)
+            defaults.removeObject(forKey: Preferences.legacyIslandStartHomeKey)
+        }
     }
+
+    /// The old `NavIsland`'s "start on the home launcher" `UserDefaults` key,
+    /// from before the island (and the launcher) were removed in the
+    /// pre-Registrar UI. No `Key` entry of its own — nothing reads or writes
+    /// it going forward, `init`'s migration only ever reads then removes it.
+    private static let legacyIslandStartHomeKey = "islandStartHome"
 
     /// The colour an event renders in: the user's pick, else the palette's
     /// deterministic default so two different events don't look identical.
@@ -1088,12 +1122,15 @@ final class Preferences: ObservableObject {
         termStartDate = Weekday.weekStart(containing: .now)
         programTotalUnits = 0
         visibleCalendarIDs = []
-        expandedSettingsSections = []
         notificationsEnabled = false
         notificationLeadMinutes = 15
         trafficLightsAutoHide = true
         forceReducedMotion = false
         playPortalIntro = true
+        showIsland = true
+        islandExpandOnHover = true
+        launchDestination = .hub
+        notebookSidebarOnLeft = false
         aiEnabled = false
         aiModel = ModelCatalog.defaultID
         aiProvider = .local
@@ -1111,6 +1148,23 @@ final class Preferences: ObservableObject {
         ragContextBudget = Preferences.ragDefaultContextBudget
         ragAnswerTemperature = Preferences.ragDefaultAnswerTemperature
         uiScale = 1.0
+    }
+}
+
+/// Settings › General › "Open on" (spec 12). Hub is the portal landing;
+/// Today skips straight past it once credentials exist — see
+/// `AppState`'s launch-time check.
+enum LaunchDestination: String, Codable, CaseIterable, Identifiable {
+    case hub
+    case today
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .hub: "Hub"
+        case .today: "Today"
+        }
     }
 }
 

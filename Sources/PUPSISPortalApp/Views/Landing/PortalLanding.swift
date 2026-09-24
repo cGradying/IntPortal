@@ -61,7 +61,7 @@ struct PortalLanding: View {
                 onPickCampus: preferences.pickCampus,
                 onSelect: select,
                 onSwitchAccount: { submitted = false; appState.isEditing = true },
-                onSettings: { appState.showingSettings = true }
+                onSettings: { appState.openSettingsFromLanding() }
             )
         }
         .background(VoidPalette.top)

@@ -9,6 +9,8 @@ enum Destination: String, CaseIterable, Identifiable {
     case notebook
     case quizzes
     case syllabus
+    /// System group, after Study — Settings as a screen (spec 07), not a sheet.
+    case settings
 
     var id: String { rawValue }
 
@@ -20,6 +22,7 @@ enum Destination: String, CaseIterable, Identifiable {
         case .notebook: "Notebook"
         case .quizzes: "Quizzes"
         case .syllabus: "Syllabus"
+        case .settings: "Settings"
         }
     }
 
@@ -31,6 +34,7 @@ enum Destination: String, CaseIterable, Identifiable {
         case .notebook: .book
         case .quizzes: .cards
         case .syllabus: .list
+        case .settings: .gear
         }
     }
 
@@ -42,10 +46,12 @@ enum Destination: String, CaseIterable, Identifiable {
         case .notebook: "4"
         case .quizzes: "5"
         case .syllabus: "6"
+        case .settings: ","
         }
     }
 
-    /// Main (the SIS record) or Study (the student's own material).
+    /// Main (the SIS record) or Study (the student's own material). Settings
+    /// is neither — the System group, own case below.
     var isStudy: Bool { [.notebook, .quizzes, .syllabus].contains(self) }
 
     /// Today and the study screens still render `AgendaView`, each on its own
@@ -55,7 +61,7 @@ enum Destination: String, CaseIterable, Identifiable {
         case .today, .notebook: .vault
         case .quizzes: .quizzes
         case .syllabus: .syllabus
-        case .schedule, .grades: nil
+        case .schedule, .grades, .settings: nil
         }
     }
 
@@ -130,8 +136,7 @@ struct AppShell: View {
                 schedule: appState.schedule,
                 updaterBridge: appState.updaterBridge,
                 onCheckForUpdates: { appState.updaterController.checkForUpdates(nil) },
-                onEditCredentials: { appState.isEditing = true },
-                settingsShowing: appState.showingSettings
+                onEditCredentials: { appState.isEditing = true }
             )
         case .grades:
             GradesView(controller: appState.portal, preferences: preferences)
@@ -140,6 +145,26 @@ struct AppShell: View {
                 appState: appState, preferences: preferences, calendar: appState.calendar,
                 notes: appState.notes, quizzes: appState.quizzes, generation: appState.generation,
                 notebook: appState.notebook
+            )
+        case .settings:
+            SettingsScreen(
+                preferences: preferences,
+                portal: appState.portal,
+                calendar: appState.calendar,
+                googleAuth: appState.googleAuth,
+                googleClient: appState.googleClient,
+                updaterBridge: appState.updaterBridge,
+                canCheckForUpdates: appState.updaterController.updater.canCheckForUpdates,
+                automaticallyChecksForUpdates: Binding(
+                    get: { appState.updaterController.updater.automaticallyChecksForUpdates },
+                    set: { appState.updaterController.updater.automaticallyChecksForUpdates = $0 }
+                ),
+                onCheckForUpdates: { appState.updaterController.checkForUpdates(nil) },
+                onWipeNotes: { appState.notes.wipeAll() },
+                onEditCredentials: { appState.isEditing = true },
+                onSignOut: { appState.signOut() },
+                onRefreshSchedule: { Task { await appState.portal.loadSchedule() } },
+                onShowHub: { appState.showHub() }
             )
         }
     }
@@ -167,7 +192,7 @@ struct ShellSidebar: View {
             ),
             updateVersion: updater.availableVersion,
             onSelect: { appState.open($0) },
-            onSettings: { appState.showingSettings = true },
+            onSettings: { appState.open(.settings) },
             onRetry: {
                 if case .failed = portal.status { appState.isEditing = true } else { Task { await appState.refresh() } }
             },
@@ -259,6 +284,7 @@ enum ScreenCopy {
         case .notebook: return "Notes filed by subject · select text to Ask AI"
         case .quizzes: return "Your decks and what is due"
         case .syllabus: return "Weeks, exams and grading, from your syllabi"
+        case .settings: return "App preferences and your account"
         }
     }
 

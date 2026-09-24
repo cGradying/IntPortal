@@ -5,13 +5,23 @@ import XCTest
 final class DestinationTests: XCTestCase {
     func testShortcutsFollowSpec01() {
         let keys = Dictionary(uniqueKeysWithValues: Destination.allCases.map { ($0, $0.shortcut.character) })
-        XCTAssertEqual(keys, [.schedule: "1", .today: "2", .grades: "3", .notebook: "4", .quizzes: "5", .syllabus: "6"])
+        XCTAssertEqual(keys, [.schedule: "1", .today: "2", .grades: "3", .notebook: "4", .quizzes: "5", .syllabus: "6", .settings: ","])
     }
 
     func testDepthFollowsSidebarOrder() {
-        XCTAssertEqual(Destination.allCases, [.today, .schedule, .grades, .notebook, .quizzes, .syllabus])
+        XCTAssertEqual(Destination.allCases, [.today, .schedule, .grades, .notebook, .quizzes, .syllabus, .settings])
         XCTAssertEqual(Destination.direction(from: .today, to: .grades), 1)
         XCTAssertEqual(Destination.direction(from: .syllabus, to: .schedule), -1)
+        XCTAssertEqual(Destination.direction(from: .syllabus, to: .settings), 1)
+    }
+
+    /// Spec 07: Settings sits in the sidebar's System group, after Study —
+    /// and the same rawValue-is-the-launch-arg contract `Demo.screen` relies
+    /// on for every other destination now covers it too.
+    func testSettingsIsReachableAsADestination() {
+        XCTAssertEqual(Destination(rawValue: "settings"), .settings)
+        XCTAssertFalse(Destination.settings.isStudy)
+        XCTAssertNil(Destination.settings.notebookTab)
     }
 
     func testStudyScreensMapOntoNotebookFaces() {
