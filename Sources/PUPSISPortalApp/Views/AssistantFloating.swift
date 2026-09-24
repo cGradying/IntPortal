@@ -58,8 +58,8 @@ struct AssistantFloating: View {
 
     private var deckState: DeckState {
         if preferences.aiEnabled, session.isOpen { return .chat }
-        // Only Notebook (and Today, which still shows it) has a `WebNoteEditor` to drive.
-        if [.today, .notebook].contains(appState.selection) { return .toolbar }
+        // Only Notebook has a `WebNoteEditor` to drive; Today is its own screen now.
+        if appState.selection == .notebook { return .toolbar }
         guard preferences.aiEnabled else { return .hidden }
         return railExpanded ? .orbHovered : .orb
     }
