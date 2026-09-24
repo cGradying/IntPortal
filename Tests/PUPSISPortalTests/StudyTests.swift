@@ -208,7 +208,7 @@ final class StudyTests: XCTestCase {
 
         let numberSystems = tiles.first { $0.topic == "Number systems" }
         XCTAssertEqual(numberSystems?.goldPip, true)
-        XCTAssertEqual(numberSystems?.towerHeight, StudyMap.towerHeight(daysAway: 4))
+        XCTAssertEqual(numberSystems?.towerHeight ?? 0, 1.9, accuracy: 0.0001)
 
         let derivatives = tiles.first { $0.topic == "Derivatives" }
         XCTAssertEqual(derivatives?.goldPip, false)
