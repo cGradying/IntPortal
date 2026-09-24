@@ -122,6 +122,41 @@ private final class PupImageSchemeHandler: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
 }
 
+/// Serves the app's own bundled note-editor fonts (Pixelify Sans, Source
+/// Sans 3) into the webview under `pupfont://<Family>.ttf` — `editor.css`'s
+/// `@font-face` rules load through this, same `pupimg://`-style scheme
+/// handler shape as `PupImageSchemeHandler` above. This exists because
+/// `FontLibrary.registerBundledFonts` (`CTFontManagerRegisterFontsForURL`,
+/// `.process` scope) only registers a font for *this* process — WKWebView
+/// renders content in a separate, sandboxed WebContent process that never
+/// sees it, confirmed live (headings silently fell back to the system font
+/// with no error). Each `@font-face` family stack still ends in the system
+/// fallback, so a family this handler can't find (missing bundle resource,
+/// scheme blocked) degrades to it instead of erroring the note editor.
+private final class PupFontSchemeHandler: NSObject, WKURLSchemeHandler {
+    private static func fontURL(for host: String) -> URL? {
+        let family = (host as NSString).deletingPathExtension
+        guard let fontsDir = Bundle.main.url(forResource: "Fonts", withExtension: nil) else { return nil }
+        let familyDir = fontsDir.appendingPathComponent(family, isDirectory: true)
+        let files = (try? FileManager.default.contentsOfDirectory(at: familyDir, includingPropertiesForKeys: nil)) ?? []
+        return files.first { $0.pathExtension.lowercased() == "ttf" }
+    }
+
+    func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
+        guard let url = urlSchemeTask.request.url, let host = url.host,
+              let fontURL = Self.fontURL(for: host), let data = try? Data(contentsOf: fontURL) else {
+            urlSchemeTask.didFailWithError(URLError(.fileDoesNotExist))
+            return
+        }
+        let response = URLResponse(url: url, mimeType: "font/ttf", expectedContentLength: data.count, textEncodingName: nil)
+        urlSchemeTask.didReceive(response)
+        urlSchemeTask.didReceive(data)
+        urlSchemeTask.didFinish()
+    }
+
+    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+}
+
 private struct WebNoteView: NSViewRepresentable {
     @ObservedObject var notes: NotesStore
     @ObservedObject var preferences: Preferences
@@ -145,6 +180,10 @@ private struct WebNoteView: NSViewRepresentable {
         // loadHTMLString(baseURL: nil) can't reach file://, so pasted/dropped
         // images round-trip through this custom scheme instead.
         config.setURLSchemeHandler(PupImageSchemeHandler(), forURLScheme: "pupimg")
+        // Same reasoning for the bundled identity/reading fonts — see
+        // `PupFontSchemeHandler`'s doc comment for why registering them with
+        // `CTFontManagerRegisterFontsForURL` isn't enough on its own.
+        config.setURLSchemeHandler(PupFontSchemeHandler(), forURLScheme: "pupfont")
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
@@ -300,16 +339,17 @@ private struct WebNoteView: NSViewRepresentable {
             webView.evaluateJavaScript("PUPNotes.setAIEnabled(\(parent.preferences.aiEnabled));", completionHandler: nil)
         }
 
-        /// Pushes every theme-derived CSS variable in one round trip — the
-        /// popup/editor shapes don't change with theme, just these tokens.
+        /// Pushes the whole Registrar role palette in one round trip via
+        /// `PUPNotes.setTheme` (editor.js) — the `--<role>` custom properties
+        /// `editor.css` keys its light/dark, heading/body-font and selection
+        /// rules off, plus the `[data-scheme]` switch. Called on load
+        /// (`webView(_:didFinish:)` below) and whenever the palette changes —
+        /// a theme-room switch or light/dark, both of which replace `Palette`
+        /// wholesale, so `Equatable` is enough to tell "changed" from "same".
         func pushPalette(_ palette: Palette, to webView: WKWebView) {
             lastPushedPalette = palette
-            let root = "document.documentElement"
-            let js = WebNoteView.paletteTokens(palette).map { name, value in
-                "\(root).style.setProperty('\(name)', \(WebNoteView.jsonString(value)));"
-            }.joined()
             webView.evaluateJavaScript(
-                "\(root).dataset.scheme = \(WebNoteView.jsonString(WebNoteView.isDark(palette) ? "dark" : "light")); \(js)",
+                "window.PUPNotes && PUPNotes.setTheme(\(WebNoteView.themeTokensJSON(palette)));",
                 completionHandler: nil
             )
         }
@@ -328,8 +368,12 @@ private struct WebNoteView: NSViewRepresentable {
             loaded = true
             pushAIEnabled(to: webView)
             pushRevealMode(parent.preferences.aiRevealAnimation, to: webView)
-            lastPushedPalette = parent.palette // already baked into the loaded HTML
-            lastPushedReadingWidth = parent.preferences.noteReadingWidth // ditto
+            // --accent/--fg are already baked into the loaded HTML (the
+            // shell's inline tokenCSS), but the full role set setTheme
+            // pushes isn't — push it once up front rather than waiting for
+            // the palette to actually change.
+            pushPalette(parent.palette, to: webView)
+            lastPushedReadingWidth = parent.preferences.noteReadingWidth // already baked into the loaded HTML
         }
 
         private static let summarizeInstruction = """
@@ -426,6 +470,30 @@ private struct WebNoteView: NSViewRepresentable {
             ("--accent", palette.accent.hex ?? "#5865f2"),
             ("--fg", Color.legibleForeground(on: palette.canvasTop).hex ?? "#1a1a1a"),
         ]
+    }
+
+    /// Every `Palette.Roles` field, by the same name `editor.js`'s
+    /// `THEME_ROLE_VARS` expects, plus `dark` — the payload `pushPalette`
+    /// hands `PUPNotes.setTheme`. A role whose `Color` has no sRGB
+    /// representation (none of the six theme rooms', but `Color` allows it
+    /// in principle) is just omitted — editor.css's own defaults cover it.
+    private static func themeTokensJSON(_ palette: Palette) -> String {
+        let r = palette.roles
+        let hexTokens: [String: String?] = [
+            "menuField": r.menuField.hex, "menuFieldDeep": r.menuFieldDeep.hex, "menuFieldHover": r.menuFieldHover.hex,
+            "onMenu": r.onMenu.hex, "onMenu2": r.onMenu2.hex,
+            "action": r.action.hex, "actionHover": r.actionHover.hex, "actionSoft": r.actionSoft.hex,
+            "actionInk": r.actionInk.hex, "onAction": r.onAction.hex,
+            "gold": r.gold.hex, "goldInk": r.goldInk.hex, "goldSoft": r.goldSoft.hex,
+            "ground": r.ground.hex, "sheet": r.sheet.hex, "sunk": r.sunk.hex,
+            "line": r.line.hex, "line2": r.line2.hex,
+            "ink": r.ink.hex, "ink2": r.ink2.hex, "ink3": r.ink3.hex,
+            "good": r.good.hex, "bad": r.bad.hex,
+        ]
+        var payload: [String: Any] = hexTokens.compactMapValues { $0 }
+        payload["dark"] = isDark(palette)
+        let data = (try? JSONSerialization.data(withJSONObject: payload)) ?? Data("{}".utf8)
+        return String(data: data, encoding: .utf8) ?? "{}"
     }
 
     private static func html(initial: String, key: String, palette: Palette, readingWidth: Double) -> String {

@@ -58,8 +58,8 @@ struct AssistantFloating: View {
 
     private var deckState: DeckState {
         if preferences.aiEnabled, session.isOpen { return .chat }
-        // Vault tab specifically — Quizzes has no `WebNoteEditor` to drive.
-        if [.today, .notebook].contains(appState.selection), appState.notebook.tab == .vault { return .toolbar }
+        // Only Notebook (and Today, which still shows it) has a `WebNoteEditor` to drive.
+        if [.today, .notebook].contains(appState.selection) { return .toolbar }
         guard preferences.aiEnabled else { return .hidden }
         return railExpanded ? .orbHovered : .orb
     }

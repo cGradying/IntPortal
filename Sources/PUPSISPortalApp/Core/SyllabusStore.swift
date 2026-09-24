@@ -13,7 +13,7 @@ enum SyllabusItemType: String, Codable, CaseIterable, Identifiable {
         case .project: "Project"
         }
     }
-    /// SF Symbol for the Today marker (`AgendaView.syllabusMarker`) and
+    /// SF Symbol for the Today marker (`NotebookScreen.syllabusMarker`) and
     /// wherever else a syllabus item needs a one-glyph icon.
     var symbol: String {
         switch self {

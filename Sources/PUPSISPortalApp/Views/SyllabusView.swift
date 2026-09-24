@@ -22,7 +22,7 @@ struct SyllabusView: View {
     /// ponytail: Notebook-only for now; wire the Schedule mount too if that
     /// screen turns out to be where people actually want the button.
     var calendar: CalendarBridge? = nil
-    /// Same reasoning: only `AgendaView`'s mount has `GenerationCenter`/
+    /// Same reasoning: only `SyllabusScreen` has `GenerationCenter`/
     /// `NotesStore` in scope, so only it passes this — the "make a deck from
     /// this topic" button is hidden everywhere else.
     var onGenerateQuiz: ((SyllabusItem) -> Void)? = nil

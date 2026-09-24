@@ -1153,6 +1153,40 @@ export function setAIRevealMode(mode) {
   aiRevealMode = mode === "blink" ? "blink" : "sweep";
 }
 
+// --- Theme: the Registrar role palette (DESIGN.md), pushed from native ---
+// (`WebNoteEditor.pushPalette`) on load, on a theme-room switch, and on
+// light/dark. One round trip sets every `--<role>` custom property
+// `editor.css` reads (sheet/ink/line/action/gold plus their soft/ink/2/3
+// variants) and the `[data-scheme]` attribute the light/dark rule sets
+// key off. Keys are the exact names of `Palette.Roles`' fields so Swift can
+// serialize that struct straight across without a translation table on
+// either side.
+const THEME_ROLE_VARS = [
+  "menuField", "menuFieldDeep", "menuFieldHover", "onMenu", "onMenu2",
+  "action", "actionHover", "actionSoft", "actionInk", "onAction",
+  "gold", "goldInk", "goldSoft",
+  "ground", "sheet", "sunk", "line", "line2",
+  "ink", "ink2", "ink3", "good", "bad",
+];
+
+export function setTheme(tokens) {
+  if (!tokens) return;
+  const root = document.documentElement;
+  for (const key of THEME_ROLE_VARS) {
+    if (tokens[key]) root.style.setProperty(`--${kebab(key)}`, tokens[key]);
+  }
+  if (tokens.dark !== undefined) root.dataset.scheme = tokens.dark ? "dark" : "light";
+  // Kept in sync too: everything that predates the role tokens
+  // (`--accent`/`--fg`, this file's AI pill/menu/wikilink chrome) still
+  // reads these two.
+  if (tokens.action) root.style.setProperty("--accent", tokens.action);
+  if (tokens.ink) root.style.setProperty("--fg", tokens.ink);
+}
+
+function kebab(camel) {
+  return camel.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+}
+
 function triggerWordFade(from, to) {
   if (!view) return;
   const text = view.state.doc.sliceString(from, to);
@@ -1262,10 +1296,13 @@ function spawnSweepBand(rect, delayMs, durationMs) {
 // --- Syntax highlighting: markdown structure + code tokens (Discord-ish) ---
 const highlight = HighlightStyle.define([
   // Clearer step between levels (wayfinder ticket #11) — was 1.6/1.4/1.25,
-  // a narrowing gap that read muddier the deeper it went.
-  { tag: t.heading1, fontSize: "1.75em", fontWeight: "700" },
-  { tag: t.heading2, fontSize: "1.4em", fontWeight: "700" },
-  { tag: t.heading3, fontSize: "1.15em", fontWeight: "600" },
+  // a narrowing gap that read muddier the deeper it went. h1–h3 carry the
+  // identity face (DESIGN.md: Pixelify Sans for titles) — h4–h6 stay in the
+  // body face, same as inline text, just bold; the identity face is for a
+  // section's own heading weight, not every sub-sub-heading.
+  { tag: t.heading1, fontSize: "1.75em", fontWeight: "700", fontFamily: "var(--pup-heading-font)" },
+  { tag: t.heading2, fontSize: "1.4em", fontWeight: "700", fontFamily: "var(--pup-heading-font)" },
+  { tag: t.heading3, fontSize: "1.15em", fontWeight: "600", fontFamily: "var(--pup-heading-font)" },
   { tag: [t.heading4, t.heading5, t.heading6], fontWeight: "600" },
   { tag: t.strong, fontWeight: "700" },
   { tag: t.emphasis, fontStyle: "italic" },

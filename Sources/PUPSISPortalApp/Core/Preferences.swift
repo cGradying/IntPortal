@@ -513,10 +513,10 @@ final class Preferences: ObservableObject {
     // MARK: Notebook sidebar width
 
     /// Same clamp-through-a-setter convention as the assistant panel above —
-    /// `AgendaView` reads this directly for its sidebar `.frame`, writes only
+    /// `NotebookScreen` reads this directly for its sidebar `.frame`, writes only
     /// through `setNotebookSidebarWidth`/`resetNotebookSidebarWidth`.
-    static let notebookSidebarDefaultWidth: Double = 300
-    static let notebookSidebarWidthRange: ClosedRange<Double> = 220...480
+    static let notebookSidebarDefaultWidth: Double = 214
+    static let notebookSidebarWidthRange: ClosedRange<Double> = 200...480
 
     @Published private(set) var notebookSidebarWidth: Double {
         didSet { defaults.set(notebookSidebarWidth, forKey: Key.notebookSidebarWidth) }
