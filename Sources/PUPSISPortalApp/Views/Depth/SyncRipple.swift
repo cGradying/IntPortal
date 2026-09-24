@@ -29,14 +29,11 @@ struct SyncRipple: ViewModifier {
                 .keyframeAnimator(initialValue: 1.0, trigger: trigger) { view, t in
                     let r = Self.reach(t, ok: ok) * far
                     let live = t < 1 && !reduceMotion
+                    // Overlay only. A layerEffect here would wrap the whole
+                    // shell, and SwiftUI rasterizes a layerEffect even while
+                    // disabled: every AppKit-backed view inside (scroll views,
+                    // pickers, the drag strip) then drew as a placeholder.
                     view
-                        .layerEffect(
-                            (Shaders.library ?? ShaderLibrary.default).syncRipple(
-                                .float2(origin), .float(r), .float(18), .float(live ? 8 * (1 - t) : 0)
-                            ),
-                            maxSampleOffset: CGSize(width: 8, height: 8),
-                            isEnabled: live && Shaders.library != nil
-                        )
                         .overlay {
                             Circle()
                                 .stroke(ok ? palette.roles.good : palette.roles.bad, lineWidth: 4)
