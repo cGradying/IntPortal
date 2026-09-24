@@ -26,9 +26,10 @@ final class ICSExporterTests: XCTestCase {
     }
 
     private func ics(_ sessions: [ClassSession],
-                     status: @escaping (ClassSession) -> SessionStatus = { _ in .regular }) -> String {
+                     status: @escaping (ClassSession) -> SessionStatus = { _ in .regular },
+                     time: @escaping (ClassSession, Date) -> (Int, Int) = { s, _ in (s.start, s.end) }) -> String {
         ICSExporter.ics(for: sessions, weekStart: weekStart, until: termEnd,
-                        status: status, calendar: utc,
+                        status: status, time: time, calendar: utc,
                         now: utc.date(from: DateComponents(year: 2026, month: 8, day: 1))!)
     }
 
@@ -96,6 +97,49 @@ final class ICSExporterTests: XCTestCase {
     func testInPersonClassesHaveNoLocation() {
         let text = ics([session("CS", .monday, 8 * 60, 10 * 60)])
         XCTAssertFalse(text.contains("LOCATION:"))
+    }
+
+    // MARK: Time overrides
+
+    /// A term-wide moved time (`Preferences.time(for:on:)`, term branch) must
+    /// reach the VEVENT — before this, `.ics` always used the raw scraped
+    /// `session.start`/`.end` and a moved class kept exporting its old time.
+    func testTimeOverrideMovesTheVEventsStartAndEnd() {
+        let text = ics([session("PHYS", .thursday, 13 * 60, 15 * 60)]) { _, _ in (10 * 60, 11 * 60 + 30) }
+        XCTAssertTrue(text.contains("DTSTART:20260806T100000"), text)
+        XCTAssertTrue(text.contains("DTEND:20260806T113000"), text)
+        XCTAssertFalse(text.contains("DTSTART:20260806T130000"))
+    }
+
+    /// Without an override, the default `time` closure falls back to the
+    /// session's own scraped start/end exactly as before.
+    func testNoTimeOverrideKeepsTheScrapedTime() {
+        let text = ics([session("PHYS", .thursday, 13 * 60, 15 * 60)])
+        XCTAssertTrue(text.contains("DTSTART:20260806T130000"), text)
+        XCTAssertTrue(text.contains("DTEND:20260806T150000"), text)
+    }
+
+    // MARK: DST
+
+    /// Caller-level check for W12: a class on the US Eastern spring-forward
+    /// date must still export at its literal wall-clock time. Before routing
+    /// through `Calendar.wallClock`, `.ics` built the start by adding elapsed
+    /// minutes to midnight, which landed an hour late on this date.
+    func testDSTTransitionDateExportsTheLiteralWallClockTime() throws {
+        var newYork = Calendar(identifier: .gregorian)
+        newYork.timeZone = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+
+        // 2026-03-08 is the Sunday US Eastern springs forward; `weekStart` is
+        // the app's Monday-anchored week start, so that's 2026-03-02.
+        let weekStart = try XCTUnwrap(newYork.date(from: DateComponents(year: 2026, month: 3, day: 2)))
+        let termEnd = try XCTUnwrap(newYork.date(from: DateComponents(year: 2026, month: 3, day: 31)))
+        let session = session("COMP", .sunday, 8 * 60 + 30, 10 * 60)
+
+        let text = ICSExporter.ics(for: [session], weekStart: weekStart, until: termEnd,
+                                   calendar: newYork, now: weekStart)
+
+        XCTAssertTrue(text.contains("DTSTART:20260308T083000"), text)
+        XCTAssertTrue(text.contains("DTEND:20260308T100000"), text)
     }
 
     // MARK: Escaping

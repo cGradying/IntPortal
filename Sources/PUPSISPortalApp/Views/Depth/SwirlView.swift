@@ -9,12 +9,15 @@ struct SwirlView: View {
     var cell: Double = 3
     /// Pins the clock, for snapshots.
     var time: Double?
+    /// Caps redraws; the sidebar glyph runs at ~9 fps so it never costs a
+    /// display-rate timeline.
+    var fps: Double?
     @Environment(\.reduceMotion) private var reduceMotion
 
     static let ramp: [Color] = [0x170509, 0x540A1C, 0x941C30, 0xCCA128, 0xFAEBB3].map { Color(rgb: $0) }
 
     var body: some View {
-        TimelineView(.animation(paused: reduceMotion || time != nil)) { context in
+        TimelineView(.animation(minimumInterval: fps.map { 1 / $0 }, paused: reduceMotion || time != nil)) { context in
             let t = time ?? (reduceMotion ? 1.5 : context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3600))
             GeometryReader { geo in
                 if let library = Shaders.library {

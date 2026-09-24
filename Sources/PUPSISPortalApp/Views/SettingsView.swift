@@ -92,8 +92,7 @@ struct SettingsView: View {
     }
 
     @State private var pane: Pane = .general
-    /// Drives the tab indicator line's slide between tabs — same technique
-    /// `NavIsland`'s own segment-selection capsule already uses.
+    /// Drives the tab indicator line's slide between tabs.
     @Namespace private var tabIndicatorNamespace
 
     var body: some View {
@@ -357,13 +356,7 @@ struct SettingsView: View {
     /// the two destructive resets, last.
     private var generalTab: some View {
         VStack(alignment: .leading, spacing: 20) {
-            compactSection("Dynamic Island", footer: "The app's floating top bar, and the red/yellow/green window buttons.") {
-                compactRow("Open on the home launcher") {
-                    Toggle("", isOn: $preferences.islandStartHome).labelsHidden().toggleStyle(.switch)
-                }
-                compactRow("Expand island on hover") {
-                    Toggle("", isOn: $preferences.islandExpandOnHover).labelsHidden().toggleStyle(.switch)
-                }
+            compactSection("Window", footer: "The red/yellow/green window buttons, and launching with your Mac.") {
                 compactRow("Auto-hide window buttons") {
                     Toggle("", isOn: $preferences.trafficLightsAutoHide).labelsHidden().toggleStyle(.switch)
                 }
@@ -379,7 +372,7 @@ struct SettingsView: View {
 
             compactSection(
                 "Motion",
-                footer: "Forces this Settings window's own animations (deleting a model, the RAM warning) to their reduced form, independent of System Settings' own Reduce Motion."
+                footer: "Turns off every animation in the app, whatever System Settings says: portals, screen changes, stamps and cards."
             ) {
                 compactRow("Force Reduce Motion") {
                     Toggle("", isOn: $preferences.forceReducedMotion).labelsHidden().toggleStyle(.switch)
@@ -398,8 +391,6 @@ struct SettingsView: View {
             }
 
             Button("Reset This Pane to Defaults") {
-                preferences.islandStartHome = true
-                preferences.islandExpandOnHover = true
                 preferences.trafficLightsAutoHide = true
                 preferences.forceReducedMotion = false
             }
@@ -604,8 +595,12 @@ struct SettingsView: View {
                 ("llama-server binary", LlamaServerManager.locateBinary() ?? "not found"),
                 ("Selected model path", ModelCatalog.entry(for: preferences.aiModel)
                     .map { ModelCatalog.localURL(for: $0).path } ?? "—"),
-                ("Chat port", "8080"),
-                ("Embed port", "8081"),
+                // W8: no longer a fixed 8080/8081 — a free loopback port is
+                // picked per launch, so this reads the live value (or says
+                // so plainly when nothing's running) instead of a number
+                // that stopped being true the moment that fix landed.
+                ("Chat port", LlamaServerManager.shared.endpoint(for: .chat)?.port.map(String.init) ?? "not running (assigned per launch)"),
+                ("Embed port", LlamaServerManager.shared.endpoint(for: .embed)?.port.map(String.init) ?? "not running (assigned per launch)"),
             ])
         }
     }
@@ -803,7 +798,9 @@ struct SettingsView: View {
             } else {
                 // Not just "don't load more" — actually free what's running,
                 // so turning the assistant off is also turning it off.
-                LlamaServerManager.shared.stop()
+                // Async, bounded wait (not a blocking sleep) — see stop()'s
+                // own doc comment on why this no longer freezes the window.
+                await LlamaServerManager.shared.stop()
             }
         }
         // Reloads whenever the provider switches (or the section first
@@ -1189,6 +1186,7 @@ struct SettingsView: View {
                     Button("Edit Credentials") { appState.isEditing = true }
                     Spacer()
                     Button("Sign Out", role: .destructive) { appState.signOut() }
+                        .disabled(appState.credentials == nil)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -1563,7 +1561,8 @@ private extension SettingsView {
                     weekStart: Weekday.weekStart(containing: .now),
                     until: preferences.termEndDate,
                     toCalendarID: preferences.googleCalendarID,
-                    status: { preferences.termStatus(for: $0) }
+                    status: { preferences.termStatus(for: $0) },
+                    time: { preferences.time(for: $0, on: $1) }
                 )
             } catch {
                 googleResult = error.localizedDescription
@@ -1572,7 +1571,15 @@ private extension SettingsView {
     }
 
     func syncNotifications() {
-        notifier.sync(appState.portal.sessions, preferences)
+        Task {
+            // Same reasoning as `AppState.refresh()`: `sync` unconditionally
+            // clears every pending reminder before deciding whether to re-add
+            // any, and with `authorization` still `nil`/stale that check
+            // fails and wipes every reminder with nothing put back. Refresh
+            // first.
+            await notifier.refreshAuthorization()
+            notifier.sync(appState.portal.sessions, preferences)
+        }
     }
 
     func exportICS() {
@@ -1589,7 +1596,8 @@ private extension SettingsView {
             until: preferences.termEndDate,
             // Term status: an .ics VEVENT is a single repeating series, so it
             // carries whole-term status, not a single week's exception.
-            status: { preferences.termStatus(for: $0) }
+            status: { preferences.termStatus(for: $0) },
+            time: { preferences.time(for: $0, on: $1) }
         )
         do {
             try text.write(to: url, atomically: true, encoding: .utf8)

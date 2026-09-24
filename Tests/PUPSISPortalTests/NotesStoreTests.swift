@@ -177,6 +177,33 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertTrue(store.notes.isEmpty)
     }
 
+    /// A corrupt notes.json must never be silently discarded and then
+    /// overwritten by the next save — that's how a decode failure used to
+    /// turn into total data loss. The bad file gets moved aside instead, and
+    /// the store's own persist() only ever touches the (now-empty) original
+    /// path, so it can never clobber the quarantined copy.
+    func testCorruptFileIsQuarantinedAndNotClobberedByTheNextSave() throws {
+        try Data("not valid json at all".utf8).write(to: url)
+
+        let store = NotesStore(url: url)
+        XCTAssertTrue(store.notes.isEmpty) // loads as empty, doesn't crash
+
+        let directory = url.deletingLastPathComponent()
+        let quarantined = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix(url.lastPathComponent + ".corrupt-") }
+        XCTAssertEqual(quarantined.count, 1)
+        defer { quarantined.forEach { try? FileManager.default.removeItem(at: $0) } }
+
+        let originalBytes = try Data(contentsOf: quarantined[0])
+        XCTAssertEqual(String(data: originalBytes, encoding: .utf8), "not valid json at all")
+
+        // A save after the corrupt load writes only the fresh (empty) state
+        // to the original path — the quarantined copy is untouched.
+        store.setText("fresh note", for: "class:MATH")
+        let stillQuarantined = try Data(contentsOf: quarantined[0])
+        XCTAssertEqual(stillQuarantined, originalBytes)
+    }
+
     // MARK: key(forName:) / noteNames() — resolving what /read and /summary type in
 
     func testKeyForNameMatchesVaultFileCaseInsensitively() {

@@ -321,6 +321,92 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.time(for: tuesday, on: week1).start, 13 * 60 + 30, "and the override must still resolve")
     }
 
+    // MARK: Week-key time-zone stability
+
+    /// The bug: the override was keyed by `weekStart`'s raw epoch, which is
+    /// "local midnight Monday" *in whatever time zone computed it* — a device
+    /// time-zone change (travel, a tz database update) relocalizes the same
+    /// calendar Monday to a different instant, and the epoch-keyed lookup
+    /// misses. Keying by the calendar day instead survives it.
+    func testAWeekOverrideSurvivesATimeZoneChange() throws {
+        let prefs = Preferences(defaults: defaults)
+        var manila = Calendar(identifier: .gregorian)
+        manila.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
+        var losAngeles = Calendar(identifier: .gregorian)
+        losAngeles.timeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+
+        let now = Date(timeIntervalSince1970: 1_754_060_000) // an arbitrary Tuesday
+        let weekStartBefore = Weekday.weekStart(containing: now, calendar: manila)
+        prefs.setStatus(.online, for: tuesday, on: weekStartBefore, calendar: manila)
+
+        // Simulate the time-zone change: the same calendar week now resolves
+        // to a different absolute "local midnight Monday" instant.
+        let weekStartAfter = Weekday.weekStart(containing: now, calendar: losAngeles)
+        XCTAssertNotEqual(weekStartBefore, weekStartAfter, "the two zones must actually disagree for this test to prove anything")
+
+        XCTAssertEqual(prefs.status(for: tuesday, on: weekStartAfter, calendar: losAngeles), .online)
+    }
+
+    // MARK: Legacy epoch-key migration
+    //
+    // A legacy key is local-midnight Monday *in whichever zone wrote it* —
+    // reinterpreting the raw epoch under today's zone (the bug this
+    // migration exists to fix) recovers the wrong day whenever the two
+    // differ. The actual migration instead finds the nearest Monday 00:00
+    // UTC to the epoch, which is unique and needs no knowledge of either
+    // zone. 2026-01-05 is a Monday; the two epochs below are that same
+    // calendar Monday's local midnight in Manila and in Los Angeles.
+
+    func testAManilaWrittenLegacyKeyMigratesToItsMonday() throws {
+        let manilaMidnight = 1_767_542_400 // 2026-01-05 00:00 Asia/Manila
+        let legacyKey = "\(tuesday.id)@\(manilaMidnight)"
+        let legacy = try JSONEncoder().encode([legacyKey: SessionStatus.online])
+        defaults.set(legacy, forKey: "occurrenceStatuses")
+
+        let prefs = Preferences(defaults: defaults)
+
+        XCTAssertEqual(prefs.occurrenceStatuses, ["\(tuesday.id)@2026-01-05": .online])
+    }
+
+    func testALosAngelesWrittenLegacyKeyMigratesToItsOwnMonday() throws {
+        let losAngelesMidnight = 1_767_600_000 // 2026-01-05 00:00 America/Los_Angeles
+        let legacyKey = "\(tuesday.id)@\(losAngelesMidnight)"
+        let legacy = try JSONEncoder().encode([legacyKey: SessionStatus.online])
+        defaults.set(legacy, forKey: "occurrenceStatuses")
+
+        let prefs = Preferences(defaults: defaults)
+
+        XCTAssertEqual(prefs.occurrenceStatuses, ["\(tuesday.id)@2026-01-05": .online])
+    }
+
+    /// A relaunch after the migration has already run must not touch the
+    /// now-current-format keys again.
+    func testLegacyKeyMigrationIsIdempotent() throws {
+        let manilaMidnight = 1_767_542_400 // 2026-01-05 00:00 Asia/Manila
+        let legacyKey = "\(tuesday.id)@\(manilaMidnight)"
+        let legacy = try JSONEncoder().encode([legacyKey: SessionStatus.online])
+        defaults.set(legacy, forKey: "occurrenceStatuses")
+
+        _ = Preferences(defaults: defaults) // first launch: migrates and persists
+        let relaunched = Preferences(defaults: defaults) // second launch: reads the migrated form
+
+        XCTAssertEqual(relaunched.occurrenceStatuses, ["\(tuesday.id)@2026-01-05": .online])
+    }
+
+    /// An epoch nowhere near a Monday 00:00 UTC (more than 14h away, wider
+    /// than any real UTC offset) isn't a week key this migration
+    /// understands — it must be left exactly as-is rather than silently
+    /// dropped or migrated to a wrong day.
+    func testAMalformedLegacyKeyIsPreservedRatherThanDropped() throws {
+        let legacyKey = "\(tuesday.id)@0" // 1970-01-01 00:00 UTC, a Thursday
+        let legacy = try JSONEncoder().encode([legacyKey: SessionStatus.online])
+        defaults.set(legacy, forKey: "occurrenceStatuses")
+
+        let prefs = Preferences(defaults: defaults)
+
+        XCTAssertEqual(prefs.occurrenceStatuses, [legacyKey: .online])
+    }
+
     func testTermEndDefaultsToAboutASemesterOut() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
@@ -681,7 +767,7 @@ final class PreferencesTests: XCTestCase {
 final class MotionTests: XCTestCase {
     private let tokens: [(String, (Bool) -> Animation?)] = [
         ("arrival", Motion.arrival), ("hover", Motion.hover), ("drift", Motion.drift),
-        ("selection", Motion.selection), ("drag", Motion.drag), ("island", Motion.island),
+        ("selection", Motion.selection), ("drag", Motion.drag),
         ("thunk", Motion.thunk), ("flip", Motion.flip), ("pop", Motion.pop),
         ("portalForm", Motion.portalForm), ("ignite", Motion.ignite), ("warp", Motion.warp),
         ("sweep", Motion.sweep), ("orbit", Motion.orbit), ("turn", Motion.turn),
@@ -690,7 +776,7 @@ final class MotionTests: XCTestCase {
     ]
 
     func testEveryAnimationIsRemovedWhenMotionIsReduced() {
-        XCTAssertEqual(tokens.count, 19)
+        XCTAssertEqual(tokens.count, 18)
         for (name, token) in tokens {
             XCTAssertNil(token(true), "\(name) still animates under Reduce Motion")
         }
@@ -736,8 +822,8 @@ final class PaletteTests: XCTestCase {
     }
 
     func testAutoFollowsTheSystemAppearance() {
-        XCTAssertEqual(ThemeChoice.auto.palette(for: .light), .pupMaroon)
-        XCTAssertEqual(ThemeChoice.auto.palette(for: .dark), .astraMoon)
+        XCTAssertEqual(ThemeChoice.auto.palette(for: .light), .registrar)
+        XCTAssertEqual(ThemeChoice.auto.palette(for: .dark), .registrarNight)
     }
 
     /// An explicit pick has to ignore the system, or the picker does nothing.
@@ -827,48 +913,24 @@ final class PaletteTests: XCTestCase {
 }
 
 final class TypographyTests: XCTestCase {
-    /// `.system` has to reproduce the original hardcoded scale exactly, or
-    /// every screen changes size the moment this shipped — even for someone
-    /// who never opens the font picker.
-    /// `Font`'s `Equatable` conformance isn't reliable across independently
-    /// built values (even `Font.system(.callout) == Font.system(.callout)`
-    /// comes back `false` on this SDK) — its debug description is stable
-    /// where `==` isn't, so that's what this compares against.
-    func testSystemChoiceMatchesTheOriginalScale() {
-        let typography = Typography(.system)
+    /// The Registrar faces: identity roles in Pixelify Sans, reading roles in
+    /// Source Sans 3 unless the user picked a family, all at their text
+    /// style's size times UI Scale. `Font` isn't reliably `==`, so this
+    /// compares debug descriptions.
+    func testRolesUseTheRegistrarFaces() {
         func describe(_ font: Font) -> String { String(describing: font) }
-
-        XCTAssertEqual(describe(typography.screenTitle), describe(Font.system(.title2, design: .serif).weight(.semibold)))
-        XCTAssertEqual(describe(typography.dayName), describe(Font.system(.caption, design: .default).weight(.semibold)))
-        XCTAssertEqual(describe(typography.gutter), describe(Font.system(.caption2, design: .monospaced)))
-        XCTAssertEqual(describe(typography.blockCode), describe(Font.system(.subheadline, design: .serif).weight(.semibold)))
-        XCTAssertEqual(describe(typography.blockTime), describe(Font.system(size: 10, design: .monospaced)))
-        XCTAssertEqual(describe(typography.detailTitle), describe(Font.system(.title3, design: .serif).weight(.semibold)))
-        XCTAssertEqual(describe(typography.detailBody), describe(Font.system(.callout)))
-        XCTAssertEqual(describe(typography.detailMeta), describe(Font.system(.caption, design: .monospaced)))
-        XCTAssertEqual(describe(typography.nowClock), describe(Font.system(.caption2, design: .monospaced).weight(.semibold)))
-        XCTAssertEqual(describe(typography.footer), describe(Font.system(.caption)))
-        XCTAssertEqual(describe(typography.hero), describe(Font.system(.largeTitle, design: .serif).weight(.semibold)))
+        let system = Typography(.system)
+        XCTAssertEqual(describe(system.screenTitle), describe(Font.custom("Pixelify Sans", size: 17).weight(.bold)))
+        XCTAssertEqual(describe(system.blockTime), describe(Font.custom("Source Sans 3", size: 10).weight(.medium).monospacedDigit()))
+        XCTAssertEqual(describe(system.detailBody), describe(Font.custom("Source Sans 3", size: 12).weight(.regular)))
+        XCTAssertEqual(describe(Typography(.inter).detailBody), describe(Font.custom("Inter", size: 12).weight(.regular)))
+        XCTAssertEqual(describe(Typography(.inter).blockCode), describe(Font.custom("Pixelify Sans", size: 11).weight(.regular)))
     }
 
-    /// The scaling this exists for: a custom family's point size actually
-    /// grows, and a `.system` choice at a non-1.0 scale stops taking the
-    /// style-based branch (which can't be resized) for the size-based one.
-    /// `Font.custom`'s debug description doesn't encode the size (unlike the
-    /// style-based branch above), so this compares against the exact
-    /// expected build rather than a not-equal check.
     func testScaleMultipliesPointSize() {
         func describe(_ font: Font) -> String { String(describing: font) }
-
-        let doubled = Typography(.jetBrainsMono, scale: 2.0)
-        XCTAssertEqual(describe(doubled.blockTime), describe(Font.custom("JetBrains Mono", size: 20)))
-        let normal = Typography(.jetBrainsMono, scale: 1.0)
-        XCTAssertEqual(describe(normal.blockTime), describe(Font.custom("JetBrains Mono", size: 10)))
-
-        // `.system` at scale 1 keeps the exact literals the test above pins;
-        // any other scale must switch off that (unresizable) branch.
-        XCTAssertEqual(describe(Typography(.system, scale: 1.0).footer), describe(Font.system(.caption)))
-        XCTAssertEqual(describe(Typography(.system, scale: 1.5).footer), describe(Font.system(size: 15)))
+        XCTAssertEqual(describe(Typography(.system, scale: 2).screenTitle), describe(Font.custom("Pixelify Sans", size: 34).weight(.bold)))
+        XCTAssertEqual(describe(Typography(.jetBrainsMono, scale: 1.5).footer), describe(Font.custom("JetBrains Mono", size: 15).weight(.regular)))
     }
 
     /// Every non-system choice has to actually resolve to a registered font —

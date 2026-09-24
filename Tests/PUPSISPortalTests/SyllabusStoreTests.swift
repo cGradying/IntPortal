@@ -89,6 +89,25 @@ final class SyllabusStoreTests: XCTestCase {
         XCTAssertEqual(store.allItems(), [])
     }
 
+    /// Same guarantee as `NotesStoreTests`: a corrupt syllabus.json is moved
+    /// aside, not silently discarded and then overwritten by the next save.
+    func testCorruptFileIsQuarantinedAndNotClobberedByTheNextSave() throws {
+        try Data("{not json".utf8).write(to: url)
+
+        let store = SyllabusStore(url: url)
+        XCTAssertEqual(store.allItems(), [])
+
+        let directory = url.deletingLastPathComponent()
+        let quarantined = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix(url.lastPathComponent + ".corrupt-") }
+        XCTAssertEqual(quarantined.count, 1)
+        defer { quarantined.forEach { try? FileManager.default.removeItem(at: $0) } }
+        let originalBytes = try Data(contentsOf: quarantined[0])
+
+        store.addItem(item(topic: "fresh"))
+        XCTAssertEqual(try Data(contentsOf: quarantined[0]), originalBytes)
+    }
+
     func testWipeAllClears() {
         let store = SyllabusStore(url: url)
         store.addItem(item())

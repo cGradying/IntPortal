@@ -87,6 +87,55 @@ final class RealAssistantExecutorTests: XCTestCase {
         XCTAssertTrue(result.message.contains("class:COMP 001"))
     }
 
+    /// Regression: `read_note` used to ignore the right-click "Include in AI
+    /// search" toggle entirely — a note the student explicitly excluded from
+    /// AI could still be read straight into the model's context by name.
+    func testReadNoteRefusesAnExcludedNote() async {
+        let key = notesStore.addFile(name: "Private", to: nil)
+        let id = notesStore.vault.first { $0.noteKey == key }!.id
+        notesStore.setText("sensitive contents", for: key)
+        notesStore.setRAGExcluded(true, for: id)
+
+        let result = await executor().execute(AssistantAction(tool: "read_note", args: ["key": .string(key)]))
+        XCTAssertFalse(result.ok)
+        XCTAssertFalse(result.message.contains("sensitive contents"))
+    }
+
+    /// Same toggle, reached via the fallback-to-open-note path rather than an
+    /// explicit key — must be refused the same way.
+    func testReadNoteRefusesTheOpenNoteWhenItIsExcluded() async {
+        let key = notesStore.addFile(name: "Private", to: nil)
+        let id = notesStore.vault.first { $0.noteKey == key }!.id
+        notesStore.setText("sensitive contents", for: key)
+        notesStore.setRAGExcluded(true, for: id)
+
+        let result = await executor(openKey: key).execute(AssistantAction(tool: "read_note"))
+        XCTAssertFalse(result.ok)
+    }
+
+    /// A `class:`/`day:` note has no vault node to carry the toggle and is
+    /// always readable — confirms the exclusion check doesn't over-reach.
+    func testReadNoteStillWorksForClassNotesWhichHaveNoExclusionToggle() async {
+        notesStore.setText("Lecture 1.", for: "class:COMP 001")
+        let result = await executor().execute(AssistantAction(tool: "read_note", args: ["key": .string("class:COMP 001")]))
+        XCTAssertTrue(result.ok)
+    }
+
+    /// `list_notes` must not even name an excluded vault file — otherwise
+    /// the model just turns around and asks to `read_note` it.
+    func testListNotesOmitsAnExcludedVaultFile() async {
+        let key = notesStore.addFile(name: "Private", to: nil)
+        let id = notesStore.vault.first { $0.noteKey == key }!.id
+        notesStore.setText("x", for: key)
+        notesStore.setRAGExcluded(true, for: id)
+        _ = notesStore.addFile(name: "Midterm plan", to: nil)
+
+        let result = await executor().execute(AssistantAction(tool: "list_notes"))
+        XCTAssertTrue(result.ok)
+        XCTAssertFalse(result.message.contains("Private"))
+        XCTAssertTrue(result.message.contains("Midterm plan"))
+    }
+
     // MARK: search_notes
 
     func testSearchNotesFindsAMatchWithASnippet() async {
@@ -407,6 +456,127 @@ final class RealAssistantExecutorTests: XCTestCase {
         let result = await executor().execute(action)
         XCTAssertFalse(result.ok)
         XCTAssertTrue(result.message.contains("No event named"))
+    }
+
+    // MARK: move_event target picking (matchEvent) — pure, no EventKit
+    //
+    // W13 brief: can move_event act on the wrong occurrence of a repeating
+    // event, or the wrong one of two same-titled events on the same day?
+    // Reproduced: `calendar.events(on:calendarIDs:)` is a single-day query
+    // and `DayBlock.id` already embeds the occurrence's own timestamp
+    // (`CalendarBridge.blockID`), so two occurrences of one series can never
+    // collide into the same candidate — that part never reproduced. What did
+    // reproduce: two genuinely different events sharing a title on the same
+    // day had no way to be told apart (`set_class_status`/`set_class_time`
+    // already support a disambiguating `start`; `move_event` didn't). These
+    // tests exercise `matchEvent` directly against fabricated `[DayBlock]` —
+    // it's pure, so no real calendar is ever touched.
+
+    private func block(id: String, day: Weekday = .monday, start: Int, end: Int, title: String) -> DayBlock {
+        DayBlock(id: id, day: day, start: start, end: end, title: title, subtitle: "")
+    }
+
+    func testMatchEventPicksTheOnlyCandidateWithThatTitle() {
+        let candidates = [
+            block(id: "a", start: 600, end: 660, title: "Dentist"),
+            block(id: "b", start: 800, end: 860, title: "Study group"),
+        ]
+        let (match, error) = RealAssistantExecutor.matchEvent(
+            in: candidates, title: "Dentist", dateString: "2026-08-18", disambiguatingStart: nil
+        )
+        XCTAssertEqual(match?.id, "event-a")
+        XCTAssertNil(error)
+    }
+
+    /// Two different events, same title, same day — the one scenario that did
+    /// reproduce. Without a `start` to disambiguate, this must fail closed
+    /// (ask for clarification) rather than silently pick the first one.
+    func testMatchEventFailsClosedOnTwoSameTitledEventsWithNoDisambiguatingStart() {
+        let candidates = [
+            block(id: "a", start: 600, end: 660, title: "1-on-1"),
+            block(id: "b", start: 900, end: 930, title: "1-on-1"),
+        ]
+        let (match, error) = RealAssistantExecutor.matchEvent(
+            in: candidates, title: "1-on-1", dateString: "2026-08-18", disambiguatingStart: nil
+        )
+        XCTAssertNil(match)
+        XCTAssertNotNil(error)
+        XCTAssertTrue(error!.contains("more than once"))
+    }
+
+    /// Same ambiguous pair, but now with a `start` that narrows it to exactly
+    /// one — must return that occurrence, never the other one.
+    func testMatchEventResolvesAmbiguityWithDisambiguatingStart() {
+        let candidates = [
+            block(id: "a", start: 600, end: 660, title: "1-on-1"),
+            block(id: "b", start: 900, end: 930, title: "1-on-1"),
+        ]
+        let (match, error) = RealAssistantExecutor.matchEvent(
+            in: candidates, title: "1-on-1", dateString: "2026-08-18", disambiguatingStart: 900
+        )
+        XCTAssertEqual(match?.id, "event-b")
+        XCTAssertNil(error)
+    }
+
+    /// A `start` that doesn't land on either candidate must still fail
+    /// closed rather than falling back to a guess.
+    func testMatchEventFailsClosedWhenDisambiguatingStartMatchesNeither() {
+        let candidates = [
+            block(id: "a", start: 600, end: 660, title: "1-on-1"),
+            block(id: "b", start: 900, end: 930, title: "1-on-1"),
+        ]
+        let (match, error) = RealAssistantExecutor.matchEvent(
+            in: candidates, title: "1-on-1", dateString: "2026-08-18", disambiguatingStart: 700
+        )
+        XCTAssertNil(match)
+        XCTAssertNotNil(error)
+    }
+
+    /// Simulates the "wrong occurrence of a repeating event" half of the
+    /// brief directly: two blocks that share an EventKit identifier (as two
+    /// occurrences of one series would) but sit at different times, the same
+    /// shape a real recurring event's per-day query could in principle
+    /// produce. `matchEvent` must still land on the exact occurrence asked
+    /// for, never the other one of the same series.
+    func testMatchEventPicksTheRightOccurrenceOfARepeatingSeriesById() {
+        let candidates = [
+            DayBlock(id: "series-1@100", day: .monday, start: 600, end: 660, title: "Standup", subtitle: "", groupKey: "series-1"),
+            DayBlock(id: "series-1@200", day: .monday, start: 900, end: 930, title: "Standup", subtitle: "", groupKey: "series-1"),
+        ]
+        let (match, error) = RealAssistantExecutor.matchEvent(
+            in: candidates, title: "Standup", dateString: "2026-08-18", disambiguatingStart: 900
+        )
+        XCTAssertEqual(match?.start, 900)
+        XCTAssertEqual(match?.end, 930)
+        XCTAssertNil(error)
+    }
+
+    func testMatchEventReportsNoMatchForAnUnknownTitle() {
+        let candidates = [block(id: "a", start: 600, end: 660, title: "Dentist")]
+        let (match, error) = RealAssistantExecutor.matchEvent(
+            in: candidates, title: "Gym", dateString: "2026-08-18", disambiguatingStart: nil
+        )
+        XCTAssertNil(match)
+        XCTAssertEqual(error, "No event named \"Gym\" found on 2026-08-18.")
+    }
+
+    // MARK: execute(_:isCancelled:) — the W9-noticed cancellation gap
+    //
+    // `AssistantCommandRunner`'s slash commands (`/event`, `/move`, `/vacant`,
+    // …) call `executor.execute` with no cancellation check at all. The fix
+    // lives in `execute` itself — the one place every caller (the engine's
+    // `.auto` loop and every slash command) routes through — so this is
+    // tested at that single choke point rather than once per call site.
+
+    func testExecuteRefusesWhenCancelled() async {
+        let result = await executor().execute(AssistantAction(tool: "list_notes"), isCancelled: { true })
+        XCTAssertFalse(result.ok)
+    }
+
+    func testExecuteRunsNormallyWhenNotCancelled() async {
+        notesStore.setText("x", for: "class:COMP 001")
+        let result = await executor().execute(AssistantAction(tool: "list_notes"), isCancelled: { false })
+        XCTAssertTrue(result.ok)
     }
 
     // MARK: read_date — validation only

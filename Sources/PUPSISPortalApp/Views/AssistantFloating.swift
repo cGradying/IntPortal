@@ -1,11 +1,9 @@
 import SwiftUI
 import Inject
 
-/// The app's one piece of floating chrome that isn't `NavIsland` — bottom-left,
-/// reachable from every screen. One glass surface that morphs between shapes
-/// rather than several overlapping views (`matchedGeometryEffect(id:
-/// "assistant", ...)`, the same vocabulary `NavIsland` uses for its own
-/// centre↔top morph):
+/// The app's floating chrome — bottom-left, reachable from every screen. One
+/// surface that morphs between shapes rather than several overlapping views
+/// (`matchedGeometryEffect(id: "assistant", ...)`):
 ///
 /// - **orb** — idle, everywhere except an open note.
 /// - **orb + hover rail** — hovering the orb (wayfinder ticket #8,
@@ -61,7 +59,7 @@ struct AssistantFloating: View {
     private var deckState: DeckState {
         if preferences.aiEnabled, session.isOpen { return .chat }
         // Vault tab specifically — Quizzes has no `WebNoteEditor` to drive.
-        if appState.selection == .today, appState.notebook.tab == .vault { return .toolbar }
+        if [.today, .notebook].contains(appState.selection), appState.notebook.tab == .vault { return .toolbar }
         guard preferences.aiEnabled else { return .hidden }
         return railExpanded ? .orbHovered : .orb
     }
@@ -84,7 +82,7 @@ struct AssistantFloating: View {
                     .transition(Self.morphTransition)
             }
         }
-        .animation(Motion.island(reduced: reduceMotion), value: deckState)
+        .animation(Motion.depthPush(reduced: reduceMotion), value: deckState)
         // Attached at this level (not inside `orb`/`orbWithRail` individually)
         // so hovering never drops mid-expand when the two views swap out
         // under the pointer. Ignored outside the orb states — the toolbar
@@ -108,7 +106,7 @@ struct AssistantFloating: View {
         Task {
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard generation == hoverGeneration else { return }
-            withAnimation(Motion.island(reduced: reduceMotion)) { railExpanded = hovering }
+            withAnimation(Motion.depthPush(reduced: reduceMotion)) { railExpanded = hovering }
         }
     }
 
@@ -122,7 +120,7 @@ struct AssistantFloating: View {
     private static let morphTransition: AnyTransition = .scale(scale: 0.82, anchor: .bottomLeading).combined(with: .opacity)
 
     private func go(open: Bool) {
-        withAnimation(Motion.island(reduced: reduceMotion)) { session.isOpen = open }
+        withAnimation(Motion.depthPush(reduced: reduceMotion)) { session.isOpen = open }
     }
 
     private var orb: some View {
@@ -185,11 +183,11 @@ struct AssistantFloating: View {
                 RailItem(id: "gpa", symbol: "chart.line.uptrend.xyaxis", help: "GPA trend", command: "/grades", destination: .grades),
                 nextClass,
             ]
-        case .today:
-            // Reached only outside the Vault tab (`.toolbar` wins there) —
+        case .today, .notebook, .quizzes, .syllabus:
+            // Reached only outside the Vault face (`.toolbar` wins there) —
             // Quizzes or Syllabus.
             return [
-                RailItem(id: "notes", symbol: "magnifyingglass", help: "List notes", command: "/notes", destination: .today),
+                RailItem(id: "notes", symbol: "magnifyingglass", help: "List notes", command: "/notes", destination: .notebook),
                 nextClass,
             ]
         }
@@ -200,8 +198,8 @@ struct AssistantFloating: View {
     /// sends it the moment the panel appears.
     private func jumpAndNarrate(_ item: RailItem) -> some View {
         Button {
-            withAnimation(Motion.island(reduced: reduceMotion)) {
-                appState.selection = item.destination
+            withAnimation(Motion.depthPush(reduced: reduceMotion)) {
+                appState.open(item.destination)
                 session.isOpen = true
             }
             session.pendingCommand = item.command
@@ -501,6 +499,13 @@ private struct AssistantChat: View {
     /// mutating) preference mid-drag.
     @State private var sizeAtDragStart: CGSize?
     @State private var gripHovered = false
+    /// The in-flight `send()` request/tool-loop, if any — cancelled by the
+    /// Clear button so an old turn's still-running Auto-mode tool calls stop
+    /// rather than keep executing into a conversation that's just been
+    /// cleared. Paired with `AssistantSession.turnID`: cancellation alone
+    /// doesn't guarantee a write already past its last suspension point is
+    /// stopped in time, so the write itself is also tagged and checked.
+    @State private var activeTurn: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -594,7 +599,11 @@ private struct AssistantChat: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 if !session.transcript.isEmpty {
-                    Button { session.reset() } label: {
+                    Button {
+                        activeTurn?.cancel()
+                        activeTurn = nil
+                        session.reset()
+                    } label: {
                         Image(systemName: "square.and.pencil").font(.system(size: 11, weight: .semibold))
                     }
                     .buttonStyle(.plain)
@@ -850,9 +859,14 @@ private struct AssistantChat: View {
 
     private func apply(_ action: AssistantAction, at index: Int) {
         session.pendingActions.remove(at: index)
+        // The pending action belongs to whichever turn is current right now
+        // (only a turn's own results ever populate `pendingActions`) — same
+        // stale-write guard as `send()`, in case Clear lands mid-execute.
+        let turn = session.turnID
         Task {
             let executor = makeExecutor()
             let result = await executor.execute(action)
+            guard session.isCurrent(turn) else { return }
             session.appendAssistant(result.message, sources: result.sources)
         }
     }
@@ -870,10 +884,14 @@ private struct AssistantChat: View {
     /// forever, so it returns every time `session.reset()` clears the chat
     /// without nagging mid-conversation.
     private var accuracyWarning: some View {
-        Text("Runs locally and can be wrong. Check anything that matters.")
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .padding(.top, 6)
+        Text(
+            preferences.isCloudProviderActive
+                ? "Uses a cloud model and can be wrong. Check anything that matters."
+                : "Runs locally and can be wrong. Check anything that matters."
+        )
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .padding(.top, 6)
     }
 
     private var inputBar: some View {
@@ -1063,13 +1081,19 @@ private struct AssistantChat: View {
         session.pendingActions = []
         let priorHistory = session.transcript
         session.appendUser(text)
+        // Captured before the Task runs — checked after every await below so
+        // a Clear (which bumps this past `turn`) stops this turn's result
+        // from landing in the conversation it no longer belongs to. See
+        // AssistantSession.turnID's doc comment.
+        let turn = session.beginTurn()
 
         // Slash-commands never reach the model's tool-picking loop at all —
         // parsed deterministically here, or falls through to the engine below.
         if let command = AssistantCommand.parse(text) {
             session.isThinking = true
-            Task {
+            activeTurn = Task {
                 let outcome = await makeCommandRunner().run(command)
+                guard session.isCurrent(turn) else { return }
                 if let pin = outcome.pin { session.pinnedNote = pin }
                 session.appendAssistant(outcome.reply, sources: outcome.sources)
                 session.isThinking = false
@@ -1083,12 +1107,13 @@ private struct AssistantChat: View {
         let context = buildContext()
         let permission = preferences.aiPermission
 
-        Task {
+        activeTurn = Task {
             do {
                 let outcome = try await engine.respond(
                     to: text, history: priorHistory, context: context, permission: permission,
                     think: preferences.aiThinking
                 )
+                guard session.isCurrent(turn) else { return }
                 session.lastThinking = outcome.thinking
                 // `.auto` already executed every tool itself — fold whichever
                 // notes it drew from into the reply's own chip, rather than
@@ -1097,16 +1122,18 @@ private struct AssistantChat: View {
                     if !unique.contains(name) { unique.append(name) }
                 }
                 session.appendAssistant(
-                    AssistantSession.displayReply(outcome.reply, actionCount: outcome.actions.count),
+                    AssistantSession.displayReply(outcome.reply, ranCount: outcome.results.count),
                     sources: sources
                 )
                 if permission != .auto {
                     session.pendingActions = outcome.actions
                 }
+                session.isThinking = false
             } catch {
+                guard session.isCurrent(turn) else { return }
                 session.lastError = error.localizedDescription
+                session.isThinking = false
             }
-            session.isThinking = false
         }
     }
 
@@ -1138,7 +1165,10 @@ private struct AssistantChat: View {
     }
 
     private func makeEngine() -> AssistantEngine {
-        AssistantEngine(client: preferences.resolvedAIClient(), model: preferences.aiModel, executor: makeExecutor())
+        AssistantEngine(
+            client: preferences.resolvedAIClient(), model: preferences.aiModel, executor: makeExecutor(),
+            isCloudProvider: preferences.isCloudProviderActive
+        )
     }
 
     private func buildContext() -> AssistantContext {
@@ -1150,7 +1180,15 @@ private struct AssistantChat: View {
                 let time = preferences.time(for: session, on: weekStart)
                 return AssistantContext.ClassEntry(session: session, start: time.start, end: time.end)
             }
-        let noteText = appState.openNoteKey.map { appState.notes.text(for: $0) }
+        // Regression: this used to read the open note's text unconditionally
+        // — a note the student excluded from AI still leaked into the system
+        // prompt just by being open. An excluded note is treated as if none
+        // were open at all, same refusal `RealAssistantExecutor.readNote`
+        // gives the model directly.
+        let openNoteKey = appState.openNoteKey.flatMap {
+            RealAssistantExecutor.isExcludedFromAI($0, in: appState.notes) ? nil : $0
+        }
+        let noteText = openNoteKey.map { appState.notes.text(for: $0) }
         let gradesSummary = appState.portal.grades.flatMap { report -> String? in
             guard report.hasPostedGrades else { return nil }
             let gpa = report.computedGPA.map { String(format: "%.2f", $0) } ?? "n/a"
@@ -1170,7 +1208,7 @@ private struct AssistantChat: View {
         schedule.save()
         return AssistantContext(
             destination: appState.selection,
-            openNoteKey: appState.openNoteKey,
+            openNoteKey: openNoteKey,
             openNoteText: noteText,
             todayClasses: todayClasses,
             gradesSummary: gradesSummary,

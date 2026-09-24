@@ -14,15 +14,21 @@ import Foundation
 enum ICSExporter {
     /// `status` resolves each class's term status; vacant classes are left out
     /// and online ones are marked, matching `CalendarBridge.exportClasses` so the
-    /// file and the EventKit export never disagree.
+    /// file and the EventKit export never disagree. `time` resolves the meeting's
+    /// start/end the same way — defaults to the scraped SIS time, but a caller
+    /// passing `Preferences.time(for:on:)` picks up a term-wide moved time (and,
+    /// since it's only resolved once against `weekStart`, whatever exception
+    /// happens to apply to that anchor week).
     ///
-    /// ponytail: term status only, not per-week — a single repeating VEVENT can't
-    /// carry a one-week exception, the same limit the EventKit export documents.
+    /// ponytail: term status/time only, not per-week — a single repeating VEVENT
+    /// can't carry a one-week exception, the same limit the EventKit export
+    /// documents.
     static func ics(
         for sessions: [ClassSession],
         weekStart: Date,
         until termEnd: Date,
         status: (ClassSession) -> SessionStatus = { _ in .regular },
+        time: (ClassSession, Date) -> (Int, Int) = { s, _ in (s.start, s.end) },
         calendar: Calendar = .current,
         now: Date = Date()
     ) -> String {
@@ -42,8 +48,13 @@ enum ICSExporter {
                     CalendarBridge.ClassExport.plan(for: status(session)) else { continue }
 
             let day = session.day.date(inWeekStarting: weekStart, calendar: calendar)
-            guard let start = calendar.date(byAdding: .minute, value: session.start, to: day),
-                  let end = calendar.date(byAdding: .minute, value: session.end, to: day)
+            let (startMinutes, endMinutes) = time(session, weekStart)
+            // Wall-clock, not elapsed-minute, so a DST transition day doesn't
+            // drift the exported time — see Calendar.wallClock in NextClass.swift.
+            // `nil` means the anchor week's occurrence fell on a
+            // spring-forward gap; that session is left out of the file.
+            guard let start = calendar.wallClock(minutes: startMinutes, on: day),
+                  let end = calendar.wallClock(minutes: endMinutes, on: day)
             else { continue }
 
             lines.append("BEGIN:VEVENT")

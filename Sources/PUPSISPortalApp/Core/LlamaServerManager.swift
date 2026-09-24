@@ -1,12 +1,29 @@
 import Foundation
+import Security
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
 
 /// Owns both `llama-server` processes' lifecycle — the `.chat` role
-/// (assistant/tools/quiz/note-help, port 8080) and the `.embed` role (note
-/// search, port 8081) — so nothing in the app depends on the user having
-/// started them by hand in a terminal, and neither outlives the app. One
-/// binary, two roles, two local GGUF files (`ModelCatalog`); `.shared`,
-/// matching `Notifier.shared`'s existing precedent for a process-wide owned
-/// resource.
+/// (assistant/tools/quiz/note-help) and the `.embed` role (note search) — so
+/// nothing in the app depends on the user having started them by hand in a
+/// terminal, and neither outlives the app. One binary, two roles, two local
+/// GGUF files (`ModelCatalog`); `.shared`, matching `Notifier.shared`'s
+/// existing precedent for a process-wide owned resource.
+///
+/// **W8 (security):** each launch binds an explicit `--host 127.0.0.1` on
+/// its own free loopback port with a random per-launch API key — never a
+/// fixed 8080/8081 that an orphaned or unrelated process could already be
+/// squatting on. The key itself never appears in `argv` (visible to any
+/// local user via `ps`) — it's written to a private 0600 file and handed to
+/// llama-server via `--api-key-file`, deleted the moment startup is
+/// confirmed. A bare HTTP 200 from `/health` is never trusted by itself —
+/// `waitUntilHealthy` also checks `/props` (with our own key, which nothing
+/// else knows) reports the exact model file we launched, and that the
+/// `Process` we hold is still the one actually alive on that port, before
+/// anything is allowed to send it the student's schedule/grades/notes.
 @MainActor
 final class LlamaServerManager {
     static let shared = LlamaServerManager()
@@ -15,14 +32,13 @@ final class LlamaServerManager {
         case chat
         case embed
 
-        var port: Int {
+        /// The OpenAI-compatible path `LlamaCppClient` posts to for this role.
+        var apiPath: String {
             switch self {
-            case .chat: 8080
-            case .embed: 8081
+            case .chat: "v1/chat/completions"
+            case .embed: "v1/embeddings"
             }
         }
-
-        var healthURL: URL { URL(string: "http://127.0.0.1:\(port)/health")! }
 
         /// `.embed` needs `--embedding` (restricts the process to the
         /// embedding use case; llama.cpp refuses `/v1/embeddings` without it
@@ -49,11 +65,48 @@ final class LlamaServerManager {
         "/usr/local/bin/llama-server",
     ]
 
-    private var processes: [Role: Process] = [:]
+    /// Everything about one role's currently-launched process — replaces
+    /// what used to be four parallel dictionaries keyed by `Role`. Holding
+    /// the actual `Process` is what lets `verifyOwnership` answer "is this
+    /// really ours" without any network round trip: `process.isRunning` is
+    /// the OS telling us our own child is still alive, no server response
+    /// can spoof that.
+    private struct RunningServer {
+        let process: Process
+        let port: Int
+        let apiKey: String
+        /// The `--api-key-file` this launch wrote the key to — `nil` once
+        /// cleaned up (or if it was never written, e.g. a test registration).
+        /// Removed the moment the server reports healthy, or on `stop`/an
+        /// unexpected exit, whichever comes first.
+        let apiKeyFileURL: URL?
+        let modelPath: URL
+        let contextSize: Int
+        let kvQuantized: Bool
+        let useGPU: Bool
+    }
+
+    private var running: [Role: RunningServer] = [:]
+
+    /// The network transport `isHealthy`/`verifyOwnership` send through —
+    /// injectable so tests can fake `/health`/`/props` responses without a
+    /// real `llama-server` (or any network at all). Defaults to a plain
+    /// `URLSession` request.
+    private let probe: (URLRequest) async throws -> (Data, Int)
+
+    init(probe: @escaping (URLRequest) async throws -> (Data, Int) = LlamaServerManager.realProbe) {
+        self.probe = probe
+    }
+
+    private static func realProbe(_ request: URLRequest) async throws -> (Data, Int) {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
 
     /// Starts `role`'s server against `modelPath` if it isn't already
-    /// reachable, and waits until it answers `/health` (or a timeout), so
-    /// the first request doesn't race a cold process. Safe to call
+    /// reachable, and waits until it answers `/health` *and* proves it's our
+    /// process serving our model (or a timeout), so the first request
+    /// doesn't race a cold process — or a stranger's. Safe to call
     /// repeatedly — a no-op once running, and a second call while one is
     /// still starting waits on the same launch rather than spawning a
     /// duplicate.
@@ -71,19 +124,239 @@ final class LlamaServerManager {
         _ role: Role, modelPath: URL, contextSize: Int = Preferences.aiDefaultContextSize,
         kvQuantized: Bool = true, useGPU: Bool = true
     ) async -> Bool {
-        if await isHealthy(role), currentModelPath[role] == modelPath, currentContextSize[role] == contextSize,
-           currentKVQuantized[role] == kvQuantized, currentUseGPU[role] == useGPU {
+        if let server = running[role], server.modelPath == modelPath, server.contextSize == contextSize,
+           server.kvQuantized == kvQuantized, server.useGPU == useGPU,
+           await isHealthy(role), await verifyOwnership(role) {
             return true
         }
-        if currentModelPath[role] != modelPath || currentContextSize[role] != contextSize
-            || currentKVQuantized[role] != kvQuantized || currentUseGPU[role] != useGPU {
-            stop(role)
+        if let server = running[role],
+           server.modelPath != modelPath || server.contextSize != contextSize
+            || server.kvQuantized != kvQuantized || server.useGPU != useGPU {
+            await stop(role)
         }
-        if processes[role] != nil { return await waitUntilHealthy(role) }
+        if running[role] != nil { return await waitUntilHealthy(role) }
 
         guard let binary = Self.locateBinary() else { return false }
+        guard let port = Self.pickFreePort() else { return false }
+        let apiKey = Self.generateAPIKey()
+        // The key never touches argv (W8 follow-up: argv is visible to any
+        // local user via `ps`) — written to a private 0600 file instead and
+        // handed to llama-server as --api-key-file. A write failure fails
+        // the launch outright rather than silently falling back to argv.
+        guard let apiKeyFile = try? Self.writeAPIKeyFile(apiKey) else { return false }
+        let arguments = Self.launchArguments(
+            role: role, modelPath: modelPath, port: port, apiKeyFile: apiKeyFile,
+            contextSize: contextSize, kvQuantized: kvQuantized, useGPU: useGPU
+        )
 
-        var arguments = ["-m", modelPath.path, "--port", String(role.port), "--ctx-size", String(contextSize)]
+        let launched = Process()
+        launched.executableURL = URL(fileURLWithPath: binary)
+        launched.arguments = arguments
+        launched.standardOutput = FileHandle.nullDevice
+        launched.standardError = FileHandle.nullDevice
+
+        do {
+            try launched.run()
+        } catch {
+            Self.removeAPIKeyFile(apiKeyFile)
+            return false
+        }
+        register(
+            role, process: launched, port: port, apiKey: apiKey, apiKeyFileURL: apiKeyFile, modelPath: modelPath,
+            contextSize: contextSize, kvQuantized: kvQuantized, useGPU: useGPU
+        )
+        return await waitUntilHealthy(role)
+    }
+
+    /// Registers `process` (already `run()`) as `role`'s current server and
+    /// arms the termination handler that clears it if the process exits on
+    /// its own — a crash, an OOM kill, `killall llama-server` from a
+    /// terminal — rather than only on an intentional `stop()`. Without this,
+    /// an exited `Process` stayed in the table forever, and `ensureRunning`
+    /// would take the "already running, just wait for health" branch on
+    /// every future call, failing the full 30s timeout every single time
+    /// instead of noticing the process is dead and launching a fresh one.
+    /// Internal, not private: `LlamaServerManagerTests` calls this directly
+    /// with a harmless stand-in process (never a real `llama-server`) to
+    /// exercise the clearing behavior without spawning the real binary.
+    func register(
+        _ role: Role, process: Process, port: Int, apiKey: String, apiKeyFileURL: URL? = nil, modelPath: URL,
+        contextSize: Int, kvQuantized: Bool, useGPU: Bool
+    ) {
+        process.terminationHandler = { [weak self] finished in
+            Task { @MainActor in self?.clearIfCurrent(role, process: finished) }
+        }
+        running[role] = RunningServer(
+            process: process, port: port, apiKey: apiKey, apiKeyFileURL: apiKeyFileURL, modelPath: modelPath,
+            contextSize: contextSize, kvQuantized: kvQuantized, useGPU: useGPU
+        )
+    }
+
+    /// Only clears `role`'s slot if `process` is still the one registered —
+    /// guards against a late-firing handler from an old, already-`stop()`ed
+    /// process clobbering a newer relaunch's state. Also the cleanup path for
+    /// a process that exited on its own before ever reporting healthy — its
+    /// key file (if `waitUntilHealthy` never got to delete it) is removed here.
+    private func clearIfCurrent(_ role: Role, process: Process) {
+        guard let server = running[role], server.process === process else { return }
+        Self.removeAPIKeyFile(server.apiKeyFileURL)
+        running[role] = nil
+    }
+
+    /// Where `LlamaCppClient` sends `role`'s requests — `nil` when nothing is
+    /// running for it, so the client fails with a clear "offline" error
+    /// rather than guessing a URL.
+    func endpoint(for role: Role) -> URL? {
+        guard let port = running[role]?.port else { return nil }
+        return URL(string: "http://127.0.0.1:\(port)/\(role.apiPath)")
+    }
+
+    /// The bearer token `LlamaCppClient` must send with `role`'s requests —
+    /// the same one this launch handed `llama-server` via `--api-key-file`.
+    func apiKey(for role: Role) -> String? { running[role]?.apiKey }
+
+    /// Clean SIGTERM, then a bounded wait for actual exit — llama-server
+    /// shuts down on it, but the old fire-and-forget `terminate()` returned
+    /// immediately, so a caller that spawns right after quitting couldn't
+    /// tell whether the port was really free yet. Called when AI is toggled
+    /// off and on a backend switch. **Not** what the app-quit path uses —
+    /// see `terminateWithoutWaiting()` for why.
+    func stop() async {
+        await stop(.chat)
+        await stop(.embed)
+    }
+
+    /// Bounded wait timeout for `stop(_:)` — generous enough for a clean
+    /// SIGTERM shutdown, short enough that toggling AI off or switching
+    /// backends never feels stuck.
+    private static let stopWaitTimeout: TimeInterval = 2
+
+    /// Async and polls with `Task.sleep`, not a blocking `usleep` — this
+    /// runs on `@MainActor`, and a thread-blocking sleep there froze the
+    /// whole UI for up to 2s per role (confirmed in review: SettingsView's
+    /// AI-toggle-off stops both roles back to back, up to 4s of a frozen
+    /// window). `Task.sleep` yields instead of blocking, so the app stays
+    /// responsive while this waits. Internal, not private, so
+    /// `LlamaServerManagerTests` can drive it directly against a registered
+    /// stand-in process.
+    func stop(_ role: Role) async {
+        guard let server = running.removeValue(forKey: role) else { return }
+        // Clear the handler first — this is the intentional-stop path, no
+        // need for it to also fire and race clearIfCurrent a second time.
+        server.process.terminationHandler = nil
+        Self.removeAPIKeyFile(server.apiKeyFileURL)
+        guard server.process.isRunning else { return }
+        server.process.terminate()
+        let deadline = Date().addingTimeInterval(Self.stopWaitTimeout)
+        while server.process.isRunning, Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    /// Fire-and-forget SIGTERM for everything running, no wait at all —
+    /// used only at app quit (`PUPSISPortalApp`'s `willTerminateNotification`
+    /// observer). That handler runs synchronously on the posting thread with
+    /// no chance to `await` before the process actually exits, and even
+    /// `stop()`'s bounded 2s-per-role wait would be a visible hang on the
+    /// way out the door — the process dying at all is what matters there,
+    /// not confirming it before returning. `stop()`/`stop(_:)` (async,
+    /// bounded wait) is for every other caller, where relaunching right
+    /// after depends on the old port actually being free.
+    func terminateWithoutWaiting() {
+        for (_, server) in running {
+            server.process.terminationHandler = nil
+            server.process.terminate()
+            Self.removeAPIKeyFile(server.apiKeyFileURL)
+        }
+        running.removeAll()
+    }
+
+    /// Internal, not private, so `LlamaServerManagerTests` can exercise the
+    /// health/ownership decision logic directly against a registered
+    /// stand-in process and a fake `probe`, without racing `waitUntilHealthy`'s
+    /// 30s loop on the failure path.
+    func isHealthy(_ role: Role) async -> Bool {
+        guard let server = running[role] else { return false }
+        guard let (_, code) = try? await probe(Self.request(path: "health", server: server)) else { return false }
+        return code == 200
+    }
+
+    /// The belt-and-suspenders half of W8: a 200 from `/health` alone proves
+    /// *something* is listening on the port we picked, not that it's the
+    /// `llama-server` we launched with the model we expect. `process.isRunning`
+    /// confirms our own child is still alive (no network round trip can spoof
+    /// this); `/props`, sent with our own per-launch key, confirms it's
+    /// reporting the exact GGUF file we started it with. Internal, not
+    /// private — see `isHealthy`'s own note on why.
+    func verifyOwnership(_ role: Role) async -> Bool {
+        guard let server = running[role], server.process.isRunning else { return false }
+        guard let (data, code) = try? await probe(Self.request(path: "props", server: server)), code == 200 else {
+            return false
+        }
+        return Self.propsMatchExpectedModel(data, expectedFilename: server.modelPath.lastPathComponent)
+    }
+
+    private static func request(path: String, server: RunningServer) -> URLRequest {
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:\(server.port)/\(path)")!)
+        request.timeoutInterval = 2
+        request.setValue("Bearer \(server.apiKey)", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
+    /// Pure so it's directly testable against fixture JSON — llama-server's
+    /// `/props` reports the loaded GGUF as `model_path`, the full path we
+    /// passed via `-m`. Compares just the filename rather than the whole
+    /// path since `modelPath` here is our own catalog-derived URL, and
+    /// llama.cpp may report it resolved/normalized.
+    static func propsMatchExpectedModel(_ data: Data, expectedFilename: String) -> Bool {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let modelPath = json["model_path"] as? String
+        else { return false }
+        return URL(fileURLWithPath: modelPath).lastPathComponent == expectedFilename
+    }
+
+    private func waitUntilHealthy(_ role: Role, timeout: TimeInterval = 30) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if await isHealthy(role), await verifyOwnership(role) {
+                // llama-server only reads --api-key-file once, at startup —
+                // by the time it's healthy it's long since loaded it, so the
+                // file has nothing left to do. `clearIfCurrent`/`stop`/
+                // `terminateWithoutWaiting` are the fallback cleanup for a
+                // process that dies before ever reaching this point.
+                if let server = running[role] { Self.removeAPIKeyFile(server.apiKeyFileURL) }
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+        return false
+    }
+
+    /// Pure and injectable so binary discovery is testable without touching
+    /// the real filesystem.
+    static func locateBinary(
+        candidates: [String] = binaryCandidates,
+        isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+    ) -> String? {
+        candidates.first(where: isExecutable)
+    }
+
+    /// The launch arguments for `role` — pure so the port/host/key-file
+    /// wiring is directly assertable in a test without spawning anything.
+    /// Never a hardcoded `--port 8080`/`8081`, never the key itself (see
+    /// `writeAPIKeyFile`'s doc comment — only `apiKeyFile`'s *path* goes in
+    /// argv, which `ps` can still see, but the key inside it can't).
+    /// `--host 127.0.0.1` is llama-server's own default already — passed
+    /// explicitly anyway so a future llama.cpp default change can't
+    /// accidentally bind this to every interface without this app noticing.
+    static func launchArguments(
+        role: Role, modelPath: URL, port: Int, apiKeyFile: URL,
+        contextSize: Int, kvQuantized: Bool, useGPU: Bool
+    ) -> [String] {
+        var arguments = [
+            "-m", modelPath.path, "--host", "127.0.0.1", "--port", String(port),
+            "--api-key-file", apiKeyFile.path, "--ctx-size", String(contextSize),
+        ]
         if kvQuantized {
             // KV cache quantized to q8_0 (1 byte/element) instead of
             // llama.cpp's fp16 default (2 bytes/element) — roughly halves
@@ -100,72 +373,96 @@ final class LlamaServerManager {
             arguments += ["-ngl", "0"]
         }
         arguments += role.extraArguments
+        return arguments
+    }
 
-        let launched = Process()
-        launched.executableURL = URL(fileURLWithPath: binary)
-        launched.arguments = arguments
-        launched.standardOutput = FileHandle.nullDevice
-        launched.standardError = FileHandle.nullDevice
+    /// A random per-launch bearer token so only this app — never an orphaned
+    /// prior launch, nor an unrelated process someone else started on the
+    /// same port — can be mistaken for the server we just spawned. 24 bytes
+    /// (48 hex chars) from the system CSPRNG.
+    static func generateAPIKey(byteCount: Int = 24) -> String {
+        var bytes = [UInt8](repeating: 0, count: byteCount)
+        let status = SecRandomCopyBytes(kSecRandomDefault, byteCount, &bytes)
+        precondition(status == errSecSuccess, "SecRandomCopyBytes failed: \(status)")
+        return bytes.map { String(format: "%02x", $0) }.joined()
+    }
 
+    enum APIKeyFileError: Error { case writeFailed }
+
+    /// Writes `apiKey` to a private (0600) file in a fresh, per-launch temp
+    /// directory (0700), so it's passed to llama-server via `--api-key-file`
+    /// instead of appearing in argv at all — a follow-up to the review that
+    /// flagged `ps` (visible to any local user, not just this one) as still
+    /// showing an argv-passed key. `llama-server --help` confirms
+    /// `--api-key-file FNAME` is supported (one key per line). The directory
+    /// exists only to hold this one file — `removeAPIKeyFile` deletes the
+    /// whole thing, not just the file, so nothing under the system temp dir
+    /// outlives the server that needed it.
+    static func writeAPIKeyFile(_ apiKey: String) throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PUPSISPortal-llama-key-\(UUID().uuidString)", isDirectory: true)
         do {
-            try launched.run()
+            try FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]
+            )
+            let file = directory.appendingPathComponent("key")
+            guard FileManager.default.createFile(
+                atPath: file.path, contents: Data(apiKey.utf8), attributes: [.posixPermissions: 0o600]
+            ) else {
+                throw APIKeyFileError.writeFailed
+            }
+            return file
         } catch {
-            return false
+            try? FileManager.default.removeItem(at: directory)
+            throw error
         }
-        processes[role] = launched
-        currentModelPath[role] = modelPath
-        currentContextSize[role] = contextSize
-        currentKVQuantized[role] = kvQuantized
-        currentUseGPU[role] = useGPU
-        return await waitUntilHealthy(role)
     }
 
-    /// Tracks which model (context size, KV quantization, GPU offload) each
-    /// role's currently-running process was started with, so `ensureRunning`
-    /// knows to restart rather than reuse when any of them changes.
-    private var currentModelPath: [Role: URL] = [:]
-    private var currentContextSize: [Role: Int] = [:]
-    private var currentKVQuantized: [Role: Bool] = [:]
-    private var currentUseGPU: [Role: Bool] = [:]
-
-    /// Clean SIGTERM — llama-server shuts down on it. Called when AI is
-    /// toggled off and when the app quits (`AppState`'s termination observer).
-    func stop() {
-        stop(.chat)
-        stop(.embed)
+    /// Deletes the per-launch directory `writeAPIKeyFile` created. Safe to
+    /// call more than once — from `waitUntilHealthy` on success, and again
+    /// from `stop`/`clearIfCurrent`/`terminateWithoutWaiting` as a fallback
+    /// for a process that never got that far — a missing path is a silent
+    /// no-op, not an error.
+    private static func removeAPIKeyFile(_ url: URL?) {
+        guard let url else { return }
+        try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
     }
 
-    private func stop(_ role: Role) {
-        processes[role]?.terminate()
-        processes[role] = nil
-        currentModelPath[role] = nil
-        currentContextSize[role] = nil
-        currentKVQuantized[role] = nil
-        currentUseGPU[role] = nil
-    }
+    /// Binds a TCP socket to 127.0.0.1:0 (the OS assigns a free ephemeral
+    /// port), reads that port back, then closes the socket so `llama-server`
+    /// can bind it — the standard "find a free port" trick. There is an
+    /// inherent, unavoidable TOCTOU race between the close here and
+    /// `llama-server`'s own bind a moment later; combined with the
+    /// per-launch API key and `/props` ownership check above, a collision
+    /// landing on an unrelated listener is caught rather than trusted blindly.
+    /// ponytail: no retry-on-EADDRINUSE loop — a second port collision in the
+    /// same launch is vanishingly unlikely on loopback; add one if it's ever
+    /// observed in practice.
+    static func pickFreePort() -> Int? {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
 
-    private func isHealthy(_ role: Role) async -> Bool {
-        var request = URLRequest(url: role.healthURL)
-        request.timeoutInterval = 2
-        guard let (_, response) = try? await URLSession.shared.data(for: request) else { return false }
-        return (response as? HTTPURLResponse)?.statusCode == 200
-    }
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = 0
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
 
-    private func waitUntilHealthy(_ role: Role, timeout: TimeInterval = 30) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if await isHealthy(role) { return true }
-            try? await Task.sleep(for: .milliseconds(500))
+        let bindResult = withUnsafePointer(to: &addr) { pointer -> Int32 in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                bind(fd, sockaddrPointer, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
         }
-        return false
-    }
+        guard bindResult == 0 else { return nil }
 
-    /// Pure and injectable so binary discovery is testable without touching
-    /// the real filesystem.
-    static func locateBinary(
-        candidates: [String] = binaryCandidates,
-        isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
-    ) -> String? {
-        candidates.first(where: isExecutable)
+        var actual = sockaddr_in()
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let nameResult = withUnsafeMutablePointer(to: &actual) { pointer -> Int32 in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                getsockname(fd, sockaddrPointer, &length)
+            }
+        }
+        guard nameResult == 0 else { return nil }
+        return Int(UInt16(bigEndian: actual.sin_port))
     }
 }

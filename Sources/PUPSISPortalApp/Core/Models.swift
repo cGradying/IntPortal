@@ -88,10 +88,29 @@ struct ClassSession: Identifiable, Equatable, Codable {
     let start: Int
     let end: Int
 
+    /// Set by `ScheduleParser.parse(_ rows:)` when a scraped row duplicates an
+    /// earlier one's subject/day/time (a literal repeated `<tr>`, a known
+    /// SIS/DataTables scrape quirk) — 0 for the first occurrence, 1+ for each
+    /// repeat, so `id` stays unique instead of colliding in Preferences'
+    /// per-session overrides. Excluded from `Codable` (recomputed fresh on
+    /// every parse, never persisted) so old cached schedule JSON keeps
+    /// decoding, and excluded from `==` — it's a parse-time artifact, not part
+    /// of what the session *is*.
+    var occurrenceIndex: Int = 0
+
+    private enum CodingKeys: String, CodingKey {
+        case subjectCode, description, faculty, day, start, end
+    }
+
     /// Derived, not stored: a `UUID()` default would block synthesized
     /// `Codable` and hand every decoded session a new identity. Identity here
-    /// is positional anyway — `==` already compares these same fields.
-    var id: String { "\(subjectCode)-\(day.rawValue)-\(start)-\(end)" }
+    /// is positional anyway — `==` already compares these same fields — plus
+    /// `occurrenceIndex` for the rare duplicate-row case.
+    var id: String {
+        occurrenceIndex == 0
+            ? "\(subjectCode)-\(day.rawValue)-\(start)-\(end)"
+            : "\(subjectCode)-\(day.rawValue)-\(start)-\(end)-\(occurrenceIndex)"
+    }
 
     var duration: Int { max(end - start, 0) }
 

@@ -20,9 +20,10 @@ final class GoogleCalendarClientTests: XCTestCase {
                      day: day, start: start, end: end)
     }
 
-    private func event(_ session: ClassSession, _ status: SessionStatus) -> GoogleEvent? {
+    private func event(_ session: ClassSession, _ status: SessionStatus,
+                       time: @escaping (ClassSession, Date) -> (Int, Int) = { s, _ in (s.start, s.end) }) -> GoogleEvent? {
         GoogleCalendarClient.event(for: session, status: status, weekStart: weekStart,
-                                   until: termEnd, calendar: utc, timeZone: tz)
+                                   until: termEnd, time: time, calendar: utc, timeZone: tz)
     }
 
     func testRegularClassBuildsATaggedRecurringEvent() {
@@ -44,6 +45,15 @@ final class GoogleCalendarClientTests: XCTestCase {
         let e = event(session("CS", .monday, 8 * 60, 10 * 60), .online)
         XCTAssertEqual(e?.summary, "CS (Online)")
         XCTAssertEqual(e?.location, "Online")
+    }
+
+    /// A term-wide moved time (`Preferences.time(for:on:)`) must reach the
+    /// Google event — before this, the builder always read the raw scraped
+    /// `session.start`/`.end` and a moved class kept exporting its old time.
+    func testTimeOverrideMovesStartAndEnd() {
+        let e = event(session("PHYS", .thursday, 13 * 60, 15 * 60), .regular) { _, _ in (10 * 60, 11 * 60 + 30) }
+        XCTAssertEqual(e?.start.dateTime, "2026-08-06T10:00:00Z")
+        XCTAssertEqual(e?.end.dateTime, "2026-08-06T11:30:00Z")
     }
 
     /// The exported body must be valid JSON with the tag nested under

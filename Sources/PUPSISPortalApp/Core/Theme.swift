@@ -450,7 +450,7 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
 
     var label: String {
         switch self {
-        case .auto: "Match System"
+        case .auto: "Registrar (match system)"
         case .pupMaroon: "PUP Maroon"
         case .ivory: "Ivory"
         case .astraMoon: "Astra Moon"
@@ -470,7 +470,7 @@ enum ThemeChoice: String, CaseIterable, Codable, Identifiable {
 
     func palette(for systemScheme: ColorScheme) -> Palette {
         switch self {
-        case .auto: systemScheme == .dark ? .astraMoon : .pupMaroon
+        case .auto: systemScheme == .dark ? .registrarNight : .registrar
         case .pupMaroon: .pupMaroon
         case .ivory: .ivory
         case .astraMoon: .astraMoon
@@ -639,12 +639,6 @@ enum Motion {
         reduced ? nil : .interactiveSpring(duration: 0.18, extraBounce: 0.1)
     }
 
-    /// The nav island gliding centre↔top and morphing collapsed↔expanded. A
-    /// gentle spring so the flight reads as one continuous move, not a snap.
-    static func island(reduced: Bool) -> Animation? {
-        reduced ? nil : .spring(response: 0.42, dampingFraction: 0.82)
-    }
-
     // The Registrar set. Springs keep their velocity when a new input
     // retargets them mid-flight, which is the macOS 27 feel DESIGN.md asks for.
 
@@ -755,53 +749,38 @@ struct Typography: Equatable {
         self.scale = scale
     }
 
-    // `weight` is optional and only ever applied when given: the original
-    // hardcoded scale left five entries at the system default rather than
-    // spelling out `.weight(.regular)`, and `Font` compares its *build*, not
-    // its rendered appearance, so `.weight(.regular)` is not `==` to the same
-    // font left alone. Matching that shape exactly is what lets `.system`
-    // still equal the original literals.
-    private func font(_ style: Font.TextStyle, design: Font.Design = .default, weight: Font.Weight? = nil) -> Font {
-        let base: Font
-        if let family = choice.familyName {
-            base = Font.custom(family, size: Theme.pointSize(for: style) * scale)
-        } else if scale == 1 {
-            base = Font.system(style, design: design)
-        } else {
-            base = Font.system(size: Theme.pointSize(for: style) * scale, design: design)
-        }
-        return weight.map(base.weight) ?? base
+    /// An identity role (titles, codes, times, numbers) in Pixelify Sans at
+    /// the size its text style always had.
+    private func identity(_ style: Font.TextStyle, weight: Font.Weight = .semibold) -> Font {
+        display(size: Theme.pointSize(for: style), weight: weight)
     }
 
-    private func font(size: CGFloat, design: Font.Design = .default, weight: Font.Weight? = nil) -> Font {
-        let base = choice.familyName.map { Font.custom($0, size: size * scale) }
-            ?? Font.system(size: size * scale, design: design)
-        return weight.map(base.weight) ?? base
+    /// A reading role in Source Sans 3, or the family picked in Settings.
+    private func body(_ style: Font.TextStyle, weight: Font.Weight = .regular) -> Font {
+        reading(size: Theme.pointSize(for: style), weight: weight)
     }
 
-    /// The home wordmark. `.largeTitle` — matches the size the wordmark always
-    /// rendered at (previously an inline `.system(.largeTitle, …)` literal),
-    /// so picking `.system` here reproduces that exactly.
-    var hero: Font { font(.largeTitle, design: .serif, weight: .semibold) }
+    /// The signed-out welcome wordmark.
+    var hero: Font { identity(.largeTitle, weight: .bold) }
 
-    /// The login screen's oversized welcome line — bigger than `hero`, the
-    /// one place in the app that goes past a title.
-    var loginHeadline: Font { font(size: 40, design: .serif, weight: .light) }
+    /// The login screen's oversized welcome line.
+    var loginHeadline: Font { display(size: 40, weight: .semibold) }
 
-    var screenTitle: Font { font(.title2, design: .serif, weight: .semibold) }
+    var screenTitle: Font { identity(.title2, weight: .bold) }
 
-    var dayName: Font { font(.caption, weight: .semibold) }
-    var gutter: Font { font(.caption2, design: .monospaced) }
+    var dayName: Font { body(.caption, weight: .semibold) }
+    var gutter: Font { numeric(size: Theme.pointSize(for: .caption2)) }
 
-    var blockCode: Font { font(.subheadline, design: .serif, weight: .semibold) }
-    var blockTime: Font { font(size: 10, design: .monospaced) }
+    /// Codes stay in the identity face, at its crispest (regular) weight.
+    var blockCode: Font { identity(.subheadline, weight: .regular) }
+    var blockTime: Font { numeric(size: 10) }
 
-    var detailTitle: Font { font(.title3, design: .serif, weight: .semibold) }
-    var detailBody: Font { font(.callout) }
-    var detailMeta: Font { font(.caption, design: .monospaced) }
+    var detailTitle: Font { identity(.title3, weight: .bold) }
+    var detailBody: Font { body(.callout) }
+    var detailMeta: Font { numeric(size: Theme.pointSize(for: .caption)) }
 
-    var nowClock: Font { font(.caption2, design: .monospaced, weight: .semibold) }
-    var footer: Font { font(.caption) }
+    var nowClock: Font { numeric(size: Theme.pointSize(for: .caption2), weight: .semibold) }
+    var footer: Font { body(.caption) }
 
     /// Pixelify Sans, the identity face (titles, codes, numbers, buttons).
     /// Ignores `choice`: the user's font pick applies to reading text only.
@@ -810,6 +789,13 @@ struct Typography: Equatable {
     }
 
     static let displayFamily = "Pixelify Sans"
+
+    /// A number someone has to read exactly (a time, a grade, a date, the
+    /// student number) below 20pt: Pixelify's 2, 9 and C blur into 8, S and O
+    /// at those sizes, so these use the reading face with tabular figures.
+    func numeric(size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        reading(size: size, weight: weight).monospacedDigit()
+    }
 
     /// Source Sans 3, the reading face (notes, descriptions, AI replies),
     /// unless the user picked another family in Settings.

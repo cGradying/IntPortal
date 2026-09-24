@@ -21,12 +21,25 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
     private var accessToken: String?
     private var accessExpiry: Date = .distantPast
     private var session: ASWebAuthenticationSession?
+    private let urlSession: URLSession
+    /// Seam over `ASWebAuthenticationSession.start()` so tests can force the
+    /// "failed to start" branch without presenting real system UI.
+    private let sessionStarter: (ASWebAuthenticationSession) -> Bool
+    private let tokenStore: GoogleTokenStore
 
     private let scopes = "https://www.googleapis.com/auth/calendar"
 
-    init(clientID: @escaping () -> String) {
+    init(
+        clientID: @escaping () -> String,
+        urlSession: URLSession = .shared,
+        sessionStarter: @escaping (ASWebAuthenticationSession) -> Bool = { $0.start() },
+        tokenStore: GoogleTokenStore = .production
+    ) {
         self.clientID = clientID
-        isConnected = GoogleTokenStore.load() != nil
+        self.urlSession = urlSession
+        self.sessionStarter = sessionStarter
+        self.tokenStore = tokenStore
+        isConnected = tokenStore.load() != nil
     }
 
     enum AuthError: LocalizedError {
@@ -34,6 +47,9 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
         case cancelled
         case badResponse(String)
         case notConnected
+        /// The refresh token was rejected (`invalid_grant`) — it's dead, not just
+        /// expired-and-retryable. The caller must reconnect from scratch.
+        case reconnectRequired
 
         var errorDescription: String? {
             switch self {
@@ -41,6 +57,7 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
             case .cancelled: "Google sign-in was cancelled."
             case .badResponse(let m): m
             case .notConnected: "Connect your Google account first."
+            case .reconnectRequired: "Your Google connection expired — reconnect in Settings."
             }
         }
     }
@@ -82,7 +99,7 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
 
         let token = try await exchange(code: code, verifier: pkce.verifier, redirect: redirect, clientID: id)
         if let refresh = token.refresh_token {
-            GoogleTokenStore.save(refreshToken: refresh)
+            tokenStore.save(refreshToken: refresh)
         }
         accessToken = token.access_token
         accessExpiry = Date().addingTimeInterval(token.expires_in)
@@ -90,7 +107,7 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
     }
 
     func disconnect() {
-        GoogleTokenStore.delete()
+        tokenStore.delete()
         accessToken = nil
         accessExpiry = .distantPast
         isConnected = false
@@ -100,15 +117,22 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
     /// cached one has expired. This is what `GoogleCalendarClient` calls.
     func validAccessToken() async throws -> String {
         if let token = accessToken, accessExpiry.timeIntervalSinceNow > 60 { return token }
-        guard let refresh = GoogleTokenStore.load() else { throw AuthError.notConnected }
+        guard let refresh = tokenStore.load() else { throw AuthError.notConnected }
 
         let id = clientID().trimmingCharacters(in: .whitespaces)
         guard !id.isEmpty else { throw AuthError.noClientID }
 
-        let token = try await refreshToken(refresh, clientID: id)
-        accessToken = token.access_token
-        accessExpiry = Date().addingTimeInterval(token.expires_in)
-        return token.access_token
+        do {
+            let token = try await refreshToken(refresh, clientID: id)
+            accessToken = token.access_token
+            accessExpiry = Date().addingTimeInterval(token.expires_in)
+            return token.access_token
+        } catch AuthError.reconnectRequired {
+            // The stored refresh token is dead — don't leave isConnected lying
+            // about having a usable session.
+            disconnect()
+            throw AuthError.reconnectRequired
+        }
     }
 
     // MARK: Token endpoint
@@ -134,18 +158,20 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
             "grant_type": "refresh_token",
             "refresh_token": refresh,
             "client_id": id,
-        ])
+        ], isRefresh: true)
     }
 
-    private func postToken(_ fields: [String: String]) async throws -> TokenResponse {
+    private func postToken(_ fields: [String: String], isRefresh: Bool = false) async throws -> TokenResponse {
         var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.formEncode(fields).data(using: .utf8)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await urlSession.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw AuthError.badResponse(Self.googleError(data))
+            let (code, message) = Self.googleError(data)
+            if isRefresh && code == "invalid_grant" { throw AuthError.reconnectRequired }
+            throw AuthError.badResponse(message)
         }
         return try JSONDecoder().decode(TokenResponse.self, from: data)
     }
@@ -166,7 +192,9 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
             session.presentationContextProvider = self
             session.prefersEphemeralWebBrowserSession = false
             self.session = session
-            session.start()
+            if !sessionStarter(session) {
+                continuation.resume(throwing: AuthError.badResponse("Couldn't open the Google sign-in window."))
+            }
         }
     }
 
@@ -216,11 +244,14 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
         }.joined(separator: "&")
     }
 
-    private static func googleError(_ data: Data) -> String {
+    /// Google's token-endpoint error body: a stable `error` code plus a
+    /// human-readable description. Split so callers (`postToken`) can branch on
+    /// the code — e.g. `invalid_grant` — while still surfacing the message.
+    private static func googleError(_ data: Data) -> (code: String?, message: String) {
         struct E: Decodable { let error: String?; let error_description: String? }
         if let e = try? JSONDecoder().decode(E.self, from: data) {
-            return e.error_description ?? e.error ?? "Google rejected the request."
+            return (e.error, e.error_description ?? e.error ?? "Google rejected the request.")
         }
-        return "Google rejected the request."
+        return (nil, "Google rejected the request.")
     }
 }

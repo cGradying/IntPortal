@@ -157,6 +157,109 @@ final class NextClassTests: XCTestCase {
         let now = try date("2026-08-03", 17)   // Monday done; next is Friday
         XCTAssertEqual(try upcoming(at: now).countdown(now: now, calendar: calendar), "FRI 1:30PM")
     }
+
+    // MARK: DST
+
+    /// 2026-03-08 is when US Eastern springs forward (2:00 AM clocks jump to
+    /// 3:00 AM). Building the start time as "midnight + 510 elapsed minutes"
+    /// lands on 9:30 — an hour late — because 60 of those minutes are spent
+    /// crossing the gap the clock skips; reading the wall-clock hour/minute
+    /// directly still gives 8:30, exactly what the SIS shows.
+    func testClassStartTimeDoesNotDriftAcrossASpringForwardTransition() throws {
+        var dstCalendar = Calendar(identifier: .gregorian)
+        dstCalendar.timeZone = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+
+        let sunday = session("COMP 20073", .sunday, 8 * 60 + 30, 10 * 60)
+        var midnightComponents = DateComponents()
+        (midnightComponents.year, midnightComponents.month, midnightComponents.day) = (2026, 3, 8)
+        (midnightComponents.hour, midnightComponents.minute) = (0, 30)
+        let now = try XCTUnwrap(dstCalendar.date(from: midnightComponents))
+
+        let upcoming = try XCTUnwrap(NextClass.next(in: [sunday], at: now, calendar: dstCalendar))
+
+        var expectedComponents = DateComponents()
+        (expectedComponents.year, expectedComponents.month, expectedComponents.day) = (2026, 3, 8)
+        (expectedComponents.hour, expectedComponents.minute) = (8, 30)
+        let expectedStart = try XCTUnwrap(dstCalendar.date(from: expectedComponents))
+
+        XCTAssertEqual(upcoming.start, expectedStart)
+    }
+}
+
+/// `Calendar.wallClock` itself — every DST-elapsed-minutes fix (W12) routes
+/// through this one helper, so its correctness is tested directly rather
+/// than through each caller.
+final class CalendarWallClockTests: XCTestCase {
+    private func newYork() throws -> Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+        return cal
+    }
+
+    private func manila() throws -> Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
+        return cal
+    }
+
+    private func midnight(_ cal: Calendar, _ year: Int, _ month: Int, _ day: Int) throws -> Date {
+        try XCTUnwrap(cal.date(from: DateComponents(year: year, month: month, day: day)))
+    }
+
+    /// 2026-03-08: US Eastern springs forward, 2:00 AM clocks jump to 3:00 AM.
+    /// 8:30 must still read as 8:30, not the hour-late 9:30 that "midnight +
+    /// 510 elapsed minutes" would give.
+    func testSpringForwardResolvesTheLiteralWallClockTime() throws {
+        let cal = try newYork()
+        let day = try midnight(cal, 2026, 3, 8)
+        let start = try XCTUnwrap(cal.wallClock(minutes: 8 * 60 + 30, on: day))
+
+        XCTAssertEqual(cal.component(.hour, from: start), 8)
+        XCTAssertEqual(cal.component(.minute, from: start), 30)
+    }
+
+    /// The 2:00–3:00 AM gap that spring-forward skips never happened, so a
+    /// class "at" 2:30 that day has no wall-clock time to resolve to.
+    func testSpringForwardGapReturnsNil() throws {
+        let cal = try newYork()
+        let day = try midnight(cal, 2026, 3, 8)
+
+        XCTAssertNil(cal.wallClock(minutes: 2 * 60 + 30, on: day))
+    }
+
+    /// 2026-11-01: US Eastern falls back, 2:00 AM clocks repeat as 1:00 AM —
+    /// a 25-hour day. 10:00 AM must still resolve to the literal 10:00, which
+    /// is 11 *elapsed* hours past midnight that day, not 10.
+    func testFallBackResolvesTheLiteralWallClockTimeAcrossTheRepeatedHour() throws {
+        let cal = try newYork()
+        let day = try midnight(cal, 2026, 11, 1)
+        let start = try XCTUnwrap(cal.wallClock(minutes: 10 * 60, on: day))
+
+        XCTAssertEqual(cal.component(.hour, from: start), 10)
+        XCTAssertEqual(cal.component(.minute, from: start), 0)
+        XCTAssertEqual(start.timeIntervalSince(day), 11 * 3600)
+    }
+
+    /// Asia/Manila has observed no DST since 1978 — every day is 24 real
+    /// hours, so `wallClock` must agree exactly with naive elapsed-minute
+    /// addition on both an ordinary day and the date US Eastern transitions.
+    func testNoDSTZoneMatchesElapsedMinutesOnAnOrdinaryDay() throws {
+        let cal = try manila()
+        let day = try midnight(cal, 2026, 6, 15)
+        let wallClock = try XCTUnwrap(cal.wallClock(minutes: 8 * 60 + 30, on: day))
+        let elapsed = try XCTUnwrap(cal.date(byAdding: .minute, value: 8 * 60 + 30, to: day))
+
+        XCTAssertEqual(wallClock, elapsed)
+    }
+
+    func testNoDSTZoneMatchesElapsedMinutesOnTheUSTransitionDate() throws {
+        let cal = try manila()
+        let day = try midnight(cal, 2026, 3, 8)
+        let wallClock = try XCTUnwrap(cal.wallClock(minutes: 10 * 60, on: day))
+        let elapsed = try XCTUnwrap(cal.date(byAdding: .minute, value: 10 * 60, to: day))
+
+        XCTAssertEqual(wallClock, elapsed)
+    }
 }
 
 /// The reminder's fire time is plain arithmetic, and the only part of

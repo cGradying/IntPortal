@@ -110,6 +110,23 @@ final class GradesParserTests: XCTestCase {
         XCTAssertEqual(Set(subjects.map(\.id)).count, 2)
     }
 
+    /// A literal repeated `<tr>` (same subject, same section) must not collide
+    /// on id — SwiftUI's `ForEach` and any future per-row Preferences keying
+    /// both rely on it being unique.
+    func testDuplicateRowsGetUniqueIDs() {
+        let duplicateRow = row("COMP 20073", units: "3", grade: "1.00", section: "1")
+        let subjects = GradesParser.parse([duplicateRow, duplicateRow])
+
+        XCTAssertEqual(subjects.count, 2)
+        XCTAssertEqual(Set(subjects.map(\.id)).count, 2)
+    }
+
+    /// A single, non-duplicate row's id is untouched by the dedup pass.
+    func testNonDuplicateRowKeepsItsOriginalID() {
+        let subjects = GradesParser.parse([row("COMP 20073", units: "3", grade: "1.00", section: "1")])
+        XCTAssertEqual(subjects.first?.id, "COMP 20073-1")
+    }
+
     // MARK: neededAverage
 
     func testNeededAverageSolvesForTheRemainingUnitsAtTargetGPA() throws {

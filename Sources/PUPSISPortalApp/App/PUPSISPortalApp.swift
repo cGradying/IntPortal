@@ -62,14 +62,20 @@ final class AppState: ObservableObject {
     private var clock: Timer?
 
     /// Which destination the window shows, and whether Settings is up. App-level
-    /// so the menu commands (⌘1/2/3, ⌘,) can drive them, not just the view.
-    @Published var selection: Destination = .schedule
+    /// so the menu commands (⌘1–6, ⌘,) can drive them, not just the view.
+    @Published private(set) var selection: Destination = .today
     @Published var showingSettings = false
 
-    /// The nav island's placement. Launch shows the island centred (a home
-    /// launcher); opening a destination flies it to the top and reveals the
-    /// screen. The island's home mark flips it back.
-    @Published var isHome = true
+    /// +1 when the last navigation went down the sidebar, −1 when it went up;
+    /// the screen change pushes forward or back in depth accordingly. Set in
+    /// the same update as `selection`, so the transition reads it fresh.
+    private(set) var navDirection = 1
+
+    /// Bumped when a refresh finishes; the sidebar's portal glyph sends a
+    /// sync ripple across the window, green on `syncOK`, red otherwise.
+    @Published private(set) var syncPulse = 0
+    @Published private(set) var syncOK = true
+    @Published private(set) var isRefreshing = false
 
     /// Sparkle's own delegate shim — `availableVersion` drives the footer
     /// badge and Settings › About. See `UpdaterBridge` for why it isn't
@@ -124,11 +130,12 @@ final class AppState: ObservableObject {
         calendar.load(weekStart: viewedWeek, calendarIDs: preferences.visibleCalendarIDs)
     }
 
-    /// Open a destination from the island or a menu command: select it and
-    /// leave home so the island glides to the top.
+    /// Open a destination from the sidebar, a menu command or IntAssis.
     func open(_ destination: Destination) {
+        guard destination != selection else { return }
+        navDirection = Destination.direction(from: selection, to: destination)
+        if let tab = destination.notebookTab { notebook.tab = tab }
         selection = destination
-        isHome = false
     }
 
     init() {
@@ -145,7 +152,6 @@ final class AppState: ObservableObject {
             _ = updaterController // force the lazy: starts Sparkle's scheduler now, not on first UI touch
         }
         isEditing = credentials == nil
-        isHome = preferences.islandStartHome
         #if DEBUG
         if let screen = Demo.screen { open(screen) }
         #endif
@@ -180,7 +186,11 @@ final class AppState: ObservableObject {
                 // `llama-server` holds no state to unload — a clean SIGTERM
                 // here is the whole story, unlike Ollama's separate
                 // idle-timeout-driven unload this used to also need.
-                LlamaServerManager.shared.stop()
+                // `terminateWithoutWaiting()`, not `stop()`: this handler is
+                // synchronous with no chance to `await`, and even `stop()`'s
+                // bounded wait would be a visible hang on the way out —
+                // firing SIGTERM is enough here, nothing relaunches after.
+                LlamaServerManager.shared.terminateWithoutWaiting()
             }
         }
     }
@@ -221,20 +231,64 @@ final class AppState: ObservableObject {
     /// Refresh from anywhere — the app menu, the menu bar — and reschedule
     /// reminders afterward. Routed through here (not the window) so a refresh
     /// with the window closed still keeps the OS's pending reminders in step.
+    /// Schedule-then-grades sequencing (and guarding a sign-out landing
+    /// between the two) is `PortalController`'s own job — see `refresh()`
+    /// there.
     func refresh() async {
-        await portal.loadSchedule()
-        await portal.loadGrades()
+        isRefreshing = true
+        defer {
+            isRefreshing = false
+            syncOK = portal.refreshError == nil
+            syncPulse += 1
+        }
+        await portal.refresh()
+        // `sync` unconditionally clears every pending reminder before
+        // deciding whether to re-add any (`Notifier.reschedule`) — with
+        // `authorization` still `nil` (never fetched this launch, e.g. a
+        // menu-bar refresh before the window/Settings ever opened),
+        // `enabled, authorization == .authorized` fails and it wipes every
+        // reminder with nothing put back. Refresh first, same as
+        // `CalendarView`'s own refresh already does.
+        await Notifier.shared.refreshAuthorization()
         Notifier.shared.sync(portal.sessions, preferences)
     }
 
-    func save(_ credentials: Credentials) {
-        try? KeychainStore.save(credentials)
+    /// Whether the write actually landed — pulled out of `save(_:)` as its
+    /// own testable function (no `AppState` needed) so the Keychain-failure
+    /// branch below doesn't require constructing a real one (heavy: Sparkle,
+    /// EventKit, on-disk stores — see `testSignOutIsSynchronous`'s comment).
+    static func didSave(_ credentials: Credentials, using save: (Credentials) throws -> Void = KeychainStore.save) -> Bool {
+        (try? save(credentials)) != nil
+    }
+
+    /// Returns whether the credentials were actually saved. `try?` here used
+    /// to swallow a Keychain write failure and sign the user in anyway with
+    /// nothing persisted — a relaunch then found no credentials at all.
+    /// `CredentialsView` shows "Couldn't save to Keychain" and stays on the
+    /// form when this comes back `false`, instead of proceeding as signed in.
+    @discardableResult
+    func save(_ credentials: Credentials) -> Bool {
+        guard Self.didSave(credentials) else { return false }
         self.credentials = credentials
         isEditing = false
         portal.status = .idle
+        return true
     }
 
+    /// Synchronous, deliberately: every reset here has to land before this
+    /// call returns, with nothing left pending after it. A fast Edit
+    /// Credentials → Save → sign-in right after Sign Out must see fresh,
+    /// intact credentials — not have them undone by this call still being
+    /// suspended on an await when the new ones land. The one part that *is*
+    /// async — clearing the SIS's cookies/local storage from the shared
+    /// `WKWebsiteDataStore` — runs as its own tracked task on `portal`
+    /// instead; `PortalController.runSignIn` waits for that itself before
+    /// touching the web view, so the ordering is still guaranteed without
+    /// this call blocking on it.
     func signOut() {
+        // Must come first: an in-flight sign-in/refresh that's still running
+        // must not re-save the caches deleted below after the fact.
+        portal.cancelInFlight()
         KeychainStore.delete()
         // Both caches are this student's own data; signing out has to take them
         // off disk too, not just off screen.
@@ -249,32 +303,11 @@ final class AppState: ObservableObject {
         portal.grades = nil
         portal.gradesError = nil
         portal.gradeHistory = []
-    }
-}
-
-/// The three main destinations. Settings is no longer one of these — it's a
-/// sheet behind the gear button.
-enum Destination: String, CaseIterable, Identifiable {
-    case schedule
-    case today
-    case grades
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .schedule: "Schedule"
-        case .today: "Notebook"
-        case .grades: "Grades"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .schedule: "calendar"
-        case .today: "list.bullet.rectangle"
-        case .grades: "graduationcap"
-        }
+        // Forget which host we landed on — a fresh sign-in re-runs the full
+        // candidate order instead of retrying whatever this account landed on.
+        portal.forgetHost()
+        // Not awaited — see the doc comment above.
+        portal.beginClearingWebsiteData()
     }
 }
 
@@ -287,41 +320,12 @@ struct ContentView: View {
     /// This view sits above the `.reduceMotion(forced:)` it publishes, so it
     /// computes the same OR for its own animations.
     private var reduceMotion: Bool { systemReduceMotion || preferences.forceReducedMotion }
-    /// Flipped true just after the chrome band mounts, so it dithers in rather
-    /// than appearing whole. Reset by the band's own `onAppear` each time a
-    /// destination opens (the band's `if` removes/reinserts it from the tree).
-    @State private var bandResolved = false
-    /// Flipped true just after the home title mounts, so it fades/rises in
-    /// rather than appearing whole. Reset on every home visit, same pattern
-    /// as `bandResolved`.
-    @State private var titleResolved = false
-    /// Clears the nav island's fixed-size home content above it. A plain
-    /// constant rather than `Theme.Chrome` — one call site, not a repeated
-    /// value the way the chrome-strip height is.
-    private let homeTitleOffset: CGFloat = -86
-
-    /// `Theme.Chrome.topStrip` scaled by UI Scale — grown, not stretched
-    /// (`Typography` above does the equivalent for text): with the old root
-    /// `.scaleEffect` gone, nothing else makes this strip track the zoom
-    /// level automatically.
-    private var topStrip: CGFloat { Theme.Chrome.topStrip * preferences.uiScale }
-
-    /// The floating month calendar (`CalendarView`) blurs/dims the grid and
-    /// sidebar itself, but it's inset below this top strip and has no reach
-    /// above it — this is what extends the same treatment to the chrome
-    /// band, so the whole screen behind the popup dims, not just the part
-    /// under `CalendarView`. The island itself is drawn after this in
-    /// z-order, so it's untouched.
     @ViewBuilder private var root: some View {
         #if DEBUG
         if Demo.showsGallery { ComponentGallery() } else { content }
         #else
         content
         #endif
-    }
-
-    private var showingMonthOverlay: Bool {
-        appState.selection == .schedule && appState.schedule.scale == .year
     }
 
     var body: some View {
@@ -356,145 +360,7 @@ struct ContentView: View {
                 showingSettings: $appState.showingSettings
             )
         } else if let credentials = appState.credentials {
-            ZStack(alignment: .top) {
-                // Base: a calm wash at home, the screen (inset below the floating
-                // island) once open. Cross-fades under the gliding island.
-                Group {
-                    if appState.isHome {
-                        ZStack {
-                            preferences.theme.palette(for: systemScheme).canvasWash
-                            // Animated static, behind everything else at home —
-                            // the one other place accent tint is allowed to show,
-                            // and only faintly. See HomeNoiseField's own doc
-                            // comment for why this is safe to run continuously.
-                            HomeNoiseField(color: preferences.theme.palette(for: systemScheme).accent)
-                        }
-                        .ignoresSafeArea()
-                    } else {
-                        destination(for: credentials)
-                            .padding(.top, topStrip) // clear the slim top bar
-                            .transition(.opacity)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                // The home wordmark — mounts fresh (and replays its entrance)
-                // every time isHome becomes true, same as the chrome band below.
-                if appState.isHome {
-                    Text("Student IntPortal")
-                        .font(Typography(preferences.fontChoice, scale: preferences.uiScale).hero)
-                        .foregroundStyle(preferences.theme.palette(for: systemScheme).accent)
-                        .opacity(titleResolved ? 1 : 0)
-                        .offset(y: titleResolved ? 0 : 8)
-                        .onAppear { titleResolved = false }
-                        .animation(Motion.arrival(reduced: reduceMotion), value: titleResolved)
-                        .task { titleResolved = true }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                        .offset(y: homeTitleOffset)
-                        .transition(.opacity)
-                        .allowsHitTesting(false)
-                }
-
-                // A pixel-dither strip textures the otherwise-flat top bar. Clipped
-                // slightly inside the window's own rounded corner so individual
-                // dither cells are never sliced mid-square by the window mask.
-                if !appState.isHome {
-                    // Pixel gradient, not a uniform speckle — dense at the top,
-                    // fading toward the destination below it.
-                    DitherFill(
-                        color: preferences.theme.palette(for: systemScheme).accent.opacity(0.6),
-                        ramp: .topDown,
-                        density: bandResolved ? 1 : 0
-                    )
-                    .frame(height: topStrip)
-                    // The dither's own fade is density-per-cell — an ordered
-                    // Bayer matrix only has 16 discrete thresholds, so density
-                    // hits zero (no more dots to drop) well before the band's
-                    // bottom edge, and the fade reads as a hard stop instead
-                    // of thinning out. A real per-pixel alpha gradient on top
-                    // smooths that regardless of how sparse the dots get.
-                    .mask(LinearGradient(colors: [.black, .black.opacity(0)], startPoint: .top, endPoint: .bottom))
-                    .blur(radius: showingMonthOverlay ? 14 : 0)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .overlay(alignment: .top) {
-                        if showingMonthOverlay {
-                            Color.black.opacity(0.25)
-                                .frame(height: topStrip)
-                                .onTapGesture { appState.schedule.scale = .week }
-                                .transition(.opacity)
-                        }
-                    }
-                    .clipShape(
-                        UnevenRoundedRectangle(
-                            topLeadingRadius: Theme.Chrome.windowRadius,
-                            topTrailingRadius: Theme.Chrome.windowRadius
-                        )
-                    )
-                    .transition(.opacity)
-                    .onAppear { bandResolved = false }
-                    .animation(Motion.arrival(reduced: reduceMotion), value: bandResolved)
-                    .task { bandResolved = true }
-                }
-
-                // Invisible titlebar-style drag strip: moves the window in place of
-                // background dragging (which fought the calendar's create-drag).
-                // Below the island in z-order, so island buttons still win.
-                WindowDragArea()
-                    .frame(height: topStrip)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-
-                // The island itself never re-mounts — it *glides* from centre (home)
-                // to the top (open), so opening reads as a move/expand, not a fade.
-                // Hover morph keeps working because it's one live view throughout.
-                NavIsland(appState: appState, schedule: appState.schedule, notebook: appState.notebook, preferences: preferences)
-                    .fixedSize()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity,
-                           alignment: appState.isHome ? .center : .top)
-                    .padding(.top, appState.isHome ? 0 : 4)
-
-                // Floating, reachable from every screen. Always mounted now —
-                // it doubles as the Notebook note toolbar (wayfinder ticket
-                // #7), which must keep working with the AI beta toggle off;
-                // `AssistantFloating` renders `EmptyView` itself whenever
-                // neither the toolbar nor chat has anything to show.
-                AssistantFloating(appState: appState, preferences: preferences, session: appState.assistant)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                    .padding(.leading, 16)
-                    .padding(.bottom, 16)
-            }
-            // Fill the whole window — including the hidden title bar's strip — so
-            // no grey window background shows there.
-            .ignoresSafeArea()
-            .background(preferences.theme.palette(for: systemScheme).canvasWash.ignoresSafeArea())
-            .animation(Motion.island(reduced: reduceMotion), value: appState.isHome)
-            .animation(Motion.arrival(reduced: reduceMotion), value: showingMonthOverlay)
-        }
-    }
-
-    @ViewBuilder
-    private func destination(for credentials: Credentials) -> some View {
-        switch appState.selection {
-        case .schedule:
-            CalendarView(
-                controller: appState.portal,
-                preferences: preferences,
-                calendar: appState.calendar,
-                syllabus: appState.syllabus,
-                credentials: credentials,
-                schedule: appState.schedule,
-                updaterBridge: appState.updaterBridge,
-                onCheckForUpdates: { appState.updaterController.checkForUpdates(nil) },
-                onEditCredentials: { appState.isEditing = true },
-                settingsShowing: appState.showingSettings
-            )
-        case .today:
-            AgendaView(
-                appState: appState, preferences: preferences, calendar: appState.calendar,
-                notes: appState.notes, quizzes: appState.quizzes, generation: appState.generation,
-                notebook: appState.notebook
-            )
-        case .grades:
-            GradesView(controller: appState.portal, preferences: preferences)
+            AppShell(appState: appState, preferences: preferences, credentials: credentials)
         }
     }
 
@@ -535,7 +401,7 @@ struct PUPSISPortalApp: App {
         WindowGroup(id: Self.mainWindowID) {
             ContentView(appState: appState, preferences: appState.preferences)
         }
-        // The island is the only top chrome now — no native title bar competing.
+        // The sidebar carries the window controls; no native title bar competing.
         .windowStyle(.hiddenTitleBar)
         .commands {
             // Settings by ⌘, in the app menu, now that it's a sheet not a row.
@@ -547,18 +413,12 @@ struct PUPSISPortalApp: App {
 
             // Keep the destinations reachable from the keyboard without a sidebar.
             CommandGroup(after: .toolbar) {
-                Button("Schedule") { appState.open(.schedule) }
-                    .keyboardShortcut("1", modifiers: .command)
-                Button("Today") { appState.open(.today) }
-                    .keyboardShortcut("2", modifiers: .command)
-                Button("Grades") { appState.open(.grades) }
-                    .keyboardShortcut("3", modifiers: .command)
+                ForEach(Destination.allCases) { destination in
+                    Button(destination.title) { appState.open(destination) }
+                        .keyboardShortcut(destination.shortcut, modifiers: .command)
+                }
                 Divider()
-                Button("Home") { appState.isHome = true }
-                    .keyboardShortcut("0", modifiers: .command)
-                Divider()
-                // Schedule controls now live in the island; keep their shortcuts
-                // global so they work whether or not the island is hovered.
+                // Schedule's toolbar buttons, also reachable from the keyboard.
                 Button("Previous") { appState.schedule.stepIntent = -1 }
                     .keyboardShortcut("[", modifiers: .command)
                     .disabled(appState.selection != .schedule)
@@ -569,9 +429,8 @@ struct PUPSISPortalApp: App {
                     .keyboardShortcut("n", modifiers: .command)
                     .disabled(appState.selection != .schedule)
                 Divider()
-                // Browser-style zoom, app-wide — see uiScaled(_:) at the
-                // ContentView root. ⌘0 is already "Home" above, so
-                // "Actual Size" is ⌥⌘0 instead of the pure browser convention.
+                // Browser-style zoom, app-wide. ⌘0 is reserved for the portal
+                // hub, so "Actual Size" is ⌥⌘0.
                 Button("Zoom In") { appState.preferences.increaseUIScale() }
                     .keyboardShortcut("+", modifiers: .command)
                 Button("Zoom Out") { appState.preferences.decreaseUIScale() }

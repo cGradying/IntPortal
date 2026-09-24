@@ -275,6 +275,45 @@ final class CalendarBridge: ObservableObject {
         "\(identifier)@\(Int(occurrence.timeIntervalSince1970))"
     }
 
+    /// The reverse of `blockID(identifier:occurrence:)` — the raw EventKit
+    /// identifier a `DayBlock.id` was built from, or nil for a non-event
+    /// block (a class) or a malformed id. `DayBlock.init(id:...)` prefixes
+    /// every event id with `"event-"`.
+    nonisolated static func identifier(fromBlockID id: String) -> String? {
+        guard id.hasPrefix("event-") else { return nil }
+        let rest = id.dropFirst("event-".count)
+        guard let separator = rest.range(of: "@", options: .backwards) else { return nil }
+        return String(rest[..<separator.lowerBound])
+    }
+
+    /// Finds the one loaded block for a specific occurrence — used by undo to
+    /// re-find an event after a reload.
+    ///
+    /// Tries the EventKit identifier first, pinned to day/time since a
+    /// repeating event's occurrences all share one identifier and a bare
+    /// identifier match could land on a different occurrence of the same
+    /// series. Falls back to day/time/title alone when nothing matches the
+    /// identifier: saving a single occurrence with `.thisEvent` (or forking
+    /// it with `.futureEvents`) can detach it under a brand new identifier,
+    /// and giving up there would silently drop the undo off the stack.
+    /// Returns nil only when neither matches anything loaded.
+    nonisolated static func findOccurrence(
+        in blocks: [DayBlock],
+        identifier: String,
+        day: Weekday,
+        start: Int,
+        end: Int,
+        title: String
+    ) -> DayBlock? {
+        if let exact = blocks.first(where: {
+            $0.day == day && $0.start == start && $0.end == end
+                && Self.identifier(fromBlockID: $0.id) == identifier
+        }) {
+            return exact
+        }
+        return blocks.first { $0.day == day && $0.start == start && $0.end == end && $0.title == title }
+    }
+
     // MARK: Writing
 
     /// Creates one event. A drag across several days becomes a *single* event
@@ -292,7 +331,9 @@ final class CalendarBridge: ObservableObject {
         until termEnd: Date? = nil,
         calendarID: String,
         notes: String? = nil,
-        url: URL? = nil
+        url: URL? = nil,
+        location: String? = nil,
+        alarmOffsets: [TimeInterval] = []
     ) -> String? {
         guard let target = store.calendars(for: .event).first(where: { $0.calendarIdentifier == calendarID })
                 ?? store.defaultCalendarForNewEvents
@@ -303,8 +344,11 @@ final class CalendarBridge: ObservableObject {
 
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        guard let startDate = calendar.date(byAdding: .minute, value: start, to: day),
-              let endDate = calendar.date(byAdding: .minute, value: end, to: day)
+        // Wall-clock, not elapsed-minute — see Calendar.wallClock in
+        // NextClass.swift. `nil` here means `start`/`end` names a wall-clock
+        // time a spring-forward gap skipped on `date`; nothing to create.
+        guard let startDate = calendar.wallClock(minutes: start, on: day),
+              let endDate = calendar.wallClock(minutes: end, on: day)
         else { return nil }
 
         let event = EKEvent(eventStore: store)
@@ -314,6 +358,10 @@ final class CalendarBridge: ObservableObject {
         event.calendar = target
         event.notes = notes
         event.url = url
+        event.location = location
+        if !alarmOffsets.isEmpty {
+            event.alarms = alarmOffsets.map { EKAlarm(relativeOffset: $0) }
+        }
 
         // A single day needs no rule — a recurrence of one weekday is just
         // noise in Calendar.app's inspector.
@@ -367,25 +415,37 @@ final class CalendarBridge: ObservableObject {
     ///
     /// Works from the occurrence captured during `load`, never from
     /// `store.event(withIdentifier:)`, which returns the series master.
-    func reschedule(_ block: DayBlock, to date: Date, start: Int, end: Int, scope: EditScope) {
+    ///
+    /// Returns the saved event's identifier — read off the same `EKEvent`
+    /// object *after* `save`, not before, because saving one occurrence of a
+    /// repeating event with `.thisEvent` (or forking it with
+    /// `.futureEvents`) can detach it under a brand new identifier. A caller
+    /// that captured the identifier before the save would be holding a
+    /// stale one.
+    @discardableResult
+    func reschedule(_ block: DayBlock, to date: Date, start: Int, end: Int, scope: EditScope) -> String? {
         guard let event = occurrences[block.id] else {
             lastError = "That event is no longer loaded. Refresh and try again."
-            return
+            return nil
         }
         guard event.calendar.allowsContentModifications else {
             lastError = "“\(event.calendar.title)” is read-only."
-            return
+            return nil
         }
 
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
-        guard let startDate = calendar.date(byAdding: .minute, value: start, to: day),
-              let endDate = calendar.date(byAdding: .minute, value: end, to: day)
-        else { return }
+        // Wall-clock, not elapsed-minute — see Calendar.wallClock in
+        // NextClass.swift. `nil` here means the drag landed on a wall-clock
+        // time a spring-forward gap skipped; the event is left unmoved.
+        guard let startDate = calendar.wallClock(minutes: start, on: day),
+              let endDate = calendar.wallClock(minutes: end, on: day)
+        else { return nil }
 
         event.startDate = startDate
         event.endDate = endDate
-        save(event, scope: scope)
+        guard save(event, scope: scope) else { return nil }
+        return event.eventIdentifier
     }
 
     func delete(_ block: DayBlock, scope: EditScope) {
@@ -408,28 +468,39 @@ final class CalendarBridge: ObservableObject {
         }
     }
 
-    func rename(_ block: DayBlock, to title: String, scope: EditScope) {
-        guard let event = occurrences[block.id] else { return }
+    /// Returns the saved event's identifier post-save — see `reschedule`'s
+    /// doc comment for why it has to be read after, not before.
+    @discardableResult
+    func rename(_ block: DayBlock, to title: String, scope: EditScope) -> String? {
+        guard let event = occurrences[block.id] else { return nil }
         event.title = title
-        save(event, scope: scope)
+        guard save(event, scope: scope) else { return nil }
+        return event.eventIdentifier
     }
 
     /// `note`/`link` map straight to `EKEvent.notes`/`.url` — an empty
     /// string clears the field rather than leaving a stale value behind.
-    func setDetails(_ block: DayBlock, note: String, link: String, scope: EditScope) {
-        guard let event = occurrences[block.id] else { return }
+    /// Returns the saved event's identifier post-save — see `reschedule`'s
+    /// doc comment for why it has to be read after, not before.
+    @discardableResult
+    func setDetails(_ block: DayBlock, note: String, link: String, scope: EditScope) -> String? {
+        guard let event = occurrences[block.id] else { return nil }
         event.notes = note.isEmpty ? nil : note
         event.url = URL(string: link)
-        save(event, scope: scope)
+        guard save(event, scope: scope) else { return nil }
+        return event.eventIdentifier
     }
 
-    private func save(_ event: EKEvent, scope: EditScope) {
+    @discardableResult
+    private func save(_ event: EKEvent, scope: EditScope) -> Bool {
         do {
             try store.save(event, span: scope.span, commit: true)
             lastError = nil
+            return true
         } catch {
             store.reset()
             lastError = error.localizedDescription
+            return false
         }
     }
 
@@ -494,11 +565,21 @@ final class CalendarBridge: ObservableObject {
         }
 
         do {
-            // Clear both calendars first, or a class that moved calendars would
-            // leave a copy behind on the old one.
+            // Sweep every *writable* calendar the store knows about, not just
+            // the two currently-selected targets. If the user switches which
+            // calendar in-person or online goes to, the previous calendar is
+            // no longer in `[inPersonTarget, onlineTarget]` and would
+            // otherwise never get cleared again — its tagged classes just sit
+            // there as permanent duplicates. Read-only calendars are skipped:
+            // a tagged event can't live in one that's read-only *now* (we'd
+            // never have been able to write it), and `store.remove` on one
+            // throws, which would abort the whole export. Removals and the
+            // writes below share one `store.commit()` at the very end, so a
+            // mid-export failure can't leave the calendar with old classes
+            // gone and nothing written back in their place.
             var removed = 0
-            for target in dedupedCalendars([inPersonTarget, onlineTarget]) {
-                removed += try clearExported(from: target)
+            for target in store.calendars(for: .event) where target.allowsContentModifications {
+                removed += try clearExported(from: target, since: weekStart)
             }
 
             // One event per (class, week), placed by that week's resolved status
@@ -521,8 +602,12 @@ final class CalendarBridge: ObservableObject {
 
                     let day = session.day.date(inWeekStarting: week, calendar: calendar)
                     let (startMinutes, endMinutes) = time(session, week)
-                    guard let start = calendar.date(byAdding: .minute, value: startMinutes, to: day),
-                          let end = calendar.date(byAdding: .minute, value: endMinutes, to: day),
+                    // Wall-clock, not elapsed-minute — see Calendar.wallClock
+                    // in NextClass.swift. `nil` means this week's occurrence
+                    // fell on a spring-forward gap; that one week is skipped,
+                    // every other week's export is unaffected.
+                    guard let start = calendar.wallClock(minutes: startMinutes, on: day),
+                          let end = calendar.wallClock(minutes: endMinutes, on: day),
                           start <= lastDay
                     else { continue }
 
@@ -631,24 +716,20 @@ final class CalendarBridge: ObservableObject {
         return ours.count
     }
 
-    /// Distinct calendars by identifier — in-person and online may be the same
-    /// one, and clearing it twice would just waste a query.
-    private func dedupedCalendars(_ calendars: [EKCalendar]) -> [EKCalendar] {
-        var seen = Set<String>()
-        return calendars.filter { seen.insert($0.calendarIdentifier).inserted }
-    }
-
-    /// Removes only events carrying this app's tag. Anything the user put in
-    /// the same calendar is left alone — this runs against calendars they own
-    /// and use, not a scratch one we created.
+    /// Removes only events carrying this app's tag, from `weekStart` onward —
+    /// never past weeks, so a resync doesn't disturb history already sitting
+    /// in Calendar.app. Anything the user put in the same calendar is left
+    /// alone — this runs against calendars they own and use, not a scratch
+    /// one we created. Doesn't commit: `exportClasses` stages every removal
+    /// and every write with `commit: false` and commits once at the end, so
+    /// a crash mid-export can never leave the calendar with old classes gone
+    /// and nothing written back.
     @discardableResult
-    private func clearExported(from target: EKCalendar) throws -> Int {
+    private func clearExported(from target: EKCalendar, since weekStart: Date) throws -> Int {
         let calendar = Calendar.current
-        guard let from = calendar.date(byAdding: .year, value: -1, to: .now),
-              let to = calendar.date(byAdding: .year, value: 2, to: .now)
-        else { return 0 }
+        guard let to = calendar.date(byAdding: .year, value: 2, to: .now), to > weekStart else { return 0 }
 
-        let predicate = store.predicateForEvents(withStart: from, end: to, calendars: [target])
+        let predicate = store.predicateForEvents(withStart: weekStart, end: to, calendars: [target])
         let ours = store.events(matching: predicate).filter {
             $0.notes?.contains(Self.exportTag) == true
         }
@@ -656,7 +737,6 @@ final class CalendarBridge: ObservableObject {
         for event in ours {
             try store.remove(event, span: .futureEvents, commit: false)
         }
-        if !ours.isEmpty { try store.commit() }
         return ours.count
     }
 }
