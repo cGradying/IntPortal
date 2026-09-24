@@ -86,6 +86,62 @@ final class GradesSnapshotTests: XCTestCase {
         XCTAssertGreaterThan(image.size.height, 200)
     }
 
+    /// A long subject code must never truncate, and a crowded trend axis
+    /// must never let two term labels collide — head review caught both
+    /// ("PATHFIT 00" clipped from "PATHFIT 001", "2nd Sem 2025-2026"
+    /// overhanging the sheet) against the fixed-width HStack table and the
+    /// always-centered axis labels this replaces.
+    func testLongCodesAndSixTermsNeverTruncateOrOverlap() throws {
+        var subjects = Demo.grades.subjects
+        subjects.append(SubjectGrade(
+            subjectCode: "PATHFIT 001", description: "Individual and Dual Sports", faculty: "Prof. Sample",
+            units: 2, sectionCode: "", finalGrade: "1.50", gradeStatus: "Passed"
+        ))
+        subjects.append(SubjectGrade(
+            subjectCode: "NSTP 002-CWTS", description: "Civic Welfare Training Service 2", faculty: "Prof. Sample",
+            units: 3, sectionCode: "", finalGrade: "", gradeStatus: ""
+        ))
+        let current = GradeReport(
+            lastUpdated: Demo.grades.lastUpdated, subjects: subjects, summary: Demo.grades.summary,
+            schoolYear: Demo.grades.schoolYear, semester: Demo.grades.semester
+        )
+
+        // Five more terms behind the current one, six points on the trend.
+        let history = [
+            report(gpa: 1.84, sy: "2022-2023", sem: "First Semester"),
+            report(gpa: 1.62, sy: "2022-2023", sem: "Second Semester"),
+            report(gpa: 1.62, sy: "2023-2024", sem: "First Semester"),
+            report(gpa: 1.23, sy: "2023-2024", sem: "Second Semester"),
+            report(gpa: 1.40, sy: "2024-2025", sem: "First Semester"),
+        ]
+        let controller = makeController(grades: current, history: history)
+
+        let image = try Snapshot.render(
+            GradesScreen(controller: controller, preferences: makePreferences(), scrolls: false),
+            name: "grades-longcodes-sixterms", palette: .registrar, scheme: .light
+        )
+        XCTAssertGreaterThan(image.size.height, 200)
+    }
+
+    // MARK: GPA trend axis labels
+
+    /// The pure thinning function directly: however tight the spacing, kept
+    /// labels never sit closer than their combined half-widths, and the
+    /// first/last term always survives as the plot's anchors.
+    func testTrendAxisLabelsNeverOverlapWithManyTerms() {
+        let labels = (2019..<2025).map { "1st Sem \($0)-\($0 + 1)" }
+        let x: [CGFloat] = (0..<labels.count).map { CGFloat($0) * 90 } // tighter than any label's natural width
+        let visible = GPATrendChart.visibleLabelIndices(labels: labels, x: x)
+
+        XCTAssertTrue(visible.contains(0), "the first term must always anchor the axis")
+        XCTAssertTrue(visible.contains(labels.count - 1), "the last term must always anchor the axis")
+
+        let sorted = visible.sorted()
+        for (a, b) in zip(sorted, sorted.dropFirst()) {
+            XCTAssertGreaterThan(x[b] - x[a], 60, "labels at index \(a) and \(b) sit too close not to collide")
+        }
+    }
+
     // MARK: GPA trend VoiceOver summary
 
     private func report(gpa: Double, sy: String, sem: String) -> GradeReport {
