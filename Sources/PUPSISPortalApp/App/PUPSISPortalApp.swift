@@ -170,7 +170,8 @@ final class AppState: ObservableObject {
         }
         isEditing = credentials == nil
         #if DEBUG
-        if let screen = Demo.screen { open(screen) }
+        // A named screen is a live check: land on it, not on the hub.
+        if let screen = Demo.screen { open(screen); landingVisible = false }
         #endif
         startClock()
         observeTermination()
@@ -361,6 +362,9 @@ struct ContentView: View {
             .environment(\.typography, Typography(preferences.fontChoice, scale: preferences.uiScale))
             .environment(\.uiScale, preferences.uiScale)
             .reduceMotion(forced: preferences.forceReducedMotion)
+            // Native controls read `.tint`, not \.palette: action is the one
+            // interactive hue.
+            .tint(preferences.theme.palette(for: systemScheme).roles.action)
             // Keeps native controls (fields, pickers, popovers) in step with a
             // theme the user picked against their system setting.
             .preferredColorScheme(preferences.theme.colorScheme)
@@ -414,7 +418,7 @@ struct ContentView: View {
         // sheet. Every other screen resolves this through \.palette; this
         // sheet needs the same color said explicitly, since native Form
         // controls read `.tint`, not the custom environment key.
-        .tint(preferences.theme.palette(for: systemScheme).accent)
+        .tint(preferences.theme.palette(for: systemScheme).roles.action)
         // min/ideal/max instead of a fixed size — same starting size, but
         // the sheet now offers macOS's native drag-to-resize edge. Close to
         // the original (pre-sidebar) numbers, widened a bit from those:

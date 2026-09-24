@@ -44,9 +44,12 @@ struct Palette: Equatable {
     /// Glass needs something underneath it to bend. A flat fill refracts into
     /// a flat fill and the effect reads as a grey box, so the canvas carries a
     /// slow wash — low enough contrast that it never competes with the blocks.
+    /// The page ground. A flat fill since the Registrar (the old two-stop
+    /// wash only existed to give glass something to bend); still a gradient
+    /// type so pre-Registrar call sites keep compiling.
     var canvasWash: LinearGradient {
         LinearGradient(
-            colors: [canvasTop, canvasBottom],
+            colors: [roles.ground, roles.ground],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
