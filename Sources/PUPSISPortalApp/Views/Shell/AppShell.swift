@@ -265,4 +265,3 @@ enum ScreenCopy {
     private static var day: DateFormatter { let f = DateFormatter(); f.dateFormat = "EEEE, MMMM d"; return f }
     private static var week: DateFormatter { let f = DateFormatter(); f.dateFormat = "MMMM d"; return f }
 }
-
