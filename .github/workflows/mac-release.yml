@@ -171,7 +171,7 @@ jobs:
           # uses ditto (not cp -R) to embed Sparkle.framework in the first
           # place.
           ditto -c -k --sequesterRsrc --keepParent \
-            "$RUNNER_TEMP/zipstage/PUPSISPortal.app" "dist/PUPSISPortal-$VERSION.zip"
+            "$RUNNER_TEMP/zipstage/IntPortal.app" "dist/IntPortal-$VERSION.zip"
 
       - name: Generate appcast
         env:

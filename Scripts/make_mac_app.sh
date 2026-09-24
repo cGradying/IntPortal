@@ -1,12 +1,12 @@
 #!/bin/sh
-# Builds PUPSISPortal in release mode and installs it as a real .app bundle
+# Builds IntPortal in release mode and installs it as a real .app bundle
 # so macOS (and Spotlight) can see it. Usage: Scripts/make_mac_app.sh [dest-dir]
 # CONFIGURATION=Debug builds the variant that knows -IntPortalDemo (live checks).
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST_DIR="${1:-$HOME/Applications}"
-APP="$DEST_DIR/PUPSISPortal.app"
+APP="$DEST_DIR/IntPortal.app"
 BUNDLE_ID="com.cgradying.pupsisportal"
 # Git tags are already the single source of truth (CI derives VERSION the
 # same way from GITHUB_REF_NAME) — no more hand-edited fallback going stale.
@@ -32,14 +32,16 @@ cd "$ROOT"
 # "trust this plugin?" prompt for mlx-swift's CudaBuild plugin, which is a
 # no-op on macOS anyway (it only fires when CUDA is enabled).
 CONFIGURATION="${CONFIGURATION:-Release}"
-echo "Building PUPSISPortal ($CONFIGURATION)..."
+echo "Building IntPortal ($CONFIGURATION)..."
 DERIVED_DATA="$ROOT/.build/xcodebuild"
 xcodebuild build -scheme PUPSISPortal -configuration "$CONFIGURATION" -destination 'platform=macOS' \
   -derivedDataPath "$DERIVED_DATA" -skipPackagePluginValidation
 
 BIN="$DERIVED_DATA/Build/Products/$CONFIGURATION/PUPSISPortal"
 
-rm -rf "$APP"
+# The app was PUPSISPortal.app before the rename; drop that copy so
+# Spotlight and the Dock do not show two.
+rm -rf "$APP" "$DEST_DIR/PUPSISPortal.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/PUPSISPortal"
 
@@ -133,8 +135,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>PUPSISPortal</string>
-  <key>CFBundleDisplayName</key><string>PUPSISPortal</string>
+  <key>CFBundleName</key><string>IntPortal</string>
+  <key>CFBundleDisplayName</key><string>IntPortal</string>
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleExecutable</key><string>PUPSISPortal</string>
   <key>CFBundlePackageType</key><string>APPL</string>
@@ -142,7 +144,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleVersion</key><string>$VERSION</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
-  <key>NSCalendarsFullAccessUsageDescription</key><string>PUPSISPortal shows your calendar events beside your class schedule, and can add your classes to Calendar.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key><string>IntPortal shows your calendar events beside your class schedule, and can add your classes to Calendar.</string>
   <key>SUFeedURL</key><string>https://github.com/cGradying/IntPortal/releases/latest/download/appcast.xml</string>
   <key>SUPublicEDKey</key><string>$SPARKLE_PUBLIC_ED_KEY</string>
   <key>SUEnableAutomaticChecks</key><true/>
@@ -223,4 +225,4 @@ touch "$APP"
 mdimport "$APP" >/dev/null 2>&1 || true
 
 echo "Installed $APP"
-echo "Spotlight: press Cmd+Space and search PUPSISPortal (may take a few seconds to index)"
+echo "Spotlight: press Cmd+Space and search IntPortal (may take a few seconds to index)"

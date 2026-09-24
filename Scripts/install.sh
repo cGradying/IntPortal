@@ -32,7 +32,7 @@ set -e
 
 REPO="cGradying/IntPortal"
 DEST="$HOME/Applications"
-APP="$DEST/PUPSISPortal.app"
+APP="$DEST/IntPortal.app"
 
 echo "Looking up the latest release..."
 RELEASE_JSON="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest")"
@@ -48,12 +48,12 @@ if [ -z "$VERSION" ] || [ -z "$DMG_URL" ]; then
   exit 1
 fi
 
-echo "Installing PUPSISPortal $VERSION..."
+echo "Installing IntPortal $VERSION..."
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-DMG="$TMP/PUPSISPortal.dmg"
+DMG="$TMP/IntPortal.dmg"
 curl -fsSL "$DMG_URL" -o "$DMG"
 
 MOUNT="$TMP/mnt"
@@ -61,8 +61,8 @@ mkdir -p "$MOUNT"
 hdiutil attach "$DMG" -mountpoint "$MOUNT" -nobrowse -quiet
 
 mkdir -p "$DEST"
-rm -rf "$APP"
-ditto "$MOUNT/PUPSISPortal.app" "$APP"
+rm -rf "$APP" "$DEST/PUPSISPortal.app"
+ditto "$MOUNT/IntPortal.app" "$APP"
 
 hdiutil detach "$MOUNT" -quiet
 
@@ -88,5 +88,5 @@ else
   echo "Couldn't extract a certificate to trust — the app may still need a manual right-click > Open on first launch." >&2
 fi
 
-echo "Installed PUPSISPortal $VERSION to $APP"
+echo "Installed IntPortal $VERSION to $APP"
 open "$APP"
