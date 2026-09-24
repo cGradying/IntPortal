@@ -1,6 +1,6 @@
 <div align="center">
 
-# PUPSISPortal
+# IntPortal
 
 **Your PUP class schedule, as a native Mac app.**
 Signs into SIS headlessly — you never see the web portal, only your week.
@@ -12,7 +12,7 @@ Signs into SIS headlessly — you never see the web portal, only your week.
 
 </div>
 
-![PUPSISPortal week grid](docs/media/hero.png)
+![IntPortal week grid](docs/media/hero.png)
 
 <!-- Demo video: paste the github user-attachments URL here on its own line
      (see docs/media/README.md for how to get one). GitHub renders it as an
@@ -37,7 +37,7 @@ bypasses auth, or redistributes SIS content.
 
 ```sh
 git clone https://github.com/cGradying/IntPortal.git
-cd PUPSISPortal
+cd IntPortal
 Scripts/make_signing_identity.sh   # one-time: stable local signing identity
 Scripts/make_mac_app.sh            # build + install to ~/Applications
 ```
@@ -117,7 +117,7 @@ see the script's own comments for exactly what that does and how to undo it.
 Safe to re-run any time to update.
 
 **B. Download a build** from [Releases](https://github.com/cGradying/IntPortal/releases):
-grab the `.dmg`, drag `PUPSISPortal.app` to `~/Applications`, and open it. These
+grab the `.dmg`, drag `IntPortal.app` to `~/Applications`, and open it. These
 builds are **not notarized by Apple** (no paid developer account), so Gatekeeper
 blocks a plain double-click. First open needs **right-click → Open → Open**, or
 System Settings › Privacy & Security › "Open Anyway". This is expected for every
@@ -126,10 +126,10 @@ posted on the Release page if you want to confirm it wasn't tampered with in tra
 
 Every release ships two `.dmg`s — pick one:
 
-- `PUPSISPortal-<version>.dmg` — the app itself. IntAssis (the local AI
+- `IntPortal-<version>.dmg` — the app itself. IntAssis (the local AI
   assistant, Settings ▸ AI) downloads its own model on first use (~1.2GB) and
   needs `llama-server` installed once (`brew install llama.cpp`).
-- `PUPSISPortal-<version>-with-AI.dmg` — the same app with IntAssis's model
+- `IntPortal-<version>-with-AI.dmg` — the same app with IntAssis's model
   and `llama-server` already inside. Bigger download, but nothing to install
   or fetch afterward — open it and IntAssis works offline immediately.
 
@@ -344,7 +344,7 @@ One-time setup at [Google Cloud Console](https://console.cloud.google.com):
 4. **Credentials → Create credentials → OAuth client ID** → application type
    **iOS**, bundle ID `com.cgradying.pupsisportal`. Copy the **Client ID**
    (ends in `.apps.googleusercontent.com`).
-5. In PUPSISPortal: **Settings → Google Calendar (direct)** → paste the Client ID
+5. In IntPortal: **Settings → Google Calendar (direct)** → paste the Client ID
    → **Connect Google** → approve in the browser → pick a calendar → **Export to
    Google**.
 
@@ -361,7 +361,7 @@ needed, just a Swift toolchain (Xcode 16+ on macOS 14–15; Xcode 26+ to get the
 Liquid Glass look on macOS 26). `swift test` runs the parser/store/logic suite
 separately if you want it.
 
-`make_mac_app.sh` builds the release binary, assembles `PUPSISPortal.app`
+`make_mac_app.sh` builds the release binary, assembles `IntPortal.app`
 (bundle id `com.cgradying.pupsisportal`) with a generated `Info.plist` and icon,
 code-signs it, and installs to `~/Applications` (pass a directory to install
 elsewhere).
@@ -382,7 +382,7 @@ Allow** on the first launch after a build.
 Pure SwiftPM, one executable target (`Sources/PUPSISPortalApp`) plus a test
 target. Single-window SwiftUI app; no view-model layer.
 
-![PUPSISPortal architecture diagram](docs/architecture.png)
+![IntPortal architecture diagram](docs/architecture.png)
 
 ### Session & data (`Core/`)
 
