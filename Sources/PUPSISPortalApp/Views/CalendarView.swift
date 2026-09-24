@@ -50,7 +50,7 @@ struct CalendarView: View {
     @State private var pendingScope: ScopeQuestion?
     @StateObject private var editor: EventEditor
     /// Sidebar width captured at the start of a resize drag — same
-    /// convention as `AgendaView`'s own `sidebarWidthAtDragStart`.
+    /// convention as `NotebookScreen`'s own `sidebarWidthAtDragStart`.
     @State private var sidebarWidthAtDragStart: Double?
     @State private var sidebarHandleHovered = false
     /// The screen's own available height (wayfinder ticket #13/#14) — the
@@ -145,7 +145,7 @@ struct CalendarView: View {
             .mapValues { keys in keys.map { preferences.color(forEvent: $0, in: palette) } }
     }
 
-    /// Straight copy of `AgendaView`'s `sidebarResizeHandle` — same drag
+    /// Straight copy of `NotebookScreen`'s `sidebarResizeHandle` — same drag
     /// convention, own state, since the two sidebars resize independently.
     private var scheduleSidebarResizeHandle: some View {
         Divider()

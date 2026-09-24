@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The Schedule screen's sidebar: status (what used to be the bottom bar),
 /// syllabus tasks, and per-subject files/links. Mounted by `CalendarView`
-/// the same way `AgendaView` mounts its own notebook sidebar — a resize
+/// the same way `NotebookScreen` mounts its own notebook sidebar — a resize
 /// handle plus a fixed-width column, both reading `Preferences`.
 struct ScheduleSidebar: View {
     let lastUpdated: Date?

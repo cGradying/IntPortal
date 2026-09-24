@@ -17,31 +17,9 @@ final class ScheduleModel: ObservableObject {
     @Published var newEventIntent = 0
 }
 
-/// Which side of Notebook is showing — mutated by the island's segmented
-/// control when `.notebook` is open, same pattern as `ScheduleModel`.
-@MainActor
-final class NotebookModel: ObservableObject {
-    @Published var tab: NotebookTab = .vault
-}
-
-enum NotebookTab: String, CaseIterable, Identifiable {
-    case vault
-    case quizzes
-    case syllabus
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .vault: "Vault"
-        case .quizzes: "Quizzes"
-        case .syllabus: "Syllabus"
-        }
-    }
-}
-
 @MainActor
 final class AppState: ObservableObject {
     let schedule = ScheduleModel()
-    let notebook = NotebookModel()
     @Published var credentials: Credentials?
     @Published var isEditing = false
 
@@ -108,14 +86,14 @@ final class AppState: ObservableObject {
     )
 
     /// The note key the user is currently looking at, mirrored up from
-    /// whichever screen has one open (today: `AgendaView`) — see the comment
+    /// whichever screen has one open (today: `NotebookScreen`) — see the comment
     /// at its `.onChange`/`.onAppear` there. Read by the assistant to answer
     /// "summarize this note" without the model needing a key it was never told.
     @Published var openNoteKey: String?
 
     /// The "Add dated entry" menu's labels for whichever note is open, mirrored
     /// up the same way `openNoteKey` is — non-nil only for a shared per-subject
-    /// `class:` note. See `AgendaView.addDateOptions(for:)`.
+    /// `class:` note. See `NotebookScreen.addDateOptions(for:)`.
     @Published var noteAddDateOptions: (next: String, today: String)?
 
     /// One shared bridge to whichever `WKWebView` the open note is rendering.
@@ -151,7 +129,6 @@ final class AppState: ObservableObject {
     func open(_ destination: Destination) {
         guard destination != selection else { return }
         navDirection = Destination.direction(from: selection, to: destination)
-        if let tab = destination.notebookTab { notebook.tab = tab }
         selection = destination
     }
 
