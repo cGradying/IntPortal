@@ -57,6 +57,7 @@ let package = Package(
             resources: [
                 .copy("Resources/notes-editor.bundle.js"),
                 .copy("Resources/Fonts"),
+                .process("Resources/Shaders"),
             ],
             linkerSettings: [
                 // Xcode injects this rpath automatically for regular apps;
