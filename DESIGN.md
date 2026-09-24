@@ -111,7 +111,7 @@ components:
 
 # Design System: IntPortal
 
-Reference build: `docs/specs/prototypes/intportal-v2.html` (v3 adds the 3D moves once P3 lands) (open it in a browser; everything here
+Reference build: `docs/specs/prototypes/intportal-v3.html` (v2 without the 3D moves) (open it in a browser; everything here
 was measured from it). Surface specs: `docs/specs/`. This file replaces the "Six Rooms" system of
 2026-08; that history is in git.
 
@@ -198,15 +198,20 @@ It never marks importance or selection.
 |---|---|---|---|---|
 | screenTitle | Pixelify | 28 | 700 | balanced wrap |
 | sheetLabel | Pixelify | 14 | 600 | uppercase, +0.06em |
-| code | Pixelify | 18 (block 15) | 700 | subject color |
-| numeric | Pixelify | 16 | 600 | times, counts, grades, GPA |
-| gutter / meta | Pixelify | 11.5–13 | 500 | time gutter, dates |
+| code | Pixelify | 18 (block 15) | 400 | subject color, regular weight stays crisp |
+| numeric | Source Sans 3 | 13–16 | 500 | times, counts, grades under 20pt, tabular (Legibility Rule) |
+| gutter / meta | Source Sans 3 | 11.5–13 | 500 | time gutter, dates, tabular |
 | body | Source Sans 3 | 15 | 400 | notes, descriptions |
 | secondary | Source Sans 3 | 13–14 | 400 | ink-2 / ink-3 |
 | stamp | Pixelify | 11 (10 on blocks) | 700 | uppercase, +0.12em |
 | GPA hero | Pixelify | 56 | 700 | Grades only |
 
 **The No-Reflow Rule** still holds: anything live and numeric uses tabular figures.
+
+**The Legibility Rule.** Pixelify Sans's 2, 9 and C read as 8, S and O below about 20pt (measured
+in F1/S1 renders). So a number someone must read exactly (a time, grade, date or student number)
+under 20pt is set in Source Sans 3 with tabular figures (`Typography.numeric`). Pixelify keeps
+titles, the GPA hero, labels, buttons, and course codes (at its crisp regular weight).
 
 ## Layout
 
@@ -264,15 +269,17 @@ window keeps its 14pt system corner. Borders are 2pt on controls, 1pt on sheets.
 - **Hub carousel** (`09`): portal frames on a ring you orbit with the arrow keys. The lit frame is
   PUP SIS labelled with your campus; dark frames are "Not connected yet". Encodes: where you can go.
 - **Week turn** (`03`): paging Schedule turns the grid in 3D, left into the past, right into the
-  future. Encodes: direction in time. Variant (cube or slab) is picked from prototype v3.
+  future, turning about its center like a cube face (picked from prototype v3 over "slab").
+  Encodes: direction in time.
 - **Depth push** (`01`): changing screens moves along the sidebar's order in Z, forward when you go
-  down the menu, back when you go up. Encodes: where the screen sits in the menu. Variant (push or
-  dive) is picked from prototype v3.
+  down the menu, back when you go up (picked from prototype v3 over "dive"). Encodes: where the
+  screen sits in the menu.
 - **Sync ripple** (`01`): a refresh sends one pixel ring out from the portal glyph across the
   sheets, green on success, a red stutter on failure. Encodes: the sync result.
 - **Deck fan-out** (`11`): opening a deck fans its due cards in 3D, then deals the first to center.
   Encodes: fan width = cards due.
-- **Thinking cube** (`06`): the IntAssis orb turns into a spinning voxel cube while the model works.
+- **Thinking cube** (`06`): the IntAssis mark (chat header, or the orb when the chat is closed) turns
+  into a spinning voxel cube while the model works.
   Encodes: waiting on the model.
 
 ## Motion

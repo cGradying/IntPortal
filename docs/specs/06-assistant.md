@@ -61,7 +61,7 @@ new replies). Autocomplete is a listbox with arrow keys. Reduce Motion: no word 
 typing squares static.
 
 ## 3D
-While IntAssis waits on the model, the orb turns into `VoxelOrb` (token `think`), a spinning voxel cube, replacing the 3 blinking squares only on the orb; the chat keeps its pixel-square typing indicator.
+While IntAssis waits on the model, its mark turns into `VoxelOrb` (token `think`), a spinning voxel cube: in the chat header while the chat is open, on the orb when it is closed. The message list keeps its pixel-square typing indicator.
 
 ## Acceptance criteria
 - [ ] The orb is a voxel cube while a request runs and returns to the orb when it ends or fails. Evidence: screenshots.
