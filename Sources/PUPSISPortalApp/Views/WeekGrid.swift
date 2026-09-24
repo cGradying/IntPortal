@@ -20,6 +20,10 @@ struct WeekGrid: View {
     /// Fires whenever the grid's scroll position pins to (or leaves) the top —
     /// what `CalendarScroll` gates the week↔year overscroll switch on.
     var onAtTopChange: (Bool) -> Void = { _ in }
+    /// `false` renders the body without its `ScrollView` — `ImageRenderer`
+    /// (`Snapshot.render`) can't draw one, so `ScheduleSnapshotTests` needs a
+    /// plain, fully-laid-out grid instead.
+    var scrolls: Bool = true
 
     @Environment(\.palette) private var palette
 
@@ -91,13 +95,28 @@ struct WeekGrid: View {
             .padding(.horizontal, 16)
             .padding(.top, 12)
         }
-        .background(
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear { availableHeight = proxy.size.height }
-                    .onChange(of: proxy.size.height) { _, newValue in availableHeight = newValue }
+        .background {
+            // Only under `scrolls`: the `ScrollView` gives this a viewport
+            // height from *its* parent, independent of how tall the content
+            // inside ends up — the measurement this reads is stable. Without
+            // a `ScrollView`, `scrollingBody` reports its own natural size
+            // upward, which is `bodyHeight`, which is computed *from*
+            // `hourHeight`, which reads `availableHeight` — measuring that
+            // here would close the loop on itself: a bigger `availableHeight`
+            // stretches `hourHeight`, which grows the content, which measures
+            // bigger next pass, without settling. Confirmed live in
+            // `ScheduleSnapshotTests`: `availableHeight` climbed from 0 past
+            // 2000 across dozens of re-renders instead of converging.
+            // `scrolls: false` keeps `availableHeight` at its 0 default, which
+            // is exactly `minHourHeight` territory — deterministic.
+            if scrolls {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { availableHeight = proxy.size.height }
+                        .onChange(of: proxy.size.height) { _, newValue in availableHeight = newValue }
+                }
             }
-        )
+        }
         .enableInjection()
     }
 
@@ -128,7 +147,10 @@ struct WeekGrid: View {
                 // Confirmed live: an extra .opacity(0.8) on top of .secondary
                 // compounded into near-illegible day headers on non-today
                 // columns — .secondary alone already reads as "not today".
-                .foregroundStyle(isToday ? palette.accent : .secondary)
+                // Gold, not accent: DESIGN.md's Now Rule reserves gold for the
+                // present moment (now-line, today column, stamps) and accent
+                // for actions, which this label isn't.
+                .foregroundStyle(isToday ? palette.roles.gold : .secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
                 // Confirmed live: a dither wash sitting directly *behind* the
@@ -136,27 +158,26 @@ struct WeekGrid: View {
                 // accent squares land right on top of letter strokes and no
                 // text color wins against that. Fixed by inverting the
                 // layering instead: the dither wash fills the whole box as a
-                // "you are here" halo (Settings tab strip's `DitherRule`
-                // language, same wave drift), then a solid canvas-colored
-                // plate sits on top of it, inset just enough to leave a thin
-                // dithered ring showing at the edge — the text draws on that
-                // clean plate, never on noise.
+                // "you are here" halo, then a solid ground-colored plate sits
+                // on top of it, inset just enough to leave a thin dithered
+                // ring showing at the edge — the text draws on that clean
+                // plate, never on noise.
+                //
+                // Static, not a `TimelineView` (same fix `SettingsView`'s tab
+                // strip already applies): phase 1 measured this ring's wave
+                // drift at ~21% Debug CPU at rest, redrawing this `Canvas` on
+                // its own clock even though nothing here needed to move every
+                // frame — a `.flat` ramp draws it once and only repaints when
+                // the header itself does (its own per-minute tick).
                 .background {
                     if isToday {
                         ZStack {
-                            TimelineView(.animation(minimumInterval: reduceMotion ? nil : 0.16, paused: reduceMotion)) { context in
-                                DitherFill(
-                                    color: palette.accent,
-                                    cell: 2,
-                                    ramp: .wave(0.6),
-                                    phase: reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate * 0.5
-                                )
-                            }
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(palette.canvasTop)
+                            DitherFill(color: palette.roles.gold, cell: 2, ramp: .flat(0.6))
+                            PixelNotch(step: 2)
+                                .fill(palette.roles.ground)
                                 .padding(3)
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .clipShape(PixelNotch(step: 2))
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -175,61 +196,74 @@ struct WeekGrid: View {
     private func scrollingBody(height: CGFloat, now: Date) -> some View {
         let nowMinutes = NowLine.minutes(of: now)
 
-        return ScrollViewReader { proxy in
-            ScrollView {
-                HStack(alignment: .top, spacing: 0) {
-                    hourLabels(now: showsNowLine(now) ? nowMinutes : nil)
-                        .frame(width: gutter)
+        let content = HStack(alignment: .top, spacing: 0) {
+            hourLabels(now: showsNowLine(now) ? nowMinutes : nil)
+                .frame(width: gutter)
 
-                    GeometryReader { proxy in
-                        let geometry = GridGeometry(
-                            width: proxy.size.width,
-                            height: height,
-                            axis: axis,
-                            columnSpacing: columnSpacing
-                        )
+            GeometryReader { proxy in
+                let geometry = GridGeometry(
+                    width: proxy.size.width,
+                    height: height,
+                    axis: axis,
+                    columnSpacing: columnSpacing
+                )
 
-                        // Interaction layer *under* the blocks: on top it
-                        // swallowed every click, including a class's colour
-                        // and status menus. Empty space still reaches it,
-                        // which is all it needs for create and rubber-band.
-                        ZStack(alignment: .topLeading) {
-                            hourLines(height: height)
-                            interactionLayer(geometry: geometry)
-                            blockLayer(geometry: geometry, now: now)
-                        }
-                        // Drags report positions in this space, so a block's
-                        // gesture gets absolute grid coordinates rather than
-                        // having to reconstruct where it is.
-                        .coordinateSpace(.named(Self.gridSpace))
-                    }
-                    .frame(height: height)
+                // Interaction layer *under* the blocks: on top it
+                // swallowed every click, including a class's colour
+                // and status menus. Empty space still reaches it,
+                // which is all it needs for create and rubber-band.
+                ZStack(alignment: .topLeading) {
+                    todayColumnWash(geometry: geometry, height: height, now: now)
+                    hourLines(height: height)
+                    interactionLayer(geometry: geometry)
+                    blockLayer(geometry: geometry, now: now)
                 }
-                .overlay(alignment: .topLeading) {
-                    // Only the week that actually contains today gets a now-line.
-                    if showsNowLine(now) {
-                        NowLine(minutes: nowMinutes, axisStart: axis.start,
-                                span: CGFloat(max(axis.end - axis.start, 60)),
-                                height: height, gutter: gutter)
-                    }
-                }
-                .padding(.top, headerHeight + 14)
-                .padding(.bottom, 12)
-                .padding(.trailing, columnInset)
-                .trackScrollTop(space: Self.scrollSpace) { onAtTopChange($0 >= -1) }
-                // .scrollIndicators(.hidden) alone left a persistent AppKit
-                // scroller when System Settings has "Show scroll bars:
-                // Always" — this reaches the real NSScrollView directly.
-                // Scrolling itself is untouched, only the widget is gone.
-                .hidingRealScroller()
+                // Drags report positions in this space, so a block's
+                // gesture gets absolute grid coordinates rather than
+                // having to reconstruct where it is.
+                .coordinateSpace(.named(Self.gridSpace))
             }
-            .coordinateSpace(.named(Self.scrollSpace))
-            .scrollIndicators(.hidden)
-            .onAppear {
-                // Open on the current hour rather than at 6am. No animation:
-                // an initial position should just be the position.
-                guard let target = hours.last(where: { $0 <= nowMinutes }) else { return }
-                proxy.scrollTo(target, anchor: .top)
+            .frame(height: height)
+        }
+        .overlay(alignment: .topLeading) {
+            // Only the week that actually contains today gets a now-line.
+            if showsNowLine(now) {
+                NowLine(minutes: nowMinutes, axisStart: axis.start,
+                        span: CGFloat(max(axis.end - axis.start, 60)),
+                        height: height, gutter: gutter)
+            }
+        }
+        .padding(.top, headerHeight + 14)
+        .padding(.bottom, 12)
+        .padding(.trailing, columnInset)
+
+        return Group {
+            if scrolls {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        content
+                            .trackScrollTop(space: Self.scrollSpace) { onAtTopChange($0 >= -1) }
+                            // .scrollIndicators(.hidden) alone left a persistent
+                            // AppKit scroller when System Settings has "Show
+                            // scroll bars: Always" — this reaches the real
+                            // NSScrollView directly. Scrolling itself is
+                            // untouched, only the widget is gone.
+                            .hidingRealScroller()
+                    }
+                    .coordinateSpace(.named(Self.scrollSpace))
+                    .scrollIndicators(.hidden)
+                    .onAppear {
+                        // Open on the current hour rather than at 6am. No
+                        // animation: an initial position should just be the
+                        // position.
+                        guard let target = hours.last(where: { $0 <= nowMinutes }) else { return }
+                        proxy.scrollTo(target, anchor: .top)
+                    }
+                }
+            } else {
+                // No ScrollView: a snapshot render just needs the whole grid
+                // laid out, not the ability to scroll it.
+                content
             }
         }
     }
@@ -251,6 +285,21 @@ struct WeekGrid: View {
             }
         }
         .padding(.trailing, 8)
+    }
+
+    /// Spec 03 change 6: the whole today column, not just its header cell,
+    /// carries a faint gold wash. A plain static rectangle — no dither, no
+    /// timer — positioned once per render from `GridGeometry`, same as every
+    /// other layer here.
+    @ViewBuilder
+    private func todayColumnWash(geometry: GridGeometry, height: CGFloat, now: Date) -> some View {
+        if showsNowLine(now) {
+            Rectangle()
+                .fill(palette.roles.gold.opacity(0.06))
+                .frame(width: geometry.columnWidth, height: height)
+                .offset(x: geometry.x(of: Weekday.on(now)))
+                .allowsHitTesting(false)
+        }
     }
 
     private func hourLines(height: CGFloat) -> some View {
@@ -294,8 +343,11 @@ struct WeekGrid: View {
             let position: RunPosition = dragging ? .single : (runs[block.id] ?? .single)
             // Closing the gap is what makes consecutive days read as one bar.
             let bridge = position.bridgesRight ? columnSpacing + 2 : 0
+            // DESIGN.md's class-block spec: the description line only fits a
+            // block ≥ 90pt tall — a 15–30min class has no room for it.
+            let isTall = rect.height >= 90
 
-            blockView(block, isPast: isPast(block, now: now), geometry: geometry, position: position)
+            blockView(block, isPast: isPast(block, now: now), isTall: isTall, geometry: geometry, position: position)
                 .frame(width: max(rect.width * width - 2, 1) + bridge, height: max(rect.height, 26))
                 .scaleEffect(dragging ? 1.03 : 1)
                 .shadow(color: .black.opacity(dragging ? 0.35 : 0), radius: 8, y: 4)
@@ -354,6 +406,7 @@ struct WeekGrid: View {
     private func blockView(
         _ block: DayBlock,
         isPast: Bool,
+        isTall: Bool,
         geometry: GridGeometry,
         position: RunPosition
     ) -> some View {
@@ -363,6 +416,7 @@ struct WeekGrid: View {
                 weekStart: weekStart,
                 isPast: isPast,
                 isSelected: selection.contains(block.id),
+                isTall: isTall,
                 position: position,
                 preferences: preferences
             )

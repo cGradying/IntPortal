@@ -1,12 +1,13 @@
 import SwiftUI
 import Inject
 
-/// The present moment, drawn across the week: a hairline in the accent plus a
-/// glass lozenge in the gutter carrying the live clock.
+/// The present moment, drawn across the week: a 2pt gold hairline plus a
+/// gold time chip in the gutter carrying the live clock — spec 03 change 6.
 ///
-/// This is the one place in the app that uses Liquid Glass for emphasis rather
-/// than for chrome, and the one place that uses the accent as a tint — both
-/// are spent here so the rest of the grid can stay quiet.
+/// DESIGN.md's Now Rule: gold marks the present and nothing else, so this is
+/// the one place in the grid that reaches for it. No glass — Liquid Glass is
+/// retired from the Registrar world, and a flat notched chip reads the time
+/// just as well.
 ///
 /// The clock ticks from a `TimelineView` one level up, in `WeekGrid`, because
 /// the same minute also decides which blocks have already finished.
@@ -36,18 +37,16 @@ struct NowLine: View {
                 HStack(spacing: 0) {
                     Text(ClassSession.format(minutes))
                         .font(typography.nowClock)
-                        .foregroundStyle(palette.nowTint)
+                        .foregroundStyle(palette.roles.ink)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2)
-                        .glassTintedCapsule(palette.nowTint.opacity(0.22))
+                        .background(palette.roles.gold, in: PixelNotch())
                         .frame(width: gutter, alignment: .trailing)
                         .accessibilityLabel("Now, \(ClassSession.format(minutes))")
 
-                    // 1pt disappears against a dark canvas once the accent is
-                    // desaturated by the wash; 1.5 reads without becoming a bar.
                     Rectangle()
-                        .fill(palette.nowTint)
-                        .frame(height: 1.5)
+                        .fill(palette.roles.gold)
+                        .frame(height: 2)
                         .accessibilityHidden(true)
                 }
                 .frame(height: lozengeHeight)

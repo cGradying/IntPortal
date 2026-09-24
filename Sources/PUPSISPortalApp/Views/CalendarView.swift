@@ -32,6 +32,12 @@ struct CalendarView: View {
     /// it — `CalendarView` stays mounted underneath, so the scroll monitor
     /// needs telling explicitly not to move the schedule behind it.
     var settingsShowing: Bool = false
+    /// `AppState.isRefreshing`/`.refresh()` — `ScheduleControls`' Refresh
+    /// button used to live in `AppShell`, right next to `appState`; now it's
+    /// down here with the rest of Schedule's controls, so the shell hands
+    /// these two down instead.
+    var isRefreshing: Bool = false
+    var onRefresh: () -> Void = {}
 
     @Environment(\.palette) private var palette
 
@@ -59,6 +65,14 @@ struct CalendarView: View {
     /// the visible screen before a scroll reveals the syllabus section
     /// below it, rather than the calendar shrinking to share space.
     @State private var scheduleAreaHeight: CGFloat = 0
+    /// Which way `weekGrid`'s `.weekTurn` should rotate, set fresh by `step`
+    /// on every page — including one fired mid-turn, which is what lets a
+    /// second key press redirect a turn already in flight rather than queue
+    /// behind it.
+    @State private var turnDirection = 1
+    /// The grid's own measured width, so the cube's `anchorZ` matches its
+    /// actual size instead of a guess.
+    @State private var weekGridWidth: CGFloat = 900
 
     // The lifted state now lives on `schedule`; these keep the body readable.
     private var weekOffset: Int {
@@ -84,7 +98,9 @@ struct CalendarView: View {
         updaterBridge: UpdaterBridge,
         onCheckForUpdates: @escaping () -> Void = {},
         onEditCredentials: @escaping () -> Void = {},
-        settingsShowing: Bool = false
+        settingsShowing: Bool = false,
+        isRefreshing: Bool = false,
+        onRefresh: @escaping () -> Void = {}
     ) {
         self.controller = controller
         self.preferences = preferences
@@ -93,6 +109,8 @@ struct CalendarView: View {
         self.credentials = credentials
         self.schedule = schedule
         self.updaterBridge = updaterBridge
+        self.isRefreshing = isRefreshing
+        self.onRefresh = onRefresh
         self.onCheckForUpdates = onCheckForUpdates
         self.onEditCredentials = onEditCredentials
         self.settingsShowing = settingsShowing
@@ -193,20 +211,55 @@ struct CalendarView: View {
                     VStack(spacing: 0) {
                         ZStack {
                             HStack(spacing: 0) {
-                                weekGrid
-                                    .id(weekStart)
-                                    .overlay(alignment: .bottom) {
-                                        if !selection.isEmpty {
-                                            SelectionBar(
-                                                count: selection.count,
-                                                onDelete: deleteSelection,
-                                                onDuplicate: duplicateSelection,
-                                                onDone: { selection.removeAll() }
-                                            )
-                                            .padding(.bottom, 20)
+                                VStack(spacing: 0) {
+                                    // Routed through `schedule.stepIntent`/
+                                    // `.newEventIntent` rather than calling
+                                    // `step`/`newEventAtDefaultSlot` directly
+                                    // — the same intents ⌘[/⌘]/⌘N already
+                                    // drive from `PUPSISPortalApp`'s menu
+                                    // commands, so there's one path, not two.
+                                    ScheduleControls(
+                                        scale: $schedule.scale,
+                                        showCancelled: $schedule.showCancelled,
+                                        weekOffset: schedule.weekOffset,
+                                        isRefreshing: isRefreshing,
+                                        onStep: { schedule.stepIntent = $0 },
+                                        onToday: { schedule.weekOffset = 0 },
+                                        onNewEvent: { schedule.newEventIntent += 1 },
+                                        onRefresh: onRefresh
+                                    )
+                                    .padding(.horizontal, Spacing.lg)
+                                    .padding(.vertical, Spacing.sm)
+                                    CORStrip(controller: controller)
+                                    weekGrid
+                                        .id(weekStart)
+                                        .background(
+                                            GeometryReader { proxy in
+                                                Color.clear
+                                                    .onAppear { weekGridWidth = proxy.size.width }
+                                                    .onChange(of: proxy.size.width) { _, newValue in weekGridWidth = newValue }
+                                            }
+                                        )
+                                        // Cube turn only while actually browsing
+                                        // by week — the year scale steps by
+                                        // months onto the same `weekStart`, and
+                                        // turning a grid that's sitting blurred
+                                        // behind the year panel would read as a
+                                        // glitch rather than a page change.
+                                        .weekTurn(direction: turnDirection, width: weekGridWidth, reduced: reduceMotion || scale != .week)
+                                        .overlay(alignment: .bottom) {
+                                            if !selection.isEmpty {
+                                                SelectionBar(
+                                                    count: selection.count,
+                                                    onDelete: deleteSelection,
+                                                    onDuplicate: duplicateSelection,
+                                                    onDone: { selection.removeAll() }
+                                                )
+                                                .padding(.bottom, 20)
+                                            }
                                         }
-                                    }
-                                    .calendarScroll(enabled: !settingsShowing, scale: scale, atTop: atTop, perform: handleScroll)
+                                        .calendarScroll(enabled: !settingsShowing, scale: scale, atTop: atTop, perform: handleScroll)
+                                }
 
                                 scheduleSidebarResizeHandle
                                 ScheduleSidebar(
@@ -275,7 +328,7 @@ struct CalendarView: View {
                 )
             }
         }
-        .animation(Motion.arrival(reduced: reduceMotion), value: weekStart)
+        .animation(Motion.turn(reduced: reduceMotion), value: weekStart)
         .animation(Motion.arrival(reduced: reduceMotion), value: scale)
         // Palette is Equatable, so switching theme crossfades every colour at
         // once instead of snapping.
@@ -635,6 +688,11 @@ struct CalendarView: View {
     private func step(_ direction: Int) {
         switch scale {
         case .week:
+            // Set on every call, including one that lands mid-turn — `weekStart`
+            // changing again before the spring settles just retargets it toward
+            // the fresh `turnDirection`, the same interruptible-spring idiom
+            // `DepthPush`/`appState.navDirection` already use for screen changes.
+            turnDirection = WeekTurn.direction(pagingBy: direction)
             weekOffset += direction
         case .year:
             // A full-year jump made sense when the panel showed all twelve
@@ -719,5 +777,58 @@ private struct EditorRequest: Identifiable {
 /// A held-back edit, waiting for the user to say how far it should reach.
 private struct ScopeQuestion {
     let apply: (CalendarBridge.EditScope) -> Void
+}
+
+/// Spec 03 change 2: term identity and freshness, above the grid, read from
+/// data `PortalController` already holds rather than a fresh scrape.
+///
+/// A standalone view (not a computed property on `CalendarView`, which is
+/// how this started) so `@Environment` actually gets installed when
+/// `ScheduleSnapshotTests` renders it alone — reading an `@Environment`
+/// property by calling a plain computed property on an uninstantiated
+/// `CalendarView` just returns the key's default, silently.
+///
+/// School year/semester come from the *grades* page's term (`controller
+/// .grades`) — the schedule scrape never carries them, so this is a
+/// best-effort borrow and blank until Grades has loaded once. Units is left
+/// out entirely: the schedule scrape's JS already reads a `unit` cell per
+/// row (`SISScraper.scheduleScript`) but `ScheduleParser` drops it before it
+/// reaches `ClassSession`, so there's truly no units figure anywhere in this
+/// app's data today rather than one this view forgot to read — reported
+/// back rather than invented here.
+struct CORStrip: View {
+    @ObservedObject var controller: PortalController
+    @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
+
+    var body: some View {
+        let roles = palette.roles
+        return HStack(spacing: Spacing.xl) {
+            if let year = controller.grades?.schoolYear {
+                field("School year", year)
+            }
+            if let semester = controller.grades?.semester {
+                field("Semester", semester)
+            }
+            field("Updated", updatedLabel)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.sm)
+        .background(roles.sunk)
+        .overlay(alignment: .bottom) { Rectangle().fill(roles.line).frame(height: 1) }
+    }
+
+    private func field(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 4) {
+            Text(label).font(typography.reading(size: 13)).foregroundStyle(palette.roles.ink2)
+            Text(value).font(typography.numeric(size: 13)).foregroundStyle(palette.roles.ink)
+        }
+    }
+
+    var updatedLabel: String {
+        guard let lastUpdated = controller.lastUpdated else { return "not synced yet" }
+        return "\(lastUpdated.formatted(date: .omitted, time: .shortened)) from \(controller.hostLabel)"
+    }
 }
 
