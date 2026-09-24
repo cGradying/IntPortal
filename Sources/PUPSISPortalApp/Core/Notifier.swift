@@ -24,9 +24,18 @@ final class Notifier: ObservableObject {
     private let center: UNUserNotificationCenter?
 
     init() {
-        // `UNUserNotificationCenter.current()` traps in a process with no bundle
-        // identifier — `swift run` and the test bundle both qualify.
-        center = Bundle.main.bundleIdentifier == nil ? nil : .current()
+        // `UNUserNotificationCenter.current()` traps outside a proper app
+        // bundle. `swift run`'s bare executable reports no bundle
+        // identifier, which the second check below catches — but the
+        // `swift test`/xctest runner *does* report one (its own tool's), so
+        // `.current()` still traps there despite that check passing.
+        // `NSClassFromString` for `XCTestCase` is the standard "are we
+        // running under XCTest" probe and catches that case too. Confirmed
+        // live: `SettingsSnapshotTests` constructing a `NotificationsPane`
+        // (and so a `Notifier`) crashed the whole suite with
+        // "bundleProxyForCurrentProcess is nil" before this.
+        let runningUnderXCTest = NSClassFromString("XCTestCase") != nil
+        center = (runningUnderXCTest || Bundle.main.bundleIdentifier == nil) ? nil : .current()
     }
 
     func refreshAuthorization() async {

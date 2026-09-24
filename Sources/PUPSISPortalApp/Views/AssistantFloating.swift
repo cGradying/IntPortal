@@ -190,6 +190,11 @@ struct AssistantFloating: View {
                 RailItem(id: "notes", symbol: "magnifyingglass", help: "List notes", command: "/notes", destination: .notebook),
                 nextClass,
             ]
+        case .settings:
+            return [
+                RailItem(id: "help", symbol: "questionmark.circle", help: "What can it do?", command: "/help", destination: .settings),
+                RailItem(id: "week", symbol: "calendar", help: "This week", command: "/week", destination: .schedule),
+            ]
         }
     }
 

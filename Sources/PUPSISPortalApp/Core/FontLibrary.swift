@@ -21,7 +21,7 @@ enum FontChoice: String, CaseIterable, Codable, Identifiable {
 
     var label: String {
         switch self {
-        case .system: "System"
+        case .system: "Source Sans 3 (default)"
         case .inter: "Inter"
         case .poppins: "Poppins"
         case .montserrat: "Montserrat"

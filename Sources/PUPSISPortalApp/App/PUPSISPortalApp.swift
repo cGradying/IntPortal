@@ -61,10 +61,9 @@ final class AppState: ObservableObject {
     @Published var now = Date()
     private var clock: Timer?
 
-    /// Which destination the window shows, and whether Settings is up. App-level
-    /// so the menu commands (⌘1–6, ⌘,) can drive them, not just the view.
+    /// Which destination the window shows. App-level so the menu commands
+    /// (⌘1–6, ⌘,) can drive it, not just the view.
     @Published private(set) var selection: Destination = .today
-    @Published var showingSettings = false
 
     /// +1 when the last navigation went down the sidebar, −1 when it went up;
     /// the screen change pushes forward or back in depth accordingly. Set in
@@ -92,6 +91,32 @@ final class AppState: ObservableObject {
         landingQuick = true
         landingKey += 1
         landingVisible = true
+    }
+
+    /// Settings, opened from anywhere the window is already showing the
+    /// shell: the app menu (⌘,), the sidebar, the menu bar. Drops straight
+    /// onto the screen without a hub or warp — Settings isn't the SIS, there's
+    /// no portal to fly through for it.
+    func openSettings() {
+        guard credentials != nil, !isEditing else { return }
+        warpingIn = false
+        landingVisible = false
+        open(.settings)
+    }
+
+    /// The landing's own gear button (spec 07): it renders on the void, the
+    /// sign-in panel and the hub alike, but Settings-as-a-screen only exists
+    /// inside the shell, which needs credentials. Signed in, this drops
+    /// straight into Settings same as `openSettings()`; not signed in yet,
+    /// there's nothing to open, so it surfaces the hub instead (a no-op if
+    /// the student isn't signed in at all — `showHub()` only changes what
+    /// the sign-in/hub overlay itself shows).
+    func openSettingsFromLanding() {
+        if credentials != nil, !isEditing {
+            openSettings()
+        } else {
+            showHub()
+        }
     }
 
     /// Sparkle's own delegate shim — `availableVersion` drives the footer
@@ -169,8 +194,14 @@ final class AppState: ObservableObject {
             _ = updaterController // force the lazy: starts Sparkle's scheduler now, not on first UI touch
         }
         isEditing = credentials == nil
+        // Settings › General › "Open on" (spec 12): Today skips the landing
+        // at launch when there's already a signed-in account to show.
+        if !isEditing, credentials != nil, preferences.launchDestination == .today {
+            landingVisible = false
+        }
         #if DEBUG
-        if let screen = Demo.screen { open(screen) }
+        // A named screen is a live check: land on it, not on the hub.
+        if let screen = Demo.screen { open(screen); landingVisible = false }
         #endif
         startClock()
         observeTermination()
@@ -327,6 +358,9 @@ final class AppState: ObservableObject {
         // Forget which host we landed on — a fresh sign-in re-runs the full
         // candidate order instead of retrying whatever this account landed on.
         portal.forgetHost()
+        // This account's campus pick and any code it taught the app (spec
+        // 10) are this student's own, not a device-wide setting.
+        preferences.clearCampus()
         // Not awaited — see the doc comment above.
         portal.beginClearingWebsiteData()
     }
@@ -351,16 +385,15 @@ struct ContentView: View {
 
     var body: some View {
         root
-            // Reaches both branches of `content` (login screen and the main
-            // app) — the login screen's own circular gear button sets this
-            // same flag, so one sheet definition covers both.
-            .sheet(isPresented: $appState.showingSettings) { settingsSheet }
             .frame(minWidth: 900, minHeight: 600)
             .background(TrafficLights(autoHide: preferences.trafficLightsAutoHide))
             .environment(\.palette, preferences.theme.palette(for: systemScheme))
             .environment(\.typography, Typography(preferences.fontChoice, scale: preferences.uiScale))
             .environment(\.uiScale, preferences.uiScale)
             .reduceMotion(forced: preferences.forceReducedMotion)
+            // Native controls read `.tint`, not \.palette: action is the one
+            // interactive hue.
+            .tint(preferences.theme.palette(for: systemScheme).roles.action)
             // Keeps native controls (fields, pickers, popovers) in step with a
             // theme the user picked against their system setting.
             .preferredColorScheme(preferences.theme.colorScheme)
@@ -394,34 +427,6 @@ struct ContentView: View {
             }
         }
     }
-
-    private var settingsSheet: some View {
-        // No NavigationStack: Settings owns its full chrome itself now (a
-        // hand-built top tab strip through its own slim bottom Done bar) —
-        // nothing here uses push/pop, and the stack only ever existed to
-        // host the `.toolbar` that lived below (now gone too, replaced by
-        // SettingsView's own `bottomBar`).
-        SettingsView(
-            appState: appState,
-            updaterBridge: appState.updaterBridge,
-            preferences: preferences,
-            calendar: appState.calendar,
-            googleAuth: appState.googleAuth
-        )
-        // Confirmed live: with no tint set, every native control here (tab
-        // selection, Done, toggles/radios) fell back to the system accent
-        // instead of the room's own — a maroon app with a green Settings
-        // sheet. Every other screen resolves this through \.palette; this
-        // sheet needs the same color said explicitly, since native Form
-        // controls read `.tint`, not the custom environment key.
-        .tint(preferences.theme.palette(for: systemScheme).accent)
-        // min/ideal/max instead of a fixed size — same starting size, but
-        // the sheet now offers macOS's native drag-to-resize edge. Close to
-        // the original (pre-sidebar) numbers, widened a bit from those:
-        // confirmed live, 8 tabs (up from the original 7 — Data & Storage is
-        // new) truncate their labels below ~620pt.
-        .frame(minWidth: 640, idealWidth: 700, maxWidth: 820, minHeight: 480, idealHeight: 620, maxHeight: 860)
-    }
 }
 
 @main
@@ -435,16 +440,22 @@ struct PUPSISPortalApp: App {
         // The sidebar carries the window controls; no native title bar competing.
         .windowStyle(.hiddenTitleBar)
         .commands {
-            // Settings by ⌘, in the app menu, now that it's a sheet not a row.
+            // Settings by ⌘, in the app menu — a screen now, not a sheet.
+            // Kept as its own `CommandGroup(replacing:)` rather than folded
+            // into the generic destinations loop below, so it still lands in
+            // the app menu's conventional "Settings…" slot instead of the
+            // Window/View menu the loop's own group targets.
             CommandGroup(replacing: .appSettings) {
-                Button("Settings…") { appState.showingSettings = true }
+                Button("Settings…") { appState.openSettings() }
                     .keyboardShortcut(",", modifiers: .command)
                     .disabled(appState.credentials == nil)
             }
 
-            // Keep the destinations reachable from the keyboard without a sidebar.
+            // Keep the destinations reachable from the keyboard without a
+            // sidebar. `.settings` is excluded — it already has its own menu
+            // item and shortcut above; including it here would bind ⌘, twice.
             CommandGroup(after: .toolbar) {
-                ForEach(Destination.allCases) { destination in
+                ForEach(Destination.allCases.filter { $0 != .settings }) { destination in
                     Button(destination.title) { appState.open(destination) }
                         .keyboardShortcut(destination.shortcut, modifiers: .command)
                 }

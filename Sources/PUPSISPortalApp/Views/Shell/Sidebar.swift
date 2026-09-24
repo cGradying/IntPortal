@@ -14,9 +14,11 @@ struct Sidebar: View {
     var busy = false
     let studentNumber: String
     let sync: SyncStatus
+    /// Spec 10: the account's resolved campus. `.incomplete` (the default)
+    /// draws no chip, which is what an unresolvable student number gets.
+    var campus: CampusResolution = .incomplete
     var updateVersion: String?
     let onSelect: (Destination) -> Void
-    let onSettings: () -> Void
     let onRetry: () -> Void
     var onUpdate: () -> Void = {}
     var onHub: () -> Void = {}
@@ -48,11 +50,11 @@ struct Sidebar: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 section("Main")
-                ForEach(Destination.allCases.filter { !$0.isStudy }) { item($0) }
+                ForEach(Destination.allCases.filter { !$0.isStudy && $0 != .settings }) { item($0) }
                 section("Study")
                 ForEach(Destination.allCases.filter(\.isStudy)) { item($0) }
                 section("System")
-                SidebarItem(title: "Settings", glyph: .gear, selected: false, action: onSettings)
+                item(.settings)
             }
 
             Spacer(minLength: 0)
@@ -62,6 +64,26 @@ struct Sidebar: View {
         .padding(.bottom, Spacing.md)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(roles.menuField)
+    }
+
+    /// "MN · Sta. Mesa" — hidden while the campus hasn't resolved to a name
+    /// yet (an unpicked, unverified code, or a still-typing student number,
+    /// neither of which should happen once actually signed in).
+    @ViewBuilder
+    private var campusChip: some View {
+        let roles = palette.roles
+        switch campus {
+        case .known(let campus), .overridden(let campus):
+            Text("\(campus.code ?? "") · \(campus.name)")
+                .font(typography.display(size: 11.5, weight: .semibold))
+                .foregroundStyle(roles.gold)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(roles.menuFieldDeep, in: PixelNotch())
+                .accessibilityLabel("Campus, \(campus.name)")
+        case .unknownCode, .incomplete:
+            EmptyView()
+        }
     }
 
     private func section(_ title: String) -> some View {
@@ -87,6 +109,7 @@ struct Sidebar: View {
             Text(studentNumber)
                 .font(typography.numeric(size: 12.5, weight: .semibold))
                 .foregroundStyle(roles.onMenu)
+            campusChip
             HStack(spacing: 7) {
                 Rectangle()
                     .fill(sync.failed ? roles.bad : roles.good)

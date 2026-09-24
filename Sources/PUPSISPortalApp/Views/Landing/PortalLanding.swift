@@ -53,13 +53,15 @@ struct PortalLanding: View {
                 liveSubtitle: liveSubtitle, signingIn: portal.status == .loggingIn,
                 signedInAs: appState.credentials?.studentNumber,
                 existing: appState.credentials, failure: submitted ? failure : nil,
+                campusOverride: preferences.campusOverride, learnedCampusCodes: preferences.learnedCampusCodes,
                 onSave: { credentials in
                     submitted = true
                     return appState.save(credentials)
                 },
+                onPickCampus: preferences.pickCampus,
                 onSelect: select,
                 onSwitchAccount: { submitted = false; appState.isEditing = true },
-                onSettings: { appState.showingSettings = true }
+                onSettings: { appState.openSettingsFromLanding() }
             )
         }
         .background(VoidPalette.top)
@@ -92,7 +94,18 @@ struct PortalLanding: View {
         if portal.refreshError != nil, let updated = portal.lastUpdated {
             return "offline · cached \(updated.formatted(date: .omitted, time: .shortened))"
         }
-        return "via \(portal.hostLabel)"
+        guard let name = campusName else { return "via \(portal.hostLabel)" }
+        return "\(name) · via \(portal.hostLabel)"
+    }
+
+    /// The resolved campus name for the signed-in account, once its student
+    /// number gives one — `nil` before sign-in, or for an unpicked code.
+    private var campusName: String? {
+        guard let studentNumber = appState.credentials?.studentNumber else { return nil }
+        switch CampusCatalog.resolve(studentNumber: studentNumber, override: preferences.campusOverride, learnedCodes: preferences.learnedCampusCodes) {
+        case .known(let campus), .overridden(let campus): return campus.name
+        case .unknownCode, .incomplete: return nil
+        }
     }
 
     // MARK: Actions
@@ -156,7 +169,10 @@ struct LandingStage: View {
     var signedInAs: String?
     var existing: Credentials?
     var failure: String?
+    var campusOverride: Campus?
+    var learnedCampusCodes: [String: String] = [:]
     let onSave: (Credentials) -> Bool
+    var onPickCampus: (Campus) -> Void = { _ in }
     let onSelect: (HubPortal) -> Void
     let onSwitchAccount: () -> Void
     let onSettings: () -> Void
@@ -298,7 +314,11 @@ struct LandingStage: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
             if phase == .signIn {
-                SignInPanel(existing: existing, signingIn: signingIn, failure: failure, onSave: onSave)
+                SignInPanel(
+                    existing: existing, signingIn: signingIn, failure: failure,
+                    campusOverride: campusOverride, learnedCampusCodes: learnedCampusCodes,
+                    onSave: onSave, onPickCampus: onPickCampus
+                )
                 .padding(.trailing, size.width > 760 ? 48 : 16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: size.width > 760 ? .trailing : .bottom)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
