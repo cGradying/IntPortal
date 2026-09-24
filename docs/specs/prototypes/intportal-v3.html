@@ -582,6 +582,27 @@ input[type=range]{accent-color:var(--blue);width:100%}
   .board{grid-template-columns:repeat(2,1fr)}
   .opts{grid-template-columns:1fr}
 }
+
+/* ================= v3.1: the island (spec 12) ================= */
+.head{padding-top:66px}
+.island{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:12px;max-width:calc(100% - 56px);
+  background:var(--maroon-2);color:var(--on-maroon);clip-path:var(--px);padding:8px 16px;font-size:13.5px;cursor:grab;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14);transition:padding .28s var(--spring)}
+.island.open{padding:7px 8px 7px 16px}
+.isl-glance{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.isl-glance b{font-family:var(--display);font-weight:700;color:var(--gold)}
+.isl-glance .stamp{font-size:10px;color:var(--gold);transform:rotate(-3deg)}
+.isl-bad{color:#FFB4A8;font-weight:600}
+.isl-dim{color:var(--on-maroon-2)}
+.isl-link{color:var(--gold);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.isl-ctl{display:flex;align-items:center;max-width:0;opacity:0;overflow:hidden;transition:max-width .28s var(--spring),opacity .18s}
+.island.open .isl-ctl{max-width:980px;opacity:1}
+.isl-ctl .toolbar{margin:0;flex-wrap:nowrap;gap:8px;padding-left:12px;border-left:1px dashed rgba(255,255,255,.25)}
+.isl-ctl .toolbar[hidden]{display:none}
+.isl-ctl .toolbar .spacer{display:none}
+.isl-ctl .range{color:var(--on-maroon);min-width:110px}
+.isl-ctl .btn,.isl-ctl .icon-btn{padding-block:5px}
+@media (prefers-reduced-motion: reduce){.island,.isl-ctl{transition:none}}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="icons"></defs></svg>
@@ -598,6 +619,8 @@ input[type=range]{accent-color:var(--blue);width:100%}
     <button class="chip-btn" id="depthBtn" type="button">Screen change: push</button>
     <button class="chip-btn" id="failBtn" type="button" aria-pressed="false">Fail next sync</button>
     <button class="chip-btn" id="themeBtn" type="button">Switch to dark</button>
+    <button class="chip-btn" id="glanceBtn" type="button">Glance: in session</button>
+    <button class="chip-btn" id="hoverBtn" type="button" aria-pressed="true">Expand on hover: on</button>
   </div>
 </header>
 
@@ -665,6 +688,10 @@ input[type=range]{accent-color:var(--blue);width:100%}
 
   <!-- MAIN -->
   <main class="main" id="main">
+    <div class="island" id="island" role="region" aria-label="Island">
+      <div class="isl-glance" id="islGlance" aria-live="polite"></div>
+      <div class="isl-ctl" id="islCtl"></div>
+    </div>
     <div class="head">
       <div><h2 id="title">Wednesday, September 23</h2><p class="sub" id="sub"></p></div>
       <div class="crumbs" aria-label="Location"><span>Student Module</span><span aria-hidden="true">›</span><b id="crumb">Today</b></div>
@@ -2026,5 +2053,56 @@ function openDeck(d) {
 /* boot */
 renderToday(); renderGrid(); renderCor(); syncCampusUI(); renderRail(); go('today');
 startLanding(true);
+/* ================= v3.1: the island (spec 12) ================= */
+// The student's own Dynamic Island, back beside the sidebar: a glance at rest,
+// the screen's controls on hover. The chips above force each glance case.
+const GLANCES = [
+  ['in session', () => '<span class="stamp">In person</span><b>COMP 002</b><span>until 3:30 PM</span>'],
+  ['next class', () => '<b>GEED 020</b><span>in 12m</span><span class="isl-dim">· S-501</span>'],
+  ['sync trouble', () => '<span class="isl-bad">Couldn\'t reach SIS</span><button type="button" class="isl-link" id="islRetry">Try again</button>'],
+  ['thinking', () => '<span class="vox" style="display:inline-block"><i></i><i></i><i></i><i></i><i></i><i></i></span><span>IntAssis is thinking</span>'],
+  ['tomorrow', () => '<span>No more classes today</span><span class="isl-dim">· Tomorrow COMP 001 at 9:00</span>'],
+];
+let glanceAt = 0, hoverExpand = true;
+const island = $('#island'), islCtl = $('#islCtl');
+function islandGlance() {
+  $('#islGlance').innerHTML = GLANCES[glanceAt][1]();
+  $('#glanceBtn').textContent = 'Glance: ' + GLANCES[glanceAt][0];
+  const retry = $('#islRetry'); if (retry) retry.onclick = () => { glanceAt = 1; islandGlance(); };
+}
+function ctlRow(name, buttons) {
+  const row = document.createElement('div'); row.className = 'toolbar'; row.dataset.for = name;
+  buttons.forEach(([label, primary, run]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = primary ? 'btn primary' : 'btn';
+    b.textContent = label; b.addEventListener('click', run); row.appendChild(b);
+  });
+  islCtl.appendChild(row);
+}
+// Schedule and Syllabus already had a toolbar: it moves into the island as is.
+['schedule', 'syllabus'].forEach(n => { const t = $('#s-' + n + ' .toolbar'); t.dataset.for = n; islCtl.appendChild(t); });
+const refreshNow = () => $('#refresh').click();
+ctlRow('today', [['Open schedule', false, () => go('schedule')], ['Refresh', true, refreshNow]]);
+ctlRow('grades', [['Load past terms', false, () => {}], ['Refresh', true, refreshNow]]);
+ctlRow('notebook', [['New folder', false, () => {}], ['New note', true, () => {}]]);
+ctlRow('quizzes', [['Study map', false, () => {}], ['Generate deck', true, () => openGenerate()]]);
+function islandFor(name) {
+  $$('.toolbar', islCtl).forEach(t => t.hidden = t.dataset.for !== name);
+  island.dataset.hasCtl = String(!!$('.toolbar[data-for="' + name + '"]', islCtl));
+  island.classList.toggle('open', !hoverExpand && island.dataset.hasCtl === 'true');
+}
+island.addEventListener('mouseenter', () => { if (hoverExpand && island.dataset.hasCtl === 'true') island.classList.add('open'); });
+island.addEventListener('mouseleave', () => { if (hoverExpand && !island.contains(document.activeElement)) island.classList.remove('open'); });
+island.addEventListener('focusin', () => { if (island.dataset.hasCtl === 'true') island.classList.add('open'); });
+island.addEventListener('focusout', e => { if (hoverExpand && !island.contains(e.relatedTarget)) island.classList.remove('open'); });
+$('#glanceBtn').addEventListener('click', () => { glanceAt = (glanceAt + 1) % GLANCES.length; islandGlance(); });
+$('#hoverBtn').addEventListener('click', () => {
+  hoverExpand = !hoverExpand;
+  $('#hoverBtn').textContent = 'Expand on hover: ' + (hoverExpand ? 'on' : 'off'); $('#hoverBtn').setAttribute('aria-pressed', hoverExpand);
+  islandFor(current);
+});
+const goBeforeIsland = go;
+go = name => { goBeforeIsland(name); islandFor(name); };
+islandGlance(); islandFor(current);
+
 })();
 </script>

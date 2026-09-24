@@ -21,10 +21,15 @@ Terms of Use).
 ## UX changes
 1. Settings is a **screen** in the sidebar (⌘,), not a sheet. Pane list = left segmented column
    inside the screen; each pane = one or two sheets of rows (label left, control right).
-2. **General:** "Dynamic Island" group removed (island is gone). New: **"Play portal intro"**
-   (default on) and keep "Start at login", "Auto-hide window buttons".
-3. **Appearance:** Theme = Auto (Registrar / Registrar Night) + the rooms that fill the new role set
-   (see DESIGN.md › Theme rooms). Font applies to body text only (display is fixed).
+2. **General:** the **Island** group returns (spec 12): "Show the island" and "Expand on hover".
+   New: **"Open on"** Hub or Today (replaces "Open on the home launcher"), **"Play portal intro"**
+   (default on), and keep "Start at login", "Auto-hide window buttons".
+3. **Appearance:** Theme = Auto (Registrar / Registrar Night) + every room, each painting the whole
+   shell through derived roles (DESIGN.md › Theme rooms). Swatches preview the shell a room paints.
+   Font applies to reading text only (display is fixed); the picker previews each font in the
+   reading face, and "System" reads "Source Sans 3 (default)".
+3b. **Fixes from the 2026-09-24 audit:** About says IntPortal; Reset All covers every setting
+   (including the notes sidebar side); orphaned island keys are dropped once.
 4. **Account:** + **Campus** picker (spec 10), + **SIS server** "Automatic (sis8)" / fixed host
    (spec 00), + "Back to the portal hub".
 5. **Intelligence:** same controls; footer copy fixed (W10); cloud note "Stored in your Keychain,

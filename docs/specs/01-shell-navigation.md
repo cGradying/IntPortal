@@ -16,17 +16,19 @@ Status: approved design (prototype v2). Build first; every other spec depends on
 - Reduce Motion honored everywhere (`Motion.* (reduced:)` returns nil).
 
 ## UX changes
-1. **Sidebar replaces the nav island.** `NavIsland.swift`, `HomeNoiseField.swift` and the home
-   launcher are deleted. The sidebar lists Today, Schedule, Grades / Notebook, Quizzes, Syllabus /
+1. **Sidebar takes over navigation from the nav island.** `NavIsland.swift`, `HomeNoiseField.swift`
+   and the home launcher are deleted. The island itself returns as chrome for the glance and the
+   screen's controls (spec 12, decided 2026-09-24). The sidebar lists Today, Schedule, Grades / Notebook, Quizzes, Syllabus /
    Settings. Settings becomes a screen (it was a sheet).
 2. **Today is its own screen.** The agenda leaves Notebook (spec 04).
 3. **Notebook's tabs (Vault / Quizzes / Syllabus) become sidebar entries.** `NotebookModel.tab`
    retires.
 4. **⌘0 opens the portal hub** (spec 09) instead of the home launcher. New shortcuts: ⌘4 Notebook,
    ⌘5 Quizzes, ⌘6 Syllabus; ⌘2 becomes Today.
-5. **Per-screen controls live in the screen's toolbar row** (Schedule's view picker, week nav,
-   Today, New event, Refresh), not in floating chrome.
+5. **Per-screen controls live in the island** (spec 12): Schedule's view picker, week nav, Today,
+   New event and Refresh open out of the island on hover.
 6. **Header**: screen title (display 28), one-line context, breadcrumb "Student Module › Screen".
+   No controls row.
 
 ## Layout & components
 
@@ -57,7 +59,7 @@ Status: approved design (prototype v2). Build first; every other spec depends on
   (13×18 swirl drawn in `Canvas` inside `TimelineView(.periodic(from:.now, by:0.11))`, paused under
   Reduce Motion or when the window is inactive).
 - `Core/Theme.swift` `Motion`: add `thunk`, `flip`, `pop`, `portalForm`, `ignite`, `warp`,
-  `sweep`; remove `island`.
+  `sweep`; `island` returns for the island (spec 12).
 
 ### Changed
 - `App/PUPSISPortalApp.swift` `ContentView`: `ZStack { AppShell; if landing { PortalLanding } }`.

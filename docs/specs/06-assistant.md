@@ -41,7 +41,8 @@ From `Views/AssistantFloating.swift`, `Core/Assistant/*`, `notes-editor/src/edit
    IntAssis = sunk sheet. Citation capsules and the pin chip in gold-soft.
 2. **Split `AssistantFloating.swift` (1,301 lines)** into `AssistantOrb`, `AssistantChatPanel`,
    `AssistantHelpPopover`, `AssistantThinkingPopover`, `ActionRow`. The **note formatting toolbar
-   leaves the orb** and moves into the Notebook editor header (spec 04).
+   stays in the floating deck** (decided 2026-09-24), restyled in pixel, grouped, and with a label
+   and accessibility label on every button (spec 04 lists the groups).
 3. **Mode picker in the header** is a compact select showing the current mode.
 4. **Copy fix:** Settings ▸ Intelligence footer must not claim the assistant can never move or
    change events (backend-fixes W10). Chat copy "Runs locally" switches to "Runs on {provider}"
