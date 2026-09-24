@@ -56,11 +56,10 @@ struct GradesScreen: View {
                     scrollableContent
                 }
             }
-            // A floor so the flexible columns (`maxWidth: .infinity`) have
-            // something to resolve against when nothing above proposes a
-            // width — the real window always does, but `ImageRenderer`'s
-            // ideal-size pass doesn't, and collapses them to nothing.
-            .frame(minWidth: 900)
+            // Snapshot tests only: `ImageRenderer` proposes no width, so the
+            // flexible columns need a floor. The live window always proposes
+            // one, and a floor there pushed Grades past a narrow window.
+            .frame(minWidth: scrolls ? nil : 900)
             if let shown = displayedReport { footer(shown) }
         }
         .background(palette.roles.ground)
@@ -74,9 +73,16 @@ struct GradesScreen: View {
 
     private var scrollableContent: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
-            HStack(alignment: .top, spacing: Spacing.lg) {
-                termSheet.frame(maxWidth: .infinity)
-                trendSheet.frame(minWidth: 280, maxWidth: .infinity)
+            // Side by side when the column is wide enough, stacked when not.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: Spacing.lg) {
+                    termSheet.frame(minWidth: 380, maxWidth: .infinity)
+                    trendSheet.frame(minWidth: 320, maxWidth: .infinity)
+                }
+                VStack(spacing: Spacing.lg) {
+                    termSheet
+                    trendSheet
+                }
             }
             if let shown = displayedReport {
                 if shown.subjects.isEmpty {
