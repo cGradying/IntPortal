@@ -124,7 +124,14 @@ struct AppShell: View {
             )
         case .grades:
             GradesView(controller: appState.portal, preferences: preferences)
-        case .today, .notebook:
+        case .today:
+            TodayScreen(
+                preferences: preferences, calendar: appState.calendar, quizzes: appState.quizzes,
+                syllabus: appState.syllabus, sessions: appState.portal.sessions, grades: appState.portal.grades,
+                now: appState.now,
+                onStartDeck: { id in appState.quizzes.pendingStudyDeckID = id; appState.open(.quizzes) }
+            )
+        case .notebook:
             NotebookScreen(
                 appState: appState, preferences: preferences, calendar: appState.calendar, notes: appState.notes
             )
