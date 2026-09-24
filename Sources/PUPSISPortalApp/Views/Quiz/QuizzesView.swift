@@ -85,6 +85,20 @@ struct QuizzesView: View {
         } message: { _ in
             Text("This deletes the deck and its review history.")
         }
+        .onAppear(perform: consumePendingDeck)
+    }
+
+    /// Opens the deck Today's gap suggestion pointed at, if any — the seam
+    /// that lets its "Start" button jump straight into Flashcards without
+    /// this view needing to know anything about Today. `AppState.open`
+    /// remounts this screen fresh on every switch to Quizzes
+    /// (`AppShell.screen(_:)` keys the destination on `.id(selection)`), so
+    /// `onAppear` fires again each time, not just the first.
+    private func consumePendingDeck() {
+        guard let id = store.pendingStudyDeckID else { return }
+        store.pendingStudyDeckID = nil
+        guard let deck = store.decks.first(where: { $0.id == id }) else { return }
+        studying = (deck, .flashcard)
     }
 
     @ViewBuilder

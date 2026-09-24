@@ -13,15 +13,12 @@ import Inject
 /// Display only — nothing here edits the schedule. It reads `appState.now`
 /// (the shared minute clock) so it re-renders on the minute without a timer of
 /// its own, the same clock the menu bar rides.
-struct AgendaView: View {
+struct NotebookScreen: View {
     @ObserveInjection var inject
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
     @ObservedObject var calendar: CalendarBridge
     @ObservedObject var notes: NotesStore
-    @ObservedObject var quizzes: QuizStore
-    @ObservedObject var generation: GenerationCenter
-    @ObservedObject var notebook: NotebookModel
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
     @Environment(\.reduceMotion) private var reduceMotion
@@ -109,52 +106,18 @@ struct AgendaView: View {
     /// scratchpad when nothing is explicitly selected.
     private var currentKey: String { selectedKey ?? dayKey(for: browsedDay) }
 
-    /// A syllabus row's "generate quiz" button — same `RAGQuery`/
-    /// `GenerationCenter.start` call `GenerateSheet` makes for a vault-topic
-    /// deck (`Views/Quiz/GenerateSheet.swift:210-217`), just triggered from
-    /// outside the Quiz tab. Switches to Quizzes afterward so the running job
-    /// shows up in its banner immediately rather than generating unseen.
-    private func generateQuiz(from item: SyllabusItem) {
-        let topic = item.topic
-        generation.start(
-            label: topic, source: .vaultTopic(topic), model: preferences.aiModel,
-            client: Preferences.localAIClient(modelID: preferences.aiModel),
-            ragQuery: RAGQuery(
-                notes: notes, client: Preferences.localAIClient(modelID: preferences.aiModel), answerModel: preferences.aiModel
-            ), chunkSize: preferences.ragChunkSize,
-            target: .new(name: topic, sourceKind: .vaultTopic, sourceQuery: topic)
-        )
-        notebook.tab = .quizzes
-    }
-
     var body: some View {
-        Group {
-            switch notebook.tab {
-            case .quizzes:
-                QuizzesView(store: quizzes, center: generation, preferences: preferences, notes: notes, aiModel: preferences.aiModel)
-            case .syllabus:
-                ScrollView {
-                    SyllabusView(
-                        syllabus: appState.syllabus, preferences: preferences,
-                        subjectCodes: ClassSession.subjectCodes(in: appState.portal.sessions),
-                        aiModel: preferences.aiModel, calendar: calendar,
-                        onGenerateQuiz: generateQuiz
-                    )
-                }
-            case .vault:
-                HStack(spacing: 0) {
-                    if preferences.notebookSidebarOnLeft {
-                        sidebar
-                            .frame(width: preferences.notebookSidebarWidth)
-                        sidebarResizeHandle
-                        noteEditorPane
-                    } else {
-                        noteEditorPane
-                        sidebarResizeHandle
-                        sidebar
-                            .frame(width: preferences.notebookSidebarWidth)
-                    }
-                }
+        HStack(spacing: 0) {
+            if preferences.notebookSidebarOnLeft {
+                sidebar
+                    .frame(width: preferences.notebookSidebarWidth)
+                sidebarResizeHandle
+                noteEditorPane
+            } else {
+                noteEditorPane
+                sidebarResizeHandle
+                sidebar
+                    .frame(width: preferences.notebookSidebarWidth)
             }
         }
         .navigationTitle("Notebook")
@@ -217,7 +180,7 @@ struct AgendaView: View {
         // "the note you're looking at" — selectedKey/openTabs stay private
         // (they're this screen's own tab-bar bookkeeping), but the resolved
         // key is mirrored up so a request like "summarize this note" works
-        // from anywhere, not just from inside AgendaView. `noteAddDateOptions`
+        // from anywhere, not just from inside NotebookScreen. `noteAddDateOptions`
         // rides along the same mirror — the floating deck's date menu
         // (`Views/AssistantFloating.swift`) needs it and lives outside this
         // view too.

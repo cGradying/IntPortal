@@ -48,17 +48,6 @@ enum Destination: String, CaseIterable, Identifiable {
     /// Main (the SIS record) or Study (the student's own material).
     var isStudy: Bool { [.notebook, .quizzes, .syllabus].contains(self) }
 
-    /// Today and the study screens still render `AgendaView`, each on its own
-    /// face, until spec 04 gives Today a screen of its own.
-    var notebookTab: NotebookTab? {
-        switch self {
-        case .today, .notebook: .vault
-        case .quizzes: .quizzes
-        case .syllabus: .syllabus
-        case .schedule, .grades: nil
-        }
-    }
-
     static func direction(from old: Destination, to new: Destination) -> Int {
         let order = Array(allCases)
         return (order.firstIndex(of: new) ?? 0) >= (order.firstIndex(of: old) ?? 0) ? 1 : -1
@@ -135,12 +124,24 @@ struct AppShell: View {
             )
         case .grades:
             GradesView(controller: appState.portal, preferences: preferences)
-        case .today, .notebook, .quizzes, .syllabus:
-            AgendaView(
-                appState: appState, preferences: preferences, calendar: appState.calendar,
-                notes: appState.notes, quizzes: appState.quizzes, generation: appState.generation,
-                notebook: appState.notebook
+        case .today:
+            TodayScreen(
+                preferences: preferences, calendar: appState.calendar, quizzes: appState.quizzes,
+                syllabus: appState.syllabus, sessions: appState.portal.sessions, grades: appState.portal.grades,
+                now: appState.now,
+                onStartDeck: { id in appState.quizzes.pendingStudyDeckID = id; appState.open(.quizzes) }
             )
+        case .notebook:
+            NotebookScreen(
+                appState: appState, preferences: preferences, calendar: appState.calendar, notes: appState.notes
+            )
+        case .quizzes:
+            QuizzesView(
+                store: appState.quizzes, center: appState.generation, preferences: preferences,
+                notes: appState.notes, aiModel: preferences.aiModel
+            )
+        case .syllabus:
+            SyllabusScreen(appState: appState, preferences: preferences)
         }
     }
 }
