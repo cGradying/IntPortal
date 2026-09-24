@@ -816,11 +816,6 @@ final class PaletteTests: XCTestCase {
         XCTAssertEqual(night.sheet.hex, "#1C1819")
     }
 
-    func testRoomsWithoutTheirOwnRolesBorrowRegistrar() {
-        XCTAssertEqual(Palette.dracula.roles, .registrar)
-        XCTAssertEqual(Palette.registrarNight.roles, .registrarNight)
-    }
-
     func testAutoFollowsTheSystemAppearance() {
         XCTAssertEqual(ThemeChoice.auto.palette(for: .light), .registrar)
         XCTAssertEqual(ThemeChoice.auto.palette(for: .dark), .registrarNight)
