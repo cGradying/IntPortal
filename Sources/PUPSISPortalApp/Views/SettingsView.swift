@@ -327,11 +327,16 @@ struct SettingsView: View {
                 Button { preferences.theme = choice } label: {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 8) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 5).fill(choicePalette.canvasBottom)
-                                Circle().fill(choicePalette.accent).frame(width: 10, height: 10)
+                            // The shell this room paints: menu field, ground, action.
+                            HStack(spacing: 0) {
+                                choicePalette.roles.menuField.frame(width: 8)
+                                ZStack {
+                                    choicePalette.roles.ground
+                                    Rectangle().fill(choicePalette.roles.action).frame(width: 8, height: 8)
+                                }
                             }
                             .frame(width: 26, height: 18)
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
                             .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(.primary.opacity(0.12)))
                             Text(choice.label).font(.caption).lineLimit(1)
                             Spacer(minLength: 0)

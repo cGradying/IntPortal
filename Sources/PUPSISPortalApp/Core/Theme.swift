@@ -23,9 +23,18 @@ struct Palette: Equatable {
     let panel: Color
     /// Text/marks legible on `panel`.
     let onPanel: Color
-    /// The Registrar role set from DESIGN.md. Rooms that predate it borrow
-    /// Registrar's until S1 either retunes or removes them.
+    /// The Registrar role set from DESIGN.md. Every room carries its own:
+    /// Registrar and Registrar Night are hand-tuned, the other rooms derive
+    /// theirs from their own colours (`derivingRoles()`), so a theme restyles
+    /// the sidebar, header and sheets and not just the older screens.
     var roles: Roles = .registrar
+
+    /// This room with roles built from its own colours.
+    func derivingRoles() -> Palette {
+        var palette = self
+        palette.roles = .derived(from: self)
+        return palette
+    }
 
     /// The one tint with a job: it marks the present moment and nothing else.
     /// Apple's material guidance is that a tint should carry meaning rather
@@ -160,7 +169,7 @@ extension Palette {
         ],
         panel: Color(red: 0.078, green: 0.024, blue: 0.031),
         onPanel: Color(red: 0.988, green: 0.984, blue: 0.980)
-    )
+    ).derivingRoles()
 
     /// Ivory: ink navy on warm cream paper. An editorial light theme, quieter
     /// than PUP Maroon — earthy jewel subjects rather than the maroon-and-gold.
@@ -181,7 +190,7 @@ extension Palette {
         ],
         panel: Color(red: 0.129, green: 0.129, blue: 0.145),
         onPanel: Color(red: 0.992, green: 0.984, blue: 0.965)
-    )
+    ).derivingRoles()
 
     /// Astra moon: emerald on deep navy.
     static let astraMoon = Palette(
@@ -201,7 +210,7 @@ extension Palette {
         ],
         panel: Color(red: 0.024, green: 0.039, blue: 0.075),
         onPanel: Color(red: 0.945, green: 0.965, blue: 0.980)
-    )
+    ).derivingRoles()
 
     /// Sakura: hot pink on warm blush paper.
     static let sakura = Palette(
@@ -221,7 +230,7 @@ extension Palette {
         ],
         panel: Color(red: 0.129, green: 0.031, blue: 0.086),
         onPanel: Color(red: 1.000, green: 0.969, blue: 0.980)
-    )
+    ).derivingRoles()
 
     /// Monochrome: black and gray on white, clean — no color at all beyond
     /// lightness. Subjects read apart by shade, not hue.
@@ -242,7 +251,7 @@ extension Palette {
         ],
         panel: Color(red: 0.067, green: 0.067, blue: 0.067),
         onPanel: Color(red: 1.000, green: 1.000, blue: 1.000)
-    )
+    ).derivingRoles()
 
     /// Matrix: phosphor green terminal on black.
     static let matrix = Palette(
@@ -262,7 +271,7 @@ extension Palette {
         ],
         panel: Color(red: 0.000, green: 0.000, blue: 0.000),
         onPanel: Color(red: 0.000, green: 1.000, blue: 0.255)
-    )
+    ).derivingRoles()
 
     // MARK: Famous editor themes
 
@@ -284,7 +293,7 @@ extension Palette {
         ],
         panel: Color(red: 0.078, green: 0.082, blue: 0.106),
         onPanel: Color(red: 0.973, green: 0.973, blue: 0.949)
-    )
+    ).derivingRoles()
 
     /// Nord.
     static let nord = Palette(
@@ -304,7 +313,7 @@ extension Palette {
         ],
         panel: Color(red: 0.106, green: 0.118, blue: 0.145),
         onPanel: Color(red: 0.925, green: 0.937, blue: 0.957)
-    )
+    ).derivingRoles()
 
     /// Gruvbox (dark, hard contrast).
     static let gruvbox = Palette(
@@ -324,7 +333,7 @@ extension Palette {
         ],
         panel: Color(red: 0.098, green: 0.098, blue: 0.098),
         onPanel: Color(red: 0.922, green: 0.859, blue: 0.698)
-    )
+    ).derivingRoles()
 
     /// Solarized Dark.
     static let solarizedDark = Palette(
@@ -344,7 +353,7 @@ extension Palette {
         ],
         panel: Color(red: 0.020, green: 0.161, blue: 0.196),
         onPanel: Color(red: 0.933, green: 0.910, blue: 0.835)
-    )
+    ).derivingRoles()
 
     /// Solarized Light.
     static let solarizedLight = Palette(
@@ -364,7 +373,7 @@ extension Palette {
         ],
         panel: Color(red: 0.027, green: 0.212, blue: 0.259),
         onPanel: Color(red: 0.933, green: 0.910, blue: 0.835)
-    )
+    ).derivingRoles()
 
     /// Tokyo Night.
     static let tokyoNight = Palette(
@@ -384,7 +393,7 @@ extension Palette {
         ],
         panel: Color(red: 0.055, green: 0.059, blue: 0.086),
         onPanel: Color(red: 0.773, green: 0.792, blue: 0.902)
-    )
+    ).derivingRoles()
 
     /// Catppuccin Mocha.
     static let catppuccin = Palette(
@@ -404,7 +413,7 @@ extension Palette {
         ],
         panel: Color(red: 0.090, green: 0.094, blue: 0.145),
         onPanel: Color(red: 0.804, green: 0.839, blue: 0.957)
-    )
+    ).derivingRoles()
 
     /// One Dark (Atom).
     static let oneDark = Palette(
@@ -424,7 +433,7 @@ extension Palette {
         ],
         panel: Color(red: 0.106, green: 0.110, blue: 0.125),
         onPanel: Color(red: 0.671, green: 0.698, blue: 0.749)
-    )
+    ).derivingRoles()
 }
 
 /// What the user picked in Settings. `auto` is the app's original behavior —
@@ -880,5 +889,105 @@ extension Color {
             + 0.7152 * channel(srgb.greenComponent)
             + 0.0722 * channel(srgb.blueComponent)
         return luminance > 0.42 ? .black : .white
+    }
+}
+
+extension Palette.Roles {
+    /// Roles for a room that predates them, built from its own colours. The
+    /// menu field is the room's accent (deepened in light rooms, sunk into the
+    /// ground in dark ones), action is the accent clamped to read on a sheet,
+    /// and every text role is pushed until it clears WCAG AA against what it
+    /// sits on. Gold, good and bad come from Registrar unchanged: they carry
+    /// meaning (the present, pass, fail), not theme.
+    static func derived(from palette: Palette) -> Self {
+        let ground = SRGB(palette.canvasBottom)
+        let accent = SRGB(palette.accent)
+        let dark = ground.luminance < 0.2
+        let base: Self = dark ? .registrarNight : .registrar
+        let away: SRGB = dark ? .white : .black
+
+        let sheet = dark ? ground.mixed(with: .white, by: 0.05) : SRGB(palette.canvasTop).mixed(with: .white, by: 0.6)
+        let ink = (dark ? SRGB.white.mixed(with: accent, by: 0.06) : SRGB(0x1C1517).mixed(with: accent, by: 0.1))
+            .pushed(toward: away) { $0.contrast(with: sheet) >= 7 }
+
+        let onMenu = SRGB(0xF7ECEC).mixed(with: accent, by: 0.04)
+        let menu = (dark ? ground.mixed(with: accent, by: 0.28) : accent)
+            .pushed(toward: .black) { $0.contrast(with: onMenu) >= 7 }
+        let onMenu2 = SRGB.white.mixed(with: menu, by: 0.3)
+            .pushed(toward: .white) { $0.contrast(with: menu) >= 4.5 }
+
+        let action = accent.pushed(toward: away) { $0.contrast(with: sheet) >= 4.5 }
+        let actionSoft = sheet.mixed(with: action, by: dark ? 0.18 : 0.12)
+        let onAction: SRGB = action.contrast(with: .white) >= 4.5 ? .white : SRGB(0x0A1428)
+
+        return Self(
+            menuField: menu.color,
+            menuFieldDeep: (dark ? menu.mixed(with: accent, by: 0.12) : menu.mixed(with: .black, by: 0.18)).color,
+            menuFieldHover: menu.mixed(with: .white, by: 0.07).color,
+            onMenu: onMenu.color,
+            onMenu2: onMenu2.color,
+            action: action.color,
+            actionHover: action.mixed(with: away, by: 0.15).color,
+            actionSoft: actionSoft.color,
+            actionInk: action.pushed(toward: away) { $0.contrast(with: actionSoft) >= 4.5 }.color,
+            onAction: onAction.color,
+            gold: base.gold,
+            goldInk: base.goldInk,
+            goldSoft: sheet.mixed(with: SRGB(base.gold), by: dark ? 0.2 : 0.25).color,
+            ground: ground.color,
+            sheet: sheet.color,
+            sunk: ground.mixed(with: sheet, by: 0.5).color,
+            line: ground.mixed(with: ink, by: 0.1).color,
+            line2: ground.mixed(with: ink, by: 0.2).color,
+            ink: ink.color,
+            ink2: ink.mixed(with: ground, by: 0.3).pushed(toward: ink) { $0.contrast(with: sheet) >= 7 }.color,
+            ink3: ink.mixed(with: ground, by: 0.45).pushed(toward: ink) { $0.contrast(with: ground) >= 4.5 }.color,
+            good: base.good,
+            bad: base.bad
+        )
+    }
+}
+
+/// Plain sRGB arithmetic for deriving roles. SwiftUI's `Color` can't mix or
+/// measure itself, so values round-trip through here.
+struct SRGB: Equatable {
+    var r, g, b: Double
+
+    static let white = SRGB(r: 1, g: 1, b: 1)
+    static let black = SRGB(r: 0, g: 0, b: 0)
+
+    init(r: Double, g: Double, b: Double) { (self.r, self.g, self.b) = (r, g, b) }
+
+    init(_ rgb: UInt32) {
+        self.init(r: Double((rgb >> 16) & 0xFF) / 255, g: Double((rgb >> 8) & 0xFF) / 255, b: Double(rgb & 0xFF) / 255)
+    }
+
+    init(_ color: Color) {
+        let c = NSColor(color).usingColorSpace(.sRGB)
+        self.init(r: Double(c?.redComponent ?? 0), g: Double(c?.greenComponent ?? 0), b: Double(c?.blueComponent ?? 0))
+    }
+
+    var color: Color { Color(red: r, green: g, blue: b) }
+
+    /// WCAG relative luminance.
+    var luminance: Double {
+        func channel(_ v: Double) -> Double { v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+        return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+    }
+
+    func contrast(with other: SRGB) -> Double {
+        let (a, b) = (luminance, other.luminance)
+        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+    }
+
+    func mixed(with other: SRGB, by t: Double) -> SRGB {
+        SRGB(r: r + (other.r - r) * t, g: g + (other.g - g) * t, b: b + (other.b - b) * t)
+    }
+
+    /// Steps toward `target` until `good` holds, or lands on `target`.
+    func pushed(toward target: SRGB, until good: (SRGB) -> Bool) -> SRGB {
+        var t = 0.0
+        while t < 1, !good(mixed(with: target, by: t)) { t += 0.05 }
+        return mixed(with: target, by: min(t, 1))
     }
 }
