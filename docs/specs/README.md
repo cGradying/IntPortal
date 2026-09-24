@@ -50,7 +50,7 @@ Build in this order. Each row is one or more PRs; each spec lists its acceptance
 | 11 | [08-menu-bar](08-menu-bar.md) | Menu bar panel | 2 | approved |
 | 12 | HyperFrames trailer | 30 to 45s MP4 of void, portal, warp and app, rendered from prototype v3 for the README, releases and intportal-web. Never bundled in the app | 3 | planned |
 
-Execution plan: [`PLAN.md`](PLAN.md) (phase 1: prototype v3, tokens, pixel components, depth kit, shell, landing; built by the head, landed by the operator). Phase 2 (screen slices, sonnet workers) goes in `PLAN-2.md`.
+Execution plan: [`PLAN.md`](PLAN.md) (phase 1: prototype v3, tokens, pixel components, depth kit, shell, landing; built by the head, landed by the operator). Phase 2 (screen slices, sonnet workers): [`PLAN-2.md`](PLAN-2.md).
 Prototype v3 adds the 3D moves in DESIGN.md Signature components. P3 review media: `reference/P3-review*`.
 
 Sign-in (former 02-login) is part of 09. Backend fix briefs: `.claude/plans/backend-fixes.md`
