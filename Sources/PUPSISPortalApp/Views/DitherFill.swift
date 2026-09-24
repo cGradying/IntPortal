@@ -38,14 +38,6 @@ struct DitherFill: View, Animatable {
         set { density = newValue }
     }
 
-    // 4×4 Bayer matrix (values 0–15) — the classic ordered-dither threshold map.
-    private static let bayer: [[Int]] = [
-        [0, 8, 2, 10],
-        [12, 4, 14, 6],
-        [3, 11, 1, 9],
-        [15, 7, 13, 5],
-    ]
-
     var body: some View {
         Canvas { context, size in
             guard density > 0 else { return }
@@ -53,7 +45,7 @@ struct DitherFill: View, Animatable {
             let rows = Int(size.height / cell) + 1
             guard rows > 0, cols > 0 else { return }
             for r in 0..<rows {
-                let row = Self.bayer[r % 4]
+                let row = Bayer.matrix[r % 4]
                 for c in 0..<cols {
                     let threshold = Int(level(col: c, row: r, rows: rows) * density * 16)
                     guard row[c % 4] < threshold else { continue }

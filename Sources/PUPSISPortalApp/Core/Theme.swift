@@ -73,6 +73,8 @@ extension Palette {
         let actionHover: Color
         let actionSoft: Color
         let actionInk: Color
+        /// Text on an action fill.
+        let onAction: Color
         let gold: Color
         let goldInk: Color
         let goldSoft: Color
@@ -90,7 +92,7 @@ extension Palette {
         static let registrar = Roles(
             menuField: Color(rgb: 0x6D0E1F), menuFieldDeep: Color(rgb: 0x560A19), menuFieldHover: Color(rgb: 0x7E1A2C),
             onMenu: Color(rgb: 0xF7ECEC), onMenu2: Color(rgb: 0xDDB9BE),
-            action: Color(rgb: 0x1B5DB8), actionHover: Color(rgb: 0x154C98), actionSoft: Color(rgb: 0xE3ECF9), actionInk: Color(rgb: 0x1B4F99),
+            action: Color(rgb: 0x1B5DB8), actionHover: Color(rgb: 0x154C98), actionSoft: Color(rgb: 0xE3ECF9), actionInk: Color(rgb: 0x1B4F99), onAction: Color(rgb: 0xFFFFFF),
             gold: Color(rgb: 0xC9A227), goldInk: Color(rgb: 0x765806), goldSoft: Color(rgb: 0xF4E8C2),
             ground: Color(rgb: 0xF4F2EF), sheet: Color(rgb: 0xFFFFFF), sunk: Color(rgb: 0xF7F5F2),
             line: Color(rgb: 0xE2DDD6), line2: Color(rgb: 0xCBC3B9),
@@ -102,7 +104,7 @@ extension Palette {
         static let registrarNight = Roles(
             menuField: Color(rgb: 0x35060F), menuFieldDeep: Color(rgb: 0x4A0C19), menuFieldHover: Color(rgb: 0x5C1424),
             onMenu: Color(rgb: 0xF4E6E8), onMenu2: Color(rgb: 0xC99BA3),
-            action: Color(rgb: 0x5B93F0), actionHover: Color(rgb: 0x7BA8F3), actionSoft: Color(rgb: 0x1A2640), actionInk: Color(rgb: 0x8DB4F5),
+            action: Color(rgb: 0x5B93F0), actionHover: Color(rgb: 0x7BA8F3), actionSoft: Color(rgb: 0x1A2640), actionInk: Color(rgb: 0x8DB4F5), onAction: Color(rgb: 0x0A1428),
             gold: Color(rgb: 0xDDB64E), goldInk: Color(rgb: 0xE6C66A), goldSoft: Color(rgb: 0x3A3016),
             ground: Color(rgb: 0x141112), sheet: Color(rgb: 0x1C1819), sunk: Color(rgb: 0x171415),
             line: Color(rgb: 0x2D2728), line2: Color(rgb: 0x433A3C),
@@ -808,6 +810,12 @@ struct Typography: Equatable {
     }
 
     static let displayFamily = "Pixelify Sans"
+
+    /// Source Sans 3, the reading face (notes, descriptions, AI replies),
+    /// unless the user picked another family in Settings.
+    func reading(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        Font.custom(choice.familyName ?? "Source Sans 3", size: size * scale).weight(weight)
+    }
 }
 
 extension Theme {
