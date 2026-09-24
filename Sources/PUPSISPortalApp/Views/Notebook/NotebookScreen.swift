@@ -2,176 +2,107 @@ import SwiftUI
 import AppKit
 import Inject
 
-/// Today, read top to bottom. A daily companion to the week grid: the class
-/// happening now, what's already done, what's still coming with a countdown,
-/// the free stretches between them, and a one-line look at tomorrow.
+/// The Notebook (⌘4): a vault sheet (`NotebookVault`) — the "Today's note"
+/// day navigator, nested folders and files, "All notes" history — beside an
+/// editor sheet for whichever note is open.
 ///
-/// It folds the user's own calendar events (from the calendars ticked for the
-/// grid) in beside classes, so the free-time gaps reflect the whole day, not
-/// just class meetings.
+/// The class/event timeline this screen used to show (the old `AgendaView`)
+/// is Today's own screen now (`Views/Today/TodayScreen.swift`, a sibling
+/// slice); this view keeps only the day-note *navigator*, not the schedule
+/// it used to browse alongside.
 ///
-/// Display only — nothing here edits the schedule. It reads `appState.now`
-/// (the shared minute clock) so it re-renders on the minute without a timer of
-/// its own, the same clock the menu bar rides.
+/// The vault is its own `View` (below) rather than inlined here, on purpose:
+/// it needs only `NotesStore` and a `selectedKey` binding, never `AppState` —
+/// which matters because `AppState.init()` reads the real Keychain whenever
+/// the process isn't launched with `-IntPortalDemo` (`PUPSISPortalApp.swift`,
+/// `credentials = KeychainStore.load()`), so a plain `AppState()` inside
+/// `swift test` blocks for minutes (confirmed live, twice — see this
+/// screen's snapshot tests). `NotebookVault` sidesteps that landmine
+/// entirely and is what those tests actually render.
 struct NotebookScreen: View {
     @ObserveInjection var inject
     @ObservedObject var appState: AppState
     @ObservedObject var preferences: Preferences
-    @ObservedObject var calendar: CalendarBridge
+    /// Unused now that the today timeline (its own reader of `calendar`)
+    /// moved out — kept as a plain `let`, not `@ObservedObject`, so this
+    /// view no longer resubscribes to it. Stays a parameter because
+    /// `AppShell`'s `.today, .notebook` case (owned by a sibling slice)
+    /// still passes it positionally.
+    let calendar: CalendarBridge
     @ObservedObject var notes: NotesStore
+    /// False renders the vault flat, without its `ScrollView` — `ImageRenderer`
+    /// (`Snapshot.render`) can't draw a `ScrollView`'s content, so the snapshot
+    /// suite renders the vault this way. Always `true` in the running app.
+    var scrolls = true
     @Environment(\.palette) private var palette
     @Environment(\.typography) private var typography
     @Environment(\.reduceMotion) private var reduceMotion
 
-    /// Flipped true on first appear so the rows animate in once, on open, rather
-    /// than re-staggering every minute the clock republishes.
-    @State private var appeared = false
-
-    /// The note key of the selected row/file, or nil to fall back to the day note.
+    /// The note key open in the editor, or nil for the empty state — no
+    /// longer defaults silently to today's day note (see `NotebookEmptyEditorState`).
+    /// Shared with `NotebookVault` via a binding: tapping a row there opens
+    /// it here.
     @State private var selectedKey: String?
 
     /// Notes opened as tabs above the editor, in open order.
     @State private var openTabs: [String] = []
 
-    /// Which day the "Day note" navigator points at (browse past/future).
-    @State private var browsedDay = Date()
-    /// Expanded vault folders.
-    @State private var expandedFolders: Set<UUID> = []
-    /// A pending name entry (new file/folder or rename).
-    @State private var naming: NamingRequest?
-    @State private var namingText = ""
-    /// A vault node awaiting delete confirmation.
-    @State private var pendingDelete: VaultNode?
-    @State private var showingDatePicker = false
-    /// The folder currently highlighted as a drag-drop target.
-    @State private var dropTarget: UUID?
     /// Sidebar width captured at the start of a resize drag, so the handle
     /// accumulates from a fixed point rather than re-reading the (already
     /// mutating) preference mid-drag — same convention as
     /// `AssistantFloating`'s `resizeGrip`.
     @State private var sidebarWidthAtDragStart: Double?
     @State private var sidebarHandleHovered = false
-    /// Shows the per-row RAG-included/excluded chip — off by default so the
-    /// vault reads plain until the user actually wants to check.
-    @State private var showRAGBadges = false
-
-    struct NamingRequest: Identifiable {
-        let id = UUID()
-        let title: String
-        let commit: (String) -> Void
-    }
 
     private var now: Date { appState.now }
-    private var nowMinutes: Int { NowLine.minutes(of: now) }
 
-    /// True when the navigator is on the actual current day — only then are the
-    /// live phases (in session / countdown / free time) meaningful.
-    private var isBrowsingToday: Bool { Calendar.current.isDate(browsedDay, inSameDayAs: now) }
-    /// The clock the agenda is built against: the real now for today, else the
-    /// start of the browsed day so its classes all read as the day's schedule.
-    private var referenceNow: Date { isBrowsingToday ? now : Calendar.current.startOfDay(for: browsedDay) }
-    private var weekStart: Date { Weekday.weekStart(containing: referenceNow) }
-
-    /// The browsed day's classes as vacancy-aware phased items — source of the
-    /// tomorrow line and the empty state.
-    private var agenda: DayAgenda {
-        DayAgenda.make(
-            sessions: appState.portal.sessions,
-            now: referenceNow,
-            isVacant: { session, date in
-                preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
-            },
-            time: { session, date in
-                preferences.time(for: session, on: Weekday.weekStart(containing: date))
-            }
-        )
-    }
-
-    /// Classes merged with the browsed day's custom calendar events, sorted and phased.
-    private var entries: [DayAgenda.AgendaEntry] {
-        DayAgenda.timeline(
-            classes: appState.portal.sessions,
-            events: calendar.todayBlocks(calendarIDs: preferences.visibleCalendarIDs, on: referenceNow),
-            now: referenceNow,
-            isVacant: { session, date in
-                preferences.status(for: session, on: Weekday.weekStart(containing: date)) == .vacant
-            },
-            time: { session, date in
-                preferences.time(for: session, on: Weekday.weekStart(containing: date))
-            }
-        )
-    }
-
-    /// The note the editor is showing — a tapped row/file's, or the browsed day's
-    /// scratchpad when nothing is explicitly selected.
-    private var currentKey: String { selectedKey ?? dayKey(for: browsedDay) }
+    /// The note the editor shows — nil reads as the empty state.
+    private var currentKey: String? { selectedKey }
 
     var body: some View {
         HStack(spacing: 0) {
             if preferences.notebookSidebarOnLeft {
-                sidebar
-                    .frame(width: preferences.notebookSidebarWidth)
+                vault.frame(width: preferences.notebookSidebarWidth)
                 sidebarResizeHandle
-                noteEditorPane
+                editorSheet
             } else {
-                noteEditorPane
+                editorSheet
                 sidebarResizeHandle
-                sidebar
-                    .frame(width: preferences.notebookSidebarWidth)
+                vault.frame(width: preferences.notebookSidebarWidth)
             }
         }
         .navigationTitle("Notebook")
-        .onAppear { appeared = true }
-        .alert(naming?.title ?? "", isPresented: namingPresented, presenting: naming) { request in
-            TextField("Name", text: $namingText)
-            Button("OK") { request.commit(namingText); naming = nil }
-            Button("Cancel", role: .cancel) { naming = nil }
-        }
-        .confirmationDialog(
-            "Delete \u{201C}\(pendingDelete?.name ?? "")\u{201D}?",
-            isPresented: deletePresented,
-            presenting: pendingDelete
-        ) { node in
-            Button("Delete", role: .destructive) { confirmDelete(node) }
-        } message: { node in
-            Text(node.isFolder ? "This deletes the folder and everything inside it." : "This note will be deleted.")
-        }
         .enableInjection()
     }
 
-    private var namingPresented: Binding<Bool> {
-        Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })
-    }
-    private var deletePresented: Binding<Bool> {
-        Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })
+    private var vault: some View {
+        NotebookVault(notes: notes, selectedKey: $selectedKey, scrolls: scrolls)
     }
 
-    // MARK: Editor pane (main)
+    // MARK: Editor sheet (main)
 
-    private var noteEditorPane: some View {
+    private var editorSheet: some View {
         VStack(alignment: .leading, spacing: 6) {
             tabBar
-            TextField("Title", text: titleBinding)
-                .textFieldStyle(.plain)
-                .font(typography.detailTitle)
-                .lineLimit(1)
-
-            WebNoteEditor(
-                notes: notes,
-                preferences: preferences,
-                noteKey: currentKey,
-                title: noteTitle(for: currentKey),
-                bridge: appState.noteBridge,
-                onOpenNote: openNote(titled:)
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
+            if let key = currentKey {
+                editorHeader(for: key)
+                WebNoteEditor(
+                    notes: notes,
+                    preferences: preferences,
+                    noteKey: key,
+                    title: Self.noteTitle(notes: notes, for: key),
+                    bridge: appState.noteBridge,
+                    onOpenNote: openNote(titled:)
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            } else {
+                NotebookEmptyEditorState(onNewNote: { selectedKey = notes.addFile(name: "Untitled", to: nil) })
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        // No background here: the app-level wash already covers the whole
-        // window (`PUPSISPortalApp.swift`). Repainting the gradient inside
-        // this pane restarted it at a different extent than the sidebar's
-        // and the window's, which is what produced the visible seams.
+        .background(palette.roles.sheet, in: PixelNotch())
+        .overlay(PixelNotch().strokeBorder(palette.roles.line, lineWidth: 1))
         // Every explicit note open (tap a file/row/day, wikilink, drop) becomes a tab.
         .onChange(of: selectedKey) { _, new in
             if let new, !openTabs.contains(new) { openTabs.append(new) }
@@ -186,12 +117,41 @@ struct NotebookScreen: View {
         // view too.
         .onChange(of: currentKey) { _, new in
             appState.openNoteKey = new
-            appState.noteAddDateOptions = addDateOptions(for: new)
+            appState.noteAddDateOptions = new.flatMap(addDateOptions(for:))
         }
         .onAppear {
             appState.openNoteKey = currentKey
-            appState.noteAddDateOptions = addDateOptions(for: currentKey)
+            appState.noteAddDateOptions = currentKey.flatMap(addDateOptions(for:))
         }
+    }
+
+    /// Kicker (note kind, subject-coloured) + title (display face, 27pt) +
+    /// meta line, above the web editor — `NotebookEditorHeader` below, which
+    /// doesn't touch `WebNoteEditor`'s `WKWebView` so it can be snapshotted
+    /// on its own (`ImageRenderer` can't draw a `WKWebView`).
+    private func editorHeader(for key: String) -> some View {
+        NotebookEditorHeader(kicker: kicker(for: key), title: titleBinding(for: key), meta: metaLine(for: key))
+    }
+
+    /// "COMP 001 · class note" style label, in the subject's colour for a
+    /// class note. Vault files have no fixed kind, so no kicker.
+    private func kicker(for key: String) -> (label: String, color: Color)? {
+        if key.hasPrefix("class:") {
+            let code = String(key.dropFirst("class:".count))
+            return ("\(code) · class note", preferences.color(for: code, in: palette))
+        }
+        if key.hasPrefix("event:") { return ("Event note", palette.roles.ink2) }
+        if key.hasPrefix("day:") {
+            let iso = String(key.dropFirst("day:".count))
+            let isToday = Self.isoDay.string(from: now) == iso
+            return (isToday ? "Today's note" : "Day note", palette.roles.ink2)
+        }
+        return nil
+    }
+
+    private func metaLine(for key: String) -> String {
+        guard let updated = notes.note(for: key)?.updated else { return "New note · select any text to Ask AI" }
+        return "Edited \(Self.shortDate.string(from: updated)) · select any text to Ask AI"
     }
 
     /// Open notes as closeable tabs. A vault file dragged onto the bar opens too.
@@ -218,17 +178,15 @@ struct NotebookScreen: View {
     private func tabChip(_ key: String) -> some View {
         let active = key == currentKey
         return HStack(spacing: 6) {
-            Text(noteTitle(for: key)).font(typography.footer).lineLimit(1)
+            Text(Self.noteTitle(notes: notes, for: key)).font(typography.footer).lineLimit(1)
             Button { closeTab(key) } label: {
                 Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
             }
             .buttonStyle(.plain).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(RoundedRectangle(cornerRadius: 7)
-            .fill(active ? palette.accent.opacity(0.16) : Color.primary.opacity(0.05)))
-        .overlay(RoundedRectangle(cornerRadius: 7)
-            .stroke(palette.accent.opacity(active ? 0.4 : 0), lineWidth: 1))
+        .background(active ? palette.roles.actionSoft : palette.roles.sunk, in: PixelNotch())
+        .foregroundStyle(active ? palette.roles.actionInk : palette.roles.ink)
         .contentShape(Rectangle())
         .onTapGesture { selectedKey = key }
     }
@@ -236,23 +194,20 @@ struct NotebookScreen: View {
     private func closeTab(_ key: String) {
         openTabs.removeAll { $0 == key }
         // If the closed tab was showing, fall back to the last remaining tab
-        // (or nil → today's day note).
+        // (or nil → the empty state).
         if selectedKey == key { selectedKey = openTabs.last }
     }
 
     /// Resolve a clicked `[[wikilink]]` title to an existing note and open it.
-    /// (Full vault navigation arrives with the vault round.)
     private func openNote(titled title: String) {
-        if let entry = entries.first(where: { $0.title.caseInsensitiveCompare(title) == .orderedSame }) {
-            selectedKey = noteKey(entry)
+        if let key = notes.key(forName: title) {
+            selectedKey = key
         } else if let match = notes.notes.first(where: { $0.value.title?.caseInsensitiveCompare(title) == .orderedSame }) {
             selectedKey = match.key
         }
     }
 
-    // MARK: Sidebar — schedule + note history
-
-    /// A draggable divider between the note editor and the sidebar — a
+    /// A draggable divider between the note editor and the vault sheet — a
     /// `Divider()` with a wider invisible hit area so the drag doesn't need
     /// pixel-perfect aim, and a resize cursor on hover. Double-click resets
     /// to the default width, matching `AssistantFloating`'s resize grip.
@@ -263,7 +218,7 @@ struct NotebookScreen: View {
                     .frame(width: 9)
                     .contentShape(Rectangle())
             }
-            .background(sidebarHandleHovered ? palette.accent.opacity(0.3) : .clear)
+            .background(sidebarHandleHovered ? palette.roles.action.opacity(0.3) : .clear)
             .onHover { inside in
                 sidebarHandleHovered = inside
                 if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
@@ -285,67 +240,304 @@ struct NotebookScreen: View {
             .help("Drag to resize · double-click to reset")
     }
 
-    private var sidebar: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    header
-                    dailyNoteRow
-                    syllabusMarker
+    // MARK: Notes
 
-                    if entries.isEmpty {
-                        emptyDay
-                    } else {
-                        timeline
-                    }
+    /// "Next class" / "Today" date labels for the Add-date menu, shown only
+    /// when the open note is a shared per-subject class note. `next` is the
+    /// next date (today or later) the subject meets, by weekday; `today` is
+    /// always just today. When they land on the same day the toolbar collapses
+    /// them into one option.
+    private func addDateOptions(for key: String) -> (next: String, today: String)? {
+        guard key.hasPrefix("class:") else { return nil }
+        let subjectCode = String(key.dropFirst("class:".count))
+        let todayLabel = Self.shortDate.string(from: now)
+        guard let next = ClassSession.nextMeetingDate(for: subjectCode, in: appState.portal.sessions, from: now) else {
+            return nil
+        }
+        return (next: Self.shortDate.string(from: next), today: todayLabel)
+    }
 
-                    tomorrowLine
+    /// The title field's binding for `key`: reads the resolved title, writes
+    /// back through `renameVaultFile` for vault-backed notes (keeps the vault
+    /// name in step) or `setTitle` for everything else.
+    private func titleBinding(for key: String) -> Binding<String> {
+        Binding(
+            get: { Self.noteTitle(notes: notes, for: key) },
+            set: { newValue in
+                if key.hasPrefix("vault:") {
+                    notes.renameVaultFile(forKey: key, to: newValue)
+                } else {
+                    notes.setTitle(newValue, for: key)
                 }
+            }
+        )
+    }
 
-                Divider()
-                vaultSection
+    fileprivate static let shortDate: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f
+    }()
 
-                if !history.isEmpty {
-                    Divider()
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("All notes")
-                            .font(typography.detailMeta)
-                            .foregroundStyle(.secondary)
-                        ForEach(history, id: \.key) { item in
-                            sidebarItem(
-                                title: item.title,
-                                subtitle: Self.shortDate.string(from: item.updated),
-                                key: item.key,
-                                hasNote: true
-                            )
-                        }
+    fileprivate static let isoDay: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    /// A human title for any note key — never the raw text or an AI prompt.
+    /// A user-set title (typed into the title field, `notes.setTitle`/
+    /// `renameVaultFile`) always wins; otherwise it's the note's own first
+    /// Markdown heading (`vaultDisplayTitle`); otherwise a key-derived
+    /// fallback (the subject code, the date, or "Note"). `fileprivate` (not
+    /// an instance method) so both this screen (tabs, the title field) and
+    /// `NotebookVault` (folder/file names, history) share one implementation
+    /// without either needing the other's stored state.
+    fileprivate static func noteTitle(notes: NotesStore, for key: String) -> String {
+        if key.hasPrefix("vault:") { return notes.vaultName(forKey: key) ?? "Untitled" }
+        let fallback: String
+        if key.hasPrefix("class:") {
+            fallback = String(key.dropFirst("class:".count))
+        } else if key.hasPrefix("day:") {
+            let iso = String(key.dropFirst("day:".count))
+            fallback = isoDay.date(from: iso).map(shortDate.string(from:)) ?? iso
+        } else {
+            fallback = "Note"
+        }
+        return vaultDisplayTitle(text: notes.text(for: key), override: notes.note(for: key)?.title, fallback: fallback)
+    }
+
+    /// A note's display title, in priority order: a user-set override, then
+    /// the note's own first Markdown heading, then `fallback`. Pure and
+    /// key-independent so it's directly testable — the vault (and history,
+    /// tabs, export filenames) must never show a raw AI prompt or the note's
+    /// opaque storage key as its title.
+    static func vaultDisplayTitle(text: String, override: String?, fallback: String) -> String {
+        if let override, !override.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return override }
+        if let heading = firstHeading(in: text) { return heading }
+        return fallback
+    }
+
+    /// The text of the first Markdown heading line (`#`…`######`) anywhere in
+    /// `text`, or nil if there isn't one.
+    private static func firstHeading(in text: String) -> String? {
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("#") else { continue }
+            let stripped = trimmed.drop(while: { $0 == "#" }).trimmingCharacters(in: .whitespaces)
+            if !stripped.isEmpty { return stripped }
+        }
+        return nil
+    }
+}
+
+/// The editor sheet's own header: kicker (note kind, subject-coloured) +
+/// title (display face, 27pt) + meta line. Split out of `NotebookScreen` so
+/// it's a plain, `AppState`/`WKWebView`-free view — snapshottable on its own.
+struct NotebookEditorHeader: View {
+    let kicker: (label: String, color: Color)?
+    @Binding var title: String
+    let meta: String
+    @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let kicker {
+                Text(kicker.label)
+                    .font(typography.display(size: 13))
+                    .foregroundStyle(kicker.color)
+            }
+            TextField("Title", text: $title)
+                .textFieldStyle(.plain)
+                .font(typography.display(size: 27, weight: .bold))
+                .lineLimit(1)
+            Text(meta)
+                .font(typography.detailMeta)
+                .foregroundStyle(palette.roles.ink3)
+        }
+    }
+}
+
+/// Shown instead of the web editor when nothing's open — the vault (or the
+/// "Today's note" row) picks a note, or this starts one. No `AppState`
+/// either, same reasoning as `NotebookEditorHeader`.
+struct NotebookEmptyEditorState: View {
+    let onNewNote: () -> Void
+    @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
+
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            Text("Pick a note or start one")
+                .font(typography.detailBody)
+                .foregroundStyle(palette.roles.ink2)
+            Button("New note", action: onNewNote)
+                .buttonStyle(.pixelPrimary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// The vault sheet: the "Today's note" day navigator, nested folders and
+/// files (drag to move, full context menu), and "All notes" history. Needs
+/// only `NotesStore` and a `selectedKey` binding — no `AppState` — so it
+/// (unlike `NotebookScreen` as a whole) is safe and fast to snapshot in
+/// `swift test` (see `NotebookScreen`'s own doc comment for why that split
+/// exists).
+struct NotebookVault: View {
+    @ObservedObject var notes: NotesStore
+    @Binding var selectedKey: String?
+    /// False renders without the `ScrollView` — see `NotebookScreen.scrolls`.
+    var scrolls = true
+    @Environment(\.palette) private var palette
+    @Environment(\.typography) private var typography
+    @Environment(\.reduceMotion) private var reduceMotion
+
+    /// Which day the "Today's note" navigator points at (browse past/future).
+    @State private var browsedDay = Date()
+    /// Expanded vault folders.
+    @State private var expandedFolders: Set<UUID> = []
+    /// A pending name entry (new file/folder or rename).
+    @State private var naming: NamingRequest?
+    @State private var namingText = ""
+    /// A vault node awaiting delete confirmation.
+    @State private var pendingDelete: VaultNode?
+    @State private var showingDatePicker = false
+    /// The folder currently highlighted as a drag-drop target.
+    @State private var dropTarget: UUID?
+    /// Shows the per-row RAG-included/excluded chip — off by default so the
+    /// vault reads plain until the user actually wants to check.
+    @State private var showRAGBadges = false
+
+    struct NamingRequest: Identifiable {
+        let id = UUID()
+        let title: String
+        let commit: (String) -> Void
+    }
+
+    var body: some View {
+        Group {
+            if scrolls {
+                ScrollView { content }.scrollIndicators(.hidden)
+            } else {
+                content
+            }
+        }
+        .background(palette.roles.sheet, in: PixelNotch())
+        .overlay(PixelNotch().strokeBorder(palette.roles.line, lineWidth: 1))
+        .alert(naming?.title ?? "", isPresented: namingPresented, presenting: naming) { request in
+            TextField("Name", text: $namingText)
+            Button("OK") { request.commit(namingText); naming = nil }
+            Button("Cancel", role: .cancel) { naming = nil }
+        }
+        .confirmationDialog(
+            "Delete \u{201C}\(pendingDelete?.name ?? "")\u{201D}?",
+            isPresented: deletePresented,
+            presenting: pendingDelete
+        ) { node in
+            Button("Delete", role: .destructive) { confirmDelete(node) }
+        } message: { node in
+            Text(node.isFolder ? "This deletes the folder and everything inside it." : "This note will be deleted.")
+        }
+    }
+
+    private var namingPresented: Binding<Bool> {
+        Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })
+    }
+    private var deletePresented: Binding<Bool> {
+        Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                header
+                todaysNoteRow
+
+                if notes.vault.isEmpty {
+                    Text("No files yet — add a note or folder.")
+                        .font(typography.footer)
+                        .foregroundStyle(palette.roles.ink3)
+                        .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+                } else {
+                    ForEach(notes.vault) { node in
+                        vaultRow(node, depth: 0)
                     }
                 }
             }
-            .padding(16)
-            .animation(Motion.selection(reduced: reduceMotion), value: currentKey)
-            .animation(Motion.arrival(reduced: reduceMotion), value: expandedFolders)
+            .contentShape(Rectangle())
+            // Drop onto the section background (not a folder) moves an item to the root.
+            .dropDestination(for: String.self) { items, _ in handleDrop(items, into: nil) }
+
+            if !history.isEmpty {
+                Divider().overlay(palette.roles.line)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("All notes")
+                        .font(typography.detailMeta)
+                        .foregroundStyle(palette.roles.ink3)
+                    ForEach(history, id: \.key) { item in
+                        sidebarItem(
+                            title: item.title,
+                            subtitle: NotebookScreen.shortDate.string(from: item.updated),
+                            key: item.key,
+                            hasNote: true
+                        )
+                    }
+                }
+            }
         }
-        .scrollIndicators(.hidden)
-        // No background — see the note-editor pane's identical comment.
+        .padding(16)
+        .animation(Motion.selection(reduced: reduceMotion), value: selectedKey)
+        .animation(Motion.arrival(reduced: reduceMotion), value: expandedFolders)
     }
 
-    // MARK: Daily-note navigator (browse any date)
+    /// "Vault" label + the "N of M in AI search" toggle (per-row sparkle
+    /// marks, dimmed when excluded) + new note/new folder.
+    private var header: some View {
+        HStack(spacing: Spacing.sm) {
+            Text("Vault")
+                .font(typography.display(size: 14))
+                .tracking(0.84)
+                .foregroundStyle(palette.roles.ink2)
+            Spacer(minLength: 0)
+            Button { showRAGBadges.toggle() } label: {
+                Label("\(notes.ragCounts().included) of \(notes.ragCounts().total) in AI search", systemImage: "sparkles")
+                    .font(typography.numeric(size: 12))
+                    .foregroundStyle(showRAGBadges ? palette.roles.goldInk : palette.roles.ink2)
+            }
+            .help("Click to show which notes are included")
+            .accessibilityLabel("AI search inclusion — \(notes.ragCounts().included) of \(notes.ragCounts().total) notes included")
+            Button { promptNewFile(parent: nil) } label: { Image(systemName: "doc.badge.plus") }
+                .help("New note")
+                .accessibilityLabel("New note")
+            Button { promptNewFolder(parent: nil) } label: { Image(systemName: "folder.badge.plus") }
+                .help("New folder")
+                .accessibilityLabel("New folder")
+        }
+        .buttonStyle(.borderless)
+    }
 
-    private var dailyNoteRow: some View {
-        HStack(spacing: 4) {
+    // MARK: "Today's note" navigator (browse any date)
+
+    /// Day-note navigator (prev/next, date picker, content dot) — used to sit
+    /// above the today timeline; now it's the vault's top entry, since Today
+    /// owns the timeline (spec 04).
+    private var todaysNoteRow: some View {
+        let key = dayKey(for: browsedDay)
+        let selected = key == selectedKey
+        return HStack(spacing: 4) {
             Button { shiftDay(-1) } label: { Image(systemName: "chevron.left") }
                 .buttonStyle(.borderless)
                 .help("Previous day")
                 .accessibilityLabel("Previous day")
 
-            let key = dayKey(for: browsedDay)
             Button { selectedKey = key } label: {
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Day note").font(typography.footer)
-                        Text(Self.shortDate.string(from: browsedDay))
-                            .font(typography.detailMeta).foregroundStyle(.secondary)
+                        Text("Today's note").font(typography.footer)
+                        Text(NotebookScreen.shortDate.string(from: browsedDay))
+                            .font(typography.detailMeta).foregroundStyle(palette.roles.ink3)
                     }
                     Spacer(minLength: 4)
                     if notes.hasNote(for: key) { noteDot }
@@ -353,9 +545,8 @@ struct NotebookScreen: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 12).fill(key == currentKey ? palette.accent.opacity(0.14) : .clear))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(palette.accent.opacity(key == currentKey ? 0.4 : 0), lineWidth: 1))
-                .contentShape(Rectangle())
+                .background(selected ? palette.roles.actionSoft : .clear, in: PixelNotch())
+                .foregroundStyle(selected ? palette.roles.actionInk : palette.roles.ink)
             }
             .buttonStyle(.plain)
             .contextMenu { noteActions(for: key) }
@@ -382,44 +573,14 @@ struct NotebookScreen: View {
         browsedDay = Calendar.current.date(byAdding: .day, value: delta, to: browsedDay) ?? browsedDay
     }
 
-    // MARK: Vault (folders + files)
-
-    private var vaultSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Text("Vault").font(typography.detailMeta).foregroundStyle(.secondary)
-                Spacer()
-                Button { showRAGBadges.toggle() } label: {
-                    Image(systemName: "sparkles")
-                        .foregroundStyle(showRAGBadges ? palette.accent : .secondary)
-                }
-                .help("\(notes.ragCounts().included) of \(notes.ragCounts().total) notes in AI search — click to show which")
-                .accessibilityLabel("AI search inclusion — \(notes.ragCounts().included) of \(notes.ragCounts().total) notes included")
-                Button { promptNewFile(parent: nil) } label: { Image(systemName: "doc.badge.plus") }
-                    .help("New note")
-                    .accessibilityLabel("New note")
-                Button { promptNewFolder(parent: nil) } label: { Image(systemName: "folder.badge.plus") }
-                    .help("New folder")
-                    .accessibilityLabel("New folder")
-            }
-            .buttonStyle(.borderless)
-
-            if notes.vault.isEmpty {
-                Text("No files yet — add a note or folder.")
-                    .font(typography.footer)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
-            } else {
-                ForEach(notes.vault) { node in
-                    vaultRow(node, depth: 0)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        // Drop onto the section background (not a folder) moves an item to the root.
-        .dropDestination(for: String.self) { items, _ in handleDrop(items, into: nil) }
+    /// The freeform day scratchpad's key for a given calendar day. Uses the
+    /// local-timezone formatter so the key matches the day the user sees — a
+    /// GMT-based ISO format shifts midnight-local dates to the previous day.
+    private func dayKey(for date: Date) -> String {
+        "day:\(NotebookScreen.isoDay.string(from: date))"
     }
+
+    // MARK: Vault (folders + files)
 
     // AnyView: the function is recursive, so the opaque `some View` can't be
     // inferred in terms of itself. `inheritedExcluded` carries an ancestor
@@ -442,13 +603,19 @@ struct NotebookScreen: View {
         return AnyView(fileRow(node, depth: depth, effectiveExcluded: effectiveExcluded))
     }
 
+    /// A folder head, in display caps (DESIGN.md's `Pixelify Sans` identity
+    /// face, uppercase, tracked) rather than the reading face file rows use.
     private func folderRow(_ node: VaultNode, depth: Int, effectiveExcluded: Bool) -> some View {
         let open = expandedFolders.contains(node.id)
         return HStack(spacing: 6) {
             Image(systemName: open ? "chevron.down" : "chevron.right")
-                .font(.caption2).foregroundStyle(.secondary).frame(width: 10)
-            Image(systemName: "folder").foregroundStyle(labelColor(node) ?? .secondary)
-            Text(node.name).font(typography.footer).lineLimit(1)
+                .font(.caption2).foregroundStyle(palette.roles.ink3).frame(width: 10)
+            Image(systemName: "folder").foregroundStyle(labelColor(node) ?? palette.roles.ink3)
+            Text(node.name.uppercased())
+                .font(typography.display(size: 12, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(labelColor(node) ?? palette.roles.ink3)
+                .lineLimit(1)
             Spacer(minLength: 4)
             if showRAGBadges { ragBadge(excluded: effectiveExcluded) }
         }
@@ -456,7 +623,7 @@ struct NotebookScreen: View {
         .padding(.leading, CGFloat(depth) * 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .background(RoundedRectangle(cornerRadius: 6).fill(dropTarget == node.id ? palette.accent.opacity(0.12) : .clear))
+        .background(dropTarget == node.id ? palette.roles.actionSoft : .clear, in: PixelNotch())
         .onTapGesture { toggleFolder(node.id) }
         .draggable(node.id.uuidString)
         .dropDestination(for: String.self) { items, _ in
@@ -475,11 +642,13 @@ struct NotebookScreen: View {
         }
     }
 
+    /// The current note reads as an action-soft row (DESIGN.md's selection
+    /// token), everything else plain.
     private func fileRow(_ node: VaultNode, depth: Int, effectiveExcluded: Bool) -> some View {
-        let selected = node.noteKey == currentKey
+        let selected = node.noteKey == selectedKey
         return HStack(spacing: 6) {
-            Image(systemName: "doc.text").foregroundStyle(labelColor(node) ?? .secondary).frame(width: 10)
-            Text(node.name).font(typography.footer).lineLimit(1)
+            Image(systemName: "doc.text").foregroundStyle(labelColor(node) ?? palette.roles.ink3).frame(width: 10)
+            Text(node.name).font(typography.footer).foregroundStyle(selected ? palette.roles.actionInk : palette.roles.ink).lineLimit(1)
             Spacer(minLength: 4)
             if showRAGBadges { ragBadge(excluded: effectiveExcluded) }
             if let key = node.noteKey, notes.hasNote(for: key) { noteDot }
@@ -488,7 +657,7 @@ struct NotebookScreen: View {
         .padding(.horizontal, 6)
         .padding(.leading, CGFloat(depth) * 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 6).fill(selected ? palette.accent.opacity(0.14) : .clear))
+        .background(selected ? palette.roles.actionSoft : .clear, in: PixelNotch())
         .contentShape(Rectangle())
         .onTapGesture { if let key = node.noteKey { selectedKey = key } }
         .draggable(node.id.uuidString)
@@ -555,10 +724,9 @@ struct NotebookScreen: View {
     private func ragBadge(excluded: Bool) -> some View {
         Image(systemName: excluded ? "sparkles.slash" : "sparkles")
             .font(.caption2)
-            .foregroundStyle(excluded ? .secondary : palette.accent)
+            .foregroundStyle(excluded ? palette.roles.ink3 : palette.roles.goldInk)
             .help(excluded ? "Excluded from AI search" : "Included in AI search")
     }
-
 
     /// Move a dragged node (by id string) into `parent` (root when nil).
     private func handleDrop(_ items: [String], into parent: UUID?) -> Bool {
@@ -598,9 +766,10 @@ struct NotebookScreen: View {
 
     private func confirmDelete(_ node: VaultNode) {
         notes.deleteItem(node.id)
-        // Drop tabs for any vault file that no longer exists, and if the open note
-        // was inside what we deleted, fall back to the day note.
-        openTabs.removeAll { $0.hasPrefix("vault:") && notes.vaultName(forKey: $0) == nil }
+        // If the open note was inside what we deleted, fall back to the
+        // empty state. (A stale open *tab* for it, if any, is
+        // `NotebookScreen`'s own bookkeeping and prunes itself the next
+        // time a tab it can't resolve is closed/reopened.)
         if let key = selectedKey, key.hasPrefix("vault:"), notes.vaultName(forKey: key) == nil {
             selectedKey = nil
         }
@@ -625,7 +794,7 @@ struct NotebookScreen: View {
     }
 
     private func exportNote(_ key: String, as format: NoteExportFormat) {
-        let title = noteTitle(for: key)
+        let title = NotebookScreen.noteTitle(notes: notes, for: key)
         let panel = NSSavePanel()
         panel.nameFieldStringValue = title.replacingOccurrences(of: "/", with: "-") + "." + format.fileExtension
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -642,7 +811,7 @@ struct NotebookScreen: View {
     }
 
     /// Clear a day/class/event note (they aren't vault files, so emptying is the
-    /// delete — history hides empty notes). Falls the editor back to the day note.
+    /// delete — history hides empty notes). Falls the editor back to the empty state.
     private func clearNote(_ key: String) {
         notes.setText("", for: key, title: nil)
         if selectedKey == key { selectedKey = nil }
@@ -657,15 +826,14 @@ struct NotebookScreen: View {
         }
     }
 
-    /// A compact, selectable sidebar row (Day note + history). The rich agenda
-    /// rows keep their own look via `row(for:)`.
+    /// A compact, selectable sidebar row ("All notes" history).
     private func sidebarItem(title: String, subtitle: String? = nil, key: String, hasNote: Bool) -> some View {
-        let selected = key == currentKey
+        let selected = key == selectedKey
         return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(typography.footer).lineLimit(1)
                 if let subtitle {
-                    Text(subtitle).font(typography.detailMeta).foregroundStyle(.secondary).lineLimit(1)
+                    Text(subtitle).font(typography.detailMeta).foregroundStyle(palette.roles.ink3).lineLimit(1)
                 }
             }
             Spacer(minLength: 4)
@@ -674,469 +842,28 @@ struct NotebookScreen: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(selected ? palette.accent.opacity(0.14) : .clear))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.accent.opacity(selected ? 0.4 : 0), lineWidth: 1))
+        .background(selected ? palette.roles.actionSoft : .clear, in: PixelNotch())
+        .foregroundStyle(selected ? palette.roles.actionInk : palette.roles.ink)
         .contentShape(Rectangle())
         .onTapGesture { selectedKey = key }
         .contextMenu { noteActions(for: key) }
     }
 
-    /// Every note with content, newest first — the history the sidebar lists.
+    /// Every note with content, newest first — the history the vault lists.
     private var history: [(key: String, title: String, updated: Date)] {
         notes.notes
             // Vault files live in the tree above, so keep them out of the flat list.
             .filter { !$0.key.hasPrefix("vault:") && !$0.value.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .map { (key: $0.key, title: noteTitle(for: $0.key), updated: $0.value.updated) }
+            .map { (key: $0.key, title: NotebookScreen.noteTitle(notes: notes, for: $0.key), updated: $0.value.updated) }
             .sorted { $0.updated > $1.updated }
     }
-
-    private static let shortDate: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d"
-        return f
-    }()
-
-    // MARK: Header
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Text(referenceNow.formatted(.dateTime.weekday(.wide)))
-                    .font(typography.detailTitle)
-                if !isBrowsingToday {
-                    Button("Today") { browsedDay = now }
-                        .font(typography.footer)
-                        .buttonStyle(.borderless)
-                }
-            }
-            HStack(spacing: 6) {
-                Text(referenceNow.formatted(.dateTime.month(.wide).day()))
-                // Live free-time only reads correctly for the actual current day.
-                if isBrowsingToday {
-                    let free = DayAgenda.remainingFreeMinutes(entries, nowMinutes: nowMinutes)
-                    if free > 0 {
-                        Text("·")
-                        Text("\(duration(free)) free")
-                    }
-                }
-            }
-            .font(typography.footer)
-            .foregroundStyle(.secondary)
-        }
-        .padding(.bottom, 4)
-    }
-
-    // MARK: Syllabus (wayfinder ticket #13)
-
-    /// The browsed day's syllabus items — an all-day marker line above the
-    /// timed timeline, not a `DayBlock`/`AgendaEntry` (see `WeekGrid`'s own
-    /// doc comment on the same call): a syllabus item usually has no
-    /// class-time, just a date, so it doesn't belong in a minutes-based row.
-    @ViewBuilder private var syllabusMarker: some View {
-        let items = appState.syllabus.items(on: referenceNow)
-        if !items.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(items) { item in
-                    HStack(spacing: 6) {
-                        Image(systemName: item.type.symbol)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(palette.accent)
-                        Text(item.topic).font(typography.footer).lineLimit(1)
-                        Text(item.subjectCode)
-                            .font(typography.detailMeta)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .padding(.bottom, 2)
-        }
-    }
-
-    // MARK: Timeline
-
-    private var timeline: some View {
-        let items = entries
-        return VStack(spacing: 8) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, entry in
-                row(for: entry)
-                    // Rows land in reading order on open, the same arrival the
-                    // week grid uses. Reduce Motion → nil animation → instant.
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 6)
-                    .animation(
-                        Motion.arrival(reduced: reduceMotion)?
-                            .delay(Motion.stagger(index, reduced: reduceMotion)),
-                        value: appeared
-                    )
-
-                // The free stretch before the next entry, so the day reads as a
-                // timeline rather than a stack of cards.
-                if index < items.count - 1 {
-                    let next = items[index + 1]
-                    let free = next.start - entry.end
-                    if free >= 15 {
-                        gapRow(minutes: free, passed: next.start <= nowMinutes)
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func row(for entry: DayAgenda.AgendaEntry) -> some View {
-        let key = noteKey(entry)
-        let selected = key == currentKey
-
-        Group {
-            if let session = entry.session {
-                classRow(entry, session: session, hasNote: notes.hasNote(for: key))
-            } else {
-                eventRow(entry, hasNote: notes.hasNote(for: key))
-            }
-        }
-        // Tapping a row loads its note into the editor pane.
-        .contentShape(Rectangle())
-        .onTapGesture { selectedKey = key }
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(palette.accent.opacity(selected ? 0.5 : 0), lineWidth: 1.5)
-        )
-    }
-
-    @ViewBuilder
-    private func classRow(_ entry: DayAgenda.AgendaEntry, session: ClassSession, hasNote: Bool) -> some View {
-        let phase = entry.phase
-        let color = preferences.color(for: session.subjectCode, in: palette)
-        let online = preferences.status(for: session, on: weekStart) == .online
-
-        HStack(alignment: .top, spacing: 12) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(color)
-                .frame(width: 4)
-                .opacity(phase == .past ? 0.4 : 1)
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(session.subjectCode)
-                        .font(typography.blockCode)
-                    if online {
-                        Image(systemName: "video.fill")
-                            .font(typography.detailMeta)
-                            .foregroundStyle(.secondary)
-                    }
-                    if hasNote { noteDot }
-                }
-                Text(session.description)
-                    .font(typography.footer)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Text(session.timeLabel)
-                    .font(typography.detailMeta)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 8)
-
-            classBadge(for: session, phase: phase, color: color)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(rowBackground(phase: phase))
-        .opacity(phase == .past ? 0.55 : 1)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(classLabel(session, phase: phase))
-    }
-
-    /// A calendar event — the user's own commitments folded in. Neutral strip,
-    /// no subject color or online marker; those belong to classes.
-    @ViewBuilder
-    private func eventRow(_ entry: DayAgenda.AgendaEntry, hasNote: Bool) -> some View {
-        let phase = entry.phase
-
-        HStack(alignment: .top, spacing: 12) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(.secondary)
-                .frame(width: 4)
-                .opacity(phase == .past ? 0.3 : 0.7)
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(entry.title)
-                        .font(typography.blockCode)
-                        .lineLimit(1)
-                    if hasNote { noteDot }
-                }
-                Text(entry.subtitle)
-                    .font(typography.detailMeta)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 8)
-
-            eventBadge(entry)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(rowBackground(phase: phase))
-        .opacity(phase == .past ? 0.55 : 1)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(entry.title), \(entry.subtitle), \(phaseWord(phase))")
-    }
-
-    // MARK: Badges
-
-    @ViewBuilder
-    private func classBadge(for session: ClassSession, phase: ClassPhase, color: Color) -> some View {
-        switch phase {
-        case .inSession:
-            Text("In session")
-                .font(typography.footer.weight(.semibold))
-                .foregroundStyle(palette.accent)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(palette.accent.opacity(0.14), in: .capsule)
-        case .upcoming:
-            Text(isBrowsingToday ? upcoming(for: session).countdown(now: now)
-                 : "at \(ClassSession.format(preferences.time(for: session, on: weekStart).start))")
-                .font(typography.footer.weight(.medium))
-                .foregroundStyle(color)
-        case .past:
-            Text("Done")
-                .font(typography.detailMeta)
-                .foregroundStyle(.tertiary)
-        }
-    }
-
-    @ViewBuilder
-    private func eventBadge(_ entry: DayAgenda.AgendaEntry) -> some View {
-        switch entry.phase {
-        case .inSession:
-            Text("Now")
-                .font(typography.footer.weight(.semibold))
-                .foregroundStyle(.secondary)
-        case .upcoming:
-            Text("at \(ClassSession.format(entry.start))")
-                .font(typography.footer.weight(.medium))
-                .foregroundStyle(.secondary)
-        case .past:
-            Text("Done")
-                .font(typography.detailMeta)
-                .foregroundStyle(.tertiary)
-        }
-    }
-
-    /// One phrase per class row for VoiceOver — mirrors `ClassBlock`'s label.
-    private func classLabel(_ session: ClassSession, phase: ClassPhase) -> String {
-        let state: String
-        switch phase {
-        case .inSession: state = "in session"
-        case .upcoming: state = upcoming(for: session).countdown(now: now)
-        case .past: state = "done"
-        }
-        return "\(session.subjectCode), \(session.description), \(session.timeLabel), \(state)"
-    }
-
-    private func phaseWord(_ phase: ClassPhase) -> String {
-        switch phase {
-        case .inSession: "now"
-        case .upcoming: "upcoming"
-        case .past: "done"
-        }
-    }
-
-    @ViewBuilder
-    private func rowBackground(phase: ClassPhase) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 12)
-        if phase == .inSession {
-            shape
-                .fill(palette.accent.opacity(0.10))
-                .stroke(palette.accent.opacity(0.35), lineWidth: 1)
-        } else if phase == .past {
-            // A finished class reads as quietly closed out — a flatter fill
-            // and a hairline, matching the "Done" badge rather than a
-            // separate texture.
-            shape
-                .fill(.quaternary.opacity(0.22))
-                .stroke(palette.gridLine, lineWidth: 1)
-        } else {
-            shape
-                .fill(.quaternary.opacity(0.4))
-        }
-    }
-
-    /// A free stretch between two entries — a dashed rail in the same column
-    /// the class rows' subject strip occupies, so the timeline reads as one
-    /// continuous line rather than a gap. `minutes` is a duration, so it's
-    /// set in mono (the No-Reflow Rule) rather than the row's usual sans.
-    private func gapRow(minutes: Int, passed: Bool) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Rectangle()
-                .fill(.clear)
-                .overlay(
-                    Rectangle()
-                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
-                )
-                .foregroundStyle(palette.gridLine)
-                .frame(width: 4)
-
-            Text("\(duration(minutes)) free")
-                .font(typography.gutter)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(palette.canvasTop, in: .capsule)
-                .overlay(Capsule().stroke(palette.gridLine, lineWidth: 1))
-        }
-        .opacity(passed ? 0.4 : 1)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// The day's empty state — plain and legible. Used to sit on a dither
-    /// wedge; dropped, since a flat dither veil behind small caption text
-    /// (`palette.secondary` on top of more `.secondary`) read as barely
-    /// visible rather than textured.
-    // ponytail: no "add something" action wired here — that would mean
-    // reaching into Schedule's own week/editor state from Notebook, which
-    // has no existing path today. Add one if this empty state needs to do
-    // more than read clearly.
-    private var emptyDay: some View {
-        Text("Nothing scheduled today.")
-            .font(typography.footer)
-            .foregroundStyle(.primary.opacity(0.7))
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: Tomorrow
-
-    private var tomorrowLine: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sunrise")
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            Text(tomorrowText)
-                .font(typography.footer)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 8)
-    }
-
-    private var tomorrowText: String {
-        guard let first = agenda.tomorrowFirst else { return "Tomorrow · nothing scheduled" }
-        let tomorrowDate = Calendar.current.date(byAdding: .day, value: 1, to: referenceNow) ?? referenceNow
-        let start = preferences.time(for: first, on: Weekday.weekStart(containing: tomorrowDate)).start
-        return "Tomorrow · \(first.subjectCode) at \(ClassSession.format(start))"
-    }
-
-    // MARK: Notes
 
     /// The dot on a row that has a note — small enough to read as a mark, not a
     /// control.
     private var noteDot: some View {
         Circle()
-            .fill(palette.accent)
+            .fill(palette.roles.action)
             .frame(width: 5, height: 5)
             .accessibilityHidden(true)
-    }
-
-    /// A note's key: subject code for a class (stable across days), the event's
-    /// block id for an event. Namespaced so the two can't collide.
-    private func noteKey(_ entry: DayAgenda.AgendaEntry) -> String {
-        if let session = entry.session { return "class:\(session.subjectCode)" }
-        return "event:\(entry.id)"
-    }
-
-    /// "Next class" / "Today" date labels for the Add-date menu, shown only
-    /// when the open note is a shared per-subject class note. `next` is the
-    /// next date (today or later) the subject meets, by weekday; `today` is
-    /// always just today. When they land on the same day the toolbar collapses
-    /// them into one option.
-    private func addDateOptions(for key: String) -> (next: String, today: String)? {
-        guard key.hasPrefix("class:") else { return nil }
-        let subjectCode = String(key.dropFirst("class:".count))
-        let todayLabel = Self.shortDate.string(from: now)
-        guard let next = ClassSession.nextMeetingDate(for: subjectCode, in: appState.portal.sessions, from: now) else {
-            return nil
-        }
-        return (next: Self.shortDate.string(from: next), today: todayLabel)
-    }
-
-    /// The freeform day scratchpad's key for a given calendar day. Uses the
-    /// local-timezone formatter so the key matches the day the user sees — a
-    /// GMT-based ISO format shifts midnight-local dates to the previous day.
-    private func dayKey(for date: Date) -> String {
-        "day:\(Self.isoDay.string(from: date))"
-    }
-
-    /// Today's day-note key — the editor's default when nothing else is selected.
-    private var dayKey: String { dayKey(for: now) }
-
-    /// A human title for any note key. A user-set title (typed into the title
-    /// field, `notes.setTitle`/`renameVaultFile`) always wins; otherwise it's
-    /// today's entry title when the class/event is on today's schedule, else
-    /// derived from the key.
-    private func noteTitle(for key: String) -> String {
-        if key.hasPrefix("vault:") { return notes.vaultName(forKey: key) ?? "Untitled" }
-        if let override = notes.note(for: key)?.title { return override }
-        if let entry = entries.first(where: { noteKey($0) == key }) { return entry.title }
-        if key.hasPrefix("class:") { return String(key.dropFirst("class:".count)) }
-        if key.hasPrefix("day:") {
-            let iso = String(key.dropFirst("day:".count))
-            if let date = Self.isoDay.date(from: iso) { return Self.shortDate.string(from: date) }
-            return iso
-        }
-        return "Note"
-    }
-
-    /// The title field's binding: reads the resolved title, writes back through
-    /// `renameVaultFile` for vault-backed notes (keeps the sidebar name in
-    /// step) or `setTitle` for everything else.
-    private var titleBinding: Binding<String> {
-        Binding(
-            get: { noteTitle(for: currentKey) },
-            set: { newValue in
-                if currentKey.hasPrefix("vault:") {
-                    notes.renameVaultFile(forKey: currentKey, to: newValue)
-                } else {
-                    notes.setTitle(newValue, for: currentKey)
-                }
-            }
-        )
-    }
-
-    private static let isoDay: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
-    // MARK: Helpers
-
-    /// Wrap a today session as a `NextClass.Upcoming` so its countdown phrasing
-    /// ("in 25 min" / "at 2PM") comes from the one place that owns it.
-    private func upcoming(for session: ClassSession) -> NextClass.Upcoming {
-        let cal = Calendar.current
-        let midnight = session.day.date(inWeekStarting: weekStart)
-        let (startMinutes, endMinutes) = preferences.time(for: session, on: weekStart)
-        // `nil` (startMinutes fell in a spring-forward gap) falls back to
-        // midnight, same as the pre-existing fallback here — this only
-        // affects the countdown phrase's wording, not whether the class
-        // shows in the list.
-        let start = cal.wallClock(minutes: startMinutes, on: midnight) ?? midnight
-        return NextClass.Upcoming(
-            session: session, start: start,
-            startMinutes: startMinutes, endMinutes: endMinutes, isNow: false
-        )
-    }
-
-    private func duration(_ minutes: Int) -> String {
-        let h = minutes / 60
-        let m = minutes % 60
-        if h == 0 { return "\(m)m" }
-        if m == 0 { return "\(h)h" }
-        return "\(h)h \(m)m"
     }
 }
