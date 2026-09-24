@@ -161,6 +161,10 @@ struct ShellSidebar: View {
                 host: portal.hostLabel, lastUpdated: portal.lastUpdated, failed: portal.refreshError != nil,
                 signInFailed: { if case .failed = portal.status { true } else { false } }(), now: appState.now
             ),
+            campus: CampusCatalog.resolve(
+                studentNumber: studentNumber, override: appState.preferences.campusOverride,
+                learnedCodes: appState.preferences.learnedCampusCodes
+            ),
             updateVersion: updater.availableVersion,
             onSelect: { appState.open($0) },
             onSettings: { appState.showingSettings = true },
