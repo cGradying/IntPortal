@@ -20,6 +20,13 @@ struct QuizStats: Codable, Equatable {
 final class QuizStore: ObservableObject {
     @Published private(set) var decks: [QuizDeck] = []
     @Published private(set) var stats = QuizStats()
+    /// Set by Today's "Study in this gap" Start button to name the deck
+    /// Quizzes should jump straight into on next appear — `QuizzesView`
+    /// clears it once consumed. A transient UI signal, never persisted,
+    /// which is the whole reason it lives here instead of on `AppState`:
+    /// Today already holds a `QuizStore` reference for its due-count rail,
+    /// so this needed no new plumbing through the shell.
+    @Published var pendingStudyDeckID: UUID?
     private let root: URL
 
     static let defaultRoot: URL = {
