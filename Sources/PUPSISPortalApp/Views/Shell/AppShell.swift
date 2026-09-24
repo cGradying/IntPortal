@@ -167,7 +167,8 @@ struct ShellSidebar: View {
             onRetry: {
                 if case .failed = portal.status { appState.isEditing = true } else { Task { await appState.refresh() } }
             },
-            onUpdate: { appState.updaterController.checkForUpdates(nil) }
+            onUpdate: { appState.updaterController.checkForUpdates(nil) },
+            onHub: { appState.showHub() }
         )
     }
 

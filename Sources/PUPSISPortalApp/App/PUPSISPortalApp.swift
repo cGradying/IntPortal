@@ -77,6 +77,23 @@ final class AppState: ObservableObject {
     @Published private(set) var syncOK = true
     @Published private(set) var isRefreshing = false
 
+    /// The portal landing over the app: shown at launch, on ⌘0 (quick, frame
+    /// already built) and after sign-out (full intro). The warp hides it.
+    @Published var landingVisible = true
+    /// True from the moment the warp starts; the app mounts under the flash
+    /// then, not before, so nothing renders behind a landing that hides it.
+    @Published var warpingIn = false
+    @Published private(set) var landingQuick = false
+    /// Bumped to restart the landing from its first beat.
+    @Published private(set) var landingKey = 0
+
+    func showHub() {
+        warpingIn = false
+        landingQuick = true
+        landingKey += 1
+        landingVisible = true
+    }
+
     /// Sparkle's own delegate shim — `availableVersion` drives the footer
     /// badge and Settings › About. See `UpdaterBridge` for why it isn't
     /// folded directly into `AppState`.
@@ -264,7 +281,7 @@ final class AppState: ObservableObject {
     /// Returns whether the credentials were actually saved. `try?` here used
     /// to swallow a Keychain write failure and sign the user in anyway with
     /// nothing persisted — a relaunch then found no credentials at all.
-    /// `CredentialsView` shows "Couldn't save to Keychain" and stays on the
+    /// the sign-in panel shows "Couldn't save to Keychain" and stays on the
     /// form when this comes back `false`, instead of proceeding as signed in.
     @discardableResult
     func save(_ credentials: Credentials) -> Bool {
@@ -286,6 +303,10 @@ final class AppState: ObservableObject {
     /// touching the web view, so the ordering is still guaranteed without
     /// this call blocking on it.
     func signOut() {
+        warpingIn = false
+        landingQuick = false
+        landingKey += 1
+        landingVisible = true
         // Must come first: an in-flight sign-in/refresh that's still running
         // must not re-save the caches deleted below after the fact.
         portal.cancelInFlight()
@@ -352,15 +373,25 @@ struct ContentView: View {
 
     @ViewBuilder
     private var content: some View {
-        if appState.isEditing || appState.credentials == nil {
-            // No nav before sign-in: there is nowhere to go yet.
-            CredentialsView(
-                existing: appState.credentials,
-                onSave: appState.save,
-                showingSettings: $appState.showingSettings
-            )
-        } else if let credentials = appState.credentials {
-            AppShell(appState: appState, preferences: preferences, credentials: credentials)
+        ZStack {
+            if let credentials = appState.credentials, !appState.isEditing, !appState.landingVisible || appState.warpingIn {
+                AppShell(appState: appState, preferences: preferences, credentials: credentials)
+            }
+            if appState.landingVisible || appState.credentials == nil || appState.isEditing {
+                PortalLanding(appState: appState, portal: appState.portal, preferences: preferences, quick: appState.landingQuick) {
+                    withAnimation(.easeOut(duration: reduceMotion ? 0.2 : 0.65)) { appState.landingVisible = false }
+                    appState.warpingIn = false
+                }
+                .id(appState.landingKey)
+                .transition(.opacity)
+            }
+        }
+        // Signing in starts here, under the landing, so the SIS is already
+        // loading while the student is still at the portal.
+        .task(id: appState.credentials?.studentNumber) {
+            if let credentials = appState.credentials, !appState.isEditing, appState.portal.status == .idle {
+                appState.portal.signIn(with: credentials)
+            }
         }
     }
 
@@ -417,6 +448,9 @@ struct PUPSISPortalApp: App {
                     Button(destination.title) { appState.open(destination) }
                         .keyboardShortcut(destination.shortcut, modifiers: .command)
                 }
+                Button("Portal Hub") { appState.showHub() }
+                    .keyboardShortcut("0", modifiers: .command)
+                    .disabled(appState.credentials == nil)
                 Divider()
                 // Schedule's toolbar buttons, also reachable from the keyboard.
                 Button("Previous") { appState.schedule.stepIntent = -1 }
