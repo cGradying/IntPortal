@@ -32,6 +32,41 @@
   --tok-variable:#9cdcfe; --tok-punct:#c9ccd3; --tok-mark:#8a8f98;
 }
 
+/* Registrar role tokens (DESIGN.md), pushed live from Swift via
+   `PUPNotes.setTheme` (`WebNoteEditor.pushPalette` calls it on load, on a
+   theme-room switch, and on light/dark) — see editor.js's THEME_ROLE_VARS.
+   The defaults below only matter for the instant before that first call
+   lands; --accent/--fg (the HTML shell's own inline block) already cover
+   that gap for the two vars every rule below used to key off directly. */
+:root {
+  --sheet:#ffffff; --ink:var(--fg, #1a1a1a); --ink2:#554c4f; --ink3:#766c6f;
+  --line:#e2ddd6; --line2:#cbc3b9;
+  --action:var(--accent, #1b5db8); --action-soft:#e3ecf9; --action-ink:#1b4f99;
+  --gold:#c9a227; --gold-ink:#765806; --gold-soft:#f4e8c2;
+  --sunk:#f7f5f2; --ground:#f4f2ef;
+}
+/* Identity (Pixelify Sans) and reading (Source Sans 3) faces, loaded as
+   @font-face from the app's own bundled TTFs over the `pupfont://` scheme
+   (`WebNoteEditor`'s `PupFontSchemeHandler`, the same pattern as pasted
+   images' `pupimg://`) — WKWebView's content process doesn't see fonts the
+   host app registered with `CTFontManagerRegisterFontsForURL` for itself, so
+   this is what actually gets the identity face into the note body rather
+   than silently falling back. Each family stack still ends in the system
+   fallback, so a webview that can't reach `pupfont://` (sandbox denial, a
+   bundle without the resource) degrades to it instead of erroring. */
+@font-face {
+  font-family: "Pixelify Sans"; src: url("pupfont://PixelifySans.ttf") format("truetype");
+  font-weight: 100 900; font-display: swap;
+}
+@font-face {
+  font-family: "Source Sans 3"; src: url("pupfont://SourceSans3.ttf") format("truetype");
+  font-weight: 100 900; font-display: swap;
+}
+:root {
+  --pup-heading-font: "Pixelify Sans", -apple-system, system-ui, sans-serif;
+  --pup-body-font: "Source Sans 3", -apple-system, system-ui, sans-serif;
+}
+
 /* Spawn motion for popover-shaped chrome (AI pill/menu, pupdb menu, the
    copy-button's "Copied" flash) — the JS/CSS mirror of Swift's `Motion`
    enum. `--pup-dy` is set inline per element by whatever placed it: positive
@@ -55,10 +90,21 @@
 
 html,body { margin:0; height:100%; background:transparent; }
 #editor { height:100%; }
-.cm-editor { height:100%; background:transparent; color:var(--fg);
-  font:16.5px/1.7 -apple-system, system-ui, sans-serif; }
+.cm-editor { height:100%; background:transparent; color:var(--ink, var(--fg));
+  font-size:16.5px; line-height:1.7; font-family:var(--pup-body-font); }
 .cm-editor.cm-focused { outline:none; }
 .cm-scroller { padding:6px 10px; overflow:auto; }
+/* Selection = gold-soft (DESIGN.md), not the browser default. CodeMirror
+   draws its own selection layer (`drawSelection()`, editor.js) rather than
+   using native `::selection`, so this targets that layer's class directly —
+   `!important` for the same cascade reason `.cm-content` above needs it:
+   this stylesheet loads after CodeMirror's own. */
+.cm-editor .cm-selectionBackground {
+  background:var(--gold-soft) !important;
+}
+.cm-editor.cm-focused .cm-selectionBackground {
+  background:var(--gold-soft) !important;
+}
 /* A measured, user-resizable reading column instead of the note stretching
    edge-to-edge. Confirmed live: plain `margin:0 auto` never actually
    centered this — CodeMirror's own base theme puts `.cm-content` in a flex
