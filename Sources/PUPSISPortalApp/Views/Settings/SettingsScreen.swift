@@ -22,6 +22,10 @@ struct SettingsScreen: View {
     let onSignOut: () -> Void
     let onRefreshSchedule: () -> Void
     let onShowHub: () -> Void
+    /// `false` renders the selected pane directly, with no `ScrollView` —
+    /// `ImageRenderer` can't draw `ScrollView` content, so
+    /// `SettingsSnapshotTests` needs this to see anything at all.
+    var scrolls = true
 
     enum Pane: String, CaseIterable, Identifiable {
         case general, appearance, schedule, notifications, intelligence, storage, account, about
@@ -62,17 +66,25 @@ struct SettingsScreen: View {
     var body: some View {
         HStack(alignment: .top, spacing: Spacing.xxl) {
             paneList
-            ScrollView {
-                paneContent
-                    .frame(maxWidth: 640, alignment: .leading)
-                    .padding(.vertical, Spacing.lg)
-                    .padding(.bottom, Spacing.xxl)
+            Group {
+                if scrolls {
+                    ScrollView { paneColumn }
+                } else {
+                    paneColumn
+                }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .padding(.horizontal, Spacing.xxl)
         .padding(.top, Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var paneColumn: some View {
+        paneContent
+            .frame(maxWidth: 640, alignment: .leading)
+            .padding(.vertical, Spacing.lg)
+            .padding(.bottom, Spacing.xxl)
     }
 
     private var paneList: some View {

@@ -91,11 +91,14 @@ final class SettingsSnapshotTests: XCTestCase {
             preferences: freshPreferences(), portal: portal, calendar: CalendarBridge(), googleAuth: googleAuth,
             googleClient: GoogleCalendarClient(auth: googleAuth), updaterBridge: UpdaterBridge(),
             canCheckForUpdates: true, automaticallyChecksForUpdates: .constant(true), onCheckForUpdates: {},
-            onWipeNotes: {}, onEditCredentials: {}, onSignOut: {}, onRefreshSchedule: {}, onShowHub: {}
+            onWipeNotes: {}, onEditCredentials: {}, onSignOut: {}, onRefreshSchedule: {}, onShowHub: {},
+            scrolls: false // ImageRenderer can't draw ScrollView content.
         )
-        .frame(width: 1100, height: 700)
+        // Tall enough for General's full (unscrolled) content — General is
+        // the default pane and the tallest of the eight.
+        .frame(width: 1100, height: 1500)
         let light = try Snapshot.render(screen, name: "settings-screen", palette: .registrar, scheme: .light)
         try Snapshot.render(screen, name: "settings-screen-dark", palette: .registrarNight, scheme: .dark)
-        XCTAssertEqual(light.size, CGSize(width: 1100, height: 700))
+        XCTAssertEqual(light.size, CGSize(width: 1100, height: 1500))
     }
 }
