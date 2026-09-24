@@ -449,7 +449,8 @@ struct TodayScreen: View {
     private var subjectsEnrolled: Int { ClassSession.subjectCodes(in: sessions).count }
 
     private var unitsLabel: String {
-        let total = grades?.subjects.reduce(0.0) { $0 + $1.units } ?? 0
+        guard let grades else { return "—" }
+        let total = grades.subjects.reduce(0.0) { $0 + $1.units }
         return total.rounded() == total ? String(Int(total)) : String(format: "%.1f", total)
     }
 
