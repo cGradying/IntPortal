@@ -14,6 +14,9 @@ struct Sidebar: View {
     var busy = false
     let studentNumber: String
     let sync: SyncStatus
+    /// Spec 10: the account's resolved campus. `.incomplete` (the default)
+    /// draws no chip, which is what an unresolvable student number gets.
+    var campus: CampusResolution = .incomplete
     var updateVersion: String?
     let onSelect: (Destination) -> Void
     let onSettings: () -> Void
@@ -64,6 +67,26 @@ struct Sidebar: View {
         .background(roles.menuField)
     }
 
+    /// "MN · Sta. Mesa" — hidden while the campus hasn't resolved to a name
+    /// yet (an unpicked, unverified code, or a still-typing student number,
+    /// neither of which should happen once actually signed in).
+    @ViewBuilder
+    private var campusChip: some View {
+        let roles = palette.roles
+        switch campus {
+        case .known(let campus), .overridden(let campus):
+            Text("\(campus.code ?? "") · \(campus.name)")
+                .font(typography.display(size: 11.5, weight: .semibold))
+                .foregroundStyle(roles.gold)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(roles.menuFieldDeep, in: PixelNotch())
+                .accessibilityLabel("Campus, \(campus.name)")
+        case .unknownCode, .incomplete:
+            EmptyView()
+        }
+    }
+
     private func section(_ title: String) -> some View {
         Text(title.uppercased())
             .font(typography.display(size: 11))
@@ -87,6 +110,7 @@ struct Sidebar: View {
             Text(studentNumber)
                 .font(typography.numeric(size: 12.5, weight: .semibold))
                 .foregroundStyle(roles.onMenu)
+            campusChip
             HStack(spacing: 7) {
                 Rectangle()
                     .fill(sync.failed ? roles.bad : roles.good)

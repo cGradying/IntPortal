@@ -128,6 +128,35 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(try? JSONEncoder().encode(classInfo), forKey: Key.classInfo) }
     }
 
+    /// The student's manually-picked campus (spec 10) — wins over whatever
+    /// the student number's code resolves to. Tied to the signed-in account,
+    /// so `AppState.signOut()` clears it.
+    @Published var campusOverride: Campus? {
+        didSet { defaults.set(try? JSONEncoder().encode(campusOverride), forKey: Key.campusOverride) }
+    }
+
+    /// Code → campus name the student taught the app by picking one for an
+    /// unverified code, so the next sign-in with that code resolves without
+    /// asking again. Also tied to the account; cleared alongside `campusOverride`.
+    @Published private(set) var learnedCampusCodes: [String: String] {
+        didSet { defaults.set(try? JSONEncoder().encode(learnedCampusCodes), forKey: Key.learnedCampusCodes) }
+    }
+
+    /// Sets the override and remembers the code → name mapping in one call —
+    /// the pairing the sign-in panel's "Pick your campus" menu always does.
+    func pickCampus(_ campus: Campus) {
+        campusOverride = campus
+        if let code = campus.code { learnedCampusCodes[code] = campus.name }
+    }
+
+    /// Signing out forgets both: they're this account's own correction, not
+    /// a device-wide setting that should survive a different student signing
+    /// in on the same Mac.
+    func clearCampus() {
+        campusOverride = nil
+        learnedCampusCodes = [:]
+    }
+
     /// Subjects whose "apply to every block" toggle is on. Deliberately
     /// separate from `classInfo`'s content: the toggle can be switched on
     /// before any text exists, and content presence alone can't carry that —
@@ -628,6 +657,8 @@ final class Preferences: ObservableObject {
         static let termTimes = "termTimes"
         static let occurrenceTimes = "occurrenceTimes"
         static let classInfo = "classInfo"
+        static let campusOverride = "campusOverride"
+        static let learnedCampusCodes = "learnedCampusCodes"
         static let permaSubjects = "permaSubjects"
         static let subjectTasks = "subjectTasks"
         static let visibleCalendarIDs = "visibleCalendarIDs"
@@ -698,6 +729,10 @@ final class Preferences: ObservableObject {
         )
         classInfo = defaults.data(forKey: Key.classInfo)
             .flatMap { try? JSONDecoder().decode([String: ClassInfo].self, from: $0) } ?? [:]
+        campusOverride = defaults.data(forKey: Key.campusOverride)
+            .flatMap { try? JSONDecoder().decode(Campus.self, from: $0) }
+        learnedCampusCodes = defaults.data(forKey: Key.learnedCampusCodes)
+            .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
         permaSubjects = Set(defaults.stringArray(forKey: Key.permaSubjects) ?? [])
         subjectTasks = defaults.data(forKey: Key.subjectTasks)
             .flatMap { try? JSONDecoder().decode([SubjectTask].self, from: $0) } ?? []

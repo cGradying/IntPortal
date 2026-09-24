@@ -327,6 +327,9 @@ final class AppState: ObservableObject {
         // Forget which host we landed on — a fresh sign-in re-runs the full
         // candidate order instead of retrying whatever this account landed on.
         portal.forgetHost()
+        // This account's campus pick and any code it taught the app (spec
+        // 10) are this student's own, not a device-wide setting.
+        preferences.clearCampus()
         // Not awaited — see the doc comment above.
         portal.beginClearingWebsiteData()
     }
