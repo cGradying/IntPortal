@@ -1,196 +1,324 @@
 ---
-name: PUPSISPortal
-description: A native student portal for PUP's SIS8 — Liquid Glass shell, six switchable theme "rooms," a pixel-dither texture, and serif+mono type doing the work chrome usually does.
+name: IntPortal
+description: A native student portal for PUP's SIS. You land in a void, step through a pixel portal, and arrive in the registrar's window — the SIS's own grammar (maroon menu field, breadcrumb header, record sheets, rubber stamps) rendered pixel-forward and calm.
 colors:
-  maroon: "#7A1128"
+  maroon: "#6D0E1F"
+  maroon-deep: "#560A19"
+  maroon-hover: "#7E1A2C"
+  on-maroon: "#F7ECEC"
+  on-maroon-2: "#DDB9BE"
   gold: "#C9A227"
-  paper-top: "#FCFBFA"
-  paper-bottom: "#F2EDEC"
-  grid-line: "rgba(0,0,0,0.08)"
+  gold-ink: "#765806"
+  gold-soft: "#F4E8C2"
+  action: "#1B5DB8"
+  action-hover: "#154C98"
+  action-soft: "#E3ECF9"
+  action-ink: "#1B4F99"
+  ground: "#F4F2EF"
+  sheet: "#FFFFFF"
+  sunk: "#F7F5F2"
+  line: "#E2DDD6"
+  line-2: "#CBC3B9"
+  ink: "#1C1517"
+  ink-2: "#554C4F"
+  ink-3: "#766C6F"
+  good: "#1E7249"
+  bad: "#B42318"
+  void: "#07050A"
+  obsidian: "#170B1A"
+  obsidian-hi: "#34203F"
+  swirl-0: "#170509"
+  swirl-1: "#540A1C"
+  swirl-2: "#941C30"
+  swirl-3: "#CCA128"
+  swirl-4: "#FAEBB3"
   subject-maroon: "#7A1128"
   subject-rust: "#B13E34"
-  subject-gold: "#A37314"
+  subject-gold: "#8F6410"
   subject-plum: "#5C315F"
   subject-forest: "#2E5A4F"
   subject-slate: "#3F517A"
 typography:
-  screenTitle:
-    fontFamily: "New York, Georgia, serif"
-    fontSize: "22pt"
-    fontWeight: 600
-  detailTitle:
-    fontFamily: "New York, Georgia, serif"
-    fontSize: "20pt"
-    fontWeight: 600
-  blockCode:
-    fontFamily: "New York, Georgia, serif"
-    fontSize: "15pt"
+  display:
+    fontFamily: "Pixelify Sans, ui-monospace, monospace"
     fontWeight: 600
   body:
-    fontFamily: "SF Pro Text, -apple-system, sans-serif"
-    fontSize: "16pt"
+    fontFamily: "Source Sans 3, -apple-system, sans-serif"
+    fontSize: "15pt"
     fontWeight: 400
-  dayName:
-    fontFamily: "SF Pro Text, -apple-system, sans-serif"
-    fontSize: "12pt"
+  screenTitle:
+    fontFamily: "Pixelify Sans"
+    fontSize: "28pt"
+    fontWeight: 700
+  sheetLabel:
+    fontFamily: "Pixelify Sans"
+    fontSize: "14pt"
     fontWeight: 600
-  gutter:
-    fontFamily: "SF Mono, ui-monospace, monospace"
+    letterSpacing: "0.06em"
+    textTransform: uppercase
+  code:
+    fontFamily: "Pixelify Sans"
+    fontSize: "18pt"
+    fontWeight: 700
+  numeric:
+    fontFamily: "Pixelify Sans"
+    fontSize: "16pt"
+    fontWeight: 600
+  stamp:
+    fontFamily: "Pixelify Sans"
     fontSize: "11pt"
-    fontWeight: 400
-  meta:
-    fontFamily: "SF Mono, ui-monospace, monospace"
-    fontSize: "12pt"
-    fontWeight: 400
+    fontWeight: 700
+    letterSpacing: "0.12em"
+    textTransform: uppercase
 rounded:
-  xs: "4pt"
-  sm: "8pt"
-  md: "12pt"
-  lg: "16pt"
-  xl: "20pt"
+  notch: "4pt stepped (2pt + 2pt)"
+  window: "14pt"
 spacing:
   xs: "4pt"
   sm: "8pt"
   md: "12pt"
   lg: "16pt"
-  xl: "24pt"
-  xxl: "32pt"
+  xl: "20pt"
+  xxl: "28pt"
 components:
   button-primary:
+    backgroundColor: "{colors.action}"
+    textColor: "#FFFFFF"
+    typography: "{typography.display}"
+    rounded: "{rounded.notch}"
+    padding: "7pt 14pt"
+  button-secondary:
+    backgroundColor: "{colors.sheet}"
+    border: "2pt {colors.line-2}"
+    rounded: "{rounded.notch}"
+  sheet:
+    backgroundColor: "{colors.sheet}"
+    border: "1pt {colors.line}"
+    rounded: "{rounded.notch}"
+  menu-field:
     backgroundColor: "{colors.maroon}"
-    textColor: "#FFFFFF"
-    rounded: "{rounded.md}"
-    padding: "6pt 14pt"
-  nav-pill:
-    backgroundColor: "rgba(255,255,255,0.5)"
-    rounded: "{rounded.lg}"
-    padding: "6pt"
+    textColor: "{colors.on-maroon}"
   class-block:
-    backgroundColor: "{colors.subject-maroon}"
-    textColor: "#FFFFFF"
-    typography: "{typography.blockCode}"
-    rounded: "{rounded.xs}"
-    padding: "8pt 10pt"
+    backgroundColor: "subject 13% over sheet"
+    border: "2pt subject 45%"
+    typography: "{typography.code}"
+    rounded: "{rounded.notch}"
+  stamp:
+    border: "2pt currentColor"
+    typography: "{typography.stamp}"
+    rotation: "-3deg"
 ---
 
-# Design System: PUPSISPortal
+# Design System: IntPortal
+
+Reference build: `docs/specs/prototypes/intportal-v2.html` (v3 adds the 3D moves once P3 lands) (open it in a browser; everything here
+was measured from it). Surface specs: `docs/specs/`. This file replaces the "Six Rooms" system of
+2026-08; that history is in git.
 
 ## Overview
 
-**Creative North Star: "The Six Rooms"**
+**Creative North Star: "The Portal and the Registrar."**
 
-PUPSISPortal isn't one look — it's six fully-realized rooms (PUP Maroon, Ivory, Astra Moon, Sakura, Monochrome, Matrix) a student picks between in Settings, all built on the same Liquid Glass macOS shell, the same week grid, the same retro pixel-dither texture. The personality isn't in any one palette; it's in the fact that switching rooms never touches structure, only mood — the app underneath stays exactly as legible whether it's institutional maroon-on-paper at 8am or phosphor-green terminal glow at midnight.
+Two worlds, one crossing. Outside is the **void**: near-black, drifting pixel motes, an obsidian
+frame that assembles block by block where the student stands, and a maroon-to-gold dithered swirl.
+Inside is the **registrar's window**: the PUP SIS portal's own grammar (a maroon menu field on the
+left, a breadcrumb header, white record sheets, COR-style tables, rubber-stamp statuses) rendered
+native, pixel-forward and calm. The crossing is the warp: the camera dives into the swirl, the
+pixels grow, a gold-white flash, and the student is in.
 
-The voice across every room is restrained, precise, and quietly textured — not a glossy SaaS dashboard, not flat same-everywhere Material Design. Liquid Glass is spent deliberately: it's chrome (the nav island, panels) almost everywhere, and emphasis exactly once — the now-line's glass lozenge is the one place in the app tint carries meaning instead of decorating. The pixel-dither fill (an ordered Bayer 4×4 pattern, drawn as real squares, not a gradient) is the signature texture: it shows up wherever something needs to read as "finished," "empty," or "arriving" rather than just present. Serif (New York) carries course codes and titles like an editorial byline; monospace (SF Mono) carries anything that must not reflow — times, metadata, the gutter. Restraint is the actual personality here, not an absence of one.
+The voice is **institutional, but yours**. It reads like the SIS because students already know how
+to read the SIS; it feels like a game because studying should reward you. Pixel type carries
+identity (titles, course codes, numbers, buttons). A clean humanist sans carries everything you
+actually read (notes, descriptions, AI replies).
 
-**Key Characteristics:**
-- Six named, equally-supported theme "rooms," not a light/dark toggle with one brand color
-- Liquid Glass (macOS 26) for chrome, one deliberate tint exception (the now-line) for emphasis
-- A hand-drawn Bayer-dither texture as the recurring "this state is different" signal, never pure decoration
-- Serif for identity/titles, monospace for anything numeric or positional, sans for body
-- Every animation routes through one named vocabulary (`Motion` enum) and honors Reduce Motion by returning `nil`
+**Key characteristics**
+- One maroon field (the sidebar) owns the left edge. Content lives on white sheets over a warm
+  neutral ground.
+- Pixel display type for identity, Source Sans 3 for reading. Never pixel type for paragraphs.
+- Stepped 4pt pixel notches instead of rounded corners, everywhere except the window itself.
+- One action color (SIS blue). Gold marks the present moment and stamps. Nothing else is tinted.
+- Dither and 3D only where they carry information: free time, emptiness, sync state, due load,
+  exam proximity, mastery.
+- Every animation routes through `Motion` and disappears under Reduce Motion.
 
 ## Colors
 
-Six palettes, each a complete `Palette` (accent, secondary, canvas gradient, grid line, online-class strip, six subject colors) — switching rooms swaps the whole struct, never individual tokens. **PUP Maroon** is canonical here (PUP's own institutional maroon+gold, and the light-mode default under "Match System"); the other five are fully-supported alternates a student is as likely to be living in.
+Restrained strategy inside the app: neutrals plus one committed field (the maroon menu), one action
+hue, one "now" hue. The void is its own single dark world.
 
-### Primary
-- **Maroon** (#7A1128): the accent — PUP's own maroon. Carries the now-line, primary buttons, the default subject-1 color. Used once per screen as emphasis, never as a flood.
+### Registrar (light, default)
+- **Maroon** `#6D0E1F`: the menu field. `maroon-deep` `#560A19` marks the active item,
+  `maroon-hover` `#7E1A2C` the hover. Text on it is `on-maroon` / `on-maroon-2`.
+- **Action blue** `#1B5DB8`: primary buttons, links, focus rings, selected rows. Borrowed straight
+  from the SIS "Sign in" button. The only interactive hue.
+- **Gold** `#C9A227`: the now-line, the today-column wash, stamps' vacant ink, the active menu icon,
+  the swirl's bright band. `gold-ink` `#765806` when gold must be read as text.
+- **Ground / sheet / sunk**: `#F4F2EF` window ground, `#FFFFFF` sheets, `#F7F5F2` sunken strips
+  (table heads, free-time rows).
+- **Lines**: `#E2DDD6` hairlines, `#CBC3B9` control borders.
+- **Ink**: `#1C1517` / `#554C4F` / `#766C6F`. `ink-3` is the floor for readable text (≥ 4.5:1 on
+  sheet).
+- **Semantic**: good `#1E7249`, bad `#B42318`, with soft fills. Separate from the accent.
 
-### Secondary
-- **Gold** (#C9A227): PUP's paired institutional color. Carries the online-class strip and secondary accents where maroon would be too heavy.
+### Registrar Night (dark)
+Same roles, retuned (never inverted): ground `#141112`, sheet `#1C1819`, maroon field `#35060F`,
+action `#5B93F0`, gold `#DDB64E`, subjects lifted (`#D66A7E` `#E07D70` `#D5A544` `#B083B3` `#62AE94`
+`#8398CD`). Values are in the prototype's dark blocks.
 
-### Neutral
-- **Warm Paper** (#FCFBFA → #F2EDEC): the canvas wash, a slow top-to-bottom gradient so Liquid Glass has something with texture to bend, not a flat fill that reads as a grey box.
-- **Ink Grid** (rgba(0,0,0,0.08)): the week grid's hairlines — deliberately faint, a hierarchy signal, not a border.
+### The void (landing only)
+`void #07050A → #12070E` gradient, obsidian `#170B1A` blocks with `#34203F` highlights and `#060307`
+shadows, swirl ramp `#170509 → #540A1C → #941C30 → #CCA128 → #FAEBB3`, 5 steps, Bayer-dithered.
 
-### Subject Palette
-Six deterministically-assigned colors per class, seeded from the subject code's character sum (never `Hashable` — that reseeds every process launch and would repaint every class a different color each run):
-- **Maroon** (#7A1128) · **Rust** (#B13E34) · **Gold** (#A37314) · **Plum** (#5C315F) · **Forest** (#2E5A4F) · **Slate** (#3F517A)
+### Subject palette
+Six deterministic subject colors, seeded from the code's character sum (never `Hashable`):
+Maroon, Rust, Gold, Plum, Forest, Slate. Class blocks use the subject at 13% over the sheet with a
+45% border; the course code is set in the full subject color.
 
-### Named Rules
-**The One Tint Rule.** The accent color has exactly one job across the whole app: marking the present moment on the now-line. Buttons, chrome, and panels lean on Liquid Glass's own material, not a flood of brand color — a tint that showed up everywhere would stop meaning "now."
+### Theme rooms
+`ThemeChoice.auto` maps to Registrar / Registrar Night. The other palettes in `Core/Theme.swift`
+stay selectable, but each must now fill the new role set (menu field, action, gold, sheet, sunk,
+ink ×3). A room that can't fill a role is removed, not approximated. See `07-settings.md`.
 
-### The Other Five Rooms
-- **Ivory** — ink navy (#343C51) on warm cream paper (#FDFBF6 → #F6F2EA), gold-brown secondary (#9E8D66). An editorial light room, quieter than Maroon: earthy jewel-tone subjects instead of maroon-and-gold.
-- **Astra Moon** — emerald (#10B981) on deep navy (#0E1525 → #060C18), the dark-mode default under "Match System." The room most associated with late-night notes/quiz study.
-- **Sakura** — hot pink (#E0417E) on warm blush paper (#FFF7FA → #FCE9F0), dusty rose secondary (#C98FA6).
-- **Monochrome** — near-black (#111111) on white (#FFFFFF → #F2F2F2), mid-gray secondary (#808080). No hue at all; subjects read apart by lightness alone.
-- **Matrix** — phosphor green (#00FF41) on near-black (#0D0F0D → #000000), dim-green secondary (#008F11). A terminal room.
+### Named rules
+**The One Action Rule.** Blue means "you can do this." It never decorates.
+**The Now Rule.** Gold marks the present (now-line, today column, "This week" line) and stamps.
+It never marks importance or selection.
+**No hex in views.** Every color comes from `\.palette`.
 
 ## Typography
 
-**Display/Title Font:** New York (`.serif` design), with Georgia/system-serif fallback
-**Body Font:** SF Pro (system default)
-**Label/Mono Font:** SF Mono (`.monospaced` design)
+- **Display:** Pixelify Sans (OFL, variable 400–700). Titles, course codes, numbers, buttons, sheet
+  labels, stamps, the gutter, menu section heads.
+- **Body:** Source Sans 3 (OFL, variable). Everything read in sentences.
+- Both ship in `Resources/Fonts/` and register through `FontLibrary`. The user's font choice
+  (Settings ▸ Appearance ▸ Font) now overrides **body only**; display stays Pixelify Sans because it
+  is the identity.
 
-**Character:** Serif carries identity — a course code set in New York reads as the anchor of a schedule block, not another bolded caption. Monospace is functional, not decorative: it's reserved for anything whose width must not reshuffle (`9AM` next to `12PM` in the same column) or that's genuinely metadata.
+| Role | Face | Size | Weight | Notes |
+|---|---|---|---|---|
+| screenTitle | Pixelify | 28 | 700 | balanced wrap |
+| sheetLabel | Pixelify | 14 | 600 | uppercase, +0.06em |
+| code | Pixelify | 18 (block 15) | 700 | subject color |
+| numeric | Pixelify | 16 | 600 | times, counts, grades, GPA |
+| gutter / meta | Pixelify | 11.5–13 | 500 | time gutter, dates |
+| body | Source Sans 3 | 15 | 400 | notes, descriptions |
+| secondary | Source Sans 3 | 13–14 | 400 | ink-2 / ink-3 |
+| stamp | Pixelify | 11 (10 on blocks) | 700 | uppercase, +0.12em |
+| GPA hero | Pixelify | 56 | 700 | Grades only |
 
-### Hierarchy
-- **Screen Title** (semibold, 22pt/title2, serif): top-level screen headers.
-- **Detail Title** (semibold, 20pt/title3, serif): panel and popover headers.
-- **Block Code** (semibold, 15pt/subheadline, serif): the subject code on a class block — the anchor of the whole card.
-- **Day Name** (semibold, 12pt/caption, sans): weekday headers, the nav island's segment labels.
-- **Body** (regular, 16pt/callout, sans): detail body copy.
-- **Gutter/Meta** (regular, 11–12pt/caption2, mono): the time gutter, block times, metadata rows — anything positional or numeric.
-- **Now Clock** (semibold, 11pt/caption2, mono): the live clock in the now-line's glass lozenge.
-
-### Named Rules
-**The No-Reflow Rule.** Anything showing a time or a number that updates live (the gutter, block times, the now-line clock) is monospace, full stop — a proportional face reflowing `9AM` against `12PM` reads as jitter, not information.
+**The No-Reflow Rule** still holds: anything live and numeric uses tabular figures.
 
 ## Layout
 
-The week grid is the spatial anchor: a fixed gutter column (time labels, monospace) plus seven day columns, blocks positioned by real minute-offset math, not a CSS-grid-style even split. A floating nav island — never a sidebar or tab bar — is the only persistent chrome; it lives centered at launch (a home launcher) and glides to the top when a destination opens, expanding on hover to reveal per-screen controls (Schedule's week nav, Notebook's Vault/Quizzes toggle) rather than each screen drawing its own toolbar. Overlapping blocks get side-by-side lanes computed from real interval overlap, never stacked or clipped.
+- **Window:** 236pt maroon sidebar + main column. Main = header (title, one-line context,
+  breadcrumb "Student Module › Screen") + scrolling body with 28pt side padding.
+- **Sidebar:** portal glyph + wordmark (click = back to the hub), menu in three groups (Main:
+  Today, Schedule, Grades · Study: Notebook, Quizzes, Syllabus · System: Settings), footer with the
+  student, campus chip and sync host. Replaces the nav island entirely.
+- **Sheets:** content lives in sheets with a header strip (uppercase label left, meta right).
+  Two-column screens split ~1.6 : 1 (main sheet : rail). Collapse to one column under 1080pt.
+- **Spacing:** 4-point scale; 16–18pt between sheets, 12–16pt inside, more space above a heading
+  than below it.
 
-## Elevation & Depth
+## Elevation & depth
 
-Liquid Glass (macOS 26; `.regularMaterial` fallback below it) is the material system, not shadows — there is no drop-shadow vocabulary in this app. Depth reads through translucency and blur (the nav island, panels, popovers), and through the dither texture's density (a "this is finished/empty" veil reads as eroded, not just dimmed). One surface breaks the "chrome only" rule on purpose: the now-line's lozenge is tinted glass, because it's the one place emphasis is the whole point.
-
-### Named Rules
-**The Chrome-Not-Decoration Rule.** Glass renders UI structure (the island, panels, popovers) — it is never applied to content itself for a "glossy" look. If a surface isn't chrome, it doesn't get glass.
+Flat. Sheets separate by border and ground contrast, not shadow. Only floating things (IntAssis
+chat, dialogs, popovers) take a soft shadow (`0 18 40 -16`). **Liquid Glass is retired from the
+Registrar world**: no glass panels, no glass buttons. `GlassCompat` remains only if a system control
+needs it. Depth that means something is drawn in 3D instead (see Signature components).
 
 ## Shapes
 
-Rounded rectangles throughout, on a tight radius scale: `4pt` for small marks (a block's colored strip corner), `8pt` for the most common case (rows, list items, small controls — the single most-used radius in the codebase), `12pt` for cards and popovers, `16pt` for the nav island and glass panels, `20pt` reserved for the most prominent surfaces. No sharp corners anywhere in the shipped UI; no radius above 20pt (nothing pretends to be a pill-shaped hero element except the nav island's segments and glass capsules, which use true `Capsule()` shapes, not a large radius approximation).
+`PixelNotch`: a rectangle with 4pt stepped corners (2pt + 2pt), used for sheets, buttons, chips,
+stamps, class blocks, the orb, inputs. No `RoundedRectangle` anywhere in the app content. The
+window keeps its 14pt system corner. Borders are 2pt on controls, 1pt on sheets.
 
 ## Components
 
-### Buttons
-- **Shape:** rounded rectangle, `{rounded.md}` (12pt), or `Capsule()` for glass/pill buttons.
-- **Primary:** `.glassProminentButton()` on macOS 26 (native `.glassProminent` style), `.borderedProminent` fallback below — never a custom-colored fill competing with the system's own glass.
-- **Secondary/Plain:** `.glassButton()` / `.bordered`, or `.buttonStyle(.plain)` for inline/borderless actions (tab close buttons, row actions).
-- **Hover/Focus:** native system feedback via the glass button styles; no custom hover-color overrides.
+- **Buttons:** primary = action fill; secondary = sheet fill + 2pt `line-2` border; small = 4×10
+  padding. Label in display face. Focus = inset 2pt action ring (outlines are clipped by the notch).
+- **Segmented control:** sunken track, pressed segment = sheet fill + 1pt inset line.
+- **Inputs / selects:** 2pt `line-2` border, notch, sheet fill; pixel chevron on selects.
+- **Stamp:** display face, uppercase, 2pt border in `currentColor`, rotated −3°, ink-noise mask.
+  In person = subject maroon, Online = action ink, Vacant = gold ink. Setting a status plays the
+  **thunk** (scale 1.9 → 0.92 → 1, blur 2 → 0, 420ms).
+- **Class block:** subject tint, notch, code + time + title (if ≥ 90pt tall), stamp bottom-right
+  when not in person; vacant = 45° hatch.
+- **Date tile:** maroon month strip + big day number, notch. Used in Due soon and Syllabus.
+- **Pixel icons:** 12×12 bitmaps (`PixelIcon`), rendered at 12pt (inline) or 24pt (menu, orb) —
+  integer scales only.
+- **Empty state:** dithered blob + display title + one sentence + one action.
+- **Job bar:** action-soft strip with a pixel progress bar, used for background AI jobs.
 
-### Cards / Containers
-- **Corner Style:** `{rounded.lg}` (16pt) for glass panels and popovers; `{rounded.md}`–`{rounded.xs}` (12pt–4pt) for smaller content cards and blocks, scaling down with the surface's own size.
-- **Background:** `glassPanel(in:)` (Liquid Glass / `.regularMaterial`) for chrome; `.quaternary.opacity(0.4)` for plain content cards (list rows, quiz cards) that don't need to read as floating chrome.
-- **Shadow Strategy:** none — see Elevation & Depth.
-- **Internal Padding:** `{spacing.lg}`–`{spacing.xxl}` (16–32pt) for full cards; `{spacing.sm}`–`{spacing.md}` (8–12pt) for compact rows.
+## Signature components
 
-### Navigation — the Nav Island
-- **Style:** one floating glass capsule/pill, not a sidebar or tab bar. Three states: **home** (centered launcher, date + next-class glance + destination segments), **compact pill** (top, idle — icon + label + glance), **expanded bar** (top, hovered — full segment row + the active screen's own controls).
-- **Selection:** a `matchedGeometryEffect`-driven capsule highlight slides between segments rather than each segment redrawing its own background.
-- **Motion:** the home→top flight and collapsed↔expanded morph both use `Motion.island` (`.spring(response: 0.42, dampingFraction: 0.82)`), so the whole nav element reads as one continuous move, never a snap-cut.
+- **The portal** (`09-landing-portal.md`): obsidian frame, Metal swirl shader, platform, figure,
+  motes, the warp.
+- **Portal glyph** (sidebar): a 13×18 animated swirl; its speed shows sync activity, its presence is
+  the way back to the hub.
+- **Study map** (`11-study-upgrades.md`): isometric pixel tiles — subject regions, topic tiles lit by
+  mastery, towers rising as an exam approaches, gold pips on mastered tiles.
+- **Card stacks:** decks drawn as a 3D stack whose height is the due count; lifts on hover.
+- **Flashcard flip:** real 3D Y-rotation, question → answer.
+- **Dither with a job:** free-time rows, empty states, due-forecast bars. Never wallpaper.
+- **Hub carousel** (`09`): portal frames on a ring you orbit with the arrow keys. The lit frame is
+  PUP SIS labelled with your campus; dark frames are "Not connected yet". Encodes: where you can go.
+- **Week turn** (`03`): paging Schedule turns the grid in 3D, left into the past, right into the
+  future. Encodes: direction in time. Variant (cube or slab) is picked from prototype v3.
+- **Depth push** (`01`): changing screens moves along the sidebar's order in Z, forward when you go
+  down the menu, back when you go up. Encodes: where the screen sits in the menu. Variant (push or
+  dive) is picked from prototype v3.
+- **Sync ripple** (`01`): a refresh sends one pixel ring out from the portal glyph across the
+  sheets, green on success, a red stutter on failure. Encodes: the sync result.
+- **Deck fan-out** (`11`): opening a deck fans its due cards in 3D, then deals the first to center.
+  Encodes: fan width = cards due.
+- **Thinking cube** (`06`): the IntAssis orb turns into a spinning voxel cube while the model works.
+  Encodes: waiting on the model.
 
-### The Now-Line (Signature Component)
-A hairline in the accent color drawn straight across the week grid at the current minute, with a tinted-glass lozenge in the gutter carrying a live monospace clock. The one place per app that spends the accent as a tint and Liquid Glass as emphasis rather than chrome — every other surface stays quiet specifically so this one reads as "now."
+## Motion
 
-### The Pixel-Dither Fill (Signature Component)
-An ordered Bayer 4×4 dither, drawn as individual squares (never a gradient or bitmap image) via a custom `Shape`. Three ramps: `topDown` (a fading chrome-band edge), `flat(density)` (a uniform veil over finished/empty content), and `wave` (two drifting sine gradients, for a "light on water" ambient effect). Always has a job — a fade, a veil, an ambient signal — never sprinkled as pure decoration.
+| Token | Use | Spec |
+|---|---|---|
+| `arrival` | screen enter | 320ms, ease-out-expo, 6pt rise |
+| `thunk` | stamp set | 420ms, (.2,.9,.25,1) |
+| `portalForm` | frame assembly | 24 blocks over 1.2s, each drops 1.6 blocks |
+| `ignite` | swirl fade-in | 500ms |
+| `warp` | dive | 950ms, zoom 1→12 (ease-in ^2.6), swirl speed ×9, pixel cell ×4, flash at 82% |
+| `flip` | flashcard | 550ms (.3,.7,.2,1) |
+| `pop` | matching pair | 350ms scale 1.12 |
+| `sweep` | AI text reveal | 1.2s gold band |
+| `orbit` | hub carousel step | spring, response 0.34, damping 0.86 |
+| `turn` | Schedule week change | spring, response 0.42, damping 0.9 |
+| `depthPush` | screen change | spring, response 0.3, damping 0.92, 24pt Z travel |
+| `ripple` | sync result | 700ms linear ring, ease-out fade |
+| `fan` | deck fan-out | spring, response 0.4, damping 0.8, 18ms per card |
+| `think` | IntAssis waiting | 1.6s per voxel turn, linear, loops |
 
-### Quiz Feedback (Signature Component)
-Small procedural pixel-art badges (`PixelBadge`), drawn square-by-square on a `Canvas` from a hand-authored bitmap grid — no image assets. Correct/incorrect/streak states fill in over ~150ms, a deliberately blocky, retro-game-adjacent counterpoint to the glass shell everywhere else. Card transitions between quiz questions use a settle-in ease (blur → sharp, slight drop, opacity in, matching the note editor's own AI-text-reveal timing curve) plus one accent-tinted sweep beam crossing once — never a spinning or repeating effect, and it disappears entirely under Reduce Motion.
+Reduce Motion: no zoom, no drops, static swirl frame, flash becomes a 200ms crossfade, stamps and
+cards appear without motion.
+
+### macOS 27 motion and depth
+
+IntPortal takes macOS 27's feel without its glass.
+- **Fast, interruptible springs.** Every transition is a spring that a new input can redirect
+  mid-flight. Nothing waits for an animation to finish before accepting the next key.
+- **Depth on floating layers only.** IntAssis, popovers, the hub and dialogs get a darkened 1pt
+  outer edge and a 1pt bright top highlight over the soft shadow. Inline sheets stay flat.
+- **One toolbar row per screen**, the same height and order on every screen.
+- **Active window shadow.** The key window casts the system's stronger shadow; nothing custom.
+- **Force reduced motion.** The in-app setting and the system setting both turn every token off.
 
 ## Do's and Don'ts
 
-### Do:
-- **Do** treat all six theme rooms as equally real — a new component's spec should read correctly in Matrix (near-black, phosphor green) as much as in PUP Maroon.
-- **Do** route every animation through the `Motion` enum and make sure it returns `nil`/degrades under Reduce Motion — this is checked in every animated view already shipped, not optional per-component.
-- **Do** reserve monospace for anything numeric/positional that must not reflow.
-- **Do** give the dither texture a job (fade, veil, ambient signal) before using it — it's not a background pattern.
+**Do**
+- Read every screen as an SIS page first: title, breadcrumb, sheets, tables.
+- Put identity in pixel type and reading in Source Sans.
+- Give every 3D or dithered element a number it encodes.
+- Keep the exact product copy (IntAssis, "Runs locally and can be wrong…", GPA, "Login now").
 
-### Don't:
-- **Don't** add a drop-shadow vocabulary. Depth is glass + dither, not shadows.
-- **Don't** spend the accent tint on more than the now-line without a comparably strong reason — its rarity is what makes it read as "now."
-- **Don't** hardcode a hex color into a new component. Every color comes from `Environment(\.palette)` so it's correct across all six rooms automatically.
-- **Don't** seed a deterministic color (subject colors, any future per-item color) with `Hashable` — it reseeds per process launch and repaints on every relaunch. Use the character-sum seed pattern `Theme.swift` already establishes.
+**Don't**
+- Don't use pixel type for paragraphs, notes, or AI replies.
+- Don't add glass, gradients-as-decoration, drop shadows on sheets, or rounded rectangles.
+- Don't tint for emphasis: blue = action, gold = now/stamp, subject colors = subjects.
+- Don't show PUP's seal or official marks; the app is unofficial and says so on the landing.
+- Don't invent AI capabilities in UI copy; the tool list is in `06-assistant.md`.

@@ -29,3 +29,6 @@ gguf/
 
 # scratch prototypes for wayfinder tickets, never shipped
 .claude-prototypes/
+
+# Raw SIS screenshots (student number, grades) — never commit
+docs/specs/reference/private/
