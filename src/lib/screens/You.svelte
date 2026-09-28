@@ -5,7 +5,7 @@
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
 
   let { onsignout, ongallery }: { onsignout: () => void; ongallery?: () => void } = $props();
-  let confirming = $state(false);
+  let confirming = $state<null | "out" | "erase">(null);
 
   // The last day of classes: remembered, or about a semester from now.
   let lastDay = $state(remembered("lastDay") ?? isoDate(new Date(Date.now() + 17 * 7 * 86_400_000)));
@@ -77,6 +77,12 @@
 
   async function signOut() {
     await api.signOut();
+    onsignout();
+  }
+
+  async function eraseAll() {
+    await api.signOut();
+    await api.eraseEverything();
     onsignout();
   }
 </script>
@@ -173,14 +179,24 @@
 
   <section class="card notch block">
     <p class="label">Privacy</p>
-    <p class="fine">Your login stays in this phone's keychain. Your schedule, grades and notes stay on this phone; signing out erases them. IntPortal only talks to PUP SIS.</p>
-    {#if confirming}
+    <p class="fine">Your login stays in this phone's keychain and everything else stays on this phone. IntPortal only talks to PUP SIS.</p>
+    <p class="fine">Signing out removes your login, schedule and grades. Your notes, decks, syllabus pages and goals stay for when you sign back in.</p>
+    {#if confirming === "out"}
       <div class="row">
-        <button class="danger" onclick={signOut}>Sign out and erase</button>
-        <button class="ghost" onclick={() => (confirming = false)}>Cancel</button>
+        <button class="danger" onclick={signOut}>Sign out</button>
+        <button class="ghost" onclick={() => (confirming = null)}>Cancel</button>
+      </div>
+    {:else if confirming === "erase"}
+      <p class="fine">This deletes every note, deck and syllabus page on this phone too. It can't be undone.</p>
+      <div class="row">
+        <button class="danger" onclick={eraseAll}>Erase everything</button>
+        <button class="ghost" onclick={() => (confirming = null)}>Cancel</button>
       </div>
     {:else}
-      <button class="ghost" onclick={() => (confirming = true)}>Sign out</button>
+      <div class="row">
+        <button class="ghost" onclick={() => (confirming = "out")}>Sign out</button>
+        <button class="ghost" onclick={() => (confirming = "erase")}>Erase everything</button>
+      </div>
     {/if}
   </section>
 </div>

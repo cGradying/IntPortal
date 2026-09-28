@@ -236,6 +236,7 @@ export const api = {
   sync: () => invoke<Snapshot>("sync"),
   loadHistory: () => invoke<Snapshot>("load_history"),
   signOut: () => invoke<void>("sign_out"),
+  eraseEverything: () => invoke<void>("erase_everything"),
   setMark: (sessionId: string, week: string | null, mark: Mark | null) =>
     invoke<Snapshot>("set_mark", { sessionId, week, mark }),
   setMove: (sessionId: string, week: string | null, slot: Slot | null) =>

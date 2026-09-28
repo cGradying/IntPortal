@@ -188,6 +188,12 @@ async fn sign_out(state: tauri::State<'_, AppState>) -> Res<()> {
     DEMO.store(false, Ordering::Relaxed);
     *state.client.lock().await = None;
     vault::clear();
+    state.store.lock().unwrap().forget_sis().map_err(err)
+}
+
+/// Everything on this phone, the student's own notes and decks included.
+#[tauri::command]
+fn erase_everything(state: tauri::State<'_, AppState>) -> Res<()> {
     state.store.lock().unwrap().wipe().map_err(err)
 }
 
@@ -578,13 +584,14 @@ fn demo(state: tauri::State<'_, AppState>, today: Date) -> Res<Snapshot> {
             semester: Some(sem.into()),
         })
         .collect();
+    // Only the SIS side is fake; the student's own marks, goals and pages stay.
     let snap = Snapshot {
         sessions,
         grades: Some(GradeReport { subjects: grades::parse(&rows), summary, school_year: Some("2026-2027".into()), semester: Some("First Semester".into()) }),
         history,
         host: Some("sis8.pup.edu.ph".into()),
         last_synced: Some(now_secs()),
-        ..Default::default()
+        ..snapshot_of(&state)?
     };
     state.store.lock().unwrap().save(&snap).map_err(err)?;
     Ok(snap)
@@ -630,7 +637,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, reminders, campus, demo
+            snapshot, has_login, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

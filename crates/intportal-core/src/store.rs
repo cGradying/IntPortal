@@ -158,8 +158,15 @@ impl Store {
         self.put("study_stats", s)
     }
 
-    /// Sign-out: nothing of the account stays on the device, notes and
-    /// decks included.
+    /// Sign-out: drops what came from SIS (schedule, grades, the server)
+    /// and keeps what the student made: notes, decks and streak, syllabus
+    /// pages, goals, class marks and colours.
+    pub fn forget_sis(&self) -> Result<(), StoreError> {
+        self.db.execute("DELETE FROM kv WHERE key IN ('sessions', 'grades', 'history', 'host', 'last_synced')", [])?;
+        Ok(())
+    }
+
+    /// Erase everything on the device, the student's own work included.
     pub fn wipe(&self) -> Result<(), StoreError> {
         self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks;")?;
         Ok(())
@@ -196,6 +203,28 @@ mod tests {
 
         store.wipe().unwrap();
         assert_eq!(store.load().unwrap(), Snapshot::default());
+    }
+
+    #[test]
+    fn sign_out_forgets_sis_data_but_keeps_the_students_work() {
+        let store = Store::in_memory().unwrap();
+        let mut snap = Snapshot { host: Some("sis8.pup.edu.ph".into()), last_synced: Some("1".into()), ..Default::default() };
+        snap.sessions.push(ClassSession { subject_code: "A".into(), description: String::new(), faculty: String::new(), day: Weekday::Monday, start: 0, end: 60, occurrence: 0 });
+        snap.grades = Some(GradeReport { subjects: vec![], summary: BTreeMap::new(), school_year: None, semester: None });
+        snap.colors.insert("A".into(), "var(--s2)".into());
+        snap.goals.target_gpa = Some(1.5);
+        snap.marks.mode.set("A-1-0-60", None, Some(Mark::Online));
+        snap.syllabus.insert("A".into(), Plan { target: Some(90.0), ..Default::default() });
+        store.save(&snap).unwrap();
+        store.set_note("class:A", "keep me", None, 1).unwrap();
+        store.save_deck(&Deck { id: "d".into(), name: "D".into(), subject: None, cards: vec![] }).unwrap();
+        store.save_study_stats(&Stats { streak: 3, ..Default::default() }).unwrap();
+
+        store.forget_sis().unwrap();
+        let kept = store.load().unwrap();
+        assert_eq!((kept.sessions.len(), kept.grades, kept.host, kept.last_synced), (0, None, None, None));
+        assert_eq!((kept.colors, kept.goals, kept.marks, kept.syllabus), (snap.colors, snap.goals, snap.marks, snap.syllabus));
+        assert_eq!((store.notes().unwrap().len(), store.decks().unwrap().len(), store.study_stats().unwrap().streak), (1, 1, 3));
     }
 
     #[test]
