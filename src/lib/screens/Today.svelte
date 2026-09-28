@@ -1,7 +1,8 @@
 <script lang="ts">
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
-  import { app, openNote, openSubject } from "../state.svelte";
+  import { app, openNote, openSubject, syncNow } from "../state.svelte";
+  import { ago } from "../glance";
   import { api, clock, isoDate, moment, span, subjectColor, type Nudge, type SyllabusItem } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
@@ -101,6 +102,13 @@
     <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? dayNote.preview || "Today's note" : "+ Note for today"}</button>
   </header>
 
+  {#if app.sync === "failed"}
+    <section class="offline card notch" role="status">
+      <p><strong>{app.syncError ?? "Couldn't reach SIS"}.</strong> Showing what was saved {ago(app.snapshot?.last_synced)}.</p>
+      <button onclick={syncNow}>Try again</button>
+    </section>
+  {/if}
+
   {#if nudge}
     <section class="coach card notch" data-kind={nudge.nudge.kind}>
       <button class="say" onclick={act}>
@@ -198,6 +206,34 @@
 </div>
 
 <style>
+  .offline {
+    --step: 4px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 12px 12px 16px;
+    box-shadow: inset 3px 0 0 var(--bad);
+  }
+  .offline p {
+    flex: 1;
+    margin: 0;
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  .offline strong {
+    color: var(--ink);
+  }
+  .offline button {
+    flex: none;
+    height: 36px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--gold);
+    color: var(--on-gold);
+    font-family: var(--font-display);
+    font-weight: 700;
+  }
   .coach {
     --step: 4px;
     display: flex;
