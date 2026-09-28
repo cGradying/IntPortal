@@ -2,7 +2,7 @@
 //! week or date) and its grading system (weighted components), with the
 //! arithmetic students do by hand every term.
 
-use crate::today::Date;
+use crate::today::{reminder_id, Date, Moment, Reminder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,6 +106,32 @@ pub fn due(items: &[(String, Item)], today: Date, days: i64) -> Vec<(String, Ite
     let mut out: Vec<(String, Item)> =
         items.iter().filter(|(_, i)| !i.done && i.kind != Kind::Lecture && i.date.is_some_and(|d| d >= today && d <= last)).cloned().collect();
     out.sort_by_key(|(_, i)| i.date);
+    out
+}
+
+/// A heads-up the evening before each dated quiz, exam and project that is
+/// not done, at `minute` (7 PM by default), for the next `days` days.
+pub fn deadline_reminders(items: &[(String, Item)], now: Moment, minute: u16, days: i64) -> Vec<Reminder> {
+    let mut out: Vec<Reminder> = items
+        .iter()
+        .filter(|(_, i)| !i.done && i.kind != Kind::Lecture)
+        .filter_map(|(code, i)| {
+            let date = i.date?.add_days(-1);
+            let later = date > now.date || (date == now.date && minute > now.minute);
+            (later && date < now.date.add_days(days)).then(|| Reminder {
+                id: reminder_id(&format!("due:{code}:{}:{}", i.id, i.topic)),
+                date,
+                minute,
+                title: format!("{} tomorrow", match i.kind {
+                    Kind::Quiz => "Quiz",
+                    Kind::Exam => "Exam",
+                    _ => "Due",
+                }),
+                body: format!("{} · {code}", i.topic),
+            })
+        })
+        .collect();
+    out.sort_by_key(|r| (r.date, r.minute));
     out
 }
 
@@ -264,6 +290,23 @@ mod tests {
         assert_eq!(find_date("Jan 12 exam", Date::new(2026, 11, 20)), Some(Date::new(2027, 1, 12)));
         assert_eq!(find_date("Sep 1 intro", Date::new(2026, 9, 28)), Some(Date::new(2026, 9, 1)));
         assert_eq!(find_date("no date here", Date::new(2026, 9, 28)), None);
+    }
+
+    #[test]
+    fn deadlines_remind_the_evening_before() {
+        let item = |id: &str, topic: &str, kind: Kind, d: u8, done: bool| ("COMP 20073".to_string(), Item { id: id.into(), topic: topic.into(), kind, week: None, date: Some(Date::new(2026, 10, d)), done });
+        let items = [
+            item("1", "Quiz 2", Kind::Quiz, 3, false),
+            item("2", "Trees", Kind::Lecture, 3, false),
+            item("3", "Midterm", Kind::Exam, 2, false),
+            item("4", "Old quiz", Kind::Quiz, 4, true),
+            item("5", "Paper", Kind::Project, 20, false),
+        ];
+        let now = Moment { date: Date::new(2026, 10, 1), minute: 20 * 60 };
+        let got: Vec<(String, u16, String, String)> = deadline_reminders(&items, now, 19 * 60, 7).into_iter().map(|r| (r.date.to_string(), r.minute, r.title, r.body)).collect();
+        assert_eq!(got, [("2026-10-02".into(), 1140, "Quiz tomorrow".into(), "Quiz 2 · COMP 20073".into())]);
+        let earlier = Moment { date: Date::new(2026, 10, 1), minute: 8 * 60 };
+        assert_eq!(deadline_reminders(&items, earlier, 19 * 60, 7).len(), 2);
     }
 
     #[test]

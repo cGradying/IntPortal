@@ -263,7 +263,8 @@ export const api = {
   exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until }),
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
   today: (now: Moment, syncTrouble: string | null) => invoke<Today>("today", { now, syncTrouble }),
-  reminders: (now: Moment, lead: number, days: number) => invoke<Reminder[]>("reminders", { now, lead, days }),
+  reminders: (now: Moment, lead: number, days: number, prefs: { deadlines: number | null; study: number | null; utc_offset: number }) =>
+    invoke<Reminder[]>("reminders", { now, lead, days, prefs }),
   campus: (studentNumber: string) => invoke<CampusResolution>("campus", { studentNumber }),
   demo: (today: string) => invoke<Snapshot>("demo", { today }),
 };

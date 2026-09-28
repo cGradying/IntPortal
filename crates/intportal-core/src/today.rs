@@ -21,7 +21,7 @@ impl Date {
     }
 
     /// Days since 1970-01-01 (Howard Hinnant's days_from_civil).
-    fn days(self) -> i64 {
+    pub(crate) fn days(self) -> i64 {
         let y = i64::from(self.y) - i64::from(self.m <= 2);
         let era = y.div_euclid(400);
         let yoe = y - era * 400;
@@ -403,6 +403,15 @@ pub struct Reminder {
     pub body: String,
 }
 
+/// A stable, positive id for a reminder, so rescheduling replaces it.
+pub fn reminder_id(key: &str) -> i32 {
+    let mut h: i32 = 17;
+    for b in key.bytes() {
+        h = h.wrapping_mul(31).wrapping_add(i32::from(b));
+    }
+    h & 0x7fff_ffff
+}
+
 /// Reminders `lead` minutes before every meeting in the next `days` days that
 /// hasn't started yet. A meeting marked vacant for its week is skipped, so a
 /// one-week cancellation silences just that week (the old app could only
@@ -416,15 +425,11 @@ pub fn reminders(sessions: &[ClassSession], marks: &Marks, now: Moment, lead: u1
             if at <= now_abs {
                 return None;
             }
-            let mut h: i32 = 17;
-            for b in format!("{}@{}", m.id, m.date).bytes() {
-                h = h.wrapping_mul(31).wrapping_add(i32::from(b));
-            }
             let s = &m.session;
             Some((
                 at,
                 Reminder {
-                    id: h & 0x7fff_ffff,
+                    id: reminder_id(&format!("{}@{}", m.id, m.date)),
                     date: Date::from_days(at.div_euclid(1440)),
                     minute: at.rem_euclid(1440) as u16,
                     title: format!("{} in {lead} min", s.subject_code),

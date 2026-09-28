@@ -494,11 +494,32 @@ fn campus(student_number: String) -> campus::Resolution {
     campus::resolve(&student_number)
 }
 
-/// The next `days` of class reminders; the UI hands them to the platform.
+/// Extra reminders the student turned on; a minute of the day, or empty for off.
+#[derive(Deserialize, Default)]
+struct ReminderPrefs {
+    deadlines: Option<u16>,
+    study: Option<u16>,
+    /// Local minus UTC, in minutes.
+    utc_offset: i32,
+}
+
+/// The next `days` of reminders, soonest first: classes, deadlines the
+/// evening before, and study days. The UI hands them to the platform.
 #[tauri::command]
-fn reminders(state: tauri::State<'_, AppState>, now: Moment, lead: u16, days: u16) -> Res<Vec<Reminder>> {
-    let snap = snapshot_of(&state)?;
-    Ok(today::reminders(&snap.sessions, &snap.marks, now, lead, days))
+fn reminders(state: tauri::State<'_, AppState>, now: Moment, lead: u16, days: u16, prefs: Option<ReminderPrefs>) -> Res<Vec<Reminder>> {
+    let store = state.store.lock().unwrap();
+    let snap = store.load().map_err(err)?;
+    let prefs = prefs.unwrap_or_default();
+    let mut out = if lead > 0 { today::reminders(&snap.sessions, &snap.marks, now, lead, days) } else { vec![] };
+    if let Some(minute) = prefs.deadlines {
+        let items: Vec<(String, Item)> = snap.syllabus.iter().flat_map(|(c, p)| p.items.iter().map(move |i| (c.clone(), i.clone()))).collect();
+        out.extend(syllabus::deadline_reminders(&items, now, minute, i64::from(days)));
+    }
+    if let Some(minute) = prefs.study {
+        out.extend(study::study_reminders(&store.decks().map_err(err)?, now, minute, i64::from(days), prefs.utc_offset));
+    }
+    out.sort_by_key(|r| (r.date, r.minute));
+    Ok(out)
 }
 
 /// Review builds only: a fake week and term so every screen can be seen

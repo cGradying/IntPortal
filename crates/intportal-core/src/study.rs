@@ -3,7 +3,7 @@
 //!
 //! Time is Unix seconds from the caller; nothing here reads a clock.
 
-use crate::today::Date;
+use crate::today::{reminder_id, Date, Moment, Reminder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -149,6 +149,28 @@ pub fn current_streak(s: &Stats, today: Date) -> u32 {
     }
 }
 
+/// A study nudge at `minute` on each of the next `days` days on which cards
+/// will be due by then. `utc_offset` is local minus UTC in minutes, the
+/// one clock fact the core needs to line FSRS's Unix times up with days.
+pub fn study_reminders(decks: &[Deck], now: Moment, minute: u16, days: i64, utc_offset: i32) -> Vec<Reminder> {
+    let unix_at = |date: Date, minute: u16| (date.days() * 1440 + i64::from(minute) - i64::from(utc_offset)) * 60;
+    (0..days)
+        .map(|d| now.date.add_days(d))
+        .filter(|date| *date > now.date || minute > now.minute)
+        .filter_map(|date| {
+            let at = unix_at(date, minute);
+            let due: usize = decks.iter().map(|deck| deck.due(at)).sum();
+            (due > 0).then(|| Reminder {
+                id: reminder_id(&format!("study:{date}")),
+                date,
+                minute,
+                title: "Time to study".into(),
+                body: format!("{due} {} due. A few minutes keeps them.", if due == 1 { "card" } else { "cards" }),
+            })
+        })
+        .collect()
+}
+
 /// Cards pasted as one per line, "front - back": the first " - ", " – ",
 /// tab, " = " or ": " splits the line. Lines without one are skipped.
 pub fn parse_cards(text: &str) -> Vec<(String, String)> {
@@ -256,6 +278,22 @@ mod tests {
         assert_eq!((s.streak, s.reviews_today), (2, 1));
         assert_eq!([current_streak(&s, d(2)), current_streak(&s, d(3)), current_streak(&s, d(4))], [2, 2, 0]);
         assert_eq!(count_review(&s, d(5)).streak, 1);
+    }
+
+    #[test]
+    fn study_reminders_fire_only_on_days_with_cards_due() {
+        // 2026-09-28 00:00 UTC; the student is at UTC+8.
+        let midnight_utc = 1_790_553_600;
+        let offset = 8 * 60;
+        let local_day = Date::new(2026, 9, 28);
+        let mut c = card("Stack", "LIFO");
+        // Due at 2026-09-29 20:00 local, i.e. 12:00 UTC.
+        c.memory.due = midnight_utc + 86_400 + 12 * 3600;
+        let deck = Deck { id: "d".into(), name: "D".into(), subject: None, cards: vec![c] };
+        let now = Moment { date: local_day, minute: 9 * 60 };
+        let at = |m: u16| study_reminders(std::slice::from_ref(&deck), now, m, 3, offset).into_iter().map(|r| r.date.to_string()).collect::<Vec<_>>();
+        assert_eq!(at(21 * 60), ["2026-09-29", "2026-09-30"]);
+        assert_eq!(at(19 * 60), ["2026-09-30"]);
     }
 
     #[test]

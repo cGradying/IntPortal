@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, openNote, setReminderLead, setRoom, syncNow } from "../state.svelte";
+  import { app, openNote, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
   import { api, isoDate } from "../api";
   import { shareFile } from "../share";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
@@ -102,6 +102,20 @@
       {/each}
     </div>
     <p class="fine">{app.reminderLead ? `A nudge ${app.reminderLead} minutes before each class. A class you mark vacant stays quiet that week.` : "No reminders."}</p>
+    <p class="label">Deadlines</p>
+    <div class="leads">
+      {#each [-1, 18 * 60, 19 * 60, 20 * 60] as m (m)}
+        <button class:on={app.deadlineAt === m} onclick={() => setDeadlineAt(m)}>{m < 0 ? "Off" : `${m / 60 - 12} PM`}</button>
+      {/each}
+    </div>
+    <p class="fine">{app.deadlineAt >= 0 ? "The evening before each quiz, exam and project on your syllabus pages." : "No deadline heads-ups."}</p>
+    <p class="label">Study</p>
+    <div class="leads">
+      {#each [-1, 7 * 60, 19 * 60, 21 * 60] as m (m)}
+        <button class:on={app.studyAt === m} onclick={() => setStudyAt(m)}>{m < 0 ? "Off" : m < 12 * 60 ? `${m / 60} AM` : `${m / 60 - 12} PM`}</button>
+      {/each}
+    </div>
+    <p class="fine">{app.studyAt >= 0 ? "Only on days your flashcards are due." : "No study reminders."}</p>
     {#if app.queued.error}<p class="queued">Couldn't schedule reminders: {app.queued.error}</p>{/if}
     {#if app.queued.next}
       <p class="queued">Next: <strong>{app.queued.next.title}</strong>, {app.queued.next.at.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })} · {app.queued.count} this week</p>

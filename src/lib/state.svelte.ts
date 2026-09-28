@@ -19,6 +19,10 @@ export const app = $state({
   room: read("room") || "night",
   /** Minutes before class; 0 turns reminders off. */
   reminderLead: Number(read("reminderLead") ?? 10),
+  /** Minute of the day for the evening-before deadline heads-up; -1 is off. */
+  deadlineAt: Number(read("deadlineAt") ?? 19 * 60),
+  /** Minute of the day for the study nudge; -1 is off. */
+  studyAt: Number(read("studyAt") ?? -1),
   notes: [] as NoteItem[],
   /** The subject page open, if any. */
   subject: null as null | { code: string; description: string },
@@ -52,11 +56,13 @@ export async function scheduleReminders() {
     const queued = await pending();
     if (queued.length) await cancel(queued.map((n) => n.id));
     app.queued = { count: 0, next: null, error: "" };
-    if (!app.snapshot || app.reminderLead <= 0) return;
+    const on = (m: number) => (m >= 0 ? m : null);
+    if (!app.snapshot || (app.reminderLead <= 0 && app.deadlineAt < 0 && app.studyAt < 0)) return;
     let allowed = await isPermissionGranted();
     if (!allowed) allowed = (await requestPermission()) === "granted";
     if (!allowed) return;
-    const list = (await api.reminders(moment(), app.reminderLead, 7)).slice(0, 60);
+    const prefs = { deadlines: on(app.deadlineAt), study: on(app.studyAt), utc_offset: -new Date().getTimezoneOffset() };
+    const list = (await api.reminders(moment(), app.reminderLead, 7, prefs)).slice(0, 60);
     const when = (r: { date: string; minute: number }) => {
       const [y, m, d] = r.date.split("-").map(Number);
       return new Date(y, m - 1, d, Math.floor(r.minute / 60), r.minute % 60);
@@ -85,6 +91,18 @@ export async function scheduleReminders() {
 export function setReminderLead(minutes: number) {
   app.reminderLead = minutes;
   write("reminderLead", String(minutes));
+  scheduleReminders();
+}
+
+export function setDeadlineAt(minute: number) {
+  app.deadlineAt = minute;
+  write("deadlineAt", String(minute));
+  scheduleReminders();
+}
+
+export function setStudyAt(minute: number) {
+  app.studyAt = minute;
+  write("studyAt", String(minute));
   scheduleReminders();
 }
 
