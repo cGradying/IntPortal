@@ -3,7 +3,7 @@
   import Scene from "../Scene.svelte";
   import { app, openNote, openSubject, syncNow } from "../state.svelte";
   import { ago } from "../glance";
-  import { api, clock, isoDate, moment, span, subjectColor, type Nudge, type SyllabusItem } from "../api";
+  import { api, clock, isoDate, moment, span, subjectColor, type Nudge, type Standing, type SyllabusItem } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
   const now = $derived((app.today, new Date()));
@@ -29,6 +29,14 @@
     const days = Math.round((new Date(`${d}T00:00`).getTime() - new Date(isoDate(new Date()) + "T00:00").getTime()) / 86_400_000);
     return days === 0 ? "Today" : days === 1 ? "Tomorrow" : new Date(`${d}T00:00`).toLocaleDateString(undefined, { weekday: "short" });
   };
+  // Where the student stands: the reality check behind the day's plans.
+  let standing = $state<Standing | null>(null);
+  $effect(() => {
+    void app.snapshot;
+    api.standing().then((st) => (standing = st)).catch(() => {});
+  });
+  const unitsPct = $derived(standing?.goals.program_units ? Math.min(100, (standing.units_done / standing.goals.program_units) * 100) : null);
+
   // The coach's one nudge; dismissals last for the day on this device.
   let nudge = $state<{ nudge: Nudge; line: string; key: string } | null>(null);
   const dismissKey = () => `coach-dismissed-${isoDate(new Date())}`;
@@ -162,6 +170,25 @@
     </section>
   {/if}
 
+  {#if standing && (standing.term_gpa !== null || standing.units_done > 0)}
+    <button class="reality card notch" onclick={() => (app.tab = "grades")} aria-label="Where you stand; open Grades">
+      <span>
+        <small>This term</small>
+        <strong class="num">{standing.term_gpa?.toFixed(2) ?? "—"}</strong>
+        {#if standing.goals.target_gpa}<em class:ok={standing.term_gpa !== null && standing.term_gpa <= standing.goals.target_gpa}>target {standing.goals.target_gpa.toFixed(2)}</em>{/if}
+      </span>
+      <span>
+        <small>Overall</small>
+        <strong class="num">{standing.cumulative_gpa?.toFixed(2) ?? "—"}</strong>
+      </span>
+      <span class="units">
+        <small>Units</small>
+        <strong class="num">{standing.units_done}{#if standing.goals.program_units}<i>/{standing.goals.program_units}</i>{/if}</strong>
+        {#if unitsPct !== null}<b class="bar"><b style:width="{unitsPct}%"></b></b>{/if}
+      </span>
+    </button>
+  {/if}
+
   <section class="day">
     <div class="head">
       <p class="label">Today</p>
@@ -206,6 +233,58 @@
 </div>
 
 <style>
+  .reality {
+    --step: 4px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.2fr;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 16px;
+    border: 0;
+    color: var(--ink);
+    text-align: left;
+    font: inherit;
+  }
+  .reality span {
+    display: grid;
+    gap: 1px;
+    align-content: start;
+  }
+  .reality small {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .reality strong {
+    font-size: 20px;
+    font-weight: 800;
+  }
+  .reality strong i {
+    font-style: normal;
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  .reality em {
+    font-style: normal;
+    font-size: 11px;
+    color: var(--bad);
+  }
+  .reality em.ok {
+    color: var(--good);
+  }
+  .reality .bar {
+    display: block;
+    height: 5px;
+    margin-top: 4px;
+    background: var(--sunk);
+  }
+  .reality .bar b {
+    display: block;
+    height: 100%;
+    background: var(--gold);
+  }
   .offline {
     --step: 4px;
     display: flex;
