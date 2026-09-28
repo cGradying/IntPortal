@@ -1,6 +1,6 @@
 <script lang="ts">
   import Scene from "../Scene.svelte";
-  import { app, adopt } from "../state.svelte";
+  import { app, adopt, openNote } from "../state.svelte";
   import { api, clock, isoDate, subjectColor, WEEKDAYS, type Mark, type Meeting, type Snapshot, type Weekday } from "../api";
 
   const todayIdx = (new Date().getDay() + 6) % 7;
@@ -124,6 +124,7 @@
             </span>
             {#if m.mark !== "in_person"}<span class="tag">{m.mark === "online" ? "Online" : "Vacant"}</span>{/if}
             {#if m.moved}<span class="tag">Moved</span>{/if}
+            {#if app.notes.some((n) => n.key === `class:${s.subject_code}`)}<span class="dot" aria-label="Has notes"></span>{/if}
           </button>
         </li>
       {/each}
@@ -164,6 +165,9 @@
         <button onclick={() => mark("online", true)}>Online</button>
         <button onclick={() => mark("vacant", true)}>Vacant</button>
       </div>
+      <button class="note" onclick={() => { const p = picked!; picked = null; openNote(`class:${p.session.subject_code}`, p.session.subject_code, p.session.description); }}>
+        {app.notes.some((n) => n.key === `class:${s.subject_code}`) ? "Open class notes" : "Write class notes"}
+      </button>
       <p class="label">Time</p>
       <div class="opts two">
         <button onclick={() => (moving = { day: s.day, start: hhmm(s.start), end: hhmm(s.end) })}>Change its time</button>
@@ -356,6 +360,20 @@
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     font-weight: 600;
+  }
+  .note {
+    height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--gold);
+    color: var(--on-gold);
+    font-weight: 700;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    background: var(--gold);
   }
   .opts.two {
     grid-template-columns: 1fr 1fr;

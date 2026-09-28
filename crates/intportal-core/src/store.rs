@@ -3,6 +3,7 @@
 
 use crate::grades::{GradeReport, Goals};
 use crate::model::ClassSession;
+use crate::notes::Note;
 use crate::today::Marks;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::de::DeserializeOwned;
@@ -50,7 +51,10 @@ impl Store {
     }
 
     fn init(db: Connection) -> Result<Store, StoreError> {
-        db.execute_batch("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, json TEXT NOT NULL)")?;
+        db.execute_batch(
+            "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, json TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS notes (key TEXT PRIMARY KEY, text TEXT NOT NULL, title TEXT, updated INTEGER NOT NULL);",
+        )?;
         Ok(Store { db })
     }
 
@@ -92,9 +96,31 @@ impl Store {
         self.put("last_synced", &s.last_synced)
     }
 
-    /// Sign-out: nothing of the account stays on the device.
+    /// Every note, the latest edit first.
+    pub fn notes(&self) -> Result<Vec<Note>, StoreError> {
+        let mut q = self.db.prepare("SELECT key, text, title, updated FROM notes ORDER BY updated DESC, key")?;
+        let rows = q.query_map([], |r| Ok(Note { key: r.get(0)?, text: r.get(1)?, title: r.get(2)?, updated: r.get(3)? }))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Saves one note. Blank text deletes it, so an emptied note doesn't
+    /// linger in the list. `title` empty keeps the one already stored.
+    pub fn set_note(&self, key: &str, text: &str, title: Option<&str>, now: i64) -> Result<(), StoreError> {
+        if text.trim().is_empty() {
+            self.db.execute("DELETE FROM notes WHERE key = ?1", [key])?;
+        } else {
+            self.db.execute(
+                "INSERT INTO notes (key, text, title, updated) VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(key) DO UPDATE SET text = excluded.text, title = COALESCE(excluded.title, notes.title), updated = excluded.updated",
+                params![key, text, title, now],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Sign-out: nothing of the account stays on the device, notes included.
     pub fn wipe(&self) -> Result<(), StoreError> {
-        self.db.execute("DELETE FROM kv", [])?;
+        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes;")?;
         Ok(())
     }
 }
@@ -138,5 +164,20 @@ mod tests {
         assert_eq!(marks.mode.get("A-1-0-60", Date::new(2026, 8, 5)), Some(Mark::Vacant));
         assert_eq!(marks.mode.get("A-1-0-60", Date::new(2026, 8, 10)), Some(Mark::Online));
         assert_eq!(marks.moved, Default::default());
+    }
+
+    #[test]
+    fn notes_save_update_list_newest_first_and_blank_deletes() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("class:COMP 20073", "Quiz Friday", Some("Data Structures"), 100).unwrap();
+        store.set_note("day:2026-09-28", "Bring laptop", None, 200).unwrap();
+        store.set_note("class:COMP 20073", "Quiz Friday, trees", None, 300).unwrap();
+        let notes = store.notes().unwrap();
+        assert_eq!(notes.iter().map(|n| (n.key.as_str(), n.text.as_str(), n.updated)).collect::<Vec<_>>(), [("class:COMP 20073", "Quiz Friday, trees", 300), ("day:2026-09-28", "Bring laptop", 200)]);
+        assert_eq!(notes[0].title.as_deref(), Some("Data Structures"));
+        store.set_note("day:2026-09-28", "  \n ", None, 400).unwrap();
+        assert_eq!(store.notes().unwrap().len(), 1);
+        store.wipe().unwrap();
+        assert!(store.notes().unwrap().is_empty());
     }
 }

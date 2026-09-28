@@ -9,6 +9,7 @@
   import Grades from "$lib/screens/Grades.svelte";
   import You from "$lib/screens/You.svelte";
   import Gallery from "$lib/Gallery.svelte";
+  import NoteEditor from "$lib/NoteEditor.svelte";
   import { api } from "$lib/api";
   import { watchDynamicIsland } from "$lib/glance";
   import { app, adopt, setRoom, startClock } from "$lib/state.svelte";
@@ -49,6 +50,8 @@
   function signedOut() {
     app.snapshot = null;
     app.today = null;
+    app.notes = [];
+    app.editing = null;
     app.tab = "today";
     signedIn = false;
     inside = false;
@@ -76,6 +79,9 @@
     </main>
     <TabBar />
   </div>
+  {#if app.editing}
+    {#key app.editing.key}<NoteEditor {...app.editing} />{/key}
+  {/if}
 {/if}
 
 <style>

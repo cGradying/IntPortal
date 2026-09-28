@@ -1,10 +1,16 @@
 <script lang="ts">
-  import { app, setReminderLead, setRoom, syncNow } from "../state.svelte";
+  import { app, openNote, setReminderLead, setRoom, syncNow } from "../state.svelte";
   import { api } from "../api";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
 
   let { onsignout, ongallery }: { onsignout: () => void; ongallery?: () => void } = $props();
   let confirming = $state(false);
+
+  function noteHeading(key: string): string {
+    if (key.startsWith("class:")) return key.slice(6);
+    const [y, m, d] = key.slice(4).split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  }
 
   const rooms = [
     ...HAND_TUNED,
@@ -64,13 +70,31 @@
     </div>
   </section>
 
+  <section class="card notch block">
+    <p class="label">Your notes</p>
+    {#if app.notes.length === 0}
+      <p class="fine">Nothing written yet. Open a class on Schedule to keep notes for it, or add a note for today on Today.</p>
+    {:else}
+      <ul class="notes">
+        {#each app.notes as n (n.key)}
+          <li>
+            <button onclick={() => openNote(n.key, noteHeading(n.key), n.title)}>
+              <strong>{noteHeading(n.key)}</strong>
+              <span>{n.preview}</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+
   {#if __REVIEW__ && ongallery}
     <button class="ghost" onclick={ongallery}>Open the design gallery</button>
   {/if}
 
   <section class="card notch block">
     <p class="label">Privacy</p>
-    <p class="fine">Your login stays in this phone's keychain. Your schedule and grades stay on this phone. IntPortal only talks to PUP SIS.</p>
+    <p class="fine">Your login stays in this phone's keychain. Your schedule, grades and notes stay on this phone; signing out erases them. IntPortal only talks to PUP SIS.</p>
     {#if confirming}
       <div class="row">
         <button class="danger" onclick={signOut}>Sign out and erase</button>
@@ -83,6 +107,32 @@
 </div>
 
 <style>
+  .notes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .notes button {
+    width: 100%;
+    height: auto;
+    display: grid;
+    gap: 2px;
+    padding: 10px 12px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    text-align: left;
+  }
+  .notes span {
+    font-family: var(--font-body, inherit);
+    font-weight: 400;
+    font-size: 13px;
+    color: var(--ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .screen {
     display: grid;
     gap: 14px;

@@ -35,6 +35,15 @@ export interface GradeReport {
 
 export type Mark = "in_person" | "online" | "vacant";
 
+/** A note with its one-line preview. `key` is `class:<code>` or `day:<date>`. */
+export interface NoteItem {
+  key: string;
+  text: string;
+  title: string | null;
+  updated: number;
+  preview: string;
+}
+
 export interface Goals {
   target_gpa: number | null;
   program_units: number | null;
@@ -160,6 +169,8 @@ export const api = {
   week: (on: string) => invoke<Meeting[]>("week", { on }),
   setGoals: (goals: Goals) => invoke<Snapshot>("set_goals", { goals }),
   standing: () => invoke<Standing>("standing"),
+  notes: () => invoke<NoteItem[]>("notes"),
+  setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
   today: (now: Moment, syncTrouble: string | null) => invoke<Today>("today", { now, syncTrouble }),
   reminders: (now: Moment, lead: number, days: number) => invoke<Reminder[]>("reminders", { now, lead, days }),
   campus: (studentNumber: string) => invoke<CampusResolution>("campus", { studentNumber }),

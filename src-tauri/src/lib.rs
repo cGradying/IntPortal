@@ -4,6 +4,7 @@
 use intportal_core::campus;
 use intportal_core::grades::{self, Goals, GradeReport, Standing};
 use intportal_core::model::{ClassSession, Weekday};
+use intportal_core::notes::{self, Note};
 use intportal_core::schedule;
 use intportal_core::sis::{self, sign_in_with_failover, Credentials, SisClient};
 use intportal_core::store::{Snapshot, Store};
@@ -223,6 +224,30 @@ fn set_color(state: tauri::State<'_, AppState>, subject_code: String, color: Opt
     })
 }
 
+#[derive(Serialize)]
+struct NoteItem {
+    #[serde(flatten)]
+    note: Note,
+    preview: String,
+}
+
+/// Every note, the latest edit first, with a one-line preview.
+#[tauri::command]
+fn notes(state: tauri::State<'_, AppState>) -> Res<Vec<NoteItem>> {
+    let list = state.store.lock().unwrap().notes().map_err(err)?;
+    Ok(list.into_iter().map(|note| NoteItem { preview: notes::preview(&note.text, 80), note }).collect())
+}
+
+/// Saves as the student types; blank text deletes the note.
+#[tauri::command]
+fn set_note(state: tauri::State<'_, AppState>, key: String, text: String, title: Option<String>) -> Res<()> {
+    if !(key.starts_with("class:") || key.starts_with("day:")) {
+        return Err("Unknown note".into());
+    }
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+    state.store.lock().unwrap().set_note(&key, &text, title.as_deref(), now).map_err(err)
+}
+
 /// The target GPA and the program's units; either can be empty.
 #[tauri::command]
 fn set_goals(state: tauri::State<'_, AppState>, goals: Goals) -> Res<Snapshot> {
@@ -393,7 +418,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, today, reminders, campus, demo
+            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, today, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,8 +1,8 @@
 <script lang="ts">
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
-  import { app } from "../state.svelte";
-  import { clock, span, subjectColor } from "../api";
+  import { app, openNote } from "../state.svelte";
+  import { clock, isoDate, span, subjectColor } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
   const now = $derived((app.today, new Date()));
@@ -15,6 +15,8 @@
   const next = $derived(t?.next ?? null);
   const items = $derived(t?.agenda.items ?? []);
   const colors = $derived(app.snapshot?.colors ?? {});
+  const dayKey = $derived(`day:${isoDate(now)}`);
+  const dayNote = $derived(app.notes.find((n) => n.key === dayKey));
 
   /** Big number and its unit for the hero countdown. */
   const hero = $derived.by(() => {
@@ -52,6 +54,7 @@
   <header>
     <p class="label">{dateLine}</p>
     <h1>{greeting}</h1>
+    <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? dayNote.preview || "Today's note" : "+ Note for today"}</button>
   </header>
 
   <section class="hero card notch">
@@ -125,6 +128,21 @@
 </div>
 
 <style>
+  .daynote {
+    margin-top: 8px;
+    max-width: 100%;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--card);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink-2);
+    font-size: 13px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .screen {
     display: grid;
     gap: 18px;

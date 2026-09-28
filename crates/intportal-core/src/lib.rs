@@ -4,6 +4,7 @@
 pub mod campus;
 pub mod grades;
 pub mod model;
+pub mod notes;
 pub mod schedule;
 pub mod sis;
 pub mod store;

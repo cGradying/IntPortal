@@ -2,7 +2,7 @@
 // reading of it, and sync status. Screens read `app`; only this file writes.
 import { invoke } from "@tauri-apps/api/core";
 import { Schedule, cancel, isPermissionGranted, pending, requestPermission } from "@tauri-apps/plugin-notification";
-import { api, moment, type Snapshot, type Today } from "./api";
+import { api, moment, type NoteItem, type Snapshot, type Today } from "./api";
 import { applyRoom } from "./rooms";
 
 export type Tab = "today" | "schedule" | "grades" | "you";
@@ -19,6 +19,9 @@ export const app = $state({
   room: read("room") || "night",
   /** Minutes before class; 0 turns reminders off. */
   reminderLead: Number(read("reminderLead") ?? 10),
+  notes: [] as NoteItem[],
+  /** The note open in the editor, if any. */
+  editing: null as null | { key: string; heading: string; title: string | null },
   /** What is queued with the platform right now. */
   queued: { count: 0, next: null as null | { title: string; at: Date }, error: "" },
 });
@@ -92,8 +95,21 @@ export async function refreshToday() {
   }
 }
 
+export async function refreshNotes() {
+  try {
+    app.notes = await api.notes();
+  } catch {
+    // The list keeps what it had.
+  }
+}
+
+export function openNote(key: string, heading: string, title: string | null = null) {
+  app.editing = { key, heading, title };
+}
+
 export async function adopt(snap: Snapshot) {
   app.snapshot = snap;
+  refreshNotes();
   await refreshToday();
   scheduleReminders();
 }
