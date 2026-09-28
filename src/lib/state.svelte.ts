@@ -16,7 +16,7 @@ export const app = $state({
   syncError: null as string | null,
   /** Bumps on every successful sync, so moments can react to it. */
   syncCount: 0,
-  room: read("room") || "night",
+  room: read("room") || "system",
   /** Minutes before class; 0 turns reminders off. */
   reminderLead: Number(read("reminderLead") ?? 10),
   /** Minute of the day for the evening-before deadline heads-up; -1 is off. */

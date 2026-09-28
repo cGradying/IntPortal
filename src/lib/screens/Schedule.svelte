@@ -1,5 +1,6 @@
 <script lang="ts">
   import Scene from "../Scene.svelte";
+  import WeekGrid from "../WeekGrid.svelte";
   import { app, adopt, openNote, openSubject } from "../state.svelte";
   import { api, clock, isoDate, subjectColor, WEEKDAYS, type Mark, type Meeting, type Snapshot, type Weekday } from "../api";
 
@@ -8,6 +9,7 @@
   let picked = $state<Meeting | null>(null);
   let meetings = $state<Meeting[]>([]);
   let hideVacant = $state(stored("hideVacant") === "1");
+  let view = $state<"day" | "week">(stored("scheduleView") === "week" ? "week" : "day");
   let moving = $state<{ day: Weekday; start: string; end: string } | null>(null);
   let problem = $state("");
   const colors = $derived(app.snapshot?.colors ?? {});
@@ -38,6 +40,15 @@
       return localStorage.getItem(key);
     } catch {
       return null;
+    }
+  }
+
+  function setView(v: "day" | "week") {
+    view = v;
+    try {
+      localStorage.setItem("scheduleView", v);
+    } catch {
+      // Remembered for this session only.
     }
   }
 
@@ -92,6 +103,15 @@
     <h1>Schedule</h1>
   </header>
 
+  <div class="seg" role="tablist" aria-label="View">
+    <button role="tab" class:on={view === "day"} aria-selected={view === "day"} onclick={() => setView("day")}>Day</button>
+    <button role="tab" class:on={view === "week"} aria-selected={view === "week"} onclick={() => setView("week")}>Week</button>
+  </div>
+
+  {#if view === "week"}
+    <WeekGrid meetings={meetings.filter((m) => !(hideVacant && m.mark === "vacant"))} {colors} {todayIdx} onpick={pick} />
+    <label class="toggle"><input type="checkbox" checked={hideVacant} onchange={toggleVacant} /> Hide vacant classes</label>
+  {:else}
   <div class="days" role="tablist">
     {#each WEEKDAYS as d, i (d)}
       <button role="tab" class:on={day === d} class:today={i === todayIdx} aria-selected={day === d} onclick={() => (day = d)}>
@@ -129,6 +149,7 @@
         </li>
       {/each}
     </ol>
+  {/if}
   {/if}
 </div>
 
@@ -377,6 +398,27 @@
     height: 8px;
     flex: none;
     background: var(--gold);
+  }
+  .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 3px;
+    border-radius: 12px;
+    background: var(--card);
+    box-shadow: inset 0 0 0 1px var(--edge);
+  }
+  .seg button {
+    height: 34px;
+    border: 0;
+    border-radius: 9px;
+    background: none;
+    color: var(--ink-2);
+    font-family: var(--font-display);
+    font-weight: 700;
+  }
+  .seg button.on {
+    background: var(--gold);
+    color: var(--on-gold);
   }
   .opts.two {
     grid-template-columns: 1fr 1fr;
