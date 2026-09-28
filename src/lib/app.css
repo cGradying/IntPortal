@@ -1,0 +1,175 @@
+/* IntPortal design tokens.
+   Base: the legacy app's calm (charcoal ground, faint gold dot grid, gold
+   wordmark, quiet cards). Pixel accents sit on top: stepped card corners,
+   pixel icons, stamps and the portal. Every colour lives here; components
+   read roles, never hex. A room (theme) is one block of roles. */
+
+@import "@fontsource-variable/montserrat";
+@import "@fontsource-variable/source-sans-3";
+@import "@fontsource/pixelify-sans/500.css";
+@import "@fontsource/pixelify-sans/700.css";
+
+:root,
+:root[data-room="night"] {
+  color-scheme: dark;
+  --ground: #19191c;
+  --ground-2: #202024;
+  --dot: rgba(245, 178, 39, 0.07);
+  --card: #26262a;
+  --card-2: #2d2d32;
+  --sunk: #1f1f23;
+  --edge: rgba(255, 255, 255, 0.07);
+  --edge-2: rgba(255, 255, 255, 0.13);
+  --ink: #efeff1;
+  --ink-2: #a9a9b1;
+  --ink-3: #7c7c85;
+  --gold: #f5b227;
+  --gold-soft: rgba(245, 178, 39, 0.14);
+  --on-gold: #1b1406;
+  --maroon: #7a1128;
+  --maroon-2: #9b1d36;
+  --good: #58c792;
+  --bad: #f07a6e;
+  --island: #0e0e10;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --s1: #e0697e; --s2: #e8866f; --s3: #e0b04a; --s4: #b58ad0; --s5: #5fbf9c; --s6: #7ea3e0;
+}
+
+:root[data-room="day"] {
+  color-scheme: light;
+  --ground: #f4f2ef;
+  --ground-2: #ebe8e3;
+  --dot: rgba(122, 17, 40, 0.07);
+  --card: #ffffff;
+  --card-2: #f8f6f3;
+  --sunk: #efece7;
+  --edge: rgba(28, 21, 23, 0.08);
+  --edge-2: rgba(28, 21, 23, 0.16);
+  --ink: #1c1517;
+  --ink-2: #554c4f;
+  --ink-3: #766c6f;
+  --gold: #b8860b;
+  --gold-soft: rgba(201, 162, 39, 0.16);
+  --on-gold: #ffffff;
+  --maroon: #6d0e1f;
+  --maroon-2: #7e1a2c;
+  --good: #1e7249;
+  --bad: #b42318;
+  --island: #1c1517;
+  --shadow: 0 10px 30px rgba(60, 40, 30, 0.12);
+  --s1: #7a1128; --s2: #b13e34; --s3: #8f6410; --s4: #5c315f; --s5: #2e5a4f; --s6: #3f517a;
+}
+
+:root[data-room="maroon"] {
+  color-scheme: dark;
+  --ground: #1a0a0e;
+  --ground-2: #230d13;
+  --dot: rgba(245, 178, 39, 0.08);
+  --card: #2a1016;
+  --card-2: #34141c;
+  --sunk: #200c11;
+  --edge: rgba(255, 220, 200, 0.08);
+  --edge-2: rgba(255, 220, 200, 0.15);
+  --ink: #f7ecec;
+  --ink-2: #ddb9be;
+  --ink-3: #a98289;
+  --gold: #f2c14e;
+  --gold-soft: rgba(242, 193, 78, 0.14);
+  --on-gold: #2a0d06;
+  --maroon: #6d0e1f;
+  --maroon-2: #8c1a2e;
+  --good: #6fd3a0;
+  --bad: #ff8a7a;
+  --island: #0d0507;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --s1: #ff8fa3; --s2: #ffa38a; --s3: #f2c14e; --s4: #d4a5f0; --s5: #7fe0bd; --s6: #9dbcf5;
+}
+
+:root {
+  --font-display: "Montserrat Variable", system-ui, sans-serif;
+  --font-body: "Source Sans 3 Variable", system-ui, sans-serif;
+  --font-pixel: "Pixelify Sans", ui-monospace, monospace;
+  --step: 3px; /* one pixel-notch step */
+  --gutter: 16px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+select,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* The legacy dot grid, fixed behind everything. */
+.dots {
+  background-color: var(--ground);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+}
+
+/* A stepped pixel corner, two steps deep: clean at arm's length, pixel up close. */
+.notch {
+  --s: var(--step);
+  clip-path: polygon(
+    0 calc(var(--s) * 2), var(--s) calc(var(--s) * 2), var(--s) var(--s), calc(var(--s) * 2) var(--s), calc(var(--s) * 2) 0,
+    calc(100% - var(--s) * 2) 0, calc(100% - var(--s) * 2) var(--s), calc(100% - var(--s)) var(--s), calc(100% - var(--s)) calc(var(--s) * 2), 100% calc(var(--s) * 2),
+    100% calc(100% - var(--s) * 2), calc(100% - var(--s)) calc(100% - var(--s) * 2), calc(100% - var(--s)) calc(100% - var(--s)), calc(100% - var(--s) * 2) calc(100% - var(--s)), calc(100% - var(--s) * 2) 100%,
+    calc(var(--s) * 2) 100%, calc(var(--s) * 2) calc(100% - var(--s)), var(--s) calc(100% - var(--s)), var(--s) calc(100% - var(--s) * 2), 0 calc(100% - var(--s) * 2)
+  );
+}
+
+.card {
+  background: linear-gradient(180deg, var(--card-2), var(--card));
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

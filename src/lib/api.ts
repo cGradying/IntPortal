@@ -1,0 +1,139 @@
+// Typed wrappers over the Tauri commands in src-tauri/src/lib.rs.
+// See docs/design/core-api.md.
+import { invoke } from "@tauri-apps/api/core";
+
+export type Weekday = "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
+export const WEEKDAYS: Weekday[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+export interface ClassSession {
+  subject_code: string;
+  description: string;
+  faculty: string;
+  day: Weekday;
+  start: number;
+  end: number;
+  occurrence: number;
+}
+
+export interface SubjectGrade {
+  subject_code: string;
+  description: string;
+  faculty: string;
+  units: number;
+  section_code: string;
+  final_grade: string;
+  grade_status: string;
+  occurrence: number;
+}
+
+export interface GradeReport {
+  subjects: SubjectGrade[];
+  summary: Record<string, string>;
+  school_year: string | null;
+  semester: string | null;
+}
+
+export type Mark = "in_person" | "online" | "vacant";
+
+export interface Snapshot {
+  sessions: ClassSession[];
+  grades: GradeReport | null;
+  history: GradeReport[];
+  marks: { term: Record<string, Mark>; weekly: Record<string, Record<string, Mark>> };
+  colors: Record<string, string>;
+  host: string | null;
+  last_synced: string | null;
+}
+
+export interface Moment {
+  date: string;
+  minute: number;
+}
+
+export type Phase = "past" | "in_session" | "upcoming";
+
+export interface Today {
+  agenda: {
+    items: { session: ClassSession; phase: Phase; mark: Mark }[];
+    tomorrow_first: ClassSession | null;
+    free_minutes_left: number;
+  };
+  next: { session: ClassSession; date: string; is_now: boolean; minutes_away: number } | null;
+  countdown: string | null;
+  glance: { kind: "in_session" | "next_today" | "sync_trouble" | "thinking" | "day_done" };
+  glance_line: string;
+}
+
+export interface Reminder {
+  id: number;
+  date: string;
+  minute: number;
+  title: string;
+  body: string;
+}
+
+export type CampusResolution =
+  | { kind: "known"; campus: { code: string | null; name: string; region: string } }
+  | { kind: "unknown_code"; code: string }
+  | { kind: "incomplete" };
+
+export interface Login {
+  student_number: string;
+  birth_month: number;
+  birth_day: number;
+  birth_year: number;
+  password: string;
+}
+
+export const api = {
+  snapshot: () => invoke<Snapshot>("snapshot"),
+  hasLogin: () => invoke<boolean>("has_login"),
+  signIn: (login: Login) => invoke<Snapshot>("sign_in", { login }),
+  sync: () => invoke<Snapshot>("sync"),
+  loadHistory: () => invoke<Snapshot>("load_history"),
+  signOut: () => invoke<void>("sign_out"),
+  setMark: (sessionId: string, week: string | null, mark: Mark | null) =>
+    invoke<Snapshot>("set_mark", { sessionId, week, mark }),
+  today: (now: Moment, syncTrouble: string | null) => invoke<Today>("today", { now, syncTrouble }),
+  reminders: (now: Moment, lead: number, days: number) => invoke<Reminder[]>("reminders", { now, lead, days }),
+  campus: (studentNumber: string) => invoke<CampusResolution>("campus", { studentNumber }),
+  demo: (today: string) => invoke<Snapshot>("demo", { today }),
+};
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+export function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+export function moment(d = new Date()): Moment {
+  return { date: isoDate(d), minute: d.getHours() * 60 + d.getMinutes() };
+}
+
+export function sessionId(s: ClassSession): string {
+  const base = `${s.subject_code}-${WEEKDAYS.indexOf(s.day) + 1}-${s.start}-${s.end}`;
+  return s.occurrence ? `${base}-${s.occurrence}` : base;
+}
+
+/** `8AM`, `2:30PM`, matching the core's `clock`. */
+export function clock(minutes: number): string {
+  const h24 = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const h = h24 % 12 || 12;
+  const p = h24 >= 12 ? "PM" : "AM";
+  return m ? `${h}:${pad(m)}${p}` : `${h}${p}`;
+}
+
+export function span(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`;
+}
+
+/** One of six subject colours, stable per code: the old app's character-sum seed. */
+export function subjectColor(code: string, overrides: Record<string, string> = {}): string {
+  if (overrides[code]) return overrides[code];
+  let sum = 0;
+  for (const ch of code) sum += ch.charCodeAt(0);
+  return `var(--s${(sum % 6) + 1})`;
+}

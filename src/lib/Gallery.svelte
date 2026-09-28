@@ -1,0 +1,179 @@
+<script lang="ts">
+  // Review-build gallery: every pixel piece in one scroll, in the current room.
+  import CampusStrip from "./CampusStrip.svelte";
+  import Jeepney from "./Jeepney.svelte";
+  import PixelIcon, { SPRITES, type SpriteName } from "./PixelIcon.svelte";
+  import Scene, { SCENES } from "./Scene.svelte";
+
+  let { onclose }: { onclose: () => void } = $props();
+  const hours = [6, 9, 12.5, 17.4, 18.6, 22];
+  const glances = [
+    "COMP 20073 · until 9AM",
+    "GEED 10053 · in 12m",
+    "Couldn't reach SIS · Try again",
+    "No more classes today · Tomorrow PATHFIT 2 at 8AM",
+  ];
+  const label = (h: number) => `${Math.floor(h) % 12 || 12}:${String(Math.round((h % 1) * 60)).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+</script>
+
+<div class="gallery">
+  <header>
+    <h1>Gallery</h1>
+    <button onclick={onclose}>Done</button>
+  </header>
+
+  <p class="label">Campus through the day</p>
+  <div class="grid2">
+    {#each hours as h (h)}
+      <figure class="card notch"><CampusStrip hour={h} litKey="COMP 20073" /><figcaption>{label(h)}</figcaption></figure>
+    {/each}
+  </div>
+
+  <p class="label">Empty-state scenes</p>
+  <div class="grid2">
+    {#each Object.keys(SCENES) as s (s)}
+      <figure class="card notch scene"><Scene name={s} label={s} /><figcaption>{s}</figcaption></figure>
+    {/each}
+  </div>
+
+  <p class="label">Sync journey</p>
+  <div class="row">
+    {#each ["drive", "arrived", "stalled"] as const as m (m)}
+      <figure class="card notch pill"><span class="isl"><Jeepney mode={m} /></span><figcaption>{m}</figcaption></figure>
+    {/each}
+  </div>
+
+  <p class="label">Island glances</p>
+  <div class="stack">
+    {#each glances as g (g)}<span class="isl line">{g}</span>{/each}
+  </div>
+
+  <p class="label">Icons</p>
+  <div class="row">
+    {#each Object.keys(SPRITES) as n (n)}
+      <figure class="card notch icon"><PixelIcon name={n as SpriteName} size={36} /><figcaption>{n}</figcaption></figure>
+    {/each}
+  </div>
+
+  <p class="label">Stamps</p>
+  <div class="row stamps">
+    <span class="stamp">1.25</span><span class="stamp fresh">1.00</span><span class="stamp fail">5.00</span><span class="stamp mark">INC</span><span class="pending">Pending</span>
+  </div>
+</div>
+
+<style>
+  .gallery {
+    display: grid;
+    gap: 12px;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 28px;
+  }
+  header button {
+    padding: 8px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--gold);
+    color: var(--on-gold);
+    font-weight: 700;
+  }
+  .label {
+    margin: 10px 0 0;
+  }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .stack {
+    display: grid;
+    gap: 8px;
+    justify-items: start;
+  }
+  figure {
+    --step: 3px;
+    margin: 0;
+    overflow: hidden;
+  }
+  figcaption {
+    padding: 6px 8px;
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  .scene {
+    display: grid;
+    justify-items: center;
+    padding-top: 8px;
+  }
+  .scene :global(svg) {
+    width: 100%;
+    height: auto;
+  }
+  .pill,
+  .icon {
+    display: grid;
+    justify-items: center;
+    padding: 10px 10px 0;
+  }
+  .isl {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 14px;
+    border-radius: 19px;
+    background: var(--island);
+    color: #f1f1f3;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .stamps {
+    align-items: center;
+    padding: 6px 4px;
+  }
+  .stamp {
+    min-width: 54px;
+    padding: 4px 6px;
+    text-align: center;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--good);
+    box-shadow: inset 0 0 0 2px currentColor;
+    transform: rotate(-4deg);
+  }
+  .stamp.fresh {
+    animation: thunk 0.55s steps(6) infinite alternate;
+  }
+  .stamp.fail {
+    color: var(--bad);
+  }
+  .stamp.mark {
+    color: var(--ink-2);
+  }
+  @keyframes thunk {
+    0% { transform: rotate(-12deg) scale(2.2); opacity: 0; }
+    60% { transform: rotate(-3deg) scale(0.92); opacity: 1; }
+    100% { transform: rotate(-4deg) scale(1); }
+  }
+  .pending {
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: var(--sunk);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+</style>
