@@ -173,3 +173,9 @@ button {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* While typing, the tab bar and glance dock get out of the keyboard's way. */
+:root[data-keyboard="open"] nav.bar,
+:root[data-keyboard="open"] [data-mode="dock"]:not(.preview) {
+  display: none;
+}

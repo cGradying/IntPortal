@@ -30,6 +30,13 @@
       addEventListener("unhandledrejection", (e) => show(String(e.reason?.stack ?? e.reason)));
     }
     setRoom(app.room);
+    // The keyboard covers the bottom; the tab bar and dock step aside while
+    // a text field has focus, so they don't ride up on top of it.
+    const typing = (e: Event) => (e.target as HTMLElement).matches?.("input:not([type=checkbox]):not([type=radio]), textarea, select");
+    addEventListener("focusin", (e) => typing(e) && (document.documentElement.dataset.keyboard = "open"));
+    addEventListener("focusout", () => setTimeout(() => {
+      if (!document.activeElement?.matches("input, textarea, select")) delete document.documentElement.dataset.keyboard;
+    }, 50));
     watchDynamicIsland((island) => (glance = island ? "island" : "dock"));
     const [login, snap] = await Promise.all([api.hasLogin().catch(() => false), api.snapshot().catch(() => null)]);
     signedIn = login;

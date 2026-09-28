@@ -40,6 +40,7 @@ function push(fg: string, bg: string, ratio: number, toward: string): string {
 }
 
 export const HAND_TUNED = [
+  { id: "system", name: "System", swatch: ["#19191c", "#f4f2ef", "#f5b227"] },
   { id: "night", name: "Night", swatch: ["#19191c", "#26262a", "#f5b227"] },
   { id: "day", name: "Day", swatch: ["#f4f2ef", "#ffffff", "#6d0e1f"] },
   { id: "maroon", name: "Maroon Night", swatch: ["#1a0a0e", "#2a1016", "#f2c14e"] },
@@ -102,7 +103,18 @@ export function derive(p: Palette): Record<string, string> {
   return roles;
 }
 
+const dark = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
+let following = false;
+
+/** "system" follows the phone: Night when it's dark, Day when it's light. */
 export function applyRoom(id: string) {
+  if (id === "system") {
+    if (!following && dark) dark.addEventListener("change", () => following && applyRoom("system"));
+    following = true;
+    id = dark?.matches === false ? "day" : "night";
+  } else {
+    following = false;
+  }
   const root = document.documentElement;
   const palette = PALETTES[id];
   for (const k of [...root.style]) if (k.startsWith("--") || k === "color-scheme") root.style.removeProperty(k);
