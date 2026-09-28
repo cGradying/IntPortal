@@ -110,6 +110,7 @@
               </span>
               {#if r.i.phase === "in_session"}<span class="now">Now</span>{/if}
               {#if r.i.mark === "online"}<span class="tag">Online</span>{/if}
+              {#if r.i.moved}<span class="tag">Moved</span>{/if}
             </li>
           {/if}
         {/each}

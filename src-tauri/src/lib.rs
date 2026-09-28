@@ -7,7 +7,7 @@ use intportal_core::model::{ClassSession, Weekday};
 use intportal_core::schedule;
 use intportal_core::sis::{self, sign_in_with_failover, Credentials, SisClient};
 use intportal_core::store::{Snapshot, Store};
-use intportal_core::today::{self, Agenda, Date, Glance, Mark, Moment, Reminder, Upcoming};
+use intportal_core::today::{self, Agenda, Date, Glance, Mark, Meeting, Moment, Reminder, Slot, Upcoming};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -186,28 +186,48 @@ async fn sign_out(state: tauri::State<'_, AppState>) -> Res<()> {
     state.store.lock().unwrap().wipe().map_err(err)
 }
 
+fn edit(state: &AppState, change: impl FnOnce(&mut Snapshot)) -> Res<Snapshot> {
+    let store = state.store.lock().unwrap();
+    let mut snap = store.load().map_err(err)?;
+    change(&mut snap);
+    store.save(&snap).map_err(err)?;
+    Ok(snap)
+}
+
 /// `week` set: this week only. `mark` empty: clear it.
 #[tauri::command]
 fn set_mark(state: tauri::State<'_, AppState>, session_id: String, week: Option<Date>, mark: Option<Mark>) -> Res<Snapshot> {
-    let mut snap = snapshot_of(&state)?;
-    match (week, mark) {
-        (Some(w), Some(m)) => {
-            snap.marks.weekly.entry(session_id).or_default().insert(w.week_start(), m);
-        }
-        (Some(w), None) => {
-            if let Some(weeks) = snap.marks.weekly.get_mut(&session_id) {
-                weeks.remove(&w.week_start());
-            }
-        }
-        (None, Some(m)) => {
-            snap.marks.term.insert(session_id, m);
-        }
-        (None, None) => {
-            snap.marks.term.remove(&session_id);
-        }
+    edit(&state, |s| s.marks.mode.set(&session_id, week, mark))
+}
+
+/// Moves a class to another day or time, for `week` only or the whole term.
+/// `slot` empty: back to the SIS time.
+#[tauri::command]
+fn set_move(state: tauri::State<'_, AppState>, session_id: String, week: Option<Date>, slot: Option<Slot>) -> Res<Snapshot> {
+    if slot.is_some_and(|s| s.end <= s.start || s.end > 24 * 60) {
+        return Err("A class has to end after it starts, before midnight.".into());
     }
-    state.store.lock().unwrap().save(&snap).map_err(err)?;
-    Ok(snap)
+    edit(&state, |s| s.marks.moved.set(&session_id, week, slot))
+}
+
+/// A subject's colour; empty goes back to the automatic one.
+#[tauri::command]
+fn set_color(state: tauri::State<'_, AppState>, subject_code: String, color: Option<String>) -> Res<Snapshot> {
+    edit(&state, |s| match color {
+        Some(c) => {
+            s.colors.insert(subject_code, c);
+        }
+        None => {
+            s.colors.remove(&subject_code);
+        }
+    })
+}
+
+/// Every meeting in the week holding `on`, after marks and moves.
+#[tauri::command]
+fn week(state: tauri::State<'_, AppState>, on: Date) -> Res<Vec<Meeting>> {
+    let snap = snapshot_of(&state)?;
+    Ok(today::week(&snap.sessions, &snap.marks, on))
 }
 
 #[derive(Serialize)]
@@ -354,7 +374,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, today, reminders, campus, demo
+            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, today, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,12 +1,17 @@
 <script lang="ts">
   import Scene from "../Scene.svelte";
   import { app, adopt } from "../state.svelte";
-  import { api, clock, isoDate, sessionId, subjectColor, WEEKDAYS, type ClassSession, type Mark, type Weekday } from "../api";
+  import { api, clock, isoDate, subjectColor, WEEKDAYS, type Mark, type Meeting, type Snapshot, type Weekday } from "../api";
 
   const todayIdx = (new Date().getDay() + 6) % 7;
   let day = $state<Weekday>(WEEKDAYS[todayIdx]);
-  let picked = $state<ClassSession | null>(null);
+  let picked = $state<Meeting | null>(null);
+  let meetings = $state<Meeting[]>([]);
+  let hideVacant = $state(stored("hideVacant") === "1");
+  let moving = $state<{ day: Weekday; start: string; end: string } | null>(null);
+  let problem = $state("");
   const colors = $derived(app.snapshot?.colors ?? {});
+  const swatches = [1, 2, 3, 4, 5, 6].map((n) => `var(--s${n})`);
 
   const monday = (() => {
     const d = new Date();
@@ -19,20 +24,65 @@
     return d;
   });
 
-  const list = $derived((app.snapshot?.sessions ?? []).filter((s) => s.day === day).sort((a, b) => a.start - b.start));
-  const busy = $derived(new Set((app.snapshot?.sessions ?? []).map((s) => s.day)));
+  // The core applies marks and moves; re-read whenever the snapshot changes.
+  $effect(() => {
+    void app.snapshot;
+    api.week(isoDate(monday)).then((m) => (meetings = m));
+  });
 
-  function markOf(s: ClassSession): Mark {
-    const id = sessionId(s);
-    const m = app.snapshot?.marks;
-    return m?.weekly[id]?.[isoDate(monday)] ?? m?.term[id] ?? "in_person";
+  const list = $derived(meetings.filter((m) => m.session.day === day && !(hideVacant && m.mark === "vacant")));
+  const busy = $derived(new Set(meetings.filter((m) => m.mark !== "vacant").map((m) => m.session.day)));
+
+  function stored(key: string): string | null {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
   }
 
-  async function mark(m: Mark, everyWeek: boolean) {
+  function toggleVacant() {
+    hideVacant = !hideVacant;
+    try {
+      localStorage.setItem("hideVacant", hideVacant ? "1" : "0");
+    } catch {
+      // Remembered for this session only.
+    }
+  }
+
+  const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+  const minutes = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  async function run(change: Promise<Snapshot>) {
+    try {
+      await adopt(await change);
+      picked = null;
+      moving = null;
+      problem = "";
+    } catch (e) {
+      problem = String(e);
+    }
+  }
+
+  const mark = (m: Mark, everyWeek: boolean) => picked && run(api.setMark(picked.id, everyWeek ? null : isoDate(monday), m));
+  const color = (c: string | null) => picked && run(api.setColor(picked.session.subject_code, c));
+  const move = (everyWeek: boolean) =>
+    picked &&
+    moving &&
+    run(api.setMove(picked.id, everyWeek ? null : isoDate(monday), { day: moving.day, start: minutes(moving.start), end: minutes(moving.end) }));
+  function unmove() {
     if (!picked) return;
-    const s = picked;
-    picked = null;
-    await adopt(await api.setMark(sessionId(s), everyWeek ? null : isoDate(monday), m));
+    const id = picked.id;
+    run(api.setMove(id, isoDate(monday), null).then(() => api.setMove(id, null, null)));
+  }
+
+  function pick(m: Meeting) {
+    picked = m;
+    moving = null;
+    problem = "";
   }
 </script>
 
@@ -52,6 +102,8 @@
     {/each}
   </div>
 
+  <label class="toggle"><input type="checkbox" checked={hideVacant} onchange={toggleVacant} /> Hide vacant classes</label>
+
   {#if list.length === 0}
     <div class="empty card notch">
       <Scene name="hammock" label="A hammock between two palm trees" />
@@ -59,10 +111,10 @@
     </div>
   {:else}
     <ol>
-      {#each list as s (sessionId(s))}
-        {@const m = markOf(s)}
+      {#each list as m (m.id)}
+        {@const s = m.session}
         <li>
-          <button class="class" data-mark={m} style:--c={subjectColor(s.subject_code, colors)} onclick={() => (picked = s)}>
+          <button class="class" data-mark={m.mark} style:--c={subjectColor(s.subject_code, colors)} onclick={() => pick(m)}>
             <span class="time num">{clock(s.start)}<small>{clock(s.end)}</small></span>
             <span class="stripe"></span>
             <span class="what">
@@ -70,7 +122,8 @@
               <span>{s.description}</span>
               {#if s.faculty}<em>{s.faculty}</em>{/if}
             </span>
-            {#if m !== "in_person"}<span class="tag">{m === "online" ? "Online" : "Vacant"}</span>{/if}
+            {#if m.mark !== "in_person"}<span class="tag">{m.mark === "online" ? "Online" : "Vacant"}</span>{/if}
+            {#if m.moved}<span class="tag">Moved</span>{/if}
           </button>
         </li>
       {/each}
@@ -79,22 +132,52 @@
 </div>
 
 {#if picked}
+  {@const s = picked.session}
   <div class="scrim" role="presentation" onclick={() => (picked = null)}></div>
-  <div class="sheet notch" role="dialog" aria-label="Mark {picked.subject_code}">
-    <p class="label">{picked.subject_code} · {clock(picked.start)}</p>
-    <h2>How is this class meeting?</h2>
-    <p class="label">This week only</p>
-    <div class="opts">
-      <button onclick={() => mark("in_person", false)}>In person</button>
-      <button onclick={() => mark("online", false)}>Online</button>
-      <button onclick={() => mark("vacant", false)}>Vacant</button>
-    </div>
-    <p class="label">Every week this term</p>
-    <div class="opts">
-      <button onclick={() => mark("in_person", true)}>In person</button>
-      <button onclick={() => mark("online", true)}>Online</button>
-      <button onclick={() => mark("vacant", true)}>Vacant</button>
-    </div>
+  <div class="sheet notch" role="dialog" aria-label="Edit {s.subject_code}">
+    <p class="label">{s.subject_code} · {s.day.slice(0, 3)} {clock(s.start)}–{clock(s.end)}</p>
+    {#if moving}
+      <h2>Change its time</h2>
+      <div class="when">
+        <select bind:value={moving.day} aria-label="Day">
+          {#each WEEKDAYS as d (d)}<option value={d}>{d}</option>{/each}
+        </select>
+        <input type="time" bind:value={moving.start} aria-label="Starts" />
+        <input type="time" bind:value={moving.end} aria-label="Ends" />
+      </div>
+      <div class="opts two">
+        <button onclick={() => move(false)}>This week only</button>
+        <button onclick={() => move(true)}>Every week</button>
+      </div>
+      <button class="link" onclick={() => (moving = null)}>Back</button>
+    {:else}
+      <h2>How is this class meeting?</h2>
+      <p class="label">This week only</p>
+      <div class="opts">
+        <button onclick={() => mark("in_person", false)}>In person</button>
+        <button onclick={() => mark("online", false)}>Online</button>
+        <button onclick={() => mark("vacant", false)}>Vacant</button>
+      </div>
+      <p class="label">Every week this term</p>
+      <div class="opts">
+        <button onclick={() => mark("in_person", true)}>In person</button>
+        <button onclick={() => mark("online", true)}>Online</button>
+        <button onclick={() => mark("vacant", true)}>Vacant</button>
+      </div>
+      <p class="label">Time</p>
+      <div class="opts two">
+        <button onclick={() => (moving = { day: s.day, start: hhmm(s.start), end: hhmm(s.end) })}>Change its time</button>
+        <button disabled={!picked.moved} onclick={unmove}>Back to SIS time</button>
+      </div>
+      <p class="label">Colour</p>
+      <div class="swatches">
+        {#each swatches as c (c)}
+          <button class="swatch" class:on={colors[s.subject_code] === c} style:background={c} aria-label="Colour {c.slice(8, 10)}" onclick={() => color(c)}></button>
+        {/each}
+        <button class="auto" class:on={!colors[s.subject_code]} onclick={() => color(null)}>Auto</button>
+      </div>
+    {/if}
+    {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   </div>
 {/if}
 
@@ -273,6 +356,75 @@
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     font-weight: 600;
+  }
+  .opts.two {
+    grid-template-columns: 1fr 1fr;
+  }
+  .opts button:disabled {
+    opacity: 0.4;
+  }
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  .when {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: 8px;
+  }
+  .when select,
+  .when input {
+    height: 44px;
+    min-width: 0;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink);
+    font: inherit;
+  }
+  .swatches {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .swatch {
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+  }
+  .swatch.on {
+    box-shadow: 0 0 0 2px var(--card-2), 0 0 0 4px var(--ink);
+  }
+  .auto {
+    height: 36px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 18px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    font-weight: 600;
+  }
+  .auto.on {
+    box-shadow: inset 0 0 0 2px var(--ink);
+  }
+  .link {
+    justify-self: start;
+    padding: 6px 0;
+    border: 0;
+    background: none;
+    color: var(--ink-2);
+    text-decoration: underline;
+  }
+  .problem {
+    margin: 0;
+    font-size: 13px;
+    color: var(--bad, #e0685a);
   }
   @keyframes rise {
     from { transform: translateY(20px); opacity: 0; }

@@ -99,7 +99,7 @@ impl Store {
 mod tests {
     use super::*;
     use crate::model::Weekday;
-    use crate::today::{Date, Mark};
+    use crate::today::{Date, Mark, Marks, Slot};
 
     #[test]
     fn round_trips_and_wipes() {
@@ -116,12 +116,22 @@ mod tests {
             occurrence: 0,
         };
         let mut snap = Snapshot { sessions: vec![session.clone()], host: Some("sis8.pup.edu.ph".into()), ..Default::default() };
-        snap.marks.weekly.entry(session.id()).or_default().insert(Date::new(2026, 8, 3), Mark::Vacant);
+        snap.marks.mode.set(&session.id(), Some(Date::new(2026, 8, 3)), Some(Mark::Vacant));
+        snap.marks.moved.set(&session.id(), None, Some(Slot { day: Weekday::Friday, start: 600, end: 720 }));
         snap.colors.insert("COMP 20073".into(), "#3b82f6".into());
         store.save(&snap).unwrap();
         assert_eq!(store.load().unwrap(), snap);
 
         store.wipe().unwrap();
         assert_eq!(store.load().unwrap(), Snapshot::default());
+    }
+
+    #[test]
+    fn marks_saved_before_moves_existed_still_load() {
+        let old = r#"{"term":{"A-1-0-60":"online"},"weekly":{"A-1-0-60":{"2026-08-03":"vacant"}}}"#;
+        let marks: Marks = serde_json::from_str(old).unwrap();
+        assert_eq!(marks.mode.get("A-1-0-60", Date::new(2026, 8, 5)), Some(Mark::Vacant));
+        assert_eq!(marks.mode.get("A-1-0-60", Date::new(2026, 8, 10)), Some(Mark::Online));
+        assert_eq!(marks.moved, Default::default());
     }
 }

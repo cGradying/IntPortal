@@ -35,11 +35,33 @@ export interface GradeReport {
 
 export type Mark = "in_person" | "online" | "vacant";
 
+/** Term-wide values, and single-week overrides keyed by that week's Monday. */
+export interface Layers<T> {
+  term: Record<string, T>;
+  weekly: Record<string, Record<string, T>>;
+}
+
+/** Where a moved class meets instead. */
+export interface Slot {
+  day: Weekday;
+  start: number;
+  end: number;
+}
+
+/** One session on one date after marks and moves. `id` is the original session's. */
+export interface Meeting {
+  id: string;
+  session: ClassSession;
+  date: string;
+  mark: Mark;
+  moved: boolean;
+}
+
 export interface Snapshot {
   sessions: ClassSession[];
   grades: GradeReport | null;
   history: GradeReport[];
-  marks: { term: Record<string, Mark>; weekly: Record<string, Record<string, Mark>> };
+  marks: Layers<Mark> & { moved: Layers<Slot> };
   colors: Record<string, string>;
   host: string | null;
   last_synced: string | null;
@@ -54,7 +76,7 @@ export type Phase = "past" | "in_session" | "upcoming";
 
 export interface Today {
   agenda: {
-    items: { session: ClassSession; phase: Phase; mark: Mark }[];
+    items: (Meeting & { phase: Phase })[];
     tomorrow_first: ClassSession | null;
     free_minutes_left: number;
   };
@@ -102,6 +124,10 @@ export const api = {
   signOut: () => invoke<void>("sign_out"),
   setMark: (sessionId: string, week: string | null, mark: Mark | null) =>
     invoke<Snapshot>("set_mark", { sessionId, week, mark }),
+  setMove: (sessionId: string, week: string | null, slot: Slot | null) =>
+    invoke<Snapshot>("set_move", { sessionId, week, slot }),
+  setColor: (subjectCode: string, color: string | null) => invoke<Snapshot>("set_color", { subjectCode, color }),
+  week: (on: string) => invoke<Meeting[]>("week", { on }),
   today: (now: Moment, syncTrouble: string | null) => invoke<Today>("today", { now, syncTrouble }),
   reminders: (now: Moment, lead: number, days: number) => invoke<Reminder[]>("reminders", { now, lead, days }),
   campus: (studentNumber: string) => invoke<CampusResolution>("campus", { studentNumber }),

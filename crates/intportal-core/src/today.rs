@@ -104,29 +104,135 @@ pub enum Mark {
     Vacant,
 }
 
-/// Marks by session id: one for the whole term, and overrides for single
+/// A value per session id: one for the whole term, and overrides for single
 /// weeks keyed by that week's Monday.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Layers<T> {
+    #[serde(default = "HashMap::new")]
+    pub term: HashMap<String, T>,
+    #[serde(default = "HashMap::new")]
+    pub weekly: HashMap<String, HashMap<Date, T>>,
+}
+
+impl<T> Default for Layers<T> {
+    fn default() -> Self {
+        Layers { term: HashMap::new(), weekly: HashMap::new() }
+    }
+}
+
+impl<T: Copy> Layers<T> {
+    /// This week's override, else the term's.
+    pub fn get(&self, id: &str, on: Date) -> Option<T> {
+        self.weekly.get(id).and_then(|w| w.get(&on.week_start())).or_else(|| self.term.get(id)).copied()
+    }
+
+    /// `week` set: that week only. `value` empty: clear it.
+    pub fn set(&mut self, id: &str, week: Option<Date>, value: Option<T>) {
+        match (week, value) {
+            (Some(w), Some(v)) => {
+                self.weekly.entry(id.to_string()).or_default().insert(w.week_start(), v);
+            }
+            (Some(w), None) => {
+                if let Some(weeks) = self.weekly.get_mut(id) {
+                    weeks.remove(&w.week_start());
+                    if weeks.is_empty() {
+                        self.weekly.remove(id);
+                    }
+                }
+            }
+            (None, Some(v)) => {
+                self.term.insert(id.to_string(), v);
+            }
+            (None, None) => {
+                self.term.remove(id);
+            }
+        }
+    }
+}
+
+/// When a meeting happens instead, if the student moved it: the old app's
+/// "change its time". The day stays within the same week.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Slot {
+    pub day: Weekday,
+    pub start: u16,
+    pub end: u16,
+}
+
+/// The student's edits to the timetable. The SIS never knows about them.
+/// `mode` flattens so marks saved before moves existed still load.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Marks {
-    pub term: HashMap<String, Mark>,
-    pub weekly: HashMap<String, HashMap<Date, Mark>>,
+    #[serde(flatten)]
+    pub mode: Layers<Mark>,
+    #[serde(default)]
+    pub moved: Layers<Slot>,
 }
 
 impl Marks {
     pub fn get(&self, session: &ClassSession, on: Date) -> Mark {
-        let id = session.id();
-        self.weekly
-            .get(&id)
-            .and_then(|w| w.get(&on.week_start()))
-            .or_else(|| self.term.get(&id))
-            .copied()
-            .unwrap_or(Mark::InPerson)
+        self.mode.get(&session.id(), on).unwrap_or(Mark::InPerson)
     }
 
     /// Online classes still count: you still have to show up.
     pub fn is_vacant(&self, session: &ClassSession, on: Date) -> bool {
         self.get(session, on) == Mark::Vacant
     }
+}
+
+/// One session meeting on one date, after the student's edits. `session`
+/// carries the effective day and times; `id` stays the original session's,
+/// so marks, moves and reminders keep finding it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Meeting {
+    pub id: String,
+    pub session: ClassSession,
+    pub date: Date,
+    pub mark: Mark,
+    pub moved: bool,
+}
+
+impl Meeting {
+    fn start_abs(&self) -> i64 {
+        self.date.days() * 1440 + i64::from(self.session.start)
+    }
+
+    fn end_abs(&self) -> i64 {
+        self.date.days() * 1440 + i64::from(self.session.end)
+    }
+}
+
+/// Every meeting in the week holding `on`, vacant ones included, by date
+/// and start time.
+pub fn week(sessions: &[ClassSession], marks: &Marks, on: Date) -> Vec<Meeting> {
+    let monday = on.week_start();
+    let mut out: Vec<Meeting> = sessions
+        .iter()
+        .map(|s| {
+            let id = s.id();
+            let slot = marks.moved.get(&id, monday);
+            let mut session = s.clone();
+            if let Some(slot) = slot {
+                (session.day, session.start, session.end) = (slot.day, slot.start, slot.end);
+            }
+            let date = monday.add_days(i64::from(session.day.number()) - 1);
+            Meeting { mark: marks.get(s, date), id, session, date, moved: slot.is_some() }
+        })
+        .collect();
+    out.sort_by_key(|m| (m.date, m.session.start, m.session.end));
+    out
+}
+
+/// Meetings from `from` through `days` days on, vacant ones left out.
+fn meetings_from(sessions: &[ClassSession], marks: &Marks, from: Date, days: i64) -> Vec<Meeting> {
+    let last = from.add_days(days - 1);
+    let mut monday = from.week_start();
+    let mut out = Vec::new();
+    while monday <= last {
+        out.extend(week(sessions, marks, monday).into_iter().filter(|m| m.date >= from && m.date <= last && m.mark != Mark::Vacant));
+        monday = monday.add_days(7);
+    }
+    out
 }
 
 /// `8AM`, `2:30PM`: the old app's format.
@@ -154,14 +260,14 @@ pub enum Phase {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AgendaItem {
-    pub session: ClassSession,
+    #[serde(flatten)]
+    pub meeting: Meeting,
     pub phase: Phase,
-    pub mark: Mark,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Agenda {
-    /// Today's non-vacant classes by start time.
+    /// Today's non-vacant meetings by start time.
     pub items: Vec<AgendaItem>,
     pub tomorrow_first: Option<ClassSession>,
     /// Free minutes still ahead today, from gaps of 15 minutes or more.
@@ -169,35 +275,26 @@ pub struct Agenda {
 }
 
 pub fn agenda(sessions: &[ClassSession], marks: &Marks, now: Moment) -> Agenda {
-    let day = |date: Date| {
-        let mut v: Vec<&ClassSession> = sessions
-            .iter()
-            .filter(|s| s.day == date.weekday() && !marks.is_vacant(s, date))
-            .collect();
-        v.sort_by_key(|s| (s.start, s.end));
-        v
-    };
-    let items: Vec<AgendaItem> = day(now.date)
+    let items: Vec<AgendaItem> = meetings_from(sessions, marks, now.date, 1)
         .into_iter()
-        .map(|s| AgendaItem {
-            phase: if s.end <= now.minute {
+        .map(|m| AgendaItem {
+            phase: if m.session.end <= now.minute {
                 Phase::Past
-            } else if s.start <= now.minute {
+            } else if m.session.start <= now.minute {
                 Phase::InSession
             } else {
                 Phase::Upcoming
             },
-            mark: marks.get(s, now.date),
-            session: s.clone(),
+            meeting: m,
         })
         .collect();
     let free_minutes_left = items
         .windows(2)
-        .map(|w| (w[0].session.end, w[1].session.start))
+        .map(|w| (w[0].meeting.session.end, w[1].meeting.session.start))
         .filter(|&(end, start)| start >= end + 15 && start > now.minute)
         .map(|(end, start)| start - end)
         .sum();
-    let tomorrow_first = day(now.date.add_days(1)).first().map(|s| (*s).clone());
+    let tomorrow_first = meetings_from(sessions, marks, now.date.add_days(1), 1).into_iter().next().map(|m| m.session);
     Agenda { items, tomorrow_first, free_minutes_left }
 }
 
@@ -213,16 +310,15 @@ pub struct Upcoming {
 /// The next meeting that hasn't finished, looking through next week so
 /// Sunday night still finds Monday's first class.
 pub fn next_class(sessions: &[ClassSession], marks: &Marks, now: Moment) -> Option<Upcoming> {
-    let week = now.date.week_start();
     let now_abs = now.date.days() * 1440 + i64::from(now.minute);
-    [week, week.add_days(7)]
+    let week_start = now.date.week_start();
+    meetings_from(sessions, marks, week_start, 14)
         .into_iter()
-        .flat_map(|w| sessions.iter().map(move |s| (s, w.add_days(i64::from(s.day.number()) - 1))))
-        .filter(|(s, date)| date.days() * 1440 + i64::from(s.end) > now_abs && !marks.is_vacant(s, *date))
-        .min_by_key(|(s, date)| (date.days() * 1440 + i64::from(s.start), s.start))
-        .map(|(s, date)| {
-            let start = date.days() * 1440 + i64::from(s.start);
-            Upcoming { session: s.clone(), date, is_now: start <= now_abs, minutes_away: (start - now_abs).max(0) }
+        .filter(|m| m.end_abs() > now_abs)
+        .min_by_key(|m| (m.start_abs(), m.session.start))
+        .map(|m| {
+            let start = m.start_abs();
+            Upcoming { is_now: start <= now_abs, minutes_away: (start - now_abs).max(0), date: m.date, session: m.session }
         })
 }
 
@@ -313,29 +409,26 @@ pub struct Reminder {
 /// skip whole-term vacancies).
 pub fn reminders(sessions: &[ClassSession], marks: &Marks, now: Moment, lead: u16, days: u16) -> Vec<Reminder> {
     let now_abs = now.date.days() * 1440 + i64::from(now.minute);
-    let mut out: Vec<(i64, Reminder)> = (0..i64::from(days))
-        .map(|d| now.date.add_days(d))
-        .flat_map(|date| sessions.iter().filter(move |s| s.day == date.weekday()).map(move |s| (date, s)))
-        .filter(|(date, s)| !marks.is_vacant(s, *date))
-        .filter_map(|(date, s)| {
-            let at = date.days() * 1440 + i64::from(s.start) - i64::from(lead);
+    let mut out: Vec<(i64, Reminder)> = meetings_from(sessions, marks, now.date, i64::from(days))
+        .into_iter()
+        .filter_map(|m| {
+            let at = m.start_abs() - i64::from(lead);
             if at <= now_abs {
                 return None;
             }
-            let fire = Date::from_days(at.div_euclid(1440));
-            let online = marks.get(s, date) == Mark::Online;
             let mut h: i32 = 17;
-            for b in format!("{}@{date}", s.id()).bytes() {
+            for b in format!("{}@{}", m.id, m.date).bytes() {
                 h = h.wrapping_mul(31).wrapping_add(i32::from(b));
             }
+            let s = &m.session;
             Some((
                 at,
                 Reminder {
                     id: h & 0x7fff_ffff,
-                    date: fire,
+                    date: Date::from_days(at.div_euclid(1440)),
                     minute: at.rem_euclid(1440) as u16,
                     title: format!("{} in {lead} min", s.subject_code),
-                    body: format!("{} · {}{}", s.description, clock(s.start), if online { " · Online" } else { "" }),
+                    body: format!("{} · {}{}", s.description, clock(s.start), if m.mark == Mark::Online { " · Online" } else { "" }),
                 },
             ))
         })
@@ -445,7 +538,7 @@ mod tests {
     fn vacant_this_week_only_skips_this_week_but_not_next() {
         let w = week();
         let mut marks = Marks::default();
-        marks.weekly.entry(w[0].id()).or_default().insert(Date::new(2026, 8, 3), Mark::Vacant);
+        marks.mode.set(&w[0].id(), Some(Date::new(2026, 8, 3)), Some(Mark::Vacant));
         assert_eq!(glance(&w, &marks, at(3, 8, 0), None, false).line(), "GEED 005 · at 1PM");
         let n = next_class(&w, &marks, at(9, 21, 0)).unwrap();
         assert_eq!(n.session.subject_code, "COMP 002");
@@ -455,7 +548,7 @@ mod tests {
     fn online_classes_still_count() {
         let w = week();
         let mut marks = Marks::default();
-        marks.term.insert(w[0].id(), Mark::Online);
+        marks.mode.set(&w[0].id(), None, Some(Mark::Online));
         assert_eq!(glance(&w, &marks, at(3, 8, 48), None, false).line(), "COMP 002 · in 12m");
     }
 
@@ -472,8 +565,8 @@ mod tests {
             ]
         );
         let mut marks = Marks::default();
-        marks.weekly.entry(w[1].id()).or_default().insert(Date::new(2026, 8, 3), Mark::Vacant);
-        marks.term.insert(w[2].id(), Mark::Online);
+        marks.mode.set(&w[1].id(), Some(Date::new(2026, 8, 3)), Some(Mark::Vacant));
+        marks.mode.set(&w[2].id(), None, Some(Mark::Online));
         let r = reminders(&w, &marks, at(3, 9, 30), 10, 8);
         assert_eq!(r.iter().map(|r| r.date.to_string()).collect::<Vec<_>>(), ["2026-08-04", "2026-08-10", "2026-08-10"]);
         assert_eq!(r[0].body, " · 9AM · Online");
@@ -502,5 +595,56 @@ mod tests {
         assert_eq!(a.free_minutes_left, 130);
         assert_eq!(a.tomorrow_first.unwrap().subject_code, "COMP 001");
         assert_eq!(agenda(&week(), &Marks::default(), at(3, 13, 30)).free_minutes_left, 0);
+    }
+
+    fn moved(w: &[ClassSession], i: usize, week: Option<Date>, day: Weekday, start: u16, end: u16) -> Marks {
+        let mut marks = Marks::default();
+        marks.moved.set(&w[i].id(), week, Some(Slot { day, start, end }));
+        marks
+    }
+
+    #[test]
+    fn a_class_moved_for_the_term_shows_at_its_new_time_everywhere() {
+        let w = week();
+        // GEED 005 moves from Monday 1PM to Wednesday 3PM for the term.
+        let marks = moved(&w, 1, None, Wednesday, 15 * 60, 16 * 60);
+        let wk = super::week(&w, &marks, Date::new(2026, 8, 5));
+        let geed = wk.iter().find(|m| m.session.subject_code == "GEED 005").unwrap();
+        assert_eq!((geed.date, geed.session.start, geed.moved, geed.id.as_str()), (Date::new(2026, 8, 5), 900, true, "GEED 005-1-780-870"));
+        assert_eq!(glance(&w, &marks, at(3, 11, 0), None, false).line(), "No more classes today · Tomorrow COMP 001 at 9AM");
+        assert_eq!(glance(&w, &marks, at(5, 14, 50), None, false).line(), "GEED 005 · in 10m");
+        let r = reminders(&w, &marks, at(3, 11, 0), 10, 3);
+        assert_eq!(r.iter().map(|r| (r.date.to_string(), r.minute)).collect::<Vec<_>>(), [("2026-08-04".into(), 530), ("2026-08-05".into(), 890)]);
+    }
+
+    #[test]
+    fn a_class_moved_for_one_week_returns_the_next() {
+        let w = week();
+        let marks = moved(&w, 0, Some(Date::new(2026, 8, 5)), Monday, 7 * 60, 8 * 60);
+        assert_eq!(glance(&w, &marks, at(3, 6, 55), None, false).line(), "COMP 002 · in 5m");
+        let n = next_class(&w, &marks, at(9, 21, 0)).unwrap();
+        assert_eq!((n.date, n.session.start), (Date::new(2026, 8, 10), 9 * 60));
+    }
+
+    #[test]
+    fn marks_follow_a_moved_class_by_its_original_id() {
+        let w = week();
+        let mut marks = moved(&w, 1, None, Wednesday, 15 * 60, 16 * 60);
+        marks.mode.set(&w[1].id(), Some(Date::new(2026, 8, 3)), Some(Mark::Vacant));
+        assert!(agenda(&w, &marks, at(5, 8, 0)).items.is_empty());
+        assert_eq!(agenda(&w, &marks, at(12, 8, 0)).items[0].meeting.session.subject_code, "GEED 005");
+    }
+
+    #[test]
+    fn clearing_a_week_override_falls_back_to_the_term() {
+        let mut l: Layers<Mark> = Layers::default();
+        l.set("x", None, Some(Mark::Online));
+        l.set("x", Some(Date::new(2026, 8, 5)), Some(Mark::Vacant));
+        assert_eq!(l.get("x", Date::new(2026, 8, 3)), Some(Mark::Vacant));
+        l.set("x", Some(Date::new(2026, 8, 3)), None);
+        assert_eq!(l.get("x", Date::new(2026, 8, 3)), Some(Mark::Online));
+        assert!(l.weekly.is_empty());
+        l.set("x", None, None);
+        assert_eq!(l.get("x", Date::new(2026, 8, 3)), None);
     }
 }
