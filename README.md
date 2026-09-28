@@ -21,8 +21,18 @@ Only your own account is supported, which is what PUP's terms allow.
 ## Running on the iOS simulator
 
 ```bash
-pnpm tauri ios build --target aarch64-sim --debug
-xcrun simctl install booted src-tauri/gen/apple/build/arm64-sim/IntPortal.app
+scripts/sim.sh
 ```
 
+It builds the debug app, installs it on the booted simulator and launches it. Tap "Look around with demo data" to skip sign-in.
+
 Needs the iOS simulator runtime that matches your Xcode (`xcodebuild -downloadPlatform iOS`). `pnpm tauri ios dev "<name>"` can pick a real device with the same model name, which then needs signing; install the simulator build directly instead.
+
+## Keep it small
+
+Rust and Xcode builds grow fast; this project once reached hundreds of GB of caches.
+
+- All crates share one Cargo workspace: one `target/` and one `Cargo.lock` at the root. Don't add a crate outside `[workspace] members`.
+- Dev builds keep line tables only (`[profile.dev]` in the root `Cargo.toml`).
+- `scripts/disk.sh` prints what the builds use. `scripts/clean.sh` deletes this repo's `target/`, the Xcode build folder and this project's DerivedData, and nothing else.
+- Never commit build output. Stage paths by name, not `git add -A`.

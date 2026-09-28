@@ -22,9 +22,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            src-tauri
-            spikes/s0-sis-http
-      - run: cargo test --manifest-path src-tauri/Cargo.toml
-      - run: cargo build --manifest-path spikes/s0-sis-http/Cargo.toml
+      - run: cargo test -p intportal
+      - run: cargo build -p s0-sis-http

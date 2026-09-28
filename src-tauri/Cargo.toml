@@ -26,14 +26,5 @@ tauri-plugin-notification = "2"
 intportal-core = { version = "0.1.0", path = "../crates/intportal-core" }
 tokio = { version = "1", features = ["sync", "time"] }
 
-
-# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = 3
-panic = "abort"
-strip = true
-
 [target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }

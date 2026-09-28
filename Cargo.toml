@@ -1,0 +1,19 @@
+# One workspace, one target/ and one Cargo.lock for every crate.
+[workspace]
+members = ["src-tauri", "crates/intportal-core", "spikes/s0-sis-http"]
+resolver = "2"
+
+# Line tables only (backtraces keep file:line) keeps target/ a few GB instead
+# of tens. Not `debug = false` for dependencies: swift-rs then builds the Tauri
+# Swift packages in release, which hides their @_cdecl symbols and the iOS
+# link fails.
+[profile.dev]
+debug = "line-tables-only"
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
