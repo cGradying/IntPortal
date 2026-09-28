@@ -239,10 +239,20 @@ fn notes(state: tauri::State<'_, AppState>) -> Res<Vec<NoteItem>> {
     Ok(list.into_iter().map(|note| NoteItem { preview: notes::preview(&note.text, 80), note }).collect())
 }
 
+/// Notes as Markdown: one note by `key`, or every note when it's empty.
+#[tauri::command]
+fn notes_markdown(state: tauri::State<'_, AppState>, key: Option<String>) -> Res<String> {
+    let mut list = state.store.lock().unwrap().notes().map_err(err)?;
+    if let Some(k) = key {
+        list.retain(|n| n.key == k);
+    }
+    Ok(notes::markdown(&list))
+}
+
 /// Saves as the student types; blank text deletes the note.
 #[tauri::command]
 fn set_note(state: tauri::State<'_, AppState>, key: String, text: String, title: Option<String>) -> Res<()> {
-    if !(key.starts_with("class:") || key.starts_with("day:")) {
+    if !notes::is_known_key(&key) {
         return Err("Unknown note".into());
     }
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
@@ -430,7 +440,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, export_ics, today, reminders, campus, demo
+            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, today, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
