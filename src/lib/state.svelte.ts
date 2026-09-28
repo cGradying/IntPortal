@@ -112,10 +112,32 @@ export function setStudyAt(minute: number) {
   scheduleReminders(true);
 }
 
+/** Hands the next class to the home-screen widget and the Live Activity.
+ *  Only iOS has the glance plugin; elsewhere the call fails quietly. */
+function pushGlance() {
+  const t = app.today;
+  if (!t) return;
+  const n = t.next;
+  const at = (date: string, minute: number) => {
+    const [y, m, d] = date.split("-").map(Number);
+    return new Date(y, m - 1, d, Math.floor(minute / 60), minute % 60).getTime();
+  };
+  const next = n && {
+    code: n.session.subject_code,
+    title: n.session.description,
+    start: at(n.date, n.session.start),
+    end: at(n.date, n.session.end),
+    online: t.agenda.items.some((i) => i.session.subject_code === n.session.subject_code && i.session.start === n.session.start && i.mark === "online"),
+  };
+  invoke("plugin:glance|update", { next, line: t.glance_line }).catch(() => {});
+}
+
+
 export async function refreshToday() {
   if (!app.snapshot) return;
   try {
     app.today = await api.today(moment(), app.sync === "failed" ? app.syncError : null);
+    pushGlance();
   } catch {
     // The glance keeps its last line.
   }

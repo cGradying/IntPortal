@@ -35,3 +35,4 @@ objc2 = "0.6"
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-biometric = "2"
 tauri-plugin-haptics = "2"
+tauri-plugin-glance = { path = "../plugins/tauri-plugin-glance" }
