@@ -1,5 +1,6 @@
 <script lang="ts">
   import PixelIcon, { type SpriteName } from "./PixelIcon.svelte";
+  import { buzz } from "./haptics";
   import { app, type Tab } from "./state.svelte";
 
   const tabs: { id: Tab; label: string; icon: SpriteName }[] = [
@@ -13,7 +14,7 @@
 
 <nav class="bar">
   {#each tabs as t (t.id)}
-    <button class:on={app.tab === t.id} onclick={() => (app.tab = t.id)} aria-current={app.tab === t.id ? "page" : undefined}>
+    <button class:on={app.tab === t.id} onclick={() => { if (app.tab !== t.id) buzz.select(); app.tab = t.id; }} aria-current={app.tab === t.id ? "page" : undefined}>
       <PixelIcon name={t.icon} size={22} accent={app.tab === t.id ? "var(--gold)" : "currentColor"} />
       <span>{t.label}</span>
     </button>
