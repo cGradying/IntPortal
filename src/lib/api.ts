@@ -44,6 +44,39 @@ export interface NoteItem {
   preview: string;
 }
 
+export type ItemKind = "lecture" | "quiz" | "exam" | "project";
+
+export interface SyllabusItem {
+  id: string;
+  topic: string;
+  kind: ItemKind;
+  week: number | null;
+  date: string | null;
+  done: boolean;
+}
+
+export interface Component {
+  name: string;
+  weight: number;
+  score: number | null;
+}
+
+export interface Plan {
+  items: SyllabusItem[];
+  grading: Component[];
+  target: number | null;
+}
+
+export interface Tally {
+  weight_total: number;
+  earned: number;
+  scored_weight: number;
+  standing: number | null;
+  equivalent: number | null;
+  needed: number | null;
+  target: number;
+}
+
 export interface Goals {
   target_gpa: number | null;
   program_units: number | null;
@@ -102,6 +135,7 @@ export interface Snapshot {
   marks: Layers<Mark> & { moved: Layers<Slot> };
   colors: Record<string, string>;
   goals: Goals;
+  syllabus: Record<string, Plan>;
   host: string | null;
   last_synced: string | null;
 }
@@ -171,6 +205,10 @@ export const api = {
   standing: () => invoke<Standing>("standing"),
   notes: () => invoke<NoteItem[]>("notes"),
   notesMarkdown: (key: string | null) => invoke<string>("notes_markdown", { key }),
+  parseOutline: (text: string, today: string) => invoke<SyllabusItem[]>("parse_outline", { text, today }),
+  setPlan: (subjectCode: string, plan: Plan) => invoke<Snapshot>("set_plan", { subjectCode, plan }),
+  tally: (components: Component[], target: number) => invoke<Tally>("tally", { components, target }),
+  due: (today: string, days: number) => invoke<[string, SyllabusItem][]>("due", { today, days }),
   exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until }),
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
   today: (now: Moment, syncTrouble: string | null) => invoke<Today>("today", { now, syncTrouble }),

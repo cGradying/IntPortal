@@ -9,4 +9,5 @@ pub mod notes;
 pub mod schedule;
 pub mod sis;
 pub mod store;
+pub mod syllabus;
 pub mod today;

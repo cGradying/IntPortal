@@ -1,7 +1,7 @@
 <script lang="ts">
   import Confetti from "../Confetti.svelte";
   import Scene from "../Scene.svelte";
-  import { app, adopt } from "../state.svelte";
+  import { app, adopt, openSubject } from "../state.svelte";
   import { api, subjectColor, type Reach, type Standing, type SubjectGrade } from "../api";
 
   let standing = $state<Standing | null>(null);
@@ -209,10 +209,10 @@
       {@const n = numeric(s)}
       <li class="row" style:--c={subjectColor(s.subject_code, colors)}>
         <span class="stripe"></span>
-        <span class="what">
+        <button class="what" onclick={() => openSubject(s.subject_code, s.description)} aria-label="{s.subject_code} syllabus and grading">
           <strong>{s.subject_code}</strong>
           <span>{s.description}</span>
-        </span>
+        </button>
         <span class="units num">{s.units}u</span>
         {#if n !== null}
           <span class="stamp" class:fresh={fresh.has(key(s))} class:fail={n >= 5}>{s.final_grade}</span>
@@ -232,6 +232,14 @@
 </div>
 
 <style>
+  button.what {
+    flex: 1;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    text-align: left;
+  }
   .screen {
     display: grid;
     gap: 14px;

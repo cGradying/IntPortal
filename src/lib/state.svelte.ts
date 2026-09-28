@@ -20,6 +20,8 @@ export const app = $state({
   /** Minutes before class; 0 turns reminders off. */
   reminderLead: Number(read("reminderLead") ?? 10),
   notes: [] as NoteItem[],
+  /** The subject page open, if any. */
+  subject: null as null | { code: string; description: string },
   /** The note open in the editor, if any. */
   editing: null as null | { key: string; heading: string; title: string | null },
   /** What is queued with the platform right now. */
@@ -101,6 +103,10 @@ export async function refreshNotes() {
   } catch {
     // The list keeps what it had.
   }
+}
+
+export function openSubject(code: string, description: string) {
+  app.subject = { code, description };
 }
 
 export function openNote(key: string, heading: string, title: string | null = null) {

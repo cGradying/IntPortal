@@ -10,6 +10,7 @@
   import You from "$lib/screens/You.svelte";
   import Gallery from "$lib/Gallery.svelte";
   import NoteEditor from "$lib/NoteEditor.svelte";
+  import SubjectPage from "$lib/SubjectPage.svelte";
   import { api } from "$lib/api";
   import { watchDynamicIsland } from "$lib/glance";
   import { app, adopt, setRoom, startClock } from "$lib/state.svelte";
@@ -52,6 +53,7 @@
     app.today = null;
     app.notes = [];
     app.editing = null;
+    app.subject = null;
     app.tab = "today";
     signedIn = false;
     inside = false;
@@ -79,6 +81,9 @@
     </main>
     <TabBar />
   </div>
+  {#if app.subject}
+    {#key app.subject.code}<SubjectPage {...app.subject} />{/key}
+  {/if}
   {#if app.editing}
     {#key app.editing.key}<NoteEditor {...app.editing} />{/key}
   {/if}

@@ -4,6 +4,7 @@
 use crate::grades::{GradeReport, Goals};
 use crate::model::ClassSession;
 use crate::notes::Note;
+use crate::syllabus::Plan;
 use crate::today::Marks;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::de::DeserializeOwned;
@@ -23,6 +24,9 @@ pub struct Snapshot {
     pub colors: BTreeMap<String, String>,
     #[serde(default)]
     pub goals: Goals,
+    /// Subject code to its syllabus plan.
+    #[serde(default)]
+    pub syllabus: BTreeMap<String, Plan>,
     /// The host that last proved good, tried first next time.
     pub host: Option<String>,
     /// RFC 3339, written by the shell.
@@ -80,6 +84,7 @@ impl Store {
             marks: self.get("marks")?.unwrap_or_default(),
             colors: self.get("colors")?.unwrap_or_default(),
             goals: self.get("goals")?.unwrap_or_default(),
+            syllabus: self.get("syllabus")?.unwrap_or_default(),
             host: self.get::<Option<_>>("host")?.flatten(),
             last_synced: self.get::<Option<_>>("last_synced")?.flatten(),
         })
@@ -92,6 +97,7 @@ impl Store {
         self.put("marks", &s.marks)?;
         self.put("colors", &s.colors)?;
         self.put("goals", &s.goals)?;
+        self.put("syllabus", &s.syllabus)?;
         self.put("host", &s.host)?;
         self.put("last_synced", &s.last_synced)
     }

@@ -1,8 +1,8 @@
 <script lang="ts">
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
-  import { app, openNote } from "../state.svelte";
-  import { clock, isoDate, span, subjectColor } from "../api";
+  import { app, openNote, openSubject } from "../state.svelte";
+  import { api, clock, isoDate, span, subjectColor, type SyllabusItem } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
   const now = $derived((app.today, new Date()));
@@ -16,6 +16,19 @@
   const items = $derived(t?.agenda.items ?? []);
   const colors = $derived(app.snapshot?.colors ?? {});
   const dayKey = $derived(`day:${isoDate(now)}`);
+
+  // Quizzes, exams and projects due this week, from the syllabus pages.
+  let due = $state<[string, SyllabusItem][]>([]);
+  $effect(() => {
+    void app.snapshot;
+    api.due(isoDate(new Date()), 7).then((d) => (due = d)).catch(() => {});
+  });
+  const dueDay = (d: string | null) => {
+    if (!d) return "";
+    const days = Math.round((new Date(`${d}T00:00`).getTime() - new Date(isoDate(new Date()) + "T00:00").getTime()) / 86_400_000);
+    return days === 0 ? "Today" : days === 1 ? "Tomorrow" : new Date(`${d}T00:00`).toLocaleDateString(undefined, { weekday: "short" });
+  };
+  const describe = (code: string) => app.snapshot?.sessions.find((x) => x.subject_code === code)?.description ?? "";
   const dayNote = $derived(app.notes.find((n) => n.key === dayKey));
 
   /** Big number and its unit for the hero countdown. */
@@ -84,6 +97,22 @@
     {/if}
   </section>
 
+  {#if due.length}
+    <section class="due card notch">
+      <p class="label">Coming up this week</p>
+      <ul>
+        {#each due as [code, it] (code + it.id)}
+          <li>
+            <button onclick={() => openSubject(code, describe(code))}>
+              <span class="when">{dueDay(it.date)}</span>
+              <span class="what"><strong>{it.topic}</strong><small>{code} · {it.kind}</small></span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
   <section class="day">
     <div class="head">
       <p class="label">Today</p>
@@ -128,6 +157,46 @@
 </div>
 
 <style>
+  .due {
+    --step: 4px;
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+  }
+  .due ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 4px;
+  }
+  .due button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    text-align: left;
+  }
+  .due .when {
+    width: 72px;
+    flex: none;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--gold);
+  }
+  .due .what {
+    display: grid;
+    min-width: 0;
+  }
+  .due small {
+    font-size: 12px;
+    color: var(--ink-3);
+  }
   .daynote {
     margin-top: 8px;
     max-width: 100%;

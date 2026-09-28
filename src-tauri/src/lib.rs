@@ -9,6 +9,7 @@ use intportal_core::notes::{self, Note};
 use intportal_core::schedule;
 use intportal_core::sis::{self, sign_in_with_failover, Credentials, SisClient};
 use intportal_core::store::{Snapshot, Store};
+use intportal_core::syllabus::{self, Component, Item, Plan, Tally};
 use intportal_core::today::{self, Agenda, Date, Glance, Mark, Meeting, Moment, Reminder, Slot, Upcoming};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -270,6 +271,42 @@ fn export_ics(state: tauri::State<'_, AppState>, from: Date, until: Date) -> Res
     Ok(calendar::ics(&snap.sessions, &snap.marks, from, until, &calendar::utc_stamp(now)))
 }
 
+/// A pasted outline read into items for the student to review; nothing saved.
+#[tauri::command]
+fn parse_outline(text: String, today: Date) -> Vec<Item> {
+    syllabus::parse_outline(&text, today)
+}
+
+/// Replaces a subject's plan; an empty plan removes it.
+#[tauri::command]
+fn set_plan(state: tauri::State<'_, AppState>, subject_code: String, mut plan: Plan) -> Res<Snapshot> {
+    if plan.grading.iter().any(|c| !(0.0..=100.0).contains(&c.weight) || c.score.is_some_and(|s| !(0.0..=100.0).contains(&s))) {
+        return Err("Weights and scores are percents, 0 to 100.".into());
+    }
+    plan.assign_ids();
+    edit(&state, |s| {
+        if plan == Plan::default() {
+            s.syllabus.remove(&subject_code);
+        } else {
+            s.syllabus.insert(subject_code, plan);
+        }
+    })
+}
+
+/// The grading arithmetic, live while the student edits.
+#[tauri::command]
+fn tally(components: Vec<Component>, target: f64) -> Tally {
+    syllabus::tally(&components, target)
+}
+
+/// Quizzes, exams and projects due in the next `days` days, every subject.
+#[tauri::command]
+fn due(state: tauri::State<'_, AppState>, today: Date, days: i64) -> Res<Vec<(String, Item)>> {
+    let snap = snapshot_of(&state)?;
+    let all: Vec<(String, Item)> = snap.syllabus.iter().flat_map(|(code, p)| p.items.iter().map(move |i| (code.clone(), i.clone()))).collect();
+    Ok(syllabus::due(&all, today, days))
+}
+
 /// The target GPA and the program's units; either can be empty.
 #[tauri::command]
 fn set_goals(state: tauri::State<'_, AppState>, goals: Goals) -> Res<Snapshot> {
@@ -440,7 +477,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, today, reminders, campus, demo
+            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, today, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
