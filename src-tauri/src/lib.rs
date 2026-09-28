@@ -2,7 +2,7 @@
 //! to the Svelte UI as commands. Logic lives in `intportal-core`.
 
 use intportal_core::campus;
-use intportal_core::grades::{self, GradeReport};
+use intportal_core::grades::{self, Goals, GradeReport, Standing};
 use intportal_core::model::{ClassSession, Weekday};
 use intportal_core::schedule;
 use intportal_core::sis::{self, sign_in_with_failover, Credentials, SisClient};
@@ -223,6 +223,25 @@ fn set_color(state: tauri::State<'_, AppState>, subject_code: String, color: Opt
     })
 }
 
+/// The target GPA and the program's units; either can be empty.
+#[tauri::command]
+fn set_goals(state: tauri::State<'_, AppState>, goals: Goals) -> Res<Snapshot> {
+    if goals.target_gpa.is_some_and(|g| !(1.0..=5.0).contains(&g)) {
+        return Err("A target GPA runs from 1.00 to 5.00.".into());
+    }
+    if goals.program_units.is_some_and(|u| !(1.0..=400.0).contains(&u)) {
+        return Err("Program units look off; check your curriculum.".into());
+    }
+    edit(&state, |s| s.goals = goals)
+}
+
+/// GPA, cumulative GPA, units, past terms and the target's reach.
+#[tauri::command]
+fn standing(state: tauri::State<'_, AppState>) -> Res<Standing> {
+    let snap = snapshot_of(&state)?;
+    Ok(grades::standing(snap.grades.as_ref(), &snap.history, snap.goals))
+}
+
 /// Every meeting in the week holding `on`, after marks and moves.
 #[tauri::command]
 fn week(state: tauri::State<'_, AppState>, on: Date) -> Res<Vec<Meeting>> {
@@ -374,7 +393,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, today, reminders, campus, demo
+            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, today, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

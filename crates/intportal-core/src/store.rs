@@ -1,7 +1,7 @@
 //! Everything the app keeps on the device, in one SQLite file (ADR-0002).
 //! One JSON value per key: the data is small and read whole.
 
-use crate::grades::GradeReport;
+use crate::grades::{GradeReport, Goals};
 use crate::model::ClassSession;
 use crate::today::Marks;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -20,6 +20,8 @@ pub struct Snapshot {
     pub marks: Marks,
     /// Subject code to a CSS colour.
     pub colors: BTreeMap<String, String>,
+    #[serde(default)]
+    pub goals: Goals,
     /// The host that last proved good, tried first next time.
     pub host: Option<String>,
     /// RFC 3339, written by the shell.
@@ -73,6 +75,7 @@ impl Store {
             history: self.get("history")?.unwrap_or_default(),
             marks: self.get("marks")?.unwrap_or_default(),
             colors: self.get("colors")?.unwrap_or_default(),
+            goals: self.get("goals")?.unwrap_or_default(),
             host: self.get::<Option<_>>("host")?.flatten(),
             last_synced: self.get::<Option<_>>("last_synced")?.flatten(),
         })
@@ -84,6 +87,7 @@ impl Store {
         self.put("history", &s.history)?;
         self.put("marks", &s.marks)?;
         self.put("colors", &s.colors)?;
+        self.put("goals", &s.goals)?;
         self.put("host", &s.host)?;
         self.put("last_synced", &s.last_synced)
     }
@@ -119,6 +123,7 @@ mod tests {
         snap.marks.mode.set(&session.id(), Some(Date::new(2026, 8, 3)), Some(Mark::Vacant));
         snap.marks.moved.set(&session.id(), None, Some(Slot { day: Weekday::Friday, start: 600, end: 720 }));
         snap.colors.insert("COMP 20073".into(), "#3b82f6".into());
+        snap.goals = Goals { target_gpa: Some(1.5), program_units: Some(152.0) };
         store.save(&snap).unwrap();
         assert_eq!(store.load().unwrap(), snap);
 

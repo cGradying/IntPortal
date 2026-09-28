@@ -35,6 +35,35 @@ export interface GradeReport {
 
 export type Mark = "in_person" | "online" | "vacant";
 
+export interface Goals {
+  target_gpa: number | null;
+  program_units: number | null;
+}
+
+/** Where the target GPA stands against the unposted subjects. */
+export type Reach =
+  | { kind: "settled" }
+  | { kind: "out_of_reach" }
+  | { kind: "secured" }
+  | { kind: "needs"; average: number; subjects: number };
+
+export interface TermGpa {
+  school_year: string | null;
+  semester: string | null;
+  gpa: number;
+  units: number;
+}
+
+export interface Standing {
+  term_gpa: number | null;
+  cumulative_gpa: number | null;
+  units_done: number;
+  past: TermGpa[];
+  personal_best: boolean;
+  reach: Reach | null;
+  goals: Goals;
+}
+
 /** Term-wide values, and single-week overrides keyed by that week's Monday. */
 export interface Layers<T> {
   term: Record<string, T>;
@@ -63,6 +92,7 @@ export interface Snapshot {
   history: GradeReport[];
   marks: Layers<Mark> & { moved: Layers<Slot> };
   colors: Record<string, string>;
+  goals: Goals;
   host: string | null;
   last_synced: string | null;
 }
@@ -128,6 +158,8 @@ export const api = {
     invoke<Snapshot>("set_move", { sessionId, week, slot }),
   setColor: (subjectCode: string, color: string | null) => invoke<Snapshot>("set_color", { subjectCode, color }),
   week: (on: string) => invoke<Meeting[]>("week", { on }),
+  setGoals: (goals: Goals) => invoke<Snapshot>("set_goals", { goals }),
+  standing: () => invoke<Standing>("standing"),
   today: (now: Moment, syncTrouble: string | null) => invoke<Today>("today", { now, syncTrouble }),
   reminders: (now: Moment, lead: number, days: number) => invoke<Reminder[]>("reminders", { now, lead, days }),
   campus: (studentNumber: string) => invoke<CampusResolution>("campus", { studentNumber }),

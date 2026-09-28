@@ -147,6 +147,93 @@ pub fn needed_average(subjects: &[SubjectGrade], target: f64) -> Option<f64> {
     Some(round2((target * (units + remaining) - weighted) / remaining))
 }
 
+/// What the student set for themselves. Kept on the device, never sent.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub struct Goals {
+    /// The term GPA they aim for, 1.00 to 5.00.
+    pub target_gpa: Option<f64>,
+    /// Units their program needs to graduate.
+    pub program_units: Option<f64>,
+}
+
+/// Where the target stands against the subjects still unposted.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Reach {
+    /// Nothing with units left to post.
+    Settled,
+    /// It would take better than 1.00 on everything left.
+    OutOfReach,
+    /// Even 5.00 on everything left still makes it.
+    Secured,
+    /// The average needed on every unposted subject.
+    Needs { average: f64, subjects: usize },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TermGpa {
+    pub school_year: Option<String>,
+    pub semester: Option<String>,
+    pub gpa: f64,
+    pub units: f64,
+}
+
+/// The Grades screen's numbers, all from here so the UI never re-does the math.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Standing {
+    pub term_gpa: Option<f64>,
+    /// Units-weighted over every posted grade in every term.
+    pub cumulative_gpa: Option<f64>,
+    /// Posted units in every term, toward `goals.program_units`.
+    pub units_done: f64,
+    /// Past terms with a GPA, oldest first; the current term is not in it.
+    pub past: Vec<TermGpa>,
+    /// This term beats every past term (lower is better).
+    pub personal_best: bool,
+    pub reach: Option<Reach>,
+    pub goals: Goals,
+}
+
+/// The term picker lists the current term too; it is the same term when it
+/// has the same subjects and sections.
+fn same_term(a: &GradeReport, b: &GradeReport) -> bool {
+    fn key(r: &GradeReport) -> Vec<(&str, &str)> {
+        let mut k: Vec<(&str, &str)> = r.subjects.iter().map(|s| (s.subject_code.as_str(), s.section_code.as_str())).collect();
+        k.sort_unstable();
+        k
+    }
+    !a.subjects.is_empty() && key(a) == key(b)
+}
+
+pub fn standing(current: Option<&GradeReport>, history: &[GradeReport], goals: Goals) -> Standing {
+    let mut past: Vec<&GradeReport> = history.iter().filter(|h| current.is_none_or(|c| !same_term(c, h))).collect();
+    past.sort_by_key(|r| r.term_order());
+    let every: Vec<SubjectGrade> = past.iter().flat_map(|r| r.subjects.iter()).chain(current.into_iter().flat_map(|c| c.subjects.iter())).cloned().collect();
+    let term_gpa = current.and_then(GradeReport::gpa);
+    let past: Vec<TermGpa> = past
+        .into_iter()
+        .filter_map(|r| {
+            Some(TermGpa { gpa: r.gpa()?, units: r.completed_units(), school_year: r.school_year.clone(), semester: r.semester.clone() })
+        })
+        .collect();
+    let personal_best = term_gpa.is_some_and(|g| !past.is_empty() && past.iter().all(|p| g < p.gpa));
+    let reach = goals.target_gpa.zip(current).map(|(target, c)| match needed_average(&c.subjects, target) {
+        None => Reach::Settled,
+        Some(a) if a < 1.0 => Reach::OutOfReach,
+        Some(a) if a >= 5.0 => Reach::Secured,
+        Some(average) => Reach::Needs { average, subjects: c.subjects.iter().filter(|s| !s.is_posted() && s.units > 0.0).count() },
+    });
+    Standing {
+        term_gpa,
+        cumulative_gpa: gpa(&every),
+        units_done: every.iter().filter(|s| s.is_posted()).map(|s| s.units).sum(),
+        past,
+        personal_best,
+        reach,
+        goals,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,5 +317,42 @@ mod tests {
         let g = parse(&[row("COMP 20073", "3", "1.00"), row("MATH 20073", "3", "")]);
         assert_eq!(needed_average(&g, 1.50), Some(2.00));
         assert_eq!(needed_average(&parse(&[row("COMP 20073", "3", "1.00")]), 1.50), None);
+    }
+
+    fn term(y: &str, sem: &str, rows: &[GradeRow]) -> GradeReport {
+        GradeReport { subjects: parse(rows), summary: BTreeMap::new(), school_year: Some(y.into()), semester: Some(sem.into()) }
+    }
+
+    #[test]
+    fn standing_adds_past_terms_and_skips_the_current_one_in_history() {
+        let now_rows = [row("COMP 20083", "3", "1.25"), row("MATH 20013", "3", "")];
+        let current = GradeReport { school_year: None, semester: None, ..term("", "", &now_rows) };
+        let history = [
+            term("2026-2027", "First Semester", &now_rows),
+            term("2025-2026", "Second Semester", &[row("COMP 20073", "3", "1.75"), row("GEED 10053", "3", "2.25")]),
+            term("2025-2026", "First Semester", &[row("COMP 10013", "3", "1.50"), row("NSTP 1", "3", "INC")]),
+        ];
+        let s = standing(Some(&current), &history, Goals { target_gpa: Some(1.50), program_units: Some(150.0) });
+        assert_eq!(s.past.iter().map(|p| (p.semester.as_deref().unwrap(), p.gpa)).collect::<Vec<_>>(), [("First Semester", 1.5), ("Second Semester", 2.0)]);
+        assert_eq!((s.term_gpa, s.cumulative_gpa, s.units_done), (Some(1.25), Some(1.69), 12.0));
+        assert!(s.personal_best);
+        assert_eq!(s.reach, Some(Reach::Needs { average: 1.75, subjects: 1 }));
+    }
+
+    #[test]
+    fn reach_says_when_the_target_is_out_of_reach_secured_or_settled() {
+        let c = term("", "", &[row("A", "3", "2.50"), row("B", "1", "")]);
+        let at = |t: f64| standing(Some(&c), &[], Goals { target_gpa: Some(t), program_units: None }).reach;
+        assert_eq!(at(1.25), Some(Reach::OutOfReach));
+        assert_eq!(at(3.50), Some(Reach::Secured));
+        let done = term("", "", &[row("A", "3", "2.50")]);
+        assert_eq!(standing(Some(&done), &[], Goals { target_gpa: Some(2.0), program_units: None }).reach, Some(Reach::Settled));
+        assert_eq!(standing(Some(&done), &[], Goals::default()).reach, None);
+    }
+
+    #[test]
+    fn no_personal_best_without_past_terms() {
+        let c = term("", "", &[row("A", "3", "1.00")]);
+        assert!(!standing(Some(&c), &[], Goals::default()).personal_best);
     }
 }

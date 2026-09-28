@@ -2,9 +2,20 @@
   import Confetti from "../Confetti.svelte";
   import Scene from "../Scene.svelte";
   import { app, adopt } from "../state.svelte";
-  import { api, subjectColor, type GradeReport, type SubjectGrade } from "../api";
+  import { api, subjectColor, type Reach, type Standing, type SubjectGrade } from "../api";
 
-  const report = $derived(app.snapshot?.grades ?? null);
+  let standing = $state<Standing | null>(null);
+  // The core does the math; re-read whenever the snapshot changes.
+  $effect(() => {
+    void app.snapshot;
+    api.standing().then((st) => (standing = st)).catch(() => {});
+  });
+
+  // Which term the list shows: the current one, or a past one by its label.
+  let viewing = $state<string | null>(null);
+  const termKey = (r: { school_year: string | null; semester: string | null }) => `${r.semester ?? ""} ${r.school_year ?? ""}`.trim();
+  const pastReport = $derived(viewing ? (app.snapshot?.history ?? []).find((r) => termKey(r) === viewing) ?? null : null);
+  const report = $derived(pastReport ?? app.snapshot?.grades ?? null);
   const subjects = $derived(report?.subjects ?? []);
   const colors = $derived(app.snapshot?.colors ?? {});
   let loading = $state(false);
@@ -15,30 +26,19 @@
     return Number.isFinite(n) ? n : null;
   };
 
-  function gpa(list: SubjectGrade[]): number | null {
-    let w = 0, u = 0;
-    for (const s of list) {
-      const n = numeric(s);
-      if (n !== null && s.units > 0) {
-        w += n * s.units;
-        u += s.units;
-      }
-    }
-    return u ? Math.round((w / u) * 100) / 100 : null;
-  }
-
-  const current = $derived(gpa(subjects));
+  const shownGpa = $derived(viewing ? (standing?.past.find((p) => termKey(p) === viewing)?.gpa ?? null) : (standing?.term_gpa ?? null));
   const posted = $derived(subjects.filter((s) => numeric(s) !== null));
   const units = $derived(posted.reduce((a, s) => a + s.units, 0));
+  const best = $derived(!viewing && !!standing?.personal_best);
 
   // Every term with a GPA, oldest first, the current one last.
   const trend = $derived.by(() => {
-    const pts = (app.snapshot?.history ?? []).map((r: GradeReport) => ({ label: short(r), v: gpa(r.subjects) })).filter((p) => p.v !== null) as { label: string; v: number }[];
-    if (current !== null) pts.push({ label: "Now", v: current });
+    const pts = (standing?.past ?? []).map((p) => ({ label: short(p), v: p.gpa }));
+    if (standing?.term_gpa != null) pts.push({ label: "Now", v: standing.term_gpa });
     return pts;
   });
 
-  function short(r: GradeReport) {
+  function short(r: { school_year: string | null; semester: string | null }) {
     const s = (r.semester ?? "").toLowerCase();
     const sem = s.includes("1st") || s.includes("first") ? "1st" : s.includes("2nd") || s.includes("second") ? "2nd" : "Sum";
     return `${sem} ${(r.school_year ?? "").slice(2, 4)}`;
@@ -46,14 +46,10 @@
 
   // A term GPA better than every past term is a personal best (lower is
   // better). It celebrates once per value on this device.
-  const best = $derived.by(() => {
-    const past = (app.snapshot?.history ?? []).map((r) => gpa(r.subjects)).filter((v): v is number => v !== null);
-    return current !== null && past.length > 0 && current < Math.min(...past);
-  });
   let celebrate = $state(false);
   $effect(() => {
-    if (!best || current === null) return;
-    const key = `best-${current.toFixed(2)}`;
+    if (!best || shownGpa === null) return;
+    const key = `best-${shownGpa.toFixed(2)}`;
     let done = false;
     try {
       done = localStorage.getItem("celebrated") === key;
@@ -63,6 +59,38 @@
     }
     if (!done) celebrate = true;
   });
+
+  // Goals: typed as text so an empty field means "not set".
+  let target = $state("");
+  let program = $state("");
+  let goalError = $state("");
+  $effect(() => {
+    const g = app.snapshot?.goals;
+    target = g?.target_gpa != null ? g.target_gpa.toFixed(2) : "";
+    program = g?.program_units != null ? String(g.program_units) : "";
+  });
+  async function saveGoals() {
+    const num = (t: string) => (t.trim() === "" ? null : Number(t));
+    try {
+      await adopt(await api.setGoals({ target_gpa: num(target), program_units: num(program) }));
+      goalError = "";
+    } catch (e) {
+      goalError = String(e);
+    }
+  }
+
+  function reachLine(r: Reach): string {
+    switch (r.kind) {
+      case "settled":
+        return "Every grade this term is in.";
+      case "out_of_reach":
+        return "Out of reach this term, even with 1.00 on everything left.";
+      case "secured":
+        return "Already secured, whatever the rest turn out to be.";
+      case "needs":
+        return `Average ${r.average.toFixed(2)} or better on the ${r.subjects === 1 ? "last unposted subject" : `${r.subjects} unposted subjects`}.`;
+    }
+  }
 
   // Stamps land once: a grade first seen on this device plays its thunk.
   const SEEN = "stamped";
@@ -112,13 +140,22 @@
     <h1>Grades</h1>
   </header>
 
+  {#if standing?.past.length}
+    <div class="terms" role="tablist" aria-label="Term">
+      <button role="tab" class:on={!viewing} aria-selected={!viewing} onclick={() => (viewing = null)}>This term</button>
+      {#each [...standing.past].reverse() as p (termKey(p))}
+        <button role="tab" class:on={viewing === termKey(p)} aria-selected={viewing === termKey(p)} onclick={() => (viewing = termKey(p))}>{short(p)}</button>
+      {/each}
+    </div>
+  {/if}
+
   <section class="gpa card notch">
     {#if celebrate}<Confetti />{/if}
     <div>
       <p class="label">GPA</p>
-      <p class="value num">{current === null ? "—" : current.toFixed(2)}{#if best}<span class="pb" class:fresh={celebrate}>Personal best</span>{/if}</p>
+      <p class="value num">{shownGpa === null ? "—" : shownGpa.toFixed(2)}{#if best}<span class="pb" class:fresh={celebrate}>Personal best</span>{/if}</p>
       <p class="sub">
-        {#if current === null}No grades posted yet{:else}{posted.length} of {subjects.length} posted · {units} units{/if}
+        {#if shownGpa === null}No grades posted yet{:else}{posted.length} of {subjects.length} posted · {units} units{/if}
       </p>
     </div>
     {#if path}
@@ -131,6 +168,34 @@
     {/if}
   </section>
   <p class="note">Lower is better on PUP's 1.00–5.00 scale. Weighted by units; INC and DRP don't count.</p>
+
+  {#if standing && !viewing}
+    <section class="goals card notch">
+      <div class="facts">
+        <div><p class="label">Overall GPA</p><p class="big num">{standing.cumulative_gpa?.toFixed(2) ?? "—"}</p></div>
+        <div>
+          <p class="label">Units done</p>
+          <p class="big num">{standing.units_done}{#if standing.goals.program_units}<small> / {standing.goals.program_units}</small>{/if}</p>
+        </div>
+      </div>
+      {#if standing.goals.program_units}
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax={standing.goals.program_units} aria-valuenow={standing.units_done}>
+          <i style:width="{Math.min(100, (standing.units_done / standing.goals.program_units) * 100)}%"></i>
+        </div>
+      {/if}
+      {#if standing.reach}
+        <p class="reach" data-kind={standing.reach.kind}>
+          <strong>For {standing.goals.target_gpa?.toFixed(2)} this term:</strong> {reachLine(standing.reach)}
+        </p>
+      {/if}
+      <div class="inputs">
+        <label>Target GPA <input inputmode="decimal" placeholder="1.50" bind:value={target} /></label>
+        <label>Program units <input inputmode="numeric" placeholder="150" bind:value={program} /></label>
+        <button onclick={saveGoals}>Save</button>
+      </div>
+      {#if goalError}<p class="note" role="alert">{goalError}</p>{/if}
+    </section>
+  {/if}
 
   {#if posted.length === 0}
     <div class="empty card notch">
@@ -221,6 +286,100 @@
     width: 44%;
     height: 64px;
     flex: none;
+  }
+  .terms {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+  }
+  .terms button {
+    flex: none;
+    padding: 7px 12px;
+    border: 0;
+    border-radius: 16px;
+    background: var(--card);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink-2);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .terms button.on {
+    background: var(--gold);
+    color: var(--on-gold);
+  }
+  .goals {
+    --step: 4px;
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+  }
+  .facts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .big {
+    margin: 2px 0 0;
+    font-size: 26px;
+    font-weight: 800;
+  }
+  .big small {
+    font-size: 15px;
+    color: var(--ink-3);
+  }
+  .bar {
+    height: 10px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+  }
+  .bar i {
+    display: block;
+    height: 100%;
+    background: repeating-linear-gradient(90deg, var(--gold) 0 6px, color-mix(in srgb, var(--gold) 75%, black) 6px 8px);
+  }
+  .reach {
+    margin: 0;
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  .reach[data-kind="out_of_reach"] strong {
+    color: var(--bad);
+  }
+  .reach[data-kind="secured"] strong {
+    color: var(--good);
+  }
+  .inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 8px;
+    align-items: end;
+  }
+  .inputs label {
+    display: grid;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .inputs input {
+    height: 40px;
+    min-width: 0;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink);
+    font: inherit;
+    font-size: 16px;
+  }
+  .inputs button {
+    height: 40px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--gold);
+    color: var(--on-gold);
+    font-weight: 700;
   }
   .note {
     margin: -4px 2px 0;
