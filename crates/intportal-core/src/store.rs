@@ -34,6 +34,19 @@ pub struct Snapshot {
     pub last_synced: Option<String>,
 }
 
+/// The file one student's data lives in. Each student number gets its own,
+/// so a second student signing in on the same phone never sees (or wipes)
+/// the first one's notes. The name hides the number (FNV-1a), it doesn't
+/// protect it; the phone's file encryption does that.
+pub fn account_file(student_number: &str) -> String {
+    let key: String = student_number.chars().filter(|c| c.is_ascii_alphanumeric()).map(|c| c.to_ascii_uppercase()).collect();
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in key.bytes() {
+        h = (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3);
+    }
+    format!("account-{h:016x}.sqlite")
+}
+
 pub struct Store {
     db: Connection,
 }
@@ -225,6 +238,14 @@ mod tests {
         assert_eq!((kept.sessions.len(), kept.grades, kept.host, kept.last_synced), (0, None, None, None));
         assert_eq!((kept.colors, kept.goals, kept.marks, kept.syllabus), (snap.colors, snap.goals, snap.marks, snap.syllabus));
         assert_eq!((store.notes().unwrap().len(), store.decks().unwrap().len(), store.study_stats().unwrap().streak), (1, 1, 3));
+    }
+
+    #[test]
+    fn each_student_number_gets_its_own_file() {
+        assert_eq!(account_file("2023-00123-MN-0"), account_file(" 2023-00123-mn-0 "));
+        assert_ne!(account_file("2023-00123-MN-0"), account_file("2023-00124-MN-0"));
+        let f = account_file("2023-00123-MN-0");
+        assert!(f.starts_with("account-") && f.ends_with(".sqlite") && !f.contains("2023"));
     }
 
     #[test]

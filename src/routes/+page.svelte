@@ -14,6 +14,8 @@
   import SubjectPage from "$lib/SubjectPage.svelte";
   import FirstRun from "$lib/FirstRun.svelte";
   import PullToSync from "$lib/PullToSync.svelte";
+  import LockScreen from "$lib/LockScreen.svelte";
+  import { lock, watchLock } from "$lib/lock.svelte";
   import { api } from "$lib/api";
   import { watchDynamicIsland } from "$lib/glance";
   import { app, adopt, setRoom, startClock } from "$lib/state.svelte";
@@ -50,6 +52,7 @@
       addEventListener("unhandledrejection", (e) => show(String(e.reason?.stack ?? e.reason)));
     }
     setRoom(app.room);
+    watchLock();
     // The keyboard covers the bottom; the tab bar and dock step aside while
     // a text field has focus, so they don't ride up on top of it.
     const typing = (e: Event) => (e.target as HTMLElement).matches?.("input:not([type=checkbox]):not([type=radio]), textarea, select");
@@ -87,6 +90,8 @@
     inside = false;
   }
 </script>
+
+{#if lock.enabled && (lock.locked || lock.hidden)}<LockScreen />{/if}
 
 {#if ready && !inside}
   <Landing {signedIn} onenter={enter} />

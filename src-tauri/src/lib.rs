@@ -9,7 +9,7 @@ use intportal_core::model::{ClassSession, Weekday};
 use intportal_core::notes::{self, Note};
 use intportal_core::schedule;
 use intportal_core::sis::{self, sign_in_with_failover, Credentials, SisClient};
-use intportal_core::store::{Snapshot, Store};
+use intportal_core::store::{account_file, Snapshot, Store};
 use intportal_core::study::{self, Card, Deck, Memory, Rating, Stats};
 use intportal_core::syllabus::{self, Component, Item, Plan, Tally};
 use intportal_core::today::{self, Agenda, Date, Glance, Mark, Meeting, Moment, Reminder, Slot, Upcoming};
@@ -24,7 +24,9 @@ use tauri::Manager;
 static DEMO: AtomicBool = AtomicBool::new(false);
 
 struct AppState {
+    /// The signed-in student's store; an empty in-memory one when nobody is.
     store: Mutex<Store>,
+    dir: std::path::PathBuf,
     client: tokio::sync::Mutex<Option<SisClient>>,
 }
 
@@ -140,6 +142,7 @@ fn has_login() -> bool {
 #[tauri::command]
 async fn sign_in(state: tauri::State<'_, AppState>, login: Login) -> Res<Snapshot> {
     let (client, rows) = sign_in_with_failover(&(&login).into(), None).await.map_err(err)?;
+    open_account(&state, &login.student_number)?;
     vault::save(&login)?;
     let snap = refresh(&state, &client, Some(rows)).await?;
     *state.client.lock().await = Some(client);
@@ -188,7 +191,30 @@ async fn sign_out(state: tauri::State<'_, AppState>) -> Res<()> {
     DEMO.store(false, Ordering::Relaxed);
     *state.client.lock().await = None;
     vault::clear();
-    state.store.lock().unwrap().forget_sis().map_err(err)
+    state.store.lock().unwrap().forget_sis().map_err(err)?;
+    // Nobody is signed in now: the landing reads an empty store, and the
+    // student's own work waits in their file for the next sign-in.
+    let _ = std::fs::remove_file(state.dir.join(CURRENT));
+    *state.store.lock().unwrap() = Store::in_memory().map_err(err)?;
+    Ok(())
+}
+
+/// Names the file of the student signed in last, so a relaunch opens it.
+const CURRENT: &str = "current-account";
+/// The single store from before stores were per student.
+const LEGACY: &str = "intportal.sqlite";
+
+/// Switches to this student's own store. The first student to sign in after
+/// the upgrade inherits the old single store.
+fn open_account(state: &AppState, student_number: &str) -> Res<()> {
+    let name = account_file(student_number);
+    let path = state.dir.join(&name);
+    let legacy = state.dir.join(LEGACY);
+    if !path.exists() && legacy.exists() {
+        std::fs::rename(&legacy, &path).map_err(err)?;
+    }
+    *state.store.lock().unwrap() = Store::open(&path).map_err(err)?;
+    std::fs::write(state.dir.join(CURRENT), &name).map_err(err)
 }
 
 /// Everything on this phone, the student's own notes and decks included.
@@ -536,6 +562,7 @@ fn demo(state: tauri::State<'_, AppState>, today: Date) -> Res<Snapshot> {
         return Err("demo is only in review builds".into());
     }
     DEMO.store(true, Ordering::Relaxed);
+    open_account(&state, "demo")?;
     let s = |code: &str, desc: &str, day: Weekday, start: u16, end: u16| ClassSession {
         subject_code: code.into(),
         description: desc.into(),
@@ -626,13 +653,23 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init());
     #[cfg(mobile)]
-    let builder = builder.plugin(tauri_plugin_haptics::init());
+    let builder = builder.plugin(tauri_plugin_haptics::init()).plugin(tauri_plugin_biometric::init());
     builder
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
-            let store = Store::open(&dir.join("intportal.sqlite")).map_err(|e| e.to_string())?;
-            app.manage(AppState { store: Mutex::new(store), client: tokio::sync::Mutex::new(None) });
+            let store = match std::fs::read_to_string(dir.join(CURRENT)) {
+                Ok(name) if name.starts_with("account-") => Store::open(&dir.join(name.trim())),
+                _ => Store::in_memory(),
+            }
+            .map_err(|e| e.to_string())?;
+            app.manage(AppState { store: Mutex::new(store), dir: dir.clone(), client: tokio::sync::Mutex::new(None) });
+            // Signed in before stores were per student: move them over now.
+            if !dir.join(CURRENT).exists() {
+                if let Some(login) = vault::load() {
+                    open_account(&app.state::<AppState>(), &login.student_number)?;
+                }
+            }
             #[cfg(target_os = "ios")]
             for window in app.webview_windows().values() {
                 window.with_webview(|w| hide_top_edge_effect(w.inner()))?;
