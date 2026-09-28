@@ -2,6 +2,7 @@
   import { app, openNote, scheduleReminders, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
   import { api, isoDate } from "../api";
   import { shareFile } from "../share";
+  import { lock, setLock } from "../lock.svelte";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
 
   let { onsignout, ongallery }: { onsignout: () => void; ongallery?: () => void } = $props();
@@ -185,6 +186,10 @@
   <section class="card notch block">
     <p class="label">Privacy</p>
     <p class="fine">Your login stays in this phone's keychain and everything else stays on this phone. IntPortal only talks to PUP SIS.</p>
+    <label class="lockrow"><input type="checkbox" checked={lock.enabled} onchange={(e) => { const box = e.currentTarget; setLock(box.checked).then(() => (box.checked = lock.enabled)); }} /> Lock with Face ID or passcode</label>
+    <p class="fine">Asks when IntPortal opens or comes back after a minute away, and hides the screen in the app switcher.</p>
+    {#if lock.error}<p class="fine">{lock.error}</p>{/if}
+    <p class="fine">Each student's notes and decks stay separate on this phone; another student signing in here can't see yours.</p>
     <p class="fine">Signing out removes your login, schedule and grades. Your notes, decks, syllabus pages and goals stay for when you sign back in.</p>
     {#if confirming === "out"}
       <div class="row">
@@ -207,6 +212,16 @@
 </div>
 
 <style>
+  .lockrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+  }
+  .lockrow input {
+    width: 20px;
+    height: 20px;
+  }
   .field {
     display: grid;
     gap: 4px;

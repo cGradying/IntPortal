@@ -20,6 +20,9 @@ importers:
       '@tauri-apps/api':
         specifier: ^2.12.0
         version: 2.12.0
+      '@tauri-apps/plugin-biometric':
+        specifier: ~2.4.0
+        version: 2.4.0
       '@tauri-apps/plugin-haptics':
         specifier: ~2.4.0
         version: 2.4.0
@@ -311,6 +314,9 @@ packages:
     resolution: {integrity: sha512-YbeJ6tctNoo40purO4u3Eeo3RVqmsjJr0NoKQRu+4pvO4gMLzkjta7x0k96SxSLmx+rQ+8um1ThOlw+HLpgFug==}
     engines: {node: '>= 10'}
     hasBin: true
+
+  '@tauri-apps/plugin-biometric@2.4.0':
+    resolution: {integrity: sha512-soFvDJ+oFLScaHJKgLecXLMcuuvHEbJKvClsZO24lkDl8JLLcxcyfFBqTDJjJh0azNUw/yLyJ+r7w/Z499t6UA==}
 
   '@tauri-apps/plugin-haptics@2.4.0':
     resolution: {integrity: sha512-U9ntVqfNDIqtzGyG/db6MM8/OavdwUMhr0A6bxC0vR37blDMzDXzY8QzZ8AVKedowjfGoJrN42PDHEDSoSFCZA==}
@@ -873,6 +879,10 @@ snapshots:
       '@tauri-apps/cli-win32-arm64-msvc': 2.11.5
       '@tauri-apps/cli-win32-ia32-msvc': 2.11.5
       '@tauri-apps/cli-win32-x64-msvc': 2.11.5
+
+  '@tauri-apps/plugin-biometric@2.4.0':
+    dependencies:
+      '@tauri-apps/api': 2.12.0
 
   '@tauri-apps/plugin-haptics@2.4.0':
     dependencies:
