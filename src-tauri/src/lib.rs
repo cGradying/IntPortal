@@ -3,6 +3,7 @@
 
 use intportal_core::calendar;
 use intportal_core::campus;
+use intportal_core::coach::{self, Nudge, Signals};
 use intportal_core::grades::{self, Goals, GradeReport, Standing};
 use intportal_core::model::{ClassSession, Weekday};
 use intportal_core::notes::{self, Note};
@@ -408,6 +409,36 @@ fn distractors(cards: Vec<Card>, index: usize, seed: usize) -> Res<Vec<String>> 
     Ok(study::distractors(&cards, index, 3, seed))
 }
 
+#[derive(Serialize)]
+struct CoachLine {
+    nudge: Nudge,
+    line: String,
+    key: String,
+}
+
+/// Today's one nudge, from deadlines, flashcards, free time and the target
+/// GPA. `dismissed` holds the keys waved off today.
+#[tauri::command]
+fn coach(state: tauri::State<'_, AppState>, now: Moment, dismissed: Vec<String>) -> Res<Option<CoachLine>> {
+    let store = state.store.lock().unwrap();
+    let snap = store.load().map_err(err)?;
+    let unix = unix_now();
+    let items: Vec<(String, Item)> = snap.syllabus.iter().flat_map(|(c, p)| p.items.iter().map(move |i| (c.clone(), i.clone()))).collect();
+    let stats = store.study_stats().map_err(err)?;
+    let agenda = today::agenda(&snap.sessions, &snap.marks, now);
+    let needed = snap.goals.target_gpa.zip(snap.grades.as_ref()).and_then(|(t, g)| grades::needed_average(&g.subjects, t).filter(|n| (1.0..5.0).contains(n)).map(|n| (n, t)));
+    let signals = Signals {
+        due_soon: syllabus::due(&items, now.date, 2).into_iter().map(|(c, i)| (c, i.topic)).collect(),
+        cards_due: store.decks().map_err(err)?.iter().map(|d| d.due(unix)).sum(),
+        study_streak: study::current_streak(&stats, now.date),
+        studied_today: stats.last_day == Some(now.date),
+        free_minutes: agenda.free_minutes_left,
+        needed_average: needed,
+        classes_left: agenda.items.iter().filter(|i| i.phase != today::Phase::Past).count(),
+    };
+    Ok(coach::pick(&signals, &dismissed).map(|n| CoachLine { line: n.line(), key: n.key(), nudge: n }))
+}
+
 /// The target GPA and the program's units; either can be empty.
 #[tauri::command]
 fn set_goals(state: tauri::State<'_, AppState>, goals: Goals) -> Res<Snapshot> {
@@ -578,7 +609,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, today, reminders, campus, demo
+            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

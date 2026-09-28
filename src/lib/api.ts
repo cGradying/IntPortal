@@ -44,6 +44,14 @@ export interface NoteItem {
   preview: string;
 }
 
+export type Nudge =
+  | { kind: "deadline"; subject: string; topic: string; more: number }
+  | { kind: "keep_streak"; streak: number; cards: number }
+  | { kind: "use_the_gap"; minutes: number; cards: number }
+  | { kind: "cards_due"; cards: number }
+  | { kind: "target"; needed: number; target: number }
+  | { kind: "day_off" };
+
 export type Rating = "again" | "hard" | "good" | "easy";
 
 export interface Memory {
@@ -242,6 +250,7 @@ export const api = {
   setPlan: (subjectCode: string, plan: Plan) => invoke<Snapshot>("set_plan", { subjectCode, plan }),
   tally: (components: Component[], target: number) => invoke<Tally>("tally", { components, target }),
   due: (today: string, days: number) => invoke<[string, SyllabusItem][]>("due", { today, days }),
+  coach: (now: Moment, dismissed: string[]) => invoke<{ nudge: Nudge; line: string; key: string } | null>("coach", { now, dismissed }),
   study: (today: string) => invoke<StudyOverview>("study", { today }),
   deck: (id: string) => invoke<Deck>("deck", { id }),
   saveDeck: (deck: Deck) => invoke<Deck>("save_deck", { deck }),

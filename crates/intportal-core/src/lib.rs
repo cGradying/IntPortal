@@ -3,6 +3,7 @@
 
 pub mod calendar;
 pub mod campus;
+pub mod coach;
 pub mod grades;
 pub mod model;
 pub mod notes;

@@ -2,7 +2,7 @@
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
   import { app, openNote, openSubject } from "../state.svelte";
-  import { api, clock, isoDate, span, subjectColor, type SyllabusItem } from "../api";
+  import { api, clock, isoDate, moment, span, subjectColor, type Nudge, type SyllabusItem } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
   const now = $derived((app.today, new Date()));
@@ -28,6 +28,37 @@
     const days = Math.round((new Date(`${d}T00:00`).getTime() - new Date(isoDate(new Date()) + "T00:00").getTime()) / 86_400_000);
     return days === 0 ? "Today" : days === 1 ? "Tomorrow" : new Date(`${d}T00:00`).toLocaleDateString(undefined, { weekday: "short" });
   };
+  // The coach's one nudge; dismissals last for the day on this device.
+  let nudge = $state<{ nudge: Nudge; line: string; key: string } | null>(null);
+  const dismissKey = () => `coach-dismissed-${isoDate(new Date())}`;
+  const dismissed = (): string[] => {
+    try {
+      return JSON.parse(localStorage.getItem(dismissKey()) ?? "[]");
+    } catch {
+      return [];
+    }
+  };
+  $effect(() => {
+    void app.snapshot;
+    void app.today;
+    api.coach(moment(), dismissed()).then((n) => (nudge = n)).catch(() => {});
+  });
+  function dismiss() {
+    if (!nudge) return;
+    try {
+      localStorage.setItem(dismissKey(), JSON.stringify([...dismissed(), nudge.key]));
+    } catch {
+      // It comes back next launch; harmless.
+    }
+    api.coach(moment(), [...dismissed(), nudge.key]).then((n) => (nudge = n));
+  }
+  function act() {
+    if (!nudge) return;
+    const n = nudge.nudge;
+    if (n.kind === "deadline") openSubject(n.subject, describe(n.subject));
+    else if (n.kind === "target") app.tab = "grades";
+    else if (n.kind !== "day_off") app.tab = "study";
+  }
   const describe = (code: string) => app.snapshot?.sessions.find((x) => x.subject_code === code)?.description ?? "";
   const dayNote = $derived(app.notes.find((n) => n.key === dayKey));
 
@@ -69,6 +100,16 @@
     <h1>{greeting}</h1>
     <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? dayNote.preview || "Today's note" : "+ Note for today"}</button>
   </header>
+
+  {#if nudge}
+    <section class="coach card notch" data-kind={nudge.nudge.kind}>
+      <button class="say" onclick={act}>
+        <span class="label">Coach</span>
+        <span class="line">{nudge.line}</span>
+      </button>
+      <button class="x" aria-label="Dismiss for today" onclick={dismiss}>×</button>
+    </section>
+  {/if}
 
   <section class="hero card notch">
     <CampusStrip litKey={next?.session.subject_code ?? ""} />
@@ -157,6 +198,37 @@
 </div>
 
 <style>
+  .coach {
+    --step: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 6px 12px 16px;
+    box-shadow: inset 3px 0 0 var(--gold);
+  }
+  .coach .say {
+    flex: 1;
+    display: grid;
+    gap: 2px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    text-align: left;
+  }
+  .coach .line {
+    font-size: 15px;
+    line-height: 1.35;
+  }
+  .coach .x {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border: 0;
+    background: none;
+    color: var(--ink-3);
+    font-size: 20px;
+  }
   .due {
     --step: 4px;
     display: grid;
