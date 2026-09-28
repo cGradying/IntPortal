@@ -5,7 +5,7 @@ import { Schedule, cancel, isPermissionGranted, pending, requestPermission } fro
 import { api, moment, type NoteItem, type Snapshot, type Today } from "./api";
 import { applyRoom } from "./rooms";
 
-export type Tab = "today" | "schedule" | "grades" | "you";
+export type Tab = "today" | "schedule" | "grades" | "study" | "you";
 export type SyncState = "idle" | "syncing" | "ok" | "failed";
 
 export const app = $state({

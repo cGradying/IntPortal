@@ -4,6 +4,7 @@
 use crate::grades::{GradeReport, Goals};
 use crate::model::ClassSession;
 use crate::notes::Note;
+use crate::study::{Deck, Stats};
 use crate::syllabus::Plan;
 use crate::today::Marks;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -57,7 +58,8 @@ impl Store {
     fn init(db: Connection) -> Result<Store, StoreError> {
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, json TEXT NOT NULL);
-             CREATE TABLE IF NOT EXISTS notes (key TEXT PRIMARY KEY, text TEXT NOT NULL, title TEXT, updated INTEGER NOT NULL);",
+             CREATE TABLE IF NOT EXISTS notes (key TEXT PRIMARY KEY, text TEXT NOT NULL, title TEXT, updated INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS decks (id TEXT PRIMARY KEY, json TEXT NOT NULL);",
         )?;
         Ok(Store { db })
     }
@@ -124,9 +126,42 @@ impl Store {
         Ok(())
     }
 
-    /// Sign-out: nothing of the account stays on the device, notes included.
+    pub fn decks(&self) -> Result<Vec<Deck>, StoreError> {
+        let mut q = self.db.prepare("SELECT json FROM decks ORDER BY id")?;
+        let rows = q.query_map([], |r| r.get::<_, String>(0))?;
+        rows.map(|j| Ok(serde_json::from_str(&j?)?)).collect()
+    }
+
+    pub fn deck(&self, id: &str) -> Result<Option<Deck>, StoreError> {
+        let json: Option<String> = self.db.query_row("SELECT json FROM decks WHERE id = ?1", [id], |r| r.get(0)).optional()?;
+        Ok(json.map(|j| serde_json::from_str(&j)).transpose()?)
+    }
+
+    pub fn save_deck(&self, deck: &Deck) -> Result<(), StoreError> {
+        self.db.execute(
+            "INSERT INTO decks (id, json) VALUES (?1, ?2) ON CONFLICT(id) DO UPDATE SET json = excluded.json",
+            params![deck.id, serde_json::to_string(deck)?],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_deck(&self, id: &str) -> Result<(), StoreError> {
+        self.db.execute("DELETE FROM decks WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn study_stats(&self) -> Result<Stats, StoreError> {
+        Ok(self.get("study_stats")?.unwrap_or_default())
+    }
+
+    pub fn save_study_stats(&self, s: &Stats) -> Result<(), StoreError> {
+        self.put("study_stats", s)
+    }
+
+    /// Sign-out: nothing of the account stays on the device, notes and
+    /// decks included.
     pub fn wipe(&self) -> Result<(), StoreError> {
-        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes;")?;
+        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks;")?;
         Ok(())
     }
 }
@@ -185,5 +220,20 @@ mod tests {
         assert_eq!(store.notes().unwrap().len(), 1);
         store.wipe().unwrap();
         assert!(store.notes().unwrap().is_empty());
+    }
+
+    #[test]
+    fn decks_round_trip_and_wipe() {
+        use crate::study::{Card, Memory};
+        let store = Store::in_memory().unwrap();
+        let mut deck = Deck { id: "d1".into(), name: "DSA".into(), subject: Some("COMP 20073".into()), cards: vec![] };
+        deck.cards.push(Card { id: String::new(), front: "Stack".into(), back: "LIFO".into(), accepted: vec![], memory: Memory::new(0) });
+        deck.settle_new_cards(100);
+        store.save_deck(&deck).unwrap();
+        assert_eq!(store.deck("d1").unwrap(), Some(deck.clone()));
+        assert_eq!(store.decks().unwrap()[0].cards[0].id, "1");
+        assert_eq!(store.decks().unwrap()[0].cards[0].memory.due, 100);
+        store.wipe().unwrap();
+        assert!(store.decks().unwrap().is_empty());
     }
 }

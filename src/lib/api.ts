@@ -44,6 +44,39 @@ export interface NoteItem {
   preview: string;
 }
 
+export type Rating = "again" | "hard" | "good" | "easy";
+
+export interface Memory {
+  due: number;
+  stability: number;
+  difficulty: number;
+  reps: number;
+  lapses: number;
+  last_review: number | null;
+}
+
+export interface Card {
+  id: string;
+  front: string;
+  back: string;
+  accepted: string[];
+  memory: Memory;
+}
+
+export interface Deck {
+  id: string;
+  name: string;
+  subject: string | null;
+  cards: Card[];
+}
+
+export interface StudyOverview {
+  decks: { id: string; name: string; subject: string | null; cards: number; due: number }[];
+  due: number;
+  streak: number;
+  reviews_today: number;
+}
+
 export type ItemKind = "lecture" | "quiz" | "exam" | "project";
 
 export interface SyllabusItem {
@@ -209,6 +242,15 @@ export const api = {
   setPlan: (subjectCode: string, plan: Plan) => invoke<Snapshot>("set_plan", { subjectCode, plan }),
   tally: (components: Component[], target: number) => invoke<Tally>("tally", { components, target }),
   due: (today: string, days: number) => invoke<[string, SyllabusItem][]>("due", { today, days }),
+  study: (today: string) => invoke<StudyOverview>("study", { today }),
+  deck: (id: string) => invoke<Deck>("deck", { id }),
+  saveDeck: (deck: Deck) => invoke<Deck>("save_deck", { deck }),
+  deleteDeck: (id: string) => invoke<void>("delete_deck", { id }),
+  parseCards: (text: string) => invoke<Card[]>("parse_cards", { text }),
+  reviewCard: (deckId: string, cardId: string, rating: Rating, today: string) =>
+    invoke<{ deck: Deck }>("review_card", { deckId, cardId, rating, today }),
+  checkAnswer: (card: Card, typed: string) => invoke<boolean>("check_answer", { card, typed }),
+  distractors: (cards: Card[], index: number, seed: number) => invoke<string[]>("distractors", { cards, index, seed }),
   exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until }),
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
   today: (now: Moment, syncTrouble: string | null) => invoke<Today>("today", { now, syncTrouble }),

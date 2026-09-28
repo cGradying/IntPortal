@@ -7,6 +7,7 @@
   import Today from "$lib/screens/Today.svelte";
   import Schedule from "$lib/screens/Schedule.svelte";
   import Grades from "$lib/screens/Grades.svelte";
+  import Study from "$lib/screens/Study.svelte";
   import You from "$lib/screens/You.svelte";
   import Gallery from "$lib/Gallery.svelte";
   import NoteEditor from "$lib/NoteEditor.svelte";
@@ -74,6 +75,7 @@
           {#if app.tab === "today"}<Today />
           {:else if app.tab === "schedule"}<Schedule />
           {:else if app.tab === "grades"}<Grades />
+          {:else if app.tab === "study"}<Study />
           {:else if gallery}<Gallery onclose={() => (gallery = false)} />
           {:else}<You onsignout={signedOut} ongallery={() => ((gallery = true), window.scrollTo(0, 0))} />{/if}
         </div>

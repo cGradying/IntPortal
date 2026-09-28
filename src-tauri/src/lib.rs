@@ -9,6 +9,7 @@ use intportal_core::notes::{self, Note};
 use intportal_core::schedule;
 use intportal_core::sis::{self, sign_in_with_failover, Credentials, SisClient};
 use intportal_core::store::{Snapshot, Store};
+use intportal_core::study::{self, Card, Deck, Memory, Rating, Stats};
 use intportal_core::syllabus::{self, Component, Item, Plan, Tally};
 use intportal_core::today::{self, Agenda, Date, Glance, Mark, Meeting, Moment, Reminder, Slot, Upcoming};
 use serde::{Deserialize, Serialize};
@@ -307,6 +308,106 @@ fn due(state: tauri::State<'_, AppState>, today: Date, days: i64) -> Res<Vec<(St
     Ok(syllabus::due(&all, today, days))
 }
 
+fn unix_now() -> i64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
+}
+
+#[derive(Serialize)]
+struct DeckSummary {
+    id: String,
+    name: String,
+    subject: Option<String>,
+    cards: usize,
+    due: usize,
+}
+
+#[derive(Serialize)]
+struct StudyOverview {
+    decks: Vec<DeckSummary>,
+    due: usize,
+    streak: u32,
+    reviews_today: u32,
+}
+
+/// Every deck with its due count, and the streak as of `today`.
+#[tauri::command]
+fn study(state: tauri::State<'_, AppState>, today: Date) -> Res<StudyOverview> {
+    let store = state.store.lock().unwrap();
+    let now = unix_now();
+    let decks: Vec<DeckSummary> = store
+        .decks()
+        .map_err(err)?
+        .into_iter()
+        .map(|d| DeckSummary { due: d.due(now), cards: d.cards.len(), id: d.id, name: d.name, subject: d.subject })
+        .collect();
+    let stats = store.study_stats().map_err(err)?;
+    let reviews_today = if stats.last_day == Some(today) { stats.reviews_today } else { 0 };
+    Ok(StudyOverview { due: decks.iter().map(|d| d.due).sum(), decks, streak: study::current_streak(&stats, today), reviews_today })
+}
+
+#[tauri::command]
+fn deck(state: tauri::State<'_, AppState>, id: String) -> Res<Deck> {
+    state.store.lock().unwrap().deck(&id).map_err(err)?.ok_or_else(|| "That deck is gone.".to_string())
+}
+
+/// Creates or replaces a deck; new cards (empty id) are numbered and due now.
+#[tauri::command]
+fn save_deck(state: tauri::State<'_, AppState>, mut deck: Deck) -> Res<Deck> {
+    if deck.name.trim().is_empty() {
+        return Err("Give the deck a name.".into());
+    }
+    deck.cards.retain(|c| !c.front.trim().is_empty() && !c.back.trim().is_empty());
+    deck.settle_new_cards(unix_now());
+    state.store.lock().unwrap().save_deck(&deck).map_err(err)?;
+    Ok(deck)
+}
+
+#[tauri::command]
+fn delete_deck(state: tauri::State<'_, AppState>, id: String) -> Res<()> {
+    state.store.lock().unwrap().delete_deck(&id).map_err(err)
+}
+
+/// Pasted "front - back" lines as unsaved cards, for review before adding.
+#[tauri::command]
+fn parse_cards(text: String) -> Vec<Card> {
+    study::parse_cards(&text)
+        .into_iter()
+        .map(|(front, back)| Card { id: String::new(), front, back, accepted: vec![], memory: Memory::new(0) })
+        .collect()
+}
+
+#[derive(Serialize)]
+struct Reviewed {
+    deck: Deck,
+    stats: Stats,
+}
+
+/// Rates one card, reschedules it and counts the review toward the streak.
+#[tauri::command]
+fn review_card(state: tauri::State<'_, AppState>, deck_id: String, card_id: String, rating: Rating, today: Date) -> Res<Reviewed> {
+    let store = state.store.lock().unwrap();
+    let mut deck = store.deck(&deck_id).map_err(err)?.ok_or("That deck is gone.")?;
+    let card = deck.cards.iter_mut().find(|c| c.id == card_id).ok_or("That card is gone.")?;
+    card.memory = study::review(&card.memory, rating, unix_now());
+    let stats = study::count_review(&store.study_stats().map_err(err)?, today);
+    store.save_deck(&deck).map_err(err)?;
+    store.save_study_stats(&stats).map_err(err)?;
+    Ok(Reviewed { deck, stats })
+}
+
+#[tauri::command]
+fn check_answer(card: Card, typed: String) -> bool {
+    study::is_correct(&typed, &card)
+}
+
+#[tauri::command]
+fn distractors(cards: Vec<Card>, index: usize, seed: usize) -> Res<Vec<String>> {
+    if index >= cards.len() {
+        return Err("No such card.".into());
+    }
+    Ok(study::distractors(&cards, index, 3, seed))
+}
+
 /// The target GPA and the program's units; either can be empty.
 #[tauri::command]
 fn set_goals(state: tauri::State<'_, AppState>, goals: Goals) -> Res<Snapshot> {
@@ -477,7 +578,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, today, reminders, campus, demo
+            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, today, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

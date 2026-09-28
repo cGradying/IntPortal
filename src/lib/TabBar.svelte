@@ -6,6 +6,7 @@
     { id: "today", label: "Today", icon: "today" },
     { id: "schedule", label: "Schedule", icon: "schedule" },
     { id: "grades", label: "Grades", icon: "grades" },
+    { id: "study", label: "Study", icon: "study" },
     { id: "you", label: "You", icon: "you" },
   ];
 </script>
@@ -27,7 +28,7 @@
     bottom: 0;
     z-index: 20;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     padding: 8px 8px calc(var(--safe-bottom) + 6px);
     background: color-mix(in srgb, var(--ground) 86%, transparent);
     backdrop-filter: blur(16px);
