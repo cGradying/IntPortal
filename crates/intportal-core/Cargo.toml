@@ -1,0 +1,19 @@
+[package]
+name = "intportal-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+regex = "1"
+scraper = "0.20"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+reqwest = { version = "0.12", default-features = false, features = ["cookies", "rustls-tls"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde_json = "1"
+
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
+rpassword = "7"

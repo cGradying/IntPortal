@@ -1,0 +1,21 @@
+name: Core
+on:
+  pull_request:
+    paths: ["crates/**", ".github/workflows/core.yml"]
+  push:
+    branches: [main]
+    paths: ["crates/**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/intportal-core
+      - run: cargo test --manifest-path crates/intportal-core/Cargo.toml
+      - run: cargo clippy --manifest-path crates/intportal-core/Cargo.toml --all-targets -- -D warnings
