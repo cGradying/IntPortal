@@ -1,18 +1,22 @@
 <script lang="ts">
   // Review-build gallery: every pixel piece in one scroll, in the current room.
   import CampusStrip from "./CampusStrip.svelte";
+  import Glance from "./Glance.svelte";
   import Jeepney from "./Jeepney.svelte";
+  import { glanceView } from "./glance";
   import PixelIcon, { SPRITES, type SpriteName } from "./PixelIcon.svelte";
   import Scene, { SCENES } from "./Scene.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
   const hours = [6, 9, 12.5, 17.4, 18.6, 22];
-  const glances = [
-    "COMP 20073 · until 9AM",
-    "GEED 10053 · in 12m",
-    "Couldn't reach SIS · Try again",
-    "No more classes today · Tomorrow PATHFIT 2 at 8AM",
-  ];
+  const states = [
+    ["next", glanceView({ kind: "next_today", code: "GEED 10053", when: "in 12m" }, "GEED 10053 · in 12m", false, false, false)],
+    ["in session", glanceView({ kind: "in_session", code: "COMP 20073", until: "9AM" }, "COMP 20073 · until 9AM", false, false, false)],
+    ["syncing", glanceView(undefined, undefined, true, false, false)],
+    ["arrived", glanceView(undefined, undefined, false, true, false)],
+    ["stalled", glanceView({ kind: "sync_trouble", message: "Couldn't reach SIS" }, "Couldn't reach SIS · Try again", false, false, true)],
+    ["day done", glanceView({ kind: "day_done", tomorrow: "PATHFIT 2 at 8AM" }, "No more classes today · Tomorrow PATHFIT 2 at 8AM", false, false, false)],
+  ] as const;
   const label = (h: number) => `${Math.floor(h) % 12 || 12}:${String(Math.round((h % 1) * 60)).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 </script>
 
@@ -43,9 +47,16 @@
     {/each}
   </div>
 
-  <p class="label">Island glances</p>
+  <p class="label">Glance: Dynamic Island capsule</p>
   <div class="stack">
-    {#each glances as g (g)}<span class="isl line">{g}</span>{/each}
+    {#each states as [name, v] (name)}<figure class="glances"><Glance mode="island" preview={v} /><figcaption>{name}</figcaption></figure>{/each}
+    <figure class="glances"><Glance mode="island" preview={states[0][1]} startOpen /><figcaption>expanded</figcaption></figure>
+  </div>
+
+  <p class="label">Glance: dock, for phones without an island</p>
+  <div class="stack">
+    {#each states as [name, v] (name)}<figure class="glances"><Glance mode="dock" preview={v} /><figcaption>{name}</figcaption></figure>{/each}
+    <figure class="glances"><Glance mode="dock" preview={states[0][1]} startOpen /><figcaption>expanded</figcaption></figure>
   </div>
 
   <p class="label">Icons</p>
@@ -137,6 +148,15 @@
     font-family: var(--font-display);
     font-size: 13px;
     font-weight: 600;
+  }
+  .glances {
+    justify-self: stretch;
+    display: grid;
+    gap: 4px;
+    margin: 0;
+  }
+  .glances figcaption {
+    text-align: center;
   }
   .stamps {
     align-items: center;

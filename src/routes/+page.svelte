@@ -2,7 +2,7 @@
   import "$lib/app.css";
   import { onMount } from "svelte";
   import Landing from "$lib/Landing.svelte";
-  import Island from "$lib/Island.svelte";
+  import Glance from "$lib/Glance.svelte";
   import TabBar from "$lib/TabBar.svelte";
   import Today from "$lib/screens/Today.svelte";
   import Schedule from "$lib/screens/Schedule.svelte";
@@ -10,12 +10,14 @@
   import You from "$lib/screens/You.svelte";
   import Gallery from "$lib/Gallery.svelte";
   import { api } from "$lib/api";
+  import { watchDynamicIsland } from "$lib/glance";
   import { app, adopt, setRoom, startClock } from "$lib/state.svelte";
 
   let ready = $state(false);
   let signedIn = $state(false);
   let inside = $state(false);
   let gallery = $state(false);
+  let glance = $state<"island" | "dock">("dock");
 
   onMount(async () => {
     if (__REVIEW__) {
@@ -25,6 +27,7 @@
       addEventListener("unhandledrejection", (e) => show(String(e.reason?.stack ?? e.reason)));
     }
     setRoom(app.room);
+    watchDynamicIsland((island) => (glance = island ? "island" : "dock"));
     const [login, snap] = await Promise.all([api.hasLogin().catch(() => false), api.snapshot().catch(() => null)]);
     signedIn = login;
     if (snap) await adopt(snap);
@@ -57,9 +60,9 @@
 {/if}
 
 {#if inside}
-  <div class="shell dots">
+  <div class="shell dots" data-glance={glance}>
     <div class="topfade" aria-hidden="true"></div>
-    <Island />
+    <Glance mode={glance} />
     <main>
       {#key app.tab}
         <div class="page">
@@ -87,13 +90,22 @@
     left: 0;
     right: 0;
     z-index: 25;
-    height: calc(var(--safe-top) + 52px);
+    height: calc(var(--safe-top) + 12px);
     background: linear-gradient(var(--ground) 55%, transparent);
     pointer-events: none;
   }
   main {
     animation: arrive 0.65s var(--ease) backwards;
-    padding: calc(var(--safe-top) + 58px) var(--gutter) calc(var(--safe-bottom) + 92px);
+    padding: calc(var(--safe-top) + 12px) var(--gutter) calc(var(--safe-bottom) + 92px);
+  }
+  [data-glance="island"] main {
+    padding-top: calc(var(--safe-top) + 30px);
+  }
+  [data-glance="island"] .topfade {
+    height: calc(var(--safe-top) + 30px);
+  }
+  [data-glance="dock"] main {
+    padding-bottom: calc(var(--safe-bottom) + 150px);
   }
   @keyframes arrive {
     from { filter: brightness(2.2) saturate(0.4); }

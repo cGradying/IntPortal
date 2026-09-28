@@ -60,9 +60,17 @@ export interface Today {
   };
   next: { session: ClassSession; date: string; is_now: boolean; minutes_away: number } | null;
   countdown: string | null;
-  glance: { kind: "in_session" | "next_today" | "sync_trouble" | "thinking" | "day_done" };
+  glance: Glance;
   glance_line: string;
 }
+
+/** The core's `Glance`, tagged by `kind`. */
+export type Glance =
+  | { kind: "in_session"; code: string; until: string }
+  | { kind: "next_today"; code: string; when: string }
+  | { kind: "sync_trouble"; message: string }
+  | { kind: "thinking" }
+  | { kind: "day_done"; tomorrow: string | null };
 
 export interface Reminder {
   id: number;

@@ -314,6 +314,29 @@ fn demo(state: tauri::State<'_, AppState>, today: Date) -> Res<Snapshot> {
     Ok(snap)
 }
 
+/// iOS 26 blurs and fades content under the status bar. The island glance is
+/// drawn there and must stay crisp black to merge with the hardware island.
+#[cfg(target_os = "ios")]
+fn hide_top_edge_effect(webview: *mut std::ffi::c_void) {
+    use objc2::runtime::{AnyObject, Bool};
+    use objc2::{msg_send, sel};
+    // SAFETY: Tauri hands us a live WKWebView; every call below is guarded by
+    // respondsToSelector, so older iOS versions skip it.
+    unsafe {
+        let webview = &*(webview as *const AnyObject);
+        let scroll: *mut AnyObject = msg_send![webview, scrollView];
+        let Some(scroll) = scroll.as_ref() else { return };
+        let has: Bool = msg_send![scroll, respondsToSelector: sel!(topEdgeEffect)];
+        if !has.as_bool() {
+            return;
+        }
+        let effect: *mut AnyObject = msg_send![scroll, topEdgeEffect];
+        if let Some(effect) = effect.as_ref() {
+            let _: () = msg_send![effect, setHidden: true];
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -324,6 +347,10 @@ pub fn run() {
             std::fs::create_dir_all(&dir)?;
             let store = Store::open(&dir.join("intportal.sqlite")).map_err(|e| e.to_string())?;
             app.manage(AppState { store: Mutex::new(store), client: tokio::sync::Mutex::new(None) });
+            #[cfg(target_os = "ios")]
+            for window in app.webview_windows().values() {
+                window.with_webview(|w| hide_top_edge_effect(w.inner()))?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

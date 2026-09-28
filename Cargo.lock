@@ -1928,6 +1928,7 @@ version = "0.1.0"
 dependencies = [
  "intportal-core",
  "keyring",
+ "objc2",
  "serde",
  "serde_json",
  "tauri",
