@@ -1,6 +1,7 @@
 <script lang="ts">
   import Scene from "../Scene.svelte";
   import WeekGrid from "../WeekGrid.svelte";
+  import { buzz } from "../haptics";
   import { app, adopt, openNote, openSubject } from "../state.svelte";
   import { api, clock, isoDate, subjectColor, WEEKDAYS, type Mark, type Meeting, type Snapshot, type Weekday } from "../api";
 
@@ -70,6 +71,7 @@
   async function run(change: Promise<Snapshot>) {
     try {
       await adopt(await change);
+      buzz.tap();
       picked = null;
       moving = null;
       problem = "";

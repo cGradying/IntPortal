@@ -7,6 +7,7 @@
   // practice). Flashcards take the student's own rating; typed and
   // multiple-choice answers rate themselves: right is Good, wrong is Again.
   import { api, isoDate, type Card, type Deck, type Rating } from "./api";
+  import { buzz } from "./haptics";
 
   let { deck, mode, onclose }: { deck: Deck; mode: Mode; onclose: () => void } = $props();
 
@@ -51,6 +52,8 @@
       // card early would push it out before it's been forgotten.
       if (!practice) await api.reviewCard(deck.id, card.id, r, isoDate(new Date()));
       if (r !== "again") right++;
+      buzz.tap();
+      if (index + 1 >= queue.length) buzz.done();
       index++;
       shown = false;
       typed = "";
@@ -64,12 +67,14 @@
 
   async function check() {
     verdict = await api.checkAnswer(card, typed);
+    (verdict ? buzz.tap : buzz.fail)();
   }
 
   function choose(o: string) {
     if (picked) return;
     picked = o;
     verdict = o === card.back;
+    (verdict ? buzz.tap : buzz.fail)();
   }
 </script>
 

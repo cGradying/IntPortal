@@ -622,9 +622,12 @@ fn hide_top_edge_effect(webview: *mut std::ffi::c_void) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_notification::init());
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_haptics::init());
+    builder
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;

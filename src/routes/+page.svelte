@@ -13,6 +13,7 @@
   import NoteEditor from "$lib/NoteEditor.svelte";
   import SubjectPage from "$lib/SubjectPage.svelte";
   import FirstRun from "$lib/FirstRun.svelte";
+  import PullToSync from "$lib/PullToSync.svelte";
   import { api } from "$lib/api";
   import { watchDynamicIsland } from "$lib/glance";
   import { app, adopt, setRoom, startClock } from "$lib/state.svelte";
@@ -96,6 +97,7 @@
     <div class="topfade" aria-hidden="true"></div>
     <Glance mode={glance} />
     <main>
+      <PullToSync />
       {#key app.tab}
         <div class="page">
           {#if app.tab === "today"}<Today />

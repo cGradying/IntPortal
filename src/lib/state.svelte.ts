@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Schedule, cancel, isPermissionGranted, pending, requestPermission } from "@tauri-apps/plugin-notification";
 import { api, moment, type NoteItem, type Snapshot, type Today } from "./api";
 import { applyRoom } from "./rooms";
+import { buzz } from "./haptics";
 
 export type Tab = "today" | "schedule" | "grades" | "study" | "you";
 export type SyncState = "idle" | "syncing" | "ok" | "failed";
@@ -151,8 +152,10 @@ export async function syncNow() {
     app.sync = "ok";
     app.syncError = null;
     app.syncCount++;
+    buzz.done();
   } catch (e) {
     app.sync = "failed";
+    buzz.fail();
     app.syncError = String(e).includes("reach") ? "Couldn't reach SIS" : String(e);
     await refreshToday();
   }

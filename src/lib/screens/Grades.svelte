@@ -2,6 +2,7 @@
   import Confetti from "../Confetti.svelte";
   import Scene from "../Scene.svelte";
   import { app, adopt, openSubject } from "../state.svelte";
+  import { buzz } from "../haptics";
   import { api, subjectColor, type Reach, type Standing, type SubjectGrade } from "../api";
 
   let standing = $state<Standing | null>(null);
@@ -101,6 +102,7 @@
   }
   $effect(() => {
     if (!fresh.size) return;
+    buzz.done();
     const t = setTimeout(() => {
       seen = new Set([...seen, ...fresh]);
       try {
