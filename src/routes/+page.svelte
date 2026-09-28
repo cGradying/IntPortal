@@ -12,6 +12,7 @@
   import Gallery from "$lib/Gallery.svelte";
   import NoteEditor from "$lib/NoteEditor.svelte";
   import SubjectPage from "$lib/SubjectPage.svelte";
+  import FirstRun from "$lib/FirstRun.svelte";
   import { api } from "$lib/api";
   import { watchDynamicIsland } from "$lib/glance";
   import { app, adopt, setRoom, startClock } from "$lib/state.svelte";
@@ -20,6 +21,24 @@
   let signedIn = $state(false);
   let inside = $state(false);
   let gallery = $state(false);
+  let welcomed = $state(remembered("welcomed") === "1");
+
+  function remembered(key: string): string | null {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  function welcomeDone() {
+    welcomed = true;
+    try {
+      localStorage.setItem("welcomed", "1");
+    } catch {
+      // Shown again next launch; harmless.
+    }
+  }
   let glance = $state<"island" | "dock">("dock");
 
   onMount(async () => {
@@ -90,6 +109,7 @@
     </main>
     <TabBar />
   </div>
+  {#if !welcomed}<FirstRun ondone={welcomeDone} />{/if}
   {#if app.subject}
     {#key app.subject.code}<SubjectPage {...app.subject} />{/key}
   {/if}

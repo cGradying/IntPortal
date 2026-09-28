@@ -20,3 +20,66 @@ export const JEEP_COLORS: Record<string, string> = {
   s: "#c7ccd3",
   k: "#141414",
 };
+
+/** Isko, the Iskolar ng Bayan: 14x20, white PUP polo with a maroon
+ *  collar, gold lanyard and ID. Two frames: standing, and waving. */
+const ISKO_BODY = [
+  "..rrWwgwwWrr..",
+  ".WwwwwgwwwwwW.",
+  ".WwwwwgwwwwwW.",
+  ".FWwwwiiwwwWF.",
+  "..Wwwwiiwwww..",
+  "..WwwwwwwwwW..",
+  "..pppppppppp..",
+  "..ppppP.pppp..",
+  "..pppp..pppp..",
+  "..Pppp..Pppp..",
+  ".kkkkk..kkkkk.",
+];
+
+export const ISKO = [
+  "....hhhhhh....",
+  "...hHHhhhhh...",
+  "..hhhhhhhhhh..",
+  "..hhffffffhh..",
+  "..hffeffefhh..",
+  "...ffffffff...",
+  "...ffffffff...",
+  "....fffmff....",
+  ".....FffF.....",
+  ...ISKO_BODY,
+];
+
+export const ISKO_WAVE = [
+  "....hhhhhh..f.",
+  "...hHHhhhhh.f.",
+  "..hhhhhhhhhhf.",
+  "..hhffffffhhW.",
+  "..hffeffefhhW.",
+  "...ffffffff.W.",
+  "...ffffffffWW.",
+  "....fffmff.W..",
+  ".....FffF.W...",
+  "..rrWwgwwWrr..",
+  ".WwwwwgwwwwW..",
+  ".WwwwwgwwwwW..",
+  ".FWwwwiiwwwW..",
+  ...ISKO_BODY.slice(4),
+];
+
+export const ISKO_COLORS: Record<string, string> = {
+  h: "#1d1717",
+  H: "#3a2f2c",
+  f: "#e0a77c",
+  F: "#c4865c",
+  e: "#1d1717",
+  m: "#9b4a3c",
+  w: "#f4f1ea",
+  W: "#cfc8bb",
+  r: "#7a1128",
+  g: "#f2c14e",
+  i: "#f2c14e",
+  p: "#2c3346",
+  P: "#1f2433",
+  k: "#141414",
+};
