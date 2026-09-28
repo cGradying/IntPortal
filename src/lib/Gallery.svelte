@@ -2,6 +2,7 @@
   // Review-build gallery: every pixel piece in one scroll, in the current room.
   import CampusStrip from "./CampusStrip.svelte";
   import Glance from "./Glance.svelte";
+  import Isko from "./Isko.svelte";
   import Jeepney from "./Jeepney.svelte";
   import { glanceView } from "./glance";
   import PixelIcon, { SPRITES, type SpriteName } from "./PixelIcon.svelte";
@@ -25,6 +26,13 @@
     <h1>Gallery</h1>
     <button onclick={onclose}>Done</button>
   </header>
+
+  <p class="label">Isko (for your approval)</p>
+  <div class="row">
+    <figure class="card notch icon"><Isko size={96} wave={false} /><figcaption>standing</figcaption></figure>
+    <figure class="card notch icon"><Isko size={96} /><figcaption>waving</figcaption></figure>
+    <figure class="card notch icon"><Isko size={48} /><figcaption>small</figcaption></figure>
+  </div>
 
   <p class="label">Campus through the day</p>
   <div class="grid2">

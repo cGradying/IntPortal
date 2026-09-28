@@ -30,6 +30,8 @@ export const app = $state({
   editing: null as null | { key: string; heading: string; title: string | null },
   /** What is queued with the platform right now. */
   queued: { count: 0, next: null as null | { title: string; at: Date }, error: "" },
+  /** Notifications allowed by the phone; null until checked. */
+  notifications: null as boolean | null,
 });
 
 function read(key: string): string | null {
@@ -48,9 +50,11 @@ function write(key: string, value: string) {
   }
 }
 
-/** Replace every pending class reminder with the next week's. iOS keeps at
- *  most 64 pending, so a week is the horizon; each launch and sync renews it. */
-export async function scheduleReminders() {
+/** Replace every pending reminder with the next week's. iOS keeps at most
+ *  64 pending, so a week is the horizon; each launch and sync renews it.
+ *  Only `ask` (the first-run step, or the student's tap) shows the system
+ *  permission prompt, so it never appears out of nowhere at launch. */
+export async function scheduleReminders(ask = false) {
   try {
     // Not cancelAll(): on iOS it sends no id list and the plugin refuses to decode it.
     const queued = await pending();
@@ -59,7 +63,8 @@ export async function scheduleReminders() {
     const on = (m: number) => (m >= 0 ? m : null);
     if (!app.snapshot || (app.reminderLead <= 0 && app.deadlineAt < 0 && app.studyAt < 0)) return;
     let allowed = await isPermissionGranted();
-    if (!allowed) allowed = (await requestPermission()) === "granted";
+    if (!allowed && ask) allowed = (await requestPermission()) === "granted";
+    app.notifications = allowed;
     if (!allowed) return;
     const prefs = { deadlines: on(app.deadlineAt), study: on(app.studyAt), utc_offset: -new Date().getTimezoneOffset() };
     const list = (await api.reminders(moment(), app.reminderLead, 7, prefs)).slice(0, 60);
@@ -91,19 +96,19 @@ export async function scheduleReminders() {
 export function setReminderLead(minutes: number) {
   app.reminderLead = minutes;
   write("reminderLead", String(minutes));
-  scheduleReminders();
+  scheduleReminders(true);
 }
 
 export function setDeadlineAt(minute: number) {
   app.deadlineAt = minute;
   write("deadlineAt", String(minute));
-  scheduleReminders();
+  scheduleReminders(true);
 }
 
 export function setStudyAt(minute: number) {
   app.studyAt = minute;
   write("studyAt", String(minute));
-  scheduleReminders();
+  scheduleReminders(true);
 }
 
 export async function refreshToday() {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, openNote, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
+  import { app, openNote, scheduleReminders, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
   import { api, isoDate } from "../api";
   import { shareFile } from "../share";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
@@ -122,6 +122,11 @@
       {/each}
     </div>
     <p class="fine">{app.studyAt >= 0 ? "Only on days your flashcards are due." : "No study reminders."}</p>
+    {#if app.notifications === false}
+      <p class="fine">Notifications are off for IntPortal, so none of these can reach you.</p>
+      <button class="primary" onclick={() => scheduleReminders(true)}>Turn on notifications</button>
+      <p class="fine">If nothing happens, turn them on in the phone's Settings, under IntPortal.</p>
+    {/if}
     {#if app.queued.error}<p class="queued">Couldn't schedule reminders: {app.queued.error}</p>{/if}
     {#if app.queued.next}
       <p class="queued">Next: <strong>{app.queued.next.title}</strong>, {app.queued.next.at.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })} · {app.queued.count} this week</p>

@@ -1,0 +1,112 @@
+<script lang="ts">
+  // Three short screens the first time someone gets in: what IntPortal does,
+  // where their data lives, and reminders (the only place that asks the
+  // phone for notification permission unprompted).
+  import Isko from "./Isko.svelte";
+  import { app, scheduleReminders } from "./state.svelte";
+
+  let { ondone }: { ondone: () => void } = $props();
+  let step = $state(0);
+
+  const steps = [
+    { title: "Hi, I'm Isko.", body: "Your schedule, grades, notes and study cards, in one place. I'll count down to your next class and keep an eye on what's due." },
+    { title: "Everything stays on this phone.", body: "Your login sits in the phone's keychain. IntPortal only talks to PUP SIS, and your notes and decks never leave the device." },
+    { title: "Want a heads-up before class?", body: "A nudge 10 minutes before each class, and the evening before quizzes and exams. You can change or turn these off on You." },
+  ];
+
+  async function allow() {
+    await scheduleReminders(true);
+    ondone();
+  }
+
+  function skipReminders() {
+    app.reminderLead = 0;
+    try {
+      localStorage.setItem("reminderLead", "0");
+    } catch {
+      // Asked again next time.
+    }
+    ondone();
+  }
+</script>
+
+<div class="first" role="dialog" aria-label="Welcome">
+  <div class="art"><Isko size={120} /></div>
+  <div class="card notch text">
+    <p class="label">{step + 1} of {steps.length}</p>
+    <h1>{steps[step].title}</h1>
+    <p>{steps[step].body}</p>
+  </div>
+  <div class="dots" aria-hidden="true">{#each steps as _, i (i)}<i class:on={i === step}></i>{/each}</div>
+  {#if step < steps.length - 1}
+    <button class="primary" onclick={() => step++}>Next</button>
+    <button class="link" onclick={ondone}>Skip</button>
+  {:else}
+    <button class="primary" onclick={allow}>Turn on reminders</button>
+    <button class="link" onclick={skipReminders}>Not now</button>
+  {/if}
+</div>
+
+<style>
+  .first {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    align-content: end;
+    gap: 14px;
+    padding: calc(var(--safe-top) + 24px) var(--gutter) calc(var(--safe-bottom) + 24px);
+    background: var(--ground);
+  }
+  .art {
+    display: flex;
+    justify-content: center;
+    padding-bottom: 8px;
+  }
+  .text {
+    --step: 4px;
+    padding: 20px;
+  }
+  h1 {
+    margin: 4px 0 8px;
+    font-family: var(--font-display);
+    font-size: 24px;
+  }
+  .text p:last-child {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+  }
+  .dots i {
+    width: 6px;
+    height: 6px;
+    background: var(--edge-2);
+  }
+  .dots i.on {
+    width: 18px;
+    background: var(--gold);
+  }
+  button {
+    height: 52px;
+    border: 0;
+    border-radius: 12px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .primary {
+    background: var(--gold);
+    color: var(--on-gold);
+  }
+  .link {
+    height: 36px;
+    background: none;
+    color: var(--ink-2);
+  }
+</style>
