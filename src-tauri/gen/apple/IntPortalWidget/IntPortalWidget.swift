@@ -173,7 +173,7 @@ struct ClassLiveActivity: Widget {
         }
         DynamicIslandExpandedRegion(.trailing) {
           Text(timerInterval: s.start > .now ? Date.now...s.start : s.start...s.end, countsDown: true)
-            .monospacedDigit().frame(width: 70).font(.headline)
+            .monospacedDigit().multilineTextAlignment(.trailing).frame(maxWidth: 90).font(.headline)
         }
         DynamicIslandExpandedRegion(.bottom) {
           Text("\(s.title)\(s.online ? " · Online" : "") · \(s.start.formatted(date: .omitted, time: .shortened))–\(s.end.formatted(date: .omitted, time: .shortened))")
@@ -183,7 +183,7 @@ struct ClassLiveActivity: Widget {
         PortalGlyph()
       } compactTrailing: {
         Text(timerInterval: s.start > .now ? Date.now...s.start : s.start...s.end, countsDown: true)
-          .monospacedDigit().frame(width: 44).font(.caption.weight(.bold)).foregroundStyle(gold)
+          .monospacedDigit().multilineTextAlignment(.trailing).frame(maxWidth: 64).font(.caption.weight(.bold)).foregroundStyle(gold)
       } minimal: {
         PortalGlyph()
       }
