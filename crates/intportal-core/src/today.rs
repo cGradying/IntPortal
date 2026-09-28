@@ -31,7 +31,7 @@ impl Date {
         era * 146097 + doe - 719468
     }
 
-    fn from_days(z: i64) -> Date {
+    pub(crate) fn from_days(z: i64) -> Date {
         let z = z + 719468;
         let era = z.div_euclid(146097);
         let doe = z - era * 146097;

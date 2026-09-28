@@ -1,6 +1,7 @@
 //! The Tauri shell: holds the store and the SIS session, and exposes the core
 //! to the Svelte UI as commands. Logic lives in `intportal-core`.
 
+use intportal_core::calendar;
 use intportal_core::campus;
 use intportal_core::grades::{self, Goals, GradeReport, Standing};
 use intportal_core::model::{ClassSession, Weekday};
@@ -248,6 +249,17 @@ fn set_note(state: tauri::State<'_, AppState>, key: String, text: String, title:
     state.store.lock().unwrap().set_note(&key, &text, title.as_deref(), now).map_err(err)
 }
 
+/// The term's classes as an `.ics` file, from this week through `until`.
+#[tauri::command]
+fn export_ics(state: tauri::State<'_, AppState>, from: Date, until: Date) -> Res<String> {
+    if until < from {
+        return Err("The last day of classes has to be after today.".into());
+    }
+    let snap = snapshot_of(&state)?;
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+    Ok(calendar::ics(&snap.sessions, &snap.marks, from, until, &calendar::utc_stamp(now)))
+}
+
 /// The target GPA and the program's units; either can be empty.
 #[tauri::command]
 fn set_goals(state: tauri::State<'_, AppState>, goals: Goals) -> Res<Snapshot> {
@@ -418,7 +430,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, today, reminders, campus, demo
+            snapshot, has_login, sign_in, sync, load_history, sign_out, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, export_ics, today, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

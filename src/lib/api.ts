@@ -170,6 +170,7 @@ export const api = {
   setGoals: (goals: Goals) => invoke<Snapshot>("set_goals", { goals }),
   standing: () => invoke<Standing>("standing"),
   notes: () => invoke<NoteItem[]>("notes"),
+  exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until }),
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
   today: (now: Moment, syncTrouble: string | null) => invoke<Today>("today", { now, syncTrouble }),
   reminders: (now: Moment, lead: number, days: number) => invoke<Reminder[]>("reminders", { now, lead, days }),

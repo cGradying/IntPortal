@@ -1,10 +1,39 @@
 <script lang="ts">
   import { app, openNote, setReminderLead, setRoom, syncNow } from "../state.svelte";
-  import { api } from "../api";
+  import { api, isoDate } from "../api";
+  import { shareFile } from "../share";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
 
   let { onsignout, ongallery }: { onsignout: () => void; ongallery?: () => void } = $props();
   let confirming = $state(false);
+
+  // The last day of classes: remembered, or about a semester from now.
+  let lastDay = $state(remembered("lastDay") ?? isoDate(new Date(Date.now() + 17 * 7 * 86_400_000)));
+  let exportNote = $state("");
+
+  function remembered(key: string): string | null {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  async function exportClasses() {
+    exportNote = "";
+    try {
+      localStorage.setItem("lastDay", lastDay);
+    } catch {
+      // Asked again next time.
+    }
+    try {
+      const ics = await api.exportIcs(isoDate(new Date()), lastDay);
+      const done = await shareFile("IntPortal classes.ics", "text/calendar", ics);
+      if (done === "shared") exportNote = "Sent. Open it in Calendar to add your classes.";
+    } catch (e) {
+      exportNote = String(e);
+    }
+  }
 
   function noteHeading(key: string): string {
     if (key.startsWith("class:")) return key.slice(6);
@@ -71,6 +100,14 @@
   </section>
 
   <section class="card notch block">
+    <p class="label">Calendar</p>
+    <p class="fine">Put every class in your phone's calendar, repeating weekly until the last day of classes. Vacant and moved weeks come along.</p>
+    <label class="field">Last day of classes <input type="date" bind:value={lastDay} /></label>
+    <button class="primary" onclick={exportClasses}>Add classes to calendar</button>
+    {#if exportNote}<p class="fine" role="status">{exportNote}</p>{/if}
+  </section>
+
+  <section class="card notch block">
     <p class="label">Your notes</p>
     {#if app.notes.length === 0}
       <p class="fine">Nothing written yet. Open a class on Schedule to keep notes for it, or add a note for today on Today.</p>
@@ -107,6 +144,23 @@
 </div>
 
 <style>
+  .field {
+    display: grid;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  .field input {
+    height: 44px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink);
+    font: inherit;
+    font-size: 16px;
+  }
   .notes {
     list-style: none;
     margin: 0;
