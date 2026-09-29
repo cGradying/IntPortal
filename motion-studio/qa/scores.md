@@ -65,3 +65,12 @@ of an audio onset.
 | 8 | 8 | 8 | 9 | 9 | 8 |
 
 Every score is 8 or higher → full render.
+
+## Final render check
+
+`out/intportal-launch.mp4`: H.264, yuv420p, 1920×1080, 60 fps, 95.1 s, −14.0 LUFS,
+−1.4 dBTP. A strip of every 4th frame through the cuts found one more flicker: the
+iOS scene cut in 0.3 beat before the warp flash peaked (cream → dark → cream). The
+cut now sits under the flash peak (beat 19.93). Seconds 9–11 were re-rendered
+(`node render.mjs --from 9 --to 11`) and spliced into the master, which has 5,706
+frames with no visible seam.

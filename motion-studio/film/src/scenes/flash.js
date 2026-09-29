@@ -3,7 +3,7 @@
 import { css, el, pb } from "../lib/core.js";
 
 const FLASHES = [
-  { at: 19.55, peak: 19.95, end: 20.55, color: "255,244,214" },
+  { at: 19.45, peak: 19.95, end: 20.6, color: "255,244,214" },
   { at: 139.65, peak: 139.95, end: 140.55, color: "255,244,214" },
   { at: 171.7, peak: 171.98, end: 172.45, color: "255,236,190" },
 ];

@@ -31,7 +31,7 @@ export function stageBackdrop(layer) {
 }
 
 export default {
-  id: "ios", from: 19.6, to: 68.4,
+  id: "ios", from: 19.93, to: 68.4,
   init(layer) {
     this.bd = stageBackdrop(layer);
     this.P = makePhone(layer);
@@ -78,7 +78,7 @@ export default {
     const mk = k0 === k1 ? 1 : springB(b, k1[0], 1.05, 0.82);
     const cam = k1.map((v, i) => lerp(k0[i], v, mk));
     const [, fxp, fyp, sx0, sy0, sc, ry, rx] = cam;
-    const arrive = springB(b, 19.8, 2.0, 0.7);
+    const arrive = springB(b, 19.93, 2.0, 0.7);
     const z = (1 - arrive) * -1400;
     const drift = Math.sin(t * 0.7) * 1.5;
     const ex = pb(b, 67.1, 68.2, ease.inCubic);
