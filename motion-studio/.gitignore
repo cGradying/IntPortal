@@ -1,0 +1,5 @@
+node_modules/
+out/
+audio/kokoro/
+audio/*.wav
+audio/vo/takes/

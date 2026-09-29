@@ -1,0 +1,34 @@
+@font-face { font-family: "Montserrat"; src: url("../node_modules/@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "Source Sans 3"; src: url("../node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-latin-wght-normal.woff2") format("woff2"); font-weight: 200 900; }
+@font-face { font-family: "Pixelify Sans"; src: url("../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-500-normal.woff2") format("woff2"); font-weight: 500; }
+@font-face { font-family: "Pixelify Sans"; src: url("../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-700-normal.woff2") format("woff2"); font-weight: 700; }
+
+:root {
+  --void: #0a080c;
+  --ground: #19191c;
+  --gold: #f5b227;
+  --maroon: #7a1128;
+  --cream: #f7ecec;
+  --display: "Montserrat", sans-serif;
+  --ui: "Source Sans 3", sans-serif;
+  --pixel: "Pixelify Sans", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--void); }
+body { font-family: var(--ui); color: var(--cream); -webkit-font-smoothing: antialiased; }
+#stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--void); }
+#gl { position: absolute; inset: 0; width: 1920px; height: 1080px; image-rendering: pixelated; }
+#dom, #fx { position: absolute; inset: 0; }
+#fx { pointer-events: none; }
+.layer { position: absolute; inset: 0; display: none; }
+.abs { position: absolute; }
+.px { image-rendering: pixelated; }
+.display { font-family: var(--display); font-weight: 800; letter-spacing: -0.035em; line-height: 0.92; }
+.mask { overflow: hidden; display: inline-block; vertical-align: top; padding-bottom: 0.08em; }
+.mask > span { display: inline-block; }
+.notch {
+  clip-path: polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px,
+    100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%,
+    8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px));
+}
+.p3d { transform-style: preserve-3d; }

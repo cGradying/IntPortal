@@ -1,0 +1,110 @@
+{
+ "voices": {
+  "G": {
+   "kokoro": "af_heart",
+   "speed": 1.0
+  },
+  "B": {
+   "kokoro": "am_michael",
+   "speed": 1.0
+  }
+ },
+ "lines": [
+  {
+   "id": "l01",
+   "who": "G",
+   "beat": 0.5,
+   "text": "Class in nine minutes. And the portal says... session expired.",
+   "tag": "[sighing]"
+  },
+  {
+   "id": "l02",
+   "who": "B",
+   "beat": 9.0,
+   "text": "Okay. Try this.",
+   "tag": "[casual]"
+  },
+  {
+   "id": "l03",
+   "who": "G",
+   "beat": 22.0,
+   "text": "Your whole day, before you even ask."
+  },
+  {
+   "id": "l04",
+   "who": "B",
+   "beat": 41.0,
+   "text": "Grades come in, and it tells you what you need for your goal."
+  },
+  {
+   "id": "l05",
+   "who": "G",
+   "beat": 53.0,
+   "text": "Notes turn into cards. Study what's due."
+  },
+  {
+   "id": "l06",
+   "who": "B",
+   "beat": 61.0,
+   "text": "And Isko keeps an eye on the rest.",
+   "tag": "[warm]"
+  },
+  {
+   "id": "l07",
+   "who": "G",
+   "beat": 70.0,
+   "text": "Make it yours.",
+   "tag": "[playful]"
+  },
+  {
+   "id": "l08",
+   "who": "B",
+   "beat": 100.5,
+   "text": "Phone, laptop, browser. Same you, everywhere."
+  },
+  {
+   "id": "l09",
+   "who": "G",
+   "beat": 110.0,
+   "text": "It works with PUP S I S. Your own account, on your own device."
+  },
+  {
+   "id": "l10",
+   "who": "B",
+   "beat": 126.0,
+   "text": "Ask it anything about your term."
+  },
+  {
+   "id": "l11",
+   "who": "G",
+   "beat": 150.0,
+   "text": "Every campus has a portal."
+  },
+  {
+   "id": "l12",
+   "who": "B",
+   "beat": 160.0,
+   "text": "Someday, maybe they all connect.",
+   "tag": "[soft]"
+  },
+  {
+   "id": "l13",
+   "who": "G",
+   "beat": 173.0,
+   "text": "Beta opens soon.",
+   "tag": "[excited]"
+  },
+  {
+   "id": "l14",
+   "who": "B",
+   "beat": 179.0,
+   "text": "Save your spot."
+  },
+  {
+   "id": "l15",
+   "who": "GB",
+   "beat": 186.0,
+   "text": "Step through."
+  }
+ ]
+}
