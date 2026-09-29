@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head><meta charset="UTF-8" /></head>
+<body>
+<template>
+<style>
+  #root { position: absolute; inset: 0; overflow: hidden; background: #0a0f2c; }
+  #sk { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; image-rendering: pixelated; }
+</style>
+<div id="root" data-composition-id="sky" data-width="1920" data-height="1080"><canvas id="sk" width="240" height="135"></canvas></div>
+<script>
+(function () {
+  // One continuous school day: the real campus painter at the hour that belongs to the absolute time. Host starts at A.
+  const IP = window.IP, A = 6.0, D = 22.8;
+  const g = document.getElementById("sk").getContext("2d");
+  const tl = gsap.timeline({ paused: true });
+  const paint = (t) => { const abs = t + A; IP.drawCampus(g, 240, 135, abs * 1000, IP.hourAt(abs), { lit: IP.litIndexFor(abs < 16 ? "COMP 20073" : abs < 22 ? "COMP 20083" : "GEED 10103"), jeepCycle: false }); };
+  const drv = { t: 0 };
+  tl.to(drv, { t: D, duration: D, ease: "none", onUpdate: function () { paint(tl.time()); } }, 0);
+  paint(0);
+  window.__timelines["sky"] = tl;
+})();
+</script>
+</template>
+</body>
+</html>

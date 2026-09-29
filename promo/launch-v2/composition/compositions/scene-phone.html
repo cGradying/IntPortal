@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+<head><meta charset="UTF-8" /></head>
+<body>
+<template>
+<style>
+  @font-face { font-family: "Pixelify Sans"; src: url(assets/fonts/PixelifySans.ttf) format("truetype"); font-weight: 400 700; }
+  @font-face { font-family: "Source Sans 3"; src: url(assets/fonts/SourceSans3.ttf) format("truetype"); font-weight: 200 900; }
+  @font-face { font-family: "Montserrat"; src: url(assets/fonts/Montserrat.ttf) format("truetype"); font-weight: 100 900; }
+  #root { position: absolute; inset: 0; overflow: hidden; font-family: "Pixelify Sans", monospace; color: #F7ECEC; }
+  #ph-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7,5,10,.62) 0%, rgba(7,5,10,0) 52%); }
+  #ph-stage { position: absolute; inset: 0; perspective: 2600px; perspective-origin: 68% 46%; }
+  #ph-hold { position: absolute; left: 1119px; top: 103px; width: 402px; height: 874px; transform-style: preserve-3d; }
+  #ph-3d { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; image-rendering: pixelated; pointer-events: none; }
+  .ph-kw { position: absolute; left: 92px; font: 700 132px/0.98 "Pixelify Sans"; white-space: nowrap; opacity: 0;
+           text-shadow: 0 7px 0 #34203F, 0 14px 0 #170B1A, 0 21px 0 rgba(0,0,0,.45); }
+  .ph-kw i { font-style: normal; color: #F5B227; }
+  #ph-k1 { top: 330px; } #ph-k2 { top: 468px; }
+  #ph-p1 { top: 250px; font-size: 190px; } #ph-p2 { top: 430px; font-size: 190px; color: #F5B227; } #ph-p3 { top: 610px; font-size: 190px; }
+  .ph-pull { position: absolute; left: 0; right: 0; top: 60px; z-index: 30; display: flex; flex-direction: column; align-items: center; gap: 6px; opacity: 0; font: 600 14px "Montserrat", sans-serif; color: var(--ink-2, #a9a9b1); }
+  #ph-flash { position: absolute; inset: 0; background: radial-gradient(circle at 68% 48%, #FFFDF4 0%, #F6E7B0 40%, #C9A227 80%, #6D0E1F 120%); opacity: 1; }
+  .lyr { transform-style: preserve-3d; filter: drop-shadow(0 30px 26px rgba(0,0,0,.6)); }
+  #ph-hold .m-tabs { filter: drop-shadow(0 -18px 22px rgba(0,0,0,.5)); }
+  .ph-check { position: absolute; right: 22px; top: 44px; width: 20px; height: 14px; opacity: 0; z-index: 25; }
+  #ph-hold .m-tabs .tab.hop svg { transform: translateY(-3px); }
+</style>
+
+<div id="root" data-composition-id="scene-phone" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow data-width="1920" data-height="1080">
+  <div id="ph-shade"></div>
+  <div id="ph-stage" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow><div id="ph-hold" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow></div></div>
+  <canvas id="ph-3d" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow width="480" height="270"></canvas>
+  <div class="ph-kw" id="ph-k1">ALWAYS <i>KNOW</i></div>
+  <div class="ph-kw" id="ph-k2" style="color:#F7ECEC">WHAT'S <i>NEXT.</i></div>
+  <div class="ph-kw" id="ph-p1">PULL.</div>
+  <div class="ph-kw" id="ph-p2">SYNC.</div>
+  <div class="ph-kw" id="ph-p3">DONE.</div>
+  <div id="ph-flash"></div>
+</div>
+
+<script>
+(function () {
+  const IP = window.IP, T = window.THREE, UI = IP.ui;
+  const ID = "scene-phone", A = 6.4;               // this scene starts at absolute 6.4 s
+  const L = (abs) => abs - A;                        // absolute -> local
+  const $ = (id) => document.getElementById(id);
+  const hold = $("ph-hold");
+  ["ph-p2"].forEach((id) => IP.cfixEl($(id)));
+
+  // ---- phone: Today (exploded layers) + Schedule stacked on the same screen ----
+  const ph = UI.mount(hold, { room: "night", screen: "today", explode: true, time: "7:18", island: { label: "COMP 20073", short: "12m" } });
+  const screen = ph.querySelector(".ph-screen");
+  const today = ph.querySelector(".m-content");
+  const schedWrap = document.createElement("div"); schedWrap.innerHTML = UI.schedule(); const sched = schedWrap.firstElementChild;
+  sched.style.opacity = 0; screen.insertBefore(sched, ph.querySelector(".m-tabs"));
+  const island = ph.querySelector(".m-island");
+  const rc = island.querySelector(".rc"), ro = island.querySelector(".ro"), moreEl = island.querySelector(".more");
+  const tabs = ph.querySelector(".m-tabs");
+  const tabEls = { today: tabs.querySelector('[data-tab="today"]'), schedule: tabs.querySelector('[data-tab="schedule"]') };
+  const lift = (el) => { const w = document.createElement("div"); w.className = "lyr"; el.parentNode.insertBefore(w, el); w.appendChild(el); return w; };
+  const layers = { coach: lift(today.querySelector('[data-layer="coach"]')), hero: lift(today.querySelector('[data-layer="hero"]')), day: lift(today.querySelector('[data-layer="day"]')) };
+  const bigEl = ph.querySelector("[data-count]"), unitEl = ph.querySelector("[data-unit]");
+  // pull-to-sync banner
+  const pull = document.createElement("div"); pull.className = "ph-pull"; pull.innerHTML = `${UI.jeepLane()}<span data-pulltxt>Pull to sync</span>`; screen.appendChild(pull);
+  const pullTxt = pull.querySelector("[data-pulltxt]");
+  // island content
+  const q = (sel) => island.querySelector(sel);
+  const lnEls = [q("[data-ln]"), q("[data-ln2]")], trEls = [q("[data-tr]"), q("[data-tr2]")], leadEls = [q("[data-lead]"), q("[data-lead2]")];
+  const bigLine = q("[data-big]"), metaLine = q("[data-meta]");
+
+  // ---- sky + campus painted in code (pure function of time) ----
+  function paint(t) {
+    const abs = t + A, hour = IP.hourAt(abs);
+    UI.paintCampus(hold, abs * 1000, hour, "COMP 20073");
+  }
+
+  // ---- jeepney fly-by (3D overlay) ----
+  const world = IP.createWorld($("ph-3d"), 480, 270, { fov: 38, transparent: true });
+  const jeep = IP.makeJeep(); jeep.scale.setScalar(0.62); world.scene.add(jeep);
+  const roadDashes = []; for (let i = 0; i < 14; i++) { const m = IP.cubes([{ x: 0, y: 0, z: 0, c: "#f2c14e", sx: 3.6, sy: 0.12, sz: 0.45 }], IP.lambert(0xffffff)); world.scene.add(m); roadDashes.push(m); }
+  const road = IP.cubes([{ x: 0, y: -3.05, z: 3.5, c: "#26262c", sx: 120, sy: 0.4, sz: 12 }], IP.lambert(0xffffff)); world.scene.add(road);
+  const puffs = []; for (let i = 0; i < 8; i++) { const m = new T.Mesh(new T.BoxGeometry(1, 1, 1), new T.MeshBasicMaterial({ color: 0xd9d6e6, transparent: true, opacity: 0 })); world.scene.add(m); puffs.push(m); }
+  world.camera.position.set(0, -0.6, 21); world.camera.lookAt(0, 1.3, 0);
+  const JS = L(10.4), JE = L(11.75);
+  world.update = function (t) {
+    const vis = t > JS - 0.05 && t < JE + 0.05;
+    jeep.visible = road.visible = vis; roadDashes.forEach((d) => (d.visible = vis)); puffs.forEach((p) => (p.visible = vis));
+    if (!vis) return;
+    const u = IP.step(t, JS, JE);
+    const x = IP.lerp(-30, 32, IP.E.io(u) * 0.55 + u * 0.45);
+    jeep.position.set(x, -2.6 + Math.sin(t * 30) * 0.06, 0); jeep.rotation.y = 0.0; jeep.spin(t);
+    const off = (t - JS) * 44;
+    roadDashes.forEach((d, i) => d.position.set(((i * 9 - off) % 126 + 126) % 126 - 63, -2.8, 3.2));
+    puffs.forEach((p, i) => { const k = ((t * 2.6 + i / 8) % 1); p.position.set(x - 9.5 - k * 9, -2.3 + k * 1.6, 0.4 + (i % 3) * 0.6); p.scale.setScalar(0.35 + k * 1.1); p.material.opacity = 0.75 * (1 - k); });
+  };
+
+  // ---- timeline ----
+  const tl = gsap.timeline({ paused: true });
+  const kw = (el, t0, out) => {
+    tl.fromTo(el, { opacity: 0, x: -70, clipPath: "inset(0 100% 0 0)" }, { opacity: 1, x: 0, clipPath: "inset(0 0% 0 0)", duration: 0.26, ease: "steps(6)" }, L(t0));
+    tl.to(el, { opacity: 0, x: 60, clipPath: "inset(0 0% 0 100%)", duration: 0.2, ease: "steps(5)" }, L(out));
+  };
+  // flash out of the warp
+  tl.fromTo("#ph-flash", { opacity: 1 }, { opacity: 0, duration: 0.5, ease: "power2.out" }, 0);
+  // phone flies in, settles, orbits gently while exploded
+  tl.fromTo(hold, { x: 760, y: 620, z: -1400, rotationY: -78, rotationX: 26, scale: 0.55 }, { x: 0, y: 0, z: 0, rotationY: -26, rotationX: 8, scale: 1.08, duration: 0.95, ease: "power4.out" }, L(6.5));
+  tl.to(hold, { rotationY: 20, rotationX: -6, duration: 2.5, ease: "sine.inOut" }, L(6.95));
+  // explode layers (cues layer0..2 @ 6.8 / 7.0 / 7.2)
+  const Z = { day: 70, hero: 140, coach: 225, tabs: 170 };
+  tl.fromTo(layers.day, { z: 0 }, { z: Z.day, duration: 0.35, ease: "back.out(2.2)" }, L(IP.cue("layer0")));
+  tl.fromTo(layers.hero, { z: 0 }, { z: Z.hero, duration: 0.35, ease: "back.out(2.2)" }, L(IP.cue("layer1")));
+  tl.fromTo(layers.coach, { z: 0 }, { z: Z.coach, duration: 0.35, ease: "back.out(2.2)" }, L(IP.cue("layer2")));
+  tl.fromTo(tabs, { z: 0 }, { z: Z.tabs, duration: 0.35, ease: "back.out(2.2)" }, L(IP.cue("layer2")));
+  tl.fromTo(island, { z: 0 }, { z: 290, duration: 0.4, ease: "back.out(2.6)" }, L(IP.cue("island")));
+  // island opens (COMP 20073 · in 12 min) as a clip-path reveal
+  const openIsland = L(IP.cue("island"));
+  const CLOSED = "inset(0px 111px 72px 111px round 22px)", OPEN = "inset(0px 0px 0px 0px round 36px)";
+  tl.fromTo(island, { clipPath: CLOSED }, { clipPath: OPEN, duration: 0.38, ease: "back.out(1.5)" }, openIsland);
+  tl.fromTo(rc, { opacity: 1 }, { opacity: 0, duration: 0.12 }, openIsland);
+  tl.fromTo([ro, moreEl], { opacity: 0 }, { opacity: 1, duration: 0.22, ease: "power2.out" }, openIsland + 0.14);
+  tl.to(island, { clipPath: CLOSED, duration: 0.3, ease: "power3.inOut" }, L(9.05));
+  tl.to([ro, moreEl], { opacity: 0, duration: 0.14 }, L(9.05));
+  tl.to(rc, { opacity: 1, duration: 0.18 }, L(9.05) + 0.2);
+  // reopen for the sync sentence (10.0 - 12.4)
+  tl.to(island, { clipPath: OPEN, duration: 0.3, ease: "back.out(1.4)" }, L(10.0));
+  tl.to(rc, { opacity: 0, duration: 0.1 }, L(10.0));
+  tl.to([ro, moreEl], { opacity: 1, duration: 0.2 }, L(10.0) + 0.1);
+  tl.to(island, { clipPath: CLOSED, duration: 0.3, ease: "power3.inOut" }, L(12.35));
+  tl.to([ro, moreEl], { opacity: 0, duration: 0.14 }, L(12.35));
+  tl.to(rc, { opacity: 1, duration: 0.18 }, L(12.35) + 0.2);
+  // hero card pulse on tick, coach highlight
+  tl.fromTo(layers.hero, { scale: 1 }, { scale: 1.035, duration: 0.12, yoyo: true, repeat: 1, ease: "power2.out", immediateRender: false }, L(IP.cue("hero_tick1")));
+  tl.fromTo(layers.coach, { scale: 1 }, { scale: 1.05, duration: 0.14, yoyo: true, repeat: 1, ease: "power2.out", immediateRender: false }, L(IP.cue("coach")));
+  tl.fromTo(layers.coach, { z: Z.coach }, { z: Z.coach + 40, duration: 0.16, yoyo: true, repeat: 1, ease: "power2.out", immediateRender: false }, L(IP.cue("coach")));
+  // push in on the upper half, then settle
+  tl.to(hold, { scale: 1.42, y: 210, rotationY: -8, rotationX: 2, duration: 0.85, ease: "power3.inOut" }, L(8.25));
+  tl.to(hold, { scale: 1.08, y: 0, rotationY: -3, rotationX: 1, duration: 0.45, ease: "power3.inOut" }, L(9.15));
+  // collapse layers
+  [layers.day, layers.hero, layers.coach, tabs].forEach((el) => tl.to(el, { z: 0, duration: 0.35, ease: "power3.inOut" }, L(9.1)));
+  tl.to(island, { z: 0, duration: 0.3, ease: "power3.inOut" }, L(9.1));
+  // kickers
+  kw($("ph-k1"), 6.8, 8.7); kw($("ph-k2"), 7.4, 8.7);
+  kw($("ph-p1"), 10.0, 11.75); kw($("ph-p2"), 10.4, 11.75); kw($("ph-p3"), 11.6, 12.75);
+
+  // pull to sync gesture (9.6 -> release 10.0)
+  const pullT0 = L(9.6), pullT1 = L(IP.cue("pull")), relT = L(IP.cue("release"));
+  tl.fromTo(today, { y: 0 }, { y: 84, duration: pullT1 - pullT0, ease: "power2.out" }, pullT0);
+  tl.fromTo(pull, { opacity: 0 }, { opacity: 1, duration: 0.15 }, pullT0);
+  tl.to(today, { y: 0, duration: 0.25, ease: "back.out(1.7)" }, relT);
+  tl.to(pull, { opacity: 0, duration: 0.2 }, relT + 0.05);
+
+  // switch to Schedule at 11.6 (arrival)
+  const swT = L(IP.cue("arrived"));
+  tl.to(today, { opacity: 0, x: -60, duration: 0.12, ease: "power2.in" }, swT);
+  tl.fromTo(sched, { opacity: 0, x: 70 }, { opacity: 1, x: 0, duration: 0.3, ease: "power3.out", immediateRender: false }, swT);
+  sched.querySelectorAll("[data-blk]").forEach((b, i) => {
+    const ts = [L(IP.cue("sched0")), L(IP.cue("sched1")), L(IP.cue("sched2")), L(IP.cue("sched3"))][Math.min(3, Math.floor(i / 2))];
+    tl.fromTo(b, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.25, ease: "back.out(2.4)", immediateRender: false }, ts + (i % 2) * 0.05);
+  });
+  tl.fromTo(sched.querySelector(".m-nowline"), { scaleX: 0, transformOrigin: "0 50%" }, { scaleX: 1, duration: 0.4, ease: "power2.out", immediateRender: false }, L(12.2));
+  // phone swings out to the back-left as the Mac swings in (host window extends past 12.8)
+  tl.to(hold, { x: -820, z: -900, rotationY: 62, rotationX: -8, scale: 0.9, duration: 0.5, ease: "power3.in" }, L(12.55));
+
+  // dynamic content = pure function of time
+  const cnt = IP.track([[0, 12], [L(7.6) - 0.001, 12], [L(7.6), 11], [L(9.2) - 0.001, 11], [L(9.2), 10]]);
+  function dyn(t) {
+    const n = Math.round(cnt(t));
+    bigEl.textContent = n; unitEl.textContent = n === 1 ? "minute" : "minutes";
+    const abs = t + A;
+    // island labels
+    let label = "COMP 20073", short = n + "m", trip = null, big = "COMP 20073 · in " + n + " min", meta = "Synced 12 min ago · sis8.pup.edu.ph";
+    if (abs >= 10.0 && abs < 11.6) { label = "Syncing"; short = ""; trip = "drive"; big = "On the way to SIS…"; meta = "Talking to sis8.pup.edu.ph"; }
+    if (abs >= 11.6) { label = "Fresh"; short = ""; trip = "arrived"; big = "Synced · everything's fresh"; meta = "Synced just now · sis8.pup.edu.ph"; }
+    lnEls.forEach((e) => (e.textContent = label)); trEls.forEach((e) => (e.textContent = short));
+    bigLine.textContent = big; metaLine.textContent = meta;
+    if (trip) leadEls.forEach((e) => { if (e.dataset.trip !== trip) { e.innerHTML = UI.jeepLane(); e.dataset.trip = trip; } });
+    // tab bar
+    const onSched = abs >= 11.6;
+    tabEls.today.classList.toggle("on", !onSched); tabEls.schedule.classList.toggle("on", onSched);
+    // pull banner
+    pullTxt.textContent = abs < 9.8 ? "Pull to sync" : abs < 10.0 ? "Let go to sync" : "Syncing…";
+  }
+
+  // driver: paints canvases + text + 3D overlay every seek
+  const drv = { t: 0 };
+  tl.to(drv, { t: 7.0, duration: 7.0, ease: "none", onUpdate: function () { const t = tl.time(); paint(t); dyn(t); world.render(t); } }, 0);
+  paint(0); dyn(0); world.render(0);
+  window.__timelines[ID] = tl;
+})();
+</script>
+</template>
+</body>
+</html>

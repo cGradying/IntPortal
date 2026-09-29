@@ -1,0 +1,204 @@
+/* IntPortal phone UI kit for the trailer: the iOS app's tokens/components re-expressed as static markup.
+   Room colours come from CSS variables set by IP.applyRoom(). Design px == the app's px (402x874 screen). */
+.phone { position: absolute; width: 402px; height: 874px; transform-style: preserve-3d; font-family: "Source Sans 3", system-ui, sans-serif; }
+.ph-slab { position: absolute; inset: 0; transform-style: preserve-3d; }
+.ph-front, .ph-back { position: absolute; inset: 0; border-radius: 66px; }
+.ph-front { background: linear-gradient(145deg, #55565b 0%, #1d1e21 40%, #3a3b40 100%); transform: translateZ(7px); padding: 9px; transform-style: preserve-3d; }
+.ph-back { background: #17181b; transform: translateZ(-7px); }
+.ph-slice { position: absolute; inset: 0; border-radius: 66px; background: #2b2c31; }
+.ph-slice:nth-child(odd) { background: #35363b; }
+.ph-screen { position: relative; width: 100%; height: 100%; border-radius: 58px; background: var(--ground, #19191c); color: var(--ink, #efeff1); overflow: hidden; transform-style: preserve-3d; }
+.ph-screen.explode { overflow: visible; }
+.ph-plate { position: absolute; inset: 0; border-radius: 58px; background-color: var(--ground); background-image: radial-gradient(var(--dot, rgba(245,178,39,.07)) 1.4px, transparent 1.8px); background-size: 14px 14px; }
+.ph-status { position: absolute; left: 0; right: 0; top: 0; height: 54px; display: flex; justify-content: space-between; align-items: center; padding: 6px 34px 0 42px; font: 600 17px "Montserrat", sans-serif; z-index: 9; }
+.ph-status .ph-ind { display: flex; gap: 6px; align-items: center; }
+.ph-status .ph-ind i { display: block; background: currentColor; }
+.ph-batt { width: 27px; height: 13px; border-radius: 4px; background: currentColor !important; position: relative; }
+.ph-wifi { width: 17px; height: 12px; background: currentColor !important; clip-path: polygon(50% 100%, 0 30%, 15% 15%, 50% 40%, 85% 15%, 100% 30%); }
+.ph-sig { width: 18px; height: 11px; background: linear-gradient(90deg, currentColor 0 3px, transparent 3px 5px, currentColor 5px 8px, transparent 8px 10px, currentColor 10px 13px, transparent 13px 15px, currentColor 15px 18px) !important; opacity: .5; }
+.ph-home { position: absolute; left: 50%; bottom: 8px; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: var(--ink); opacity: .9; z-index: 12; }
+
+/* content area */
+.m-content { transform-style: preserve-3d; position: absolute; left: 0; right: 0; top: 0; bottom: 0; padding: 78px 16px 100px; display: grid; align-content: start; gap: 18px; }
+.m-label { font: 600 11px "Montserrat", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.m-h1 { margin: 2px 0 0; font: 700 28px "Montserrat", sans-serif; letter-spacing: -.02em; color: var(--ink); }
+.m-num { font-family: "Montserrat", sans-serif; font-variant-numeric: tabular-nums; }
+.m-card { background: linear-gradient(180deg, var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge); position: relative; }
+.m-notch { --s: 4px; clip-path: polygon(0 calc(var(--s) * 2), var(--s) calc(var(--s) * 2), var(--s) var(--s), calc(var(--s) * 2) var(--s), calc(var(--s) * 2) 0, calc(100% - var(--s) * 2) 0, calc(100% - var(--s) * 2) var(--s), calc(100% - var(--s)) var(--s), calc(100% - var(--s)) calc(var(--s) * 2), 100% calc(var(--s) * 2), 100% calc(100% - var(--s) * 2), calc(100% - var(--s)) calc(100% - var(--s) * 2), calc(100% - var(--s)) calc(100% - var(--s)), calc(100% - var(--s) * 2) calc(100% - var(--s)), calc(100% - var(--s) * 2) 100%, calc(var(--s) * 2) 100%, calc(var(--s) * 2) calc(100% - var(--s)), var(--s) calc(100% - var(--s)), var(--s) calc(100% - var(--s) * 2), 0 calc(100% - var(--s) * 2)); }
+.lite .m-notch { clip-path: none; border-radius: 8px; }
+
+/* Island (Dynamic Island capsule + glance): fixed 368px capsule, revealed with clip-path (smooth under frame capture) */
+.m-island { position: absolute; left: 50%; top: 11px; width: 368px; height: 160px; margin-left: -184px; background: #000; color: #f1f1f3; z-index: 20; text-align: left; clip-path: inset(0px 111px 72px 111px round 22px); }
+.m-island .rc { position: absolute; left: 111px; top: 40px; width: 146px; padding: 0 11px; display: flex; align-items: center; gap: 6px; height: 24px; }
+.m-island .ro { position: absolute; left: 0; right: 0; top: 44px; padding: 0 20px; display: flex; align-items: center; gap: 10px; height: 24px; opacity: 0; }
+.m-island .glyph { width: 11px; height: 14px; flex: none; }
+.m-island .ro .glyph { width: 14px; height: 18px; }
+.m-island .ln { flex: 1; font: 600 11px "Montserrat", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-island .tr { font: 700 11px "Montserrat", sans-serif; color: #f5b227; font-variant-numeric: tabular-nums; }
+.m-island .ro .ln, .m-island .ro .tr { font-size: 14px; }
+.m-island .more { position: absolute; left: 20px; right: 20px; top: 78px; display: grid; gap: 12px; opacity: 0; }
+.m-island .big { font: 700 17px/1.3 "Montserrat", sans-serif; }
+.m-island .meta { display: flex; justify-content: space-between; align-items: center; gap: 14px; font-size: 13px; color: #a9a9b1; }
+.m-island .sync { padding: 7px 14px; border-radius: 14px; background: #f5b227; color: #1b1406; font: 700 12px "Montserrat", sans-serif; }
+.m-pill { position: absolute; left: 50%; top: 11px; width: 126px; height: 37px; margin-left: -63px; border-radius: 20px; background: #000; z-index: 15; }
+.jeep-lane { position: relative; display: block; width: 46px; height: 20px; overflow: hidden; }
+.jeep-lane svg { position: absolute; left: 5px; bottom: 2px; width: 36px; height: 14px; }
+
+/* tab bar */
+.m-tabs { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; display: grid; grid-template-columns: repeat(5, 1fr); padding: 8px 8px 22px; background: color-mix(in srgb, var(--ground) 86%, transparent); box-shadow: 0 -1px 0 var(--edge); z-index: 10; }
+.explode .m-tabs { left: 14px; right: 14px; bottom: 18px; height: 78px; padding: 6px 6px 8px; border-radius: 26px; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge-2), 0 -1px 0 var(--edge); }
+.m-tabs .tab { display: grid; justify-items: center; align-content: start; gap: 4px; padding: 6px 0; color: var(--ink-3); }
+.m-tabs .tab span { font: 600 11px "Montserrat", sans-serif; }
+.m-tabs .tab.on { color: var(--ink); }
+.m-tabs .tab.on span { color: var(--gold); }
+
+/* Today */
+.m-hero { overflow: hidden; box-shadow: inset 0 0 0 1px var(--edge), var(--shadow, 0 10px 30px rgba(0,0,0,.35)); --s: 4px; }
+.m-hero canvas { display: block; width: 100%; height: auto; aspect-ratio: 192 / 80; image-rendering: pixelated; }
+.m-up { display: flex; gap: 12px; align-items: flex-end; justify-content: space-between; padding: 14px 16px 16px; }
+.m-up h2 { margin: 4px 0 0; font: 800 24px "Montserrat", sans-serif; letter-spacing: -.01em; color: var(--gold); }
+.m-up .desc { margin: 2px 0 0; color: var(--ink); font-size: 15px; }
+.m-up .meta { margin: 4px 0 0; font-size: 13px; color: var(--ink-2); }
+.m-count { display: grid; justify-items: end; flex: none; }
+.m-count .big { font: 800 40px/1 "Montserrat", sans-serif; letter-spacing: -.03em; color: var(--ink); }
+.m-count .unit { margin-top: 4px; font-size: 12px; color: var(--ink-2); }
+.m-coach { display: flex; align-items: center; gap: 4px; padding: 12px 6px 12px 16px; box-shadow: inset 3px 0 0 var(--gold), inset 0 0 0 1px var(--edge); --s: 4px; }
+.m-coach .line { flex: 1; font-size: 15px; line-height: 1.35; color: var(--ink); }
+.m-coach .x { width: 40px; text-align: center; color: var(--ink-3); font-size: 20px; }
+.m-daylist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.m-head { display: flex; justify-content: space-between; align-items: baseline; }
+.m-free { font: 600 12px "Montserrat", sans-serif; color: var(--gold); }
+.m-class { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); }
+.m-class .time { display: grid; width: 64px; flex: none; font: 700 13px "Montserrat", sans-serif; }
+.m-class .time small { font-size: 11px; font-weight: 500; color: var(--ink-3); }
+.m-class .stripe { width: 3px; align-self: stretch; border-radius: 2px; background: var(--c, var(--s1)); }
+.m-class .what { display: grid; min-width: 0; flex: 1; }
+.m-class .what strong { font: 700 15px "Montserrat", sans-serif; }
+.m-class .what span { font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-gap { display: flex; align-items: center; height: 30px; padding: 0 14px 0 84px; border-radius: 10px; background-image: radial-gradient(color-mix(in srgb, var(--gold) 35%, transparent) 1px, transparent 1.2px); background-size: 5px 5px; color: var(--gold); font: 600 12px "Montserrat", sans-serif; }
+.m-now { padding: 3px 8px; font: 500 12px "Pixelify Sans", monospace; letter-spacing: .06em; text-transform: uppercase; background: var(--gold); color: var(--on-gold); }
+.m-tag { padding: 3px 8px; font: 500 12px "Pixelify Sans", monospace; letter-spacing: .06em; text-transform: uppercase; box-shadow: inset 0 0 0 1px var(--edge-2); color: var(--ink-2); }
+
+/* Grades */
+.m-gpa { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 16px; --s: 4px; }
+.m-gpa .value { display: flex; align-items: center; white-space: nowrap; margin: 2px 0 0; font: 800 48px/1 "Montserrat", sans-serif; letter-spacing: -.03em; color: var(--gold); }
+.m-gpa .sub { margin: 6px 0 0; font-size: 13px; color: var(--ink-2); }
+.m-gpa svg.trend { width: 44%; height: 64px; flex: none; }
+.m-note { margin: -8px 2px 0; font-size: 12px; color: var(--ink-3); }
+.m-grade { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); }
+.m-grade .stripe { width: 3px; align-self: stretch; border-radius: 2px; background: var(--c); }
+.m-grade .what { display: grid; min-width: 0; flex: 1; }
+.m-grade .what strong { font: 700 15px "Montserrat", sans-serif; }
+.m-grade .what span { font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-grade .units { font: 500 12px "Montserrat", sans-serif; color: var(--ink-3); }
+.m-stamp { flex: none; min-width: 54px; padding: 4px 6px; text-align: center; margin-right: 4px; font: 800 15px "Montserrat", sans-serif; font-variant-numeric: tabular-nums; color: var(--good); box-shadow: inset 0 0 0 2px currentColor; transform: rotate(-4deg); }
+.m-stamp.bad { color: var(--bad); }
+.m-pending { flex: none; padding: 4px 10px; border-radius: 10px; background: var(--sunk); font: 600 13px "Source Sans 3", sans-serif; color: var(--ink-2); }
+.m-best { display: inline-block; margin-left: 12px; padding: 3px 7px; vertical-align: middle; font: 700 12px "Pixelify Sans", monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); box-shadow: inset 0 0 0 2px currentColor; transform: rotate(-5deg); }
+
+/* Study */
+.m-sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 16px; --s: 4px; }
+.m-sum .big { margin: 2px 0 0; font: 800 28px "Montserrat", sans-serif; }
+.m-sum .big small { font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.m-deck { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 10px; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); }
+.m-deck .what { display: grid; flex: 1; min-width: 0; }
+.m-deck .what strong { font: 700 15px "Montserrat", sans-serif; }
+.m-deck .what small { font-size: 13px; color: var(--ink-3); }
+.m-deck .due { font: 700 14px "Montserrat", sans-serif; color: var(--gold); }
+.m-term { padding: 22px 20px; --s: 4px; }
+.m-term .t { margin: 14px 0 0; font: 700 28px "Montserrat", sans-serif; }
+.m-term hr { border: 0; height: 1px; background: var(--edge-2); margin: 16px 0; }
+.m-term .d { font-size: 20px; color: var(--ink); }
+.m-rate { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.m-rate div { height: 52px; border-radius: 10px; display: grid; place-items: center; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); font: 700 16px "Montserrat", sans-serif; }
+.m-rate div.again { color: var(--bad); }
+.m-rate div.pick { background: var(--gold); color: var(--on-gold); box-shadow: none; }
+
+/* You / rooms */
+.m-block { display: grid; gap: 10px; padding: 16px; --s: 4px; }
+.m-line { display: flex; justify-content: space-between; font-size: 15px; color: var(--ink-2); }
+.m-line strong { color: var(--ink); font-weight: 600; }
+.m-btn { height: 44px; border-radius: 10px; display: grid; place-items: center; font: 700 14px "Montserrat", sans-serif; background: var(--gold); color: var(--on-gold); }
+.m-rooms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.m-room { display: grid; gap: 8px; padding: 10px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge); font: 600 12px/1.2 "Source Sans 3", sans-serif; }
+.m-room.on { box-shadow: inset 0 0 0 2px var(--gold); }
+.m-swatch { display: flex; height: 28px; overflow: hidden; border-radius: 6px; }
+.m-swatch i { flex: 1; }
+
+/* Schedule week grid */
+.m-seg { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 12px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge); }
+.m-seg div { text-align: center; padding: 10px 0; border-radius: 9px; font: 700 15px "Montserrat", sans-serif; color: var(--ink-2); }
+.m-seg div.on { background: var(--gold); color: var(--on-gold); }
+.m-week { position: relative; height: 480px; }
+.m-week .dh { position: absolute; top: 0; font: 700 11px "Montserrat", sans-serif; text-align: center; letter-spacing: .06em; color: var(--ink-3); }
+.m-week .dh.on { color: var(--gold); }
+.m-week .hr { position: absolute; left: 0; width: 26px; text-align: right; font: 500 10px "Montserrat", sans-serif; color: var(--ink-3); }
+.m-week .ln { position: absolute; left: 32px; right: 0; height: 1px; background: var(--edge); }
+.m-week .blk { position: absolute; padding: 5px 7px; border-radius: 5px; overflow: hidden; background: color-mix(in srgb, var(--c) 34%, var(--card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 60%, transparent); font: 700 11px/1.1 "Montserrat", sans-serif; color: var(--ink); }
+.m-week .blk small { display: block; font-weight: 500; opacity: .8; }
+.m-nowline { position: absolute; left: 26px; right: 0; height: 2px; background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+
+/* ================= Mac "Registrar" window (1600x1000 design px), themed by the same room variables ================= */
+.mac { position: absolute; width: 1600px; height: 1000px; border-radius: 30px; overflow: hidden; background: var(--ground); color: var(--ink); font-family: "Source Sans 3", system-ui, sans-serif; }
+.mac-dither { position: absolute; left: 0; right: 0; top: 0; height: 64px; background: radial-gradient(circle, var(--maroon) 1.9px, transparent 2.4px) 0 0 / 10px 10px; -webkit-mask-image: linear-gradient(#000 0%, rgba(0,0,0,.85) 50%, transparent 100%); mask-image: linear-gradient(#000 0%, rgba(0,0,0,.85) 50%, transparent 100%); }
+.mac-pill { position: absolute; left: 50%; top: 16px; height: 62px; margin-left: -235px; width: 470px; border-radius: 32px; background: var(--card); box-shadow: 0 6px 18px rgba(0,0,0,.18), inset 0 0 0 1px var(--edge); display: flex; align-items: center; justify-content: center; gap: 12px; font: 600 24px "Montserrat", sans-serif; z-index: 6; }
+.mac-pill b { font-weight: 800; }
+.mac-pill span { color: var(--ink-2); font-weight: 500; }
+.mac-pill svg { width: 30px; height: 30px; }
+.mac-main { position: absolute; left: 0; top: 0; width: 1180px; height: 1000px; padding: 108px 56px 0 56px; }
+.mac-tabs { display: flex; gap: 14px; }
+.mac-tabs span { padding: 10px 20px; border-radius: 14px; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); font: 600 22px "Montserrat", sans-serif; color: var(--ink-2); }
+.mac-tabs span.on { background: color-mix(in srgb, var(--maroon) 14%, var(--card)); color: var(--ink); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--maroon) 55%, transparent); }
+.mac-title { margin: 26px 0 0; font: 700 50px/1.1 "Pixelify Sans", monospace; color: var(--ink); }
+.mac-tools { display: flex; gap: 14px; margin: 22px 0 0; }
+.mac-tools i { display: block; width: 46px; height: 40px; border-radius: 8px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge); }
+.mac-doc { margin-top: 26px; font: 500 30px/1.5 "Pixelify Sans", monospace; color: var(--ink); }
+.mac-doc h4 { margin: 0 0 6px; font: 700 40px "Pixelify Sans", monospace; }
+.mac-doc p { margin: 0 0 6px; }
+.mac-doc code { display: block; margin-top: 18px; padding: 22px 26px; border-radius: 16px; background: #1f2026; color: #d8dbe6; font: 500 26px/1.5 "Pixelify Sans", monospace; }
+.mac-doc code b { color: #f2c14e; font-weight: 500; }
+.mac-side { position: absolute; right: 0; top: 0; width: 420px; height: 1000px; padding: 108px 30px 0 34px; border-left: 1px solid var(--edge); background: color-mix(in srgb, var(--ground) 70%, var(--card)); }
+.mac-side h2 { margin: 0; font: 700 52px/1 "Pixelify Sans", monospace; color: var(--ink); }
+.mac-side .sub { margin: 8px 0 0; font: 500 24px "Montserrat", sans-serif; color: var(--ink-2); }
+.mac-daynote { display: flex; justify-content: space-between; margin: 26px 0 18px; font: 600 24px "Montserrat", sans-serif; color: var(--ink-2); }
+.mac-cls { position: relative; display: block; padding: 18px 20px 18px 30px; border-radius: 18px; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge), 0 4px 14px rgba(0,0,0,.08); }
+.mac-cls:before { content: ""; position: absolute; left: 12px; top: 16px; bottom: 16px; width: 5px; border-radius: 3px; background: var(--c, var(--s1)); }
+.mac-cls b { display: flex; justify-content: space-between; font: 700 28px "Montserrat", sans-serif; color: var(--ink); }
+.mac-cls b em { font-style: normal; font-weight: 600; font-size: 22px; color: var(--gold); }
+.mac-cls span { display: block; margin-top: 6px; font: 500 22px "Source Sans 3", sans-serif; color: var(--ink-2); }
+.mac-gap { display: flex; align-items: center; height: 46px; margin: 14px 0; padding-left: 20px; border-radius: 12px; background-image: radial-gradient(color-mix(in srgb, var(--maroon) 40%, transparent) 1.4px, transparent 1.8px); background-size: 8px 8px; color: var(--gold); font: 600 22px "Montserrat", sans-serif; }
+.mac-vault { margin-top: 30px; font: 600 22px "Montserrat", sans-serif; color: var(--ink-3); letter-spacing: .08em; text-transform: uppercase; }
+.mac-note { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding: 12px 16px; border-radius: 12px; font: 500 24px "Source Sans 3", sans-serif; color: var(--ink); }
+.mac-note.on { background: color-mix(in srgb, var(--maroon) 14%, var(--card)); }
+.mac-note i { width: 12px; height: 12px; border-radius: 50%; background: var(--maroon); }
+.mac-orbbtn { position: absolute; left: 34px; bottom: 34px; width: 84px; height: 84px; border-radius: 50%; background: var(--card); box-shadow: 0 6px 20px rgba(0,0,0,.22), inset 0 0 0 1px var(--edge-2); display: grid; place-items: center; }
+.mac-orbbtn svg { width: 40px; height: 40px; }
+.stamp { display: inline-block; padding: 2px 16px 0; border: 5px solid currentColor; font: 700 40px/1.25 "Pixelify Sans", monospace; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; transform: rotate(-4deg); background: color-mix(in srgb, var(--card, #fff) 90%, transparent); }
+.mac-cls .stamp { position: absolute; right: 18px; bottom: 12px; opacity: 0; color: #2b5aa8; }
+
+/* Assistant panel */
+.mac-panel { position: absolute; left: 44px; bottom: 44px; width: 760px; border-radius: 30px; background: var(--card); box-shadow: 0 30px 60px rgba(0,0,0,.35), inset 0 0 0 2px var(--edge-2); color: var(--ink); overflow: hidden; }
+.mac-panel .ph { display: flex; align-items: center; gap: 16px; padding: 22px 28px 18px; border-bottom: 1px solid var(--edge); }
+.mac-panel .ph b { font: 700 40px "Pixelify Sans", monospace; }
+.mac-panel .ph .tag { padding: 4px 12px; border-radius: 8px; background: var(--gold); color: var(--on-gold); font: 700 20px "Pixelify Sans", monospace; letter-spacing: .1em; }
+.mac-panel .ph .auto { margin-left: auto; font: 500 22px "Montserrat", sans-serif; color: var(--ink-3); }
+.mac-panel .msgs { display: grid; gap: 16px; padding: 22px 28px; min-height: 236px; align-content: start; }
+.mac-panel .u { justify-self: start; padding: 12px 22px; border-radius: 20px; background: color-mix(in srgb, var(--maroon) 16%, var(--card)); font: 500 30px "Source Sans 3", sans-serif; opacity: 0; }
+.mac-panel .a { justify-self: end; max-width: 640px; padding: 14px 22px; border-radius: 20px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge); font: 500 32px/1.28 "Source Sans 3", sans-serif; opacity: 0; min-height: 44px; }
+.mac-panel .chips { display: flex; flex-wrap: wrap; gap: 10px; opacity: 0; }
+.mac-panel .chips span { padding: 6px 16px; border-radius: 999px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); font: 600 22px "Montserrat", sans-serif; color: var(--ink-2); }
+.mac-panel .chips span:before { content: "\2726  "; color: var(--gold); }
+.mac-panel .inp { display: flex; align-items: center; margin: 0 22px 22px; padding: 14px 20px; border-radius: 20px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--edge-2); font: 500 30px "Source Sans 3", sans-serif; min-height: 68px; color: var(--ink); }
+.mac-panel .inp .ph-txt { flex: 1; white-space: nowrap; }
+.mac-panel .inp .ph-txt:empty:before { content: "Ask the assistant... or /command"; color: var(--ink-3); }
+.mac-panel .inp .send { width: 44px; height: 44px; border-radius: 50%; background: var(--gold); color: var(--on-gold); display: grid; place-items: center; font: 700 26px "Montserrat", sans-serif; }
+.caret { display: inline-block; width: 3px; height: 30px; margin-left: 2px; vertical-align: -5px; background: var(--gold); }
+.think-dots { display: flex; gap: 8px; padding: 8px 2px; }
+.think-dots i { width: 12px; height: 12px; background: var(--gold); }
+
+.phone.flat, .phone.flat .ph-slab { transform-style: flat; }
+.phone.flat .ph-front { transform: none; transform-style: flat; }
+.phone.flat .ph-screen { transform-style: flat; }
+
+/* re-open the aperture of Pixelify's C (measured: notch centre .505em from the top of a line-height:1 box) */
+.cc { display: inline-block; line-height: 1; clip-path: polygon(-1em -1em, 2em -1em, 2em 0.435em, 0.19em 0.435em, 0.19em 0.575em, 2em 0.575em, 2em 2em, -1em 2em); }

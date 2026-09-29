@@ -1,0 +1,10 @@
+IntPortal — launch film v2 (32 s)
+
+Short:
+Meet Isko. PUP SIS in your pocket — pull, sync, done. Every grade stamped, themed Rooms, local AI by default. Sta. Mesa first, every campus next. Step through. ↓ github.com/cGradying/IntPortal
+
+Longer:
+IntPortal is a macOS app (v1.7.0, macOS 14+) that brings PUP SIS into one calm place: your week, your grades, notes, spaced-repetition flashcards and a local-by-default assistant. The iPhone and Android apps are in development. Sta. Mesa is connected today; more campuses are next.
+Made with HTML, GSAP and Three.js; the music, sound effects and voice were generated from code.
+
+Unofficial app by a PUP student. Not affiliated with PUP. All names and grades shown are sample data.

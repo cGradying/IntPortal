@@ -1,0 +1,144 @@
+<!doctype html>
+<html>
+<head><meta charset="UTF-8" /></head>
+<body>
+<template>
+<style>
+  @font-face { font-family: "Pixelify Sans"; src: url(assets/fonts/PixelifySans.ttf) format("truetype"); font-weight: 400 700; }
+  @font-face { font-family: "Source Sans 3"; src: url(assets/fonts/SourceSans3.ttf) format("truetype"); font-weight: 200 900; }
+  @font-face { font-family: "Montserrat"; src: url(assets/fonts/Montserrat.ttf) format("truetype"); font-weight: 100 900; }
+  #root { position: absolute; inset: 0; overflow: hidden; background: #07050A; font-family: "Pixelify Sans", monospace; color: #F7ECEC; }
+  #en-glow { position: absolute; inset: 0; background: radial-gradient(ellipse 52% 30% at 50% 24%, rgba(148,28,48,.42), rgba(7,5,10,0) 70%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(109,14,31,.35), rgba(7,5,10,0) 70%); }
+  #en-dots { position: absolute; inset: 0; background: radial-gradient(rgba(245,178,39,.07) 2.4px, transparent 3px) 0 0 / 26px 26px; }
+  #en-gl { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; image-rendering: pixelated; }
+  .en-c { position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; opacity: 0; }
+  #en-tag { top: 372px; font: 700 62px/1 "Pixelify Sans"; color: #F5B227; letter-spacing: .02em; text-shadow: 0 5px 0 #34203F; }
+  #en-btn { position: absolute; left: 700px; top: 500px; width: 520px; height: 116px; display: grid; place-items: center; background: #F5B227; color: #1b1406; font: 700 68px/1 "Pixelify Sans"; letter-spacing: .03em; opacity: 0; --s: 10px;
+            clip-path: polygon(0 calc(var(--s) * 2), var(--s) calc(var(--s) * 2), var(--s) var(--s), calc(var(--s) * 2) var(--s), calc(var(--s) * 2) 0, calc(100% - var(--s) * 2) 0, calc(100% - var(--s) * 2) var(--s), calc(100% - var(--s)) var(--s), calc(100% - var(--s)) calc(var(--s) * 2), 100% calc(var(--s) * 2), 100% calc(100% - var(--s) * 2), calc(100% - var(--s)) calc(100% - var(--s) * 2), calc(100% - var(--s)) calc(100% - var(--s)), calc(100% - var(--s) * 2) calc(100% - var(--s)), calc(100% - var(--s) * 2) 100%, calc(var(--s) * 2) 100%, calc(var(--s) * 2) calc(100% - var(--s)), var(--s) calc(100% - var(--s)), var(--s) calc(100% - var(--s) * 2), 0 calc(100% - var(--s) * 2)); }
+  #en-btn-sh { position: absolute; left: 700px; top: 514px; width: 520px; height: 116px; background: #6D0E1F; opacity: 0; --s: 10px;
+            clip-path: polygon(0 calc(var(--s) * 2), var(--s) calc(var(--s) * 2), var(--s) var(--s), calc(var(--s) * 2) var(--s), calc(var(--s) * 2) 0, calc(100% - var(--s) * 2) 0, calc(100% - var(--s) * 2) var(--s), calc(100% - var(--s)) var(--s), calc(100% - var(--s)) calc(var(--s) * 2), 100% calc(var(--s) * 2), 100% calc(100% - var(--s) * 2), calc(100% - var(--s)) calc(100% - var(--s) * 2), calc(100% - var(--s)) calc(100% - var(--s)), calc(100% - var(--s) * 2) calc(100% - var(--s)), calc(100% - var(--s) * 2) 100%, calc(var(--s) * 2) 100%, calc(var(--s) * 2) calc(100% - var(--s)), var(--s) calc(100% - var(--s)), var(--s) calc(100% - var(--s) * 2), 0 calc(100% - var(--s) * 2)); }
+  #en-url { top: 676px; font: 800 44px/1 "Montserrat", sans-serif; color: #F7ECEC; letter-spacing: -.005em; }
+  #en-meta { top: 748px; font: 600 34px/1 "Source Sans 3", sans-serif; color: rgba(247,236,236,.82); }
+  #en-disc { top: 826px; font: 500 28px/1 "Source Sans 3", sans-serif; color: rgba(247,236,236,.58); }
+  #en-bub { position: absolute; left: 130px; top: 470px; padding: 12px 24px 14px; background: #F7ECEC; color: #1b1406; font: 800 50px/1.1 "Source Sans 3"; opacity: 0; white-space: nowrap;
+            box-shadow: 0 -6px 0 0 #F7ECEC, 0 6px 0 0 #F7ECEC, -6px 0 0 0 #F7ECEC, 6px 0 0 0 #F7ECEC, 8px 14px 0 0 rgba(0,0,0,.5); }
+  #en-bub:after { content: ""; position: absolute; left: 70px; bottom: -28px; width: 22px; height: 22px; background: #F7ECEC; box-shadow: 12px 12px 0 0 #F7ECEC, 0 6px 0 0 #F7ECEC; }
+  #en-flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 46%, #FFFDF4 0%, #F6E7B0 40%, #C9A227 100%); opacity: 1; pointer-events: none; }
+  #en-fx { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; image-rendering: pixelated; pointer-events: none; }
+</style>
+
+<div id="root" data-composition-id="scene-end" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow data-width="1920" data-height="1080">
+  <div id="en-glow"></div><div id="en-dots"></div>
+  <canvas id="en-gl" width="480" height="270"></canvas>
+  <div class="en-c" id="en-tag">YOUR CAMPUS. IN YOUR POCKET.</div>
+  <div id="en-btn-sh"></div>
+  <div id="en-btn">Step through</div>
+  <div class="en-c" id="en-url">github.com/cGradying/IntPortal</div>
+  <div class="en-c" id="en-meta">v1.7.0 &nbsp;&middot;&nbsp; macOS 14+ &nbsp;&middot;&nbsp; iPhone &amp; Android coming</div>
+  <div class="en-c" id="en-disc">Unofficial app by a PUP student. Not affiliated with PUP.</div>
+  <div id="en-bub" data-full="Tara na!"><span id="en-bubt"></span></div>
+  <canvas id="en-fx" width="240" height="135"></canvas>
+  <div id="en-flash"></div>
+</div>
+
+<script>
+(function () {
+  const IP = window.IP, T = window.THREE, FX = IP.fx;
+  const ID = "scene-end", A = 28.7;
+  const L = (abs) => abs - A;
+  const $ = (id) => document.getElementById(id);
+  IP.cfixEl($("en-tag"));
+
+  const world = IP.createWorld($("en-gl"), 480, 270, { fov: 30, transparent: true });
+  const { scene, camera } = world;
+  camera.position.set(0, 0, 70); camera.lookAt(0, 0, 0);
+  const PXU = 28.8;                                   // screen px per world unit at z = 0
+
+  // ---- voxel wordmark (baked from the brand font) ----
+  const WM = IP.WORDMARK, Wc = WM[0].length, Hr = WM.length, VS = 0.64, Y0 = (540 - 243) / PXU;
+  const T0 = IP.cue("wm0"), TE = IP.cue("wm17");
+  const rnd = IP.rng(77), list = [], meta = [];
+  for (let y = 0; y < Hr; y++) for (let x = 0; x < Wc; x++) {
+    if (WM[y][x] !== "#") continue;
+    for (let layer = 0; layer < 3; layer++) {
+      const base = layer === 0 ? IP.mix("#FAEBB3", "#F5B227", Math.min(1, y / (Hr - 1)) * 0.9) : layer === 1 ? "#941C30" : "#34203F";
+      const px = (x - Wc / 2 + 0.5) * VS, py = (Hr / 2 - y - 0.5) * VS + Y0, pz = 0.32 - layer * VS;
+      const a = rnd() * Math.PI * 2, b = rnd() * 2 - 1, d = 10 + rnd() * 16;
+      meta.push({ px, py, pz, col: x, row: y, layer, base: new T.Color(base), dx: Math.cos(a) * Math.sqrt(1 - b * b) * d, dy: b * d * 0.8, dz: Math.sin(a) * Math.sqrt(1 - b * b) * d + 10, t: T0 + (x / (Wc - 1)) * (TE - T0) + rnd() * 0.05 + layer * 0.03 });
+      list.push({ x: px, y: py, z: pz, c: base, s: VS * 0.96 });
+    }
+  }
+  const wm = IP.cubes(list, IP.lambert(0xffffff)); wm.frustumCulled = false; scene.add(wm);
+  const M = new T.Matrix4(), Q = new T.Quaternion(), P = new T.Vector3(), S = new T.Vector3(), C = new T.Color();
+  const CREAM = new T.Color("#FFFDF4");
+  const T_BELL = IP.cue("final_bell");
+  const easeOut = (u) => 1 - Math.pow(1 - IP.clamp(u), 3);
+  const back = (u) => IP.E.back(IP.clamp(u));
+
+  // ---- Isko + cube + motes ----
+  const isko = IP.makeIsko(); isko.scale.setScalar(0.6); scene.add(isko);
+  const cube = IP.makeCube(); cube.position.set((1620 - 960) / PXU, (540 - 800) / PXU, 0); scene.add(cube);
+  const motes = IP.makeMotes(120, [86, 46, 30], 5); motes.position.set(0, 0, -14); scene.add(motes);
+  const ISKO_X = (300 - 960) / PXU, ISKO_Y = (540 - 980) / PXU + 6.0;
+  const TB = IP.cue("btn");
+
+  world.update = function (t) {
+    const abs = t + A;
+    // wordmark: voxels fly in on the clack beats, then a shimmer sweeps it on the bell
+    const sweep = (abs - T_BELL) / 0.55;
+    for (let i = 0; i < meta.length; i++) {
+      const m = meta[i], u = (abs - (m.t - 0.3)) / 0.3;
+      const e = easeOut(u), k = 1 - e;
+      if (u <= 0) { P.set(0, -60, 0); S.setScalar(0.0001); }
+      else { P.set(m.px + m.dx * k, m.py + m.dy * k, m.pz + m.dz * k); S.setScalar(VS * 0.96 * Math.min(1, 0.2 + 0.8 * back(u * 1.1))); }
+      M.compose(P, Q, S); wm.setMatrixAt(i, M);
+      let boost = 0;
+      if (sweep > -0.2 && sweep < 1.3) { const d = Math.abs(m.col / (Wc - 1) - sweep); boost = Math.max(0, 1 - d / 0.09) * (m.layer === 0 ? 0.9 : 0.35); }
+      C.copy(m.base).lerp(CREAM, boost); wm.setColorAt(i, C);
+    }
+    wm.instanceMatrix.needsUpdate = true; wm.instanceColor.needsUpdate = true;
+    // Isko hops in from below at the VO, waves, "talks" when the bubble opens
+    const q = (abs - 29.1) / 0.55;
+    let mode = "wave", p = {};
+    if (q < 1) { mode = "jump"; p = { q: Math.max(0, q), h: 5 }; }
+    const enter = IP.clamp(q * 1.6);
+    isko.pose(mode, abs, p);
+    isko.position.set(ISKO_X, ISKO_Y - (1 - easeOut(enter)) * 34, 0); isko.rotation.y = 0.32; isko.visible = q > 0;
+    // cube: idle spin, pop on the button
+    cube.pose(abs, 0, abs > TB ? Math.exp(-(abs - TB) * 6) : 0); cube.scale.setScalar(0.85 * IP.clamp((abs - 29.55) / 0.3) * (1 + (abs > TB ? Math.exp(-(abs - TB) * 6) * 0.4 : 0)) + 0.0001);
+    motes.userData.step(abs);
+  };
+
+  // ---- timeline ----
+  const tl = gsap.timeline({ paused: true });
+  tl.to("#en-flash", { opacity: 0, duration: 0.3, ease: "power2.out" }, L(28.8));
+  const reveal = (sel, t0) => tl.fromTo(sel, { opacity: 0, clipPath: "inset(0 100% 0 0)" }, { opacity: 1, clipPath: "inset(0 0% 0 0)", duration: 0.3, ease: "steps(8)", immediateRender: false }, L(t0));
+  reveal("#en-tag", 29.85);
+  tl.fromTo("#en-btn", { opacity: 0, scale: 0.4, y: 40 }, { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: "back.out(2.4)", immediateRender: false }, L(TB) - 0.05);
+  tl.fromTo("#en-btn-sh", { opacity: 0, scale: 0.4, y: 40 }, { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: "back.out(2.4)", immediateRender: false }, L(TB) - 0.05);
+  tl.fromTo("#en-btn", { scale: 1 }, { scale: 1.05, duration: 0.5, yoyo: true, repeat: 1, ease: "sine.inOut", immediateRender: false }, L(TB) + 0.45);
+  reveal("#en-url", IP.cue("url") - 0.04);
+  reveal("#en-meta", 31.18);
+  tl.fromTo("#en-disc", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none", immediateRender: false }, L(31.32));
+  tl.fromTo("#en-bub", { opacity: 0, scale: 0.7, y: 20 }, { opacity: 1, scale: 1, y: 0, duration: 0.2, ease: "back.out(2)", immediateRender: false }, L(IP.cue("b3")) - 0.05);
+
+  const sched = IP.typeSchedule("Tara na!", IP.cue("b3"), 1), bubT = $("en-bubt");
+  const fx = $("en-fx").getContext("2d");
+  let lastB = -1;
+  function dyn(t) {
+    const abs = t + A;
+    let k = 0; for (let i = 0; i < sched.length; i++) if (sched[i][0] <= abs + 1e-6) k = sched[i][1];
+    if (k !== lastB) { bubT.textContent = "Tara na!".slice(0, k); lastB = k; }
+    fx.clearRect(0, 0, 240, 135);
+    FX.burst(fx, 120, 30, abs - IP.cue("wordmark"), { n: 40, seed: 88, speed: 70, gravity: 30, life: 1.0, spread: Math.PI * 2, colors: ["#F5B227", "#FAEBB3", "#FFFDF4"] });
+    FX.burst(fx, 120, 70, abs - TB, { n: 26, seed: 89, speed: 60, gravity: 60, life: 0.8, spread: Math.PI * 2, colors: ["#F5B227", "#FAEBB3"] });
+  }
+  const drv = { t: 0 };
+  tl.to(drv, { t: 3.3, duration: 3.3, ease: "none", onUpdate: function () { const t = tl.time(); world.render(t); dyn(t); } }, 0);
+  world.render(0); dyn(0);
+  window.__timelines[ID] = tl;
+})();
+</script>
+</template>
+</body>
+</html>

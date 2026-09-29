@@ -1,0 +1,8 @@
+# generated / heavy — rebuild with tools/ (see README.md)
+/audio/
+/composition/snapshots/
+/composition/renders/
+/composition/node_modules/
+/qa/
+__pycache__/
+*.pyc

@@ -1,0 +1,196 @@
+<!doctype html>
+<html>
+<head><meta charset="UTF-8" /></head>
+<body>
+<template>
+<style>
+  @font-face { font-family: "Pixelify Sans"; src: url(assets/fonts/PixelifySans.ttf) format("truetype"); font-weight: 400 700; }
+  @font-face { font-family: "Source Sans 3"; src: url(assets/fonts/SourceSans3.ttf) format("truetype"); font-weight: 200 900; }
+  @font-face { font-family: "Montserrat"; src: url(assets/fonts/Montserrat.ttf) format("truetype"); font-weight: 100 900; }
+  #root { position: absolute; inset: 0; overflow: hidden; font-family: "Pixelify Sans", monospace; color: #F7ECEC; }
+  #st-shade { position: absolute; inset: 0; background: radial-gradient(ellipse at 60% 50%, rgba(7,5,10,.42) 0%, rgba(7,5,10,.72) 100%); }
+  #st-all { position: absolute; inset: 0; transform-origin: 50% 50%; }
+  .st-kw { position: absolute; left: 92px; top: 58px; font: 700 100px/1 "Pixelify Sans"; white-space: nowrap; opacity: 0;
+           text-shadow: 0 6px 0 #34203F, 0 12px 0 #170B1A, 0 18px 0 rgba(0,0,0,.45); }
+  .st-kw i { font-style: normal; color: #F5B227; }
+  #st-map { position: absolute; left: 900px; top: 100px; width: 1020px; height: 880px; image-rendering: pixelated; }
+  #st-persp { position: absolute; left: 0; top: 0; width: 900px; height: 1080px; perspective: 2200px; perspective-origin: 50% 45%; }
+  #st-card { position: absolute; left: 96px; top: 214px; width: 740px; height: 450px; transform-style: preserve-3d; }
+  #st-shadow { position: absolute; left: 118px; top: 618px; width: 700px; height: 80px; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,0) 70%); }
+  .st-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: #F7ECEC; color: #1b1406; padding: 34px 44px; --s: 8px; }
+  .st-face.back { transform: rotateY(180deg); background: #FAEBB3; }
+  .st-face .lab { font: 700 30px "Montserrat", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #7a1128; }
+  .st-face .term { position: absolute; left: 44px; top: 128px; font: 700 168px/1 "Pixelify Sans"; color: #170B1A; }
+  .st-face .def { position: absolute; left: 44px; top: 116px; right: 40px; font: 800 82px/1.02 "Montserrat", sans-serif; color: #170B1A; letter-spacing: -.02em; }
+  .st-face .foot { position: absolute; left: 44px; bottom: 30px; right: 44px; display: flex; justify-content: space-between; font: 600 28px "Source Sans 3", sans-serif; color: #6a5a5f; }
+  #st-rate { position: absolute; left: 96px; top: 706px; width: 740px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; opacity: 0; }
+  #st-rate div { height: 108px; display: grid; place-content: center; text-align: center; background: #26262a; box-shadow: inset 0 0 0 3px rgba(255,255,255,.14); font: 800 38px "Montserrat", sans-serif; color: #F7ECEC; --s: 6px; }
+  #st-rate div small { display: block; margin-top: 4px; font: 600 26px "Source Sans 3", sans-serif; color: #a9a9b1; }
+  #st-rate div.again { color: #f07a6e; }
+  #st-rate div.pick { background: #F5B227; color: #1b1406; box-shadow: none; }
+  #st-rate div.pick small { color: #4a3510; }
+  #st-streak { position: absolute; left: 96px; top: 846px; height: 130px; padding: 0 34px 0 26px; background: rgba(7,5,10,.78); box-shadow: inset 0 0 0 3px rgba(245,178,39,.5); display: flex; align-items: center; gap: 22px; opacity: 0; }
+  #st-flame { position: relative; width: 74px; height: 96px; }
+  #st-flame svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #st-flame .lit { opacity: 0; }
+  #st-streak .n { font: 700 92px/1 "Pixelify Sans"; color: #F7ECEC; text-shadow: 0 5px 0 #34203F; min-width: 130px; }
+  #st-streak .n i { font-style: normal; color: #a9a9b1; }
+  #st-streak .u { font: 800 40px "Montserrat", sans-serif; color: #F5B227; letter-spacing: .02em; }
+  #st-tip { position: absolute; left: 0; top: 0; padding: 12px 22px 14px; background: #0e0e10; color: #F7ECEC; font: 700 32px/1.15 "Montserrat", sans-serif; box-shadow: inset 0 0 0 3px #F5B227, 0 10px 0 rgba(0,0,0,.4); opacity: 0; white-space: nowrap; }
+  #st-tip b { color: #F5B227; }
+  #st-tip small { display: block; font: 600 26px "Source Sans 3", sans-serif; color: #a9a9b1; margin-top: 2px; }
+  #st-fx { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; image-rendering: pixelated; pointer-events: none; }
+  #st-core { position: absolute; left: 50%; top: 50%; width: 900px; height: 900px; margin: -450px 0 0 -450px; border-radius: 50%; opacity: 0; pointer-events: none;
+             background: radial-gradient(circle, #FFFDF4 0%, #F6E7B0 28%, #C9A227 52%, rgba(109,14,31,.0) 72%); }
+</style>
+
+<div id="root" data-composition-id="scene-study" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow data-width="1920" data-height="1080">
+  <div id="st-shade"></div>
+  <div id="st-all">
+    <div class="st-kw" id="st-k1">STUDY <i>SMARTER.</i></div>
+    <div class="st-kw" id="st-k2">KEEP THE <i>STREAK.</i></div>
+    <canvas id="st-map" width="330" height="284"></canvas>
+    <div id="st-shadow"></div>
+    <div id="st-persp"><div id="st-card">
+      <div class="st-face front m-notch"><div class="lab">Term</div><div class="term">Queue</div><div class="foot"><span>DSA terms &middot; COMP 20073</span><span>3 / 5</span></div></div>
+      <div class="st-face back m-notch"><div class="lab">Definition</div><div class="def">first in,<br>first out</div><div class="foot"><span>from: DSA notes &#9656; chunk 3</span><span>3 / 5</span></div></div>
+    </div></div>
+    <div id="st-rate"><div class="again">Again<small>1m</small></div><div>Hard<small>1d</small></div><div id="st-good">Good<small>3d</small></div><div>Easy<small>8d</small></div></div>
+    <div id="st-streak"><div id="st-flame"></div><div class="n"><span id="st-n">5</span></div><div class="u">day streak</div></div>
+    <div id="st-tip"><b>COMP 20073</b> &middot; Queues<small>44% mastered &middot; exam in 4 days</small></div>
+  </div>
+  <div id="st-core"></div>
+  <canvas id="st-fx" width="240" height="135"></canvas>
+</div>
+
+<script>
+(function () {
+  const IP = window.IP, T = window.THREE, FX = IP.fx;
+  const ID = "scene-study", A = 19.1;
+  const L = (abs) => abs - A;
+  const $ = (id) => document.getElementById(id);
+
+  // flame sprite: dim + lit layers
+  const fl = $("st-flame");
+  fl.innerHTML = `<span class="dim">${IP.spriteSVG(IP.FLAME.map((r) => r.replace(/#/g, "d")), { d: "#4a4147" })}</span><span class="lit">${IP.spriteSVG(IP.FLAME.map((r, y) => r.replace(/#/g, y > 4 ? "a" : "b")), { a: "#F5B227", b: "#FAEBB3" })}</span>`;
+  fl.querySelectorAll("span").forEach((s) => (s.style.cssText = "position:absolute;inset:0"));
+  fl.querySelector(".lit").style.opacity = 0;
+  const litFlame = fl.querySelector(".lit");
+
+  // ---- isometric study map (3D) ----
+  const CW = 330, CH = 284;
+  const world = IP.createWorld($("st-map"), CW, CH, { fov: 24, transparent: true });
+  const N = 8, TILE = 1.0, GAP = 0.08, ST = TILE + GAP;
+  const subj = ["#e0697e", "#e0b04a", "#7ea3e0"];
+  const rnd = IP.rng(42);
+  const tiles = [], pips = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const reg = i < 4 ? 0 : j < 4 ? 1 : 2;
+    const m = Math.min(0.95, Math.max(0.05, 0.15 + rnd() * 0.6 + (reg === 0 ? 0.18 : 0)));
+    tiles.push({ x: (i - 3.5) * ST, z: (j - 3.5) * ST, c: IP.mix("#2a2a30", subj[reg], 0.22 + 0.72 * m), reg, m, d: Math.hypot(i - 3.5, j - 3.5) });
+    if (m >= 0.7) pips.push({ x: (i - 3.5) * ST, z: (j - 3.5) * ST, i: pips.length });
+  }
+  const tileMesh = IP.cubes(tiles.map((t) => ({ x: t.x, y: 0, z: t.z, c: t.c, sx: TILE, sy: 0.4, sz: TILE })), IP.lambert(0xffffff));
+  tileMesh.frustumCulled = false; world.scene.add(tileMesh);
+  const pipMesh = IP.cubes(pips.map((p) => ({ x: p.x, y: 0.4, z: p.z, c: "#F5B227", s: 0.26 })), IP.lambert(0xffffff)); pipMesh.frustumCulled = false; world.scene.add(pipMesh);
+  // towers: [tile i, tile j, blocks, subject]
+  const TW = [[6, 6, 5, 2], [5, 5, 4, 2], [2, 3, 6, 0], [1, 5, 3, 0], [5, 2, 4, 1], [2, 6, 3, 0]];
+  const towerBlocks = [];
+  TW.forEach((tw, k) => { for (let b = 0; b < tw[2]; b++) towerBlocks.push({ k, b, x: (tw[0] - 3.5) * ST, z: (tw[1] - 3.5) * ST, c: IP.mix(subj[tw[3]], "#ffffff", b % 2 ? 0.28 : 0.06) }); });
+  const towerMesh = IP.cubes(towerBlocks.map((t) => ({ x: t.x, y: 0, z: t.z, c: t.c, s: 0.9 })), IP.lambert(0xffffff)); towerMesh.frustumCulled = false; world.scene.add(towerMesh);
+  const M = new T.Matrix4(), Q = new T.Quaternion(), P = new T.Vector3(), Sc = new T.Vector3();
+  world.camera.position.set(17.5, 15.5, 17.5); world.camera.lookAt(0, 1.2, 0);
+  const TOWER_T = [0, 1, 2, 3, 4, 5].map((k) => IP.cue("tower" + k));
+  const easeBounce = (u) => { u = IP.clamp(u); const n1 = 7.5625, d1 = 2.75; if (u < 1 / d1) return n1 * u * u; if (u < 2 / d1) return n1 * (u -= 1.5 / d1) * u + 0.75; if (u < 2.5 / d1) return n1 * (u -= 2.25 / d1) * u + 0.9375; return n1 * (u -= 2.625 / d1) * u + 0.984375; };
+  const tileT0 = 19.5;
+  world.update = function (t) {
+    const abs = t + A;
+    // tiles grow in from the centre outwards
+    tiles.forEach((tl_, i) => {
+      const u = IP.clamp((abs - (tileT0 + tl_.d * 0.045)) / 0.28);
+      const h = 0.4 * (1 - Math.pow(1 - u, 3));
+      const yy = -0.2 + h * 0.5 + (1 - u) * -0.4;
+      P.set(tl_.x, yy, tl_.z); Sc.set(TILE, Math.max(0.001, h), TILE); M.compose(P, Q, Sc); tileMesh.setMatrixAt(i, M);
+    });
+    tileMesh.instanceMatrix.needsUpdate = true;
+    pips.forEach((p, i) => {
+      const u = IP.clamp((abs - (tileT0 + 0.5 + i * 0.02)) / 0.2);
+      P.set(p.x, 0.4 + 0.13 * u, p.z); Sc.setScalar(0.26 * u + 0.001); M.compose(P, Q, Sc); pipMesh.setMatrixAt(i, M);
+    });
+    pipMesh.instanceMatrix.needsUpdate = true;
+    towerBlocks.forEach((tb, i) => {
+      const t0 = TOWER_T[tb.k] + tb.b * 0.045, u = (abs - t0) / 0.28;
+      if (u <= 0) { P.set(tb.x, -50, tb.z); Sc.setScalar(0.001); }
+      else { const e = easeBounce(u); P.set(tb.x, 0.2 + tb.b * 0.92 + 0.45 + (1 - e) * 7, tb.z); Sc.setScalar(0.9); }
+      M.compose(P, Q, Sc); towerMesh.setMatrixAt(i, M);
+    });
+    towerMesh.instanceMatrix.needsUpdate = true;
+  };
+  // project the tallest tower's top for the tooltip
+  const tipEl = $("st-tip");
+  function screenOf(x, y, z) {
+    P.set(x, y, z); world.camera.updateMatrixWorld(); P.project(world.camera);
+    return [900 + (P.x * 0.5 + 0.5) * 1020, 100 + (1 - (P.y * 0.5 + 0.5)) * 880];
+  }
+  const tipXY = screenOf((TW[2][0] - 3.5) * ST, 0.2 + TW[2][2] * 0.92 + 1.1, (TW[2][1] - 3.5) * ST);
+  const ringXY = TW.map((tw) => screenOf((tw[0] - 3.5) * ST, 0.3, (tw[1] - 3.5) * ST));
+
+  // ---- timeline ----
+  const tl = gsap.timeline({ paused: true });
+  const kw = (el, t0, out) => {
+    tl.fromTo(el, { opacity: 0, x: -70, clipPath: "inset(0 100% 0 0)" }, { opacity: 1, x: 0, clipPath: "inset(0 0% 0 0)", duration: 0.26, ease: "steps(6)" }, L(t0));
+    tl.to(el, { opacity: 0, x: 60, clipPath: "inset(0 0% 0 100%)", duration: 0.2, ease: "steps(5)" }, L(out));
+  };
+  kw($("st-k1"), 19.5, 20.55); kw($("st-k2"), 20.62, 21.75);
+  // card deals in, flips on the flip cue, then gets rated
+  tl.fromTo("#st-card", { x: -760, rotationY: 62, z: -200 }, { x: 0, rotationY: 0, z: 0, duration: 0.42, ease: "power3.out" }, L(19.42));
+  tl.fromTo(".st-face", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "none" }, L(19.42));
+  tl.fromTo("#st-shadow", { opacity: 0 }, { opacity: 1, duration: 0.3 }, L(19.6));
+  const tF = L(IP.cue("flip"));
+  tl.to("#st-card", { rotationY: 180, z: 90, duration: 0.42, ease: "power3.inOut" }, tF - 0.12);
+  tl.to("#st-card", { z: 0, duration: 0.2, ease: "power2.out" }, tF + 0.3);
+  tl.fromTo("#st-rate", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.24, ease: "back.out(1.8)", immediateRender: false }, L(20.4));
+  const tR = L(IP.cue("rate"));
+  tl.fromTo("#st-good", { scale: 1 }, { scale: 1.12, duration: 0.09, yoyo: true, repeat: 1, ease: "power2.out", immediateRender: false }, tR);
+  // card is sent off (rated) toward the map
+  tl.to("#st-card", { x: 120, y: -40, scale: 0.86, duration: 0.3, ease: "power3.in" }, tR + 0.12);
+  tl.to(".st-face", { opacity: 0, duration: 0.18, ease: "none" }, tR + 0.24);
+  tl.to("#st-shadow", { opacity: 0, duration: 0.2 }, tR + 0.12);
+  tl.to("#st-rate", { opacity: 0, y: 30, duration: 0.24, ease: "power2.in" }, tR + 0.36);
+  // streak
+  tl.fromTo("#st-streak", { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.3, ease: "back.out(1.8)", immediateRender: false }, L(20.0));
+  const tS = L(IP.cue("streak"));
+  tl.fromTo(litFlame, { opacity: 0, scale: 1.7 }, { opacity: 1, scale: 1, duration: 0.2, ease: "power3.in", immediateRender: false }, tS - 0.12);
+  tl.fromTo("#st-n", { scale: 1.9 }, { scale: 1, duration: 0.3, ease: "back.out(2.2)", immediateRender: false }, tS);
+  // tooltip on the tallest tower
+  const tipAt = L(21.02);
+  tl.fromTo(tipEl, { opacity: 0, scale: 0.7, y: 16 }, { opacity: 1, scale: 1, y: 0, duration: 0.2, ease: "back.out(2)", immediateRender: false }, tipAt);
+  // suck everything into the drop
+  const tK = L(IP.cue("study_suck"));
+  tl.to("#st-all", { scale: 0.03, rotation: 70, duration: 0.58, ease: "power3.in" }, tK);
+  tl.fromTo("#st-core", { opacity: 0, scale: 0.05 }, { opacity: 1, scale: 1.1, duration: 0.6, ease: "power2.in", immediateRender: false }, tK + 0.05);
+
+  // ---- dynamic ----
+  const fx = $("st-fx").getContext("2d");
+  const nEl = $("st-n");
+  const goodEl = $("st-good");
+  let lastN = "";
+  function dyn(t) {
+    const abs = t + A;
+    goodEl.classList.toggle("pick", abs >= IP.cue("rate"));
+    const n = abs >= IP.cue("streak") - 0.02 ? "6" : "5";
+    if (n !== lastN) { nEl.textContent = n; lastN = n; }
+    tipEl.style.left = (tipXY[0] + 70) + "px"; tipEl.style.top = (tipXY[1] - 20) + "px";
+    fx.clearRect(0, 0, 240, 135);
+    FX.burst(fx, 24, 116, abs - IP.cue("streak"), { n: 34, seed: 31, speed: 60, gravity: 80, life: 1.0, spread: Math.PI * 1.1, angle0: -Math.PI / 2, colors: ["#F5B227", "#FAEBB3", "#E0697E"] });
+    TOWER_T.forEach((tt, k) => FX.ring(fx, ringXY[k][0] / 8, ringXY[k][1] / 8, abs - tt - 0.2, { r: 13, dur: 0.35, color: "#FAEBB3", squash: 0.5 }));
+  }
+  const drv = { t: 0 };
+  tl.to(drv, { t: 3.22, duration: 3.22, ease: "none", onUpdate: function () { const t = tl.time(); dyn(t); world.render(t); } }, 0);
+  dyn(0); world.render(0);
+  window.__timelines[ID] = tl;
+})();
+</script>
+</template>
+</body>
+</html>

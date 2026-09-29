@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head><meta charset="UTF-8" /></head>
+<body>
+<template>
+<style>
+  @font-face { font-family: "Pixelify Sans"; src: url(assets/fonts/PixelifySans.ttf) format("truetype"); font-weight: 400 700; }
+  @font-face { font-family: "Source Sans 3"; src: url(assets/fonts/SourceSans3.ttf) format("truetype"); font-weight: 200 900; }
+  @font-face { font-family: "Montserrat"; src: url(assets/fonts/Montserrat.ttf) format("truetype"); font-weight: 100 900; }
+  #root { position: absolute; inset: 0; overflow: hidden; font-family: "Pixelify Sans", monospace; color: #F7ECEC; }
+  #mc-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7,5,10,.66) 0%, rgba(7,5,10,0) 50%); }
+  .mc-kw { position: absolute; left: 92px; font: 700 124px/0.98 "Pixelify Sans"; white-space: nowrap; opacity: 0;
+           text-shadow: 0 7px 0 #34203F, 0 14px 0 #170B1A, 0 21px 0 rgba(0,0,0,.45); }
+  .mc-kw i { font-style: normal; color: #F5B227; }
+  #mc-a1 { top: 300px; } #mc-a2 { top: 440px; color: #F5B227; }
+  #mc-cam { position: absolute; inset: 0; }
+  #mc-stage { position: absolute; inset: 0; perspective: 2600px; perspective-origin: 50% 50%; }
+  #mc-hold { position: absolute; left: 160px; top: 40px; width: 1600px; height: 1000px; transform-style: preserve-3d; }
+  #mc-hold .mac { left: 0; top: 0; }
+  #mc-hold .mac-panel { transform-style: flat; opacity: 0; }
+  .mac-dim { position: absolute; inset: 0; background: #07050A; opacity: 0; }
+  #mc-3d { position: absolute; left: 870px; top: 390px; width: 260px; height: 260px; image-rendering: pixelated; opacity: 0; }
+  .mac-cls .ring { position: absolute; right: 44px; bottom: 18px; width: 60px; height: 60px; margin: 0; border: 6px solid #2b5aa8; opacity: 0; }
+  #mc-local { position: absolute; left: 1040px; top: 650px; color: #F5B227; background: rgba(7,5,10,.88); font-size: 68px; padding: 6px 26px 2px; border-width: 7px; opacity: 0; box-shadow: 0 10px 0 rgba(0,0,0,.4); }
+  #mc-fx { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; image-rendering: pixelated; pointer-events: none; }
+</style>
+
+<div id="root" data-composition-id="scene-mac" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow data-width="1920" data-height="1080">
+  <div id="mc-shade"></div>
+  <div class="mc-kw" id="mc-a1">ASK</div>
+  <div class="mc-kw" id="mc-a2">INTASSIS.</div>
+  <div id="mc-cam"><div id="mc-stage" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow><div id="mc-hold" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow></div></div></div>
+  <div class="stamp" id="mc-local">LOCAL BY DEFAULT</div>
+  <canvas id="mc-fx" width="240" height="135"></canvas>
+</div>
+
+<script>
+(function () {
+  const IP = window.IP, T = window.THREE, UI = IP.ui, FX = IP.fx;
+  const ID = "scene-mac", A = 12.55;
+  const L = (abs) => abs - A;
+  const $ = (id) => document.getElementById(id);
+  const hold = $("mc-hold"), cam = $("mc-cam");
+  IP.cfixEl($("mc-local"));
+
+  // ---- window + assistant panel (a real 3D layer above the window) ----
+  hold.innerHTML = UI.mac({ room: "pupMaroon" }) + UI.macPanel();
+  const mac = hold.querySelector(".mac"), panel = hold.querySelector(".mac-panel");
+  IP.applyRoom(mac, "pupMaroon"); IP.applyRoom(panel, "pupMaroon");
+  const dim = document.createElement("div"); dim.className = "mac-dim"; mac.appendChild(dim);
+  const stamp = mac.querySelector("[data-stamp-online]"), cls = stamp.parentNode;
+  const ring = document.createElement("div"); ring.className = "ring"; cls.appendChild(ring);
+  const pill = mac.querySelector(".mac-pill");
+  const uEl = panel.querySelector("[data-u]"), aEl = panel.querySelector("[data-a]"), chips = panel.querySelector("[data-chips]"), inp = panel.querySelector("[data-inp]");
+  const cv3 = document.createElement("canvas"); cv3.id = "mc-3d"; cv3.width = 90; cv3.height = 90; hold.appendChild(cv3);
+
+  // ---- thinking cube ----
+  const world = IP.createWorld(cv3, 90, 90, { fov: 30, transparent: true });
+  const cube = IP.makeCube(); world.scene.add(cube);
+  world.camera.position.set(0, 0.6, 15); world.camera.lookAt(0, 0, 0);
+  const T_SEND = IP.cue("send"), T_ANS = IP.cue("ans0"), T_CHIPS = IP.cue("chips"), T_KEY0 = IP.cue("key0");
+  const smooth = (u) => { u = IP.clamp(u); return u * u * (3 - 2 * u); };
+  world.update = function (t) {
+    const abs = t + A;
+    const think = smooth((abs - T_SEND) / 0.2) * (1 - smooth((abs - T_CHIPS) / 0.15));
+    const pop = abs >= T_CHIPS ? Math.exp(-(abs - T_CHIPS) * 5) : 0;
+    cube.pose(abs, think, pop);
+  };
+
+  // ---- timeline ----
+  const tl = gsap.timeline({ paused: true });
+  // fly-in: the window swings in from the right while the phone leaves left
+  tl.fromTo(hold, { x: 1500, y: 140, z: -900, rotationY: 70, rotationX: 12, scale: 0.5 }, { x: 300, y: 70, z: 0, rotationY: -15, rotationX: 5, scale: 0.76, duration: 0.6, ease: "power4.out" }, L(12.62));
+  tl.to(hold, { rotationY: -10, rotationX: 3, duration: 0.7, ease: "sine.inOut" }, L(13.05));
+  tl.fromTo(pill, { scaleX: 0.25, opacity: 0 }, { scaleX: 1, opacity: 1, duration: 0.3, ease: "back.out(2)", immediateRender: false }, L(12.9));
+  // words (VO: "Ask IntAssis.")
+  const kw = (el, t0, out) => {
+    tl.fromTo(el, { opacity: 0, x: -70, clipPath: "inset(0 100% 0 0)" }, { opacity: 1, x: 0, clipPath: "inset(0 0% 0 0)", duration: 0.26, ease: "steps(6)" }, L(t0));
+    tl.to(el, { opacity: 0, x: 60, clipPath: "inset(0 0% 0 100%)", duration: 0.2, ease: "steps(5)" }, L(out));
+  };
+  kw($("mc-a1"), 12.84, 13.5); kw($("mc-a2"), 13.0, 13.5);
+  // ONLINE stamp thunk on the schedule card (cue stamp_online)
+  const tS = L(IP.cue("stamp_online"));
+  tl.fromTo(stamp, { opacity: 0, scale: 4.2, rotation: 8 }, { opacity: 1, scale: 1, rotation: -4, duration: 0.17, ease: "expo.out", immediateRender: false }, tS - 0.12);
+  tl.fromTo(ring, { opacity: 0.95, scale: 0.6 }, { opacity: 0, scale: 3.6, duration: 0.5, ease: "steps(5)", immediateRender: false }, tS + 0.03);
+  // dolly into the assistant panel; the window dims behind it
+  tl.to(hold, { x: 58, y: -170, rotationY: -5, rotationX: 2, scale: 1.2, duration: 0.42, ease: "power3.inOut" }, L(13.36));
+  tl.to(hold, { rotationY: -2, rotationX: 1, scale: 1.27, x: 82, y: -178, duration: 2.5, ease: "sine.inOut" }, L(13.8));
+  tl.to(dim, { opacity: 0.62, duration: 0.35, ease: "power2.out" }, L(13.4));
+  tl.fromTo(panel, { opacity: 0, scale: 0.86, z: 0 }, { opacity: 1, scale: 1, z: 150, duration: 0.34, ease: "back.out(1.9)", immediateRender: false }, L(IP.cue("panel")));
+  tl.fromTo(cv3, { opacity: 0, scale: 0.4, z: 0 }, { opacity: 1, scale: 1, z: 240, duration: 0.4, ease: "back.out(2.2)", immediateRender: false }, L(IP.cue("panel")) + 0.12);
+  // message bubbles
+  tl.fromTo(uEl, { opacity: 0, scale: 0.85, y: 14 }, { opacity: 1, scale: 1, y: 0, duration: 0.18, ease: "back.out(2)", immediateRender: false }, L(T_SEND));
+  tl.fromTo(aEl, { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.16, ease: "power2.out", immediateRender: false }, L(T_SEND) + 0.08);
+  tl.fromTo(chips, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.22, ease: "back.out(1.8)", immediateRender: false }, L(T_CHIPS));
+  // LOCAL BY DEFAULT stamp (cue local_stamp), over the dimmed window on the right
+  const tL = L(IP.cue("local_stamp"));
+  tl.fromTo("#mc-local", { opacity: 0, scale: 3.4, rotation: 6 }, { opacity: 1, scale: 1, rotation: -4, duration: 0.17, ease: "expo.out", immediateRender: false }, tL - 0.1);
+
+  // ---- dynamic (pure function of time): typing, streaming answer, camera shake, cube, bursts ----
+  const CMD = "/rag summarize my C note", ANS = "Pointers store addresses. Free what you malloc.";
+  const fx = $("mc-fx").getContext("2d");
+  const K0 = T_KEY0, K1 = T_SEND - 0.06;
+  let last = { inp: null, ans: null };
+  function dyn(t) {
+    const abs = t + A;
+    const nT = Math.floor(IP.clamp((abs - K0) / (K1 - K0)) * (CMD.length + 0.999));
+    const typing = abs >= K0 && abs < T_SEND;
+    const sInp = abs < T_SEND ? CMD.slice(0, nT) + (typing ? '<span class="caret"></span>' : "") : "";
+    if (sInp !== last.inp) { inp.innerHTML = sInp; last.inp = sInp; }
+    let sAns;
+    if (abs < T_SEND + 0.08) sAns = ""; else if (abs < T_ANS) sAns = '<span class="think-dots"><i></i><i></i><i></i></span>';
+    else sAns = ANS.slice(0, Math.floor(IP.clamp((abs - T_ANS) / (1.0)) * (ANS.length + 0.999)));
+    if (sAns !== last.ans) { aEl.innerHTML = sAns; last.ans = sAns; }
+    if (abs >= T_SEND && abs < T_ANS) { const k = Math.floor((abs - T_SEND) / 0.1) % 3; aEl.querySelectorAll("i").forEach((d, i) => (d.style.opacity = i === k ? 1 : 0.35)); }
+    // shake (stamp thunk + local stamp)
+    const s1 = IP.shake(abs, IP.cue("stamp_online"), 0.32, 12), s2 = IP.shake(abs, IP.cue("local_stamp"), 0.28, 8);
+    cam.style.transform = `translate(${(s1[0] + s2[0]).toFixed(2)}px,${(s1[1] + s2[1]).toFixed(2)}px)`;
+    // pixel bursts on the low-res fx canvas: answer sparks + chips burst near the cube
+    fx.clearRect(0, 0, 240, 135);
+    FX.burst(fx, 205, 50, abs - T_CHIPS, { n: 30, seed: 9, speed: 70, gravity: 90, life: 1.0, spread: Math.PI * 2 });
+    FX.burst(fx, 172, 88, abs - IP.cue("local_stamp"), { n: 18, seed: 4, speed: 60, gravity: 120, life: 0.7, spread: Math.PI, angle0: -Math.PI, colors: ["#F5B227", "#FAEBB3"] });
+  }
+  const drv = { t: 0 };
+  tl.to(drv, { t: 3.51, duration: 3.51, ease: "none", onUpdate: function () { const t = tl.time(); dyn(t); world.render(t); } }, 0);
+  dyn(0); world.render(0);
+  window.__timelines[ID] = tl;
+})();
+</script>
+</template>
+</body>
+</html>

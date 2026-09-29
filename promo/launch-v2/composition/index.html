@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<title>IntPortal launch v2</title>
+<script src="assets/vendor/gsap.min.js"></script>
+<script src="assets/vendor/three.min.js"></script>
+<script src="assets/cues.js"></script>
+<script src="assets/lib/ip-core.js"></script>
+<script src="assets/lib/ip-campus.js"></script>
+<script src="assets/lib/ip-world.js"></script>
+<script src="assets/lib/ip-scene.js"></script>
+<script src="assets/lib/ip-ui.js"></script>
+<script src="assets/lib/ip-fx.js"></script>
+<script src="assets/lib/wordmark.js"></script>
+<link rel="stylesheet" href="assets/lib/ip-ui.css" />
+<style>
+@font-face{font-family:"Pixelify Sans";src:url(assets/fonts/PixelifySans.ttf) format("truetype");font-weight:400 700}
+@font-face{font-family:"Source Sans 3";src:url(assets/fonts/SourceSans3.ttf) format("truetype");font-weight:200 900}
+@font-face{font-family:"Montserrat";src:url(assets/fonts/Montserrat.ttf) format("truetype");font-weight:100 900}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#07050A}
+#main-root{position:relative;width:100%;height:100%;overflow:hidden;background:#07050A}
+.scene-host{position:absolute;left:0;top:0;width:1920px;height:1080px}
+</style>
+</head>
+<body>
+<div id="main-root" data-composition-id="main" data-start="0" data-duration="32" data-width="1920" data-height="1080" data-fps="60">
+  <div id="sky" class="scene-host" data-composition-id="sky" data-composition-src="compositions/sky.html" data-start="6.0" data-duration="22.8" data-track-index="0" data-width="1920" data-height="1080"></div>
+  <div id="scene-portal" class="scene-host" data-composition-id="scene-portal" data-composition-src="compositions/scene-portal.html" data-start="0" data-duration="6.4" data-track-index="1" data-width="1920" data-height="1080"></div>
+  <div id="scene-phone" class="scene-host" data-composition-id="scene-phone" data-composition-src="compositions/scene-phone.html" data-start="6.4" data-duration="7.0" data-track-index="2" data-width="1920" data-height="1080"></div>
+  <div id="scene-mac" class="scene-host" data-composition-id="scene-mac" data-composition-src="compositions/scene-mac.html" data-start="12.55" data-duration="3.51" data-track-index="3" data-width="1920" data-height="1080"></div>
+  <div id="scene-grades" class="scene-host" data-composition-id="scene-grades" data-composition-src="compositions/scene-grades.html" data-start="15.94" data-duration="3.32" data-track-index="4" data-width="1920" data-height="1080"></div>
+  <div id="scene-study" class="scene-host" data-composition-id="scene-study" data-composition-src="compositions/scene-study.html" data-start="19.14" data-duration="3.22" data-track-index="5" data-width="1920" data-height="1080"></div>
+  <div id="scene-rooms" class="scene-host" data-composition-id="scene-rooms" data-composition-src="compositions/scene-rooms.html" data-start="22.3" data-duration="3.4" data-track-index="6" data-width="1920" data-height="1080"></div>
+  <div id="scene-campus" class="scene-host" data-composition-id="scene-campus" data-composition-src="compositions/scene-campus.html" data-start="25.5" data-duration="3.28" data-track-index="7" data-width="1920" data-height="1080"></div>
+  <div id="scene-end" class="scene-host" data-composition-id="scene-end" data-composition-src="compositions/scene-end.html" data-start="28.7" data-duration="3.3" data-track-index="8" data-width="1920" data-height="1080"></div>
+  <div id="fx-wipe" class="scene-host" data-composition-id="fx-wipe" data-composition-src="compositions/fx-wipe.html" data-start="15.5" data-duration="4.2" data-track-index="10" data-width="1920" data-height="1080"></div>
+  <audio id="master-audio" src="assets/audio/master.wav" data-start="0" data-duration="32" data-track-index="9" data-volume="1"></audio>
+</div>
+<script>
+  const main = gsap.timeline({ paused: true });
+  window.__timelines["main"] = main;
+</script>
+</body>
+</html>

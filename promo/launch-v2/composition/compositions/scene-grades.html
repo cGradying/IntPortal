@@ -1,0 +1,143 @@
+<!doctype html>
+<html>
+<head><meta charset="UTF-8" /></head>
+<body>
+<template>
+<style>
+  @font-face { font-family: "Pixelify Sans"; src: url(assets/fonts/PixelifySans.ttf) format("truetype"); font-weight: 400 700; }
+  @font-face { font-family: "Source Sans 3"; src: url(assets/fonts/SourceSans3.ttf) format("truetype"); font-weight: 200 900; }
+  @font-face { font-family: "Montserrat"; src: url(assets/fonts/Montserrat.ttf) format("truetype"); font-weight: 100 900; }
+  #root { position: absolute; inset: 0; overflow: hidden; font-family: "Pixelify Sans", monospace; color: #F7ECEC; }
+  #gr-shade { position: absolute; inset: 0; background: linear-gradient(270deg, rgba(7,5,10,.78) 0%, rgba(7,5,10,.42) 40%, rgba(7,5,10,0) 66%); }
+  .gr-kw { position: absolute; left: 1010px; font: 700 124px/0.98 "Pixelify Sans"; white-space: nowrap; opacity: 0;
+           text-shadow: 0 7px 0 #34203F, 0 14px 0 #170B1A, 0 21px 0 rgba(0,0,0,.45); }
+  #gr-k1 { top: 96px; } #gr-k2 { top: 228px; color: #F5B227; }
+  #gr-stage { position: absolute; inset: 0; perspective: 2600px; perspective-origin: 27% 50%; }
+  #gr-cam { position: absolute; inset: 0; }
+  #gr-hold { position: absolute; left: 319px; top: 103px; width: 402px; height: 874px; transform-style: preserve-3d; }
+  .lyr { transform-style: preserve-3d; filter: drop-shadow(0 26px 22px rgba(0,0,0,.55)); }
+  #gr-3d { position: absolute; left: 1120px; top: 420px; width: 720px; height: 720px; image-rendering: pixelated; }
+  #gr-bub { position: absolute; left: 1150px; top: 462px; padding: 12px 24px 14px; background: #F7ECEC; color: #1b1406; font: 800 52px/1.1 "Source Sans 3"; opacity: 0;
+            box-shadow: 0 -6px 0 0 #F7ECEC, 0 6px 0 0 #F7ECEC, -6px 0 0 0 #F7ECEC, 6px 0 0 0 #F7ECEC, 8px 14px 0 0 rgba(0,0,0,.45); }
+  #gr-bub:after { content: ""; position: absolute; left: 70px; bottom: -28px; width: 22px; height: 22px; background: #F7ECEC; box-shadow: 12px 12px 0 0 #F7ECEC, 0 6px 0 0 #F7ECEC; }
+  #gr-fx { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; image-rendering: pixelated; pointer-events: none; }
+  #gr-hit { position: absolute; inset: 0; background: #FFF5DC; opacity: 0; pointer-events: none; }
+  #gr-hold .slot { position: relative; flex: none; display: grid; justify-items: end; }
+  #gr-hold .slot .m-pending { grid-area: 1 / 1; }
+  #gr-hold .slot .m-stamp { grid-area: 1 / 1; opacity: 0; margin: 0; font-size: 19px; min-width: 62px; }
+  #gr-hold .ring { position: absolute; right: 14px; top: 50%; width: 46px; height: 46px; margin-top: -23px; border: 4px solid var(--good); opacity: 0; pointer-events: none; }
+  #gr-hold .m-grade { position: relative; }
+  #gr-hold .m-best { opacity: 0; font-size: 16px; }
+  #gr-hold .m-gpa .value { transform-origin: 0 60%; }
+  #gr-hold svg.trend { transform-origin: 0 50%; }
+</style>
+
+<div id="root" data-composition-id="scene-grades" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow data-width="1920" data-height="1080">
+  <div id="gr-shade"></div>
+  <div class="gr-kw" id="gr-k1">EVERY GRADE,</div>
+  <div class="gr-kw" id="gr-k2">STAMPED.</div>
+  <canvas id="gr-3d" width="180" height="180"></canvas>
+  <div id="gr-bub" data-full="Personal best!"><span id="gr-bubt"></span></div>
+  <div id="gr-stage" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow><div id="gr-cam"><div id="gr-hold" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow></div></div></div>
+  <canvas id="gr-fx" width="240" height="135"></canvas>
+  <div id="gr-hit"></div>
+</div>
+
+<script>
+(function () {
+  const IP = window.IP, T = window.THREE, UI = IP.ui, FX = IP.fx;
+  const ID = "scene-grades", A = 15.9;
+  const L = (abs) => abs - A;
+  const $ = (id) => document.getElementById(id);
+  const hold = $("gr-hold"), cam = $("gr-cam");
+
+  // ---- phone: Grades screen (rows arrive as "Pending", then get stamped on the beat) ----
+  const ROWS = [["COMP 20073", "Data Structures and Algorithms", 3, "1.25"], ["GEED 10053", "Purposive Communication", 3, "1.50"], ["MATH 20013", "Discrete Structures", 3, "1.25"], ["COMP 20083", "Object-Oriented Programming", 3, "1.00"], ["PATHFIT 2", "Physical Activity Towards Health and Fitness 2", 2, "1.00"]];
+  const ph = UI.mount(hold, { room: "night", screen: "grades", explode: true, time: "1:42", island: { label: "IntPortal", short: "" }, data: { rows: ROWS, gpa: "—", best: true } });
+  const gpaBox = ph.querySelector('[data-layer="gpa"]'), rowsList = ph.querySelector('[data-layer="rows"]');
+  const lift = (el) => { const w = document.createElement("div"); w.className = "lyr"; el.parentNode.insertBefore(w, el); w.appendChild(el); return w; };
+  const gpaLyr = lift(gpaBox), rowsLyr = lift(rowsList);
+  const gpaVal = ph.querySelector("[data-gpa]"), subEl = gpaBox.querySelector(".sub"), bestEl = ph.querySelector("[data-best]"), trend = gpaBox.querySelector("svg.trend");
+  const rowEls = [...rowsList.querySelectorAll(".m-grade")];
+  const stamps = [], pends = [], rings = [];
+  rowEls.forEach((li) => {
+    const st = li.querySelector(".m-stamp"); const slot = document.createElement("span"); slot.className = "slot";
+    st.parentNode.insertBefore(slot, st); const pend = document.createElement("span"); pend.className = "m-pending"; pend.textContent = "Pending";
+    slot.appendChild(pend); slot.appendChild(st);
+    const ring = document.createElement("div"); ring.className = "ring"; li.appendChild(ring);
+    stamps.push(st); pends.push(pend); rings.push(ring);
+  });
+  const S = [IP.cue("gstamp0"), IP.cue("gstamp1"), IP.cue("gstamp2"), IP.cue("gstamp3"), IP.cue("best")];
+  const GPA = ["—", "1.25", "1.38", "1.33", "1.25", "1.21"], SUB = ["0 of 5 posted", "1 of 5 posted · 3 units", "2 of 5 posted · 6 units", "3 of 5 posted · 9 units", "4 of 5 posted · 12 units", "5 of 5 posted · 14 units"];
+
+  // ---- Isko (3D voxel) cheering on the right ----
+  const world = IP.createWorld($("gr-3d"), 180, 180, { fov: 30, transparent: true });
+  const isko = IP.makeIsko(); isko.scale.setScalar(1); world.scene.add(isko);
+  world.camera.position.set(0, 1.0, 68); world.camera.lookAt(0, 1.0, 0);
+  world.update = function (t) {
+    const abs = t + A;
+    let mode = "idle", p = {};
+    for (let i = 0; i < 4; i++) { const q = (abs - S[i]) / 0.32; if (q >= 0 && q <= 1) { mode = "jump"; p = { q, h: 2.4 }; } }
+    const qb = (abs - S[4]) / 0.5; if (qb >= 0 && qb <= 1) { mode = "jump"; p = { q: qb, h: 6.5 }; }
+    if (abs >= IP.cue("cheer")) mode = "cheer";
+    isko.pose(mode, abs, p);
+    isko.rotation.y = abs >= IP.cue("cheer") ? 0.05 + Math.sin(abs * 3) * 0.08 : -0.5;
+    isko.position.y = 0.5;
+  };
+
+  // ---- timeline ----
+  const tl = gsap.timeline({ paused: true });
+  tl.fromTo(hold, { x: -520, y: 70, z: -700, rotationY: 46, rotationX: 10, scale: 1.2 }, { x: 0, y: 30, z: 0, rotationY: -13, rotationX: 4, scale: 1.66, duration: 0.5, ease: "power4.out" }, L(15.95));
+  tl.to(hold, { rotationY: -5, rotationX: 2, scale: 1.8, y: 26, duration: 2.1, ease: "sine.inOut" }, L(16.45));
+  tl.to(hold, { rotationY: -8, rotationX: 3, scale: 1.86, y: 30, duration: 1.0, ease: "sine.inOut" }, L(18.5));
+  tl.fromTo(gpaLyr, { z: 0 }, { z: 90, duration: 0.35, ease: "back.out(2)" }, L(16.05));
+  tl.fromTo(rowsLyr, { z: 0 }, { z: 40, duration: 0.35, ease: "back.out(2)" }, L(16.15));
+  const kw = (el, t0, out) => {
+    tl.fromTo(el, { opacity: 0, x: 70, clipPath: "inset(0 0 0 100%)" }, { opacity: 1, x: 0, clipPath: "inset(0 0% 0 0)", duration: 0.26, ease: "steps(6)" }, L(t0));
+    tl.to(el, { opacity: 0, x: -50, clipPath: "inset(0 100% 0 0)", duration: 0.2, ease: "steps(5)" }, L(out));
+  };
+  kw($("gr-k1"), 16.3, 19.2); kw($("gr-k2"), 16.62, 19.2);
+  // stamps: slam down (accelerating), squash, ring, GPA pulse
+  S.forEach((ts, i) => {
+    const tt = L(ts);
+    tl.to(pends[i], { opacity: 0, duration: 0.05 }, tt - 0.02);
+    tl.fromTo(stamps[i], { opacity: 0, scale: 3.4, rotation: 9 }, { opacity: 1, scale: 1, rotation: -4, duration: 0.15, ease: "power3.in", immediateRender: false }, tt - 0.15);
+    tl.fromTo(stamps[i], { scaleY: 1 }, { scaleY: 0.86, duration: 0.05, yoyo: true, repeat: 1, ease: "power1.out", immediateRender: false }, tt);
+    tl.fromTo(rings[i], { opacity: 0.9, scale: 0.5 }, { opacity: 0, scale: 3.4, duration: 0.45, ease: "steps(5)", immediateRender: false }, tt + 0.01);
+    tl.fromTo(gpaVal, { scale: 1.22 }, { scale: 1, duration: 0.24, ease: "back.out(2.4)", immediateRender: false }, tt);
+    tl.fromTo("#gr-hit", { opacity: 0.16 }, { opacity: 0, duration: 0.09, ease: "power1.out", immediateRender: false }, tt);
+  });
+  tl.fromTo(trend, { scaleX: 0 }, { scaleX: 1, duration: 1.7, ease: "steps(14)", immediateRender: false }, L(S[0]));
+  tl.fromTo(bestEl, { opacity: 0, scale: 2.4, rotation: 10 }, { opacity: 1, scale: 1, rotation: -5, duration: 0.16, ease: "power3.in", immediateRender: false }, L(S[4]) + 0.02);
+  tl.fromTo("#gr-bub", { opacity: 0, scale: 0.7, y: 20 }, { opacity: 1, scale: 1, y: 0, duration: 0.2, ease: "back.out(2)", immediateRender: false }, L(IP.cue("b2")) - 0.05);
+  tl.to("#gr-bub", { opacity: 0, duration: 0.2 }, L(19.15));
+
+  // ---- dynamic ----
+  const fx = $("gr-fx").getContext("2d");
+  const sched = IP.typeSchedule("Personal best!", IP.cue("b2"), 1);
+  const bubT = $("gr-bubt");
+  let lastG = -1, lastB = -1;
+  function dyn(t) {
+    const abs = t + A;
+    let n = 0; for (let i = 0; i < 5; i++) if (abs >= S[i] - 1e-6) n = i + 1;
+    if (n !== lastG) { gpaVal.firstChild.nodeValue = GPA[n]; subEl.textContent = SUB[n]; lastG = n; }
+    let k = 0; for (let i = 0; i < sched.length; i++) if (sched[i][0] <= abs + 1e-6) k = sched[i][1];
+    if (k !== lastB) { bubT.textContent = "Personal best!".slice(0, k); lastB = k; }
+    // shake on every stamp
+    let sx = 0, sy = 0;
+    S.forEach((ts, i) => { const s = IP.shake(abs, ts, 0.26, i === 4 ? 14 : 8); sx += s[0]; sy += s[1]; });
+    cam.style.transform = `translate(${sx.toFixed(2)}px,${sy.toFixed(2)}px)`;
+    // confetti (personal best)
+    fx.clearRect(0, 0, 240, 135);
+    FX.burst(fx, 66, 22, abs - S[4], { n: 46, seed: 17, speed: 95, gravity: 130, life: 1.6, spread: Math.PI * 1.2, angle0: -Math.PI / 2 });
+    FX.burst(fx, 190, 62, abs - S[4], { n: 26, seed: 23, speed: 85, gravity: 140, life: 1.4, spread: Math.PI * 1.2, angle0: -Math.PI / 2 });
+  }
+  const drv = { t: 0 };
+  tl.to(drv, { t: 3.32, duration: 3.32, ease: "none", onUpdate: function () { const t = tl.time(); dyn(t); world.render(t); } }, 0);
+  dyn(0); world.render(0);
+  window.__timelines[ID] = tl;
+})();
+</script>
+</template>
+</body>
+</html>

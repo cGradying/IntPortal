@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head><meta charset="UTF-8" /></head>
+<body>
+<template>
+<style>
+  #root { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  #wp { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; image-rendering: pixelated; }
+</style>
+<div id="root" data-composition-id="fx-wipe" data-width="1920" data-height="1080"><canvas id="wp" width="240" height="135"></canvas></div>
+<script>
+(function () {
+  // Portal-swirl dither wipes: the swirl's own 5-step ramp, Bayer-dithered, sweeping across the frame on the cut.
+  const IP = window.IP, A = 15.5, D = 4.2;
+  const g = document.getElementById("wp").getContext("2d");
+  const WIPES = [{ t0: 15.65, dur: 0.7, dir: "r" }, { t0: 18.85, dur: 0.7, dir: "u" }];
+  let img = null;
+  const paint = (t) => {
+    const abs = t + A;
+    for (const w of WIPES) {
+      const p = (abs - w.t0) / w.dur;
+      if (p > 0 && p < 1) { img = IP.fx.wipe(g, 240, 135, p, w.dir, img); return; }
+    }
+    g.clearRect(0, 0, 240, 135);
+  };
+  const tl = gsap.timeline({ paused: true });
+  const drv = { t: 0 };
+  tl.to(drv, { t: D, duration: D, ease: "none", onUpdate: function () { paint(tl.time()); } }, 0);
+  paint(0);
+  window.__timelines["fx-wipe"] = tl;
+})();
+</script>
+</template>
+</body>
+</html>
