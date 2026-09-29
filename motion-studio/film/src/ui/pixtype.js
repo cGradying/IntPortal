@@ -120,7 +120,7 @@ export function pixText(parent, o) {
 
   const node = el("div", "abs", parent);
   const ox = o.anchor === "c" ? -W / 2 : o.anchor === "r" ? -W + padX : -padX;
-  css(node, { left: `${(o.x ?? 0) + ox}px`, top: `${(o.y ?? 0) - padY}px`, width: `${W}px`, height: `${H}px`, pointerEvents: "none", transformOrigin: "50% 50%" });
+  css(node, { left: `${(o.x ?? 0) + ox}px`, top: `${(o.y ?? 0) - padY}px`, width: `${W}px`, height: `${H}px`, pointerEvents: "none", transformOrigin: "50% 50%", display: "none" });
   const B = el("canvas", "", node);
   B.width = W; B.height = H;
   css(B, { position: "absolute", left: "0", top: "0", width: `${W}px`, height: `${H}px` });
