@@ -108,3 +108,9 @@ Checked on a 30 fps half-scale preview (`out/preview-v2.mp4`) with 10-frame stri
 Sync: 47 visual-change peaks on the preview. Measured against the eighth-note grid, the off-beat peaks are the intended half-beat events: clicks at 8.5 and 11.5, the 16 hub ignitions on half beats, and the made-for-you builds at 187.5 and 190.5. The SFX sit on the same half beats. The drop (beats 150–160) is 13.8 dB RMS below the bomb bar (164–168).
 
 Every score is 8 or higher → full render.
+
+## v2 final render check
+
+`out/intportal-launch-v2.mp4`: H.264, yuv420p, 1920×1080, 60 fps, 116.0 s, −14.0 LUFS, −1.4 dBTP,
+LRA 5.3 LU. Rendered in 37.4 min with 4 workers. A contact sheet taken from the master
+(one frame every 3 beats) is at `out/IntPortal-v2-contact-sheet.png`.
