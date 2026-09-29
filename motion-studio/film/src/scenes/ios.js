@@ -20,9 +20,9 @@ const chAt = (b) => CH.reduce((a, c) => (b >= c.at ? c : a), CH[0]);
 // camera keyframes: [beat, focusX, focusY (phone px), screenX, screenY, scale, rotY, rotX]
 const KF = [
   [36, 230, 480, 1330, 540, 0.98, -14, 4], [38.5, 230, 440, 1330, 540, 1.1, -10, 3], [43.5, 230, 300, 1290, 500, 1.5, -8, 3], [48, 230, 480, 1330, 540, 1.02, -12, 4],
-  [52, 230, 480, 1330, 540, 1.0, -16, 4], [54.5, 230, 420, 1300, 540, 1.35, -10, 3], [59.5, 230, 500, 1330, 540, 1.1, -14, 4],
+  [52, 230, 480, 590, 540, 1.0, 16, 4], [54.5, 230, 420, 620, 540, 1.35, 10, 3], [59.5, 230, 500, 590, 540, 1.1, 14, 4],
   [68, 230, 250, 1300, 480, 1.5, -10, 4], [71.5, 230, 600, 1290, 540, 1.3, -8, 3], [76.5, 230, 360, 1290, 520, 1.55, -8, 3], [81, 230, 480, 1330, 540, 1.02, -14, 4],
-  [84, 230, 430, 1330, 540, 1.15, -12, 3], [88, 230, 480, 1330, 540, 1.05, -12, 4], [91, 230, 500, 1300, 540, 1.28, -10, 3], [97.5, 230, 480, 1330, 540, 1.05, -10, 3],
+  [84, 230, 430, 590, 540, 1.15, 12, 3], [88, 230, 480, 590, 540, 1.05, 12, 4], [91, 230, 500, 620, 540, 1.28, 10, 3], [97.5, 230, 480, 590, 540, 1.05, 10, 3],
   [99.2, 230, 481, 960, 560, 0.9, 0, 0],
 ];
 const CX = 5, CY = 8; // note chunks
@@ -52,10 +52,11 @@ export default {
     // chapter labels
     this.labels = CH.map((c, i) => {
       const next = CH[i + 1]?.at ?? 99.2;
-      const num = pixText(layer, { text: c.n, size: 96, font: "pixel", x: 112, y: 250, ink: "#f5b227", shadow: "#2a0a14" });
-      const title = pixText(layer, { text: c.title, size: c.title.length > 8 ? 118 : 150, x: 110, y: 360, ink: "#f7ecec", shadow: "#2a0a14" });
+      const LX = i % 2 ? 1120 : 110;
+      const num = pixText(layer, { text: c.n, size: 96, font: "pixel", x: LX + 2, y: 250, ink: "#f5b227", shadow: "#2a0a14" });
+      const title = pixText(layer, { text: c.title, size: c.title.length > 8 ? 118 : 150, x: LX, y: 360, ink: "#f7ecec", shadow: "#2a0a14" });
       const desc = el("div", "abs", layer, `<span>${c.desc}</span>`);
-      css(desc, { left: "116px", top: "560px", width: "760px", font: "400 40px/1.3 var(--ui)", color: "#cdbbd8", overflow: "hidden" });
+      css(desc, { left: `${LX + 6}px`, top: "560px", width: "760px", font: "400 40px/1.3 var(--ui)", color: "#cdbbd8", overflow: "hidden" });
       return { c, num, title, desc, out: next - 0.9 };
     });
     // Isko + thread
@@ -234,13 +235,14 @@ export default {
     this.isko.root.style.display = iOn ? "" : "none";
     if (iOn) {
       const enter = springB(b, 37.5, 1.6, 0.6);
-      const ix = sx - 330 * sc - 120 + Math.sin(t * 0.9) * 12, iy = 830 + Math.sin(t * 1.3) * 10 + (1 - enter) * 400;
+      const side = clamp((sx - 960) / 300, -1, 1);
+      const ix = sx - side * (330 * sc + 120) + Math.sin(t * 0.9) * 12, iy = 830 + Math.sin(t * 1.3) * 10 + (1 - enter) * 400;
       const pointing = tg && b >= tg[0] && b < tg[1];
-      this.isko.pose({ x: ix, y: iy, t, scale: 1, expr: pointing ? "focus" : b >= 95 && b < 96 ? "happy" : blinkAt(t, 6), gesture: pointing ? "point" : "idle", gk: 1, look: 1 });
+      this.isko.pose({ x: ix, y: iy, t, scale: 1, expr: pointing ? "focus" : b >= 95 && b < 96 ? "happy" : blinkAt(t, 6), gesture: pointing ? "point" : "idle", gk: 1, look: 1, flip: side < 0 });
       if (tg) {
         const r = tg[2]().getBoundingClientRect();
         const k = pb(b, tg[0], tg[0] + 0.6, ease.outCubic) * (1 - pb(b, tg[1], tg[1] + 0.4));
-        this.thread.render(k > 0.01, [ix + 70, iy - 110], [r.left + 8, r.top + r.height / 2], k, (b - tg[0]) * 0.5, -140);
+        this.thread.render(k > 0.01, [ix + side * 70, iy - 110], [side > 0 ? r.left + 8 : r.right - 8, r.top + r.height / 2], k, (b - tg[0]) * 0.5, -140);
       } else this.thread.render(false);
     } else this.thread.render(false);
   },

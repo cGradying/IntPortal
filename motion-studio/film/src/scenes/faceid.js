@@ -73,7 +73,7 @@ function paintFace(g, i, cell = 1) {
   g.clearRect(0, 0, 20, 24);
   if (i < 0) { g.fillStyle = "#2a1a30"; g.fillRect(0, 0, 20, 24); return; }
   if (cell <= 1) { g.drawImage(faceSrc(i), 0, 0); return; }
-  const s = document.createElement("canvas");
+  const s = (paintFace.small ??= document.createElement("canvas"));
   s.width = Math.ceil(20 / cell); s.height = Math.ceil(24 / cell);
   const x = s.getContext("2d");
   x.imageSmoothingEnabled = true;

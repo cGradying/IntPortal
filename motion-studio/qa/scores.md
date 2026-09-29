@@ -74,3 +74,22 @@ iOS scene cut in 0.3 beat before the warp flash peaked (cream → dark → cream
 cut now sits under the flash peak (beat 19.93). Seconds 9–11 were re-rendered
 (`node render.mjs --from 9 --to 11`) and spliced into the master, which has 5,706
 frames with no visible seam.
+
+---
+
+# v2 ("Pixel Magnet" revision)
+
+Same method, 244 beats at 128 BPM: `node qa/contact.mjs --from 0 --to 244 --step 1 --tag v2rN`.
+
+## v2 Round 1
+
+| Hook (first 2 s) | Phone readability | Motion | Variety | Brand | Sound sync |
+|---|---|---|---|---|---|
+| 8 | 7 | 7 | 8 | 8 | 8 |
+
+Three worst problems, and what changed:
+1. **"Made for you" read as confetti.** The cards were small and only visible for part of each beat. Now each card builds in 0.35 beat from fewer, closer fragments, holds big (2.2x) while its word is spoken, and settles into a 3 + 2 grid at 1.18x.
+2. **Empty frames at beats 184–185.** The RAG answer, the meaning map and the on-device chip now hold until 185.5, so the frame never goes empty before "Summaries".
+3. **Cold-open retry text sat behind the page.** "Sign in again." / "Wrong captcha." are smaller and clear the page. The "iPhone" label sits below the device, and the wide three-device shot is 20% bigger.
+
+Also: the iOS chapters now alternate sides (phone right for 01/03, left for 02/04), so the 64-beat section does not hold one composition.
