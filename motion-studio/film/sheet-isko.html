@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Isko model sheet</title>
+<link rel="stylesheet" href="film.css">
+<style>
+ #stage{background:#171219}
+ .cap{position:absolute;font:600 22px var(--ui);color:#cdbbd8}
+ .h{position:absolute;left:80px;top:48px;font:700 64px var(--pixel);color:var(--gold)}
+ .s{position:absolute;left:84px;top:128px;font:400 26px var(--ui);color:#cdbbd8}
+</style></head>
+<body><div id="stage"></div>
+<script type="module">
+import { makeIsko } from "./src/art/isko.js";
+const st = document.getElementById("stage");
+await document.fonts.ready;
+const h = document.createElement("div"); h.className = "h"; h.textContent = "ISKO 3.0"; st.appendChild(h);
+const s = document.createElement("div"); s.className = "s"; s.textContent = "Portal spirit · IntPortal's helper AI · model sheet"; st.appendChild(s);
+const poses = [
+  ["open", "idle", 0.0, "Idle"], ["happy", "wave", 0.6, "Wave · happy"], ["wow", "reach", 1.1, "Wow"],
+  ["focus", "point", 1.7, "Focus · point"], ["wink", "thumbs", 2.3, "Wink · thumbs up"], ["blink", "cover", 2.9, "Covering eyes"],
+];
+poses.forEach(([expr, gesture, t, cap], i) => {
+  const x = 300 + (i % 3) * 620, y = 520 + Math.floor(i / 3) * 420;
+  const k = makeIsko(st, 9);
+  k.pose({ x, y, t: t + 0.2, expr, gesture, gk: 1, wavePhase: 1, cubePhase: 0.8 + i });
+  const c = document.createElement("div"); c.className = "cap"; c.textContent = cap; c.style.left = `${x - 60}px`; c.style.top = `${y + 40}px`; st.appendChild(c);
+});
+window.__ready = true;
+</script></body></html>

@@ -14,96 +14,117 @@
    "id": "l01",
    "who": "G",
    "beat": 0.5,
-   "text": "Class in nine minutes. And the portal says... session expired.",
-   "tag": "[sighing]"
+   "text": "Class in nine minutes. And the portal says... session expired."
   },
   {
    "id": "l02",
    "who": "B",
-   "beat": 9.0,
-   "text": "Okay. Try this.",
-   "tag": "[casual]"
+   "beat": 17,
+   "text": "Okay. Try this."
   },
   {
    "id": "l03",
    "who": "G",
-   "beat": 22.0,
-   "text": "Your whole day, before you even ask."
+   "beat": 26.5,
+   "text": "This is Isko. Your helper, from the other side."
   },
   {
    "id": "l04",
-   "who": "B",
-   "beat": 41.0,
-   "text": "Grades come in, and it tells you what you need for your goal."
+   "who": "G",
+   "beat": 38,
+   "text": "Your whole day, before you even ask."
   },
   {
    "id": "l05",
-   "who": "G",
-   "beat": 53.0,
-   "text": "Notes turn into cards. Study what's due."
+   "who": "B",
+   "beat": 54,
+   "text": "Your week, one scroll away."
   },
   {
    "id": "l06",
    "who": "B",
-   "beat": 61.0,
-   "text": "And Isko keeps an eye on the rest.",
-   "tag": "[warm]"
+   "beat": 70,
+   "text": "Grades come in, and it tells you what you need."
   },
   {
    "id": "l07",
    "who": "G",
-   "beat": 70.0,
-   "text": "Make it yours.",
-   "tag": "[playful]"
+   "beat": 86,
+   "text": "Notes turn into cards. Study what's due."
   },
   {
    "id": "l08",
-   "who": "B",
-   "beat": 100.5,
-   "text": "Phone, laptop, browser. Same you, everywhere."
+   "who": "G",
+   "beat": 102,
+   "text": "Make it yours."
   },
   {
    "id": "l09",
-   "who": "G",
-   "beat": 110.0,
-   "text": "It works with PUP S I S. Your own account, on your own device."
+   "who": "B",
+   "beat": 118,
+   "text": "Phone, Mac, PC. Same you, everywhere."
   },
   {
    "id": "l10",
-   "who": "B",
-   "beat": 126.0,
-   "text": "Ask it anything about your term."
+   "who": "G",
+   "beat": 134,
+   "text": "It works with PUP S I S. Your own account, on your own device."
   },
   {
    "id": "l11",
-   "who": "G",
-   "beat": 150.0,
-   "text": "Every campus has a portal."
+   "who": "B",
+   "beat": 150,
+   "text": "Now... turn off the Wi-Fi.",
+   "speed": 0.9,
+   "gain_db": -3,
+   "close": true
   },
   {
    "id": "l12",
-   "who": "B",
-   "beat": 160.0,
-   "text": "Someday, maybe they all connect.",
-   "tag": "[soft]"
+   "who": "G",
+   "beat": 165,
+   "text": "Still works."
   },
   {
    "id": "l13",
    "who": "G",
-   "beat": 173.0,
-   "text": "Beta opens soon.",
-   "tag": "[excited]"
+   "beat": 172,
+   "text": "It reads your notes, finds what matters, and answers. Right on your phone."
   },
   {
    "id": "l14",
    "who": "B",
-   "beat": 179.0,
-   "text": "Save your spot."
+   "beat": 186,
+   "text": "Summaries, study plans, flashcards, quizzes. Made for you, offline."
   },
   {
    "id": "l15",
+   "who": "G",
+   "beat": 204,
+   "text": "Every campus has a portal."
+  },
+  {
+   "id": "l16",
+   "who": "B",
+   "beat": 212,
+   "text": "Someday, maybe they all connect."
+  },
+  {
+   "id": "l17",
+   "who": "G",
+   "beat": 226,
+   "text": "Beta opens soon."
+  },
+  {
+   "id": "l18",
+   "who": "B",
+   "beat": 232,
+   "text": "Save your spot."
+  },
+  {
+   "id": "l19",
    "who": "GB",
-   "beat": 186.0,
+   "beat": 240,
    "text": "Step through."
   }
  ]

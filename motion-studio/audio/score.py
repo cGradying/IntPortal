@@ -1,4 +1,8 @@
-"""IntPortal launch score: 124 BPM, 48 bars, synthesized from scratch.
+"""IntPortal launch score v2: 128 BPM, 61 bars, synthesized from scratch.
+
+Chip-pop: the v1 kick/clap/sub/pad kit plus square/pulse chip voices, a
+mid-film "void" (the offline drop: tape stop, near silence, heartbeat) and a
+bomb at beat 164.
 
 Writes audio/music.wav (48 kHz stereo float). Deterministic: every noise
 source is seeded. Arrangement follows the film's sections (see
@@ -201,6 +205,61 @@ def delay(x, secs, fb=0.35, mix=0.3):
     return y
 
 
+# ---------------------------------------------------------------- chip voices
+def pulse(m, dur, duty=0.25, d=None, vib=0.0, bend=0.0):
+    """Band-limited-ish pulse wave: NES/Game Boy flavour, low-passed."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    f = mtof(m) * (1 + vib * np.sin(2 * np.pi * 6 * t) * np.minimum(1, t / 0.15)) * (1 + bend * np.exp(-t / 0.03))
+    ph = np.cumsum(f) / SR % 1.0
+    y = np.where(ph < duty, 1.0, -1.0)
+    y = lp(y, 6500)
+    e = np.exp(-t / d) if d else np.minimum(1, (dur - t) / 0.02).clip(0, 1)
+    return y * e * np.minimum(1, t / 0.002)
+
+
+def tri(m, dur):
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    ph = mtof(m) * t % 1.0
+    y = 4 * np.abs(ph - 0.5) - 1
+    y = np.round(y * 8) / 8  # 4-bit stepped like the NES triangle
+    return y * np.minimum(1, (dur - t) / 0.01).clip(0, 1)
+
+
+def heartbeat():
+    n = int(0.6 * SR)
+    t = np.arange(n) / SR
+    y = np.zeros(n)
+    for off, g in ((0.0, 1.0), (0.17, 0.7)):
+        s = int(off * SR)
+        tt = t[: n - s]
+        f = 42 + 30 * np.exp(-tt / 0.03)
+        y[s:] += np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-tt / 0.12) * g
+    return np.tanh(y * 1.5) * 0.8
+
+
+def sweep_rev(dur):
+    """Reverse cymbal-ish swell into the bomb."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    x = hp(rng.standard_normal(n), 3000) * np.exp(-(dur - t) / (dur * 0.35))
+    return x * 0.5
+
+
+def tape_stop(x, a, b):
+    """Replace x[a:b] with a slowing read of the same audio (speed 1 -> 0)."""
+    n = b - a
+    sp = np.linspace(1, 0, n) ** 1.4
+    pos = a + np.cumsum(sp)
+    i0 = np.clip(pos.astype(int), 0, len(x) - 2)
+    fr = (pos - i0)[:, None]
+    y = x[i0] * (1 - fr) + x[i0 + 1] * fr
+    fade = np.linspace(1, 0, n) ** 0.5
+    x[a:b] = y * fade[:, None]
+    x[b:b + int(0.02 * SR)] *= 0
+
+
 # ---------------------------------------------------------------- harmony
 # Ab major, vi-IV-I-V: Fm, Db, Ab, Eb (one chord per bar)
 CHORDS = [
@@ -226,147 +285,183 @@ def section(bar):
 drums = np.zeros((N, 2))
 bass = np.zeros((N, 2))
 synth = np.zeros((N, 2))
+chip = np.zeros((N, 2))
 pads = np.zeros((N, 2))
 fx = np.zeros((N, 2))
 duck = np.ones(N)
 
 K = kick()
+KB = kick(1.5)
 C = clap()
 
-energy = {s["id"]: s.get("energy", 1.0) for s in TL["sections"]}
+
+def sidechain(beat, depth=0.75):
+    dk = at(beat)
+    n = int(0.28 * SR)
+    if dk + n < N:
+        duck[dk: dk + n] = np.minimum(duck[dk: dk + n], 1 - depth * np.exp(-np.arange(n) / SR / 0.09))
+
+
+ARP = [0, 2, 1, 3, 2, 0, 3, 1]
+HOOK = [3, None, 2, 3, None, 1, 2, None, 0, None, 1, 2, None, 3, 2, None]  # chip lead, 16ths
 
 for bar in range(BARS):
     s = section(bar)
     e = s.get("music", "groove")
-    if s["id"] == "sync" and bar * 4 >= s["from"] + 16:
-        e = "groove"
     root, notes = chord(bar)
     b0 = bar * 4
+    rel = (b0 - s["from"]) // 4  # bar within section
 
     if e == "hook":
-        # chaos cuts: 8th-note glitch stabs, dry and bitcrushed
+        # cold open: dry 8th glitch stabs + chip blips, stutter on bar 3
         for k in range(8):
+            if bar == 3 and k >= 6:
+                continue  # hole before the crack
             st = stab([notes[(k * 3) % 4] + 12, notes[(k + 1) % 4]], 1.4)
-            st = np.round(st * 24) / 24  # crush
-            add(synth, st, at(b0 + k * 0.5), 0.9, pan=(-0.6 if k % 2 else 0.6))
+            st = np.round(st * 24) / 24
+            add(synth, st, at(b0 + k * 0.5), 0.8, pan=(-0.6 if k % 2 else 0.6))
+            add(chip, pulse(notes[k % 4] + 24, 0.08, 0.125, d=0.04), at(b0 + k * 0.5 + 0.25), 0.22, pan=0.3)
             if k % 2 == 0:
                 add(drums, K, at(b0 + k * 0.5), 0.7)
+        if bar == 3:  # SESSION EXPIRED x3 stutter on 16ths
+            for k in range(6):
+                add(synth, np.round(stab([notes[0] + 12], 1.6) * 16) / 16, at(b0 + 1.5 + k * 0.25), 0.7)
         continue
 
     if e == "form":
-        # portal assembly: pulse + rising blips (block drops are SFX)
+        # magnet assembly: pulse kick, 16th chip ticks rising in pitch, pad
         for k in range(4):
-            add(drums, K, at(b0 + k), 0.55)
-        add(pads, pad(notes, BAR, fc=900), at(b0), 1.2)
-        add(fx, riser(BAR, 5000), at(b0), 0.6)
+            add(drums, K, at(b0 + k), 0.6)
+        for k in range(16):
+            add(chip, pulse(60 + (rel * 16 + k) % 24, 0.05, 0.5, d=0.02), at(b0 + k * 0.25), 0.14, pan=(-0.5 if k % 2 else 0.5))
+        add(pads, pad(notes, BAR, fc=900 + rel * 400), at(b0), 1.2)
+        add(bass, sub(root, BAR * 0.98), at(b0), 0.5)
         continue
 
-    groove = e in ("groove", "drop", "rooms", "climax")
-    half = e == "half"
-    intro = e == "intro"
+    if e == "void":
+        # the offline drop: almost nothing. Heartbeat on 1 and 3, dark pad.
+        for k in (0, 2):
+            if b0 + k < 162:
+                add(drums, heartbeat(), at(b0 + k), 0.5)
+        add(pads, lp(pad(notes, BAR, fc=500), 420), at(b0), 0.9)
+        continue
+
+    groove = e in ("groove", "rooms", "drive", "bomb", "anthem")
+    big = e in ("bomb", "anthem")
 
     # kick
-    if groove or intro:
+    if groove or e in ("intro", "lift", "outro", "build"):
         for k in range(4):
-            add(drums, K, at(b0 + k), 0.9 if groove else 0.6)
-            dk = at(b0 + k)
-            n = int(0.28 * SR)
-            if dk + n < N:
-                duck[dk : dk + n] = np.minimum(duck[dk : dk + n], 1 - 0.75 * np.exp(-np.arange(n) / SR / 0.09))
-    elif half:
-        for k in (0, 2.5):
-            add(drums, K, at(b0 + k), 0.75)
+            if e == "build" and rel < 2 and k % 2:
+                continue
+            g = 1.0 if big else 0.9 if groove else 0.65
+            add(drums, KB if (big and k == 0) else K, at(b0 + k), g)
+            sidechain(b0 + k, 0.85 if big else 0.75)
+    # build: snare roll accelerating into the drop
+    if e == "build":
+        div = [2, 2, 4, 8][min(rel, 3)]
+        for k in range(4 * div):
+            if bar == 36 and k >= 4 * div - 2:
+                continue
+            add(drums, C, at(b0 + k / div), 0.35 + 0.35 * (rel * 4 + k / div) / 16)
     # clap / hats
     if groove:
         for k in (1, 3):
-            add(drums, C, at(b0 + k), 0.8)
+            add(drums, C, at(b0 + k), 0.85 if big else 0.8)
         for k in range(8):
-            add(drums, hat(k % 2 == 1), at(b0 + k * 0.5 + 0.0), 0.9 if k % 2 else 0.5, pan=0.25)
-        if e in ("drop", "climax"):
+            add(drums, hat(k % 2 == 1), at(b0 + k * 0.5), 0.9 if k % 2 else 0.5, pan=0.25)
+        if e in ("drive", "bomb", "anthem"):
             for k in range(16):
                 if k % 4 != 0:
                     add(drums, hat(), at(b0 + k * 0.25), 0.35, pan=-0.3)
-    if half:
-        add(drums, C, at(b0 + 2), 0.8)
-        for k in range(4):
-            add(drums, hat(True), at(b0 + k + 0.5), 0.45)
-    if intro and bar % 2 == 1:
+    if e in ("intro", "lift"):
         for k in range(8):
             add(drums, hat(), at(b0 + k * 0.5), 0.35)
 
-    # bass: offbeat pumping 8ths on the root
-    if groove or half:
+    # bass
+    if groove:
         for k in range(8):
-            if groove and k % 2 == 0:
+            if k % 2 == 0:
                 continue
             m = root - 12 if k != 7 else root - 12 + (7 if bar % 2 else 12)
             add(bass, sub(m + 12, BEAT * 0.45), at(b0 + k * 0.5), 1.0)
-        if half:
-            add(bass, sub(root, BAR * 0.95), at(b0), 0.8)
-    elif intro:
+        if big:
+            add(bass, sub(root, BEAT * 0.9), at(b0), 0.7)
+    elif e in ("intro", "lift", "build", "outro"):
         add(bass, sub(root, BAR * 0.98), at(b0), 0.7)
 
     # pads
-    fc = {"intro": 1100, "half": 1600, "groove": 2600, "drop": 4200, "rooms": 3600, "climax": 5200, "outro": 2000}.get(e, 2400)
-    add(pads, pad(notes, BAR, fc=fc), at(b0), 1.0)
+    fc = {"intro": 1200, "lift": 1800, "groove": 2600, "rooms": 3600, "drive": 4000, "build": 1400 + rel * 900,
+          "bomb": 6000, "anthem": 5200, "outro": 2200}.get(e, 2400)
+    add(pads, pad(notes, BAR, fc=fc, detune=0.18 if big else 0.12), at(b0), 1.25 if big else 1.0)
 
-    # arps: 16th plucks walking chord tones
-    if e in ("groove", "drop", "climax", "half", "outro") or (intro and bar >= 4):
-        pat = [0, 2, 1, 3, 2, 0, 3, 1] * 2
+    # plucked arp
+    if e in ("groove", "drive", "bomb", "anthem", "outro", "lift") or (e == "intro" and rel >= 1):
         for k in range(16):
-            if half and k % 2:
-                continue
-            m = notes[pat[k]] + 12 + (12 if (k % 8 == 7 and e == "climax") else 0)
-            add(synth, pluck(m, 0.2, 1.3 if e == "climax" else 1.0), at(b0 + k * 0.25), 0.9 if not intro else 0.5, pan=(0.35 if k % 2 else -0.35))
+            m = notes[ARP[k % 8]] + 12
+            add(synth, pluck(m, 0.2, 1.3 if big else 1.0), at(b0 + k * 0.25), 0.8 if e != "intro" else 0.5, pan=(0.35 if k % 2 else -0.35))
 
-    # rooms: a chord stab on every beat (each beat is a new room)
+    # chip arp: 16th pulse, octave-hopping (the pixel signature)
+    if e in ("groove", "drive", "bomb", "anthem", "rooms"):
+        for k in range(16):
+            if e == "groove" and k % 2:
+                continue
+            m = notes[ARP[(k + 3) % 8]] + 24 + (12 if k % 4 == 3 else 0)
+            add(chip, pulse(m, BEAT * 0.22, 0.125 if k % 2 else 0.25, d=0.06), at(b0 + k * 0.25), 0.16, pan=(-0.55 if k % 2 else 0.55))
+
+    # rooms: chord stab + a chip "switch" blip on every beat
     if e == "rooms":
         for k in range(4):
             inv = [n + 12 * ((k + i) % 2) for i, n in enumerate(notes)]
-            add(synth, stab(inv, 1.2), at(b0 + k), 1.3, pan=(-0.4 + 0.27 * k))
+            add(synth, stab(inv, 1.2), at(b0 + k), 1.2, pan=(-0.4 + 0.27 * k))
 
-    # climax: gold lead, simple motif on top
-    if e == "climax":
-        motif = [0, None, 2, None, 3, 2, None, 1]
-        for k, idx in enumerate(motif):
+    # bomb / anthem: chip lead hook + a stepped triangle bass double
+    if big:
+        for k, idx in enumerate(HOOK):
             if idx is None:
                 continue
-            add(synth, pluck(notes[idx] + 24, 0.34, 1.6), at(b0 + k * 0.5), 0.8)
+            m = notes[idx] + (24 if e == "bomb" else 12)
+            add(chip, pulse(m, BEAT * 0.4, 0.5 if e == "bomb" else 0.25, d=0.2, vib=0.004), at(b0 + k * 0.25), 0.28)
+        add(chip, tri(root + 12, BAR * 0.95), at(b0), 0.18)
 
-    if e == "outro":
-        for k in (0, 2):
-            add(drums, K, at(b0 + k), 0.55)
+    if e == "outro" and bar >= 59:
+        pass
 
-# risers + impacts from the timeline
+# risers + impacts
 for r in TL.get("risers", []):
     add(fx, riser((r["to"] - r["from"]) * BEAT), at(r["from"]), r.get("gain", 0.7))
 for h in TL.get("impacts", []):
     add(fx, impact(h.get("size", 1.0)), at(h["beat"]), h.get("gain", 0.8))
+add(fx, sweep_rev(6 * BEAT), at(158), 0.9)
 
 # ---------------------------------------------------------------- mix
-LEVEL = {"hook": 0.8, "form": 0.55, "intro": 0.6, "groove": 0.82, "rooms": 0.9, "drop": 0.9,
-         "half": 0.58, "climax": 1.0, "outro": 0.62}
+LEVEL = {"hook": 0.8, "form": 0.6, "intro": 0.62, "lift": 0.72, "groove": 0.8, "rooms": 0.88, "drive": 0.86,
+         "build": 0.7, "void": 0.14, "bomb": 1.0, "anthem": 0.93, "outro": 0.66}
 lvl = np.ones(N)
 for bar in range(BARS):
     s_ = section(bar)
     e_ = s_.get("music", "groove")
-    if s_["id"] == "sync" and bar * 4 >= s_["from"] + 16:
-        e_ = "build"
     g = LEVEL.get(e_, 0.8)
     if e_ == "build":
-        g = 0.62 + 0.3 * (bar * 4 - s_["from"] - 16) / 16
-    if e_ == "intro":
-        g = 0.55 + 0.25 * (bar * 4 - s_["from"]) / max(1, s_["to"] - s_["from"])
+        g = 0.62 + 0.3 * (bar * 4 - s_["from"]) / 16
     lvl[int(bar * BAR * SR): int((bar + 1) * BAR * SR)] = g
-lvl = lp(lvl, 8)  # smooth the steps a little
+lvl = lp(lvl, 10)
+lvl[at(148): at(148) + int(0.05 * SR)] = LEVEL["void"]  # hard cut, not a fade
 pads *= duck[:, None]
 synth *= (0.55 + 0.45 * duck)[:, None]
+chip *= (0.6 + 0.4 * duck)[:, None]
 bass *= duck[:, None]
 synth = delay(synth, BEAT * 0.75, 0.35, 0.28)
-wet_bus = reverb(pads + synth * 0.6, 2.4, 0.3)
-mix = (drums * 0.9 + bass * 0.95 + wet_bus + synth * 0.4) * lvl[:, None] + reverb(fx, 3.0, 0.35, 11)
+chip = delay(chip, BEAT * 0.5, 0.3, 0.2)
+wet_bus = reverb(pads + synth * 0.6 + chip * 0.3, 2.4, 0.3)
+music = (drums * 0.9 + bass * 0.95 + wet_bus + synth * 0.4 + chip * 0.55) * lvl[:, None]
+ts = TL.get("tapestop")
+if ts:
+    tape_stop(music, at(ts["from"]), at(ts["to"]))
+# the silence just before the bomb: half a beat of nothing
+music[at(163.5): at(164)] *= 0.0
+mix = music + reverb(fx, 3.0, 0.35, 11)
 mix = hp(mix, 25)
-# final fade after the last bar
 fade_from = int(BARS * BAR * SR)
 f = np.ones(N)
 f[fade_from:] = np.exp(-np.arange(N - fade_from) / SR / 0.8)

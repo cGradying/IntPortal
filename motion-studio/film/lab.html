@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Lab</title>
+<link rel="stylesheet" href="film.css"></head>
+<body><div id="stage"></div>
+<script type="module">
+import { faceCanvas } from "./src/art/faces.js";
+import { pixText } from "./src/ui/pixtype.js";
+import { loadBeats } from "./src/lib/core.js";
+await loadBeats();
+await document.fonts.load("800 40px Montserrat"); await document.fonts.load("700 20px 'Pixelify Sans'"); await document.fonts.ready;
+const st = document.getElementById("stage");
+for (let i = 0; i < 10; i++) { const c = faceCanvas(i); Object.assign(c.style, { position: "absolute", left: `${60 + i * 180}px`, top: "40px", width: "160px", height: "192px" }); st.appendChild(c); }
+const beats = [0.1, 0.35, 0.6, 0.85, 1.1, 1.35, 2.0, 3.1, 3.3];
+beats.forEach((b, i) => { const T = pixText(st, { text: "Class in", size: 110, x: 60 + (i % 3) * 620, y: 280 + Math.floor(i / 3) * 240, shadow: "#2a0a14" }); T.render(b, { at: 0, dur: 1.5, out: 3.0, outDur: 0.75 }); });
+window.__ready = true;
+</script></body></html>

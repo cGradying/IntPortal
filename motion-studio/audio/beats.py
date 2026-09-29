@@ -27,9 +27,11 @@ hop = 64
 env = librosa.onset.onset_strength(y=y48, sr=sr48, hop_length=hop)
 on = librosa.onset.onset_detect(onset_envelope=env, sr=sr48, hop_length=hop, backtrack=True, units="time")
 for n, t in enumerate(grid):
-    near = on[np.abs(on - t) < 0.07]
+    near = on[np.abs(on - n * beat) < 0.025]
     if len(near):
         grid[n] = near[np.argmin(np.abs(near - n * beat))]
+    elif abs(t - n * beat) > 0.025:
+        grid[n] = n * beat  # tracker wandered (the silent drop): trust the clock
 drift = grid - np.arange(total + 1) * beat
 out = {
     "bpm_measured": float(np.atleast_1d(tempo)[0]),

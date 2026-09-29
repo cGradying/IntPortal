@@ -1,34 +1,44 @@
 {
-  "bpm": 124,
-  "bars": 48,
+  "bpm": 128,
+  "bars": 61,
   "fps": 60,
   "width": 1920,
   "height": 1080,
   "sections": [
-    { "id": "hook",      "from": 0,   "to": 4,   "music": "hook" },
-    { "id": "form",      "from": 4,   "to": 8,   "music": "form" },
-    { "id": "void",      "from": 8,   "to": 16,  "music": "intro" },
-    { "id": "warp",      "from": 16,  "to": 20,  "music": "intro" },
-    { "id": "ios",       "from": 20,  "to": 68,  "music": "groove" },
-    { "id": "rooms",     "from": 68,  "to": 84,  "music": "rooms" },
-    { "id": "platforms", "from": 84,  "to": 108, "music": "drop" },
-    { "id": "sync",      "from": 108, "to": 140, "music": "half" },
-    { "id": "hub",       "from": 140, "to": 172, "music": "climax" },
-    { "id": "outro",     "from": 172, "to": 192, "music": "outro" }
+    { "id": "open",      "from": 0,   "to": 16,  "music": "hook" },
+    { "id": "magnet",    "from": 16,  "to": 24,  "music": "form" },
+    { "id": "isko",      "from": 24,  "to": 32,  "music": "intro" },
+    { "id": "warp",      "from": 32,  "to": 36,  "music": "lift" },
+    { "id": "ios",       "from": 36,  "to": 100, "music": "groove" },
+    { "id": "rooms",     "from": 100, "to": 116, "music": "rooms" },
+    { "id": "platforms", "from": 116, "to": 132, "music": "drive" },
+    { "id": "sync",      "from": 132, "to": 148, "music": "build" },
+    { "id": "drop",      "from": 148, "to": 164, "music": "void" },
+    { "id": "ai",        "from": 164, "to": 200, "music": "bomb" },
+    { "id": "hub",       "from": 200, "to": 224, "music": "anthem" },
+    { "id": "faceid",    "from": 224, "to": 244, "music": "outro" }
   ],
   "risers": [
-    { "from": 12, "to": 16, "gain": 0.35 },
-    { "from": 16, "to": 20, "gain": 0.8 },
-    { "from": 64, "to": 68, "gain": 0.5 },
-    { "from": 124, "to": 140, "gain": 0.75 },
-    { "from": 168, "to": 172, "gain": 0.45 }
+    { "from": 12,  "to": 15,  "gain": 0.4 },
+    { "from": 20,  "to": 24,  "gain": 0.45 },
+    { "from": 30,  "to": 36,  "gain": 0.8 },
+    { "from": 96,  "to": 100, "gain": 0.45 },
+    { "from": 128, "to": 132, "gain": 0.5 },
+    { "from": 140, "to": 148, "gain": 0.8 },
+    { "from": 158, "to": 163.5, "gain": 1.0 },
+    { "from": 196, "to": 200, "gain": 0.5 },
+    { "from": 220, "to": 224, "gain": 0.55 }
   ],
   "impacts": [
-    { "beat": 8,   "size": 0.8, "gain": 0.6 },
-    { "beat": 20,  "size": 1.0, "gain": 0.8 },
-    { "beat": 68,  "size": 0.7, "gain": 0.55 },
-    { "beat": 140, "size": 1.0, "gain": 0.85 },
-    { "beat": 172, "size": 0.8, "gain": 0.6 },
-    { "beat": 188, "size": 1.1, "gain": 0.9 }
-  ]
+    { "beat": 15,  "size": 0.7, "gain": 0.55 },
+    { "beat": 24,  "size": 0.9, "gain": 0.65 },
+    { "beat": 36,  "size": 1.0, "gain": 0.8 },
+    { "beat": 100, "size": 0.7, "gain": 0.5 },
+    { "beat": 132, "size": 0.8, "gain": 0.55 },
+    { "beat": 164, "size": 1.5, "gain": 1.1 },
+    { "beat": 200, "size": 1.0, "gain": 0.8 },
+    { "beat": 224, "size": 0.9, "gain": 0.65 },
+    { "beat": 240, "size": 1.2, "gain": 0.9 }
+  ],
+  "tapestop": { "from": 147, "to": 148 }
 }

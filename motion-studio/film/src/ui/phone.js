@@ -159,6 +159,27 @@ function studyView(v) {
   </div>`;
 }
 
+export const NOTE = [
+  ["h", "Trees & graphs"], ["m", "COMP 20073 · Week 5 · lecture"],
+  ["p", "A binary search tree keeps smaller keys on the left, larger on the right."],
+  ["p", "Balanced BST: heights of the two subtrees differ by at most 1, so search stays O(log n)."],
+  ["b", "Rotations fix balance after an insert"], ["b", "In-order traversal gives sorted keys"],
+  ["p", "BFS explores level by level with a queue. DFS goes deep first with a stack."],
+  ["b", "Dijkstra fails on negative edges"], ["b", "Heap height is ⌊log n⌋"],
+];
+function notesView(v) {
+  v.innerHTML = `<div class="pad" data-r="body">
+    <div class="lab">Notebook</div>
+    <div class="h1">Notes</div>
+    <div data-r="sheet" class="card notch" style="padding:20px 22px;min-height:560px">
+      ${NOTE.map(([k, t]) => k === "h" ? `<div style="font:800 30px var(--display);letter-spacing:-.02em;color:var(--ink);margin-bottom:4px">${t}</div>`
+        : k === "m" ? `<div class="ti" style="font-size:14px;margin-bottom:14px;color:var(--gold)">${t}</div>`
+        : k === "p" ? `<div style="font:400 17px/1.4 var(--ui);color:var(--ink);margin-bottom:12px">${t}</div>`
+        : `<div style="font:400 17px/1.4 var(--ui);color:var(--ink2);margin:0 0 8px 6px">▪ ${t}</div>`).join("")}
+    </div>
+  </div>`;
+}
+
 function assisView(v) {
   v.innerHTML = `<div data-r="sheet" class="card" style="position:absolute;left:10px;right:10px;bottom:106px;height:560px;border-radius:30px;padding:18px 18px;box-shadow:0 -20px 60px rgba(0,0,0,.35);z-index:5">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div data-r="orb" style="width:40px;height:40px;background:var(--island);display:flex;align-items:center;justify-content:center" class="notch"></div><div style="font:800 22px var(--display)">IntAssis</div><div style="margin-left:auto" class="chip">On this phone</div></div>
@@ -184,12 +205,13 @@ export function makePhone(parent) {
   ph.style.backfaceVisibility = "hidden";
   const scr = el("div", "scr", ph);
   el("div", "di", scr);
-  el("div", "sb", scr, `<span data-r="clock">7:21</span><span style="display:flex;align-items:center;gap:6px"><svg width="18" height="12"><rect x="0" y="8" width="3" height="4" fill="currentColor"/><rect x="5" y="5" width="3" height="7" fill="currentColor"/><rect x="10" y="2" width="3" height="10" fill="currentColor"/><rect x="15" y="0" width="3" height="12" fill="currentColor"/></svg><i></i></span>`);
+  el("div", "sb", scr, `<span data-r="clock">7:21</span><span style="display:flex;align-items:center;gap:6px"><b data-r="plane" style="display:none;font:700 16px var(--ui)">✈</b><svg data-r="bars" width="18" height="12"><rect x="0" y="8" width="3" height="4" fill="currentColor"/><rect x="5" y="5" width="3" height="7" fill="currentColor"/><rect x="10" y="2" width="3" height="10" fill="currentColor"/><rect x="15" y="0" width="3" height="12" fill="currentColor"/></svg><i></i></span>`);
+  const sbr = refs(scr);
   const island = el("div", "island", scr);
   island.appendChild(glyph()).style.position = "relative";
   const islandT = el("span", "", island, "COMP 20073 · <b>in 9m</b>");
   const views = {};
-  for (const [k, fn] of Object.entries({ today: todayView, schedule: scheduleView, grades: gradesView, study: studyView })) {
+  for (const [k, fn] of Object.entries({ today: todayView, schedule: scheduleView, grades: gradesView, study: studyView, notes: notesView })) {
     const v = el("div", "view", scr);
     fn(v);
     views[k] = { node: v, r: refs(v) };
@@ -213,6 +235,10 @@ export function makePhone(parent) {
       if (room === r) return;
       room = r;
       applyRoom(scr, typeof r === "string" ? ROOM[r] : r);
+    },
+    setAirplane(on) {
+      sbr.plane.style.display = on ? "" : "none";
+      sbr.bars.style.display = on ? "none" : "";
     },
     setTab(k) {
       for (const t in tabEls) tabEls[t].classList.toggle("on", t === k);

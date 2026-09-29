@@ -1,15 +1,17 @@
-// Global light flashes over everything: the warp's gold-white burst and the
-// hard white cut frames. Each flash rises fast and decays on the beat grid.
+// Global light flashes over everything: the warp's gold-white burst, the
+// bomb after the drop, and the hard cuts into the hub and the ending. Each
+// rises fast and decays on the beat grid.
 import { css, el, pb } from "../lib/core.js";
 
 const FLASHES = [
-  { at: 19.45, peak: 19.95, end: 20.6, color: "255,244,214" },
-  { at: 139.65, peak: 139.95, end: 140.55, color: "255,244,214" },
-  { at: 171.7, peak: 171.98, end: 172.45, color: "255,236,190" },
+  { at: 35.4, peak: 35.95, end: 36.6, color: "255,244,214" },
+  { at: 163.98, peak: 164.0, end: 164.35, color: "255,255,255" },
+  { at: 199.7, peak: 199.98, end: 200.5, color: "255,244,214" },
+  { at: 223.75, peak: 223.98, end: 224.45, color: "255,236,190" },
 ];
 
 export default {
-  id: "flash", from: 0, to: 200, top: true,
+  id: "flash", from: 0, to: 400, top: true,
   init(layer) {
     this.d = el("div", "abs", layer);
     css(this.d, { inset: "0" });
@@ -22,6 +24,6 @@ export default {
       if (k > a) { a = k; col = f.color; }
     }
     this.d.style.display = a > 0.001 ? "" : "none";
-    this.d.style.background = `radial-gradient(circle at 50% 50%, rgba(${col},${a}) 0%, rgba(${col},${a * 0.92}) 40%, rgba(${col},${a * 0.7}) 100%)`;
+    this.d.style.background = `rgba(${col},${a})`;
   },
 };
