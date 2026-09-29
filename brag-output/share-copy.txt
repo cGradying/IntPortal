@@ -1,0 +1,1 @@
+IntPortal: your PUP SIS schedule, grades and study tools as a native Mac app. The web portal never even shows up. Step through. github.com/cGradying/IntPortal
