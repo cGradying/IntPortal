@@ -52,9 +52,9 @@ export default {
     // chapter labels
     this.labels = CH.map((c, i) => {
       const next = CH[i + 1]?.at ?? 99.2;
-      const LX = i % 2 ? 1120 : 110;
+      const LX = i % 2 ? 1060 : 110;
       const num = pixText(layer, { text: c.n, size: 96, font: "pixel", x: LX + 2, y: 250, ink: "#f5b227", shadow: "#2a0a14" });
-      const title = pixText(layer, { text: c.title, size: c.title.length > 8 ? 118 : 150, x: LX, y: 360, ink: "#f7ecec", shadow: "#2a0a14" });
+      const title = pixText(layer, { text: c.title, size: c.title.length > 8 ? 108 : 150, x: LX, y: 360, ink: "#f7ecec", shadow: "#2a0a14" });
       const desc = el("div", "abs", layer, `<span>${c.desc}</span>`);
       css(desc, { left: `${LX + 6}px`, top: "560px", width: "760px", font: "400 40px/1.3 var(--ui)", color: "#cdbbd8", overflow: "hidden" });
       return { c, num, title, desc, out: next - 0.9 };
@@ -101,7 +101,7 @@ export default {
     this.bd.glow.style.transform = `translate(${sx - 900}px, ${sy - 900}px)`;
     this.bd.glow.style.background = `radial-gradient(circle, rgba(${hue},.28) 0%, rgba(${hue},.09) 35%, transparent 62%)`;
     this.bd.floor.style.backgroundPosition = `${-t * 30}px 0px`;
-    P.root.style.filter = b < 36.3 ? `brightness(${1 + (1 - pb(b, 35.95, 36.3)) * 1.2})` : "";
+    P.root.style.filter = b < 36.2 ? `brightness(${1 + (1 - pb(b, 35.95, 36.2)) * 0.6})` : "";
 
     // ---- views: depth push between chapters; notes → study at 90.5
     const vk = ch.view === "notes" && b >= 90.5 ? "study" : ch.view;
@@ -236,7 +236,7 @@ export default {
     if (iOn) {
       const enter = springB(b, 37.5, 1.6, 0.6);
       const side = clamp((sx - 960) / 300, -1, 1);
-      const ix = sx - side * (330 * sc + 120) + Math.sin(t * 0.9) * 12, iy = 830 + Math.sin(t * 1.3) * 10 + (1 - enter) * 400;
+      const ix = sx - side * (330 * sc + 120) + Math.sin(t * 0.9) * 12, iy = 910 + Math.sin(t * 1.3) * 10 + (1 - enter) * 400;
       const pointing = tg && b >= tg[0] && b < tg[1];
       this.isko.pose({ x: ix, y: iy, t, scale: 1, expr: pointing ? "focus" : b >= 95 && b < 96 ? "happy" : blinkAt(t, 6), gesture: pointing ? "point" : "idle", gk: 1, look: 1, flip: side < 0 });
       if (tg) {

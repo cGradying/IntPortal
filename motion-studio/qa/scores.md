@@ -93,3 +93,18 @@ Three worst problems, and what changed:
 3. **Cold-open retry text sat behind the page.** "Sign in again." / "Wrong captcha." are smaller and clear the page. The "iPhone" label sits below the device, and the wide three-device shot is 20% bigger.
 
 Also: the iOS chapters now alternate sides (phone right for 01/03, left for 02/04), so the 64-beat section does not hold one composition.
+
+## v2 Round 2
+
+| Hook (first 2 s) | Phone readability | Motion | Variety | Brand | Sound sync |
+|---|---|---|---|---|---|
+| 8 | 8 | 8 | 8 | 8 | 8 |
+
+Checked on a 30 fps half-scale preview (`out/preview-v2.mp4`) with 10-frame strips around every cut (`out/qa/strips-v2.png`):
+1. **Warp into iOS held white for about 0.4 s.** The swirl now stays as chunky dithered pixels through the dive, and the flash is 0.55 beat, so only 2 frames are white.
+2. **iOS composition was the same for 64 beats.** Chapters alternate sides: phone right for 01/03 and left for 02/04, with the labels, Isko (mirrored) and his light-thread following.
+3. **Mirrored labels ran off the right edge, and Isko sat on the description.** Labels moved to x 1060 with a smaller long title, and Isko sits lower.
+
+Sync: 47 visual-change peaks on the preview. Measured against the eighth-note grid, the off-beat peaks are the intended half-beat events: clicks at 8.5 and 11.5, the 16 hub ignitions on half beats, and the made-for-you builds at 187.5 and 190.5. The SFX sit on the same half beats. The drop (beats 150–160) is 13.8 dB RMS below the bomb bar (164–168).
+
+Every score is 8 or higher → full render.

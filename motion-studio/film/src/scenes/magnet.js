@@ -253,7 +253,7 @@ export default {
     const lit = pb(b, IGNITE, IGNITE + 0.6, ease.outCubic);
     const wk = pb(b, WARP_FROM, WARP_TO);
     P.swirl.visible = b >= IGNITE - 0.2;
-    setSwirl(P.mat, { phase: swirlPhase(b), lit, cells: 40 - 24 * wk, flash: Math.max(pulse(b, IGNITE, 0.8) * 0.8, pb(b, 34.8, 35.4) ** 2) });
+    setSwirl(P.mat, { phase: swirlPhase(b), lit, cells: 40 - 24 * wk, flash: Math.max(pulse(b, IGNITE, 0.8) * 0.8, pb(b, 35.1, 35.8) ** 2 * 0.7) });
     P.light.intensity = lit * (60 + pulse(b, IGNITE, 1.2) * 160 + pulse(b, 30, 1) * 80) + wk * 80;
     P.light.distance = 22;
     this.motes.update(t, this.cam, 0.3 + 0.7 * lit);
