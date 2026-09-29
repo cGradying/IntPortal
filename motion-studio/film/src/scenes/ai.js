@@ -12,6 +12,7 @@ import { blinkAt, makeIsko } from "../art/isko.js";
 import { makePhone, NOTE } from "../ui/phone.js";
 import { pixText } from "../ui/pixtype.js";
 import { makeThread } from "../ui/thread.js";
+import { makeBubble } from "../ui/bubble.js";
 
 const MAP = { cx: 1430, cy: 560, f: 1300 };
 const TOPIC = ["#f5b227", "#7ea3e0", "#e0697e", "#58c792"];
@@ -119,6 +120,7 @@ export default {
     this.madeFor = pixText(layer, { text: "Made for you.", size: 150, x: 110, y: 110, ink: "#f7ecec", shadow: "#000" });
     this.offLine = pixText(layer, { text: "Offline.", size: 150, font: "pixel", x: 1180, y: 110, ink: "#f5b227", shadow: "#000" });
     this.isko = makeIsko(layer, 6);
+    this.bubble = makeBubble(layer);
   },
   proj(p, ang) {
     const c = Math.cos(ang), s = Math.sin(ang);
@@ -240,9 +242,11 @@ export default {
     // ---- Isko pushes the question in (175 → 177)
     const iOn = b >= 172 && b < 185.6;
     this.isko.root.style.display = iOn ? "" : "none";
+    if (!iOn) this.bubble.render(-1, [], 0, 0);
     if (iOn) {
       const ix = 830 + Math.sin(t) * 10, iy = 900 + (1 - springB(b, 172, 1.6, 0.6)) * 300 + pb(b, 184.9, 185.6, ease.inCubic) * 400;
       this.isko.pose({ x: ix, y: iy, t, expr: b >= 177 && b < 178.5 ? "wow" : b >= 181 ? "happy" : blinkAt(t, 11), gesture: b >= 175.6 && b < 177 ? "reach" : b >= 181 && b < 182.5 ? "thumbs" : "idle", gk: 1, look: 1 });
+      this.bubble.render(b, [[173, 1.6, "Reading your notes…"], [177.7, 1.4, "3 matches!"], [182.6, 2, "From your notes, not the internet."]], ix, iy - 138);
     }
 
     // ---- made for you (186 → 200)

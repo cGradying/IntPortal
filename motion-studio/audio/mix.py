@@ -262,13 +262,21 @@ cue(15, whoosh(0.6, False, 1.2), 0.7)
 # ---- magnet portal
 cue(16, whoosh(0.5, False, 0.8), 0.5)
 cue(16.5, hum(tb(23) - tb(16.5)), 0.8)
-for n in range(24):
-    cue(17 + n * 0.25, snap(1 + 0.02 * n), 0.75, 0.5 * np.sin(n))
+for sg in range(6):
+    at = 17.6 + sg * 0.9
+    cue(at - 1.6, whoosh(0.35, True, 0.7), 0.35, 0.5 * np.sin(sg))
+    for k in range(4):
+        cue(at + k * 0.03, snap(1 + 0.04 * sg + 0.02 * k), 0.55, 0.5 * np.sin(sg + k))
+    cue(at, thunk(0.7 + 0.05 * sg), 0.6, 0.4 * np.sin(sg))
+for i in range(8):
+    cue(22.3 + i * 0.1, slice_(), 0.3, 0.5 * np.cos(i))
 cue(23, whoosh(tb(24) - tb(23), True, 1.2), 0.7)
 cue(24, ignite(110, 1.6), 0.9)
-cue(25, sparkle(0.4), 0.6)
-cue(25.75, pop(620), 0.8)
-cue(25.8, boing(True), 0.6)
+cue(24.9, ignite(160, 1.0), 0.8)
+cue(24.9, whoosh(tb(25.9) - tb(24.9), False, 1.1), 0.6, -0.3)
+cue(25.9, filt(noise(0.7), "lowpass", 2500) * np.exp(-np.arange(int(0.7 * SR)) / SR / 0.25) * 0.4, 0.7, -0.3)
+cue(26.4, pop(620), 0.8, -0.3)
+cue(26.45, boing(True), 0.6, -0.3)
 cue(26.5, chime((76, 83, 88)), 0.6)
 cue(27, whoosh(0.3, True), 0.4, -0.4)
 cue(29, zip_(0.35), 0.5, -0.4)
@@ -378,11 +386,18 @@ scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28, 31, 33, 36]
 for i in range(16):
     cue(202.15 + i * 0.5, ignite(110 * 2 ** (scale[i] / 12), 0.6), 0.45, 0.4 * np.sin(i))
 cue(209.2, whoosh(tb(213.5) - tb(209.2), True, 0.8), 0.7)
+cue(210.6, whoosh(0.6, False, 1.0), 0.6)
+cue(211, ignite(220, 0.8), 0.5)
+for p_ in range(5):
+    a0 = 212 + p_ * 1.55
+    cue(a0, riffle(10, 0.035), 0.55, 0.3 * (p_ - 2))
+    if p_ < 4:
+        cue(a0 + 1.43, whoosh(0.35, False, 1.2), 0.45, -0.4)
+cue(216.8, pop(1100), 0.6)
+cue(219.4, whoosh(tb(221.6) - tb(219.4), True, 0.8), 0.6)
 for i in range(16):
-    cue(212 + i * 0.12, zip_(0.25), 0.3, 0.4 * np.cos(i))
-cue(214, ticker(tb(220.5) - tb(214), 22), 0.4)
-cue(218, pop(1100), 0.6)
-cue(216, sparkle(1.2), 0.5)
+    cue(220.2 + i * 0.08, zip_(0.25), 0.25, 0.4 * np.cos(i))
+cue(221, sparkle(1.2), 0.45)
 # ---- Beta Pass IDs
 cue(224, whoosh(0.5, True), 0.6)
 for i in range(1, 10):

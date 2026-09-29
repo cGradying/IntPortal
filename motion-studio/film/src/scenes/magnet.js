@@ -14,6 +14,7 @@ import { blinkAt, makeIsko, trailFrom } from "../art/isko.js";
 import { drawLogin, PH, PW } from "../ui/oldportal.js";
 import { pixText } from "../ui/pixtype.js";
 import { pixSwitch } from "../ui/switch.js";
+import { makeBubble } from "../ui/bubble.js";
 
 const GX = 8, GY = 6;
 const SNAP0 = 17, SNAP = 0.25; // first snap, spacing (beats)
@@ -50,6 +51,35 @@ function obsidianFace(seed) {
   t.magFilter = t.minFilter = THREE.NearestFilter;
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+const FIRE = ["#fff6dc", "#f5b227", "#e8662a", "#c2203a", "#5a0a1c"];
+const OBS = ["#b996d8", "#8663a8", "#5f3f7e", "#43295a", "#2c1c3a"];
+const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+/** Pixel fireball (cool = 0) cooling into an obsidian ball (cool = 1). Pure. */
+function drawFireball(g, t, cool) {
+  g.clearRect(0, 0, 40, 40);
+  const cx = 20, cy = 23;
+  for (let j = 0; j < 40; j++) for (let i = 0; i < 40; i++) {
+    const dx = (i - cx) / 11, up = j < cy ? (cy - j) / (11 + (1 - cool) * 14) : (j - cy) / 11;
+    const wob = (1 - cool) * 0.18 * Math.sin(i * 0.9 + t * 14 + j * 0.3);
+    const r = Math.hypot(dx + wob * (j < cy ? 1 : 0), up);
+    const flick = (1 - cool) * 0.25 * (hash(i, j, Math.floor(t * 20)) - 0.5);
+    const heat = 1 - r + flick;
+    if (heat <= 0.05) continue;
+    const th = BAY[(j & 3) * 4 + (i & 3)] / 16;
+    const solid = cool > 0 && r < 1.0 && cool * 1.3 > th * 0.6 + (1 - r) * 0.5;
+    if (solid) {
+      const lit = clamp(0.5 - (i - cx) * 0.035 - (j - cy) * 0.04 + (1 - r) * 0.3);
+      const crack = cool < 0.85 && hash(Math.floor(i / 2), Math.floor(j / 2), 5) > 0.82;
+      g.fillStyle = crack ? FIRE[1] : r > 0.9 ? "#1a0f20" : OBS[clamp(Math.floor((1 - lit) * 4.99), 0, 4)];
+    } else {
+      if (cool > 0.6) continue;
+      const idx = clamp(Math.floor((1 - heat) * 5 + th - 0.5), 0, 4);
+      g.fillStyle = FIRE[idx];
+    }
+    g.fillRect(i, j, 1, 1);
+  }
 }
 
 export default {
@@ -111,8 +141,23 @@ export default {
       const frame = n < 24;
       const sl = frame ? slots[n] : null;
       const slot = frame ? new THREE.Vector3(sl[0] - 2.5, sl[1] + 0.5, 0) : new THREE.Vector3(0, 4, 0);
-      return { mesh, page, cloud, slot, frame, at: frame ? SNAP0 + n * SNAP : IGNITE - 1 + (n - 24) * 0.02, n, k, mats: [home, front], spin: [hash(k, 7) - 0.5, hash(k, 8) - 0.5, hash(k, 9) - 0.5] };
+      return { mesh, page, cloud, slot, frame, at: frame ? SNAP0 + 0.6 + Math.floor(n / 4) * 0.9 : 22.3 + hash(k, 12) * 0.8, seg: frame ? Math.floor(n / 4) : -1, n, k, mats: [home, front], spin: [hash(k, 7) - 0.5, hash(k, 8) - 0.5, hash(k, 9) - 0.5] };
     });
+    // segments: 6 runs of 4 blocks gather into a formation, then snap together
+    for (let sg = 0; sg < 6; sg++) {
+      const mem = this.shards.filter((d) => d.seg === sg);
+      const c = mem.reduce((a, d) => a.add(d.slot), new THREE.Vector3()).multiplyScalar(1 / mem.length);
+      const off = c.clone().sub(new THREE.Vector3(0, 4, 0)).setZ(0).normalize().multiplyScalar(2.6).add(new THREE.Vector3(0, 0, 3.2));
+      mem.forEach((d) => (d.segOff = off));
+    }
+    this.shards.filter((d) => !d.frame).forEach((d, j) => {
+      const a = (j / 24) * Math.PI * 2;
+      d.ring = new THREE.Vector3(Math.cos(a) * 3.4, 4 + Math.sin(a) * 3.0, 1.2);
+      d.j = j;
+    });
+    this.debris = new THREE.InstancedMesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshStandardMaterial({ color: 0x3a2649, roughness: 0.45, metalness: 0.2, emissive: new THREE.Color(0xc2403a), emissiveIntensity: 0.18 }), 24 * 8);
+    this.debris.frustumCulled = false;
+    s.add(this.debris);
     // field lines: 14 dots per shard
     this.DOTS = 14;
     const pos = new Float32Array(24 * this.DOTS * 3);
@@ -139,9 +184,17 @@ export default {
     s.add(this.stars);
 
     // DOM: Isko, his name, the switch
-    this.spark = el("div", "abs", layer);
-    css(this.spark, { width: "18px", height: "18px", background: "#fff1c4", boxShadow: "0 0 0 6px #f5b227" });
+    // the last fragment comes back out as a fireball that cools into Isko
+    this.fire = el("canvas", "abs px", layer);
+    this.fire.width = this.fire.height = 40;
+    css(this.fire, { left: "0", top: "0", width: "280px", height: "280px" });
+    this.embers = Array.from({ length: 10 }, (_, i) => {
+      const e = el("div", "abs", layer);
+      css(e, { width: "14px", height: "14px", background: i % 2 ? "#f5b227" : "#e8662a" });
+      return e;
+    });
     this.isko = makeIsko(layer, 10);
+    this.bubble = makeBubble(layer);
     this.name = pixText(layer, { text: "ISKO", size: 260, font: "pixel", x: 100, y: 250, ink: "#f5b227", shadow: "#3a0a18", ramp: ["#8663a8", "#e27bd0", "#f5b227", "#fff1c4"] });
     this.sub1 = pixText(layer, { text: "Your helper,", size: 76, x: 108, y: 560, ink: "#f7ecec" });
     this.sub2 = pixText(layer, { text: "from the other side.", size: 76, x: 108, y: 650, ink: "#cdbbd8" });
@@ -187,18 +240,20 @@ export default {
       let p = hang, sc = 1;
       const f0 = d.at - FLY;
       if (d.frame) {
-        const k = pb(b, f0, d.at, ease.inCubic);
-        if (k > 0) {
-          // flight: arc toward the slot, flip page → obsidian
-          const arc = Math.sin(k * Math.PI) * 1.2;
-          p = hang.clone().lerp(d.slot, k).add(new THREE.Vector3(0, 0, arc));
-          ry = lerp(ry, 0, ease.inOutCubic(k));
-          rx *= 1 - k; rz *= 1 - k;
+        // gather into the segment's formation, flipping page → obsidian
+        const form = d.slot.clone().add(d.segOff);
+        const g1 = ease.inOutCubic(pb(b, d.at - 1.6, d.at - 0.75));
+        if (g1 > 0) {
+          p = hang.clone().lerp(form, g1).add(new THREE.Vector3(0, Math.sin(g1 * Math.PI) * 0.5, 0));
+          ry = lerp(ry, 0, g1);
+          rx *= 1 - g1; rz *= 1 - g1;
         }
+        // the whole segment travels home as one piece
+        const g2 = ease.inOutQuart(pb(b, d.at - 0.75, d.at));
+        if (g2 > 0) p = form.clone().lerp(d.slot, g2);
         if (b >= d.at) {
-          // contact: overshoot spring into the slot
-          const o = 1 - springB(b, d.at, 4.5, 0.35);
-          p = d.slot.clone().add(new THREE.Vector3(0, 0, o * 0.25));
+          const o = 1 - springB(b, d.at, 3.6, 0.45);
+          p = d.slot.clone().add(d.segOff.clone().multiplyScalar(o * 0.08));
           rx = ry = rz = 0;
         }
         const weld = pulse(b, d.at, 0.5);
@@ -212,8 +267,8 @@ export default {
           wl.material.opacity = 1 - wk;
         }
         // field line: from shard to slot, visible while the field reaches for it
-        const on = b >= Math.max(SNAP0 - 0.5, f0 - 1.6) && b < d.at;
-        const reach = pb(b, f0 - 1.6, f0 - 0.9, ease.outCubic);
+        const on = b >= Math.max(SNAP0 - 0.3, d.at - 2.3) && b < d.at;
+        const reach = pb(b, d.at - 2.3, d.at - 1.6, ease.outCubic);
         for (let q = 0; q < DOTS; q++) {
           const u = (q + 0.5) / DOTS;
           const idx = (d.n * DOTS + q) * 3;
@@ -229,23 +284,39 @@ export default {
         }
         li++;
       } else {
-        // interior: spiral into the swirl centre and vanish (22.9 → 24)
-        const k = pb(b, d.at, IGNITE, ease.inCubic);
-        if (k > 0) {
-          const ang = k * 5 + d.k;
-          const r = (1 - k) * hang.distanceTo(d.slot);
-          p = new THREE.Vector3(d.slot.x + Math.cos(ang) * r, d.slot.y + Math.sin(ang) * r * 0.8, lerp(hang.z, 0, k));
-          sc = 1 - k * 0.9;
-          ry = lerp(ry, 0, k);
+        // interior: drift to a ring around the frame, then break into
+        // pieces that spiral into the swirl
+        const k1 = ease.inOutCubic(pb(b, 20.8, d.at));
+        if (k1 > 0) {
+          p = hang.clone().lerp(d.ring, k1);
+          ry = lerp(ry, 0, k1);
+          rx *= 1 - k1; rz *= 1 - k1;
         }
-        d.mats[1].emissiveIntensity = k * 0.8;
-        m.visible = b < IGNITE;
+        d.mats[1].emissiveIntensity = pb(b, d.at - 0.4, d.at) * 0.8;
+        m.visible = b < d.at;
+        const o3 = new THREE.Object3D();
+        for (let q = 0; q < 8; q++) {
+          const idx = d.j * 8 + q;
+          const kk = pb(b, d.at, IGNITE + 0.1, ease.inCubic);
+          const live = b >= d.at && kk < 1;
+          const off = new THREE.Vector3((q & 1) - 0.5, ((q >> 1) & 1) - 0.5, ((q >> 2) & 1) - 0.5).multiplyScalar(0.5);
+          const start = d.ring.clone().add(off.clone().multiplyScalar(1 + pb(b, d.at, d.at + 0.3, ease.outCubic) * 1.5));
+          const rel = start.clone().sub(new THREE.Vector3(0, 4, 0));
+          const ang = Math.atan2(rel.y, rel.x) + kk * 4.5;
+          const r = Math.hypot(rel.x, rel.y) * (1 - kk);
+          o3.position.set(Math.cos(ang) * r, 4 + Math.sin(ang) * r, lerp(start.z, 0, kk));
+          o3.rotation.set(kk * 6 + q, kk * 4, 0);
+          o3.scale.setScalar(live ? 1 - kk * 0.85 : 0.0001);
+          o3.updateMatrix();
+          this.debris.setMatrixAt(idx, o3.matrix);
+        }
       }
       m.position.copy(p);
       m.rotation.set(rx, ry, rz);
       m.scale.setScalar(sc);
     }
     void li;
+    this.debris.instanceMatrix.needsUpdate = true;
     this.field.geometry.attributes.position.needsUpdate = true;
     this.field.geometry.attributes.color.needsUpdate = true;
 
@@ -262,16 +333,33 @@ export default {
 
     // ---- the last fragment → Isko (25 → 31.75)
     const [scx, scy] = this.project(0, 4, 0.1);
-    const sparkK = pb(b, 25, 25.75, ease.outCubic);
     const iskoHome = [scx - 330, scy + 280];
-    this.spark.style.display = b >= 25 && b < 25.75 ? "" : "none";
-    if (b >= 25 && b < 25.75) {
-      const x = lerp(scx, iskoHome[0], sparkK), y = lerp(scy, iskoHome[1] - 120, sparkK) - Math.sin(sparkK * Math.PI) * 160;
-      this.spark.style.transform = `translate(${x - 9}px, ${y - 9}px) rotate(${b * 400}deg) scale(${1 + sparkK})`;
+    // fireball: out of the swirl 25 → 25.9, cools to obsidian 25.9 → 26.5, pops open 26.4
+    const fOn = b >= 24.9 && b < 26.7;
+    this.fire.style.display = fOn ? "" : "none";
+    const fpath = (bb) => {
+      const k = ease.outCubic(pb(bb, 24.9, 25.9));
+      return [lerp(scx, iskoHome[0], k), lerp(scy, iskoHome[1] - 110, k) - Math.sin(k * Math.PI) * 180, k];
+    };
+    if (fOn) {
+      const [fx, fy, fk] = fpath(b);
+      const cool = pb(b, 25.9, 26.45, ease.inOutCubic);
+      drawFireball(this.fire.getContext("2d"), t, cool);
+      const sc = (0.35 + 0.65 * fk) * (1 - pb(b, 26.4, 26.7, ease.inCubic)) * (1 + pulse(b, 25.9, 0.5) * 0.12);
+      this.fire.style.transform = `translate(${fx - 140}px, ${fy - 160}px) scale(${sc})`;
     }
+    this.embers.forEach((e, i) => {
+      const bb = b - (i + 1) * 0.06;
+      const on = fOn && bb > 24.95 && b < 25.95;
+      e.style.display = on ? "" : "none";
+      if (!on) return;
+      const [x, y] = fpath(bb);
+      e.style.transform = `translate(${x - 7 + Math.sin(i * 2.1 + t * 9) * 10}px, ${y - 7 + i * 3}px) scale(${1 - i * 0.08})`;
+    });
     const I = this.isko;
-    const iOn = b >= 25.75 && b < 31.8;
+    const iOn = b >= 26.4 && b < 31.8;
     I.root.style.display = iOn ? "" : "none";
+    if (!iOn) this.bubble.render(-1, [], 0, 0);
     if (iOn) {
       // path: pop at home, hover, fly to the switch (29 → 29.9), flip at 30,
       // then dive into the swirl (31 → 31.75)
@@ -280,7 +368,7 @@ export default {
       const dive = pb(b, 31, 31.75, ease.inCubic);
       let x = lerp(iskoHome[0], swX - 20, fly), y = lerp(iskoHome[1], swY - 30, fly) + Math.sin(fly * Math.PI) * 90;
       x = lerp(x, scx, dive); y = lerp(y, scy + 60, dive) - Math.sin(dive * Math.PI) * 180;
-      const pop = springB(b, 25.75, 2.6, 0.4);
+      const pop = springB(b, 26.4, 2.4, 0.45);
       const trailPath = (tt) => {
         const bb = b + (tt - t) / BEAT;
         const f = pb(bb, 29, 29.9, ease.inOutCubic), dv = pb(bb, 31, 31.75, ease.inCubic);
@@ -288,13 +376,14 @@ export default {
         xx = lerp(xx, scx, dv); yy = lerp(yy, scy + 60, dv) - Math.sin(dv * Math.PI) * 180;
         return [xx, yy];
       };
-      const expr = b < 26.2 ? "wow" : b < 28.6 ? (b < 27.4 ? "happy" : blinkAt(t, 4)) : b < 30.6 ? "focus" : b < 31 ? "wink" : "happy";
+      const expr = b < 26.9 ? "wow" : b < 28.6 ? (b < 27.4 ? "happy" : blinkAt(t, 4)) : b < 30.6 ? "focus" : b < 31 ? "wink" : "happy";
       I.pose({
-        x, y, t, scale: clamp(pop, 0, 1.3) * (1 - dive * 0.9), squash: pulse(b, 25.75, 0.6) * 0.8 - pulse(b, 30, 0.4) * 0.5 + dive * -0.4,
+        x, y, t, scale: clamp(pop, 0, 1.3) * (1 - dive * 0.9), squash: pulse(b, 26.4, 0.6) * 0.8 - pulse(b, 30, 0.4) * 0.5 + dive * -0.4,
         expr, gesture: b >= 26.5 && b < 28 ? "wave" : b >= 29.6 && b < 30.4 ? "point" : b >= 30.4 && b < 31 ? "thumbs" : "idle",
         gk: 1, wavePhase: (b - 26.5) * Math.PI * 2.2, look: b < 28.5 ? 0.6 : 1, tilt: dive * 30,
         trail: trailFrom(trailPath, t), opacity: 1 - pb(b, 31.6, 31.8),
       });
+      this.bubble.render(b, [[29.9, 1.1, "Ready? Hold on!"]], x, y - 230);
     }
     this.name.render(b, { at: 26.5, dur: 1.2, out: 31.2, outDur: 0.6 });
     this.sub1.render(b, { at: 27.5, dur: 0.8, out: 31.2, outDur: 0.5, band: false });

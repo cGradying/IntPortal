@@ -9,6 +9,7 @@ import { blinkAt, makeIsko } from "../art/isko.js";
 import { makePhone } from "../ui/phone.js";
 import { pixText } from "../ui/pixtype.js";
 import { pixSwitch } from "../ui/switch.js";
+import { makeBubble } from "../ui/bubble.js";
 
 const C = 26; // wifi pixel size (px)
 const GW = 25, GH = 17; // glyph grid
@@ -56,6 +57,7 @@ export default {
     this.P.views.today.r.campus.style.background = "#0e1030";
     this.sw = pixSwitch(layer, { label: "AIRPLANE MODE", s: 2.2, x: 0, y: 0, labelSize: 26, on: "#f5b227" });
     this.isko = makeIsko(layer, 7);
+    this.bubble = makeBubble(layer);
     this.gather = Array.from({ length: 90 }, (_, i) => {
       const d = el("div", "abs", layer);
       css(d, { width: "12px", height: "12px", background: i % 3 ? "#f5b227" : "#fff1c4" });
@@ -107,6 +109,7 @@ export default {
     const cover = b >= 157.4 && b < 160;
     I.pose({ x, y, t, scale: 1, squash: pulse(b, 156, 0.4) * 0.7, expr: cover ? "blink" : b >= 160 && b < 161 ? "wink" : b >= 161 ? "wow" : b >= 155 && b < 156.5 ? "focus" : blinkAt(t, 9),
       gesture: cover ? "cover" : b >= 155.6 && b < 156.3 ? "point" : b >= 161 ? "reach" : "idle", gk: 1, look: b < 157 ? 1 : 0, swirlSpeed: 1 + gatherK * 6 });
+    this.bubble.render(b >= 153.4 && b < 163.5 ? b : -1, [[157.6, 1.6, "…is it gone?"], [160.2, 2, "Still here. All offline!"]], x, y - 161);
     // the light gathers into the phone
     this.gather.forEach((g) => {
       const k = clamp((gatherK - g.s * 0.35) / 0.65);

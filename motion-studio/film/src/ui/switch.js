@@ -17,7 +17,7 @@ export function pixSwitch(parent, { label = "", s = 1, x = 0, y = 0, on = "#f5b2
   const lab = el("div", "", root, label);
   css(lab, { font: `700 ${labelSize * s}px var(--pixel)`, color: ink, letterSpacing: "0.04em", whiteSpace: "nowrap" });
   return {
-    root, lab,
+    root, lab, track,
     /** k: 0 off → 1 on (knob travel), press: 0..1 squash */
     render(k, press = 0) {
       k = clamp(k);

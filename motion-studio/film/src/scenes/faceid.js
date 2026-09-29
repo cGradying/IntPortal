@@ -9,6 +9,7 @@ import { clamp, css, ease, el, hash, lerp, pb, pulse, springB } from "../lib/cor
 import { blinkAt, makeIsko } from "../art/isko.js";
 import { faceCanvas, PEOPLE } from "../art/faces.js";
 import { pixText } from "../ui/pixtype.js";
+import { makeBubble } from "../ui/bubble.js";
 
 export const WAITLIST_URL = ""; // set to the real waitlist link before publishing
 
@@ -133,6 +134,7 @@ export default {
     this.fine = el("div", "abs", layer, "Unofficial student project. Not affiliated with PUP or any university shown. Beta waitlist opening soon.");
     css(this.fine, { left: "0", width: "1920px", top: "1006px", textAlign: "center", font: "500 22px var(--ui)", color: "#8a8a93" });
     this.isko = makeIsko(layer, 7);
+    this.bubble = makeBubble(layer);
     this.last = "";
   },
   render(b, t) {
@@ -218,6 +220,7 @@ export default {
     const I = this.isko;
     const iOn = b >= 224.6 && b < 243.6;
     I.root.style.display = iOn ? "" : "none";
+    if (!iOn) this.bubble.render(-1, [], 0, 0);
     if (iOn) {
       const move = pb(b, 237.6, 238.6, ease.inOutCubic);
       const dive = pb(b, 242.8, 243.5, ease.inCubic);
@@ -229,6 +232,7 @@ export default {
       const e = b >= 240 && b < 242.8 ? "happy" : b >= 242.8 ? "wink" : b >= SOLO && b < SOLO + 1 ? "wow" : blinkAt(t, 14, (b - SWAP0) % SWAPDT < 0.3 && b < FAN ? "happy" : "open");
       I.pose({ x, y, t, scale: 1 - dive * 0.9, squash: -dive * 0.4, expr: e,
         gesture: b < FAN ? "thumbs" : b >= 240 && b < 242.8 ? "wave" : b >= SOLO && b < 236 ? "point" : "idle", gk: 1, look: -1, tilt: dive * -25, opacity: 1 - pb(b, 243.4, 243.6) });
+      this.bubble.render(b, [[228.6, 1.5, "Everyone gets their own."], [236.4, 1.4, "Save yours!"]], x, y - 161, true);
     }
   },
 };

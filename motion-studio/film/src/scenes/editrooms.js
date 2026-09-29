@@ -12,6 +12,7 @@ import { makePhone } from "../ui/phone.js";
 import { pixText } from "../ui/pixtype.js";
 import { ROOM } from "../ui/rooms.js";
 import { pixSwitch } from "../ui/switch.js";
+import { makeBubble } from "../ui/bubble.js";
 
 const LIST = ["Night", "Day", "Maroon Night", "Astra Moon", "Sakura", "Tokyo Night", "Dracula", "Matrix", "Nord", "Catppuccin", "Gruvbox", "PUP Maroon"];
 const FLIPS = [[102, 1], [103, 2], [104, 3], [105, 4], [106, 5], [107, 6], [108, 7], [109, 8], [110, 9], [111, 10], [112, 11], [114, 0]];
@@ -55,7 +56,9 @@ export default {
     css(this.canvas, { width: "388px", height: "176px", display: "block" });
     this.make = pixText(this.vp, { text: "Make it\nyours.", size: 120, x: 70, y: 150, lh: 1.02, ink: "#f7ecec", shadow: "#000000" });
     this.sel = el("div", "abs", this.vp);
-    css(this.sel, { left: "56px", top: "130px", width: "470px", height: "280px", border: "3px dashed #5ab0ff" });
+    css(this.sel, { left: "40px", top: "110px", width: "520px", height: "300px", border: "3px dashed #5ab0ff" });
+    this.selTag = el("div", "abs", this.vp);
+    css(this.selTag, { left: "40px", top: "66px", padding: "6px 12px", background: "#5ab0ff", color: "#06131f", font: "700 20px var(--pixel)", letterSpacing: ".06em", whiteSpace: "nowrap" });
     this.sel.innerHTML = [[0, 0], [100, 0], [0, 100], [100, 100]].map(([x, y]) => `<i style="position:absolute;left:calc(${x}% - 8px);top:calc(${y}% - 8px);width:13px;height:13px;background:#fff;border:3px solid #5ab0ff"></i>`).join("");
     // inspector
     const I = el("div", "abs", E);
@@ -108,6 +111,7 @@ export default {
     this.cursor = el("div", "abs", layer,
       `<svg width="38" height="52" viewBox="0 0 17 23" shape-rendering="crispEdges"><path d="M1 1 L1 18 L5.5 13.8 L8.6 21 L11.4 19.8 L8.4 12.8 L14.5 12.8 Z" fill="#fff" stroke="#000" stroke-width="1.4"/></svg>`);
     this.isko = makeIsko(layer, 4);
+    this.bubble = makeBubble(layer);
   },
   render(b, t) {
     // ---- editor camera: start with the viewport filling the frame, pull
@@ -158,11 +162,21 @@ export default {
     this.sfx.forEach((k, i) => (k.style.display = b >= FLIPS[i][0] ? "" : "none"));
     this.layers.forEach((r, i) => (r.style.background = (i === 3 && b >= 101.5) || (i === 1 && b >= 101.2 && b < 101.5) ? "#2c2236" : ""));
     // ---- "Make it yours." as a selected text layer
-    this.make.render(b, { at: 101.4, dur: 1.2, out: 114.6, outDur: 0.4, glitchAt: [106, 110] });
-    this.sel.style.display = b >= 102.4 && b < 104 ? "" : "none";
+    // the text layer is edited too: every flip morphs its face and recolours it
+    const flipsDone = FLIPS.filter(([at]) => b >= at);
+    const nf = flipsDone.length, lastAt = nf ? flipsDone[nf - 1][0] : 0;
+    const faceNow = nf % 2, facePrev = nf ? (nf - 1) % 2 : 0;
+    const mk = nf ? lerp(facePrev, faceNow, ease.inOutCubic(pb(b, lastAt, lastAt + 0.45))) : 0;
+    const ink = nf ? room.gold : "#f7ecec";
+    this.make.render(b, { at: 101.4, dur: 1.2, out: 114.6, outDur: 0.4, m: b >= 102.6 ? mk : undefined, ink });
+    const selOn = b >= 102.4 && b < 114.6;
+    this.sel.style.display = this.selTag.style.display = selOn ? "" : "none";
+    const tag = `TEXT · ${faceNow ? "PIXELIFY 700" : "MONTSERRAT 800"} · ${ink.toUpperCase()}`;
+    if (this.selTag.textContent !== tag) this.selTag.textContent = tag;
+    this.selTag.style.transform = `scale(${1 + pulse(b, lastAt, 0.35) * 0.08})`;
 
     // ---- cursor: glides switch to switch, clicks on the beat
-    const sw = (i) => toScreen(1560 + 22 + 30 + 22, 64 + 18 + 106 + i * 40 + 12 + 18);
+    const sw = (i) => { const r = this.sws[i].track.getBoundingClientRect(); return [r.left + r.width * 0.5, r.top + r.height * 0.55]; };
     const fl = FLIPS.filter(([at]) => at !== 112);
     let idx = fl.findIndex(([at]) => b < at);
     if (idx < 0) idx = fl.length - 1;
@@ -172,7 +186,7 @@ export default {
     const [cxs, cys] = idx === 0 ? [lerp(1300, x1, pb(b, 100.8, 101.8, ease.inOutCubic)), lerp(700, y1, pb(b, 100.8, 101.8, ease.inOutCubic))] : [lerp(x0, x1, mv), lerp(y0, y1, mv)];
     const press = FLIPS.reduce((a, [at]) => Math.max(a, pulse(b, at, 0.25)), 0);
     this.cursor.style.display = b >= 100.8 && b < 114.8 && !(b >= 111.4 && b < 112.6) ? "" : "none";
-    this.cursor.style.transform = `translate(${cxs - 6}px, ${cys - 4}px) scale(${(1 - press * 0.2) * s})`;
+    this.cursor.style.transform = `translate(${cxs - 3}px, ${cys - 3}px) scale(${(1 - press * 0.2) * s})`;
     this.cursor.style.transformOrigin = "0 0";
 
     // ---- Isko: in the viewport beside the phone, hops out to flip #11
@@ -183,6 +197,8 @@ export default {
     this.isko.root.style.display = b >= 100.6 && b < 115.2 ? "" : "none";
     this.isko.pose({ x, y, t, scale: s * (0.9 + 0.1 * pk), squash: pulse(b, 112, 0.4) * 0.8 - Math.sin(hop * Math.PI) * 0.3,
       expr: b >= 111 && b < 113.4 ? (b >= 112 ? "happy" : "focus") : blinkAt(t, 8), gesture: b >= 113.4 && b < 114.5 ? "wave" : b >= 111.6 && b < 112.4 ? "reach" : "idle", gk: 1, look: b < 111 ? 1 : -1 });
+    this.bubble.render(b, [[102.2, 1.6, "Ooh, let's redecorate."], [105.1, 1.4, "Sakura? Cute."], [108.1, 1.4, "Matrix. Hacker hours."],
+      [110.1, 1.3, "Catppuccin, cozy."], [112.3, 1.6, "My pick: PUP Maroon!"]], x, y - 23 * 4 * s);
     void hash;
   },
 };

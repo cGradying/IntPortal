@@ -22,7 +22,9 @@ const STEP = (Math.PI * 2) / N;
 const frontAt = (i) => (i === 0 ? 0 : i === 1 ? 200.8 : 202 + (i - 2) * 0.5);
 const litAt = (i) => (i === 0 ? 0 : i === 1 ? 201 : frontAt(i) + 0.15);
 const MANILA = [121.0, 14.6];
-const GROW0 = 213.5, GROW1 = 220.5;
+const GROW0 = 219.8, GROW1 = 221.8;
+const IN0 = 209.3, IN1 = 210.8, OUT0 = 219.4, OUT1 = 221.6; // push into the portal, crane out to the map
+const PAGE = 32, DEAL0 = 212, DEALDT = 1.55;
 
 function ramp(h) {
   const c = (s, l, dh = 0) => "#" + new THREE.Color().setHSL((h + dh + 1) % 1, s, l).getHexString();
@@ -106,15 +108,33 @@ export default {
       return l;
     });
     this.head1 = pixText(layer, { text: "Every campus\nhas a portal.", size: 110, x: 100, y: 70, lh: 1.02, ink: "#f7ecec", shadow: "#000" });
-    this.head2 = pixText(layer, { text: "Someday,\nall connected.", size: 104, x: 100, y: 64, lh: 1.02, ink: "#f7ecec", shadow: "#000" });
+    this.head2 = pixText(layer, { text: "Someday,\nall connected.", size: 84, x: 1830, y: 70, anchor: "r", lh: 1.02, ink: "#f7ecec", shadow: "#000" });
     this.count = el("div", "abs", layer);
-    css(this.count, { left: "104px", top: "330px", font: "700 230px/1 var(--pixel)", color: "#f5b227", textShadow: "8px 8px 0 #2a0a14" });
-    this.countLab = pixText(layer, { text: "universities\nand colleges", size: 72, x: 108, y: 590, lh: 1.05, ink: "#f7ecec", shadow: "#000" });
+    css(this.count, { left: "104px", top: "60px", font: "700 200px/1 var(--pixel)", color: "#f5b227", textShadow: "8px 8px 0 #2a0a14" });
+    this.countLab = pixText(layer, { text: "universities and colleges", size: 56, x: 112, y: 262, lh: 1.05, ink: "#f7ecec", shadow: "#000" });
     this.note = el("div", "abs", layer, "Future vision · not connected yet · names only");
-    css(this.note, { left: "108px", top: "800px", font: "600 28px var(--ui)", color: "#a9a9b1" });
-    this.ticker = el("div", "abs", layer);
-    css(this.ticker, { left: "0", top: "1000px", whiteSpace: "nowrap", font: "700 26px var(--pixel)", color: "#cdbbd8", letterSpacing: ".04em" });
-    this.ticker.textContent = this.schools.map((q) => q.name.toUpperCase()).join("   ·   ");
+    css(this.note, { left: "108px", top: "990px", font: "600 28px var(--ui)", color: "#a9a9b1" });
+    // pages: every school as a card, out of the portal as one stack, dealt page by page
+    this.dim = el("div", "abs", layer);
+    css(this.dim, { inset: "0", background: "radial-gradient(circle at 50% 60%, rgba(8,6,12,.55), rgba(8,6,12,.92) 70%)" });
+    this.deck = el("div", "abs p3d", layer);
+    css(this.deck, { left: "0", top: "0", width: "1920px", height: "1080px", perspective: "1800px" });
+    const region = (ll) => (ll[1] >= 12.3 || ll[0] < 119.9 ? "LUZON" : ll[1] >= 8.8 && ll[0] < 126 ? "VISAYAS" : "MINDANAO");
+    const all = [{ name: "PUP · PUP SIS", ll: PUP.ll, pub: true, live: true }, { name: "PUP Mabini", ll: PUP.ll, pub: true, soon: true },
+      ...MAJORS.map((m) => ({ name: m.sub.split(" · ")[0], ll: m.ll, pub: !["UST", "DLSU", "ADMU", "FEU", "MAPUA", "SLU", "USC"].includes(m.id), major: true, hue: m.hue })),
+      ...SCHOOLS];
+    this.cards = all.map((q, i) => {
+      const hue = q.hue ?? hash(i, 7);
+      const col = q.live ? "#f5b227" : q.soon ? "#6fd6c0" : "#" + new THREE.Color().setHSL(hue, 0.7, 0.62).getHexString();
+      const d = el("div", "abs", this.deck, `<div style="font:700 20px/1.12 var(--ui);color:#f7ecec;height:46px;overflow:hidden">${q.name}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;font:700 13px var(--pixel);letter-spacing:.08em"><span style="color:${col}">${q.live ? "LIVE" : q.soon ? "SOON" : region(q.ll)}</span><span style="color:#8a7a99">${q.pub ? "PUBLIC" : "PRIVATE"}</span></div>`);
+      css(d, { left: "0", top: "0", width: "196px", height: "108px", padding: "12px 14px", background: q.major || q.live ? "#2a1f36" : "#1f1828", borderLeft: `6px solid ${col}`, boxShadow: "0 18px 30px -12px rgba(0,0,0,.7)", backfaceVisibility: "hidden" });
+      return { d, i, p: Math.floor(i / PAGE), s: i % PAGE };
+    });
+    css(this.dim, { zIndex: 1 }); css(this.deck, { zIndex: 2 });
+    for (const n of [this.count, this.countLab.node, this.head1.node, this.head2.node, this.note, ...this.labels]) n.style.zIndex = 5;
+    this.pageTag = el("div", "abs", layer);
+    css(this.pageTag, { zIndex: 5, left: "1560px", top: "292px", font: "700 26px var(--pixel)", color: "#cdbbd8", letterSpacing: ".1em" });
     this.isko = makeIsko(layer, 4);
     this.v = new THREE.Vector3();
   },
@@ -125,8 +145,8 @@ export default {
   render(b, t) {
     let rot = 0;
     for (let i = 1; i < N; i++) rot += springB(b, frontAt(i), i === 1 ? 3.2 : 4.6, 0.85);
-    const toMap = pb(b, 210, 213.5, ease.inOutCubic);
-    const spinUp = pb(b, 209.2, 211.5, ease.inCubic) * 1.2;
+    const toMap = pb(b, OUT0, OUT1, ease.inOutCubic);
+    const spinUp = 0;
     const mapPos = (u) => { const [mx, mz] = toWorld(...u.ll); return new THREE.Vector3(mx, 0.1, mz); };
     this.portals.forEach((P, i) => {
       const a = (i - rot - spinUp * 3) * STEP;
@@ -146,7 +166,7 @@ export default {
       P.light.distance = 12;
     });
     // map
-    const mapIn = pb(b, 211, 213.5, ease.outCubic);
+    const mapIn = pb(b, OUT0 + 0.4, OUT1, ease.outCubic);
     this.mapGroup.visible = mapIn > 0;
     this.dots.material.opacity = mapIn * 0.9;
     const o = new THREE.Object3D();
@@ -163,7 +183,7 @@ export default {
     this.web.geometry.setDrawRange(0, lit * 2);
     this.web.material.opacity = 0.55 * mapIn;
     this.arcs.forEach(({ mat, curve, pulseM, i, g }) => {
-      const at = 212 + i * 0.12;
+      const at = 220.2 + i * 0.08;
       const k = pb(b, at, at + 1, ease.inOutCubic);
       g.setDrawRange(0, Math.floor((g.index.count * k) / 3) * 3);
       mat.opacity = 0.9;
@@ -176,12 +196,17 @@ export default {
     const ringLook = new THREE.Vector3(0, 3.4, -2);
     const mapCam = new THREE.Vector3(1.2 + Math.sin(t * 0.2) * 0.8, 23, 12.5);
     const mapLook = new THREE.Vector3(0.6, 0, -1.2);
-    const crane = pb(b, 209.8, 214.5, ease.inOutCubic);
-    this.cam.position.lerpVectors(ringCam, mapCam, crane);
-    this.cam.position.y -= pb(b, 214.5, 224) * 2;
-    this.cam.fov = 40 - 4 * crane;
+    const crane = pb(b, OUT0, OUT1, ease.inOutCubic);
+    const push = pb(b, IN0, IN1, ease.inOutCubic) * (1 - crane);
+    const inCam = new THREE.Vector3(0, 3.15, 0.8), inLook = new THREE.Vector3(0, 3.15, -1);
+    const pos = ringCam.clone().lerp(inCam, push);
+    const look = ringLook.clone().lerp(inLook, push);
+    if (crane > 0) { pos.copy(inCam.clone().lerp(mapCam, crane)); look.copy(inLook.clone().lerp(mapLook, crane)); }
+    this.cam.position.copy(pos);
+    this.cam.position.y -= pb(b, OUT1, 224) * 2;
+    this.cam.fov = 40 - 4 * crane + Math.sin(Math.PI * clamp(push)) * 8;
     this.cam.updateProjectionMatrix();
-    this.cam.lookAt(ringLook.clone().lerp(mapLook, crane));
+    this.cam.lookAt(look);
     drawBloom(this.scene, this.cam, { strength: 0.55 + crane * 0.35, radius: 0.5, threshold: 0.72 - crane * 0.2 });
 
     // front tag (ring phase)
@@ -204,35 +229,64 @@ export default {
     this.labels.forEach((l, i) => {
       const u = i === 0 ? PUP : MAJORS[i - 1];
       const hide = ["PNU", "TUP", "UST", "FEU", "MAPUA", "DLSU", "CTU"].includes(u.id);
-      const on = b >= 213 && !hide;
+      const on = b >= 221 && !hide;
       l.style.display = on ? "" : "none";
       if (!on) return;
       const [px, py] = this.project(mapPos(u).add(new THREE.Vector3(0.25, 0.5, 0)));
       l.style.transform = `translate(${px}px, ${py - 16}px)`;
-      l.style.opacity = pb(b, 213 + i * 0.08, 213.4 + i * 0.08);
+      l.style.opacity = pb(b, 221 + i * 0.05, 221.4 + i * 0.05);
     });
     this.head1.render(b, { at: 204, dur: 1, out: 209.4, outDur: 0.5 });
-    this.head2.render(b, { at: 211.8, dur: 1, out: 215.6, outDur: 0.5 });
-    // counter: 18 portals + every school lit
-    const total = 2 + MAJORS.length + lit;
-    const cOn = b >= 214 && b < 223.6;
+    this.head2.render(b, { at: 212, dur: 1, out: 216.6, outDur: 0.5 });
+    // pages: stack out of the portal (211), dealt page by page, then collapse (219.3)
+    const pOn = b >= 210.6 && b < OUT0 + 0.8;
+    this.dim.style.display = this.deck.style.display = pOn ? "" : "none";
+    this.dim.style.opacity = 0.35 + 0.65 * pb(b, 211.2, 212) * (1 - pb(b, OUT0, OUT0 + 0.8));
+    const emerge = springB(b, 210.8, 1.4, 0.7);
+    const collapse = pb(b, OUT0 - 0.1, OUT0 + 0.7, ease.inCubic);
+    let dealt = 0;
+    const pages = Math.ceil(this.cards.length / PAGE);
+    const curPage = clamp(Math.floor((b - DEAL0) / DEALDT), 0, pages - 1);
+    if (pOn) this.cards.forEach((c) => {
+      const deal = DEAL0 + c.p * DEALDT + c.s * 0.022;
+      const turn = c.p < pages - 1 ? DEAL0 + (c.p + 1) * DEALDT - 0.12 + c.s * 0.01 : 999;
+      const k = ease.outCubic(pb(b, deal, deal + 0.45));
+      const tk = ease.inCubic(pb(b, turn, turn + 0.4));
+      if (b >= deal) dealt = Math.max(dealt, c.i + 1);
+      const gx = 104 + (c.s % 8) * 216, gy = 340 + Math.floor(c.s / 8) * 124;
+      const depth = c.i - dealt;
+      const sx = 862, sy = 560 - Math.min(40, Math.max(0, depth)) * 0.6;
+      const on = tk < 1 && (b < deal ? depth < 40 : true);
+      c.d.style.display = on ? "" : "none";
+      if (!on) return;
+      let x = lerp(sx, gx, k), y = lerp(sy, gy, k) - Math.sin(k * Math.PI) * 120;
+      let z = lerp(-Math.max(0, depth) * 2 - (1 - clamp(emerge)) * 3000, 0, k), rx = (1 - k) * 70, ry = 0;
+      x -= tk * 420; ry = -tk * 95; z -= tk * 200;
+      const cs = 1 - collapse;
+      x = lerp(862, x, cs); y = lerp(560, y, cs); z -= collapse * 1800;
+      c.d.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateX(${rx}deg) rotateY(${ry}deg) scale(${b < deal ? clamp(emerge, 0.02, 1) : 1})`;
+      c.d.style.zIndex = b < deal ? 500 - Math.max(0, depth) : 600 + c.s;
+    });
+    const tg = `PAGE ${curPage + 1} / ${pages}`;
+    this.pageTag.style.display = b >= DEAL0 && b < OUT0 ? "" : "none";
+    if (this.pageTag.textContent !== tg) this.pageTag.textContent = tg;
+    const total = b >= OUT0 ? this.cards.length : dealt;
+    const cOn = b >= 211.6 && b < 223.6;
     this.count.style.display = cOn ? "" : "none";
-    const cs = total >= 100 ? "100+" : String(total);
-    if (this.count.textContent !== cs) this.count.textContent = cs;
-    this.count.style.transform = `scale(${1 + (total >= 100 ? pulse(b, this.schools[Math.max(0, 100 - 2 - MAJORS.length - 1)].at, 0.8) * 0.2 : 0)})`;
+    const cs2 = total >= 100 ? "100+" : String(total);
+    if (this.count.textContent !== cs2) this.count.textContent = cs2;
+    this.count.style.transform = `scale(${1 + pulse(b, DEAL0 + 3 * DEALDT + 0.1, 0.8) * 0.18})`;
     this.count.style.transformOrigin = "0 50%";
-    this.countLab.render(b, { at: 214.4, dur: 0.8, out: 223.2, outDur: 0.4 });
-    const nk = pb(b, 218, 218.6, ease.outExpo);
-    this.note.style.display = b >= 218 && b < 223.4 ? "" : "none";
+    this.countLab.render(b, { at: 211.8, dur: 0.8, out: 223.2, outDur: 0.4 });
+    const nk = pb(b, 212.4, 213, ease.outExpo);
+    this.note.style.display = b >= 212.4 && b < 223.4 ? "" : "none";
     this.note.style.transform = `translateY(${(1 - nk) * 30}px)`;
-    this.ticker.style.display = b >= 214 && b < 223.6 ? "" : "none";
-    this.ticker.style.transform = `translateX(${1920 - (b - 214) * 620}px)`;
     // Isko rides the Mindanao arc
-    const iOn = b >= 216 && b < 223;
+    const iOn = b >= 220.4 && b < 223.4;
     this.isko.root.style.display = iOn ? "" : "none";
     if (iOn) {
       const arc = this.arcs[this.arcs.length - 1];
-      const u = pb(b, 216, 222.5, ease.inOutCubic);
+      const u = pb(b, 220.4, 223.2, ease.inOutCubic);
       const [x, y] = this.project(arc.curve.getPoint(u).clone().add(new THREE.Vector3(0, 0.2, 0)));
       this.isko.pose({ x, y, t, scale: 0.9, expr: u > 0.9 ? "happy" : blinkAt(t, 13), gesture: "carry", gk: 1, look: 1, shadow: false, tilt: -10 });
     }

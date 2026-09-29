@@ -9,6 +9,7 @@ import { blinkAt, makeIsko } from "../art/isko.js";
 import { makePhone } from "../ui/phone.js";
 import { pixText } from "../ui/pixtype.js";
 import { makeThread } from "../ui/thread.js";
+import { makeBubble } from "../ui/bubble.js";
 
 const CH = [
   { at: 36, n: "01", title: "Today", desc: "Your next class and free time,<br>the second you open it.", hue: "245,178,39", tab: "today", view: "today" },
@@ -63,6 +64,7 @@ export default {
     this.thread = makeThread(layer, { width: 6, z: 30 });
     this.isko = makeIsko(layer, 6);
     this.isko.root.style.zIndex = 31;
+    this.bubble = makeBubble(layer);
     // note chunks: clones of the note sheet, each clipped to one cell
     const sheet = this.P.views.notes.r.sheet;
     this.chunkHost = el("div", "abs", this.P.scr);
@@ -239,11 +241,12 @@ export default {
       const ix = sx - side * (330 * sc + 120) + Math.sin(t * 0.9) * 12, iy = 910 + Math.sin(t * 1.3) * 10 + (1 - enter) * 400;
       const pointing = tg && b >= tg[0] && b < tg[1];
       this.isko.pose({ x: ix, y: iy, t, scale: 1, expr: pointing ? "focus" : b >= 95 && b < 96 ? "happy" : blinkAt(t, 6), gesture: pointing ? "point" : "idle", gk: 1, look: 1, flip: side < 0 });
+      this.bubble.render(b, [[39, 1.8, "Morning! 9 minutes to class."], [46, 1.6, "1h 30m free after. Coffee?"], [57, 1.6, "Wednesday lab is 3 hours. Snacks!"], [73.2, 1.6, "1.25 in COMP 20073. Nice!"], [80.6, 1.6, "Only 0.19 away from your goal."], [89, 1.6, "Making 12 cards from this…"], [95.4, 1.5, "11 left. You got this."]], ix, iy - 138, side < 0);
       if (tg) {
         const r = tg[2]().getBoundingClientRect();
         const k = pb(b, tg[0], tg[0] + 0.6, ease.outCubic) * (1 - pb(b, tg[1], tg[1] + 0.4));
         this.thread.render(k > 0.01, [ix + side * 70, iy - 110], [side > 0 ? r.left + 8 : r.right - 8, r.top + r.height / 2], k, (b - tg[0]) * 0.5, -140);
       } else this.thread.render(false);
-    } else this.thread.render(false);
+    } else { this.thread.render(false); this.bubble.render(-1, [], 0, 0); }
   },
 };
