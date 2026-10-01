@@ -47,6 +47,9 @@ if MODE == "el":
     d = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", raw]))
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", raw, "-af", f"atempo={d / DUR:.6f}", "-ar", str(SR), "-ac", "2", fit], check=True)
     music = load(fit)
+    # beats.py measures where the track's downbeat sits; the file loops, so roll it onto t = 0
+    off = json.load(open(os.path.join(HERE, "..", "beats.json"))).get("offset", 0.0)
+    music = np.roll(music, -int(round(off * SR)), axis=0)
 else:
     music = load(os.path.join(HERE, "music_temp.wav"))
 music = np.pad(music, ((0, max(0, N - len(music))), (0, 0)))[:N]

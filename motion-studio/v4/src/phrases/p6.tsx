@@ -104,9 +104,9 @@ const Counter: React.FC<{ t: number; box: Box }> = ({ t }) => {
           <T size={16} c={C.inkMute}>campuses</T>
         </div>
       </Swap>
-      <Swap t={t} inB={166} outB={168} x={0} y={GY + GH + 34} w={1920} style={{ textAlign: "center" }}>
-        <T size={30} w={620} style={{ textAlign: "center" }}>Universities and colleges, public and private.</T>
-        <T size={20} c={C.mute} style={{ textAlign: "center", marginTop: 8 }}>Not connected yet — PUP SIS is first.</T>
+      <Swap t={t} inB={166} outB={168} x={0} y={GY + GH + 30} w={1920} style={{ textAlign: "center" }}>
+        <T size={40} w={620} style={{ textAlign: "center" }}>Universities and colleges, public and private.</T>
+        <T size={24} c={C.mute} style={{ textAlign: "center", marginTop: 8 }}>Not connected yet — PUP SIS is first.</T>
       </Swap>
     </>
   );

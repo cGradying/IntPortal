@@ -69,7 +69,8 @@ export const p3: Phrase = {
     [70.4, { cy: 580, z: 1.22 }],
     [72, { cy: camY(380), z: 1.75 }],
     [76, { cy: camY(250), z: 2.3 }],
-    [78.2, { cy: camY(690), z: 2.0 }],
+    [78, { cy: camY(470), z: 1.25 }], // pull back while the pill drops to the bar
+    [80, { cy: camY(690), z: 1.75 }], // then push in on the typing
   ],
   cur: [
     at(62.8, W(20 + knobX(1.5), SLY)), // to the knob

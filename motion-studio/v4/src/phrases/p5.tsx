@@ -18,7 +18,7 @@ export const Clip: React.FC<{ name: string; cx: number; cy: number; w: number; h
   const [a, b] = CL[name];
   const from = Math.round(B(a) * FPS), dur = Math.round((B(b) - B(a)) * FPS);
   return (
-    <Swap t={t} inB={inB} outB={outB} delay={0} x={cx - w / 2} y={cy - h / 2} w={w} h={h}>
+    <Swap t={t} inB={inB} outB={outB} delay={0} x={cx - w / 2} y={cy - h / 2} w={w} h={h} sharp>
       <Sequence from={from} durationInFrames={dur} layout="none">
         <OffthreadVideo src={staticFile(`clips/${name}.webm`)} transparent muted style={{ width: w, height: h, display: "block" }} />
       </Sequence>
@@ -137,7 +137,7 @@ export const p5: Phrase = {
   Over: ({ t, box }) => (
     <>
       <PebbleOver t={t} box={box} />
-      {t > B(123.4) && t < B(128.2) && <Clip name="obsidian" t={t} inB={123.8} outB={127.5} cx={960} cy={540} w={640} h={640} />}
+      {t > B(123.4) && t < B(128.2) && <Clip name="obsidian" t={t} inB={123.8} outB={127.3} cx={960} cy={540} w={640} h={640} />}
       {t > B(137.4) && t < B(140.4) && <Clip name="halftone" t={t} inB={137.6} outB={140.2} cx={960 + PH.w / 2 + 30} cy={470} w={420} h={420} />}
     </>
   ),

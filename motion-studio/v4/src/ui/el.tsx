@@ -1,7 +1,7 @@
 // Morphing elements inside the phone: every rect is a set of spring tracks,
 // so a card can grow out of another card's edge, become a sheet, fold back.
 import React from "react";
-import { Key, Spr, STD, keysFrom, track, trackColor, clamp } from "../lib/motion";
+import { Key, SNAP, Spr, STD, keysFrom, track, trackColor, clamp } from "../lib/motion";
 import { LIFT_SM } from "../theme";
 
 export type Rect = { x: number; y: number; w: number; h: number; r: number };
@@ -23,7 +23,7 @@ export const El: React.FC<{
     <div style={{
       position: "absolute", left: r.x, top: r.y + dy, width: r.w, height: r.h,
       borderRadius: Math.min(r.r, r.w / 2, r.h / 2), overflow: "hidden",
-      background: fill ? trackColor(t, fill) : undefined,
+      background: fill ? trackColor(t, fill, SNAP) : undefined,
       boxShadow: l > 0.01 ? LIFT_SM.replace(/0\.(\d+)\)/g, (_, d) => `${(Number("0." + d) * l).toFixed(3)})`) : undefined,
       ...style,
     }}>

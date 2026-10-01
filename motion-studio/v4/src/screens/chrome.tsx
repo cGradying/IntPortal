@@ -19,7 +19,7 @@ export const THEME_KEYS: [number, keyof typeof THEMES][] = [[0, "light"], [128, 
 export function theme(t: number): Th {
   const out = {} as Th;
   for (const k of Object.keys(THEMES.light) as (keyof Th)[])
-    out[k] = trackColor(t, THEME_KEYS.map(([b, n]) => [b, THEMES[n][k]] as [number, string]), STD);
+    out[k] = trackColor(t, THEME_KEYS.map(([b, n]) => [b, THEMES[n][k]] as [number, string]), SNAP);
   return out;
 }
 

@@ -11,10 +11,11 @@ export const abs: React.CSSProperties = { position: "absolute" };
  */
 export const Swap: React.FC<{
   t: number; inB: number; outB?: number; x?: number; y?: number; w?: number; h?: number;
-  delay?: number; style?: React.CSSProperties; children?: React.ReactNode; dy?: number;
-}> = ({ t, inB, outB, x = 0, y = 0, w, h, delay, style, children, dy = 1 }) => {
+  delay?: number; style?: React.CSSProperties; children?: React.ReactNode; dy?: number; sharp?: boolean;
+}> = ({ t, inB, outB, x = 0, y = 0, w, h, delay, style, children, dy = 1, sharp }) => {
   const s = swapAlpha(t, inB, outB, { delay });
   if (!s.on) return null;
+  if (sharp) s.blur = 0; // large artwork: no blur smear, opacity only
   return (
     <div style={{
       ...abs, left: x, top: y, width: w, height: h, opacity: s.o,

@@ -2,7 +2,7 @@
 // frames each state, and a cursor that drives every change.
 import React, { useEffect, useState } from "react";
 import { AbsoluteFill, continueRender, delayRender, staticFile, useCurrentFrame } from "remotion";
-import { CAM, FPS, Key, STD, clamp, keysFrom, loopT, press, track, trackColor } from "./lib/motion";
+import { CAM, FPS, Key, SNAP, STD, clamp, keysFrom, loopT, press, track, trackColor } from "./lib/motion";
 import { C, C0W, CAM0, FONT, LIFT } from "./theme";
 import type { Box, Cam } from "./types";
 import { PHRASES } from "./phrases";
@@ -63,7 +63,7 @@ export const Film: React.FC = () => {
   const t = frame / FPS;
   const cam = camAt(t);
   const box = boxAt(t);
-  const fill = trackColor(t, FILL_KEYS);
+  const fill = trackColor(t, FILL_KEYS, SNAP); // colour resolves ahead of the geometry
   const lift = clamp(track(t, LIFT_KEYS));
   const [wx, wy] = cursorAt(t);
   const sx = 960 + (wx - cam.cx) * cam.z, sy = 540 + (wy - cam.cy) * cam.z;
