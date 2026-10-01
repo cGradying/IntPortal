@@ -39,3 +39,9 @@ Fixes:
 | Loop seam | 10 | Unchanged. |
 
 Every score is 8+.
+
+## Round 3 (final render)
+
+- **b78:** the camera now pulls back while the pill drops to the bar, then pushes in on the typing. Its largest frame jump fell from 24.6 to 17.1, on par with the deliberate dive into the PUP tile at b167 (16.7).
+- **Final file:** 1920×1080, 60 fps, 5428 frames, H.264 CRF 16, yuv420p. Audio is −14.0 LUFS and −1.3 dBTP.
+- **Scores:** unchanged from round 2, all 8+. Motion holds at 8.
