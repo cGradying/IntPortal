@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:transparent;overflow:hidden}.abs{position:absolute}.px{image-rendering:pixelated}#stage{position:absolute;inset:0}</style></head>
+<body>
+<div id="root" data-composition-id="pixel" data-width="1120" data-height="840" data-fps="60" data-start="0" data-duration="2.2617">
+<div id="stage"></div>
+</div>
+<script src="vendor/gsap.min.js"></script>
+<script src="grid.js"></script>
+<script type="module">
+// Isko form 4: the hi-bit pixel sprite, one expression + gesture per beat.
+import { makeIsko } from "./lib/isko.js";
+import { B, bt, clamp, clip, spring } from "./lib/hf.js";
+const k = makeIsko(document.getElementById("stage"), 15);
+const E = [["happy", "wave"], ["wow", "reach"], ["wink", "thumbs"], ["focus", "point"]];
+clip("pixel", 115.5, 120.4, (t) => {
+  const b = bt(t);
+  const i = clamp(Math.floor(b - 116 + 0.02), 0, 3);
+  // rise in from below, then a squash + hop on every beat
+  const rise = spring(t - B(115.6), 170, 26);
+  let hop = 0, sq = 0;
+  for (let j = 0; j < 4; j++) {
+    const dt = t - B(116 + j);
+    if (dt < 0) continue;
+    hop += Math.exp(-dt * 9) * Math.sin(Math.min(dt * 10, Math.PI)) * 34;
+    sq += Math.exp(-dt * 12) * (dt < 0.05 ? dt / 0.05 : 1) * 0.22;
+  }
+  const [expr, gesture] = b < 116 ? ["open", "idle"] : E[i];
+  k.pose({ x: 560, y: 700 + (1 - rise) * 600 - hop, scale: 1, t, squash: sq, expr, gesture, gk: spring(t - B(116 + i), 320, 35), wavePhase: t * 10, cube: true, cubePhase: t * 2.4, shadow: false, bob: 0.6 });
+});
+</script></body></html>

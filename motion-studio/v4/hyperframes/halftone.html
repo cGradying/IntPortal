@@ -1,0 +1,49 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent;overflow:hidden}</style></head>
+<body>
+<div id="root" data-composition-id="halftone" data-width="720" data-height="720" data-fps="60" data-start="0" data-duration="1.3385">
+<canvas id="c" width="720" height="720"></canvas>
+</div>
+<script src="vendor/gsap.min.js"></script>
+<script src="grid.js"></script>
+<script type="module">
+// Isko form 7: halftone. Ink dots on a 45-degree screen, sized by tone. He
+// slides out from behind the phone edge, waves, and dissolves back to dots.
+import { B, clamp, clip, hash, loadImg, spring } from "./lib/hf.js";
+const img = await loadImg("lib/happy.png");
+const src = document.createElement("canvas"); src.width = 256; src.height = 168;
+const sx = src.getContext("2d"); sx.drawImage(img, 0, 0);
+const px = sx.getImageData(0, 0, 256, 168).data;
+const sample = (u, v) => {
+  const x = Math.floor(u), y = Math.floor(v);
+  if (x < 0 || y < 0 || x >= 256 || y >= 168) return 0;
+  const o = (y * 256 + x) * 4, a = px[o + 3] / 255;
+  const lum = (0.3 * px[o] + 0.59 * px[o + 1] + 0.11 * px[o + 2]) / 255;
+  return a * (1 - lum * 0.85);
+};
+const c = document.getElementById("c"), g = c.getContext("2d");
+const S = 3.6; // css px per source px
+const step = 11;
+clip("halftone", 137.5, 140.4, (t) => {
+  g.clearRect(0, 0, 720, 720);
+  const slide = spring(t - B(137.6), 170, 26);
+  const grow = spring(t - B(138), 170, 26);
+  const out = spring(t - B(139), 170, 26);
+  const ox = 360 - 128 * S + (1 - slide) * 260, oy = 360 - 84 * S;
+  g.fillStyle = "#0B0B0C";
+  g.save(); g.translate(360, 360); g.rotate(Math.PI / 4); g.translate(-360, -360);
+  for (let yy = -200; yy < 920; yy += step) for (let xx = -200; xx < 920; xx += step) {
+    // rotate the sample point back into image space
+    const cx = 360 + ((xx - 360) * Math.cos(Math.PI / 4) - (yy - 360) * Math.sin(Math.PI / 4));
+    const cy = 360 + ((xx - 360) * Math.sin(Math.PI / 4) + (yy - 360) * Math.cos(Math.PI / 4));
+    const v = sample((cx - ox) / S, (cy - oy) / S);
+    if (v < 0.04) continue;
+    const jit = hash(xx * 13 + yy * 7) * 0.12;
+    const k = clamp(0.35 + 0.65 * grow - out * (1.1 + jit));
+    const r = (step / 2) * Math.sqrt(v) * 1.15 * k;
+    if (r < 0.3) continue;
+    g.beginPath(); g.arc(xx, yy, r, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
+});
+</script></body></html>

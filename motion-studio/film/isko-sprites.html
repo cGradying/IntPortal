@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Isko sprites</title>
+<link rel="stylesheet" href="film.css">
+<style>html,body{background:transparent!important} #stage{background:transparent!important} .cell{position:absolute;width:256px;height:168px}</style></head>
+<body><div id="stage"></div>
+<script type="module">
+import { makeIsko } from "./src/art/isko.js";
+const st = document.getElementById("stage");
+const ex = ["open", "blink", "happy", "wow", "wink", "focus"];
+ex.forEach((e, i) => {
+  const cell = document.createElement("div"); cell.className = "cell"; cell.id = "c-" + e;
+  cell.style.left = `${(i % 3) * 300}px`; cell.style.top = `${Math.floor(i / 3) * 200}px`;
+  st.appendChild(cell);
+  const k = makeIsko(cell, 4);
+  k.pose({ x: 128, y: 128, t: 0.5, expr: e, gesture: e === "wink" ? "thumbs" : e === "happy" ? "wave" : "idle", gk: 1, wavePhase: 1, cube: false, shadow: false, bob: 0 });
+});
+window.__ready = true;
+</script></body></html>

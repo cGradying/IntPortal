@@ -3,3 +3,9 @@ out/
 audio/kokoro/
 audio/*.wav
 audio/vo/takes/
+v4/audio/*.wav
+v4/audio/*.mp3
+v4/audio/vo/temp/
+v4/audio/vo/el/
+v4/audio/vo/audition/
+v4/hyperframes/renders/

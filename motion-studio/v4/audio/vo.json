@@ -1,0 +1,18 @@
+{
+  "voice": "one young, warm, conversational female voice",
+  "lines": [
+    { "id": "l01", "beat": 5.5, "text": "Nine minutes to class... and you're signed out. Again." },
+    { "id": "l02", "beat": 16, "text": "This is IntPortal." },
+    { "id": "l03", "beat": 24, "text": "Your whole day, in one place." },
+    { "id": "l04", "beat": 56, "text": "Grades land, and it tells you what you need." },
+    { "id": "l05", "beat": 84, "text": "Ask Isko anything. It reads your notes, right on your phone." },
+    { "id": "l06", "beat": 96.5, "text": "Even offline." },
+    { "id": "l07", "beat": 100, "text": "Cards, quizzes, a plan. Made from what you wrote." },
+    { "id": "l08", "beat": 128, "text": "Make it yours." },
+    { "id": "l09", "beat": 132, "text": "On your phone, your Mac, or your PC." },
+    { "id": "l10", "beat": 140, "text": "Works with PUP S-I-S." },
+    { "id": "l11", "beat": 156, "text": "And someday, every campus." },
+    { "id": "l12", "beat": 170, "text": "Beta opens soon. Save your spot." },
+    { "id": "l13", "beat": 184, "text": "IntPortal. Step through." }
+  ]
+}

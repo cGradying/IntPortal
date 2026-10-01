@@ -1,0 +1,23 @@
+{
+  "name": "intportal-v4",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Main out/v4.mp4"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.532",
+    "@remotion/cli": "^4.0.532",
+    "@remotion/renderer": "^4.0.532",
+    "@types/react": "^19.3.0",
+    "geist": "^1.7.2",
+    "gsap": "^3.15.0",
+    "hyperframes": "^0.8.105",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "^4.0.532",
+    "three": "^0.186.1",
+    "typescript": "^7.0.2"
+  }
+}

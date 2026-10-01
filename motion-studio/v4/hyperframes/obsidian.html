@@ -1,0 +1,74 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent;overflow:hidden}</style></head>
+<body>
+<div id="root" data-composition-id="obsidian" data-width="1200" data-height="1200" data-fps="60" data-start="0" data-duration="2.2617">
+<canvas id="c" width="1200" height="1200"></canvas>
+</div>
+<script src="vendor/gsap.min.js"></script>
+<script src="grid.js"></script>
+<script type="module">
+// Isko form 6: faceted obsidian in 3D. Turns a quarter per beat and lands
+// facing front on the fourth. Lit, glossy, no bloom.
+import * as THREE from "./vendor/three.module.js";
+import { B, clip, spring } from "./lib/hf.js";
+const canvas = document.getElementById("c");
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(1200, 1200, false);
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(28, 1, 0.1, 50);
+cam.position.set(0, 0.25, 7.2);
+cam.lookAt(0, 0.05, 0);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x3a2a48, 0.9));
+const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(3, 4, 5); scene.add(key);
+const rim = new THREE.DirectionalLight(0xb996d8, 2.0); rim.position.set(-4, 2, -3); scene.add(rim);
+const fill = new THREE.DirectionalLight(0xffe6c4, 0.6); fill.position.set(-3, -2, 4); scene.add(fill);
+
+const obsidian = new THREE.MeshPhysicalMaterial({ color: 0x2c1c3a, roughness: 0.22, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.08, flatShading: true });
+const visorM = new THREE.MeshPhysicalMaterial({ color: 0x120a18, roughness: 0.08, clearcoat: 1 });
+const gold = new THREE.MeshBasicMaterial({ color: 0xf5b227 });
+const ember = new THREE.MeshBasicMaterial({ color: 0x941c30 });
+
+const isko = new THREE.Group(); scene.add(isko);
+const body = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 2), obsidian);
+body.scale.set(1.08, 0.92, 0.95); isko.add(body);
+for (const s of [-1, 1]) {
+  const ear = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), obsidian);
+  ear.position.set(s * 0.52, 0.86, 0); ear.rotation.z = s * -0.2; isko.add(ear);
+  const mitt = new THREE.Mesh(new THREE.IcosahedronGeometry(0.24, 1), obsidian);
+  mitt.position.set(s * 1.5, -0.12, 0.1); mitt.userData.s = s; isko.add(mitt);
+}
+// curved visor band hugging the body, eyes and belly sit on the surface
+const visor = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 16, Math.PI / 2 - 0.85, 1.7, 1.22, 0.56), visorM);
+visor.material.side = THREE.DoubleSide;
+visor.scale.set(1.08 * 1.02, 0.92 * 1.02, 0.95 * 1.02); isko.add(visor);
+const onSurf = (phi, theta, k = 1.04) => new THREE.Vector3(-Math.cos(phi) * Math.sin(theta) * 1.08 * k, Math.cos(theta) * 0.92 * k, Math.sin(phi) * Math.sin(theta) * 0.95 * k);
+for (const s of [-1, 1]) {
+  const eye = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.04), gold);
+  const p = onSurf(Math.PI / 2 + s * 0.27, 1.48);
+  eye.position.copy(p); eye.lookAt(p.clone().multiplyScalar(2)); isko.add(eye);
+}
+const bp = onSurf(Math.PI / 2, 2.02, 1.01);
+const belly = new THREE.Mesh(new THREE.CircleGeometry(0.19, 24), ember);
+belly.position.copy(bp); belly.lookAt(bp.clone().multiplyScalar(2)); isko.add(belly);
+const ring = new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.035, 8, 32), gold);
+ring.position.copy(bp); ring.lookAt(bp.clone().multiplyScalar(2)); isko.add(ring);
+const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.4, 8), obsidian);
+stalk.position.set(0, 1.06, 0); isko.add(stalk);
+const spark = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), gold);
+spark.position.set(0, 1.32, 0); isko.add(spark);
+
+clip("obsidian", 123.5, 128.4, (t) => {
+  let turn = 0;
+  for (let i = 0; i < 4; i++) turn += spring(t - B(124 + i), 170, 26) * (Math.PI / 2);
+  const enter = spring(t - B(123.6), 170, 26);
+  isko.rotation.y = turn + (1 - enter) * -0.6;
+  isko.rotation.x = 0.06 + Math.sin(t * 2.1) * 0.03;
+  isko.position.y = Math.sin(t * 3.1) * 0.05 - (1 - enter) * 0.4;
+  isko.scale.setScalar(0.85 + 0.15 * enter);
+  for (const m of isko.children) if (m.userData.s) m.position.y = -0.12 + Math.sin(t * 3.1 - 0.8 + m.userData.s) * 0.06;
+  spark.rotation.y = t * 2.4;
+  renderer.render(scene, cam);
+});
+</script></body></html>
