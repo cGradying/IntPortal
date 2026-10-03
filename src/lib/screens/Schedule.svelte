@@ -44,6 +44,24 @@
     }
   }
 
+  // Swipe left or right across the day list to move a day.
+  let swipeFrom: { x: number; y: number } | null = null;
+  function swipeStart(e: TouchEvent) {
+    swipeFrom = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  function swipeEnd(e: TouchEvent) {
+    if (!swipeFrom) return;
+    const dx = e.changedTouches[0].clientX - swipeFrom.x;
+    const dy = e.changedTouches[0].clientY - swipeFrom.y;
+    swipeFrom = null;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return;
+    const i = WEEKDAYS.indexOf(day) + (dx < 0 ? 1 : -1);
+    if (i >= 0 && i < WEEKDAYS.length) {
+      day = WEEKDAYS[i];
+      buzz.select();
+    }
+  }
+
   function setView(v: "day" | "week") {
     view = v;
     try {
@@ -126,6 +144,7 @@
 
   <label class="toggle"><input type="checkbox" checked={hideVacant} onchange={toggleVacant} /> Hide vacant classes</label>
 
+  <div class="swipe" ontouchstart={swipeStart} ontouchend={swipeEnd} role="presentation">
   {#if list.length === 0}
     <div class="empty card notch">
       <Scene name="hammock" label="A hammock between two palm trees" />
@@ -152,6 +171,7 @@
       {/each}
     </ol>
   {/if}
+  </div>
   {/if}
 </div>
 
@@ -400,6 +420,11 @@
     height: 8px;
     flex: none;
     background: var(--gold);
+  }
+  .swipe {
+    display: grid;
+    min-height: 240px;
+    align-content: start;
   }
   .seg {
     display: grid;
