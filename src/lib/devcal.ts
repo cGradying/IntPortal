@@ -14,15 +14,16 @@ export const calendarAccess = () => access("status");
 /** Shows the system prompt the first time; after that it only reports. */
 export const askForCalendar = () => access("request");
 
-/** Today's own timed events as busy spans; all-day events don't block time. */
-export async function busyToday(): Promise<Busy[]> {
-  const from = new Date();
-  from.setHours(0, 0, 0, 0);
-  const to = new Date(from);
-  to.setDate(to.getDate() + 1);
+/** The student's own timed events from local midnight of `from` for `days`
+ *  days, as busy spans; all-day events don't block time. */
+export async function busyFrom(from: Date, days: number): Promise<Busy[]> {
+  const start = new Date(from);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + days);
   const r = await invoke<{ events: { title: string; start: number; end: number; allDay: boolean }[] }>("plugin:calendar|events", {
-    from: from.getTime(),
-    to: to.getTime(),
+    from: start.getTime(),
+    to: end.getTime(),
   });
   return r.events.filter((e) => !e.allDay).map((e) => ({ from: moment(new Date(e.start)), to: moment(new Date(e.end)), title: e.title }));
 }

@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Schedule, cancel, isPermissionGranted, pending, requestPermission } from "@tauri-apps/plugin-notification";
 import { api, isoDate, localMs, moment, type Busy, type NoteItem, type Snapshot, type Today } from "./api";
-import { busyToday, keepClasses } from "./devcal";
+import { busyFrom, keepClasses } from "./devcal";
 import { applyRoom } from "./rooms";
 import { buzz } from "./haptics";
 
@@ -139,7 +139,7 @@ function pushGlance() {
 export async function refreshToday() {
   if (!app.snapshot) return;
   try {
-    app.busy = app.calendarEvents ? await busyToday().catch(() => []) : [];
+    app.busy = app.calendarEvents ? await busyFrom(new Date(), 1).catch(() => []) : [];
     app.today = await api.today(moment(), app.sync === "failed" ? app.syncError : null, app.busy);
     pushGlance();
   } catch {

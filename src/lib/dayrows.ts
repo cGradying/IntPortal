@@ -26,3 +26,32 @@ export function dayRows<C extends ClassLike>(items: C[], busy: Busy[], day: stri
   }
   return out;
 }
+
+/** One stretch of the student's own time on one weekday (0 is Monday). */
+export interface Span {
+  day: number;
+  start: number;
+  end: number;
+  title: string;
+}
+
+const dayNumber = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return Date.UTC(y, m - 1, d) / 86_400_000;
+};
+
+/** The student's events in the week starting `monday`, split at midnight. */
+export function weekSpans(busy: Busy[], monday: string): Span[] {
+  const base = dayNumber(monday);
+  const out: Span[] = [];
+  for (const b of busy) {
+    const first = dayNumber(b.from.date) - base;
+    const last = dayNumber(b.to.date) - base;
+    for (let day = Math.max(0, first); day <= Math.min(6, last); day++) {
+      const start = day === first ? b.from.minute : 0;
+      const end = day === last ? b.to.minute : 1440;
+      if (end > start) out.push({ day, start, end, title: b.title });
+    }
+  }
+  return out;
+}

@@ -1,15 +1,25 @@
 <script lang="ts">
   // The legacy week view: a column per day, blocks placed by time, today's
   // column tinted and a gold line at the current minute. Days with no
-  // classes drop out, except today.
+  // classes drop out, except today. The student's own events sit hatched
+  // behind the classes.
   import { subjectColor, WEEKDAYS, type Meeting } from "./api";
+  import type { Span } from "./dayrows";
 
-  let { meetings, colors, todayIdx, onpick }: { meetings: Meeting[]; colors: Record<string, string>; todayIdx: number; onpick: (m: Meeting) => void } = $props();
+  let {
+    meetings,
+    colors,
+    todayIdx,
+    onpick,
+    spans = [],
+  }: { meetings: Meeting[]; colors: Record<string, string>; todayIdx: number; onpick: (m: Meeting) => void; spans?: Span[] } = $props();
 
   const HOUR = 44;
-  const days = $derived(WEEKDAYS.map((d, i) => ({ d, i })).filter(({ d, i }) => i === todayIdx || meetings.some((m) => m.session.day === d)));
-  const first = $derived(Math.floor(Math.min(7 * 60, ...meetings.map((m) => m.session.start)) / 60));
-  const last = $derived(Math.ceil(Math.max(17 * 60, ...meetings.map((m) => m.session.end)) / 60));
+  const days = $derived(
+    WEEKDAYS.map((d, i) => ({ d, i })).filter(({ d, i }) => i === todayIdx || meetings.some((m) => m.session.day === d) || spans.some((s) => s.day === i)),
+  );
+  const first = $derived(Math.floor(Math.min(7 * 60, ...meetings.map((m) => m.session.start), ...spans.map((s) => s.start)) / 60));
+  const last = $derived(Math.ceil(Math.max(17 * 60, ...meetings.map((m) => m.session.end), ...spans.map((s) => s.end)) / 60));
   const hours = $derived(Array.from({ length: last - first }, (_, k) => first + k));
   const y = (min: number) => ((min - first * 60) / 60) * HOUR;
 
@@ -34,6 +44,9 @@
     {#each days as { d, i } (d)}
       <div class="col" class:today={i === todayIdx}>
         {#each hours as h (h)}<i class="rule" style:top="{y(h * 60)}px"></i>{/each}
+        {#each spans.filter((s) => s.day === i) as s, k (k)}
+          <span class="busy" style:top="{y(s.start)}px" style:height="{Math.max(10, y(s.end) - y(s.start) - 2)}px" title={s.title}>{s.title}</span>
+        {/each}
         {#each meetings.filter((m) => m.session.day === d) as m (m.id)}
           <button
             class="block"
@@ -133,6 +146,20 @@
   }
   .block[data-mark="online"] {
     box-shadow: inset 2px 0 0 var(--c), inset 0 0 0 1px var(--c);
+  }
+  .busy {
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    overflow: hidden;
+    padding: 2px 3px 0;
+    border-radius: 5px;
+    background: repeating-linear-gradient(135deg, var(--card) 0 4px, var(--sunk) 4px 6px);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink-3);
+    font-size: min(0.529rem, 16px);
+    line-height: 1.15;
+    pointer-events: none;
   }
   .now {
     position: absolute;

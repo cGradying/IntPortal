@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayRows } from "./dayrows";
+import { dayRows, weekSpans } from "./dayrows";
 
 const cls = (start: number, end: number, phase = "upcoming") => ({ session: { start, end }, phase });
 const busy = (from: [string, number], to: [string, number]) => ({ from: { date: from[0], minute: from[1] }, to: { date: to[0], minute: to[1] }, title: "Org" });
@@ -24,5 +24,21 @@ describe("dayRows", () => {
   it("greys out what has passed", () => {
     const rows = dayRows([cls(450, 540, "past"), cls(600, 660, "past"), cls(700, 760)], [], day, 690);
     expect(rows.filter((r) => r.kind === "gap").map((r) => r.past)).toEqual([true, false]);
+  });
+});
+
+describe("weekSpans", () => {
+  const monday = "2026-09-28";
+  it("places each event on its weekday, split at midnight and clipped to the week", () => {
+    const spans = weekSpans(
+      [busy(["2026-09-29", 600], ["2026-09-29", 660]), busy(["2026-10-01", 1380], ["2026-10-02", 60]), busy(["2026-09-27", 1320], ["2026-09-28", 30]), busy(["2026-10-05", 600], ["2026-10-05", 660])],
+      monday,
+    );
+    expect(spans.map((s) => [s.day, s.start, s.end])).toEqual([
+      [1, 600, 660],
+      [3, 1380, 1440],
+      [4, 0, 60],
+      [0, 0, 30],
+    ]);
   });
 });
