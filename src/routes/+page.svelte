@@ -145,12 +145,6 @@
     animation: arrive 0.65s var(--ease) backwards;
     padding: calc(var(--safe-top) + 12px) var(--gutter) calc(var(--safe-bottom) + 92px);
   }
-  [data-glance="island"] main {
-    padding-top: calc(var(--safe-top) + 30px);
-  }
-  [data-glance="island"] .topfade {
-    height: calc(var(--safe-top) + 30px);
-  }
   [data-glance="dock"] main {
     padding-bottom: calc(var(--safe-bottom) + 150px);
   }
