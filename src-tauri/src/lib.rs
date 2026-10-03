@@ -97,6 +97,62 @@ mod vault {
     pub fn clear() {}
 }
 
+mod dbkey {
+    //! Each student's store key: 32 random bytes in the keychain, named by
+    //! the store's file. Made once, on the first open of that store.
+
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    pub fn get_or_create(file: &str) -> Result<[u8; 32], String> {
+        let entry = keyring::Entry::new("ph.intportal.app.db", file).map_err(|e| e.to_string())?;
+        match entry.get_password() {
+            Ok(hex) => parse(&hex).ok_or_else(|| "The store key in the keychain is damaged.".to_string()),
+            // Only a missing key is made anew. Any other keychain error (say,
+            // before the phone's first unlock) must not replace a real key.
+            Err(keyring::Error::NoEntry) => {
+                let mut key = [0u8; 32];
+                getrandom::fill(&mut key).map_err(|e| e.to_string())?;
+                entry.set_password(&key.iter().map(|b| format!("{b:02x}")).collect::<String>()).map_err(|e| e.to_string())?;
+                Ok(key)
+            }
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    fn parse(hex: &str) -> Option<[u8; 32]> {
+        let mut key = [0u8; 32];
+        if hex.len() != 64 {
+            return None;
+        }
+        for (i, b) in key.iter_mut().enumerate() {
+            *b = u8::from_str_radix(hex.get(i * 2..i * 2 + 2)?, 16).ok()?;
+        }
+        Some(key)
+    }
+}
+
+/// Opens one student's store with its key. A store the key can't open is
+/// set aside, not deleted (the key may come back), and a fresh one starts:
+/// the SIS data returns on the next sync.
+fn open_store(dir: &std::path::Path, file: &str) -> Res<Store> {
+    let path = dir.join(file);
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    {
+        let key = dbkey::get_or_create(file)?;
+        match Store::open(&path, &key) {
+            Err(intportal_core::store::StoreError::Locked) => {
+                std::fs::rename(&path, dir.join(format!("{file}.locked-{}", now_secs()))).map_err(err)?;
+                Store::open(&path, &key).map_err(err)
+            }
+            opened => opened.map_err(err),
+        }
+    }
+    #[cfg(not(any(target_os = "ios", target_os = "macos")))]
+    {
+        Store::open_plain(&path).map_err(err)
+    }
+}
+
 fn now_secs() -> String {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0).to_string()
 }
@@ -213,7 +269,7 @@ fn open_account(state: &AppState, student_number: &str) -> Res<()> {
     if !path.exists() && legacy.exists() {
         std::fs::rename(&legacy, &path).map_err(err)?;
     }
-    *state.store.lock().unwrap() = Store::open(&path).map_err(err)?;
+    *state.store.lock().unwrap() = open_store(&state.dir, &name)?;
     std::fs::write(state.dir.join(CURRENT), &name).map_err(err)
 }
 
@@ -659,10 +715,9 @@ pub fn run() {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             let store = match std::fs::read_to_string(dir.join(CURRENT)) {
-                Ok(name) if name.starts_with("account-") => Store::open(&dir.join(name.trim())),
-                _ => Store::in_memory(),
-            }
-            .map_err(|e| e.to_string())?;
+                Ok(name) if name.starts_with("account-") => open_store(&dir, name.trim())?,
+                _ => Store::in_memory().map_err(err)?,
+            };
             app.manage(AppState { store: Mutex::new(store), dir: dir.clone(), client: tokio::sync::Mutex::new(None) });
             // Signed in before stores were per student: move them over now.
             if !dir.join(CURRENT).exists() {
