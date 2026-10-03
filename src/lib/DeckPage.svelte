@@ -1,12 +1,19 @@
 <script lang="ts">
   // One deck: its cards, adding them one by one or pasted, and the way into
   // a study session in one of three modes.
+  import ErrorCard from "./ErrorCard.svelte";
+  import Skeleton from "./Skeleton.svelte";
   import StudySession, { type Mode } from "./StudySession.svelte";
   import { api, type Card, type Deck } from "./api";
+  import { buzz } from "./haptics";
+  import { resource } from "./load.svelte";
 
   let { id, onclose }: { id: string; onclose: () => void } = $props();
 
-  let deck = $state<Deck | null>(null);
+  // svelte-ignore state_referenced_locally
+  const loaded = resource(() => api.deck(id));
+  // Saves write the deck they return straight back here.
+  let deck = $derived(loaded.current.state === "ready" ? loaded.current.value : null);
   let front = $state("");
   let back = $state("");
   let pasting = $state(false);
@@ -17,8 +24,6 @@
   let confirmDelete = $state(false);
   let problem = $state("");
 
-  // svelte-ignore state_referenced_locally
-  api.deck(id).then((d) => (deck = d)).catch((e) => (problem = String(e)));
 
   const now = () => Math.floor(Date.now() / 1000);
   const due = $derived(deck ? deck.cards.filter((c) => c.memory.due <= now()).length : 0);
@@ -28,6 +33,7 @@
     try {
       deck = await api.saveDeck({ ...$state.snapshot(deck), cards } as Deck);
       problem = "";
+      buzz.tick();
     } catch (e) {
       problem = String(e);
     }
@@ -81,6 +87,11 @@
       <p class="label">{deck?.subject ?? "No subject"} · {deck?.cards.length ?? 0} cards · {due} due</p>
     </header>
 
+    {#if loaded.current.state === "loading"}
+      <Skeleton rows={3} height={52} />
+    {:else if loaded.current.state === "failed"}
+      <ErrorCard error={loaded.current.error} onretry={loaded.reload} />
+    {/if}
     {#if deck && deck.cards.length}
       <div class="modes">
         <button class="primary" onclick={() => (studying = "flash")}>Flashcards</button>
@@ -142,12 +153,12 @@
     padding: 0;
     background: none;
     color: var(--gold);
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
   }
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: 26px;
+    font-size: min(1.529rem, 34px);
   }
   button {
     height: 44px;
@@ -156,7 +167,7 @@
     border-radius: 10px;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
   }
   button:disabled {
     opacity: 0.4;
@@ -200,7 +211,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: 16px;
+    font-size: max(16px, min(0.941rem, 29px));
   }
   textarea {
     height: 120px;
@@ -228,13 +239,13 @@
     min-width: 0;
   }
   .cards small {
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-2);
   }
   .cards em {
     flex: none;
     font-style: normal;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-3);
   }
   .x {
@@ -242,16 +253,16 @@
     padding: 0;
     background: none;
     color: var(--ink-3);
-    font-size: 20px;
+    font-size: min(1.176rem, 26px);
   }
   .fine {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
   }
   .problem {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--bad);
   }
 </style>

@@ -52,7 +52,7 @@
       // card early would push it out before it's been forgotten.
       if (!practice) await api.reviewCard(deck.id, card.id, r, isoDate(new Date()));
       if (r !== "again") right++;
-      buzz.tap();
+      buzz.tick();
       if (index + 1 >= queue.length) buzz.done();
       index++;
       shown = false;
@@ -67,14 +67,14 @@
 
   async function check() {
     verdict = await api.checkAnswer(card, typed);
-    (verdict ? buzz.tap : buzz.fail)();
+    (verdict ? buzz.tick : buzz.fail)();
   }
 
   function choose(o: string) {
     if (picked) return;
     picked = o;
     verdict = o === card.back;
-    (verdict ? buzz.tap : buzz.fail)();
+    (verdict ? buzz.tick : buzz.fail)();
   }
 </script>
 
@@ -93,7 +93,7 @@
       <button class="primary" onclick={onclose}>Back to the deck</button>
     </section>
   {:else if mode === "flash"}
-    <button class="card notch face tap" onclick={() => (shown = true)}>
+    <button class="card notch face tap" onclick={() => { if (!shown) buzz.tick(); shown = true; }}>
       <p class="label">Term</p>
       <h2>{card.front}</h2>
       {#if shown}<p class="answer">{card.back}</p>{:else}<p class="fine">Tap to show the meaning</p>{/if}
@@ -154,7 +154,7 @@
     color: var(--gold);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
   }
   .bar {
     height: 6px;
@@ -184,17 +184,17 @@
   h2 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: 24px;
+    font-size: min(1.412rem, 31px);
   }
   .answer {
     margin: 8px 0 0;
     padding-top: 12px;
     border-top: 1px solid var(--edge);
-    font-size: 18px;
+    font-size: min(1.059rem, 32px);
   }
   .fine {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
   }
   button {
@@ -207,7 +207,7 @@
     color: var(--ink);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
   }
   button:disabled {
     opacity: 0.4;
@@ -234,7 +234,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: 17px;
+    font-size: max(16px, min(1rem, 31px));
   }
   .verdict {
     margin: 0;
@@ -263,7 +263,7 @@
   }
   .problem {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--bad);
   }
 </style>

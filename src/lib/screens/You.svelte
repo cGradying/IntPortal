@@ -2,6 +2,7 @@
   import { app, openNote, scheduleReminders, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
   import { api, isoDate } from "../api";
   import { shareFile } from "../share";
+  import { buzz, haptics, setHaptics } from "../haptics";
   import { lock, setLock } from "../lock.svelte";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
 
@@ -144,6 +145,8 @@
         </button>
       {/each}
     </div>
+    <label class="lockrow"><input type="checkbox" checked={haptics.on} onchange={(e) => { setHaptics(e.currentTarget.checked); buzz.tick(); }} /> Haptics</label>
+    <p class="fine">Small taps you feel when you mark a class, pull to sync, finish a deck or unlock.</p>
   </section>
 
   <section class="card notch block">
@@ -225,7 +228,7 @@
   .field {
     display: grid;
     gap: 4px;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
   }
   .field input {
@@ -237,7 +240,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: 16px;
+    font-size: max(16px, min(0.941rem, 29px));
   }
   .search {
     height: 40px;
@@ -248,7 +251,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: 16px;
+    font-size: min(0.941rem, 29px);
   }
   .notes {
     list-style: none;
@@ -270,7 +273,7 @@
   .notes span {
     font-family: var(--font-body, inherit);
     font-weight: 400;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-2);
     white-space: nowrap;
     overflow: hidden;
@@ -283,7 +286,7 @@
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: 28px;
+    font-size: min(1.647rem, 36px);
     font-weight: 700;
     letter-spacing: -0.02em;
   }
@@ -296,7 +299,7 @@
   .line {
     display: flex;
     justify-content: space-between;
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
     color: var(--ink-2);
   }
   .line strong {
@@ -309,7 +312,7 @@
     border-radius: 10px;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
   }
   .primary {
     background: var(--gold);
@@ -337,7 +340,7 @@
     height: 38px;
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
   }
   .leads button.on {
     background: var(--gold);
@@ -372,7 +375,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     font-family: var(--font-body);
     font-weight: 600;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     line-height: 1.2;
   }
   .rooms button.on {
@@ -389,7 +392,7 @@
   }
   .queued {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--gold);
   }
   .queued strong {
@@ -397,7 +400,7 @@
   }
   .fine {
     margin: 0;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: var(--ink-2);
   }
 </style>

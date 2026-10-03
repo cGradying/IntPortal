@@ -138,7 +138,7 @@
     flex: 1;
     min-width: 0;
     font-family: var(--font-display);
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
@@ -153,7 +153,7 @@
     gap: 6px;
     flex: none;
     font-family: var(--font-display);
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #f5b227;
@@ -188,7 +188,7 @@
     justify-content: space-between;
     align-items: center;
     gap: 14px;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: #a9a9b1;
   }
   .sync {
@@ -199,7 +199,7 @@
     color: #1b1406;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
   }
   @media (prefers-reduced-motion: reduce) {
     .glance,

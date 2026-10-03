@@ -2,10 +2,15 @@
   // Decks of flashcards scheduled by FSRS in the core: what's due, the
   // streak, and a way in to each deck.
   import DeckPage from "../DeckPage.svelte";
-  import { api, isoDate, type StudyOverview } from "../api";
+  import ErrorCard from "../ErrorCard.svelte";
+  import Skeleton from "../Skeleton.svelte";
+  import { api, isoDate } from "../api";
+  import { buzz } from "../haptics";
+  import { resource } from "../load.svelte";
   import { app } from "../state.svelte";
 
-  let overview = $state<StudyOverview | null>(null);
+  const study = resource(() => api.study(isoDate(new Date())));
+  const overview = $derived(study.current.state === "ready" ? study.current.value : null);
   let open = $state<string | null>(null);
   let naming = $state(false);
   let name = $state("");
@@ -14,11 +19,6 @@
 
   const subjects = $derived([...new Map((app.snapshot?.sessions ?? []).map((s) => [s.subject_code, s.description])).entries()]);
 
-  async function load() {
-    overview = await api.study(isoDate(new Date()));
-  }
-  load();
-
   async function create() {
     try {
       const deck = await api.saveDeck({ id: crypto.randomUUID(), name: name.trim(), subject: subject || null, cards: [] });
@@ -26,7 +26,8 @@
       name = "";
       subject = "";
       problem = "";
-      await load();
+      buzz.tick();
+      study.reload();
       open = deck.id;
     } catch (e) {
       problem = String(e);
@@ -35,7 +36,7 @@
 </script>
 
 {#if open}
-  <DeckPage id={open} onclose={() => { open = null; load(); }} />
+  <DeckPage id={open} onclose={() => { open = null; study.reload(); }} />
 {:else}
   <div class="screen">
     <header>
@@ -66,7 +67,11 @@
       <button class="primary" onclick={() => (naming = true)}>New deck</button>
     {/if}
 
-    {#if overview && overview.decks.length === 0}
+    {#if study.current.state === "loading"}
+      <Skeleton rows={2} height={64} />
+    {:else if study.current.state === "failed"}
+      <ErrorCard error={study.current.error} onretry={study.reload} />
+    {:else if overview && overview.decks.length === 0}
       <p class="fine">No decks yet. Make one per subject or per exam, then paste your terms in as "term - meaning".</p>
     {/if}
     <ul class="decks">
@@ -90,7 +95,7 @@
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: 28px;
+    font-size: min(1.647rem, 36px);
     font-weight: 700;
     letter-spacing: -0.02em;
   }
@@ -103,11 +108,11 @@
   }
   .big {
     margin: 2px 0 0;
-    font-size: 28px;
+    font-size: min(1.647rem, 36px);
     font-weight: 800;
   }
   .big small {
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     font-weight: 600;
     color: var(--ink-3);
   }
@@ -128,7 +133,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: 16px;
+    font-size: max(16px, min(0.941rem, 29px));
   }
   .row {
     display: flex;
@@ -141,7 +146,7 @@
     border-radius: 10px;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
   }
   button:disabled {
     opacity: 0.4;
@@ -157,12 +162,12 @@
   }
   .fine {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
   }
   .problem {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--bad);
   }
   .decks {
@@ -192,7 +197,7 @@
   .what small {
     font-family: var(--font-body, inherit);
     font-weight: 400;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
   }
   .due {
@@ -200,7 +205,7 @@
   }
   .done {
     font-weight: 600;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-3);
   }
 </style>

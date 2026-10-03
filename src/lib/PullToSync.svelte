@@ -22,12 +22,15 @@
   function move(e: TouchEvent) {
     if (start === null) return;
     pull = Math.max(0, Math.min(PULL * 1.5, (e.touches[0].clientY - start) * 0.5));
-    if (!armed && pull >= PULL) buzz.select();
+    if (armed !== pull >= PULL) buzz.pull();
     armed = pull >= PULL;
   }
 
   function up() {
-    if (armed) syncNow();
+    if (armed) {
+      buzz.release();
+      syncNow();
+    }
     start = null;
     pull = 0;
     armed = false;
@@ -51,7 +54,7 @@
     gap: 10px;
     overflow: hidden;
     padding-bottom: 8px;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     font-weight: 600;
     color: var(--ink-3);
   }

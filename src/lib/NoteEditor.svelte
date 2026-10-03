@@ -93,7 +93,7 @@
   h2 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: 22px;
+    font-size: min(1.294rem, 29px);
   }
   header > div:first-child {
     min-width: 0;
@@ -111,7 +111,7 @@
     background: none;
     color: var(--ink);
     font-family: var(--font-display);
-    font-size: 22px;
+    font-size: min(1.294rem, 29px);
     font-weight: 700;
   }
   header button.ghost {
@@ -141,13 +141,13 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: 16px;
+    font-size: max(16px, min(0.941rem, 29px));
     line-height: 1.5;
     resize: none;
   }
   .problem {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--bad);
   }
 </style>
