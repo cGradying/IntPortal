@@ -10,7 +10,8 @@
 //! a week-only move is its own one-off VEVENT.
 
 use crate::model::{ClassSession, Weekday};
-use crate::today::{Date, Mark, Marks, Slot};
+use crate::today::{meetings_from, Date, Mark, Marks, Slot};
+use serde::{Deserialize, Serialize};
 
 fn by_day(d: Weekday) -> &'static str {
     ["MO", "TU", "WE", "TH", "FR", "SA", "SU"][usize::from(d.number()) - 1]
@@ -48,11 +49,46 @@ fn event(lines: &mut Vec<String>, uid: &str, now: &str, session: &ClassSession, 
     lines.push(format!("DTSTART:{}", stamp(date, slot.start)));
     lines.push(format!("DTEND:{}", stamp(date, slot.end)));
     lines.push(format!("SUMMARY:{}", escape(&format!("{}{}", session.subject_code, if online { " (Online)" } else { "" }))));
-    let desc = if session.faculty.is_empty() { session.description.clone() } else { format!("{}\n{}", session.description, session.faculty) };
-    lines.push(format!("DESCRIPTION:{}", escape(&desc)));
+    lines.push(format!("DESCRIPTION:{}", escape(&notes(session))));
     if online {
         lines.push("LOCATION:Online".into());
     }
+}
+
+fn notes(session: &ClassSession) -> String {
+    if session.faculty.is_empty() {
+        session.description.clone()
+    } else {
+        format!("{}\n{}", session.description, session.faculty)
+    }
+}
+
+/// One class meeting as an event in the phone's own IntPortal calendar.
+/// `key` names the meeting, so a sync replaces it rather than adding twice.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ClassEvent {
+    pub key: String,
+    pub title: String,
+    pub notes: String,
+    pub date: Date,
+    pub start: u16,
+    pub end: u16,
+}
+
+/// The meetings from `from` through `days` days on, with the student's
+/// edits applied: vacant weeks left out, moved weeks moved.
+pub fn class_events(sessions: &[ClassSession], marks: &Marks, from: Date, days: i64) -> Vec<ClassEvent> {
+    meetings_from(sessions, marks, from, days)
+        .into_iter()
+        .map(|m| ClassEvent {
+            key: format!("{}@{}", m.id, m.date),
+            title: format!("{}{}", m.session.subject_code, if m.mark == Mark::Online { " (Online)" } else { "" }),
+            notes: notes(&m.session),
+            date: m.date,
+            start: m.session.start,
+            end: m.session.end,
+        })
+        .collect()
 }
 
 /// `YYYYMMDDTHHMMSSZ` for a Unix time, for DTSTAMP.
@@ -173,5 +209,26 @@ mod tests {
         let folded = fold(&line);
         assert!(folded.split("\r\n").all(|l| l.len() <= 75));
         assert_eq!(folded.replace("\r\n ", ""), line);
+    }
+
+    #[test]
+    fn class_events_skip_vacant_weeks_and_follow_moves() {
+        let w = [s("COMP 002", Monday, 9 * 60, 10 * 60 + 50), s("GEED 005", Wednesday, 13 * 60, 14 * 60)];
+        let mut marks = Marks::default();
+        marks.mode.set(&w[0].id(), Some(mon()), Some(Mark::Vacant));
+        marks.mode.set(&w[1].id(), None, Some(Mark::Online));
+        marks.moved.set(&w[1].id(), Some(mon().add_days(7)), Some(Slot { day: Thursday, start: 8 * 60, end: 9 * 60 }));
+        let got: Vec<(String, String, u16, u16)> =
+            class_events(&w, &marks, mon(), 14).into_iter().map(|e| (e.date.to_string(), e.title, e.start, e.end)).collect();
+        assert_eq!(
+            got,
+            [
+                ("2026-08-05".to_string(), "GEED 005 (Online)".to_string(), 13 * 60, 14 * 60),
+                ("2026-08-10".to_string(), "COMP 002".to_string(), 9 * 60, 10 * 60 + 50),
+                ("2026-08-13".to_string(), "GEED 005 (Online)".to_string(), 8 * 60, 9 * 60),
+            ]
+        );
+        let keys: std::collections::HashSet<String> = class_events(&w, &marks, mon(), 14).into_iter().map(|e| e.key).collect();
+        assert_eq!(keys.len(), 3);
     }
 }
