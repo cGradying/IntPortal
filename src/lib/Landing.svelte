@@ -32,7 +32,7 @@
   const resting = $derived(moment.phase === "rest");
   // The card needs room, so the portal sits higher above it; once signed
   // in, the camera moves in and the portal comes down to meet Step through.
-  const frameFor = (at: "signin" | "hub") => (at === "hub" ? { lift: 0.06, span: 13 } : { lift: 0.2, span: 16.5 });
+  const frameFor = (at: "signin" | "hub") => (at === "hub" ? { lift: 0.08, span: 12.5 } : { lift: 0.2, span: 16.5 });
   let lift = $state(frameFor(returning ? "hub" : "signin").lift);
   let span = $state(frameFor(returning ? "hub" : "signin").span);
 

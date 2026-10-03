@@ -24,9 +24,9 @@
   // Art pixels are this many CSS px, for the portal and for LAR alike.
   const CELL = 3;
   const STONES: { name: string; icon: SpriteName; at: [number, number, number] }[] = [
-    { name: "Schedule", icon: "schedule", at: [-5.4, 8.6, 0.6] },
-    { name: "Grades", icon: "grades", at: [5.5, 9.4, 0.4] },
-    { name: "Study", icon: "study", at: [5.1, 4.2, 1.2] },
+    { name: "Schedule", icon: "schedule", at: [-4.6, 8.6, 0.6] },
+    { name: "Grades", icon: "grades", at: [4.6, 9.6, 0.4] },
+    { name: "Study", icon: "study", at: [4.7, 4.4, 1.2] },
   ];
 
   let host: HTMLDivElement;
@@ -234,9 +234,8 @@
     gap: 3px;
     padding: 8px 9px 6px;
     background:
-      linear-gradient(to left, rgb(148 28 48 / 0.32), transparent 60%),
-      radial-gradient(circle at 30% 40%, #4a2c58 1.5px, transparent 2px) 0 0 / 13px 11px,
-      radial-gradient(circle at 70% 70%, #4a2c58 1px, transparent 1.5px) 5px 3px / 17px 13px,
+      linear-gradient(to right, rgb(148 28 48 / 0.34) 0 6px, rgb(148 28 48 / 0.22) 6px 12px, rgb(148 28 48 / 0.12) 12px 21px, transparent 21px),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='21' height='18' shape-rendering='crispEdges'%3E%3Crect x='3' y='3' width='3' height='3' fill='%234a2c58'/%3E%3Crect x='15' y='12' width='3' height='3' fill='%233a2446'/%3E%3Crect x='9' y='9' width='3' height='3' fill='%232c1c3a'/%3E%3C/svg%3E"),
       #170b1a;
     box-shadow:
       inset 0 3px 0 #5a3a6c,
@@ -249,18 +248,17 @@
   }
   .face.east {
     background:
-      linear-gradient(to right, rgb(148 28 48 / 0.32), transparent 60%),
-      radial-gradient(circle at 30% 40%, #4a2c58 1.5px, transparent 2px) 0 0 / 13px 11px,
-      radial-gradient(circle at 70% 70%, #4a2c58 1px, transparent 1.5px) 5px 3px / 17px 13px,
+      linear-gradient(to left, rgb(148 28 48 / 0.34) 0 6px, rgb(148 28 48 / 0.22) 6px 12px, rgb(148 28 48 / 0.12) 12px 21px, transparent 21px),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='21' height='18' shape-rendering='crispEdges'%3E%3Crect x='3' y='3' width='3' height='3' fill='%234a2c58'/%3E%3Crect x='15' y='12' width='3' height='3' fill='%233a2446'/%3E%3Crect x='9' y='9' width='3' height='3' fill='%232c1c3a'/%3E%3C/svg%3E"),
       #170b1a;
   }
-  /* Motes drift under the status bar, not across the clock. */
+  /* Motes drift below the title band, not across the clock or the title. */
   .stage::after {
     content: "";
     position: absolute;
     inset: 0 0 auto;
-    height: calc(var(--safe-top) + 8px);
-    background: linear-gradient(#0b0710 70%, transparent);
+    height: calc(var(--safe-top) + 64px);
+    background: linear-gradient(#0b0710 78%, transparent);
     pointer-events: none;
   }
 </style>
