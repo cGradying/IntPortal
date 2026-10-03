@@ -21,6 +21,10 @@
     still = false,
   }: { moment: Moment; t: number; lift: number; span?: number; mood: Mood; gesture: Gesture; still?: boolean } = $props();
 
+  // Reduce Motion: the scene's clock stands still, so the swirl, motes, idle
+  // orbit and stone bob hold one frame. Drag still sways the camera.
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   // Art pixels are this many CSS px, for the portal and for LAR alike.
   const CELL = 3;
   const STONES: { name: string; icon: SpriteName; at: [number, number, number] }[] = [
@@ -77,19 +81,20 @@
 
   function draw() {
     const m = moment;
+    const now = reduce ? 0 : t;
     const lit = m.phase === "dark" || m.phase === "assembling" ? 0 : m.phase === "igniting" ? spring(m.k * 0.7, 60, 13) : 1;
     const diving = m.phase === "stepping" ? m.k : m.phase === "entered" ? 1 : 0;
     const flash = m.phase === "igniting" ? Math.max(0, 1 - Math.abs(m.k - 0.85) * 6) * 0.6 : diving > 0.7 ? (diving - 0.7) / 0.3 : 0;
     if (scene) {
       scene.render({
-        t,
+        t: now,
         form: m.form,
         gap: PIECE_GAP,
         lit,
         speed: 1 + diving * 8,
         flash,
         cell: CELL + diving * diving * 21,
-        cam: camFor(m, t),
+        cam: camFor(m, now),
         lift: lift * (1 - diving),
       });
     }
@@ -106,7 +111,7 @@
     const out = m.phase === "glimpse" ? m.k : ["rest", "stepping"].includes(m.phase) ? 1 : 0;
     stones = STONES.map((s, i) => {
       const k = clamp(spring(out * 1.4 - i * 0.12, 140, 16));
-      const bob = still ? 0 : Math.sin(t * 1.3 + i * 2) * 0.18;
+      const bob = still || reduce ? 0 : Math.sin(t * 1.3 + i * 2) * 0.18;
       const [sx, sy] = at(lerp(0, s.at[0], k), lerp(OPENING.y, s.at[1] + bob, k), lerp(-0.5, s.at[2], k));
       return { x: sx, y: sy, k };
     });

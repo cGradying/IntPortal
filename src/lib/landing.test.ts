@@ -39,6 +39,10 @@ describe("landingAt", () => {
     expect(landingAt(0, { ...first, reduce: true })).toMatchObject({ phase: "rest", placed: PIECES.length });
   });
 
+  it("enters at once under Reduce Motion, with no dive", () => {
+    expect(landingAt(2, { ...first, reduce: true, steppedAt: 2 })).toMatchObject({ phase: "entered", k: 1 });
+  });
+
   it("dives only after stepping through, and only from rest", () => {
     const early = { ...first, steppedAt: 1 };
     expect(landingAt(1.2, early).phase).toBe("assembling");

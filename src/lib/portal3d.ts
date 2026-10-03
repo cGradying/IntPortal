@@ -64,11 +64,11 @@ void main() {
   float d = length(uv * vec2(1.25, 0.8));
   float a = atan(uv.y, uv.x) + t * 0.28 * uSpeed + d * 5.5 + uDepth * 1.7;
   vec2 q = vec2(cos(a), sin(a)) * d * 2.4;
-  float v = fbm(q * 2.2 + vec2(uDepth * 3.1, -t * 0.5 * uSpeed));
-  v += 0.22 * sin(uv.x * 16.0 + fbm(uv * 3.0 + t * 0.25 * uSpeed) * 7.0 + t * 1.6 * uSpeed);
+  float v = fbm(q * 2.2 + vec2(uDepth * 3.1, 0.0));
+  v += 0.1 * sin(d * 18.0 - t * 1.6 * uSpeed);
   // Three arms wind into the core, so it reads as a vortex at rest.
   float arms = sin(atan(uv.y, uv.x) * 3.0 - log(d + 0.03) * 4.0 - t * 1.3 * uSpeed);
-  v = mix(v, 0.5 + 0.5 * arms, 0.45 * smoothstep(0.8, 0.1, d));
+  v = mix(v, 0.5 + 0.5 * arms, 0.6 * smoothstep(1.0, 0.08, d));
   v = clamp(v * 0.95 + (0.55 - d) * 0.55 + max(0.0, 0.16 - d) * 2.6, 0.0, 1.0);
   // The rim falls into shadow, so the opening reads as a tunnel, not a curtain.
   float edge = min(min(vUv.x, 1.0 - vUv.x) * uAspect, min(vUv.y, 1.0 - vUv.y));

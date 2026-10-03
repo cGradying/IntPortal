@@ -55,7 +55,7 @@ export function landingAt(t: number, o: Opening): Moment {
   if (o.steppedAt !== null) {
     const from = Math.max(o.steppedAt, rest);
     if (t >= from) {
-      const k = (t - from) / DIVE;
+      const k = o.reduce ? 1 : (t - from) / DIVE;
       return k >= 1 - 1e-9 ? { phase: "entered", k: 1, placed: all, form } : { phase: "stepping", k, placed: all, form };
     }
   }
