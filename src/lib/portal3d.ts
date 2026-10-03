@@ -222,7 +222,7 @@ function buildPlatform() {
   const g = new THREE.Group();
   const tones = ["#3a2c27", "#33261f", "#41302a", "#2e231e"];
   const r = rng(9);
-  const geo = new THREE.BoxGeometry(1.96, 0.7, 1.96);
+  const geo = new THREE.BoxGeometry(1.76, 0.7, 1.96);
   for (let i = 0; i < 5; i++)
     for (let j = 0; j < 3; j++) {
       const centre = i === 2 && j === 2;
@@ -230,7 +230,7 @@ function buildPlatform() {
         geo,
         new THREE.MeshStandardMaterial({ color: centre ? "#5a3f2c" : tones[Math.floor(r() * tones.length)], roughness: 0.92, metalness: 0 }),
       );
-      m.position.set(-4 + i * 2, -0.35, -1.5 + j * 2);
+      m.position.set(-3.6 + i * 1.8, -0.35, -1.5 + j * 2);
       g.add(m);
     }
   return g;
