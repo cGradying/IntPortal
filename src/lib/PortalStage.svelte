@@ -28,9 +28,9 @@
   // Art pixels are this many CSS px, for the portal and for LAR alike.
   const CELL = 3;
   const STONES: { name: string; icon: SpriteName; at: [number, number, number] }[] = [
-    { name: "Schedule", icon: "schedule", at: [-4.6, 8.6, 0.6] },
-    { name: "Grades", icon: "grades", at: [4.6, 9.6, 0.4] },
-    { name: "Study", icon: "study", at: [4.7, 4.4, 1.2] },
+    { name: "Schedule", icon: "schedule", at: [-4.2, 8.6, 0.6] },
+    { name: "Grades", icon: "grades", at: [4.2, 9.6, 0.4] },
+    { name: "Study", icon: "study", at: [4.3, 4.4, 1.2] },
   ];
 
   let host: HTMLDivElement;
