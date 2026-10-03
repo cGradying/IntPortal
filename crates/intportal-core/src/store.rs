@@ -1,4 +1,5 @@
-//! Everything the app keeps on the device, in one SQLite file (ADR-0002).
+//! Everything the app keeps on the device, in one SQLite file (ADR-0002),
+//! encrypted with SQLCipher under a key the shell keeps in the keychain.
 //! One JSON value per key: the data is small and read whole.
 
 use crate::grades::{GradeReport, Goals};
@@ -7,11 +8,11 @@ use crate::notes::Note;
 use crate::study::{Deck, Stats};
 use crate::syllabus::Plan;
 use crate::today::Marks;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, ErrorCode, OptionalExtension};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// What every screen reads, loaded in one go so the first frame already has
 /// the week in it.
@@ -37,7 +38,7 @@ pub struct Snapshot {
 /// The file one student's data lives in. Each student number gets its own,
 /// so a second student signing in on the same phone never sees (or wipes)
 /// the first one's notes. The name hides the number (FNV-1a), it doesn't
-/// protect it; the phone's file encryption does that.
+/// protect it; the store's own encryption does that.
 pub fn account_file(student_number: &str) -> String {
     let key: String = student_number.chars().filter(|c| c.is_ascii_alphanumeric()).map(|c| c.to_ascii_uppercase()).collect();
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
@@ -57,10 +58,72 @@ pub enum StoreError {
     Sql(#[from] rusqlite::Error),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    /// The file is encrypted under a different key, or isn't a database.
+    #[error("This store can't be opened with this phone's key.")]
+    Locked,
+}
+
+/// Opens with the key and proves it by reading the schema.
+fn keyed(path: &Path, key: &str) -> rusqlite::Result<Connection> {
+    let db = Connection::open(path)?;
+    db.execute_batch(&format!("PRAGMA key = \"{key}\";"))?;
+    readable(&db)?;
+    Ok(db)
+}
+
+fn readable(db: &Connection) -> rusqlite::Result<()> {
+    db.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))
+}
+
+fn not_a_database(e: &rusqlite::Error) -> bool {
+    matches!(e, rusqlite::Error::SqliteFailure(f, _) if f.code == ErrorCode::NotADatabase)
+}
+
+/// Rewrites a plain store as an encrypted copy beside it, then swaps the
+/// copy in with one rename. A crash before the rename leaves the plain file
+/// whole, and the next open starts over.
+fn encrypt_in_place(path: &Path, key: &str) -> Result<(), StoreError> {
+    let mut enc = path.as_os_str().to_owned();
+    enc.push(".enc");
+    let enc = PathBuf::from(enc);
+    if enc.exists() {
+        std::fs::remove_file(&enc)?;
+    }
+    {
+        let plain = Connection::open(path)?;
+        plain.execute(&format!("ATTACH DATABASE ?1 AS enc KEY \"{key}\""), [enc.to_string_lossy()])?;
+        plain.query_row("SELECT sqlcipher_export('enc')", [], |_| Ok(()))?;
+        plain.execute_batch("DETACH DATABASE enc;")?;
+    }
+    std::fs::File::open(&enc)?.sync_all()?;
+    std::fs::rename(&enc, path)?;
+    Ok(())
 }
 
 impl Store {
-    pub fn open(path: &Path) -> Result<Store, StoreError> {
+    /// Opens this student's store with their 32-byte key. A store from
+    /// before encryption is encrypted in place first.
+    pub fn open(path: &Path, key: &[u8; 32]) -> Result<Store, StoreError> {
+        let hex: String = key.iter().map(|b| format!("{b:02x}")).collect();
+        let key = format!("x'{hex}'");
+        match keyed(path, &key) {
+            Ok(db) => Store::init(db),
+            Err(e) if not_a_database(&e) => {
+                if readable(&Connection::open(path)?).is_err() {
+                    return Err(StoreError::Locked);
+                }
+                encrypt_in_place(path, &key)?;
+                Store::init(keyed(path, &key)?)
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Unencrypted, for targets with no keychain to hold a key yet.
+    // ponytail: Android stays plain until the Keystore lands with #15.
+    pub fn open_plain(path: &Path) -> Result<Store, StoreError> {
         Store::init(Connection::open(path)?)
     }
 
@@ -70,7 +133,8 @@ impl Store {
 
     fn init(db: Connection) -> Result<Store, StoreError> {
         db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, json TEXT NOT NULL);
+            "PRAGMA secure_delete = ON;
+             CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, json TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS notes (key TEXT PRIMARY KEY, text TEXT NOT NULL, title TEXT, updated INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS decks (id TEXT PRIMARY KEY, json TEXT NOT NULL);",
         )?;
@@ -285,5 +349,61 @@ mod tests {
         assert_eq!(store.decks().unwrap()[0].cards[0].memory.due, 100);
         store.wipe().unwrap();
         assert!(store.decks().unwrap().is_empty());
+    }
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("intportal-store-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join("account.sqlite")
+    }
+
+    fn header(path: &Path) -> Vec<u8> {
+        std::fs::read(path).unwrap()[..16].to_vec()
+    }
+
+    const KEY: [u8; 32] = [7; 32];
+
+    #[test]
+    fn encrypted_round_trip() {
+        let path = scratch("round");
+        let snap = Snapshot { host: Some("sis8.pup.edu.ph".into()), ..Snapshot::default() };
+        Store::open(&path, &KEY).unwrap().save(&snap).unwrap();
+        assert_eq!(Store::open(&path, &KEY).unwrap().load().unwrap(), snap);
+        assert_ne!(header(&path), b"SQLite format 3\0");
+    }
+
+    #[test]
+    fn the_wrong_key_is_locked_out() {
+        let path = scratch("wrong");
+        Store::open(&path, &KEY).unwrap().save(&Snapshot::default()).unwrap();
+        assert!(matches!(Store::open(&path, &[8; 32]), Err(StoreError::Locked)));
+    }
+
+    #[test]
+    fn a_plain_store_is_encrypted_in_place_and_keeps_its_rows() {
+        let path = scratch("plain");
+        let plain = Connection::open(&path).unwrap();
+        plain.execute_batch("CREATE TABLE kv (key TEXT PRIMARY KEY, json TEXT NOT NULL); INSERT INTO kv VALUES ('host', '\"sis8.pup.edu.ph\"');").unwrap();
+        drop(plain);
+        assert_eq!(header(&path), b"SQLite format 3\0");
+
+        let store = Store::open(&path, &KEY).unwrap();
+        assert_eq!(store.load().unwrap().host.as_deref(), Some("sis8.pup.edu.ph"));
+        assert_ne!(header(&path), b"SQLite format 3\0");
+        assert!(!path.with_extension("sqlite.enc").exists());
+    }
+
+    #[test]
+    fn a_half_finished_migration_is_redone() {
+        let path = scratch("crash");
+        let plain = Connection::open(&path).unwrap();
+        plain.execute_batch("CREATE TABLE kv (key TEXT PRIMARY KEY, json TEXT NOT NULL); INSERT INTO kv VALUES ('host', '\"sis8.pup.edu.ph\"');").unwrap();
+        drop(plain);
+        std::fs::write(path.with_extension("sqlite.enc"), b"half a file").unwrap();
+
+        let store = Store::open(&path, &KEY).unwrap();
+        assert_eq!(store.load().unwrap().host.as_deref(), Some("sis8.pup.edu.ph"));
+        assert!(!path.with_extension("sqlite.enc").exists());
     }
 }
