@@ -67,6 +67,36 @@ export const ISKO_WAVE = [
   ...ISKO_BODY.slice(4),
 ];
 
+/** Both arms up: a finished study session, a goal met. */
+export const ISKO_CHEER = [
+  ".f..hhhhhh..f.",
+  ".f.hHHhhhhh.f.",
+  ".fhhhhhhhhhhf.",
+  ".WhhffffffhhW.",
+  ".WhffeffefhhW.",
+  ".W.ffffffff.W.",
+  ".WWffffffffWW.",
+  "..W.fffmff.W..",
+  "...W.FffF.W...",
+  "..rrWwgwwWrr..",
+  "..WwwwgwwwwW..",
+  "..WwwwgwwwwW..",
+  "..WwwwiiwwwW..",
+  ...ISKO_BODY.slice(4),
+];
+
+/** The study streak's flame, 7x9: two frames that flicker. */
+export const FLAME = [
+  ["...r...", "..rr...", "..rrr..", ".rryrr.", ".ryyyr.", "rryywyr", "ryywwyr", "ryywwyr", ".rryyr."],
+  ["....r..", "...rr..", "..rrr..", ".rryrr.", ".ryyyrr", "rryyyyr", "ryywwyr", "ryywwyr", ".rryyr."],
+] as const;
+
+export const FLAME_COLORS: Record<string, string> = {
+  r: "#c2403a",
+  y: "#f5b227",
+  w: "#fff1c4",
+};
+
 export const ISKO_COLORS: Record<string, string> = {
   h: "#1d1717",
   H: "#3a2f2c",

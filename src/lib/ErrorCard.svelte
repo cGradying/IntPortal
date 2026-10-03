@@ -1,13 +1,13 @@
 <script lang="ts">
-  // What every screen shows when its data couldn't load: Isko, what went
-  // wrong in plain words, and a way to try again.
-  import Isko from "./Isko.svelte";
+  // What every screen shows when its data couldn't load: LAR, surprised,
+  // what went wrong in plain words, and a way to try again.
+  import Lar from "./lar/Lar.svelte";
 
   let { error, onretry }: { error: string; onretry: () => void } = $props();
 </script>
 
 <section class="card notch problem" role="alert">
-  <Isko size={48} wave={false} />
+  <Lar size={2} mood="wow" cube={false} />
   <div>
     <p class="what">Couldn't load this</p>
     <p class="why">{error}</p>
@@ -21,7 +21,7 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 16px;
+    padding: 20px 16px 16px;
   }
   .what {
     margin: 0;

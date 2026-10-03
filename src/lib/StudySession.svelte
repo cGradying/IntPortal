@@ -6,6 +6,8 @@
   // One pass through a deck's due cards (every card when none is due, as
   // practice). Flashcards take the student's own rating; typed and
   // multiple-choice answers rate themselves: right is Good, wrong is Again.
+  import Confetti from "./Confetti.svelte";
+  import Isko from "./Isko.svelte";
   import { api, isoDate, type Card, type Deck, type Rating } from "./api";
   import { buzz } from "./haptics";
 
@@ -29,6 +31,8 @@
 
   const card = $derived(queue[index]);
   const finished = $derived(index >= queue.length);
+  // Four in five remembered is worth a cheer.
+  const great = $derived(queue.length > 0 && right / queue.length >= 0.8);
 
   function shuffle<T>(xs: T[]): T[] {
     const a = [...xs];
@@ -87,6 +91,8 @@
 
   {#if finished}
     <section class="card notch face">
+      {#if great}<Confetti />{/if}
+      <div class="isko"><Isko size={72} pose={great ? "cheer" : "stand"} /></div>
       <p class="label">Done</p>
       <h2>{right} of {queue.length} remembered</h2>
       <p class="fine">{practice ? "Practice round: the schedule is unchanged." : "FSRS has scheduled each card for when you're about to forget it."}</p>
@@ -166,7 +172,11 @@
     background: var(--gold);
     transition: width 0.3s var(--ease);
   }
+  .isko {
+    justify-self: center;
+  }
   .face {
+    position: relative;
     --step: 4px;
     display: grid;
     gap: 8px;

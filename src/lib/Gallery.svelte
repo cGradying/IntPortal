@@ -2,12 +2,16 @@
   // Review-build gallery: every pixel piece in one scroll, in the current room.
   import CampusStrip from "./CampusStrip.svelte";
   import Glance from "./Glance.svelte";
+  import Flame from "./Flame.svelte";
   import Isko from "./Isko.svelte";
+  import Lar from "./lar/Lar.svelte";
+  import { MOODS } from "./lar/sprite";
   import Jeepney from "./Jeepney.svelte";
   import { glanceView } from "./glance";
   import PixelIcon, { SPRITES, type SpriteName } from "./PixelIcon.svelte";
   import Scene, { SCENES } from "./Scene.svelte";
 
+  const GESTURES = ["idle", "wave", "point", "reach", "thumbs"] as const;
   let { onclose }: { onclose: () => void } = $props();
   const hours = [6, 9, 12.5, 17.4, 18.6, 22];
   const states = [
@@ -29,9 +33,22 @@
 
   <p class="label">Isko (for your approval)</p>
   <div class="row">
-    <figure class="card notch icon"><Isko size={96} wave={false} /><figcaption>standing</figcaption></figure>
+    <figure class="card notch icon"><Isko size={96} pose="stand" /><figcaption>standing</figcaption></figure>
     <figure class="card notch icon"><Isko size={96} /><figcaption>waving</figcaption></figure>
+    <figure class="card notch icon"><Isko size={96} pose="cheer" /><figcaption>cheering</figcaption></figure>
     <figure class="card notch icon"><Isko size={48} /><figcaption>small</figcaption></figure>
+  </div>
+
+  <p class="label">LAR, the Lakbay-Aral Robot</p>
+  <div class="row">
+    {#each MOODS as mood (mood)}<figure class="card notch icon"><Lar size={3} {mood} cube={false} /><figcaption>{mood}</figcaption></figure>{/each}
+    {#each GESTURES as gesture (gesture)}<figure class="card notch icon"><Lar size={3} {gesture} /><figcaption>{gesture}</figcaption></figure>{/each}
+  </div>
+
+  <p class="label">Streak flame</p>
+  <div class="row">
+    <figure class="card notch icon"><Flame size={36} /><figcaption>flicker</figcaption></figure>
+    <figure class="card notch icon"><Flame /><figcaption>inline</figcaption></figure>
   </div>
 
   <p class="label">Campus through the day</p>

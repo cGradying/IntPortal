@@ -3,6 +3,8 @@
   // streak, and a way in to each deck.
   import DeckPage from "../DeckPage.svelte";
   import ErrorCard from "../ErrorCard.svelte";
+  import Flame from "../Flame.svelte";
+  import LarNote from "../LarNote.svelte";
   import Skeleton from "../Skeleton.svelte";
   import { api, isoDate } from "../api";
   import { buzz } from "../haptics";
@@ -46,7 +48,7 @@
 
     <section class="card notch sum">
       <div><p class="label">Due now</p><p class="big num">{overview?.due ?? 0}</p></div>
-      <div><p class="label">Streak</p><p class="big num">{overview?.streak ?? 0}<small> {overview?.streak === 1 ? "day" : "days"}</small></p></div>
+      <div><p class="label">Streak</p><p class="big num">{#if overview?.streak}<Flame />{/if}{overview?.streak ?? 0}<small> {overview?.streak === 1 ? "day" : "days"}</small></p></div>
       <div><p class="label">Today</p><p class="big num">{overview?.reviews_today ?? 0}<small> cards</small></p></div>
     </section>
 
@@ -72,7 +74,7 @@
     {:else if study.current.state === "failed"}
       <ErrorCard error={study.current.error} onretry={study.reload} />
     {:else if overview && overview.decks.length === 0}
-      <p class="fine">No decks yet. Make one per subject or per exam, then paste your terms in as "term - meaning".</p>
+      <LarNote gesture="wave">No decks yet. Make one per subject or per exam, then paste your terms in as "term - meaning".</LarNote>
     {/if}
     <ul class="decks">
       {#each overview?.decks ?? [] as d (d.id)}
@@ -159,11 +161,6 @@
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
-  }
-  .fine {
-    margin: 0;
-    font-size: min(0.765rem, 23px);
-    color: var(--ink-3);
   }
   .problem {
     margin: 0;

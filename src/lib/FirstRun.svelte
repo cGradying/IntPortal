@@ -4,13 +4,14 @@
   // phone for notification permission unprompted).
   import { buzz } from "./haptics";
   import Isko from "./Isko.svelte";
+  import Lar from "./lar/Lar.svelte";
   import { app, scheduleReminders } from "./state.svelte";
 
   let { ondone }: { ondone: () => void } = $props();
   let step = $state(0);
 
   const steps = [
-    { title: "Hi, I'm Isko.", body: "Your schedule, grades, notes and study cards, in one place. I'll count down to your next class and keep an eye on what's due." },
+    { title: "Meet IskoLAR.", body: "You're Isko. I'm LAR, the Lakbay-Aral Robot, here to study with you. Your schedule, grades, notes and study cards are in one place, and I'll count down to your next class." },
     { title: "Everything stays on this phone.", body: "Your login sits in the phone's keychain. IntPortal only talks to PUP SIS, and your notes and decks never leave the device." },
     { title: "Want a heads-up before class?", body: "A nudge 10 minutes before each class, and the evening before quizzes and exams. You can change or turn these off on You." },
   ];
@@ -32,7 +33,7 @@
 </script>
 
 <div class="first" role="dialog" aria-label="Welcome">
-  <div class="art"><Isko size={120} /></div>
+  <div class="art"><Isko size={120} /><Lar size={4} gesture="wave" /></div>
   <div class="card notch text">
     <p class="label">{step + 1} of {steps.length}</p>
     <h1>{steps[step].title}</h1>
@@ -61,7 +62,9 @@
   }
   .art {
     display: flex;
+    align-items: end;
     justify-content: center;
+    gap: 18px;
     padding-bottom: 8px;
   }
   .text {

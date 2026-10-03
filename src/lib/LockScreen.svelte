@@ -10,7 +10,7 @@
 </script>
 
 <div class="cover" role="dialog" aria-label="IntPortal is locked">
-  <Isko size={96} wave={false} />
+  <Isko size={96} pose="stand" />
   <p class="wordmark"><span>Student</span> IntPortal</p>
   {#if lock.locked && !lock.hidden}
     <button onclick={unlock}>Unlock</button>

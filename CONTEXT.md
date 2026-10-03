@@ -43,12 +43,24 @@ The dark space the app opens into before sign-in, where the portal forms.
 _Avoid_: splash, launch screen
 
 **Portal**:
-The gate that the student steps through to reach a system.
+The gate that the student steps through to reach a system. Its frame is built from pentomino pieces.
 _Avoid_: door, gateway; never use it for the SIS website
 
 **Hub**:
-The ring of portals the student chooses from. Only PUP SIS is live; the rest are locked.
+The landing once the student is signed in: the lit portal, LAR, and Step through.
 _Avoid_: home, launcher
+
+**Isko**:
+The pixel student who stands for the student using the app. Isko never talks; Isko waves, cheers and keeps the streak.
+_Avoid_: mascot, avatar, user (in copy)
+
+**LAR**:
+The Lakbay-Aral Robot, a small robot from the other side of the portal who came to study with Isko. LAR is the app's voice: the coach line, tips, empty states and errors.
+_Avoid_: bot, assistant, Isko 3.0
+
+**IskoLAR**:
+Isko and LAR together, as a team. The name echoes "Iskolar ng Bayan".
+_Avoid_: Isko and friend, the mascots
 
 **Campus scene**:
 The living pixel scene of PUP Sta. Mesa behind the hub. Its sky follows the real time of day, and the next class is a lit window.
