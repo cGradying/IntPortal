@@ -45,15 +45,22 @@ struct GlanceProvider: TimelineProvider {
     GlanceEntry(date: .now, next: NextClass(code: "COMP 20073", title: "Data Structures", start: (Date.now.timeIntervalSince1970 + 1500) * 1000, end: (Date.now.timeIntervalSince1970 + 6900) * 1000, online: false), line: "")
   }
 
+  /// Without the App Group (a free Apple team) the app can't share the next
+  /// class, so syncing won't help; say where to look instead.
+  var empty: String {
+    FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) == nil
+      ? "Open IntPortal to see your next class" : "Open IntPortal to sync"
+  }
+
   func getSnapshot(in context: Context, completion: @escaping (GlanceEntry) -> Void) {
     let f = read()
-    completion(GlanceEntry(date: .now, next: f?.next, line: f?.line ?? "Open IntPortal to sync"))
+    completion(GlanceEntry(date: .now, next: f?.next, line: f?.line ?? empty))
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<GlanceEntry>) -> Void) {
     let f = read()
     let now = Date.now
-    var entries = [GlanceEntry(date: now, next: f?.next, line: f?.line ?? "Open IntPortal to sync")]
+    var entries = [GlanceEntry(date: now, next: f?.next, line: f?.line ?? empty)]
     if let n = f?.next, n.endDate > now {
       if n.startDate > now { entries.append(GlanceEntry(date: n.startDate, next: n, line: f?.line ?? "")) }
       entries.append(GlanceEntry(date: n.endDate, next: nil, line: "Open IntPortal for what's next"))

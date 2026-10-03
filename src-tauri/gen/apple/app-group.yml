@@ -1,0 +1,9 @@
+targets:
+  intportal_iOS:
+    entitlements:
+      properties:
+        com.apple.security.application-groups: [group.ph.intportal.app]
+  IntPortalWidget:
+    entitlements:
+      properties:
+        com.apple.security.application-groups: [group.ph.intportal.app]
