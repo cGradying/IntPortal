@@ -30,8 +30,11 @@
   let steppedAt = $state<number | null>(null);
   const moment = $derived(landingAt(t, { returning, reduce, steppedAt }));
   const resting = $derived(moment.phase === "rest");
-  // The card needs room, so the portal sits higher above it.
-  let lift = $state(returning ? 0.08 : 0.2);
+  // The card needs room, so the portal sits higher above it; once signed
+  // in, the camera moves in and the portal comes down to meet Step through.
+  const frameFor = (at: "signin" | "hub") => (at === "hub" ? { lift: 0.06, span: 13 } : { lift: 0.2, span: 16.5 });
+  let lift = $state(frameFor(returning ? "hub" : "signin").lift);
+  let span = $state(frameFor(returning ? "hub" : "signin").span);
 
   let campus = $state<CampusResolution>({ kind: "incomplete" });
   $effect(() => {
@@ -60,8 +63,9 @@
     let lit = false;
     const frame = (now: number) => {
       t = (now - start) / 1000;
-      const target = rest === "hub" ? 0.08 : 0.2;
-      lift += (target - lift) * 0.08;
+      const want = frameFor(rest);
+      lift += (want.lift - lift) * 0.08;
+      span += (want.span - span) * 0.08;
       const m = moment;
       if (m.placed > placed) buzz.tick();
       placed = m.placed;
@@ -121,7 +125,7 @@
 </script>
 
 <section class="landing" class:leaving={steppedAt !== null}>
-  <PortalStage {moment} {t} {lift} {mood} {gesture} still={typing} />
+  <PortalStage {moment} {t} {lift} {span} {mood} {gesture} still={typing} />
 
   <header class="brand" class:on={resting}>
     <h1>Student <span>IntPortal</span></h1>
@@ -142,9 +146,10 @@
             {:else if campus.kind === "unknown_code"}<small class="campus dim">{campus.code} · campus not confirmed yet, sign-in still works</small>{/if}
           </label>
           <div class="pair">
-            <label>
+            <label class="date" class:empty={!birthday}>
               <span>Birthdate</span>
               <input type="date" bind:value={birthday} />
+              <i aria-hidden="true">mm / dd / yyyy</i>
             </label>
             <label>
               <span>Password</span>
@@ -191,7 +196,7 @@
   h1 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: min(1.294rem, 29px);
+    font-size: min(1.529rem, 34px);
     font-weight: 700;
     letter-spacing: -0.01em;
     color: #f5b227;
@@ -207,6 +212,8 @@
     display: grid;
     gap: 10px;
     animation: rise 0.7s var(--ease) both;
+    /* On the unclipped parent: the card's clip-path would cut its own shadow. */
+    filter: drop-shadow(0 -10px 30px rgb(0 0 0 / 0.5));
   }
   .dock.hub {
     justify-items: center;
@@ -253,9 +260,7 @@
     gap: 12px;
     padding: 16px 16px 12px;
     background: #140c16;
-    box-shadow:
-      inset 0 0 0 1px rgb(245 178 39 / 0.16),
-      0 -12px 40px rgb(0 0 0 / 0.5);
+    box-shadow: inset 0 0 0 1px rgb(245 178 39 / 0.16);
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
   }
   label {
@@ -288,9 +293,34 @@
     font: max(16px, min(0.941rem, 29px)) var(--font-body);
     caret-color: #f5b227;
     outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  /* iOS draws an empty date field as a blank slab; give it a hint. */
+  .date {
+    position: relative;
+  }
+  .date input {
+    display: flex;
+    align-items: center;
+  }
+  .date input::-webkit-date-and-time-value {
+    text-align: left;
+  }
+  .date i {
+    position: absolute;
+    left: 12px;
+    bottom: 13px;
+    display: none;
+    font-style: normal;
+    color: rgb(255 255 255 / 0.58);
+    pointer-events: none;
+  }
+  .date.empty i {
+    display: block;
   }
   input::placeholder {
-    color: rgb(255 255 255 / 0.32);
+    color: rgb(255 255 255 / 0.58);
   }
   input:focus {
     box-shadow: inset 0 0 0 2px #f5b227;
@@ -318,6 +348,17 @@
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
     box-shadow: inset 0 -3px 0 #b87a10;
   }
+  .go:focus-visible,
+  .step:focus-visible {
+    outline: none;
+    box-shadow:
+      inset 0 0 0 3px #fff6dc,
+      inset 0 -3px 0 #b87a10;
+  }
+  .demo:focus-visible {
+    outline: 2px solid #f5b227;
+    outline-offset: 3px;
+  }
   .go:active,
   .step:active {
     box-shadow: inset 0 3px 0 #b87a10;
@@ -339,6 +380,7 @@
     margin: 0;
     font-size: min(0.706rem, 22px);
     text-align: center;
+    text-wrap: balance;
     color: rgb(244 236 216 / 0.5);
   }
   .hint {

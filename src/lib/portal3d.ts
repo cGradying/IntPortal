@@ -62,11 +62,14 @@ void main() {
   vec2 uv = (vUv - 0.5) * vec2(uAspect, 1.0) * uScale;
   float t = uTime;
   float d = length(uv * vec2(1.25, 0.8));
-  float a = atan(uv.y, uv.x) + t * 0.28 * uSpeed + d * 3.2 + uDepth * 1.7;
+  float a = atan(uv.y, uv.x) + t * 0.28 * uSpeed + d * 5.5 + uDepth * 1.7;
   vec2 q = vec2(cos(a), sin(a)) * d * 2.4;
   float v = fbm(q * 2.2 + vec2(uDepth * 3.1, -t * 0.5 * uSpeed));
   v += 0.22 * sin(uv.x * 16.0 + fbm(uv * 3.0 + t * 0.25 * uSpeed) * 7.0 + t * 1.6 * uSpeed);
-  v = clamp(v * 0.95 + (0.55 - d) * 0.55, 0.0, 1.0);
+  v = clamp(v * 0.95 + (0.55 - d) * 0.55 + max(0.0, 0.16 - d) * 2.6, 0.0, 1.0);
+  // The rim falls into shadow, so the opening reads as a tunnel, not a curtain.
+  float edge = min(min(vUv.x, 1.0 - vUv.x) * uAspect, min(vUv.y, 1.0 - vUv.y));
+  if (uDepth < 0.5) v *= mix(0.25, 1.0, smoothstep(0.0, 0.16, edge));
   v *= smoothstep(uLit * 1.3, uLit * 1.3 - 0.35, d / uScale) * (0.35 + 0.65 * uLit);
   float k = clamp(floor(v * 4.0 + bayer(gl_FragCoord.xy) - 0.5), 0.0, 4.0);
   vec3 col = k < 0.5 ? c0 : k < 1.5 ? c1 : k < 2.5 ? c2 : k < 3.5 ? c3 : c4;
@@ -301,7 +304,14 @@ export function createPortalScene(canvas: HTMLCanvasElement) {
   const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 200);
   // Every frame renders small into this target, then scales up with nearest
   // filtering: that's the pixel look.
-  const target = new THREE.WebGLRenderTarget(1, 1, { magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, stencilBuffer: true });
+  // Half float: an 8-bit target holding linear values rounds the night
+  // ground (#0b0710) and the obsidian's deepest purples down to grey.
+  const target = new THREE.WebGLRenderTarget(1, 1, {
+    magFilter: THREE.NearestFilter,
+    minFilter: THREE.NearestFilter,
+    stencilBuffer: true,
+    type: THREE.HalfFloatType,
+  });
   const blitScene = new THREE.Scene();
   const blitMat = new THREE.MeshBasicMaterial({ map: target.texture });
   blitScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), blitMat));

@@ -15,10 +15,11 @@
     moment,
     t,
     lift,
+    span = 15,
     mood,
     gesture,
     still = false,
-  }: { moment: Moment; t: number; lift: number; mood: Mood; gesture: Gesture; still?: boolean } = $props();
+  }: { moment: Moment; t: number; lift: number; span?: number; mood: Mood; gesture: Gesture; still?: boolean } = $props();
 
   // Art pixels are this many CSS px, for the portal and for LAR alike.
   const CELL = 3;
@@ -46,10 +47,9 @@
     drag = 0;
   };
 
-  // Far enough back that the frame and the stones fit the screen's width.
+  // Far enough back that `span` world units fit the screen's width.
   let aspect = 0.46;
-  const SPAN = 15;
-  const fit = (fov: number) => SPAN / (2 * Math.tan((fov * Math.PI) / 360) * Math.min(aspect, 0.75));
+  const fit = (fov: number) => span / (2 * Math.tan((fov * Math.PI) / 360) * Math.min(aspect, 0.75));
 
   function camFor(m: Moment, now: number): Cam {
     sway = lerp(sway, drag, 0.12);
@@ -182,8 +182,10 @@
   {#each STONES as s, i (s.name)}
     {@const p = stones[i]}
     <span class="stone" style:transform="translate({p.x}px, {p.y}px) translate(-50%, -50%) scale({0.4 + p.k * 0.6})" style:opacity={p.k}>
-      <PixelIcon name={s.icon} size={18} accent="#f5b227" />
-      <span>{s.name}</span>
+      <span class="face" class:east={s.at[0] < 0}>
+        <PixelIcon name={s.icon} size={18} accent="#f5b227" />
+        <span>{s.name}</span>
+      </span>
     </span>
   {/each}
   {#if lar.show}
@@ -220,20 +222,45 @@
   .lar {
     transform-origin: 50% 100%;
   }
+  /* The shadow sits on the unclipped wrapper; clip-path would cut it off the face. */
   .stone {
+    filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.5));
+  }
+  /* A slab of the frame's own obsidian: flecks, a lit top edge, and the
+     swirl's warm light on the side that faces the portal. */
+  .face {
     display: grid;
     justify-items: center;
     gap: 3px;
     padding: 8px 9px 6px;
-    background: #170b1a;
+    background:
+      linear-gradient(to left, rgb(148 28 48 / 0.32), transparent 60%),
+      radial-gradient(circle at 30% 40%, #4a2c58 1.5px, transparent 2px) 0 0 / 13px 11px,
+      radial-gradient(circle at 70% 70%, #4a2c58 1px, transparent 1.5px) 5px 3px / 17px 13px,
+      #170b1a;
     box-shadow:
-      inset 0 2px 0 #3a2446,
-      inset 0 -2px 0 #060307,
-      0 6px 14px rgb(0 0 0 / 0.45);
+      inset 0 3px 0 #5a3a6c,
+      inset 0 -3px 0 #060307;
     font-family: var(--font-pixel);
     font-size: min(0.647rem, 14px);
     letter-spacing: 0.04em;
     color: #f4e8d6;
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
+  }
+  .face.east {
+    background:
+      linear-gradient(to right, rgb(148 28 48 / 0.32), transparent 60%),
+      radial-gradient(circle at 30% 40%, #4a2c58 1.5px, transparent 2px) 0 0 / 13px 11px,
+      radial-gradient(circle at 70% 70%, #4a2c58 1px, transparent 1.5px) 5px 3px / 17px 13px,
+      #170b1a;
+  }
+  /* Motes drift under the status bar, not across the clock. */
+  .stage::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: calc(var(--safe-top) + 8px);
+    background: linear-gradient(#0b0710 70%, transparent);
+    pointer-events: none;
   }
 </style>
