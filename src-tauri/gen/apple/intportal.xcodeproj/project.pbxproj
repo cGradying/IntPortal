@@ -9,26 +9,62 @@
 /* Begin PBXBuildFile section */
 		0D172B9F8F35F79DFA8BF89E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E040048634C428F4750461AC /* UIKit.framework */; };
 		1396613C04CB2D0C7591900D /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = BE8178D472E44FCEB29C8BD9 /* libapp.a */; };
+		1F1D103BCD14A7C3D8B3C4E3 /* ClassActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DE2142257A3B75159C7B19 /* ClassActivityAttributes.swift */; };
 		20C34D7DC49F7DFCDB0056AD /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C882EA8EEA5E4B2FB7F01FE8 /* Security.framework */; };
 		4D4EEF753ED152470D5EC36D /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E759ABB798141FA68FF83F61 /* CoreGraphics.framework */; };
 		51DFA6E4D97D52A0C9D1E3B5 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 35FC69EEBAE5DA5CD3DBBE25 /* Metal.framework */; };
 		5E703679A8B9B1D9CCF646DB /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 483AB9CFE671473096922DD6 /* main.mm */; };
 		7329EB01BC25BA15C2B7A8D6 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = F1635BFED8487BEC383BD5EE /* assets */; };
+		75DA33F67017985BCDF7C55A /* IntPortalWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4EA35368E4CB6DB9E932B0CC /* IntPortalWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		870A9CE0A503C9EFB4980A4E /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2CD7DB16A705E03AAA683621 /* WebKit.framework */; };
 		9D7C1CA943BFF398E0B1DDC2 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9D1FD84031D37C593081AA4F /* QuartzCore.framework */; };
 		AE535D7814E15CD6B102BDC7 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6AD0AB242D4515F1837E1F84 /* LaunchScreen.storyboard */; };
+		B7EF26BD75D75E9946CF9516 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 097E4A98C0B0249301C9A61F /* WidgetKit.framework */; };
 		C39874D823E51A2675757ADE /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0330B62E2010597B96BFE487 /* MetalKit.framework */; };
 		C504069F38050991543743A6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F5BDCCFBBF0D061C5EC8A397 /* Assets.xcassets */; };
+		D3B51C80C7ADBD4055B87E85 /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = 114D7A044B5F8BCD9EADE297 /* libapp.a */; };
+		D4BC89AD98D2061C4C3572AA /* IntPortalWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F3DEDEA2924CF1B1E5CF1A8 /* IntPortalWidget.swift */; };
+		E59DAED65B2E00392A8348EA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 559FA6EC5B4A91C07F91E25E /* SwiftUI.framework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A6B0DBB3551D1A4CE3EC5395 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BB7C12A16B1222142D93AF8E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EC4E9EF9C9FD3D303DC2CBE3;
+			remoteInfo = IntPortalWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7BAC02E0D7ED97E3B6B60462 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				75DA33F67017985BCDF7C55A /* IntPortalWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0330B62E2010597B96BFE487 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		097E4A98C0B0249301C9A61F /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		114D7A044B5F8BCD9EADE297 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		11B97796E4ACADCDECB371E4 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+		11BF2D782547C19DCB2FDE8D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		2CD7DB16A705E03AAA683621 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		35FC69EEBAE5DA5CD3DBBE25 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		483AB9CFE671473096922DD6 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		4EA35368E4CB6DB9E932B0CC /* IntPortalWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = IntPortalWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		559FA6EC5B4A91C07F91E25E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		5BDC563D392A0363ACC30F5B /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		6AD0AB242D4515F1837E1F84 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		6F3DEDEA2924CF1B1E5CF1A8 /* IntPortalWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntPortalWidget.swift; sourceTree = "<group>"; };
 		98987BEEADE75A8DCD4F0BCC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9D1FD84031D37C593081AA4F /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		B4DA6565A206C171FCBE744B /* intportal_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = intportal_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -37,12 +73,23 @@
 		CF69EC33F8806920B70C9141 /* intportal_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = intportal_iOS.entitlements; sourceTree = "<group>"; };
 		D0B1C9A76B1024AB4972F8A1 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
 		E040048634C428F4750461AC /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		E5DE2142257A3B75159C7B19 /* ClassActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassActivityAttributes.swift; sourceTree = "<group>"; };
 		E759ABB798141FA68FF83F61 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		ED0B3CBE0568924A85CFE881 /* IntPortalWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IntPortalWidget.entitlements; sourceTree = "<group>"; };
 		F1635BFED8487BEC383BD5EE /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		F5BDCCFBBF0D061C5EC8A397 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		22AE008B7B3DAE2A52897225 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B7EF26BD75D75E9946CF9516 /* WidgetKit.framework in Frameworks */,
+				E59DAED65B2E00392A8348EA /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7DBA48F0491F784E37219BD8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -61,6 +108,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0EC0EC70B989F71C983398CE /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				E5DE2142257A3B75159C7B19 /* ClassActivityAttributes.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		292CFFBC17DFCB572B5C4C0D /* intportal_iOS */ = {
 			isa = PBXGroup;
 			children = (
@@ -70,11 +125,30 @@
 			path = intportal_iOS;
 			sourceTree = "<group>";
 		};
+		2E8F8895DAFA894C19E68AB2 /* IntPortalWidget */ = {
+			isa = PBXGroup;
+			children = (
+				11BF2D782547C19DCB2FDE8D /* Info.plist */,
+				ED0B3CBE0568924A85CFE881 /* IntPortalWidget.entitlements */,
+				6F3DEDEA2924CF1B1E5CF1A8 /* IntPortalWidget.swift */,
+			);
+			path = IntPortalWidget;
+			sourceTree = "<group>";
+		};
 		3DC1EDECB8DF494EE5B5F1C4 /* Externals */ = {
 			isa = PBXGroup;
 			children = (
+				85B62DDAA9CABF0BFFCF70F7 /* arm64 */,
 			);
 			path = Externals;
+			sourceTree = "<group>";
+		};
+		4F4658A24518CA96497CB771 /* debug */ = {
+			isa = PBXGroup;
+			children = (
+				114D7A044B5F8BCD9EADE297 /* libapp.a */,
+			);
+			path = debug;
 			sourceTree = "<group>";
 		};
 		6405CDB56759A1B2686E94E1 = {
@@ -85,6 +159,8 @@
 				6AD0AB242D4515F1837E1F84 /* LaunchScreen.storyboard */,
 				3DC1EDECB8DF494EE5B5F1C4 /* Externals */,
 				292CFFBC17DFCB572B5C4C0D /* intportal_iOS */,
+				2E8F8895DAFA894C19E68AB2 /* IntPortalWidget */,
+				0EC0EC70B989F71C983398CE /* Shared */,
 				7A0AA39B0322047DF10F8BA6 /* Sources */,
 				CB89EF0553C80A9F83176DE6 /* src */,
 				79E094DF9CB05AC7672CA70C /* Frameworks */,
@@ -101,8 +177,10 @@
 				0330B62E2010597B96BFE487 /* MetalKit.framework */,
 				9D1FD84031D37C593081AA4F /* QuartzCore.framework */,
 				C882EA8EEA5E4B2FB7F01FE8 /* Security.framework */,
+				559FA6EC5B4A91C07F91E25E /* SwiftUI.framework */,
 				E040048634C428F4750461AC /* UIKit.framework */,
 				2CD7DB16A705E03AAA683621 /* WebKit.framework */,
+				097E4A98C0B0249301C9A61F /* WidgetKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -113,6 +191,14 @@
 				E360235D4B6AC99B188F8D42 /* intportal */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		85B62DDAA9CABF0BFFCF70F7 /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+				4F4658A24518CA96497CB771 /* debug */,
+			);
+			path = arm64;
 			sourceTree = "<group>";
 		};
 		BFB12A3F54C17B0F7AA02A43 /* bindings */ = {
@@ -146,8 +232,16 @@
 			isa = PBXGroup;
 			children = (
 				B4DA6565A206C171FCBE744B /* intportal_iOS.app */,
+				4EA35368E4CB6DB9E932B0CC /* IntPortalWidget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		"TEMP_4FB48823-2059-4B2F-873C-A74CE79147C3" /* x86_64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = x86_64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -161,10 +255,12 @@
 				D0AC77F70AAFAA29336A21A0 /* Sources */,
 				65473075658E8999D60FFE2B /* Resources */,
 				7DBA48F0491F784E37219BD8 /* Frameworks */,
+				7BAC02E0D7ED97E3B6B60462 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A7ECB9904BDFD5C4B7336B10 /* PBXTargetDependency */,
 			);
 			name = intportal_iOS;
 			packageProductDependencies = (
@@ -172,6 +268,24 @@
 			productName = intportal_iOS;
 			productReference = B4DA6565A206C171FCBE744B /* intportal_iOS.app */;
 			productType = "com.apple.product-type.application";
+		};
+		EC4E9EF9C9FD3D303DC2CBE3 /* IntPortalWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2F4291F887F2103EEC24F5B5 /* Build configuration list for PBXNativeTarget "IntPortalWidget" */;
+			buildPhases = (
+				4411934910DFEBB3C64C47FA /* Sources */,
+				22AE008B7B3DAE2A52897225 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IntPortalWidget;
+			packageProductDependencies = (
+			);
+			productName = IntPortalWidget;
+			productReference = 4EA35368E4CB6DB9E932B0CC /* IntPortalWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -199,6 +313,7 @@
 			projectRoot = "";
 			targets = (
 				43E9F63F1D4DB3C72DAC2E00 /* intportal_iOS */,
+				EC4E9EF9C9FD3D303DC2CBE3 /* IntPortalWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -211,6 +326,7 @@
 				C504069F38050991543743A6 /* Assets.xcassets in Resources */,
 				AE535D7814E15CD6B102BDC7 /* LaunchScreen.storyboard in Resources */,
 				7329EB01BC25BA15C2B7A8D6 /* assets in Resources */,
+				D3B51C80C7ADBD4055B87E85 /* libapp.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -241,6 +357,15 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		4411934910DFEBB3C64C47FA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1F1D103BCD14A7C3D8B3C4E3 /* ClassActivityAttributes.swift in Sources */,
+				D4BC89AD98D2061C4C3572AA /* IntPortalWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D0AC77F70AAFAA29336A21A0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -250,6 +375,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A7ECB9904BDFD5C4B7336B10 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EC4E9EF9C9FD3D303DC2CBE3 /* IntPortalWidget */;
+			targetProxy = A6B0DBB3551D1A4CE3EC5395 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		414DE2D0707FB16FE14F4214 /* release */ = {
@@ -280,6 +413,29 @@
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
+			};
+			name = release;
+		};
+		7CAD71DE994C59614A7EDE7A /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					arm64,
+				);
+				CODE_SIGN_ENTITLEMENTS = IntPortalWidget/IntPortalWidget.entitlements;
+				INFOPLIST_FILE = IntPortalWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ph.intportal.app.widget;
+				PRODUCT_NAME = IntPortalWidget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = release;
 		};
@@ -402,6 +558,29 @@
 			};
 			name = release;
 		};
+		CE907E93638B0C5C284B4003 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					arm64,
+				);
+				CODE_SIGN_ENTITLEMENTS = IntPortalWidget/IntPortalWidget.entitlements;
+				INFOPLIST_FILE = IntPortalWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ph.intportal.app.widget;
+				PRODUCT_NAME = IntPortalWidget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = debug;
+		};
 		E8A728EE1630E0A040D91D14 /* debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -436,6 +615,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2F4291F887F2103EEC24F5B5 /* Build configuration list for PBXNativeTarget "IntPortalWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CE907E93638B0C5C284B4003 /* debug */,
+				7CAD71DE994C59614A7EDE7A /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
 		A8DF35AB4CEA96B8F95F1208 /* Build configuration list for PBXProject "intportal" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

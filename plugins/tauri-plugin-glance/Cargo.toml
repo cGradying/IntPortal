@@ -1,0 +1,13 @@
+[package]
+name = "tauri-plugin-glance"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Hands the next class to the iOS home-screen widget and Live Activity."
+links = "tauri-plugin-glance"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = "2"

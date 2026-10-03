@@ -2,7 +2,7 @@ name: intportal
 options:
   bundleIdPrefix: ph.intportal.app
   deploymentTarget:
-    iOS: 14.0
+    iOS: "16.0"
 fileGroups: [../../src]
 configs:
   debug: debug
@@ -55,6 +55,8 @@ targets:
         CFBundleVersion: "0.1.0"
     entitlements:
       path: intportal_iOS/intportal_iOS.entitlements
+      properties:
+        com.apple.security.application-groups: [group.ph.intportal.app]
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
@@ -70,6 +72,9 @@ targets:
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
       groups: [app]
     dependencies:
+      - target: IntPortalWidget
+        embed: true
+        codeSign: true
       - framework: libapp.a
         embed: false
       - sdk: CoreGraphics.framework
@@ -86,3 +91,32 @@ targets:
         outputFiles:
           - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a
           - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a
+  IntPortalWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.1"
+    sources:
+      - path: IntPortalWidget
+      - path: Shared
+    info:
+      path: IntPortalWidget/Info.plist
+      properties:
+        CFBundleDisplayName: IntPortal
+        CFBundleShortVersionString: 0.1.0
+        CFBundleVersion: "0.1.0"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: IntPortalWidget/IntPortalWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.ph.intportal.app]
+    settings:
+      base:
+        PRODUCT_NAME: IntPortalWidget
+        PRODUCT_BUNDLE_IDENTIFIER: ph.intportal.app.widget
+        ARCHS: [arm64]
+        SWIFT_VERSION: "5.0"
+        SKIP_INSTALL: true
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework

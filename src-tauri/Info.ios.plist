@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyLists/1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>IntPortal uses Face ID to keep your notes, grades and schedule private when the app lock is on.</string>
 </dict>
