@@ -1,15 +1,19 @@
 <script lang="ts">
   import Confetti from "../Confetti.svelte";
+  import ErrorCard from "../ErrorCard.svelte";
   import Scene from "../Scene.svelte";
+  import Skeleton from "../Skeleton.svelte";
+  import { resource } from "../load.svelte";
   import { app, adopt, openSubject } from "../state.svelte";
   import { buzz } from "../haptics";
-  import { api, subjectColor, type Reach, type Standing, type SubjectGrade } from "../api";
+  import { api, subjectColor, type Reach, type SubjectGrade } from "../api";
 
-  let standing = $state<Standing | null>(null);
+  const loaded = resource(() => api.standing());
+  const standing = $derived(loaded.current.state === "ready" ? loaded.current.value : null);
   // The core does the math; re-read whenever the snapshot changes.
   $effect(() => {
     void app.snapshot;
-    api.standing().then((st) => (standing = st)).catch(() => {});
+    loaded.reload();
   });
 
   // Which term the list shows: the current one, or a past one by its label.
@@ -171,6 +175,11 @@
   </section>
   <p class="note">Lower is better on PUP's 1.00–5.00 scale. Weighted by units; INC and DRP don't count.</p>
 
+  {#if !viewing && loaded.current.state === "loading"}
+    <Skeleton rows={1} height={150} />
+  {:else if !viewing && loaded.current.state === "failed"}
+    <ErrorCard error={loaded.current.error} onretry={loaded.reload} />
+  {/if}
   {#if standing && !viewing}
     <section class="goals card notch">
       <div class="facts">

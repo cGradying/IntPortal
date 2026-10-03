@@ -2,10 +2,15 @@
   // Decks of flashcards scheduled by FSRS in the core: what's due, the
   // streak, and a way in to each deck.
   import DeckPage from "../DeckPage.svelte";
-  import { api, isoDate, type StudyOverview } from "../api";
+  import ErrorCard from "../ErrorCard.svelte";
+  import Skeleton from "../Skeleton.svelte";
+  import { api, isoDate } from "../api";
+  import { buzz } from "../haptics";
+  import { resource } from "../load.svelte";
   import { app } from "../state.svelte";
 
-  let overview = $state<StudyOverview | null>(null);
+  const study = resource(() => api.study(isoDate(new Date())));
+  const overview = $derived(study.current.state === "ready" ? study.current.value : null);
   let open = $state<string | null>(null);
   let naming = $state(false);
   let name = $state("");
@@ -14,11 +19,6 @@
 
   const subjects = $derived([...new Map((app.snapshot?.sessions ?? []).map((s) => [s.subject_code, s.description])).entries()]);
 
-  async function load() {
-    overview = await api.study(isoDate(new Date()));
-  }
-  load();
-
   async function create() {
     try {
       const deck = await api.saveDeck({ id: crypto.randomUUID(), name: name.trim(), subject: subject || null, cards: [] });
@@ -26,7 +26,8 @@
       name = "";
       subject = "";
       problem = "";
-      await load();
+      buzz.tick();
+      study.reload();
       open = deck.id;
     } catch (e) {
       problem = String(e);
@@ -35,7 +36,7 @@
 </script>
 
 {#if open}
-  <DeckPage id={open} onclose={() => { open = null; load(); }} />
+  <DeckPage id={open} onclose={() => { open = null; study.reload(); }} />
 {:else}
   <div class="screen">
     <header>
@@ -66,7 +67,11 @@
       <button class="primary" onclick={() => (naming = true)}>New deck</button>
     {/if}
 
-    {#if overview && overview.decks.length === 0}
+    {#if study.current.state === "loading"}
+      <Skeleton rows={2} height={64} />
+    {:else if study.current.state === "failed"}
+      <ErrorCard error={study.current.error} onretry={study.reload} />
+    {:else if overview && overview.decks.length === 0}
       <p class="fine">No decks yet. Make one per subject or per exam, then paste your terms in as "term - meaning".</p>
     {/if}
     <ul class="decks">

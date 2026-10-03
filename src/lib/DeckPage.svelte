@@ -1,12 +1,19 @@
 <script lang="ts">
   // One deck: its cards, adding them one by one or pasted, and the way into
   // a study session in one of three modes.
+  import ErrorCard from "./ErrorCard.svelte";
+  import Skeleton from "./Skeleton.svelte";
   import StudySession, { type Mode } from "./StudySession.svelte";
   import { api, type Card, type Deck } from "./api";
+  import { buzz } from "./haptics";
+  import { resource } from "./load.svelte";
 
   let { id, onclose }: { id: string; onclose: () => void } = $props();
 
-  let deck = $state<Deck | null>(null);
+  // svelte-ignore state_referenced_locally
+  const loaded = resource(() => api.deck(id));
+  // Saves write the deck they return straight back here.
+  let deck = $derived(loaded.current.state === "ready" ? loaded.current.value : null);
   let front = $state("");
   let back = $state("");
   let pasting = $state(false);
@@ -17,8 +24,6 @@
   let confirmDelete = $state(false);
   let problem = $state("");
 
-  // svelte-ignore state_referenced_locally
-  api.deck(id).then((d) => (deck = d)).catch((e) => (problem = String(e)));
 
   const now = () => Math.floor(Date.now() / 1000);
   const due = $derived(deck ? deck.cards.filter((c) => c.memory.due <= now()).length : 0);
@@ -28,6 +33,7 @@
     try {
       deck = await api.saveDeck({ ...$state.snapshot(deck), cards } as Deck);
       problem = "";
+      buzz.tick();
     } catch (e) {
       problem = String(e);
     }
@@ -81,6 +87,11 @@
       <p class="label">{deck?.subject ?? "No subject"} · {deck?.cards.length ?? 0} cards · {due} due</p>
     </header>
 
+    {#if loaded.current.state === "loading"}
+      <Skeleton rows={3} height={52} />
+    {:else if loaded.current.state === "failed"}
+      <ErrorCard error={loaded.current.error} onretry={loaded.reload} />
+    {/if}
     {#if deck && deck.cards.length}
       <div class="modes">
         <button class="primary" onclick={() => (studying = "flash")}>Flashcards</button>

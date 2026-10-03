@@ -2,6 +2,7 @@
   import { app, openNote, scheduleReminders, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
   import { api, isoDate } from "../api";
   import { shareFile } from "../share";
+  import { buzz, haptics, setHaptics } from "../haptics";
   import { lock, setLock } from "../lock.svelte";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
 
@@ -144,6 +145,8 @@
         </button>
       {/each}
     </div>
+    <label class="lockrow"><input type="checkbox" checked={haptics.on} onchange={(e) => { setHaptics(e.currentTarget.checked); buzz.tick(); }} /> Haptics</label>
+    <p class="fine">Small taps you feel when you mark a class, pull to sync, finish a deck or unlock.</p>
   </section>
 
   <section class="card notch block">

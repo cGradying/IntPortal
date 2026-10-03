@@ -2,9 +2,11 @@
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
   import { app, openNote, openSubject, syncNow } from "../state.svelte";
+  import ClassSheet from "../ClassSheet.svelte";
   import { ago } from "../glance";
+  import { longpress } from "../press";
   import { buzz } from "../haptics";
-  import { api, clock, isoDate, moment, span, subjectColor, type Nudge, type Standing, type SyllabusItem } from "../api";
+  import { api, clock, isoDate, moment, span, subjectColor, type Meeting, type Nudge, type Standing, type SyllabusItem } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
   const now = $derived((app.today, new Date()));
@@ -16,6 +18,8 @@
   const t = $derived(app.today);
   const next = $derived(t?.next ?? null);
   const items = $derived(t?.agenda.items ?? []);
+  // The class whose quick actions are open, from a long press.
+  let held = $state<Meeting | null>(null);
   const colors = $derived(app.snapshot?.colors ?? {});
   const dayKey = $derived(`day:${isoDate(now)}`);
 
@@ -211,7 +215,14 @@
             <li class="gap" class:past={r.past}><span class="num">{span(r.minutes)} free</span></li>
           {:else}
             {@const s = r.i.session}
-            <li class="class" data-phase={r.i.phase} style:--c={subjectColor(s.subject_code, colors)}>
+            <li><button
+              class="class"
+              data-phase={r.i.phase}
+              style:--c={subjectColor(s.subject_code, colors)}
+              onclick={() => openSubject(s.subject_code, s.description)}
+              use:longpress={() => { buzz.press(); held = r.i; }}
+              aria-label="{s.subject_code}, {clock(s.start)}. Hold for quick actions"
+            >
               <span class="time num">{clock(s.start)}<small>{clock(s.end)}</small></span>
               <span class="stripe"></span>
               <span class="what">
@@ -221,7 +232,7 @@
               {#if r.i.phase === "in_session"}<span class="now">Now</span>{/if}
               {#if r.i.mark === "online"}<span class="tag">Online</span>{/if}
               {#if r.i.moved}<span class="tag">Moved</span>{/if}
-            </li>
+            </button></li>
           {/if}
         {/each}
       </ol>
@@ -233,6 +244,8 @@
     {/if}
   </section>
 </div>
+
+{#if held}<ClassSheet meeting={held} onclose={() => (held = null)} />{/if}
 
 <style>
   .reality {
@@ -500,10 +513,17 @@
     gap: 8px;
   }
   .class {
+    width: 100%;
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    -webkit-touch-callout: none;
+    user-select: none;
     border-radius: 12px;
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
