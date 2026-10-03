@@ -11,6 +11,8 @@ export interface Moment {
   k: number;
   /** Frame pieces locked in place. */
   placed: number;
+  /** Seconds since the first piece began to fall; null when the frame was already standing. */
+  form: number | null;
 }
 
 export interface Opening {
@@ -21,6 +23,8 @@ export interface Opening {
   steppedAt: number | null;
 }
 
+/** The dark beat before the first piece falls. */
+const DARK = 0.4;
 /** Seconds between one piece starting to fall and the next. */
 export const PIECE_GAP = 0.19;
 /** Seconds a piece takes to fall and lock. */
@@ -35,7 +39,7 @@ function segments(o: Opening): [Phase, number][] {
   const build = (PIECES.length - 1) * PIECE_GAP + FALL + SETTLE;
   return o.returning
     ? [["dark", 0.2], ["igniting", 0.5], ["arrival", 0.8], ["glimpse", 0.5]]
-    : [["dark", 0.4], ["assembling", build], ["igniting", 0.7], ["arrival", 1.0], ["glimpse", 0.7]];
+    : [["dark", DARK], ["assembling", build], ["igniting", 0.7], ["arrival", 1.0], ["glimpse", 0.7]];
 }
 
 /** When the sign-in card (or Step through) is reachable. */
@@ -47,22 +51,23 @@ const placedAt = (s: number) => Math.max(0, Math.min(PIECES.length, Math.floor((
 export function landingAt(t: number, o: Opening): Moment {
   const rest = restAt(o);
   const all = PIECES.length;
+  const form = o.returning || o.reduce ? null : t - DARK;
   if (o.steppedAt !== null) {
     const from = Math.max(o.steppedAt, rest);
     if (t >= from) {
       const k = (t - from) / DIVE;
-      return k >= 1 - 1e-9 ? { phase: "entered", k: 1, placed: all } : { phase: "stepping", k, placed: all };
+      return k >= 1 - 1e-9 ? { phase: "entered", k: 1, placed: all, form } : { phase: "stepping", k, placed: all, form };
     }
   }
-  if (t >= rest) return { phase: "rest", k: 1, placed: all };
+  if (t >= rest) return { phase: "rest", k: 1, placed: all, form };
   let start = 0;
   for (const [phase, d] of segments(o)) {
     if (t < start + d) {
       const s = t - start;
       const placed = phase === "dark" ? (o.returning ? all : 0) : phase === "assembling" ? placedAt(s) : all;
-      return { phase, k: s / d, placed };
+      return { phase, k: s / d, placed, form };
     }
     start += d;
   }
-  return { phase: "rest", k: 1, placed: all };
+  return { phase: "rest", k: 1, placed: all, form };
 }
