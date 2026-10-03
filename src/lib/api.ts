@@ -186,6 +186,23 @@ export interface Moment {
   minute: number;
 }
 
+/** One of the student's own calendar events, as busy time. */
+export interface Busy {
+  from: Moment;
+  to: Moment;
+  title: string;
+}
+
+/** One class meeting for the phone's IntPortal calendar. */
+export interface ClassEvent {
+  key: string;
+  title: string;
+  notes: string;
+  date: string;
+  start: number;
+  end: number;
+}
+
 export type Phase = "past" | "in_session" | "upcoming";
 
 export interface Today {
@@ -251,7 +268,8 @@ export const api = {
   setPlan: (subjectCode: string, plan: Plan) => invoke<Snapshot>("set_plan", { subjectCode, plan }),
   tally: (components: Component[], target: number) => invoke<Tally>("tally", { components, target }),
   due: (today: string, days: number) => invoke<[string, SyllabusItem][]>("due", { today, days }),
-  coach: (now: Moment, dismissed: string[]) => invoke<{ nudge: Nudge; line: string; key: string } | null>("coach", { now, dismissed }),
+  coach: (now: Moment, dismissed: string[], busy: Busy[] = []) =>
+    invoke<{ nudge: Nudge; line: string; key: string } | null>("coach", { now, dismissed, busy }),
   study: (today: string) => invoke<StudyOverview>("study", { today }),
   deck: (id: string) => invoke<Deck>("deck", { id }),
   saveDeck: (deck: Deck) => invoke<Deck>("save_deck", { deck }),
@@ -263,7 +281,8 @@ export const api = {
   distractors: (cards: Card[], index: number, seed: number) => invoke<string[]>("distractors", { cards, index, seed }),
   exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until }),
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
-  today: (now: Moment, syncTrouble: string | null) => invoke<Today>("today", { now, syncTrouble }),
+  today: (now: Moment, syncTrouble: string | null, busy: Busy[] = []) => invoke<Today>("today", { now, syncTrouble, busy }),
+  classEvents: (from: string, days: number) => invoke<ClassEvent[]>("class_events", { from, days }),
   reminders: (now: Moment, lead: number, days: number, prefs: { deadlines: number | null; study: number | null; utc_offset: number }) =>
     invoke<Reminder[]>("reminders", { now, lead, days, prefs }),
   campus: (studentNumber: string) => invoke<CampusResolution>("campus", { studentNumber }),
@@ -274,6 +293,12 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 export function isoDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Unix milliseconds for a local date and minute of the day. */
+export function localMs(date: string, minute: number): number {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(y, m - 1, d, Math.floor(minute / 60), minute % 60).getTime();
 }
 
 export function moment(d = new Date()): Moment {

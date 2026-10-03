@@ -10,6 +10,7 @@
   "permissions": [
     "haptics:default",
     "biometric:default",
-    "glance:default"
+    "glance:default",
+    "calendar:default"
   ]
 }
