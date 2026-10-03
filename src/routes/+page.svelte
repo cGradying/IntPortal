@@ -42,7 +42,9 @@
       // Shown again next launch; harmless.
     }
   }
-  let glance = $state<"island" | "dock">("dock");
+  // Dynamic Island phones show the next class in the Live Activity outside
+  // the app; inside, the dock would only crowd the screen.
+  let island = $state(false);
 
   onMount(async () => {
     if (__REVIEW__) {
@@ -60,7 +62,7 @@
     addEventListener("focusout", () => setTimeout(() => {
       if (!document.activeElement?.matches("input, textarea, select")) delete document.documentElement.dataset.keyboard;
     }, 50));
-    watchDynamicIsland((island) => (glance = island ? "island" : "dock"));
+    watchDynamicIsland((has) => (island = has));
     const [login, snap] = await Promise.all([api.hasLogin().catch(() => false), api.snapshot().catch(() => null)]);
     signedIn = login;
     if (snap) await adopt(snap);
@@ -98,9 +100,9 @@
 {/if}
 
 {#if inside}
-  <div class="shell dots" data-glance={glance}>
+  <div class="shell dots" data-glance={island ? "none" : "dock"}>
     <div class="topfade" aria-hidden="true"></div>
-    <Glance mode={glance} />
+    {#if !island}<Glance />{/if}
     <main>
       <PullToSync />
       {#key app.tab}
@@ -130,7 +132,7 @@
     min-height: 100vh;
   }
   /* No fill mode: a lingering filter or transform would turn these into the
-     containing block for the fixed island, tab bar and sheets. */
+     containing block for the fixed dock, tab bar and sheets. */
   .topfade {
     position: fixed;
     top: 0;
