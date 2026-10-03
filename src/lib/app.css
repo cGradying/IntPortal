@@ -101,6 +101,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The root follows the iPhone's text size (17 px at the default), so every
+   rem in the app does. Where -apple-system-body isn't known (Android), the
+   whole declaration drops and 17 px stays. */
+html {
+  font-size: 17px;
+  font: -apple-system-body;
+}
+
 html,
 body {
   margin: 0;
@@ -108,12 +116,15 @@ body {
   background: var(--ground);
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: 16px;
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
   user-select: none;
   -webkit-user-select: none;
+}
+
+body {
+  font-size: min(0.941rem, 29px);
 }
 
 input,
@@ -158,7 +169,7 @@ button {
 
 .label {
   font-family: var(--font-display);
-  font-size: 11px;
+  font-size: min(0.647rem, 20px);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;

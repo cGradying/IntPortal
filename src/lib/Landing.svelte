@@ -119,7 +119,7 @@
   h1 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: 30px;
+    font-size: min(1.765rem, 39px);
     font-weight: 700;
     letter-spacing: -0.01em;
     color: #f5b227;
@@ -129,7 +129,7 @@
   }
   .brand p {
     margin: 6px 0 0;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: rgba(244, 236, 216, 0.55);
   }
   .hub {
@@ -149,7 +149,7 @@
     color: #1b1406;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 17px;
+    font-size: min(1rem, 31px);
     clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px));
     animation: breathe 2.4s var(--ease) infinite;
   }
@@ -159,7 +159,7 @@
   .hint {
     margin: 0;
     font-family: var(--font-pixel);
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     letter-spacing: 0.08em;
     color: rgba(244, 236, 216, 0.5);
   }
@@ -209,7 +209,7 @@
   }
   .campus {
     font-family: var(--font-pixel);
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: #f5b227;
   }
   .go {
@@ -221,19 +221,19 @@
     color: #1b1406;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 16px;
+    font-size: min(0.941rem, 29px);
   }
   .go:disabled {
     opacity: 0.7;
   }
   .error {
     margin: 0;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: #f0a090;
   }
   .fine {
     margin: 0;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     text-align: center;
     color: rgba(244, 236, 216, 0.45);
   }
@@ -241,7 +241,7 @@
     border: 0;
     background: none;
     color: rgba(245, 178, 39, 0.8);
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     text-decoration: underline;
     text-underline-offset: 3px;
   }

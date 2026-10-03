@@ -87,7 +87,7 @@
   h1 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: 28px;
+    font-size: min(1.647rem, 36px);
   }
   header button {
     padding: 8px 14px;
@@ -122,7 +122,7 @@
   }
   figcaption {
     padding: 6px 8px;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-2);
   }
   .scene {
@@ -148,7 +148,7 @@
     background: var(--island);
     color: #f1f1f3;
     font-family: var(--font-display);
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     font-weight: 600;
   }
   .glances {
@@ -171,7 +171,7 @@
     font-family: var(--font-display);
     font-variant-numeric: tabular-nums;
     font-weight: 800;
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
     color: var(--good);
     box-shadow: inset 0 0 0 2px currentColor;
     transform: rotate(-4deg);
@@ -194,7 +194,7 @@
     padding: 4px 10px;
     border-radius: 10px;
     background: var(--sunk);
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     font-weight: 600;
     color: var(--ink-2);
   }

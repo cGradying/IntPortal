@@ -47,7 +47,7 @@
   }
   button span {
     font-family: var(--font-display);
-    font-size: 11px;
+    font-size: min(0.647rem, 13px); /* five labels share the width */
     font-weight: 600;
   }
   button.on {

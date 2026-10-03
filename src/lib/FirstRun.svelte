@@ -71,11 +71,11 @@
   h1 {
     margin: 4px 0 8px;
     font-family: var(--font-display);
-    font-size: 24px;
+    font-size: min(1.412rem, 31px);
   }
   .text p:last-child {
     margin: 0;
-    font-size: 16px;
+    font-size: min(0.941rem, 29px);
     line-height: 1.5;
     color: var(--ink-2);
   }
@@ -99,7 +99,7 @@
     border-radius: 12px;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 16px;
+    font-size: min(0.941rem, 29px);
   }
   .primary {
     background: var(--gold);

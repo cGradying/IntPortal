@@ -160,7 +160,7 @@
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: 28px;
+    font-size: min(1.647rem, 36px);
     font-weight: 700;
     letter-spacing: -0.02em;
   }
@@ -181,12 +181,12 @@
     color: var(--ink-2);
   }
   .days span {
-    font-size: 11px;
+    font-size: min(0.647rem, 20px);
     font-weight: 600;
     text-transform: uppercase;
   }
   .days strong {
-    font-size: 17px;
+    font-size: min(1rem, 31px);
     color: var(--ink);
   }
   .days i {
@@ -238,11 +238,11 @@
     display: grid;
     width: 64px;
     flex: none;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     font-weight: 700;
   }
   .time small {
-    font-size: 11px;
+    font-size: min(0.647rem, 20px);
     font-weight: 500;
     color: var(--ink-3);
   }
@@ -259,22 +259,22 @@
   }
   .what strong {
     font-family: var(--font-display);
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
   }
   .what span {
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: var(--ink-2);
   }
   .what em {
     font-style: normal;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-3);
   }
   .tag {
     flex: none;
     padding: 3px 8px;
     font-family: var(--font-pixel);
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     text-transform: uppercase;
     box-shadow: inset 0 0 0 1px var(--edge-2);
     color: var(--ink-2);
@@ -288,7 +288,7 @@
   .empty p {
     margin: 0;
     color: var(--ink-2);
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
   }
   .dot {
     width: 8px;
@@ -326,7 +326,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: var(--ink-2);
   }
   @keyframes rise {

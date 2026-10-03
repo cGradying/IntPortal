@@ -32,7 +32,7 @@
   .wordmark {
     margin: 0;
     font-family: var(--font-display);
-    font-size: 24px;
+    font-size: min(1.412rem, 31px);
     font-weight: 800;
     color: var(--ink);
   }
@@ -48,13 +48,13 @@
     color: var(--on-gold);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 16px;
+    font-size: min(0.941rem, 29px);
   }
   .fine {
     max-width: 280px;
     margin: 0;
     text-align: center;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
   }
 </style>

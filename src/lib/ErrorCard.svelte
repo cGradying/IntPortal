@@ -30,7 +30,7 @@
   }
   .why {
     margin: 2px 0 10px;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
     overflow-wrap: anywhere;
   }
@@ -43,6 +43,6 @@
     color: var(--on-gold);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
   }
 </style>

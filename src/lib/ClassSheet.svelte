@@ -125,7 +125,7 @@
   .sheet h2 {
     margin: 0 0 4px;
     font-family: var(--font-display);
-    font-size: 18px;
+    font-size: min(1.059rem, 32px);
   }
   .opts {
     display: grid;
@@ -140,7 +140,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     font-weight: 600;
   }
-  .note {
+  .opts .note {
     height: 44px;
     border: 0;
     border-radius: 10px;
@@ -207,7 +207,7 @@
   }
   .problem {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--bad, #e0685a);
   }
 </style>

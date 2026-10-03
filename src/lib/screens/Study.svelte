@@ -95,7 +95,7 @@
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: 28px;
+    font-size: min(1.647rem, 36px);
     font-weight: 700;
     letter-spacing: -0.02em;
   }
@@ -108,11 +108,11 @@
   }
   .big {
     margin: 2px 0 0;
-    font-size: 28px;
+    font-size: min(1.647rem, 36px);
     font-weight: 800;
   }
   .big small {
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     font-weight: 600;
     color: var(--ink-3);
   }
@@ -133,7 +133,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: 16px;
+    font-size: max(16px, min(0.941rem, 29px));
   }
   .row {
     display: flex;
@@ -146,7 +146,7 @@
     border-radius: 10px;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
   }
   button:disabled {
     opacity: 0.4;
@@ -162,12 +162,12 @@
   }
   .fine {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
   }
   .problem {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--bad);
   }
   .decks {
@@ -197,7 +197,7 @@
   .what small {
     font-family: var(--font-body, inherit);
     font-weight: 400;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
   }
   .due {
@@ -205,7 +205,7 @@
   }
   .done {
     font-weight: 600;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-3);
   }
 </style>

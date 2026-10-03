@@ -153,12 +153,12 @@
     padding: 0;
     background: none;
     color: var(--gold);
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
   }
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: 26px;
+    font-size: min(1.529rem, 34px);
   }
   button {
     height: 44px;
@@ -167,7 +167,7 @@
     border-radius: 10px;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
   }
   button:disabled {
     opacity: 0.4;
@@ -211,7 +211,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: 16px;
+    font-size: max(16px, min(0.941rem, 29px));
   }
   textarea {
     height: 120px;
@@ -239,13 +239,13 @@
     min-width: 0;
   }
   .cards small {
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-2);
   }
   .cards em {
     flex: none;
     font-style: normal;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-3);
   }
   .x {
@@ -253,16 +253,16 @@
     padding: 0;
     background: none;
     color: var(--ink-3);
-    font-size: 20px;
+    font-size: min(1.176rem, 26px);
   }
   .fine {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
   }
   .problem {
     margin: 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--bad);
   }
 </style>

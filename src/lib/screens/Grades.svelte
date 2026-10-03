@@ -258,7 +258,7 @@
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: 28px;
+    font-size: min(1.647rem, 36px);
     font-weight: 700;
     letter-spacing: -0.02em;
   }
@@ -273,7 +273,7 @@
   }
   .value {
     margin: 2px 0 0;
-    font-size: 48px;
+    font-size: min(2.824rem, 62px);
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.03em;
@@ -285,7 +285,7 @@
     padding: 3px 7px;
     vertical-align: middle;
     font-family: var(--font-pixel);
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -298,7 +298,7 @@
   }
   .sub {
     margin: 6px 0 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-2);
   }
   .trend {
@@ -320,7 +320,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-2);
     font-weight: 600;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
   }
   .terms button.on {
     background: var(--gold);
@@ -339,11 +339,11 @@
   }
   .big {
     margin: 2px 0 0;
-    font-size: 26px;
+    font-size: min(1.529rem, 34px);
     font-weight: 800;
   }
   .big small {
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
     color: var(--ink-3);
   }
   .bar {
@@ -358,7 +358,7 @@
   }
   .reach {
     margin: 0;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: var(--ink-2);
   }
   .reach[data-kind="out_of_reach"] strong {
@@ -376,7 +376,7 @@
   .inputs label {
     display: grid;
     gap: 4px;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-3);
   }
   .inputs input {
@@ -389,7 +389,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: 16px;
+    font-size: max(16px, min(0.941rem, 29px));
   }
   .inputs button {
     height: 40px;
@@ -402,7 +402,7 @@
   }
   .note {
     margin: -4px 2px 0;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-3);
   }
   ol {
@@ -434,17 +434,17 @@
   }
   .what strong {
     font-family: var(--font-display);
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
   }
   .what span {
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: var(--ink-2);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .units {
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-3);
   }
   .stamp {
@@ -456,7 +456,7 @@
     font-family: var(--font-display);
     font-variant-numeric: tabular-nums;
     font-weight: 800;
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
     color: var(--good);
     box-shadow: inset 0 0 0 2px currentColor;
     transform: rotate(-4deg);
@@ -480,7 +480,7 @@
     padding: 4px 10px;
     border-radius: 10px;
     background: var(--sunk);
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     font-weight: 600;
     color: var(--ink-2);
   }
@@ -494,7 +494,7 @@
   }
   .empty p {
     margin: 0;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: var(--ink-2);
   }
   .empty strong {
@@ -509,6 +509,6 @@
     color: var(--on-gold);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
   }
 </style>

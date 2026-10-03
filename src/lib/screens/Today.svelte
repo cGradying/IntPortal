@@ -266,24 +266,24 @@
     align-content: start;
   }
   .reality small {
-    font-size: 11px;
+    font-size: min(0.647rem, 20px);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--ink-3);
   }
   .reality strong {
-    font-size: 20px;
+    font-size: min(1.176rem, 26px);
     font-weight: 800;
   }
   .reality strong i {
     font-style: normal;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-3);
   }
   .reality em {
     font-style: normal;
-    font-size: 11px;
+    font-size: min(0.647rem, 20px);
     color: var(--bad);
   }
   .reality em.ok {
@@ -311,7 +311,7 @@
   .offline p {
     flex: 1;
     margin: 0;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: var(--ink-2);
   }
   .offline strong {
@@ -347,7 +347,7 @@
     text-align: left;
   }
   .coach .line {
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
     line-height: 1.35;
   }
   .coach .x {
@@ -357,7 +357,7 @@
     border: 0;
     background: none;
     color: var(--ink-3);
-    font-size: 20px;
+    font-size: min(1.176rem, 26px);
   }
   .due {
     --step: 4px;
@@ -388,7 +388,7 @@
     flex: none;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--gold);
   }
   .due .what {
@@ -396,7 +396,7 @@
     min-width: 0;
   }
   .due small {
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-3);
   }
   .daynote {
@@ -408,7 +408,7 @@
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-2);
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     text-align: left;
     white-space: nowrap;
     overflow: hidden;
@@ -421,7 +421,7 @@
   header h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: 28px;
+    font-size: min(1.647rem, 36px);
     font-weight: 700;
     letter-spacing: -0.02em;
   }
@@ -443,7 +443,7 @@
   .who h2 {
     margin: 4px 0 0;
     font-family: var(--font-display);
-    font-size: 24px;
+    font-size: min(1.412rem, 31px);
     font-weight: 800;
     letter-spacing: -0.01em;
     color: var(--gold);
@@ -451,7 +451,7 @@
   .desc {
     margin: 2px 0 0;
     color: var(--ink);
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
@@ -461,7 +461,7 @@
   }
   .meta {
     margin: 4px 0 0;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     color: var(--ink-2);
   }
   .count {
@@ -470,14 +470,14 @@
     flex: none;
   }
   .big {
-    font-size: 40px;
+    font-size: min(2.353rem, 52px);
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.03em;
   }
   .unit {
     margin-top: 4px;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     color: var(--ink-2);
   }
   .bar {
@@ -501,7 +501,7 @@
   }
   .free {
     margin: 0;
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     font-weight: 600;
     color: var(--gold);
   }
@@ -538,11 +538,11 @@
     display: grid;
     width: 64px;
     flex: none;
-    font-size: 13px;
+    font-size: min(0.765rem, 23px);
     font-weight: 700;
   }
   .time small {
-    font-size: 11px;
+    font-size: min(0.647rem, 20px);
     font-weight: 500;
     color: var(--ink-3);
   }
@@ -559,10 +559,10 @@
   }
   .what strong {
     font-family: var(--font-display);
-    font-size: 15px;
+    font-size: min(0.882rem, 27px);
   }
   .what span {
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: var(--ink-2);
     white-space: nowrap;
     overflow: hidden;
@@ -573,7 +573,7 @@
     flex: none;
     padding: 3px 8px;
     font-family: var(--font-pixel);
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -594,7 +594,7 @@
     background-image: radial-gradient(color-mix(in srgb, var(--gold) 35%, transparent) 1px, transparent 1.2px);
     background-size: 5px 5px;
     color: var(--gold);
-    font-size: 12px;
+    font-size: min(0.706rem, 22px);
     font-weight: 600;
   }
   .gap.past {
@@ -610,7 +610,7 @@
   .empty p,
   .tomorrow {
     margin: 0;
-    font-size: 14px;
+    font-size: min(0.824rem, 25px);
     color: var(--ink-2);
   }
   .tomorrow strong {

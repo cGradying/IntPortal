@@ -69,7 +69,7 @@
   }
   .head span {
     text-align: center;
-    font-size: 11px;
+    font-size: min(0.647rem, 20px);
     font-weight: 700;
     text-transform: uppercase;
     color: var(--ink-3);
@@ -88,7 +88,7 @@
     position: absolute;
     right: 2px;
     transform: translateY(-50%);
-    font-size: 10px;
+    font-size: min(0.588rem, 18px);
     color: var(--ink-3);
   }
   .col {
@@ -122,10 +122,10 @@
   }
   .block strong {
     font-family: var(--font-display);
-    font-size: 10px;
+    font-size: min(0.588rem, 18px);
   }
   .block small {
-    font-size: 10px;
+    font-size: min(0.588rem, 18px);
     color: var(--ink-2);
   }
   .block[data-mark="vacant"] {
