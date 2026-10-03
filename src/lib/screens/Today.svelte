@@ -3,6 +3,7 @@
   import Scene from "../Scene.svelte";
   import { app, openNote, openSubject, syncNow } from "../state.svelte";
   import { ago } from "../glance";
+  import { buzz } from "../haptics";
   import { api, clock, isoDate, moment, span, subjectColor, type Nudge, type Standing, type SyllabusItem } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
@@ -54,6 +55,7 @@
   });
   function dismiss() {
     if (!nudge) return;
+    buzz.tick();
     try {
       localStorage.setItem(dismissKey(), JSON.stringify([...dismissed(), nudge.key]));
     } catch {

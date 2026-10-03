@@ -52,7 +52,7 @@
       // card early would push it out before it's been forgotten.
       if (!practice) await api.reviewCard(deck.id, card.id, r, isoDate(new Date()));
       if (r !== "again") right++;
-      buzz.tap();
+      buzz.tick();
       if (index + 1 >= queue.length) buzz.done();
       index++;
       shown = false;
@@ -67,14 +67,14 @@
 
   async function check() {
     verdict = await api.checkAnswer(card, typed);
-    (verdict ? buzz.tap : buzz.fail)();
+    (verdict ? buzz.tick : buzz.fail)();
   }
 
   function choose(o: string) {
     if (picked) return;
     picked = o;
     verdict = o === card.back;
-    (verdict ? buzz.tap : buzz.fail)();
+    (verdict ? buzz.tick : buzz.fail)();
   }
 </script>
 
@@ -93,7 +93,7 @@
       <button class="primary" onclick={onclose}>Back to the deck</button>
     </section>
   {:else if mode === "flash"}
-    <button class="card notch face tap" onclick={() => (shown = true)}>
+    <button class="card notch face tap" onclick={() => { if (!shown) buzz.tick(); shown = true; }}>
       <p class="label">Term</p>
       <h2>{card.front}</h2>
       {#if shown}<p class="answer">{card.back}</p>{:else}<p class="fine">Tap to show the meaning</p>{/if}

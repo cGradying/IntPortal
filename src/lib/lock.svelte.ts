@@ -2,6 +2,7 @@
 // passcode. It locks at launch and after the app has been away a minute,
 // and a cover hides the screen whenever the app is in the background.
 import { authenticate, checkStatus } from "@tauri-apps/plugin-biometric";
+import { buzz } from "./haptics";
 
 const AWAY_MS = 60_000;
 
@@ -29,6 +30,7 @@ export async function unlock(): Promise<boolean> {
   try {
     await authenticate("Unlock IntPortal", { allowDeviceCredential: true, cancelTitle: "Cancel" });
     lock.locked = false;
+    buzz.done();
     lock.error = "";
     return true;
   } catch (e) {

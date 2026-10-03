@@ -2,6 +2,7 @@
   // Three short screens the first time someone gets in: what IntPortal does,
   // where their data lives, and reminders (the only place that asks the
   // phone for notification permission unprompted).
+  import { buzz } from "./haptics";
   import Isko from "./Isko.svelte";
   import { app, scheduleReminders } from "./state.svelte";
 
@@ -39,7 +40,7 @@
   </div>
   <div class="dots" aria-hidden="true">{#each steps as _, i (i)}<i class:on={i === step}></i>{/each}</div>
   {#if step < steps.length - 1}
-    <button class="primary" onclick={() => step++}>Next</button>
+    <button class="primary" onclick={() => { buzz.select(); step++; }}>Next</button>
     <button class="link" onclick={ondone}>Skip</button>
   {:else}
     <button class="primary" onclick={allow}>Turn on reminders</button>

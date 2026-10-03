@@ -63,6 +63,7 @@
   }
 
   function setView(v: "day" | "week") {
+    if (view !== v) buzz.select();
     view = v;
     try {
       localStorage.setItem("scheduleView", v);
@@ -89,7 +90,7 @@
   async function run(change: Promise<Snapshot>) {
     try {
       await adopt(await change);
-      buzz.tap();
+      buzz.tick();
       picked = null;
       moving = null;
       problem = "";
