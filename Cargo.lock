@@ -1935,6 +1935,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-biometric",
+ "tauri-plugin-calendar",
  "tauri-plugin-glance",
  "tauri-plugin-haptics",
  "tauri-plugin-notification",
@@ -4366,6 +4367,14 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "tauri-plugin-calendar"
+version = "0.1.0"
+dependencies = [
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

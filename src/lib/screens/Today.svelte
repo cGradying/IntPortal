@@ -7,6 +7,7 @@
   import { ago } from "../glance";
   import { longpress } from "../press";
   import { buzz } from "../haptics";
+  import { dayRows } from "../dayrows";
   import { api, clock, isoDate, moment, span, subjectColor, type Meeting, type Nudge, type Standing, type SyllabusItem } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
@@ -56,7 +57,7 @@
   $effect(() => {
     void app.snapshot;
     void app.today;
-    api.coach(moment(), dismissed()).then((n) => (nudge = n)).catch(() => {});
+    api.coach(moment(), dismissed(), app.busy).then((n) => (nudge = n)).catch(() => {});
   });
   function dismiss() {
     if (!nudge) return;
@@ -66,7 +67,7 @@
     } catch {
       // It comes back next launch; harmless.
     }
-    api.coach(moment(), [...dismissed(), nudge.key]).then((n) => (nudge = n));
+    api.coach(moment(), [...dismissed(), nudge.key], app.busy).then((n) => (nudge = n));
   }
   function act() {
     if (!nudge) return;
@@ -96,18 +97,8 @@
     return (m - next.session.start) / (next.session.end - next.session.start);
   });
 
-  /** Classes with the free stretches between them. */
-  const rows = $derived.by(() => {
-    const out: ({ kind: "class"; i: (typeof items)[number] } | { kind: "gap"; minutes: number; past: boolean })[] = [];
-    items.forEach((i, k) => {
-      if (k > 0) {
-        const gap = i.session.start - items[k - 1].session.end;
-        if (gap >= 15) out.push({ kind: "gap", minutes: gap, past: items[k - 1].phase === "past" && i.phase === "past" });
-      }
-      out.push({ kind: "class", i });
-    });
-    return out;
-  });
+  /** Classes and the student's own events, with the free stretches between them. */
+  const rows = $derived(dayRows(items, app.busy, isoDate(now), now.getHours() * 60 + now.getMinutes()));
 </script>
 
 <div class="screen">
@@ -210,11 +201,17 @@
         <Scene name="hammock" label="A hammock between two palm trees" />
         <p>No classes today. Rest up.</p>
       </div>
-    {:else}
+    {/if}
+    {#if rows.length}
       <ol>
         {#each rows as r, k (k)}
           {#if r.kind === "gap"}
             <li class="gap" class:past={r.past}><span class="num">{span(r.minutes)} free</span></li>
+          {:else if r.kind === "busy"}
+            <li class="busy card notch" class:past={r.past}>
+              <span class="time num">{r.b.from.date < r.b.to.date && r.start === 0 ? "Until" : clock(r.start)}<small>{clock(r.end % 1440)}</small></span>
+              <span class="title">{r.b.title || "Busy"}</span>
+            </li>
           {:else}
             {@const s = r.i.session}
             <li><button
@@ -500,6 +497,32 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
+  }
+  /* The student's own events: hatched, quieter than classes. */
+  .busy {
+    --step: 4px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px;
+    background: repeating-linear-gradient(135deg, var(--card) 0 6px, var(--sunk) 6px 9px);
+    color: var(--ink-2);
+  }
+  .busy .time {
+    display: grid;
+    min-width: 64px;
+    font-size: min(0.765rem, 23px);
+    font-weight: 600;
+  }
+  .busy .time small {
+    color: var(--ink-3);
+    font-weight: 400;
+  }
+  .busy .title {
+    overflow-wrap: anywhere;
+  }
+  .busy.past {
+    opacity: 0.5;
   }
   .free {
     margin: 0;

@@ -12,7 +12,7 @@ use intportal_core::sis::{self, sign_in_with_failover, Credentials, SisClient};
 use intportal_core::store::{account_file, Snapshot, Store};
 use intportal_core::study::{self, Card, Deck, Memory, Rating, Stats};
 use intportal_core::syllabus::{self, Component, Item, Plan, Tally};
-use intportal_core::today::{self, Agenda, Date, Glance, Mark, Meeting, Moment, Reminder, Slot, Upcoming};
+use intportal_core::today::{self, Agenda, Busy, Date, Glance, Mark, Meeting, Moment, Reminder, Slot, Upcoming};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -507,7 +507,7 @@ struct CoachLine {
 /// Today's one nudge, from deadlines, flashcards, free time and the target
 /// GPA. `dismissed` holds the keys waved off today.
 #[tauri::command]
-fn coach(state: tauri::State<'_, AppState>, now: Moment, dismissed: Vec<String>) -> Res<Option<CoachLine>> {
+fn coach(state: tauri::State<'_, AppState>, now: Moment, dismissed: Vec<String>, busy: Option<Vec<Busy>>) -> Res<Option<CoachLine>> {
     let store = state.store.lock().unwrap();
     let snap = store.load().map_err(err)?;
     let unix = unix_now();
@@ -520,7 +520,7 @@ fn coach(state: tauri::State<'_, AppState>, now: Moment, dismissed: Vec<String>)
         cards_due: store.decks().map_err(err)?.iter().map(|d| d.due(unix)).sum(),
         study_streak: study::current_streak(&stats, now.date),
         studied_today: stats.last_day == Some(now.date),
-        free_minutes: agenda.free_minutes_left,
+        free_minutes: today::free_minutes(&agenda.items, now, &busy.unwrap_or_default()),
         needed_average: needed,
         classes_left: agenda.items.iter().filter(|i| i.phase != today::Phase::Past).count(),
     };
@@ -563,17 +563,27 @@ struct Today {
 }
 
 #[tauri::command]
-fn today(state: tauri::State<'_, AppState>, now: Moment, sync_trouble: Option<String>) -> Res<Today> {
+fn today(state: tauri::State<'_, AppState>, now: Moment, sync_trouble: Option<String>, busy: Option<Vec<Busy>>) -> Res<Today> {
     let snap = snapshot_of(&state)?;
     let next = today::next_class(&snap.sessions, &snap.marks, now);
     let glance = today::glance(&snap.sessions, &snap.marks, now, sync_trouble.as_deref(), false);
+    let mut agenda = today::agenda(&snap.sessions, &snap.marks, now);
+    agenda.free_minutes_left = today::free_minutes(&agenda.items, now, &busy.unwrap_or_default());
     Ok(Today {
-        agenda: today::agenda(&snap.sessions, &snap.marks, now),
+        agenda,
         countdown: next.as_ref().map(|n| n.countdown(now)),
         next,
         glance_line: glance.line(),
         glance,
     })
+}
+
+/// The classes from `from` through `days` days on, as events for the
+/// phone's IntPortal calendar.
+#[tauri::command]
+fn class_events(state: tauri::State<'_, AppState>, from: Date, days: i64) -> Res<Vec<calendar::ClassEvent>> {
+    let snap = snapshot_of(&state)?;
+    Ok(calendar::class_events(&snap.sessions, &snap.marks, from, days))
 }
 
 /// The campus a student number belongs to, as the student types it.
@@ -709,7 +719,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init());
     #[cfg(mobile)]
-    let builder = builder.plugin(tauri_plugin_haptics::init()).plugin(tauri_plugin_biometric::init()).plugin(tauri_plugin_glance::init());
+    let builder = builder.plugin(tauri_plugin_haptics::init()).plugin(tauri_plugin_biometric::init()).plugin(tauri_plugin_glance::init()).plugin(tauri_plugin_calendar::init());
     builder
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
@@ -732,7 +742,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, reminders, campus, demo
+            snapshot, has_login, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

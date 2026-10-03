@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { app, openNote, scheduleReminders, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
+  import { askForCalendar } from "../devcal";
+  import { app, openNote, scheduleReminders, setCalendar, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
   import { api, isoDate } from "../api";
   import { shareFile } from "../share";
   import { buzz, haptics, setHaptics } from "../haptics";
@@ -21,6 +22,20 @@
     } catch {
       return null;
     }
+  }
+
+  let calendarNote = $state("");
+  /** Turning either on asks iOS for calendar access the first time. */
+  async function toggleCalendar(which: "calendarEvents" | "calendarClasses", box: HTMLInputElement) {
+    calendarNote = "";
+    if (box.checked && (await askForCalendar()) !== "granted") {
+      box.checked = false;
+      calendarNote = "Calendar access is off. Turn it on in the phone's Settings, under IntPortal, then try again.";
+      return;
+    }
+    buzz.tick();
+    const problem = await setCalendar(which, box.checked);
+    if (problem) calendarNote = `Couldn't update the IntPortal calendar: ${problem}`;
   }
 
   async function exportClasses() {
@@ -156,6 +171,11 @@
 
   <section class="card notch block">
     <p class="label">Calendar</p>
+    <label class="lockrow"><input type="checkbox" checked={app.calendarClasses} onchange={(e) => toggleCalendar("calendarClasses", e.currentTarget)} /> Keep classes in my calendar</label>
+    <p class="fine">An IntPortal calendar on this phone holds the next eight weeks of classes. Vacant weeks drop out and moved weeks move. Your other calendars are never touched.</p>
+    <label class="lockrow"><input type="checkbox" checked={app.calendarEvents} onchange={(e) => toggleCalendar("calendarEvents", e.currentTarget)} /> Show my own events</label>
+    <p class="fine">Today lists your other events, and LAR counts them as busy when he suggests study time.</p>
+    {#if calendarNote}<p class="fine" role="status">{calendarNote}</p>{/if}
     <p class="fine">Put every class in your phone's calendar, repeating weekly until the last day of classes. Vacant and moved weeks come along.</p>
     <label class="field">Last day of classes <input type="date" bind:value={lastDay} /></label>
     <button class="primary" onclick={exportClasses}>Add classes to calendar</button>

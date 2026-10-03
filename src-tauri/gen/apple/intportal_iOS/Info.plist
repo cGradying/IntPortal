@@ -20,6 +20,10 @@
 	<string>0.1.0</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>IntPortal keeps your classes in an IntPortal calendar and counts your own events as busy time when it suggests study breaks.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>IntPortal keeps your classes in an IntPortal calendar and counts your own events as busy time when it suggests study breaks.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>IntPortal uses Face ID to keep your notes, grades and schedule private when the app lock is on.</string>
 	<key>NSSupportsLiveActivities</key>

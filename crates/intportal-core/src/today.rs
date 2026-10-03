@@ -224,7 +224,7 @@ pub fn week(sessions: &[ClassSession], marks: &Marks, on: Date) -> Vec<Meeting> 
 }
 
 /// Meetings from `from` through `days` days on, vacant ones left out.
-fn meetings_from(sessions: &[ClassSession], marks: &Marks, from: Date, days: i64) -> Vec<Meeting> {
+pub(crate) fn meetings_from(sessions: &[ClassSession], marks: &Marks, from: Date, days: i64) -> Vec<Meeting> {
     let last = from.add_days(days - 1);
     let mut monday = from.week_start();
     let mut out = Vec::new();
@@ -274,6 +274,44 @@ pub struct Agenda {
     pub free_minutes_left: u16,
 }
 
+/// Something on the student's own calendar, such as an org meeting or a
+/// shift. It takes its time out of the free gaps between classes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Busy {
+    pub from: Moment,
+    pub to: Moment,
+    pub title: String,
+}
+
+/// Free minutes still ahead today: the gaps between today's classes with the
+/// student's own events cut out, counting only pieces of 15 minutes or more.
+pub fn free_minutes(items: &[AgendaItem], now: Moment, busy: &[Busy]) -> u16 {
+    let midnight = now.date.days() * 1440;
+    let at = |m: Moment| m.date.days() * 1440 + i64::from(m.minute) - midnight;
+    let busy: Vec<(i64, i64)> = busy.iter().map(|b| (at(b.from), at(b.to))).collect();
+    let total: i64 = items
+        .windows(2)
+        .map(|w| (i64::from(w[0].meeting.session.end), i64::from(w[1].meeting.session.start)))
+        .filter(|&(_, start)| start > i64::from(now.minute))
+        .map(|(end, start)| {
+            let mut cuts: Vec<(i64, i64)> = busy.iter().map(|&(a, b)| (a.max(end), b.min(start))).filter(|(a, b)| a < b).collect();
+            cuts.sort_unstable();
+            let (mut from, mut free) = (end, 0);
+            for (a, b) in cuts {
+                if a - from >= 15 {
+                    free += a - from;
+                }
+                from = from.max(b);
+            }
+            if start - from >= 15 {
+                free += start - from;
+            }
+            free
+        })
+        .sum();
+    u16::try_from(total).unwrap_or(u16::MAX)
+}
+
 pub fn agenda(sessions: &[ClassSession], marks: &Marks, now: Moment) -> Agenda {
     let items: Vec<AgendaItem> = meetings_from(sessions, marks, now.date, 1)
         .into_iter()
@@ -288,12 +326,7 @@ pub fn agenda(sessions: &[ClassSession], marks: &Marks, now: Moment) -> Agenda {
             meeting: m,
         })
         .collect();
-    let free_minutes_left = items
-        .windows(2)
-        .map(|w| (w[0].meeting.session.end, w[1].meeting.session.start))
-        .filter(|&(end, start)| start >= end + 15 && start > now.minute)
-        .map(|(end, start)| start - end)
-        .sum();
+    let free_minutes_left = free_minutes(&items, now, &[]);
     let tomorrow_first = meetings_from(sessions, marks, now.date.add_days(1), 1).into_iter().next().map(|m| m.session);
     Agenda { items, tomorrow_first, free_minutes_left }
 }
@@ -651,5 +684,22 @@ mod tests {
         assert!(l.weekly.is_empty());
         l.set("x", None, None);
         assert_eq!(l.get("x", Date::new(2026, 8, 3)), None);
+    }
+
+    fn busy(from: Moment, to: Moment) -> Busy {
+        Busy { from, to, title: "Org meeting".into() }
+    }
+
+    #[test]
+    fn calendar_events_take_their_time_out_of_the_free_gaps() {
+        let a = agenda(&week(), &Marks::default(), at(3, 10, 0));
+        let free = |b: &[Busy]| free_minutes(&a.items, at(3, 10, 0), b);
+        assert_eq!(free(&[]), 130);
+        assert_eq!(free(&[busy(at(3, 11, 30), at(3, 12, 0))]), 100, "inside the gap");
+        assert_eq!(free(&[busy(at(3, 12, 45), at(3, 13, 30))]), 115, "running into a class");
+        assert_eq!(free(&[busy(at(3, 9, 15), at(3, 10, 0))]), 130, "during a class");
+        assert_eq!(free(&[busy(at(3, 11, 0), at(3, 12, 50))]), 0, "leftovers under 15 minutes don't count");
+        assert_eq!(free(&[busy(at(2, 22, 0), at(3, 11, 30))]), 90, "from last night");
+        assert_eq!(free(&[busy(at(4, 11, 0), at(4, 12, 0))]), 130, "another day");
     }
 }

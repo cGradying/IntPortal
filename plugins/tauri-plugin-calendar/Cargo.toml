@@ -1,0 +1,13 @@
+[package]
+name = "tauri-plugin-calendar"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Reads the student's own calendar events and keeps their classes in an IntPortal calendar, through EventKit."
+links = "tauri-plugin-calendar"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = "2"

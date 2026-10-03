@@ -5,6 +5,8 @@
   import Skeleton from "../Skeleton.svelte";
   import WeekGrid from "../WeekGrid.svelte";
   import { resource } from "../load.svelte";
+  import { busyFrom } from "../devcal";
+  import { weekSpans, type Span } from "../dayrows";
   import { buzz } from "../haptics";
   import { app } from "../state.svelte";
   import { api, clock, isoDate, subjectColor, WEEKDAYS, type Meeting, type Weekday } from "../api";
@@ -33,6 +35,15 @@
   $effect(() => {
     void app.snapshot;
     week.reload();
+  });
+
+  // The student's own events for this week, when they asked to see them.
+  let spans = $state<Span[]>([]);
+  $effect(() => {
+    if (!app.calendarEvents) return void (spans = []);
+    busyFrom(monday, 7)
+      .then((b) => (spans = weekSpans(b, isoDate(monday))))
+      .catch(() => (spans = []));
   });
 
   const list = $derived(meetings.filter((m) => m.session.day === day && !(hideVacant && m.mark === "vacant")));
@@ -104,7 +115,7 @@
   {:else if week.current.state === "failed"}
     <ErrorCard error={week.current.error} onretry={week.reload} />
   {:else if view === "week"}
-    <WeekGrid meetings={meetings.filter((m) => !(hideVacant && m.mark === "vacant"))} {colors} {todayIdx} onpick={pick} />
+    <WeekGrid meetings={meetings.filter((m) => !(hideVacant && m.mark === "vacant"))} {colors} {todayIdx} {spans} onpick={pick} />
     <label class="toggle"><input type="checkbox" checked={hideVacant} onchange={toggleVacant} /> Hide vacant classes</label>
   {:else}
   <div class="days" role="tablist">

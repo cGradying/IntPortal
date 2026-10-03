@@ -2,7 +2,8 @@
 // reading of it, and sync status. Screens read `app`; only this file writes.
 import { invoke } from "@tauri-apps/api/core";
 import { Schedule, cancel, isPermissionGranted, pending, requestPermission } from "@tauri-apps/plugin-notification";
-import { api, moment, type NoteItem, type Snapshot, type Today } from "./api";
+import { api, isoDate, localMs, moment, type Busy, type NoteItem, type Snapshot, type Today } from "./api";
+import { busyFrom, keepClasses } from "./devcal";
 import { applyRoom } from "./rooms";
 import { buzz } from "./haptics";
 
@@ -33,6 +34,12 @@ export const app = $state({
   queued: { count: 0, next: null as null | { title: string; at: Date }, error: "" },
   /** Notifications allowed by the phone; null until checked. */
   notifications: null as boolean | null,
+  /** Count the student's own calendar events as busy time. */
+  calendarEvents: read("calendarEvents") === "1",
+  /** Keep the classes in the phone's IntPortal calendar. */
+  calendarClasses: read("calendarClasses") === "1",
+  /** Today's own events, when calendarEvents is on. */
+  busy: [] as Busy[],
 });
 
 function read(key: string): string | null {
@@ -118,15 +125,11 @@ function pushGlance() {
   const t = app.today;
   if (!t) return;
   const n = t.next;
-  const at = (date: string, minute: number) => {
-    const [y, m, d] = date.split("-").map(Number);
-    return new Date(y, m - 1, d, Math.floor(minute / 60), minute % 60).getTime();
-  };
   const next = n && {
     code: n.session.subject_code,
     title: n.session.description,
-    start: at(n.date, n.session.start),
-    end: at(n.date, n.session.end),
+    start: localMs(n.date, n.session.start),
+    end: localMs(n.date, n.session.end),
     online: t.agenda.items.some((i) => i.session.subject_code === n.session.subject_code && i.session.start === n.session.start && i.mark === "online"),
   };
   invoke("plugin:glance|update", { next, line: t.glance_line }).catch(() => {});
@@ -136,7 +139,8 @@ function pushGlance() {
 export async function refreshToday() {
   if (!app.snapshot) return;
   try {
-    app.today = await api.today(moment(), app.sync === "failed" ? app.syncError : null);
+    app.busy = app.calendarEvents ? await busyFrom(new Date(), 1).catch(() => []) : [];
+    app.today = await api.today(moment(), app.sync === "failed" ? app.syncError : null, app.busy);
     pushGlance();
   } catch {
     // The glance keeps its last line.
@@ -164,6 +168,41 @@ export async function adopt(snap: Snapshot) {
   refreshNotes();
   await refreshToday();
   scheduleReminders();
+  refreshClassCalendar();
+}
+
+/** A plugin's rejection arrives as an object with a message, a command's as a string. */
+const reason = (e: unknown) => (typeof e === "string" ? e : ((e as { message?: string })?.message ?? JSON.stringify(e)));
+
+/** Rewrites the IntPortal calendar when the classes or marks changed, or
+ *  on a new day, so it always reaches eight weeks ahead. */
+export async function refreshClassCalendar(force = false): Promise<string | null> {
+  if (!app.calendarClasses || !app.snapshot) return null;
+  const stamp = JSON.stringify([isoDate(new Date()), app.snapshot.sessions, app.snapshot.marks]);
+  if (!force && read("calendarStamp") === stamp) return null;
+  try {
+    await keepClasses();
+    write("calendarStamp", stamp);
+    return null;
+  } catch (e) {
+    return reason(e);
+  }
+}
+
+/** Turns a calendar setting on or off; the answer is what went wrong, if anything. */
+export async function setCalendar(which: "calendarEvents" | "calendarClasses", on: boolean): Promise<string | null> {
+  app[which] = on;
+  write(which, on ? "1" : "0");
+  if (which === "calendarEvents") {
+    await refreshToday();
+    return null;
+  }
+  if (on) return refreshClassCalendar(true);
+  write("calendarStamp", "");
+  return keepClasses(true).then(
+    () => null,
+    (e) => reason(e),
+  );
 }
 
 export async function syncNow() {
