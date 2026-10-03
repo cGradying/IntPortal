@@ -1,0 +1,1028 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T12:39:08+00:00",
+  "title": "Design System: IntPortal",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Charcoal Ground",
+        "canonical": "#19191c",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252528",
+          "#424245",
+          "#616164",
+          "#828286",
+          "#a4a4a9",
+          "#c9c9cd",
+          "#eeeef1"
+        ]
+      },
+      "ground-2": {
+        "role": "neutral",
+        "displayName": "Charcoal Ground 2",
+        "canonical": "#202024",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252529",
+          "#414146",
+          "#616165",
+          "#828287",
+          "#a4a4aa",
+          "#c8c8ce",
+          "#eeeef1"
+        ]
+      },
+      "dot": {
+        "role": "neutral",
+        "displayName": "Gold Dot Grid",
+        "canonical": "rgba(245, 178, 39, 0.07)"
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Card Charcoal",
+        "canonical": "#26262a",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252529",
+          "#414146",
+          "#616165",
+          "#828287",
+          "#a4a4a9",
+          "#c8c8ce",
+          "#eeeef1"
+        ]
+      },
+      "card-2": {
+        "role": "neutral",
+        "displayName": "Card Charcoal Top",
+        "canonical": "#2d2d32",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#242429",
+          "#414147",
+          "#616166",
+          "#828288",
+          "#a4a4ab",
+          "#c8c8cf",
+          "#eeeef2"
+        ]
+      },
+      "sunk": {
+        "role": "neutral",
+        "displayName": "Sunk",
+        "canonical": "#1f1f23",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252529",
+          "#414146",
+          "#616165",
+          "#828287",
+          "#a4a4aa",
+          "#c8c8ce",
+          "#eeeef1"
+        ]
+      },
+      "edge": {
+        "role": "neutral",
+        "displayName": "Hairline Edge",
+        "canonical": "rgba(255, 255, 255, 0.07)"
+      },
+      "edge-2": {
+        "role": "neutral",
+        "displayName": "Strong Edge",
+        "canonical": "rgba(255, 255, 255, 0.13)"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#efeff1",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeeef"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "#a9a9b1",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#24242a",
+          "#414148",
+          "#606068",
+          "#818189",
+          "#a4a4ac",
+          "#c8c8d0",
+          "#eeeef3"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink Tertiary",
+        "canonical": "#7c7c85",
+        "tonalRamp": [
+          "#0b0b0f",
+          "#24242c",
+          "#414149",
+          "#606069",
+          "#81818a",
+          "#a4a4ad",
+          "#c8c8d2",
+          "#eeeef4"
+        ]
+      },
+      "gold": {
+        "role": "primary",
+        "displayName": "Portal Gold",
+        "canonical": "#f5b227",
+        "tonalRamp": [
+          "#1e0200",
+          "#4a0c00",
+          "#6c3000",
+          "#8f5100",
+          "#b37400",
+          "#d99700",
+          "#ffbc36",
+          "#ffe8a5"
+        ]
+      },
+      "gold-soft": {
+        "role": "primary",
+        "displayName": "Gold Wash",
+        "canonical": "rgba(245, 178, 39, 0.14)"
+      },
+      "gold-shade": {
+        "role": "primary",
+        "displayName": "Gold Shade",
+        "canonical": "#b87a10",
+        "tonalRamp": [
+          "#1d0200",
+          "#481000",
+          "#6a3100",
+          "#8d5200",
+          "#b17300",
+          "#d6973a",
+          "#fdbb62",
+          "#ffe7b5"
+        ]
+      },
+      "gold-light": {
+        "role": "primary",
+        "displayName": "Gold Light",
+        "canonical": "#fff6dc",
+        "tonalRamp": [
+          "#0e0b03",
+          "#2b2410",
+          "#49412c",
+          "#69614a",
+          "#8a826b",
+          "#ada58c",
+          "#d2c9b0",
+          "#f4eedf"
+        ]
+      },
+      "on-gold": {
+        "role": "primary",
+        "displayName": "Burnt Ink",
+        "canonical": "#1b1406",
+        "tonalRamp": [
+          "#0e0b04",
+          "#2b2415",
+          "#494131",
+          "#69604f",
+          "#8a8170",
+          "#ada492",
+          "#d2c8b5",
+          "#f4eee2"
+        ]
+      },
+      "maroon": {
+        "role": "secondary",
+        "displayName": "PUP Maroon",
+        "canonical": "#7a1128",
+        "tonalRamp": [
+          "#240002",
+          "#55000c",
+          "#7a1128",
+          "#a03846",
+          "#c75b66",
+          "#ee7e88",
+          "#ffa2ab",
+          "#ffd9dc"
+        ]
+      },
+      "maroon-2": {
+        "role": "secondary",
+        "displayName": "PUP Maroon Light",
+        "canonical": "#9b1d36",
+        "tonalRamp": [
+          "#270001",
+          "#5c0006",
+          "#820023",
+          "#a92c41",
+          "#d05261",
+          "#f87682",
+          "#ff9aa5",
+          "#ffd5d8"
+        ]
+      },
+      "good": {
+        "role": "neutral",
+        "displayName": "Good",
+        "canonical": "#58c792",
+        "tonalRamp": [
+          "#001302",
+          "#00350b",
+          "#005528",
+          "#007647",
+          "#1e9967",
+          "#4ebd89",
+          "#75e3ac",
+          "#c2ffdd"
+        ]
+      },
+      "bad": {
+        "role": "neutral",
+        "displayName": "Bad",
+        "canonical": "#f07a6e",
+        "tonalRamp": [
+          "#260000",
+          "#590000",
+          "#7e0a0d",
+          "#a4362f",
+          "#cc594f",
+          "#f37d71",
+          "#ffa194",
+          "#ffd8ce"
+        ]
+      },
+      "island": {
+        "role": "neutral",
+        "displayName": "Island",
+        "canonical": "#0e0e10",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252527",
+          "#424244",
+          "#616163",
+          "#828285",
+          "#a5a5a7",
+          "#c9c9cc",
+          "#eeeef0"
+        ]
+      },
+      "subject-1": {
+        "role": "neutral",
+        "displayName": "Subject 1",
+        "canonical": "#e0697e",
+        "tonalRamp": [
+          "#250003",
+          "#580012",
+          "#7d032e",
+          "#a4324c",
+          "#cb566c",
+          "#f2798e",
+          "#ff9eb1",
+          "#ffd6e0"
+        ]
+      },
+      "subject-2": {
+        "role": "neutral",
+        "displayName": "Subject 2",
+        "canonical": "#e8866f",
+        "tonalRamp": [
+          "#220000",
+          "#520000",
+          "#761e09",
+          "#9b412d",
+          "#c1634e",
+          "#e8866f",
+          "#ffaa92",
+          "#ffddcd"
+        ]
+      },
+      "subject-3": {
+        "role": "neutral",
+        "displayName": "Subject 3",
+        "canonical": "#e0b04a",
+        "tonalRamp": [
+          "#1a0500",
+          "#421800",
+          "#623700",
+          "#845800",
+          "#a77a00",
+          "#cc9d33",
+          "#f2c15d",
+          "#ffebb3"
+        ]
+      },
+      "subject-4": {
+        "role": "neutral",
+        "displayName": "Subject 4",
+        "canonical": "#b58ad0",
+        "tonalRamp": [
+          "#14021f",
+          "#360d4a",
+          "#552d6c",
+          "#764d8e",
+          "#986eb2",
+          "#bc91d7",
+          "#e1b5fd",
+          "#fde3ff"
+        ]
+      },
+      "subject-5": {
+        "role": "neutral",
+        "displayName": "Subject 5",
+        "canonical": "#5fbf9c",
+        "tonalRamp": [
+          "#001206",
+          "#00331a",
+          "#005336",
+          "#007455",
+          "#329675",
+          "#5aba97",
+          "#80dfbb",
+          "#c6fde6"
+        ]
+      },
+      "subject-6": {
+        "role": "neutral",
+        "displayName": "Subject 6",
+        "canonical": "#7ea3e0",
+        "tonalRamp": [
+          "#000923",
+          "#042154",
+          "#214076",
+          "#3f6199",
+          "#5f83bd",
+          "#81a6e3",
+          "#a4caff",
+          "#d8f0ff"
+        ]
+      },
+      "portal-night": {
+        "role": "tertiary",
+        "displayName": "Night",
+        "canonical": "#0b0710",
+        "tonalRamp": [
+          "#0c0a0f",
+          "#27232d",
+          "#443f4b",
+          "#645e6b",
+          "#857f8d",
+          "#a8a2b0",
+          "#ccc6d4",
+          "#f0ecf5"
+        ]
+      },
+      "portal-card": {
+        "role": "tertiary",
+        "displayName": "Portal Card",
+        "canonical": "#140c16",
+        "tonalRamp": [
+          "#0e090f",
+          "#2a212c",
+          "#483e4a",
+          "#675d6a",
+          "#897e8c",
+          "#aca1af",
+          "#d0c4d3",
+          "#f3ecf5"
+        ]
+      },
+      "portal-parchment": {
+        "role": "tertiary",
+        "displayName": "Parchment",
+        "canonical": "#f4ecd8",
+        "tonalRamp": [
+          "#0e0b04",
+          "#2b2415",
+          "#484131",
+          "#68614f",
+          "#898270",
+          "#aca592",
+          "#d0c9b5",
+          "#f3eee2"
+        ]
+      },
+      "portal-wordmark": {
+        "role": "tertiary",
+        "displayName": "Wordmark Cream",
+        "canonical": "#fff5dc",
+        "tonalRamp": [
+          "#0f0b03",
+          "#2c2410",
+          "#49412d",
+          "#69614b",
+          "#8b826b",
+          "#aea48d",
+          "#d2c8b0",
+          "#f4eedf"
+        ]
+      },
+      "lar-line-ink": {
+        "role": "tertiary",
+        "displayName": "LAR Line Ink",
+        "canonical": "#f4e8d6",
+        "tonalRamp": [
+          "#0f0a04",
+          "#2c2316",
+          "#4a4032",
+          "#6a6050",
+          "#8b8170",
+          "#afa392",
+          "#d3c7b6",
+          "#f5ede3"
+        ]
+      },
+      "obsidian": {
+        "role": "tertiary",
+        "displayName": "Obsidian",
+        "canonical": "#170b1a",
+        "tonalRamp": [
+          "#0f0811",
+          "#2d1f30",
+          "#4a3c4e",
+          "#6a5b6e",
+          "#8c7c90",
+          "#af9eb3",
+          "#d4c2d8",
+          "#f5eaf8"
+        ]
+      },
+      "obsidian-hi": {
+        "role": "tertiary",
+        "displayName": "Obsidian Highlight",
+        "canonical": "#3a2446",
+        "tonalRamp": [
+          "#110617",
+          "#301a3b",
+          "#4e375b",
+          "#6e567c",
+          "#90779f",
+          "#b39ac3",
+          "#d8bde8",
+          "#f8e7ff"
+        ]
+      },
+      "obsidian-lo": {
+        "role": "tertiary",
+        "displayName": "Obsidian Shadow",
+        "canonical": "#060307",
+        "tonalRamp": [
+          "#0d0a0e",
+          "#29232a",
+          "#463f48",
+          "#655e67",
+          "#877f89",
+          "#aaa2ac",
+          "#cec6d0",
+          "#f1ecf3"
+        ]
+      },
+      "obsidian-fleck": {
+        "role": "tertiary",
+        "displayName": "Obsidian Fleck",
+        "canonical": "#4a2c58",
+        "tonalRamp": [
+          "#120419",
+          "#331640",
+          "#523360",
+          "#725382",
+          "#9474a5",
+          "#b896c9",
+          "#ddbaef",
+          "#fbe5ff"
+        ]
+      },
+      "obsidian-bevel": {
+        "role": "tertiary",
+        "displayName": "Obsidian Bevel",
+        "canonical": "#5a3a6c",
+        "tonalRamp": [
+          "#13041b",
+          "#331443",
+          "#523264",
+          "#725285",
+          "#9572a9",
+          "#b895cd",
+          "#ddb9f3",
+          "#fbe5ff"
+        ]
+      },
+      "swirl-0": {
+        "role": "tertiary",
+        "displayName": "Swirl 0",
+        "canonical": "#170509",
+        "tonalRamp": [
+          "#13080a",
+          "#341e22",
+          "#533a3f",
+          "#73595e",
+          "#967a7f",
+          "#b99ca2",
+          "#dec0c6",
+          "#fce9ec"
+        ]
+      },
+      "swirl-1": {
+        "role": "tertiary",
+        "displayName": "Swirl 1",
+        "canonical": "#540a1c",
+        "tonalRamp": [
+          "#1f0004",
+          "#4b0115",
+          "#6e2531",
+          "#93454f",
+          "#b86770",
+          "#de8992",
+          "#ffadb5",
+          "#ffdee2"
+        ]
+      },
+      "swirl-2": {
+        "role": "tertiary",
+        "displayName": "Swirl 2",
+        "canonical": "#941c30",
+        "tonalRamp": [
+          "#260000",
+          "#5a0004",
+          "#800020",
+          "#a7303f",
+          "#ce555f",
+          "#f67880",
+          "#ff9da3",
+          "#ffd6d7"
+        ]
+      },
+      "swirl-3": {
+        "role": "tertiary",
+        "displayName": "Swirl 3",
+        "canonical": "#cca128",
+        "tonalRamp": [
+          "#190600",
+          "#401900",
+          "#603900",
+          "#825900",
+          "#a57b00",
+          "#c99f24",
+          "#efc353",
+          "#ffecaf"
+        ]
+      },
+      "swirl-4": {
+        "role": "tertiary",
+        "displayName": "Swirl 4",
+        "canonical": "#faebb3",
+        "tonalRamp": [
+          "#110a00",
+          "#302300",
+          "#4e4107",
+          "#6e612c",
+          "#90824e",
+          "#b3a56f",
+          "#d8c992",
+          "#f8efce"
+        ]
+      }
+    },
+    "rooms": {
+      "night": "default; the frontmatter's neutral and primary tokens",
+      "day": {
+        "ground": "#f4f2ef",
+        "ground-2": "#ebe8e3",
+        "dot": "rgba(122, 17, 40, 0.07)",
+        "card": "#ffffff",
+        "card-2": "#f8f6f3",
+        "sunk": "#efece7",
+        "edge": "rgba(28, 21, 23, 0.08)",
+        "edge-2": "rgba(28, 21, 23, 0.16)",
+        "ink": "#1c1517",
+        "ink-2": "#554c4f",
+        "ink-3": "#766c6f",
+        "gold": "#b8860b",
+        "gold-soft": "rgba(201, 162, 39, 0.16)",
+        "on-gold": "#ffffff",
+        "maroon": "#6d0e1f",
+        "maroon-2": "#7e1a2c",
+        "good": "#1e7249",
+        "bad": "#b42318",
+        "island": "#1c1517",
+        "shadow": "0 10px 30px rgba(60, 40, 30, 0.12)",
+        "subjects": [
+          "#7a1128",
+          "#b13e34",
+          "#8f6410",
+          "#5c315f",
+          "#2e5a4f",
+          "#3f517a"
+        ]
+      },
+      "maroon": {
+        "ground": "#1a0a0e",
+        "ground-2": "#230d13",
+        "dot": "rgba(245, 178, 39, 0.08)",
+        "card": "#2a1016",
+        "card-2": "#34141c",
+        "sunk": "#200c11",
+        "edge": "rgba(255, 220, 200, 0.08)",
+        "edge-2": "rgba(255, 220, 200, 0.15)",
+        "ink": "#f7ecec",
+        "ink-2": "#ddb9be",
+        "ink-3": "#a98289",
+        "gold": "#f2c14e",
+        "gold-soft": "rgba(242, 193, 78, 0.14)",
+        "on-gold": "#2a0d06",
+        "maroon": "#6d0e1f",
+        "maroon-2": "#8c1a2e",
+        "good": "#6fd3a0",
+        "bad": "#ff8a7a",
+        "island": "#0d0507",
+        "shadow": "0 10px 30px rgba(0, 0, 0, 0.45)",
+        "subjects": [
+          "#ff8fa3",
+          "#ffa38a",
+          "#f2c14e",
+          "#d4a5f0",
+          "#7fe0bd",
+          "#9dbcf5"
+        ]
+      }
+    },
+    "larPalette": {
+      "o": "#1a0f20",
+      "d": "#2c1c3a",
+      "k": "#43295a",
+      "b": "#5f3f7e",
+      "B": "#8663a8",
+      "L": "#b996d8",
+      "v": "#140b1b",
+      "V": "#2d1d3c",
+      "g": "#f5b227",
+      "G": "#b87a10",
+      "w": "#fff6dc",
+      "p": "#ff7a9c",
+      "r": "#7a1128",
+      "s": "#24162e",
+      "e": "#5d3f78",
+      "m": "#e27bd0",
+      "c": "#c2403a"
+    },
+    "larBellySwirl": [
+      "#2a0a14",
+      "#7a1128",
+      "#c2403a",
+      "#f5b227",
+      "#fff1c4"
+    ],
+    "larMoods": [
+      "open",
+      "blink",
+      "happy",
+      "wow",
+      "wink",
+      "focus"
+    ],
+    "larGestures": [
+      "idle",
+      "wave",
+      "point",
+      "reach",
+      "thumbs"
+    ],
+    "portal": {
+      "artPixelPx": 3,
+      "frame": {
+        "cols": 8,
+        "rows": 11,
+        "thick": 2,
+        "cells": 60,
+        "opening": "4 x 7"
+      },
+      "pieces": [
+        "V",
+        "P",
+        "T",
+        "Z",
+        "N",
+        "L",
+        "Y",
+        "I",
+        "Y",
+        "F",
+        "P",
+        "U"
+      ],
+      "pieceTints": [
+        0,
+        22,
+        10,
+        30,
+        5,
+        16
+      ],
+      "platform": [
+        "#3a2c27",
+        "#33261f",
+        "#41302a",
+        "#2e231e",
+        "#5a3f2c"
+      ],
+      "lights": {
+        "ambient": "#3a2440",
+        "rim": "#8663a8",
+        "key": "#f4e8d6",
+        "front": "#b8a8ff",
+        "swirl": "#cca128"
+      },
+      "motes": {
+        "count": 56,
+        "color": "#f5b227",
+        "opacity": 0.55
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The landing wordmark only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Each tab's screen title."
+      },
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "The GPA figure on Grades."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Page and sheet headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default reading size."
+      },
+      "body-sm": {
+        "displayName": "Body small",
+        "purpose": "LAR's line, errors, descriptions."
+      },
+      "fine": {
+        "displayName": "Fine",
+        "purpose": "Meta lines, privacy notes, small buttons."
+      },
+      "input": {
+        "displayName": "Input",
+        "purpose": "Every text field; 16 px floor stops iOS zoom."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase field names and metadata."
+      },
+      "pixel": {
+        "displayName": "Pixel",
+        "purpose": "LAR's tag, stone labels, system hints."
+      }
+    },
+    "typeScale": {
+      "root": "17px via font: -apple-system-body",
+      "pattern": "min(<px/17>rem, <cap>px)",
+      "headingCap": "about 1.3x",
+      "bodyCap": "about 1.8x"
+    },
+    "shadows": [
+      {
+        "name": "hairline",
+        "value": "inset 0 0 0 1px var(--edge)",
+        "purpose": "Every card and quiet control."
+      },
+      {
+        "name": "float",
+        "value": "0 10px 30px rgba(0, 0, 0, 0.35)",
+        "purpose": "Surfaces floating over content (Night room)."
+      },
+      {
+        "name": "dock-lift",
+        "value": "drop-shadow(0 -10px 30px rgb(0 0 0 / 0.5))",
+        "purpose": "The landing dock, on its unclipped wrapper."
+      },
+      {
+        "name": "stone-drop",
+        "value": "drop-shadow(0 6px 8px rgb(0 0 0 / 0.5))",
+        "purpose": "Floating stones, on the unclipped wrapper."
+      },
+      {
+        "name": "obsidian-bevel",
+        "value": "inset 0 3px 0 #5a3a6c, inset 0 -3px 0 #060307",
+        "purpose": "Obsidian slabs."
+      },
+      {
+        "name": "gold-lip",
+        "value": "inset 0 -3px 0 #b87a10",
+        "purpose": "Gold pixel buttons; flips to the top when pressed."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Every interface transition."
+      },
+      {
+        "name": "pixel-steps",
+        "value": "steps(n)",
+        "purpose": "Pixel motion: tab hop steps(3) 0.35s, shimmer steps(8) 1.4s, Isko's wave."
+      },
+      {
+        "name": "dock-rise",
+        "value": "0.7s, 40px",
+        "purpose": "The landing dock rising."
+      },
+      {
+        "name": "sheet-rise",
+        "value": "0.35s",
+        "purpose": "Bottom sheets."
+      },
+      {
+        "name": "brand-fade",
+        "value": "0.6s, 6px",
+        "purpose": "The landing wordmark."
+      },
+      {
+        "name": "leave",
+        "value": "0.25s ease-in, 16px",
+        "purpose": "Dock and wordmark leaving on Step through."
+      },
+      {
+        "name": "landing-first",
+        "value": "dark 0.4s, assembling 2.66s (piece gap 0.19s, fall 0.42s, settle 0.15s), igniting 0.7s, arrival 1.0s, glimpse 0.7s, rest at 5.46s",
+        "purpose": "First visit."
+      },
+      {
+        "name": "landing-returning",
+        "value": "dark 0.2s, igniting 0.5s, arrival 0.8s, glimpse 0.5s, rest at 2.0s",
+        "purpose": "Signed-in student."
+      },
+      {
+        "name": "dive",
+        "value": "1.1s, k squared, fov 35 to 80, art pixel 3 to 24px, swirl speed 1 to 9",
+        "purpose": "Step through to Today."
+      },
+      {
+        "name": "reduce-motion",
+        "value": "CSS durations 0.01ms; landing opens at rest",
+        "purpose": "Reduce Motion."
+      }
+    ],
+    "haptics": {
+      "select": "selection",
+      "tick": "impact rigid",
+      "press": "impact medium",
+      "pull": "impact soft",
+      "release": "impact light",
+      "done": "notification success",
+      "warn": "notification warning",
+      "fail": "notification error",
+      "debounceMs": 35
+    },
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Portal Button",
+      "kind": "button",
+      "refersTo": "button-portal",
+      "description": "The landing's gold pixel button: Sign in and Step through.",
+      "html": "<button class=\"ds-btn-portal\">Sign in</button>",
+      "css": ".ds-btn-portal { height: 50px; min-width: 220px; padding: 0 28px; border: 0; background: #f5b227; color: #1b1406; font-family: 'Montserrat Variable', system-ui, sans-serif; font-weight: 700; font-size: 16px; clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)); box-shadow: inset 0 -3px 0 #b87a10; } .ds-btn-portal:focus-visible { outline: none; box-shadow: inset 0 0 0 3px #fff6dc, inset 0 -3px 0 #b87a10; } .ds-btn-portal:active { box-shadow: inset 0 3px 0 #b87a10; transform: translateY(1px); } .ds-btn-portal:disabled { opacity: 0.7; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The in-app primary action, reading room roles.",
+      "html": "<button class=\"ds-btn-primary\">Save</button>",
+      "css": ".ds-btn-primary { height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--gold, #f5b227); color: var(--on-gold, #1b1406); font-family: 'Montserrat Variable', system-ui, sans-serif; font-weight: 700; font-size: 14px; } .ds-btn-primary:focus-visible { outline: 2px solid var(--gold, #f5b227); outline-offset: 3px; } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary in-app action on a sunk fill with a hairline.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--sunk, #1f1f23); box-shadow: inset 0 0 0 1px var(--edge, rgba(255,255,255,0.07)); color: var(--ink, #efeff1); font-family: 'Montserrat Variable', system-ui, sans-serif; font-weight: 700; font-size: 14px; } .ds-btn-ghost:focus-visible { outline: 2px solid var(--gold, #f5b227); outline-offset: 3px; } .ds-btn-ghost:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Portal Field",
+      "kind": "input",
+      "refersTo": "input-portal",
+      "description": "A landing field: square, Night fill, gold caret and focus ring, uppercase label.",
+      "html": "<label class=\"ds-field\"><span>Student number</span><input placeholder=\"2026-00000-MN-0\"></label>",
+      "css": ".ds-field { display: grid; gap: 5px; background: #140c16; padding: 12px; } .ds-field span { font-family: 'Montserrat Variable', system-ui, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgb(244 236 216 / 0.6); } .ds-field input { height: 46px; padding: 0 12px; border: 0; border-radius: 0; background: #0b0710; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1); color: #fff; font: 16px 'Source Sans 3 Variable', system-ui, sans-serif; caret-color: #f5b227; outline: none; } .ds-field input::placeholder { color: rgb(255 255 255 / 0.58); } .ds-field input:focus { box-shadow: inset 0 0 0 2px #f5b227; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The in-app card: gradient charcoal, hairline, 4 px stepped corners.",
+      "html": "<section class=\"ds-card\"><p class=\"ds-card-what\">Couldn't load this</p><p class=\"ds-card-why\">SIS is slow right now. Try again in a bit.</p></section>",
+      "css": ".ds-card { padding: 16px; background: linear-gradient(180deg, var(--card-2, #2d2d32), var(--card, #26262a)); box-shadow: inset 0 0 0 1px var(--edge, rgba(255,255,255,0.07)); color: var(--ink, #efeff1); clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)); font-family: 'Source Sans 3 Variable', system-ui, sans-serif; } .ds-card-what { margin: 0; font-family: 'Montserrat Variable', system-ui, sans-serif; font-weight: 700; } .ds-card-why { margin: 2px 0 0; font-size: 13px; color: var(--ink-3, #7c7c85); }"
+    },
+    {
+      "name": "Tab Bar",
+      "kind": "nav",
+      "refersTo": "tab-bar",
+      "description": "Five pixel-icon tabs over a blurred ground; the active one turns gold.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"on\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 12 12\" shape-rendering=\"crispEdges\" aria-hidden=\"true\"><rect x='2' y='0' width='1' height='1' fill='currentColor'/><rect x='8' y='0' width='1' height='1' fill='currentColor'/><rect x='0' y='1' width='1' height='1' fill='currentColor'/><rect x='1' y='1' width='1' height='1' fill='currentColor'/><rect x='2' y='1' width='1' height='1' fill='currentColor'/><rect x='3' y='1' width='1' height='1' fill='currentColor'/><rect x='4' y='1' width='1' height='1' fill='currentColor'/><rect x='5' y='1' width='1' height='1' fill='currentColor'/><rect x='6' y='1' width='1' height='1' fill='currentColor'/><rect x='7' y='1' width='1' height='1' fill='currentColor'/><rect x='8' y='1' width='1' height='1' fill='currentColor'/><rect x='9' y='1' width='1' height='1' fill='currentColor'/><rect x='10' y='1' width='1' height='1' fill='currentColor'/><rect x='11' y='1' width='1' height='1' fill='currentColor'/><rect x='0' y='2' width='1' height='1' fill='currentColor'/><rect x='1' y='2' width='1' height='1' fill='currentColor'/><rect x='2' y='2' width='1' height='1' fill='currentColor'/><rect x='3' y='2' width='1' height='1' fill='currentColor'/><rect x='4' y='2' width='1' height='1' fill='currentColor'/><rect x='5' y='2' width='1' height='1' fill='currentColor'/><rect x='6' y='2' width='1' height='1' fill='currentColor'/><rect x='7' y='2' width='1' height='1' fill='currentColor'/><rect x='8' y='2' width='1' height='1' fill='currentColor'/><rect x='9' y='2' width='1' height='1' fill='currentColor'/><rect x='10' y='2' width='1' height='1' fill='currentColor'/><rect x='11' y='2' width='1' height='1' fill='currentColor'/><rect x='0' y='3' width='1' height='1' fill='currentColor'/><rect x='11' y='3' width='1' height='1' fill='currentColor'/><rect x='0' y='4' width='1' height='1' fill='currentColor'/><rect x='2' y='4' width='1' height='1' fill='currentColor'/><rect x='3' y='4' width='1' height='1' fill='currentColor'/><rect x='5' y='4' width='1' height='1' fill='currentColor'/><rect x='6' y='4' width='1' height='1' fill='currentColor'/><rect x='8' y='4' width='1' height='1' fill='currentColor'/><rect x='9' y='4' width='1' height='1' fill='currentColor'/><rect x='11' y='4' width='1' height='1' fill='currentColor'/><rect x='0' y='5' width='1' height='1' fill='currentColor'/><rect x='2' y='5' width='1' height='1' fill='currentColor'/><rect x='3' y='5' width='1' height='1' fill='currentColor'/><rect x='5' y='5' width='1' height='1' fill='currentColor'/><rect x='6' y='5' width='1' height='1' fill='currentColor'/><rect x='8' y='5' width='1' height='1' fill='currentColor'/><rect x='9' y='5' width='1' height='1' fill='currentColor'/><rect x='11' y='5' width='1' height='1' fill='currentColor'/><rect x='0' y='6' width='1' height='1' fill='currentColor'/><rect x='11' y='6' width='1' height='1' fill='currentColor'/><rect x='0' y='7' width='1' height='1' fill='currentColor'/><rect x='2' y='7' width='1' height='1' fill='currentColor'/><rect x='3' y='7' width='1' height='1' fill='currentColor'/><rect x='5' y='7' width='1' height='1' fill='currentColor'/><rect x='6' y='7' width='1' height='1' fill='currentColor'/><rect x='8' y='7' width='1' height='1' fill='#f5b227'/><rect x='9' y='7' width='1' height='1' fill='#f5b227'/><rect x='11' y='7' width='1' height='1' fill='currentColor'/><rect x='0' y='8' width='1' height='1' fill='currentColor'/><rect x='2' y='8' width='1' height='1' fill='currentColor'/><rect x='3' y='8' width='1' height='1' fill='currentColor'/><rect x='5' y='8' width='1' height='1' fill='currentColor'/><rect x='6' y='8' width='1' height='1' fill='currentColor'/><rect x='8' y='8' width='1' height='1' fill='#f5b227'/><rect x='9' y='8' width='1' height='1' fill='#f5b227'/><rect x='11' y='8' width='1' height='1' fill='currentColor'/><rect x='0' y='9' width='1' height='1' fill='currentColor'/><rect x='11' y='9' width='1' height='1' fill='currentColor'/><rect x='0' y='10' width='1' height='1' fill='currentColor'/><rect x='1' y='10' width='1' height='1' fill='currentColor'/><rect x='2' y='10' width='1' height='1' fill='currentColor'/><rect x='3' y='10' width='1' height='1' fill='currentColor'/><rect x='4' y='10' width='1' height='1' fill='currentColor'/><rect x='5' y='10' width='1' height='1' fill='currentColor'/><rect x='6' y='10' width='1' height='1' fill='currentColor'/><rect x='7' y='10' width='1' height='1' fill='currentColor'/><rect x='8' y='10' width='1' height='1' fill='currentColor'/><rect x='9' y='10' width='1' height='1' fill='currentColor'/><rect x='10' y='10' width='1' height='1' fill='currentColor'/><rect x='11' y='10' width='1' height='1' fill='currentColor'/></svg><span>Schedule</span></button><button><svg width=\"22\" height=\"22\" viewBox=\"0 0 12 12\" shape-rendering=\"crispEdges\" aria-hidden=\"true\"><rect x='2' y='0' width='1' height='1' fill='currentColor'/><rect x='8' y='0' width='1' height='1' fill='currentColor'/><rect x='0' y='1' width='1' height='1' fill='currentColor'/><rect x='1' y='1' width='1' height='1' fill='currentColor'/><rect x='2' y='1' width='1' height='1' fill='currentColor'/><rect x='3' y='1' width='1' height='1' fill='currentColor'/><rect x='4' y='1' width='1' height='1' fill='currentColor'/><rect x='5' y='1' width='1' height='1' fill='currentColor'/><rect x='6' y='1' width='1' height='1' fill='currentColor'/><rect x='7' y='1' width='1' height='1' fill='currentColor'/><rect x='8' y='1' width='1' height='1' fill='currentColor'/><rect x='9' y='1' width='1' height='1' fill='currentColor'/><rect x='10' y='1' width='1' height='1' fill='currentColor'/><rect x='11' y='1' width='1' height='1' fill='currentColor'/><rect x='0' y='2' width='1' height='1' fill='currentColor'/><rect x='1' y='2' width='1' height='1' fill='currentColor'/><rect x='2' y='2' width='1' height='1' fill='currentColor'/><rect x='3' y='2' width='1' height='1' fill='currentColor'/><rect x='4' y='2' width='1' height='1' fill='currentColor'/><rect x='5' y='2' width='1' height='1' fill='currentColor'/><rect x='6' y='2' width='1' height='1' fill='currentColor'/><rect x='7' y='2' width='1' height='1' fill='currentColor'/><rect x='8' y='2' width='1' height='1' fill='currentColor'/><rect x='9' y='2' width='1' height='1' fill='currentColor'/><rect x='10' y='2' width='1' height='1' fill='currentColor'/><rect x='11' y='2' width='1' height='1' fill='currentColor'/><rect x='0' y='3' width='1' height='1' fill='currentColor'/><rect x='11' y='3' width='1' height='1' fill='currentColor'/><rect x='0' y='4' width='1' height='1' fill='currentColor'/><rect x='2' y='4' width='1' height='1' fill='currentColor'/><rect x='3' y='4' width='1' height='1' fill='currentColor'/><rect x='5' y='4' width='1' height='1' fill='currentColor'/><rect x='6' y='4' width='1' height='1' fill='currentColor'/><rect x='8' y='4' width='1' height='1' fill='currentColor'/><rect x='9' y='4' width='1' height='1' fill='currentColor'/><rect x='11' y='4' width='1' height='1' fill='currentColor'/><rect x='0' y='5' width='1' height='1' fill='currentColor'/><rect x='2' y='5' width='1' height='1' fill='currentColor'/><rect x='3' y='5' width='1' height='1' fill='currentColor'/><rect x='5' y='5' width='1' height='1' fill='currentColor'/><rect x='6' y='5' width='1' height='1' fill='currentColor'/><rect x='8' y='5' width='1' height='1' fill='currentColor'/><rect x='9' y='5' width='1' height='1' fill='currentColor'/><rect x='11' y='5' width='1' height='1' fill='currentColor'/><rect x='0' y='6' width='1' height='1' fill='currentColor'/><rect x='11' y='6' width='1' height='1' fill='currentColor'/><rect x='0' y='7' width='1' height='1' fill='currentColor'/><rect x='2' y='7' width='1' height='1' fill='currentColor'/><rect x='3' y='7' width='1' height='1' fill='currentColor'/><rect x='5' y='7' width='1' height='1' fill='currentColor'/><rect x='6' y='7' width='1' height='1' fill='currentColor'/><rect x='8' y='7' width='1' height='1' fill='currentColor'/><rect x='9' y='7' width='1' height='1' fill='currentColor'/><rect x='11' y='7' width='1' height='1' fill='currentColor'/><rect x='0' y='8' width='1' height='1' fill='currentColor'/><rect x='2' y='8' width='1' height='1' fill='currentColor'/><rect x='3' y='8' width='1' height='1' fill='currentColor'/><rect x='5' y='8' width='1' height='1' fill='currentColor'/><rect x='6' y='8' width='1' height='1' fill='currentColor'/><rect x='8' y='8' width='1' height='1' fill='currentColor'/><rect x='9' y='8' width='1' height='1' fill='currentColor'/><rect x='11' y='8' width='1' height='1' fill='currentColor'/><rect x='0' y='9' width='1' height='1' fill='currentColor'/><rect x='11' y='9' width='1' height='1' fill='currentColor'/><rect x='0' y='10' width='1' height='1' fill='currentColor'/><rect x='1' y='10' width='1' height='1' fill='currentColor'/><rect x='2' y='10' width='1' height='1' fill='currentColor'/><rect x='3' y='10' width='1' height='1' fill='currentColor'/><rect x='4' y='10' width='1' height='1' fill='currentColor'/><rect x='5' y='10' width='1' height='1' fill='currentColor'/><rect x='6' y='10' width='1' height='1' fill='currentColor'/><rect x='7' y='10' width='1' height='1' fill='currentColor'/><rect x='8' y='10' width='1' height='1' fill='currentColor'/><rect x='9' y='10' width='1' height='1' fill='currentColor'/><rect x='10' y='10' width='1' height='1' fill='currentColor'/><rect x='11' y='10' width='1' height='1' fill='currentColor'/></svg><span>Grades</span></button><button><svg width=\"22\" height=\"22\" viewBox=\"0 0 12 12\" shape-rendering=\"crispEdges\" aria-hidden=\"true\"><rect x='2' y='0' width='1' height='1' fill='currentColor'/><rect x='8' y='0' width='1' height='1' fill='currentColor'/><rect x='0' y='1' width='1' height='1' fill='currentColor'/><rect x='1' y='1' width='1' height='1' fill='currentColor'/><rect x='2' y='1' width='1' height='1' fill='currentColor'/><rect x='3' y='1' width='1' height='1' fill='currentColor'/><rect x='4' y='1' width='1' height='1' fill='currentColor'/><rect x='5' y='1' width='1' height='1' fill='currentColor'/><rect x='6' y='1' width='1' height='1' fill='currentColor'/><rect x='7' y='1' width='1' height='1' fill='currentColor'/><rect x='8' y='1' width='1' height='1' fill='currentColor'/><rect x='9' y='1' width='1' height='1' fill='currentColor'/><rect x='10' y='1' width='1' height='1' fill='currentColor'/><rect x='11' y='1' width='1' height='1' fill='currentColor'/><rect x='0' y='2' width='1' height='1' fill='currentColor'/><rect x='1' y='2' width='1' height='1' fill='currentColor'/><rect x='2' y='2' width='1' height='1' fill='currentColor'/><rect x='3' y='2' width='1' height='1' fill='currentColor'/><rect x='4' y='2' width='1' height='1' fill='currentColor'/><rect x='5' y='2' width='1' height='1' fill='currentColor'/><rect x='6' y='2' width='1' height='1' fill='currentColor'/><rect x='7' y='2' width='1' height='1' fill='currentColor'/><rect x='8' y='2' width='1' height='1' fill='currentColor'/><rect x='9' y='2' width='1' height='1' fill='currentColor'/><rect x='10' y='2' width='1' height='1' fill='currentColor'/><rect x='11' y='2' width='1' height='1' fill='currentColor'/><rect x='0' y='3' width='1' height='1' fill='currentColor'/><rect x='11' y='3' width='1' height='1' fill='currentColor'/><rect x='0' y='4' width='1' height='1' fill='currentColor'/><rect x='2' y='4' width='1' height='1' fill='currentColor'/><rect x='3' y='4' width='1' height='1' fill='currentColor'/><rect x='5' y='4' width='1' height='1' fill='currentColor'/><rect x='6' y='4' width='1' height='1' fill='currentColor'/><rect x='8' y='4' width='1' height='1' fill='currentColor'/><rect x='9' y='4' width='1' height='1' fill='currentColor'/><rect x='11' y='4' width='1' height='1' fill='currentColor'/><rect x='0' y='5' width='1' height='1' fill='currentColor'/><rect x='2' y='5' width='1' height='1' fill='currentColor'/><rect x='3' y='5' width='1' height='1' fill='currentColor'/><rect x='5' y='5' width='1' height='1' fill='currentColor'/><rect x='6' y='5' width='1' height='1' fill='currentColor'/><rect x='8' y='5' width='1' height='1' fill='currentColor'/><rect x='9' y='5' width='1' height='1' fill='currentColor'/><rect x='11' y='5' width='1' height='1' fill='currentColor'/><rect x='0' y='6' width='1' height='1' fill='currentColor'/><rect x='11' y='6' width='1' height='1' fill='currentColor'/><rect x='0' y='7' width='1' height='1' fill='currentColor'/><rect x='2' y='7' width='1' height='1' fill='currentColor'/><rect x='3' y='7' width='1' height='1' fill='currentColor'/><rect x='5' y='7' width='1' height='1' fill='currentColor'/><rect x='6' y='7' width='1' height='1' fill='currentColor'/><rect x='8' y='7' width='1' height='1' fill='currentColor'/><rect x='9' y='7' width='1' height='1' fill='currentColor'/><rect x='11' y='7' width='1' height='1' fill='currentColor'/><rect x='0' y='8' width='1' height='1' fill='currentColor'/><rect x='2' y='8' width='1' height='1' fill='currentColor'/><rect x='3' y='8' width='1' height='1' fill='currentColor'/><rect x='5' y='8' width='1' height='1' fill='currentColor'/><rect x='6' y='8' width='1' height='1' fill='currentColor'/><rect x='8' y='8' width='1' height='1' fill='currentColor'/><rect x='9' y='8' width='1' height='1' fill='currentColor'/><rect x='11' y='8' width='1' height='1' fill='currentColor'/><rect x='0' y='9' width='1' height='1' fill='currentColor'/><rect x='11' y='9' width='1' height='1' fill='currentColor'/><rect x='0' y='10' width='1' height='1' fill='currentColor'/><rect x='1' y='10' width='1' height='1' fill='currentColor'/><rect x='2' y='10' width='1' height='1' fill='currentColor'/><rect x='3' y='10' width='1' height='1' fill='currentColor'/><rect x='4' y='10' width='1' height='1' fill='currentColor'/><rect x='5' y='10' width='1' height='1' fill='currentColor'/><rect x='6' y='10' width='1' height='1' fill='currentColor'/><rect x='7' y='10' width='1' height='1' fill='currentColor'/><rect x='8' y='10' width='1' height='1' fill='currentColor'/><rect x='9' y='10' width='1' height='1' fill='currentColor'/><rect x='10' y='10' width='1' height='1' fill='currentColor'/><rect x='11' y='10' width='1' height='1' fill='currentColor'/></svg><span>Study</span></button></nav>",
+      "css": ".ds-tabs { display: grid; grid-template-columns: repeat(3, 1fr); padding: 8px; background: color-mix(in srgb, var(--ground, #19191c) 86%, transparent); backdrop-filter: blur(16px); box-shadow: 0 -1px 0 var(--edge, rgba(255,255,255,0.07)); } .ds-tabs button { display: grid; justify-items: center; gap: 4px; padding: 6px 0; border: 0; background: none; color: var(--ink-3, #7c7c85); transition: color 0.2s; } .ds-tabs button:hover, .ds-tabs button:focus-visible { color: var(--ink, #efeff1); outline: none; } .ds-tabs span { font-family: 'Montserrat Variable', system-ui, sans-serif; font-size: 11px; font-weight: 600; } .ds-tabs .on { color: var(--ink, #efeff1); } .ds-tabs .on span { color: var(--gold, #f5b227); } .ds-tabs .on svg { animation: ds-hop 0.35s steps(3); } @keyframes ds-hop { 40% { transform: translateY(-3px); } }"
+    },
+    {
+      "name": "LAR's Line",
+      "kind": "custom",
+      "refersTo": "lar-line",
+      "description": "LAR speaking: an obsidian slab with 3 px steps, his name in gold Pixelify.",
+      "html": "<p class=\"ds-say\"><b>LAR</b> Hi, I'm LAR. Sign in with your SIS login and I'll bring everything over.</p>",
+      "css": ".ds-say { margin: 0; padding: 10px 12px; background: #170b1a; box-shadow: inset 0 2px 0 #3a2446, inset 0 -2px 0 #060307; font: 14px/1.35 'Source Sans 3 Variable', system-ui, sans-serif; color: #f4e8d6; clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)); } .ds-say b { margin-right: 6px; font-family: 'Pixelify Sans', ui-monospace, monospace; font-weight: 400; letter-spacing: 0.06em; color: #f5b227; }"
+    },
+    {
+      "name": "Stone",
+      "kind": "custom",
+      "refersTo": "stone",
+      "description": "An obsidian slab LAR pulls from the swirl, naming a section.",
+      "html": "<span class=\"ds-stone-wrap\"><span class=\"ds-stone\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 12 12\" shape-rendering=\"crispEdges\" aria-hidden=\"true\"><rect x='2' y='0' width='1' height='1' fill='currentColor'/><rect x='8' y='0' width='1' height='1' fill='currentColor'/><rect x='0' y='1' width='1' height='1' fill='currentColor'/><rect x='1' y='1' width='1' height='1' fill='currentColor'/><rect x='2' y='1' width='1' height='1' fill='currentColor'/><rect x='3' y='1' width='1' height='1' fill='currentColor'/><rect x='4' y='1' width='1' height='1' fill='currentColor'/><rect x='5' y='1' width='1' height='1' fill='currentColor'/><rect x='6' y='1' width='1' height='1' fill='currentColor'/><rect x='7' y='1' width='1' height='1' fill='currentColor'/><rect x='8' y='1' width='1' height='1' fill='currentColor'/><rect x='9' y='1' width='1' height='1' fill='currentColor'/><rect x='10' y='1' width='1' height='1' fill='currentColor'/><rect x='11' y='1' width='1' height='1' fill='currentColor'/><rect x='0' y='2' width='1' height='1' fill='currentColor'/><rect x='1' y='2' width='1' height='1' fill='currentColor'/><rect x='2' y='2' width='1' height='1' fill='currentColor'/><rect x='3' y='2' width='1' height='1' fill='currentColor'/><rect x='4' y='2' width='1' height='1' fill='currentColor'/><rect x='5' y='2' width='1' height='1' fill='currentColor'/><rect x='6' y='2' width='1' height='1' fill='currentColor'/><rect x='7' y='2' width='1' height='1' fill='currentColor'/><rect x='8' y='2' width='1' height='1' fill='currentColor'/><rect x='9' y='2' width='1' height='1' fill='currentColor'/><rect x='10' y='2' width='1' height='1' fill='currentColor'/><rect x='11' y='2' width='1' height='1' fill='currentColor'/><rect x='0' y='3' width='1' height='1' fill='currentColor'/><rect x='11' y='3' width='1' height='1' fill='currentColor'/><rect x='0' y='4' width='1' height='1' fill='currentColor'/><rect x='2' y='4' width='1' height='1' fill='currentColor'/><rect x='3' y='4' width='1' height='1' fill='currentColor'/><rect x='5' y='4' width='1' height='1' fill='currentColor'/><rect x='6' y='4' width='1' height='1' fill='currentColor'/><rect x='8' y='4' width='1' height='1' fill='currentColor'/><rect x='9' y='4' width='1' height='1' fill='currentColor'/><rect x='11' y='4' width='1' height='1' fill='currentColor'/><rect x='0' y='5' width='1' height='1' fill='currentColor'/><rect x='2' y='5' width='1' height='1' fill='currentColor'/><rect x='3' y='5' width='1' height='1' fill='currentColor'/><rect x='5' y='5' width='1' height='1' fill='currentColor'/><rect x='6' y='5' width='1' height='1' fill='currentColor'/><rect x='8' y='5' width='1' height='1' fill='currentColor'/><rect x='9' y='5' width='1' height='1' fill='currentColor'/><rect x='11' y='5' width='1' height='1' fill='currentColor'/><rect x='0' y='6' width='1' height='1' fill='currentColor'/><rect x='11' y='6' width='1' height='1' fill='currentColor'/><rect x='0' y='7' width='1' height='1' fill='currentColor'/><rect x='2' y='7' width='1' height='1' fill='currentColor'/><rect x='3' y='7' width='1' height='1' fill='currentColor'/><rect x='5' y='7' width='1' height='1' fill='currentColor'/><rect x='6' y='7' width='1' height='1' fill='currentColor'/><rect x='8' y='7' width='1' height='1' fill='#f5b227'/><rect x='9' y='7' width='1' height='1' fill='#f5b227'/><rect x='11' y='7' width='1' height='1' fill='currentColor'/><rect x='0' y='8' width='1' height='1' fill='currentColor'/><rect x='2' y='8' width='1' height='1' fill='currentColor'/><rect x='3' y='8' width='1' height='1' fill='currentColor'/><rect x='5' y='8' width='1' height='1' fill='currentColor'/><rect x='6' y='8' width='1' height='1' fill='currentColor'/><rect x='8' y='8' width='1' height='1' fill='#f5b227'/><rect x='9' y='8' width='1' height='1' fill='#f5b227'/><rect x='11' y='8' width='1' height='1' fill='currentColor'/><rect x='0' y='9' width='1' height='1' fill='currentColor'/><rect x='11' y='9' width='1' height='1' fill='currentColor'/><rect x='0' y='10' width='1' height='1' fill='currentColor'/><rect x='1' y='10' width='1' height='1' fill='currentColor'/><rect x='2' y='10' width='1' height='1' fill='currentColor'/><rect x='3' y='10' width='1' height='1' fill='currentColor'/><rect x='4' y='10' width='1' height='1' fill='currentColor'/><rect x='5' y='10' width='1' height='1' fill='currentColor'/><rect x='6' y='10' width='1' height='1' fill='currentColor'/><rect x='7' y='10' width='1' height='1' fill='currentColor'/><rect x='8' y='10' width='1' height='1' fill='currentColor'/><rect x='9' y='10' width='1' height='1' fill='currentColor'/><rect x='10' y='10' width='1' height='1' fill='currentColor'/><rect x='11' y='10' width='1' height='1' fill='currentColor'/></svg><span>Schedule</span></span></span>",
+      "css": ".ds-stone-wrap { display: inline-block; filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.5)); } .ds-stone { display: grid; justify-items: center; gap: 3px; padding: 8px 9px 6px; background: linear-gradient(to left, rgb(148 28 48 / 0.34) 0 6px, rgb(148 28 48 / 0.22) 6px 12px, rgb(148 28 48 / 0.12) 12px 21px, transparent 21px), url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='21' height='18' shape-rendering='crispEdges'%3E%3Crect x='3' y='3' width='3' height='3' fill='%234a2c58'/%3E%3Crect x='15' y='12' width='3' height='3' fill='%233a2446'/%3E%3Crect x='9' y='9' width='3' height='3' fill='%232c1c3a'/%3E%3C/svg%3E\"), #170b1a; box-shadow: inset 0 3px 0 #5a3a6c, inset 0 -3px 0 #060307; font-family: 'Pixelify Sans', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.04em; color: #f4e8d6; clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Other Side of the Portal",
+    "overview": "IntPortal has two registers that share one gold. Inside the app is the legacy calm: a charcoal ground under a faint gold dot grid, quiet gradient cards with hairline edges, Montserrat for anything that carries weight and Source Sans 3 for everything read. On top of that calm sit pixel accents that are drawn, not decorated: stepped card corners, 12 by 12 pixel icons, stepped animations, Isko the pixel student. The landing is the other register, the world the calm app opens onto: a night ground, an obsidian portal built from falling pentominoes, a maroon-to-gold dithered swirl, and LAR, a small obsidian robot who comes through it.\n\nThe pixel world exists to serve a glance. Students open the app between classes, on weak data, in jeepneys; clear first, charming second. Every pixel element on screen does a job (a tab, a stone that names a section, a mascot that speaks), and nothing on screen only decorates. The landing deliberately refuses the logo-over-a-form login screen: the portal and LAR own the top half, LAR's line and the sign-in card own the bottom half, and the one gold button is Sign in.",
+    "keyCharacteristics": [
+      "Dark-first, charcoal ground with a 14 px gold dot grid; Day and Maroon rooms restyle the same roles.",
+      "One gold for action and selection, on every room and on the landing.",
+      "A 3 CSS px art pixel for the portal and LAR; crisp edges and nearest-neighbour scaling everywhere art appears.",
+      "Stepped (clip-path) corners on cards and pixel slabs, never a border radius on a pixel surface.",
+      "Type scales with the iPhone text size from a 17 px root, with hard caps per role.",
+      "Motion is stepped for pixel things and eased for interface things; the landing runs on one pure clock."
+    ],
+    "rules": [
+      {
+        "name": "The One Gold Rule",
+        "body": "Gold means \"do this\" or \"you are here\": the primary action, the selected option, the active tab. Secondary actions are ghost buttons or underlined text, never a second hue.",
+        "section": "colors"
+      },
+      {
+        "name": "The Swirl Stays in the Portal Rule",
+        "body": "The swirl ramp lives inside an opening (the portal, LAR's belly window). It is never a background gradient, a card fill, or a text colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Roles Not Hex Rule",
+        "body": "App screens read colour roles (`var(--gold)`, `var(--card)`), so every room works. The landing is the one surface that names its own night palette, because it does not change with the room.",
+        "section": "colors"
+      },
+      {
+        "name": "The Capped Growth Rule",
+        "body": "Every font size is `min(rem, px)`. A new size divides the design px by 17 for the rem and sets the cap near 1.3 times (headings) or 1.8 times (body, labels). The tab bar is the one tighter cap (13 px), because five labels share the width.",
+        "section": "typography"
+      },
+      {
+        "name": "The Pixel Voice Rule",
+        "body": "Pixelify Sans speaks for the other side (LAR, the stones, system hints) and never sets a heading, a button, or a sentence the student has to read twice.",
+        "section": "typography"
+      },
+      {
+        "name": "The Shadow on the Parent Rule",
+        "body": "A clip-path cuts its own box-shadow off. Stepped shapes get their shadow as a `drop-shadow` filter on an unclipped wrapper.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** read colour roles (`var(--gold)`, `var(--card)`, `var(--ink-3)`) on every app screen so all rooms work.",
+      "**Do** size every art element on the 3 px art pixel, with `image-rendering: pixelated` or `shape-rendering: crispEdges`.",
+      "**Do** write every font size as `min(<px / 17>rem, <cap>px)`, capping headings near 1.3 times and body near 1.8 times.",
+      "**Do** cut pixel surfaces with stepped corners (3 px, or 4 px on cards and sheets) and put their shadow on an unclipped parent.",
+      "**Do** use `steps()` for pixel motion and the shared ease for interface motion, and give every animation a Reduce Motion resting state.",
+      "**Do** pair each meaningful change with its haptic verb from `haptics.ts`.",
+      "**Do** say plainly where login happens that the login stays on the phone and the app only talks to PUP SIS."
+    ],
+    "donts": [
+      "**Don't** use the PUP seal or wordmark, or anything that implies the app is official. Maroon, gold and the plain name \"PUP SIS\" are fine.",
+      "**Don't** put a logo over a form for sign-in; the portal and LAR open the app.",
+      "**Don't** let the pixel world slow a glance: no art in front of the next class, a grade or a due date.",
+      "**Don't** add generic effects (glows, gradients, particles) that only decorate; the motes and the swirl exist because the portal is the brand.",
+      "**Don't** use the swirl ramp outside a portal opening.",
+      "**Don't** set headings, buttons or long sentences in Pixelify Sans.",
+      "**Don't** redesign Isko unasked.",
+      "**Don't** invent user counts, ratings, testimonials or press.",
+      "**Don't** introduce a second accent hue for actions; gold is the only one."
+    ]
+  }
+}

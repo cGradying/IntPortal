@@ -14,3 +14,6 @@ target/
 
 .svelte-kit/
 build/
+.impeccable/mocks/
+.impeccable/review/
+.impeccable/questions/
