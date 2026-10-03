@@ -55,16 +55,10 @@
     {/each}
   </div>
 
-  <p class="label">Glance: Dynamic Island capsule</p>
-  <div class="stack">
-    {#each states as [name, v] (name)}<figure class="glances"><Glance mode="island" preview={v} /><figcaption>{name}</figcaption></figure>{/each}
-    <figure class="glances"><Glance mode="island" preview={states[0][1]} startOpen /><figcaption>expanded</figcaption></figure>
-  </div>
-
   <p class="label">Glance: dock, for phones without an island</p>
   <div class="stack">
-    {#each states as [name, v] (name)}<figure class="glances"><Glance mode="dock" preview={v} /><figcaption>{name}</figcaption></figure>{/each}
-    <figure class="glances"><Glance mode="dock" preview={states[0][1]} startOpen /><figcaption>expanded</figcaption></figure>
+    {#each states as [name, v] (name)}<figure class="glances"><Glance preview={v} /><figcaption>{name}</figcaption></figure>{/each}
+    <figure class="glances"><Glance preview={states[0][1]} startOpen /><figcaption>expanded</figcaption></figure>
   </div>
 
   <p class="label">Icons</p>

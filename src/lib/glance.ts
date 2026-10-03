@@ -9,30 +9,28 @@ export interface GlanceView {
   /** The jeepney's state; none means the portal glyph. */
   trip: Trip | null;
   tone: Tone;
-  /** The full sentence, for the dock and the expanded island. */
+  /** The full sentence. */
   line: string;
-  /** A word or a subject code, for the island's chin. */
-  label: string;
   /** A few characters after it: the countdown. */
   short: string;
 }
 
 export function glanceView(g: Glance | undefined, line: string | undefined, syncing: boolean, arrived: boolean, failed: boolean): GlanceView {
-  if (syncing) return { trip: "drive", tone: "calm", line: "On the way to SIS…", label: "Syncing", short: "" };
-  if (arrived) return { trip: "arrived", tone: "calm", line: "Synced · everything's fresh", label: "Fresh", short: "" };
-  const view: GlanceView = { trip: failed ? "stalled" : null, tone: "calm", line: line ?? "IntPortal", label: "IntPortal", short: "" };
+  if (syncing) return { trip: "drive", tone: "calm", line: "On the way to SIS…", short: "" };
+  if (arrived) return { trip: "arrived", tone: "calm", line: "Synced · everything's fresh", short: "" };
+  const view: GlanceView = { trip: failed ? "stalled" : null, tone: "calm", line: line ?? "IntPortal", short: "" };
   if (!g) return view;
   switch (g.kind) {
     case "in_session":
-      return { ...view, tone: "live", label: g.code, short: g.until };
+      return { ...view, tone: "live", short: g.until };
     case "next_today":
-      return { ...view, label: g.code, short: g.when.replace(/^(in|at) /, "") };
+      return { ...view, short: g.when.replace(/^(in|at) /, "") };
     case "sync_trouble":
-      return { ...view, tone: "trouble", label: "SIS", short: "Retry" };
+      return { ...view, tone: "trouble", short: "Retry" };
     case "thinking":
-      return { ...view, label: "IntAssis", short: "…" };
+      return { ...view, short: "…" };
     case "day_done":
-      return { ...view, label: "Day done" };
+      return { ...view };
   }
 }
 

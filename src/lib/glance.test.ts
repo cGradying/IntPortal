@@ -7,7 +7,6 @@ describe("glanceView", () => {
       trip: null,
       tone: "calm",
       line: "GEED 10053 · in 12m",
-      label: "GEED 10053",
       short: "12m",
     });
     expect(glanceView({ kind: "next_today", code: "GEED 10053", when: "at 1PM" }, "", false, false, false).short).toBe("1PM");
@@ -15,12 +14,12 @@ describe("glanceView", () => {
 
   it("marks a class in session as live, with its end time", () => {
     const v = glanceView({ kind: "in_session", code: "COMP 20073", until: "9AM" }, "COMP 20073 · until 9AM", false, false, false);
-    expect([v.tone, v.label, v.short]).toEqual(["live", "COMP 20073", "9AM"]);
+    expect([v.tone, v.short]).toEqual(["live", "9AM"]);
   });
 
   it("puts the journey ahead of the class", () => {
     const next = { kind: "next_today", code: "X", when: "in 5m" } as const;
-    expect(glanceView(next, "X · in 5m", true, false, false)).toEqual({ trip: "drive", tone: "calm", line: "On the way to SIS…", label: "Syncing", short: "" });
+    expect(glanceView(next, "X · in 5m", true, false, false)).toEqual({ trip: "drive", tone: "calm", line: "On the way to SIS…", short: "" });
     expect(glanceView(next, "X · in 5m", false, true, false).trip).toBe("arrived");
     expect(glanceView(next, "X · in 5m", false, false, true).trip).toBe("stalled");
   });
@@ -30,7 +29,6 @@ describe("glanceView", () => {
       trip: "stalled",
       tone: "trouble",
       line: "Couldn't reach SIS · Try again",
-      label: "SIS",
       short: "Retry",
     });
   });

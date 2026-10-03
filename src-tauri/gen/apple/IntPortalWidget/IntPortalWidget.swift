@@ -146,6 +146,13 @@ struct NextClassWidget: Widget {
 }
 
 #if canImport(ActivityKit)
+/// A countdown claims the width of its longest possible value, which left a
+/// wide empty gap in the island; pin it to what "58:12" or "1:05:12" needs.
+func countdownWidth(_ s: ClassActivityAttributes.ContentState, digit: CGFloat) -> CGFloat {
+  let left = (s.start > .now ? s.start : s.end).timeIntervalSinceNow
+  return digit * (left >= 3600 ? 7 : 5)
+}
+
 @available(iOS 16.2, *)
 struct ClassLiveActivity: Widget {
   var body: some WidgetConfiguration {
@@ -180,7 +187,7 @@ struct ClassLiveActivity: Widget {
         }
         DynamicIslandExpandedRegion(.trailing) {
           Text(timerInterval: s.start > .now ? Date.now...s.start : s.start...s.end, countsDown: true)
-            .monospacedDigit().multilineTextAlignment(.trailing).frame(maxWidth: 90).font(.headline)
+            .monospacedDigit().multilineTextAlignment(.trailing).frame(width: countdownWidth(s, digit: 12)).font(.headline).foregroundStyle(gold)
         }
         DynamicIslandExpandedRegion(.bottom) {
           Text("\(s.title)\(s.online ? " · Online" : "") · \(s.start.formatted(date: .omitted, time: .shortened))–\(s.end.formatted(date: .omitted, time: .shortened))")
@@ -190,7 +197,7 @@ struct ClassLiveActivity: Widget {
         PortalGlyph()
       } compactTrailing: {
         Text(timerInterval: s.start > .now ? Date.now...s.start : s.start...s.end, countsDown: true)
-          .monospacedDigit().multilineTextAlignment(.trailing).frame(maxWidth: 64).font(.caption.weight(.bold)).foregroundStyle(gold)
+          .monospacedDigit().multilineTextAlignment(.trailing).frame(width: countdownWidth(s, digit: 9.5)).font(.caption.weight(.bold)).foregroundStyle(gold)
       } minimal: {
         PortalGlyph()
       }

@@ -1,17 +1,11 @@
 <script lang="ts">
-  // The glance. On a Dynamic Island iPhone it is a black capsule that wraps
-  // the hardware island and grows a chin under the camera, the way the system
-  // grows a Live Activity; a tap widens it. Elsewhere it is a dock above the
-  // tab bar that grows up.
+  // The glance, for phones without a Dynamic Island: a dock above the tab bar
+  // that grows up when tapped. Island phones get the Live Activity instead.
   import Jeepney from "./Jeepney.svelte";
   import { ago, glanceView, type GlanceView } from "./glance";
   import { app, syncNow } from "./state.svelte";
 
-  let {
-    mode,
-    preview,
-    startOpen = false,
-  }: { mode: "island" | "dock"; preview?: GlanceView; startOpen?: boolean } = $props();
+  let { preview, startOpen = false }: { preview?: GlanceView; startOpen?: boolean } = $props();
 
   // svelte-ignore state_referenced_locally
   let open = $state(startOpen);
@@ -31,11 +25,10 @@
   );
 </script>
 
-<div class="wrap" data-mode={mode} class:preview>
+<div class="wrap" class:preview>
   <button class="glance" class:open data-tone={view.tone} onclick={() => (open = !open)} aria-expanded={open} aria-label={view.line}>
     <span class="row">
-      <!-- Beside the camera there's room for the countdown or the glyph, not both. -->
-      {#if view.trip || !(mode === "island" && view.short)}<span class="lead">
+      <span class="lead">
         {#if view.trip}
           <Jeepney mode={view.trip} />
         {:else}
@@ -46,16 +39,15 @@
             <path class="swirl b" d="M3 3h2v1H3zM2 5h2v1H2zM4 2h1v2H4z" />
           </svg>
         {/if}
-      </span>{/if}
-      <span class="line" aria-live="polite">{mode === "dock" ? view.line : view.label}</span>
+      </span>
+      <span class="line" aria-live="polite">{view.line}</span>
       <span class="trail">
         {#if view.tone === "live"}<span class="live" aria-hidden="true"></span>{/if}
-        {mode === "island" ? view.short.replace(/(\d:\d\d)[AP]M$/, "$1") : view.short}
+        {view.short}
       </span>
     </span>
     {#if open}
       <span class="more">
-        {#if mode === "island"}<span class="big" aria-live="polite">{view.line}</span>{/if}
         <span class="meta">
           <span>Synced {ago(app.snapshot?.last_synced)} · {app.snapshot?.host ?? "sis"}</span>
           <span
@@ -82,6 +74,8 @@
     z-index: 30;
     display: flex;
     justify-content: center;
+    bottom: calc(var(--safe-bottom) + 76px);
+    padding: 0 var(--gutter);
     pointer-events: none;
   }
   .wrap.preview {
@@ -93,57 +87,11 @@
   .wrap.preview .glance.open {
     width: 100%;
   }
-  /* One band, the height of the hardware island (126 x 37 pt at 11 pt down
-     on the 14 to 17 Pro, 94 x 36 at 14 pt down on the 18 Pro), like the
-     system's compact Live Activity. The signal icons sit under 30 pt right
-     of the island but the clock leaves 35 to 52 pt on its left, so the
-     glyph and countdown go left of the camera and the capsule only rounds
-     off on the right. */
-  [data-mode="island"] {
-    --lead: clamp(34px, 50vw - 172px, 48px);
-    top: 10px;
-  }
-  [data-mode="dock"] {
-    bottom: calc(var(--safe-bottom) + 76px);
-    padding: 0 var(--gutter);
-  }
   .glance {
     pointer-events: auto;
     border: 0;
     color: #f1f1f3;
     text-align: left;
-  }
-  [data-mode="island"] .glance {
-    position: relative;
-    width: calc(126px + 6px + var(--lead));
-    /* Keeps the camera hole centred: the wrap centres the margin box. */
-    margin-right: calc(var(--lead) - 6px);
-    padding: 0 0 0 8px;
-    border-radius: 20px;
-    background: #000;
-    transition:
-      width 0.5s cubic-bezier(0.3, 1.35, 0.4, 1),
-      border-radius 0.5s var(--ease),
-      padding 0.5s var(--ease);
-  }
-  /* iOS keeps taps in the status bar for scroll-to-top, and the band sits
-     inside it, so an invisible strip under the band takes the tap. */
-  [data-mode="island"] .glance:not(.open)::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    height: 28px;
-  }
-  [data-mode="island"] .glance.open {
-    width: calc(100vw - 16px);
-    max-width: 420px;
-    margin-right: 0;
-    padding: 50px 20px 16px;
-    border-radius: 36px;
-  }
-  [data-mode="dock"] .glance {
     width: 100%;
     max-width: 480px;
     min-height: 48px;
@@ -159,46 +107,10 @@
     align-items: center;
     gap: 10px;
   }
-  [data-mode="island"] .row {
-    gap: 5px;
-    height: 40px;
-  }
-  /* Open, the status bar sits across the top; the content starts below it. */
-  [data-mode="island"] .open .row {
-    display: none;
-  }
-  [data-mode="island"] .open .more {
-    margin-top: 0;
-  }
-  /* The words don't fit beside the camera; the open island has them. */
-  [data-mode="island"] .line {
-    display: none;
-  }
-  [data-mode="island"] .trail {
-    gap: 4px;
-    font-size: 12px;
-  }
-  /* 402 pt phones leave about 35 pt left of the camera. */
-  @media (max-width: 429px) {
-    [data-mode="island"] .glance:not(.open) {
-      padding-left: 6px;
-    }
-    [data-mode="island"] .glance:not(.open) .trail {
-      font-size: 11px;
-      letter-spacing: -0.02em;
-    }
-  }
   .lead {
     display: flex;
     align-items: center;
     flex: none;
-  }
-  [data-mode="island"] .lead :global(.lane) {
-    width: min(30px, calc(var(--lead) - 14px));
-  }
-  [data-mode="island"] .glyph {
-    width: 11px;
-    height: 14px;
   }
   .glyph {
     width: 14px;
@@ -264,18 +176,12 @@
     margin-top: 10px;
     animation: fade 0.3s var(--ease) 0.08s backwards;
   }
-  [data-mode="dock"] .more {
+  .more {
     padding-top: 10px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
   @keyframes fade {
     from { opacity: 0; transform: translateY(-4px); }
-  }
-  .big {
-    font-family: var(--font-display);
-    font-size: 17px;
-    font-weight: 700;
-    line-height: 1.3;
   }
   .meta {
     display: flex;
