@@ -2,6 +2,7 @@
   // One deck: its cards, adding them one by one or pasted, and the way into
   // a study session in one of three modes.
   import ErrorCard from "./ErrorCard.svelte";
+  import LarNote from "./LarNote.svelte";
   import Skeleton from "./Skeleton.svelte";
   import StudySession, { type Mode } from "./StudySession.svelte";
   import { api, type Card, type Deck } from "./api";
@@ -99,6 +100,8 @@
         <button class="ghost" disabled={deck.cards.length < 4} onclick={() => (studying = "choice")}>Choices</button>
       </div>
       {#if deck.cards.length < 4}<p class="fine">Multiple choice needs at least 4 cards.</p>{/if}
+    {:else if deck}
+      <LarNote>No cards yet. Add one below, or paste a list as "term - meaning", one per line.</LarNote>
     {/if}
 
     <section class="card notch add">

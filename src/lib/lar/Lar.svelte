@@ -111,10 +111,12 @@
 </span>
 
 <style>
+  /* The mitts float 5 sprite pixels past the body on each side. */
   .lar {
     position: relative;
     display: inline-block;
     flex: none;
+    margin-inline: calc(var(--s) * 5);
   }
   .body {
     position: absolute;

@@ -3,6 +3,7 @@
   import Scene from "../Scene.svelte";
   import { app, openNote, openSubject, syncNow } from "../state.svelte";
   import ClassSheet from "../ClassSheet.svelte";
+  import Lar from "../lar/Lar.svelte";
   import { ago } from "../glance";
   import { longpress } from "../press";
   import { buzz } from "../haptics";
@@ -125,8 +126,9 @@
 
   {#if nudge}
     <section class="coach card notch" data-kind={nudge.nudge.kind}>
+      <Lar size={2} cube={false} />
       <button class="say" onclick={act}>
-        <span class="label">Coach</span>
+        <span class="label">LAR</span>
         <span class="line">{nudge.line}</span>
       </button>
       <button class="x" aria-label="Dismiss for today" onclick={dismiss}>×</button>
@@ -332,8 +334,8 @@
     --step: 4px;
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 12px 6px 12px 16px;
+    gap: 12px;
+    padding: 18px 6px 12px 14px;
     box-shadow: inset 3px 0 0 var(--gold);
   }
   .coach .say {
