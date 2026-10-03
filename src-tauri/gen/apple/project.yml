@@ -1,4 +1,9 @@
 name: intportal
+# The App Group lets the home-screen widget read the next class. A free Apple
+# team can't sign with it, so it's opt-in: INTPORTAL_APP_GROUP=true.
+include:
+  - path: app-group.yml
+    enable: ${INTPORTAL_APP_GROUP}
 options:
   bundleIdPrefix: ph.intportal.app
   deploymentTarget:
@@ -7,6 +12,10 @@ fileGroups: [../../src]
 configs:
   debug: debug
   release: release
+settings:
+  base:
+    # Filled in by xcodegen from the environment (scripts/phone.sh); no team id in git.
+    DEVELOPMENT_TEAM: ${APPLE_DEVELOPMENT_TEAM}
 settingGroups:
   app:
     base:
@@ -53,10 +62,10 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 0.1.0
         CFBundleVersion: "0.1.0"
+        NSSupportsLiveActivities: true
+        NSFaceIDUsageDescription: IntPortal uses Face ID to keep your notes, grades and schedule private when the app lock is on.
     entitlements:
       path: intportal_iOS/intportal_iOS.entitlements
-      properties:
-        com.apple.security.application-groups: [group.ph.intportal.app]
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
@@ -108,8 +117,6 @@ targets:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
       path: IntPortalWidget/IntPortalWidget.entitlements
-      properties:
-        com.apple.security.application-groups: [group.ph.intportal.app]
     settings:
       base:
         PRODUCT_NAME: IntPortalWidget
