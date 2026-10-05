@@ -1,6 +1,6 @@
 # Working on IntPortal
 
-Read `README.md` for the layout and the run commands, and `CONTEXT.md` for the app's terms. This file holds what an agent needs on top of them.
+Read `README.md` for the layout and the run commands, `docs/ARCHITECTURE.md` for how the layers fit and what must stay true, and `CONTEXT.md` for the app's terms. This file holds what an agent needs on top of them.
 
 ## Before you change anything
 
