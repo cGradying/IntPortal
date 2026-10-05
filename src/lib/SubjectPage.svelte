@@ -2,6 +2,7 @@
   // One subject's syllabus: its grading system with the running arithmetic,
   // and its outline of topics, quizzes, exams and projects.
   import { api, isoDate, type Component, type ItemKind, type Plan, type SyllabusItem, type Tally } from "./api";
+  import { closable } from "./back";
   import { adopt, app, openNote } from "./state.svelte";
 
   let { code, description }: { code: string; description: string } = $props();
@@ -38,6 +39,7 @@
     if (dirty) await save();
     if (!problem) app.subject = null;
   }
+  $effect(() => closable(close));
 
   const num = (v: string) => (v.trim() === "" ? null : Number(v));
 

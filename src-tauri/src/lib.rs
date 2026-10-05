@@ -57,68 +57,170 @@ impl From<&Login> for Credentials {
     }
 }
 
-mod vault {
-    //! The login lives in the platform keychain, never in the store.
-    use super::Login;
+mod keychain {
+    //! The platform's keychain: Keychain Services on Apple, values sealed by
+    //! an Android Keystore key on Android (`Secrets.kt`). `Ok(None)` only
+    //! when nothing is saved under the name.
 
     #[cfg(any(target_os = "ios", target_os = "macos"))]
-    fn entry() -> Result<keyring::Entry, String> {
-        keyring::Entry::new("ph.intportal.app", "sis-login").map_err(|e| e.to_string())
-    }
-
-    #[cfg(any(target_os = "ios", target_os = "macos"))]
-    pub fn save(l: &Login) -> Result<(), String> {
-        let json = serde_json::to_string(l).map_err(|e| e.to_string())?;
-        entry()?.set_password(&json).map_err(|e| e.to_string())
+    fn entry(service: &str, name: &str) -> Result<keyring::Entry, String> {
+        keyring::Entry::new(service, name).map_err(|e| e.to_string())
     }
 
     #[cfg(any(target_os = "ios", target_os = "macos"))]
-    pub fn load() -> Option<Login> {
-        serde_json::from_str(&entry().ok()?.get_password().ok()?).ok()
-    }
-
-    #[cfg(any(target_os = "ios", target_os = "macos"))]
-    pub fn clear() {
-        if let Ok(e) = entry() {
-            let _ = e.delete_credential();
-        }
-    }
-
-    // ponytail: Android Keystore arrives with #15; until then nothing is saved there.
-    #[cfg(not(any(target_os = "ios", target_os = "macos")))]
-    pub fn save(_: &Login) -> Result<(), String> {
-        Err("Saving your login isn't supported on this device yet.".into())
-    }
-    #[cfg(not(any(target_os = "ios", target_os = "macos")))]
-    pub fn load() -> Option<Login> {
-        None
-    }
-    #[cfg(not(any(target_os = "ios", target_os = "macos")))]
-    pub fn clear() {}
-}
-
-mod dbkey {
-    //! Each student's store key: 32 random bytes in the keychain, named by
-    //! the store's file. Made once, on the first open of that store.
-
-    #[cfg(any(target_os = "ios", target_os = "macos"))]
-    pub fn get_or_create(file: &str) -> Result<[u8; 32], String> {
-        let entry = keyring::Entry::new("ph.intportal.app.db", file).map_err(|e| e.to_string())?;
-        match entry.get_password() {
-            Ok(hex) => parse(&hex).ok_or_else(|| "The store key in the keychain is damaged.".to_string()),
-            // Only a missing key is made anew. Any other keychain error (say,
-            // before the phone's first unlock) must not replace a real key.
-            Err(keyring::Error::NoEntry) => {
-                let mut key = [0u8; 32];
-                getrandom::fill(&mut key).map_err(|e| e.to_string())?;
-                entry.set_password(&key.iter().map(|b| format!("{b:02x}")).collect::<String>()).map_err(|e| e.to_string())?;
-                Ok(key)
-            }
+    pub fn get(service: &str, name: &str) -> Result<Option<String>, String> {
+        match entry(service, name)?.get_password() {
+            Ok(v) => Ok(Some(v)),
+            Err(keyring::Error::NoEntry) => Ok(None),
             Err(e) => Err(e.to_string()),
         }
     }
 
     #[cfg(any(target_os = "ios", target_os = "macos"))]
+    pub fn set(service: &str, name: &str, value: &str) -> Result<(), String> {
+        entry(service, name)?.set_password(value).map_err(|e| e.to_string())
+    }
+
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    pub fn delete(service: &str, name: &str) {
+        if let Ok(e) = entry(service, name) {
+            let _ = e.delete_credential();
+        }
+    }
+
+    #[cfg(target_os = "android")]
+    mod jvm {
+        use jni::objects::{JClass, JObject, JString, JValue, JValueOwned};
+        use jni::{JNIEnv, JavaVM};
+
+        /// Calls a static method of `ph.intportal.app.Secrets` with the app
+        /// context first. Works from any thread: the class comes through the
+        /// app's class loader, which a native thread doesn't have.
+        pub fn call<T>(
+            method: &str,
+            sig: &str,
+            args: &[&str],
+            read: impl FnOnce(&mut JNIEnv, JValueOwned) -> jni::errors::Result<T>,
+        ) -> Result<T, String> {
+            let ctx = ndk_context::android_context();
+            let vm = unsafe { JavaVM::from_raw(ctx.vm().cast()) }.map_err(|e| e.to_string())?;
+            let mut env = vm.attach_current_thread().map_err(|e| e.to_string())?;
+            let context = unsafe { JObject::from_raw(ctx.context().cast()) };
+            let out = env.with_local_frame(16, |env| {
+                let loader = env.call_method(&context, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])?.l()?;
+                let class_name = env.new_string("ph.intportal.app.Secrets")?;
+                let class = JClass::from(
+                    env.call_method(&loader, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;", &[JValue::Object(&class_name)])?.l()?,
+                );
+                let mut strings = Vec::with_capacity(args.len());
+                for a in args {
+                    strings.push(JObject::from(env.new_string(a)?));
+                }
+                let mut jargs = vec![JValue::Object(&context)];
+                jargs.extend(strings.iter().map(JValue::Object));
+                let r = env.call_static_method(&class, method, sig, &jargs)?;
+                read(env, r)
+            });
+            out.map_err(|e| {
+                // A thrown exception stays pending until cleared; say what it was.
+                if env.exception_check().unwrap_or(false) {
+                    let thrown = env.exception_occurred().ok();
+                    let _ = env.exception_clear();
+                    if let Some(t) = thrown {
+                        if let Ok(m) = env.call_method(&t, "toString", "()Ljava/lang/String;", &[]).and_then(|v| v.l()) {
+                            if let Ok(s) = env.get_string(&JString::from(m)) {
+                                return String::from(s);
+                            }
+                        }
+                    }
+                }
+                e.to_string()
+            })
+        }
+    }
+
+    #[cfg(target_os = "android")]
+    fn key(service: &str, name: &str) -> String {
+        format!("{service}/{name}")
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn get(service: &str, name: &str) -> Result<Option<String>, String> {
+        jvm::call("get", "(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;", &[&key(service, name)], |env, v| {
+            let o = v.l()?;
+            if o.is_null() {
+                return Ok(None);
+            }
+            Ok(Some(env.get_string(&jni::objects::JString::from(o))?.into()))
+        })
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn set(service: &str, name: &str, value: &str) -> Result<(), String> {
+        jvm::call("set", "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)V", &[&key(service, name), value], |_, _| Ok(()))
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn delete(service: &str, name: &str) {
+        let _ = jvm::call("delete", "(Landroid/content/Context;Ljava/lang/String;)V", &[&key(service, name)], |_, _| Ok(()));
+    }
+
+    // Desktop dev builds keep nothing.
+    #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android")))]
+    pub fn get(_: &str, _: &str) -> Result<Option<String>, String> {
+        Ok(None)
+    }
+    #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android")))]
+    pub fn set(_: &str, _: &str, _: &str) -> Result<(), String> {
+        Err("Saving your login isn't supported on this device yet.".into())
+    }
+    #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android")))]
+    pub fn delete(_: &str, _: &str) {}
+}
+
+mod vault {
+    //! The login lives in the platform keychain, never in the store.
+    use super::{keychain, Login};
+
+    const SERVICE: &str = "ph.intportal.app";
+    const NAME: &str = "sis-login";
+
+    pub fn save(l: &Login) -> Result<(), String> {
+        keychain::set(SERVICE, NAME, &serde_json::to_string(l).map_err(|e| e.to_string())?)
+    }
+
+    pub fn load() -> Option<Login> {
+        serde_json::from_str(&keychain::get(SERVICE, NAME).ok()??).ok()
+    }
+
+    pub fn clear() {
+        keychain::delete(SERVICE, NAME)
+    }
+}
+
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "android"))]
+mod dbkey {
+    //! Each student's store key: 32 random bytes in the keychain, named by
+    //! the store's file. Made once, on the first open of that store.
+    use super::keychain;
+
+    const SERVICE: &str = "ph.intportal.app.db";
+
+    pub fn get_or_create(file: &str) -> Result<[u8; 32], String> {
+        match keychain::get(SERVICE, file)? {
+            Some(hex) => parse(&hex).ok_or_else(|| "The store key in the keychain is damaged.".to_string()),
+            // Only a missing key is made anew. Any other keychain error (say,
+            // before the phone's first unlock) has already returned above and
+            // must not replace a real key.
+            None => {
+                let mut key = [0u8; 32];
+                getrandom::fill(&mut key).map_err(|e| e.to_string())?;
+                keychain::set(SERVICE, file, &key.iter().map(|b| format!("{b:02x}")).collect::<String>())?;
+                Ok(key)
+            }
+        }
+    }
+
     fn parse(hex: &str) -> Option<[u8; 32]> {
         let mut key = [0u8; 32];
         if hex.len() != 64 {
@@ -136,7 +238,7 @@ mod dbkey {
 /// the SIS data returns on the next sync.
 fn open_store(dir: &std::path::Path, file: &str) -> Res<Store> {
     let path = dir.join(file);
-    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    #[cfg(any(target_os = "ios", target_os = "macos", target_os = "android"))]
     {
         let key = dbkey::get_or_create(file)?;
         match Store::open(&path, &key) {
@@ -147,7 +249,7 @@ fn open_store(dir: &std::path::Path, file: &str) -> Res<Store> {
             opened => opened.map_err(err),
         }
     }
-    #[cfg(not(any(target_os = "ios", target_os = "macos")))]
+    #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android")))]
     {
         Store::open_plain(&path).map_err(err)
     }

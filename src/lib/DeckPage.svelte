@@ -1,6 +1,7 @@
 <script lang="ts">
   // One deck: its cards, adding them one by one or pasted, and the way into
   // a study session in one of three modes.
+  import { closable } from "./back";
   import ErrorCard from "./ErrorCard.svelte";
   import LarNote from "./LarNote.svelte";
   import Skeleton from "./Skeleton.svelte";
@@ -10,6 +11,7 @@
   import { resource } from "./load.svelte";
 
   let { id, onclose }: { id: string; onclose: () => void } = $props();
+  $effect(() => closable(() => onclose()));
 
   // svelte-ignore state_referenced_locally
   const loaded = resource(() => api.deck(id));

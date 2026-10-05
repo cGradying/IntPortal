@@ -28,6 +28,14 @@ It builds the debug app, installs it on the booted simulator and launches it. Ta
 
 Needs the iOS simulator runtime that matches your Xcode (`xcodebuild -downloadPlatform iOS`). `pnpm tauri ios dev "<name>"` can pick a real device with the same model name, which then needs signing; install the simulator build directly instead.
 
+## Running on the Android emulator
+
+```bash
+scripts/emu.sh
+```
+
+It builds the debug APK, installs it on the running emulator (or a USB phone) and launches it. Needs the Android SDK with NDK r28+, JDK 17 and the Rust Android targets (`rustup target add aarch64-linux-android`). Android phones have no Dynamic Island, so the glance sits as a dock above the tab bar, and outside the app the next class shows as a Live Update: a countdown chip in the status bar on Android 16, an ongoing notification before that.
+
 ## Keep it small
 
 Rust and Xcode builds grow fast; this project once reached hundreds of GB of caches.

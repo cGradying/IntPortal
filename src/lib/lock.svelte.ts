@@ -6,6 +6,10 @@ import { buzz } from "./haptics";
 
 const AWAY_MS = 60_000;
 
+const android = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+/** What unlocks the app, in the phone's own words. */
+export const unlockWith = android ? "fingerprint or screen lock" : "Face ID or passcode";
+
 function read(): boolean {
   try {
     return localStorage.getItem("appLock") === "1";
@@ -45,7 +49,9 @@ export async function setLock(on: boolean) {
   if (on) {
     const status = await checkStatus().catch(() => null);
     if (!status?.isAvailable) {
-      lock.error = "This phone has no Face ID, Touch ID or passcode set up.";
+      lock.error = android
+        ? "This phone has no fingerprint, face unlock or screen lock set up."
+        : "This phone has no Face ID, Touch ID or passcode set up.";
       return;
     }
     if (!(await unlock())) return;

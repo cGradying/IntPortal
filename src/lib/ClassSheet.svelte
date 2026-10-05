@@ -2,11 +2,13 @@
   // What you can do to one class: mark how it meets this week or every
   // week, move it, colour it, or open its notes and syllabus. Opened by a
   // tap in Schedule and a long press on Today.
+  import { closable } from "./back";
   import { buzz } from "./haptics";
   import { app, adopt, openNote, openSubject } from "./state.svelte";
   import { api, clock, isoDate, WEEKDAYS, type Mark, type Meeting, type Snapshot, type Weekday } from "./api";
 
   let { meeting, onclose }: { meeting: Meeting; onclose: () => void } = $props();
+  $effect(() => closable(() => onclose()));
 
   let moving = $state<{ day: Weekday; start: string; end: string } | null>(null);
   let problem = $state("");
