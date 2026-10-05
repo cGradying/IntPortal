@@ -42,6 +42,7 @@ plugins/                 Local Tauri plugins with Swift and Kotlin sources
 src/                     Svelte interface (screens in src/lib/screens)
 scripts/                 sim.sh, phone.sh, emu.sh, worktree.sh, disk.sh, clean.sh, pentomino-solve.mjs
 docs/ARCHITECTURE.md     Layers, flows, owners and invariants: start here
+docs/TEAM.md             Roles, the issue-to-merge loop, kickoff prompts
 docs/adr/                Decisions that are hard to reverse
 docs/android.md          How the Android side is built, run and checked
 CONTEXT.md               Glossary of the app's terms
@@ -126,4 +127,4 @@ Rust, Xcode and Gradle builds grow fast; this project once reached hundreds of G
 
 ## Contributing
 
-Each change is its own branch and pull request. Write the failing test first where a cheap test exists, then the change. Check UI changes on the iOS simulator, and on the Android emulator when they touch Android. Use the terms in `CONTEXT.md`. Record a hard-to-reverse decision as an ADR in `docs/adr/`.
+Work is split by role; `docs/TEAM.md` has the roles, the loop and the review checklist. Each change is its own issue, branch and pull request. Write the failing test first where a cheap test exists, then the change. Check UI changes on the iOS simulator, and on the Android emulator when they touch Android. Use the terms in `CONTEXT.md`. Record a hard-to-reverse decision as an ADR in `docs/adr/`.
