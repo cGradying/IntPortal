@@ -2,6 +2,7 @@
   // A full-screen page for one note. It saves while you type (after a short
   // pause) and again on Done, so nothing typed is lost to a quick close.
   import { api } from "./api";
+  import { closable } from "./back";
   import { shareFile } from "./share";
   import { app, refreshNotes } from "./state.svelte";
 
@@ -51,6 +52,7 @@
     if (!saved) await save();
     if (!problem) app.editing = null;
   }
+  $effect(() => closable(done));
 </script>
 
 <div class="editor" role="dialog" aria-label="Note: {heading}">

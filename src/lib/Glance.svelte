@@ -1,6 +1,7 @@
 <script lang="ts">
   // The glance, for phones without a Dynamic Island: a dock above the tab bar
   // that grows up when tapped. Island phones get the Live Activity instead.
+  import { closable } from "./back";
   import Jeepney from "./Jeepney.svelte";
   import { ago, glanceView, type GlanceView } from "./glance";
   import { app, syncNow } from "./state.svelte";
@@ -9,6 +10,9 @@
 
   // svelte-ignore state_referenced_locally
   let open = $state(startOpen);
+  $effect(() => {
+    if (open && !preview) return closable(() => (open = false));
+  });
   let arrived = $state(false);
   // A finished sync parks the jeepney for a beat before the glance returns.
   let seen = app.syncCount;

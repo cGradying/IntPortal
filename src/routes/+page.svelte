@@ -18,6 +18,8 @@
   import { lock, watchLock } from "$lib/lock.svelte";
   import { api } from "$lib/api";
   import { watchDynamicIsland } from "$lib/glance";
+  import { watchBars } from "$lib/bars";
+  import { watchBack } from "$lib/back";
   import { app, adopt, setRoom, startClock } from "$lib/state.svelte";
 
   let ready = $state(false);
@@ -63,6 +65,8 @@
       if (!document.activeElement?.matches("input, textarea, select")) delete document.documentElement.dataset.keyboard;
     }, 50));
     watchDynamicIsland((has) => (island = has));
+    watchBars();
+    watchBack(() => app.tab !== "today" && ((app.tab = "today"), true));
     const [login, snap] = await Promise.all([api.hasLogin().catch(() => false), api.snapshot().catch(() => null)]);
     signedIn = login;
     if (snap) await adopt(snap);

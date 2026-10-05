@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="glance_widget_description">Your next class and how long until it starts.</string>
+    <color name="glance_ground">#FF19191C</color>
+    <color name="glance_gold">#FFF5B227</color>
+    <color name="glance_maroon">#FF7A1229</color>
+    <color name="glance_secondary">#99FFFFFF</color>
+</resources>

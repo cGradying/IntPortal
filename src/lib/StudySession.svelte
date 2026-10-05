@@ -6,12 +6,14 @@
   // One pass through a deck's due cards (every card when none is due, as
   // practice). Flashcards take the student's own rating; typed and
   // multiple-choice answers rate themselves: right is Good, wrong is Again.
+  import { closable } from "./back";
   import Confetti from "./Confetti.svelte";
   import Isko from "./Isko.svelte";
   import { api, isoDate, type Card, type Deck, type Rating } from "./api";
   import { buzz } from "./haptics";
 
   let { deck, mode, onclose }: { deck: Deck; mode: Mode; onclose: () => void } = $props();
+  $effect(() => closable(() => onclose()));
 
   const now = Math.floor(Date.now() / 1000);
   // svelte-ignore state_referenced_locally

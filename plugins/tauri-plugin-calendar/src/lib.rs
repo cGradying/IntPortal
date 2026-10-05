@@ -1,4 +1,4 @@
-//! The phone's own calendar, through EventKit: the student's events (so the
+//! The phone's own calendar, through EventKit (iOS) or CalendarContract (Android): the student's events (so the
 //! coach counts them as busy) and an IntPortal calendar the app owns for
 //! their classes. The web view calls `plugin:calendar|…` directly; there is
 //! no Rust command, and on other platforms the plugin does nothing.
@@ -16,6 +16,11 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             {
                 use tauri::Manager;
                 _app.manage(_api.register_ios_plugin(init_plugin_calendar)?);
+            }
+            #[cfg(target_os = "android")]
+            {
+                use tauri::Manager;
+                _app.manage(_api.register_android_plugin("ph.intportal.calendar", "CalendarPlugin")?);
             }
             Ok(())
         })

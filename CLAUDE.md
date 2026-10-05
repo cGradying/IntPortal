@@ -36,6 +36,17 @@ The user merges, or says to. Merge stacked PRs bottom-up. Before you delete a me
 - Calendar on the simulator: `xcrun simctl privacy <id> grant calendar ph.intportal.app`.
 - The store is SQLCipher-encrypted per student, with its key in the keychain. A build without encryption can't open an encrypted store; on a simulator, move `Library/Application Support/ph.intportal.app/account-*` aside.
 
+## Android specifics
+
+Read `docs/android.md` first; it has the layout, the checks and the problems already solved.
+
+- Run with `scripts/emu.sh` against a running emulator, in the background: a build takes minutes, and killing it mid-Gradle leaves nothing installed. The log is `/tmp/intportal-emu-build.log`.
+- Check with screenshots (`adb exec-out screencap -p > shot.png`). uiautomator can't see inside the WebView, so tap by coordinates read off a screenshot. The demo account: the portal, then **Look around with demo data**, then **Step through**.
+- Kotlin plugin commands follow the Swift rule: `sync_classes` runs `syncClasses`. A plugin's `build.rs` needs `.android_path("android")`, or the app crashes at launch with `ClassNotFoundException`.
+- `src-tauri/gen/android/app/src/main/java/ph/intportal/app/generated/` is rewritten on every build; never edit it. `MainActivity.kt` and `Secrets.kt` are ours.
+- Anything that opens over the page (a sheet, an editor, a page) registers its close with `closable()` from `src/lib/back.ts`, or Android's back gesture closes the app instead.
+- Desktop `cargo` builds never compile the Kotlin or the Android-only Rust. Only `scripts/emu.sh` proves them.
+
 ## Storage
 
 Keep one Cargo workspace. Never set `debug = false` for dependencies, because swift-rs then hides the plugins' `@_cdecl` symbols and the iOS link fails. Don't delete simulators or worktrees without asking.

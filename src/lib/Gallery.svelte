@@ -1,5 +1,6 @@
 <script lang="ts">
   // Review-build gallery: every pixel piece in one scroll, in the current room.
+  import { closable } from "./back";
   import CampusStrip from "./CampusStrip.svelte";
   import Glance from "./Glance.svelte";
   import Flame from "./Flame.svelte";
@@ -13,6 +14,7 @@
 
   const GESTURES = ["idle", "wave", "point", "reach", "thumbs"] as const;
   let { onclose }: { onclose: () => void } = $props();
+  $effect(() => closable(() => onclose()));
   const hours = [6, 9, 12.5, 17.4, 18.6, 22];
   const states = [
     ["next", glanceView({ kind: "next_today", code: "GEED 10053", when: "in 12m" }, "GEED 10053 · in 12m", false, false, false)],

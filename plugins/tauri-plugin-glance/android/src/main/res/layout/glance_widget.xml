@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The texts here are a sample for the widget picker; the app replaces them. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/glance_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/glance_bg"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <ImageView
+            android:layout_width="12dp"
+            android:layout_height="16dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/glance_glyph" />
+        <TextView
+            android:id="@+id/glance_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="UP NEXT"
+            android:layout_marginStart="6dp"
+            android:textColor="@color/glance_secondary"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/glance_code"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="COMP 20073"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/glance_gold"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+    <TextView
+        android:id="@+id/glance_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Data Structures and Algorithms"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:textColor="#FFFFFFFF"
+        android:textSize="12sp" />
+
+    <!-- Widgets can't inflate a plain View; an empty FrameLayout spaces. -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <Chronometer
+        android:id="@+id/glance_countdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:fontFeatureSettings="tnum"
+        android:textColor="#FFFFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+    <TextView
+        android:id="@+id/glance_until"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="in 25 min"
+        android:textColor="#FFFFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+    <TextView
+        android:id="@+id/glance_line"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:textColor="#FFFFFFFF"
+        android:textSize="15sp" />
+    <TextView
+        android:id="@+id/glance_online"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:text="Online"
+        android:textColor="@color/glance_secondary"
+        android:textSize="11sp" />
+</LinearLayout>
