@@ -1,6 +1,6 @@
 # Working on IntPortal
 
-Read `README.md` for the layout and the run commands, `docs/ARCHITECTURE.md` for how the layers fit and what must stay true, and `CONTEXT.md` for the app's terms. This file holds what an agent needs on top of them.
+Read `README.md` for the layout and the run commands, `docs/ARCHITECTURE.md` for how the layers fit and what must stay true, `docs/TEAM.md` for your role and the loop, and `CONTEXT.md` for the app's terms. This file holds what an agent needs on top of them.
 
 ## Before you change anything
 
@@ -49,4 +49,4 @@ Read `docs/android.md` first; it has the layout, the checks and the problems alr
 
 ## Storage
 
-Keep one Cargo workspace. Never set `debug = false` for dependencies, because swift-rs then hides the plugins' `@_cdecl` symbols and the iOS link fails. Don't delete simulators or worktrees without asking.
+Keep one Cargo workspace. Every worktree shares the build cache in `~/.cargo/build/intportal`; make worktrees with `scripts/worktree.sh`. Never set `debug = false` for dependencies, because swift-rs then hides the plugins' `@_cdecl` symbols and the iOS link fails. Don't delete simulators or worktrees without asking.
