@@ -49,4 +49,4 @@ Read `docs/android.md` first; it has the layout, the checks and the problems alr
 
 ## Storage
 
-Keep one Cargo workspace. Never set `debug = false` for dependencies, because swift-rs then hides the plugins' `@_cdecl` symbols and the iOS link fails. Don't delete simulators or worktrees without asking.
+Keep one Cargo workspace. Every worktree shares the build cache in `~/.cargo/build/intportal`; make worktrees with `scripts/worktree.sh`. Never set `debug = false` for dependencies, because swift-rs then hides the plugins' `@_cdecl` symbols and the iOS link fails. Don't delete simulators or worktrees without asking.

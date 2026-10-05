@@ -40,7 +40,7 @@ src-tauri/gen/apple/     Xcode project, generated from project.yml by XcodeGen
 src-tauri/gen/android/   Gradle project, from tauri android init (see docs/android.md)
 plugins/                 Local Tauri plugins with Swift and Kotlin sources
 src/                     Svelte interface (screens in src/lib/screens)
-scripts/                 sim.sh, phone.sh, emu.sh, disk.sh, clean.sh, pentomino-solve.mjs
+scripts/                 sim.sh, phone.sh, emu.sh, worktree.sh, disk.sh, clean.sh, pentomino-solve.mjs
 docs/ARCHITECTURE.md     Layers, flows, owners and invariants: start here
 docs/adr/                Decisions that are hard to reverse
 docs/android.md          How the Android side is built, run and checked
@@ -72,7 +72,7 @@ pnpm test
 cargo test -p intportal-core
 ```
 
-CI runs the same on every pull request.
+CI runs the same on every pull request, plus clippy. Each push to `main` also builds the iOS simulator app.
 
 ### iOS simulator
 
@@ -119,8 +119,9 @@ cd src-tauri/gen/apple && xcodegen generate
 Rust, Xcode and Gradle builds grow fast; this project once reached hundreds of GB of caches.
 
 - All crates share one Cargo workspace: one `target/` and one `Cargo.lock` at the root. Don't add a crate outside `[workspace] members`.
+- Every worktree shares one Cargo build cache in `~/.cargo/build/intportal` (`.cargo/config.toml`), so a new worktree doesn't compile the dependencies again. Each keeps its own `target/` for the final app.
 - Dev builds keep line tables only (`[profile.dev]` in the root `Cargo.toml`). Never set `debug = false` for dependencies, because the iOS link then fails.
-- `scripts/disk.sh` prints what the builds use. `scripts/clean.sh` deletes this repo's `target/`, the Xcode and Gradle build folders and this project's DerivedData, and nothing else.
+- `scripts/disk.sh` prints what the builds use. `scripts/clean.sh` deletes this repo's `target/`, the shared build cache, the Xcode and Gradle build folders and this project's DerivedData, and nothing else.
 - Never commit build output. Stage paths by name, not `git add -A`.
 
 ## Contributing
