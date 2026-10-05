@@ -7,10 +7,10 @@ It is a from-scratch rebuild of the macOS IntPortal app. The old app's docs live
 Only your own account is supported, which is what PUP's terms allow.
 
 <p>
-  <img src="docs/review/shell-2-today.png" width="200" alt="Today on iPhone">
-  <img src="docs/review/android-today.png" width="200" alt="Today on Android">
-  <img src="docs/review/android-week.png" width="200" alt="The week on Android">
-  <img src="docs/review/android-live-update.png" width="200" alt="The next class as a Live Update on Android">
+  <img src="docs/images/shell-2-today.png" width="200" alt="Today on iPhone">
+  <img src="docs/images/android-today.png" width="200" alt="Today on Android">
+  <img src="docs/images/android-week.png" width="200" alt="The week on Android">
+  <img src="docs/images/android-live-update.png" width="200" alt="The next class as a Live Update on Android">
 </p>
 
 ## What it does

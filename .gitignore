@@ -20,3 +20,6 @@ build/
 
 # CodeGraph index (local, per worktree)
 .codegraph/
+
+# Review screenshots stay local; README images live in docs/images/
+docs/review/

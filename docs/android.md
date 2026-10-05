@@ -65,7 +65,7 @@ path that's known good.
 
 - `pnpm check`, `pnpm test` and `cargo test --workspace` on the host.
 - `cargo check -p intportal --target aarch64-linux-android` type-checks the Android-only Rust without Gradle. It needs `ANDROID_HOME`, `NDK_HOME`, the `RANLIB_`/`AR_` variables from `emu.sh`, and `CC_aarch64_linux_android` set to the NDK's `aarch64-linux-android24-clang`.
-- On the emulator, with the demo account: Today, Schedule (Day and Week), a class sheet, a note, Grades, Study, You. Compare with the iOS screenshots in `docs/review/`.
+- On the emulator, with the demo account: Today, Schedule (Day and Week), a class sheet, a note, Grades, Study, You. Compare with the same screens on the iOS simulator (`scripts/sim.sh`).
 - Back gesture: closes the top sheet or page, then goes to Today, then backgrounds the app.
 - Status bar icons: light over the dark landing, dark over the Day room.
 - Calendar: in You, "Keep classes in my calendar" asks, then makes the IntPortal calendar. Check it with `adb shell content query --uri content://com.android.calendar/calendars`.
