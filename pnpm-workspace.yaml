@@ -1,2 +1,6 @@
 minimumReleaseAgeExclude:
   - '@tauri-apps/api@2.12.0'
+# Xcode's "Build Rust Code" phase runs pnpm with its own environment and no
+# TTY; pnpm's pre-run dependency check then tries to reinstall node_modules
+# and aborts the iOS build in CI.
+verifyDepsBeforeRun: false
