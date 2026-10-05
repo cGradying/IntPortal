@@ -41,6 +41,7 @@ src-tauri/gen/android/   Gradle project, from tauri android init (see docs/andro
 plugins/                 Local Tauri plugins with Swift and Kotlin sources
 src/                     Svelte interface (screens in src/lib/screens)
 scripts/                 sim.sh, phone.sh, emu.sh, disk.sh, clean.sh, pentomino-solve.mjs
+docs/ARCHITECTURE.md     Layers, flows, owners and invariants: start here
 docs/adr/                Decisions that are hard to reverse
 docs/android.md          How the Android side is built, run and checked
 CONTEXT.md               Glossary of the app's terms
