@@ -3,7 +3,7 @@ name = "tauri-plugin-glance"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "Hands the next class to the iOS home-screen widget and Live Activity."
+description = "Hands the next class to the home-screen widget and the Live Activity (iOS) or Live Update (Android)."
 links = "tauri-plugin-glance"
 
 [build-dependencies]
