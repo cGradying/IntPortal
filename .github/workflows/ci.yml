@@ -4,8 +4,13 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Both jobs always run, so branch protection can require them.
 jobs:
-  check:
+  web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,9 +23,18 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Tauri system libraries
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test -p intportal
-      - run: cargo build -p s0-sis-http
+      # The shell embeds the web build, so it needs build/ to exist.
+      - run: mkdir -p build
+      - run: cargo test -p intportal-core -p intportal -p s0-sis-http
+      - run: cargo clippy -p intportal-core -p intportal -p s0-sis-http --all-targets -- -D warnings
