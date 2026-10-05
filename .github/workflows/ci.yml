@@ -8,6 +8,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# CI keeps the build cache in target/, where rust-cache saves it.
+env:
+  CARGO_BUILD_BUILD_DIR: ${{ github.workspace }}/target
+
 # Both jobs always run, so branch protection can require them.
 jobs:
   web:

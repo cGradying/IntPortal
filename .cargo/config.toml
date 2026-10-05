@@ -1,0 +1,6 @@
+# Every worktree shares one build cache, so a new worktree doesn't compile
+# the dependencies again or add another 10+ GB. Each worktree keeps its own
+# target/ for the final artifacts (libapp.a, the app), so two worktrees
+# never overwrite each other's app. Two builds at once wait on cargo's lock.
+[build]
+build-dir = "{cargo-cache-home}/build/intportal"

@@ -9,6 +9,9 @@ concurrency:
   group: ios-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_BUILD_BUILD_DIR: ${{ github.workspace }}/target
+
 # Proves the Swift plugins and the Xcode project build; desktop cargo never
 # compiles them. Simulator only, so no signing.
 jobs:

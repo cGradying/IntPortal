@@ -3,7 +3,8 @@
 cd "$(dirname "$0")/.."
 size() { [ -e "$1" ] && du -sh "$1" 2>/dev/null | cut -f1 || echo "-"; }
 row() { printf '%-28s %s\n' "$1" "$(size "$2")"; }
-row "target/ (Rust)" target
+row "target/ (this worktree)" target
+row "shared Cargo build cache" ~/.cargo/build/intportal
 row "src-tauri/gen/apple/build" src-tauri/gen/apple/build
 row "src-tauri/gen/android/app/build" src-tauri/gen/android/app/build
 row "node_modules" node_modules
