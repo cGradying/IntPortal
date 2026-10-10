@@ -10,7 +10,18 @@ pub mod parse;
 use crate::sis::{host, Error};
 use parse::{Course, CourseGrade, Deadline};
 use reqwest::redirect::Policy;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+
+/// Everything read from eMabini in one sync, as kept on the phone.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct MabiniData {
+    pub courses: Vec<Course>,
+    pub deadlines: Vec<Deadline>,
+    pub grades: Vec<CourseGrade>,
+    /// Epoch seconds, written by the shell.
+    pub last_synced: Option<u64>,
+}
 
 const BASE: &str = "https://emabini.pup.edu.ph";
 
@@ -55,6 +66,25 @@ impl MabiniClient {
         let body = json!([{ "index": 0, "methodname": method, "args": args }]);
         let reply = self.http.post(url).header("Content-Type", "application/json").body(body.to_string()).send().await?.error_for_status()?.text().await?;
         parse::service_data(&reply)
+    }
+
+    /// One sync: courses, deadlines from yesterday on, and course grades. A
+    /// session that expired fails the whole sync (the caller signs in again);
+    /// any other failure keeps what `previous` had for that part.
+    pub async fn sync(&self, now: i64, previous: &MabiniData) -> Result<MabiniData, Error> {
+        fn keep<T: Clone>(r: Result<Vec<T>, Error>, old: &[T]) -> Result<Vec<T>, Error> {
+            match r {
+                Err(Error::SignedOut) => Err(Error::SignedOut),
+                Err(_) => Ok(old.to_vec()),
+                Ok(v) => Ok(v),
+            }
+        }
+        Ok(MabiniData {
+            courses: keep(self.courses().await, &previous.courses)?,
+            deadlines: keep(self.deadlines(now - 86_400, 50).await, &previous.deadlines)?,
+            grades: keep(self.grades().await, &previous.grades)?,
+            last_synced: Some(now as u64),
+        })
     }
 
     pub async fn courses(&self) -> Result<Vec<Course>, Error> {
