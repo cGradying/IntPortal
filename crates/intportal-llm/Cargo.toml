@@ -8,6 +8,9 @@ publish = false
 intportal-ai = { path = "../intportal-ai" }
 serde_json = "1"
 
+[dev-dependencies]
+intportal-core = { path = "../intportal-core" }
+
 # llama.cpp builds only where the app runs a model. Linux CI gets the stub in
 # src/lib.rs, so it never compiles C++ (ADR 0003).
 [target.'cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))'.dependencies]
