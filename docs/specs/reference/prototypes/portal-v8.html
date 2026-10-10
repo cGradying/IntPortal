@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal v8 sketch</title>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@600&family=Geist+Mono:wght@500&family=Geist:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; min-height: 100vh; background: #141318; color: #ece7dc; font-family: Geist, system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 16px; box-sizing: border-box; }
+  .phone { position: relative; width: 360px; max-width: 100%; height: 600px; border-radius: 38px; overflow: hidden; background: #060607; border: 6px solid #2a2833; }
+  canvas { width: 360px; height: 600px; display: block; }
+  .title { position: absolute; top: 44px; left: 0; right: 0; text-align: center; font: 600 22px 'Pixelify Sans', monospace; }
+  .lab { position: absolute; top: 486px; left: 0; right: 0; text-align: center; font: 500 11px 'Geist Mono', monospace; letter-spacing: .14em; opacity: .55; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  button { font: 500 13px Geist, sans-serif; color: #ece7dc; background: transparent; border: 1px solid #4a4458; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+  button:hover { background: #221f2a; }
+  p { max-width: 420px; font-size: 13px; line-height: 1.6; opacity: .7; margin: 0; }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <canvas id="cv" width="360" height="600"></canvas>
+    <div class="title"><span id="acc" style="color:#e8b04a">Student</span> IntPortal</div>
+    <div class="lab" id="lab"></div>
+  </div>
+  <div class="row">
+    <button id="replay">Replay</button><button id="connect">Connecting</button><button id="open">Open</button><button data-p="0">SIS</button><button data-p="1">Mabini</button>
+  </div>
+  <p>Reference for spec 010. A JavaScript sketch of the locked direction: flat obsidian tiles, two-way pop-in build, tiles that react to the stage (pulse while connecting, wave on open, idle flips), interior warp stars while connecting and a swirl when open, themed per portal. Mabini's colours are placeholders. The shipping renderer is Rust compiled to WebAssembly.</p>
+<script>
+const cv=document.getElementById('cv'),g=cv.getContext('2d');const W=360,H=600,U=14,MK=11,OX=(W-12*U)/2,OY=150;
+const THEMES=[{name:'SIS',sw:['#3b1220','#7a1c2c','#b5412a','#e08a35','#f3cf6a'],acc:'#e8b04a'},{name:'MABINI',sw:['#0b2238','#13466f','#1f78a8','#3fb4c9','#a8efe4'],acc:'#5fd0d6'}];
+const TONES=['#1a1622','#241f2e','#2f2939','#3c3548'];
+let theme=0,state='connecting',stateT=0,t0=performance.now();let seed=5;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+const ring=[];for(let x=0;x<6;x++)ring.push([x,0]);for(let y=1;y<8;y++)ring.push([5,y]);for(let x=4;x>=0;x--)ring.push([x,7]);for(let y=6;y>=1;y--)ring.push([0,y]);
+const sIdx=ring.findIndex(([x,y])=>x===3&&y===7);
+const marks=[];ring.forEach(([i,j],n)=>{let d=Math.abs(n-sIdx);d=Math.min(d,24-d);const pos=((n-sIdx)+24)%24;for(const [a,b] of [[0,0],[1,0],[0,1],[1,1]]){marks.push({c:i*2+a,r:j*2+b,tone:Math.floor(rnd()*4),d,pos,start:0.15+d*0.045+(a+b)*0.02,inner:(a===1&&i===0)||(a===0&&i===5)||(b===1&&j===0)||(b===0&&j===7),flip:-9,next:2+rnd()*6});}});
+const LAST=Math.max(...marks.map(m=>m.start))+0.1;
+const stars=Array.from({length:40},()=>({a:rnd()*6.28,d:rnd(),s:0.3+rnd()*0.5}));
+function mix(a,b,k){const p=s=>[1,3,5].map(i=>parseInt(s.slice(i,i+2),16));const A=p(a),B=p(b);return'rgb('+A.map((v,i)=>Math.round(v+(B[i]-v)*k)).join(',')+')';}
+function tile(x,y,s,col){g.fillStyle=col;const o=(MK-s)/2;g.fillRect(Math.round(x+o),Math.round(y+o),Math.round(s),Math.round(s));}
+function interior(t,R){const T=THEMES[theme],cx=OX+6*U,cy=OY+8*U;const k=state==='open'?Math.min(1,(t-stateT)/0.7):0;const tq=Math.floor(t*12)/12;
+ for(let r=2;r<14;r++)for(let c=2;c<10;c++){const x=OX+c*U,y=OY+r*U,mx=x+MK/2-cx,my=(y+MK/2-cy)*0.8,rr=Math.hypot(mx,my);if(rr>R)continue;const th=((c*7+r*13)%16)/16;let lv=0;
+  if(th<k){const v=0.5+0.5*Math.sin(Math.atan2(my,mx)*2+rr*0.045-t*2.4);lv=Math.floor(v*5.2-0.4);}
+  else for(const s of stars){const d=(s.d+tq*s.s)%1,sr=d*d*120;if(Math.abs(Math.cos(s.a)*sr-mx)<U/2&&Math.abs(Math.sin(s.a)*sr-my*1.25)<U/2)lv=Math.max(lv,1+Math.floor(d*4));}
+  if(lv>0)tile(x,y,MK*(0.55+lv*0.1),T.sw[Math.min(4,lv)]);}}
+function frame(now){const t=(now-t0)/1000,tq=Math.floor(t*30)/30,T=THEMES[theme];g.fillStyle='#060607';g.fillRect(0,0,W,H);
+ if(tq>LAST)interior(t,(t-LAST)*260);
+ for(const m of marks){const k=tq-m.start;if(k<0)continue;const x=OX+m.c*U,y=OY+m.r*U;
+  if(k<0.034){tile(x,y,MK*0.45,'#ece7dc');continue;}if(k<0.067){tile(x,y,MK,T.acc);continue;}
+  const base=TONES[m.inner?Math.max(0,m.tone-1):m.tone];
+  if(tq>LAST&&t>m.next){m.flip=t;m.next=t+3+rnd()*7;m.tone=(m.tone+1+Math.floor(rnd()*2))%4;}
+  const fk=t-m.flip;let size=MK;if(fk>=0&&fk<0.1)size=MK*(fk<0.05?0.6:0.85);
+  let col=base;
+  if(tq>LAST){if(state==='connecting'){const ph=((t*6)%24+24)%24;let dd=Math.abs(m.pos-ph);dd=Math.min(dd,24-dd);if(dd<2.5)col=mix(base,T.acc,(1-dd/2.5)*0.55);}
+   else{const w=(t-stateT)*16-m.d;if(w>0&&w<3)col=mix(base,T.acc,1-w/3);else if(w>=3)col=mix(base,T.sw[1],0.18);}}
+  tile(x,y,size,col);}
+ document.getElementById('lab').textContent=T.name+' · '+(tq<=LAST?'FORMING':state==='open'?'OPEN':'CONNECTING');document.getElementById('acc').style.color=T.acc;
+ requestAnimationFrame(frame);}
+let auto;function setOpen(){state='open';stateT=(performance.now()-t0)/1000;}
+function replay(){t0=performance.now();state='connecting';marks.forEach(m=>{m.flip=-9;m.next=2+rnd()*6;});clearTimeout(auto);auto=setTimeout(setOpen,(LAST+2.6)*1000);}
+document.getElementById('replay').onclick=replay;document.getElementById('connect').onclick=()=>{clearTimeout(auto);state='connecting';};document.getElementById('open').onclick=()=>{clearTimeout(auto);setOpen();};
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{theme=+b.dataset.p;});
+replay();requestAnimationFrame(frame);
+</script>
+</body>
+</html>

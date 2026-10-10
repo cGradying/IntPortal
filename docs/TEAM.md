@@ -21,6 +21,7 @@ The user owns the SIS login and the phone. No session types, stores or asks for 
 
 ## How work moves
 
+0. **Spec.** No UI work without an approved spec in `docs/specs/`. See `docs/specs/README.md`. A change that contradicts a spec changes the spec first.
 1. **Issue.** Every change starts as a GitHub issue with one `role:*`, one `type:*` and one priority (`P0` first, then `P1`; `P2` is later). `blocked` means waiting on something outside the repo. The Head files and triages them.
 2. **Worktree.** `scripts/worktree.sh <role> <branch>` makes a worktree next to the repo from `origin/main`, installs packages, builds the CodeGraph index and prints the role's simulator. Branch names are `<role>/<topic>`; never `head/...`, which collides with `origin/HEAD` on macOS.
 3. **Test first,** where a cheap test exists. See it fail for the right reason.
@@ -39,6 +40,7 @@ All worktrees share one Cargo build cache in `~/.cargo/build/intportal` (`.cargo
 - The change fits `docs/ARCHITECTURE.md`: logic in the core, platform code in the shell or a plugin, the UI drawing what the core returns.
 - Tests call the code the way its users do and assert literal results. A test that passes when the function returns nothing gets rewritten.
 - The invariants in `docs/ARCHITECTURE.md` hold: data on the phone, own account only, the login in the keychain, the store encrypted, Reduce Motion honoured.
+- Specs: the PR cites the criterion ids it delivers and the Head checks each one; tests are named after them.
 - Screens: screenshots on the role's simulator; copy follows `PRODUCT.md` and `DESIGN.md`.
 - No build output, screenshots or secrets in the diff. Paths are staged by name.
 - If the change moves a layer, a flow or an owner, `docs/ARCHITECTURE.md` changes in the same PR.

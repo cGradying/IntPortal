@@ -43,8 +43,16 @@ The dark space the app opens into before sign-in, where the portal forms.
 _Avoid_: splash, launch screen
 
 **Portal**:
-The gate that the student steps through to reach a system. Its frame is built from pentomino pieces.
+One PUP system the app connects to, and the gate the student steps through to reach it. SIS is the first; Mabini is next. Each has its own login, limits and theme. Its frame is built from flat tiles (planned; pentomino pieces until then).
 _Avoid_: door, gateway; never use it for the SIS website
+
+**Opens soon**:
+The status of a portal that is listed but not built yet. It shows its name and "Opens soon" and cannot be stepped into.
+_Avoid_: coming soon, locked, disabled
+
+**Theme**:
+A portal's own colours: a five-tone ramp and one accent. It colours that portal's tiles and swirl. Not to be confused with a Room, which restyles the app.
+_Avoid_: skin, palette (for the app's Rooms use Room)
 
 **Hub**:
 The landing once the student is signed in: the lit portal, LAR, and Step through.
@@ -83,8 +91,8 @@ The island's one-line answer to "what now": the class in session, the next class
 _Avoid_: status, ticker
 
 **Room**:
-One of the app's 15 themes. A room restyles the whole app, not only accents.
-_Avoid_: theme (in UI copy), skin, palette
+One of the app's 15 looks. A room restyles the whole app, not only accents.
+_Avoid_: theme, skin, palette
 
 **Moment**:
 A small piece of pixel theatre tied to a real event: the sync journey, a grade stamp, an empty-state scene.
