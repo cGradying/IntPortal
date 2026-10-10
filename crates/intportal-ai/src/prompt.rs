@@ -85,3 +85,8 @@ mod chatml_tests {
         assert!(p.ends_with("<|im_start|>assistant\n<think>\n\n</think>\n\n"));
     }
 }
+
+/// Gemma has no system role: the system text leads the user turn.
+pub fn gemma(system: &str, user: &str) -> String {
+    format!("<start_of_turn>user\n{system}\n\n{user}<end_of_turn>\n<start_of_turn>model\n")
+}
