@@ -63,14 +63,13 @@ pub const SIS: Portal = Portal {
 /// eMabini, the PUP Open University System's Moodle learning portal at
 /// `emabini.pup.edu.ph`. Its login is a username and password (no birthdate);
 /// the username is the student number, see `mabini_username`. Its brand
-/// colour is `#700000` (the site theme's primary), the same maroon as the
-/// SIS, so the ramp keeps that maroon and takes a cool accent to tell the
-/// two portals apart. The ramp is a proposal until the user approves it.
+/// colour is `#700000`, the same maroon as the SIS, so Mabini is blue to tell
+/// the two portals apart (the user's choice).
 pub const MABINI: Portal = Portal {
     id: "mabini",
     name: "Mabini",
     status: Status::OpensSoon,
-    theme: Theme { ramp: ["#1c0508", "#4a0d12", "#700000", "#a8402e", "#e8b9a0"], accent: "#5fd0d6" },
+    theme: Theme { ramp: ["#0b2238", "#13466f", "#1f78a8", "#3fb4c9", "#a8efe4"], accent: "#5fd0d6" },
     fields: &[Field::StudentNumber, Field::Password],
     limits: LIMITS,
     keychain_service: "ph.intportal.app.mabini",
