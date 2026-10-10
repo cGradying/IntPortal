@@ -87,4 +87,4 @@ Each portal in the carousel is a labelled button: "SIS, ready" or "Mabini, opens
 ## Open questions
 
 - Approve Mabini's palette (maroon ramp, teal accent).
-- Confirm with a real eMabini account that the username format and the sign-in form match [000](000-sis-data-map.md).
+- ~~Confirm the sign-in form with a real account~~ Checked 2026-10-11: the form is `logintoken`, `username`, `password` ([000](000-sis-data-map.md)). Still unchecked: the username format on a fresh login by the app.

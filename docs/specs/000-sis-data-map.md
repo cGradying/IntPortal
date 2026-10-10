@@ -105,4 +105,27 @@ From public pages, 2026-10-11; not yet checked against a signed-in account.
 
 Sources: the portal's login and home pages; the PUP SINTA FAQ "OUS: PUP eMabini Learning Portal (LMS)". The FAQ and the home page differ on the username format; the home page is newer.
 
-Not read yet: courses, deadlines, grades, announcements. Needs the user's captures. A separate Moodle at `lms.pup.edu.ph` serves PUP Sta. Mesa and campus students; it is not Mabini.
+### Checked against a signed-in account (2026-10-11)
+
+Read-only, on the student's own account, by the student signing in; no values are recorded here.
+
+**Sign-in.** `GET /login/index.php` returns a form with a hidden `logintoken`, `username` and `password`. POST all three. A signed-in page carries `"sesskey":"…"` in its inline config and a logout link `/login/logout.php?sesskey=…`. The sesskey is per session and is needed for the JSON calls below.
+
+**Pages and calls**
+
+| Data | How | Shape |
+|---|---|---|
+| Courses | `POST /lib/ajax/service.php?sesskey=…&info=core_course_get_enrolled_courses_by_timeline_classification` with `args {offset:0, limit:0, classification:"all", sort:"fullname", customfieldname:"", customfieldvalue:""}` | `data.courses[]` with `id`, `fullname`, `shortname`, `startdate`, `enddate`, `progress`, `hasprogress`, `viewurl`, `coursecategory`, `isfavourite`, `hidden` |
+| Deadlines | `POST` the same endpoint, method `core_calendar_get_action_events_by_timesort`, `args {limitnum, timesortfrom}` | `data.events[]` with `name` ("X is due"), `modulename` (`assign`, …), `eventtype` (`due`), `timesort`, `overdue`, `course`, `url`, `action` |
+| Course grades | `GET /grade/report/overview/index.php` | table `#overview-grade`, headers `Course name`, `Grade`; one row per course; the name cell links to `/course/user.php?mode=grade&id=N&user=N`; an ungraded course shows `-` |
+| Calendar page | `GET /calendar/view.php?view=month` or `upcoming` | server-rendered; the JSON call above is steadier |
+
+The request body is a JSON array: `[{"index":0,"methodname":"…","args":{…}}]`, and the reply is an array with `error` and `data`. Moodle's AJAX service takes the logged-in cookies plus the sesskey; no separate API token is needed.
+
+**Course names** follow `<Subject>_<Term> <Year code>_<Program section>`, for example `…_First Sem 2627_…`. The subject, term and section can be split on `_`. `shortname` and `idnumber` need a look at more courses before relying on them.
+
+**Menu**: Dashboard `/my/`, My courses `/my/courses.php`, Grades, Calendar, Messages, Private files, Reports, Preferences.
+
+**Fit with the app.** A course is the closest thing to a subject; deadlines are the new data the SIS never had. Mapping to `Snapshot` is a later spec.
+
+Not read yet: course contents (activities, files), quiz and assignment detail, messages, notifications, per-course grade items, and whether `core_course_get_contents` is reachable without an API token.
