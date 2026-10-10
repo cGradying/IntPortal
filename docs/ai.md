@@ -38,6 +38,14 @@ Pass `cpu` as the last argument to `eval` for CPU only. Metal is on by default o
 
 llama.cpp needs a flag at minSdk 24 (`posix_madvise`); see `spikes/s1-llama/REPORT.md`. Set `ANDROID_NDK_ROOT`, and delete the cached cmake build after changing flags.
 
+## Android findings (emulator, Android 15 arm64, 2.5 GB RAM, debug build)
+
+- **`app_data_dir()` is the app's data root** (`/data/user/0/ph.intportal.app`), not `files/`. Models go in `models/` under it. The manifest has `allowBackup="false"`, so nothing there is backed up.
+- To test with a model, push it with `adb push` to `/data/local/tmp`, then `adb shell run-as ph.intportal.app cp` it into `models/` (debug builds only; release builds are not debuggable).
+- Launch, the You card, waking the model (about 1 GB resident) and an exact answer ("Ano ang due ko?") all worked. Free-form generation was very slow: a debug build compiles llama.cpp unoptimised, so judge speed only from a release build on a real phone.
+- `adb install` over a different signing key fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`; the emulator may hold another session's debug app, so check before uninstalling.
+- Settled: the Android WebView does open a file picker for `<input type=file>` is **not** tested yet (needed for PDFs).
+
 ## Not done yet
 
 The shell commands (`src-tauri/src/commands/ai.rs`, after Core's #60 and #61), the Storage view and the Light or With-AI choice (UI #91), the editor and deck hooks (UI #92), and `Plan.guide` (Core #93).
