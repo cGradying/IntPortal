@@ -11,7 +11,7 @@ fn main() {
     let n: i32 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(128);
     let backend = LlamaBackend::init().unwrap();
     let t0 = Instant::now();
-    let model = LlamaModel::load_from_file(&backend, &path, &LlamaModelParams::default()).unwrap();
+    let model = LlamaModel::load_from_file(&backend, &path, &LlamaModelParams::default().with_n_gpu_layers(std::env::var("NGL").ok().and_then(|s| s.parse().ok()).unwrap_or(999))).unwrap();
     println!("load {:?}", t0.elapsed());
     let mut ctx = model
         .new_context(&backend, LlamaContextParams::default().with_n_ctx(NonZeroU32::new(2048)))
