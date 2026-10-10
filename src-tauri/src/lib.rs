@@ -320,9 +320,16 @@ async fn sync(state: tauri::State<'_, AppState>) -> Res<Snapshot> {
     }
     let mut guard = state.client.lock().await;
     if let Some(client) = guard.as_ref() {
-        match refresh(&state, client, None).await {
-            Err(e) if e == sis::Error::SignedOut.to_string() => {}
-            other => return other,
+        match client.schedule().await {
+            Ok(rows) if !rows.is_empty() => match refresh(&state, client, Some(rows)).await {
+                Err(e) if e == sis::Error::SignedOut.to_string() => {}
+                other => return other,
+            },
+            // This host has no schedule for the student, or the session ended:
+            // sign in again below, which tries every host. Saving the empty
+            // result here would wipe the schedule they already have.
+            Ok(_) | Err(sis::Error::SignedOut) => {}
+            Err(e) => return Err(err(e)),
         }
     }
     let login = vault::load().ok_or("Not signed in")?;

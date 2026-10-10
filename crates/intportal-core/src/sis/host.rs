@@ -7,7 +7,19 @@ use std::sync::LazyLock;
 
 static CANDIDATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^sis\d+\.pup\.edu\.ph$").unwrap());
 
-pub const DEFAULT_ORDER: [&str; 3] = ["sis8.pup.edu.ph", "sis1.pup.edu.ph", "sis2.pup.edu.ph"];
+/// Every host from sis1 to sis8, so a student whose schedule isn't on the
+/// first host is found on another. sis8 goes first because it carries the
+/// schedule; the order of the rest is the old spec's three, then the others.
+pub const DEFAULT_ORDER: [&str; 8] = [
+    "sis8.pup.edu.ph",
+    "sis1.pup.edu.ph",
+    "sis2.pup.edu.ph",
+    "sis3.pup.edu.ph",
+    "sis4.pup.edu.ph",
+    "sis5.pup.edu.ph",
+    "sis6.pup.edu.ph",
+    "sis7.pup.edu.ph",
+];
 
 /// Exactly `sisN.pup.edu.ph`, so neither `www.pup.edu.ph` nor a lookalike
 /// such as `sis8.pup.edu.ph.evil.com` passes.
@@ -80,12 +92,28 @@ mod tests {
     }
 
     #[test]
+    fn every_host_from_sis1_to_sis8_is_tried_once() {
+        let mut all: Vec<&str> = DEFAULT_ORDER.to_vec();
+        assert_eq!(all[0], "sis8.pup.edu.ph", "the host known to carry the schedule goes first");
+        all.sort_unstable();
+        let expected: Vec<String> = (1..=8).map(|n| format!("sis{n}.pup.edu.ph")).collect();
+        assert_eq!(all, expected);
+    }
+
+    #[test]
     fn candidate_order() {
         assert_eq!(candidates(None), DEFAULT_ORDER);
-        assert_eq!(candidates(Some("sis1.pup.edu.ph")), ["sis1.pup.edu.ph", "sis8.pup.edu.ph", "sis2.pup.edu.ph"]);
         assert_eq!(candidates(Some("sis8.pup.edu.ph")), DEFAULT_ORDER);
         assert_eq!(candidates(Some("www.pup.edu.ph")), DEFAULT_ORDER);
-        assert_eq!(candidates(Some("sis5.pup.edu.ph"))[0], "sis5.pup.edu.ph");
+        // The remembered host moves to the front and appears once; the rest keep their order.
+        let from_sis5 = candidates(Some("sis5.pup.edu.ph"));
+        assert_eq!(from_sis5[0], "sis5.pup.edu.ph");
+        assert_eq!(from_sis5.len(), 8);
+        assert_eq!(&from_sis5[1..4], ["sis8.pup.edu.ph", "sis1.pup.edu.ph", "sis2.pup.edu.ph"]);
+        // A remembered host outside sis1 to sis8 is still tried first, ahead of all eight.
+        let from_sis23 = candidates(Some("sis23.pup.edu.ph"));
+        assert_eq!(from_sis23[0], "sis23.pup.edu.ph");
+        assert_eq!(from_sis23.len(), 9);
     }
 
     #[test]

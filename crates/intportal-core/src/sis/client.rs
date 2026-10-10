@@ -5,6 +5,7 @@ use crate::grades::{GradeReport, GradeRow};
 use crate::schedule::ScheduleRow;
 use reqwest::redirect::Policy;
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 /// One signed-in session on one SIS host. The cookie jar is the session.
 pub struct SisClient {
@@ -17,7 +18,12 @@ impl SisClient {
         if !host::is_candidate(host) {
             return Err(Error::UntrustedHost(host.into()));
         }
+        // Without a limit, one host that accepts the connection and never
+        // answers would stop the failover before it reached the others. The
+        // SIS is slow on a busy day, so the whole-request limit is generous.
         let http = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
             .cookie_store(true)
             .redirect(Policy::custom(|a| {
                 if host::is_trusted(a.url()) && a.previous().len() < 10 {
@@ -136,8 +142,10 @@ impl SisClient {
     }
 }
 
-/// Tries each host in order until one signs in and has schedule rows. Bad
-/// credentials stop the loop at once.
+/// Tries each host in order (sis1 to sis8, the remembered one first) until
+/// one signs in and has schedule rows, so a host with no data for the student
+/// is skipped. Bad credentials stop the loop at once: sending them to seven
+/// more servers helps nothing.
 pub async fn sign_in_with_failover(
     c: &Credentials,
     remembered: Option<&str>,
