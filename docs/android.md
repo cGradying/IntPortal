@@ -61,6 +61,32 @@ Keystore-sealed key, like a real one.
 `pnpm tauri android dev` (live reload) hasn't been tried; `emu.sh` is the
 path that's known good.
 
+## Release builds and the beta
+
+```bash
+scripts/emu.sh --release
+```
+
+This builds the signed release for arm64 and 32-bit arm phones and puts two files in `dist/` (gitignored):
+
+- `IntPortal-<version>.apk` to install directly. This is what goes on the beta.
+- `IntPortal-<version>.aab`, the bundle for Google Play.
+
+It then installs the APK on the running emulator or phone. A release can't install over a debug build, because they're signed with different keys. Uninstall the debug app first (`adb uninstall ph.intportal.app`), which wipes its data.
+
+Release builds have no demo account; testers sign in with their own SIS login. R8 shrinks the code. Tauri's own ProGuard rules keep the plugin classes and their arguments, and `Secrets` is kept with `@Keep`.
+
+**The release key** is in `~/.config/intportal/`, outside every checkout:
+
+- `android-release.jks` is the keystore, alias `intportal`.
+- `android-keystore.properties` holds its path and password.
+
+`app/build.gradle.kts` reads that file and signs with it. Without the file (CI, another machine), the release comes out unsigned. **Back up both files somewhere safe, like a password manager.** Every later update has to be signed with the same key, or phones refuse to install it over the old one. Never commit them.
+
+**The beta** is a GitHub pre-release tagged `android-v<version>-beta.<n>`, with the APK and the bundle attached. The repo is private, so only its collaborators can download it. To install, open the APK on the phone and allow installs from that source. Play internal testing (#26) needs a Google Play developer account. Once there is one, upload the `.aab` there; Play App Signing then re-signs it with Play's key, and this key becomes the upload key.
+
+Bump `version` in `src-tauri/tauri.conf.json` for each beta. Tauri derives Android's `versionCode` from it, and a phone only installs an update whose code is higher.
+
 ## Checking a change
 
 - `pnpm check`, `pnpm test` and `cargo test --workspace` on the host.
@@ -87,4 +113,4 @@ path that's known good.
 
 - SIS sign-in over the real network on Android hasn't been tried with a live account.
 - The status-bar chip needs an Android 16 device or emulator to see.
-- Release signing and Play internal testing (#26).
+- Play internal testing (#26): needs a Google Play developer account.
