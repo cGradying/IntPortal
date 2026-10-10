@@ -1,4 +1,4 @@
-use super::host::{self, Attempt, Decision};
+use super::host;
 use super::scrape;
 use super::{Credentials, Error};
 use crate::grades::{GradeReport, GradeRow};
@@ -40,6 +40,17 @@ impl SisClient {
 
     async fn get(&self, path: &str) -> Result<String, Error> {
         Ok(self.http.get(self.url(path)).send().await?.error_for_status()?.text().await?)
+    }
+
+    /// A plain GET: is this host up and serving the login form? Sends no
+    /// credentials, so it can be repeated freely.
+    pub async fn probe(&self) -> Result<(), Error> {
+        let page = self.get("").await?;
+        if scrape::has_login_form(&page) {
+            Ok(())
+        } else {
+            Err(Error::Network("no login form on the SIS page".into()))
+        }
     }
 
     /// Signed in means the login form is gone after the POST. The old app's
@@ -136,42 +147,14 @@ impl SisClient {
     }
 }
 
-/// Tries each host in order until one signs in and has schedule rows. Bad
-/// credentials stop the loop at once.
-pub async fn sign_in_with_failover(
-    c: &Credentials,
-    remembered: Option<&str>,
-) -> Result<(SisClient, Vec<ScheduleRow>), Error> {
-    let mut last = Error::NoSchedule;
-    let mut any_signed_in = false;
-    for h in host::candidates(remembered) {
-        let client = SisClient::new(&h)?;
-        let (attempt, rows) = match client.sign_in(c).await {
-            Err(Error::Rejected(m)) => {
-                last = Error::Rejected(m);
-                (Attempt::Rejected, vec![])
-            }
-            Err(e) => {
-                last = e;
-                (Attempt::Failed, vec![])
-            }
-            Ok(()) => match client.schedule().await {
-                Ok(rows) if !rows.is_empty() => (Attempt::SignedInWithRows, rows),
-                Ok(_) => {
-                    any_signed_in = true;
-                    (Attempt::SignedInEmpty, vec![])
-                }
-                Err(e) => {
-                    last = e;
-                    (Attempt::Failed, vec![])
-                }
-            },
-        };
-        match host::decide(attempt) {
-            Decision::Keep => return Ok((client, rows)),
-            Decision::Stop => return Err(last),
-            Decision::Next => {}
-        }
+impl super::guard::Sis for SisClient {
+    async fn probe(&self) -> Result<(), Error> {
+        SisClient::probe(self).await
     }
-    Err(if any_signed_in { Error::NoSchedule } else { last })
+    async fn sign_in(&self, c: &Credentials) -> Result<(), Error> {
+        SisClient::sign_in(self, c).await
+    }
+    async fn schedule(&self) -> Result<Vec<ScheduleRow>, Error> {
+        SisClient::schedule(self).await
+    }
 }

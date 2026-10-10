@@ -2,10 +2,12 @@
 //! POST, then read the server-rendered schedule and grades tables.
 
 mod client;
+pub mod guard;
 pub mod host;
 pub mod scrape;
 
-pub use client::{sign_in_with_failover, SisClient};
+pub use client::SisClient;
+pub use guard::{sign_in_guarded, Ledger};
 
 /// The student's own SIS login. `Debug` never prints the password.
 #[derive(Clone)]
@@ -36,6 +38,9 @@ pub enum Error {
     /// Every host signed in but none had schedule rows.
     #[error("signed in, but no SIS server had your schedule")]
     NoSchedule,
+    /// The 3-per-15-minutes limit is used up. `retry_at` is epoch seconds.
+    #[error("too many sign-in tries; try again later")]
+    TooManyTries { retry_at: u64 },
     #[error("refusing to talk to {0}: not a PUP SIS host")]
     UntrustedHost(String),
 }

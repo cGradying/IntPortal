@@ -31,30 +31,6 @@ pub fn candidates(remembered: Option<&str>) -> Vec<String> {
     order
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Attempt {
-    Rejected,
-    Failed,
-    SignedInEmpty,
-    SignedInWithRows,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Decision {
-    Keep,
-    Next,
-    /// Bad credentials: sending them to a second server helps nothing.
-    Stop,
-}
-
-pub fn decide(attempt: Attempt) -> Decision {
-    match attempt {
-        Attempt::Rejected => Decision::Stop,
-        Attempt::Failed | Attempt::SignedInEmpty => Decision::Next,
-        Attempt::SignedInWithRows => Decision::Keep,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,13 +62,5 @@ mod tests {
         assert_eq!(candidates(Some("sis8.pup.edu.ph")), DEFAULT_ORDER);
         assert_eq!(candidates(Some("www.pup.edu.ph")), DEFAULT_ORDER);
         assert_eq!(candidates(Some("sis5.pup.edu.ph"))[0], "sis5.pup.edu.ph");
-    }
-
-    #[test]
-    fn decisions() {
-        assert_eq!(decide(Attempt::Rejected), Decision::Stop);
-        assert_eq!(decide(Attempt::Failed), Decision::Next);
-        assert_eq!(decide(Attempt::SignedInEmpty), Decision::Next);
-        assert_eq!(decide(Attempt::SignedInWithRows), Decision::Keep);
     }
 }
