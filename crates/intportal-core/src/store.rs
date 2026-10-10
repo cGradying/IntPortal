@@ -136,7 +136,8 @@ impl Store {
             "PRAGMA secure_delete = ON;
              CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, json TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS notes (key TEXT PRIMARY KEY, text TEXT NOT NULL, title TEXT, updated INTEGER NOT NULL);
-             CREATE TABLE IF NOT EXISTS decks (id TEXT PRIMARY KEY, json TEXT NOT NULL);",
+             CREATE TABLE IF NOT EXISTS decks (id TEXT PRIMARY KEY, json TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS chunks (note_key TEXT NOT NULL, n INTEGER NOT NULL, text TEXT NOT NULL, vec BLOB NOT NULL, note_updated INTEGER NOT NULL, model TEXT NOT NULL, PRIMARY KEY (note_key, n));",
         )?;
         Ok(Store { db })
     }
@@ -193,6 +194,7 @@ impl Store {
     pub fn set_note(&self, key: &str, text: &str, title: Option<&str>, now: i64) -> Result<(), StoreError> {
         if text.trim().is_empty() {
             self.db.execute("DELETE FROM notes WHERE key = ?1", [key])?;
+            self.db.execute("DELETE FROM chunks WHERE note_key = ?1", [key])?;
         } else {
             self.db.execute(
                 "INSERT INTO notes (key, text, title, updated) VALUES (?1, ?2, ?3, ?4)
@@ -201,6 +203,42 @@ impl Store {
             )?;
         }
         Ok(())
+    }
+
+    /// Notes with no chunks from `model` at their current edit. The AI embeds
+    /// these just before a search; `set_note` itself never embeds.
+    pub fn stale_notes(&self, model: &str) -> Result<Vec<Note>, StoreError> {
+        let mut q = self.db.prepare(
+            "SELECT key, text, title, updated FROM notes n WHERE NOT EXISTS
+             (SELECT 1 FROM chunks c WHERE c.note_key = n.key AND c.note_updated = n.updated AND c.model = ?1)
+             ORDER BY updated DESC, key",
+        )?;
+        let rows = q.query_map([model], |r| Ok(Note { key: r.get(0)?, text: r.get(1)?, title: r.get(2)?, updated: r.get(3)? }))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Replaces a note's chunks with `chunks` (text and unit vector each).
+    pub fn replace_chunks(&self, note_key: &str, note_updated: i64, model: &str, chunks: &[(String, Vec<f32>)]) -> Result<(), StoreError> {
+        self.db.execute("DELETE FROM chunks WHERE note_key = ?1", [note_key])?;
+        for (n, (text, vec)) in chunks.iter().enumerate() {
+            let blob: Vec<u8> = vec.iter().flat_map(|f| f.to_le_bytes()).collect();
+            self.db.execute(
+                "INSERT INTO chunks (note_key, n, text, vec, note_updated, model) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![note_key, n as i64, text, blob, note_updated, model],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Every chunk made by `model`: (note key, text, vector).
+    pub fn chunks(&self, model: &str) -> Result<Vec<(String, String, Vec<f32>)>, StoreError> {
+        let mut q = self.db.prepare("SELECT note_key, text, vec FROM chunks WHERE model = ?1 ORDER BY note_key, n")?;
+        let rows = q.query_map([model], |r| {
+            let blob: Vec<u8> = r.get(2)?;
+            let vec = blob.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect();
+            Ok((r.get(0)?, r.get(1)?, vec))
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     pub fn decks(&self) -> Result<Vec<Deck>, StoreError> {
@@ -245,7 +283,7 @@ impl Store {
 
     /// Erase everything on the device, the student's own work included.
     pub fn wipe(&self) -> Result<(), StoreError> {
-        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks;")?;
+        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks;")?;
         Ok(())
     }
 }
@@ -334,6 +372,27 @@ mod tests {
         assert_eq!(store.notes().unwrap().len(), 1);
         store.wipe().unwrap();
         assert!(store.notes().unwrap().is_empty());
+    }
+
+    #[test]
+    fn chunks_go_stale_with_an_edit_or_a_model_change_and_leave_with_the_note() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "alpha", None, 100).unwrap();
+        store.set_note("note:b", "beta", None, 100).unwrap();
+        assert_eq!(store.stale_notes("m1").unwrap().len(), 2);
+        store.replace_chunks("note:a", 100, "m1", &[("alpha".into(), vec![1.0, 0.0]), ("al".into(), vec![0.0, 1.0])]).unwrap();
+        assert_eq!(store.stale_notes("m1").unwrap().iter().map(|n| n.key.as_str()).collect::<Vec<_>>(), ["note:b"]);
+        assert_eq!(store.stale_notes("m2").unwrap().len(), 2, "another model's vectors are not reusable");
+        assert_eq!(store.chunks("m1").unwrap(), [("note:a".to_string(), "alpha".to_string(), vec![1.0, 0.0]), ("note:a".to_string(), "al".to_string(), vec![0.0, 1.0])]);
+        store.set_note("note:a", "alpha edited", None, 200).unwrap();
+        assert_eq!(store.stale_notes("m1").unwrap().len(), 2, "an edit makes the note stale");
+        store.replace_chunks("note:a", 200, "m1", &[("x".into(), vec![1.0, 0.0])]).unwrap();
+        assert_eq!(store.chunks("m1").unwrap().len(), 1, "replace drops the old chunks");
+        store.set_note("note:a", "", None, 300).unwrap();
+        assert!(store.chunks("m1").unwrap().is_empty(), "deleting a note drops its chunks");
+        store.replace_chunks("note:b", 100, "m1", &[("beta".into(), vec![1.0])]).unwrap();
+        store.wipe().unwrap();
+        assert!(store.chunks("m1").unwrap().is_empty());
     }
 
     #[test]
