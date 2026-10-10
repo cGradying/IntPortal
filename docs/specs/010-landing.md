@@ -18,7 +18,7 @@ A minimal grid of flat tiles with gaps, in the spirit of three references: a but
 - Haptics for the build, the open and failure (`src/lib/haptics.ts`).
 - The sign-in form's fields ([011](011-login.md)).
 
-Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal3d.ts`), the pentomino frame (`pentomino.ts`), the swirl-as-3D and the three **stones** (Schedule, Grades, Study) that LAR pulled out. **The stones are confirmed gone only when the user approves this spec.** The tab bar and Today already name those sections.
+Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal3d.ts`), the pentomino frame (`pentomino.ts`), the swirl-as-3D and the three **stones** (Schedule, Grades, Study) that LAR pulled out. **The stones are retired** (decided 2026-10-11; the user left the call to the UI engineer). The tab bar and Today already name those sections, and the new landing is about the portal and the form.
 
 ## Behaviour
 
@@ -125,6 +125,4 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 ## Open questions
 
 - The 4D transition prototype (Head).
-- Mabini's palette (user approves; see [012](012-portals.md) C7).
 - Whether LAR's two lines are kept as they are.
-- Confirm retiring the stones (user).

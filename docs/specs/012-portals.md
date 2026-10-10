@@ -25,7 +25,7 @@ The landing already speaks of a portal as the gate to a system ([010](010-landin
 - **C4.** Each portal has its own connection state and its own store namespace. Signing in to or syncing one portal never reads or writes another's data.
 - **C5.** Each portal has its own keychain entry. Clearing one never clears another.
 - **C6.** Each portal has its own attempt counter ([011](011-login.md) C12). A rejected SIS login does not spend Mabini attempts.
-- **C7.** A portal's `theme` is five ramp tones plus one accent. SIS is PUP maroon and gold. Mabini's brand colour is the same maroon (`#700000`), so its ramp keeps that maroon and takes a teal accent (`#5fd0d6`) to tell the two apart. The user approves the palette.
+- **C7.** A portal's `theme` is five ramp tones plus one accent. SIS is PUP maroon and gold. Mabini is blue (ramp `#0b2238` to `#a8efe4`, accent `#5fd0d6`), chosen by the user, because eMabini's own brand colour is the same maroon as the SIS.
 - **C8.** The registry lists portals in a fixed order; the landing carousel follows it ([010](010-landing.md) C13).
 - **C9.** Migrating SIS onto the registry changes no behaviour: existing stores, keychain entries and snapshots keep working untouched.
 - **C10.** Adding a portal is one registry entry plus its client; no landing or login code branches on a portal id.
@@ -86,5 +86,4 @@ Each portal in the carousel is a labelled button: "SIS, ready" or "Mabini, opens
 
 ## Open questions
 
-- Approve Mabini's palette (maroon ramp, teal accent).
 - ~~Confirm the sign-in form with a real account~~ Checked 2026-10-11: the form is `logintoken`, `username`, `password` ([000](000-sis-data-map.md)). Still unchecked: the username format on a fresh login by the app.
