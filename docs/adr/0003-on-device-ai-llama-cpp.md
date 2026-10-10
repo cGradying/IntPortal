@@ -10,6 +10,8 @@ IntAssis answers with a small model that runs on the student's phone through lla
 - **No AI command writes.** The model proposes; the UI shows a confirm card, and Apply calls the existing commands.
 - **Structured output.** Replies are constrained by a JSON schema built at run time, because small models call tools badly. The model never computes dates.
 
+- **Light or with AI.** The app works fully without IntAssis's model. Setup offers "Light" (no AI, nothing downloaded) and "With AI" (shows the model size, then downloads); Storage can add or remove the model later. The shell also gets a cargo feature `ai`, on by default, so a lite build can leave out llama.cpp. A0 measures the size delta to decide whether that build is worth shipping.
+
 ## Consequences
 
 - A model needs 0.4 to 1.1 GB of storage and, while loaded, enough free memory. A RAM gate warns above 60% of available memory and refuses above 90%. The model unloads when the app is hidden.
