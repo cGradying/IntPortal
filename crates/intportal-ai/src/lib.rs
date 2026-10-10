@@ -3,6 +3,7 @@
 //! compiles it (ADR 0003).
 
 pub mod llm;
+pub mod models;
 pub mod prompt;
 pub mod reply;
 pub mod schema;

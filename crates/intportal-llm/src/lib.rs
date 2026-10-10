@@ -11,6 +11,9 @@ mod stub;
 #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
 pub use stub::Llama;
 
+pub mod download;
+pub mod mem;
+
 /// Where a model runs. CPU only is for the simulator and for tests.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Device {
