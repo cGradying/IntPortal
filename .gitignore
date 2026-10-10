@@ -23,3 +23,6 @@ build/
 
 # Review screenshots stay local; README images live in docs/images/
 docs/review/
+
+# Raw captures and third-party references stay local
+docs/specs/reference/private/
