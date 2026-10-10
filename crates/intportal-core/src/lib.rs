@@ -7,6 +7,7 @@ pub mod coach;
 pub mod grades;
 pub mod model;
 pub mod notes;
+pub mod portal;
 pub mod schedule;
 pub mod sis;
 pub mod store;

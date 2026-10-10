@@ -24,5 +24,10 @@ build/
 # Review screenshots stay local; README images live in docs/images/
 docs/review/
 
+<<<<<<< HEAD
 # Raw captures and third-party references stay local
 docs/specs/reference/private/
+=======
+# Release APKs and bundles from scripts/emu.sh --release
+/dist
+>>>>>>> origin/main

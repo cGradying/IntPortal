@@ -67,3 +67,42 @@ mod tests {
         assert_eq!(p.chars().count(), 120);
     }
 }
+
+/// Wraps a system and a user message in ChatML (Qwen, and most small models).
+/// The empty think block turns Qwen3's thinking off, which a phone can't afford.
+pub fn chatml(system: &str, user: &str) -> String {
+    format!(
+        "<|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    )
+}
+
+#[cfg(test)]
+mod chatml_tests {
+    #[test]
+    fn ends_open_for_the_assistant() {
+        let p = super::chatml("S", "U");
+        assert!(p.starts_with("<|im_start|>system\nS<|im_end|>"));
+        assert!(p.ends_with("<|im_start|>assistant\n<think>\n\n</think>\n\n"));
+    }
+}
+
+/// Gemma has no system role: the system text leads the user turn.
+pub fn gemma(system: &str, user: &str) -> String {
+    format!("<start_of_turn>user\n{system}\n\n{user}<end_of_turn>\n<start_of_turn>model\n")
+}
+
+/// How a model wants its prompt wrapped.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Template {
+    ChatMl,
+    Gemma,
+}
+
+impl Template {
+    pub fn wrap(self, system: &str, user: &str) -> String {
+        match self {
+            Template::ChatMl => chatml(system, user),
+            Template::Gemma => gemma(system, user),
+        }
+    }
+}
