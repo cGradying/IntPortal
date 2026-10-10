@@ -1,7 +1,7 @@
 //! Eval for A2: how often does a model answer 20 Taglish prompts in valid
 //! schema-shaped JSON, and how fast. `cargo run --release -p intportal-llm
 //! --example eval -- <model.gguf> [cpu]`
-use intportal_ai::{llm::Llm, prompt::chatml, reply, schema::{reply_schema, Reply}};
+use intportal_ai::{llm::Llm, prompt::{chatml, gemma}, reply, schema::{reply_schema, Reply}};
 use intportal_llm::{Device, Llama};
 use std::time::Instant;
 
@@ -38,7 +38,7 @@ fn main() {
     let (mut valid, mut tokens) = (0, 0usize);
     let t0 = Instant::now();
     for q in FIXTURES {
-        let out = m.generate(&chatml(SYSTEM, q), Some(&schema), 256, &mut |_| {
+        let out = m.generate(&if path.contains("gemma") { gemma(SYSTEM, q) } else { chatml(SYSTEM, q) }, Some(&schema), 256, &mut |_| {
             tokens += 1;
             true
         });
