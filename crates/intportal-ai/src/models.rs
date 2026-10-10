@@ -69,6 +69,10 @@ pub const CATALOG: [Model; 4] = [
     },
 ];
 
+/// Picked by the A2 eval: 20/20 valid JSON and the most natural Taglish of the three (see PR #87).
+pub const DEFAULT_CHAT: &str = "gemma3-1b";
+pub const EMBED: &str = "nomic-embed-v1.5";
+
 pub fn find(id: &str) -> Option<&'static Model> {
     CATALOG.iter().find(|m| m.id == id)
 }
@@ -107,6 +111,8 @@ mod tests {
             assert!(CATALOG[i + 1..].iter().all(|o| o.id != m.id));
         }
         assert!(find("nope").is_none());
+        assert_eq!(find(DEFAULT_CHAT).unwrap().kind, Kind::Chat);
+        assert_eq!(find(EMBED).unwrap().kind, Kind::Embed);
     }
 
     #[test]
