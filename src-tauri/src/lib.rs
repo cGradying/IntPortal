@@ -8,7 +8,7 @@ use intportal_core::grades::{self, Goals, GradeReport, Standing};
 use intportal_core::model::{ClassSession, Weekday};
 use intportal_core::notes::{self, Note};
 use intportal_core::schedule;
-use intportal_core::sis::{self, sign_in_with_failover, Credentials, SisClient};
+use intportal_core::sis::{self, sign_in_guarded, Credentials, Ledger, SisClient};
 use intportal_core::store::{account_file, Snapshot, Store};
 use intportal_core::study::{self, Card, Deck, Memory, Rating, Stats};
 use intportal_core::syllabus::{self, Component, Item, Plan, Tally};
@@ -28,7 +28,12 @@ struct AppState {
     store: Mutex<Store>,
     dir: std::path::PathBuf,
     client: tokio::sync::Mutex<Option<SisClient>>,
+    /// Sign-in tries in the last 15 minutes. Held for the whole sign-in, so a
+    /// tap and a background sync can't both spend the same try.
+    ledger: tokio::sync::Mutex<Ledger>,
 }
+
+const GUARD_FILE: &str = "login-guard.json";
 
 type Res<T> = Result<T, String>;
 
@@ -292,6 +297,43 @@ fn snapshot(state: tauri::State<'_, AppState>) -> Res<Snapshot> {
     snapshot_of(&state)
 }
 
+fn load_ledger(dir: &std::path::Path) -> Ledger {
+    std::fs::read_to_string(dir.join(GUARD_FILE)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+}
+
+/// Every sign-in goes through here: one credential POST, a live host picked
+/// by GET first, at most 3 tries per 15 minutes, and no automatic try after
+/// a rejection (`auto`). The count is saved even when the sign-in fails.
+async fn guarded_sign_in(
+    state: &AppState,
+    login: &Login,
+    remembered: Option<&str>,
+    auto: bool,
+) -> Res<(SisClient, Vec<schedule::ScheduleRow>)> {
+    let mut ledger = state.ledger.lock().await;
+    let r = sign_in_guarded(SisClient::new, &login.into(), remembered, &mut ledger, unix_now() as u64, auto).await;
+    if let Ok(json) = serde_json::to_string(&*ledger) {
+        let _ = std::fs::write(state.dir.join(GUARD_FILE), json);
+    }
+    r.map_err(err)
+}
+
+#[derive(Serialize)]
+struct Tries {
+    left: usize,
+    /// Epoch seconds when a try frees up, if none is left.
+    retry_at: Option<u64>,
+    /// The SIS turned the saved login down; the student has to edit it.
+    rejected: bool,
+}
+
+#[tauri::command]
+async fn tries_left(state: tauri::State<'_, AppState>) -> Res<Tries> {
+    let l = state.ledger.lock().await;
+    let now = unix_now() as u64;
+    Ok(Tries { left: l.tries_left(now), retry_at: l.retry_at(now), rejected: l.rejected() })
+}
+
 #[tauri::command]
 fn has_login() -> bool {
     vault::load().is_some()
@@ -299,7 +341,7 @@ fn has_login() -> bool {
 
 #[tauri::command]
 async fn sign_in(state: tauri::State<'_, AppState>, login: Login) -> Res<Snapshot> {
-    let (client, rows) = sign_in_with_failover(&(&login).into(), None).await.map_err(err)?;
+    let (client, rows) = guarded_sign_in(&state, &login, None, false).await?;
     open_account(&state, &login.student_number)?;
     vault::save(&login)?;
     let snap = refresh(&state, &client, Some(rows)).await?;
@@ -327,7 +369,7 @@ async fn sync(state: tauri::State<'_, AppState>) -> Res<Snapshot> {
     }
     let login = vault::load().ok_or("Not signed in")?;
     let remembered = snapshot_of(&state)?.host;
-    let (client, rows) = sign_in_with_failover(&(&login).into(), remembered.as_deref()).await.map_err(err)?;
+    let (client, rows) = guarded_sign_in(&state, &login, remembered.as_deref(), true).await?;
     let snap = refresh(&state, &client, Some(rows)).await?;
     *guard = Some(client);
     Ok(snap)
@@ -830,7 +872,7 @@ pub fn run() {
                 Ok(name) if name.starts_with("account-") => open_store(&dir, name.trim())?,
                 _ => Store::in_memory().map_err(err)?,
             };
-            app.manage(AppState { store: Mutex::new(store), dir: dir.clone(), client: tokio::sync::Mutex::new(None) });
+            app.manage(AppState { store: Mutex::new(store), dir: dir.clone(), client: tokio::sync::Mutex::new(None), ledger: tokio::sync::Mutex::new(load_ledger(&dir)) });
             // Signed in before stores were per student: move them over now.
             if !dir.join(CURRENT).exists() {
                 if let Some(login) = vault::load() {
@@ -844,7 +886,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo
+            snapshot, has_login, tries_left, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
