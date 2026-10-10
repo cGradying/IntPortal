@@ -294,7 +294,6 @@ async fn refresh(state: &AppState, client: &SisClient, rows: Option<Vec<schedule
     snap.host = Some(client.host().to_string());
     snap.last_synced = Some(now_secs());
     state.store.lock().unwrap().save(&snap).map_err(err)?;
-    state.store.lock().unwrap().save_mabini(&demo_mabini(unix_now())).map_err(err)?;
     Ok(snap)
 }
 
@@ -506,7 +505,7 @@ async fn mabini_sign_out(state: tauri::State<'_, AppState>) -> Res<()> {
 
 #[tauri::command]
 fn has_login() -> bool {
-    vault::load().is_some()
+    (cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed)) || vault::load().is_some()
 }
 
 #[tauri::command]
@@ -1005,6 +1004,7 @@ fn demo(state: tauri::State<'_, AppState>, today: Date) -> Res<Snapshot> {
         ..snapshot_of(&state)?
     };
     state.store.lock().unwrap().save(&snap).map_err(err)?;
+    state.store.lock().unwrap().save_mabini(&demo_mabini(unix_now())).map_err(err)?;
     Ok(snap)
 }
 
