@@ -235,7 +235,7 @@ impl Store {
         let mut q = self.db.prepare("SELECT note_key, text, vec FROM chunks WHERE model = ?1 ORDER BY note_key, n")?;
         let rows = q.query_map([model], |r| {
             let blob: Vec<u8> = r.get(2)?;
-            let vec = blob.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect();
+            let vec = blob.chunks(4).filter_map(|b| b.try_into().ok().map(f32::from_le_bytes)).collect();
             Ok((r.get(0)?, r.get(1)?, vec))
         })?;
         Ok(rows.collect::<Result<_, _>>()?)

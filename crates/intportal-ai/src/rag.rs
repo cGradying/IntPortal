@@ -1,11 +1,13 @@
 //! Search over the student's notes: 700-char chunks, brute-force cosine
-//! (vectors are unit length, so a dot product), a 0.35 floor and a 4000-char
+//! (vectors are unit length, so a dot product), a 0.5 floor and a 4000-char
 //! budget, as the old macOS app tuned them.
 use crate::llm::Llm;
 use intportal_core::store::{Store, StoreError};
 
 pub const CHUNK: usize = 700;
-pub const FLOOR: f32 = 0.35;
+// nomic-embed v1.5 scores unrelated notes 0.47 to 0.6 and the right one 0.57 to 0.81
+// (crates/intportal-llm/examples/embed.rs), so the old app's 0.35 kept everything.
+pub const FLOOR: f32 = 0.5;
 pub const BUDGET: usize = 4000;
 
 #[derive(Debug, PartialEq)]
