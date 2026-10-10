@@ -2036,6 +2036,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "intportal-llm"
+version = "0.1.0"
+dependencies = [
+ "intportal-ai",
+ "llama-cpp-2",
+ "serde_json",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
