@@ -4,6 +4,7 @@
 #   e.g. scripts/worktree.sh core core/split-shell
 set -euo pipefail
 cd "$(dirname "$0")/.."
+root="$PWD"
 role="${1:?role: head, core, ui, qa, android or ai}"
 branch="${2:?branch name, e.g. ui/today-sections}"
 case "$role" in
@@ -22,6 +23,12 @@ dir="$(cd .. && pwd)/intportal-wt/${branch//\//-}"
 git fetch -q origin main
 git worktree add -q -b "$branch" "$dir" origin/main
 cd "$dir"
+# Files a fresh checkout lacks that the native builds need: XcodeGen's empty
+# source folders, and Android's generated TauriActivity.kt (the shared build
+# cache skips the step that writes it, so copy it from the main checkout).
+mkdir -p src-tauri/gen/apple/Externals src-tauri/gen/apple/assets
+gen=src-tauri/gen/android/app/src/main/java/ph/intportal/app/generated
+if [ -d "$root/$gen" ]; then mkdir -p "$gen" && cp -n "$root/$gen"/* "$gen"/ 2>/dev/null || true; fi
 pnpm install --frozen-lockfile --silent
 command -v codegraph >/dev/null && codegraph init -y . >/dev/null
 echo "Worktree: $dir"
