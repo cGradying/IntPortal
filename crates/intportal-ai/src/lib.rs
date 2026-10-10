@@ -2,8 +2,10 @@
 //! and reply parsing. llama.cpp lives in `intportal-llm`, so Linux CI never
 //! compiles it (ADR 0003).
 
+pub mod gen;
 pub mod llm;
 pub mod models;
+pub mod pdf;
 pub mod prompt;
 pub mod rag;
 pub mod reply;
