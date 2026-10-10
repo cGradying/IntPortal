@@ -90,3 +90,19 @@ mod chatml_tests {
 pub fn gemma(system: &str, user: &str) -> String {
     format!("<start_of_turn>user\n{system}\n\n{user}<end_of_turn>\n<start_of_turn>model\n")
 }
+
+/// How a model wants its prompt wrapped.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Template {
+    ChatMl,
+    Gemma,
+}
+
+impl Template {
+    pub fn wrap(self, system: &str, user: &str) -> String {
+        match self {
+            Template::ChatMl => chatml(system, user),
+            Template::Gemma => gemma(system, user),
+        }
+    }
+}
