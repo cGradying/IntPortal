@@ -9,6 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 export NDK_HOME="${NDK_HOME:-$(ls -d "$ANDROID_HOME"/ndk/* | sort -V | tail -1)}"
+export ANDROID_NDK_ROOT="$NDK_HOME" # llama.cpp's build script reads this one
 export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17}"
 # SQLCipher's vendored OpenSSL looks for <triple>-ranlib, which the NDK
 # replaced with llvm-ranlib.

@@ -24,7 +24,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-notification = "2"
 intportal-core = { version = "0.1.0", path = "../crates/intportal-core" }
-tokio = { version = "1", features = ["sync", "time"] }
+tokio = { version = "1", features = ["sync", "time", "rt"] }
+intportal-ai = { path = "../crates/intportal-ai" }
+intportal-llm = { path = "../crates/intportal-llm" }
 
 [target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }

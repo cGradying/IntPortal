@@ -4,3 +4,9 @@
 # never overwrite each other's app. Two builds at once wait on cargo's lock.
 [build]
 build-dir = "{cargo-cache-home}/build/intportal"
+
+# llama.cpp calls posix_madvise, which Android's headers declare only from API
+# 31; the app's minSdk is 24, so use plain madvise (see spikes/s1-llama/REPORT.md).
+[env]
+CXXFLAGS_aarch64_linux_android = "-Dposix_madvise=madvise -DPOSIX_MADV_RANDOM=MADV_RANDOM -DPOSIX_MADV_WILLNEED=MADV_WILLNEED -DPOSIX_MADV_SEQUENTIAL=MADV_SEQUENTIAL -DPOSIX_MADV_DONTNEED=MADV_DONTNEED"
+CXXFLAGS_armv7_linux_androideabi = "-Dposix_madvise=madvise -DPOSIX_MADV_RANDOM=MADV_RANDOM -DPOSIX_MADV_WILLNEED=MADV_WILLNEED -DPOSIX_MADV_SEQUENTIAL=MADV_SEQUENTIAL -DPOSIX_MADV_DONTNEED=MADV_DONTNEED"
