@@ -11,7 +11,7 @@ PUP's Student Information System website, the one source of schedule and grade d
 _Avoid_: portal (when you mean the website), the site
 
 **Host**:
-One SIS server, such as `sis8.pup.edu.ph`. Hosts are not interchangeable. A good host signs in and serves schedule rows.
+One SIS server, such as `sis8.pup.edu.ph`; there are eight, `sis1` to `sis8`. Hosts are not interchangeable. A good host signs in and serves schedule rows. Sign-in tries the remembered host, then sis8, then the rest, and moves on from any host that fails or signs in with no schedule rows. Wrong credentials stop it at once.
 _Avoid_: mirror, site, domain
 
 **Campus**:
