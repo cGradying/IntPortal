@@ -1,11 +1,12 @@
 /// Bytes the app may still allocate before the system kills it, or None
 /// where the platform gives no answer.
-#[cfg(target_os = "ios")]
+#[cfg(all(target_os = "ios", not(target_abi = "sim")))]
 pub fn available() -> Option<u64> {
     extern "C" {
         fn os_proc_available_memory() -> usize;
     }
-    Some(unsafe { os_proc_available_memory() } as u64)
+    // 0 means the system gave no answer, not that nothing is free.
+    Some(unsafe { os_proc_available_memory() } as u64).filter(|&n| n > 0)
 }
 
 #[cfg(target_os = "android")]
@@ -13,7 +14,8 @@ pub fn available() -> Option<u64> {
     parse_mem_available(&std::fs::read_to_string("/proc/meminfo").ok()?)
 }
 
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
+// The simulator has no per-app limit and reports 0, so it gets no gate.
+#[cfg(not(any(all(target_os = "ios", not(target_abi = "sim")), target_os = "android")))]
 pub fn available() -> Option<u64> {
     None
 }
