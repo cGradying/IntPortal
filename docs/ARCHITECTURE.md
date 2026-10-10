@@ -77,6 +77,15 @@ Every command returns `Result<T, String>` today.
 
 **Landing.** `landingAt(t)` returns the whole scene state for a time: pieces dropping, the swirl, LAR, the stones, the card. The components only draw it, which keeps the timeline unit-testable.
 
+## On-device AI
+
+IntAssis runs a small model through llama.cpp, on the phone, only after the student downloads one ([ADR 0003](adr/0003-on-device-ai-llama-cpp.md)). Two crates keep llama.cpp out of the core and out of Linux CI:
+
+- `crates/intportal-ai` is pure Rust and depends on `intportal-core`. It holds the `Llm` trait, prompt budgets, run-time JSON schemas, reply parsing, RAG and batch generation, and is tested with a `FakeLlm`.
+- `crates/intportal-llm` implements the trait with `llama-cpp-2` on iOS, Android and macOS, plus the model download and the memory gate. On Linux it is a stub that returns an error.
+
+`src-tauri/src/commands/ai.rs` runs inference in `spawn_blocking` and streams the reply text through a Tauri `Channel`. AI commands never write: the UI shows confirm cards, and Apply calls the existing commands (`set_note`, `save_deck`, `set_plan`, `set_mark`). Models live in `app_data_dir()/models/`, excluded from backup.
+
 ## Where to change things
 
 | To change | Edit | Owner |
@@ -86,6 +95,7 @@ Every command returns `Result<T, String>` today.
 | A new command or its arguments | `src-tauri/src/lib.rs`, then `src/lib/api.ts` | Core, then UI |
 | What a screen shows | `src/lib/screens/` and its components | UI |
 | Shared app state or a flow across screens | `src/lib/state.svelte.ts` | UI |
+| IntAssis prompts, schemas, RAG, model download | `crates/intportal-ai/`, `crates/intportal-llm/`, `src-tauri/src/commands/ai.rs`, `src/lib/assis/` | AI |
 | The widget, Live Activity, calendar on iOS | `plugins/*/ios/`, `src-tauri/gen/apple/` | Head |
 | The same on Android | `plugins/*/android/`, `src-tauri/gen/android/` | Android |
 | Info.plist keys, entitlements, deployment target | `src-tauri/gen/apple/project.yml` | Head |
@@ -131,6 +141,7 @@ Desktop `cargo` builds compile neither the Swift nor the Kotlin. Only `scripts/s
 
 - [0001](adr/0001-tauri-rust-svelte.md) Tauri, Rust and Svelte.
 - [0002](adr/0002-device-only-data.md) Student data stays on the device.
+- [0003](adr/0003-on-device-ai-llama-cpp.md) On-device AI runs llama.cpp in Rust; local only.
 
 ## Known debts
 
