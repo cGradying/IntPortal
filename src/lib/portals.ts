@@ -58,3 +58,14 @@ const COPY: Record<string, PortalCopy> = {
 };
 
 export const portalCopy = (id: string): PortalCopy => COPY[id] ?? COPY.sis;
+
+/** Drawn until the core's list arrives, so the form is never empty. */
+export const FALLBACK_SIS: Portal = {
+  id: "sis",
+  name: "SIS",
+  status: "ready",
+  theme: { ramp: ["#3b1220", "#7a1c2c", "#b5412a", "#e08a35", "#f3cf6a"], accent: "#e8b04a" },
+  fields: ["student_number", "birthdate", "password"],
+  limits: { attempts: 3, window_secs: 900 },
+  keychain_service: "ph.intportal.app",
+};

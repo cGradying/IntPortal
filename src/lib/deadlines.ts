@@ -24,5 +24,11 @@ export function splitDeadlines(list: Deadline[], now: Date, max = Infinity) {
 /** Moodle titles an event "X is due", "X closes" or "X opens"; the student wants X. */
 export const titleOf = (name: string) => name.replace(/\s+(is due|closes|opens)$/i, "");
 
-/** The subject part of a course name, `Subject_Term_Section`. */
-export const subjectOf = (fullname: string) => fullname.split("_")[0].trim();
+/** `Subject_Term_Section` as its parts; the whole name as the subject when it doesn't fit. */
+export function splitCourseName(fullname: string): { subject: string; term: string; section: string } {
+  const parts = fullname.split("_").map((s) => s.trim());
+  return parts.length === 3 ? { subject: parts[0], term: parts[1], section: parts[2] } : { subject: fullname.trim(), term: "", section: "" };
+}
+
+/** The subject part of a course name. */
+export const subjectOf = (fullname: string) => splitCourseName(fullname).subject;

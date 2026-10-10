@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Deadline } from "./api";
-import { dueLabel, splitDeadlines, subjectOf, titleOf } from "./deadlines";
+import { dueLabel, splitCourseName, splitDeadlines, subjectOf, titleOf } from "./deadlines";
 
 const secs = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h).getTime() / 1000;
 const mk = (id: number, due: number, over: Partial<Deadline> = {}): Deadline => ({
@@ -55,5 +55,7 @@ describe("names", () => {
   it("takes the subject out of a course name", () => {
     expect(subjectOf("Filipino_First Sem 2627_BSIT 1-A")).toBe("Filipino");
     expect(subjectOf("Orientation")).toBe("Orientation");
+    expect(splitCourseName("Filipino_First Sem 2627_BSIT 1-A")).toEqual({ subject: "Filipino", term: "First Sem 2627", section: "BSIT 1-A" });
+    expect(splitCourseName("A_B")).toEqual({ subject: "A_B", term: "", section: "" });
   });
 });

@@ -495,7 +495,13 @@ async fn mabini_tries_left(state: tauri::State<'_, AppState>) -> Res<Tries> {
 async fn mabini_sign_out(state: tauri::State<'_, AppState>) -> Res<()> {
     *state.mabini.lock().await = None;
     mabini_vault::clear();
-    state.store.lock().unwrap().forget_mabini().map_err(err)
+    state.store.lock().unwrap().forget_mabini().map_err(err)?;
+    // No SIS login either: nobody is signed in, so detach the store like sign_out does.
+    if vault::load().is_none() {
+        let _ = std::fs::remove_file(state.dir.join(CURRENT));
+        *state.store.lock().unwrap() = Store::in_memory().map_err(err)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -556,6 +562,10 @@ async fn sign_out(state: tauri::State<'_, AppState>) -> Res<()> {
     *state.client.lock().await = None;
     vault::clear();
     state.store.lock().unwrap().forget_sis().map_err(err)?;
+    // eMabini still signed in: the store stays open for its data.
+    if mabini_vault::load().is_some() {
+        return Ok(());
+    }
     // Nobody is signed in now: the landing reads an empty store, and the
     // student's own work waits in their file for the next sign-in.
     let _ = std::fs::remove_file(state.dir.join(CURRENT));

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { askForCalendar } from "../devcal";
-  import { app, openNote, scheduleReminders, setCalendar, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
-  import { api, isoDate } from "../api";
+  import { app, mabiniSyncNow, openNote, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
+  import { api, isoDate, type Portal } from "../api";
+  import { onMount } from "svelte";
+  import PortalConnect from "../PortalConnect.svelte";
   import { shareFile } from "../share";
   import { buzz, haptics, setHaptics } from "../haptics";
   import { lock, setLock, unlockWith } from "../lock.svelte";
@@ -94,14 +96,35 @@
     return s ? new Date(Number(s) * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "Never";
   });
 
+  // The portals the core lists, to offer a connect form for one that isn't.
+  let portals = $state<Portal[]>([]);
+  onMount(() => {
+    api.portals().then((p) => (portals = p)).catch(() => {});
+  });
+  const portalOf = (id: string) => portals.find((p) => p.id === id);
+  const mabiniSynced = $derived.by(() => {
+    const s = app.mabini?.last_synced;
+    return s ? new Date(s * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "Never";
+  });
+
   async function signOut() {
     await api.signOut();
+    await refreshLogins();
+    confirming = null;
+    onsignout();
+  }
+
+  async function mabiniOut() {
+    await api.mabiniSignOut();
+    await refreshLogins();
     onsignout();
   }
 
   async function eraseAll() {
     await api.signOut();
+    await api.mabiniSignOut();
     await api.eraseEverything();
+    await refreshLogins();
     onsignout();
   }
 </script>
@@ -116,10 +139,31 @@
   </header>
 
   <section class="card notch block">
-    <p class="label">Sync</p>
-    <div class="line"><span>Last synced</span><strong>{synced}</strong></div>
-    <div class="line"><span>Server</span><strong>{app.snapshot?.host ?? "—"}</strong></div>
-    <button class="primary" onclick={syncNow} disabled={app.sync === "syncing"}>{app.sync === "syncing" ? "Syncing…" : "Sync now"}</button>
+    <p class="label">SIS</p>
+    {#if app.sisConnected}
+      <div class="line"><span>Last synced</span><strong>{synced}</strong></div>
+      <div class="line"><span>Server</span><strong>{app.snapshot?.host ?? "—"}</strong></div>
+      <button class="primary" onclick={syncNow} disabled={app.sync === "syncing"}>{app.sync === "syncing" ? "Syncing…" : "Sync now"}</button>
+    {:else if portalOf("sis")}
+      <p class="fine">Add your SIS login for your schedule and grades.</p>
+      <PortalConnect portal={portalOf("sis")!} />
+    {/if}
+  </section>
+
+  <section class="card notch block">
+    <p class="label">eMabini</p>
+    {#if app.mabiniConnected}
+      <div class="line"><span>Last synced</span><strong>{mabiniSynced}</strong></div>
+      {#if app.mabiniError}<p class="fine">{app.mabiniError}</p>{/if}
+      <div class="row">
+        <button class="primary" onclick={mabiniSyncNow} disabled={app.mabiniSync === "syncing"}>{app.mabiniSync === "syncing" ? "Syncing…" : "Sync now"}</button>
+        <button class="ghost" onclick={() => (app.mabiniPage = true)}>Courses</button>
+      </div>
+      <button class="ghost" onclick={mabiniOut}>Sign out of eMabini</button>
+    {:else if portalOf("mabini")}
+      <p class="fine">Add your eMabini login for your courses and deadlines.</p>
+      <PortalConnect portal={portalOf("mabini")!} />
+    {/if}
   </section>
 
   <section class="card notch block">
@@ -213,12 +257,12 @@
 
   <section class="card notch block">
     <p class="label">Privacy</p>
-    <p class="fine">Your login stays in this phone's keychain and everything else stays on this phone. IntPortal only talks to PUP SIS.</p>
+    <p class="fine">Your login stays in this phone's keychain and everything else stays on this phone. IntPortal only talks to PUP SIS and eMabini.</p>
     <label class="lockrow"><input type="checkbox" checked={lock.enabled} onchange={(e) => { const box = e.currentTarget; setLock(box.checked).then(() => (box.checked = lock.enabled)); }} /> Lock with {unlockWith}</label>
     <p class="fine">Asks when IntPortal opens or comes back after a minute away, and hides the screen in the app switcher.</p>
     {#if lock.error}<p class="fine">{lock.error}</p>{/if}
     <p class="fine">Each student's notes and decks stay separate on this phone; another student signing in here can't see yours.</p>
-    <p class="fine">Signing out removes your login, schedule and grades. Your notes, decks, syllabus pages and goals stay for when you sign back in.</p>
+    <p class="fine">Signing out of SIS removes your login, schedule and grades; signing out of eMabini removes its login and courses. Your notes, decks, syllabus pages and goals stay for when you sign back in.</p>
     {#if confirming === "out"}
       <div class="row">
         <button class="danger" onclick={signOut}>Sign out</button>
@@ -232,7 +276,7 @@
       </div>
     {:else}
       <div class="row">
-        <button class="ghost" onclick={() => (confirming = "out")}>Sign out</button>
+        {#if app.sisConnected}<button class="ghost" onclick={() => (confirming = "out")}>Sign out of SIS</button>{/if}
         <button class="ghost" onclick={() => (confirming = "erase")}>Erase everything</button>
       </div>
     {/if}
