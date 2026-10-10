@@ -1,6 +1,6 @@
 # One workspace, one target/ and one Cargo.lock for every crate.
 [workspace]
-members = ["src-tauri", "crates/intportal-core", "spikes/s0-sis-http", "spikes/s1-llama", "plugins/tauri-plugin-glance", "plugins/tauri-plugin-calendar"]
+members = ["src-tauri", "crates/intportal-core", "crates/intportal-ai", "spikes/s0-sis-http", "spikes/s1-llama", "plugins/tauri-plugin-glance", "plugins/tauri-plugin-calendar"]
 resolver = "2"
 
 # Line tables only (backtraces keep file:line) keeps target/ a few GB instead

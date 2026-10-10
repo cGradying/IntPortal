@@ -1,0 +1,43 @@
+# On-device AI (IntAssis): working notes
+
+For the AI role. The decisions are in [ADR 0003](adr/0003-on-device-ai-llama-cpp.md); this file holds what you need to run and extend it.
+
+## Layout
+
+| Path | What |
+|---|---|
+| `crates/intportal-ai` | Pure Rust, no model. `llm` (trait, `FakeLlm`), `prompt` (budgets, chat templates), `reply` (strip `<think>`, parse JSON), `schema`, `rag`, `gen` (flashcards in batches), `pdf`, `models` (catalog, RAM gate), `intent`, `assis` (one chat turn), `why`, `outline`. |
+| `crates/intportal-llm` | llama.cpp behind `Llm`. A stub on Linux. `download` (resume, SHA check), `mem`, `backup`. |
+| `spikes/s1-llama` | The A0 spike and its `REPORT.md`. Not wired into the app. |
+
+## Rules that came out of measuring
+
+- **Rules pick the action, the schema forces it.** Gemma 3 1B never proposed an action on its own. `intent::detect` decides, and the schema then allows only that action. The model fills a short `text`.
+- **The model never computes dates.** `intent::resolve_when` reads "bukas", "sa Lunes". When no day is named, the model picks `d0`..`d13` from a table.
+- **Exact questions skip the model.** Due, classes today and grades are answered from the app's data.
+- **Give the model a limit on every string** (`maxLength`), and clean what comes back (`outline::clean`). A 1B model runs on into other scripts otherwise.
+- **One short call per unit** (a week, a batch of 12 then 6 cards). Whole-term outputs collapse into week 1.
+- The default chat model is `models::DEFAULT_CHAT` (Gemma 3 1B). Its prompt template is `Template::Gemma`; Qwen uses ChatML with an empty think block.
+
+## Running it
+
+Models are downloaded by hand for development (the app does it through `download`); keep them outside git and check the SHA-256 in `models.rs`.
+
+```bash
+# schema-valid replies on 20 Taglish prompts, tokens/sec
+cargo run --release -p intportal-llm --example eval -- <chat.gguf>
+# does the embedding model rank notes sensibly
+cargo run --release -p intportal-llm --example embed -- <nomic.gguf>
+# the assistant, "Why?" and a title guide on a real model
+cargo run --release -p intportal-llm --example assis -- <gemma.gguf>
+```
+
+Pass `cpu` as the last argument to `eval` for CPU only. Metal is on by default on Apple targets; the iOS simulator's Metal is software and slow, so measure speed on a CPU run or the user's iPhone (`scripts/phone.sh`, run by the user).
+
+## Android build
+
+llama.cpp needs a flag at minSdk 24 (`posix_madvise`); see `spikes/s1-llama/REPORT.md`. Set `ANDROID_NDK_ROOT`, and delete the cached cmake build after changing flags.
+
+## Not done yet
+
+The shell commands (`src-tauri/src/commands/ai.rs`, after Core's #60 and #61), the Storage view and the Light or With-AI choice (UI #91), the editor and deck hooks (UI #92), and `Plan.guide` (Core #93).
