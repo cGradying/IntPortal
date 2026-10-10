@@ -158,8 +158,8 @@ pub fn answer(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history: &[(Strin
 /// What the confirm card says; in Rust so it is always short, right and in the student's language.
 fn confirm(p: &Proposal, fil: bool) -> String {
     match (p, fil) {
-        (Proposal::SetReminder { date, text }, false) => format!("Reminder ready for {:?} {date}: {text}. Confirm to save it.", date.weekday()),
-        (Proposal::SetReminder { date, text }, true) => format!("Handa na ang paalala sa {:?} {date}: {text}. I-confirm para i-save.", date.weekday()),
+        (Proposal::SetReminder { text, .. }, false) => format!("Reminder ready: {text}. Confirm to save it."),
+        (Proposal::SetReminder { text, .. }, true) => format!("Handa na ang paalala: {text}. I-confirm para i-save."),
         (Proposal::AddNote { subject, text }, false) => format!("Note ready{}: {text}. Confirm to save it.", subject.as_ref().map(|s| format!(" for {s}")).unwrap_or_default()),
         (Proposal::AddNote { subject, text }, true) => format!("Handa na ang note{}: {text}. I-confirm para i-save.", subject.as_ref().map(|s| format!(" sa {s}")).unwrap_or_default()),
         (Proposal::MakeCards { topic }, false) => format!("I'll make flashcards on {topic}. Confirm to start."),
@@ -189,7 +189,7 @@ mod tests {
         let mut m = FakeLlm::new(&[r#"{"reply":"Sige, ready na.","text":"Math 101 assignment"}"#]);
         let a = answer(&mut m, Template::Gemma, &facts(), &[], "Pwede mo ba akong i-remind bukas about Math 101 assignment?").unwrap();
         assert_eq!(a.proposal, Some(Proposal::SetReminder { date: Date::new(2026, 10, 16), text: "Math 101 assignment".into() }));
-        assert_eq!(a.reply, "Handa na ang paalala sa Friday 2026-10-16: Math 101 assignment. I-confirm para i-save.");
+        assert_eq!(a.reply, "Handa na ang paalala: Math 101 assignment. I-confirm para i-save.");
         assert!(!m.prompts[0].contains("pick one id"), "a day the message names needs no date table");
     }
 

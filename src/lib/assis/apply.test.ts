@@ -1,0 +1,35 @@
+import { describe as suite, expect, it } from "vitest";
+import { appended, describe, newDeck, noteTarget, reminderAt, reminderId } from "./apply";
+
+suite("applying a proposal", () => {
+  it("puts a class note on the class and anything else on one note a day", () => {
+    expect(noteTarget({ subject: "COMP 20073" }, "2026-10-15")).toEqual({ key: "class:COMP 20073", title: null });
+    expect(noteTarget({ subject: null }, "2026-10-15")).toEqual({ key: "note:lar-2026-10-15", title: "From LAR" });
+  });
+
+  it("adds to what the student already wrote, never over it", () => {
+    expect(appended(undefined, "Bring calculator")).toBe("Bring calculator");
+    expect(appended("Quiz Friday\n", "Bring calculator")).toBe("Quiz Friday\n\nBring calculator");
+  });
+
+  it("reminds at 8 AM local on the day, with an id that is stable and positive", () => {
+    const d = reminderAt("2026-10-16");
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()]).toEqual([2026, 9, 16, 8, 0]);
+    const id = reminderId("Pay tuition", "2026-10-19");
+    expect(id).toBe(reminderId("Pay tuition", "2026-10-19"));
+    expect(id).not.toBe(reminderId("Pay tuition", "2026-10-20"));
+    expect(id).toBeGreaterThan(0);
+    expect(id).toBeLessThanOrEqual(0x7fffffff);
+  });
+
+  it("builds a deck whose cards are new and due now", () => {
+    const deck = newDeck("d1", "Binary trees", null, [{ front: "Root?", back: "Top node" }]);
+    expect(deck.cards).toEqual([{ id: "", front: "Root?", back: "Top node", accepted: [], memory: { due: 0, stability: 0, difficulty: 0, reps: 0, lapses: 0, last_review: null } }]);
+  });
+
+  it("says what it will do before it does it", () => {
+    expect(describe({ kind: "add_note", subject: "MATH 101", text: "x" })).toEqual({ label: "Note for MATH 101", text: "x", yes: "Save note" });
+    expect(describe({ kind: "make_cards", topic: "trees" }).yes).toBe("Make cards");
+    expect(describe({ kind: "set_reminder", date: "2026-10-16", text: "Pay" }).label).toMatch(/^Reminder · .*8 AM$/);
+  });
+});

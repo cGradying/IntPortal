@@ -8,6 +8,7 @@
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
   import Isko from "../Isko.svelte";
   import Lar from "../lar/Lar.svelte";
+  import ModelCard from "../assis/ModelCard.svelte";
 
   let { onsignout, ongallery }: { onsignout: () => void; ongallery?: () => void } = $props();
   let confirming = $state<null | "out" | "erase">(null);
@@ -121,6 +122,8 @@
     <div class="line"><span>Server</span><strong>{app.snapshot?.host ?? "—"}</strong></div>
     <button class="primary" onclick={syncNow} disabled={app.sync === "syncing"}>{app.sync === "syncing" ? "Syncing…" : "Sync now"}</button>
   </section>
+
+  <ModelCard />
 
   <section class="card notch block">
     <p class="label">Class reminders</p>
