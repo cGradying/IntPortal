@@ -20,12 +20,12 @@ The landing already speaks of a portal as the gate to a system ([010](010-landin
 ## Behaviour
 
 - **C1.** A `Portal` has: `id`, `name`, `status` (`ready` or `opens_soon`), `theme`, `sign_in` fields, attempt limits, and a keychain service name.
-- **C2.** SIS is the only `ready` portal. Mabini is listed as `opens_soon`.
+- **C2.** SIS is the only `ready` portal. Mabini (eMabini, the Open University's Moodle portal) is listed as `opens_soon`. Its sign-in fields are student number and password, with no birthdate; its username is the student number lowercased with dashes removed.
 - **C3.** An `opens_soon` portal cannot be signed in to or stepped into. The UI shows "Opens soon" and offers no form.
 - **C4.** Each portal has its own connection state and its own store namespace. Signing in to or syncing one portal never reads or writes another's data.
 - **C5.** Each portal has its own keychain entry. Clearing one never clears another.
 - **C6.** Each portal has its own attempt counter ([011](011-login.md) C12). A rejected SIS login does not spend Mabini attempts.
-- **C7.** A portal's `theme` is five ramp tones plus one accent. SIS is PUP maroon and gold. Mabini is a placeholder until the user sends its colours.
+- **C7.** A portal's `theme` is five ramp tones plus one accent. SIS is PUP maroon and gold. Mabini's brand colour is the same maroon (`#700000`), so its ramp keeps that maroon and takes a teal accent (`#5fd0d6`) to tell the two apart. The user approves the palette.
 - **C8.** The registry lists portals in a fixed order; the landing carousel follows it ([010](010-landing.md) C13).
 - **C9.** Migrating SIS onto the registry changes no behaviour: existing stores, keychain entries and snapshots keep working untouched.
 - **C10.** Adding a portal is one registry entry plus its client; no landing or login code branches on a portal id.
@@ -51,6 +51,8 @@ pub struct Portal {
     pub keychain_service: &'static str,
 }
 ```
+
+Shipped in [intportal-app#97](https://github.com/cGradying/intportal-app/pull/97): `portal.rs` with `SIS`, `MABINI` and `get(id)`.
 
 The SIS client in `crates/intportal-core/src/sis/` becomes the SIS portal's implementation. Store namespacing extends `account_file` in `store.rs` so a portal id is part of the file key.
 
@@ -84,5 +86,5 @@ Each portal in the carousel is a labelled button: "SIS, ready" or "Mabini, opens
 
 ## Open questions
 
-- Mabini's theme colours, sign-in fields and host (user).
-- Does Mabini use the same student number and birthdate, or different credentials?
+- Approve Mabini's palette (maroon ramp, teal accent).
+- Confirm with a real eMabini account that the username format and the sign-in form match [000](000-sis-data-map.md).

@@ -87,6 +87,22 @@ The two-letter code inside the student number picks a campus label (`crates/intp
 
 To be filled from the user's captures. Candidates the app does not read today: enrolment status and assessment of fees, curriculum checklist, announcements, the student's profile page, and anything Mabini offers.
 
-## Mabini
+## Mabini (eMabini)
 
-Not captured yet. Waiting on the user: screenshots, the sign-in fields, and the theme colours. Until then Mabini exists only as an "Opens soon" portal ([012](012-portals.md)).
+From public pages, 2026-10-11; not yet checked against a signed-in account.
+
+| Fact | Value |
+|---|---|
+| What it is | eMabini, the PUP Open University System's learning portal, run on Moodle (the "moove" theme) |
+| Address | `https://emabini.pup.edu.ph/`, login at `/login/index.php`, reset at `/login/forgot_password.php` |
+| Login form | `username`, `password`, and a hidden `logintoken`; no birthdate |
+| Username | the student number, lowercase, dashes removed, for example `202412345mn0` (the portal's home page) |
+| Password | issued by the Open University office, with a default that must be changed on first login (FAQ) |
+| Brand colour | `#700000`, the theme's primary: the same maroon as the SIS |
+| Other | an eMabini mobile app exists; the site also serves guest pages |
+| Who | enrolled Open University students, plus staff roles |
+| Help | `emabini.support@pup.edu.ph` |
+
+Sources: the portal's login and home pages; the PUP SINTA FAQ "OUS: PUP eMabini Learning Portal (LMS)". The FAQ and the home page differ on the username format; the home page is newer.
+
+Not read yet: courses, deadlines, grades, announcements. Needs the user's captures. A separate Moodle at `lms.pup.edu.ph` serves PUP Sta. Mesa and campus students; it is not Mabini.

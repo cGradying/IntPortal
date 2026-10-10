@@ -125,6 +125,6 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 ## Open questions
 
 - The 4D transition prototype (Head).
-- Mabini's palette (user).
+- Mabini's palette (user approves; see [012](012-portals.md) C7).
 - Whether LAR's two lines are kept as they are.
 - Confirm retiring the stones (user).
