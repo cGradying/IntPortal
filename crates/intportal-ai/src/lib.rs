@@ -5,3 +5,4 @@
 pub mod llm;
 pub mod prompt;
 pub mod reply;
+pub mod schema;

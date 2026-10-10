@@ -67,3 +67,21 @@ mod tests {
         assert_eq!(p.chars().count(), 120);
     }
 }
+
+/// Wraps a system and a user message in ChatML (Qwen, and most small models).
+/// The empty think block turns Qwen3's thinking off, which a phone can't afford.
+pub fn chatml(system: &str, user: &str) -> String {
+    format!(
+        "<|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    )
+}
+
+#[cfg(test)]
+mod chatml_tests {
+    #[test]
+    fn ends_open_for_the_assistant() {
+        let p = super::chatml("S", "U");
+        assert!(p.starts_with("<|im_start|>system\nS<|im_end|>"));
+        assert!(p.ends_with("<|im_start|>assistant\n<think>\n\n</think>\n\n"));
+    }
+}

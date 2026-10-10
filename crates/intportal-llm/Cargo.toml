@@ -1,0 +1,14 @@
+[package]
+name = "intportal-llm"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+intportal-ai = { path = "../intportal-ai" }
+serde_json = "1"
+
+# llama.cpp builds only where the app runs a model. Linux CI gets the stub in
+# src/lib.rs, so it never compiles C++ (ADR 0003).
+[target.'cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))'.dependencies]
+llama-cpp-2 = { version = "0.1", default-features = false, features = ["common"] }
