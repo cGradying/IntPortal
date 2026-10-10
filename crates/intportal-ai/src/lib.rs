@@ -4,6 +4,7 @@
 
 pub mod gen;
 pub mod llm;
+pub mod models;
 pub mod pdf;
 pub mod prompt;
 pub mod rag;

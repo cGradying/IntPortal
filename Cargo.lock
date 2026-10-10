@@ -2062,8 +2062,11 @@ name = "intportal-llm"
 version = "0.1.0"
 dependencies = [
  "intportal-ai",
+ "libc",
  "llama-cpp-2",
+ "reqwest 0.12.28",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -3815,6 +3818,13 @@ dependencies = [
  "reqwest 0.12.28",
  "rpassword",
  "scraper",
+]
+
+[[package]]
+name = "s1-llama"
+version = "0.0.0"
+dependencies = [
+ "llama-cpp-2",
 ]
 
 [[package]]
