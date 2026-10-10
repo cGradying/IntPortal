@@ -100,6 +100,14 @@ _Avoid_: dock; "orb" names only one part of it
 The app's AI assistant, running on a model on the device by default.
 _Avoid_: AI, bot, chat
 
+**Model download**:
+The opt-in file IntAssis needs before it can answer. It shows its size, lives in the app's data folder outside backups, and the student can delete it from the Storage view.
+_Avoid_: install, update
+
+**Guide syllabus**:
+A plan IntAssis generated from a course title, not read from the student's own syllabus. It is labelled "Guide".
+_Avoid_: official syllabus, generated syllabus
+
 **Deck**:
 A set of flashcards on one topic, scheduled by FSRS.
 _Avoid_: quiz (a quiz is a mode of reviewing a deck)
