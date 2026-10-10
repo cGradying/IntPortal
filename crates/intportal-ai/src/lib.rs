@@ -5,5 +5,6 @@
 pub mod llm;
 pub mod models;
 pub mod prompt;
+pub mod rag;
 pub mod reply;
 pub mod schema;
