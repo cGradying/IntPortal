@@ -14,3 +14,6 @@ sha2 = "0.10"
 # src/lib.rs, so it never compiles C++ (ADR 0003).
 [target.'cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))'.dependencies]
 llama-cpp-2 = { version = "0.1", default-features = false, features = ["common"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
+libc = "0.2"

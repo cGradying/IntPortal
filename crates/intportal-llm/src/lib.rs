@@ -13,6 +13,7 @@ pub use stub::Llama;
 
 pub mod download;
 pub mod mem;
+pub mod backup;
 
 /// Where a model runs. CPU only is for the simulator and for tests.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
