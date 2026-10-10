@@ -155,9 +155,11 @@ components:
 
 **Creative North Star: "The Other Side of the Portal"**
 
-IntPortal has two registers that share one gold. Inside the app is the legacy calm: a charcoal ground under a faint gold dot grid, quiet gradient cards with hairline edges, Montserrat for anything that carries weight and Source Sans 3 for everything read. On top of that calm sit pixel accents that are drawn, not decorated: stepped card corners, 12 by 12 pixel icons, stepped animations, Isko the pixel student. The landing is the other register, the world the calm app opens onto: a night ground, an obsidian portal built from falling pentominoes, a maroon-to-gold dithered swirl, and LAR, a small obsidian robot who comes through it.
+IntPortal has two registers that share one gold. Inside the app is the legacy calm: a charcoal ground under a faint gold dot grid, quiet gradient cards with hairline edges, Montserrat for anything that carries weight and Source Sans 3 for everything read. On top of that calm sit pixel accents that are drawn, not decorated: stepped card corners, 12 by 12 pixel icons, stepped animations, Isko the pixel student. The landing is the other register, the world the calm app opens onto: a black void, a portal drawn as a minimal low-resolution grid of flat obsidian tiles with gaps, a themed swirl or warp-star interior drawn in the same tiles, and LAR, a small obsidian robot who is the voice above the form. Each portal (SIS, Mabini) has its own theme.
 
-The pixel world exists to serve a glance. Students open the app between classes, on weak data, in jeepneys; clear first, charming second. Every pixel element on screen does a job (a tab, a stone that names a section, a mascot that speaks), and nothing on screen only decorates. The landing deliberately refuses the logo-over-a-form login screen: the portal and LAR own the top half, LAR's line and the sign-in card own the bottom half, and the one gold button is Sign in.
+> **Landing register is being replaced.** The tile portal below is the approved direction (spec `docs/specs/010-landing.md`, ADR 0004). Sections marked *current* describe the shipped pentomino scene until it is replaced.
+
+The pixel world exists to serve a glance. Students open the app between classes, on weak data, in jeepneys; clear first, charming second. Every pixel element on screen does a job (a tab, a portal that names a system, a mascot that speaks), and nothing on screen only decorates. The landing deliberately refuses the logo-over-a-form login screen: the portal owns the top third, LAR's line and the sign-in form own the rest, and the one gold button is Sign in.
 
 **Key Characteristics:**
 - Dark-first, charcoal ground with a 14 px gold dot grid; Day and Maroon rooms restyle the same roles.
@@ -179,9 +181,9 @@ A neutral charcoal system with one warm gold voice, and a separate night palette
 - **PUP Maroon** (maroon, maroon-2): the brand's second colour, carried by the swirl, LAR's mouth, and the Day room's first subject colour. Maroon and gold are allowed; the PUP seal and wordmark are not.
 
 ### Tertiary: the portal world
-- **Night** (portal-night): the landing ground, the 3D scene background and fog, and the landing's inputs. Nothing else in the app sits on it.
-- **Obsidian** (obsidian, obsidian-hi, obsidian-lo, obsidian-fleck, obsidian-bevel): the portal blocks, the stones, and LAR's speech slab. Each slab is lit on top (obsidian-hi or obsidian-bevel) and shaded at the bottom (obsidian-lo), with purple flecks.
-- **The Swirl** (swirl-0 to swirl-4): the brand's core image, a five-tone ordered-dither ramp from near-black maroon to pale gold. Used only inside the portal opening and the flat fallback drawing. LAR's belly window runs its own warmer five-tone ramp (#2a0a14, #7a1128, #c2403a, #f5b227, #fff1c4).
+- **Night** (portal-night): the landing ground and the landing's inputs. Nothing else in the app sits on it. The tile portal sits on a true black void (`#060607`).
+- **Obsidian tiles**: the portal frame uses four flat tones, `#1a1622`, `#241f2e`, `#2f2939` and `#3c3548`, with the inner edge one tone darker. No bevel, fleck or gloss. *(current)* The shipped scene still uses obsidian, obsidian-hi, obsidian-lo, obsidian-fleck and obsidian-bevel for its blocks, stones and LAR's speech slab.
+- **Portal themes**: each portal has a five-tone ramp and one accent. SIS is PUP maroon and gold (`#3b1220`, `#7a1c2c`, `#b5412a`, `#e08a35`, `#f3cf6a`; accent `#e8b04a`). Mabini is a placeholder (`#0b2238` to `#a8efe4`; accent `#5fd0d6`) until the user sends its colours. The ramp colours tiles and the interior, never a background gradient, card fill or text. *(current)* The shipped swirl uses swirl-0 to swirl-4, a five-tone ordered-dither ramp; LAR's belly window runs its own warmer ramp (#2a0a14, #7a1128, #c2403a, #f5b227, #fff1c4).
 - **Parchment** (portal-parchment, portal-wordmark, lar-line-ink): warm off-whites for text on the night ground. Secondary landing text uses Parchment at 0.5 to 0.6 alpha.
 
 ### Neutral
@@ -198,7 +200,7 @@ A room is one block of roles on `:root[data-room]`; components read roles, never
 ### Named Rules
 **The One Gold Rule.** Gold means "do this" or "you are here": the primary action, the selected option, the active tab. Secondary actions are ghost buttons or underlined text, never a second hue.
 
-**The Swirl Stays in the Portal Rule.** The swirl ramp lives inside an opening (the portal, LAR's belly window). It is never a background gradient, a card fill, or a text colour.
+**The Theme Stays in the Portal Rule.** A portal's theme ramp lives inside its opening and tiles (and LAR's belly window). It is never a background gradient, a card fill, or a text colour.
 
 **The Roles Not Hex Rule.** App screens read colour roles (`var(--gold)`, `var(--card)`), so every room works. The landing is the one surface that names its own night palette, because it does not change with the room.
 
@@ -207,6 +209,8 @@ A room is one block of roles on `:root[data-room]`; components read roles, never
 **Display Font:** Montserrat Variable (with system-ui, sans-serif)
 **Body Font:** Source Sans 3 Variable (with system-ui, sans-serif)
 **Pixel Font:** Pixelify Sans 500 and 700 (with ui-monospace, monospace)
+
+**Planned pair (spec 011):** Geist for the interface and Pixelify Sans for the wordmark. Both are OFL: [Geist](https://github.com/vercel/geist-font/blob/main/OFL.txt) and [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans/blob/main/OFL.txt). Licence files confirmed to exist 2026-10-11; re-check before the fonts ship; Montserrat and Source Sans 3 stay for the app until the user approves a change.
 
 **Character:** Montserrat is the confident geometric voice for the wordmark, headings, numbers and buttons; Source Sans 3 is the patient reading voice for sentences, notes and fields. Pixelify Sans is the other side's voice: LAR's name tag, the stone labels, and system hints like "PUP SIS · via sis8".
 
@@ -233,10 +237,10 @@ The root is the iPhone's body text size (`font: -apple-system-body`, 17 px at th
 
 A single phone column. Content sits in a 16 px gutter on both sides, under the safe-area insets (`env(safe-area-inset-top/bottom)`), with a fixed five-tab bar at the bottom. Cards stack with 8 to 16 px gaps and carry 16 px of padding. Bottom sheets float inside the gutter, 12 px above the safe area. While the keyboard is open, the tab bar and the glance dock hide.
 
-The landing is a fixed full-screen stage. The portal fills the top half; the dock (LAR's line plus the sign-in card) is pinned to the bottom, 12 px above the safe area. When the card is up, the camera pulls back and lifts the portal (lift 0.2 of the height, 16.5 world units across); once signed in it moves in and comes down to meet Step through (lift 0.08, 12.5 units), easing 8% of the way each frame. A 64 px band under the status bar fades to Night so motes never cross the clock or the wordmark.
+The landing is a fixed full-screen stage. During the intro the tile portal fills the screen; it then lifts and shrinks to the top third as the form rises, and holds still while a field has focus. The carousel sits under the portal; LAR's line and the form are pinned to the bottom, 12 px above the safe area. A 64 px band under the status bar fades to the void so nothing crosses the clock or the wordmark. *(current)* The shipped 3D scene lifts the camera (lift 0.2, 16.5 world units) and eases 8% per frame.
 
 ### The art pixel grid
-One art pixel is 3 CSS px, for the portal and for LAR alike. The 3D portal renders into a target one third of the screen's size and scales up with nearest-neighbour filtering (half-float, so the deepest purples do not round to grey); the no-WebGL fallback draws the same frame flat at the same pixel. Motes are one art pixel each. Pixel icons are 12 by 12 grids drawn as SVG rects with crisp edges, at 18, 22 or 24 px.
+The tile portal is 12 by 16 tiles, each 2 by 2 per block, 11 px on a 14 px pitch at 1x. It is drawn by Rust compiled to WebAssembly into a canvas in software ([ADR 0004](docs/adr/0004-landing-renders-in-rust-wasm-tiles.md)). LAR keeps his 3 CSS px art pixel and nearest-neighbour scaling. Pixel icons are 12 by 12 grids drawn as SVG rects with crisp edges, at 18, 22 or 24 px. *(current)* The shipped 3D portal renders into a target one third of the screen's size and scales up with nearest-neighbour filtering.
 
 ## Elevation & Depth
 
@@ -259,7 +263,7 @@ Pixel surfaces use bevels instead of shadows: a lit top edge and a dark bottom e
 
 Two corner languages, by register. Pixel surfaces (cards, sheets, the problem card, the landing's slabs, fields and buttons) have stepped corners cut with clip-path, two steps deep: 3 px steps by default and 4 px on cards and sheets, so they read clean at arm's length and pixel up close. Landing fields have square corners. Inside the app, controls (buttons, inputs, selects, list rows, skeleton bars) use soft radii: 10 px for controls and 12 px for rows and segmented controls. Round shapes appear only for LAR's ground shadow and status dots.
 
-The portal's own geometry is the brand's: an 8 by 11 block frame, two blocks thick, built from pentominoes, with a 4 by 7 opening. LAR's ears are the frame's stepped corner blocks.
+The portal's own geometry is the brand's: 24 blocks, 6 wide by 8 tall, one block thick, like a Nether portal, built from I, L and J pieces; each block is 2 by 2 tiles. LAR's ears are the frame's stepped corner blocks. *(current)* The shipped frame is 8 by 11 blocks, two thick, from pentominoes.
 
 ## Components
 
@@ -283,18 +287,23 @@ The portal's own geometry is the brand's: an 8 by 11 block frame, two blocks thi
 ### Navigation
 - **Tab bar:** five equal columns (Today, Schedule, Grades, Study, You), each a 22 px pixel icon over a Montserrat 600 label. Idle is ink-3. Active turns the label and the icon's accent pixels gold, and the icon hops 3 px in three steps (0.35 s). Selecting a tab buzzes `select`.
 
-### The pentomino portal (signature)
-Twelve pentominoes in ten shapes (P and Y twice) fill the 60-cell ring, landing bottom-up: V, P, T, Z, N, L, Y, I, Y, F, P, U. Each piece is its own shade of obsidian (tinted 0, 22, 10, 30, 5 or 16% toward obsidian-hi) with a bevel only on the edges that do not touch its own blocks, so each piece reads as one joined shape, plus four seeded purple flecks per block that flare as it locks. The blocks are glossy (roughness 0.32, clearcoat 0.7). The opening holds two stencil-masked swirl layers, front and back, for depth; the swirl has three arms winding into the core, a rim falling into shadow, and the shipped five-tone Bayer dither. The frame stands on a 5 by 3 platform of brown slabs (#3a2c27, #33261f, #41302a, #2e231e, centre #5a3f2c). Light: violet ambient (#3a2440), a violet rim (#8663a8), a warm key (#f4e8d6), a lilac front (#b8a8ff), and a gold point light (#cca128) from the swirl. 56 gold motes drift upward. Dragging sways the camera up to 10 degrees, which eases back on release; at rest it orbits 6 degrees on a slow sine.
+### The tile portal (signature)
+A 12 by 16 grid of flat square tiles with gaps on a black void, four obsidian tones, the inner edge one tone darker. No texture, grain, glyphs, floor or shaders; it faces the viewer head-on.
 
-### Stones
-Three obsidian slabs that LAR pulls out of the swirl: Schedule, Grades, Study. Each is a 18 px pixel icon with a gold accent over a Pixelify label, with 3 px stepped corners, the obsidian bevel, flecks, and maroon light on the side that faces the portal, in three bands (0.34, 0.22, 0.12 alpha). They bob gently unless the student is typing.
+- **Spawn:** the frame builds both ways from the bottom centre and meets at the top in about 0.6 s, stepped at 30 fps. Each tile pops over three frames: a small light core, then the theme accent, then its tone. One haptic tick when the sides meet.
+- **At rest:** a few tiles quietly flip tone with a short shrink.
+- **Connecting:** a soft accent pulse travels around the frame; the interior shows warp stars.
+- **Open:** an accent wave runs up both sides from the bottom centre and settles into a faint theme tint; the interior is a swirl. A dither dissolve of about 0.7 s turns stars into swirl.
+- **Carousel:** the selected portal is centred, the next is dimmed beside it, page dots below. A portal that is not ready shows "Opens soon".
+
+*(current)* The shipped signature is twelve pentominoes in ten shapes filling a 60-cell ring, glossy obsidian blocks with purple flecks, two stencil-masked swirl layers, a brown platform, a violet and gold light rig and 56 gold motes. It is retired by ADR 0004. The **stones** (Schedule, Grades, Study) that LAR pulled out of the swirl are retired with it, pending the user's confirmation in spec 010.
 
 ### LAR
 The Lakbay-Aral Robot, 26 by 23 art pixels: an obsidian pebble lit from the top left in four tones with ordered dither, stepped block ears, a dark visor with gold eyes, a belly window with a live 6 by 5 swirl, a gold spark antenna, two floating mitts, a small orbiting portal cube, and a magenta rim light on his right edge so he reads on dark scenes. He is drawn as separate canvases so the parts move smoothly between whole pixels.
 
 - **Palette:** outline #1a0f20; body #2c1c3a, #43295a, #5f3f7e, #8663a8, #b996d8; visor #140b1b with rim #2d1d3c; gold #f5b227 and #b87a10; highlight #fff6dc; blush #ff7a9c; mouth #7a1128; belly frame #24162e; #5d3f78; rim light #e27bd0; cube core #c2403a.
 - **Moods:** open (blinks for about a tenth of a second every 2.9 to 3.7 s), blink, happy, wow, wink, focus. On the landing: open at rest, focus while typing or signing in, wow on an error, happy once signed in.
-- **Gestures:** idle, wave, point, reach, thumbs. Reach while the stones come out, wave on arrival and at the hub.
+- **Gestures:** idle, wave, point, reach, thumbs. Wave on arrival and at the hub.
 - **Speech:** LAR talks through a 3 px stepped obsidian slab, his name in gold Pixelify, his line in light Taglish ("Hi, I'm LAR...", "Ayos! Your schedule and grades are in.", "Welcome back, iskolar. Tara?").
 
 ### Isko
@@ -303,27 +312,20 @@ The 14 by 20 pixel student, drawn as SVG rects, waving on a slow stepped loop an
 ### Motion
 Interface motion uses one ease, `cubic-bezier(0.22, 1, 0.36, 1)`: the landing dock rises 40 px over 0.7 s, sheets rise over 0.35 s, the wordmark fades in over 0.6 s, and leaving drops dock and wordmark 16 px over 0.25 s ease-in. Pixel motion uses `steps()`: the tab hop, skeleton shimmer (1.4 s, 8 steps), Isko's wave, the campus strip.
 
-The landing is a pure function of time (`landingAt(t)` in `landing.ts`). A first visit runs:
-1. **Dark**, 0.4 s.
-2. **Assembling**, 2.66 s: a piece starts falling every 0.19 s and takes 0.42 s to lock (a stiff spring, dropping 9 blocks with a tumble), then a 0.15 s settle. The camera starts wide and low and settles in.
-3. **Igniting**, 0.7 s: the swirl lights from the core outward, with a gold-white flash near the end.
-4. **Arrival**, 1.0 s: LAR rises out of the opening, spinning 540 degrees and growing from 0.15 to full size.
-5. **Glimpse**, 0.7 s: the three stones come out, staggered 0.12 s.
-6. **Rest**, from 5.46 s: the wordmark and the dock appear.
-7. **Stepping**, 1.1 s from Step through: the camera dives into the swirl (eased in, field of view 35 to 80 degrees), the art pixel grows from 3 to 24 px, the swirl spins up to nine times faster and flashes, then the app lands on Today.
+The landing scene is a pure function of time and state (spec 010). The tile portal's spawn, waves, interior states and the sign-in morph into Today are specified there: intro, waves and morph run at 30 to 60 fps, rest at 12 to 20 fps stepped, and rendering stops when the app is backgrounded. The morph runs about 30% longer than a plain transition, as the hero moment.
 
-A returning student skips the build: dark 0.2 s, igniting 0.5 s, arrival 0.8 s, glimpse 0.5 s, resting at 2.0 s.
+*(current)* Until the renderer ships, the pentomino timeline in `landingAt(t)` (`landing.ts`) runs: dark 0.4 s, assembling 2.66 s, igniting 0.7 s, arrival 1.0 s, glimpse 0.7 s, rest from 5.46 s, then a 1.1 s dive on Step through. A returning student skips the build and rests at 2.0 s.
 
-**Reduce Motion.** A global rule clamps every CSS animation and transition to 0.01 ms. The landing timeline has no segments, so it opens at rest with the frame standing and the swirl lit. LAR holds still and stops blinking, Isko stands, the skeleton stops shimmering, confetti is skipped, and the campus strip redraws one still frame a minute.
+**Reduce Motion.** A global rule clamps every CSS animation and transition to 0.01 ms. The landing shows a still, open portal and skips the morph. LAR holds still and stops blinking, Isko stands, the skeleton stops shimmering, confetti is skipped, and the campus strip redraws one still frame a minute.
 
 ### Haptics
 Eight verbs, all silent when haptics are off in You or there is no engine, and two buzzes within 35 ms collapse into one:
 - **select** (selection): moving between tabs, days, views or options.
-- **tick** (rigid impact): a crisp change; on the landing, each pentomino locking.
+- **tick** (rigid impact): a crisp change; on the landing, the two sides of the frame meeting.
 - **press** (medium impact): a long press opening its actions.
 - **pull** (soft impact): pull-to-sync crossing its line.
 - **release** (light impact): letting go of a pull; pressing Step through.
-- **done** (success): something landed; the swirl igniting, a sign-in.
+- **done** (success): something landed; the portal opening, a sign-in.
 - **warn** (warning): a stalled sync, offline.
 - **fail** (error): a failed sync or sign-in, a wrong answer.
 
@@ -342,8 +344,8 @@ Eight verbs, all silent when haptics are off in You or there is no engine, and t
 - **Don't** use the PUP seal or wordmark, or anything that implies the app is official. Maroon, gold and the plain name "PUP SIS" are fine.
 - **Don't** put a logo over a form for sign-in; the portal and LAR open the app.
 - **Don't** let the pixel world slow a glance: no art in front of the next class, a grade or a due date.
-- **Don't** add generic effects (glows, gradients, particles) that only decorate; the motes and the swirl exist because the portal is the brand.
-- **Don't** use the swirl ramp outside a portal opening.
+- **Don't** add generic effects (glows, gradients, particles) that only decorate; the tiles and the interior exist because the portal is the brand.
+- **Don't** use a portal theme ramp outside that portal's opening and tiles.
 - **Don't** set headings, buttons or long sentences in Pixelify Sans.
 - **Don't** redesign Isko unasked.
 - **Don't** invent user counts, ratings, testimonials or press.

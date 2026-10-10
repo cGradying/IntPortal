@@ -56,7 +56,7 @@ Every command returns `Result<T, String>` today.
 - `src/lib/state.svelte.ts` is the one shared store, `app`. Screens read it; only this file writes it.
 - `src/lib/api.ts` wraps each command in a typed function. Its types are written by hand to match the Rust structs.
 - `src/lib/screens/` holds Today, Schedule, Grades, Study and You. Sheets and pages that open over them (`ClassSheet`, `SubjectPage`, `DeckPage`, `NoteEditor`) live in `src/lib/`.
-- The landing is `Landing.svelte` and `PortalStage.svelte`. `landing.ts` is its timeline as a pure function of time, `portal3d.ts` the three.js scene, `pentomino.ts` the baked frame.
+- The landing is `Landing.svelte` and `PortalStage.svelte`. `landing.ts` is its timeline as a pure function of time, `portal3d.ts` the three.js scene, `pentomino.ts` the baked frame. These are being replaced by a Rust/WASM tile renderer and a portal registry; see `docs/specs/010-landing.md`, `011-login.md`, `012-portals.md` and ADRs 0004 and 0005. Until those ship, the lines above describe the code.
 - `src/lib/lar/` is LAR: pure sprite grids and the component.
 
 ## Main flows
@@ -142,6 +142,8 @@ Desktop `cargo` builds compile neither the Swift nor the Kotlin. Only `scripts/s
 - [0001](adr/0001-tauri-rust-svelte.md) Tauri, Rust and Svelte.
 - [0002](adr/0002-device-only-data.md) Student data stays on the device.
 - [0003](adr/0003-on-device-ai-llama-cpp.md) On-device AI runs llama.cpp in Rust; local only.
+- [0004](adr/0004-landing-renders-in-rust-wasm-tiles.md) The landing renders in Rust/WASM tiles (planned).
+- [0005](adr/0005-portals-are-first-class.md) Portals are first-class: SIS now, Mabini next (planned).
 
 ## Known debts
 
