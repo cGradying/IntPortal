@@ -74,6 +74,8 @@
     background: var(--gold);
   }
   .grade {
+    min-width: 4.5rem;
+    text-align: right;
     font-family: var(--font-display);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
