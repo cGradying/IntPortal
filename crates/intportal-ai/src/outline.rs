@@ -41,11 +41,21 @@ fn ask(llm: &mut dyn Llm, tpl: Template, sys: &str, user: &str, weeks: u16, min:
     Ok(reply::parse::<Raw>(&raw).map_err(|e| e.to_string())?.items)
 }
 
+/// A small model sometimes runs on into stray quotes or another script: cut at
+/// the first stray mark, and drop a topic that turns out to be CJK.
+fn clean(topic: &str) -> String {
+    let cut = topic.split(['\u{201C}', '\u{201D}', '\u{FF0C}', '"', '\n']).next().unwrap_or("");
+    if cut.chars().any(|c| ('\u{3000}'..='\u{9FFF}').contains(&c) || c >= '\u{FF00}') {
+        return String::new();
+    }
+    cut.trim().trim_end_matches([',', '(', '-', ' ']).to_string()
+}
+
 /// Keeps weeks inside the term, drops blanks and repeats, orders by week.
 fn tidy(items: Vec<RawItem>, weeks: u16, mut seen: Vec<String>) -> Vec<Item> {
     let mut out: Vec<Item> = vec![];
     for r in items {
-        let topic = r.topic.trim().to_string();
+        let topic = clean(&r.topic);
         if topic.is_empty() || r.week == 0 || r.week > weeks || seen.contains(&norm(&topic)) {
             continue;
         }
@@ -72,7 +82,7 @@ Use only what the text says; do not add typical topics. Keep the text's wording.
 /// One short call per week: a 1B model asked for a whole term piles it all
 /// into week 1. `progress(week, weeks)` returns false to stop; what exists is kept.
 pub fn from_title(llm: &mut dyn Llm, tpl: Template, course: &str, weeks: u16, progress: &mut dyn FnMut(u16, u16) -> bool) -> Result<Vec<Item>, String> {
-    let schema = json!({"type": "object", "properties": {"topics": {"type": "array", "minItems": 1, "maxItems": 2, "items": {"type": "string"}}}, "required": ["topics"]});
+    let schema = json!({"type": "object", "properties": {"topics": {"type": "array", "minItems": 1, "maxItems": 2, "items": {"type": "string", "minLength": 3, "maxLength": 60}}}, "required": ["topics"]});
     let sys = "You draft one week of a study guide for a Philippine college course: what such a course usually covers in that week, in 1 or 2 short topic names in English (under 8 words each). \
 Name a quiz or exam in the topic only if one usually falls in that week. Do not claim this is the official syllabus. Reply as JSON.";
     let mut items: Vec<Item> = vec![];
@@ -81,7 +91,18 @@ Name a quiz or exam in the topic only if one usually falls in that week. Do not 
             break;
         }
         let so_far: String = items.iter().map(|i| format!("- week {}: {}\n", i.week.unwrap_or(0), i.topic)).collect();
-        let user = format!("Course: {course}\nTerm: {weeks} weeks. Write week {week} of {weeks}.\nAlready covered, do not repeat:\n{so_far}");
+        let phase = if week == weeks {
+            "This is the last week: review for the final exam."
+        } else if week == weeks.div_ceil(2) {
+            "The midterm exam usually falls this week: include it, with a short review."
+        } else if week * 3 <= weeks {
+            "Early in the term: foundations."
+        } else if week * 3 <= weeks * 2 {
+            "Middle of the term: build on the foundations with new topics."
+        } else {
+            "Late in the term: advanced topics."
+        };
+        let user = format!("Course: {course}\nTerm: {weeks} weeks. Write week {week} of {weeks}. {phase}\nAlready covered, do not repeat:\n{so_far}");
         let Ok(raw) = llm.generate(&tpl.wrap(sys, &user), Some(&schema), 300, &mut |_| true) else { continue };
         #[derive(Deserialize)]
         struct Week {
@@ -143,8 +164,15 @@ mod tests {
         assert!(items.iter().all(|i| i.date.is_none() && !i.done));
         assert_eq!(items[1].kind, Kind::Exam);
         assert_eq!(seen, [1, 2, 3]);
-        assert!(m.prompts[2].contains("write week 3 of 3") || m.prompts[2].contains("Write week 3 of 3"));
+        assert!(m.prompts[2].contains("Write week 3 of 3. This is the last week"));
         assert!(m.prompts[2].contains("- week 1: Intro"));
+    }
+
+    #[test]
+    fn stray_marks_and_other_scripts_are_cut() {
+        assert_eq!(clean("Searching & Sorting (Basic)\u{201D}, \u{FF0C}\u{201C}Data"), "Searching & Sorting (Basic)");
+        assert_eq!(clean("树结构 Trees"), "");
+        assert_eq!(clean("Linked Lists -"), "Linked Lists");
     }
 
     #[test]

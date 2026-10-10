@@ -31,7 +31,7 @@ fn key(front: &str) -> String {
 
 pub fn cards(llm: &mut dyn Llm, source: &str, want: usize) -> Outcome {
     let schema = json!({"type": "object", "properties": {"cards": {"type": "array", "items": {
-        "type": "object", "properties": {"front": {"type": "string"}, "back": {"type": "string"}}, "required": ["front", "back"]}}},
+        "type": "object", "properties": {"front": {"type": "string", "maxLength": 160}, "back": {"type": "string", "maxLength": 240}}, "required": ["front", "back"]}}},
         "required": ["cards"]});
     let (mut out, mut seen) = (Vec::<Card>::new(), std::collections::HashSet::new());
     let mut size = 12;

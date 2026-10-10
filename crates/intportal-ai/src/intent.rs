@@ -34,7 +34,7 @@ pub fn detect(msg: &str) -> Intent {
         Intent::Due
     } else if has(&["class", "classes", "klase", "schedule", "iskedyul", "sched"]) {
         Intent::Classes
-    } else if has(&["gwa", "grade", "grades", "grado", "standing"]) {
+    } else if has(&["gwa", "grade", "grades", "grado", "standing", "pasado", "bagsak", "pass", "passing"]) {
         Intent::Grades
     } else {
         Intent::Ask
@@ -95,6 +95,7 @@ mod tests {
             ("When is the next quiz?", Intent::Due),
             ("Anong klase ko ngayon?", Intent::Classes),
             ("What's my GWA?", Intent::Grades),
+            ("Bagsak ba ako sa Math?", Intent::Grades),
             ("Okay lang ba ako sa Math?", Intent::Ask),
         ] {
             assert_eq!(detect(msg), want, "{msg}");
