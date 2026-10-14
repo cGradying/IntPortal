@@ -40,6 +40,9 @@ targets:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
+        # libapp.a is linked below; as a source it also became a resource that
+        # pointed at the debug copy, so a release-only build failed to copy it.
+        excludes: ["**/*.a"]
       - path: intportal_iOS
       - path: assets
         buildPhase: resources
@@ -88,6 +91,7 @@ targets:
         codeSign: true
       - framework: libapp.a
         embed: false
+      - sdk: Accelerate.framework # llama.cpp (ggml) uses vDSP
       - sdk: CoreGraphics.framework
       - sdk: Metal.framework
       - sdk: MetalKit.framework
