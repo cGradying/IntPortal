@@ -21,7 +21,7 @@ The landing already speaks of a portal as the gate to a system ([010](010-landin
 
 - **C1.** A `Portal` has: `id`, `name`, `status` (`ready` or `opens_soon`), `theme`, `sign_in` fields, attempt limits, and a keychain service name.
 - **C2.** SIS is the only `ready` portal. Mabini (eMabini, the Open University's Moodle portal) is listed as `opens_soon`. Its sign-in fields are student number and password, with no birthdate; its username is the student number lowercased with dashes removed.
-- **C3.** An `opens_soon` portal cannot be signed in to or stepped into. The UI shows "Opens soon" and offers no form.
+- **C3.** (No portal is `opens_soon` now that Mabini is ready; the rule stays for the next one.) An `opens_soon` portal cannot be signed in to or stepped into. The UI shows "Opens soon" and offers no form.
 - **C4.** Each portal has its own connection state and its own store namespace. Signing in to or syncing one portal never reads or writes another's data.
 - **C5.** Each portal has its own keychain entry. Clearing one never clears another.
 - **C6.** Each portal has its own attempt counter ([011](011-login.md) C12). A rejected SIS login does not spend Mabini attempts.

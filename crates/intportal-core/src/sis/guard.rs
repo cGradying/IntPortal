@@ -54,6 +54,31 @@ impl Ledger {
         self.rejected
     }
 
+    fn precheck(&mut self, auto: bool) -> Result<(), Error> {
+        if auto && self.rejected {
+            return Err(Error::Rejected(REJECTED_AGAIN.into()));
+        }
+        if !auto {
+            self.rejected = false;
+        }
+        Ok(())
+    }
+
+    /// For a portal with one host and nothing to probe (eMabini): the same
+    /// rules around its one credential POST. `auto` as in `sign_in_guarded`.
+    /// Call `record` with the POST's result afterwards.
+    pub fn begin(&mut self, now: u64, auto: bool) -> Result<(), Error> {
+        self.precheck(auto)?;
+        self.spend(now)
+    }
+
+    /// Remembers whether the portal turned the login down.
+    pub fn record<T>(&mut self, result: &Result<T, Error>) {
+        if let Err(e) = result {
+            self.rejected = matches!(e, Error::Rejected(_));
+        }
+    }
+
     fn spend(&mut self, now: u64) -> Result<(), Error> {
         if let Some(retry_at) = self.retry_at(now) {
             return Err(Error::TooManyTries { retry_at });
@@ -78,12 +103,7 @@ pub async fn sign_in_guarded<C: Sis>(
     now: u64,
     auto: bool,
 ) -> Result<(C, Vec<ScheduleRow>), Error> {
-    if auto && ledger.rejected {
-        return Err(Error::Rejected(REJECTED_AGAIN.into()));
-    }
-    if !auto {
-        ledger.rejected = false;
-    }
+    ledger.precheck(auto)?;
     let mut down = Error::Network("no SIS server answered".into());
     let mut live = None;
     for h in host::candidates(remembered) {
@@ -98,10 +118,9 @@ pub async fn sign_in_guarded<C: Sis>(
     }
     let client = live.ok_or(down)?;
     ledger.spend(now)?;
-    if let Err(e) = client.sign_in(c).await {
-        ledger.rejected = matches!(e, Error::Rejected(_));
-        return Err(e);
-    }
+    let signed_in = client.sign_in(c).await;
+    ledger.record(&signed_in);
+    signed_in?;
     match client.schedule().await? {
         rows if rows.is_empty() => Err(Error::NoSchedule),
         rows => Ok((client, rows)),
@@ -239,5 +258,18 @@ mod tests {
         let back: Ledger = serde_json::from_str(&serde_json::to_string(&l).unwrap()).unwrap();
         assert_eq!(back, l);
         assert_eq!(back.tries_left(1000), 2);
+    }
+
+    #[test]
+    fn begin_and_record_guard_a_single_host_portal() {
+        let mut l = Ledger::default();
+        l.begin(1000, false).unwrap();
+        l.record::<()>(&Err(Error::Rejected("bad".into())));
+        assert!(l.rejected());
+        assert_eq!(l.begin(1100, true), Err(Error::Rejected(REJECTED_AGAIN.into())));
+        assert_eq!(l.tries_left(1100), 2, "a refused auto try spends nothing");
+        l.begin(1200, false).unwrap();
+        l.record(&Ok(()));
+        assert!(!l.rejected(), "the tap cleared it and a success leaves it clear");
     }
 }

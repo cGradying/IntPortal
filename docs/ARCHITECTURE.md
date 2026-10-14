@@ -143,7 +143,7 @@ Desktop `cargo` builds compile neither the Swift nor the Kotlin. Only `scripts/s
 - [0002](adr/0002-device-only-data.md) Student data stays on the device.
 - [0003](adr/0003-on-device-ai-llama-cpp.md) On-device AI runs llama.cpp in Rust; local only.
 - [0004](adr/0004-landing-renders-in-rust-wasm-tiles.md) The landing renders in Rust/WASM tiles (planned).
-- [0005](adr/0005-portals-are-first-class.md) Portals are first-class: SIS now, Mabini next (planned).
+- [0005](adr/0005-portals-are-first-class.md) Portals are first-class: SIS and Mabini (eMabini) are ready.
 
 ## Known debts
 

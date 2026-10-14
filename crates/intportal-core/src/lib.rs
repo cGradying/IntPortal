@@ -5,6 +5,7 @@ pub mod calendar;
 pub mod campus;
 pub mod coach;
 pub mod grades;
+pub mod mabini;
 pub mod model;
 pub mod notes;
 pub mod portal;

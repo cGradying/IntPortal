@@ -1,6 +1,8 @@
 <script lang="ts">
+  import NeedSis from "../NeedSis.svelte";
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
+  import MabiniDue from "../MabiniDue.svelte";
   import { app, openNote, openSubject, syncNow } from "../state.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Lar from "../lar/Lar.svelte";
@@ -152,6 +154,9 @@
       <div class="bar" aria-hidden="true"><span style:width="{progress * 100}%"></span></div>
     {/if}
   </section>
+
+  {#if !app.sisConnected}<NeedSis what="your classes" />{/if}
+  <MabiniDue />
 
   {#if due.length}
     <section class="due card notch">
