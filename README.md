@@ -28,7 +28,7 @@ Only your own account is supported, which is what PUP's terms allow.
 
 - **Core.** Rust, in `crates/intportal-core`: the SIS client and parsers, schedule and grade logic, the coach, FSRS study scheduling, syllabus parsing, calendar events, and the encrypted SQLite store.
 - **Shell.** Tauri 2, in `src-tauri`, for iOS and Android. macOS and Windows build from the same code.
-- **Interface.** Svelte 5 with SvelteKit's static adapter, in `src`. The landing's 3D pixel portal uses three.js.
+- **Interface.** Svelte 5 with SvelteKit's static adapter, in `src`. The landing's tile portal is Rust (`crates/intportal-tiles`) compiled to WebAssembly by `scripts/tiles.sh`; run `rustup target add wasm32-unknown-unknown` once.
 - **Native plugins.** Local plugins with a Swift and a Kotlin half live in `plugins/`: `tauri-plugin-glance` (widget, and the Live Activity or Live Update) and `tauri-plugin-calendar` (EventKit or CalendarContract).
 
 ## Layout
@@ -40,7 +40,7 @@ src-tauri/gen/apple/     Xcode project, generated from project.yml by XcodeGen
 src-tauri/gen/android/   Gradle project, from tauri android init (see docs/android.md)
 plugins/                 Local Tauri plugins with Swift and Kotlin sources
 src/                     Svelte interface (screens in src/lib/screens)
-scripts/                 sim.sh, phone.sh, emu.sh, worktree.sh, disk.sh, clean.sh, pentomino-solve.mjs
+scripts/                 sim.sh, phone.sh, emu.sh, worktree.sh, disk.sh, clean.sh, tiles.sh
 docs/ARCHITECTURE.md     Layers, flows, owners and invariants: start here
 docs/TEAM.md             Roles, the issue-to-merge loop, kickoff prompts
 docs/adr/                Decisions that are hard to reverse

@@ -157,7 +157,7 @@ components:
 
 IntPortal has two registers that share one gold. Inside the app is the legacy calm: a charcoal ground under a faint gold dot grid, quiet gradient cards with hairline edges, Montserrat for anything that carries weight and Source Sans 3 for everything read. On top of that calm sit pixel accents that are drawn, not decorated: stepped card corners, 12 by 12 pixel icons, stepped animations, Isko the pixel student. The landing is the other register, the world the calm app opens onto: a black void, a portal drawn as a minimal low-resolution grid of flat obsidian tiles with gaps, a themed swirl or warp-star interior drawn in the same tiles, and LAR, a small obsidian robot who is the voice above the form. Each portal (SIS, Mabini) has its own theme.
 
-> **Landing register is being replaced.** The tile portal below is the approved direction (spec `docs/specs/010-landing.md`, ADR 0004). Sections marked *current* describe the shipped pentomino scene until it is replaced.
+> **The tile portal has shipped** (spec `docs/specs/010-landing.md`, ADR 0004, `crates/intportal-tiles`). Notes marked *(current)* below describe the retired pentomino scene and are kept only until the carousel, the lift and the morph land.
 
 The pixel world exists to serve a glance. Students open the app between classes, on weak data, in jeepneys; clear first, charming second. Every pixel element on screen does a job (a tab, a portal that names a system, a mascot that speaks), and nothing on screen only decorates. The landing deliberately refuses the logo-over-a-form login screen: the portal owns the top third, LAR's line and the sign-in form own the rest, and the one gold button is Sign in.
 

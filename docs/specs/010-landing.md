@@ -22,6 +22,10 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 
 ## Behaviour
 
+Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C12, C17, C22–C25. Next: the carousel (C13–C15), the lift and LAR's arrival (C16, C18), the morph (C20–C21).
+
+**Fit.** The portal takes whatever height the form leaves and picks the largest whole-pixel tile pitch that fits the 12 × 16 grid with a tile of margin, so it stays crisp and centred on every phone's aspect ratio.
+
 **Frame**
 
 - **C1.** The frame is 24 blocks, 6 wide by 8 tall, one block thick, like a Nether portal. In tetromino terms: I, L and J pieces.
@@ -88,7 +92,7 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 
 ## Errors
 
-- WASM fails to load: show the open portal as a still image of the same tiles, plus the form. Sign-in must never depend on the animation.
+- WASM fails to load: no portal is drawn, only the void, and the form works as usual. Sign-in must never depend on the animation. (The `.wasm` is bundled with the app, so this is a last resort, not a state to design.)
 - Sign-in errors are shown by the form ([011](011-login.md)), not the portal; the portal returns to rest and LAR turns "wow".
 
 ## Motion and Reduce Motion
@@ -112,7 +116,7 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 
 | Criterion | Check |
 |---|---|
-| C1–C3 | `cargo test -p intportal-portal`: grid size, tile count, tone set |
+| C1–C3 | `cargo test -p intportal-tiles`: grid size, tile count (96), tone set |
 | C4–C8 | `cargo test`: tiles present at fixed `t` values; bottom-centre first; meeting haptic at the right frame |
 | C9–C12 | `cargo test`: tile colours at fixed `t` per stage |
 | C13–C15 | vitest on the carousel state; screenshot |
