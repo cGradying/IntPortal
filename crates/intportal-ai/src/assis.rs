@@ -3,7 +3,7 @@
 //! confirm. Nothing here writes: the UI shows a card and Apply calls the
 //! existing commands (`set_note`, `set_plan`, `save_deck`).
 use crate::{
-    intent::{detect, is_filipino, resolve_when, Intent},
+    intent::{detect, is_filipino, resolve_when, subject_in, Intent},
     llm::Llm,
     prompt::{build, Section, Template},
     reply::{self, ReplyStream},
@@ -25,6 +25,8 @@ pub struct Facts {
     pub hits: Vec<String>,
     /// Subject codes the student has; the only values an action may name.
     pub subjects: Vec<String>,
+    /// (code, description) of the same subjects, to tell which one a message means.
+    pub subject_names: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -76,14 +78,23 @@ fn schema(intent: Intent, subjects: &[String], ask_when: bool) -> Value {
 /// Exact answers from the app's own data, in the student's language. None
 /// when the data is empty for a kind of question the app can't answer: the
 /// model then answers from whatever facts there are, or says it doesn't know.
-fn canned(intent: Intent, f: &Facts, fil: bool) -> Option<String> {
+fn canned(intent: Intent, f: &Facts, fil: bool, subject: Option<&str>) -> Option<String> {
     let lines = |head: &str, v: &[String]| format!("{head}\n{}", v.iter().map(|x| format!("- {x}")).collect::<Vec<_>>().join("\n"));
     match intent {
         Intent::Due if f.due.is_empty() => Some(if fil { "Wala kang due sa susunod na mga araw." } else { "Nothing is due in the next few days." }.into()),
         Intent::Due => Some(lines(if fil { "Paparating:" } else { "Coming up:" }, &f.due)),
         Intent::Classes if f.classes_today.is_empty() => Some(if fil { "Wala kang klase ngayon." } else { "You have no classes today." }.into()),
         Intent::Classes => Some(lines(if fil { "Mga klase mo ngayon:" } else { "Your classes today:" }, &f.classes_today)),
-        Intent::Grades if f.standing.is_empty() => None,
+        Intent::Grades if subject.is_some() => {
+            let code = subject.unwrap_or_default();
+            let mine: Vec<String> = f.standing.iter().filter(|l| l.starts_with(&format!("{code}:"))).cloned().collect();
+            Some(if mine.is_empty() {
+                if fil { format!("Wala pang grading para sa {code}. I-set up ito sa syllabus ng subject.") } else { format!("No grading is set up for {code} yet. Add it in the subject's syllabus.") }
+            } else {
+                lines(if fil { "Standing mo:" } else { "Where you stand:" }, &mine)
+            })
+        }
+        Intent::Grades if f.standing.is_empty() => Some(if fil { "Wala pang grades na maipapakita. I-set up ang grading sa syllabus ng subject para masubaybayan ko." } else { "No grades to show yet. Set up a subject's grading in its syllabus and I can track where you stand." }.into()),
         Intent::Grades => Some(lines(if fil { "Standing mo:" } else { "Where you stand:" }, &f.standing)),
         _ => None,
     }
@@ -102,8 +113,11 @@ pub fn answer(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history: &[(Strin
 /// the model writes them. Requests are short and are shown as a confirm card.
 pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history: &[(String, String)], msg: &str, on_text: &mut dyn FnMut(&str)) -> Result<Answer, String> {
     let today = facts.today.ok_or("today is unknown")?;
+    let msg: String = msg.chars().take(500).collect(); // an essay must not push the facts out of the window
+    let msg = msg.as_str();
     let intent = detect(msg);
-    if let Some(reply) = canned(intent, facts, is_filipino(msg)) {
+    let subject = subject_in(msg, &facts.subject_names);
+    if let Some(reply) = canned(intent, facts, is_filipino(msg), subject.as_deref()) {
         return Ok(Answer { reply, proposal: None });
     }
     let when = resolve_when(msg, today);
@@ -111,6 +125,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
 
     let list = |v: &[String]| v.iter().map(|s| format!("- {s}\n")).collect::<String>();
     let recent: String = history.iter().rev().take(4).rev().map(|(s, a)| format!("Student: {s}\nIntAssis: {a}\n")).collect();
+    let about = subject.as_ref().map(|c| format!("{c} {}", facts.subject_names.iter().find(|(k, _)| k == c).map_or("", |(_, d)| d.as_str()))).unwrap_or_default();
     let (classes, due, standing, note, hits, dates, chat) = (
         list(&facts.classes_today),
         list(&facts.due),
@@ -122,6 +137,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     );
     let sections = [
         Section { title: "Today", body: &format!("{today} ({:?})\n{classes}", today.weekday()), priority: 9 },
+        Section { title: "The student is asking about", body: &about, priority: 9 },
         Section { title: "Coming up", body: &due, priority: 8 },
         Section { title: "Grades", body: &standing, priority: 5 },
         Section { title: "Dates (pick one id)", body: &dates, priority: 9 },
@@ -167,6 +183,25 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
         (None, _) => if fil { "Hindi ko nakuha iyon. Pwede mo bang ulitin?" } else { "I didn't catch that. Could you say it again?" }.into(),
     };
     Ok(Answer { reply, proposal })
+}
+
+/// What the chat shows when something fails, in the student's language. The
+/// raw error is for logs, not for a student.
+pub fn friendly(error: &str, fil: bool) -> String {
+    let (en, tl) = if error.contains("busy") {
+        ("I'm still working on your last message. Give me a second.", "Ginagawa ko pa ang huli mong mensahe. Sandali lang.")
+    } else if error.contains("first") || error.contains("Download the model") {
+        ("Turn IntAssis on first, in the You tab.", "I-on muna ang IntAssis sa You tab.")
+    } else if error.contains("does not fit") {
+        ("That was too long for me. Try a shorter question.", "Masyadong mahaba iyon para sa akin. Subukan ang mas maikling tanong.")
+    } else if error.contains("memory") {
+        ("This phone doesn't have enough free memory right now. Close other apps and try again.", "Kulang ang libreng memory ng phone ngayon. Isara ang ibang apps at subukan ulit.")
+    } else if error.contains("JSON") {
+        ("My words got tangled. Ask me again?", "Nagulo ang sagot ko. Pwede mo bang ulitin?")
+    } else {
+        ("Something went wrong. Try again.", "May nangyaring mali. Subukan ulit.")
+    };
+    if fil { tl } else { en }.into()
 }
 
 /// What the confirm card says; in Rust so it is always short, right and in the student's language.
@@ -272,5 +307,35 @@ mod tests {
         let mut seen2 = String::new();
         answer_streaming(&mut m, Template::Gemma, &facts(), &[], "remind me bukas to pay tuition", &mut |w| seen2.push_str(w)).unwrap();
         assert!(seen2.is_empty());
+    }
+
+    #[test]
+    fn a_grade_question_names_its_subject_and_empty_grades_get_a_plain_answer() {
+        let mut m = FakeLlm::new(&[]);
+        let f = Facts {
+            standing: vec!["MATH 101: 86% so far".into(), "COMP 20073: 70% so far".into()],
+            subject_names: vec![("MATH 101".into(), "Mathematics".into()), ("COMP 20073".into(), "Data Structures".into()), ("ENGL 100".into(), "English".into())],
+            ..facts()
+        };
+        assert_eq!(answer(&mut m, Template::Gemma, &f, &[], "Bagsak ba ako sa Math?").unwrap().reply, "Standing mo:\n- MATH 101: 86% so far");
+        assert_eq!(answer(&mut m, Template::Gemma, &f, &[], "what is my grade in english").unwrap().reply, "No grading is set up for ENGL 100 yet. Add it in the subject's syllabus.");
+        let none = Facts { today: Some(THU), ..Facts::default() };
+        assert!(answer(&mut m, Template::Gemma, &none, &[], "what's my GWA?").unwrap().reply.starts_with("No grades to show yet"));
+        assert!(m.prompts.is_empty(), "exact answers never reach the model");
+    }
+
+    #[test]
+    fn an_open_question_is_told_which_subject_it_is_about() {
+        let f = Facts { subject_names: vec![("MATH 101".into(), "Mathematics".into())], standing: vec!["MATH 101: 86% so far".into()], ..facts() };
+        let mut m = FakeLlm::new(&[r#"{"reply":"Okay ka, 86%."}"#]);
+        answer(&mut m, Template::Gemma, &f, &[], "Okay lang ba ako sa Math?").unwrap();
+        assert!(m.prompts[0].contains("The student is asking about\nMATH 101 Mathematics"));
+    }
+
+    #[test]
+    fn errors_reach_the_student_in_plain_words() {
+        assert_eq!(friendly("prompt of 5000 tokens does not fit 4096 context", false), "That was too long for me. Try a shorter question.");
+        assert_eq!(friendly("the reply has no JSON object", true), "Nagulo ang sagot ko. Pwede mo bang ulitin?");
+        assert!(!friendly("reqwest: connection reset", false).contains("reqwest"));
     }
 }

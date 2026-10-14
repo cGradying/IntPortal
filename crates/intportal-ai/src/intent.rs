@@ -30,11 +30,11 @@ pub fn detect(msg: &str) -> Intent {
         Intent::Cards
     } else if has(&["note", "isulat"]) {
         Intent::Note
-    } else if has(&["due", "deadline", "deadlines", "pasahan", "exam", "exams", "quiz", "quizzes", "pagsusulit"]) {
+    } else if has(&["due", "deadline", "deadlines", "pasahan", "exam", "exams", "quiz", "quizzes", "pagsusulit", "assignment", "assignments", "homework", "takdang", "ipasa"]) {
         Intent::Due
     } else if has(&["class", "classes", "klase", "schedule", "iskedyul", "sched"]) {
         Intent::Classes
-    } else if has(&["gwa", "grade", "grades", "grado", "standing", "pasado", "bagsak", "pass", "passing"]) {
+    } else if has(&["gwa", "grade", "grades", "grado", "standing", "pasado", "bagsak", "pass", "passing", "average", "gpa"]) {
         Intent::Grades
     } else {
         Intent::Ask
@@ -45,6 +45,21 @@ pub fn detect(msg: &str) -> Intent {
 pub fn is_filipino(msg: &str) -> bool {
     const FIL: [&str; 16] = ["ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "may", "po", "lang"];
     words(msg).iter().filter(|w| FIL.contains(&w.as_str())).count() >= 1
+}
+
+/// The one subject a message is about: its code ("MATH 101" or "math101"),
+/// the letters of its code ("math"), or a word of its description
+/// ("calculus"). None when it names none or more than one.
+/// `subjects` is (code, description).
+pub fn subject_in(msg: &str, subjects: &[(String, String)]) -> Option<String> {
+    let w = words(msg);
+    let squashed = w.concat();
+    let letters = |code: &str| code.chars().take_while(|c| c.is_alphabetic()).collect::<String>().to_lowercase();
+    let only = |hit: Vec<&String>| (hit.len() == 1).then(|| hit[0].clone());
+    let by_code = subjects.iter().map(|(c, _)| c).filter(|c| squashed.contains(&c.to_lowercase().replace(' ', ""))).collect();
+    only(by_code)
+        .or_else(|| only(subjects.iter().map(|(c, _)| c).filter(|c| letters(c).len() >= 3 && w.contains(&letters(c))).collect()))
+        .or_else(|| only(subjects.iter().filter(|(_, d)| words(d).iter().any(|dw| dw.chars().count() >= 5 && w.contains(dw))).map(|(c, _)| c).collect()))
 }
 
 /// A day the message names ("bukas", "tomorrow", "sa Lunes"), or None when
@@ -112,5 +127,18 @@ mod tests {
         assert_eq!(resolve_when("isang linggo bago ang exam", THU), None, "linggo alone is 'week'");
         assert_eq!(resolve_when("remind me about math", THU), None);
         assert!(is_filipino("Ano ang due ko") && !is_filipino("What is due"));
+    }
+
+    #[test]
+    fn finds_the_one_subject_a_message_is_about() {
+        let subs = |v: &[(&str, &str)]| v.iter().map(|(c, d)| (c.to_string(), d.to_string())).collect::<Vec<_>>();
+        let s = subs(&[("MATH 101", "Mathematics in the Modern World"), ("COMP 20073", "Data Structures"), ("COMP 20083", "Calculus for Computing")]);
+        assert_eq!(subject_in("Okay lang ba ako sa Math?", &s), Some("MATH 101".into()));
+        assert_eq!(subject_in("grade ko sa math101", &s), Some("MATH 101".into()));
+        assert_eq!(subject_in("how am i in comp 20073", &s), Some("COMP 20073".into()));
+        assert_eq!(subject_in("kumusta ako sa data", &s), None, "short description words are not enough");
+        assert_eq!(subject_in("kumusta ako sa calculus", &s), Some("COMP 20083".into()));
+        assert_eq!(subject_in("how am i doing in comp", &s), None, "two COMP subjects: ask which");
+        assert_eq!(subject_in("how am i doing", &s), None);
     }
 }
