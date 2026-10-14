@@ -353,7 +353,7 @@ pub fn ai_clear_history(state: tauri::State<'_, AppState>) -> Res<()> {
 fn recent_asks(state: &AppState) -> Vec<(String, String)> {
     let turns = state.store.lock().unwrap().turns(40).unwrap_or_default();
     let asks: Vec<_> = turns.into_iter().filter(|t| t.ask).collect();
-    asks.chunks_exact(2).filter(|p| p[0].role == "me" && p[1].role == "lar").map(|p| (p[0].text.clone(), p[1].text.clone())).collect()
+    asks.chunks(2).filter(|p| p.len() == 2 && p[0].role == "me" && p[1].role == "lar").map(|p| (p[0].text.clone(), p[1].text.clone())).collect()
 }
 
 /// One chat turn. The words of an open question's reply arrive on `on_text`
