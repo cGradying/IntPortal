@@ -276,6 +276,21 @@ impl Store {
     /// Sign-out: drops what came from SIS (schedule, grades, the server)
     /// and keeps what the student made: notes, decks and streak, syllabus
     /// pages, goals, class marks and colours.
+    /// What the last eMabini sync read. It lives in the student's own store,
+    /// next to but apart from the SIS data.
+    pub fn mabini(&self) -> Result<crate::mabini::MabiniData, StoreError> {
+        Ok(self.get("mabini")?.unwrap_or_default())
+    }
+
+    pub fn save_mabini(&self, data: &crate::mabini::MabiniData) -> Result<(), StoreError> {
+        self.put("mabini", data)
+    }
+
+    pub fn forget_mabini(&self) -> Result<(), StoreError> {
+        self.db.execute("DELETE FROM kv WHERE key = 'mabini'", [])?;
+        Ok(())
+    }
+
     pub fn forget_sis(&self) -> Result<(), StoreError> {
         self.db.execute("DELETE FROM kv WHERE key IN ('sessions', 'grades', 'history', 'host', 'last_synced')", [])?;
         Ok(())
@@ -293,6 +308,19 @@ mod tests {
     use super::*;
     use crate::model::Weekday;
     use crate::today::{Date, Mark, Marks, Slot};
+
+    #[test]
+    fn mabini_data_is_kept_apart_from_the_sis_data() {
+        let store = Store::in_memory().unwrap();
+        assert_eq!(store.mabini().unwrap(), crate::mabini::MabiniData::default());
+        let data = crate::mabini::MabiniData { last_synced: Some(5), ..Default::default() };
+        store.save_mabini(&data).unwrap();
+        assert_eq!(store.mabini().unwrap(), data);
+        store.forget_sis().unwrap();
+        assert_eq!(store.mabini().unwrap(), data, "signing out of the SIS leaves eMabini alone");
+        store.forget_mabini().unwrap();
+        assert_eq!(store.mabini().unwrap(), crate::mabini::MabiniData::default());
+    }
 
     #[test]
     fn round_trips_and_wipes() {
