@@ -151,6 +151,8 @@ components:
 
 # Design System: IntPortal
 
+The visual reference for all of this is [docs/specs/reference/prototypes/reference-sheet.html](docs/specs/reference/prototypes/reference-sheet.html).
+
 ## Overview
 
 **Creative North Star: "The Other Side of the Portal"**

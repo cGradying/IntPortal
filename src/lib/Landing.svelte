@@ -1,9 +1,10 @@
 <script lang="ts">
-  // The landing. The portal builds itself from pentominoes, the swirl
-  // ignites, LAR comes through and pulls out three stones that show what's on
-  // the other side, then the sign-in card rises. Signed in, Step through
-  // dives into the swirl and lands on Today. A returning student skips the
-  // build. The scene runs on one clock through landing.ts.
+  // The landing. The tile portal builds itself (spec 010), LAR steps out
+  // below it, then the sign-in card rises. Signing in pulses the frame;
+  // signed in, it opens onto a swirl in the portal's own colours, and Step
+  // through dives in and lands on Today. A returning student skips the
+  // build. The portal takes whatever room the card leaves, so it fits every
+  // phone's shape.
   import { onMount, untrack } from "svelte";
   import PortalStage from "./PortalStage.svelte";
   import type { Gesture } from "./lar/Lar.svelte";
@@ -14,6 +15,7 @@
   import { buzz } from "./haptics";
   import { landingAt, restAt } from "./landing";
   import { adopt, app, refreshLogins, syncNow } from "./state.svelte";
+  import { stageFor } from "./tiles";
 
   let { signedIn, onenter }: { signedIn: boolean; onenter: () => void } = $props();
 
@@ -32,11 +34,7 @@
   let steppedAt = $state<number | null>(null);
   const moment = $derived(landingAt(t, { returning, reduce, steppedAt }));
   const resting = $derived(moment.phase === "rest");
-  // The card needs room, so the portal sits higher above it; once signed
-  // in, the camera moves in and the portal comes down to meet Step through.
-  const frameFor = (at: "signin" | "hub") => (at === "hub" ? { lift: 0.083, span: 11.4 } : { lift: 0.2, span: 16.5 });
-  let lift = $state(frameFor(returning ? "hub" : "signin").lift);
-  let span = $state(frameFor(returning ? "hub" : "signin").span);
+  const stage = $derived(stageFor({ busy, open: rest === "hub" }));
 
   // The portals the core lists; the card below follows the chosen one.
   let portals = $state<Portal[]>([FALLBACK_SIS]);
@@ -64,7 +62,7 @@
 
   // LAR's face and hands follow what's happening.
   const mood = $derived<Mood>(error ? "wow" : busy || typing ? "focus" : rest === "hub" ? "happy" : "open");
-  const gesture = $derived<Gesture>(moment.phase === "glimpse" ? "reach" : rest === "hub" || moment.phase === "arrival" ? "wave" : "idle");
+  const gesture = $derived<Gesture>(rest === "hub" ? "wave" : "idle");
   const line = $derived(
     error
       ? "Hindi pumasok. Check the details and try again."
@@ -78,21 +76,9 @@
   onMount(() => {
     let raf = 0;
     const start = performance.now();
-    let placed = moment.placed;
-    let lit = false;
     const frame = (now: number) => {
       t = (now - start) / 1000;
-      const want = frameFor(rest);
-      lift += (want.lift - lift) * 0.08;
-      span += (want.span - span) * 0.08;
-      const m = moment;
-      if (m.placed > placed) buzz.tick();
-      placed = m.placed;
-      if (m.phase === "igniting" && !lit) {
-        lit = true;
-        buzz.done();
-      }
-      if (m.phase === "entered") {
+      if (moment.phase === "entered") {
         if (signedIn) syncNow();
         onenter();
         return;
@@ -142,14 +128,14 @@
 </script>
 
 <section class="landing" class:leaving={steppedAt !== null}>
-  <PortalStage {moment} {t} {lift} {span} {mood} {gesture} still={typing} />
-
   <header class="brand" class:on={resting}>
     <h1>Student <span>IntPortal</span></h1>
   </header>
 
-  {#if resting}
-    <div class="dock" class:hub={rest === "hub"}>
+  <PortalStage {stage} theme={portal.theme} {returning} still={typing} showLar={resting} leaving={steppedAt !== null} {mood} {gesture} />
+
+  <!-- In the layout from the start, so the portal's room never jumps when it shows. -->
+  <div class="dock" class:on={resting} class:hub={rest === "hub"} inert={!resting}>
       <p class="say" aria-live="polite"><b>LAR</b> {line}</p>
       {#if rest === "hub"}
         <button class="step" onclick={step}>Step through</button>
@@ -197,23 +183,23 @@
           {/if}
         </form>
       {/if}
-    </div>
-  {/if}
+  </div>
 </section>
 
 <style>
+  /* Wordmark, portal, card: the portal row takes whatever height is left. */
   .landing {
     position: fixed;
     inset: 0;
     z-index: 50;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: calc(var(--safe-top) + 10px) var(--gutter) calc(var(--safe-bottom) + 12px);
     color: #f4ecd8;
-    background: #0b0710;
+    background: #060607;
   }
   .brand {
-    position: absolute;
-    top: calc(var(--safe-top) + 10px);
-    left: 0;
-    right: 0;
     text-align: center;
     pointer-events: none;
     opacity: 0;
@@ -238,25 +224,23 @@
     color: #fff5dc;
   }
   .dock {
-    position: absolute;
-    left: var(--gutter);
-    right: var(--gutter);
-    bottom: calc(var(--safe-bottom) + 12px);
     display: grid;
     gap: 10px;
-    animation: rise 0.7s var(--ease) both;
+    opacity: 0;
+    transform: translateY(40px);
+    transition:
+      opacity 0.7s var(--ease),
+      transform 0.7s var(--ease);
     /* On the unclipped parent: the card's clip-path would cut its own shadow. */
     filter: drop-shadow(0 -10px 30px rgb(0 0 0 / 0.5));
   }
+  .dock.on {
+    opacity: 1;
+    transform: none;
+  }
   .dock.hub {
     justify-items: center;
-    bottom: calc(var(--safe-bottom) + 40px);
-  }
-  @keyframes rise {
-    from {
-      transform: translateY(40px);
-      opacity: 0;
-    }
+    padding-bottom: 28px;
   }
   .leaving .dock,
   .leaving .brand {

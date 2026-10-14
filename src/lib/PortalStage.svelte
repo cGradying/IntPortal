@@ -2,7 +2,7 @@
   // The landing's stage: the tile portal (spec 010, drawn by the Rust scene
   // through tiles.ts) in whatever room the form leaves, so it fits every
   // phone's aspect ratio, and LAR standing at its foot.
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import Lar, { type Gesture } from "./lar/Lar.svelte";
   import type { Mood } from "./lar/sprite";
   import { buzz } from "./haptics";
@@ -38,7 +38,8 @@
   let start = performance.now();
   let prev = 0;
   let last = -1;
-  let openedAt: number | null = returning ? 0 : null;
+  // A returning student's portal is open from the first frame.
+  let openedAt: number | null = untrack(() => returning) ? 0 : null;
   let raf = 0;
 
   const now = () => (performance.now() - start) / 1000;
@@ -97,8 +98,10 @@
     };
   });
 
+  // Read the theme before touching tiles, so the effect always tracks it.
   $effect(() => {
-    tiles?.theme(theme.ramp, theme.accent);
+    const { ramp, accent } = theme;
+    tiles?.theme(ramp, accent);
     if (reduce) draw(now());
   });
 

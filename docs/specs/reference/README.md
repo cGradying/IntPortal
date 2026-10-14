@@ -4,6 +4,8 @@
 
 - `prototypes/portal-v8.html`: the visual reference for the tile portal. Open it in a browser. It shows forming, connecting and open states and both themes (SIS, Mabini placeholder). It is a sketch, not production code; the production renderer is Rust/WASM ([ADR 0004](../../adr/0004-landing-renders-in-rust-wasm-tiles.md)).
 
+- `prototypes/reference-sheet.html`: the look in one sheet. It mixes the tile portal's minimalism, the calm app (`DESIGN.md`) and the IntPortal board's pixel art: rules, colour, type, the tile, a pixel art library drawn solid or as tiles, sign-in and Today mocks, and proposals for bringing more board art into the app. It embeds `static/tiles.wasm` so the portal it shows is the app's own renderer; rebuild it after changing `crates/intportal-tiles`. Shared as a private claude.ai artifact.
+
 ## Local only (`private/`, ignored by git)
 
 `private/` holds things that must not be committed:
