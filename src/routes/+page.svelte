@@ -20,10 +20,13 @@
   import LockScreen from "$lib/LockScreen.svelte";
   import { lock, watchLock } from "$lib/lock.svelte";
   import { api } from "$lib/api";
+  import MabiniGrades from "$lib/MabiniGrades.svelte";
+  import NeedSis from "$lib/NeedSis.svelte";
+  import MabiniPage from "$lib/MabiniPage.svelte";
   import { watchDynamicIsland } from "$lib/glance";
   import { watchBars } from "$lib/bars";
   import { watchBack } from "$lib/back";
-  import { app, adopt, setRoom, startClock } from "$lib/state.svelte";
+  import { app, adopt, refreshLogins, setRoom, startClock } from "$lib/state.svelte";
 
   let ready = $state(false);
   let signedIn = $state(false);
@@ -71,8 +74,8 @@
     watchBars();
     watchAssis();
     watchBack(() => app.tab !== "today" && ((app.tab = "today"), true));
-    const [login, snap] = await Promise.all([api.hasLogin().catch(() => false), api.snapshot().catch(() => null)]);
-    signedIn = login;
+    const [, snap] = await Promise.all([refreshLogins(), api.snapshot().catch(() => null)]);
+    signedIn = app.sisConnected || app.mabiniConnected;
     if (snap) await adopt(snap);
     startClock();
     ready = true;
@@ -89,8 +92,17 @@
     inside = true;
   }
 
-  function signedOut() {
+  // One portal signed out: stay inside while the other still has a login.
+  async function signedOut() {
+    await refreshLogins();
+    if (app.sisConnected || app.mabiniConnected) {
+      const snap = await api.snapshot().catch(() => null);
+      if (snap) await adopt(snap);
+      return;
+    }
     app.snapshot = null;
+    app.mabini = null;
+    app.mabiniPage = false;
     app.today = null;
     app.notes = [];
     app.editing = null;
@@ -116,8 +128,8 @@
       {#key app.tab}
         <div class="page">
           {#if app.tab === "today"}<Today />
-          {:else if app.tab === "schedule"}<Schedule />
-          {:else if app.tab === "grades"}<Grades />
+          {:else if app.tab === "schedule"}{#if app.sisConnected}<Schedule />{:else}<div class="needs"><NeedSis what="your schedule" /></div>{/if}
+          {:else if app.tab === "grades"}{#if app.sisConnected}<Grades />{:else}<div class="needs"><NeedSis what="your grades" /><MabiniGrades /></div>{/if}
           {:else if app.tab === "study"}<Study />
           {:else if gallery}<Gallery onclose={() => (gallery = false)} />
           {:else}<You onsignout={signedOut} ongallery={() => ((gallery = true), window.scrollTo(0, 0))} />{/if}
@@ -134,6 +146,7 @@
   {#if app.editing}
     {#key app.editing.key}<NoteEditor {...app.editing} />{/key}
   {/if}
+  {#if app.mabiniPage}<MabiniPage />{/if}
   {#if assis.open}<AssisSheet onclose={() => (assis.open = false)} />{/if}
 {/if}
 
@@ -165,6 +178,10 @@
   }
   .page {
     animation: in 0.3s var(--ease) backwards;
+  }
+  .needs {
+    display: grid;
+    gap: 14px;
   }
   @keyframes in {
     from { opacity: 0; transform: translateY(6px); }

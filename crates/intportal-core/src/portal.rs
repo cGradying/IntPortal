@@ -1,5 +1,5 @@
 //! The PUP systems the app can connect to (spec 012, ADR 0005). SIS is ready;
-//! Mabini is listed and "opens soon" until its client exists. Nothing here
+//! Both are ready; `OpensSoon` is for a portal listed before it is built. Nothing here
 //! signs in or stores anything: it only describes each portal.
 
 use serde::Serialize;
@@ -68,7 +68,7 @@ pub const SIS: Portal = Portal {
 pub const MABINI: Portal = Portal {
     id: "mabini",
     name: "Mabini",
-    status: Status::OpensSoon,
+    status: Status::Ready,
     theme: Theme { ramp: ["#0b2238", "#13466f", "#1f78a8", "#3fb4c9", "#a8efe4"], accent: "#5fd0d6" },
     fields: &[Field::StudentNumber, Field::Password],
     limits: LIMITS,
@@ -93,9 +93,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn sis_is_ready_and_mabini_opens_soon() {
+    fn sis_and_mabini_are_ready() {
         assert_eq!(get("sis").unwrap().status, Status::Ready);
-        assert_eq!(get("mabini").unwrap().status, Status::OpensSoon);
+        assert_eq!(get("mabini").unwrap().status, Status::Ready);
         assert!(get("nope").is_none());
     }
 
