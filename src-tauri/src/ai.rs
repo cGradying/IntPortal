@@ -13,6 +13,7 @@ use intportal_ai::{
 };
 use intportal_core::{
     notes,
+    store::Turn,
     syllabus::{self, Item},
     today::{self, Date, Moment},
 };
@@ -332,15 +333,40 @@ pub async fn ai_index(app: tauri::AppHandle, ai: tauri::State<'_, AiState>) -> R
     tokio::task::spawn_blocking(move || index(&app, &slot)).await.map_err(|e| e.to_string())?
 }
 
-/// One chat turn. `history` is (student, IntAssis) pairs, oldest first.
-/// `open_key` is the note the student is looking at, if any.
+fn now_unix() -> i64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
+}
+
+/// The chat so far, oldest first, for the sheet to show after a restart.
 #[tauri::command]
-pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, history: Vec<(String, String)>, open_key: Option<String>) -> Res<Ask> {
+pub fn ai_history(state: tauri::State<'_, AppState>) -> Res<Vec<Turn>> {
+    state.store.lock().unwrap().turns(40).map_err(err)
+}
+
+/// "New chat".
+#[tauri::command]
+pub fn ai_clear_history(state: tauri::State<'_, AppState>) -> Res<()> {
+    state.store.lock().unwrap().clear_turns().map_err(err)
+}
+
+/// The last few question and answer pairs the model itself answered.
+fn recent_asks(state: &AppState) -> Vec<(String, String)> {
+    let turns = state.store.lock().unwrap().turns(40).unwrap_or_default();
+    let asks: Vec<_> = turns.into_iter().filter(|t| t.ask).collect();
+    asks.chunks_exact(2).filter(|p| p[0].role == "me" && p[1].role == "lar").map(|p| (p[0].text.clone(), p[1].text.clone())).collect()
+}
+
+/// One chat turn. The words of an open question's reply arrive on `on_text`
+/// as the model writes them. `open_key` is the note the student is looking at.
+/// The exchange is kept (encrypted, on the phone) so the chat survives a restart.
+#[tauri::command]
+pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, open_key: Option<String>, on_text: Channel<String>) -> Res<Ask> {
     let state = app.state::<AppState>();
     let mut facts = facts_for(&snapshot_of(&state)?, now);
-    let mut sources = vec![];
+    let history = recent_asks(&state);
+    let (mut sources, open) = (vec![], intent::detect(&message) == Intent::Ask);
     // Only an open question reads the notes: the rest are answered from the schedule or acted on.
-    if intent::detect(&message) == Intent::Ask {
+    if open {
         facts.open_note = open_key.and_then(|k| open_note(&state, &k));
         let (slot, q, handle) = (ai.embedder.clone(), message.clone(), app.clone());
         // Notes are a bonus: if searching fails the answer still comes from the schedule.
@@ -348,11 +374,17 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
             (facts.hits, sources) = (lines, found);
         }
     }
-    with_model(&ai, move |llm, tpl| {
-        let a = assis::answer(llm, tpl, &facts, &history, &message)?;
+    let asked = message.clone();
+    let a = with_model(&ai, move |llm, tpl| {
+        let a = assis::answer_streaming(llm, tpl, &facts, &history, &asked, &mut |words| {
+            let _ = on_text.send(words.to_string());
+        })?;
         Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources })
     })
-    .await
+    .await?;
+    let (store, at) = (state.store.lock().unwrap(), now_unix());
+    let _ = store.add_turn("me", &message, at, open).and_then(|()| store.add_turn("lar", &a.reply, at, open));
+    Ok(a)
 }
 
 #[derive(Serialize)]

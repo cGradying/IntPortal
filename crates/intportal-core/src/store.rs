@@ -48,6 +48,15 @@ pub fn account_file(student_number: &str) -> String {
     format!("account-{h:016x}.sqlite")
 }
 
+/// One message of the LAR chat.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Turn {
+    pub role: String,
+    pub text: String,
+    pub at: i64,
+    pub ask: bool,
+}
+
 pub struct Store {
     db: Connection,
 }
@@ -137,7 +146,8 @@ impl Store {
              CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, json TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS notes (key TEXT PRIMARY KEY, text TEXT NOT NULL, title TEXT, updated INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS decks (id TEXT PRIMARY KEY, json TEXT NOT NULL);
-             CREATE TABLE IF NOT EXISTS chunks (note_key TEXT NOT NULL, n INTEGER NOT NULL, text TEXT NOT NULL, vec BLOB NOT NULL, note_updated INTEGER NOT NULL, model TEXT NOT NULL, PRIMARY KEY (note_key, n));",
+             CREATE TABLE IF NOT EXISTS chunks (note_key TEXT NOT NULL, n INTEGER NOT NULL, text TEXT NOT NULL, vec BLOB NOT NULL, note_updated INTEGER NOT NULL, model TEXT NOT NULL, PRIMARY KEY (note_key, n));
+             CREATE TABLE IF NOT EXISTS turns (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, ask INTEGER NOT NULL);",
         )?;
         Ok(Store { db })
     }
@@ -293,12 +303,35 @@ impl Store {
 
     pub fn forget_sis(&self) -> Result<(), StoreError> {
         self.db.execute("DELETE FROM kv WHERE key IN ('sessions', 'grades', 'history', 'host', 'last_synced')", [])?;
+        // What LAR said may quote those grades and classes.
+        self.clear_turns()
+    }
+
+    /// Adds one chat message. `role` is "me" or "lar"; `ask` marks a message the
+    /// model answered, the only ones it is shown again. Keeps the last 60.
+    pub fn add_turn(&self, role: &str, text: &str, at: i64, ask: bool) -> Result<(), StoreError> {
+        self.db.execute("INSERT INTO turns (role, text, at, ask) VALUES (?1, ?2, ?3, ?4)", params![role, text, at, ask])?;
+        self.db.execute("DELETE FROM turns WHERE id <= (SELECT MAX(id) FROM turns) - 60", [])?;
+        Ok(())
+    }
+
+    /// The last `limit` messages, oldest first.
+    pub fn turns(&self, limit: usize) -> Result<Vec<Turn>, StoreError> {
+        let mut q = self.db.prepare("SELECT role, text, at, ask FROM turns ORDER BY id DESC LIMIT ?1")?;
+        let rows = q.query_map([limit as i64], |r| Ok(Turn { role: r.get(0)?, text: r.get(1)?, at: r.get(2)?, ask: r.get(3)? }))?;
+        let mut v = rows.collect::<Result<Vec<_>, _>>()?;
+        v.reverse();
+        Ok(v)
+    }
+
+    pub fn clear_turns(&self) -> Result<(), StoreError> {
+        self.db.execute("DELETE FROM turns", [])?;
         Ok(())
     }
 
     /// Erase everything on the device, the student's own work included.
     pub fn wipe(&self) -> Result<(), StoreError> {
-        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks;")?;
+        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns;")?;
         Ok(())
     }
 }
@@ -492,5 +525,22 @@ mod tests {
         let store = Store::open(&path, &KEY).unwrap();
         assert_eq!(store.load().unwrap().host.as_deref(), Some("sis8.pup.edu.ph"));
         assert!(!path.with_extension("sqlite.enc").exists());
+    }
+
+    #[test]
+    fn the_chat_keeps_sixty_turns_and_goes_with_sign_out_and_wipe() {
+        let store = Store::in_memory().unwrap();
+        for i in 0..70 {
+            store.add_turn(if i % 2 == 0 { "me" } else { "lar" }, &format!("t{i}"), i, i > 60).unwrap();
+        }
+        let all = store.turns(100).unwrap();
+        assert_eq!((all.len(), all[0].text.as_str(), all[59].text.as_str()), (60, "t10", "t69"));
+        assert_eq!(store.turns(2).unwrap().iter().map(|t| t.text.as_str()).collect::<Vec<_>>(), ["t68", "t69"], "oldest first");
+        assert!(store.turns(1).unwrap()[0].ask);
+        store.forget_sis().unwrap();
+        assert!(store.turns(5).unwrap().is_empty(), "LAR may have quoted grades");
+        store.add_turn("me", "x", 1, false).unwrap();
+        store.wipe().unwrap();
+        assert!(store.turns(5).unwrap().is_empty());
     }
 }
