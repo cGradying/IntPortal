@@ -398,6 +398,10 @@
     font-size: min(0.706rem, 22px);
     color: var(--ink-3);
   }
+  /* A long note preview must not widen the whole page: grid items default to min-width auto. */
+  .screen > header {
+    min-width: 0;
+  }
   .daynote {
     margin-top: 8px;
     max-width: 100%;

@@ -224,6 +224,20 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		"TEMP_252978BD-B947-4EE1-BECA-72A774AA55AF" /* x86_64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = x86_64;
+			sourceTree = "<group>";
+		};
+		"TEMP_5A478A9F-DE47-4A08-BE28-A62F8408D6E6" /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = arm64;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */

@@ -78,7 +78,7 @@
 
   <div class="log" bind:this={log} aria-live="polite">
     {#if !assis.chat.length}
-      <div class="lar hello"><Lar size={2} cube={false} gesture="wave" /><p>Hi! Ask me about your classes, what's due, or your grades. I can also save a note or set a reminder, if you say so.</p></div>
+      <div class="lar hello"><Lar size={2} cube={false} gesture="wave" /><p>Hi! Ask me about your classes, what's due, your grades, or what's in your notes. I can also save a note or set a reminder, if you say so.</p></div>
       <div class="starters">
         {#each starters as s (s.label)}<button onclick={() => prefill(s)}>{s.label}</button>{/each}
       </div>

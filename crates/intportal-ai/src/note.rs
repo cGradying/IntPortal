@@ -30,8 +30,8 @@ impl Mode {
 
 fn task(mode: Mode) -> &'static str {
     match mode {
-        Mode::Summarize => "Summarize the note in 3 to 5 short bullet points, each starting with \"- \". Keep the note's own terms. Use only the note.",
-        Mode::Tidy => "Rewrite the note cleanly: fix spelling and spacing, group related lines, keep every fact and the same language. Add nothing and drop nothing.",
+        Mode::Summarize => "Summarize the note in 3 to 5 short bullet points, each starting with \"- \". Start with the first bullet: no introduction. Keep the note's own terms. Use only the note.",
+        Mode::Tidy => "Rewrite the note cleanly: fix spelling and spacing, group related lines, keep every fact and the same language. Add nothing and drop nothing. Give only the rewritten note, no introduction.",
         Mode::Explain => "Explain the selected words in plain language in 2 or 3 short sentences. Use the note for context and nothing else.",
         Mode::Ask => "Answer the question from the note only, in 1 to 3 short sentences. If the note does not say, say the note does not say.",
     }
@@ -94,7 +94,7 @@ mod tests {
         let out = run(&mut m, Template::Gemma, Mode::Summarize, "Trees: root, leaves. Height counts edges.", None, None, &mut |w| seen.push_str(w)).unwrap();
         assert_eq!(out, "- Trees have a root\n- Height counts edges");
         assert_eq!(seen, out);
-        assert!(m.prompts[0].contains("Trees: root, leaves.") && m.prompts[0].contains("3 to 5 short bullet points"));
+        assert!(m.prompts[0].contains("Trees: root, leaves.") && m.prompts[0].contains("3 to 5 short bullet points") && m.prompts[0].contains("no introduction"));
     }
 
     #[test]
