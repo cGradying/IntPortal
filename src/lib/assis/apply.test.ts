@@ -1,5 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
-import { appended, describe, newDeck, noteFor, noteTarget, reminderAt, reminderId } from "./apply";
+import { appended, describe, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters } from "./apply";
 
 suite("applying a proposal", () => {
   it("puts a class note on the class and anything else on one note a day", () => {
@@ -38,5 +38,18 @@ suite("applying a proposal", () => {
     expect(describe({ kind: "add_note", subject: "MATH 101", text: "x" })).toEqual({ label: "Note for MATH 101", text: "x", yes: "Save note" });
     expect(describe({ kind: "make_cards", topic: "trees" }).yes).toBe("Make cards");
     expect(describe({ kind: "set_reminder", date: "2026-10-16", text: "Pay" }).label).toMatch(/^Reminder · .*8 AM$/);
+  });
+});
+
+suite("Ask AI in a note", () => {
+  it("swaps a selection or the whole note, and keeps the rest", () => {
+    expect(replaced("one two three", 4, 7, "2")).toBe("one 2 three");
+    expect(replaced("all of it", 0, 9, "clean")).toBe("clean");
+  });
+
+  it("suggests the open note first when one is open", () => {
+    expect(starters(true)[0].label).toBe("Summarize this note");
+    expect(starters(false)[0].label).toBe("Ano ang due ko?");
+    expect(starters(true).every((s) => s.label.length > 0)).toBe(true);
   });
 });

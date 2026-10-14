@@ -6,8 +6,9 @@
   import { closable } from "../back";
   import { buzz } from "../haptics";
   import Lar from "../lar/Lar.svelte";
-  import { describe } from "./apply";
-  import { apply, ask, assis, dismiss } from "./assis.svelte";
+  import { app, openNote } from "../state.svelte";
+  import { describe, starters as startersFor } from "./apply";
+  import { apply, ask, assis, dismiss, newChat, stop } from "./assis.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
   $effect(() => closable(() => onclose()));
@@ -32,7 +33,11 @@
 
   let draft = $state("");
   let log: HTMLElement | undefined = $state();
-  const starters = ["Ano ang due ko?", "Anong klase ko ngayon?", "Remind me bukas ng umaga", "Add a note: bring calculator"];
+  const starters = $derived(startersFor(!!app.editing));
+  const last = $derived(assis.chat[assis.chat.length - 1]);
+  // Dots show from the moment a message is sent until the first word arrives.
+  const waiting = $derived(assis.busy === "waking" || (assis.busy === "thinking" && !last?.text));
+  const writing = $derived(assis.busy === "thinking");
 
   async function send(text: string) {
     draft = "";
@@ -45,10 +50,16 @@
     log?.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
   }
 
-  function prefill(text: string) {
+  function prefill(s: { label: string; fill: boolean }) {
     // Starters that need the student's own words fill the field; the rest just ask.
-    if (text.startsWith("Add a note") || text.startsWith("Remind")) draft = text;
-    else send(text);
+    if (s.fill) draft = s.label;
+    else send(s.label);
+  }
+
+  /** The sheet sits above the editor, so a source chip closes it and shows the note. */
+  function show(key: string, title: string) {
+    onclose();
+    openNote(key, title);
   }
 </script>
 
@@ -59,21 +70,29 @@
 <div class="sheet notch" role="dialog" aria-label="Ask LAR">
   <header>
     <span class="tag">LAR</span>
-    <button class="x" onclick={onclose} aria-label="Close">Close</button>
+    <span class="head">
+      {#if assis.chat.length && !assis.busy}<button class="x" onclick={newChat}>New chat</button>{/if}
+      <button class="x" onclick={onclose} aria-label="Close">Close</button>
+    </span>
   </header>
 
   <div class="log" bind:this={log} aria-live="polite">
     {#if !assis.chat.length}
       <div class="lar hello"><Lar size={2} cube={false} gesture="wave" /><p>Hi! Ask me about your classes, what's due, or your grades. I can also save a note or set a reminder, if you say so.</p></div>
       <div class="starters">
-        {#each starters as s (s)}<button onclick={() => prefill(s)}>{s}</button>{/each}
+        {#each starters as s (s.label)}<button onclick={() => prefill(s)}>{s.label}</button>{/each}
       </div>
     {/if}
     {#each assis.chat as m, i (i)}
       {#if m.from === "me"}
         <p class="me">{m.text}</p>
       {:else}
-        <div class="lar"><p>{m.text}</p></div>
+        {#if m.text}<div class="lar"><p>{m.text}</p></div>{/if}
+        {#if m.sources}
+          <div class="from">
+            {#each m.sources as src (src.key)}<button onclick={() => show(src.key, src.title)}>From: {src.title}</button>{/each}
+          </div>
+        {/if}
         {#if m.proposal}
           {@const d = describe(m.proposal)}
           <div class="offer card notch" class:done={m.state === "done"}>
@@ -94,14 +113,18 @@
         {/if}
       {/if}
     {/each}
-    {#if assis.busy === "thinking" || assis.busy === "waking"}
+    {#if waiting}
       <div class="lar" aria-label="LAR is thinking"><p class="think">{assis.busy === "waking" ? "Waking up" : "Thinking"}<i></i><i></i><i></i></p></div>
     {/if}
   </div>
 
   <form onsubmit={(e) => { e.preventDefault(); send(draft); }}>
     <input bind:value={draft} placeholder="Ask LAR…" aria-label="Message LAR" enterkeyhint="send" autocomplete="off" />
-    <button class="send" type="submit" disabled={!draft.trim() || !!assis.busy}>Send</button>
+    {#if writing}
+      <button class="send" type="button" onclick={stop}>Stop</button>
+    {:else}
+      <button class="send" type="submit" disabled={!draft.trim() || !!assis.busy}>Send</button>
+    {/if}
   </form>
   <p class="fine">Runs on this phone. Nothing leaves it.</p>
 </div>
@@ -111,7 +134,7 @@
   .scrim {
     position: fixed;
     inset: 0;
-    z-index: 40;
+    z-index: 60;
     background: rgba(0, 0, 0, 0.45);
     animation: fade 0.2s both;
   }
@@ -119,7 +142,7 @@
     position: fixed;
     left: var(--gutter);
     right: var(--gutter);
-    z-index: 41;
+    z-index: 61;
     display: flex;
     align-items: flex-end;
     padding: calc(var(--safe-top) + 8px) 0 calc(var(--safe-bottom) + 12px);
@@ -151,6 +174,28 @@
     font-size: min(0.706rem, 22px);
     letter-spacing: 0.08em;
     color: var(--gold);
+  }
+  .head {
+    display: flex;
+    gap: 4px;
+  }
+  .from {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .from button {
+    min-height: 40px;
+    max-width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink-2);
+    font-size: min(0.765rem, 23px);
+    text-align: left;
+    overflow-wrap: anywhere;
   }
   .x {
     height: 32px;
@@ -292,6 +337,11 @@
   }
   .send {
     padding: 0 16px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .think i {
+      animation: none;
+    }
   }
   .think i {
     display: inline-block;

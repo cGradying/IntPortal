@@ -18,10 +18,17 @@ export interface ModelInfo {
   loaded: boolean;
 }
 
+export interface Source {
+  key: string;
+  title: string;
+}
+
 export interface Msg {
   from: "me" | "lar";
   text: string;
   proposal?: Proposal;
+  /** The notes LAR was shown for this answer; each opens that note. */
+  sources?: Source[];
   /** pending until the student answers the card. */
   state?: "pending" | "done" | "dismissed";
   problem?: string;
@@ -39,6 +46,8 @@ export const assis = $state({
 });
 
 export const chatModel = () => assis.models.find((m) => m.chat && m.default) ?? assis.models.find((m) => m.chat);
+/** The small model that finds the student's notes. */
+export const embedModel = () => assis.models.find((m) => !m.chat);
 export const installed = () => assis.models.some((m) => m.chat && m.installed);
 export const mb = (bytes: number) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : `${Math.round(bytes / 1e6)} MB`);
 
@@ -52,22 +61,24 @@ export async function refresh() {
   }
 }
 
-/** The one-time download. Resumes if it was cut off; Cancel keeps what arrived. */
+/** The one-time download: LAR's brain, then the small model that finds your notes. Resumes if it was cut off; Pause keeps what arrived. */
 export async function install() {
-  const m = chatModel();
-  if (!m || assis.busy) return;
+  const chat = chatModel();
+  const todo = [chat, embedModel()].filter((m): m is ModelInfo => !!m && !m.installed);
+  if (!chat || !todo.length || assis.busy) return;
   assis.error = "";
   assis.busy = "downloading";
   assis.done = 0;
-  assis.total = m.bytes;
+  assis.total = todo.reduce((n, m) => n + m.bytes, 0);
+  let before = 0;
   try {
-    const onProgress = new Channel<{ done: number; total: number }>();
-    onProgress.onmessage = (p) => {
-      assis.done = p.done;
-      assis.total = p.total;
-    };
-    await invoke("ai_download", { id: m.id, onProgress });
-    await refresh();
+    for (const m of todo) {
+      const onProgress = new Channel<{ done: number; total: number }>();
+      onProgress.onmessage = (p) => (assis.done = before + p.done);
+      await invoke("ai_download", { id: m.id, onProgress });
+      before += m.bytes;
+      await refresh();
+    }
   } catch (e) {
     assis.error = say(e) === "paused" ? "" : say(e);
     await refresh();
@@ -79,10 +90,9 @@ export async function install() {
 export const cancelDownload = () => invoke("ai_cancel");
 
 export async function remove() {
-  const m = chatModel();
-  if (!m) return;
   try {
-    await invoke("ai_delete", { id: m.id });
+    for (const m of assis.models) if (m.installed) await invoke("ai_delete", { id: m.id });
+    await invoke("ai_clear_history");
     assis.chat = [];
     assis.open = false;
   } catch (e) {
@@ -114,27 +124,79 @@ export async function sleep() {
   await refresh();
 }
 
+/** Notes edited since LAR last looked get embedded, so the next question can find them. */
+export function indexNotes() {
+  if (installed()) invoke("ai_index").catch(() => {});
+}
+
+/** The chat is kept on the phone, so it is still there after the app was closed. */
+async function loadHistory() {
+  if (assis.chat.length) return;
+  try {
+    const turns = await invoke<{ role: string; text: string }[]>("ai_history");
+    if (!assis.chat.length) assis.chat = turns.map((t) => ({ from: t.role === "me" ? "me" : "lar", text: t.text }));
+  } catch {
+    // An empty chat is fine.
+  }
+}
+
+export async function newChat() {
+  await invoke("ai_clear_history").catch(() => {});
+  assis.chat = [];
+}
+
 export async function open() {
   assis.open = true;
   assis.error = "";
+  loadHistory();
+  indexNotes();
   await wake();
+}
+
+let stopped = false;
+/** Stop writing; the words so far stay. */
+export function stop() {
+  stopped = true;
+  invoke("ai_cancel");
 }
 
 export async function ask(text: string) {
   const message = text.trim();
   if (!message || assis.busy) return;
-  const history = assis.chat.reduce<[string, string][]>((h, m, i, all) => (m.from === "me" && all[i + 1]?.from === "lar" ? [...h, [m.text, all[i + 1].text]] : h), []);
   assis.chat.push({ from: "me", text: message });
   if (!(await wake())) {
     assis.chat.push({ from: "lar", text: assis.error || "I couldn't wake up. Try again." });
     return;
   }
+  stopped = false;
   assis.busy = "thinking";
+  assis.chat.push({ from: "lar", text: "" });
+  const reply = assis.chat[assis.chat.length - 1];
+  const onText = new Channel<string>();
+  onText.onmessage = (words) => (reply.text += words);
   try {
-    const r = await invoke<{ reply: string; proposal: Proposal | null }>("ai_ask", { now: moment(), message, history });
-    assis.chat.push({ from: "lar", text: r.reply, proposal: r.proposal ?? undefined, state: r.proposal ? "pending" : undefined });
+    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[] }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, onText });
+    reply.text = r.reply;
+    reply.sources = r.sources.length ? r.sources : undefined;
+    if (r.proposal) [reply.proposal, reply.state] = [r.proposal, "pending"];
   } catch (e) {
-    assis.chat.push({ from: "lar", text: say(e) });
+    // Stopping cuts the JSON short, which is not a failure the student needs told about.
+    reply.text = stopped ? reply.text || "Stopped." : say(e);
+  } finally {
+    assis.busy = "";
+  }
+}
+
+export type NoteMode = "summarize" | "tidy" | "explain" | "ask";
+
+/** "Ask AI" in a note: the words stream to `onText`; the result is text to insert or swap in. */
+export async function noteAi(mode: NoteMode, text: string, selection: string | null, question: string | null, onText: (words: string) => void): Promise<string> {
+  if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");
+  assis.busy = "thinking";
+  const ch = new Channel<string>();
+  ch.onmessage = onText;
+  try {
+    return await invoke<string>("ai_note", { mode, text, selection, question, onText: ch });
   } finally {
     assis.busy = "";
   }
