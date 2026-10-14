@@ -7,22 +7,39 @@ use llama_cpp_2::{
     model::{params::LlamaModelParams, LlamaModel},
     sampling::LlamaSampler,
 };
-use std::{num::NonZeroU32, path::Path};
+use std::{
+    num::NonZeroU32,
+    path::Path,
+    sync::{Mutex, OnceLock},
+};
 
 const N_BATCH: usize = 512;
 
+/// llama.cpp allows one backend per process, and the chat and embedding models
+/// are loaded side by side, so they share it and it is never freed.
+fn backend() -> Result<&'static LlamaBackend, String> {
+    static BACKEND: OnceLock<LlamaBackend> = OnceLock::new();
+    static INIT: Mutex<()> = Mutex::new(());
+    let _one_at_a_time = INIT.lock().map_err(|e| e.to_string())?;
+    if let Some(b) = BACKEND.get() {
+        return Ok(b);
+    }
+    let b = LlamaBackend::init().map_err(|e| e.to_string())?;
+    Ok(BACKEND.get_or_init(|| b))
+}
+
 pub struct Llama {
-    backend: LlamaBackend,
+    backend: &'static LlamaBackend,
     model: LlamaModel,
     n_ctx: u32,
 }
 
 impl Llama {
     pub fn load(path: &Path, n_ctx: u32, device: Device) -> Result<Self, String> {
-        let backend = LlamaBackend::init().map_err(|e| e.to_string())?;
+        let backend = backend()?;
         let layers = if device == Device::Gpu { 999 } else { 0 };
         let params = LlamaModelParams::default().with_n_gpu_layers(layers);
-        let model = LlamaModel::load_from_file(&backend, path, &params).map_err(|e| e.to_string())?;
+        let model = LlamaModel::load_from_file(backend, path, &params).map_err(|e| e.to_string())?;
         Ok(Self { backend, model, n_ctx })
     }
 
@@ -50,7 +67,7 @@ impl Llm for Llama {
         if toks.len() as u32 + max_tokens > self.n_ctx {
             return Err(format!("prompt of {} tokens does not fit {} context", toks.len(), self.n_ctx));
         }
-        let mut ctx = self.model.new_context(&self.backend, self.params()).map_err(|e| e.to_string())?;
+        let mut ctx = self.model.new_context(self.backend, self.params()).map_err(|e| e.to_string())?;
         let mut batch = LlamaBatch::new(N_BATCH, 1);
         let mut pos = 0i32;
         for chunk in toks.chunks(N_BATCH) {
@@ -91,7 +108,7 @@ impl Llm for Llama {
 
     fn embed(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
         let params = self.params().with_embeddings(true).with_pooling_type(LlamaPoolingType::Mean);
-        let mut ctx = self.model.new_context(&self.backend, params).map_err(|e| e.to_string())?;
+        let mut ctx = self.model.new_context(self.backend, params).map_err(|e| e.to_string())?;
         let mut out = Vec::with_capacity(texts.len());
         for text in texts {
             let toks = self.model.vocab().tokenize(text.as_bytes(), true, false);

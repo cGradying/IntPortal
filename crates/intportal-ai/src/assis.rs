@@ -238,4 +238,14 @@ mod tests {
         let a = answer(&mut m, Template::Gemma, &facts(), &[], "gawan mo ako ng flashcards sa trees").unwrap();
         assert_eq!(a.proposal, Some(Proposal::MakeCards { topic: "binary trees".into() }));
     }
+
+    #[test]
+    fn notes_reach_an_open_question_but_never_a_request() {
+        let f = Facts { hits: vec!["MATH 101: the chain rule multiplies derivatives".into()], open_note: Some("Quiz topics: limits".into()), ..facts() };
+        let mut m = FakeLlm::new(&[r#"{"reply":"Multiply the derivatives."}"#, r#"{"reply":"ok","text":"pay tuition"}"#]);
+        answer(&mut m, Template::Gemma, &f, &[], "ano ang chain rule?").unwrap();
+        assert!(m.prompts[0].contains("From the student's notes") && m.prompts[0].contains("chain rule multiplies") && m.prompts[0].contains("Quiz topics: limits"));
+        answer(&mut m, Template::Gemma, &f, &[], "remind me bukas to pay tuition").unwrap();
+        assert!(!m.prompts[1].contains("chain rule"), "a request gets no facts");
+    }
 }
