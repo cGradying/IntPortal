@@ -10,6 +10,7 @@
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
   import Isko from "../Isko.svelte";
   import Lar from "../lar/Lar.svelte";
+  import ModelCard from "../assis/ModelCard.svelte";
 
   let { onsignout, ongallery }: { onsignout: () => void; ongallery?: () => void } = $props();
   let confirming = $state<null | "out" | "erase">(null);
@@ -165,6 +166,8 @@
       <PortalConnect portal={portalOf("mabini")!} />
     {/if}
   </section>
+
+  <ModelCard />
 
   <section class="card notch block">
     <p class="label">Class reminders</p>

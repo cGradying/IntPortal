@@ -13,6 +13,9 @@
   import NoteEditor from "$lib/NoteEditor.svelte";
   import SubjectPage from "$lib/SubjectPage.svelte";
   import FirstRun from "$lib/FirstRun.svelte";
+  import AssisOrb from "$lib/assis/AssisOrb.svelte";
+  import AssisSheet from "$lib/assis/AssisSheet.svelte";
+  import { assis, watchAssis } from "$lib/assis/assis.svelte";
   import PullToSync from "$lib/PullToSync.svelte";
   import LockScreen from "$lib/LockScreen.svelte";
   import { lock, watchLock } from "$lib/lock.svelte";
@@ -69,6 +72,7 @@
     }, 50));
     watchDynamicIsland((has) => (island = has));
     watchBars();
+    watchAssis();
     watchBack(() => app.tab !== "today" && ((app.tab = "today"), true));
     const [, snap] = await Promise.all([refreshLogins(), api.snapshot().catch(() => null)]);
     signedIn = app.sisConnected || app.mabiniConnected;
@@ -133,6 +137,7 @@
       {/key}
     </main>
     <TabBar />
+    <AssisOrb />
   </div>
   {#if !welcomed}<FirstRun ondone={welcomeDone} />{/if}
   {#if app.subject}
@@ -142,6 +147,7 @@
     {#key app.editing.key}<NoteEditor {...app.editing} />{/key}
   {/if}
   {#if app.mabiniPage}<MabiniPage />{/if}
+  {#if assis.open}<AssisSheet onclose={() => (assis.open = false)} />{/if}
 {/if}
 
 <style>
