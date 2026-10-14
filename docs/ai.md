@@ -48,4 +48,6 @@ llama.cpp needs a flag at minSdk 24 (`posix_madvise`); see `spikes/s1-llama/REPO
 
 ## Not done yet
 
-The shell commands (`src-tauri/src/commands/ai.rs`, after Core's #60 and #61), the Storage view and the Light or With-AI choice (UI #91), the editor and deck hooks (UI #92), and `Plan.guide` (Core #93).
+Indexing deck cards and syllabus text for RAG, cards from a note or PDF in DeckPage, the syllabus guide in SubjectPage (UI #92, needs Core #93 `Plan.guide`), and the phone checks: Metal speed and memory on a real iPhone, a release APK run on Android, and the Android file picker.
+
+Done in spec [020-ai](specs/020-ai.md): RAG wired into `ai_ask` with sources, streamed replies, a chat that survives restarts, Ask AI in a note, the Light or With-AI choice at first run.
