@@ -84,7 +84,7 @@ IntAssis runs a small model through llama.cpp, on the phone, only after the stud
 - `crates/intportal-ai` is pure Rust and depends on `intportal-core`. It holds the `Llm` trait, prompt budgets, run-time JSON schemas, reply parsing, RAG and batch generation, and is tested with a `FakeLlm`.
 - `crates/intportal-llm` implements the trait with `llama-cpp-2` on iOS, Android and macOS, plus the model download and the memory gate. On Linux it is a stub that returns an error.
 
-`src-tauri/src/commands/ai.rs` runs inference in `spawn_blocking` and streams the reply text through a Tauri `Channel`. AI commands never write: the UI shows confirm cards, and Apply calls the existing commands (`set_note`, `save_deck`, `set_plan`, `set_mark`). Models live in `app_data_dir()/models/`, excluded from backup.
+`src-tauri/src/ai.rs` runs inference in `spawn_blocking` and streams an open question's reply (and Ask AI results in a note) through a Tauri `Channel`. The chat model and the small embedding model sit in two slots and share one llama backend; `ai_ask` searches the student's notes with the embedder and shows the model what it found. The chat is kept in the encrypted store (`turns`). AI commands never write: the UI shows confirm cards, and Apply calls the existing commands (`set_note`, `save_deck`, `set_plan`, `set_mark`). Models live in `app_data_dir()/models/`, excluded from backup.
 
 ## Where to change things
 
@@ -95,7 +95,7 @@ IntAssis runs a small model through llama.cpp, on the phone, only after the stud
 | A new command or its arguments | `src-tauri/src/lib.rs`, then `src/lib/api.ts` | Core, then UI |
 | What a screen shows | `src/lib/screens/` and its components | UI |
 | Shared app state or a flow across screens | `src/lib/state.svelte.ts` | UI |
-| IntAssis prompts, schemas, RAG, model download | `crates/intportal-ai/`, `crates/intportal-llm/`, `src-tauri/src/commands/ai.rs`, `src/lib/assis/` | AI |
+| IntAssis prompts, schemas, RAG, model download | `crates/intportal-ai/`, `crates/intportal-llm/`, `src-tauri/src/ai.rs`, `src/lib/assis/` | AI |
 | The widget, Live Activity, calendar on iOS | `plugins/*/ios/`, `src-tauri/gen/apple/` | Head |
 | The same on Android | `plugins/*/android/`, `src-tauri/gen/android/` | Android |
 | Info.plist keys, entitlements, deployment target | `src-tauri/gen/apple/project.yml` | Head |

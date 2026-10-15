@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		092C611DA240C4213C5DE8C5 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C3633FDAB5F152BD4AAE4AE /* Accelerate.framework */; };
 		0D172B9F8F35F79DFA8BF89E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E040048634C428F4750461AC /* UIKit.framework */; };
 		1396613C04CB2D0C7591900D /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = BE8178D472E44FCEB29C8BD9 /* libapp.a */; };
 		1F1D103BCD14A7C3D8B3C4E3 /* ClassActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DE2142257A3B75159C7B19 /* ClassActivityAttributes.swift */; };
@@ -22,7 +23,6 @@
 		B7EF26BD75D75E9946CF9516 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 097E4A98C0B0249301C9A61F /* WidgetKit.framework */; };
 		C39874D823E51A2675757ADE /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0330B62E2010597B96BFE487 /* MetalKit.framework */; };
 		C504069F38050991543743A6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F5BDCCFBBF0D061C5EC8A397 /* Assets.xcassets */; };
-		D3B51C80C7ADBD4055B87E85 /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = 114D7A044B5F8BCD9EADE297 /* libapp.a */; };
 		D4BC89AD98D2061C4C3572AA /* IntPortalWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F3DEDEA2924CF1B1E5CF1A8 /* IntPortalWidget.swift */; };
 		E59DAED65B2E00392A8348EA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 559FA6EC5B4A91C07F91E25E /* SwiftUI.framework */; };
 /* End PBXBuildFile section */
@@ -54,12 +54,12 @@
 /* Begin PBXFileReference section */
 		0330B62E2010597B96BFE487 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		097E4A98C0B0249301C9A61F /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
-		114D7A044B5F8BCD9EADE297 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		11B97796E4ACADCDECB371E4 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
 		11BF2D782547C19DCB2FDE8D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		2CD7DB16A705E03AAA683621 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		35FC69EEBAE5DA5CD3DBBE25 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		483AB9CFE671473096922DD6 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		4C3633FDAB5F152BD4AAE4AE /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
 		4EA35368E4CB6DB9E932B0CC /* IntPortalWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = IntPortalWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		559FA6EC5B4A91C07F91E25E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		5BDC563D392A0363ACC30F5B /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
@@ -73,6 +73,7 @@
 		CF69EC33F8806920B70C9141 /* intportal_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = intportal_iOS.entitlements; sourceTree = "<group>"; };
 		D0B1C9A76B1024AB4972F8A1 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
 		E040048634C428F4750461AC /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		E3A1DC4FC90E0B55FD9A957E /* ai.rs */ = {isa = PBXFileReference; path = ai.rs; sourceTree = "<group>"; };
 		E5DE2142257A3B75159C7B19 /* ClassActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassActivityAttributes.swift; sourceTree = "<group>"; };
 		E759ABB798141FA68FF83F61 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		ED0B3CBE0568924A85CFE881 /* IntPortalWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IntPortalWidget.entitlements; sourceTree = "<group>"; };
@@ -95,6 +96,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1396613C04CB2D0C7591900D /* libapp.a in Frameworks */,
+				092C611DA240C4213C5DE8C5 /* Accelerate.framework in Frameworks */,
 				4D4EEF753ED152470D5EC36D /* CoreGraphics.framework in Frameworks */,
 				51DFA6E4D97D52A0C9D1E3B5 /* Metal.framework in Frameworks */,
 				C39874D823E51A2675757ADE /* MetalKit.framework in Frameworks */,
@@ -138,17 +140,8 @@
 		3DC1EDECB8DF494EE5B5F1C4 /* Externals */ = {
 			isa = PBXGroup;
 			children = (
-				85B62DDAA9CABF0BFFCF70F7 /* arm64 */,
 			);
 			path = Externals;
-			sourceTree = "<group>";
-		};
-		4F4658A24518CA96497CB771 /* debug */ = {
-			isa = PBXGroup;
-			children = (
-				114D7A044B5F8BCD9EADE297 /* libapp.a */,
-			);
-			path = debug;
 			sourceTree = "<group>";
 		};
 		6405CDB56759A1B2686E94E1 = {
@@ -171,6 +164,7 @@
 		79E094DF9CB05AC7672CA70C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4C3633FDAB5F152BD4AAE4AE /* Accelerate.framework */,
 				E759ABB798141FA68FF83F61 /* CoreGraphics.framework */,
 				BE8178D472E44FCEB29C8BD9 /* libapp.a */,
 				35FC69EEBAE5DA5CD3DBBE25 /* Metal.framework */,
@@ -193,14 +187,6 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
-		85B62DDAA9CABF0BFFCF70F7 /* arm64 */ = {
-			isa = PBXGroup;
-			children = (
-				4F4658A24518CA96497CB771 /* debug */,
-			);
-			path = arm64;
-			sourceTree = "<group>";
-		};
 		BFB12A3F54C17B0F7AA02A43 /* bindings */ = {
 			isa = PBXGroup;
 			children = (
@@ -212,6 +198,7 @@
 		CB89EF0553C80A9F83176DE6 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				E3A1DC4FC90E0B55FD9A957E /* ai.rs */,
 				11B97796E4ACADCDECB371E4 /* lib.rs */,
 				D0B1C9A76B1024AB4972F8A1 /* main.rs */,
 			);
@@ -237,11 +224,18 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_B61B9495-876F-4389-AB96-3F04FE29B762" /* x86_64 */ = {
+		"TEMP_252978BD-B947-4EE1-BECA-72A774AA55AF" /* x86_64 */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = x86_64;
+			sourceTree = "<group>";
+		};
+		"TEMP_5A478A9F-DE47-4A08-BE28-A62F8408D6E6" /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = arm64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -297,10 +291,10 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					43E9F63F1D4DB3C72DAC2E00 = {
-						DevelopmentTeam = "${APPLE_DEVELOPMENT_TEAM}";
+						DevelopmentTeam = "";
 					};
 					EC4E9EF9C9FD3D303DC2CBE3 = {
-						DevelopmentTeam = "${APPLE_DEVELOPMENT_TEAM}";
+						DevelopmentTeam = "";
 					};
 				};
 			};
@@ -332,7 +326,6 @@
 				C504069F38050991543743A6 /* Assets.xcassets in Resources */,
 				AE535D7814E15CD6B102BDC7 /* LaunchScreen.storyboard in Resources */,
 				7329EB01BC25BA15C2B7A8D6 /* assets in Resources */,
-				D3B51C80C7ADBD4055B87E85 /* libapp.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -480,7 +473,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "${APPLE_DEVELOPMENT_TEAM}";
+				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -544,7 +537,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "${APPLE_DEVELOPMENT_TEAM}";
+				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;

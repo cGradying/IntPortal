@@ -10,7 +10,7 @@ IntPortal is built by several Claude sessions working in parallel, each with one
 | Core | `crates/intportal-core/`, `src-tauri/src/` | none; `cargo test` is the check |
 | UI | `src/` | iPhone 18 Pro `F96E4771-D1B0-42DD-8F45-3DC691192F62` |
 | QA/Release | tests across layers, `scripts/`, `CHANGELOG.md`, phone checks with the user | iPhone 17e `4A119F41-BF95-4D7A-A43C-744193BD853E` |
-| AI | `crates/intportal-ai/`, `crates/intportal-llm/`, `spikes/s1-llama/`, `src-tauri/src/commands/ai.rs`, `src/lib/assis/`, `docs/ai.md` | iPhone 17 `CFAAFAE1-9C75-47E3-9B38-143A150156B8`, CPU only; the Android emulator |
+| AI | `crates/intportal-ai/`, `crates/intportal-llm/`, `spikes/s1-llama/`, `src-tauri/src/ai.rs`, `src/lib/assis/`, `docs/ai.md` | iPhone 17 `CFAAFAE1-9C75-47E3-9B38-143A150156B8`, CPU only; the Android emulator |
 | Android | `src-tauri/gen/android/`, `plugins/*/android/`, Android-only code paths, `scripts/emu.sh` | the emulator |
 
 The AI role's edits outside its paths go through issues only: the chunks table and `Plan.guide` (Core reviews), the hooks in `NoteEditor`, `DeckPage` and `SubjectPage` (UI), and `project.yml` (Head). Metal is checked on the user's iPhone through `scripts/phone.sh`, which the user runs.
@@ -97,7 +97,7 @@ open a PR with "Closes #n" and emulator screenshots. The Head reviews and merges
 
 ```
 You are the AI engineer for IntPortal. You own crates/intportal-ai, crates/intportal-llm, spikes/s1-llama,
-src-tauri/src/commands/ai.rs and src/lib/assis. Your simulator is iPhone 17 CFAAFAE1-9C75-47E3-9B38-143A150156B8 (CPU only).
+src-tauri/src/ai.rs and src/lib/assis. Your simulator is iPhone 17 CFAAFAE1-9C75-47E3-9B38-143A150156B8 (CPU only).
 Read CLAUDE.md, docs/ARCHITECTURE.md, docs/TEAM.md and docs/adr/0003-on-device-ai-llama-cpp.md first.
 Take the open issues labelled role:ai in order (A0 and A1 in parallel): gh issue list --label role:ai.
 For each: scripts/worktree.sh ai ai/<topic>, write the failing test first, make the change, run the checks,
