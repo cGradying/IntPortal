@@ -5,16 +5,22 @@
   import { buzz } from "./haptics";
   import Isko from "./Isko.svelte";
   import Lar from "./lar/Lar.svelte";
+  import { chatModel, embedModel, install, mb } from "./assis/assis.svelte";
   import { app, scheduleReminders } from "./state.svelte";
 
   let { ondone }: { ondone: () => void } = $props();
   let step = $state(0);
 
-  const steps = [
+  const size = $derived(mb((chatModel()?.bytes ?? 0) + (embedModel()?.bytes ?? 0)));
+  // The AI choice only shows on builds that have it.
+  const steps = $derived([
     { title: "Meet IskoLAR.", body: "You're Isko. I'm LAR, the Lakbay-Aral Robot, here to study with you. Your schedule, grades, notes and study cards are in one place, and I'll count down to your next class." },
     { title: "Everything stays on this phone.", body: "Your login sits in the phone's keychain. IntPortal only talks to PUP SIS, and your notes and decks never leave the device." },
+    ...(chatModel()
+      ? [{ title: "Light, or with AI?", ai: true, body: `Light is the app with no AI and nothing extra to download. With AI, LAR answers questions about your classes and notes and can summarize a note, all on this phone. It is a one-time ${size} download (use Wi-Fi), works offline, and you can remove it any time on You.` }]
+      : []),
     { title: "Want a heads-up before class?", body: "A nudge 10 minutes before each class, and the evening before quizzes and exams. You can change or turn these off on You." },
-  ];
+  ] as { title: string; body: string; ai?: boolean }[]);
 
   async function allow() {
     await scheduleReminders(true);
@@ -40,7 +46,10 @@
     <p>{steps[step].body}</p>
   </div>
   <div class="dots" aria-hidden="true">{#each steps as _, i (i)}<i class:on={i === step}></i>{/each}</div>
-  {#if step < steps.length - 1}
+  {#if steps[step].ai}
+    <button class="primary" onclick={() => { buzz.tick(); install(); step++; }}>With AI · {size}</button>
+    <button class="link" onclick={() => { buzz.select(); step++; }}>Light, no AI</button>
+  {:else if step < steps.length - 1}
     <button class="primary" onclick={() => { buzz.select(); step++; }}>Next</button>
     <button class="link" onclick={ondone}>Skip</button>
   {:else}

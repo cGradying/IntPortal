@@ -6,7 +6,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Runs on main are never cancelled, so every merge gets its own result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # CI keeps the build cache in target/, where rust-cache saves it.
 env:

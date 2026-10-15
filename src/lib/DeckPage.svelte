@@ -6,6 +6,7 @@
   import LarNote from "./LarNote.svelte";
   import Skeleton from "./Skeleton.svelte";
   import StudySession, { type Mode } from "./StudySession.svelte";
+  import DeckCards from "./assis/DeckCards.svelte";
   import { api, type Card, type Deck } from "./api";
   import { buzz } from "./haptics";
   import { resource } from "./load.svelte";
@@ -62,6 +63,10 @@
     review = [];
     pasted = "";
     pasting = false;
+  }
+
+  async function addProposed(cards: { front: string; back: string }[]) {
+    if (deck) await save([...deck.cards, ...cards.map((c) => blank(c.front, c.back))]);
   }
 
   async function remove(card: Card) {
@@ -125,6 +130,8 @@
         {/if}
       {/if}
     </section>
+
+    {#if deck}<DeckCards subject={deck.subject} fronts={deck.cards.map((c) => c.front)} onadd={addProposed} />{/if}
 
     <ul class="cards">
       {#each deck?.cards ?? [] as c (c.id)}

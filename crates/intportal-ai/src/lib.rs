@@ -7,6 +7,7 @@ pub mod gen;
 pub mod intent;
 pub mod llm;
 pub mod models;
+pub mod note;
 pub mod outline;
 pub mod pdf;
 pub mod prompt;

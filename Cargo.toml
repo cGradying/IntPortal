@@ -3,6 +3,10 @@
 members = ["src-tauri", "crates/intportal-core", "crates/intportal-tiles", "crates/intportal-ai", "crates/intportal-llm", "spikes/s0-sis-http", "plugins/tauri-plugin-glance", "plugins/tauri-plugin-calendar", "spikes/s1-llama"]
 resolver = "2"
 
+# The app's version; scripts/version.sh sets it with the other version files.
+[workspace.package]
+version = "0.1.4"
+
 # Line tables only (backtraces keep file:line) keeps target/ a few GB instead
 # of tens. Not `debug = false` for dependencies: swift-rs then builds the Tauri
 # Swift packages in release, which hides their @_cdecl symbols and the iOS

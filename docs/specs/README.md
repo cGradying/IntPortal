@@ -16,6 +16,7 @@ A change that contradicts an approved spec changes the spec first, in the same P
 
 - `000-099` shared reference (data maps, glossaries).
 - `010-019` first-run and sign-in (landing, login, portals).
+- `020-029` IntAssis (on-device AI).
 - Later ranges follow the app's areas as they get specs.
 
 Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumbered once approved; a dropped criterion is marked *removed*.
@@ -28,6 +29,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [010-landing](010-landing.md) | draft | The tile portal, its states, the carousel, the morph |
 | [011-login](011-login.md) | draft | The sign-in form, errors and the lockout guard |
 | [012-portals](012-portals.md) | draft | The portal model: SIS now, Mabini next |
+| [020-ai](020-ai.md) | building | LAR that streams, remembers, cites notes; Ask AI in a note |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md) and [ADR 0005](../adr/0005-portals-are-first-class.md).
 
