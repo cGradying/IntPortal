@@ -3,14 +3,21 @@
 
 pub mod scene;
 
+/// u32s per portal in the buffer the landing fills: cols, rows, corner,
+/// motif, five ramp tones, accent.
+pub const STRIDE: usize = 10;
+
 #[cfg(target_arch = "wasm32")]
 mod wasm {
-    use crate::scene::{layout, Input, Layout, Scene, Stage, Theme, Tile};
+    use crate::scene::{carousel, gap as spacing, Corner, Input, Look, Motif, Scene, Shape, Stage, Theme, Tile};
+    use crate::STRIDE;
     use std::cell::RefCell;
 
+    #[derive(Default)]
     struct World {
-        scene: Scene,
-        layout: Layout,
+        scenes: Vec<Scene>,
+        size: (u32, u32),
+        input: Vec<u32>,
         out: Vec<Tile>,
         /// Four i32 per tile: x, y, size, 0xRRGGBB.
         buf: Vec<i32>,
@@ -18,38 +25,53 @@ mod wasm {
     }
 
     thread_local! {
-        static WORLD: RefCell<World> = RefCell::new(World {
-            scene: Scene::new(5),
-            layout: layout(1, 1),
-            out: Vec::new(),
-            buf: Vec::new(),
-            events: 0,
-        });
-        /// The selected portal's ramp (5) then accent, written by the landing.
-        static THEME: RefCell<[u32; 6]> = const { RefCell::new([0; 6]) };
+        static WORLD: RefCell<World> = RefCell::new(World { size: (1, 1), ..Default::default() });
     }
 
-    /// Where the landing writes the theme: six 0xRRGGBB values.
+    /// Room for `n` portals; the landing writes them here, then calls `load`.
     #[no_mangle]
-    pub extern "C" fn theme_buf() -> *mut u32 {
-        THEME.with(|t| t.as_ptr() as *mut u32)
+    pub extern "C" fn portals_buf(n: u32) -> *mut u32 {
+        WORLD.with(|w| {
+            let w = &mut *w.borrow_mut();
+            w.input = vec![0; n as usize * STRIDE];
+            w.input.as_mut_ptr()
+        })
+    }
+
+    #[no_mangle]
+    pub extern "C" fn load() {
+        WORLD.with(|w| {
+            let w = &mut *w.borrow_mut();
+            w.scenes = w
+                .input
+                .chunks(STRIDE)
+                .enumerate()
+                .map(|(i, p)| {
+                    let look = Look {
+                        shape: Shape { cols: p[0] as i32, rows: p[1] as i32, corner: Corner::from_u32(p[2]) },
+                        motif: Motif::from_u32(p[3]),
+                        theme: Theme { ramp: [p[4], p[5], p[6], p[7], p[8]], accent: p[9] },
+                    };
+                    Scene::new(5 + i as u32, look)
+                })
+                .collect();
+        });
     }
 
     /// The canvas size in device pixels.
     #[no_mangle]
     pub extern "C" fn resize(w: u32, h: u32) {
-        WORLD.with(|w0| w0.borrow_mut().layout = layout(w, h));
+        WORLD.with(|w0| w0.borrow_mut().size = (w, h));
     }
 
-    /// Draw the frame at `t`; returns the tile count. `flags`: 1 returning, 2 reduce.
+    /// Draw the frame at `t` with the carousel at `pos`; returns the tile
+    /// count. `flags`: 1 returning, 2 reduce.
     #[no_mangle]
-    pub extern "C" fn frame(t: f32, prev: f32, stage: u32, opened_at: f32, flags: u32) -> u32 {
-        let th = THEME.with(|t| *t.borrow());
-        let theme = Theme { ramp: [th[0], th[1], th[2], th[3], th[4]], accent: th[5] };
+    pub extern "C" fn frame(t: f32, prev: f32, stage: u32, opened_at: f32, flags: u32, pos: f32) -> u32 {
         let inp = Input { t, prev, stage: Stage::from_u32(stage), opened_at, returning: flags & 1 != 0, reduce: flags & 2 != 0 };
         WORLD.with(|w| {
             let w = &mut *w.borrow_mut();
-            w.events = w.scene.frame(&inp, &theme, &w.layout, &mut w.out);
+            w.events = carousel(&w.scenes, pos, &inp, w.size.0, w.size.1, &mut w.out);
             w.buf.clear();
             for t in &w.out {
                 w.buf.extend_from_slice(&[t.x, t.y, t.size, t.rgb as i32]);
@@ -61,6 +83,15 @@ mod wasm {
     #[no_mangle]
     pub extern "C" fn tiles() -> *const i32 {
         WORLD.with(|w| w.borrow().buf.as_ptr())
+    }
+
+    /// Device px between neighbouring portals at the current size.
+    #[no_mangle]
+    pub extern "C" fn gap() -> f32 {
+        WORLD.with(|w| {
+            let w = w.borrow();
+            spacing(&w.scenes, w.size.0, w.size.1)
+        })
     }
 
     /// Haptic events from the last frame, as bits (1 = tick).

@@ -22,7 +22,7 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 
 ## Behaviour
 
-Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C12, C17, C22–C25. Next: the carousel (C13–C15), the lift and LAR's arrival (C16, C18), the morph (C20–C21).
+Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C15, C17, C22–C25. Next: the lift and LAR's arrival (C16, C18), the morph (C20–C21).
 
 **Fit.** The portal takes whatever height the form leaves and picks the largest whole-pixel tile pitch that fits the 12 × 16 grid with a tile of margin, so it stays crisp and centred on every phone's aspect ratio.
 
@@ -48,13 +48,13 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 
 **Interior as state, drawn in the same tiles**
 
-- **C12.** The interior shows warp stars while connecting (signing in, loading) and a swirl when open. A dither dissolve of about 0.7 s turns one into the other. Colours come from the portal's theme ([012](012-portals.md) C7).
+- **C12.** Each portal has its own interior motif ([012](012-portals.md) C11): swirl, ripple, bloom, rain, lattice or aurora. At rest the motif breathes quietly in the low tones; while connecting (signing in, loading) the interior shows warp stars; when open, a dither dissolve of about 0.7 s turns the stars into the full motif. Colours come from the portal's theme ([012](012-portals.md) C7).
 
 **Portals carousel**
 
-- **C13.** The selected portal is centred; the next is dimmed beside it, with page dots below. It supports N portals from the start.
-- **C14.** A portal that is not ready shows "Opens soon" and cannot be stepped into.
-- **C15.** SIS is ready; Mabini shows "Opens soon" ([012](012-portals.md) C2).
+- **C13.** The selected portal is centred; its neighbours peek in beside it, dimmed by distance. Swipe to move, with a rubber band at the ends; letting go springs to the nearest portal, and a flick moves one portal. Labelled arrows and page dots do the same without a swipe, and a caption names the school. Each snap ticks a `select` haptic. It supports N portals.
+- **C14.** A portal that is not ready shows "Opens soon" and the school's name in place of the form, and cannot be stepped into. The card keeps its height so the portal above never jumps.
+- **C15.** SIS and Mabini are ready; the state-university placeholders show "Opens soon" ([012](012-portals.md) C2, C12). The carousel is locked while signing in and once signed in.
 
 **Layout**
 
@@ -73,7 +73,7 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 
 **Motion budget and renderer**
 
-- **C22.** Intro, waves and the morph run at 30–60 fps; at rest, 12–20 fps with stepped motion.
+- **C22.** Motion is continuous and eased (only the three-frame pop is stepped). The build, swipes, the pulse, the opening wave and the morph run at 60 fps; at rest, 30 fps.
 - **C23.** Rendering stops when the app is backgrounded.
 - **C24.** The renderer is Rust compiled to WebAssembly, drawing tiles into a canvas in software. three.js, `portal3d.ts` and `pentomino.ts` are removed.
 - **C25.** The scene is a pure function of time and state. A frame at time `t` is testable without a screen.

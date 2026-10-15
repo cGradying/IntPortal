@@ -63,8 +63,11 @@ export const portalCopy = (id: string): PortalCopy => COPY[id] ?? COPY.sis;
 export const FALLBACK_SIS: Portal = {
   id: "sis",
   name: "SIS",
+  school: "Polytechnic University of the Philippines",
   status: "ready",
   theme: { ramp: ["#3b1220", "#7a1c2c", "#b5412a", "#e08a35", "#f3cf6a"], accent: "#e8b04a" },
+  shape: { cols: 6, rows: 8, corner: "square" },
+  motif: "swirl",
   fields: ["student_number", "birthdate", "password"],
   limits: { attempts: 3, window_secs: 900 },
   keychain_service: "ph.intportal.app",
