@@ -188,6 +188,10 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
 /// What the chat shows when something fails, in the student's language. The
 /// raw error is for logs, not for a student.
 pub fn friendly(error: &str, fil: bool) -> String {
+    // A sentence written for the student ("Select the words to explain first.") passes through.
+    if error.ends_with('.') || error.ends_with('?') {
+        return error.into();
+    }
     let (en, tl) = if error.contains("busy") {
         ("I'm still working on your last message. Give me a second.", "Ginagawa ko pa ang huli mong mensahe. Sandali lang.")
     } else if error.contains("first") || error.contains("Download the model") {
@@ -337,5 +341,6 @@ mod tests {
         assert_eq!(friendly("prompt of 5000 tokens does not fit 4096 context", false), "That was too long for me. Try a shorter question.");
         assert_eq!(friendly("the reply has no JSON object", true), "Nagulo ang sagot ko. Pwede mo bang ulitin?");
         assert!(!friendly("reqwest: connection reset", false).contains("reqwest"));
+        assert_eq!(friendly("Select the words to explain first.", true), "Select the words to explain first.");
     }
 }

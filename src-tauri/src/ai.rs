@@ -7,6 +7,7 @@ use intportal_ai::{
     intent::{self, Intent},
     llm::Llm,
     models::{self, Gate, Kind, Model},
+    note::{self, Mode},
     outline, pdf,
     prompt::Template,
     rag, why,
@@ -389,6 +390,21 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
     let (store, at) = (state.store.lock().unwrap(), now_unix());
     let _ = store.add_turn("me", &message, at, open).and_then(|()| store.add_turn("lar", &a.reply, at, open));
     Ok(a)
+}
+
+/// "Ask AI" in a note. `text` is the note as it is on screen (it may not be saved yet).
+/// The words arrive on `on_text`; the result is for the student to insert or swap in.
+#[tauri::command]
+pub async fn ai_note(ai: tauri::State<'_, AiState>, mode: String, text: String, selection: Option<String>, question: Option<String>, on_text: Channel<String>) -> Res<String> {
+    let mode = Mode::parse(&mode).ok_or("Unknown action")?;
+    let fil = intent::is_filipino(&text);
+    with_model(&ai, move |llm, tpl| {
+        note::run(llm, tpl, mode, &text, selection.as_deref(), question.as_deref(), &mut |words| {
+            let _ = on_text.send(words.to_string());
+        })
+    })
+    .await
+    .map_err(|e| assis::friendly(&e, fil))
 }
 
 #[derive(Serialize)]
