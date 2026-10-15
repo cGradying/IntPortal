@@ -2,6 +2,13 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## 0.1.6 (2026-10-15)
+
+- LAR: pixel sprite in each university's colours, fire spawn, wandering, orbit carousel (#140)
+- ui: portal variety and the swipeable carousel (#124)
+- ui: the landing's tile portal in Rust, compiled to WebAssembly (#117)
+- Landing sign-in: floating-label fields, Show/Hide toggle, field error states (#140)
+
 ## 0.1.5 (2026-10-15)
 
 - docs: README for 0.1.4, FEATURES.md, LICENSE, ARCHITECTURE for portals (#145)
