@@ -35,6 +35,11 @@
   const moment = $derived(landingAt(t, { returning, reduce, steppedAt }));
   const resting = $derived(moment.phase === "rest");
   const stage = $derived(stageFor({ busy, open: rest === "hub" }));
+  let cardH = $state(0);
+  let cardMin = $state(0);
+  $effect(() => {
+    if (cardH > cardMin) cardMin = cardH;
+  });
 
   // The portals the core lists; the card below follows the chosen one.
   let portals = $state<Portal[]>([FALLBACK_SIS]);
@@ -132,7 +137,19 @@
     <h1>Student <span>IntPortal</span></h1>
   </header>
 
-  <PortalStage {stage} theme={portal.theme} {returning} still={typing} showLar={resting} leaving={steppedAt !== null} {mood} {gesture} />
+  <PortalStage
+    {portals}
+    index={Math.max(0, portals.indexOf(portal))}
+    onselect={(i) => ((portalId = portals[i].id), (error = ""))}
+    locked={busy || rest === "hub"}
+    {stage}
+    {returning}
+    still={typing}
+    showLar={resting}
+    leaving={steppedAt !== null}
+    {mood}
+    {gesture}
+  />
 
   <!-- In the layout from the start, so the portal's room never jumps when it shows. -->
   <div class="dock" class:on={resting} class:hub={rest === "hub"} inert={!resting}>
@@ -141,18 +158,14 @@
         <button class="step" onclick={step}>Step through</button>
         <p class="hint">{app.sisConnected ? `PUP SIS · via ${(app.snapshot?.host ?? "sis8").split(".")[0]}` : copy.hint}</p>
       {:else}
-        <form class="card" style:--portal-accent={portal.theme.accent} onsubmit={submit} onfocusin={() => (typing = true)} onfocusout={() => (typing = false)}>
-          {#if portals.length > 1}
-            <div class="switch" role="group" aria-label="Portal">
-              {#each portals as p (p.id)}
-                <button type="button" class:on={p.id === portalId} aria-pressed={p.id === portalId} onclick={() => ((portalId = p.id), (error = ""))}>
-                  <i style:background={p.theme.accent} aria-hidden="true"></i>{p.name}{#if p.status !== "ready"}<small>Opens soon</small>{/if}
-                </button>
-              {/each}
-            </div>
-          {/if}
+        <!-- The card keeps the tallest height it has had, so swiping between portals never resizes the portal above it. -->
+        <form class="card" style:--portal-accent={portal.theme.accent} style:min-height="{cardMin}px" bind:offsetHeight={cardH} onsubmit={submit} onfocusin={() => (typing = true)} onfocusout={() => (typing = false)}>
+          {#key portal.id}<div class="swap">
           {#if !ready}
-            <p class="soon">{portal.name} opens soon.</p>
+            <div class="soon">
+              <b>{portal.school}</b>
+              <p>Its portal opens soon. IntPortal will connect here once it's ready; for now, SIS and Mabini work.</p>
+            </div>
           {:else}
           <label>
             <span>Student number</span>
@@ -181,6 +194,7 @@
           {#if __REVIEW__}
             <button type="button" class="demo" onclick={demo}>Look around with demo data</button>
           {/if}
+          </div>{/key}
         </form>
       {/if}
   </div>
@@ -345,45 +359,36 @@
   .pair.single {
     grid-template-columns: 1fr;
   }
-  .switch {
+  .swap {
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    gap: 6px;
+    gap: 12px;
+    animation: swap 0.32s var(--ease);
   }
-  .switch button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    height: 40px;
-    border: 0;
-    background: #0b0710;
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
-    color: rgb(244 236 216 / 0.7);
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: min(0.824rem, 25px);
+  @keyframes swap {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
   }
-  .switch button.on {
-    color: #fff5dc;
-    box-shadow: inset 0 0 0 2px var(--portal-accent, #f5b227);
-  }
-  .switch i {
-    width: 8px;
-    height: 8px;
-  }
-  .switch small {
-    font-family: var(--font-pixel);
-    font-weight: 400;
-    font-size: min(0.647rem, 20px);
-    color: rgb(244 236 216 / 0.5);
+  .card {
+    align-content: center;
   }
   .soon {
-    margin: 0;
-    padding: 18px 0;
+    display: grid;
+    gap: 6px;
+    padding: 12px 4px;
     text-align: center;
     color: rgb(244 236 216 / 0.7);
+  }
+  .soon b {
+    font-family: var(--font-display);
+    font-size: min(0.941rem, 29px);
+    color: #fff5dc;
+  }
+  .soon p {
+    margin: 0;
+    font-size: min(0.824rem, 25px);
+    text-wrap: balance;
   }
   .tries {
     margin: 0;
@@ -469,6 +474,9 @@
     text-underline-offset: 3px;
   }
   @media (prefers-reduced-motion: reduce) {
+    .swap {
+      animation: none;
+    }
     .dock,
     .brand {
       animation: none;

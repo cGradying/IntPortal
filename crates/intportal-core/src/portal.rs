@@ -1,6 +1,7 @@
-//! The PUP systems the app can connect to (spec 012, ADR 0005). SIS is ready;
-//! Both are ready; `OpensSoon` is for a portal listed before it is built. Nothing here
-//! signs in or stores anything: it only describes each portal.
+//! The school systems the app can connect to (spec 012, ADR 0005). PUP's SIS
+//! and eMabini are ready; `OpensSoon` is for a portal listed before it is
+//! built, such as the state-university placeholders. Nothing here signs in or
+//! stores anything: it only describes each portal and how its tile portal looks.
 
 use serde::Serialize;
 
@@ -16,6 +17,35 @@ pub enum Status {
 pub struct Theme {
     pub ramp: [&'static str; 5],
     pub accent: &'static str,
+}
+
+/// How the frame's corners are cut on the landing (spec 010).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Corner {
+    Square,
+    Cut,
+    Arch,
+}
+
+/// The tile portal's frame: `cols` by `rows` blocks, one block thick.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct Shape {
+    pub cols: u8,
+    pub rows: u8,
+    pub corner: Corner,
+}
+
+/// The pattern inside the portal's opening.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Motif {
+    Swirl,
+    Ripple,
+    Bloom,
+    Rain,
+    Lattice,
+    Aurora,
 }
 
 /// A sign-in field, in the order the form shows them.
@@ -37,9 +67,14 @@ pub struct Limits {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct Portal {
     pub id: &'static str,
+    /// The short name on the carousel.
     pub name: &'static str,
+    /// The school, written out.
+    pub school: &'static str,
     pub status: Status,
     pub theme: Theme,
+    pub shape: Shape,
+    pub motif: Motif,
     pub fields: &'static [Field],
     pub limits: Limits,
     /// Keychain service for this portal's login; never shared between portals.
@@ -53,8 +88,11 @@ const LIMITS: Limits = Limits { attempts: 3, window_secs: 15 * 60 };
 pub const SIS: Portal = Portal {
     id: "sis",
     name: "SIS",
+    school: "Polytechnic University of the Philippines",
     status: Status::Ready,
     theme: Theme { ramp: ["#3b1220", "#7a1c2c", "#b5412a", "#e08a35", "#f3cf6a"], accent: "#e8b04a" },
+    shape: Shape { cols: 6, rows: 8, corner: Corner::Square },
+    motif: Motif::Swirl,
     fields: &[Field::StudentNumber, Field::Birthdate, Field::Password],
     limits: LIMITS,
     keychain_service: "ph.intportal.app",
@@ -68,15 +106,61 @@ pub const SIS: Portal = Portal {
 pub const MABINI: Portal = Portal {
     id: "mabini",
     name: "Mabini",
+    school: "PUP Open University System",
     status: Status::Ready,
     theme: Theme { ramp: ["#0b2238", "#13466f", "#1f78a8", "#3fb4c9", "#a8efe4"], accent: "#5fd0d6" },
+    shape: Shape { cols: 7, rows: 7, corner: Corner::Cut },
+    motif: Motif::Ripple,
     fields: &[Field::StudentNumber, Field::Password],
     limits: LIMITS,
     keychain_service: "ph.intportal.app.mabini",
 };
 
+/// A state university listed before its portal is built: a name, a look and
+/// "Opens soon", no sign-in. The palettes are placeholders until the
+/// universities reference (docs/specs/reference) confirms each school's colours.
+const fn soon(id: &'static str, name: &'static str, school: &'static str, theme: Theme, shape: Shape, motif: Motif) -> Portal {
+    Portal { id, name, school, status: Status::OpensSoon, theme, shape, motif, fields: &[], limits: LIMITS, keychain_service: id }
+}
+
+pub const UP: Portal = soon(
+    "up",
+    "UP",
+    "University of the Philippines",
+    Theme { ramp: ["#0d2418", "#17452c", "#2a7a46", "#6cbf6a", "#d4f2b0"], accent: "#9fe07a" },
+    Shape { cols: 6, rows: 9, corner: Corner::Arch },
+    Motif::Bloom,
+);
+
+pub const TUP: Portal = soon(
+    "tup",
+    "TUP",
+    "Technological University of the Philippines",
+    Theme { ramp: ["#16181f", "#2c3140", "#56607a", "#9aa6bd", "#e6ebf5"], accent: "#ff6b5f" },
+    Shape { cols: 8, rows: 7, corner: Corner::Square },
+    Motif::Lattice,
+);
+
+pub const PNU: Portal = soon(
+    "pnu",
+    "PNU",
+    "Philippine Normal University",
+    Theme { ramp: ["#160f33", "#2d1f66", "#5440b0", "#9a86f0", "#e2dbff"], accent: "#c8b6ff" },
+    Shape { cols: 5, rows: 9, corner: Corner::Square },
+    Motif::Rain,
+);
+
+pub const BULSU: Portal = soon(
+    "bulsu",
+    "BulSU",
+    "Bulacan State University",
+    Theme { ramp: ["#2a1405", "#5c2c08", "#b0560f", "#f0a030", "#ffe3a3"], accent: "#ffc04d" },
+    Shape { cols: 7, rows: 8, corner: Corner::Cut },
+    Motif::Aurora,
+);
+
 /// The registry, in the order the landing carousel shows it.
-pub const ALL: [Portal; 2] = [SIS, MABINI];
+pub const ALL: &[Portal] = &[SIS, MABINI, UP, TUP, PNU, BULSU];
 
 pub fn get(id: &str) -> Option<&'static Portal> {
     ALL.iter().find(|p| p.id == id)
@@ -97,6 +181,30 @@ mod tests {
         assert_eq!(get("sis").unwrap().status, Status::Ready);
         assert_eq!(get("mabini").unwrap().status, Status::Ready);
         assert!(get("nope").is_none());
+    }
+
+    #[test]
+    fn only_pup_portals_are_ready_and_placeholders_have_no_form() {
+        for p in ALL {
+            let ready = matches!(p.id, "sis" | "mabini");
+            assert_eq!(p.status == Status::Ready, ready, "{}", p.id);
+            if !ready {
+                assert!(p.fields.is_empty(), "{}", p.id);
+            }
+        }
+    }
+
+    #[test]
+    fn every_shape_fits_the_landing_grid_and_looks_differ() {
+        for p in ALL {
+            assert!((5..=8).contains(&p.shape.cols) && (7..=9).contains(&p.shape.rows), "{}", p.id);
+        }
+        for (i, a) in ALL.iter().enumerate() {
+            for b in &ALL[i + 1..] {
+                assert!(a.shape != b.shape || a.motif != b.motif, "{} and {} look alike", a.id, b.id);
+                assert_ne!(a.theme.accent, b.theme.accent);
+            }
+        }
     }
 
     #[test]

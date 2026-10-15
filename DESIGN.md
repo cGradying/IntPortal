@@ -296,7 +296,9 @@ A 12 by 16 grid of flat square tiles with gaps on a black void, four obsidian to
 - **At rest:** a few tiles quietly flip tone with a short shrink.
 - **Connecting:** a soft accent pulse travels around the frame; the interior shows warp stars.
 - **Open:** an accent wave runs up both sides from the bottom centre and settles into a faint theme tint; the interior is a swirl. A dither dissolve of about 0.7 s turns stars into swirl.
-- **Carousel:** the selected portal is centred, the next is dimmed beside it, page dots below. A portal that is not ready shows "Opens soon".
+- **Carousel:** the selected portal is centred and its neighbours peek in, dimmed by distance. Swipe with a rubber band at the ends; letting go springs (stiffness 180, near-critical damping) to the nearest portal, and a flick moves one. Arrows, tile-shaped page dots (the active one in the portal's accent) and a caption with the school's name do the same for anyone who doesn't swipe. A portal that is not ready shows "Opens soon" and the school's name in place of the form; the card keeps its height so the portal never jumps.
+- **Variety:** every portal has its own frame shape (5–8 by 7–9 blocks; square, cut or arched corners), its own interior motif (swirl, ripple, bloom, rain, lattice, aurora) and its own ramp. The frame's obsidian takes a 14 % breath of the portal's ramp. At rest the motif breathes below its brightest tone; connecting shows warp stars; open shows the full motif.
+- **Smoothness:** motion is continuous and eased; only the three-frame pop stays stepped. 60 fps while anything moves, 30 at rest.
 
 *(current)* The shipped signature is twelve pentominoes in ten shapes filling a 60-cell ring, glossy obsidian blocks with purple flecks, two stencil-masked swirl layers, a brown platform, a violet and gold light rig and 56 gold motes. It is retired by ADR 0004. The **stones** (Schedule, Grades, Study) that LAR pulled out of the swirl are retired with it, decided in spec 010.
 

@@ -307,8 +307,11 @@ export type PortalField = "student_number" | "birthdate" | "password";
 export interface Portal {
   id: string;
   name: string;
+  school: string;
   status: "ready" | "opens_soon";
   theme: { ramp: string[]; accent: string };
+  shape: { cols: number; rows: number; corner: "square" | "cut" | "arch" };
+  motif: "swirl" | "ripple" | "bloom" | "rain" | "lattice" | "aurora";
   fields: PortalField[];
   limits: { attempts: number; window_secs: number };
   keychain_service: string;
