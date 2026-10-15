@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LAR Pose Sheet</title>
+<!-- Built from src/lib/lar/sprite.ts by build-lar-sheet-a.mjs: edit this file, then run the build. -->
+<style>
+:root{
+  --void:#0b0710; --card:#14101c; --edge:rgba(255,255,255,.08); --ink:#efe6f5; --ink2:#a99bb8; --ink3:#7a6d8a;
+  --gold:#f5b227; --good:#6fd39a; --bad:#ff7a6e; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--void);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;
+  background-image:radial-gradient(rgba(245,178,39,.07) 1px,transparent 1.2px);background-size:18px 18px}
+main{max-width:1080px;margin:0 auto;padding:20px 16px 56px}
+h1{font-size:22px;margin:4px 0 2px;letter-spacing:-.01em}
+h2{font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:40px 0 14px}
+p.sub{margin:0;color:var(--ink2);max-width:60ch}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;image-rendering:pixelated;display:block;max-width:100%;height:auto}
+.card{background:var(--card);border:1px solid var(--edge);padding:12px}
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:12px}
+.st h3{font:600 13px/1.2 var(--mono);margin:0 0 2px;color:var(--ink)}
+.st p{margin:0 0 10px;color:var(--ink2);font-size:13px}
+.sizes{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.sizes figure{margin:0}
+.sizes figcaption,.cap{font:11px/1 var(--mono);color:var(--ink3);margin-top:6px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.matrix{display:grid;gap:6px;min-width:max-content}
+.matrix .row{display:flex;gap:6px;align-items:center}
+.matrix .tag{width:64px;flex:none;font:600 12px/1.2 var(--mono);color:var(--ink2)}
+.matrix .tag i{display:block;width:100%;height:4px;margin-top:4px}
+.matrix .hd{display:flex;gap:6px;padding-left:70px;font:11px/1 var(--mono);color:var(--ink3);margin-bottom:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chips button{font:600 12px/1 var(--mono);color:var(--ink2);background:transparent;border:1px solid var(--edge);padding:8px 10px;cursor:pointer;min-height:36px}
+.chips button[aria-pressed=true]{color:var(--void);background:var(--gold);border-color:var(--gold)}
+.strip{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.strip span{font:11px/1 var(--mono);padding:5px 7px;border:1px solid var(--edge);color:var(--ink3)}
+.strip span.on{color:var(--void);background:var(--gold);border-color:var(--gold)}
+.pal{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.pal h3{font:600 13px/1 var(--mono);margin:0 0 8px}
+.sw{display:flex;flex-wrap:wrap;gap:4px}
+.sw div{width:44px;font:10px/1.2 var(--mono);color:var(--ink3)}
+.sw b{display:block;height:26px;border:1px solid rgba(255,255,255,.12);margin-bottom:3px}
+.dd{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.dd ul{margin:0;padding-left:18px;color:var(--ink2);font-size:14px}
+.dd h3{font:600 12px/1 var(--mono);letter-spacing:.1em;margin:0 0 8px}
+.dd .do h3{color:var(--good)} .dd .dont h3{color:var(--bad)}
+</style>
+</head>
+<body>
+<main>
+  <h1>LAR Pose Sheet</h1>
+  <p class="sub">One pixel sprite, seven states, six portals. Drawn from the same grids and pose() as the app; parts move between whole pixels.</p>
+
+  <h2>States</h2>
+  <div class="states" id="states"></div>
+
+  <h2>Switching</h2>
+  <div class="card">
+    <canvas id="strip" aria-label="LAR switching state in a loop"></canvas>
+    <div class="strip" id="stripChips"></div>
+  </div>
+
+  <h2>On the portal</h2>
+  <div class="card">
+    <div class="chips" id="sceneChips" role="group" aria-label="Portal tint"></div>
+    <canvas id="scene" aria-label="LAR flying beside a small tile portal with a few birds"></canvas>
+  </div>
+
+  <h2>Every state, every portal</h2>
+  <div class="card scroll"><div class="matrix" id="matrix"></div></div>
+
+  <h2>Palette</h2>
+  <div class="pal" id="pal"></div>
+
+  <h2>Do / Don't</h2>
+  <div class="dd">
+    <div class="card do"><h3>DO</h3><ul>
+      <li>Tint rim, studs, cube, belly frame and swirl; nothing else.</li>
+      <li>Scale by whole numbers: 2, 4, 8.</li>
+      <li>Pass <code>from</code> and <code>since</code> when the state changes, so it eases.</li>
+      <li>Keep the hands, antenna and cube as their own parts.</li>
+    </ul></div>
+    <div class="card dont"><h3>DON'T</h3><ul>
+      <li>Recolour the obsidian body for a portal.</li>
+      <li>Swap in the vector LAR; he is pixels.</li>
+      <li>Hard-cut between poses, or let a part leave the box.</li>
+      <li>Use a gold rim on gold eyes; the gold portals get magenta.</li>
+    </ul></div>
+  </div>
+</main>
+
+<script>
+/*SPRITE*/
+
+const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const DPR = Math.max(1, Math.round(devicePixelRatio || 1));
+const PORTALS = Object.keys(THEMES);
+const NOTES = {
+  idle: "Bob, antenna sway, mitts lag, cube orbits. Blinks.",
+  fly: "Leans into velocity; mitts and antenna stream back with speed dashes.",
+  spawn: "Resolves from coarse blocks to the sharp sprite; loops every 2.6 s.",
+  think: "Focus eyes, three visor dots cycle, cube orbits tight and fast, one mitt to the chin.",
+  sleep: "Eyes shut, slumped, antenna wilted, zzz rises, cube coasts to a park.",
+  error: "Wow eyes, 2 px shake dying in 0.4 s, red visor flicker; replays every 3 s.",
+  happy: "Hop with squash on landing, waving mitt, sparkle.",
+};
+
+// ---------- drawing: the same layout as Lar.svelte, onto a canvas ----------
+const cache = new Map();
+function part(pal, id, g) {
+  const key = id + pal.m + pal.t + pal.c;
+  let c = cache.get(key);
+  if (!c) {
+    c = document.createElement("canvas");
+    c.width = g[0].length; c.height = g.length;
+    const x = c.getContext("2d");
+    g.forEach((row, j) => row.forEach((k, i) => { if (k) { x.fillStyle = pal[k]; x.fillRect(i, j, 1, 1); } }));
+    cache.set(key, c);
+  }
+  return c;
+}
+const BODY = bodyGrid(), RED = redGrid();
+const flat = (...layers) => BODY.map((row, j) => row.map((k, i) => layers.reduce((a, l) => l[j][i] || a, k)));
+const belly = document.createElement("canvas"); belly.width = 6; belly.height = 5;
+const BW = BOX.x1 - BOX.x0, BH = BOX.y1 - BOX.y0;
+
+function drawLar(ctx, p, pal, theme, t, S, ox, oy, face) {
+  const res = p.resolve;
+  const sharp = (id, g) => part(pal, id + res, res > 1 ? mosaic(g, res, pal) : g);
+  ctx.save();
+  ctx.setTransform(S, 0, 0, S, ox, oy);
+  ctx.imageSmoothingEnabled = false;
+  ctx.globalAlpha = p.alpha;
+  const cube = () => {
+    const c = p.cube;
+    if (c.scale < 0.01) return;
+    ctx.save(); ctx.translate(c.x, c.y); ctx.scale(c.scale, c.scale);
+    ctx.drawImage(sharp("cube", rows(CUBE)), -3.5, -3.5); ctx.restore();
+  };
+  if (!p.cube.front) cube();
+  p.mitts.forEach((m) => {
+    if (m.streak < 0.02) return;
+    ctx.save(); ctx.globalAlpha = p.alpha * m.streak * 0.9;
+    ctx.translate(m.x + 3.5, m.y + 3.5); ctx.rotate(m.streakRot * Math.PI / 180);
+    ctx.drawImage(part(pal, "streak", rows(STREAK)), -9.5, -1.5); ctx.restore();
+  });
+  ctx.save();
+  const b = p.body;
+  ctx.translate(b.x, b.y); ctx.translate(PIVOT.x, PIVOT.y); ctx.rotate(b.rot * Math.PI / 180); ctx.scale(b.sx, b.sy); ctx.translate(-PIVOT.x, -PIVOT.y);
+  ctx.save(); ctx.translate(p.antenna.x + 3.5, p.antenna.y + 9); ctx.rotate(p.antenna.rot * Math.PI / 180);
+  ctx.drawImage(sharp("ant", rows(ANTENNA)), -3.5, -9); ctx.restore();
+  if (res > 1) {
+    ctx.drawImage(part(pal, "mos" + res + face + p.red, mosaic(p.red ? flat(RED, faceGrid(face)) : flat(faceGrid(face)), res, pal)), 0, 0);
+  } else {
+    ctx.drawImage(part(pal, "body", BODY), 0, 0);
+    if (p.red) ctx.drawImage(part(pal, "red", RED), 0, 0);
+    ctx.drawImage(part(pal, "face" + face, faceGrid(face)), 0, 0);
+    if (p.dots >= 0) ctx.drawImage(part(pal, "dots" + p.dots, dotsGrid(p.dots)), 0, 0);
+    drawSwirl(belly.getContext("2d"), t, 6, 5, theme.ramp);
+    ctx.drawImage(belly, W / 2 - 3, 15);
+  }
+  ctx.restore();
+  if (p.cube.front) cube();
+  p.mitts.forEach((m) => {
+    ctx.save(); ctx.translate(m.x + 3.5, m.y + 3.5); ctx.rotate(m.rot * Math.PI / 180); ctx.scale(m.side, 1);
+    ctx.drawImage(sharp(m.kind, rows(m.kind === "thumb" ? THUMB : MITT)), -3.5, -3.5); ctx.restore();
+  });
+  p.zzz.forEach((g) => { ctx.globalAlpha = g.a * p.alpha; ctx.drawImage(part(pal, "z" + g.s, rows(ZZZ[g.s])), g.x, g.y); });
+  p.sparkle.forEach((g) => { ctx.globalAlpha = g.a * p.alpha; ctx.drawImage(part(pal, "sp" + g.s, rows(SPARKLE[g.s])), g.x, g.y); });
+  ctx.restore();
+}
+
+// ---------- an actor keeps from/since/phase, like Lar.svelte ----------
+function actor(state) { return { state, cur: state, from: undefined, switched: -Infinity, phase: 0, last: 0 }; }
+function setState(a, s, t, o) {
+  if (a.cur === s) return;
+  a.phase = a.last - pose(a.cur, t, { ...o, phase: 0 }).cube.angle;
+  a.from = a.cur; a.cur = s; a.switched = t; a.state = s;
+}
+function poseOf(a, t, o) {
+  const since = REDUCE ? Infinity : t - a.switched;
+  const p = pose(a.state, REDUCE ? 0 : t, { ...o, from: REDUCE ? undefined : a.from, since, k: Math.min(1, since / SPAWN_SECS), phase: a.phase });
+  a.last = p.cube.angle;
+  return p;
+}
+
+const tiles = [];
+function mk(w, h, S) {
+  const c = document.createElement("canvas");
+  c.width = w * S * DPR; c.height = h * S * DPR;
+  c.style.width = w * S + "px";
+  return c;
+}
+function larCanvas(S, run) {
+  const c = mk(BW, BH, S);
+  const ctx = c.getContext("2d");
+  const tile = { c, ctx, run, vis: true };
+  tiles.push(tile);
+  return c;
+}
+// A state tile: loops its entrance where the state has one.
+function stateTile(state, themeId, S) {
+  const theme = THEMES[themeId], pal = tint(theme);
+  const a = actor(state);
+  return larCanvas(S, (ctx, T) => {
+    const t = REDUCE ? 0 : T;
+    const o = { vx: 50 * Math.cos(t * 0.9), vy: 26 * Math.sin(t * 1.3) };
+    let p;
+    if (state === "error") p = pose("error", t, { since: REDUCE ? Infinity : t % 3, k: 1 });
+    else if (state === "spawn") p = pose("spawn", t, { k: REDUCE ? 1 : Math.min(1, (t % 2.6) / SPAWN_SECS), since: Infinity });
+    else p = poseOf(a, t, o);
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    drawLar(ctx, p, pal, theme, t, S * DPR, -BOX.x0 * S * DPR, -BOX.y0 * S * DPR, p.mood);
+  });
+}
+
+// ---------- states at 2x, 4x, 8x ----------
+const statesEl = document.getElementById("states");
+STATES.forEach((s) => {
+  const card = document.createElement("div"); card.className = "card st";
+  card.innerHTML = "<h3>" + s + "</h3><p>" + NOTES[s] + "</p>";
+  const row = document.createElement("div"); row.className = "sizes";
+  [2, 4, 8].forEach((S) => {
+    const f = document.createElement("figure");
+    f.appendChild(stateTile(s, "sis", S));
+    const cap = document.createElement("figcaption"); cap.textContent = S + "x"; f.appendChild(cap);
+    row.appendChild(f);
+  });
+  card.appendChild(row); statesEl.appendChild(card);
+});
+
+// ---------- transition strip ----------
+const SEQ = ["idle", "fly", "think", "error", "happy", "sleep", "idle"];
+const SEG = 2.6;
+const stripEl = document.getElementById("strip");
+{
+  const S = 4, theme = THEMES.sis, pal = tint(theme), a = actor("idle");
+  const c = mk(BW, BH, S); c.id = "strip"; stripEl.replaceWith(c);
+  const ctx = c.getContext("2d");
+  const chips = document.getElementById("stripChips");
+  const spans = SEQ.slice(0, -1).map((s, i) => { const e = document.createElement("span"); e.textContent = s; chips.appendChild(e); return e; });
+  let last = -1;
+  tiles.push({ c, ctx, vis: true, run: (ctx, T) => {
+    const t = REDUCE ? 0 : T, n = SEQ.length - 1, i = Math.floor(t / SEG) % n, ti = t % (SEG * n);
+    if (i !== last) { spans.forEach((e, j) => e.classList.toggle("on", j === i)); last = i; }
+    if (!REDUCE) {
+      if (i === 0 && a.cur !== "idle") { setState(a, "idle", t, { vx: 40, vy: 0 }); }
+      else if (SEQ[i] !== a.cur) setState(a, SEQ[i], t, { vx: 40, vy: 0 });
+    }
+    const p = poseOf(a, t, { vx: 46, vy: -8 });
+    ctx.clearRect(0, 0, c.width, c.height);
+    drawLar(ctx, p, pal, theme, t, S * DPR, -BOX.x0 * S * DPR, -BOX.y0 * S * DPR, p.mood);
+  }});
+}
+
+// ---------- portal scene ----------
+const OBS = ["#1a1622", "#241f2e", "#2f2939", "#3c3548"];
+const BIRD_UP = ["#...#", ".#.#.", "..#.."], BIRD_DN = ["..#..", ".#.#.", "#...#"];
+const SC = { w: 136, h: 78, S: 3 };
+let sceneTheme = "sis";
+{
+  const el = document.getElementById("scene"), S = SC.S;
+  const c = mk(SC.w, SC.h, S); c.id = "scene"; el.replaceWith(c);
+  const ctx = c.getContext("2d");
+  const a = actor("fly");
+  const chips = document.getElementById("sceneChips");
+  const btns = PORTALS.map((id) => {
+    const b = document.createElement("button"); b.textContent = id.toUpperCase(); b.setAttribute("aria-pressed", id === sceneTheme);
+    b.onclick = () => { sceneTheme = id; btns.forEach((x) => x.setAttribute("aria-pressed", x === b)); };
+    chips.appendChild(b); return b;
+  });
+  const frame = { x: 14, y: 22, cols: 6, rows: 8, tile: 3, pitch: 4 };
+  tiles.push({ c, ctx, vis: true, run: (ctx, T) => {
+    const t = REDUCE ? 0.4 : T, theme = THEMES[sceneTheme], pal = tint(theme), k = S * DPR;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height);
+    ctx.imageSmoothingEnabled = false; ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.fillStyle = "#07040b"; ctx.fillRect(0, 0, SC.w, SC.h);
+    for (let r = 0; r < frame.rows; r++) for (let q = 0; q < frame.cols; q++) {
+      const ring = r === 0 || q === 0 || r === frame.rows - 1 || q === frame.cols - 1;
+      const x = frame.x + q * frame.pitch, y = frame.y + r * frame.pitch;
+      if (ring) ctx.fillStyle = OBS[(q * 3 + r * 5) % 4];
+      else {
+        const d = Math.hypot(q - 2.5, (r - 3.5) * 0.8), v = 0.5 + 0.5 * Math.sin(Math.atan2(r - 3.5, q - 2.5) * 2 - d * 1.5 + t * 3);
+        ctx.fillStyle = theme.ramp[Math.max(0, Math.min(4, Math.floor(v * 4.4 * (1 - d / 4) + 0.7)))];
+      }
+      ctx.fillRect(x, y, frame.tile, frame.tile);
+    }
+    // LAR loops around the frame; his velocity is the derivative of the path.
+    const w = 0.55, cx = 74, cy = 38, ax = 40, ay = 20;
+    const px = cx + ax * Math.cos(w * t), py = cy + ay * Math.sin(2 * w * t) - 10;
+    const vx = -ax * w * Math.sin(w * t), vy = 2 * ay * w * Math.cos(2 * w * t);
+    const p = poseOf(a, t, { vx, vy });
+    drawLar(ctx, p, pal, theme, t, k, (px - W / 2) * k, (py - H / 2) * k, p.mood);
+    ctx.setTransform(k, 0, 0, k, 0, 0); ctx.globalAlpha = 1;
+    // A few 5 by 3 birds, wings up and down.
+    for (let i = 0; i < 5; i++) {
+      const ph = t * 0.35 + i * 1.3, bx = 8 + ((ph * 9 + i * 29) % (SC.w + 10)) - 5, by = 8 + i * 9 + Math.sin(ph * 2) * 3;
+      const g = Math.floor(t * 5 + i) % 2 ? BIRD_UP : BIRD_DN;
+      ctx.fillStyle = "#f4e8d6";
+      g.forEach((row, j) => [...row].forEach((ch, q) => { if (ch === "#") ctx.fillRect(Math.round(bx) + q, Math.round(by) + j, 1, 1); }));
+    }
+  }});
+}
+
+// ---------- every state on every portal ----------
+{
+  const m = document.getElementById("matrix");
+  const hd = document.createElement("div"); hd.className = "hd";
+  STATES.forEach((s) => { const e = document.createElement("span"); e.style.width = BW * 2 + "px"; e.textContent = s; hd.appendChild(e); });
+  m.appendChild(hd);
+  PORTALS.forEach((id) => {
+    const row = document.createElement("div"); row.className = "row";
+    const tag = document.createElement("div"); tag.className = "tag"; tag.innerHTML = id.toUpperCase() + "<i style='background:" + THEMES[id].accent + "'></i>";
+    row.appendChild(tag);
+    STATES.forEach((s) => row.appendChild(stateTile(s, id, 2)));
+    m.appendChild(row);
+  });
+}
+
+// ---------- palette ----------
+{
+  const el = document.getElementById("pal");
+  const labels = { m: "rim", t: "stud", T: "stud dk", c: "core", s: "belly" };
+  PORTALS.forEach((id) => {
+    const th = THEMES[id], pal = tint(th), card = document.createElement("div"); card.className = "card";
+    const sw = (hexv, name) => "<div><b style='background:" + hexv + "'></b>" + name + "<br>" + hexv.slice(1) + "</div>";
+    card.innerHTML = "<h3>" + id.toUpperCase() + " <span style='color:var(--ink3)'>rim " + contrast(pal.m, VOID).toFixed(1) + ":1 on void</span></h3>" +
+      "<div class='sw'>" + th.ramp.map((r, i) => sw(r, "ramp " + i)).join("") + sw(th.accent, "accent") + "</div>" +
+      "<div class='sw' style='margin-top:8px'>" + Object.keys(labels).map((k) => sw(pal[k], labels[k])).join("") + "</div>";
+    el.appendChild(card);
+  });
+}
+
+// ---------- loop ----------
+const io = "IntersectionObserver" in window ? new IntersectionObserver((es) => es.forEach((e) => { const t = tiles.find((x) => x.c === e.target); if (t) t.vis = e.isIntersecting; })) : null;
+tiles.forEach((t) => io && io.observe(t.c));
+const t0 = performance.now();
+function frame(now) {
+  const T = Math.max(0, (now - t0) / 1000);
+  tiles.forEach((t) => { if (t.vis) t.run(t.ctx, T); });
+  if (!REDUCE) requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+if (REDUCE) setTimeout(() => frame(performance.now()), 50);
+</script>
+</body>
+</html>
