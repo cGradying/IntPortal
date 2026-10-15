@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NoteItem } from "../api";
-import { friendlyError, MAX_CARDS, MAX_SOURCE, noteLabel, sourceText, tidy, usable } from "./cards";
+import { friendlyError, hasText, MAX_CARDS, MAX_PDF, MAX_SOURCE, noteLabel, pdfError, pdfProblem, sourceText, tidy, usable } from "./cards";
 
 const note = (key: string, text: string, updated = 0, title: string | null = null): NoteItem => ({ key, text, title, updated, preview: "" });
 
@@ -50,5 +50,36 @@ describe("cards from a note", () => {
     expect(friendlyError("prompt of 5000 tokens does not fit 4096 context")).toMatch(/too long/);
     expect(friendlyError(new Error("not enough memory"))).toMatch(/memory/);
     expect(friendlyError("reqwest: reset")).not.toMatch(/reqwest/);
+  });
+});
+
+describe("cards from a PDF", () => {
+  const f = (size: number, type = "application/pdf", name = "notes.pdf") => ({ size, type, name });
+
+  it("accepts a PDF up to the cap and says the cap when it is over", () => {
+    expect(pdfProblem(f(MAX_PDF))).toBeNull();
+    expect(pdfProblem(f(MAX_PDF + 1))).toBe("That PDF is over 20 MB. Pick a smaller one, o hatiin muna.");
+  });
+
+  it("refuses an empty file or a file that is not a PDF", () => {
+    expect(pdfProblem(f(0))).toBe("That file is empty. Pick another PDF.");
+    expect(pdfProblem(f(10, "image/png", "a.png"))).toBe("That isn't a PDF. Pick a .pdf file.");
+    expect(pdfProblem(f(10, "", "Lecture.PDF"))).toBeNull();
+  });
+
+  it("treats a scan, with no real words, as having no text", () => {
+    expect(hasText("")).toBe(false);
+    expect(hasText(" \n\n 12 34 \u0000 ")).toBe(false);
+    expect(hasText("A stack is a last-in, first-out structure.")).toBe(true);
+  });
+
+  it("turns the reader's errors into plain sentences", () => {
+    expect(pdfError("This PDF has no text to read")).toBe("This PDF looks scanned, so there is no text to read. Walang mabasa si LAR dito. Try a PDF you can select words in.");
+    expect(pdfError("This PDF is over 20 MB")).toContain("over 20 MB");
+    expect(pdfError("This PDF has 400 pages; the limit is 300")).toBe("That PDF has too many pages (limit 300). Pick a shorter one.");
+    expect(pdfError("This file could not be read as a PDF")).toBe("I couldn't open that file as a PDF. Try another one.");
+    expect(pdfError("Send the PDF as raw bytes")).toBe("I couldn't read that PDF. Try again, or try a note instead.");
+    expect(pdfError(new Error("LAR is busy."))).toBe("LAR is busy.");
+    expect(pdfError("busy")).toBe("LAR is still working on something. Give it a second.");
   });
 });
