@@ -141,4 +141,166 @@ mod tests {
         assert_eq!(subject_in("how am i doing in comp", &s), None, "two COMP subjects: ask which");
         assert_eq!(subject_in("how am i doing", &s), None);
     }
+
+    // C10: the rules, not the model, pick the action.
+    #[test]
+    fn taglish_phrasings_reach_the_right_action() {
+        for (msg, want) in [
+            ("Paalala mo ako bukas", Intent::Remind),
+            ("Ipaalala mo sa akin ang bayad", Intent::Remind),
+            ("set an alarm for 6am", Intent::Remind),
+            ("Isulat mo: bring ID", Intent::Note),
+            ("May quiz ba ako bukas?", Intent::Due),
+            ("Kailan ang pasahan ng takdang-aralin?", Intent::Due),
+            ("Anong deadlines ko this week", Intent::Due),
+            ("Ano'ng schedule ko ngayon?", Intent::Classes),
+            ("Iskedyul ko bukas?", Intent::Classes),
+            ("May klase ba kami?", Intent::Classes),
+            ("Pasado ba ako?", Intent::Grades),
+            ("Passing ba ako sa Math?", Intent::Grades),
+            ("magkano average ko", Intent::Grades),
+            ("What is my GPA", Intent::Grades),
+            ("Kumusta ang standing ko?", Intent::Grades),
+        ] {
+            assert_eq!(detect(msg), want, "{msg}");
+        }
+    }
+
+    #[test]
+    fn detection_ignores_case_hyphens_and_punctuation() {
+        for msg in ["REMIND ME", "i-remind mo", "Mag-remind!!", "remind,me", "(remind)"] {
+            assert_eq!(detect(msg), Intent::Remind, "{msg}");
+        }
+    }
+
+    #[test]
+    fn earlier_rules_win_when_a_message_has_several_words() {
+        assert_eq!(detect("remind me about the flashcards"), Intent::Remind);
+        assert_eq!(detect("flashcards for the quiz"), Intent::Cards);
+        assert_eq!(detect("note about the quiz"), Intent::Note);
+        assert_eq!(detect("which class has the exam"), Intent::Due, "due words come before classes");
+        assert_eq!(detect("grade in my class"), Intent::Classes, "classes come before grades");
+    }
+
+    #[test]
+    fn only_whole_words_trigger_an_action() {
+        for msg in ["notebook shopping", "I love cardio", "the passage was long", "a classic", "duet practice", "noted, thanks", "compass"] {
+            assert_eq!(detect(msg), Intent::Ask, "{msg}");
+        }
+    }
+
+    #[test]
+    fn open_questions_fall_through_to_ask() {
+        for msg in ["How do I focus?", "Paano mag-aral nang mabilis?", "Explain binary trees", "hello", "Summarize my notes", "Okay lang ba ako sa Math?"] {
+            assert_eq!(detect(msg), Intent::Ask, "{msg}");
+        }
+    }
+
+    #[test]
+    fn empty_emoji_and_huge_messages_do_not_panic() {
+        assert_eq!(detect(""), Intent::Ask);
+        assert_eq!(detect("   \n\t "), Intent::Ask);
+        assert_eq!(detect("😀😀😀"), Intent::Ask);
+        assert_eq!(detect("🔔remind🔔me🔔"), Intent::Remind, "emoji separate words like punctuation");
+        assert_eq!(detect("📝 note"), Intent::Note);
+        let long = format!("{} grades", "blah ".repeat(20_000));
+        assert_eq!(detect(&long), Intent::Grades);
+        assert_eq!(detect(&"é".repeat(50_000)), Intent::Ask);
+        assert!(!is_filipino("") && !is_filipino("😀"));
+        assert_eq!(resolve_when("", THU), None);
+        assert_eq!(resolve_when("😀", THU), None);
+        assert_eq!(subject_in("😀", &[("MATH 101".into(), "Mathematics".into())]), None);
+    }
+
+    #[test]
+    fn filipino_is_spotted_by_any_one_marker_word() {
+        for msg in ["Kumusta po", "Wala akong pasahan", "Ano ang GWA ko", "ok lang", "BUKAS ba?"] {
+            assert!(is_filipino(msg), "{msg}");
+        }
+        for msg in ["Hello there", "What is due this week", "Summarize my notes", "go"] {
+            assert!(!is_filipino(msg), "{msg}");
+        }
+        assert!(!is_filipino("kobe"), "markers are whole words, not substrings");
+    }
+
+    #[test]
+    fn every_weekday_name_resolves_to_its_next_date() {
+        for (msg, want) in [
+            ("on monday", 19),
+            ("sa Martes", 20),
+            ("tuesday", 20),
+            ("miyerkules", 21),
+            ("wednesday", 21),
+            ("huwebes", 22),
+            ("friday", 16),
+            ("biyernes", 16),
+            ("sa sabado", 17),
+            ("saturday", 17),
+            ("sunday", 18),
+            ("sa Linggo", 18),
+        ] {
+            assert_eq!(resolve_when(msg, THU), Some(Date::new(2026, 10, want)), "{msg}");
+        }
+    }
+
+    #[test]
+    fn named_days_are_case_blind_and_the_first_one_wins() {
+        assert_eq!(resolve_when("BUKAS", THU), Some(Date::new(2026, 10, 16)));
+        assert_eq!(resolve_when("today", THU), Some(THU));
+        assert_eq!(resolve_when("mamaya", THU), Some(THU));
+        assert_eq!(resolve_when("ngayon", THU), Some(THU));
+        assert_eq!(resolve_when("makalawa", THU), Some(Date::new(2026, 10, 17)));
+        assert_eq!(resolve_when("bukas sa lunes", THU), Some(Date::new(2026, 10, 16)));
+        assert_eq!(resolve_when("lunes bukas", THU), Some(Date::new(2026, 10, 19)));
+        assert_eq!(resolve_when("linggo", THU), None, "a lone linggo is a week");
+        assert_eq!(resolve_when("tomorrowland", THU), None, "whole words only");
+    }
+
+    #[test]
+    fn days_roll_over_month_and_year_ends() {
+        let fri_oct_30 = Date::new(2026, 10, 30);
+        assert_eq!(fri_oct_30.weekday(), Weekday::Friday);
+        assert_eq!(resolve_when("tomorrow", fri_oct_30), Some(Date::new(2026, 10, 31)));
+        assert_eq!(resolve_when("monday", fri_oct_30), Some(Date::new(2026, 11, 2)));
+        let new_years_eve = Date::new(2026, 12, 31);
+        assert_eq!(resolve_when("bukas", new_years_eve), Some(Date::new(2027, 1, 1)));
+        assert_eq!(resolve_when("makalawa", new_years_eve), Some(Date::new(2027, 1, 2)));
+    }
+
+    fn subs(v: &[(&str, &str)]) -> Vec<(String, String)> {
+        v.iter().map(|(c, d)| (c.to_string(), d.to_string())).collect()
+    }
+
+    #[test]
+    fn a_subject_is_found_by_code_letters_or_description_word() {
+        let s = subs(&[("MATH 101", "Mathematics in the Modern World"), ("COMP 20073", "Data Structures"), ("ENGL 100", "Purposive Communication")]);
+        assert_eq!(subject_in("Math", &s), Some("MATH 101".into()), "letters of the code");
+        assert_eq!(subject_in("MATH", &s), Some("MATH 101".into()));
+        assert_eq!(subject_in("how is math 101 going", &s), Some("MATH 101".into()), "spaced code");
+        assert_eq!(subject_in("how is Math101 going", &s), Some("MATH 101".into()), "squashed code");
+        assert_eq!(subject_in("comp20073?", &s), Some("COMP 20073".into()));
+        assert_eq!(subject_in("kumusta ako sa structures", &s), Some("COMP 20073".into()), "description word of 5+ letters");
+        assert_eq!(subject_in("kumusta ako sa COMMUNICATION", &s), Some("ENGL 100".into()));
+        assert_eq!(subject_in("GRADE KO SA ENGL", &s), Some("ENGL 100".into()));
+    }
+
+    #[test]
+    fn ambiguous_or_unknown_subjects_name_nothing() {
+        let two_maths = subs(&[("MATH 101", "Mathematics"), ("MATH 102", "Calculus")]);
+        assert_eq!(subject_in("how am i in math", &two_maths), None, "two MATH subjects");
+        assert_eq!(subject_in("how am i in math 102", &two_maths), Some("MATH 102".into()), "the full code settles it");
+        let shared = subs(&[("MATH 101", "Mathematics in the Modern World"), ("PHYS 101", "Physics in the Modern World")]);
+        assert_eq!(subject_in("modern world grade", &shared), None, "a shared description word");
+        assert_eq!(subject_in("how am i in history", &shared), None);
+        assert_eq!(subject_in("anything", &[]), None);
+        assert_eq!(subject_in("", &shared), None);
+    }
+
+    #[test]
+    fn short_code_letters_do_not_match_by_themselves() {
+        let s = subs(&[("PE 1", "Physical Education"), ("NS 2", "Nat Sci")]);
+        assert_eq!(subject_in("how is pe doing", &s), None, "two-letter codes are too easy to hit by accident");
+        assert_eq!(subject_in("grade sa pe 1", &s), Some("PE 1".into()), "the full code works");
+        assert_eq!(subject_in("physical", &s), Some("PE 1".into()), "a long description word is enough");
+    }
 }
