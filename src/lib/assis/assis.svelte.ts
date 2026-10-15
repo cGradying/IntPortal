@@ -218,6 +218,9 @@ export async function explain(front: string, back: string, typed: string, subjec
   }
 }
 
+/** A PDF's text, read on the phone. The bytes go as the raw request body (see `ai_pdf_text`). */
+export const pdfText = (bytes: Uint8Array) => invoke<string>("ai_pdf_text", bytes);
+
 /** Proposed cards from a note's text. Nothing is saved here; the deck page asks the student first. */
 export async function cardsFrom(text: string, want: number): Promise<{ front: string; back: string }[]> {
   if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");

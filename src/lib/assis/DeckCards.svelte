@@ -4,8 +4,8 @@
   // until IntAssis is on the phone.
   import { api, type NoteItem } from "../api";
   import { buzz } from "../haptics";
-  import { cardsFrom, installed } from "./assis.svelte";
-  import { friendlyError, noteLabel, sourceText, tidy, usable, type Draft } from "./cards";
+  import { cardsFrom, installed, pdfText } from "./assis.svelte";
+  import { friendlyError, hasText, noteLabel, pdfError, pdfProblem, sourceText, tidy, usable, type Draft } from "./cards";
 
   let { subject, fronts, onadd }: { subject: string | null; fronts: string[]; onadd: (cards: Draft[]) => Promise<void> } = $props();
 
@@ -14,6 +14,8 @@
   let proposed = $state<Draft[]>([]);
   let problem = $state("");
   let run = 0;
+  let file = $state<HTMLInputElement>();
+  let reading = $state<"note" | "PDF">("note");
 
   async function begin() {
     buzz.select();
@@ -26,20 +28,40 @@
     }
   }
 
-  async function make(n: NoteItem) {
+  // The picked PDF: type and size are checked before the file is read, the text
+  // is pulled out on the phone, then it goes the way a note does.
+  async function pdf() {
+    const f = file?.files?.[0];
+    if (file) file.value = "";
+    if (!f) return;
+    problem = pdfProblem(f) ?? "";
+    if (problem) return;
+    await read("PDF", async () => {
+      const text = await pdfText(new Uint8Array(await f.arrayBuffer()));
+      if (!hasText(text)) throw "This PDF has no text to read";
+      return text;
+    });
+  }
+
+  const make = (n: NoteItem) => read("note", async () => n.text);
+
+  async function read(what: "note" | "PDF", text: () => Promise<string>) {
     buzz.select();
     problem = "";
+    reading = what;
     step = "working";
     const mine = ++run;
     try {
-      const cards = tidy(await cardsFrom(sourceText(n.text), 12), fronts);
+      const t = await text();
       if (mine !== run) return;
-      if (!cards.length) throw new Error("I couldn't find new cards in that note. Try another one.");
+      const cards = tidy(await cardsFrom(sourceText(t), 12), fronts);
+      if (mine !== run) return;
+      if (!cards.length) throw new Error(`I couldn't find new cards in that ${what}. Try another one.`);
       proposed = cards;
       step = "review";
     } catch (e) {
       if (mine !== run) return;
-      problem = friendlyError(e);
+      problem = what === "PDF" ? pdfError(e) : friendlyError(e);
       step = "pick";
     }
   }
@@ -66,7 +88,9 @@
     <section class="card notch box" aria-label="AI cards">
       <p class="label">AI cards</p>
       {#if step === "pick"}
-        <p class="fine">Pick a note. LAR reads it on this phone and suggests cards. You choose which to keep.</p>
+        <p class="fine">Pick a note or a PDF. LAR reads it on this phone and suggests cards. You choose which to keep.</p>
+        <input bind:this={file} type="file" accept="application/pdf" hidden aria-hidden="true" tabindex="-1" onchange={pdf} />
+        <button class="ghost" onclick={() => file?.click()}>Pick a PDF (up to 20 MB)</button>
         {#if notes.length}
           <ul class="list">
             {#each notes as n (n.key)}
@@ -78,7 +102,7 @@
         {/if}
         <button class="ghost" onclick={cancel}>Close</button>
       {:else if step === "working"}
-        <p class="working" role="status" aria-live="polite"><i aria-hidden="true"></i>LAR is reading your note…</p>
+        <p class="working" role="status" aria-live="polite"><i aria-hidden="true"></i>LAR is reading your {reading}…</p>
         <button class="ghost" onclick={cancel}>Cancel</button>
       {:else}
         <p class="fine">Edit or remove any card. Nothing is added until you tap the gold button.</p>

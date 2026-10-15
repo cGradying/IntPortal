@@ -58,3 +58,33 @@ export function friendlyError(e: unknown): string {
   if (s.includes("first") || s.includes("Download the model")) return "Turn IntAssis on first, in the You tab.";
   return "I couldn't make cards from that. Try again, or try another note.";
 }
+
+/** Same cap as the reader in the Rust core (`pdf::MAX_BYTES`); checked first so a huge file is never read into memory. */
+export const MAX_PDF = 20 * 1024 * 1024;
+const TOO_BIG = "That PDF is over 20 MB. Pick a smaller one, o hatiin muna.";
+
+/** Why this picked file can't be used, or null when it can. */
+export function pdfProblem(f: { size: number; type: string; name: string }): string | null {
+  if (!f.size) return "That file is empty. Pick another PDF.";
+  if (f.type !== "application/pdf" && !(f.type === "" && /\.pdf$/i.test(f.name))) return "That isn't a PDF. Pick a .pdf file.";
+  return f.size > MAX_PDF ? TOO_BIG : null;
+}
+
+/** A scanned PDF is pictures of pages: the reader may return stray marks but no words. */
+export function hasText(text: string): boolean {
+  return (text.match(/\p{L}/gu)?.length ?? 0) >= 20;
+}
+
+const SCANNED = "This PDF looks scanned, so there is no text to read. Walang mabasa si LAR dito. Try a PDF you can select words in.";
+
+/** The PDF reader's errors (crates/intportal-ai/src/pdf.rs), as sentences. */
+export function pdfError(e: unknown): string {
+  const s = typeof e === "string" ? e : (e as { message?: string })?.message ?? "";
+  if (s.includes("no text")) return SCANNED;
+  if (s.includes("over 20 MB")) return TOO_BIG;
+  const pages = s.match(/the limit is (\d+)/);
+  if (pages) return `That PDF has too many pages (limit ${pages[1]}). Pick a shorter one.`;
+  if (s.includes("could not be read")) return "I couldn't open that file as a PDF. Try another one.";
+  if (s.includes("raw bytes")) return "I couldn't read that PDF. Try again, or try a note instead.";
+  return friendlyError(e);
+}
