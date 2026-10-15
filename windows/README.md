@@ -126,6 +126,8 @@ way the macOS Keychain does.
 
 ## Status
 
+**Paused (October 2026).** The macOS app is in maintenance and the phone app, [cGradying/intportal-app](https://github.com/cGradying/intportal-app), is the successor, so this port is not being continued. The audit below is from August 2026.
+
 State audit (updated 2026-08-14, after the first green CI run) — source of
 truth is the code + CI's actual log output, not memory or assumption:
 
