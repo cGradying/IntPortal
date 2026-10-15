@@ -53,3 +53,41 @@ suite("Ask AI in a note", () => {
     expect(starters(true).every((s) => s.label.length > 0)).toBe(true);
   });
 });
+
+suite("Ask AI results landing in the note", () => {
+  const note = "Heaps keep the min on top.\nQuiz on Friday.";
+
+  it("Replace on a selection changes only those words", () => {
+    const start = note.indexOf("min");
+    expect(replaced(note, start, start + 3, "smallest")).toBe("Heaps keep the smallest on top.\nQuiz on Friday.");
+  });
+
+  it("Replace with nothing selected swaps the whole note (the editor's [0, length] range)", () => {
+    expect(replaced(note, 0, note.length, "Tidy note.")).toBe("Tidy note.");
+  });
+
+  it("an empty range inserts at the caret and removes nothing", () => {
+    expect(replaced("ab", 1, 1, "X")).toBe("aXb");
+    expect(replaced("", 0, 0, "new")).toBe("new");
+  });
+
+  it("Replace leaves the original string untouched, so Undo can put it back exactly", () => {
+    const original = "  keep\tthis \n\n  exactly  \n";
+    const copy = `${original}`;
+    const after = replaced(original, 2, 6, "changed");
+    expect(after).toBe("  changed\tthis \n\n  exactly  \n");
+    expect(original).toBe(copy);
+  });
+
+  it("Insert below trims the old trailing space and leaves a blank line", () => {
+    expect(appended("Quiz Friday\n\n\n", "Summary")).toBe("Quiz Friday\n\nSummary");
+    expect(appended("", "Summary")).toBe("Summary");
+    expect(appended("   \n", "Summary")).toBe("Summary");
+  });
+
+  it("starts the chat from the open note with four suggestions, none empty", () => {
+    expect(starters(true)).toHaveLength(4);
+    expect(starters(false)).toHaveLength(4);
+    expect(starters(true).map((s) => s.label)).toContain("What should I review from this note?");
+  });
+});
