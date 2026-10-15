@@ -48,6 +48,31 @@ pub fn account_file(student_number: &str) -> String {
     format!("account-{h:016x}.sqlite")
 }
 
+/// One message of the LAR chat.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Turn {
+    pub role: String,
+    pub text: String,
+    pub at: i64,
+    pub ask: bool,
+}
+
+/// Something the AI can search: a note, a deck's cards or a subject's syllabus.
+/// `key` is `note:`/`class:`/`day:` for notes, `card:<deck id>` or `plan:<code>`.
+/// `stamp` changes when the text does: a note's edit time, else a hash of the text.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Source {
+    pub key: String,
+    pub title: String,
+    pub text: String,
+    pub stamp: i64,
+}
+
+/// FNV-1a, as a change marker for text that has no edit time.
+fn stamp_of(text: &str) -> i64 {
+    text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3)) as i64
+}
+
 pub struct Store {
     db: Connection,
 }
@@ -137,7 +162,8 @@ impl Store {
              CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, json TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS notes (key TEXT PRIMARY KEY, text TEXT NOT NULL, title TEXT, updated INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS decks (id TEXT PRIMARY KEY, json TEXT NOT NULL);
-             CREATE TABLE IF NOT EXISTS chunks (note_key TEXT NOT NULL, n INTEGER NOT NULL, text TEXT NOT NULL, vec BLOB NOT NULL, note_updated INTEGER NOT NULL, model TEXT NOT NULL, PRIMARY KEY (note_key, n));",
+             CREATE TABLE IF NOT EXISTS chunks (note_key TEXT NOT NULL, n INTEGER NOT NULL, text TEXT NOT NULL, vec BLOB NOT NULL, note_updated INTEGER NOT NULL, model TEXT NOT NULL, PRIMARY KEY (note_key, n));
+             CREATE TABLE IF NOT EXISTS turns (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, ask INTEGER NOT NULL);",
         )?;
         Ok(Store { db })
     }
@@ -241,6 +267,60 @@ impl Store {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// Everything searchable right now, notes first. A deck without cards or a
+    /// plan without items has nothing to say and is left out.
+    pub fn sources(&self) -> Result<Vec<Source>, StoreError> {
+        let mut out: Vec<Source> = self
+            .notes()?
+            .into_iter()
+            .map(|n| Source { title: crate::notes::heading(&n), key: n.key, text: n.text, stamp: n.updated })
+            .collect();
+        for d in self.decks()? {
+            let cards = d.cards.iter().map(|c| format!("{}: {}", c.front.trim(), c.back.trim()));
+            let text = std::iter::once(d.name.clone()).chain(cards).collect::<Vec<_>>().join("\n\n");
+            if !d.cards.is_empty() {
+                out.push(Source { key: format!("card:{}", d.id), title: format!("Cards · {}", d.name), stamp: stamp_of(&text), text });
+            }
+        }
+        for (code, plan) in self.get::<BTreeMap<String, Plan>>("syllabus")?.unwrap_or_default() {
+            let items = plan.items.iter().map(|i| {
+                let when = match (i.week, i.date) {
+                    (Some(w), _) => format!("Week {w} · "),
+                    (None, Some(d)) => format!("{d} · "),
+                    _ => String::new(),
+                };
+                format!("{when}{:?}: {}", i.kind, i.topic.trim())
+            });
+            let grading = plan.grading.iter().map(|c| format!("Grading: {} {}%", c.name.trim(), c.weight));
+            let lines: Vec<String> = items.chain(grading).collect();
+            if !lines.is_empty() {
+                let text = format!("{code} syllabus\n\n{}", lines.join("\n\n"));
+                out.push(Source { key: format!("plan:{code}"), title: format!("Syllabus · {code}"), stamp: stamp_of(&text), text });
+            }
+        }
+        Ok(out)
+    }
+
+    /// Sources with no chunks from `model` at their current stamp. The AI embeds
+    /// these just before a search; nothing here embeds.
+    pub fn stale_sources(&self, model: &str) -> Result<Vec<Source>, StoreError> {
+        let mut q = self.db.prepare("SELECT DISTINCT note_key, note_updated FROM chunks WHERE model = ?1")?;
+        let have: std::collections::HashSet<(String, i64)> =
+            q.query_map([model], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+        Ok(self.sources()?.into_iter().filter(|s| !have.contains(&(s.key.clone(), s.stamp))).collect())
+    }
+
+    /// Drops chunks whose source is gone (a deleted deck, a cleared plan).
+    pub fn prune_chunks(&self) -> Result<(), StoreError> {
+        let keys: std::collections::HashSet<String> = self.sources()?.into_iter().map(|s| s.key).collect();
+        let mut q = self.db.prepare("SELECT DISTINCT note_key FROM chunks")?;
+        let gone: Vec<String> = q.query_map([], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?.into_iter().filter(|k| !keys.contains(k)).collect();
+        for k in gone {
+            self.db.execute("DELETE FROM chunks WHERE note_key = ?1", [k])?;
+        }
+        Ok(())
+    }
+
     pub fn decks(&self) -> Result<Vec<Deck>, StoreError> {
         let mut q = self.db.prepare("SELECT json FROM decks ORDER BY id")?;
         let rows = q.query_map([], |r| r.get::<_, String>(0))?;
@@ -262,6 +342,7 @@ impl Store {
 
     pub fn delete_deck(&self, id: &str) -> Result<(), StoreError> {
         self.db.execute("DELETE FROM decks WHERE id = ?1", [id])?;
+        self.db.execute("DELETE FROM chunks WHERE note_key = ?1", [format!("card:{id}")])?;
         Ok(())
     }
 
@@ -293,12 +374,35 @@ impl Store {
 
     pub fn forget_sis(&self) -> Result<(), StoreError> {
         self.db.execute("DELETE FROM kv WHERE key IN ('sessions', 'grades', 'history', 'host', 'last_synced')", [])?;
+        // What LAR said may quote those grades and classes.
+        self.clear_turns()
+    }
+
+    /// Adds one chat message. `role` is "me" or "lar"; `ask` marks a message the
+    /// model answered, the only ones it is shown again. Keeps the last 60.
+    pub fn add_turn(&self, role: &str, text: &str, at: i64, ask: bool) -> Result<(), StoreError> {
+        self.db.execute("INSERT INTO turns (role, text, at, ask) VALUES (?1, ?2, ?3, ?4)", params![role, text, at, ask])?;
+        self.db.execute("DELETE FROM turns WHERE id <= (SELECT MAX(id) FROM turns) - 60", [])?;
+        Ok(())
+    }
+
+    /// The last `limit` messages, oldest first.
+    pub fn turns(&self, limit: usize) -> Result<Vec<Turn>, StoreError> {
+        let mut q = self.db.prepare("SELECT role, text, at, ask FROM turns ORDER BY id DESC LIMIT ?1")?;
+        let rows = q.query_map([limit as i64], |r| Ok(Turn { role: r.get(0)?, text: r.get(1)?, at: r.get(2)?, ask: r.get(3)? }))?;
+        let mut v = rows.collect::<Result<Vec<_>, _>>()?;
+        v.reverse();
+        Ok(v)
+    }
+
+    pub fn clear_turns(&self) -> Result<(), StoreError> {
+        self.db.execute("DELETE FROM turns", [])?;
         Ok(())
     }
 
     /// Erase everything on the device, the student's own work included.
     pub fn wipe(&self) -> Result<(), StoreError> {
-        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks;")?;
+        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns;")?;
         Ok(())
     }
 }
@@ -423,6 +527,61 @@ mod tests {
         assert!(store.chunks("m1").unwrap().is_empty());
     }
 
+    fn deck(id: &str, name: &str, cards: &[(&str, &str)]) -> Deck {
+        use crate::study::{Card, Memory};
+        let cards = cards.iter().map(|(f, b)| Card { id: String::new(), front: f.to_string(), back: b.to_string(), accepted: vec![], memory: Memory::new(0) }).collect();
+        Deck { id: id.into(), name: name.into(), subject: None, cards }
+    }
+
+    fn plan(topic: &str) -> Plan {
+        use crate::syllabus::{Component, Item, Kind};
+        Plan {
+            items: vec![Item { id: "1".into(), topic: topic.into(), kind: Kind::Quiz, week: Some(3), date: None, done: false }],
+            grading: vec![Component { name: "Midterm".into(), weight: 30.0, score: None }],
+            target: None,
+        }
+    }
+
+    #[test]
+    fn cards_and_syllabus_are_sources_that_go_stale_with_an_edit_and_leave_with_their_owner() {
+        let store = Store::in_memory().unwrap();
+        store.save_deck(&deck("d1", "DSA", &[("Stack", "LIFO")])).unwrap();
+        store.save_deck(&deck("empty", "Nothing", &[])).unwrap();
+        let mut snap = Snapshot::default();
+        snap.syllabus.insert("COMP 20073".into(), plan("Trees"));
+        snap.syllabus.insert("MATH 1".into(), Plan::default());
+        store.save(&snap).unwrap();
+
+        let all = store.sources().unwrap();
+        assert_eq!(all.iter().map(|s| (s.key.as_str(), s.title.as_str())).collect::<Vec<_>>(), [("card:d1", "Cards · DSA"), ("plan:COMP 20073", "Syllabus · COMP 20073")]);
+        assert!(all[0].text.contains("Stack: LIFO") && all[1].text.contains("Week 3 · Quiz: Trees") && all[1].text.contains("Midterm 30%"));
+
+        assert_eq!(store.stale_sources("m").unwrap().len(), 2);
+        for s in &all {
+            store.replace_chunks(&s.key, s.stamp, "m", &[("x".into(), vec![1.0])]).unwrap();
+        }
+        assert!(store.stale_sources("m").unwrap().is_empty());
+        assert_eq!(store.stale_sources("other").unwrap().len(), 2, "another model's vectors are not reusable");
+
+        store.save_deck(&deck("d1", "DSA", &[("Stack", "LIFO"), ("Queue", "FIFO")])).unwrap();
+        assert_eq!(store.stale_sources("m").unwrap().iter().map(|s| s.key.as_str()).collect::<Vec<_>>(), ["card:d1"], "a new card makes the deck stale");
+        snap.syllabus.insert("COMP 20073".into(), plan("Graphs"));
+        store.save(&snap).unwrap();
+        assert_eq!(store.stale_sources("m").unwrap().len(), 2, "a changed topic makes the plan stale");
+
+        snap.syllabus.clear();
+        store.save(&snap).unwrap();
+        store.prune_chunks().unwrap();
+        assert_eq!(store.chunks("m").unwrap().iter().map(|c| c.0.as_str()).collect::<Vec<_>>(), ["card:d1"], "a cleared plan drops its chunks");
+        store.delete_deck("d1").unwrap();
+        assert!(store.chunks("m").unwrap().is_empty(), "deleting a deck drops its chunks");
+
+        store.save_deck(&deck("d1", "DSA", &[("Stack", "LIFO")])).unwrap();
+        store.replace_chunks("card:d1", 1, "m", &[("x".into(), vec![1.0])]).unwrap();
+        store.wipe().unwrap();
+        assert!(store.chunks("m").unwrap().is_empty() && store.sources().unwrap().is_empty());
+    }
+
     #[test]
     fn decks_round_trip_and_wipe() {
         use crate::study::{Card, Memory};
@@ -492,5 +651,22 @@ mod tests {
         let store = Store::open(&path, &KEY).unwrap();
         assert_eq!(store.load().unwrap().host.as_deref(), Some("sis8.pup.edu.ph"));
         assert!(!path.with_extension("sqlite.enc").exists());
+    }
+
+    #[test]
+    fn the_chat_keeps_sixty_turns_and_goes_with_sign_out_and_wipe() {
+        let store = Store::in_memory().unwrap();
+        for i in 0..70 {
+            store.add_turn(if i % 2 == 0 { "me" } else { "lar" }, &format!("t{i}"), i, i > 60).unwrap();
+        }
+        let all = store.turns(100).unwrap();
+        assert_eq!((all.len(), all[0].text.as_str(), all[59].text.as_str()), (60, "t10", "t69"));
+        assert_eq!(store.turns(2).unwrap().iter().map(|t| t.text.as_str()).collect::<Vec<_>>(), ["t68", "t69"], "oldest first");
+        assert!(store.turns(1).unwrap()[0].ask);
+        store.forget_sis().unwrap();
+        assert!(store.turns(5).unwrap().is_empty(), "LAR may have quoted grades");
+        store.add_turn("me", "x", 1, false).unwrap();
+        store.wipe().unwrap();
+        assert!(store.turns(5).unwrap().is_empty());
     }
 }

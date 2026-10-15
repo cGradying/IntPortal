@@ -1,10 +1,14 @@
 <script lang="ts">
   // The Storage card for LAR's brain. Light is the default: nothing is
   // downloaded unless the student asks, and they can take it off again.
-  import { assis, cancelDownload, chatModel, install, installed, mb, open, remove } from "./assis.svelte";
+  import { assis, cancelDownload, chatModel, embedModel, install, installed, mb, open, remove } from "./assis.svelte";
   import { buzz } from "../haptics";
 
   const m = $derived(chatModel());
+  const e = $derived(embedModel());
+  // Both models install together; someone who added only LAR's brain before can add the note search later.
+  const total = $derived((m?.bytes ?? 0) + (e && !e.installed ? e.bytes : 0));
+  const searchMissing = $derived(!!e && !e.installed);
   const pct = $derived(assis.total ? Math.min(100, Math.round((assis.done / assis.total) * 100)) : 0);
   let confirming = $state(false);
 </script>
@@ -13,17 +17,20 @@
   <section class="card notch block" aria-label="IntAssis">
     <p class="label">IntAssis</p>
     {#if assis.busy === "downloading"}
-      <div class="line"><span>Downloading {m.name}</span><strong class="num">{pct}%</strong></div>
+      <div class="line"><span>Downloading IntAssis</span><strong class="num">{pct}%</strong></div>
       <div class="bar" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100"><i style:width="{pct}%"></i></div>
       <p class="fine">{mb(assis.done)} of {mb(assis.total)}. Keep this open; if it stops, tap again and it carries on.</p>
       <button class="ghost" onclick={cancelDownload}>Pause</button>
     {:else if installed()}
-      <div class="line"><span>On · {m.name}</span><strong>{mb(m.bytes)} on this phone</strong></div>
-      <p class="fine">LAR answers from your schedule, grades and notes. It runs on this phone, so it works offline and nothing is sent anywhere.</p>
+      <div class="line"><span>On · {m.name}</span><strong>{mb(m.bytes + (e?.installed ? e.bytes : 0))} on this phone</strong></div>
+      <p class="fine">{searchMissing ? "LAR answers from your schedule and grades." : "LAR answers from your schedule, grades and notes, and can summarize or tidy a note."} It runs on this phone, so it works offline and nothing is sent anywhere.</p>
       <button class="primary" onclick={open}>Ask LAR</button>
+      {#if searchMissing && e}
+        <button class="ghost" onclick={() => { buzz.tick(); install(); }}>Add note search · {mb(e.bytes)}</button>
+      {/if}
       {#if confirming}
         <div class="row">
-          <button class="danger" onclick={() => { confirming = false; remove(); }}>Remove, free {mb(m.bytes)}</button>
+          <button class="danger" onclick={() => { confirming = false; remove(); }}>Remove, free {mb(m.bytes + (e?.installed ? e.bytes : 0))}</button>
           <button class="ghost" onclick={() => (confirming = false)}>Keep</button>
         </div>
       {:else}
@@ -31,12 +38,12 @@
       {/if}
     {:else}
       <div class="line"><span>Light</span><strong>No AI, nothing downloaded</strong></div>
-      <p class="fine">Add IntAssis to ask LAR things like "ano ang due ko?" or "remind me bukas", and to make flashcards from your notes. It is a one-time {mb(m.bytes)} download (use Wi-Fi) and it works offline after that.</p>
+      <p class="fine">Add IntAssis to ask LAR about your classes, deadlines, grades and notes, to save a note or a reminder by asking, and to make flashcards on a topic. It is a one-time {mb(total)} download (use Wi-Fi) and it works offline after that.</p>
       {#if m.fits === "refuse"}
         <p class="fine warn">This phone doesn't have enough free memory for it right now. Close other apps and open this again.</p>
       {:else}
         {#if m.fits === "warn"}<p class="fine warn">It may be a tight fit on this phone; LAR could be slow.</p>{/if}
-        <button class="primary" onclick={() => { buzz.tick(); install(); }}>Add IntAssis · {mb(m.bytes)}</button>
+        <button class="primary" onclick={() => { buzz.tick(); install(); }}>Add IntAssis · {mb(total)}</button>
       {/if}
     {/if}
     {#if assis.error}<p class="fine warn">{assis.error}</p>{/if}
