@@ -25,7 +25,9 @@ Each layer only calls the one below it. The core has no UI and no platform APIs,
 
 | Module | What it does |
 |---|---|
-| `sis/` | The SIS client (`client.rs`), host failover between SIS mirrors (`host.rs`), and HTML scraping (`scrape.rs`). |
+| `portal.rs` | The portal registry: each PUP system the app opens (SIS, Mabini, and placeholders), with its status, theme, sign-in fields, limits and keychain service. |
+| `sis/` | The SIS client (`client.rs`), the live-host probe (`host.rs`), HTML scraping (`scrape.rs`), and the sign-in guard (`guard.rs`): one credential POST per tap, a `Ledger` of tries per 15 minutes, no retry after a rejected login. |
+| `mabini/` | The eMabini (Moodle) client: login with its `logintoken`, the `sesskey`, the AJAX calls for courses and deadlines, and the grade overview table (`parse.rs`). |
 | `schedule.rs` | Turns scraped schedule rows into `ClassSession`s. |
 | `grades.rs` | Grade parsing, GPA, goals and `Standing` (what you need on the rest). |
 | `today.rs` | The agenda for a moment: up next, free time, marks and moves, busy spans, reminders, the glance line. The largest module. |
@@ -36,14 +38,15 @@ Each layer only calls the one below it. The core has no UI and no platform APIs,
 | `calendar.rs` | `.ics` export and the class events written to the phone's calendar. |
 | `campus.rs` | Resolves a student number to a campus. |
 | `model.rs` | Shared types: `ClassSession`, `Weekday`. |
-| `store.rs` | The SQLCipher store, one file per student. `Snapshot` holds the SIS data, marks, colours, goals and plans; notes, decks and study stats have their own tables. |
+| `store.rs` | The SQLCipher store, one file per student. `Snapshot` holds the SIS data, marks, colours, goals and plans. Notes, decks and study stats have their own tables, Mabini's data is saved apart from the `Snapshot` (`save_mabini`), and the AI keeps its chat (`turns`) and search index (`chunks`) here too. |
 
 ## The shell
 
-`src-tauri/src/lib.rs` holds `AppState` (the open `Store`, the data folder and the signed-in `SisClient`) and 35 commands, registered in `run()` with `generate_handler!`. It also holds:
+`src-tauri/src/lib.rs` holds `AppState` (the open `Store`, the data folder, the signed-in `SisClient` and `MabiniClient`, and one guard `Ledger` per portal) and 43 commands; the 16 AI commands are in `src-tauri/src/ai.rs`. All are registered in `run()` with `generate_handler!`. It also holds:
 
 - `keychain`, the platform keychain (Keychain Services on Apple, a Keystore-sealed value on Android through `Secrets.kt`);
-- `vault`, the saved SIS login;
+- `vault`, the saved logins, one keychain service per portal (`Portal.keychain_service`);
+- the guard ledgers, saved as `login-guard.json` (SIS) and `mabini-guard.json` in the app's data folder, outside any student's store, so a restart doesn't reset the count;
 - `dbkey`, one random 32-byte key per store file, kept in the keychain;
 - `open_store`, which opens a student's store with its key. A store the key can't open is renamed `.locked-<time>` and a fresh one starts, so the app never bricks;
 - `DEMO`, the flag behind **Look around with demo data**.
@@ -61,11 +64,13 @@ Every command returns `Result<T, String>` today.
 
 ## Main flows
 
-**Sign in.** `Landing` sends the login to `sign_in`. The shell signs in with `sign_in_with_failover`, saves the login to the vault, opens that student's store (`open_account`), pulls the schedule and grades (`refresh`), and returns the `Snapshot`. The UI calls `adopt(snapshot)`.
+**Sign in.** `Landing` sends the login to `sign_in`. The shell signs in with `sign_in_guarded`: plain GETs find a live SIS host, then exactly one credential POST, counted in the ledger. It saves the login to the vault, opens that student's store (`open_account`), pulls the schedule and grades (`refresh`), and returns the `Snapshot`. The UI calls `adopt(snapshot)`.
 
 **Adopt.** `adopt()` in `state.svelte.ts` stores the snapshot, then refreshes notes, Today, the reminders and the phone's IntPortal calendar. Every path that gets a new snapshot (sign-in, sync, an edit, demo) goes through it.
 
-**Sync.** `syncNow()` calls `sync`, which signs in again from the vault when the session expired. A failed grades page keeps the last grades; only a signed-out session fails the whole sync.
+**Sync.** `syncNow()` calls `sync`, which signs in again from the vault when the session expired, through the same guard, and never while the saved login is marked rejected. A failed grades page keeps the last grades; only a signed-out session fails the whole sync.
+
+**Mabini.** `mabini_sign_in` signs in to eMabini through Mabini's own ledger and keychain entry, then pulls courses, deadlines and grades; `mabini_sync` refreshes them. Today shows the deadlines next to the syllabus ones (`MabiniDue`), and You shows Mabini's account apart from the SIS.
 
 **The minute tick.** `startClock()` runs `refreshToday()` on each minute boundary. It reads the student's own calendar events as busy time when that setting is on, asks `today` for the agenda, and pushes the next class and the glance line to `plugin:glance|update` (widget and Live Activity on iOS, Live Update on Android).
 
@@ -106,7 +111,9 @@ IntAssis runs a small model through llama.cpp, on the phone, only after the stud
 
 - **Data stays on the phone.** No backend and no sync between devices until the cloud tier ([ADR 0002](adr/0002-device-only-data.md)).
 - **Only the student's own account.** That is what PUP's terms allow.
-- **The SIS login is in the keychain**, never in the store, logs or localStorage.
+- **Logins are in the keychain**, one service per portal, never in the store, logs or localStorage.
+- **No portal can get a student locked out.** Every sign-in goes through the guard: one POST per tap, at most three tries per 15 minutes per portal, no automatic retry after a rejection.
+- **Portals don't share state.** A Mabini failure never fails an SIS sync, and the reverse.
 - **Each student's store is SQLCipher-encrypted** with its own key in the keychain. A store that won't open is set aside, never deleted.
 - **The core stays pure.** No platform APIs in `intportal-core`; anything that needs the phone goes in the shell or a plugin.
 - **LAR speaks; Isko never does.** Copy follows `PRODUCT.md` and `DESIGN.md`.
@@ -149,7 +156,7 @@ Desktop `cargo` builds compile neither the Swift nor the Kotlin. Only `scripts/s
 
 These feed the first sprint in `docs/TEAM.md`.
 
-- `src-tauri/src/lib.rs` is about 850 lines and mixes commands, keychain and store opening.
+- `src-tauri/src/lib.rs` is about 1,070 lines and mixes commands, keychain, store opening and both portals' sign-in (#60).
 - `src/lib/api.ts` types are hand-written copies of the Rust structs and can drift.
 - Commands return strings for errors, so the UI can't tell offline, a failed sign-in and a locked store apart.
 - The SIS parsers have no fixtures from real pages, so a change on PUP's side shows up only on a phone.
