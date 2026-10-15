@@ -18,8 +18,8 @@ export interface Opening {
   steppedAt: number | null;
 }
 
-/** Seconds for the frame to build; covers the scene's own FORM (a Rust test pins it under 0.8). */
-export const FORM = 0.8;
+/** Seconds for the frame to build; covers the scene's own FORM (a Rust test pins it under 0.9). */
+export const FORM = 0.9;
 /** Seconds from Step through to landing on Today. */
 export const DIVE = 1.1;
 

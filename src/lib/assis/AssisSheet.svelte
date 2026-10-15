@@ -137,7 +137,7 @@
       {/if}
     {/each}
     {#if waiting}
-      <div class="lar" aria-label="LAR is thinking"><p class="think">{assis.busy === "waking" ? "Waking up" : "Thinking"}<i></i><i></i><i></i></p></div>
+      <div class="lar" aria-label="LAR is thinking"><Lar size={2} cube={false} state="think" /><p class="think">{assis.busy === "waking" ? "Waking up" : "Thinking"}<i></i><i></i><i></i></p></div>
     {/if}
   </div>
 

@@ -124,9 +124,9 @@ components:
     backgroundColor: "{colors.portal-night}"
     textColor: "#ffffff"
     typography: "{typography.input}"
-    rounded: "{rounded.pixel}"
-    height: "46px"
-    padding: "0 12px"
+    rounded: "{rounded.control}"
+    height: "54px"
+    padding: "20px 14px 4px"
   card:
     backgroundColor: "{colors.card}"
     textColor: "{colors.ink}"
@@ -226,9 +226,9 @@ The root is the iPhone's body text size (`font: -apple-system-body`, 17 px at th
 - **Body** (400, 16 px, cap 29 px, line-height 1.4): the default body size.
 - **Body small** (400, 14 px, cap 25 px): LAR's line, errors, descriptions. 15 px (cap 27 px) for list rows and buttons.
 - **Fine** (400, 13 px, cap 23 px): the most used secondary size: meta lines, privacy notes, small buttons.
-- **Label** (Montserrat 600, 11 px, cap 20 px, 0.08em, uppercase, ink-3): field names and metadata. The landing's field labels run 12 px (cap 22 px) at 0.06em.
+- **Label** (Montserrat 600, 11 px, cap 20 px, 0.08em, uppercase, ink-3): field names and metadata. The landing form's floating labels are the exception: regular, 12 px, sentence case.
 - **Pixel** (Pixelify 500, 12 px, cap 22 px, 0.04em to 0.08em): LAR's tag, stone labels, hints.
-- **Input** (16 px floor, then the body size): every text field, so iOS never zooms on focus.
+- **Input** (16 px floor, then the body size): every text field, so iOS never zooms on focus. The landing's sign-in form sets its fields, floating labels, Show toggle, Sign in button, errors and fine print in the system UI face (`--font-ui`) at regular and semibold weights; Montserrat stays on the wordmark and Pixelify on the tries and campus lines.
 
 ### Named Rules
 **The Capped Growth Rule.** Every font size is `min(rem, px)`. A new size divides the design px by 17 for the rem and sets the cap near 1.3 times (headings) or 1.8 times (body, labels). The tab bar is the one tighter cap (13 px), because five labels share the width.
@@ -263,14 +263,14 @@ Pixel surfaces use bevels instead of shadows: a lit top edge and a dark bottom e
 
 ## Shapes
 
-Two corner languages, by register. Pixel surfaces (cards, sheets, the problem card, the landing's slabs, fields and buttons) have stepped corners cut with clip-path, two steps deep: 3 px steps by default and 4 px on cards and sheets, so they read clean at arm's length and pixel up close. Landing fields have square corners. Inside the app, controls (buttons, inputs, selects, list rows, skeleton bars) use soft radii: 10 px for controls and 12 px for rows and segmented controls. Round shapes appear only for LAR's ground shadow and status dots.
+Two corner languages, by register. Pixel surfaces (cards, sheets, the problem card, the landing's slabs, fields and buttons) have stepped corners cut with clip-path, two steps deep: 3 px steps by default and 4 px on cards and sheets, so they read clean at arm's length and pixel up close. The landing's fields are the exception: rounded at 10 px like app controls, because they borrow the phone's login pattern; the card and buttons around them stay stepped. Inside the app, controls (buttons, inputs, selects, list rows, skeleton bars) use soft radii: 10 px for controls and 12 px for rows and segmented controls. Round shapes appear only for LAR's ground shadow and status dots.
 
 The portal's own geometry is the brand's: 24 blocks, 6 wide by 8 tall, one block thick, like a Nether portal, built from I, L and J pieces; each block is 2 by 2 tiles. LAR's ears are the frame's stepped corner blocks. *(current)* The shipped frame is 8 by 11 blocks, two thick, from pentominoes.
 
 ## Components
 
 ### Buttons
-- **Portal button** (Sign in, Step through): solid gold, Burnt Ink text, Montserrat 700 at body size, 50 px tall, 4 px stepped corners, the gold lip. Step through is at least 220 px wide with 28 px side padding. Focus draws a 3 px Gold Light inner ring; pressed flips the lip and drops 1 px; disabled is 0.7 opacity.
+- **Portal button** (Sign in, Step through): solid gold, Burnt Ink text, system UI face 600 at body size, 50 px tall, 4 px stepped corners, the gold lip. Step through is at least 220 px wide with 28 px side padding. Focus draws a 3 px Gold Light inner ring; pressed flips the lip and drops 1 px; disabled is 0.7 opacity.
 - **Primary (app):** gold on on-gold, Montserrat 700, 44 px tall (36 px in compact cards), 10 px radius.
 - **Ghost (app):** Sunk fill with the hairline, Ink text, same shape.
 - **Danger:** bad fill with white text.
@@ -283,7 +283,7 @@ The portal's own geometry is the brand's: 24 blocks, 6 wide by 8 tall, one block
 - **Internal Padding:** 16 px (18 by 16 px for sheets).
 
 ### Inputs / Fields
-- **Landing:** 46 px tall, square, Night fill, a 1 px white hairline at 0.1, white text, placeholders at 0.58 alpha, gold caret. Focus is a 2 px gold inner ring. An empty date field shows a "mm / dd / yyyy" hint.
+- **Landing:** the sign-in form borrows the phone's own login pattern, in IntPortal's colours. Fields stack (student number, birthdate, password), 54 px tall with a 10 px radius, Night fill and a 1 px white hairline at 0.14. Text is the system UI face (`--font-ui`: SF Pro on iOS), regular weight, 16 px, white, with a gold caret. The label sits inside the field at 16 px in parchment at 0.55 alpha and floats up to 12 px (scale 0.75, no uppercase) on focus, with a value, on browser autofill, and always for the date. The student-number example shows only once the label is up. Focus is a 1.5 px inner ring in the portal's accent, and the floated label turns the same colour; an invalid field after a failed check gets the same ring in the error rose (#f0a090) until it is fixed. The password field ends in a quiet text toggle, Show or Hide (600, 13 px cap 25 px), a real button with `aria-pressed` and a 44 px hit area. An empty date field shows a "mm / dd / yyyy" hint in the value position; the browser's own format text appears once the field has focus. The label float is a 0.16 s ease, off under Reduce Motion.
 - **App:** sunk or card fill with the hairline, 10 px radius, 16 px minimum text.
 
 ### Navigation
@@ -296,17 +296,21 @@ A 12 by 16 grid of flat square tiles with gaps on a black void, four obsidian to
 - **At rest:** a few tiles quietly flip tone with a short shrink.
 - **Connecting:** a soft accent pulse travels around the frame; the interior shows warp stars.
 - **Open:** an accent wave runs up both sides from the bottom centre and settles into a faint theme tint; the interior is a swirl. A dither dissolve of about 0.7 s turns stars into swirl.
-- **Carousel:** the selected portal is centred and its neighbours peek in, dimmed by distance. Swipe with a rubber band at the ends; letting go springs (stiffness 180, near-critical damping) to the nearest portal, and a flick moves one. Arrows, tile-shaped page dots (the active one in the portal's accent) and a caption with the school's name do the same for anyone who doesn't swipe. A portal that is not ready shows "Opens soon" and the school's name in place of the form; the card keeps its height so the portal never jumps.
+- **Carousel, an orbit:** the portals ride an ellipse like planets round a sun. The selected one faces you at full size; its neighbours sit well out to the sides (the orbit is 0.7 of the stage wide each way, 60° between portals), smaller (down to 35%), higher and dimmer, and any further round are hidden behind. Changing portal turns the orbit on a soft spring (stiffness 70, about 0.7 s) while a faint 46-star field drifts in three parallax layers and stretches into warp streaks; at rest the stars only twinkle, never over the selected portal. Swipe with a rubber band at the ends; letting go springs to the nearest portal, and a flick moves one. Arrows, tile-shaped page dots (the active one in the portal's accent) and a caption with the school's name do the same for anyone who doesn't swipe. A portal that is not ready shows "Opens soon" and the school's name in place of the form; the card keeps its height so the portal never jumps.
 - **Variety:** every portal has its own frame shape (5–8 by 7–9 blocks; square, cut or arched corners), its own interior motif (swirl, ripple, bloom, rain, lattice, aurora) and its own ramp. The frame's obsidian takes a 14 % breath of the portal's ramp. At rest the motif breathes below its brightest tone; connecting shows warp stars; open shows the full motif.
 - **Smoothness:** motion is continuous and eased; only the three-frame pop stays stepped. 60 fps while anything moves, 30 at rest.
 
 *(current)* The shipped signature is twelve pentominoes in ten shapes filling a 60-cell ring, glossy obsidian blocks with purple flecks, two stencil-masked swirl layers, a brown platform, a violet and gold light rig and 56 gold motes. It is retired by ADR 0004. The **stones** (Schedule, Grades, Study) that LAR pulled out of the swirl are retired with it, decided in spec 010.
 
 ### LAR
-The Lakbay-Aral Robot, 26 by 23 art pixels: an obsidian pebble lit from the top left in four tones with ordered dither, stepped block ears, a dark visor with gold eyes, a belly window with a live 6 by 5 swirl, a gold spark antenna, two floating mitts, a small orbiting portal cube, and a magenta rim light on his right edge so he reads on dark scenes. He is drawn as separate canvases so the parts move smoothly between whole pixels.
+The Lakbay-Aral Robot, 26 by 23 art pixels: a pebble lit from the top left in four tones with ordered dither, stepped block ears, a dark visor with gold eyes, a belly window with a live 6 by 5 swirl, a gold spark antenna, two floating mitts, a small orbiting portal cube, and a rim light on his right edge so he reads on dark scenes. One renderer draws him everywhere (`drawLar` in `src/lib/lar/sprite.ts`, on one canvas per LAR): parts move smoothly between whole pixels. Sheet: `docs/specs/reference/prototypes/lar-sheet.html`.
 
-- **Palette:** outline #1a0f20; body #2c1c3a, #43295a, #5f3f7e, #8663a8, #b996d8; visor #140b1b with rim #2d1d3c; gold #f5b227 and #b87a10; highlight #fff6dc; blush #ff7a9c; mouth #7a1128; belly frame #24162e; #5d3f78; rim light #e27bd0; cube core #c2403a.
-- **Moods:** open (blinks for about a tenth of a second every 2.9 to 3.7 s), blink, happy, wow, wink, focus. On the landing: open at rest, focus while typing or signing in, wow on an error, happy once signed in.
+- **University colours:** he stays the obsidian LAR, with a hint of his portal (`tint`). His body's five tones and outline keep their obsidian purple and lightness ladder, blended 12% (shadows) to 26% (lights) toward a gradient from the ramp's deep hue to the accent's hue (maroon to gold for PUP, forest to lime for UP, slate to coral for TUP). The portal shows in full where it lights him: the rim light (the accent lifted to at least 3:1 on the void), studs, cube, swirl and fire. His gold eyes and spark never change. In the app he wears the student's portal; on the landing, the selected one.
+- **Whimsy:** a soft radial glow in the portal's accent sits behind him, and every 5.5 s a dithered sheen sweeps across his body, lifting each tone a step.
+- **States:** idle, fly (leans into his velocity, speed dashes), spawn (comes out of a Doom-style pixel fire in the portal's ramp, resolving from coarse blocks), think (focus eyes, visor dots, fast cube), sleep (eyes shut, zzz, the cube parked), error (wow eyes, 2 px shake, red visor flicker), happy (hop and wave, sparkle). A `rig` eases every change. Error cards show error, IntAssis thinking shows think, first run shows happy, Today's coach sleeps late at night.
+
+- **Base palette** (before `tint`): outline #1a0f20; body #2c1c3a, #43295a, #5f3f7e, #8663a8, #b996d8; visor #140b1b with rim #2d1d3c; gold #f5b227 and #b87a10; highlight #fff6dc; blush #ff7a9c; mouth #7a1128; belly frame #24162e; #5d3f78; rim light #e27bd0; cube core #c2403a.
+- **Moods:** sleep, open (blinks for about a tenth of a second every 2.9 to 3.7 s), blink, happy, wow, wink, focus.
 - **Gestures:** idle, wave, point, reach, thumbs. Wave on arrival and at the hub.
 - **Speech:** LAR talks through a 3 px stepped obsidian slab, his name in gold Pixelify, his line in light Taglish ("Hi, I'm LAR...", "Ayos! Your schedule and grades are in.", "Welcome back, iskolar. Tara?").
 

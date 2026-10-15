@@ -9,7 +9,7 @@ pub const STRIDE: usize = 10;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm {
-    use crate::scene::{carousel, gap as spacing, Corner, Input, Look, Motif, Scene, Shape, Stage, Theme, Tile};
+    use crate::scene::{carousel, gap as spacing, rect, Corner, Input, Look, Motif, Scene, Shape, Stage, Theme, Tile};
     use crate::STRIDE;
     use std::cell::RefCell;
 
@@ -64,11 +64,11 @@ mod wasm {
         WORLD.with(|w0| w0.borrow_mut().size = (w, h));
     }
 
-    /// Draw the frame at `t` with the carousel at `pos`; returns the tile
+    /// Draw the frame at `t` with the carousel at `pos` moving at `vel` portals/s; returns the tile
     /// count. `flags`: 1 returning, 2 reduce.
     #[no_mangle]
-    pub extern "C" fn frame(t: f32, prev: f32, stage: u32, opened_at: f32, flags: u32, pos: f32) -> u32 {
-        let inp = Input { t, prev, stage: Stage::from_u32(stage), opened_at, returning: flags & 1 != 0, reduce: flags & 2 != 0 };
+    pub extern "C" fn frame(t: f32, prev: f32, stage: u32, opened_at: f32, flags: u32, pos: f32, vel: f32) -> u32 {
+        let inp = Input { t, prev, stage: Stage::from_u32(stage), opened_at, returning: flags & 1 != 0, reduce: flags & 2 != 0, vel };
         WORLD.with(|w| {
             let w = &mut *w.borrow_mut();
             w.events = carousel(&w.scenes, pos, &inp, w.size.0, w.size.1, &mut w.out);
@@ -91,6 +91,21 @@ mod wasm {
         WORLD.with(|w| {
             let w = w.borrow();
             spacing(&w.scenes, w.size.0, w.size.1)
+        })
+    }
+
+    /// Portal `p`'s frame box in device px, `[x, y, w, h]`, at the carousel's
+    /// current position.
+    #[no_mangle]
+    pub extern "C" fn portal_rect(pos: f32, p: u32) -> *const i32 {
+        thread_local! { static R: RefCell<[i32; 4]> = const { RefCell::new([0; 4]) }; }
+        let r = WORLD.with(|w| {
+            let w = w.borrow();
+            rect(&w.scenes, pos, p as usize, w.size.0, w.size.1)
+        });
+        R.with(|b| {
+            *b.borrow_mut() = r;
+            b.as_ptr() as *const i32
         })
     }
 

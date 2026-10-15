@@ -6,6 +6,8 @@
 
 - `prototypes/reference-sheet.html`: the look in one sheet. It mixes the tile portal's minimalism, the calm app (`DESIGN.md`) and the IntPortal board's pixel art: rules, colour, type, the tile, a pixel art library drawn solid or as tiles, sign-in and Today mocks, and proposals for bringing more board art into the app. It embeds `static/tiles.wasm` so the portal it shows is the app's own renderer; rebuild it after changing `crates/intportal-tiles`. Shared as a private claude.ai artifact.
 
+- `prototypes/lar-sheet.html`: LAR's sprite sheet. Every state at 2, 4 and 8 times, the fire spawn and every state in each university's colours, a loop through the state changes, LAR flying by a tile portal, and each portal's palette. Its script is the app's own `src/lib/lar/sprite.ts`, inlined by `node docs/specs/reference/prototypes/build-lar-sheet.mjs` from `lar-sheet.src.html`; rebuild it after changing the sprite.
+
 ## Local only (`private/`, ignored by git)
 
 `private/` holds things that must not be committed:

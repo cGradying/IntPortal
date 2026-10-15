@@ -89,6 +89,8 @@
   --font-display: "Montserrat Variable", system-ui, sans-serif;
   --font-body: "Source Sans 3 Variable", system-ui, sans-serif;
   --font-pixel: "Pixelify Sans", ui-monospace, monospace;
+  /* The phone's own UI face: the sign-in form borrows its calm, like every login screen. */
+  --font-ui: -apple-system, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
   --step: 3px; /* one pixel-notch step */
   --gutter: 16px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);

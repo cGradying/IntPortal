@@ -7,9 +7,8 @@
   // phone's shape.
   import { onMount, untrack } from "svelte";
   import PortalStage from "./PortalStage.svelte";
-  import type { Gesture } from "./lar/Lar.svelte";
-  import type { Mood } from "./lar/sprite";
-  import { api, isoDate, type CampusResolution, type Portal, type Tries } from "./api";
+  import type { Context } from "./lar/LarFlight.svelte";
+  import { api, isoDate, type CampusResolution, type Portal, type PortalField, type Tries } from "./api";
   import { FALLBACK_SIS, portalCopy, triesLine, validate } from "./portals";
   import { portalApiFor } from "./portalApi";
   import { buzz } from "./haptics";
@@ -29,6 +28,9 @@
   let studno = $state("");
   let birthday = $state("");
   let password = $state("");
+  let showPw = $state(false);
+  // Set by a failed check; each field then clears its own mark once it is fixed.
+  let tried = $state(false);
 
   let t = $state(0);
   let steppedAt = $state<number | null>(null);
@@ -65,18 +67,8 @@
     api.campus(n).then((r) => (campus = r)).catch(() => {});
   });
 
-  // LAR's face and hands follow what's happening.
-  const mood = $derived<Mood>(error ? "wow" : busy || typing ? "focus" : rest === "hub" ? "happy" : "open");
-  const gesture = $derived<Gesture>(rest === "hub" ? "wave" : "idle");
-  const line = $derived(
-    error
-      ? "Hindi pumasok. Check the details and try again."
-      : rest === "hub"
-        ? returning
-          ? "Welcome back, iskolar. Tara?"
-          : "Ayos! Your schedule and grades are in."
-        : copy.lar,
-  );
+  // LAR's face and flight follow what's happening; he talks for himself.
+  const ctx = $derived<Context>(error ? "error" : busy ? "busy" : rest === "hub" ? "signed" : typing ? "typing" : "idle");
 
   onMount(() => {
     let raf = 0;
@@ -94,9 +86,13 @@
     return () => cancelAnimationFrame(raf);
   });
 
+  const values = $derived({ student_number: studno, birthdate: birthday, password });
+  const bad = (field: PortalField) => tried && !!validate({ ...portal, fields: [field] }, values);
+
   async function submit(e: Event) {
     e.preventDefault();
-    error = validate(portal, { student_number: studno, birthdate: birthday, password });
+    error = validate(portal, values);
+    tried = !!error;
     if (error) return;
     busy = true;
     try {
@@ -147,13 +143,11 @@
     still={typing}
     showLar={resting}
     leaving={steppedAt !== null}
-    {mood}
-    {gesture}
+    {ctx}
   />
 
   <!-- In the layout from the start, so the portal's room never jumps when it shows. -->
   <div class="dock" class:on={resting} class:hub={rest === "hub"} inert={!resting}>
-      <p class="say" aria-live="polite"><b>LAR</b> {line}</p>
       {#if rest === "hub"}
         <button class="step" onclick={step}>Step through</button>
         <p class="hint">{app.sisConnected ? `PUP SIS · via ${(app.snapshot?.host ?? "sis8").split(".")[0]}` : copy.hint}</p>
@@ -167,24 +161,23 @@
               <p>Its portal opens soon. IntPortal will connect here once it's ready; for now, SIS and Mabini work.</p>
             </div>
           {:else}
-          <label>
-            <span>Student number</span>
-            <input bind:value={studno} placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" />
-            {#if campus.kind === "known"}<small class="campus">{campus.campus.name} · campus found</small>
-            {:else if campus.kind === "unknown_code"}<small class="campus dim">{campus.code} · campus not confirmed yet, sign-in still works</small>{/if}
-          </label>
-          <div class="pair" class:single={!portal.fields.includes("birthdate")}>
-            {#if portal.fields.includes("birthdate")}
-              <label class="date" class:empty={!birthday}>
-                <span>Birthdate</span>
-                <input type="date" bind:value={birthday} />
-                <i aria-hidden="true">mm / dd / yyyy</i>
-              </label>
-            {/if}
-            <label>
-              <span>Password</span>
-              <input type="password" bind:value={password} autocomplete="current-password" />
-            </label>
+          <div class="field" class:filled={!!studno} class:bad={bad("student_number")}>
+            <input id="f-studno" bind:value={studno} placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" aria-invalid={bad("student_number")} />
+            <label for="f-studno">Student number</label>
+          </div>
+          {#if campus.kind === "known"}<small class="campus">{campus.campus.name} · campus found</small>
+          {:else if campus.kind === "unknown_code"}<small class="campus dim">{campus.code} · campus not confirmed yet, sign-in still works</small>{/if}
+          {#if portal.fields.includes("birthdate")}
+            <div class="field date" class:empty={!birthday} class:bad={bad("birthdate")}>
+              <input id="f-birthday" type="date" bind:value={birthday} aria-invalid={bad("birthdate")} />
+              <label for="f-birthday">Birthdate</label>
+              <i aria-hidden="true">mm / dd / yyyy</i>
+            </div>
+          {/if}
+          <div class="field" class:filled={!!password} class:bad={bad("password")}>
+            <input id="f-password" type={showPw ? "text" : "password"} bind:value={password} autocomplete="current-password" aria-invalid={bad("password")} />
+            <label for="f-password">Password</label>
+            <button type="button" class="eye" aria-label="Show password" aria-pressed={showPw} onclick={() => (showPw = !showPw)}>{showPw ? "Hide" : "Show"}</button>
           </div>
           <button class="go" disabled={busy || locked}>{busy ? "Signing in…" : "Sign in"}</button>
           {#if triesText}<p class="tries" class:out={locked} aria-live="polite">{triesText}</p>{/if}
@@ -264,28 +257,6 @@
       opacity 0.25s ease-in,
       transform 0.25s ease-in;
   }
-  .say {
-    margin: 0;
-    padding: 10px 12px;
-    background: #170b1a;
-    box-shadow:
-      inset 0 2px 0 #3a2446,
-      inset 0 -2px 0 #060307;
-    font-size: min(0.824rem, 25px);
-    line-height: 1.35;
-    color: #f4e8d6;
-    clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
-  }
-  .hub .say {
-    text-align: center;
-  }
-  .say b {
-    margin-right: 6px;
-    font-family: var(--font-pixel);
-    font-weight: 400;
-    letter-spacing: 0.06em;
-    color: #f5b227;
-  }
   .card {
     display: grid;
     gap: 12px;
@@ -294,43 +265,82 @@
     box-shadow: inset 0 0 0 1px rgb(245 178 39 / 0.16);
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
   }
-  label {
-    display: grid;
-    gap: 5px;
-    min-width: 0;
+  /* The fields follow the phone's own login pattern: a rounded well, the label
+     inside it floating up once there is something to say. */
+  .field {
+    position: relative;
+    border-radius: 10px;
+    background: #0b0710;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+    transition: box-shadow 0.16s var(--ease);
   }
-  label > span {
-    font-size: min(0.706rem, 22px);
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgb(244 236 216 / 0.6);
+  .field:focus-within {
+    box-shadow: inset 0 0 0 1.5px var(--portal-accent, #f5b227);
   }
-  .pair {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+  .field.bad {
+    box-shadow: inset 0 0 0 1.5px #f0a090;
   }
   input {
+    display: block;
     width: 100%;
     min-width: 0;
-    height: 46px;
-    padding: 0 12px;
+    height: 54px;
+    padding: 20px 14px 4px;
     border: 0;
-    border-radius: 0;
-    background: #0b0710;
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+    border-radius: 10px;
+    background: transparent;
+    box-shadow: none;
     color: #fff;
-    font: max(16px, min(0.941rem, 29px)) var(--font-body);
+    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
     caret-color: #f5b227;
     outline: none;
     -webkit-appearance: none;
     appearance: none;
   }
-  /* iOS draws an empty date field as a blank slab; give it a hint. */
-  .date {
-    position: relative;
+  .field:has(.eye) input {
+    padding-right: 66px;
   }
+  .field label {
+    position: absolute;
+    left: 14px;
+    top: 17px;
+    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
+    color: rgb(244 236 216 / 0.55);
+    transform-origin: 0 0;
+    pointer-events: none;
+    transition:
+      transform 0.16s var(--ease),
+      color 0.16s var(--ease);
+  }
+  /* Floated: focus, a value, the browser's autofill, or a date (it always shows a format). */
+  .field:focus-within label,
+  .field.filled label,
+  .field.date label,
+  .field:has(input:-webkit-autofill) label {
+    transform: translateY(-10px) scale(0.75);
+  }
+  .field:focus-within label {
+    color: var(--portal-accent, #f5b227);
+  }
+  .field.bad label {
+    color: #f0a090;
+  }
+  /* The example shows only once the label is up. */
+  input::placeholder {
+    color: rgb(255 255 255 / 0.4);
+    opacity: 0;
+    transition: opacity 0.16s var(--ease);
+  }
+  input:focus::placeholder {
+    opacity: 1;
+  }
+  /* Autofill paints its own yellow; keep the well dark. */
+  input:-webkit-autofill {
+    -webkit-text-fill-color: #fff;
+    box-shadow: 0 0 0 100px #0b0710 inset;
+  }
+  /* iOS draws an empty date field as a blank slab; give it a hint, and hide the
+     browser's own format text so the two never stack. */
   .date input {
     display: flex;
     align-items: center;
@@ -338,30 +348,42 @@
   .date input::-webkit-date-and-time-value {
     text-align: left;
   }
+  .date.empty:not(:focus-within) input::-webkit-datetime-edit {
+    opacity: 0;
+  }
   .date i {
     position: absolute;
-    left: 12px;
-    bottom: 13px;
+    left: 14px;
+    bottom: 11px;
     display: none;
-    font-style: normal;
-    color: rgb(255 255 255 / 0.58);
+    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
+    color: rgb(255 255 255 / 0.4);
     pointer-events: none;
   }
-  .date.empty i {
+  .date.empty:not(:focus-within) i {
     display: block;
   }
-  input::placeholder {
-    color: rgb(255 255 255 / 0.58);
+  /* A quiet text toggle, with a 44 px hit area inside the field. */
+  .eye {
+    position: absolute;
+    top: 5px;
+    right: 2px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: rgb(244 236 216 / 0.7);
+    font: 600 min(0.824rem, 25px) var(--font-ui);
   }
-  input:focus {
-    box-shadow: inset 0 0 0 2px var(--portal-accent, #f5b227);
-  }
-  .pair.single {
-    grid-template-columns: 1fr;
+  .eye:focus-visible {
+    outline: 2px solid var(--portal-accent, #f5b227);
+    outline-offset: -2px;
   }
   .swap {
     display: grid;
-    gap: 12px;
+    gap: 10px;
     animation: swap 0.32s var(--ease);
   }
   @keyframes swap {
@@ -387,6 +409,7 @@
   }
   .soon p {
     margin: 0;
+    font-family: var(--font-ui);
     font-size: min(0.824rem, 25px);
     text-wrap: balance;
   }
@@ -417,9 +440,10 @@
     border: 0;
     background: #f5b227;
     color: #1b1406;
-    font-family: var(--font-display);
-    font-weight: 700;
+    font-family: var(--font-ui);
+    font-weight: 600;
     font-size: min(0.941rem, 29px);
+    letter-spacing: 0.01em;
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
     box-shadow: inset 0 -3px 0 #b87a10;
   }
@@ -441,6 +465,7 @@
   }
   .go:disabled {
     opacity: 0.7;
+    cursor: progress;
   }
   .step {
     min-width: 220px;
@@ -448,11 +473,13 @@
   }
   .error {
     margin: 0;
+    font-family: var(--font-ui);
     font-size: min(0.824rem, 25px);
     color: #f0a090;
   }
   .fine {
     margin: 0;
+    font-family: var(--font-ui);
     font-size: min(0.706rem, 22px);
     text-align: center;
     text-wrap: balance;
@@ -467,6 +494,7 @@
   }
   .demo {
     border: 0;
+    font-family: var(--font-ui);
     background: none;
     color: rgb(245 178 39 / 0.85);
     font-size: min(0.765rem, 23px);
@@ -476,6 +504,11 @@
   @media (prefers-reduced-motion: reduce) {
     .swap {
       animation: none;
+    }
+    .field,
+    .field label,
+    input::placeholder {
+      transition: none;
     }
     .dock,
     .brand {

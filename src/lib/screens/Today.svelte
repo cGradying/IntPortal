@@ -119,7 +119,7 @@
 
   {#if nudge}
     <section class="coach card notch" data-kind={nudge.nudge.kind}>
-      <Lar size={2} cube={false} />
+      <Lar size={2} cube={false} state={now.getHours() >= 23 || now.getHours() < 5 ? "sleep" : "idle"} />
       <button class="say" onclick={act}>
         <span class="label">LAR</span>
         <span class="line">{nudge.line}</span>

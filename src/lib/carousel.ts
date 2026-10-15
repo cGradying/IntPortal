@@ -18,7 +18,8 @@ export function release(pos: number, vel: number, count: number): number {
   return Math.max(0, Math.min(count - 1, one));
 }
 
-const K = 180;
+// Soft enough that a change of portal reads as the orbit turning (about 0.7 s).
+const K = 70;
 const C = 2 * Math.sqrt(K) * 0.92;
 
 /** Advance the spring toward `target`, in small sub-steps so long frames stay stable. */

@@ -22,7 +22,7 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 
 ## Behaviour
 
-Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C15, C17, C22–C25. Next: the lift and LAR's arrival (C16, C18), the morph (C20–C21).
+Shipped in `crates/intportal-tiles` (the scene), `PortalStage.svelte` and `lar/LarFlight.svelte`: C1–C15, C17–C19, C22–C25. Next: the lift (C16) and the morph (C20–C21).
 
 **Fit.** The portal takes whatever height the form leaves and picks the largest whole-pixel tile pitch that fits the 12 × 16 grid with a tile of margin, so it stays crisp and centred on every phone's aspect ratio.
 
@@ -35,8 +35,8 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 **Spawn**
 
 - **C4.** The frame builds both ways at once, from the bottom centre up both sides, meeting at the top.
-- **C5.** Each tile pops in place over three stepped frames: a small light core, then the theme accent, then its own tone.
-- **C6.** The whole build takes about 0.6 s, stepped at 30 fps.
+- **C5.** Each tile grows in place over 0.2 s with a slight overshoot (never past its gap): a small light core, easing through the theme accent into its own tone.
+- **C6.** The whole build takes about 0.7 s, at 60 fps.
 - **C7.** One haptic tick fires when the two sides meet.
 - **C8.** A returning student skips the build; the frame is already standing.
 
@@ -52,7 +52,7 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 
 **Portals carousel**
 
-- **C13.** The selected portal is centred; its neighbours peek in beside it, dimmed by distance. Swipe to move, with a rubber band at the ends; letting go springs to the nearest portal, and a flick moves one portal. Labelled arrows and page dots do the same without a swipe, and a caption names the school. Each snap ticks a `select` haptic. It supports N portals.
+- **C13.** The portals ride an orbit like planets round a sun: the selected one faces you, centred and full size; its neighbours sit well out to the sides, smaller, higher and dimmer, and portals further round are behind, out of sight. Changing portal turns the whole orbit (about 0.7 s on a soft spring), while a faint starfield behind drifts with parallax and each star trails a tail on the side the orbit came from, brighter at the head and fading to the void, that grows and shrinks smoothly with the turning speed and retracts as the spring settles; stars fade out before they wrap the screen edge, and at rest they only twinkle (Reduce Motion: still, no tails). Swipe to turn it, with a rubber band at the ends; letting go springs to the nearest portal, and a flick moves one portal. Labelled arrows and page dots do the same without a swipe, and a caption names the school. Each snap ticks a `select` haptic. It supports N portals.
 - **C14.** A portal that is not ready shows "Opens soon" and the school's name in place of the form, and cannot be stepped into. The card keeps its height so the portal above never jumps.
 - **C15.** SIS and Mabini are ready; the state-university placeholders show "Opens soon" ([012](012-portals.md) C2, C12). The carousel is locked while signing in and once signed in.
 
@@ -63,7 +63,8 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 
 **LAR**
 
-- **C18.** LAR comes through the built portal, says one line, then stays as the voice above the form, smaller and quicker than today.
+- **C18.** Once the portal is built, a fire flares up just below its frame, in the portal's own ramp, and LAR comes out of it over 1.1 s, resolving from coarse blocks into his pixel sprite as the fire burns out round him ([reference](reference/prototypes/lar-sheet.html)). He is the same sprite as everywhere in the app (`lar/sprite.ts`, drawn by `drawLar` at 2 CSS px per art pixel), still the obsidian LAR but with a hint of the selected portal's colours (full portal colours in his rim light, cube, swirl and fire), and his state follows what he and the student are doing: fly while he moves, think while signing in, error on a failed sign-in, happy once signed in or when tapped, sleep while the student types or after he has rested a while. Every change of state eases. He then flies round the portal on his own (`lar/wander.ts`: seek, arrive and wander, picking among orbit, drift, peek, approach and rest at random, weighted by what the student is doing). The selected portal and the neighbours in view are solid to him: he never overlaps a block. The landing reserves air round the frame for this, most of it below.
+- **C18a.** LAR has no fixed line on the landing. He greets the student (by time of day) the moment he lands out of the fire. Every 7–15 s he says a short Taglish line about the app, the portal on screen or the time of day (`lar/lines.ts`), never one of his last six, in a bubble that follows him, which grows out of his side in four pixel steps, types the line out with a blinking caret (about 35 characters a second) and shrinks away again (screen readers get the whole line at once; with Reduce Motion it just appears); he is quiet while a field has focus. Tap him and he answers at once. Sign-in errors and success get a line straight away; the error itself is still shown in the form.
 - **C19.** LAR's mood follows the stage as today: open at rest, focus while typing or connecting, wow on an error, happy once signed in.
 
 **Sign-in morph**
@@ -81,7 +82,7 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 ## Copy
 
 - Wordmark: `Student IntPortal` (kept).
-- LAR's line on arrival and the returning-student line: kept from `Landing.svelte` until the user rewrites them.
+- LAR's lines: the pool in `src/lib/lar/lines.ts`.
 - Unready portal: `Opens soon`.
 
 ## Data shape
@@ -102,7 +103,7 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 
 ## Accessibility
 
-- The canvas is decorative: `aria-hidden`. Everything it says is also in text (LAR's line, portal names, "Opens soon").
+- The canvases are decorative: `aria-hidden`. Everything they say is also in text (portal names, "Opens soon"). LAR is a button, "LAR, tap to talk"; his bubble is announced only for a tapped reply, an error or sign-in, so VoiceOver isn't flooded by chatter.
 - The carousel is operable by buttons with labels, not only by swipe.
 - Contrast for text over the void meets the existing landing rules in `DESIGN.md`.
 
