@@ -213,6 +213,17 @@ export async function explain(front: string, back: string, typed: string, subjec
   }
 }
 
+/** Proposed cards from a note's text. Nothing is saved here; the deck page asks the student first. */
+export async function cardsFrom(text: string, want: number): Promise<{ front: string; back: string }[]> {
+  if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");
+  assis.busy = "cards";
+  try {
+    return (await invoke<{ cards: { front: string; back: string }[] }>("ai_cards", { text, want })).cards;
+  } finally {
+    assis.busy = "";
+  }
+}
+
 export function dismiss(i: number) {
   assis.chat[i].state = "dismissed";
 }
