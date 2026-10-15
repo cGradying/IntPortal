@@ -19,11 +19,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
-<<<<<<< HEAD
-	<string>0.1.3</string>
-=======
-	<string>0.1.2</string>
->>>>>>> ai/note-ai
+	<string>0.1.4</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>
