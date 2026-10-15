@@ -5,7 +5,8 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { Schedule } from "@tauri-apps/plugin-notification";
 import { api, isoDate, moment } from "../api";
 import { app } from "../state.svelte";
-import { appended, existingText, newDeck, noteTarget, reminderAt, reminderId, type Proposal } from "./apply";
+import { tidy, type Draft } from "./cards";
+import { appended, existingText, newDeck, noteFor, noteTarget, reminderAt, reminderId, rememberLarReminder, type Proposal } from "./apply";
 
 export interface ModelInfo {
   id: string;
@@ -18,13 +19,22 @@ export interface ModelInfo {
   loaded: boolean;
 }
 
+export interface Source {
+  key: string;
+  title: string;
+}
+
 export interface Msg {
   from: "me" | "lar";
   text: string;
   proposal?: Proposal;
+  /** The notes LAR was shown for this answer; each opens that note. */
+  sources?: Source[];
   /** pending until the student answers the card. */
   state?: "pending" | "done" | "dismissed";
   problem?: string;
+  /** make_cards: the cards LAR wrote, shown to edit before anything is saved. */
+  cards?: Draft[];
 }
 
 export const assis = $state({
@@ -39,6 +49,8 @@ export const assis = $state({
 });
 
 export const chatModel = () => assis.models.find((m) => m.chat && m.default) ?? assis.models.find((m) => m.chat);
+/** The small model that finds the student's notes. */
+export const embedModel = () => assis.models.find((m) => !m.chat);
 export const installed = () => assis.models.some((m) => m.chat && m.installed);
 export const mb = (bytes: number) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : `${Math.round(bytes / 1e6)} MB`);
 
@@ -52,22 +64,24 @@ export async function refresh() {
   }
 }
 
-/** The one-time download. Resumes if it was cut off; Cancel keeps what arrived. */
+/** The one-time download: LAR's brain, then the small model that finds your notes. Resumes if it was cut off; Pause keeps what arrived. */
 export async function install() {
-  const m = chatModel();
-  if (!m || assis.busy) return;
+  const chat = chatModel();
+  const todo = [chat, embedModel()].filter((m): m is ModelInfo => !!m && !m.installed);
+  if (!chat || !todo.length || assis.busy) return;
   assis.error = "";
   assis.busy = "downloading";
   assis.done = 0;
-  assis.total = m.bytes;
+  assis.total = todo.reduce((n, m) => n + m.bytes, 0);
+  let before = 0;
   try {
-    const onProgress = new Channel<{ done: number; total: number }>();
-    onProgress.onmessage = (p) => {
-      assis.done = p.done;
-      assis.total = p.total;
-    };
-    await invoke("ai_download", { id: m.id, onProgress });
-    await refresh();
+    for (const m of todo) {
+      const onProgress = new Channel<{ done: number; total: number }>();
+      onProgress.onmessage = (p) => (assis.done = before + p.done);
+      await invoke("ai_download", { id: m.id, onProgress });
+      before += m.bytes;
+      await refresh();
+    }
   } catch (e) {
     assis.error = say(e) === "paused" ? "" : say(e);
     await refresh();
@@ -79,10 +93,9 @@ export async function install() {
 export const cancelDownload = () => invoke("ai_cancel");
 
 export async function remove() {
-  const m = chatModel();
-  if (!m) return;
   try {
-    await invoke("ai_delete", { id: m.id });
+    for (const m of assis.models) if (m.installed) await invoke("ai_delete", { id: m.id });
+    await invoke("ai_clear_history");
     assis.chat = [];
     assis.open = false;
   } catch (e) {
@@ -114,27 +127,106 @@ export async function sleep() {
   await refresh();
 }
 
+/** Notes edited since LAR last looked get embedded, so the next question can find them. */
+export function indexNotes() {
+  if (installed()) invoke("ai_index").catch(() => {});
+}
+
+/** The chat is kept on the phone, so it is still there after the app was closed. */
+async function loadHistory() {
+  if (assis.chat.length) return;
+  try {
+    const turns = await invoke<{ role: string; text: string }[]>("ai_history");
+    if (!assis.chat.length) assis.chat = turns.map((t) => ({ from: t.role === "me" ? "me" : "lar", text: t.text }));
+  } catch {
+    // An empty chat is fine.
+  }
+}
+
+export async function newChat() {
+  await invoke("ai_clear_history").catch(() => {});
+  assis.chat = [];
+}
+
 export async function open() {
   assis.open = true;
   assis.error = "";
+  loadHistory();
+  indexNotes();
   await wake();
+}
+
+let stopped = false;
+/** Stop writing; the words so far stay. */
+export function stop() {
+  stopped = true;
+  invoke("ai_cancel").catch(() => {});
 }
 
 export async function ask(text: string) {
   const message = text.trim();
   if (!message || assis.busy) return;
-  const history = assis.chat.reduce<[string, string][]>((h, m, i, all) => (m.from === "me" && all[i + 1]?.from === "lar" ? [...h, [m.text, all[i + 1].text]] : h), []);
   assis.chat.push({ from: "me", text: message });
-  if (!(await wake())) {
+  stopped = false;
+  const awake = await wake();
+  if (stopped) return; // Stop while the model was waking: no reply at all
+  if (!awake) {
     assis.chat.push({ from: "lar", text: assis.error || "I couldn't wake up. Try again." });
     return;
   }
   assis.busy = "thinking";
+  assis.chat.push({ from: "lar", text: "" });
+  const reply = assis.chat[assis.chat.length - 1];
+  const onText = new Channel<string>();
+  onText.onmessage = (words) => (reply.text += words);
   try {
-    const r = await invoke<{ reply: string; proposal: Proposal | null }>("ai_ask", { now: moment(), message, history });
-    assis.chat.push({ from: "lar", text: r.reply, proposal: r.proposal ?? undefined, state: r.proposal ? "pending" : undefined });
+    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[] }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, onText });
+    reply.text = r.reply;
+    reply.sources = r.sources.length ? r.sources : undefined;
+    if (r.proposal) [reply.proposal, reply.state] = [r.proposal, "pending"];
   } catch (e) {
-    assis.chat.push({ from: "lar", text: say(e) });
+    // Stopping cuts the JSON short, which is not a failure the student needs told about.
+    reply.text = stopped ? reply.text || "Stopped." : say(e);
+  } finally {
+    assis.busy = "";
+  }
+}
+
+export type NoteMode = "summarize" | "tidy" | "explain" | "ask";
+
+/** "Ask AI" in a note: the words stream to `onText`; the result is text to insert or swap in. */
+export async function noteAi(mode: NoteMode, text: string, selection: string | null, question: string | null, onText: (words: string) => void): Promise<string> {
+  if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");
+  assis.busy = "thinking";
+  const ch = new Channel<string>();
+  ch.onmessage = onText;
+  try {
+    return await invoke<string>("ai_note", { mode, text, selection, question, onText: ch });
+  } finally {
+    assis.busy = "";
+  }
+}
+
+/** After a wrong card answer: why the right one is right, from the card and the student's own note. */
+export async function explain(front: string, back: string, typed: string, subject: string | null): Promise<{ why: string; tip: string }> {
+  if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");
+  assis.busy = "thinking";
+  try {
+    return await invoke<{ why: string; tip: string }>("ai_why", { front, back, typed, note: noteFor(app.notes, subject) ?? null });
+  } finally {
+    assis.busy = "";
+  }
+}
+
+/** A PDF's text, read on the phone. The bytes go as the raw request body (see `ai_pdf_text`). */
+export const pdfText = (bytes: Uint8Array) => invoke<string>("ai_pdf_text", bytes);
+
+/** Proposed cards from a note's text. Nothing is saved here; the deck page asks the student first. */
+export async function cardsFrom(text: string, want: number): Promise<{ front: string; back: string }[]> {
+  if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");
+  assis.busy = "cards";
+  try {
+    return (await invoke<{ cards: { front: string; back: string }[] }>("ai_cards", { text, want })).cards;
   } finally {
     assis.busy = "";
   }
@@ -156,15 +248,17 @@ export async function apply(i: number) {
       await api.setNote(key, appended(existingText(app.notes, key), p.text), title);
       app.notes = await api.notes();
     } else if (p.kind === "set_reminder") {
+      const id = reminderId(p.text, p.date);
       await invoke("plugin:notification|notify", {
-        options: { id: reminderId(p.text, p.date), title: "LAR", body: p.text, schedule: Schedule.at(asLocalDigits(reminderAt(p.date))) },
+        options: { id, title: "LAR", body: p.text, schedule: Schedule.at(asLocalDigits(reminderAt(p.date))) },
       });
+      rememberLarReminder(id, reminderAt(p.date));
     } else {
       assis.busy = "cards";
       const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null }>("ai_cards", { text: `Topic: ${p.topic}`, want: 8 });
       if (!found.cards.length) throw new Error("I couldn't make cards for that. Try a note's own text instead.");
-      await api.saveDeck(newDeck(crypto.randomUUID(), p.topic, null, found.cards));
-      msg.text = `${msg.text} Made ${found.cards.length} cards. Find them under Study.`;
+      msg.cards = found.cards; // Shown for the student to edit; confirmCards saves.
+      return;
     }
     msg.state = "done";
   } catch (e) {
@@ -172,6 +266,29 @@ export async function apply(i: number) {
   } finally {
     if (assis.busy === "cards") assis.busy = "";
   }
+}
+
+/** The student kept these cards (edited or not). Only now is the deck saved. */
+export async function confirmCards(i: number) {
+  const msg = assis.chat[i];
+  const p = msg.proposal;
+  if (p?.kind !== "make_cards" || msg.state !== "pending" || !msg.cards) return;
+  const cards = tidy(msg.cards, []);
+  if (!cards.length) return;
+  msg.problem = "";
+  try {
+    await api.saveDeck(newDeck(crypto.randomUUID(), p.topic, null, cards));
+    msg.text = `${msg.text} Made ${cards.length} ${cards.length === 1 ? "card" : "cards"}. Find them under Study.`;
+    msg.cards = undefined;
+    msg.state = "done";
+  } catch (e) {
+    msg.problem = say(e);
+  }
+}
+
+/** Back out of the preview: nothing was saved, and the offer stands. */
+export function discardCards(i: number) {
+  assis.chat[i].cards = undefined;
 }
 
 /** The iOS notification plugin reads the ISO string's trailing Z as text and takes the digits as local time. */

@@ -6,6 +6,7 @@ import { api, isoDate, localMs, moment, type Busy, type MabiniData, type NoteIte
 import { busyFrom, keepClasses } from "./devcal";
 import { applyRoom } from "./rooms";
 import { buzz } from "./haptics";
+import { larReminderIds } from "./assis/apply";
 
 export type Tab = "today" | "schedule" | "grades" | "study" | "you";
 export type SyncState = "idle" | "syncing" | "ok" | "failed";
@@ -37,6 +38,8 @@ export const app = $state({
   notes: [] as NoteItem[],
   /** The subject page open, if any. */
   subject: null as null | { code: string; description: string },
+  /** The deck open on the Study tab, if any. */
+  deck: null as string | null,
   /** The note open in the editor, if any. */
   editing: null as null | { key: string; heading: string; title: string | null },
   /** What is queued with the platform right now. */
@@ -75,7 +78,9 @@ export async function scheduleReminders(ask = false) {
   try {
     // Not cancelAll(): on iOS it sends no id list and the plugin refuses to decode it.
     const queued = await pending();
-    if (queued.length) await cancel(queued.map((n) => n.id));
+    const lar = larReminderIds(); // reminders LAR set for the student stay queued
+    const stale = queued.filter((n) => !lar.has(n.id));
+    if (stale.length) await cancel(stale.map((n) => n.id));
     app.queued = { count: 0, next: null, error: "" };
     const on = (m: number) => (m >= 0 ? m : null);
     if (!app.snapshot || (app.reminderLead <= 0 && app.deadlineAt < 0 && app.studyAt < 0)) return;
@@ -166,6 +171,12 @@ export async function refreshNotes() {
 
 export function openSubject(code: string, description: string) {
   app.subject = { code, description };
+}
+
+/** Shows a deck on the Study tab. */
+export function openDeck(id: string) {
+  app.tab = "study";
+  app.deck = id;
 }
 
 export function openNote(key: string, heading: string, title: string | null = null) {

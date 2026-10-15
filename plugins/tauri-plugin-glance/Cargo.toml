@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-glance"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 publish = false
 description = "Hands the next class to the home-screen widget and the Live Activity (iOS) or Live Update (Android)."

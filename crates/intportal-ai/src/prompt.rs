@@ -66,7 +66,75 @@ mod tests {
         assert!(p.ends_with('…'));
         assert_eq!(p.chars().count(), 120);
     }
+
+    #[test]
+    fn same_priority_sections_keep_their_given_order_and_the_first_gets_the_room() {
+        let a = "a".repeat(30);
+        let b = "b".repeat(30);
+        // "S" + 2 * (7-char head + 30) = 75 would fit both; 50 fits only the first whole.
+        let p = build("S", &[s("A", &a, 5), s("B", &b, 5)], 50);
+        assert!(p.contains(&a) && !p.contains(&b));
+        assert!(p.chars().count() <= 50);
+    }
+
+    #[test]
+    fn a_later_high_priority_section_is_kept_but_printed_in_its_place() {
+        let long = "z".repeat(300);
+        let p = build("S", &[s("first", &long, 1), s("second", "keep", 9)], 60);
+        assert_eq!(p, "S\n\n## second\nkeep");
+    }
+
+    #[test]
+    fn the_cut_needs_room_for_forty_chars_of_body() {
+        // head "\n\n## A\n" is 7 chars; "S" is 1
+        let long = "x".repeat(200);
+        assert_eq!(build("S", &[s("A", &long, 1)], 47), "S", "46 left: 39 chars of body is not useful");
+        let p = build("S", &[s("A", &long, 1)], 48);
+        assert_eq!(p.chars().count(), 48);
+        assert!(p.ends_with(&format!("{}…", "x".repeat(39))));
+    }
+
+    #[test]
+    fn the_system_text_always_stays_even_over_budget() {
+        let sys = "s".repeat(100);
+        assert_eq!(build(&sys, &[s("A", "body", 9)], 10), sys);
+        assert_eq!(build(&sys, &[], 0), sys);
+        assert_eq!(build("", &[], 10), "");
+    }
+
+    #[test]
+    fn a_section_that_fits_exactly_is_not_cut() {
+        let p = build("S", &[s("A", "12345", 1)], 1 + 7 + 5);
+        assert_eq!(p, "S\n\n## A\n12345");
+    }
+
+    #[test]
+    fn budget_counts_chars_not_bytes() {
+        let long = "ñ".repeat(500);
+        let p = build("Sí", &[s("nota", &long, 5)], 100);
+        assert_eq!(p.chars().count(), 100);
+        assert!(p.ends_with('…'));
+        let emoji = build("S", &[s("E", &"😀".repeat(100), 1)], 60);
+        assert_eq!(emoji.chars().count(), 60, "no panic or cut inside a char");
+    }
+
+    #[test]
+    fn a_smaller_section_still_fits_after_a_bigger_one_is_dropped_whole() {
+        // Priority 9 is cut; once nothing is left the rest are dropped, not squeezed in.
+        let big = "b".repeat(500);
+        let p = build("S", &[s("big", &big, 9), s("small", "tiny", 1)], 80);
+        assert!(p.contains("big") && !p.contains("small"));
+    }
+
+    #[test]
+    fn templates_wrap_the_same_text_as_their_helpers() {
+        assert_eq!(Template::ChatMl.wrap("S", "U"), chatml("S", "U"));
+        assert_eq!(Template::Gemma.wrap("S", "U"), gemma("S", "U"));
+        assert_eq!(gemma("S", "U"), "<start_of_turn>user\nS\n\nU<end_of_turn>\n<start_of_turn>model\n");
+        assert!(!Template::Gemma.wrap("S", "U").contains("system"), "Gemma has no system role");
+    }
 }
+
 
 /// Wraps a system and a user message in ChatML (Qwen, and most small models).
 /// The empty think block turns Qwen3's thinking off, which a phone can't afford.
