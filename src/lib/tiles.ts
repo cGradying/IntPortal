@@ -40,7 +40,7 @@ interface Exports {
   portals_buf(n: number): number;
   load(): void;
   resize(w: number, h: number): void;
-  frame(t: number, prev: number, stage: number, openedAt: number, flags: number, pos: number): number;
+  frame(t: number, prev: number, stage: number, openedAt: number, flags: number, pos: number, vel: number): number;
   tiles(): number;
   events(): number;
   gap(): number;
@@ -56,6 +56,8 @@ export interface Frame {
   reduce: boolean;
   /** The carousel's fractional portal index. */
   pos: number;
+  /** The carousel's speed in portals per second, signed. */
+  vel: number;
 }
 
 export async function loadTiles(url = "/tiles.wasm") {
@@ -80,7 +82,7 @@ export async function loadTiles(url = "/tiles.wasm") {
     },
     /** Draw one frame; returns its haptic bits. */
     draw(ctx: CanvasRenderingContext2D, f: Frame): number {
-      const n = x.frame(f.t, f.prev, STAGES[f.stage], f.openedAt, (f.returning ? 1 : 0) | (f.reduce ? 2 : 0), f.pos);
+      const n = x.frame(f.t, f.prev, STAGES[f.stage], f.openedAt, (f.returning ? 1 : 0) | (f.reduce ? 2 : 0), f.pos, f.vel);
       const a = new Int32Array(x.memory.buffer, x.tiles(), n * 4);
       ctx.fillStyle = VOID;
       ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);

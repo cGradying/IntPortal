@@ -129,6 +129,9 @@ pub struct Input {
     pub returning: bool,
     /// Reduce Motion: one still, open portal.
     pub reduce: bool,
+    /// The carousel's speed in portals per second, signed (positive is
+    /// toward higher portals): the starfield's trails follow it.
+    pub vel: f32,
 }
 
 /// Whole device pixels: the pitch between tiles, the tile's side, and the
@@ -565,26 +568,39 @@ pub fn rect(scenes: &[Scene], pos: f32, p: usize, w: u32, h: u32) -> [i32; 4] {
 }
 
 /// The starfield behind the orbit: three layers that drift with the
-/// carousel (parallax), twinkle at rest and stretch into warp streaks while
-/// the system turns. Faint when still, so the landing stays calm. Never drawn
-/// over the selected portal.
+/// carousel (parallax) and twinkle. Faint at rest, brighter while turning,
+/// when each star trails a tail behind it, opposite to the way it drifts,
+/// that fades from the head to the void and grows and shrinks with `vel`.
+/// Nothing steps: the tail's last segment is only partly lit, and a star
+/// fades out before it wraps round the screen edge. Never drawn over the
+/// selected portal. Reduce Motion: still, no tails.
 fn stars(pos: f32, inp: &Input, base: &Layout, keep: [i32; 4], w: u32, h: u32, out: &mut Vec<Tile>) {
-    let warp = smooth((pos - pos.round()).abs() * 4.0);
     let size = (base.tile / 5).max(1);
+    let step = 2 * size;
     let (wf, hf) = (w as f32, h as f32);
+    let vel = if inp.reduce { 0.0 } else { inp.vel.clamp(-4.0, 4.0) };
+    // Stars drift against the turn, so they trail on the side it came from.
+    let dir = if vel > 0.0 { 1 } else { -1 };
+    let boost = smooth(vel.abs() / 1.5);
+    let edge = wf * 0.06;
     for i in 0..STARS {
         let layer = (i % 3 + 1) as f32;
         let x = (hash(i, 1) * wf - pos * wf * DRIFT * layer).rem_euclid(wf);
         let y = hash(i, 2) * hf;
         let tw = if inp.reduce { 0.5 } else { 0.5 + 0.5 * (inp.t * (0.8 + hash(i, 3)) + hash(i, 4) * TAU).sin() };
-        let rgb = mix(CORE, VOID, (0.9 - 0.12 * tw - 0.35 * warp * layer / 3.0).max(0.3));
-        let streak = 1 + (warp * layer * 2.5).round() as i32;
-        for k in 0..streak {
-            let (tx, ty) = (x as i32 + (2 * k - streak + 1) * size, y as i32);
-            if tx >= keep[0] && tx < keep[0] + keep[2] && ty >= keep[1] && ty < keep[1] + keep[3] {
-                continue;
+        let lit = (0.1 + 0.1 * tw + 0.45 * boost * layer / 3.0) * smooth(x.min(wf - x) / edge);
+        // The tail's length in segments, continuous in the speed.
+        let len = (vel.abs() * layer * wf * 0.03).min(wf * 0.3) / step as f32;
+        let mut k = 0;
+        while (k as f32) < len.max(1.0) {
+            let a = if k == 0 { 1.0 } else { (1.0 - k as f32 / len).powf(1.5) };
+            let b = lit * a;
+            let (tx, ty) = (x as i32 + dir * k * step, y as i32);
+            let hidden = tx < 0 || tx >= w as i32 || (tx >= keep[0] && tx < keep[0] + keep[2] && ty >= keep[1] && ty < keep[1] + keep[3]);
+            if b >= 0.02 && !hidden {
+                out.push(Tile { c: -1, r: -1, x: tx, y: ty, size: if layer == 3.0 && k == 0 { size * 2 } else { size }, rgb: mix(VOID, CORE, b), frame: false });
             }
-            out.push(Tile { c: -1, r: -1, x: tx, y: ty, size: if layer == 3.0 && k == 0 { size * 2 } else { size }, rgb, frame: false });
+            k += 1;
         }
     }
 }
@@ -639,7 +655,7 @@ mod tests {
     const MOTIFS: [Motif; 6] = [Motif::Swirl, Motif::Ripple, Motif::Bloom, Motif::Rain, Motif::Lattice, Motif::Aurora];
 
     fn at(t: f32, stage: Stage) -> Input {
-        Input { t, prev: t - 1.0 / 60.0, stage, opened_at: 0.0, returning: false, reduce: false }
+        Input { t, prev: t - 1.0 / 60.0, stage, opened_at: 0.0, returning: false, reduce: false, vel: 0.0 }
     }
 
     fn draw_look(look: Look, inp: Input) -> (Vec<Tile>, u32) {
@@ -868,23 +884,59 @@ mod tests {
     }
 
     #[test]
-    fn c13_stars_drift_and_stretch_while_the_orbit_turns_never_over_the_selected_portal() {
+    fn c13_stars_drift_and_trail_behind_while_the_orbit_turns_never_over_the_selected_portal() {
         let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
         let (w, h) = (1110, 820);
-        let stars = |pos: f32| {
+        let stars = |pos: f32, vel: f32, reduce: bool| {
             let mut out = Vec::new();
-            carousel(&scenes, pos, &at(FORM + 2.0, Stage::Rest), w, h, &mut out);
+            carousel(&scenes, pos, &Input { vel, reduce, ..at(FORM + 2.0, Stage::Rest) }, w, h, &mut out);
             out.into_iter().filter(|t| t.c < 0).collect::<Vec<_>>()
         };
-        let still = stars(1.0);
+        let lum = |t: &Tile| t.rgb & 0xff;
+        let still = stars(1.0, 0.0, false);
         assert!(still.len() >= STARS as usize / 2);
-        assert!(stars(1.5).len() > still.len(), "streaks while turning");
-        assert_ne!(still.iter().map(|t| t.x).sum::<i32>(), stars(2.0).iter().map(|t| t.x).sum::<i32>(), "they drift");
+        assert_eq!(still.len(), still.iter().map(|t| (t.x, t.y)).collect::<std::collections::HashSet<_>>().len(), "no tails at rest");
+        assert_ne!(still.iter().map(|t| t.x).sum::<i32>(), stars(2.0, 0.0, false).iter().map(|t| t.x).sum::<i32>(), "they drift");
+        // The same stars, with the orbit turning: the heads stay, tails grow with speed.
+        let (slow, fast) = (stars(1.0, 0.4, false), stars(1.0, 2.0, false));
+        assert!(slow.len() > still.len() && fast.len() > slow.len(), "longer when faster: {} {} {}", still.len(), slow.len(), fast.len());
+        assert!(lum(fast.iter().max_by_key(|t| lum(t)).unwrap()) > lum(still.iter().max_by_key(|t| lum(t)).unwrap()), "brighter while turning");
+        // Tails lie on the side the stars came from and fade along their length.
+        for (vel, dir) in [(2.0, 1), (-2.0, -1)] {
+            let t = stars(1.0, vel, false);
+            let heads: Vec<&Tile> = t.iter().filter(|s| still.iter().any(|h| h.x == s.x && h.y == s.y)).collect();
+            let mut tails = 0;
+            for hd in heads {
+                let mut row: Vec<&Tile> = t.iter().filter(|s| s.y == hd.y && (s.x - hd.x) * dir >= 0).collect();
+                row.sort_by_key(|s| (s.x - hd.x) * dir);
+                assert!(row.windows(2).all(|p| lum(p[1]) <= lum(p[0])), "head brightest, tail fading");
+                assert!(t.iter().all(|s| !(s.y == hd.y && (s.x - hd.x) * dir < 0 && (s.x - hd.x).abs() < 3)), "none ahead of the head");
+                tails += row.len() - 1;
+            }
+            assert!(tails > 0, "tails trail behind");
+        }
+        // The last segment fades in rather than popping: a hair more speed adds at most a faint tile.
+        let (a, b) = (stars(1.0, 1.0, false), stars(1.0, 1.01, false));
+        let faint = b.iter().filter(|t| !a.iter().any(|o| o.x == t.x && o.y == t.y)).map(lum).max().unwrap_or(0);
+        assert!(faint < 0x14, "new segments start dark: {faint:x}");
+        assert_eq!(stars(1.0, 2.0, true).len(), still.len(), "Reduce Motion: no tails");
         let [x, y, rw, rh] = rect(&scenes, 1.0, 1, w, h);
-        assert!(still.iter().all(|t| !(t.x >= x && t.x < x + rw && t.y >= y && t.y < y + rh)));
+        assert!(fast.iter().all(|t| !(t.x >= x && t.x < x + rw && t.y >= y && t.y < y + rh)));
         let mut one = Vec::new();
         carousel(&scenes[..1], 0.0, &at(FORM + 2.0, Stage::Rest), w, h, &mut one);
         assert!(one.iter().all(|t| t.c >= 0), "no stars with a single portal");
+    }
+
+    #[test]
+    fn c13_stars_fade_out_before_they_wrap_the_screen_edge() {
+        let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
+        let (w, h) = (1110, 820);
+        // Sweep the carousel: a star's head near an edge is only faintly lit, so the wrap is unseen.
+        for n in 0..200 {
+            let mut out = Vec::new();
+            carousel(&scenes, 1.0 + n as f32 * 0.01, &at(FORM + 2.0, Stage::Rest), w, h, &mut out);
+            assert!(out.iter().filter(|t| t.c < 0 && (t.x < 3 || t.x > w as i32 - 8)).all(|t| t.rgb & 0xff < 0x20));
+        }
     }
 
     #[test]

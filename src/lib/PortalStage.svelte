@@ -77,7 +77,9 @@
   function draw(t: number) {
     const ctx = canvas.getContext("2d");
     if (!tiles || !ctx) return;
-    const ev = tiles.draw(ctx, { t, prev, stage, openedAt: openedAt ?? 0, returning, reduce, pos: motion.pos });
+    // A held finger that has stopped moving is not still turning the orbit.
+    const vel = drag && performance.now() / 1000 - drag.lastT > 0.08 ? 0 : motion.vel;
+    const ev = tiles.draw(ctx, { t, prev, stage, openedAt: openedAt ?? 0, returning, reduce, pos: motion.pos, vel });
     if (ev & TICK) buzz.tick();
     prev = t;
   }

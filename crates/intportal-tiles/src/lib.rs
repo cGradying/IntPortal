@@ -64,11 +64,11 @@ mod wasm {
         WORLD.with(|w0| w0.borrow_mut().size = (w, h));
     }
 
-    /// Draw the frame at `t` with the carousel at `pos`; returns the tile
+    /// Draw the frame at `t` with the carousel at `pos` moving at `vel` portals/s; returns the tile
     /// count. `flags`: 1 returning, 2 reduce.
     #[no_mangle]
-    pub extern "C" fn frame(t: f32, prev: f32, stage: u32, opened_at: f32, flags: u32, pos: f32) -> u32 {
-        let inp = Input { t, prev, stage: Stage::from_u32(stage), opened_at, returning: flags & 1 != 0, reduce: flags & 2 != 0 };
+    pub extern "C" fn frame(t: f32, prev: f32, stage: u32, opened_at: f32, flags: u32, pos: f32, vel: f32) -> u32 {
+        let inp = Input { t, prev, stage: Stage::from_u32(stage), opened_at, returning: flags & 1 != 0, reduce: flags & 2 != 0, vel };
         WORLD.with(|w| {
             let w = &mut *w.borrow_mut();
             w.events = carousel(&w.scenes, pos, &inp, w.size.0, w.size.1, &mut w.out);
