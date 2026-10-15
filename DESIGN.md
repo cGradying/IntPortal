@@ -124,9 +124,9 @@ components:
     backgroundColor: "{colors.portal-night}"
     textColor: "#ffffff"
     typography: "{typography.input}"
-    rounded: "{rounded.pixel}"
-    height: "46px"
-    padding: "0 12px"
+    rounded: "{rounded.control}"
+    height: "54px"
+    padding: "20px 14px 4px"
   card:
     backgroundColor: "{colors.card}"
     textColor: "{colors.ink}"
@@ -226,9 +226,9 @@ The root is the iPhone's body text size (`font: -apple-system-body`, 17 px at th
 - **Body** (400, 16 px, cap 29 px, line-height 1.4): the default body size.
 - **Body small** (400, 14 px, cap 25 px): LAR's line, errors, descriptions. 15 px (cap 27 px) for list rows and buttons.
 - **Fine** (400, 13 px, cap 23 px): the most used secondary size: meta lines, privacy notes, small buttons.
-- **Label** (Montserrat 600, 11 px, cap 20 px, 0.08em, uppercase, ink-3): field names and metadata. The landing's field labels run 12 px (cap 22 px) at 0.06em.
+- **Label** (Montserrat 600, 11 px, cap 20 px, 0.08em, uppercase, ink-3): field names and metadata. The landing form's floating labels are the exception: regular, 12 px, sentence case.
 - **Pixel** (Pixelify 500, 12 px, cap 22 px, 0.04em to 0.08em): LAR's tag, stone labels, hints.
-- **Input** (16 px floor, then the body size): every text field, so iOS never zooms on focus.
+- **Input** (16 px floor, then the body size): every text field, so iOS never zooms on focus. The landing's sign-in form sets its fields, floating labels, Show toggle, Sign in button, errors and fine print in the system UI face (`--font-ui`) at regular and semibold weights; Montserrat stays on the wordmark and Pixelify on the tries and campus lines.
 
 ### Named Rules
 **The Capped Growth Rule.** Every font size is `min(rem, px)`. A new size divides the design px by 17 for the rem and sets the cap near 1.3 times (headings) or 1.8 times (body, labels). The tab bar is the one tighter cap (13 px), because five labels share the width.
@@ -263,14 +263,14 @@ Pixel surfaces use bevels instead of shadows: a lit top edge and a dark bottom e
 
 ## Shapes
 
-Two corner languages, by register. Pixel surfaces (cards, sheets, the problem card, the landing's slabs, fields and buttons) have stepped corners cut with clip-path, two steps deep: 3 px steps by default and 4 px on cards and sheets, so they read clean at arm's length and pixel up close. Landing fields have square corners. Inside the app, controls (buttons, inputs, selects, list rows, skeleton bars) use soft radii: 10 px for controls and 12 px for rows and segmented controls. Round shapes appear only for LAR's ground shadow and status dots.
+Two corner languages, by register. Pixel surfaces (cards, sheets, the problem card, the landing's slabs, fields and buttons) have stepped corners cut with clip-path, two steps deep: 3 px steps by default and 4 px on cards and sheets, so they read clean at arm's length and pixel up close. The landing's fields are the exception: rounded at 10 px like app controls, because they borrow the phone's login pattern; the card and buttons around them stay stepped. Inside the app, controls (buttons, inputs, selects, list rows, skeleton bars) use soft radii: 10 px for controls and 12 px for rows and segmented controls. Round shapes appear only for LAR's ground shadow and status dots.
 
 The portal's own geometry is the brand's: 24 blocks, 6 wide by 8 tall, one block thick, like a Nether portal, built from I, L and J pieces; each block is 2 by 2 tiles. LAR's ears are the frame's stepped corner blocks. *(current)* The shipped frame is 8 by 11 blocks, two thick, from pentominoes.
 
 ## Components
 
 ### Buttons
-- **Portal button** (Sign in, Step through): solid gold, Burnt Ink text, Montserrat 700 at body size, 50 px tall, 4 px stepped corners, the gold lip. Step through is at least 220 px wide with 28 px side padding. Focus draws a 3 px Gold Light inner ring; pressed flips the lip and drops 1 px; disabled is 0.7 opacity.
+- **Portal button** (Sign in, Step through): solid gold, Burnt Ink text, system UI face 600 at body size, 50 px tall, 4 px stepped corners, the gold lip. Step through is at least 220 px wide with 28 px side padding. Focus draws a 3 px Gold Light inner ring; pressed flips the lip and drops 1 px; disabled is 0.7 opacity.
 - **Primary (app):** gold on on-gold, Montserrat 700, 44 px tall (36 px in compact cards), 10 px radius.
 - **Ghost (app):** Sunk fill with the hairline, Ink text, same shape.
 - **Danger:** bad fill with white text.
@@ -283,7 +283,7 @@ The portal's own geometry is the brand's: 24 blocks, 6 wide by 8 tall, one block
 - **Internal Padding:** 16 px (18 by 16 px for sheets).
 
 ### Inputs / Fields
-- **Landing:** 46 px tall, square, Night fill, a 1 px white hairline at 0.1, white text, placeholders at 0.58 alpha, gold caret. Focus is a 2 px gold inner ring. An empty date field shows a "mm / dd / yyyy" hint.
+- **Landing:** the sign-in form borrows the phone's own login pattern, in IntPortal's colours. Fields stack (student number, birthdate, password), 54 px tall with a 10 px radius, Night fill and a 1 px white hairline at 0.14. Text is the system UI face (`--font-ui`: SF Pro on iOS), regular weight, 16 px, white, with a gold caret. The label sits inside the field at 16 px in parchment at 0.55 alpha and floats up to 12 px (scale 0.75, no uppercase) on focus, with a value, on browser autofill, and always for the date. The student-number example shows only once the label is up. Focus is a 1.5 px inner ring in the portal's accent, and the floated label turns the same colour; an invalid field after a failed check gets the same ring in the error rose (#f0a090) until it is fixed. The password field ends in a quiet text toggle, Show or Hide (600, 13 px cap 25 px), a real button with `aria-pressed` and a 44 px hit area. An empty date field shows a "mm / dd / yyyy" hint in the value position; the browser's own format text appears once the field has focus. The label float is a 0.16 s ease, off under Reduce Motion.
 - **App:** sunk or card fill with the hairline, 10 px radius, 16 px minimum text.
 
 ### Navigation
