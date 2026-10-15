@@ -43,7 +43,8 @@ pub fn detect(msg: &str) -> Intent {
 
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
 pub fn is_filipino(msg: &str) -> bool {
-    const FIL: [&str; 16] = ["ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "may", "po", "lang"];
+    // "may" is left out on purpose: it is also the English word ("May I see my classes").
+    const FIL: [&str; 15] = ["ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "po", "lang"];
     words(msg).iter().filter(|w| FIL.contains(&w.as_str())).count() >= 1
 }
 
@@ -220,6 +221,8 @@ mod tests {
         for msg in ["Hello there", "What is due this week", "Summarize my notes", "go"] {
             assert!(!is_filipino(msg), "{msg}");
         }
+        assert!(!is_filipino("May I see my classes") && !is_filipino("may"), "English \"may\" is not a marker");
+        assert!(is_filipino("May pasahan ba ako") && is_filipino("may klase bukas"), "\"may\" with real markers still reads Filipino");
         assert!(!is_filipino("kobe"), "markers are whole words, not substrings");
     }
 
