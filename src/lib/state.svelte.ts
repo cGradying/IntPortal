@@ -37,6 +37,8 @@ export const app = $state({
   notes: [] as NoteItem[],
   /** The subject page open, if any. */
   subject: null as null | { code: string; description: string },
+  /** The deck open on the Study tab, if any. */
+  deck: null as string | null,
   /** The note open in the editor, if any. */
   editing: null as null | { key: string; heading: string; title: string | null },
   /** What is queued with the platform right now. */
@@ -166,6 +168,12 @@ export async function refreshNotes() {
 
 export function openSubject(code: string, description: string) {
   app.subject = { code, description };
+}
+
+/** Shows a deck on the Study tab. */
+export function openDeck(id: string) {
+  app.tab = "study";
+  app.deck = id;
 }
 
 export function openNote(key: string, heading: string, title: string | null = null) {

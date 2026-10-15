@@ -13,7 +13,10 @@
 
   const study = resource(() => api.study(isoDate(new Date())));
   const overview = $derived(study.current.state === "ready" ? study.current.value : null);
-  let open = $state<string | null>(null);
+  // Leaving the tab closes the deck, as it always did.
+  $effect(() => () => {
+    app.deck = null;
+  });
   let naming = $state(false);
   let name = $state("");
   let subject = $state("");
@@ -30,15 +33,15 @@
       problem = "";
       buzz.tick();
       study.reload();
-      open = deck.id;
+      app.deck = deck.id;
     } catch (e) {
       problem = String(e);
     }
   }
 </script>
 
-{#if open}
-  <DeckPage id={open} onclose={() => { open = null; study.reload(); }} />
+{#if app.deck}
+  {#key app.deck}<DeckPage id={app.deck} onclose={() => { app.deck = null; study.reload(); }} />{/key}
 {:else}
   <div class="screen">
     <header>
@@ -79,7 +82,7 @@
     <ul class="decks">
       {#each overview?.decks ?? [] as d (d.id)}
         <li>
-          <button onclick={() => (open = d.id)}>
+          <button onclick={() => (app.deck = d.id)}>
             <span class="what"><strong>{d.name}</strong><small>{d.subject ?? "No subject"} · {d.cards} cards</small></span>
             {#if d.due}<span class="due num">{d.due} due</span>{:else}<span class="done">Caught up</span>{/if}
           </button>
