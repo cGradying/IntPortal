@@ -46,7 +46,7 @@ Every feature, tab by tab, is in [docs/FEATURES.md](docs/FEATURES.md); what chan
 - **Core.** Rust, in `crates/intportal-core`: the portal registry, the SIS and eMabini clients and parsers, the sign-in guard, schedule and grade logic, the coach, FSRS study scheduling, syllabus parsing, calendar events, and the encrypted SQLite store.
 - **AI.** `crates/intportal-ai` (pure Rust: intents, prompts, schemas, RAG over notes, card and outline generation) and `crates/intportal-llm` (llama.cpp through `llama-cpp-2`, the model download and the memory gate). See [docs/ai.md](docs/ai.md) and [ADR 0003](docs/adr/0003-on-device-ai-llama-cpp.md).
 - **Shell.** Tauri 2, in `src-tauri`, for iOS and Android. macOS and Windows build from the same code.
-- **Interface.** Svelte 5 with SvelteKit's static adapter, in `src`. The landing portal is moving from three.js to a tile renderer written in Rust and compiled to WebAssembly ([ADR 0004](docs/adr/0004-landing-renders-in-rust-wasm-tiles.md)).
+- **Interface.** Svelte 5 with SvelteKit's static adapter, in `src`. The landing's tile portal is Rust (`crates/intportal-tiles`) compiled to WebAssembly by `scripts/tiles.sh`; run `rustup target add wasm32-unknown-unknown` once ([ADR 0004](docs/adr/0004-landing-renders-in-rust-wasm-tiles.md)).
 - **Native plugins.** Local plugins with a Swift and a Kotlin half live in `plugins/`: `tauri-plugin-glance` (widget, and the Live Activity or Live Update) and `tauri-plugin-calendar` (EventKit or CalendarContract).
 
 ## Layout
@@ -60,7 +60,7 @@ src-tauri/gen/apple/     Xcode project, generated from project.yml by XcodeGen
 src-tauri/gen/android/   Gradle project, from tauri android init (see docs/android.md)
 plugins/                 Local Tauri plugins with Swift and Kotlin sources
 src/                     Svelte interface (screens in src/lib/screens)
-scripts/                 sim.sh, phone.sh, emu.sh, worktree.sh, version.sh, disk.sh, clean.sh
+scripts/                 sim.sh, phone.sh, emu.sh, worktree.sh, version.sh, disk.sh, clean.sh, tiles.sh
 spikes/                  Throwaway experiments (SIS over HTTP, llama.cpp)
 docs/ARCHITECTURE.md     Layers, flows, owners and invariants: start here
 docs/TEAM.md             Roles, the issue-to-merge loop, kickoff prompts

@@ -1,0 +1,10 @@
+[package]
+name = "intportal-tiles"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# The landing's tile portal (spec 010, ADR 0004). No dependencies: it builds
+# for wasm32-unknown-unknown with plain exports, and natively for cargo test.
+[lib]
+crate-type = ["cdylib", "rlib"]

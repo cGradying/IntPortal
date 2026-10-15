@@ -59,7 +59,7 @@ Every command returns `Result<T, String>` today.
 - `src/lib/state.svelte.ts` is the one shared store, `app`. Screens read it; only this file writes it.
 - `src/lib/api.ts` wraps each command in a typed function. Its types are written by hand to match the Rust structs.
 - `src/lib/screens/` holds Today, Schedule, Grades, Study and You. Sheets and pages that open over them (`ClassSheet`, `SubjectPage`, `DeckPage`, `NoteEditor`) live in `src/lib/`.
-- The landing is `Landing.svelte` and `PortalStage.svelte`. `landing.ts` is its timeline as a pure function of time, `portal3d.ts` the three.js scene, `pentomino.ts` the baked frame. These are being replaced by a Rust/WASM tile renderer and a portal registry; see `docs/specs/010-landing.md`, `011-login.md`, `012-portals.md` and ADRs 0004 and 0005. Until those ship, the lines above describe the code.
+- The landing is `Landing.svelte` and `PortalStage.svelte`. `landing.ts` is its clock as a pure function of time. The tile portal is `crates/intportal-tiles`: a pure scene (`scene.rs`, tested with `cargo test`) and plain WebAssembly exports, built to `static/tiles.wasm` by `scripts/tiles.sh` and drawn by `tiles.ts` (spec 010, ADR 0004). The portal's colours come from the registry (spec 012).
 - `src/lib/lar/` is LAR: pure sprite grids and the component.
 
 ## Main flows
