@@ -494,7 +494,7 @@ fn push(out: &mut Vec<Tile>, lay: &Layout, c: i32, r: i32, frac: f32, rgb: u32, 
     out.push(Tile { c, r, x: lay.ox + c * lay.pitch + o, y: lay.oy + r * lay.pitch + o, size, rgb, frame });
 }
 
-/// Room left round the biggest frame, in tiles, for LAR and his flock to fly:
+/// Room left round the biggest frame, in tiles, for LAR to fly:
 /// three tiles each side, two above, five below where he lands.
 const AIR: (i32, i32, i32) = (3, 2, 5);
 
@@ -505,87 +505,113 @@ fn shared(scenes: &[Scene], w: u32, h: u32) -> Layout {
     layout(w, h, gc + 2 * AIR.0 - 2, gr + AIR.1 + AIR.2 - 2)
 }
 
-/// Where portal `s` sits, `off` device px along the carousel: centred across,
-/// and lifted so the air below it is wider than above.
-fn place(s: &Scene, base: &Layout, w: u32, h: u32, off: i32) -> Layout {
+/// Radians between neighbouring portals on the orbit.
+const ORBIT_STEP: f32 = 1.05;
+/// Past this angle a portal has swung round the back and is not drawn.
+const ORBIT_HIDE: f32 = 1.75;
+/// The orbit's half-width, as a share of the stage's width.
+const ORBIT_RX: f32 = 0.7;
+/// Background stars, and how far each parallax layer drifts per portal.
+const STARS: u32 = 46;
+const DRIFT: f32 = 0.05;
+
+/// Portal `p` on the orbit with the carousel at `pos` (spec 010 C13). The
+/// portals ride an ellipse like planets round a sun: the selected one faces
+/// you at full size; the others swing out to the sides and round the back,
+/// smaller, higher and dimmer, so neighbours sit well apart. Changing portal
+/// turns the whole system. None once a portal has gone round the back.
+fn planet(s: &Scene, base: &Layout, p: usize, pos: f32, w: u32, h: u32) -> Option<(Layout, f32)> {
+    let a = (p as f32 - pos) * ORBIT_STEP;
+    if a.abs() >= ORBIT_HIDE {
+        return None;
+    }
+    let depth = a.cos();
+    let scale = 0.35 + 0.65 * ((1.0 + depth) / 2.0).powi(2);
+    let pitch = ((base.pitch as f32 * scale).round() as i32).max(1);
+    let tile = ((base.tile as f32 * scale).round() as i32).clamp(1, pitch);
+    let (gw, gh) = ((s.gc - 1) * pitch + tile, (s.gr - 1) * pitch + tile);
+    // The front portal's centre (where `place` puts it), then out round the orbit.
     let lift = (AIR.2 - AIR.1) * base.pitch / 2;
-    Layout {
-        pitch: base.pitch,
-        tile: base.tile,
-        ox: (w as i32 - s.gc * base.pitch + (base.pitch - base.tile)) / 2 + off,
-        oy: (h as i32 - s.gr * base.pitch + (base.pitch - base.tile)) / 2 - lift,
-    }
+    let x = w as f32 / 2.0 + a.sin() * w as f32 * ORBIT_RX;
+    let y = (h as i32 / 2 - lift) as f32 - (1.0 - depth) * h as f32 * 0.12;
+    let lay = Layout { pitch, tile, ox: (x - gw as f32 / 2.0).round() as i32, oy: (y - gh as f32 / 2.0).round() as i32 };
+    let fade = smooth((a.abs() - (ORBIT_HIDE - 0.5)) / 0.5);
+    let dim = smooth(a.abs() / ORBIT_STEP) * 0.68;
+    Some((lay, dim + (1.0 - dim) * fade))
 }
 
-/// Each portal's centre along the carousel, in tiles: neighbours sit three
-/// tiles apart edge to edge, whatever their widths.
-fn centres(scenes: &[Scene]) -> Vec<f32> {
-    let mut at = 0.0;
-    let mut out = Vec::with_capacity(scenes.len());
-    for (i, s) in scenes.iter().enumerate() {
-        if i > 0 {
-            at += (scenes[i - 1].gc + s.gc) as f32 / 2.0 + 3.0;
-        }
-        out.push(at);
-    }
-    out
-}
-
-/// Device px a swipe must travel per portal, on average.
-pub fn gap(scenes: &[Scene], w: u32, h: u32) -> f32 {
-    let c = centres(scenes);
-    if c.len() < 2 {
+/// Device px the front portal moves for one step of the carousel, so a
+/// drag follows the finger.
+pub fn gap(scenes: &[Scene], w: u32, _h: u32) -> f32 {
+    if scenes.len() < 2 {
         return w as f32;
     }
-    (c[c.len() - 1] - c[0]) / (c.len() - 1) as f32 * shared(scenes, w, h).pitch as f32
+    w as f32 * ORBIT_RX * ORBIT_STEP.sin()
 }
 
-/// The frame box of the portal nearest `pos`, in device px, where it is drawn
-/// right now: `[x, y, w, h]`. LAR and the flock steer round it.
-pub fn rect(scenes: &[Scene], pos: f32, w: u32, h: u32) -> [i32; 4] {
-    if scenes.is_empty() {
+/// The frame box of portal `p`, in device px, where it is drawn right now
+/// with the carousel at `pos`: `[x, y, w, h]`, or zeros when it has gone round
+/// the back. LAR steers round the selected portal and the neighbours in view.
+pub fn rect(scenes: &[Scene], pos: f32, p: usize, w: u32, h: u32) -> [i32; 4] {
+    if p >= scenes.len() {
         return [0; 4];
     }
-    let n = scenes.len();
-    let pos = pos.clamp(0.0, (n - 1) as f32);
-    let sel = pos.round() as usize;
-    let base = shared(scenes, w, h);
-    let c = centres(scenes);
-    let (lo, hi) = (pos.floor() as usize, pos.ceil() as usize);
-    let here = c[lo] + (c[hi] - c[lo]) * (pos - lo as f32);
-    let s = &scenes[sel];
-    let off = ((c[sel] - here) * base.pitch as f32).round() as i32;
-    let lay = place(s, &base, w, h, off);
-    [lay.ox, lay.oy, (s.gc - 1) * base.pitch + base.tile, (s.gr - 1) * base.pitch + base.tile]
+    let pos = pos.clamp(0.0, (scenes.len() - 1) as f32);
+    let s = &scenes[p];
+    match planet(s, &shared(scenes, w, h), p, pos, w, h) {
+        Some((lay, _)) => [lay.ox, lay.oy, (s.gc - 1) * lay.pitch + lay.tile, (s.gr - 1) * lay.pitch + lay.tile],
+        None => [0; 4],
+    }
 }
 
-/// The carousel (spec 010 C13): the portal at `pos` centred, its neighbours
-/// beside it, dimmed by distance. Fractional `pos` is a swipe in progress.
-/// Only the selected portal follows the stage; the others rest.
+/// The starfield behind the orbit: three layers that drift with the
+/// carousel (parallax), twinkle at rest and stretch into warp streaks while
+/// the system turns. Faint when still, so the landing stays calm. Never drawn
+/// over the selected portal.
+fn stars(pos: f32, inp: &Input, base: &Layout, keep: [i32; 4], w: u32, h: u32, out: &mut Vec<Tile>) {
+    let warp = smooth((pos - pos.round()).abs() * 4.0);
+    let size = (base.tile / 5).max(1);
+    let (wf, hf) = (w as f32, h as f32);
+    for i in 0..STARS {
+        let layer = (i % 3 + 1) as f32;
+        let x = (hash(i, 1) * wf - pos * wf * DRIFT * layer).rem_euclid(wf);
+        let y = hash(i, 2) * hf;
+        let tw = if inp.reduce { 0.5 } else { 0.5 + 0.5 * (inp.t * (0.8 + hash(i, 3)) + hash(i, 4) * TAU).sin() };
+        let rgb = mix(CORE, VOID, (0.9 - 0.12 * tw - 0.35 * warp * layer / 3.0).max(0.3));
+        let streak = 1 + (warp * layer * 2.5).round() as i32;
+        for k in 0..streak {
+            let (tx, ty) = (x as i32 + (2 * k - streak + 1) * size, y as i32);
+            if tx >= keep[0] && tx < keep[0] + keep[2] && ty >= keep[1] && ty < keep[1] + keep[3] {
+                continue;
+            }
+            out.push(Tile { c: -1, r: -1, x: tx, y: ty, size: if layer == 3.0 && k == 0 { size * 2 } else { size }, rgb, frame: false });
+        }
+    }
+}
+
+/// The carousel (spec 010 C13): the portals on their orbit, drawn from the
+/// back to the front over the starfield. Fractional `pos` is a turn in
+/// progress. Only the selected portal follows the stage; the others rest.
 pub fn carousel(scenes: &[Scene], pos: f32, inp: &Input, w: u32, h: u32, out: &mut Vec<Tile>) -> u32 {
     out.clear();
     if scenes.is_empty() {
         return 0;
     }
-    let n = scenes.len() as i32;
+    let n = scenes.len();
     let pos = pos.clamp(0.0, (n - 1) as f32);
-    let sel = pos.round() as i32;
+    let sel = pos.round() as usize;
     let base = shared(scenes, w, h);
-    let c = centres(scenes);
-    let (lo, hi) = (pos.floor() as usize, pos.ceil() as usize);
-    let here = c[lo] + (c[hi] - c[lo]) * (pos - lo as f32);
+    if n > 1 {
+        stars(pos, inp, &base, rect(scenes, pos, sel, w, h), w, h, out);
+    }
+    let mut order: Vec<(usize, Layout, f32)> = (0..n).filter_map(|p| planet(&scenes[p], &base, p, pos, w, h).map(|(l, d)| (p, l, d))).collect();
+    // Furthest first, so the nearer portals pass in front.
+    order.sort_by(|a, b| (b.0 as f32 - pos).abs().total_cmp(&(a.0 as f32 - pos).abs()));
     let mut events = 0;
-    for (p, s) in scenes.iter().enumerate() {
-        let off = ((c[p] - here) * base.pitch as f32).round() as i32;
-        let half = s.gc * base.pitch / 2;
-        if off - half >= w as i32 / 2 + base.pitch || off + half <= -(w as i32) / 2 - base.pitch {
-            continue;
-        }
-        let lay = place(s, &base, w, h, off);
-        let dim = smooth((p as f32 - pos).abs()) * 0.68;
-        let mine = if p as i32 == sel { *inp } else { Input { stage: Stage::Rest, ..*inp } };
-        let ev = s.frame(&mine, &lay, dim, out);
-        if p as i32 == sel {
+    for (p, lay, dim) in order {
+        let mine = if p == sel { *inp } else { Input { stage: Stage::Rest, ..*inp } };
+        let ev = scenes[p].frame(&mine, &lay, dim, out);
+        if p == sel {
             events = ev;
         }
     }
@@ -809,7 +835,7 @@ mod tests {
         let (w, h) = (1110, 820);
         carousel(&scenes, 1.0, &inp, w, h, &mut out);
         let pitch = shared(&scenes, w, h).pitch;
-        let [x, _, rw, _] = rect(&scenes, 1.0, w, h);
+        let [x, _, rw, _] = rect(&scenes, 1.0, 1, w, h);
         let (l, r) = (x, x + rw);
         let mid: Vec<&Tile> = out.iter().filter(|t| t.frame && t.x >= l && t.x < r).collect();
         assert!(mid.iter().any(|t| scenes[1].tones.contains(&t.rgb)), "the selected portal is undimmed");
@@ -825,11 +851,48 @@ mod tests {
     }
 
     #[test]
+    fn c13_the_portals_ride_an_orbit_neighbours_small_and_well_apart_far_ones_round_the_back() {
+        let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
+        let (w, h) = (1110, 820);
+        let pitch = shared(&scenes, w, h).pitch;
+        let [x, y, rw, rh] = rect(&scenes, 2.0, 2, w, h);
+        let [nx, ny, nw, nh] = rect(&scenes, 2.0, 3, w, h);
+        assert!(nx >= x + rw + 3 * pitch, "the next portal sits well clear of the selected one");
+        assert!(ny + nh / 2 < y + rh / 2, "neighbours ride higher, round the orbit");
+        assert!(nw * 10 < rw * 9 * scenes[3].gc / scenes[2].gc, "and smaller");
+        assert_eq!(rect(&scenes, 2.0, 5, w, h), [0; 4], "three away is round the back");
+        // Half way through a turn both portals are on screen, neither at the front.
+        let [a, ..] = rect(&scenes, 2.5, 2, w, h);
+        let [b, ..] = rect(&scenes, 2.5, 3, w, h);
+        assert!(a < x && b > x - rw);
+    }
+
+    #[test]
+    fn c13_stars_drift_and_stretch_while_the_orbit_turns_never_over_the_selected_portal() {
+        let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
+        let (w, h) = (1110, 820);
+        let stars = |pos: f32| {
+            let mut out = Vec::new();
+            carousel(&scenes, pos, &at(FORM + 2.0, Stage::Rest), w, h, &mut out);
+            out.into_iter().filter(|t| t.c < 0).collect::<Vec<_>>()
+        };
+        let still = stars(1.0);
+        assert!(still.len() >= STARS as usize / 2);
+        assert!(stars(1.5).len() > still.len(), "streaks while turning");
+        assert_ne!(still.iter().map(|t| t.x).sum::<i32>(), stars(2.0).iter().map(|t| t.x).sum::<i32>(), "they drift");
+        let [x, y, rw, rh] = rect(&scenes, 1.0, 1, w, h);
+        assert!(still.iter().all(|t| !(t.x >= x && t.x < x + rw && t.y >= y && t.y < y + rh)));
+        let mut one = Vec::new();
+        carousel(&scenes[..1], 0.0, &at(FORM + 2.0, Stage::Rest), w, h, &mut one);
+        assert!(one.iter().all(|t| t.c >= 0), "no stars with a single portal");
+    }
+
+    #[test]
     fn the_portal_leaves_air_round_it_for_lar_most_of_all_below() {
         let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
         for (w, h) in [(1110, 820), (1110, 1300), (900, 600)] {
             for sel in 0..scenes.len() {
-                let [x, y, rw, rh] = rect(&scenes, sel as f32, w, h);
+                let [x, y, rw, rh] = rect(&scenes, sel as f32, sel, w, h);
                 let pitch = shared(&scenes, w, h).pitch;
                 assert!(x >= 2 * pitch && x + rw <= w as i32 - 2 * pitch, "{w}x{h} #{sel} sides");
                 assert!(y >= pitch && h as i32 - (y + rh) >= 4 * pitch, "{w}x{h} #{sel} below");
@@ -844,10 +907,24 @@ mod tests {
         for sel in 0..scenes.len() {
             let mut out = Vec::new();
             carousel(&scenes, sel as f32, &at(FORM + 1.0, Stage::Rest), w, h, &mut out);
-            let [x, y, rw, rh] = rect(&scenes, sel as f32, w, h);
+            let [x, y, rw, rh] = rect(&scenes, sel as f32, sel, w, h);
             let mine: Vec<&Tile> = out.iter().filter(|t| t.frame && t.x >= x - 2 && t.x < x + rw + 2).collect();
             assert!(!mine.is_empty());
             assert!(mine.iter().all(|t| t.x >= x && t.y >= y && t.x + t.size <= x + rw && t.y + t.size <= y + rh), "portal {sel}");
+        }
+    }
+
+    #[test]
+    fn rect_bounds_the_neighbours_too_so_lar_can_steer_round_them() {
+        let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
+        let (w, h) = (1110, 820);
+        for (pos, p) in [(1.0, 0), (1.0, 2), (2.4, 3), (0.0, 1)] {
+            let mut out = Vec::new();
+            carousel(&scenes, pos, &at(FORM + 1.0, Stage::Rest), w, h, &mut out);
+            let [x, y, rw, rh] = rect(&scenes, pos, p, w, h);
+            let near: Vec<&Tile> = out.iter().filter(|t| t.frame && t.x >= x - 2 && t.x < x + rw + 2 && t.y >= y - 2 && t.y < y + rh + 2).collect();
+            assert!(!near.is_empty(), "neighbour {p} at {pos} is on screen");
+            assert!(near.iter().all(|t| t.x >= x && t.y >= y && t.x + t.size <= x + rw && t.y + t.size <= y + rh), "neighbour {p} at {pos}");
         }
     }
 

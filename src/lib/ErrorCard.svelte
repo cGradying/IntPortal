@@ -7,7 +7,7 @@
 </script>
 
 <section class="card notch problem" role="alert">
-  <Lar size={2} mood="wow" cube={false} />
+  <Lar size={2} state="error" cube={false} />
   <div>
     <p class="what">Couldn't load this</p>
     <p class="why">{error}</p>

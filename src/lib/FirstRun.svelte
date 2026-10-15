@@ -33,7 +33,7 @@
 </script>
 
 <div class="first" role="dialog" aria-label="Welcome">
-  <div class="art"><Isko size={120} /><Lar size={4} gesture="wave" /></div>
+  <div class="art"><Isko size={120} /><Lar size={4} state="happy" /></div>
   <div class="card notch text">
     <p class="label">{step + 1} of {steps.length}</p>
     <h1>{steps[step].title}</h1>

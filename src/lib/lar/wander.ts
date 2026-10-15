@@ -146,7 +146,7 @@ function begin(l: Lar, world: World, ctx: Context, rand: Rand) {
     l.ty = p.y + p.h * (0.3 + rand() * 0.4);
   } else if (l.mode === "approach") {
     // Down toward the student, but above the card.
-    const card = world.keepOut.reduce((low, r) => (r.y > (low?.y ?? -1) ? r : low), undefined as Rect | undefined);
+    const card = world.keepOut.filter((r) => r.y >= p.y + p.h).reduce((low, r) => (r.y > (low?.y ?? -1) ? r : low), undefined as Rect | undefined);
     l.tx = world.w / 2 + (rand() - 0.5) * world.w * 0.3;
     l.ty = Math.min((card ? card.y : world.h) - 70, p.y + p.h + 30);
   } else {

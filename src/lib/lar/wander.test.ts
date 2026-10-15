@@ -71,6 +71,23 @@ describe("wander", () => {
       }
   });
 
+  it("treats the neighbouring portals peeking in at the sides as solid too", () => {
+    const side: World = { ...WORLD, keepOut: [...WORLD.keepOut, { x: 300, y: 60, w: 120, h: 170 }, { x: -60, y: 60, w: 90, h: 170 }] };
+    const near = (l: Lar, r: { x: number; y: number; w: number; h: number }) =>
+      Math.hypot(l.x - Math.max(r.x, Math.min(l.x, r.x + r.w)), l.y - Math.max(r.y, Math.min(l.y, r.y + r.h))) < side.r - 0.5;
+    const bad: string[] = [];
+    for (const ctx of ["idle", "busy", "error"] as Context[])
+      for (const seed of [1, 2, 3]) {
+        const rand = rng(seed);
+        const l = create(side, rand);
+        for (let i = 0; i < 60 * 40; i++) {
+          tick(l, side, ctx, 1 / 60, rand);
+          if (side.keepOut.slice(1).some((r) => near(l, r))) bad.push(`${ctx} ${seed} @${i}`);
+        }
+      }
+    expect(bad.slice(0, 5)).toEqual([]);
+  });
+
   it("flies right round the portal when orbiting", () => {
     let left = false;
     let right = false;

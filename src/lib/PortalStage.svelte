@@ -2,11 +2,11 @@
   // The landing's stage: the tile portal carousel (spec 010, drawn by the
   // Rust scene through tiles.ts) in whatever room the form leaves, so it fits
   // every phone's shape. Swipe, or use the arrows and dots, to choose a
-  // portal; each school has its own frame, motif and colours. LAR and his
-  // bird swarm fly round it (LarFlight), never through its blocks.
+  // portal; each school has its own frame, motif and colours, and they ride
+  // an orbit that turns between them. LAR flies round it (LarFlight), never
+  // through a portal's blocks.
   import { onMount, untrack } from "svelte";
   import LarFlight, { type Context } from "./lar/LarFlight.svelte";
-  import type { Mood } from "./lar/vector";
   import type { Portal } from "./api";
   import { buzz } from "./haptics";
   import { release, settle, step, type Motion } from "./carousel";
@@ -22,7 +22,6 @@
     still = false,
     showLar,
     leaving = false,
-    mood,
     ctx,
   }: {
     portals: Portal[];
@@ -37,7 +36,6 @@
     still?: boolean;
     showLar: boolean;
     leaving?: boolean;
-    mood: Mood;
     /** What the student is doing, for LAR. */
     ctx: Context;
   } = $props();
@@ -61,12 +59,19 @@
   const current = $derived(portals[index] ?? portals[0]);
   const larPortal = $derived({ id: current.id, name: current.name, school: current.school, ready: current.status === "ready", ramp: current.theme.ramp, accent: current.theme.accent });
 
-  // The selected portal's frame in CSS px, for LAR and the flock to steer round.
-  function portalRect() {
+  // The selected portal's frame in CSS px, and the neighbours peeking in, for
+  // LAR to steer round.
+  function portalRects() {
     if (!tiles || !canvas) return null;
+    const t = tiles;
     const dpr = Math.min(devicePixelRatio, 3);
-    const [x, y, w, h] = tiles.rect(motion.pos);
-    return { x: x / dpr, y: y / dpr, w: w / dpr, h: h / dpr };
+    const css = (p: number) => {
+      const [x, y, w, h] = t.rect(motion.pos, p);
+      return { x: x / dpr, y: y / dpr, w: w / dpr, h: h / dpr };
+    };
+    const sel = Math.round(motion.pos);
+    // A neighbour round the back of the orbit has no box.
+    return { portal: css(sel), others: [sel - 1, sel + 1].filter((p) => p >= 0 && p < portals.length).map(css).filter((r) => r.w > 0) };
   }
 
   function draw(t: number) {
@@ -206,7 +211,7 @@
     onpointerup={up}
     onpointercancel={up}
   ></canvas>
-  <div class="sky"><LarFlight getRect={portalRect} show={showLar} {ctx} {mood} portal={larPortal} /></div>
+  <div class="sky"><LarFlight getRects={portalRects} show={showLar} {ctx} portal={larPortal} /></div>
   {#if portals.length > 1}
     <div class="picker" class:off={locked} role="group" aria-label="Choose a portal">
       <button class="arrow" aria-label="Previous portal" disabled={locked || index === 0} onclick={() => go(index - 1)}>‹</button>

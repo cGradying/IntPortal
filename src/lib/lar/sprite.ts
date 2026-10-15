@@ -4,8 +4,9 @@
 // a dark visor with gold eyes, a belly window showing the live swirl, a
 // gold spark antenna, two floating mitts and a tiny orbiting portal cube.
 // Outlined, four-tone, ordered dither between tones. Pure grids here, plus
-// tint() (a portal's colours), pose() (every part's offset for a state) and
-// extents() (where the parts land); Lar.svelte puts them on screen.
+// tint() (a portal's colours), pose() (every part's offset for a state),
+// extents() (where the parts land) and drawLar(), the one renderer that
+// Lar.svelte, the landing's flight and the sheet all draw him with.
 export const LAR_PAL = {
   o: "#1a0f20",
   d: "#2c1c3a",
@@ -28,6 +29,11 @@ export const LAR_PAL = {
   t: "#f5b227",
   T: "#b87a10",
   x: "#ff5a4a",
+  // The spawn fire, coolest to hottest under the white core (the portal's ramp).
+  "1": "#7a1c2c",
+  "2": "#b5412a",
+  "3": "#e08a35",
+  "4": "#f3cf6a",
 } as const;
 export type Key = keyof typeof LAR_PAL;
 export type Palette = Record<Key, string>;
@@ -312,36 +318,48 @@ function fromHsl(h: number, s: number, l: number) {
   const f = (n: number) => l - a * Math.max(-1, Math.min((n + h / 30) % 12 - 3, 9 - ((n + h / 30) % 12), 1));
   return hex([f(0), f(8), f(4)].map((v) => v * 255));
 }
-/** Gold, amber and orange accents: his eyes already speak that colour. */
-const goldish = (accent: string) => {
-  const [h, s, l] = hsl(accent);
-  return h >= 28 && h <= 58 && s >= 0.45 && l >= 0.4;
-};
+/** Hue a part of the way from a to b, the short way round. */
+const hueMix = (a: number, b: number, f: number) => a + (((((b - a) % 360) + 540) % 360) - 180) * f;
+const BODY_KEYS = ["d", "k", "b", "B", "L"] as const;
 
 /**
- * LAR's palette for a portal. The body tones never move. The portal shows in
- * the rim light (its accent, lifted until it reads on the void), the ear and
- * belly studs and the cube (its ramp), the belly frame and visor rim (a breath of
- * its darkest tones) and the swirl (drawSwirl with the same ramp). A gold accent
- * would vanish against gold eyes, so those portals get a magenta rim instead,
- * turned a little by the ramp so SIS and BulSU still differ.
+ * LAR's palette for a portal: he wears the university's colours. His body
+ * keeps its lightness ladder and dither, but its five tones run as a gradient
+ * from the ramp's deep hue in the shadows to the accent's hue in the light
+ * (maroon to gold for PUP, forest to lime for UP, slate to coral for TUP).
+ * The outline and mitts follow, the rim light is the accent lifted until it
+ * reads on the void, the studs, cube, swirl and spawn fire take the ramp.
+ * His gold eyes and spark never change: that is how you know him.
  */
 export function tint(theme: Theme = SIS): Palette {
   const [r0, r1, r2, r3, r4] = theme.ramp;
-  let rim = theme.accent;
-  if (goldish(rim)) {
-    const [, s, l] = hsl(LAR_PAL.m);
-    rim = fromHsl(316 - (hsl(r2)[0] - 10) * 3, s, l);
-  }
+  const [deep, deepS] = hsl(r1);
+  const [glow, glowS] = hsl(theme.accent);
+  const body = Object.fromEntries(
+    BODY_KEYS.map((k, i) => {
+      // Most of him stays in the deep hue; the accent comes in at the light.
+      const f = (i / (BODY_KEYS.length - 1)) ** 1.6;
+      const s = clamp(deepS + (glowS - deepS) * f, 0.16, 0.46);
+      return [k, fromHsl((hueMix(deep, glow, f) + 360) % 360, s, hsl(LAR_PAL[k])[2])];
+    }),
+  ) as Record<(typeof BODY_KEYS)[number], string>;
+  let rim = mixHex(theme.accent, "#ffffff", 0.18);
   for (let i = 0; contrast(rim, VOID) < 3 && i < 20; i++) rim = mixHex(rim, "#ffffff", 0.12);
   return {
     ...LAR_PAL,
+    ...body,
+    o: fromHsl(deep, 0.32, hsl(LAR_PAL.o)[2]),
+    e: body.b,
     m: rim,
     t: mixHex(r3, r4, 0.45),
     T: mixHex(r2, r3, 0.3),
     c: mixHex(r1, r2, 0.5),
     s: mixHex(LAR_PAL.s, r0, 0.3),
     V: mixHex(LAR_PAL.V, r1, 0.25),
+    "1": r1,
+    "2": r2,
+    "3": r3,
+    "4": r4,
   };
 }
 
@@ -429,6 +447,8 @@ export interface Pose {
   shake: number;
   /** Spawn: draw the sprite in blocks this many sprite px wide (1 = sharp). */
   resolve: number;
+  /** Spawn: how far the fire he comes out of has burned, 0 to 1, or -1 for no fire. */
+  fire: number;
   alpha: number;
 }
 
@@ -466,6 +486,7 @@ interface Pick {
   sparkle: Glyph[];
   shake: number;
   resolve: number;
+  fire: number;
 }
 interface Spec {
   raw: Raw;
@@ -492,7 +513,7 @@ const mix = <T>(a: T, b: T, e: number): T =>
 
 const mittRaw = (_i: number, dx = 0, dy = 0, rot = 0, streak = 0, streakRot = 0) => ({ x: dx, y: dy, rot, streak, streakRot });
 const cubeRaw = (o: Partial<Raw["c"]> = {}) => ({ x: W / 2, y: 9.5, rx: 16, ry: 3, s0: 0.75, sa: 0.25, vis: 1, ...o });
-const calm = (): Pick => ({ mood: "open", kinds: ["mitt", "mitt"], dots: -1, red: false, zzz: [], sparkle: [], shake: 0, resolve: 1 });
+const calm = (): Pick => ({ mood: "open", kinds: ["mitt", "mitt"], dots: -1, red: false, zzz: [], sparkle: [], shake: 0, resolve: 1, fire: -1 });
 const body = (o: Partial<Raw["b"]> = {}) => ({ x: 0, y: 0, sx: 1, sy: 1, rot: 0, ...o });
 
 function spec(state: State, t: number, o: PoseOpts): Spec {
@@ -528,18 +549,22 @@ function spec(state: State, t: number, o: PoseOpts): Spec {
       };
     }
     case "spawn": {
+      // He comes out of a fire: it flares up first, he resolves inside it from
+      // coarse blocks to the sharp sprite, rising, and it burns out round him.
       const k = clamp(o.k ?? 1);
-      const e = 1 - (1 - k) ** 3;
+      const u = clamp((k - 0.2) / 0.8);
+      const e = 1 - (1 - u) ** 3;
       pick.mood = k < 1 ? "open" : blinkAt(t);
-      pick.resolve = k >= 1 ? 1 : [8, 6, 4, 3, 2][Math.floor(k * 5)];
-      if (k > 0.7 && k < 1) pick.sparkle = [{ x: W - 2, y: 0, s: k < 0.85 ? 1 : 2, a: 1 }];
+      pick.resolve = k >= 1 ? 1 : u <= 0 ? 8 : [8, 6, 4, 3, 2][Math.min(4, Math.floor(u * 5))];
+      pick.fire = k < 1 ? k : -1;
+      if (k > 0.78 && k < 1) pick.sparkle = [{ x: W - 2, y: 0, s: k < 0.88 ? 1 : 2, a: 1 }];
       return {
         raw: {
-          b: body({ y: bob * e + (1 - e) * 3 }),
+          b: body({ y: bob * e + (1 - e) * 4 }),
           a: { x: 0, y: 0, rot: sway * e },
           m: [0, 1].map((i) => mittRaw(i, 0, lag(i))),
           c: cubeRaw({ y: 9.5 + bob * 0.5 }),
-          alpha: clamp(k * 5),
+          alpha: clamp(u * 3),
         },
         pick,
       };
@@ -695,6 +720,7 @@ function build(raw: Raw, pick: Pick, angle: number): Pose {
     sparkle: pick.sparkle.filter((g) => g.a > 0.02),
     shake: pick.shake,
     resolve: pick.resolve,
+    fire: pick.fire,
     alpha: raw.alpha,
   };
 }
@@ -746,5 +772,294 @@ export function extents(p: Pose): Record<string, Pt[]> {
   out.cube = quad(c.x - 3.5 * c.scale, c.y - 3.5 * c.scale, 7 * c.scale, 7 * c.scale);
   p.zzz.forEach((g, i) => (out[`zzz${i}`] = quad(g.x, g.y, ZZZ[g.s][0].length, ZZZ[g.s].length)));
   p.sparkle.forEach((g, i) => (out[`spark${i}`] = quad(g.x, g.y, SPARKLE[g.s][0].length, SPARKLE[g.s].length)));
+  if (p.fire >= 0) out.fire = quad(FIRE.x, FIRE.y, FIRE.w, FIRE.h);
   return out;
+}
+
+// ------------------------------------------------------------ fire, sheen
+
+/** Where the spawn fire burns, in sprite px: a bonfire round his body. */
+export const FIRE = { x: -2, y: -9, w: 30, h: 34 } as const;
+const FIRE_STEPS = 44;
+const FIRE_MAX = 31;
+const FIRE_KEYS: (Key | null)[] = [null, "1", "2", "3", "4", "w"];
+let fireMemo = { key: "", g: [] as Grid };
+
+/**
+ * The fire he spawns in: a small Doom-style fire. A bonfire-shaped bed of
+ * heat feeds it until k is 0.6; every step each cell's heat rises a row,
+ * drifts sideways and cools at random, so flames lick up and taper. Then the
+ * bed goes out and the last flames rise and die. Coloured cool to hot by the
+ * portal's ramp under a white core. Pure for a k and seed (the last is cached).
+ */
+export function fireGrid(k: number, seed = 7): Grid {
+  const steps = Math.round(clamp(k) * FIRE_STEPS);
+  const key = `${steps}:${seed}`;
+  if (fireMemo.key === key) return fireMemo.g;
+  const { w, h } = FIRE;
+  const heat = new Uint8Array(w * h);
+  let a = seed >>> 0;
+  const rand = () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let x = Math.imul(a ^ (a >>> 15), a | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let s = 0; s < steps; s++) {
+    const fuel = clamp(1 - (s / FIRE_STEPS - 0.6) / 0.08);
+    for (let x = 0; x < w; x++) {
+      const bed = Math.max(0, 1 - Math.abs(x - (w - 1) / 2) / (w * 0.44));
+      heat[(h - 1) * w + x] = Math.round(FIRE_MAX * fuel * Math.sqrt(bed) * (rand() < 0.8 ? 1 : 0.5));
+    }
+    // Each cell pulls heat from the one below or a neighbour of it, and cools;
+    // heat that came in sideways cools more, which splits the fire into
+    // tongues. A slow wind sways the whole fire.
+    // Two rows a step, so it flares up fast.
+    const wind = Math.sin(s * 0.45) * 0.35;
+    for (let sub = 0; sub < 2; sub++)
+      for (let y = 1; y < h; y++)
+        for (let x = 0; x < w; x++) {
+          const dx = Math.round(rand() * 2 - 1 + wind);
+          const from = Math.min(w - 1, Math.max(0, x + dx));
+          heat[(y - 1) * w + x] = Math.max(0, heat[y * w + from] - (dx ? 1 : 0) - (rand() < 0.35 ? 1 : 0));
+        }
+  }
+  const g = grid(w, h);
+  for (let j = 0; j < h; j++)
+    for (let i = 0; i < w; i++) {
+      const v = heat[j * w + i];
+      if (v >= 3) g[j][i] = FIRE_KEYS[Math.min(5, Math.ceil((v / FIRE_MAX) * 5))];
+    }
+  fireMemo = { key, g };
+  return g;
+}
+
+/** Seconds between sheens, and how long one takes to cross him. */
+export const SHEEN = { every: 5.5, cross: 0.9 } as const;
+const LIFT: Partial<Record<Key, Key>> = { d: "k", k: "b", b: "B", B: "L", m: "w" };
+let BODY_G: Grid | null = null;
+
+/**
+ * A whimsical sheen: now and then a diagonal band of light sweeps across his
+ * body, lifting each tone a step (the brightest to white at its core). Its
+ * edges are dithered, so it reads as a gradient in whole pixels. Null
+ * between sweeps.
+ */
+export function sheenGrid(t: number): Grid | null {
+  const u = (((t % SHEEN.every) + SHEEN.every) % SHEEN.every) / SHEEN.cross;
+  if (u >= 1) return null;
+  BODY_G ??= bodyGrid();
+  const at = -6 + u * (W + H + 12);
+  const g = grid(W, H);
+  BODY_G.forEach((row, j) =>
+    row.forEach((k, i) => {
+      if (!k) return;
+      const d = Math.abs(i * 0.8 + j - at);
+      const core = d < 1.2;
+      const edge = d < 3.5 && BAYER[j % 4][i % 4] / 16 < (3.5 - d) / 2.3;
+      const up = k === "L" ? (core ? "w" : undefined) : LIFT[k];
+      if (up && (core || edge)) g[j][i] = up;
+    }),
+  );
+  return g;
+}
+
+// ------------------------------------------------------------------- rig
+
+/**
+ * One LAR's state over time: which state he is in, which he came from, when
+ * he switched and the cube angle owed, so pose() eases every change.
+ */
+export function rig(initial: State = "idle") {
+  let cur = initial;
+  let from: State | undefined;
+  let switched = -Infinity;
+  let phase = 0;
+  let last = 0;
+  return {
+    get state() {
+      return cur;
+    },
+    /** Seconds in the current state at t. */
+    since: (t: number) => t - switched,
+    /** Switch to `next` at t, easing from wherever he is (a spawn starts afresh). */
+    set(next: State, t: number, o: PoseOpts = {}) {
+      if (next === cur) return;
+      if (next === "spawn") return this.start(next, t);
+      phase = last - pose(cur, t, { ...o, phase: 0 }).cube.angle;
+      from = cur;
+      cur = next;
+      switched = t;
+    },
+    /** Start `state` afresh at t, with nothing to ease from (a spawn). */
+    start(state: State, t: number) {
+      cur = state;
+      from = undefined;
+      switched = t;
+      phase = 0;
+    },
+    /** His pose at t. `still` (Reduce Motion) holds him settled. */
+    at(t: number, o: PoseOpts = {}, still = false): Pose {
+      const since = still ? Infinity : t - switched;
+      const p = pose(cur, still ? 0 : t, { k: still ? 1 : Math.min(1, since / SPAWN_SECS), ...o, from: still ? undefined : from, since, phase });
+      last = p.cube.angle;
+      return p;
+    },
+  };
+}
+
+// --------------------------------------------------------------- drawing
+
+export interface DrawOpts {
+  /** The orbiting cube (default on). */
+  cube?: boolean;
+  /** The soft shadow under him (default on). */
+  shadow?: boolean;
+  /** The glow behind him in his portal's colours (default on). */
+  aura?: boolean;
+}
+
+const palettes = new Map<string, Palette>();
+const baked = new Map<string, HTMLCanvasElement>();
+const paintInto = (x: CanvasRenderingContext2D, g: Grid, pal: Palette, ox = 0, oy = 0) =>
+  g.forEach((row, j) =>
+    row.forEach((k, i) => {
+      if (!k) return;
+      x.fillStyle = pal[k];
+      x.fillRect(ox + i, oy + j, 1, 1);
+    }),
+  );
+let belly: HTMLCanvasElement | null = null;
+
+/**
+ * Draws LAR for a pose. `ctx` is in sprite px with the body's top left at
+ * 0,0 (scale it first); smoothing is off, so every part lands on whole pixels
+ * of whatever scale the caller picked, while positions stay smooth.
+ */
+export function drawLar(ctx: CanvasRenderingContext2D, p: Pose, theme: Theme, t: number, o: DrawOpts = {}) {
+  const id = theme.ramp.join() + theme.accent;
+  let pal = palettes.get(id);
+  if (!pal) palettes.set(id, (pal = tint(theme)));
+  const P = pal;
+  const bake = (name: string, g: () => Grid) => {
+    let c = baked.get(id + name);
+    if (!c) {
+      const gr = g();
+      c = document.createElement("canvas");
+      c.width = gr[0].length;
+      c.height = gr.length;
+      paintInto(c.getContext("2d")!, gr, P);
+      baked.set(id + name, c);
+    }
+    return c;
+  };
+  const res = p.resolve;
+  const sharp = (name: string, g: () => Grid) => (res > 1 ? bake(`${name}@${res}`, () => mosaic(g(), res, P)) : bake(name, g));
+  const deg = Math.PI / 180;
+
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  const fire = p.fire >= 0 ? fireGrid(p.fire) : null;
+  const fireAlpha = clamp((1 - p.fire) / 0.15);
+
+  // The glow: a soft gradient from the accent through the ramp to nothing.
+  if (o.aura !== false && p.alpha > 0) {
+    const cx = W / 2 + p.body.x;
+    const cy = 12 + p.body.y;
+    const r = 20 + Math.sin(t * 1.3) * 1.5;
+    const g = ctx.createRadialGradient(cx, cy, 1, cx, cy, r);
+    g.addColorStop(0, theme.accent + "38");
+    g.addColorStop(0.55, theme.ramp[2] + "16");
+    g.addColorStop(1, theme.ramp[2] + "00");
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+  if (fire) {
+    ctx.globalAlpha = fireAlpha;
+    paintInto(ctx, fire, P, FIRE.x, FIRE.y);
+  }
+  ctx.globalAlpha = p.alpha;
+  if (o.shadow !== false) {
+    ctx.fillStyle = "rgb(0 0 0 / 0.3)";
+    ctx.beginPath();
+    ctx.ellipse(W / 2 + p.body.x, 25.5, 8 * Math.max(0.5, 1 + p.body.y / 16), 1, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const cube = () => {
+    const c = p.cube;
+    if (o.cube === false || c.scale < 0.01) return;
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.scale(c.scale, c.scale);
+    ctx.drawImage(sharp("cube", () => rows(CUBE)), -3.5, -3.5);
+    ctx.restore();
+  };
+  if (!p.cube.front) cube();
+  for (const m of p.mitts) {
+    if (m.streak < 0.02) continue;
+    ctx.save();
+    ctx.globalAlpha = p.alpha * m.streak * 0.9;
+    ctx.translate(m.x + 3.5, m.y + 3.5);
+    ctx.rotate(m.streakRot * deg);
+    ctx.drawImage(bake("streak", () => rows(STREAK)), -9.5, -1.5);
+    ctx.restore();
+  }
+
+  ctx.save();
+  const b = p.body;
+  ctx.translate(b.x + PIVOT.x, b.y + PIVOT.y);
+  ctx.rotate(b.rot * deg);
+  ctx.scale(b.sx, b.sy);
+  ctx.translate(-PIVOT.x, -PIVOT.y);
+  ctx.save();
+  ctx.translate(p.antenna.x + 3.5, p.antenna.y + 9);
+  ctx.rotate(p.antenna.rot * deg);
+  ctx.drawImage(sharp("antenna", () => rows(ANTENNA)), -3.5, -9);
+  ctx.restore();
+  if (res > 1) {
+    // While he resolves, body and face are blocked together so the blocks agree.
+    const flat = (...layers: Grid[]): Grid => bodyGrid().map((row, j) => row.map((k, i) => layers.reduce<Key | null>((acc, l) => l[j][i] ?? acc, k)));
+    ctx.drawImage(bake(`whole@${res}${p.mood}${p.red}`, () => mosaic(p.red ? flat(redGrid(), faceGrid(p.mood)) : flat(faceGrid(p.mood)), res, P)), 0, 0);
+  } else {
+    ctx.drawImage(bake("body", bodyGrid), 0, 0);
+    const sheen = sheenGrid(t);
+    if (sheen) paintInto(ctx, sheen, P);
+    if (p.red) ctx.drawImage(bake("red", redGrid), 0, 0);
+    ctx.drawImage(bake(`face:${p.mood}`, () => faceGrid(p.mood)), 0, 0);
+    if (p.dots >= 0) ctx.drawImage(bake(`dots:${p.dots}`, () => dotsGrid(p.dots)), 0, 0);
+    belly ??= Object.assign(document.createElement("canvas"), { width: 6, height: 5 });
+    drawSwirl(belly.getContext("2d")!, t, 6, 5, theme.ramp);
+    ctx.drawImage(belly, W / 2 - 3, 15);
+  }
+  ctx.restore();
+  if (p.cube.front) cube();
+  for (const m of p.mitts) {
+    ctx.save();
+    ctx.translate(m.x + 3.5, m.y + 3.5);
+    ctx.rotate(m.rot * deg);
+    ctx.scale(m.side, 1);
+    ctx.drawImage(sharp(m.kind, () => rows(m.kind === "thumb" ? THUMB : MITT)), -3.5, -3.5);
+    ctx.restore();
+  }
+  for (const g of p.zzz) {
+    ctx.globalAlpha = g.a * p.alpha;
+    ctx.drawImage(bake(`z${g.s}`, () => rows(ZZZ[g.s])), g.x, g.y);
+  }
+  for (const g of p.sparkle) {
+    ctx.globalAlpha = g.a * p.alpha;
+    ctx.drawImage(bake(`sp${g.s}`, () => rows(SPARKLE[g.s])), g.x, g.y);
+  }
+  // The flames in front of him: the lower part, fading as he comes clear.
+  if (fire) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(FIRE.x, H * 0.6, FIRE.w, FIRE.y + FIRE.h - H * 0.6);
+    ctx.clip();
+    ctx.globalAlpha = fireAlpha * clamp(1.5 - p.fire * 1.7);
+    paintInto(ctx, fire, P, FIRE.x, FIRE.y);
+    ctx.restore();
+  }
+  ctx.restore();
 }

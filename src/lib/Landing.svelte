@@ -8,7 +8,6 @@
   import { onMount, untrack } from "svelte";
   import PortalStage from "./PortalStage.svelte";
   import type { Context } from "./lar/LarFlight.svelte";
-  import type { Mood } from "./lar/vector";
   import { api, isoDate, type CampusResolution, type Portal, type Tries } from "./api";
   import { FALLBACK_SIS, portalCopy, triesLine, validate } from "./portals";
   import { portalApiFor } from "./portalApi";
@@ -66,7 +65,6 @@
   });
 
   // LAR's face and flight follow what's happening; he talks for himself.
-  const mood = $derived<Mood>(error ? "wow" : busy || typing ? "focus" : rest === "hub" ? "happy" : "open");
   const ctx = $derived<Context>(error ? "error" : busy ? "busy" : rest === "hub" ? "signed" : typing ? "typing" : "idle");
 
   onMount(() => {
@@ -138,7 +136,6 @@
     still={typing}
     showLar={resting}
     leaving={steppedAt !== null}
-    {mood}
     {ctx}
   />
 

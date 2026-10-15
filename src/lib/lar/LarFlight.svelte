@@ -3,53 +3,46 @@
 </script>
 
 <script lang="ts">
-  // LAR on the landing: he comes out of the portal, resolving from a few
-  // big pixels into his full sprite, then flies round it with a swarm of
-  // pixel birds (wander.ts, flock.ts). The portal's frame is solid to all of
-  // them. Now and then he says something about the app (lines.ts); tap him
-  // and he answers. He is pixelated on purpose, drawn small and scaled up
-  // with no smoothing, but he moves smoothly between pixels.
+  // LAR on the landing: he comes out of a fire below the portal, in the
+  // portal's own colours, resolving from coarse blocks to his sprite, then
+  // flies round it on his own (wander.ts). The portals' frames are solid to
+  // him. His state follows what he and the
+  // student are doing (fly, think, error, happy, sleep), eased by a rig. Now
+  // and then he says something about the app (lines.ts); tap him and he
+  // answers.
   import { onMount, untrack } from "svelte";
   import { buzz } from "../haptics";
-  import { spawn as spawnBirds, step as stepBirds, wingsUp, type Bird } from "./flock";
   import { hold, pause, pick, remember, type Topic } from "./lines";
-  import { VIEW, blinkAt, lar as larShapes, paint, type Gesture, type Mood } from "./vector";
-  import { create, landing, rng, tick, turnOf, type Context, type Lar, type Rect, type World } from "./wander";
+  import { SPAWN_SECS, W, drawLar, rig, type State } from "./sprite";
+  import { create, landing, rng, tick, type Context, type Lar, type Rect, type World } from "./wander";
 
   let {
-    getRect,
+    getRects,
     show,
     ctx,
-    mood,
     portal,
   }: {
-    /** The selected portal's frame box, in this layer's CSS px. */
-    getRect: () => Rect | null;
+    /** The selected portal's frame box, and its neighbours', in this layer's CSS px: all solid. */
+    getRects: () => { portal: Rect; others: Rect[] } | null;
     /** The landing is resting: time for him to come out. */
     show: boolean;
     ctx: Context;
-    mood: Mood;
     portal: { id: string; name: string; school: string; ready: boolean; ramp: string[]; accent: string };
   } = $props();
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  /** His drawn width in CSS px, and the art resolution he resolves up to. */
-  const WIDE = 74;
-  const RES = 34;
-  const R = 28;
-  const BIRDS = 11;
-  const SPAWN = 1.1;
-  // Wings up, wings down: 5 by 3 art pixels.
-  const UP = ["#...#", ".#.#.", "..#.."];
-  const DOWN = ["..#..", ".#.#.", "#...#"];
+  /** CSS px per sprite px: whole, so he stays crisp. */
+  const SIZE = 2;
+  /** His body's centre in the sprite, and his reach round it (mitts included), in CSS px. */
+  const MID = { x: W / 2, y: 12 };
+  const R = 36;
 
   let canvas: HTMLCanvasElement;
   let bubble: HTMLDivElement;
   let tap: HTMLButtonElement;
-  const off = typeof document !== "undefined" ? document.createElement("canvas") : null;
   const rand = rng(Math.floor(Math.random() * 1e9));
+  const look = rig("idle");
   let me: Lar | null = null;
-  let birds: Bird[] = [];
   let bornAt: number | null = null;
   let start = performance.now();
   let lastT = 0;
@@ -60,15 +53,16 @@
   let nextTalk = 4;
   let recent: string[] = [];
   let tappedAt = -9;
+  let restFrom = 0;
 
   const now = () => (performance.now() - start) / 1000;
-  const easeOut = (x: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+  const theme = $derived({ ramp: portal.ramp, accent: portal.accent });
 
   function world(): World | null {
-    const p = getRect();
-    if (!p || !canvas) return null;
+    const rects = getRects();
+    if (!rects || !canvas) return null;
     const { width, height } = canvas.getBoundingClientRect();
-    return { w: width, h: height, portal: p, keepOut: [], r: R };
+    return { w: width, h: height, portal: rects.portal, keepOut: rects.others, r: R };
   }
 
   function say(topic?: Topic, announce = false) {
@@ -80,6 +74,17 @@
     const t = now();
     lineUntil = t + hold(text);
     nextTalk = lineUntil + pause(rand);
+  }
+
+  /** What he is doing, from what the student is doing and how he moves. */
+  function stateFor(t: number, speed: number): State {
+    if (t - tappedAt < 1.4 || ctx === "signed") return "happy";
+    if (ctx === "error") return "error";
+    if (ctx === "busy") return "think";
+    if (ctx === "typing" || (me?.mode === "rest" && t - restFrom > 6)) return "sleep";
+    // A little hysteresis, so he doesn't flicker between gliding and hovering.
+    if (speed > 55 || (look.state === "fly" && speed > 35)) return "fly";
+    return "idle";
   }
 
   function frame() {
@@ -96,87 +101,43 @@
       canvas.width = cw;
       canvas.height = ch;
     }
+    g.setTransform(1, 0, 0, 1, 0, 0);
     g.clearRect(0, 0, cw, ch);
     if (bornAt === null) return;
 
-    // Coming out: from the opening's centre to just below the frame, growing
-    // and resolving in steps from coarse pixels to his full sprite.
-    const k = reduce ? 1 : (t - bornAt) / SPAWN;
-    const centre = { x: w.portal.x + w.portal.w / 2, y: w.portal.y + w.portal.h / 2 };
+    // Coming out: a fire flares just below the frame and he resolves inside it.
+    const k = reduce ? 1 : (t - bornAt) / SPAWN_SECS;
     const land = landing(w);
-    let x: number;
-    let y: number;
-    let grow = 1;
-    let res = RES;
-    let alpha = 1;
-    if (k < 1) {
-      const e = easeOut(k);
-      x = centre.x + (land.x - centre.x) * e;
-      y = centre.y + (land.y - centre.y) * e;
-      grow = 0.3 + 0.7 * e;
-      res = [8, 12, 17, 24, RES][Math.min(4, Math.floor(k * 5))];
-      alpha = Math.min(1, k * 5);
-    } else {
-      if (!me) {
-        me = create(w, rand);
-        birds = reduce ? [] : spawnBirds(BIRDS, land.x, land.y - 10, rand);
-      }
-      if (!reduce) {
-        tick(me, w, ctx, dt, rand);
-        stepBirds(birds, me, w, dt, t, rand);
-      }
-      x = me.x;
-      y = me.y;
-      grow = 0.9 + 0.16 * me.depth;
+    let x = land.x;
+    let y = land.y;
+    let vx = 0;
+    let vy = 0;
+    if (k >= 1) {
+      if (!me) me = create(w, rand);
+      const was = me.mode;
+      if (!reduce) tick(me, w, ctx, dt, rand);
+      if (me.mode === "rest" && was !== "rest") restFrom = t;
+      ({ x, y, vx, vy } = me);
+      look.set(stateFor(t, Math.hypot(vx, vy)), t);
     }
 
-    // The swarm, in the portal's accent and gold, a few art pixels each.
-    const px = Math.max(1, Math.round(2 * dpr));
-    for (let i = 0; i < birds.length; i++) {
-      const b = birds[i];
-      g.fillStyle = i % 3 === 0 ? "#f5b227" : portal.accent;
-      const sprite = wingsUp(b, t) ? UP : DOWN;
-      const bx = Math.round(b.x * dpr) - 2 * px;
-      const by = Math.round(b.y * dpr) - px;
-      sprite.forEach((row, j) => {
-        for (let c = 0; c < 5; c++) if (row[c] === "#") g.fillRect(bx + c * px, by + j * px, px, px);
-      });
-    }
-
-    // LAR: painted small, then scaled up with no smoothing.
-    const face: Mood = t - tappedAt < 1.2 ? "wink" : mood === "open" && !reduce ? blinkAt(t) : mood;
-    const gesture: Gesture = ctx === "signed" || t - tappedAt < 1.2 ? "wave" : "idle";
-    const shapes = larShapes({ mood: face, gesture, t: reduce ? 0 : t, turn: me ? turnOf(me) * 0.8 : 0, ramp: portal.ramp, cube: res >= 17 });
-    if (off) {
-      const rw = res;
-      const rh = Math.round((res * VIEW.h) / VIEW.w);
-      off.width = rw;
-      off.height = rh;
-      const o = off.getContext("2d");
-      if (o) {
-        o.clearRect(0, 0, rw, rh);
-        paint(o, shapes, rw / VIEW.w);
-        const dw = WIDE * grow * dpr;
-        const dh = (dw * VIEW.h) / VIEW.w;
-        g.save();
-        g.globalAlpha = alpha;
-        g.imageSmoothingEnabled = false;
-        g.drawImage(off, Math.round(x * dpr - dw / 2), Math.round(y * dpr - dh / 2), Math.round(dw), Math.round(dh));
-        g.restore();
-      }
-    }
+    // LAR, from the same renderer as everywhere else, his body centred on x, y.
+    const s = SIZE * dpr;
+    g.setTransform(s, 0, 0, s, (x - MID.x * SIZE) * dpr, (y - MID.y * SIZE) * dpr);
+    const p = look.at(t, { vx: vx / SIZE, vy: vy / SIZE }, reduce);
+    if (t - tappedAt < 1.2 && p.mood === "happy") p.mood = "wink";
+    drawLar(g, p, theme, reduce ? 0 : t, { shadow: false });
 
     // His tap target and speech bubble follow him (written straight to the
     // DOM each frame, so Svelte isn't re-rendering at 60 fps).
-    const half = (WIDE * grow) / 2;
-    if (tap) tap.style.transform = `translate(${x - half}px, ${y - half * 0.75}px)`;
+    if (tap) tap.style.transform = `translate(${x - R}px, ${y - R * 0.85}px)`;
     if (t > lineUntil && line) line = "";
     if (!line && t >= nextTalk && k >= 1 && ctx !== "typing") say();
     if (bubble && line) {
       const right = x < w.w / 2;
       const bw = bubble.offsetWidth;
-      const bx = right ? Math.min(w.w - bw - 4, x + half * 0.8) : Math.max(4, x - half * 0.8 - bw);
-      const by = Math.max(4, y - half - bubble.offsetHeight + 4);
+      const bx = right ? Math.min(w.w - bw - 4, x + R * 0.8) : Math.max(4, x - R * 0.8 - bw);
+      const by = Math.max(4, y - R - bubble.offsetHeight + 4);
       bubble.style.transform = `translate(${bx}px, ${by}px)`;
       bubble.dataset.side = right ? "right" : "left";
     }
@@ -210,7 +171,8 @@
     if (show && bornAt === null) {
       untrack(() => {
         bornAt = now();
-        nextTalk = bornAt + SPAWN + 1.2;
+        look.start("spawn", bornAt);
+        nextTalk = bornAt + SPAWN_SECS + 1.2;
         if (reduce) requestAnimationFrame(frame);
       });
     }
@@ -259,8 +221,8 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 74px;
-    height: 56px;
+    width: 72px;
+    height: 62px;
     border: 0;
     padding: 0;
     background: transparent;

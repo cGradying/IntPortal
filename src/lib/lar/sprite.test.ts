@@ -2,7 +2,7 @@ import rust from "../../../crates/intportal-core/src/portal.rs?raw";
 import { describe, expect, it } from "vitest";
 import {
   ANTENNA, BOX, CUBE, H, LAR_PAL, MITT, MOODS, SPARKLE, STATES, STREAK, THEMES, THUMB, VISOR, VOID, W, ZZZ,
-  blinkAt, bodyGrid, contrast, cubeAngle, dotsGrid, extents, faceGrid, mosaic, pose, redGrid, rows, tint,
+  FIRE, SHEEN, blinkAt, bodyGrid, contrast, cubeAngle, dotsGrid, extents, faceGrid, fireGrid, mosaic, pose, redGrid, rig, rows, sheenGrid, tint,
   type PoseOpts, type State,
 } from "./sprite";
 
@@ -67,14 +67,33 @@ describe("LAR's sprite", () => {
 });
 
 describe("tint", () => {
-  it("gives a valid palette for every portal, rim readable on the void, body untouched", () => {
+  it("gives a valid palette for every portal, rim readable on the void, eyes and spark untouched", () => {
     const bad: string[] = [];
     for (const [id, theme] of Object.entries(THEMES)) {
       const pal = tint(theme);
       if (Object.keys(pal).join() !== Object.keys(LAR_PAL).join()) bad.push(`${id}: keys`);
       for (const [k, v] of Object.entries(pal)) if (!hexRe.test(v)) bad.push(`${id}.${k}=${v}`);
       if (contrast(pal.m, VOID) < 3) bad.push(`${id}: rim ${pal.m} ${contrast(pal.m, VOID).toFixed(2)}:1`);
-      for (const k of ["o", "d", "k", "b", "B", "L", "g", "G", "w"] as const) if (pal[k] !== LAR_PAL[k]) bad.push(`${id}.${k} moved`);
+      for (const k of ["g", "G", "w", "v"] as const) if (pal[k] !== LAR_PAL[k]) bad.push(`${id}.${k} moved`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("dresses his body in the university's colours, as a gradient from the ramp's deep hue to the accent's", () => {
+    const bad: string[] = [];
+    const hue = (h: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+      const mx = Math.max(r, g, b), d = mx - Math.min(r, g, b);
+      return d === 0 ? 0 : (60 * (mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4)) % 360;
+    };
+    const near = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b)) < 12;
+    for (const [id, theme] of Object.entries(THEMES)) {
+      const pal = tint(theme);
+      // Still the same light-to-dark ladder, so his shading and dither read the same.
+      const ladder = (["d", "k", "b", "B", "L"] as const).map((k) => contrast(pal[k], "#000000"));
+      if (ladder.some((v, i) => i && v <= ladder[i - 1])) bad.push(`${id}: ladder`);
+      if (!near(hue(pal.d), hue(theme.ramp[1]))) bad.push(`${id}: shadow ${pal.d} not ${theme.ramp[1]}'s hue`);
+      if (!near(hue(pal.L), hue(theme.accent))) bad.push(`${id}: light ${pal.L} not ${theme.accent}'s hue`);
     }
     expect(bad).toEqual([]);
   });
@@ -84,11 +103,6 @@ describe("tint", () => {
     const studs = new Set(Object.values(THEMES).map((t) => tint(t).t));
     expect(rims.size).toBe(6);
     expect(studs.size).toBe(6);
-  });
-
-  it("gives gold portals a rim that is not gold, since his eyes are", () => {
-    for (const id of ["sis", "bulsu"] as const) expect(tint(THEMES[id]).m).not.toBe(THEMES[id].accent);
-    expect(tint(THEMES.mabini).m).toBe(THEMES.mabini.accent);
   });
 
   it("matches the Rust portal registry", () => {
@@ -184,5 +198,69 @@ describe("pose", () => {
     const wake = (s: number) => cubeAngle("idle", 20 + s, { from: "sleep", since: s });
     expect(wake(0)).toBeCloseTo(still[0], 5);
     expect(wake(3) - wake(2)).toBeCloseTo(2.2, 1);
+  });
+});
+
+describe("the spawn fire", () => {
+  const cells = (k: number) => keys(fireGrid(k)).length;
+
+  it("flares up, burns round him, and goes out", () => {
+    expect(cells(0)).toBe(0);
+    expect(cells(0.3)).toBeGreaterThan(80);
+    expect(cells(0.6)).toBeGreaterThan(cells(0.15));
+    expect(cells(1)).toBeLessThan(cells(0.6) / 3);
+  });
+
+  it("is a bonfire: tallest in the middle, hottest at the bottom", () => {
+    const g = fireGrid(0.55);
+    const tall = (x0: number, x1: number) => g.reduce((n, row) => n + row.slice(x0, x1).filter(Boolean).length, 0) / (x1 - x0);
+    const third = Math.floor(FIRE.w / 3);
+    expect(tall(third, 2 * third)).toBeGreaterThan(1.5 * tall(0, 4));
+    expect(tall(third, 2 * third)).toBeGreaterThan(1.5 * tall(FIRE.w - 4, FIRE.w));
+    const mid = g.findIndex((row) => row.slice(third, 2 * third).some(Boolean));
+    const heat = (j: number) => g[j].filter((k) => k === "4" || k === "w").length;
+    expect(heat(FIRE.h - 2)).toBeGreaterThan(heat(Math.max(0, mid + 2)));
+  });
+
+  it("burns in the portal's ramp, and the same every time", () => {
+    expect(new Set(keys(fireGrid(0.5)))).toEqual(new Set(["1", "2", "3", "4", "w"].filter((k) => keys(fireGrid(0.5)).includes(k))));
+    expect(JSON.stringify(fireGrid(0.42))).toBe(JSON.stringify(fireGrid(0.42, 7)));
+    expect(tint(THEMES.up)["3"]).toBe(THEMES.up.ramp[3]);
+  });
+
+  it("is lit only while he spawns", () => {
+    expect(pose("spawn", 1, { k: 0.4 }).fire).toBeCloseTo(0.4);
+    expect(pose("spawn", 1, { k: 1 }).fire).toBe(-1);
+    expect(pose("idle", 1).fire).toBe(-1);
+    // He is hidden in the flames at first, then comes clear.
+    expect(pose("spawn", 1, { k: 0.1 }).alpha).toBe(0);
+    expect(pose("spawn", 1, { k: 0.9 }).alpha).toBe(1);
+  });
+});
+
+describe("the sheen", () => {
+  it("sweeps across his body now and then, lifting tones, and is gone between", () => {
+    const body = bodyGrid();
+    const lit = new Set<number>();
+    for (let t = 0; t < SHEEN.cross; t += 0.05) {
+      const g = sheenGrid(t);
+      expect(g).not.toBeNull();
+      g!.forEach((row, j) => row.forEach((k, i) => k && (expect(body[j][i]).not.toBeNull(), lit.add(i))));
+    }
+    expect(lit.size).toBeGreaterThan(W * 0.8);
+    expect(sheenGrid(SHEEN.cross + 0.1)).toBeNull();
+    expect(sheenGrid(SHEEN.every + 0.2)).not.toBeNull();
+  });
+});
+
+describe("rig", () => {
+  it("eases from one state to the next and plays each entrance", () => {
+    const r = rig();
+    r.set("error", 1);
+    expect(r.at(1.1).red || r.at(1.15).red).toBe(true);
+    r.set("spawn", 2);
+    expect(r.at(2.1).fire).toBeGreaterThanOrEqual(0);
+    expect(r.at(2 + 1.2).fire).toBe(-1);
+    expect(r.at(5, {}, true).alpha).toBe(1);
   });
 });

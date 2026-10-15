@@ -94,14 +94,14 @@ mod wasm {
         })
     }
 
-    /// The selected portal's frame box in device px, `[x, y, w, h]`, at the
-    /// carousel's current position.
+    /// Portal `p`'s frame box in device px, `[x, y, w, h]`, at the carousel's
+    /// current position.
     #[no_mangle]
-    pub extern "C" fn portal_rect(pos: f32) -> *const i32 {
+    pub extern "C" fn portal_rect(pos: f32, p: u32) -> *const i32 {
         thread_local! { static R: RefCell<[i32; 4]> = const { RefCell::new([0; 4]) }; }
         let r = WORLD.with(|w| {
             let w = w.borrow();
-            rect(&w.scenes, pos, w.size.0, w.size.1)
+            rect(&w.scenes, pos, p as usize, w.size.0, w.size.1)
         });
         R.with(|b| {
             *b.borrow_mut() = r;

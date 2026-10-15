@@ -3,12 +3,12 @@
   // never see it.
   import { buzz } from "../haptics";
   import Lar from "../lar/Lar.svelte";
-  import { installed, open } from "./assis.svelte";
+  import { assis, installed, open } from "./assis.svelte";
 </script>
 
 {#if installed()}
   <button class="orb notch" aria-label="Ask LAR" onclick={() => { buzz.tick(); open(); }}>
-    <Lar size={2} cube={false} />
+    <Lar size={2} cube={false} state={assis.busy === "thinking" || assis.busy === "waking" ? "think" : "idle"} />
   </button>
 {/if}
 
