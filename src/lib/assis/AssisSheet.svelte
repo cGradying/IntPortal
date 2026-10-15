@@ -53,14 +53,10 @@
 </script>
 
 <div class="scrim" role="presentation" onclick={onclose}></div>
-<div
-  class="sheet notch"
-  role="dialog"
-  aria-label="Ask LAR"
-  style:top={keyboard ? `calc(${vv.top}px + var(--safe-top) + 8px)` : undefined}
-  style:bottom={keyboard ? "auto" : undefined}
-  style:height={keyboard ? `calc(${vv.h}px - var(--safe-top) - 16px)` : undefined}
->
+<!-- A frame that is exactly the visual viewport, so the keyboard shrinks it and
+     the sheet stays inside it, whatever the page scrolled to. -->
+<div class="frame" class:typing={keyboard} style:top="{vv.top}px" style:height="{vv.h}px">
+<div class="sheet notch" role="dialog" aria-label="Ask LAR">
   <header>
     <span class="tag">LAR</span>
     <button class="x" onclick={onclose} aria-label="Close">Close</button>
@@ -109,6 +105,7 @@
   </form>
   <p class="fine">Runs on this phone. Nothing leaves it.</p>
 </div>
+</div>
 
 <style>
   .scrim {
@@ -118,17 +115,28 @@
     background: rgba(0, 0, 0, 0.45);
     animation: fade 0.2s both;
   }
-  .sheet {
-    --step: 4px;
+  .frame {
     position: fixed;
     left: var(--gutter);
     right: var(--gutter);
-    bottom: calc(var(--safe-bottom) + 12px);
     z-index: 41;
+    display: flex;
+    align-items: flex-end;
+    padding: calc(var(--safe-top) + 8px) 0 calc(var(--safe-bottom) + 12px);
+    pointer-events: none;
+  }
+  .frame.typing {
+    padding-bottom: 8px;
+  }
+  .sheet {
+    --step: 4px;
+    pointer-events: auto;
+    width: 100%;
+    max-height: 100%;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto auto;
     gap: 10px;
-    height: min(78vh, 640px);
+    height: min(78%, 640px);
     padding: 14px 14px 12px;
     background: var(--card-2);
     animation: rise 0.35s var(--ease) both;

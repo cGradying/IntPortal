@@ -5,7 +5,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { Schedule } from "@tauri-apps/plugin-notification";
 import { api, isoDate, moment } from "../api";
 import { app } from "../state.svelte";
-import { appended, existingText, newDeck, noteTarget, reminderAt, reminderId, type Proposal } from "./apply";
+import { appended, existingText, newDeck, noteFor, noteTarget, reminderAt, reminderId, type Proposal } from "./apply";
 
 export interface ModelInfo {
   id: string;
@@ -135,6 +135,17 @@ export async function ask(text: string) {
     assis.chat.push({ from: "lar", text: r.reply, proposal: r.proposal ?? undefined, state: r.proposal ? "pending" : undefined });
   } catch (e) {
     assis.chat.push({ from: "lar", text: say(e) });
+  } finally {
+    assis.busy = "";
+  }
+}
+
+/** After a wrong card answer: why the right one is right, from the card and the student's own note. */
+export async function explain(front: string, back: string, typed: string, subject: string | null): Promise<{ why: string; tip: string }> {
+  if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");
+  assis.busy = "thinking";
+  try {
+    return await invoke<{ why: string; tip: string }>("ai_why", { front, back, typed, note: noteFor(app.notes, subject) ?? null });
   } finally {
     assis.busy = "";
   }
