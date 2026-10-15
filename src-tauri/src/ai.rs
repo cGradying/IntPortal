@@ -236,7 +236,10 @@ pub fn facts_for(snap: &intportal_core::store::Snapshot, now: Moment) -> Facts {
     let mut subjects: Vec<String> = snap.sessions.iter().map(|s| s.subject_code.clone()).collect();
     subjects.sort();
     subjects.dedup();
-    Facts { today: Some(now.date), classes_today, due, standing, subjects, ..Facts::default() }
+    let mut subject_names: Vec<(String, String)> = snap.sessions.iter().map(|s| (s.subject_code.clone(), s.description.clone())).collect();
+    subject_names.sort();
+    subject_names.dedup_by(|a, b| a.0 == b.0);
+    Facts { today: Some(now.date), classes_today, due, standing, subjects, subject_names, ..Facts::default() }
 }
 
 #[derive(Serialize)]
@@ -374,14 +377,15 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
             (facts.hits, sources) = (lines, found);
         }
     }
-    let asked = message.clone();
+    let (asked, fil) = (message.clone(), intent::is_filipino(&message));
     let a = with_model(&ai, move |llm, tpl| {
         let a = assis::answer_streaming(llm, tpl, &facts, &history, &asked, &mut |words| {
             let _ = on_text.send(words.to_string());
         })?;
         Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources })
     })
-    .await?;
+    .await
+    .map_err(|e| assis::friendly(&e, fil))?;
     let (store, at) = (state.store.lock().unwrap(), now_unix());
     let _ = store.add_turn("me", &message, at, open).and_then(|()| store.add_turn("lar", &a.reply, at, open));
     Ok(a)
