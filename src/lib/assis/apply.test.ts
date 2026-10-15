@@ -1,5 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
-import { appended, describe, newDeck, noteTarget, reminderAt, reminderId } from "./apply";
+import { appended, describe, newDeck, noteFor, noteTarget, reminderAt, reminderId } from "./apply";
 
 suite("applying a proposal", () => {
   it("puts a class note on the class and anything else on one note a day", () => {
@@ -25,6 +25,13 @@ suite("applying a proposal", () => {
   it("builds a deck whose cards are new and due now", () => {
     const deck = newDeck("d1", "Binary trees", null, [{ front: "Root?", back: "Top node" }]);
     expect(deck.cards).toEqual([{ id: "", front: "Root?", back: "Top node", accepted: [], memory: { due: 0, stability: 0, difficulty: 0, reps: 0, lapses: 0, last_review: null } }]);
+  });
+
+  it("finds the student's note on a deck's subject", () => {
+    const notes = [{ key: "class:COMP 20073", text: "heaps: root is min", title: null, updated: 1, preview: "" }];
+    expect(noteFor(notes, "COMP 20073")).toBe("heaps: root is min");
+    expect(noteFor(notes, "MATH 101")).toBeUndefined();
+    expect(noteFor(notes, null)).toBeUndefined();
   });
 
   it("says what it will do before it does it", () => {

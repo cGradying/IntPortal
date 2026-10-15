@@ -17,6 +17,11 @@ export function appended(existing: string | undefined, add: string): string {
   return old ? `${old}\n\n${add}` : add;
 }
 
+/** The student's own note on a deck's subject, to ground "Why?" in what they wrote. */
+export function noteFor(notes: NoteItem[], subject: string | null): string | undefined {
+  return subject ? existingText(notes, `class:${subject}`) : undefined;
+}
+
 export function existingText(notes: NoteItem[], key: string): string | undefined {
   return notes.find((n) => n.key === key)?.text;
 }

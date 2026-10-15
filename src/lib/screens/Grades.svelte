@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MabiniGrades from "../MabiniGrades.svelte";
   import Confetti from "../Confetti.svelte";
   import ErrorCard from "../ErrorCard.svelte";
   import Scene from "../Scene.svelte";
@@ -235,6 +236,8 @@
       </li>
     {/each}
   </ol>
+
+  <MabiniGrades />
 
   {#if !app.snapshot?.history.length}
     <button class="past" onclick={loadPast} disabled={loading}>{loading ? "Walking past terms…" : "Load past terms"}</button>

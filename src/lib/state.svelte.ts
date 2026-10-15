@@ -2,7 +2,7 @@
 // reading of it, and sync status. Screens read `app`; only this file writes.
 import { invoke } from "@tauri-apps/api/core";
 import { Schedule, cancel, isPermissionGranted, pending, requestPermission } from "@tauri-apps/plugin-notification";
-import { api, isoDate, localMs, moment, type Busy, type NoteItem, type Snapshot, type Today } from "./api";
+import { api, isoDate, localMs, moment, type Busy, type MabiniData, type NoteItem, type Snapshot, type Today } from "./api";
 import { busyFrom, keepClasses } from "./devcal";
 import { applyRoom } from "./rooms";
 import { buzz } from "./haptics";
@@ -18,6 +18,15 @@ export const app = $state({
   syncError: null as string | null,
   /** Bumps on every successful sync, so moments can react to it. */
   syncCount: 0,
+  /** Which portals have a saved login on this phone. */
+  sisConnected: false,
+  mabiniConnected: false,
+  /** What the last eMabini sync kept; null while not connected. */
+  mabini: null as MabiniData | null,
+  mabiniSync: "idle" as SyncState,
+  mabiniError: null as string | null,
+  /** The eMabini page (courses, deadlines, grades) is open. */
+  mabiniPage: false,
   room: read("room") || "system",
   /** Minutes before class; 0 turns reminders off. */
   reminderLead: Number(read("reminderLead") ?? 10),
@@ -205,8 +214,32 @@ export async function setCalendar(which: "calendarEvents" | "calendarClasses", o
   );
 }
 
+/** Reads which portals have a login and, for eMabini, what was kept last time. */
+export async function refreshLogins() {
+  const [sis, mabini] = await Promise.all([api.hasLogin().catch(() => false), api.hasMabiniLogin().catch(() => false)]);
+  app.sisConnected = sis;
+  app.mabiniConnected = mabini;
+  app.mabini = mabini ? await api.mabiniData().catch(() => null) : null;
+}
+
+export async function mabiniSyncNow() {
+  if (app.mabiniSync === "syncing") return;
+  app.mabiniSync = "syncing";
+  try {
+    app.mabini = await api.mabiniSync();
+    app.mabiniSync = "ok";
+    app.mabiniError = null;
+    buzz.done();
+  } catch (e) {
+    app.mabiniSync = "failed";
+    app.mabiniError = String(e).includes("reach") ? "Couldn't reach eMabini" : String(e);
+    buzz.fail();
+  }
+}
+
 export async function syncNow() {
-  if (app.sync === "syncing") return;
+  if (app.mabiniConnected) mabiniSyncNow();
+  if (!app.sisConnected || app.sync === "syncing") return;
   app.sync = "syncing";
   try {
     await adopt(await api.sync());
