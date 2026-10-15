@@ -22,6 +22,7 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
   requestPermission: vi.fn(),
 }));
 
+import { invoke } from "@tauri-apps/api/core";
 import { app } from "../state.svelte";
 import { apply, ask, assis, dismiss, explain, indexNotes, install, newChat, noteAi, open, refresh, remove, stop, type ModelInfo } from "./assis.svelte";
 
@@ -170,6 +171,30 @@ describe("Stop", () => {
     d.reject("cancelled");
     await p;
     expect(assis.chat[1].text).toBe("Stopped.");
+  });
+
+  it("survives a rejected ai_cancel", () => {
+    const rejected = Promise.reject("gone");
+    const caught = vi.spyOn(rejected, "catch");
+    vi.mocked(invoke).mockReturnValueOnce(rejected);
+    stop();
+    expect(caught).toHaveBeenCalled(); // an unhandled rejection otherwise
+  });
+
+  it("while the model is waking cancels the ask: no reply, no ai_ask", async () => {
+    assis.models = [chat({ loaded: false }), embed()];
+    const d = deferred<unknown>();
+    backend.ai_load = () => d.promise;
+    backend.ai_ask = () => reply("late");
+    const p = ask("hi");
+    await settle();
+    expect(assis.busy).toBe("waking");
+    stop();
+    d.resolve(undefined);
+    await p;
+    expect(ran("ai_ask")).toHaveLength(0);
+    expect(assis.chat).toEqual([{ from: "me", text: "hi" }]);
+    expect(assis.busy).toBe("");
   });
 
   it("does not hide a real failure in the next question", async () => {
@@ -404,6 +429,14 @@ describe("applying a proposal", () => {
     expect(deck.cards).toHaveLength(2);
     expect(assis.chat[0].text).toBe("Sure. Made 2 cards. Find them under Study.");
     expect(assis.busy).toBe("");
+  });
+
+  it("says 1 card, not 1 cards", async () => {
+    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
+    backend.save_deck = () => undefined;
+    pending({ kind: "make_cards", topic: "Trees" });
+    await apply(0);
+    expect(assis.chat[0].text).toBe("Sure. Made 1 card. Find them under Study.");
   });
 
   it("explains when no cards could be made", async () => {

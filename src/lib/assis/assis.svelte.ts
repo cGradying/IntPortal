@@ -157,18 +157,20 @@ let stopped = false;
 /** Stop writing; the words so far stay. */
 export function stop() {
   stopped = true;
-  invoke("ai_cancel");
+  invoke("ai_cancel").catch(() => {});
 }
 
 export async function ask(text: string) {
   const message = text.trim();
   if (!message || assis.busy) return;
   assis.chat.push({ from: "me", text: message });
-  if (!(await wake())) {
+  stopped = false;
+  const awake = await wake();
+  if (stopped) return; // Stop while the model was waking: no reply at all
+  if (!awake) {
     assis.chat.push({ from: "lar", text: assis.error || "I couldn't wake up. Try again." });
     return;
   }
-  stopped = false;
   assis.busy = "thinking";
   assis.chat.push({ from: "lar", text: "" });
   const reply = assis.chat[assis.chat.length - 1];
@@ -248,7 +250,7 @@ export async function apply(i: number) {
       const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null }>("ai_cards", { text: `Topic: ${p.topic}`, want: 8 });
       if (!found.cards.length) throw new Error("I couldn't make cards for that. Try a note's own text instead.");
       await api.saveDeck(newDeck(crypto.randomUUID(), p.topic, null, found.cards));
-      msg.text = `${msg.text} Made ${found.cards.length} cards. Find them under Study.`;
+      msg.text = `${msg.text} Made ${found.cards.length} ${found.cards.length === 1 ? "card" : "cards"}. Find them under Study.`;
     }
     msg.state = "done";
   } catch (e) {

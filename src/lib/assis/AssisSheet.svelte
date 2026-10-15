@@ -6,7 +6,8 @@
   import { closable } from "../back";
   import { buzz } from "../haptics";
   import Lar from "../lar/Lar.svelte";
-  import { app, openNote } from "../state.svelte";
+  import { app, openDeck, openNote, openSubject } from "../state.svelte";
+  import { sourceTarget } from "./sources";
   import { describe, starters as startersFor } from "./apply";
   import { apply, ask, assis, dismiss, newChat, stop } from "./assis.svelte";
 
@@ -56,10 +57,13 @@
     else send(s.label);
   }
 
-  /** The sheet sits above the editor, so a source chip closes it and shows the note. */
+  /** The sheet sits above the page, so a source chip closes it and shows the note, deck or subject. */
   function show(key: string, title: string) {
     onclose();
-    openNote(key, title);
+    const t = sourceTarget(key);
+    if (t.kind === "deck") openDeck(t.id);
+    else if (t.kind === "subject") openSubject(t.code, app.snapshot?.sessions.find((s) => s.subject_code === t.code)?.description ?? "");
+    else openNote(key, title);
   }
 </script>
 
