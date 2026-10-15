@@ -57,7 +57,10 @@ pub fn subject_in(msg: &str, subjects: &[(String, String)]) -> Option<String> {
     let squashed = w.concat();
     let letters = |code: &str| code.chars().take_while(|c| c.is_alphabetic()).collect::<String>().to_lowercase();
     let only = |hit: Vec<&String>| (hit.len() == 1).then(|| hit[0].clone());
-    let by_code = subjects.iter().map(|(c, _)| c).filter(|c| squashed.contains(&c.to_lowercase().replace(' ', ""))).collect();
+    let key = |c: &str| c.to_lowercase().replace(' ', "");
+    let hits: Vec<&String> = subjects.iter().map(|(c, _)| c).filter(|c| squashed.contains(&key(c))).collect();
+    // "math 101" also contains "math1": the longer code is the one named.
+    let by_code = hits.iter().copied().filter(|c| !hits.iter().any(|o| key(o) != key(c) && key(o).contains(&key(c)))).collect();
     only(by_code)
         .or_else(|| only(subjects.iter().map(|(c, _)| c).filter(|c| letters(c).len() >= 3 && w.contains(&letters(c))).collect()))
         .or_else(|| only(subjects.iter().filter(|(_, d)| words(d).iter().any(|dw| dw.chars().count() >= 5 && w.contains(dw))).map(|(c, _)| c).collect()))
@@ -292,6 +295,10 @@ mod tests {
         let two_maths = subs(&[("MATH 101", "Mathematics"), ("MATH 102", "Calculus")]);
         assert_eq!(subject_in("how am i in math", &two_maths), None, "two MATH subjects");
         assert_eq!(subject_in("how am i in math 102", &two_maths), Some("MATH 102".into()), "the full code settles it");
+        let nested = subs(&[("MATH 1", "Algebra"), ("MATH 101", "Calculus")]);
+        assert_eq!(subject_in("grade in math 101", &nested), Some("MATH 101".into()), "the longer code wins");
+        assert_eq!(subject_in("grade in math 1", &nested), Some("MATH 1".into()));
+        assert_eq!(subject_in("how am i in math", &nested), None, "still ambiguous");
         let shared = subs(&[("MATH 101", "Mathematics in the Modern World"), ("PHYS 101", "Physics in the Modern World")]);
         assert_eq!(subject_in("modern world grade", &shared), None, "a shared description word");
         assert_eq!(subject_in("how am i in history", &shared), None);
