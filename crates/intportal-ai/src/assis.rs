@@ -3,7 +3,7 @@
 //! confirm. Nothing here writes: the UI shows a card and Apply calls the
 //! existing commands (`set_note`, `set_plan`, `save_deck`).
 use crate::{
-    intent::{detect, is_filipino, resolve_when, subject_in, Intent},
+    intent::{is_filipino, resolve, resolve_when, subject_in, Intent},
     llm::Llm,
     prompt::{build, Section, Template},
     reply::{self, ReplyStream},
@@ -115,7 +115,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let today = facts.today.ok_or("today is unknown")?;
     let msg: String = msg.chars().take(500).collect(); // an essay must not push the facts out of the window
     let msg = msg.as_str();
-    let intent = detect(msg);
+    let intent = resolve(msg, facts.open_note.is_some());
     let subject = subject_in(msg, &facts.subject_names);
     if let Some(reply) = canned(intent, facts, is_filipino(msg), subject.as_deref()) {
         return Ok(Answer { reply, proposal: None });
@@ -305,6 +305,20 @@ mod tests {
         assert!(m.prompts[0].contains("From the student's notes") && m.prompts[0].contains("chain rule multiplies") && m.prompts[0].contains("Quiz topics: limits"));
         answer(&mut m, Template::Gemma, &f, &[], "remind me bukas to pay tuition").unwrap();
         assert!(!m.prompts[1].contains("chain rule"), "a request gets no facts");
+    }
+
+    #[test]
+    fn a_note_chip_is_answered_from_the_open_note_without_an_add_card() {
+        let f = Facts { open_note: Some("MATH 101: limits and the chain rule".into()), ..facts() };
+        for msg in ["Summarize this note", "What should I review from this note?", "ibuod ang note na ito"] {
+            let mut m = FakeLlm::new(&[r#"{"reply":"Limits and the chain rule."}"#]);
+            let a = answer(&mut m, Template::Gemma, &f, &[], msg).unwrap();
+            assert_eq!((a.reply.as_str(), a.proposal), ("Limits and the chain rule.", None), "{msg}");
+            assert!(m.prompts[0].contains("limits and the chain rule"), "the note is in the prompt: {msg}");
+        }
+        let mut m = FakeLlm::new(&[r#"{"reply":"ok","text":"bring calculator"}"#]);
+        let a = answer(&mut m, Template::Gemma, &f, &[], "Add a note: bring calculator").unwrap();
+        assert_eq!(a.proposal, Some(Proposal::AddNote { subject: None, text: "bring calculator".into() }));
     }
 
     #[test]

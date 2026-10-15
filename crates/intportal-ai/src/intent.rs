@@ -41,6 +41,21 @@ pub fn detect(msg: &str) -> Intent {
     }
 }
 
+/// Like `detect`, knowing whether a note is open. Asking about the open note
+/// ("Summarize this note") is a question for the model with the note as context,
+/// not a request to add a note; "add a note: ..." still is.
+pub fn resolve(msg: &str, note_open: bool) -> Intent {
+    let intent = detect(msg);
+    if intent != Intent::Note || !note_open {
+        return intent;
+    }
+    let w = words(msg);
+    let has = |list: &[&str]| w.iter().any(|x| list.contains(&x.as_str()));
+    let reads = has(&["summarize", "summarise", "summary", "review", "explain", "what", "how", "why", "tell", "quiz", "ibuod", "buod", "ipaliwanag", "paliwanag", "ano", "anong", "paano", "bakit", "laman"]);
+    let writes = has(&["add", "create", "make", "save", "write", "new", "jot", "isulat", "idagdag", "magdagdag", "gumawa", "gawa", "lagyan"]);
+    if reads && !writes { Intent::Ask } else { intent }
+}
+
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
 pub fn is_filipino(msg: &str) -> bool {
     // "may" is left out on purpose: it is also the English word ("May I see my classes").
@@ -119,6 +134,18 @@ mod tests {
         ] {
             assert_eq!(detect(msg), want, "{msg}");
         }
+    }
+
+    #[test]
+    fn questions_about_the_open_note_are_asks_but_note_requests_stay_notes() {
+        for msg in ["Summarize this note", "What should I review from this note?", "ibuod ang note na ito", "Ano ang laman ng note na ito?", "Paano ko ire-review ang note na ito"] {
+            assert_eq!(resolve(msg, true), Intent::Ask, "{msg}");
+            assert_eq!(resolve(msg, false), Intent::Note, "no note open: {msg}");
+        }
+        for msg in ["Add a note: bring calculator", "Pa-add naman ng note: bring calculator", "Isulat mo sa note: bring ID", "make a note that the exam moved", "Note: bring calculator"] {
+            assert_eq!(resolve(msg, true), Intent::Note, "{msg}");
+        }
+        assert_eq!(resolve("remind me about this note", true), Intent::Remind);
     }
 
     #[test]
