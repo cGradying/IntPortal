@@ -322,13 +322,17 @@ function fromHsl(h: number, s: number, l: number) {
 const hueMix = (a: number, b: number, f: number) => a + (((((b - a) % 360) + 540) % 360) - 180) * f;
 const BODY_KEYS = ["d", "k", "b", "B", "L"] as const;
 
+/** How far each body tone (and the outline) leans toward the portal: a hint in the shadows, a little more in the light. */
+const HINT = { o: 0.12, d: 0.12, k: 0.15, b: 0.18, B: 0.22, L: 0.26 } as const;
+
 /**
- * LAR's palette for a portal: he wears the university's colours. His body
- * keeps its lightness ladder and dither, but its five tones run as a gradient
- * from the ramp's deep hue in the shadows to the accent's hue in the light
- * (maroon to gold for PUP, forest to lime for UP, slate to coral for TUP).
- * The outline and mitts follow, the rim light is the accent lifted until it
- * reads on the void, the studs, cube, swirl and spawn fire take the ramp.
+ * LAR's palette for a portal: he is still the obsidian LAR, with a hint of
+ * the university. His body keeps its lightness ladder and dither and its
+ * purple, nudged toward a gradient from the ramp's deep hue in the shadows to
+ * the accent's hue in the light (maroon to gold for PUP, forest to lime for
+ * UP, slate to coral for TUP). The outline and mitts follow. The portal shows
+ * in full where he is lit by it: the rim light is the accent lifted until it
+ * reads on the void, and the studs, cube, swirl and spawn fire take the ramp.
  * His gold eyes and spark never change: that is how you know him.
  */
 export function tint(theme: Theme = SIS): Palette {
@@ -340,7 +344,8 @@ export function tint(theme: Theme = SIS): Palette {
       // Most of him stays in the deep hue; the accent comes in at the light.
       const f = (i / (BODY_KEYS.length - 1)) ** 1.6;
       const s = clamp(deepS + (glowS - deepS) * f, 0.16, 0.46);
-      return [k, fromHsl((hueMix(deep, glow, f) + 360) % 360, s, hsl(LAR_PAL[k])[2])];
+      const portal = fromHsl((hueMix(deep, glow, f) + 360) % 360, s, hsl(LAR_PAL[k])[2]);
+      return [k, mixHex(LAR_PAL[k], portal, HINT[k])];
     }),
   ) as Record<(typeof BODY_KEYS)[number], string>;
   let rim = mixHex(theme.accent, "#ffffff", 0.18);
@@ -348,7 +353,7 @@ export function tint(theme: Theme = SIS): Palette {
   return {
     ...LAR_PAL,
     ...body,
-    o: fromHsl(deep, 0.32, hsl(LAR_PAL.o)[2]),
+    o: mixHex(LAR_PAL.o, fromHsl(deep, 0.32, hsl(LAR_PAL.o)[2]), HINT.o),
     e: body.b,
     m: rim,
     t: mixHex(r3, r4, 0.45),

@@ -79,21 +79,27 @@ describe("tint", () => {
     expect(bad).toEqual([]);
   });
 
-  it("dresses his body in the university's colours, as a gradient from the ramp's deep hue to the accent's", () => {
+  it("keeps him obsidian, with only a hint of the university's colours", () => {
     const bad: string[] = [];
+    const dist = (a: string, b: string) => Math.hypot(...[1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16)));
     const hue = (h: string) => {
       const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
       const mx = Math.max(r, g, b), d = mx - Math.min(r, g, b);
       return d === 0 ? 0 : (60 * (mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4)) % 360;
     };
-    const near = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b)) < 12;
+    const gap = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
     for (const [id, theme] of Object.entries(THEMES)) {
       const pal = tint(theme);
       // Still the same light-to-dark ladder, so his shading and dither read the same.
       const ladder = (["d", "k", "b", "B", "L"] as const).map((k) => contrast(pal[k], "#000000"));
       if (ladder.some((v, i) => i && v <= ladder[i - 1])) bad.push(`${id}: ladder`);
-      if (!near(hue(pal.d), hue(theme.ramp[1]))) bad.push(`${id}: shadow ${pal.d} not ${theme.ramp[1]}'s hue`);
-      if (!near(hue(pal.L), hue(theme.accent))) bad.push(`${id}: light ${pal.L} not ${theme.accent}'s hue`);
+      for (const k of ["o", "d", "k", "b", "B", "L"] as const) {
+        // Close to the original obsidian tone...
+        if (dist(pal[k], LAR_PAL[k]) > 45) bad.push(`${id}.${k} ${pal[k]} strayed from ${LAR_PAL[k]}`);
+      }
+      // ...but leaning toward the portal: the lights are nearer its hue than the obsidian is.
+      if (gap(hue(pal.L), hue(theme.accent)) >= gap(hue(LAR_PAL.L), hue(theme.accent))) bad.push(`${id}: light ${pal.L} not leaning to ${theme.accent}`);
+      if (gap(hue(pal.d), hue(theme.ramp[1])) >= gap(hue(LAR_PAL.d), hue(theme.ramp[1]))) bad.push(`${id}: shadow ${pal.d} not leaning to ${theme.ramp[1]}`);
     }
     expect(bad).toEqual([]);
   });
