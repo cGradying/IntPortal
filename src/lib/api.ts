@@ -246,6 +246,74 @@ export interface Login {
   password: string;
 }
 
+export interface Course {
+  id: number;
+  fullname: string;
+  /** `fullname` split on `_`; the whole name in `subject` when it doesn't fit. */
+  subject: string;
+  term: string;
+  section: string;
+  /** Epoch seconds. */
+  start: number;
+  end: number;
+  /** Percent complete, when the course tracks it. */
+  progress: number | null;
+  url: string;
+}
+
+export interface Deadline {
+  id: number;
+  name: string;
+  course_id: number;
+  course: string;
+  /** Moodle's module, such as `assign` or `quiz`. */
+  kind: string;
+  /** Epoch seconds. */
+  due: number;
+  overdue: boolean;
+  url: string;
+}
+
+export interface CourseGrade {
+  course_id: number | null;
+  name: string;
+  /** `null` while the course shows "-". */
+  grade: string | null;
+}
+
+export interface MabiniData {
+  courses: Course[];
+  deadlines: Deadline[];
+  grades: CourseGrade[];
+  /** Epoch seconds. */
+  last_synced: number | null;
+}
+
+export interface MabiniLogin {
+  student_number: string;
+  password: string;
+}
+
+export interface Tries {
+  left: number;
+  /** Epoch seconds when a try frees up, if none is left. */
+  retry_at: number | null;
+  /** The portal turned the saved login down; the student has to edit it. */
+  rejected: boolean;
+}
+
+export type PortalField = "student_number" | "birthdate" | "password";
+
+export interface Portal {
+  id: string;
+  name: string;
+  status: "ready" | "opens_soon";
+  theme: { ramp: string[]; accent: string };
+  fields: PortalField[];
+  limits: { attempts: number; window_secs: number };
+  keychain_service: string;
+}
+
 export const api = {
   snapshot: () => invoke<Snapshot>("snapshot"),
   hasLogin: () => invoke<boolean>("has_login"),
@@ -285,6 +353,14 @@ export const api = {
   classEvents: (from: string, days: number) => invoke<ClassEvent[]>("class_events", { from, days }),
   reminders: (now: Moment, lead: number, days: number, prefs: { deadlines: number | null; study: number | null; utc_offset: number }) =>
     invoke<Reminder[]>("reminders", { now, lead, days, prefs }),
+  portals: () => invoke<Portal[]>("portals"),
+  triesLeft: () => invoke<Tries>("tries_left"),
+  mabiniSignIn: (login: MabiniLogin) => invoke<MabiniData>("mabini_sign_in", { login }),
+  mabiniSync: () => invoke<MabiniData>("mabini_sync"),
+  mabiniData: () => invoke<MabiniData>("mabini_data"),
+  hasMabiniLogin: () => invoke<boolean>("has_mabini_login"),
+  mabiniTriesLeft: () => invoke<Tries>("mabini_tries_left"),
+  mabiniSignOut: () => invoke<void>("mabini_sign_out"),
   campus: (studentNumber: string) => invoke<CampusResolution>("campus", { studentNumber }),
   demo: (today: string) => invoke<Snapshot>("demo", { today }),
 };

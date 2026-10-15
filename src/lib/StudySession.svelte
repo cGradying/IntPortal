@@ -7,6 +7,7 @@
   // practice). Flashcards take the student's own rating; typed and
   // multiple-choice answers rate themselves: right is Good, wrong is Again.
   import { closable } from "./back";
+  import WhyButton from "./assis/WhyButton.svelte";
   import Confetti from "./Confetti.svelte";
   import Isko from "./Isko.svelte";
   import { api, isoDate, type Card, type Deck, type Rating } from "./api";
@@ -125,6 +126,7 @@
       <button class="primary" onclick={check} disabled={!typed.trim()}>Check</button>
     {:else}
       <p class="verdict" data-ok={verdict}>{verdict ? "Right." : `It's "${card.front}".`}</p>
+      {#if !verdict}<WhyButton front={card.front} back={card.back} {typed} subject={deck.subject} />{/if}
       <button class="primary" onclick={() => rate(verdict ? "good" : "again")}>Next</button>
     {/if}
   {:else}
@@ -138,6 +140,7 @@
       {/each}
     </div>
     {#if verdict !== null}
+      {#if !verdict}<WhyButton front={card.front} back={card.back} typed={picked ?? ""} subject={deck.subject} />{/if}
       <button class="primary" onclick={() => rate(verdict ? "good" : "again")}>Next</button>
     {/if}
   {/if}
