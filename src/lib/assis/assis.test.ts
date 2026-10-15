@@ -23,8 +23,9 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 }));
 
 import { invoke } from "@tauri-apps/api/core";
-import { app } from "../state.svelte";
-import { apply, ask, assis, dismiss, explain, indexNotes, install, newChat, noteAi, open, refresh, remove, stop, type ModelInfo } from "./assis.svelte";
+import { cancel, isPermissionGranted, pending as devicePending } from "@tauri-apps/plugin-notification";
+import { app, scheduleReminders } from "../state.svelte";
+import { apply, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, newChat, noteAi, open, refresh, remove, stop, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -419,16 +420,30 @@ describe("applying a proposal", () => {
     expect(assis.chat[0]).toMatchObject({ state: "pending", problem: "Disk is full." });
   });
 
-  it("makes a deck from the cards LAR wrote", async () => {
+  it("shows the cards LAR wrote first and saves nothing until the student confirms", async () => {
     backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }], stopped: null });
     backend.save_deck = () => undefined;
     pending({ kind: "make_cards", topic: "Trees" });
     await apply(0);
+    expect(ran("save_deck")).toHaveLength(0);
+    expect(assis.chat[0].cards).toEqual([{ front: "a", back: "b" }, { front: "c", back: "d" }]);
+    expect(assis.chat[0].state).toBe("pending");
+    expect(assis.busy).toBe("");
+  });
+
+  it("saves the deck with the student's edits and removals on confirm", async () => {
+    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }, { front: "e", back: "f" }], stopped: null });
+    backend.save_deck = () => undefined;
+    pending({ kind: "make_cards", topic: "Trees" });
+    await apply(0);
+    assis.chat[0].cards![0].back = "edited";
+    assis.chat[0].cards!.splice(1, 1);
+    await confirmCards(0);
     const deck = ran("save_deck")[0][1].deck;
     expect(deck.name).toBe("Trees");
-    expect(deck.cards).toHaveLength(2);
+    expect(deck.cards.map((c: any) => [c.front, c.back])).toEqual([["a", "edited"], ["e", "f"]]);
     expect(assis.chat[0].text).toBe("Sure. Made 2 cards. Find them under Study.");
-    expect(assis.busy).toBe("");
+    expect(assis.chat[0]).toMatchObject({ state: "done", cards: undefined });
   });
 
   it("says 1 card, not 1 cards", async () => {
@@ -436,7 +451,26 @@ describe("applying a proposal", () => {
     backend.save_deck = () => undefined;
     pending({ kind: "make_cards", topic: "Trees" });
     await apply(0);
+    await confirmCards(0);
     expect(assis.chat[0].text).toBe("Sure. Made 1 card. Find them under Study.");
+  });
+
+  it("discarding the preview saves nothing and offers the proposal again", async () => {
+    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
+    pending({ kind: "make_cards", topic: "Trees" });
+    await apply(0);
+    discardCards(0);
+    expect(ran("save_deck")).toHaveLength(0);
+    expect(assis.chat[0]).toMatchObject({ state: "pending", cards: undefined });
+  });
+
+  it("confirms nothing when every card was removed", async () => {
+    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
+    pending({ kind: "make_cards", topic: "Trees" });
+    await apply(0);
+    assis.chat[0].cards!.length = 0;
+    await confirmCards(0);
+    expect(ran("save_deck")).toHaveLength(0);
   });
 
   it("explains when no cards could be made", async () => {
@@ -446,5 +480,45 @@ describe("applying a proposal", () => {
     expect(assis.chat[0].problem).toMatch(/couldn't make cards/);
     expect(assis.chat[0].state).toBe("pending");
     expect(assis.busy).toBe("");
+  });
+});
+
+describe("LAR reminders and the weekly reschedule", () => {
+  // A phone's queue: notify adds, cancel removes, pending lists. Like iOS, pending carries no title we rely on.
+  let queue: { id: number; schedule: unknown }[];
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) });
+    queue = [];
+    backend["plugin:notification|notify"] = ({ options }) => void (queue = queue.filter((q) => q.id !== options.id).concat({ id: options.id, schedule: options.schedule }));
+    backend.reminders = () => [{ id: 7, title: "MATH 101", body: "in 10 min", date: "2099-01-05", minute: 480 }];
+    vi.mocked(devicePending).mockImplementation(async () => structuredClone(queue) as any);
+    vi.mocked(cancel).mockImplementation(async (ids: any) => void (queue = queue.filter((q) => !ids.includes(q.id))));
+    vi.mocked(isPermissionGranted).mockResolvedValue(true);
+    Object.assign(app, { snapshot: {}, reminderLead: 10, deadlineAt: -1, studyAt: -1 });
+  });
+
+  it("keeps a reminder LAR set when the app reschedules class reminders", async () => {
+    const at = "2099-01-06";
+    assis.chat = [{ from: "lar", text: "Sure.", proposal: { kind: "set_reminder", date: at, text: "Bring ID" }, state: "pending" }];
+    await apply(0);
+    const larId = queue[0].id;
+    queue.push({ id: 7, schedule: "old class reminder" });
+    await scheduleReminders();
+    expect(queue.map((q) => q.id).sort()).toEqual([larId, 7].sort());
+  });
+
+  it("still cancels class reminders that are not LAR's", async () => {
+    queue.push({ id: 99, schedule: "stale" });
+    await scheduleReminders();
+    expect(queue.map((q) => q.id)).toEqual([7]);
+  });
+
+  it("keeps LAR's reminder even when class reminders are off", async () => {
+    assis.chat = [{ from: "lar", text: "Sure.", proposal: { kind: "set_reminder", date: "2099-01-06", text: "Bring ID" }, state: "pending" }];
+    await apply(0);
+    Object.assign(app, { reminderLead: 0 });
+    await scheduleReminders();
+    expect(queue).toHaveLength(1);
   });
 });

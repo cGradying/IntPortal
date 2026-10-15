@@ -5,7 +5,8 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { Schedule } from "@tauri-apps/plugin-notification";
 import { api, isoDate, moment } from "../api";
 import { app } from "../state.svelte";
-import { appended, existingText, newDeck, noteFor, noteTarget, reminderAt, reminderId, type Proposal } from "./apply";
+import { tidy, type Draft } from "./cards";
+import { appended, existingText, newDeck, noteFor, noteTarget, reminderAt, reminderId, rememberLarReminder, type Proposal } from "./apply";
 
 export interface ModelInfo {
   id: string;
@@ -32,6 +33,8 @@ export interface Msg {
   /** pending until the student answers the card. */
   state?: "pending" | "done" | "dismissed";
   problem?: string;
+  /** make_cards: the cards LAR wrote, shown to edit before anything is saved. */
+  cards?: Draft[];
 }
 
 export const assis = $state({
@@ -242,15 +245,17 @@ export async function apply(i: number) {
       await api.setNote(key, appended(existingText(app.notes, key), p.text), title);
       app.notes = await api.notes();
     } else if (p.kind === "set_reminder") {
+      const id = reminderId(p.text, p.date);
       await invoke("plugin:notification|notify", {
-        options: { id: reminderId(p.text, p.date), title: "LAR", body: p.text, schedule: Schedule.at(asLocalDigits(reminderAt(p.date))) },
+        options: { id, title: "LAR", body: p.text, schedule: Schedule.at(asLocalDigits(reminderAt(p.date))) },
       });
+      rememberLarReminder(id, reminderAt(p.date));
     } else {
       assis.busy = "cards";
       const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null }>("ai_cards", { text: `Topic: ${p.topic}`, want: 8 });
       if (!found.cards.length) throw new Error("I couldn't make cards for that. Try a note's own text instead.");
-      await api.saveDeck(newDeck(crypto.randomUUID(), p.topic, null, found.cards));
-      msg.text = `${msg.text} Made ${found.cards.length} ${found.cards.length === 1 ? "card" : "cards"}. Find them under Study.`;
+      msg.cards = found.cards; // Shown for the student to edit; confirmCards saves.
+      return;
     }
     msg.state = "done";
   } catch (e) {
@@ -258,6 +263,29 @@ export async function apply(i: number) {
   } finally {
     if (assis.busy === "cards") assis.busy = "";
   }
+}
+
+/** The student kept these cards (edited or not). Only now is the deck saved. */
+export async function confirmCards(i: number) {
+  const msg = assis.chat[i];
+  const p = msg.proposal;
+  if (p?.kind !== "make_cards" || msg.state !== "pending" || !msg.cards) return;
+  const cards = tidy(msg.cards, []);
+  if (!cards.length) return;
+  msg.problem = "";
+  try {
+    await api.saveDeck(newDeck(crypto.randomUUID(), p.topic, null, cards));
+    msg.text = `${msg.text} Made ${cards.length} ${cards.length === 1 ? "card" : "cards"}. Find them under Study.`;
+    msg.cards = undefined;
+    msg.state = "done";
+  } catch (e) {
+    msg.problem = say(e);
+  }
+}
+
+/** Back out of the preview: nothing was saved, and the offer stands. */
+export function discardCards(i: number) {
+  assis.chat[i].cards = undefined;
 }
 
 /** The iOS notification plugin reads the ISO string's trailing Z as text and takes the digits as local time. */

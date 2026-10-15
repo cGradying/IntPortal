@@ -81,3 +81,24 @@ export function describe(p: Proposal): { label: string; text: string; yes: strin
       return { label: "Flashcards", text: p.topic, yes: "Make cards" };
   }
 }
+
+const LAR_KEY = "larReminders";
+
+/** Ids of reminders LAR set that are still ahead, so the weekly reschedule leaves them queued. */
+export function larReminderIds(now = Date.now()): Set<number> {
+  try {
+    const all: { id: number; at: number }[] = JSON.parse(localStorage.getItem(LAR_KEY) ?? "[]");
+    return new Set(all.filter((r) => r.at > now).map((r) => r.id));
+  } catch {
+    return new Set(); // Storage off: LAR's reminders last until the next reschedule.
+  }
+}
+
+export function rememberLarReminder(id: number, at: Date) {
+  try {
+    const all: { id: number; at: number }[] = JSON.parse(localStorage.getItem(LAR_KEY) ?? "[]");
+    localStorage.setItem(LAR_KEY, JSON.stringify(all.filter((r) => r.at > Date.now() && r.id !== id).concat({ id, at: at.getTime() })));
+  } catch {
+    // Storage off: see larReminderIds.
+  }
+}
