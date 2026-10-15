@@ -1,11 +1,18 @@
 //! On-device AI commands (ADR 0003). None of them writes: IntAssis returns a
 //! proposal and the UI confirms it through the existing commands.
-use crate::{snapshot_of, AppState, Res};
+use crate::{err, snapshot_of, AppState, Res};
 use intportal_ai::{
     assis::{self, Facts, Proposal},
-    gen, llm::Llm, models::{self, Gate, Model}, outline, pdf, prompt::Template, why,
+    gen,
+    intent::{self, Intent},
+    llm::Llm,
+    models::{self, Gate, Kind, Model},
+    outline, pdf,
+    prompt::Template,
+    rag, why,
 };
 use intportal_core::{
+    notes,
     syllabus::{self, Item},
     today::{self, Date, Moment},
 };
@@ -23,11 +30,20 @@ struct Loaded {
     llm: Box<dyn Llm>,
 }
 
-/// One model in memory at a time; a busy engine fails fast instead of queueing.
+/// One chat model and, beside it, the small embedding model that finds the
+/// student's notes. A busy slot fails fast instead of queueing.
 #[derive(Default)]
 pub struct AiState {
     engine: Arc<Mutex<Option<Loaded>>>,
+    embedder: Arc<Mutex<Option<Loaded>>>,
     cancel: Arc<AtomicBool>,
+}
+
+impl AiState {
+    /// The slot a model of this kind lives in.
+    fn slot(&self, m: &Model) -> Arc<Mutex<Option<Loaded>>> {
+        if m.kind == Kind::Embed { self.embedder.clone() } else { self.engine.clone() }
+    }
 }
 
 fn models_dir(app: &tauri::AppHandle) -> Res<PathBuf> {
@@ -77,7 +93,7 @@ pub struct ModelInfo {
 #[tauri::command]
 pub fn ai_models(app: tauri::AppHandle, ai: tauri::State<'_, AiState>) -> Res<Vec<ModelInfo>> {
     let dir = models_dir(&app)?;
-    let loaded = ai.engine.try_lock().ok().and_then(|e| e.as_ref().map(|l| l.id.clone()));
+    let loaded: Vec<String> = [&ai.engine, &ai.embedder].iter().filter_map(|s| s.try_lock().ok().and_then(|e| e.as_ref().map(|l| l.id.clone()))).collect();
     Ok(models::CATALOG
         .iter()
         .map(|m| ModelInfo {
@@ -88,7 +104,7 @@ pub fn ai_models(app: tauri::AppHandle, ai: tauri::State<'_, AiState>) -> Res<Ve
             installed: dir.join(m.file).metadata().is_ok_and(|f| f.len() == m.bytes),
             default: m.id == models::DEFAULT_CHAT,
             fits: match models::gate(m, mem::available()) { Gate::Ok => "ok", Gate::Warn => "warn", Gate::Refuse => "refuse" },
-            loaded: loaded.as_deref() == Some(m.id),
+            loaded: loaded.iter().any(|l| l == m.id),
         })
         .collect())
 }
@@ -123,10 +139,12 @@ pub async fn ai_download(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, i
 #[tauri::command]
 pub fn ai_delete(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: String) -> Res<()> {
     let m = models::find(&id).ok_or("Unknown model")?;
-    let mut engine = ai.engine.try_lock().map_err(|_| "IntAssis is busy".to_string())?;
+    let slot = ai.slot(m);
+    let mut engine = slot.try_lock().map_err(|_| "IntAssis is busy".to_string())?;
     if engine.as_ref().is_some_and(|l| l.id == id) {
         *engine = None;
     }
+    drop(engine);
     let dir = models_dir(&app)?;
     for f in [m.file.to_string(), format!("{}.part", m.file)] {
         match std::fs::remove_file(dir.join(f)) {
@@ -149,16 +167,16 @@ pub async fn ai_load(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: S
     if !path.exists() {
         return Err("Download the model first".into());
     }
-    let engine = ai.engine.clone();
-    tokio::task::spawn_blocking(move || {
-        let mut slot = engine.try_lock().map_err(|_| "IntAssis is busy".to_string())?;
-        *slot = None; // free the old one before the new one loads
-        let llm = Llama::load(&path, m.n_ctx, device())?;
-        *slot = Some(Loaded { id: m.id.into(), tpl: template_for(&m), llm: Box::new(llm) });
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    let slot = ai.slot(&m);
+    tokio::task::spawn_blocking(move || load_into(&slot, &m, &path)).await.map_err(|e| e.to_string())?
+}
+
+fn load_into(slot: &Mutex<Option<Loaded>>, m: &Model, path: &std::path::Path) -> Res<()> {
+    let mut slot = slot.try_lock().map_err(|_| "IntAssis is busy".to_string())?;
+    *slot = None; // free the old one before the new one loads
+    let llm = Llama::load(path, m.n_ctx, device())?;
+    *slot = Some(Loaded { id: m.id.into(), tpl: template_for(m), llm: Box::new(llm) });
+    Ok(())
 }
 
 /// The UI calls this when the app is hidden: iOS ends an app that holds a
@@ -166,8 +184,10 @@ pub async fn ai_load(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: S
 #[tauri::command]
 pub fn ai_unload(ai: tauri::State<'_, AiState>) {
     ai.cancel.store(true, Ordering::Relaxed);
-    if let Ok(mut e) = ai.engine.lock() {
-        *e = None;
+    for slot in [&ai.engine, &ai.embedder] {
+        if let Ok(mut e) = slot.lock() {
+            *e = None;
+        }
     }
 }
 
@@ -236,20 +256,101 @@ impl From<Proposal> for ProposalDto {
     }
 }
 
+/// A note an answer drew on. The chat shows it as a chip that opens the note.
+#[derive(Serialize)]
+pub struct Source {
+    key: String,
+    title: String,
+}
+
 #[derive(Serialize)]
 pub struct Ask {
     reply: String,
     /// The one thing IntAssis offers to do. The UI shows a confirm card.
     proposal: Option<ProposalDto>,
+    /// The notes the model was shown for an open question.
+    sources: Vec<Source>,
+}
+
+/// Loads the embedding model when it is on the phone but not in memory.
+/// False when it was never downloaded: IntAssis then answers without notes.
+fn embedder_ready(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>) -> Res<bool> {
+    let m = models::find(models::EMBED).ok_or("Unknown model")?;
+    let path = models_dir(app)?.join(m.file);
+    if !path.metadata().is_ok_and(|f| f.len() == m.bytes) {
+        return Ok(false);
+    }
+    if slot.try_lock().map_err(|_| "IntAssis is busy".to_string())?.is_none() {
+        load_into(slot, m, &path)?;
+    }
+    Ok(true)
+}
+
+/// Embeds notes edited since the last search. Quiet when the model is not installed.
+fn index(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>) -> Res<()> {
+    if !embedder_ready(app, slot)? {
+        return Ok(());
+    }
+    let mut guard = slot.try_lock().map_err(|_| "IntAssis is busy".to_string())?;
+    let l = guard.as_mut().ok_or("Turn IntAssis on first")?;
+    rag::refresh(&app.state::<AppState>().store, l.llm.as_mut(), models::EMBED).map_err(err)
+}
+
+/// The student's notes closest to `query`, as lines for the prompt and as chips for the UI.
+fn recall(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>, query: &str) -> Res<(Vec<String>, Vec<Source>)> {
+    if !embedder_ready(app, slot)? {
+        return Ok((vec![], vec![]));
+    }
+    let mut guard = slot.try_lock().map_err(|_| "IntAssis is busy".to_string())?;
+    let l = guard.as_mut().ok_or("Turn IntAssis on first")?;
+    let state = app.state::<AppState>();
+    let hits = rag::search(&state.store, l.llm.as_mut(), models::EMBED, query, 4).map_err(err)?;
+    let all = state.store.lock().unwrap().notes().map_err(err)?;
+    let (mut lines, mut sources) = (vec![], Vec::<Source>::new());
+    for h in hits {
+        let Some(note) = all.iter().find(|n| n.key == h.note_key) else { continue };
+        let title = notes::heading(note);
+        lines.push(format!("{title}: {}", h.text.split_whitespace().collect::<Vec<_>>().join(" ")));
+        if !sources.iter().any(|s| s.key == note.key) {
+            sources.push(Source { key: note.key.clone(), title });
+        }
+    }
+    Ok((lines, sources))
+}
+
+/// The note the student has open, cut to what fits the prompt.
+fn open_note(state: &AppState, key: &str) -> Option<String> {
+    let all = state.store.lock().unwrap().notes().ok()?;
+    let n = all.into_iter().find(|n| n.key == key)?;
+    Some(format!("{}: {}", notes::heading(&n), n.text.chars().take(2500).collect::<String>()))
+}
+
+/// After a note is saved: embed what changed, so the next question finds it.
+#[tauri::command]
+pub async fn ai_index(app: tauri::AppHandle, ai: tauri::State<'_, AiState>) -> Res<()> {
+    let slot = ai.embedder.clone();
+    tokio::task::spawn_blocking(move || index(&app, &slot)).await.map_err(|e| e.to_string())?
 }
 
 /// One chat turn. `history` is (student, IntAssis) pairs, oldest first.
+/// `open_key` is the note the student is looking at, if any.
 #[tauri::command]
-pub async fn ai_ask(state: tauri::State<'_, AppState>, ai: tauri::State<'_, AiState>, now: Moment, message: String, history: Vec<(String, String)>) -> Res<Ask> {
-    let facts = facts_for(&snapshot_of(&state)?, now);
+pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, history: Vec<(String, String)>, open_key: Option<String>) -> Res<Ask> {
+    let state = app.state::<AppState>();
+    let mut facts = facts_for(&snapshot_of(&state)?, now);
+    let mut sources = vec![];
+    // Only an open question reads the notes: the rest are answered from the schedule or acted on.
+    if intent::detect(&message) == Intent::Ask {
+        facts.open_note = open_key.and_then(|k| open_note(&state, &k));
+        let (slot, q, handle) = (ai.embedder.clone(), message.clone(), app.clone());
+        // Notes are a bonus: if searching fails the answer still comes from the schedule.
+        if let Ok(Ok((lines, found))) = tokio::task::spawn_blocking(move || recall(&handle, &slot, &q)).await {
+            (facts.hits, sources) = (lines, found);
+        }
+    }
     with_model(&ai, move |llm, tpl| {
         let a = assis::answer(llm, tpl, &facts, &history, &message)?;
-        Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into) })
+        Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources })
     })
     .await
 }

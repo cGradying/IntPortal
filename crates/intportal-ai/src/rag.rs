@@ -3,6 +3,7 @@
 //! budget, as the old macOS app tuned them.
 use crate::llm::Llm;
 use intportal_core::store::{Store, StoreError};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 pub const CHUNK: usize = 700;
 // nomic-embed v1.5 scores unrelated notes 0.47 to 0.6 and the right one 0.57 to 0.81
@@ -55,23 +56,32 @@ pub fn chunk_text(text: &str) -> Vec<String> {
     out
 }
 
-/// Embeds the notes edited since their last chunks, or chunked by another model.
-pub fn refresh(store: &Store, llm: &mut dyn Llm, model: &str) -> Result<(), RagError> {
-    for note in store.stale_notes(model)? {
+/// The store is shared with every other command, so it is locked for one
+/// query at a time and never while a model runs.
+fn db(store: &Mutex<Store>) -> MutexGuard<'_, Store> {
+    store.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Embeds the notes edited since their last chunks, or chunked by another
+/// model. A note the model cannot embed is skipped, so one odd note never
+/// stops the rest from being found.
+pub fn refresh(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str) -> Result<(), RagError> {
+    let stale = db(store).stale_notes(model)?;
+    for note in stale {
         let texts = chunk_text(&note.text);
         let docs: Vec<String> = texts.iter().map(|t| format!("search_document: {t}")).collect();
-        let vecs = llm.embed(&docs.iter().map(String::as_str).collect::<Vec<_>>()).map_err(RagError::Embed)?;
-        store.replace_chunks(&note.key, note.updated, model, &texts.into_iter().zip(vecs).collect::<Vec<_>>())?;
+        let Ok(vecs) = llm.embed(&docs.iter().map(String::as_str).collect::<Vec<_>>()) else { continue };
+        db(store).replace_chunks(&note.key, note.updated, model, &texts.into_iter().zip(vecs).collect::<Vec<_>>())?;
     }
     Ok(())
 }
 
 /// Best chunks for `query` (best first): at least `FLOOR`, at most `k`, and
 /// within `BUDGET` chars together. Refreshes stale notes first.
-pub fn search(store: &Store, llm: &mut dyn Llm, model: &str, query: &str, k: usize) -> Result<Vec<Hit>, RagError> {
+pub fn search(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str, query: &str, k: usize) -> Result<Vec<Hit>, RagError> {
     refresh(store, llm, model)?;
     let q = llm.embed(&[&format!("search_query: {query}")]).map_err(RagError::Embed)?.pop().unwrap_or_default();
-    let mut hits: Vec<Hit> = store
+    let mut hits: Vec<Hit> = db(store)
         .chunks(model)?
         .into_iter()
         .map(|(note_key, text, v)| Hit { score: q.iter().zip(&v).map(|(a, b)| a * b).sum(), note_key, text })
@@ -120,9 +130,9 @@ mod tests {
 
     #[test]
     fn search_finds_the_matching_note_with_prefixes_and_embeds_once() {
-        let store = Store::in_memory().unwrap();
-        store.set_note("note:a", "binary tree traversal, tree height", None, 1).unwrap();
-        store.set_note("note:b", "tuition due Monday", None, 1).unwrap();
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).set_note("note:a", "binary tree traversal, tree height", None, 1).unwrap();
+        db(&store).set_note("note:b", "tuition due Monday", None, 1).unwrap();
         let mut llm = Topics(vec![]);
         let hits = search(&store, &mut llm, "m", "tree", 3).unwrap();
         assert_eq!(hits.iter().map(|h| h.note_key.as_str()).collect::<Vec<_>>(), ["note:a"]);
@@ -135,12 +145,33 @@ mod tests {
 
     #[test]
     fn budget_and_k_limit_the_hits() {
-        let store = Store::in_memory().unwrap();
+        let store = Mutex::new(Store::in_memory().unwrap());
         for i in 0..6 {
-            store.set_note(&format!("note:{i}"), &format!("tree {}", "x".repeat(690)), None, 1).unwrap(); // 695 chars each
+            db(&store).set_note(&format!("note:{i}"), &format!("tree {}", "x".repeat(690)), None, 1).unwrap(); // 695 chars each
         }
         let mut llm = Topics(vec![]);
         assert_eq!(search(&store, &mut llm, "m", "tree", 10).unwrap().len(), 5, "6 x 695 > 4000, so the sixth is dropped");
         assert_eq!(search(&store, &mut llm, "m", "tree", 3).unwrap().len(), 3);
+    }
+
+    /// Fails on any text with "bad" in it.
+    struct Picky;
+    impl Llm for Picky {
+        fn generate(&mut self, _: &str, _: Option<&serde_json::Value>, _: u32, _: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+            Err("unused".into())
+        }
+        fn embed(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+            if texts.iter().any(|t| t.contains("bad")) { return Err("too long".into()) }
+            Ok(texts.iter().map(|t| vec![t.matches("tree").count().min(1) as f32]).collect())
+        }
+    }
+
+    #[test]
+    fn a_note_that_cannot_be_embedded_is_skipped_not_fatal() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).set_note("note:a", "bad bad bad", None, 1).unwrap();
+        db(&store).set_note("note:b", "tree", None, 1).unwrap();
+        let hits = search(&store, &mut Picky, "m", "tree", 3).unwrap();
+        assert_eq!(hits.iter().map(|h| h.note_key.as_str()).collect::<Vec<_>>(), ["note:b"]);
     }
 }
