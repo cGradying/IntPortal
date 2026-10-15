@@ -6,7 +6,7 @@ use crate::{
     intent::{detect, is_filipino, resolve_when, Intent},
     llm::Llm,
     prompt::{build, Section, Template},
-    reply,
+    reply::{self, ReplyStream},
 };
 use intportal_core::today::Date;
 use serde_json::{json, Value};
@@ -95,6 +95,12 @@ fn date_table(today: Date) -> String {
 
 /// `history` is (student, intassis) pairs, oldest first; only the last few fit.
 pub fn answer(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history: &[(String, String)], msg: &str) -> Result<Answer, String> {
+    answer_streaming(llm, tpl, facts, history, msg, &mut |_| ())
+}
+
+/// Like `answer`, and `on_text` gets the words of an open question's reply as
+/// the model writes them. Requests are short and are shown as a confirm card.
+pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history: &[(String, String)], msg: &str, on_text: &mut dyn FnMut(&str)) -> Result<Answer, String> {
     let today = facts.today.ok_or("today is unknown")?;
     let intent = detect(msg);
     if let Some(reply) = canned(intent, facts, is_filipino(msg)) {
@@ -132,7 +138,15 @@ pub fn answer(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history: &[(Strin
         Intent::Cards => "\nThe student wants flashcards. In `topic` put the topic.",
     };
     let prompt = tpl.wrap(&build(&format!("{SYSTEM}{task}"), &live, 7000), &format!("Student: {msg}"));
-    let raw = llm.generate(&prompt, Some(&schema(intent, &facts.subjects, ask_when)), 300, &mut |_| true)?;
+    let mut stream = ReplyStream::default();
+    let raw = llm.generate(&prompt, Some(&schema(intent, &facts.subjects, ask_when)), 300, &mut |piece| {
+        if intent == Intent::Ask {
+            if let Some(words) = stream.feed(piece) {
+                on_text(&words);
+            }
+        }
+        true
+    })?;
     let v: Value = reply::parse(&raw).map_err(|e| e.to_string())?;
     let s = |k: &str| v[k].as_str().unwrap_or("").trim().to_string();
     let text: String = s("text").chars().take(120).collect::<String>().trim_end_matches(['.', ' ']).to_string();
@@ -247,5 +261,16 @@ mod tests {
         assert!(m.prompts[0].contains("From the student's notes") && m.prompts[0].contains("chain rule multiplies") && m.prompts[0].contains("Quiz topics: limits"));
         answer(&mut m, Template::Gemma, &f, &[], "remind me bukas to pay tuition").unwrap();
         assert!(!m.prompts[1].contains("chain rule"), "a request gets no facts");
+    }
+
+    #[test]
+    fn an_open_reply_streams_word_by_word_and_a_request_does_not() {
+        let mut m = FakeLlm::new(&[r#"{"reply":"May quiz ka bukas."}"#, r#"{"reply":"ok","text":"pay tuition"}"#]);
+        let mut seen = String::new();
+        let a = answer_streaming(&mut m, Template::Gemma, &facts(), &[], "paano mag-aral?", &mut |w| seen.push_str(w)).unwrap();
+        assert_eq!((seen.as_str(), a.reply.as_str()), ("May quiz ka bukas.", "May quiz ka bukas."));
+        let mut seen2 = String::new();
+        answer_streaming(&mut m, Template::Gemma, &facts(), &[], "remind me bukas to pay tuition", &mut |w| seen2.push_str(w)).unwrap();
+        assert!(seen2.is_empty());
     }
 }
