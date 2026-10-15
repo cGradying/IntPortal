@@ -30,6 +30,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [011-login](011-login.md) | draft | The sign-in form, errors and the lockout guard |
 | [012-portals](012-portals.md) | draft | The portal model: SIS now, Mabini next |
 | [020-ai](020-ai.md) | building | LAR that streams, remembers, cites notes; Ask AI in a note |
+| [022-quiz-me](022-quiz-me.md) | draft | LAR quizzes you from your own notes, grades with rules, missed questions to cards |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md) and [ADR 0005](../adr/0005-portals-are-first-class.md).
 
