@@ -41,14 +41,18 @@ fn task(mode: Mode) -> &'static str {
 /// Tidy works on when present; `question` is required for Ask. `on_text`
 /// gets the words as they are written.
 pub fn run(llm: &mut dyn Llm, tpl: Template, mode: Mode, text: &str, selection: Option<&str>, question: Option<&str>, on_text: &mut dyn FnMut(&str)) -> Result<String, String> {
+    let clip = |s: &str| s.chars().take(MAX_NOTE).collect::<String>();
     let selection = selection.map(str::trim).filter(|s| !s.is_empty());
     let question = question.map(str::trim).filter(|s| !s.is_empty());
     let subject = match (mode, selection, question) {
         (Mode::Explain, None, _) => return Err("Select the words to explain first.".into()),
         (Mode::Ask, _, None) => return Err("Type a question first.".into()),
-        (Mode::Tidy, Some(s), _) => s,
-        _ => text.trim(),
+        (Mode::Tidy, Some(s), _) => s.to_string(),
+        // A long note is too big for context, but the selection is still enough to explain.
+        (Mode::Explain, Some(s), _) if text.trim().chars().count() > MAX_NOTE => clip(s),
+        _ => text.trim().to_string(),
     };
+    let selection = selection.map(clip);
     if subject.is_empty() {
         return Err("The note is empty.".into());
     }
@@ -106,6 +110,17 @@ mod tests {
         assert!(m.prompts[0].contains("Selected words: heaps"));
         run_with(&mut m, Mode::Tidy, "whole note", Some("just this part"), None).unwrap();
         assert!(m.prompts[1].contains("just this part") && !m.prompts[1].contains("whole note"));
+    }
+
+    #[test]
+    fn explain_works_on_a_selection_of_a_note_longer_than_the_limit() {
+        let mut m = FakeLlm::new(&[r#"{"reply":"ok"}"#, r#"{"reply":"ok"}"#]);
+        let long = format!("{} heaps", "x".repeat(MAX_NOTE + 10));
+        assert_eq!(run_with(&mut m, Mode::Explain, &long, Some("heaps"), None).unwrap(), "ok");
+        assert!(m.prompts[0].contains("Selected words: heaps"));
+        let huge = "y".repeat(MAX_NOTE * 2);
+        run_with(&mut m, Mode::Explain, &long, Some(&huge), None).unwrap();
+        assert!(!m.prompts[1].contains(&"y".repeat(MAX_NOTE + 1)), "selection is truncated to MAX_NOTE");
     }
 
     #[test]
