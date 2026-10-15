@@ -40,7 +40,7 @@ Two or more engineers run at once. These rules keep them out of each other's way
 - **Hot files take turns.** `src-tauri/src/lib.rs`, `crates/intportal-core/src/store.rs`, `src/lib/state.svelte.ts`, `src/lib/api.ts`, `src/routes/+page.svelte`, the lockfiles and the version files are shared by every role. Keep changes to them small. If another open PR already touches the same hot file, say so in your PR; the Head merges the older one first and you rebase.
 - **Merge one at a time.** The Head merges one PR, waits for the run on `main` to go green, then merges the next. A burst of merges hides which one broke `main`.
 - **Short stacks.** At most two PRs deep, merged within a day. Rebase onto `main`; don't merge `main` into a branch. Stacked PRs merge bottom-up. Before deleting a merged base branch, point the next PR at `main` with `gh pr edit <n> --base main`.
-- **One release at a time.** Versions are cut by QA/Release (the Head while no QA session runs) in a `release/x.y.z` PR that changes only the version files and `CHANGELOG.md`, and only when no other PR is waiting to merge.
+- **One release at a time.** Versions are cut by QA/Release (the Head while no QA session runs) in a `release/x.y.z` PR made with `scripts/version.sh x.y.z` that changes only the version files and `CHANGELOG.md`, and only when no other PR is waiting to merge.
 - **Specs before builds.** A spec is approved on `main` before its first build PR opens. A build PR never carries the spec it builds.
 - **Close the loop.** When a PR merges, its issue closes (`Closes #n`). Issues finished by work that didn't cite them are closed by hand with the PR number.
 
