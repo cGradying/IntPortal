@@ -62,6 +62,8 @@ Typography is a new pair from OFL fonts: Geist for the interface and Pixelify Sa
 | Locked | `Too many tries. You can try again at 3:42 PM.` |
 | Keychain note | `Your login stays in this phone's keychain. IntPortal only talks to PUP SIS.` |
 
+Mabini variants (shipped): the card has student number and password only; LAR says "Hi, I'm LAR. Sign in to eMabini and I'll bring your courses and deadlines."; the keychain note ends "IntPortal only talks to PUP eMabini."; the button reads `Sign in` on the landing and `Sign in to Mabini` inside You. Its tries line is counted apart from the SIS's.
+
 LAR's lines follow the stage ([010](010-landing.md) C19).
 
 ## Data shape

@@ -8,10 +8,12 @@
   import PortalStage from "./PortalStage.svelte";
   import type { Gesture } from "./lar/Lar.svelte";
   import type { Mood } from "./lar/sprite";
-  import { api, isoDate, type CampusResolution, type Login } from "./api";
+  import { api, isoDate, type CampusResolution, type Portal, type Tries } from "./api";
+  import { FALLBACK_SIS, portalCopy, triesLine, validate } from "./portals";
+  import { portalApiFor } from "./portalApi";
   import { buzz } from "./haptics";
   import { landingAt, restAt } from "./landing";
-  import { adopt, app, syncNow } from "./state.svelte";
+  import { adopt, app, refreshLogins, syncNow } from "./state.svelte";
 
   let { signedIn, onenter }: { signedIn: boolean; onenter: () => void } = $props();
 
@@ -36,12 +38,29 @@
   let lift = $state(frameFor(returning ? "hub" : "signin").lift);
   let span = $state(frameFor(returning ? "hub" : "signin").span);
 
+  // The portals the core lists; the card below follows the chosen one.
+  let portals = $state<Portal[]>([FALLBACK_SIS]);
+  let portalId = $state("sis");
+  const portal = $derived(portals.find((p) => p.id === portalId) ?? portals[0]);
+  const copy = $derived(portalCopy(portal.id));
+  const ready = $derived(portal.status === "ready");
+  let tries = $state<Tries | null>(null);
+  const triesText = $derived(tries ? triesLine(tries, portal, Date.now() / 1000) : "");
+  const locked = $derived(!!tries && tries.left <= 0);
+  onMount(() => {
+    api.portals().then((p) => p.length && (portals = p)).catch(() => {});
+  });
+  $effect(() => {
+    const id = portalId;
+    tries = null;
+    portalApiFor(id).tries().then((t) => id === portalId && (tries = t)).catch(() => {});
+  });
+
   let campus = $state<CampusResolution>({ kind: "incomplete" });
   $effect(() => {
     const n = studno;
     api.campus(n).then((r) => (campus = r)).catch(() => {});
   });
-  const campusOk = $derived(campus.kind !== "incomplete");
 
   // LAR's face and hands follow what's happening.
   const mood = $derived<Mood>(error ? "wow" : busy || typing ? "focus" : rest === "hub" ? "happy" : "open");
@@ -53,7 +72,7 @@
         ? returning
           ? "Welcome back, iskolar. Tara?"
           : "Ayos! Your schedule and grades are in."
-        : "Hi, I'm LAR. Sign in with your SIS login and I'll bring everything over.",
+        : copy.lar,
   );
 
   onMount(() => {
@@ -86,15 +105,11 @@
 
   async function submit(e: Event) {
     e.preventDefault();
-    error = "";
-    if (!campusOk) return (error = "Student number looks like 2026-00000-MN-0.");
-    const [y, m, d] = birthday.split("-").map(Number);
-    if (!y) return (error = "Add your birthdate.");
-    if (!password) return (error = "Add your password.");
+    error = validate(portal, { student_number: studno, birthdate: birthday, password });
+    if (error) return;
     busy = true;
     try {
-      const login: Login = { student_number: studno.trim().toUpperCase(), birth_month: m, birth_day: d, birth_year: y, password };
-      await adopt(await api.signIn(login));
+      await portalApiFor(portal.id).signIn({ student_number: studno, birthdate: birthday, password });
       password = "";
       rest = "hub";
       buzz.done();
@@ -103,6 +118,7 @@
       buzz.fail();
     } finally {
       busy = false;
+      portalApiFor(portal.id).tries().then((t) => (tries = t)).catch(() => {});
     }
   }
 
@@ -110,6 +126,7 @@
     error = "";
     try {
       await adopt(await api.demo(isoDate(new Date())));
+      await refreshLogins();
       rest = "hub";
       buzz.done();
     } catch (err) {
@@ -136,29 +153,45 @@
       <p class="say" aria-live="polite"><b>LAR</b> {line}</p>
       {#if rest === "hub"}
         <button class="step" onclick={step}>Step through</button>
-        <p class="hint">PUP SIS · via {(app.snapshot?.host ?? "sis8").split(".")[0]}</p>
+        <p class="hint">{app.sisConnected ? `PUP SIS · via ${(app.snapshot?.host ?? "sis8").split(".")[0]}` : copy.hint}</p>
       {:else}
-        <form class="card" onsubmit={submit} onfocusin={() => (typing = true)} onfocusout={() => (typing = false)}>
+        <form class="card" style:--portal-accent={portal.theme.accent} onsubmit={submit} onfocusin={() => (typing = true)} onfocusout={() => (typing = false)}>
+          {#if portals.length > 1}
+            <div class="switch" role="group" aria-label="Portal">
+              {#each portals as p (p.id)}
+                <button type="button" class:on={p.id === portalId} aria-pressed={p.id === portalId} onclick={() => ((portalId = p.id), (error = ""))}>
+                  <i style:background={p.theme.accent} aria-hidden="true"></i>{p.name}{#if p.status !== "ready"}<small>Opens soon</small>{/if}
+                </button>
+              {/each}
+            </div>
+          {/if}
+          {#if !ready}
+            <p class="soon">{portal.name} opens soon.</p>
+          {:else}
           <label>
             <span>Student number</span>
             <input bind:value={studno} placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" />
             {#if campus.kind === "known"}<small class="campus">{campus.campus.name} · campus found</small>
             {:else if campus.kind === "unknown_code"}<small class="campus dim">{campus.code} · campus not confirmed yet, sign-in still works</small>{/if}
           </label>
-          <div class="pair">
-            <label class="date" class:empty={!birthday}>
-              <span>Birthdate</span>
-              <input type="date" bind:value={birthday} />
-              <i aria-hidden="true">mm / dd / yyyy</i>
-            </label>
+          <div class="pair" class:single={!portal.fields.includes("birthdate")}>
+            {#if portal.fields.includes("birthdate")}
+              <label class="date" class:empty={!birthday}>
+                <span>Birthdate</span>
+                <input type="date" bind:value={birthday} />
+                <i aria-hidden="true">mm / dd / yyyy</i>
+              </label>
+            {/if}
             <label>
               <span>Password</span>
               <input type="password" bind:value={password} autocomplete="current-password" />
             </label>
           </div>
-          <button class="go" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+          <button class="go" disabled={busy || locked}>{busy ? "Signing in…" : "Sign in"}</button>
+          {#if triesText}<p class="tries" class:out={locked} aria-live="polite">{triesText}</p>{/if}
           {#if error}<p class="error" role="alert">{error}</p>{/if}
-          <p class="fine">Your login stays in this phone's keychain. IntPortal only talks to PUP SIS.</p>
+          <p class="fine">{copy.keychainNote}</p>
+          {/if}
           {#if __REVIEW__}
             <button type="button" class="demo" onclick={demo}>Look around with demo data</button>
           {/if}
@@ -323,7 +356,60 @@
     color: rgb(255 255 255 / 0.58);
   }
   input:focus {
-    box-shadow: inset 0 0 0 2px #f5b227;
+    box-shadow: inset 0 0 0 2px var(--portal-accent, #f5b227);
+  }
+  .pair.single {
+    grid-template-columns: 1fr;
+  }
+  .switch {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 6px;
+  }
+  .switch button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 40px;
+    border: 0;
+    background: #0b0710;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+    color: rgb(244 236 216 / 0.7);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: min(0.824rem, 25px);
+  }
+  .switch button.on {
+    color: #fff5dc;
+    box-shadow: inset 0 0 0 2px var(--portal-accent, #f5b227);
+  }
+  .switch i {
+    width: 8px;
+    height: 8px;
+  }
+  .switch small {
+    font-family: var(--font-pixel);
+    font-weight: 400;
+    font-size: min(0.647rem, 20px);
+    color: rgb(244 236 216 / 0.5);
+  }
+  .soon {
+    margin: 0;
+    padding: 18px 0;
+    text-align: center;
+    color: rgb(244 236 216 / 0.7);
+  }
+  .tries {
+    margin: 0;
+    text-align: center;
+    font-family: var(--font-pixel);
+    font-size: min(0.706rem, 22px);
+    color: var(--portal-accent, #f5b227);
+  }
+  .tries.out {
+    color: #f0a090;
   }
   ::selection {
     background: rgb(245 178 39 / 0.35);

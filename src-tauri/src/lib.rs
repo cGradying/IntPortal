@@ -299,6 +299,56 @@ async fn refresh(state: &AppState, client: &SisClient, rows: Option<Vec<schedule
     Ok(snap)
 }
 
+/// Made-up eMabini data for review builds, so Mabini screens can be shown
+/// without anyone's account.
+fn demo_mabini(now: i64) -> MabiniData {
+    use intportal_core::mabini::parse::{Course, CourseGrade, Deadline};
+    let course = |id: u64, subject: &str, progress: Option<f64>| Course {
+        id,
+        fullname: format!("{subject}_First Sem 2627_BSIT 1-A"),
+        subject: subject.into(),
+        term: "First Sem 2627".into(),
+        section: "BSIT 1-A".into(),
+        start: now - 40 * 86_400,
+        end: now + 80 * 86_400,
+        progress,
+        url: format!("https://emabini.pup.edu.ph/course/view.php?id={id}"),
+    };
+    let due = |id: u64, name: &str, course_id: u64, course: &str, days: f64| Deadline {
+        id,
+        name: name.into(),
+        course_id,
+        course: course.into(),
+        kind: "assign".into(),
+        due: now + (days * 86_400.0) as i64,
+        overdue: days < 0.0,
+        url: format!("https://emabini.pup.edu.ph/mod/assign/view.php?id={id}"),
+    };
+    MabiniData {
+        courses: vec![
+            course(11, "Physical Activity Towards Health and Fitness 1", Some(40.0)),
+            course(12, "Filipinolohiya at Pambansang Kaunlaran", Some(65.0)),
+            course(13, "Mathematics in the Modern World", None),
+        ],
+        deadlines: vec![
+            due(1, "PETA 1 is due", 11, "Physical Activity Towards Health and Fitness 1", -0.5),
+            due(2, "Pagsusulit 1 closes", 12, "Filipinolohiya at Pambansang Kaunlaran", 0.4),
+            due(3, "Problem Set 2 is due", 13, "Mathematics in the Modern World", 3.0),
+        ],
+        grades: vec![
+            CourseGrade { course_id: Some(11), name: "Physical Activity Towards Health and Fitness 1_First Sem 2627_BSIT 1-A".into(), grade: None },
+            CourseGrade { course_id: Some(12), name: "Filipinolohiya at Pambansang Kaunlaran_First Sem 2627_BSIT 1-A".into(), grade: Some("1.75".into()) },
+            CourseGrade { course_id: Some(13), name: "Mathematics in the Modern World_First Sem 2627_BSIT 1-A".into(), grade: None },
+        ],
+        last_synced: Some(now as u64),
+    }
+}
+
+#[tauri::command]
+fn portals() -> Vec<intportal_core::portal::Portal> {
+    intportal_core::portal::ALL.to_vec()
+}
+
 #[tauri::command]
 fn snapshot(state: tauri::State<'_, AppState>) -> Res<Snapshot> {
     snapshot_of(&state)
@@ -406,6 +456,10 @@ async fn mabini_sign_in(state: tauri::State<'_, AppState>, login: MabiniLogin) -
 /// the session expired, and never after a rejection.
 #[tauri::command]
 async fn mabini_sync(state: tauri::State<'_, AppState>) -> Res<MabiniData> {
+    if cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed) {
+        tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+        return state.store.lock().unwrap().mabini().map_err(err);
+    }
     let mut guard = state.mabini.lock().await;
     if let Some(client) = guard.as_ref() {
         match mabini_refresh(&state, client).await {
@@ -428,7 +482,7 @@ fn mabini_data(state: tauri::State<'_, AppState>) -> Res<MabiniData> {
 
 #[tauri::command]
 fn has_mabini_login() -> bool {
-    mabini_vault::load().is_some()
+    (cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed)) || mabini_vault::load().is_some()
 }
 
 #[tauri::command]
@@ -442,12 +496,18 @@ async fn mabini_tries_left(state: tauri::State<'_, AppState>) -> Res<Tries> {
 async fn mabini_sign_out(state: tauri::State<'_, AppState>) -> Res<()> {
     *state.mabini.lock().await = None;
     mabini_vault::clear();
-    state.store.lock().unwrap().forget_mabini().map_err(err)
+    state.store.lock().unwrap().forget_mabini().map_err(err)?;
+    // No SIS login either: nobody is signed in, so detach the store like sign_out does.
+    if vault::load().is_none() {
+        let _ = std::fs::remove_file(state.dir.join(CURRENT));
+        *state.store.lock().unwrap() = Store::in_memory().map_err(err)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
 fn has_login() -> bool {
-    vault::load().is_some()
+    (cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed)) || vault::load().is_some()
 }
 
 #[tauri::command]
@@ -503,6 +563,10 @@ async fn sign_out(state: tauri::State<'_, AppState>) -> Res<()> {
     *state.client.lock().await = None;
     vault::clear();
     state.store.lock().unwrap().forget_sis().map_err(err)?;
+    // eMabini still signed in: the store stays open for its data.
+    if mabini_vault::load().is_some() {
+        return Ok(());
+    }
     // Nobody is signed in now: the landing reads an empty store, and the
     // student's own work waits in their file for the next sign-in.
     let _ = std::fs::remove_file(state.dir.join(CURRENT));
@@ -942,6 +1006,7 @@ fn demo(state: tauri::State<'_, AppState>, today: Date) -> Res<Snapshot> {
         ..snapshot_of(&state)?
     };
     state.store.lock().unwrap().save(&snap).map_err(err)?;
+    state.store.lock().unwrap().save_mabini(&demo_mabini(unix_now())).map_err(err)?;
     Ok(snap)
 }
 
@@ -1001,7 +1066,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
+            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
             ai::ai_models, ai::ai_download, ai::ai_delete, ai::ai_load, ai::ai_unload, ai::ai_index, ai::ai_cancel, ai::ai_ask, ai::ai_history, ai::ai_clear_history, ai::ai_note, ai::ai_why, ai::ai_cards, ai::ai_pdf_text, ai::ai_outline_text, ai::ai_guide
         ])
         .run(tauri::generate_context!())
