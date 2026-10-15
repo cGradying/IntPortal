@@ -356,8 +356,15 @@ pub fn ai_clear_history(state: tauri::State<'_, AppState>) -> Res<()> {
 /// The last few question and answer pairs the model itself answered.
 fn recent_asks(state: &AppState) -> Vec<(String, String)> {
     let turns = state.store.lock().unwrap().turns(40).unwrap_or_default();
-    let asks: Vec<_> = turns.into_iter().filter(|t| t.ask).collect();
-    asks.chunks(2).filter(|p| p.len() == 2 && p[0].role == "me" && p[1].role == "lar").map(|p| (p[0].text.clone(), p[1].text.clone())).collect()
+    ask_pairs(&turns)
+}
+
+/// Each student ask turn with the model turn right after it. A lone turn (a
+/// dropped save, or the 40-turn window cutting a pair) is skipped, so it never
+/// shifts the pairs that follow.
+fn ask_pairs(turns: &[intportal_core::store::Turn]) -> Vec<(String, String)> {
+    let asks: Vec<_> = turns.iter().filter(|t| t.ask).collect();
+    asks.windows(2).filter(|p| p[0].role == "me" && p[1].role == "lar").map(|p| (p[0].text.clone(), p[1].text.clone())).collect()
 }
 
 /// One chat turn. The words of an open question's reply arrive on `on_text`
@@ -497,6 +504,26 @@ mod tests {
         assert_eq!(f.due, ["Quiz 2: COMP 20073, Friday 2026-10-16"]);
         assert_eq!(f.subjects, ["COMP 20073"]);
         assert_eq!(f.today, Some(Date::new(2026, 10, 15)));
+    }
+
+    #[test]
+    fn one_lost_turn_does_not_misalign_the_pairs_after_it() {
+        use intportal_core::store::Turn;
+        let t = |role: &str, text: &str, ask: bool| Turn { role: role.into(), text: text.into(), at: 0, ask };
+        let turns = [
+            t("lar", "orphan answer", true), // the window started mid-pair
+            t("me", "q1", true),
+            t("lar", "a1", true),
+            t("me", "q2 lost its answer", true),
+            t("me", "q3", true),
+            t("lar", "a3", true),
+            t("me", "set a reminder", false), // not an ask
+            t("lar", "done", false),
+            t("me", "q4", true),
+            t("lar", "a4", true),
+        ];
+        let got = ask_pairs(&turns);
+        assert_eq!(got, [("q1".into(), "a1".into()), ("q3".into(), "a3".into()), ("q4".into(), "a4".into())]);
     }
 
     #[test]

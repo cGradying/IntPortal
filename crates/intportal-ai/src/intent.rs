@@ -43,7 +43,8 @@ pub fn detect(msg: &str) -> Intent {
 
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
 pub fn is_filipino(msg: &str) -> bool {
-    const FIL: [&str; 16] = ["ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "may", "po", "lang"];
+    // "may" is left out on purpose: it is also the English word ("May I see my classes").
+    const FIL: [&str; 15] = ["ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "po", "lang"];
     words(msg).iter().filter(|w| FIL.contains(&w.as_str())).count() >= 1
 }
 
@@ -56,7 +57,10 @@ pub fn subject_in(msg: &str, subjects: &[(String, String)]) -> Option<String> {
     let squashed = w.concat();
     let letters = |code: &str| code.chars().take_while(|c| c.is_alphabetic()).collect::<String>().to_lowercase();
     let only = |hit: Vec<&String>| (hit.len() == 1).then(|| hit[0].clone());
-    let by_code = subjects.iter().map(|(c, _)| c).filter(|c| squashed.contains(&c.to_lowercase().replace(' ', ""))).collect();
+    let key = |c: &str| c.to_lowercase().replace(' ', "");
+    let hits: Vec<&String> = subjects.iter().map(|(c, _)| c).filter(|c| squashed.contains(&key(c))).collect();
+    // "math 101" also contains "math1": the longer code is the one named.
+    let by_code = hits.iter().copied().filter(|c| !hits.iter().any(|o| key(o) != key(c) && key(o).contains(&key(c)))).collect();
     only(by_code)
         .or_else(|| only(subjects.iter().map(|(c, _)| c).filter(|c| letters(c).len() >= 3 && w.contains(&letters(c))).collect()))
         .or_else(|| only(subjects.iter().filter(|(_, d)| words(d).iter().any(|dw| dw.chars().count() >= 5 && w.contains(dw))).map(|(c, _)| c).collect()))
@@ -220,6 +224,8 @@ mod tests {
         for msg in ["Hello there", "What is due this week", "Summarize my notes", "go"] {
             assert!(!is_filipino(msg), "{msg}");
         }
+        assert!(!is_filipino("May I see my classes") && !is_filipino("may"), "English \"may\" is not a marker");
+        assert!(is_filipino("May pasahan ba ako") && is_filipino("may klase bukas"), "\"may\" with real markers still reads Filipino");
         assert!(!is_filipino("kobe"), "markers are whole words, not substrings");
     }
 
@@ -289,6 +295,10 @@ mod tests {
         let two_maths = subs(&[("MATH 101", "Mathematics"), ("MATH 102", "Calculus")]);
         assert_eq!(subject_in("how am i in math", &two_maths), None, "two MATH subjects");
         assert_eq!(subject_in("how am i in math 102", &two_maths), Some("MATH 102".into()), "the full code settles it");
+        let nested = subs(&[("MATH 1", "Algebra"), ("MATH 101", "Calculus")]);
+        assert_eq!(subject_in("grade in math 101", &nested), Some("MATH 101".into()), "the longer code wins");
+        assert_eq!(subject_in("grade in math 1", &nested), Some("MATH 1".into()));
+        assert_eq!(subject_in("how am i in math", &nested), None, "still ambiguous");
         let shared = subs(&[("MATH 101", "Mathematics in the Modern World"), ("PHYS 101", "Physics in the Modern World")]);
         assert_eq!(subject_in("modern world grade", &shared), None, "a shared description word");
         assert_eq!(subject_in("how am i in history", &shared), None);

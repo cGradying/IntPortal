@@ -189,6 +189,10 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
 /// What the chat shows when something fails, in the student's language. The
 /// raw error is for logs, not for a student.
 pub fn friendly(error: &str, fil: bool) -> String {
+    // The one English-only sentence from src-tauri/src/ai.rs (ai_load) that needs a Filipino twin.
+    if error.starts_with("This model needs more memory") {
+        return if fil { "Kulang ang libreng memory ng phone para sa model na ito. Subukan ang mas maliit." } else { "This model needs more memory than this phone has free. Try a smaller one." }.into();
+    }
     // A sentence written for the student ("Select the words to explain first.") passes through.
     if error.ends_with('.') || error.ends_with('?') {
         return error.into();
@@ -471,13 +475,19 @@ mod tests {
     }
 
     #[test]
+    fn the_model_memory_refusal_is_translated() {
+        let raw = "This model needs more memory than this phone has free. Try a smaller one.";
+        assert_eq!(friendly(raw, false), raw);
+        assert_eq!(friendly(raw, true), "Kulang ang libreng memory ng phone para sa model na ito. Subukan ang mas maliit.");
+    }
+
+    #[test]
     fn sentences_written_for_the_student_pass_through_in_either_language() {
         for sentence in [
             "Select the words to explain first.",
             "Type a question first.",
             "The note is empty.",
             "This note is too long for me to take in at once. Select part of it.",
-            "This model needs more memory than this phone has free. Try a smaller one.",
             "Is the model loaded?",
             "Do you want to try again?",
         ] {
