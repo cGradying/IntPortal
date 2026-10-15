@@ -36,6 +36,11 @@ pub fn parse<T: DeserializeOwned>(raw: &str) -> Result<T, ReplyError> {
     serde_json::from_str(json).map_err(|e| ReplyError::Malformed(e.to_string()))
 }
 
+fn hex4(chars: &mut std::str::Chars) -> Option<u32> {
+    let hex: String = chars.by_ref().take(4).collect();
+    if hex.len() == 4 { u32::from_str_radix(&hex, 16).ok() } else { None }
+}
+
 /// The text of the `"reply"` string so far in a JSON object that is still
 /// being written, with escapes decoded. None until the string has started.
 fn partial_reply(raw: &str) -> Option<String> {
@@ -49,12 +54,22 @@ fn partial_reply(raw: &str) -> Option<String> {
                 Some('n') => out.push('\n'),
                 Some('t') => out.push('\t'),
                 Some('u') => {
-                    let hex: String = chars.by_ref().take(4).collect();
-                    match u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32) {
-                        Some(ch) if hex.len() == 4 => out.push(ch),
-                        _ => break, // cut mid-escape, or half of a surrogate pair
+                    let Some(mut cp) = hex4(&mut chars) else { break }; // cut mid-escape
+                    if (0xD800..0xDC00).contains(&cp) {
+                        // First half of a pair: show nothing until the second half is here too.
+                        let mut ahead = chars.clone();
+                        let low = (ahead.next() == Some('\\') && ahead.next() == Some('u')).then(|| hex4(&mut ahead)).flatten();
+                        let Some(low) = low.filter(|l| (0xDC00..0xE000).contains(l)) else { break };
+                        (chars, cp) = (ahead, 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00));
+                    }
+                    match char::from_u32(cp) {
+                        Some(ch) => out.push(ch),
+                        None => break,
                     }
                 }
+                Some('r') => out.push('\r'),
+                Some('b') => out.push('\u{8}'),
+                Some('f') => out.push('\u{c}'),
                 Some(other) => out.push(other),
                 None => break,
             },
@@ -183,6 +198,21 @@ mod tests {
         assert_eq!(streamed(r#"{"reply" :   "spaced"}"#, 3), "spaced");
         assert_eq!(streamed(r#"{"reply": 3, "text": "x"}"#, 4), "", "a non-string reply shows nothing");
         assert_eq!(streamed(r#"{"text":"mentions reply but has none"}"#, 4), "");
+    }
+
+    #[test]
+    fn a_surrogate_pair_arrives_as_one_emoji() {
+        let raw = r#"{"reply":"Good luck \ud83d\ude00 ok"}"#;
+        for n in 1..=raw.chars().count() {
+            assert_eq!(streamed(raw, n), "Good luck 😀 ok", "pieces of {n} chars");
+        }
+    }
+
+    #[test]
+    fn common_json_escapes_decode_like_serde() {
+        let json = r#"{"reply":"a\rb\fc\bd\/e"}"#;
+        let want: R = serde_json::from_str(json).unwrap();
+        assert_eq!(streamed(json, 7), want.reply);
     }
 
     #[test]
