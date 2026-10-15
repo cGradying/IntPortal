@@ -179,6 +179,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let fil = is_filipino(msg);
     let reply = match (&proposal, intent) {
         (Some(p), _) => confirm(p, fil),
+        (None, Intent::Ask) if s("reply").is_empty() => return Err("the reply came back empty".into()), // never a blank bubble
         (None, Intent::Ask) => s("reply"),
         (None, _) => if fil { "Hindi ko nakuha iyon. Pwede mo bang ulitin?" } else { "I didn't catch that. Could you say it again?" }.into(),
     };
@@ -524,6 +525,16 @@ mod tests {
             let a = answer_streaming(&mut FakeLlm::new(&[raw]), Template::Gemma, &facts(), &[], msg, &mut |w| seen.push_str(w)).unwrap();
             assert!(a.proposal.is_some(), "{msg}");
             assert_eq!(seen, "", "{msg}");
+        }
+    }
+
+    // A reply of nothing must never become a blank chat bubble.
+    #[test]
+    fn an_open_question_with_no_reply_text_is_an_error_not_a_blank_bubble() {
+        for raw in [r#"{"reply":""}"#, r#"{"reply":"  \n"}"#, "{}", r#"{"reply":7}"#, r#"{"text":"x"}"#] {
+            let mut m = FakeLlm::new(&[raw]);
+            let r = answer(&mut m, Template::Gemma, &facts(), &[], "paano mag-aral?");
+            assert_eq!(r, Err("the reply came back empty".to_string()), "{raw}");
         }
     }
 
