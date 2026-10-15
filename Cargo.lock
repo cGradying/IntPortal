@@ -2010,7 +2010,7 @@ dependencies = [
 
 [[package]]
 name = "intportal"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "getrandom 0.3.4",
  "intportal-ai",
@@ -2035,7 +2035,7 @@ dependencies = [
 
 [[package]]
 name = "intportal-ai"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "intportal-core",
  "lopdf",
@@ -2046,7 +2046,7 @@ dependencies = [
 
 [[package]]
 name = "intportal-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "regex",
  "reqwest 0.12.28",
@@ -2061,7 +2061,7 @@ dependencies = [
 
 [[package]]
 name = "intportal-llm"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "intportal-ai",
  "intportal-core",
@@ -4649,7 +4649,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-calendar"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "tauri",
  "tauri-plugin",
@@ -4657,7 +4657,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-glance"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "tauri",
  "tauri-plugin",

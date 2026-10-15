@@ -5,7 +5,7 @@ resolver = "2"
 
 # The app's version; scripts/version.sh sets it with the other version files.
 [workspace.package]
-version = "0.1.4"
+version = "0.1.5"
 
 # Line tables only (backtraces keep file:line) keeps target/ a few GB instead
 # of tens. Not `debug = false` for dependencies: swift-rs then builds the Tauri
