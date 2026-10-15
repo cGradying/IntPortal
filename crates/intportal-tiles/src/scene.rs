@@ -576,7 +576,8 @@ pub fn rect(scenes: &[Scene], pos: f32, p: usize, w: u32, h: u32) -> [i32; 4] {
 /// selected portal. Reduce Motion: still, no tails.
 fn stars(pos: f32, inp: &Input, base: &Layout, keep: [i32; 4], w: u32, h: u32, out: &mut Vec<Tile>) {
     let size = (base.tile / 5).max(1);
-    let step = 2 * size;
+    // Segments touch, so a trail reads as one streak, not a dotted line.
+    let step = size;
     let (wf, hf) = (w as f32, h as f32);
     let vel = if inp.reduce { 0.0 } else { inp.vel.clamp(-4.0, 4.0) };
     // Stars drift against the turn, so they trail on the side it came from.
@@ -590,7 +591,7 @@ fn stars(pos: f32, inp: &Input, base: &Layout, keep: [i32; 4], w: u32, h: u32, o
         let tw = if inp.reduce { 0.5 } else { 0.5 + 0.5 * (inp.t * (0.8 + hash(i, 3)) + hash(i, 4) * TAU).sin() };
         let lit = (0.1 + 0.1 * tw + 0.45 * boost * layer / 3.0) * smooth(x.min(wf - x) / edge);
         // The tail's length in segments, continuous in the speed.
-        let len = (vel.abs() * layer * wf * 0.03).min(wf * 0.3) / step as f32;
+        let len = (vel.abs() * layer * wf * 0.018).min(wf * 0.12) / step as f32;
         let mut k = 0;
         while (k as f32) < len.max(1.0) {
             let a = if k == 0 { 1.0 } else { (1.0 - k as f32 / len).powf(1.5) };
