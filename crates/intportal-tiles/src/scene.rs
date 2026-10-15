@@ -15,8 +15,9 @@ pub const TONES: [u32; 4] = [0x1a1622, 0x241f2e, 0x2f2939, 0x3c3548];
 pub const CORE: u32 = 0xece7dc;
 pub const VOID: u32 = 0x060607;
 
-/// The pop is the one stepped motion left: three frames at 30 fps.
-const POP: f32 = 1.0 / 30.0;
+/// Each tile's spawn: it grows from a small light core with a little
+/// overshoot, flashes the accent, and eases into its tone over this long.
+const POP: f32 = 0.2;
 /// When the bottom-centre tiles appear.
 const START: f32 = 0.15;
 /// The whole ring takes this long to climb from the bottom to the top.
@@ -26,7 +27,7 @@ const SUB: f32 = 0.02;
 /// The two sides meet at the top: one haptic tick (C7).
 pub const MEET: f32 = START + CLIMB;
 /// The frame is standing: the last tile has finished its pop (C6).
-pub const FORM: f32 = MEET + 2.0 * SUB + 3.0 * POP;
+pub const FORM: f32 = MEET + 2.0 * SUB + POP;
 /// Idle flips start this long after the frame stands, one per tile per slot.
 const FLIP_AFTER: f32 = 2.0;
 const SLOT: f32 = 6.5;
@@ -209,6 +210,12 @@ pub fn mix(a: u32, b: u32, k: f32) -> u32 {
     })
 }
 
+/// Ease out with a small overshoot (about 5 %), for the spawn.
+fn back(x: f32) -> f32 {
+    let (c1, x) = (0.9, x - 1.0);
+    1.0 + (c1 + 1.0) * x * x * x + c1 * x * x
+}
+
 fn smooth(x: f32) -> f32 {
     let x = x.clamp(0.0, 1.0);
     x * x * (3.0 - 2.0 * x)
@@ -358,17 +365,16 @@ impl Scene {
             if k < 0.0 {
                 continue;
             }
-            if k < POP {
-                push(out, lay, m.c, m.r, 0.45, shade(CORE), true);
-                continue;
-            }
-            if k < 2.0 * POP {
-                push(out, lay, m.c, m.r, 1.0, shade(th.accent), true);
-                continue;
-            }
             let (flips, last) = flips(i as u32, t);
             let tone = (m.tone + flips as usize) % 4;
             let base = self.tones[if m.inner { tone.saturating_sub(1) } else { tone }];
+            if k < POP {
+                let u = k / POP;
+                let size = 0.3 + 0.7 * back((u / 0.55).min(1.0));
+                let col = if u < 0.3 { mix(CORE, th.accent, smooth(u / 0.3)) } else { mix(th.accent, base, smooth((u - 0.3) / 0.7)) };
+                push(out, lay, m.c, m.r, size, shade(col), true);
+                continue;
+            }
             // A short, eased shrink when a tile flips tone.
             let since = (t - last) / 0.16;
             let size = if (0.0..1.0).contains(&since) { 1.0 - 0.38 * (since * PI).sin() } else { 1.0 };
@@ -488,11 +494,27 @@ fn push(out: &mut Vec<Tile>, lay: &Layout, c: i32, r: i32, frac: f32, rgb: u32, 
     out.push(Tile { c, r, x: lay.ox + c * lay.pitch + o, y: lay.oy + r * lay.pitch + o, size, rgb, frame });
 }
 
+/// Room left round the biggest frame, in tiles, for LAR and his flock to fly:
+/// three tiles each side, two above, five below where he lands.
+const AIR: (i32, i32, i32) = (3, 2, 5);
+
 /// One tile pitch for every portal, so their shapes compare at true size:
-/// the largest that still fits the biggest frame.
+/// the largest that still fits the biggest frame plus its air.
 fn shared(scenes: &[Scene], w: u32, h: u32) -> Layout {
     let (gc, gr) = (scenes.iter().map(|s| s.gc).max().unwrap_or(12), scenes.iter().map(|s| s.gr).max().unwrap_or(16));
-    layout(w, h, gc, gr)
+    layout(w, h, gc + 2 * AIR.0 - 2, gr + AIR.1 + AIR.2 - 2)
+}
+
+/// Where portal `s` sits, `off` device px along the carousel: centred across,
+/// and lifted so the air below it is wider than above.
+fn place(s: &Scene, base: &Layout, w: u32, h: u32, off: i32) -> Layout {
+    let lift = (AIR.2 - AIR.1) * base.pitch / 2;
+    Layout {
+        pitch: base.pitch,
+        tile: base.tile,
+        ox: (w as i32 - s.gc * base.pitch + (base.pitch - base.tile)) / 2 + off,
+        oy: (h as i32 - s.gr * base.pitch + (base.pitch - base.tile)) / 2 - lift,
+    }
 }
 
 /// Each portal's centre along the carousel, in tiles: neighbours sit three
@@ -518,6 +540,25 @@ pub fn gap(scenes: &[Scene], w: u32, h: u32) -> f32 {
     (c[c.len() - 1] - c[0]) / (c.len() - 1) as f32 * shared(scenes, w, h).pitch as f32
 }
 
+/// The frame box of the portal nearest `pos`, in device px, where it is drawn
+/// right now: `[x, y, w, h]`. LAR and the flock steer round it.
+pub fn rect(scenes: &[Scene], pos: f32, w: u32, h: u32) -> [i32; 4] {
+    if scenes.is_empty() {
+        return [0; 4];
+    }
+    let n = scenes.len();
+    let pos = pos.clamp(0.0, (n - 1) as f32);
+    let sel = pos.round() as usize;
+    let base = shared(scenes, w, h);
+    let c = centres(scenes);
+    let (lo, hi) = (pos.floor() as usize, pos.ceil() as usize);
+    let here = c[lo] + (c[hi] - c[lo]) * (pos - lo as f32);
+    let s = &scenes[sel];
+    let off = ((c[sel] - here) * base.pitch as f32).round() as i32;
+    let lay = place(s, &base, w, h, off);
+    [lay.ox, lay.oy, (s.gc - 1) * base.pitch + base.tile, (s.gr - 1) * base.pitch + base.tile]
+}
+
 /// The carousel (spec 010 C13): the portal at `pos` centred, its neighbours
 /// beside it, dimmed by distance. Fractional `pos` is a swipe in progress.
 /// Only the selected portal follows the stage; the others rest.
@@ -540,12 +581,7 @@ pub fn carousel(scenes: &[Scene], pos: f32, inp: &Input, w: u32, h: u32, out: &m
         if off - half >= w as i32 / 2 + base.pitch || off + half <= -(w as i32) / 2 - base.pitch {
             continue;
         }
-        let lay = Layout {
-            pitch: base.pitch,
-            tile: base.tile,
-            ox: (w as i32 - s.gc * base.pitch + (base.pitch - base.tile)) / 2 + off,
-            oy: (h as i32 - s.gr * base.pitch + (base.pitch - base.tile)) / 2,
-        };
+        let lay = place(s, &base, w, h, off);
         let dim = smooth((p as f32 - pos).abs()) * 0.68;
         let mine = if p as i32 == sel { *inp } else { Input { stage: Stage::Rest, ..*inp } };
         let ev = s.frame(&mine, &lay, dim, out);
@@ -635,18 +671,24 @@ mod tests {
     }
 
     #[test]
-    fn c5_each_tile_pops_core_then_accent_then_tone() {
+    fn c5_each_tile_grows_from_a_light_core_through_the_accent_into_its_tone() {
         let pick = |t: f32| frame_tiles(at(t, Stage::Rest)).into_iter().find(|x| x.c == 6 && x.r == 15).unwrap();
-        let core = pick(0.17 + 0.01);
-        assert_eq!((core.rgb, core.size), (CORE, 5));
-        assert_eq!(pick(0.17 + POP + 0.01).rgb, SIS.theme.accent);
-        assert!(sis_tones().contains(&pick(0.17 + 2.0 * POP + 0.01).rgb));
+        let early = pick(0.17 + 0.004);
+        assert!(early.size < 6, "starts small");
+        assert!(!sis_tones().contains(&early.rgb), "starts light, not in its tone");
+        assert_eq!(pick(0.17 + 0.3 * POP).rgb, SIS.theme.accent);
+        // It overshoots a touch, never past the gap.
+        let sizes: Vec<i32> = (0..40).map(|k| pick(0.17 + k as f32 * POP / 40.0).size).collect();
+        assert!(sizes.windows(2).take(18).all(|w| w[1] >= w[0]), "grows without stepping back");
+        assert!(sizes.iter().all(|&s| s <= 12));
+        let done = pick(0.17 + POP + 0.01);
+        assert!(sis_tones().contains(&done.rgb) && done.size == 11);
     }
 
     #[test]
     fn c6_the_build_takes_about_six_tenths_of_a_second_for_every_shape() {
-        const { assert!(FORM - START < 0.7 && FORM - START > 0.5) };
-        const { assert!(FORM <= 0.8, "landing.ts FORM must cover the build") };
+        const { assert!(FORM - START < 0.8 && FORM - START > 0.5) };
+        const { assert!(FORM <= 0.9, "landing.ts FORM must cover the build") };
         for s in SHAPES {
             let look = Look { shape: s, ..SIS };
             let n = draw_look(look, at(FORM + 0.01, Stage::Rest)).0.iter().filter(|t| t.frame).count();
@@ -767,7 +809,8 @@ mod tests {
         let (w, h) = (1110, 820);
         carousel(&scenes, 1.0, &inp, w, h, &mut out);
         let pitch = shared(&scenes, w, h).pitch;
-        let (l, r) = ((w as i32 - scenes[1].gc * pitch) / 2, (w as i32 + scenes[1].gc * pitch) / 2);
+        let [x, _, rw, _] = rect(&scenes, 1.0, w, h);
+        let (l, r) = (x, x + rw);
         let mid: Vec<&Tile> = out.iter().filter(|t| t.frame && t.x >= l && t.x < r).collect();
         assert!(mid.iter().any(|t| scenes[1].tones.contains(&t.rgb)), "the selected portal is undimmed");
         let sides: Vec<&Tile> = out.iter().filter(|t| t.frame && (t.x < l - pitch || t.x >= r + pitch)).collect();
@@ -779,6 +822,33 @@ mod tests {
         out.clear();
         carousel(&scenes, 0.5, &inp, w, h, &mut out);
         assert!(!out.is_empty());
+    }
+
+    #[test]
+    fn the_portal_leaves_air_round_it_for_lar_most_of_all_below() {
+        let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
+        for (w, h) in [(1110, 820), (1110, 1300), (900, 600)] {
+            for sel in 0..scenes.len() {
+                let [x, y, rw, rh] = rect(&scenes, sel as f32, w, h);
+                let pitch = shared(&scenes, w, h).pitch;
+                assert!(x >= 2 * pitch && x + rw <= w as i32 - 2 * pitch, "{w}x{h} #{sel} sides");
+                assert!(y >= pitch && h as i32 - (y + rh) >= 4 * pitch, "{w}x{h} #{sel} below");
+            }
+        }
+    }
+
+    #[test]
+    fn rect_bounds_every_frame_tile_of_the_selected_portal() {
+        let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
+        let (w, h) = (1110, 820);
+        for sel in 0..scenes.len() {
+            let mut out = Vec::new();
+            carousel(&scenes, sel as f32, &at(FORM + 1.0, Stage::Rest), w, h, &mut out);
+            let [x, y, rw, rh] = rect(&scenes, sel as f32, w, h);
+            let mine: Vec<&Tile> = out.iter().filter(|t| t.frame && t.x >= x - 2 && t.x < x + rw + 2).collect();
+            assert!(!mine.is_empty());
+            assert!(mine.iter().all(|t| t.x >= x && t.y >= y && t.x + t.size <= x + rw && t.y + t.size <= y + rh), "portal {sel}");
+        }
     }
 
     #[test]

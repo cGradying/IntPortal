@@ -2,11 +2,11 @@
   // The landing's stage: the tile portal carousel (spec 010, drawn by the
   // Rust scene through tiles.ts) in whatever room the form leaves, so it fits
   // every phone's shape. Swipe, or use the arrows and dots, to choose a
-  // portal; each school has its own frame, motif and colours. LAR stands at
-  // its foot.
+  // portal; each school has its own frame, motif and colours. LAR and his
+  // bird swarm fly round it (LarFlight), never through its blocks.
   import { onMount, untrack } from "svelte";
-  import Lar, { type Gesture } from "./lar/Lar.svelte";
-  import type { Mood } from "./lar/sprite";
+  import LarFlight, { type Context } from "./lar/LarFlight.svelte";
+  import type { Mood } from "./lar/vector";
   import type { Portal } from "./api";
   import { buzz } from "./haptics";
   import { release, settle, step, type Motion } from "./carousel";
@@ -23,7 +23,7 @@
     showLar,
     leaving = false,
     mood,
-    gesture,
+    ctx,
   }: {
     portals: Portal[];
     /** The selected portal. */
@@ -38,12 +38,11 @@
     showLar: boolean;
     leaving?: boolean;
     mood: Mood;
-    gesture: Gesture;
+    /** What the student is doing, for LAR. */
+    ctx: Context;
   } = $props();
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  // LAR's art pixel, in CSS px.
-  const CELL = 3;
 
   let canvas: HTMLCanvasElement;
   let tiles: Awaited<ReturnType<typeof loadTiles>> | null = null;
@@ -60,6 +59,15 @@
 
   const now = () => (performance.now() - start) / 1000;
   const current = $derived(portals[index] ?? portals[0]);
+  const larPortal = $derived({ id: current.id, name: current.name, school: current.school, ready: current.status === "ready", ramp: current.theme.ramp, accent: current.theme.accent });
+
+  // The selected portal's frame in CSS px, for LAR and the flock to steer round.
+  function portalRect() {
+    if (!tiles || !canvas) return null;
+    const dpr = Math.min(devicePixelRatio, 3);
+    const [x, y, w, h] = tiles.rect(motion.pos);
+    return { x: x / dpr, y: y / dpr, w: w / dpr, h: h / dpr };
+  }
 
   function draw(t: number) {
     const ctx = canvas.getContext("2d");
@@ -198,7 +206,7 @@
     onpointerup={up}
     onpointercancel={up}
   ></canvas>
-  <span class="lar" class:on={showLar}><Lar size={CELL} {mood} {gesture} /></span>
+  <div class="sky"><LarFlight getRect={portalRect} show={showLar} {ctx} {mood} portal={larPortal} /></div>
   {#if portals.length > 1}
     <div class="picker" class:off={locked} role="group" aria-label="Choose a portal">
       <button class="arrow" aria-label="Previous portal" disabled={locked || index === 0} onclick={() => go(index - 1)}>‹</button>
@@ -231,9 +239,22 @@
   .stage {
     position: relative;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto auto auto;
+    grid-template-rows: minmax(0, 1fr) auto auto;
     justify-items: center;
     min-height: 0;
+  }
+  /* LAR's sky shares the portal's cell, over it. */
+  canvas,
+  .sky {
+    grid-area: 1 / 1;
+  }
+  .sky {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    pointer-events: none;
+    transition: opacity 0.4s var(--ease);
   }
   canvas {
     display: block;
@@ -250,19 +271,7 @@
     transform: scale(2.6);
     opacity: 0;
   }
-  .lar {
-    margin-top: -12px;
-    opacity: 0;
-    transform: translateY(8px);
-    transition:
-      opacity 0.4s var(--ease),
-      transform 0.4s var(--ease);
-  }
-  .lar.on {
-    opacity: 1;
-    transform: none;
-  }
-  .leaving .lar,
+  .leaving .sky,
   .leaving .picker,
   .leaving .caption {
     opacity: 0;
@@ -350,7 +359,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     canvas,
-    .lar,
+    .sky,
     .picker,
     .dot::after {
       transition: none;

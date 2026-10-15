@@ -9,7 +9,7 @@ pub const STRIDE: usize = 10;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm {
-    use crate::scene::{carousel, gap as spacing, Corner, Input, Look, Motif, Scene, Shape, Stage, Theme, Tile};
+    use crate::scene::{carousel, gap as spacing, rect, Corner, Input, Look, Motif, Scene, Shape, Stage, Theme, Tile};
     use crate::STRIDE;
     use std::cell::RefCell;
 
@@ -91,6 +91,21 @@ mod wasm {
         WORLD.with(|w| {
             let w = w.borrow();
             spacing(&w.scenes, w.size.0, w.size.1)
+        })
+    }
+
+    /// The selected portal's frame box in device px, `[x, y, w, h]`, at the
+    /// carousel's current position.
+    #[no_mangle]
+    pub extern "C" fn portal_rect(pos: f32) -> *const i32 {
+        thread_local! { static R: RefCell<[i32; 4]> = const { RefCell::new([0; 4]) }; }
+        let r = WORLD.with(|w| {
+            let w = w.borrow();
+            rect(&w.scenes, pos, w.size.0, w.size.1)
+        });
+        R.with(|b| {
+            *b.borrow_mut() = r;
+            b.as_ptr() as *const i32
         })
     }
 

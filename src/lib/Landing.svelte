@@ -7,8 +7,8 @@
   // phone's shape.
   import { onMount, untrack } from "svelte";
   import PortalStage from "./PortalStage.svelte";
-  import type { Gesture } from "./lar/Lar.svelte";
-  import type { Mood } from "./lar/sprite";
+  import type { Context } from "./lar/LarFlight.svelte";
+  import type { Mood } from "./lar/vector";
   import { api, isoDate, type CampusResolution, type Portal, type Tries } from "./api";
   import { FALLBACK_SIS, portalCopy, triesLine, validate } from "./portals";
   import { portalApiFor } from "./portalApi";
@@ -65,18 +65,9 @@
     api.campus(n).then((r) => (campus = r)).catch(() => {});
   });
 
-  // LAR's face and hands follow what's happening.
+  // LAR's face and flight follow what's happening; he talks for himself.
   const mood = $derived<Mood>(error ? "wow" : busy || typing ? "focus" : rest === "hub" ? "happy" : "open");
-  const gesture = $derived<Gesture>(rest === "hub" ? "wave" : "idle");
-  const line = $derived(
-    error
-      ? "Hindi pumasok. Check the details and try again."
-      : rest === "hub"
-        ? returning
-          ? "Welcome back, iskolar. Tara?"
-          : "Ayos! Your schedule and grades are in."
-        : copy.lar,
-  );
+  const ctx = $derived<Context>(error ? "error" : busy ? "busy" : rest === "hub" ? "signed" : typing ? "typing" : "idle");
 
   onMount(() => {
     let raf = 0;
@@ -148,12 +139,11 @@
     showLar={resting}
     leaving={steppedAt !== null}
     {mood}
-    {gesture}
+    {ctx}
   />
 
   <!-- In the layout from the start, so the portal's room never jumps when it shows. -->
   <div class="dock" class:on={resting} class:hub={rest === "hub"} inert={!resting}>
-      <p class="say" aria-live="polite"><b>LAR</b> {line}</p>
       {#if rest === "hub"}
         <button class="step" onclick={step}>Step through</button>
         <p class="hint">{app.sisConnected ? `PUP SIS · via ${(app.snapshot?.host ?? "sis8").split(".")[0]}` : copy.hint}</p>
@@ -263,28 +253,6 @@
     transition:
       opacity 0.25s ease-in,
       transform 0.25s ease-in;
-  }
-  .say {
-    margin: 0;
-    padding: 10px 12px;
-    background: #170b1a;
-    box-shadow:
-      inset 0 2px 0 #3a2446,
-      inset 0 -2px 0 #060307;
-    font-size: min(0.824rem, 25px);
-    line-height: 1.35;
-    color: #f4e8d6;
-    clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
-  }
-  .hub .say {
-    text-align: center;
-  }
-  .say b {
-    margin-right: 6px;
-    font-family: var(--font-pixel);
-    font-weight: 400;
-    letter-spacing: 0.06em;
-    color: #f5b227;
   }
   .card {
     display: grid;

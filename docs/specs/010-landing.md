@@ -22,7 +22,7 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 
 ## Behaviour
 
-Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C15, C17, C22–C25. Next: the lift and LAR's arrival (C16, C18), the morph (C20–C21).
+Shipped in `crates/intportal-tiles` (the scene), `PortalStage.svelte` and `lar/LarFlight.svelte`: C1–C15, C17–C19, C22–C25. Next: the lift (C16) and the morph (C20–C21).
 
 **Fit.** The portal takes whatever height the form leaves and picks the largest whole-pixel tile pitch that fits the 12 × 16 grid with a tile of margin, so it stays crisp and centred on every phone's aspect ratio.
 
@@ -35,8 +35,8 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 **Spawn**
 
 - **C4.** The frame builds both ways at once, from the bottom centre up both sides, meeting at the top.
-- **C5.** Each tile pops in place over three stepped frames: a small light core, then the theme accent, then its own tone.
-- **C6.** The whole build takes about 0.6 s, stepped at 30 fps.
+- **C5.** Each tile grows in place over 0.2 s with a slight overshoot (never past its gap): a small light core, easing through the theme accent into its own tone.
+- **C6.** The whole build takes about 0.7 s, at 60 fps.
 - **C7.** One haptic tick fires when the two sides meet.
 - **C8.** A returning student skips the build; the frame is already standing.
 
@@ -63,7 +63,8 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 
 **LAR**
 
-- **C18.** LAR comes through the built portal, says one line, then stays as the voice above the form, smaller and quicker than today.
+- **C18.** LAR comes out of the built portal's opening, growing and resolving from a few coarse pixels into his full sprite over 1.1 s, and lands just below the frame. He is a pixelated render of the vector LAR ([reference](reference/prototypes/lar-sheet.html)): drawn small and scaled up with no smoothing, with no outline, moving smoothly between pixels. He then flies round the portal on his own (`lar/wander.ts`: seek, arrive and wander, picking among orbit, drift, peek, approach and rest at random, weighted by what the student is doing), with a swarm of pixel birds (`lar/flock.ts`, boids) that trails and circles him. The portal's frame is solid to all of them: nothing ever overlaps a block. The landing reserves air round the frame for this, most of it below.
+- **C18a.** LAR has no fixed line on the landing. Every 7–15 s he says a short Taglish line about the app, the portal on screen or the time of day (`lar/lines.ts`), never one of his last six, in a bubble that follows him; he is quiet while a field has focus. Tap him and he answers at once. Sign-in errors and success get a line straight away; the error itself is still shown in the form.
 - **C19.** LAR's mood follows the stage as today: open at rest, focus while typing or connecting, wow on an error, happy once signed in.
 
 **Sign-in morph**
@@ -81,7 +82,7 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 ## Copy
 
 - Wordmark: `Student IntPortal` (kept).
-- LAR's line on arrival and the returning-student line: kept from `Landing.svelte` until the user rewrites them.
+- LAR's lines: the pool in `src/lib/lar/lines.ts`.
 - Unready portal: `Opens soon`.
 
 ## Data shape
@@ -102,7 +103,7 @@ Shipped in `crates/intportal-tiles` (the scene) and `PortalStage.svelte`: C1–C
 
 ## Accessibility
 
-- The canvas is decorative: `aria-hidden`. Everything it says is also in text (LAR's line, portal names, "Opens soon").
+- The canvases are decorative: `aria-hidden`. Everything they say is also in text (portal names, "Opens soon"). LAR is a button, "LAR, tap to talk"; his bubble is announced only for a tapped reply, an error or sign-in, so VoiceOver isn't flooded by chatter.
 - The carousel is operable by buttons with labels, not only by swipe.
 - Contrast for text over the void meets the existing landing rules in `DESIGN.md`.
 

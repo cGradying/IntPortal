@@ -1,8 +1,9 @@
-// LAR wandering round the portal on the landing: a small steering agent
-// (Reynolds' seek, arrive and wander, plus soft repulsion from places he must
-// not sit, like the sign-in card). He switches between a handful of moods of
-// movement at random, weighted by what the student is doing. Pure and seeded,
-// so it can be tested; PortalStage steps it each frame and draws him.
+// LAR flying round the portal on the landing: a small steering agent
+// (Reynolds' seek, arrive and wander) that switches between a handful of
+// moods of movement at random, weighted by what the student is doing. The
+// portal's frame is solid: he is pushed off it softly and never allowed to
+// overlap a block. Pure and seeded, so it can be tested; LarFlight steps it
+// each frame and draws him.
 
 export interface Rect {
   x: number;
@@ -15,10 +16,12 @@ export interface World {
   /** The stage, in CSS px. */
   w: number;
   h: number;
-  /** The portal's frame on the stage. */
+  /** The portal's frame on the stage: solid. */
   portal: Rect;
-  /** Places he never settles: the card, the wordmark. */
+  /** Other places he never goes. */
   keepOut: Rect[];
+  /** His body's radius, so the whole of him stays clear, not just his centre. */
+  r: number;
 }
 
 export type Mode = "orbit" | "drift" | "peek" | "approach" | "rest";
@@ -39,10 +42,8 @@ export interface Lar {
   /** Orbit angle and direction. */
   theta: number;
   spin: number;
-  /** 0 far or behind the portal, 1 right in front of the student. */
+  /** 0 far away, 1 right in front of the student. */
   depth: number;
-  /** Drawn behind the portal's frame. */
-  behind: boolean;
   /** Seconds since he appeared. */
   t: number;
   wanderAngle: number;
@@ -74,14 +75,20 @@ const SPEED = 120; // px/s
 const FORCE = 260; // px/s²
 const MARGIN = 28;
 
-const inside = (r: Rect, x: number, y: number, pad = 0) => x > r.x - pad && x < r.x + r.w + pad && y > r.y - pad && y < r.y + r.h + pad;
+export const inside = (r: Rect, x: number, y: number, pad = 0) => x > r.x - pad && x < r.x + r.w + pad && y > r.y - pad && y < r.y + r.h + pad;
 
-/** Start him just below the portal, where he came through. */
+/** Where he lands after coming out of the portal: just below its frame. */
+export const landing = (world: World) => ({
+  x: world.portal.x + world.portal.w / 2,
+  y: Math.min(world.h - world.r - 4, world.portal.y + world.portal.h + world.r + 10),
+});
+
+/** Start him where he lands after coming through. */
 export function create(world: World, rand: Rand): Lar {
-  const p = world.portal;
+  const at = landing(world);
   const lar: Lar = {
-    x: p.x + p.w / 2,
-    y: p.y + p.h * 0.8,
+    x: at.x,
+    y: at.y,
     vx: 0,
     vy: 0,
     mode: "rest",
@@ -91,7 +98,6 @@ export function create(world: World, rand: Rand): Lar {
     theta: Math.PI / 2,
     spin: rand() < 0.5 ? -1 : 1,
     depth: 0.6,
-    behind: false,
     t: 0,
     wanderAngle: rand() * Math.PI * 2,
   };
@@ -109,14 +115,19 @@ function choose(ctx: Context, rand: Rand): Mode {
   return "rest";
 }
 
-/** A free spot on the stage: not in a keep-out, not on the portal's opening. */
+/** Every solid thing, grown by his radius so his whole body stays clear. */
+const solids = (world: World) => [world.portal, ...world.keepOut].map((r) => ({ x: r.x - world.r, y: r.y - world.r, w: r.w + 2 * world.r, h: r.h + 2 * world.r }));
+
+/** A free spot on the stage, clear of everything solid. */
 function freeSpot(world: World, rand: Rand): [number, number] {
-  for (let i = 0; i < 24; i++) {
-    const x = MARGIN + rand() * (world.w - 2 * MARGIN);
-    const y = MARGIN + rand() * (world.h - 2 * MARGIN);
-    if (!world.keepOut.some((r) => inside(r, x, y, 24))) return [x, y];
+  const solid = solids(world);
+  for (let i = 0; i < 32; i++) {
+    const x = world.r + rand() * (world.w - 2 * world.r);
+    const y = world.r + rand() * (world.h - 2 * world.r);
+    if (!solid.some((r) => inside(r, x, y, 8))) return [x, y];
   }
-  return [world.portal.x + world.portal.w / 2, world.portal.y + world.portal.h + 20];
+  const at = landing(world);
+  return [at.x, at.y];
 }
 
 function begin(l: Lar, world: World, ctx: Context, rand: Rand) {
@@ -129,8 +140,9 @@ function begin(l: Lar, world: World, ctx: Context, rand: Rand) {
   } else if (l.mode === "drift") {
     [l.tx, l.ty] = freeSpot(world, rand);
   } else if (l.mode === "peek") {
+    // Hover close beside the frame, as if looking round its edge.
     const left = rand() < 0.5;
-    l.tx = left ? p.x + 6 : p.x + p.w - 6;
+    l.tx = left ? p.x - world.r - 6 : p.x + p.w + world.r + 6;
     l.ty = p.y + p.h * (0.3 + rand() * 0.4);
   } else if (l.mode === "approach") {
     // Down toward the student, but above the card.
@@ -154,17 +166,14 @@ export function tick(l: Lar, world: World, ctx: Context, dt: number, rand: Rand)
   const cx = p.x + p.w / 2;
   const cy = p.y + p.h / 2;
   let wantDepth = 0.75;
-  let behind = false;
   if (l.mode === "orbit") {
-    l.theta += l.spin * dt * 0.55;
-    l.tx = cx + Math.cos(l.theta) * p.w * 0.66;
-    l.ty = cy + Math.sin(l.theta) * p.h * 0.2 + p.h * 0.12;
-    // The far half of the ellipse passes behind the portal.
-    behind = Math.sin(l.theta) < -0.15;
-    wantDepth = 0.5 + 0.5 * Math.sin(l.theta);
+    // A loop round the outside of the frame, never across it.
+    l.theta += l.spin * dt * 0.5;
+    l.tx = cx + Math.cos(l.theta) * (p.w / 2 + world.r + 22);
+    l.ty = cy + Math.sin(l.theta) * (p.h / 2 + world.r + 14);
+    wantDepth = 0.55 + 0.4 * Math.sin(l.theta);
   } else if (l.mode === "peek") {
-    behind = Math.hypot(l.x - l.tx, l.y - l.ty) < 40;
-    wantDepth = 0.35;
+    wantDepth = 0.5;
   } else if (l.mode === "approach") {
     wantDepth = 1;
   } else if (l.mode === "rest") {
@@ -192,7 +201,7 @@ export function tick(l: Lar, world: World, ctx: Context, dt: number, rand: Rand)
   if (l.x > world.w - MARGIN) push((l.x - world.w + MARGIN) * 12, -1, 0);
   if (l.y < MARGIN) push((MARGIN - l.y) * 12, 0, 1);
   if (l.y > world.h - MARGIN) push((l.y - world.h + MARGIN) * 12, 0, -1);
-  for (const r of world.keepOut) {
+  for (const r of solids(world)) {
     if (!inside(r, l.x, l.y, 30)) continue;
     const ox = l.x < r.x + r.w / 2 ? -1 : 1;
     const oy = l.y < r.y + r.h / 2 ? -1 : 1;
@@ -216,10 +225,31 @@ export function tick(l: Lar, world: World, ctx: Context, dt: number, rand: Rand)
   }
   l.x += l.vx * dt;
   l.y += l.vy * dt;
-  l.x = Math.max(4, Math.min(world.w - 4, l.x));
-  l.y = Math.max(4, Math.min(world.h - 4, l.y));
+  l.x = Math.max(world.r, Math.min(world.w - world.r, l.x));
+  l.y = Math.max(world.r, Math.min(world.h - world.r, l.y));
+  // Solid: if a step would put any of him inside something, slide him out to
+  // its nearest edge and stop the part of his velocity that pushed in.
+  for (const r of solids(world)) {
+    if (!inside(r, l.x, l.y)) continue;
+    // The nearest way out that still leaves him on the stage.
+    const ways = [
+      { d: l.x - r.x, x: r.x, y: l.y, side: 0 },
+      { d: r.x + r.w - l.x, x: r.x + r.w, y: l.y, side: 1 },
+      { d: l.y - r.y, x: l.x, y: r.y, side: 2 },
+      { d: r.y + r.h - l.y, x: l.x, y: r.y + r.h, side: 3 },
+    ]
+      .filter((w) => w.x >= world.r && w.x <= world.w - world.r && w.y >= world.r && w.y <= world.h - world.r)
+      .sort((a, b) => a.d - b.d);
+    const out = ways[0];
+    if (!out) continue;
+    l.x = out.x;
+    l.y = out.y;
+    if (out.side === 0) l.vx = Math.min(0, l.vx);
+    if (out.side === 1) l.vx = Math.max(0, l.vx);
+    if (out.side === 2) l.vy = Math.min(0, l.vy);
+    if (out.side === 3) l.vy = Math.max(0, l.vy);
+  }
   l.depth += (wantDepth - l.depth) * Math.min(1, dt * 2.5);
-  l.behind = behind;
   return l;
 }
 

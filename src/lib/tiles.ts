@@ -44,6 +44,7 @@ interface Exports {
   tiles(): number;
   events(): number;
   gap(): number;
+  portal_rect(pos: number): number;
 }
 
 export interface Frame {
@@ -64,6 +65,12 @@ export async function loadTiles(url = "/tiles.wasm") {
     resize: (w: number, h: number) => x.resize(w, h),
     /** Device px between neighbouring portals in the last frame. */
     gap: () => x.gap(),
+    /** The selected portal's frame box in device px, [x, y, w, h], at carousel position `pos`. */
+    rect(pos: number): [number, number, number, number] {
+      const ptr = x.portal_rect(pos);
+      const r = new Int32Array(x.memory.buffer, ptr, 4);
+      return [r[0], r[1], r[2], r[3]];
+    },
     portals(list: Portal[]) {
       // Allocate first: it can grow WASM memory, which detaches older views of it.
       const ptr = x.portals_buf(list.length);
