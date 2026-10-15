@@ -2,6 +2,16 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## 0.1.5 (2026-10-15)
+
+- docs: README for 0.1.4, FEATURES.md, LICENSE, ARCHITECTURE for portals (#145)
+- ui: AI cards from a PDF in a deck (#139)
+- assis: PDF size, type, no-text and error messages (#139)
+- ai: note chips answer from the open note, no blocking AI commands (#136)
+- ui: LAR reminders survive sync, cards preview before saving (#135)
+- release: one script sets the version everywhere; CHANGELOG from 0.1.0 (#134)
+- ci(ios): add the wasm32 target, needed by the tile portal build (#117)
+
 ## 0.1.4 (2026-10-15)
 
 - docs+ci: working in parallel; fix iOS Info.plist conflict markers (#127)
