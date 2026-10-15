@@ -9,7 +9,8 @@
   import { app, openDeck, openNote, openSubject } from "../state.svelte";
   import { sourceTarget } from "./sources";
   import { describe, starters as startersFor } from "./apply";
-  import { apply, ask, assis, dismiss, newChat, stop } from "./assis.svelte";
+  import { tidy } from "./cards";
+  import { apply, ask, assis, confirmCards, discardCards, dismiss, newChat, stop } from "./assis.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
   $effect(() => closable(() => onclose()));
@@ -102,7 +103,25 @@
           <div class="offer card notch" class:done={m.state === "done"}>
             <p class="label">{d.label}</p>
             <p class="what">{d.text}</p>
-            {#if m.state === "pending"}
+            {#if m.state === "pending" && m.cards}
+              <p class="fine">Edit or remove any card. Nothing is saved until you tap the gold button.</p>
+              <ul class="cards">
+                {#each m.cards as c, k (k)}
+                  <li>
+                    <span>
+                      <input class="ed" bind:value={c.front} aria-label="Front of card {k + 1}" />
+                      <input class="ed" bind:value={c.back} aria-label="Back of card {k + 1}" />
+                    </span>
+                    <button class="x" aria-label="Remove card {k + 1}" onclick={() => m.cards?.splice(k, 1)}>×</button>
+                  </li>
+                {/each}
+              </ul>
+              {@const n = tidy(m.cards, []).length}
+              <div class="two">
+                <button class="yes" onclick={() => confirmCards(i)} disabled={!n}>Add {n} {n === 1 ? "card" : "cards"}</button>
+                <button class="no" onclick={() => discardCards(i)}>Discard</button>
+              </div>
+            {:else if m.state === "pending"}
               <div class="two">
                 <button class="yes" onclick={() => apply(i)} disabled={assis.busy === "cards"}>{assis.busy === "cards" ? "Making…" : d.yes}</button>
                 <button class="no" onclick={() => dismiss(i)}>Not now</button>
@@ -306,6 +325,37 @@
   }
   button:disabled {
     opacity: 0.45;
+  }
+  .cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .cards li {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .cards span {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    gap: 6px;
+  }
+  .ed {
+    min-width: 0;
+    height: 44px;
+    font-size: max(16px, min(0.941rem, 29px));
+  }
+  .x {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: none;
+    color: var(--ink-3);
+    font-size: min(1.176rem, 26px);
   }
   .ok,
   .fine {

@@ -6,6 +6,7 @@ import { api, isoDate, localMs, moment, type Busy, type MabiniData, type NoteIte
 import { busyFrom, keepClasses } from "./devcal";
 import { applyRoom } from "./rooms";
 import { buzz } from "./haptics";
+import { larReminderIds } from "./assis/apply";
 
 export type Tab = "today" | "schedule" | "grades" | "study" | "you";
 export type SyncState = "idle" | "syncing" | "ok" | "failed";
@@ -77,7 +78,9 @@ export async function scheduleReminders(ask = false) {
   try {
     // Not cancelAll(): on iOS it sends no id list and the plugin refuses to decode it.
     const queued = await pending();
-    if (queued.length) await cancel(queued.map((n) => n.id));
+    const lar = larReminderIds(); // reminders LAR set for the student stay queued
+    const stale = queued.filter((n) => !lar.has(n.id));
+    if (stale.length) await cancel(stale.map((n) => n.id));
     app.queued = { count: 0, next: null, error: "" };
     const on = (m: number) => (m >= 0 ? m : null);
     if (!app.snapshot || (app.reminderLead <= 0 && app.deadlineAt < 0 && app.studyAt < 0)) return;
