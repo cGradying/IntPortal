@@ -1,4 +1,4 @@
-//! Search over the student's notes: 700-char chunks, brute-force cosine
+//! Search over the student's notes, deck cards and syllabus text: 700-char chunks, brute-force cosine
 //! (vectors are unit length, so a dot product), a 0.5 floor and a 4000-char
 //! budget, as the old macOS app tuned them.
 use crate::llm::Llm;
@@ -13,7 +13,7 @@ pub const BUDGET: usize = 4000;
 
 #[derive(Debug, PartialEq)]
 pub struct Hit {
-    pub note_key: String,
+    pub key: String,
     pub text: String,
     pub score: f32,
 }
@@ -62,29 +62,34 @@ fn db(store: &Mutex<Store>) -> MutexGuard<'_, Store> {
     store.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-/// Embeds the notes edited since their last chunks, or chunked by another
-/// model. A note the model cannot embed is skipped, so one odd note never
-/// stops the rest from being found.
+/// Embeds the sources (notes, a deck's cards, a subject's syllabus) changed
+/// since their last chunks, or chunked by another model, and drops chunks
+/// whose source is gone. A source the model cannot embed is skipped, so one
+/// odd one never stops the rest from being found.
 pub fn refresh(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str) -> Result<(), RagError> {
-    let stale = db(store).stale_notes(model)?;
-    for note in stale {
-        let texts = chunk_text(&note.text);
+    let stale = {
+        let s = db(store);
+        s.prune_chunks()?;
+        s.stale_sources(model)?
+    };
+    for src in stale {
+        let texts = chunk_text(&src.text);
         let docs: Vec<String> = texts.iter().map(|t| format!("search_document: {t}")).collect();
         let Ok(vecs) = llm.embed(&docs.iter().map(String::as_str).collect::<Vec<_>>()) else { continue };
-        db(store).replace_chunks(&note.key, note.updated, model, &texts.into_iter().zip(vecs).collect::<Vec<_>>())?;
+        db(store).replace_chunks(&src.key, src.stamp, model, &texts.into_iter().zip(vecs).collect::<Vec<_>>())?;
     }
     Ok(())
 }
 
 /// Best chunks for `query` (best first): at least `FLOOR`, at most `k`, and
-/// within `BUDGET` chars together. Refreshes stale notes first.
+/// within `BUDGET` chars together. Refreshes stale sources first.
 pub fn search(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str, query: &str, k: usize) -> Result<Vec<Hit>, RagError> {
     refresh(store, llm, model)?;
     let q = llm.embed(&[&format!("search_query: {query}")]).map_err(RagError::Embed)?.pop().unwrap_or_default();
     let mut hits: Vec<Hit> = db(store)
         .chunks(model)?
         .into_iter()
-        .map(|(note_key, text, v)| Hit { score: q.iter().zip(&v).map(|(a, b)| a * b).sum(), note_key, text })
+        .map(|(key, text, v)| Hit { score: q.iter().zip(&v).map(|(a, b)| a * b).sum(), key, text })
         .filter(|h| h.score >= FLOOR)
         .collect();
     hits.sort_by(|a, b| b.score.total_cmp(&a.score));
@@ -135,7 +140,7 @@ mod tests {
         db(&store).set_note("note:b", "tuition due Monday", None, 1).unwrap();
         let mut llm = Topics(vec![]);
         let hits = search(&store, &mut llm, "m", "tree", 3).unwrap();
-        assert_eq!(hits.iter().map(|h| h.note_key.as_str()).collect::<Vec<_>>(), ["note:a"]);
+        assert_eq!(hits.iter().map(|h| h.key.as_str()).collect::<Vec<_>>(), ["note:a"]);
         assert!(llm.0.contains(&"search_query: tree".to_string()));
         assert!(llm.0.iter().any(|t| t.starts_with("search_document: tuition")));
         let embedded = llm.0.len();
@@ -172,6 +177,75 @@ mod tests {
         db(&store).set_note("note:a", "bad bad bad", None, 1).unwrap();
         db(&store).set_note("note:b", "tree", None, 1).unwrap();
         let hits = search(&store, &mut Picky, "m", "tree", 3).unwrap();
-        assert_eq!(hits.iter().map(|h| h.note_key.as_str()).collect::<Vec<_>>(), ["note:b"]);
+        assert_eq!(hits.iter().map(|h| h.key.as_str()).collect::<Vec<_>>(), ["note:b"]);
+    }
+
+    fn deck(id: &str, cards: &[(&str, &str)]) -> intportal_core::study::Deck {
+        use intportal_core::study::{Card, Deck, Memory};
+        let cards = cards.iter().map(|(f, b)| Card { id: String::new(), front: f.to_string(), back: b.to_string(), accepted: vec![], memory: Memory::new(0) }).collect();
+        Deck { id: id.into(), name: "DSA".into(), subject: None, cards }
+    }
+
+    fn syllabus(store: &Mutex<Store>, topic: &str) {
+        use intportal_core::syllabus::{Item, Kind, Plan};
+        let plan = Plan { items: vec![Item { id: "1".into(), topic: topic.into(), kind: Kind::Lecture, week: Some(2), date: None, done: false }], ..Default::default() };
+        let mut snap = intportal_core::store::Snapshot::default();
+        snap.syllabus.insert("COMP 1".into(), plan);
+        db(store).save(&snap).unwrap();
+    }
+
+    fn keys(hits: &[Hit]) -> Vec<&str> {
+        hits.iter().map(|h| h.key.as_str()).collect()
+    }
+
+    #[test]
+    fn deck_cards_and_syllabus_reach_the_hits_and_follow_edits() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).save_deck(&deck("d1", &[("tuition", "paid in June")])).unwrap();
+        syllabus(&store, "tree basics");
+        let mut llm = Topics(vec![]);
+        let tree = search(&store, &mut llm, "m", "tree", 4).unwrap();
+        assert_eq!(keys(&tree), ["plan:COMP 1"]);
+        assert!(tree[0].text.contains("Week 2 · Lecture: tree basics"));
+        let tuition = search(&store, &mut llm, "m", "tuition", 4).unwrap();
+        assert_eq!(keys(&tuition), ["card:d1"]);
+        assert!(tuition[0].text.contains("tuition: paid in June"));
+        let embedded = llm.0.len();
+        search(&store, &mut llm, "m", "tree", 4).unwrap();
+        assert_eq!(llm.0.len(), embedded + 1, "nothing changed, so only the query is embedded");
+
+        db(&store).save_deck(&deck("d1", &[("tuition", "paid in June"), ("tree", "has a root")])).unwrap();
+        assert_eq!(db(&store).stale_sources("m").unwrap().iter().map(|s| s.key.as_str()).collect::<Vec<_>>(), ["card:d1"]);
+        let mut both = keys(&search(&store, &mut llm, "m", "tree", 4).unwrap()).into_iter().map(String::from).collect::<Vec<_>>();
+        both.sort();
+        assert_eq!(both, ["card:d1", "plan:COMP 1"]);
+    }
+
+    #[test]
+    fn deleting_a_deck_or_wiping_clears_their_chunks() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).save_deck(&deck("d1", &[("tree", "root")])).unwrap();
+        syllabus(&store, "tree basics");
+        let mut llm = Topics(vec![]);
+        assert_eq!(search(&store, &mut llm, "m", "tree", 4).unwrap().len(), 2);
+        db(&store).delete_deck("d1").unwrap();
+        assert_eq!(keys(&search(&store, &mut llm, "m", "tree", 4).unwrap()), ["plan:COMP 1"]);
+        db(&store).save(&intportal_core::store::Snapshot::default()).unwrap(); // the plan is cleared
+        assert!(search(&store, &mut llm, "m", "tree", 4).unwrap().is_empty(), "refresh prunes chunks of a source that is gone");
+        assert!(db(&store).chunks("m").unwrap().is_empty());
+        syllabus(&store, "tree basics");
+        search(&store, &mut llm, "m", "tree", 4).unwrap();
+        db(&store).wipe().unwrap();
+        assert!(db(&store).chunks("m").unwrap().is_empty() && search(&store, &mut llm, "m", "tree", 4).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_deck_that_cannot_be_embedded_is_skipped_not_fatal() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).save_deck(&deck("bad", &[("bad", "bad")])).unwrap();
+        syllabus(&store, "tree basics");
+        let hits = search(&store, &mut Picky, "m", "tree", 4).unwrap();
+        assert_eq!(keys(&hits), ["plan:COMP 1"]);
+        assert_eq!(db(&store).stale_sources("m").unwrap().len(), 1, "the failed deck is retried next time");
     }
 }

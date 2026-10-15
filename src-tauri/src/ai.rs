@@ -261,7 +261,7 @@ impl From<Proposal> for ProposalDto {
     }
 }
 
-/// A note an answer drew on. The chat shows it as a chip that opens the note.
+/// A note, deck (`card:<id>`) or syllabus (`plan:<code>`) an answer drew on. The chat shows it as a chip.
 #[derive(Serialize)]
 pub struct Source {
     key: String,
@@ -291,7 +291,7 @@ fn embedder_ready(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>) -> Res<b
     Ok(true)
 }
 
-/// Embeds notes edited since the last search. Quiet when the model is not installed.
+/// Embeds notes, cards and syllabus text changed since the last search. Quiet when the model is not installed.
 fn index(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>) -> Res<()> {
     if !embedder_ready(app, slot)? {
         return Ok(());
@@ -301,7 +301,7 @@ fn index(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>) -> Res<()> {
     rag::refresh(&app.state::<AppState>().store, l.llm.as_mut(), models::EMBED).map_err(err)
 }
 
-/// The student's notes closest to `query`, as lines for the prompt and as chips for the UI.
+/// The notes, cards and syllabus text closest to `query`, as lines for the prompt and as chips for the UI.
 fn recall(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>, query: &str) -> Res<(Vec<String>, Vec<Source>)> {
     if !embedder_ready(app, slot)? {
         return Ok((vec![], vec![]));
@@ -310,14 +310,14 @@ fn recall(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>, query: &str) -> 
     let l = guard.as_mut().ok_or("Turn IntAssis on first")?;
     let state = app.state::<AppState>();
     let hits = rag::search(&state.store, l.llm.as_mut(), models::EMBED, query, 4).map_err(err)?;
-    let all = state.store.lock().unwrap().notes().map_err(err)?;
+    let all = state.store.lock().unwrap().sources().map_err(err)?;
     let (mut lines, mut sources) = (vec![], Vec::<Source>::new());
     for h in hits {
-        let Some(note) = all.iter().find(|n| n.key == h.note_key) else { continue };
-        let title = notes::heading(note);
+        let Some(found) = all.iter().find(|s| s.key == h.key) else { continue };
+        let title = found.title.clone();
         lines.push(format!("{title}: {}", h.text.split_whitespace().collect::<Vec<_>>().join(" ")));
-        if !sources.iter().any(|s| s.key == note.key) {
-            sources.push(Source { key: note.key.clone(), title });
+        if !sources.iter().any(|s| s.key == found.key) {
+            sources.push(Source { key: found.key.clone(), title });
         }
     }
     Ok((lines, sources))
