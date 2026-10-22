@@ -2,11 +2,13 @@
   // The landing's stage: the tile portal carousel (spec 010, drawn by the
   // Rust scene through tiles.ts) in whatever room the form leaves, so it fits
   // every phone's shape. Swipe, or use the arrows and dots, to choose a
-  // portal; each school has its own frame, motif and colours, and they ride
-  // an orbit that turns between them. LAR flies round it (LarFlight), never
+  // portal, or tap the school's name for the hub (PortalHub) with every
+  // school; each has its own frame, motif and colours, and they ride an
+  // orbit that turns between them. LAR flies round it (LarFlight), never
   // through a portal's blocks.
   import { onMount, untrack } from "svelte";
   import LarFlight, { type Context } from "./lar/LarFlight.svelte";
+  import PortalHub from "./PortalHub.svelte";
   import type { Portal } from "./api";
   import { buzz } from "./haptics";
   import { release, settle, step, type Motion } from "./carousel";
@@ -54,6 +56,7 @@
   let target = untrack(() => index);
   let drag: { x: number; pos: number; t: number; lastX: number; lastT: number } | null = null;
   let moving = $state(false);
+  let hub = $state(false);
 
   const now = () => (performance.now() - start) / 1000;
   const current = $derived(portals[index] ?? portals[0]);
@@ -169,6 +172,12 @@
     if (locked) return;
     const j = Math.max(0, Math.min(portals.length - 1, i));
     if (j !== index) buzz.select();
+    // A pick from the hub may be far along the orbit: warp to three portals
+    // short of it and let the spring turn the rest, streaking the stars.
+    if (Math.abs(j - motion.pos) > 3 && !reduce) {
+      const d = Math.sign(j - motion.pos);
+      motion = { pos: j - 3 * d, vel: 4 * d };
+    }
     target = j;
     onselect(j);
   }
@@ -217,36 +226,26 @@
   {#if portals.length > 1}
     <div class="picker" class:off={locked} role="group" aria-label="Choose a portal">
       <button class="arrow" aria-label="Previous portal" disabled={locked || index === 0} onclick={() => go(index - 1)}>‹</button>
-      <div class="pager">
-        {#each portals as p, i (p.id)}
-          <button
-            class="dot"
-            class:on={i === index}
-            style:--c={p.theme.accent}
-            aria-label="{p.name}, {p.status === 'ready' ? 'ready' : 'opens soon, unavailable'}"
-            aria-current={i === index}
-            disabled={locked}
-            onclick={() => go(i)}
-          ></button>
-        {/each}
-      </div>
+      {#key current.id}
+        <button class="caption" aria-live="polite" aria-label="{current.name}, {current.school}. Choose your school" disabled={locked} onclick={() => (hub = true)}>
+          <b style:color={current.theme.accent}>{current.name}</b>
+          <span>{current.school}</span>
+          <small>{current.status === "ready" ? `${index + 1} of ${portals.length}` : "Opens soon"}</small>
+        </button>
+      {/key}
       <button class="arrow" aria-label="Next portal" disabled={locked || index === portals.length - 1} onclick={() => go(index + 1)}>›</button>
     </div>
-    {#key current.id}
-      <p class="caption" aria-live="polite">
-        <b style:color={current.theme.accent}>{current.name}</b>
-        <span>{current.school}</span>
-        {#if current.status !== "ready"}<small>Opens soon</small>{/if}
-      </p>
-    {/key}
   {/if}
 </div>
+{#if hub}
+  <PortalHub {portals} {index} onpick={go} onclose={() => (hub = false)} />
+{/if}
 
 <style>
   .stage {
     position: relative;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     justify-items: center;
     min-height: 0;
   }
@@ -279,8 +278,7 @@
     opacity: 0;
   }
   .leaving .sky,
-  .leaving .picker,
-  .leaving .caption {
+  .leaving .picker {
     opacity: 0;
   }
   .picker {
@@ -306,57 +304,56 @@
   .arrow:disabled {
     opacity: 0.25;
   }
-  .pager {
-    display: flex;
-    gap: 2px;
-  }
-  /* 28 px hit area, a tile-shaped mark inside. */
-  .dot {
-    width: 22px;
-    height: 28px;
-    border: 0;
-    padding: 0;
-    background: transparent;
-    -webkit-appearance: none;
-    appearance: none;
-    display: grid;
-    place-items: center;
-  }
-  .dot::after {
-    content: "";
-    width: 7px;
-    height: 7px;
-    background: rgb(244 236 216 / 0.22);
-    transition:
-      background 0.3s var(--ease),
-      transform 0.3s var(--ease);
-  }
-  .dot.on::after {
-    background: var(--c);
-    transform: scale(1.35);
-  }
+  /* The school's name opens the hub: a quiet pill, the short name in the portal's accent. */
   .caption {
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: baseline;
-    gap: 2px 8px;
-    min-height: 1.4em;
-    text-align: center;
-    font-size: min(0.765rem, 23px);
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: min(76vw, 340px);
+    min-height: 44px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px 0 14px;
+    border: 0;
+    border-radius: 22px;
+    background: rgb(244 236 216 / 0.06);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.12);
     color: rgb(244 236 216 / 0.6);
+    font: 400 min(0.765rem, 23px) var(--font-ui);
+    text-align: left;
     animation: fade 0.35s var(--ease);
   }
+  .caption:active {
+    background: rgb(244 236 216 / 0.1);
+  }
+  .caption:disabled {
+    opacity: 1;
+  }
   .caption b {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font: 700 min(0.824rem, 25px) var(--font-display);
+  }
+  .caption span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .caption small {
-    font-family: var(--font-pixel);
+    font: 500 min(0.647rem, 20px) var(--font-pixel);
     letter-spacing: 0.06em;
     color: rgb(244 236 216 / 0.75);
+    white-space: nowrap;
+  }
+  /* A chevron says it opens. */
+  .caption small::after {
+    content: "";
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    margin-left: 6px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
   }
   @keyframes fade {
     from {
@@ -367,8 +364,7 @@
   @media (prefers-reduced-motion: reduce) {
     canvas,
     .sky,
-    .picker,
-    .dot::after {
+    .picker {
       transition: none;
     }
     .caption {

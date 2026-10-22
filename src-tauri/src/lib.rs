@@ -346,7 +346,7 @@ fn demo_mabini(now: i64) -> MabiniData {
 
 #[tauri::command]
 fn portals() -> Vec<intportal_core::portal::Portal> {
-    intportal_core::portal::ALL.to_vec()
+    intportal_core::portal::ALL.clone()
 }
 
 #[tauri::command]

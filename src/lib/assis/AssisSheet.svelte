@@ -4,6 +4,7 @@
   // what, and nothing changes until you tap the gold button.
   import { tick } from "svelte";
   import { closable } from "../back";
+  import { visualViewport } from "../viewport.svelte";
   import { buzz } from "../haptics";
   import Lar from "../lar/Lar.svelte";
   import { app, openDeck, openNote, openSubject } from "../state.svelte";
@@ -15,23 +16,7 @@
   let { onclose }: { onclose: () => void } = $props();
   $effect(() => closable(() => onclose()));
 
-  // With the keyboard up, iOS shrinks the visual viewport and scrolls the page,
-  // so a bottom-pinned sheet would slide its top off screen. Follow the visual
-  // viewport instead while it is smaller than the window.
-  let vv = $state({ h: innerHeight, top: 0 });
-  const keyboard = $derived(vv.h < innerHeight - 120);
-  $effect(() => {
-    const v = window.visualViewport;
-    if (!v) return;
-    const sync = () => (vv = { h: v.height, top: v.offsetTop });
-    sync();
-    v.addEventListener("resize", sync);
-    v.addEventListener("scroll", sync);
-    return () => {
-      v.removeEventListener("resize", sync);
-      v.removeEventListener("scroll", sync);
-    };
-  });
+  const vv = visualViewport();
 
   let draft = $state("");
   let log: HTMLElement | undefined = $state();
@@ -71,7 +56,7 @@
 <div class="scrim" role="presentation" onclick={onclose}></div>
 <!-- A frame that is exactly the visual viewport, so the keyboard shrinks it and
      the sheet stays inside it, whatever the page scrolled to. -->
-<div class="frame" class:typing={keyboard} style:top="{vv.top}px" style:height="{vv.h}px">
+<div class="frame" class:typing={vv.keyboard} style:top="{vv.top}px" style:height="{vv.h}px">
 <div class="sheet notch" role="dialog" aria-label="Ask LAR">
   <header>
     <span class="tag">LAR</span>

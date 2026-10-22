@@ -308,6 +308,7 @@ export interface Portal {
   id: string;
   name: string;
   school: string;
+  region: string;
   status: "ready" | "opens_soon";
   theme: { ramp: string[]; accent: string };
   shape: { cols: number; rows: number; corner: "square" | "cut" | "arch" };
