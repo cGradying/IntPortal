@@ -64,6 +64,7 @@ export const FALLBACK_SIS: Portal = {
   id: "sis",
   name: "SIS",
   school: "Polytechnic University of the Philippines",
+  region: "NCR",
   status: "ready",
   theme: { ramp: ["#3b1220", "#7a1c2c", "#b5412a", "#e08a35", "#f3cf6a"], accent: "#e8b04a" },
   shape: { cols: 6, rows: 8, corner: "square" },

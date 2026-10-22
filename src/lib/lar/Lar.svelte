@@ -1,5 +1,11 @@
 <script lang="ts" module>
+  import { app } from "../state.svelte";
+  import { SIS, THEMES, type Theme } from "./sprite";
+
   export type Gesture = "idle" | "wave" | "point" | "reach" | "thumbs";
+
+  /** The colours of the portal the student uses: Mabini's when it is the only one connected. */
+  export const larTheme = (): Theme => (app.mabiniConnected && !app.sisConnected ? THEMES.mabini : SIS);
 </script>
 
 <script lang="ts">
@@ -9,8 +15,7 @@
   // Pass `t` to drive him from a timeline; without it he keeps his own
   // clock. Reduce Motion holds him in a still pose.
   import { onMount } from "svelte";
-  import { app } from "../state.svelte";
-  import { BOX, H, SIS, THEMES, W, drawLar, rig, type Mood, type State, type Theme } from "./sprite";
+  import { BOX, H, W, drawLar, rig, type Mood, type State } from "./sprite";
 
   let {
     size = 4,
@@ -22,6 +27,7 @@
     vy,
     t: driven,
     cube = true,
+    fit = false,
     label = "LAR, the Lakbay-Aral Robot",
   }: {
     size?: number;
@@ -36,13 +42,15 @@
     vy?: number;
     t?: number;
     cube?: boolean;
+    /** Take up the room his cube, mitts and glow reach, so a box round him never clips them. */
+    fit?: boolean;
     label?: string;
   } = $props();
 
   const reduce = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   let own = $state(0);
   const t = $derived(driven ?? (reduce ? 0 : own));
-  const look = $derived(theme ?? (app.mabiniConnected && !app.sisConnected ? THEMES.mabini : SIS));
+  const look = $derived(theme ?? larTheme());
 
   onMount(() => {
     if (driven !== undefined || reduce) return;
@@ -100,8 +108,8 @@
   });
 </script>
 
-<span class="lar" role="img" aria-label={label} style:width="{W * size}px" style:height="{H * size}px" style:--s="{size}px">
-  <canvas bind:this={canvas} style:left="{BOX.x0 * size}px" style:top="{BOX.y0 * size}px" style:width="{BW * size}px" style:height="{BH * size}px"></canvas>
+<span class="lar" class:fit role="img" aria-label={label} style:width="{(fit ? BW : W) * size}px" style:height="{(fit ? BH : H) * size}px" style:--s="{size}px">
+  <canvas bind:this={canvas} style:left="{fit ? 0 : BOX.x0 * size}px" style:top="{fit ? 0 : BOX.y0 * size}px" style:width="{BW * size}px" style:height="{BH * size}px"></canvas>
 </span>
 
 <style>
@@ -111,6 +119,9 @@
     display: inline-block;
     flex: none;
     margin-inline: calc(var(--s) * 5);
+  }
+  .lar.fit {
+    margin-inline: 0;
   }
   canvas {
     position: absolute;

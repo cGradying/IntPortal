@@ -995,4 +995,18 @@ mod tests {
         }
         assert_eq!(layout(14 * 14, 18 * 14, 12, 16), Layout { pitch: 14, tile: 11, ox: 15, oy: 15 });
     }
+
+    #[test]
+    fn a_hundred_portals_draw_only_the_few_in_view() {
+        let scenes: Vec<Scene> = (0..100).map(|i| Scene::new(5 + i, Look { shape: SHAPES[i as usize % 6], motif: MOTIFS[i as usize % 6], ..SIS })).collect();
+        let (w, h) = (402, 600);
+        let mut out = Vec::new();
+        let start = std::time::Instant::now();
+        carousel(&scenes, 50.4, &at(3.0, Stage::Rest), w, h, &mut out);
+        assert!(start.elapsed().as_millis() < 200);
+        for p in (0..100).filter(|&p| !(49..=52).contains(&p)) {
+            assert_eq!(rect(&scenes, 50.4, p, w, h), [0; 4], "{p} should be round the back");
+        }
+        assert!(out.len() < 20_000, "{} tiles", out.len());
+    }
 }

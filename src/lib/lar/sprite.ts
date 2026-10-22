@@ -1068,3 +1068,54 @@ export function drawLar(ctx: CanvasRenderingContext2D, p: Pose, theme: Theme, t:
   }
   ctx.restore();
 }
+
+/** The cube's box in sprite px round its centre: room for its bob and glow. */
+export const CUBE_BOX = 9;
+
+/**
+ * The cube LAR holds, on its own: the way into his chat. It floats on a slow
+ * bob, turns (a squash across its width), catches a sheen every few seconds
+ * and glows in the portal's colours. `ctx` is in sprite px with the cube's
+ * centre at 0,0. `speed` spins it faster while he thinks.
+ */
+export function drawCube(ctx: CanvasRenderingContext2D, theme: Theme, t: number, o: { speed?: number; still?: boolean } = {}) {
+  const id = theme.ramp.join() + theme.accent;
+  let pal = palettes.get(id);
+  if (!pal) palettes.set(id, (pal = tint(theme)));
+  let c = baked.get(id + "cube");
+  if (!c) {
+    c = Object.assign(document.createElement("canvas"), { width: 7, height: 7 });
+    paintInto(c.getContext("2d")!, rows(CUBE), pal);
+    baked.set(id + "cube", c);
+  }
+  const speed = o.speed ?? 1;
+  const tt = o.still ? 0 : t;
+  const bob = Math.sin(tt * 2.1) * 0.9;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  const r = 8 + Math.sin(tt * 1.3) * 0.6;
+  const g = ctx.createRadialGradient(0, bob, 0.5, 0, bob, r);
+  g.addColorStop(0, theme.accent + "55");
+  g.addColorStop(0.5, theme.ramp[2] + "22");
+  g.addColorStop(1, theme.ramp[2] + "00");
+  ctx.fillStyle = g;
+  ctx.fillRect(-r, bob - r, r * 2, r * 2);
+  // Its shadow tightens as it rises.
+  ctx.fillStyle = `rgb(0 0 0 / ${0.32 - bob * 0.05})`;
+  ctx.beginPath();
+  ctx.ellipse(0, 6.5, 2.6 + bob * 0.3, 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.translate(0, bob);
+  ctx.scale(0.86 + 0.14 * Math.cos(tt * speed * 1.4), 1);
+  ctx.drawImage(c, -3.5, -3.5);
+  // The sheen: a diagonal of light crossing it once a cycle.
+  const band = ((tt * speed * 2.4) % 9) * 2 - 3;
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = pal.w;
+  rows(CUBE).forEach((row, j) =>
+    row.forEach((k, i) => {
+      if (k && k !== "o" && Math.abs(i + j - band) < 0.5) ctx.fillRect(i - 3.5, j - 3.5, 1, 1);
+    }),
+  );
+  ctx.restore();
+}

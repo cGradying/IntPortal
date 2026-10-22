@@ -10,6 +10,7 @@ pub mod model;
 pub mod notes;
 pub mod portal;
 pub mod schedule;
+pub mod schools;
 pub mod sis;
 pub mod store;
 pub mod study;
