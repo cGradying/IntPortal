@@ -202,7 +202,7 @@ A room is one block of roles on `:root[data-room]`; components read roles, never
 ### Named Rules
 **The One Gold Rule.** Gold means "do this" or "you are here": the primary action, the selected option, the active tab. Secondary actions are ghost buttons or underlined text, never a second hue.
 
-**The Theme Stays in the Portal Rule.** A portal's theme ramp lives inside its opening and tiles (and LAR's belly window). It is never a background gradient, a card fill, or a text colour.
+**The Theme Stays in the Portal Rule.** A portal's theme ramp lives inside its opening and tiles (and LAR's belly window), and in the one window that looks onto his side: the stage at the top of LAR's chat. It is never a card fill or a text colour, and no other background gradient.
 
 **The Roles Not Hex Rule.** App screens read colour roles (`var(--gold)`, `var(--card)`), so every room works. The landing is the one surface that names its own night palette, because it does not change with the room.
 
@@ -313,6 +313,8 @@ The Lakbay-Aral Robot, 26 by 23 art pixels: a pebble lit from the top left in fo
 - **Base palette** (before `tint`): outline #1a0f20; body #2c1c3a, #43295a, #5f3f7e, #8663a8, #b996d8; visor #140b1b with rim #2d1d3c; gold #f5b227 and #b87a10; highlight #fff6dc; blush #ff7a9c; mouth #7a1128; belly frame #24162e; #5d3f78; rim light #e27bd0; cube core #c2403a.
 - **Moods:** sleep, open (blinks for about a tenth of a second every 2.9 to 3.7 s), blink, happy, wow, wink, focus.
 - **Gestures:** idle, wave, point, reach, thumbs. Wave on arrival and at the hub.
+- **The orb, a floating cube:** the way into his chat is the cube he holds, floating free over the page (no box): 4 CSS px per art pixel, a slow bob, a turn (a squash across its width), a dithered sheen every few seconds, a soft glow in the portal's accent and ramp, and a shadow that tightens as it rises. It spins four times faster with three gold pixels over it while he thinks. A 56 px target; Reduce Motion holds it still.
+- **The chat:** opening it is one moment (about 2 s): the sheet rises while the cube flies from the orb along an arc to the top of the sheet, shrinking to the size he holds it; LAR comes out of his fire round it, waves, and types his hello (45 characters a second, caret, the slab never resizes); the starters follow, each 60 ms after the last. Closing reverses it: he goes, the cube flies back to the orb, the sheet falls. Reduce Motion: a cross-fade with him already standing and the hello written. The sheet is the night card (#140c16) with 8 px stepped corners and a gold hairline. Its top is his stage, 124 px (104 px with the keyboard up): soft pools of the portal's ramp and accent drifting past each other over 16 s, a few twinkling pixel stars, and a two-row dither into the card; he stands there with room for his whole box (`fit`), with his name in gold Pixelify and what he is doing (Waking up, Thinking, Making cards, Dozing) beside him. His state follows the chat: think while busy, happy when an answer lands, error on a problem, sleep after a quiet minute. His lines are the obsidian slab with its lit top edge in his accent, popping in over four steps; the student's are quiet rounded bubbles in the system face. The composer is the sign-in field's well with an accent focus ring and a gold pixel Send with its lip.
 - **Speech:** LAR talks through a 3 px stepped obsidian slab, his name in gold Pixelify, his line in light Taglish ("Hi, I'm LAR...", "Ayos! Your schedule and grades are in.", "Welcome back, iskolar. Tara?").
 
 ### Isko

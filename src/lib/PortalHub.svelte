@@ -109,10 +109,10 @@
               {/each}
             </ul>
           </section>
-        {:else}
-          <p class="none">No school matches “{q}”. Try its short name, like PUP or BulSU, or its region.</p>
         {/each}
-        {#if list.length && list[0].title === "Results"}
+        {#if q.trim() && !list[0]?.items.length}
+          <p class="none">No school matches “{q.trim()}”. Try its short name, like PUP or BulSU, or its region.</p>
+        {:else if q.trim()}
           <p class="count">{list[0].items.length} of {portals.length} schools</p>
         {/if}
       </div>
