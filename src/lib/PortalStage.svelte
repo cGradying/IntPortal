@@ -119,7 +119,13 @@
   }
 
   onMount(() => {
-    const ro = new ResizeObserver(fit);
+    // Resizing the canvas inside the observer's callback can trip the
+    // browser's "ResizeObserver loop" error, so it waits for the next frame.
+    let pending = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(pending);
+      pending = requestAnimationFrame(fit);
+    });
     loadTiles()
       .then((t) => {
         tiles = t;
@@ -134,6 +140,7 @@
     document.addEventListener("visibilitychange", visibility);
     return () => {
       ro.disconnect();
+      cancelAnimationFrame(pending);
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", visibility);
     };
