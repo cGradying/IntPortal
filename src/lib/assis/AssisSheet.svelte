@@ -341,7 +341,7 @@
     position: relative;
     height: 124px;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: end;
     gap: 4px;
     padding: 0 6px 0 4px;
@@ -401,7 +401,7 @@
     display: grid;
     gap: 2px;
     align-self: center;
-    margin-top: 18px;
+    margin-top: 30px;
     min-width: 0;
   }
   .tag {
@@ -432,10 +432,12 @@
   .think i:nth-of-type(3) {
     animation-delay: 0.4s;
   }
+  /* Pinned to the corner, so his status gets the whole width beside him. */
   .head {
-    align-self: start;
+    position: absolute;
+    top: 6px;
+    right: 6px;
     display: flex;
-    margin-top: 6px;
   }
   .link {
     min-width: 44px;
