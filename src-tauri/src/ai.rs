@@ -263,7 +263,7 @@ pub fn facts_for(snap: &intportal_core::store::Snapshot, now: Moment) -> Facts {
 pub enum ProposalDto {
     AddNote { subject: Option<String>, text: String },
     SetReminder { date: Date, text: String },
-    MakeCards { topic: String },
+    MakeCards { topic: String, count: usize },
 }
 
 impl From<Proposal> for ProposalDto {
@@ -271,7 +271,7 @@ impl From<Proposal> for ProposalDto {
         match p {
             Proposal::AddNote { subject, text } => ProposalDto::AddNote { subject, text },
             Proposal::SetReminder { date, text } => ProposalDto::SetReminder { date, text },
-            Proposal::MakeCards { topic } => ProposalDto::MakeCards { topic },
+            Proposal::MakeCards { topic, count } => ProposalDto::MakeCards { topic, count },
         }
     }
 }

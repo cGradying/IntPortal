@@ -91,6 +91,15 @@ mod tests {
     }
 
     #[test]
+    fn a_short_batch_is_followed_by_another_until_want_is_met() {
+        let mut m = FakeLlm::new(&[&batch(&["a", "b", "c"]), &batch(&["c", "d", "e", "f", "g", "h"])]);
+        let o = cards(&mut m, "text", 8);
+        assert_eq!(o.cards.len(), 8);
+        assert_eq!(o.stopped, None);
+        assert!(m.prompts[1].contains("Write 5 flashcards"), "asks only for what is missing");
+    }
+
+    #[test]
     fn a_batch_of_only_repeats_ends_the_run() {
         let mut m = FakeLlm::new(&[&batch(&["a"]), &batch(&["A"])]);
         assert_eq!(cards(&mut m, "t", 5).stopped.as_deref(), Some("no new cards"));
