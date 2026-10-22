@@ -5,7 +5,7 @@ import type { Card, Deck, NoteItem } from "../api";
 export type Proposal =
   | { kind: "add_note"; subject: string | null; text: string }
   | { kind: "set_reminder"; date: string; text: string }
-  | { kind: "make_cards"; topic: string };
+  | { kind: "make_cards"; topic: string; count: number };
 
 /** A note about a class goes on that class's note; any other goes on one running "From LAR" note for the day. */
 export function noteTarget(p: { subject: string | null }, today: string): { key: string; title: string | null } {
