@@ -41,6 +41,25 @@ pub fn detect(msg: &str) -> Intent {
     }
 }
 
+/// Most cards one request makes; a 1B model's context is the next limit.
+pub const CARDS_MAX: usize = 20;
+/// Cards made when the student names no number.
+pub const CARDS_DEFAULT: usize = 8;
+
+/// The number in front of "cards" ("8 flashcards", "12 na cards", "eight cards"), capped at
+/// `CARDS_MAX`. None when the message names none, so the caller picks the default.
+pub fn card_count(msg: &str) -> Option<usize> {
+    const NAMED: [&str; 12] = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+    let w = words(msg);
+    let n = w.iter().enumerate().filter(|(_, x)| ["flashcard", "flashcards", "card", "cards"].contains(&x.as_str())).find_map(|(i, _)| {
+        // "12 na cards", "8 of cards": skip one linking word.
+        let before = |k: usize| i.checked_sub(k).map(|j| w[j].as_str());
+        let num = |x: &str| x.parse::<usize>().ok().or_else(|| NAMED.iter().position(|n| *n == x).map(|p| p + 1));
+        before(1).and_then(num).or_else(|| before(1).filter(|l| ["na", "ng", "of"].contains(l)).and(before(2)).and_then(num))
+    })?;
+    (n > 0).then_some(n.min(CARDS_MAX))
+}
+
 /// Like `detect`, knowing whether a note is open. Asking about the open note
 /// ("Summarize this note") is a question for the model with the note as context,
 /// not a request to add a note; "add a note: ..." still is.
@@ -59,7 +78,7 @@ pub fn resolve(msg: &str, note_open: bool) -> Intent {
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
 pub fn is_filipino(msg: &str) -> bool {
     // "may" is left out on purpose: it is also the English word ("May I see my classes").
-    const FIL: [&str; 15] = ["ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "po", "lang"];
+    const FIL: [&str; 19] = ["gumawa", "gawan", "na", "ng", "ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "po", "lang"];
     words(msg).iter().filter(|w| FIL.contains(&w.as_str())).count() >= 1
 }
 
@@ -146,6 +165,26 @@ mod tests {
             assert_eq!(resolve(msg, true), Intent::Note, "{msg}");
         }
         assert_eq!(resolve("remind me about this note", true), Intent::Remind);
+    }
+
+    // #161
+    #[test]
+    fn the_number_of_cards_asked_for_is_read_in_english_and_filipino() {
+        for (msg, want) in [
+            ("make 8 flashcards about recursion", Some(8)),
+            ("Make 5 cards about recursion", Some(5)),
+            ("gumawa ng 8 cards", Some(8)),
+            ("gumawa ng 12 na flashcards sa trees", Some(12)),
+            ("Gawan mo ako ng 6 na card sa heaps", Some(6)),
+            ("make eight flashcards", Some(8)),
+            ("make 50 flashcards", Some(20)),
+            ("make 0 flashcards", None),
+            ("make flashcards about recursion", None),
+            ("flashcards for COMP 20073", None),
+            ("flashcards for chapter 8", None),
+        ] {
+            assert_eq!(card_count(msg), want, "{msg}");
+        }
     }
 
     #[test]
