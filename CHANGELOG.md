@@ -2,6 +2,13 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## 0.1.7 (2026-10-22)
+
+- Portal hub: about 100 schools from the core, searchable sheet with recent, region and A–Z; far picks warp the orbit (#153)
+- LAR chat: floating cube orb, fire spawn when it opens, pixel night sheet (#154)
+- Launch on the void, not white; portal canvas resizes a frame after the observer fires (#155)
+- Hub says when nothing matches; a demo sign-in shows SIS on the carousel; LAR's status no longer wraps (#155)
+
 ## 0.1.6 (2026-10-15)
 
 - LAR: pixel sprite in each university's colours, fire spawn, wandering, orbit carousel (#140)
