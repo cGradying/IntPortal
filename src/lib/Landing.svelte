@@ -114,6 +114,8 @@
     try {
       await adopt(await api.demo(isoDate(new Date())));
       await refreshLogins();
+      // The demo is SIS data, so the carousel shows SIS whatever was picked.
+      portalId = "sis";
       rest = "hub";
       buzz.done();
     } catch (err) {
