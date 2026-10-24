@@ -103,3 +103,58 @@ What it showed:
 - **Suggested `FLOOR` for EG2: 0.70** (keeps all 8 supported, drops 5 of 7 unsupported; the 2 leaks are the on-topic ones). That is the same trade nomic makes at 0.60. Going higher than 0.72 starts losing supported hits. For nomic the current 0.5 could be raised to 0.60 on the same evidence, a separate fix.
 - **256-d truncation (first 256 dims, renormalized) does not hurt top-1** on this set (EG2 7/8 either way; nomic even 8/8) and shifts scores up about 0.03, so use floor 0.72-0.73 if it is used. On whole notes the margin gets worse for EG2 (-0.032 to -0.059), so keep 768-d unless storage matters. The set is tiny (8 chunks, 15 questions): a quality claim for EG2 over nomic is **not** supported by it; the multilingual gain the issue hopes for needs a bigger Filipino set.
 - Not changed: `rag.rs` still uses nomic prefixes and FLOOR 0.5; `models.rs` untouched. The patch also moves the chat engine to llama.cpp v0.7.0, which was not tested here (mobile builds were not run).
+
+## Retrieval eval: nomic vs EmbeddingGemma-2 (60+ questions)
+
+Issue #157, branch `spike/eg2-retrieval-eval` (on top of `spike/embeddinggemma2`, NOT for main). Rerun: `cargo run --release -p intportal-llm --example embed_eval -- <nomic.gguf> <embeddinggemma-2-Q8_0.gguf>` (about 10 s once built; deterministic, two runs gave identical output). Every number below is copied from that script's output.
+
+Set (`crates/intportal-llm/examples/data/notes.json`, `questions.json`): 32 notes (Data Structures, Math, Physics, Organic Chem, General Chem, Filipino, History, NSTP, Accounting, a reminders note), English, Filipino and Taglish, cut by the app's own `rag::chunk_text` into 37 chunks (6 notes are longer than 700 chars). It has near-duplicates (inorder / preorder / postorder; SN1-SN2 / E1-E2; derivatives / limits) and misleading shared words (tree planting vs tree, bond in chemistry vs bonds payable, power rule vs power in Physics, "balance" in accounting vs balanced trees, cashier in a queue example vs the tuition reminder). 90 questions: 58 in-scope (one answering note each: 21 English, 14 Tagalog/Taglish, 4 typos, 6 keyword-only, 13 paraphrases that share few or no words with the note) and 32 out-of-scope, 8 per kind: **a** general knowledge ("capital of Peru", "sino si Jose Rizal"), **b** the student's own data ("my Physics midterm score"), **c** on-topic-looking but absent ("explain AVL rotations", "ano ang pokus ng pandiwa", "magkano ang tuition"), **d** chit-chat or injection. Prefixes: nomic `search_document:` / `search_query:`; EG2 `title: none | text:` / `task: search result | query:`. Cosine on unit vectors; a note's score is its best chunk; best hit = best note score.
+
+| | nomic v1.5 Q4_K_M | EmbeddingGemma-2 Q8_0 |
+|---|---|---|
+| In-scope top-1 (58) | 46 (79%) | 54 (93%) |
+| In-scope top-3 | 52 (90%) | 57 (98%) |
+| Top-1 by style en / tl / typo / kw / para | 20/21, 10/14, 3/4, 4/6, 9/13 | 21/21, 13/14, 4/4, 5/6, 11/13 |
+| Best hit, in-scope: min / median / max | 0.474 / 0.708 / 0.859 | 0.620 / 0.760 / 0.838 |
+| Best hit, OOS a general: min / median / max | 0.515 / 0.627 / 0.710 | 0.532 / 0.605 / 0.688 |
+| Best hit, OOS b own data | 0.619 / 0.635 / 0.658 | 0.639 / 0.696 / 0.745 |
+| Best hit, OOS c on-topic absent | 0.574 / 0.629 / 0.745 | 0.651 / 0.682 / 0.821 |
+| Best hit, OOS d chit-chat | 0.492 / 0.617 / 0.662 | 0.567 / 0.642 / 0.690 |
+| **AUC** in-scope vs all OOS | **0.838** | **0.913** |
+| AUC vs a / b / c / d | 0.841 / 0.845 / 0.778 / 0.890 | 0.985 / 0.875 / 0.812 / 0.981 |
+| Best single FLOOR (max balanced accuracy) | **0.674** | **0.707** |
+| Recall / false-accept / balanced acc at that floor | 74.1% / 6.2% / 0.839 | 87.9% / 12.5% / 0.877 |
+| False-accept at that floor, a / b / c / d | 12% / 0% / 12% / 0% | 0% / 12% / 38% / 0% |
+| 5-fold CV balanced acc of the floor | 0.793 | 0.862 |
+| Recall at false-accept <= 5% / <= 10% / <= 20% | 48.3% / 74.1% / 81.0% | 56.9% / 82.8% / 87.9% |
+| Recall at false-accept 0% | 25.9% (floor 0.751) | 12.1% (floor 0.821) |
+| Current FLOOR 0.5 | recall 98.3%, false-accept 96.9% | recall 100%, false-accept 100% |
+| AUC of the margin (best minus 2nd note) alone | 0.737 | 0.845 |
+| Margin + floor rule, CV balanced acc (floor alone) | 0.793 (0.793) | 0.827 (0.862) |
+
+ROC (accept if best hit >= floor; recall = in-scope accepted; FA = out-of-scope accepted). The full per-model table is printed by the script; 10 evenly spaced floors:
+
+| nomic floor | recall | FA | bal. acc | | EG2 floor | recall | FA | bal. acc |
+|---|---|---|---|---|---|---|---|---|
+| 0.474 | 100.0% | 100.0% | 0.500 | | 0.532 | 100.0% | 100.0% | 0.500 |
+| 0.517 | 98.3% | 93.8% | 0.523 | | 0.566 | 100.0% | 93.8% | 0.531 |
+| 0.560 | 94.8% | 90.6% | 0.521 | | 0.600 | 100.0% | 84.4% | 0.578 |
+| 0.603 | 91.4% | 68.8% | 0.613 | | 0.634 | 98.3% | 75.0% | 0.616 |
+| 0.645 | 82.8% | 25.0% | 0.789 | | 0.668 | 96.6% | 40.6% | 0.780 |
+| 0.688 | 60.3% | 6.2% | 0.770 | | 0.702 | 87.9% | 15.6% | 0.862 |
+| 0.731 | 34.5% | 3.1% | 0.657 | | 0.736 | 67.2% | 6.2% | 0.805 |
+| 0.774 | 13.8% | 0.0% | 0.569 | | 0.770 | 44.8% | 3.1% | 0.709 |
+| 0.816 | 3.4% | 0.0% | 0.517 | | 0.804 | 20.7% | 3.1% | 0.588 |
+| 0.859 | 1.7% | 0.0% | 0.509 | | 0.838 | 1.7% | 0.0% | 0.509 |
+
+Paired: top-1 differs on 10 questions, only nomic right on 1, only EG2 right on 9. AUC difference EG2 minus nomic +0.075, bootstrap (2000 paired resamples of the questions) 95% interval [+0.001, +0.144], so the gain is real but the interval just clears zero.
+
+**Conclusion.**
+
+- **Retrieval: EG2 is better.** 54/58 vs 46/58 top-1 (+14 points), 57 vs 52 top-3. Almost all of the gain is Filipino and Taglish, typos and paraphrases (tl 13/14 vs 10/14, para 11/13 vs 9/13, typo 4/4 vs 3/4); on plain English both are about equal (21/21 vs 20/21). Its three remaining misses are "left, node, right" (preorder vs inorder), "Zaitsev" and a nose-bleed paraphrase that lands on the Filipino note.
+- **Rejecting out-of-scope questions: better, by a smaller and uneven margin.** AUC 0.913 vs 0.838. EG2 separates general knowledge (0.985) and chit-chat/injection (0.981) from notes very well. It is only a little better on own-data questions (0.875 vs 0.845) and on on-topic-but-absent (0.812 vs 0.778). Those two kinds stay the problem on both models: "ano ang pokus ng pandiwa" scores 0.821 on EG2 (above many real hits) because the pandiwa note names that topic, and "ilan na ang absent ko sa NSTP" / "what is my GWA" hit the NSTP / reminders notes at 0.7+. A floor cannot remove these; the system prompt's "I don't know" still has to.
+- **A floor drops only the clearly unrelated.** With the best single floor, EG2 keeps 88% of in-scope questions and lets 12.5% of out-of-scope through (38% of the on-topic-absent ones); nomic keeps 74% and lets 6.2% through. Compare at equal false-accept instead: at <=10% EG2 keeps 82.8% vs nomic 74.1%, at <=5% 56.9% vs 48.3%. Only at 0% false-accept is nomic better (25.9% vs 12.1%), and that point rests on one question.
+- **FLOOR to use: nomic 0.67 (not 0.5; 0.5 accepts 97% of out-of-scope), EmbeddingGemma-2 0.71** (0.72-0.74 if wrong answers hurt more than missed ones: 0.736 gives 67% recall at 6% false-accept). The earlier 15-question spike suggested 0.70 for EG2 and 0.60 for nomic; EG2 is consistent, nomic's suggestion was low.
+- **Margin between best and second-best note does not help.** Alone it separates worse than the score (AUC 0.737 / 0.845), and adding it to the floor never beats the floor alone; the best margin found was 0.000 on both models, and 5-fold CV of the two-parameter rule is lower for EG2 (0.827 vs 0.862) and equal for nomic. Near-duplicate notes make the margin small for good answers too.
+
+**Caveats.** One author wrote the notes and the questions, after seeing the earlier spike's failures, so they lean toward the hard cases; 58 + 32 questions is small (one question moves recall by 1.7 points and a kind's false-accept by 12 points per question); thresholds are fitted on the same questions (the CV numbers show the optimism: 0.839 to 0.793 for nomic, 0.877 to 0.862 for EG2). Notes are short, so chunking changes only 6 of them. Students' real notes are messier and longer. Retrieval quality is only half of #157: file size (310 MB vs 84 MB), the patched llama.cpp for the mobile builds, and speed still need their own checks. Treat this as support for switching, not proof of a particular floor; re-tune on real student notes before shipping.
