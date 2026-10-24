@@ -22,3 +22,8 @@ opt-level = 3
 panic = "abort"
 strip = true
 debug = "line-tables-only"
+
+# SPIKE ONLY (issue #157): llama.cpp with arch gemma-embedding2, utilityai/llama-cpp-rs PR #1175.
+[patch.crates-io]
+llama-cpp-2 = { git = "https://github.com/willsheldon/llama-cpp-rs", branch = "llama-cpp-bump-gemma-embedding2" }
+llama-cpp-sys-2 = { git = "https://github.com/willsheldon/llama-cpp-rs", branch = "llama-cpp-bump-gemma-embedding2" }

@@ -71,3 +71,35 @@ llama.cpp needs a flag at minSdk 24 (`posix_madvise`); see `spikes/s1-llama/REPO
 Cards from a note or PDF in DeckPage, the syllabus guide in SubjectPage (UI #92, needs Core #93 `Plan.guide`), and the phone checks: Metal speed and memory on a real iPhone, a release APK run on Android, and the Android file picker.
 
 Done: RAG also indexes deck cards (`card:<deck id>`) and syllabus text (`plan:<code>`); the chat's source chips can carry those keys (the UI opens only notes so far). Done in spec [020-ai](specs/020-ai.md): RAG wired into `ai_ask` with sources, streamed replies, a chat that survives restarts, Ask AI in a note, the Light or With-AI choice at first run.
+
+## EmbeddingGemma-2 spike (issue #157, branch `spike/embeddinggemma2`, NOT for main)
+
+Throwaway numbers for swapping the nomic embedder. `Cargo.toml` here has a `[patch.crates-io]` pointing `llama-cpp-2` and `llama-cpp-sys-2` at `willsheldon/llama-cpp-rs` branch `llama-cpp-bump-gemma-embedding2` (utilityai PR #1175, commit cb98c630, crate version 0.1.161, llama.cpp v0.7.0). It builds, and `gemma-embedding2` loads. Run: `cargo run --release -p intportal-llm --example embed_spike -- <nomic.gguf> <embeddinggemma-2-Q8_0.gguf> [nomic|eg2]`. The model file (309,855,456 bytes) matched the sha256 in the issue.
+
+Set: the 3 seeded notes of `eval.rs` cut into 8 sentence chunks, and the 15 open questions (8 supported, 7 unsupported). nomic uses `search_document:` / `search_query:`; EmbeddingGemma-2 uses `title: none | text: {doc}` / `task: search result | query: {q}`. Mean pooling, L2-normalized, Metal, release build, M-series Mac, one machine, other builds running at the same time. Gold for top-1 is the sentence chunk that holds the answer (a few questions accept two or three).
+
+| | nomic v1.5 Q4_K_M | EmbeddingGemma-2 Q8_0 |
+|---|---|---|
+| File size | 84 MB | 310 MB |
+| Dimension | 768 | 768 |
+| Top-1 correct, supported (8 chunks) | 7/8 | 7/8 |
+| Top-1 correct, supported (3 whole notes, as the app chunks today) | 8/8 | 8/8 |
+| Best hit, supported questions: min / median | 0.621 / 0.697 | 0.719 / 0.838 |
+| Best hit, unsupported questions: max / median | 0.630 / 0.594 | 0.757 / 0.681 |
+| Margin (min supported minus max unsupported) | -0.010 | -0.038 |
+| Model load, warm (two runs) | 168 and 210 ms | 911 and 602 ms |
+| ms per embed (new context each call, median of 26) | 11.0 and 20.8 | 47.7 and 21.0 |
+| 256-d truncation, top-1 (8 chunks) | 8/8 | 7/8 |
+| 256-d margin (8 chunks / 3 notes) | -0.012 / 0.000 | -0.031 / -0.059 |
+
+Load and ms are noisy (a build was running in run 1; nomic's very first cold load was 10 s, mostly backend and Metal shader setup, and does not repeat). Treat the two models as about the same speed here.
+
+What it showed:
+
+- **No floor separates the classes on either model**: the best unsupported hit (nomic 0.630 "thesis deadline"; EG2 0.757 "preorder traversal") scores above the weakest supported hit. Unsupported questions that touch a note's topic ("Okay lang ba ako sa Math?", "preorder traversal") score high on both. RAG can only drop the clearly unrelated ones; the prompt still has to say "I don't know".
+- Both miss the same question at chunk level ("Kailan ang quiz sa Math 101?" ranks the "quiz covers limits" chunk over "moved the quiz to Monday"); with whole notes both get 8/8.
+- EG2 scores everything higher (about +0.1 to +0.15), so the same 0.5 floor would let all 7 unsupported through (leak 7/7; nomic at 0.5 also leaks 7/7, so 0.5 is already no filter on this set).
+- Floor sweep, EG2, 8 chunks (keep = supported kept of 8, leak = unsupported passed of 7): 0.65: 8 and 5; 0.70: 8 and 2; 0.75: 6 and 1; 0.80: 4 and 0. nomic: 0.55: 8 and 4; 0.60: 8 and 2; 0.65: 6 and 0.
+- **Suggested `FLOOR` for EG2: 0.70** (keeps all 8 supported, drops 5 of 7 unsupported; the 2 leaks are the on-topic ones). That is the same trade nomic makes at 0.60. Going higher than 0.72 starts losing supported hits. For nomic the current 0.5 could be raised to 0.60 on the same evidence, a separate fix.
+- **256-d truncation (first 256 dims, renormalized) does not hurt top-1** on this set (EG2 7/8 either way; nomic even 8/8) and shifts scores up about 0.03, so use floor 0.72-0.73 if it is used. On whole notes the margin gets worse for EG2 (-0.032 to -0.059), so keep 768-d unless storage matters. The set is tiny (8 chunks, 15 questions): a quality claim for EG2 over nomic is **not** supported by it; the multilingual gain the issue hopes for needs a bigger Filipino set.
+- Not changed: `rag.rs` still uses nomic prefixes and FLOOR 0.5; `models.rs` untouched. The patch also moves the chat engine to llama.cpp v0.7.0, which was not tested here (mobile builds were not run).
