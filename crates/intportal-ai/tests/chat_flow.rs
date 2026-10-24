@@ -37,15 +37,16 @@ fn only_open_questions_become_history_for_the_next_turn() {
 
     chat(&mut llm, &mut history, "ano ang chain rule?");
     let due = chat(&mut llm, &mut history, "what is due?");
-    assert_eq!(due.reply, "Coming up:\n- Quiz 2: COMP 20073, Fri 2026-10-16");
+    assert!(due.reply.contains("\n- Quiz 2: COMP 20073, Fri 2026-10-16"), "the fact is in the voiced answer: {}", due.reply);
     let rem = chat(&mut llm, &mut history, "remind me bukas to pay tuition");
     assert!(matches!(rem.proposal, Some(Proposal::SetReminder { .. })));
     chat(&mut llm, &mut history, "paano ulit?");
 
     assert_eq!(llm.prompts.len(), 3, "the exact answer skipped the model");
     let last = &llm.prompts[2];
-    assert!(last.contains("Student: ano ang chain rule?\nIntAssis: Multiply the derivatives."));
-    assert!(!last.contains("what is due") && !last.contains("pay tuition"), "no exact answers or requests in the memory");
+    assert!(last.contains("Student: ano ang chain rule?\nLAR: Multiply the derivatives."));
+    let memory = &last[last.find("## Conversation so far").expect("a memory section")..];
+    assert!(!memory.contains("what is due") && !memory.contains("pay tuition"), "no exact answers or requests in the memory");
 }
 
 #[test]
@@ -59,7 +60,7 @@ fn a_whole_taglish_session_stays_plain_and_never_leaks_errors() {
     assert_eq!(seen, "", "nothing was streamed from a reply that never started");
 
     let a = answer(&mut FakeLlm::new(&[]), Template::ChatMl, &facts(), &[], "bagsak ba ako sa math?").unwrap();
-    assert_eq!(a.reply, "Standing mo:\n- MATH 101: 86% so far");
+    assert!(a.reply.ends_with("- MATH 101: 86% so far") || a.reply.contains("\n- MATH 101: 86% so far\n"), "{}", a.reply);
 }
 
 // C3: the notes LAR was shown are in the prompt for an open question, so the chip can name them.

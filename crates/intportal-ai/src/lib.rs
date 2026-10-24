@@ -10,6 +10,7 @@ pub mod models;
 pub mod note;
 pub mod outline;
 pub mod pdf;
+pub mod persona;
 pub mod prompt;
 pub mod rag;
 pub mod reply;
