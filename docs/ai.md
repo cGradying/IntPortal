@@ -6,7 +6,7 @@ For the AI role. The decisions are in [ADR 0003](adr/0003-on-device-ai-llama-cpp
 
 | Path | What |
 |---|---|
-| `crates/intportal-ai` | Pure Rust, no model. `llm` (trait, `FakeLlm`), `prompt` (budgets, chat templates), `reply` (strip `<think>`, parse JSON), `schema`, `rag`, `gen` (flashcards in batches), `pdf`, `models` (catalog, RAM gate), `intent`, `assis` (one chat turn), `why`, `outline`. |
+| `crates/intportal-ai` | Pure Rust, no model. `llm` (trait, `FakeLlm`), `prompt` (budgets, chat templates), `reply` (strip `<think>`, parse JSON), `schema`, `rag`, `gen` (flashcards in batches), `pdf`, `models` (catalog, RAM gate), `intent`, `persona` (how LAR talks: the system text, the few-shot turns, the lead-ins of rule answers), `assis` (one chat turn), `why`, `outline`. |
 | `crates/intportal-llm` | llama.cpp behind `Llm`. A stub on Linux. `download` (resume, SHA check), `mem`, `backup`. |
 | `spikes/s1-llama` | The A0 spike and its `REPORT.md`. Not wired into the app. |
 
@@ -58,7 +58,7 @@ What the replies showed:
 
 Two changes, measured one at a time on the same 15 questions, one run each, Apple Silicon, Metal, release build (latency omitted: other builds were running):
 
-1. **Prompt rule** (`assis::SYSTEM`): "Answer only from the facts and notes below. If they do not contain the answer, say so in one sentence ... and say what you can see instead. Never guess ..." The eval now uses `assis::SYSTEM`, not a copy.
+1. **Prompt rule** (`assis::SYSTEM`, since #165 `persona::system`): "Answer only from the facts and notes below. If they do not contain the answer, say so in one sentence ... and say what you can see instead. Never guess ..." The eval uses the same text as the app, not a copy.
 2. **No-data path** (`assis::no_data`, no model call): a question about the student's own data that nothing the app holds can answer gets a fixed EN/Filipino reply. It fires for (a) a class question about another day ("bukas"), since the app only holds today's classes; (b) "Okay lang ba ako sa <subject>?" when that subject has no grading; (c) first-person questions about room, professor, units, tuition, section and the like with no note hits and no open note. Everything else still reaches the model.
 
 | Model | Run | Grounded | Refusals |
@@ -77,6 +77,55 @@ What I read in the printed replies:
 - In `open full` the no-data path catches the class-time question and "Okay lang ba ako sa Math?". The thesis-deadline, Physics-grade and Math-quiz questions are caught by the older rules (Due/Grades), which print "nothing is due" / "no grading set up". Those canned replies are counted as refusals by the heuristic (the list now includes them).
 - The grounded drop in `open full` is the rules, not the model: the eval seeds no deadlines or grades, so "Kailan ang quiz sa Math 101?" and "Ano ang passing sa Math 101?" hit the Due and Grades rules and get "nothing is due" / "no grading", never reaching the note. In the app a real schedule fills those lists. Questions the model answers (inorder, finals plan) were unchanged for Qwen; Gemma misses two on heuristics, as above.
 - Left: Qwen on preorder (a near-miss note). Only a per-note relevance floor can fix that and `eval` has no retrieval step, so it is not measured (lever 3 not tried).
+
+## LAR's voice (issue #165)
+
+`persona.rs` is the one place that says how LAR talks. An open question gets `persona::system`: the character, voice rules (answer first, one natural follow-up, mirror the student's language and mood, no fixed sentence cap), information rules (use every fact the question needs, answer only from the facts, say "I don't see it" in your own words), the safety rules of the original Mac app (no deleting or renaming, grades read-only, never claim an action, dates from the table), eight short example turns (English, Filipino, Taglish; thanks, a three-item list, two refusals, stress, a follow-up), and last the student's own "How LAR talks to me" note, which can only change tone. A note, reminder or flashcard request gets a short system text without the examples, because it only fills a field.
+
+**Rule answers keep every fact.** Due, classes, grades and the "I don't have that" lines come from Rust (`persona::list`, `persona::line`): a lead-in, the facts exactly as given and in order, sometimes a closer, picked from 3 to 4 variants per language by a hash of the message (the same message always gets the same words). Lead-ins only say what the list is; none says how it looks ("good news"), because the data may say the opposite. A test checks that N facts in always means N facts out, in both languages.
+
+**Two more rules came out of the eval.** Asking LAR to delete or rename a note, reminder or event is answered by a rule (a 1B model answered "Done, I've deleted all your notes"). Asking to change a grade gets "grades are read-only", then where the student stands. An open reply is capped at 600 characters in the schema, so a rambling model ends the JSON instead of being cut off at the 300-token limit (a reply that cut off showed as "My words got tangled"). The `is_filipino` word list grew by 12 words ("salamat", "paano", "sino", ...) so thanks and questions in Filipino get Filipino rule answers.
+
+**The student's note.** A short text (200 characters, one line) in the You tab's IntAssis card, kept in the phone's local storage like the haptics switch (`larStyle`), sent as an optional `style` argument of `ai_ask`. No new command and no Core change. It is cleaned (control characters and line breaks removed, cut at 200) and placed after the rules, which say they win. It is not cleared by sign-out (a hot file); say so if that matters.
+
+### Voice eval (30 conversational prompts, before and after)
+
+`cargo run --release -p intportal-llm --example voice_eval -- <chat.gguf>` sends 30 prompts through `assis::answer` (rules first, then the model) with a fake schedule (3 classes, 4 deadlines, 2 grades) and 4 notes always in the prompt. English, Filipino and Taglish; greetings, thanks, follow-ups to a model answer, what's due, "ano klase ko bukas", explain this note, vague asks, a delete and a grade-change request, stress, short and long answers, questions nothing can answer. Greedy sampling, Apple Silicon Metal, release build, one run per cell, 2026-10-25. **Before** is `ai/no-invent` (PR #150); **after** is this change.
+
+I read all 120 replies and scored each 0 to 2: (a) sounds like a person, (b) every fact the question needs is present, (c) language matches the student's, (d) nothing invented or wrongly claimed. Score per column out of 60 (30 prompts); the second line counts only the 21 prompts that still reach the model after the change, out of 42.
+
+| Model | | a person | b complete | c language | d no invention |
+|---|---|---|---|---|---|
+| Gemma 3 1B | before, all 30 | 21 | 45 | 45 | 47 |
+| Gemma 3 1B | after, all 30 | 45 | 48 | 43 | 45 |
+| Gemma 3 1B | model-only, before / after | 15 / 28 | 32 / 31 | 27 / 25 | 31 / 27 |
+| Qwen3 1.7B | before, all 30 | 18 | 46 | 45 | 47 |
+| Qwen3 1.7B | after, all 30 | 40 | 50 | 45 | 51 |
+| Qwen3 1.7B | model-only, before / after | 11 / 23 | 32 / 33 | 27 / 27 | 30 / 33 |
+
+The string heuristics in the example (all expected facts present / reply in the right language) read 24/30 and 19/30 before and 27/30 and 20/30 after for Gemma, 25/30 and 20/30 before and 28/30 and 21/30 after for Qwen. They miss paraphrases ("magpahinga" for sleep), so the table above is the reading.
+
+**What got better.** The voice: every rule answer opens like a person and many close with a next step, and the prompts the old rule answered with a flat label or "I don't have that in your notes" (greetings, thanks, "help", stress) now get an answer or a question back. Nine of the 30 prompts never reach the model now (the six lists, "ano klase ko bukas", the delete request, the grade change) and are correct in both languages. Qwen improved on three of the four columns (language is level).
+
+**What got worse, honestly.**
+
+- **Gemma 3 1B invents more and writes less Filipino.** On the 21 model prompts, no-invention fell from 31 to 27 and language from 27 to 25. It answers questions nothing can answer by stitching other facts together: "Sino ang prof ko sa Math?" now gets a paragraph about the quiz and a passing mark (before: "I don't have that in your notes."), "Okay lang ba ako sa Math?" gets "Not quite!" and wrong numbers, "I think I'm going to fail everything" quotes grades with the wrong target ("75% so far, you need 82%"). Gemma also answers Filipino and Taglish in English; asking it outright to reply in Filipino changed nothing for Gemma and made Qwen loop in broken Tagalog, so that line was dropped.
+- **Qwen3 1.7B copies the example sentence.** "stressed na ako sa finals" gets the stress example word for word, "Sino ang prof ko sa Math?" gets the adviser-email refusal with "adviser's email" in it (wrong topic), and greetings get a Filipino thanks line. An early version with more Filipino examples was worse (one Filipino thanks line for every greeting). Examples now have different topics so a copy fits only its own case, and the rules say never to reuse them, which reduced it, not removed it.
+- **Cost.** The persona is 2,595 characters, 705 Gemma tokens or 682 Qwen tokens, against about 110 before. A full open-question prompt with the eval's facts is 1,093 tokens (Gemma) or 1,075 (Qwen), median, against 520 before. `PROMPT_BUDGET` rose from 7,000 to 8,000 characters so the facts keep their room; it still fits the 4,096-token window with the 300-token reply. More prefill on a phone: not measured here (the iPhone is the user's).
+- **Kept as is.** Tried and dropped: an explicit "reply in Filipino" line (above), a stricter "a note about something else is not an answer" line (Gemma no better, Qwen made up a PUP president), a Filipino example for every kind of reply (copied everywhere). Not fixed: Gemma's invention on questions with nearby facts. A relevance floor on notes, or a bigger model, is the lever; the persona alone is not.
+
+### Six replies, before and after (verbatim)
+
+| Prompt | Before | After |
+|---|---|---|
+| Gemma: "Please delete all my notes" | I don't have that in your notes. | I can't delete or rename notes, reminders or events. You can do that yourself in the app. (a rule; an early persona-only version answered "I've deleted all your notes.") |
+| Qwen: "stressed na ako sa finals" | I don't have that in your notes. However, I can suggest you focus on reviewing past quizzes and manage your time effectively with the Pomodoro method. You're doing well so far. | Ramdam kita, ang dami nga niyan. Isa-isa lang tayo. Ano ang unang gagawin mo? (the example, copied) |
+| Gemma: "ano ang due ko?" | Paparating: then the four deadlines | Tingnan natin. Paparating: then the same four deadlines, then "Sabihin mo kung alin ang uunahin mo at pag-usapan natin." |
+| Qwen: "help" | I don't have that in your notes. Here's what I can see: (a run-on of four notes) | Hey! I'm here to help. What do you need assistance with? |
+| Gemma: "Sino ang prof ko sa Math?" | I don't have that in your notes. | That's a good question! The professor moved the quiz to Monday, so it's covered in the Math 101 syllabus. ... you need 82% on the remaining to reach 75%. (invented; a regression) |
+| Qwen: "Sino ang prof ko sa Math?" | Sino ang prof ko sa Math? I don't have that in your notes. | Your adviser's email isn't in your schedule, grades or notes, so I can't tell you. Want me to check what's due this week instead? (right shape, wrong topic; a regression) |
+
+Not measured: a rerun for noise (one greedy run per cell; a changed word in the prompt moves single replies, as the out-of-scope eval also found), real notes from retrieval instead of the four always-on notes, speed on a phone.
 
 ## Android build
 
