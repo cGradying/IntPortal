@@ -159,11 +159,27 @@ pub fn gemma(system: &str, user: &str) -> String {
     format!("<start_of_turn>user\n{system}\n\n{user}<end_of_turn>\n<start_of_turn>model\n")
 }
 
+/// LFM2 / LFM2.5 Instruct: the same turns as ChatML, with no think block (the
+/// GGUF template is `bos + <|im_start|>role\n...<|im_end|>\n`, then
+/// `<|im_start|>assistant\n`). The BOS comes from the tokenizer (`add_bos_token`).
+pub fn lfm2(system: &str, user: &str) -> String {
+    format!("<|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n")
+}
+
+#[cfg(test)]
+mod lfm2_tests {
+    #[test]
+    fn no_think_block() {
+        assert_eq!(super::lfm2("S", "U"), "<|im_start|>system\nS<|im_end|>\n<|im_start|>user\nU<|im_end|>\n<|im_start|>assistant\n");
+    }
+}
+
 /// How a model wants its prompt wrapped.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Template {
     ChatMl,
     Gemma,
+    Lfm2,
 }
 
 impl Template {
@@ -171,6 +187,7 @@ impl Template {
         match self {
             Template::ChatMl => chatml(system, user),
             Template::Gemma => gemma(system, user),
+            Template::Lfm2 => lfm2(system, user),
         }
     }
 }

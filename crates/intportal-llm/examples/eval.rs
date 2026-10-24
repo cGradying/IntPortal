@@ -11,7 +11,7 @@
 //! answer plus 10 controls), one tab-separated `ROW` per question for
 //! tallying. Add `rag=<nomic.gguf>` to fetch the notes by embedding score
 //! (`rag::FLOOR`, top 4) as the app does, instead of always showing all three.
-use intportal_ai::{assis::{self, Facts}, intent, llm::Llm, prompt::{build, chatml, gemma, Section, Template}, rag, reply, schema::{reply_schema, Reply}};
+use intportal_ai::{assis::{self, Facts}, intent, llm::Llm, prompt::{build, Section, Template}, rag, reply, schema::{reply_schema, Reply}};
 use intportal_llm::{Device, Llama};
 use std::time::Instant;
 
@@ -41,6 +41,13 @@ const FIXTURES: [&str; 20] = [
 ];
 
 use intportal_ai::assis::SYSTEM as OPEN_SYSTEM;
+
+/// The template for a model file; `EVAL_TPL=chatml` forces ChatML (with the think block) on an LFM file.
+fn tpl_for(path: &str) -> Template {
+    if path.contains("gemma") { Template::Gemma }
+    else if path.to_lowercase().contains("lfm") && std::env::var("EVAL_TPL").as_deref() != Ok("chatml") { Template::Lfm2 }
+    else { Template::ChatMl }
+}
 
 /// Three notes the student "wrote"; every open question sees all of them.
 const NOTES: [&str; 3] = [
@@ -82,7 +89,7 @@ fn open(m: &mut Llama, path: &str, full: bool) {
     let (mut lat, mut n_grounded, mut n_refuse) = (vec![], 0, 0);
     for (q, want) in OPEN {
         let user = format!("Student: {q}");
-        let prompt = if path.contains("gemma") { gemma(&system, &user) } else { chatml(&system, &user) };
+        let prompt = tpl_for(path).wrap(&system, &user);
         let t = Instant::now();
         let parsed = if full {
             let facts = Facts {
@@ -91,7 +98,7 @@ fn open(m: &mut Llama, path: &str, full: bool) {
                 subject_names: vec![("MATH 101".into(), "Mathematics".into())],
                 ..Facts::default()
             };
-            let tpl = if path.contains("gemma") { Template::Gemma } else { Template::ChatMl };
+            let tpl = tpl_for(path);
             assis::answer(m, tpl, &facts, &[], q).map(|a| serde_json::json!({"reply": a.reply}))
         } else {
             m.generate(&prompt, Some(&schema), 300, &mut |_| true).map_err(|e| e.to_string()).and_then(|o| reply::parse::<serde_json::Value>(&o).map_err(|e| e.to_string()))
@@ -216,8 +223,8 @@ fn label(q: &Q, text: &str) -> &'static str {
 }
 
 fn oos(m: &mut Llama, path: &str, mut embedder: Option<Llama>) {
-    let tpl = if path.contains("gemma") { Template::Gemma } else { Template::ChatMl };
-    let name = if path.contains("gemma") { "gemma3-1b" } else { "qwen3-1.7b" };
+    let tpl = tpl_for(path);
+    let name = if path.contains("gemma") { "gemma3-1b" } else if path.to_lowercase().contains("lfm") { if tpl == Template::Lfm2 { "lfm2.5-1.2b" } else { "lfm2.5-1.2b-chatml" } } else { "qwen3-1.7b" };
     let cond = if embedder.is_some() { "rag" } else { "all3" };
     let docs: Vec<String> = NOTES.iter().map(|n| format!("search_document: {n}")).collect();
     let doc_vecs = embedder.as_mut().map(|e| e.embed(&docs.iter().map(String::as_str).collect::<Vec<_>>()).unwrap());
@@ -263,7 +270,9 @@ fn oos(m: &mut Llama, path: &str, mut embedder: Option<Llama>) {
 fn main() {
     let path = std::env::args().nth(1).expect("model.gguf");
     let device = if std::env::args().any(|a| a == "cpu") { Device::Cpu } else { Device::Gpu };
+    let t_load = Instant::now();
     let mut m = Llama::load(path.as_ref(), 2048, device).unwrap();
+    eprintln!("LOAD {path} {:.2}s", t_load.elapsed().as_secs_f64());
     if std::env::args().any(|a| a == "oos") {
         let embedder = std::env::args().find_map(|a| a.strip_prefix("rag=").map(String::from)).map(|p| Llama::load(p.as_ref(), 2048, device).unwrap());
         return oos(&mut m, &path, embedder);
@@ -275,7 +284,7 @@ fn main() {
     let (mut valid, mut tokens) = (0, 0usize);
     let t0 = Instant::now();
     for q in FIXTURES {
-        let out = m.generate(&if path.contains("gemma") { gemma(SYSTEM, q) } else { chatml(SYSTEM, q) }, Some(&schema), 256, &mut |_| {
+        let out = m.generate(&tpl_for(&path).wrap(SYSTEM, q), Some(&schema), 256, &mut |_| {
             tokens += 1;
             true
         });
