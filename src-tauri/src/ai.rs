@@ -389,12 +389,14 @@ fn asks_the_model(message: &str, note_open: bool) -> bool {
 }
 
 /// One chat turn. The words of an open question's reply arrive on `on_text`
-/// as the model writes them. `open_key` is the note the student is looking at.
+/// as the model writes them. `open_key` is the note the student is looking at;
+/// `style` is the student's own "how LAR talks to me" note.
 /// The exchange is kept (encrypted, on the phone) so the chat survives a restart.
 #[tauri::command]
-pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, open_key: Option<String>, on_text: Channel<String>) -> Res<Ask> {
+pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, open_key: Option<String>, style: Option<String>, on_text: Channel<String>) -> Res<Ask> {
     let state = app.state::<AppState>();
     let mut facts = facts_for(&snapshot_of(&state)?, now);
+    facts.style = style; // the student's own note on how LAR talks; `persona::system` cleans and caps it
     let history = recent_asks(&state);
     let note = open_key.and_then(|k| open_note(&state, &k));
     let (mut sources, open) = (vec![], asks_the_model(&message, note.is_some()));
