@@ -146,3 +146,4 @@ Reuse what already exists:
 
 ## Checkpoints
 - 2026-10-25 · Step 0 done. This plan was committed. Next is Step 1 (screenshots, critique, market scan).
+- 2026-10-25 · Step 1 done. The simulator pass captured 17 screens in the Day and Night rooms plus the sign-in and dive recordings (local, `docs/review/dive-env/`). The scored critique is `reference/critique-2026-10-25.md` (UX 3, UI 2, motion 1, accessibility 2, environment 2; P0 is the flashbang from the void to a cream Today). The market scan is `reference/market-scan-2026-10-25.md`. Next is Step 2 (specs 010 C18 and C20–C21, 043, 044).
