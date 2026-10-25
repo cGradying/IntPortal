@@ -5,6 +5,7 @@
 use crate::{
     intent::{is_filipino, resolve, resolve_when, subject_in, words, Intent},
     llm::Llm,
+    persona::{self, Line, List},
     prompt::{build, Section, Template},
     reply::{self, ReplyStream},
 };
@@ -27,6 +28,8 @@ pub struct Facts {
     pub subjects: Vec<String>,
     /// (code, description) of the same subjects, to tell which one a message means.
     pub subject_names: Vec<(String, String)>,
+    /// The student's own note on how LAR should talk. Cleaned and capped by `persona::system`.
+    pub style: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,11 +45,12 @@ pub struct Answer {
     pub proposal: Option<Proposal>,
 }
 
-/// The system text of an open question; `eval -- <model> open` uses it too.
-pub const SYSTEM: &str = "You are IntAssis, a calm study helper inside a student's schedule app (PUP, Philippines). \
-Answer only from the facts and notes below. If they do not contain the answer, say so in one sentence (\"I don't have that in your notes.\" / \"Wala akong nakikita niyan sa notes mo.\") \
-and say what you can see instead. Never guess or answer a different question than the one asked. Keep it to 1-3 short sentences. \
-Reply in the language the student used (English, Filipino or Taglish). Never invent dates, grades or subjects. Reply as JSON.";
+/// Characters of facts and notes (and the system text) a prompt may hold; a
+/// 4K-token window fits it with room for the reply.
+pub const PROMPT_BUDGET: usize = 8000;
+
+/// The most characters of an open reply: about 200 tokens of Filipino, well inside the 300 the call allows.
+const REPLY_MAX: usize = 600;
 
 fn schema(intent: Intent, subjects: &[String], ask_when: bool) -> Value {
     let mut props = json!({});
@@ -67,7 +71,8 @@ fn schema(intent: Intent, subjects: &[String], ask_when: bool) -> Value {
         Intent::Cards => vec![("topic", json!({"type": "string"}))],
     };
     if intent == Intent::Ask {
-        props["reply"] = json!({"type": "string"});
+        // A rambling 1B model otherwise runs into the 300-token limit and leaves cut-off JSON.
+        props["reply"] = json!({"type": "string", "maxLength": REPLY_MAX});
     }
     let mut req: Vec<String> = props.as_object().map_or(vec![], |o| o.keys().cloned().collect());
     for (k, v) in extra {
@@ -77,29 +82,46 @@ fn schema(intent: Intent, subjects: &[String], ask_when: bool) -> Value {
     json!({"type": "object", "properties": props, "required": req})
 }
 
-/// Exact answers from the app's own data, in the student's language. None
-/// when the data is empty for a kind of question the app can't answer: the
-/// model then answers from whatever facts there are, or says it doesn't know.
-fn canned(intent: Intent, f: &Facts, fil: bool, subject: Option<&str>) -> Option<String> {
-    let lines = |head: &str, v: &[String]| format!("{head}\n{}", v.iter().map(|x| format!("- {x}")).collect::<Vec<_>>().join("\n"));
+/// Exact answers from the app's own data, in the student's language: the
+/// facts untouched, with a short lead-in and sometimes a closer from `persona`
+/// (picked by the message). None when the data is empty for a kind of question
+/// the app can't answer: the model then answers from whatever facts there are,
+/// or says it doesn't know.
+fn canned(intent: Intent, f: &Facts, msg: &str, subject: Option<&str>) -> Option<String> {
+    let fil = is_filipino(msg);
     match intent {
-        Intent::Due if f.due.is_empty() => Some(if fil { "Wala kang due sa susunod na mga araw." } else { "Nothing is due in the next few days." }.into()),
-        Intent::Due => Some(lines(if fil { "Paparating:" } else { "Coming up:" }, &f.due)),
-        Intent::Classes if f.classes_today.is_empty() => Some(if fil { "Wala kang klase ngayon." } else { "You have no classes today." }.into()),
-        Intent::Classes => Some(lines(if fil { "Mga klase mo ngayon:" } else { "Your classes today:" }, &f.classes_today)),
-        Intent::Grades if subject.is_some() => {
-            let code = subject.unwrap_or_default();
-            let mine: Vec<String> = f.standing.iter().filter(|l| l.starts_with(&format!("{code}:"))).cloned().collect();
-            Some(if mine.is_empty() {
-                if fil { format!("Wala pang grading para sa {code}. I-set up ito sa syllabus ng subject.") } else { format!("No grading is set up for {code} yet. Add it in the subject's syllabus.") }
-            } else {
-                lines(if fil { "Standing mo:" } else { "Where you stand:" }, &mine)
-            })
+        Intent::Due if f.due.is_empty() => Some(persona::line(Line::NoDue, fil, msg)),
+        Intent::Due => Some(persona::list(List::Due, &f.due, fil, msg)),
+        Intent::Classes if f.classes_today.is_empty() => Some(persona::line(Line::NoClasses, fil, msg)),
+        Intent::Classes => Some(persona::list(List::Classes, &f.classes_today, fil, msg)),
+        Intent::Grades => {
+            // Grades are read-only: asking to change one gets that said first, then where the student stands.
+            let read_only = words(msg).iter().any(|w| ["change", "edit", "baguhin", "palitan", "itaas", "taasan", "gawing"].contains(&w.as_str()));
+            let answer = match subject {
+                Some(code) => {
+                    let mine: Vec<String> = f.standing.iter().filter(|l| l.starts_with(&format!("{code}:"))).cloned().collect();
+                    if mine.is_empty() { persona::no_grading(code, fil, msg) } else { persona::list(List::Grades, &mine, fil, msg) }
+                }
+                None if f.standing.is_empty() => persona::line(Line::NoGrades, fil, msg),
+                None => persona::list(List::Grades, &f.standing, fil, msg),
+            };
+            Some(if read_only { format!("{}\n\n{answer}", persona::line(Line::ReadOnly, fil, msg)) } else { answer })
         }
-        Intent::Grades if f.standing.is_empty() => Some(if fil { "Wala pang grades na maipapakita. I-set up ang grading sa syllabus ng subject para masubaybayan ko." } else { "No grades to show yet. Set up a subject's grading in its syllabus and I can track where you stand." }.into()),
-        Intent::Grades => Some(lines(if fil { "Standing mo:" } else { "Where you stand:" }, &f.standing)),
         _ => None,
     }
+}
+
+/// A request to delete or rename a note, reminder or event. LAR has no such
+/// tool, and a 1B model asked to delete answers "Done, I've deleted them", so
+/// the answer comes from here. "Add a note: remove the bag" is not one.
+fn cannot_change(msg: &str) -> bool {
+    let w = words(msg);
+    let is = |x: &String, list: &[&str]| list.contains(&x.as_str());
+    let verb = w.iter().take(5).position(|x| is(x, &["delete", "remove", "erase", "rename", "burahin", "alisin", "tanggalin"]));
+    verb.is_some_and(|i| {
+        !w[..i].iter().any(|x| is(x, &["add", "make", "create", "save", "write", "jot", "isulat", "idagdag", "remind", "gumawa"]))
+            && w[i..].iter().any(|x| is(x, &["note", "notes", "event", "events", "reminder", "reminders", "paalala", "deck", "decks"]))
+    })
 }
 
 /// "I don't have that" without the model, when the question is about the
@@ -111,19 +133,17 @@ fn no_data(intent: Intent, f: &Facts, msg: &str, subject: Option<&str>, today: D
     let has = |list: &[&str]| w.iter().any(|x| list.contains(&x.as_str()));
     // The app only holds today's classes: "bukas" must not get today's list.
     if intent == Intent::Classes && resolve_when(msg, today).is_some_and(|d| d != today) {
-        return Some(if fil { "Klase mo lang ngayon ang nakikita ko. Itanong ulit sa araw na iyon." } else { "I only see today's classes. Ask again that day." }.into());
+        return Some(persona::line(Line::OtherDay, fil, msg));
     }
     if intent != Intent::Ask || !has(&["ko", "ako", "akin", "my", "mine"]) {
         return None;
     }
     // "Okay lang ba ako sa Math?" with no grading set up: say that, not advice from a note.
     if let Some(code) = subject.filter(|c| has(&["okay", "ok", "kumusta", "kamusta", "doing"]) && !f.standing.iter().any(|l| l.starts_with(&format!("{c}:")))) {
-        return canned(Intent::Grades, f, fil, Some(code));
+        return canned(Intent::Grades, f, msg, Some(code));
     }
     let asks_for_data = has(&["room", "silid", "prof", "professor", "teacher", "guro", "units", "tuition", "balance", "enrolled", "enrollment", "section", "attendance", "absent"]);
-    (asks_for_data && f.hits.is_empty() && f.open_note.is_none()).then(|| {
-        if fil { "Wala akong ganyan na impormasyon. Ang nakikita ko lang ay ang schedule, grades at notes mo." } else { "I don't have that. I can only see your schedule, grades and notes." }.into()
-    })
+    (asks_for_data && f.hits.is_empty() && f.open_note.is_none()).then(|| persona::line(Line::NoData, fil, msg))
 }
 
 fn date_table(today: Date) -> String {
@@ -143,14 +163,17 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let msg = msg.as_str();
     let intent = resolve(msg, facts.open_note.is_some());
     let subject = subject_in(msg, &facts.subject_names);
-    if let Some(reply) = no_data(intent, facts, msg, subject.as_deref(), today).or_else(|| canned(intent, facts, is_filipino(msg), subject.as_deref())) {
+    if cannot_change(msg) {
+        return Ok(Answer { reply: persona::line(Line::CannotChange, is_filipino(msg), msg), proposal: None });
+    }
+    if let Some(reply) = no_data(intent, facts, msg, subject.as_deref(), today).or_else(|| canned(intent, facts, msg, subject.as_deref())) {
         return Ok(Answer { reply, proposal: None });
     }
     let when = resolve_when(msg, today);
     let ask_when = intent == Intent::Remind && when.is_none();
 
     let list = |v: &[String]| v.iter().map(|s| format!("- {s}\n")).collect::<String>();
-    let recent: String = history.iter().rev().take(4).rev().map(|(s, a)| format!("Student: {s}\nIntAssis: {a}\n")).collect();
+    let recent: String = history.iter().rev().take(4).rev().map(|(s, a)| format!("Student: {s}\nLAR: {a}\n")).collect();
     let about = subject.as_ref().map(|c| format!("{c} {}", facts.subject_names.iter().find(|(k, _)| k == c).map_or("", |(_, d)| d.as_str()))).unwrap_or_default();
     let (classes, due, standing, note, hits, dates, chat) = (
         list(&facts.classes_today),
@@ -179,7 +202,9 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
         Intent::Remind => "\nThe student wants a reminder. In `text` put only the thing to be reminded of, under 10 words, no reply. Example: \"remind me to pay tuition on Monday\" -> text \"Pay tuition\".",
         Intent::Cards => "\nThe student wants flashcards. In `topic` put the topic.",
     };
-    let prompt = tpl.wrap(&build(&format!("{SYSTEM}{task}"), &live, 7000), &format!("Student: {msg}"));
+    // Only an open question chats, so only it gets the voice and the examples; a request just fills a field.
+    let system = if intent == Intent::Ask { persona::system(facts.style.as_deref()) } else { format!("{}{task}", persona::request_system()) };
+    let prompt = tpl.wrap(&build(&system, &live, PROMPT_BUDGET), &format!("Student: {msg}"));
     let mut stream = ReplyStream::default();
     let raw = llm.generate(&prompt, Some(&schema(intent, &facts.subjects, ask_when)), 300, &mut |piece| {
         if intent == Intent::Ask {
@@ -308,11 +333,14 @@ mod tests {
     fn app_data_questions_are_answered_exactly_without_the_model() {
         let mut m = FakeLlm::new(&[]);
         let a = answer(&mut m, Template::Gemma, &facts(), &[], "Ano ang due ko this week?").unwrap();
-        assert_eq!(a.reply, "Paparating:\n- Quiz 2: COMP 20073, Fri 2026-10-16");
+        assert_eq!(bullets(&a.reply), ["Quiz 2: COMP 20073, Fri 2026-10-16"]);
+        assert!(persona::leads(List::Due, true).contains(&lead(&a.reply)));
         let b = answer(&mut m, Template::Gemma, &facts(), &[], "What classes do I have today?").unwrap();
-        assert_eq!(b.reply, "Your classes today:\n- COMP 20073 9:00");
+        assert_eq!(bullets(&b.reply), ["COMP 20073 9:00"]);
+        assert!(persona::leads(List::Classes, false).contains(&lead(&b.reply)));
         let none = Facts { today: Some(THU), ..Facts::default() };
-        assert_eq!(answer(&mut m, Template::Gemma, &none, &[], "anong klase ko ngayon").unwrap().reply, "Wala kang klase ngayon.");
+        let c = answer(&mut m, Template::Gemma, &none, &[], "anong klase ko ngayon").unwrap().reply;
+        assert!(persona::lines(Line::NoClasses, true).contains(&c.as_str()), "{c}");
         assert!(m.prompts.is_empty());
     }
 
@@ -366,10 +394,14 @@ mod tests {
             subject_names: vec![("MATH 101".into(), "Mathematics".into()), ("COMP 20073".into(), "Data Structures".into()), ("ENGL 100".into(), "English".into())],
             ..facts()
         };
-        assert_eq!(answer(&mut m, Template::Gemma, &f, &[], "Bagsak ba ako sa Math?").unwrap().reply, "Standing mo:\n- MATH 101: 86% so far");
-        assert_eq!(answer(&mut m, Template::Gemma, &f, &[], "what is my grade in english").unwrap().reply, "No grading is set up for ENGL 100 yet. Add it in the subject's syllabus.");
+        let mine = answer(&mut m, Template::Gemma, &f, &[], "Bagsak ba ako sa Math?").unwrap().reply;
+        assert_eq!(bullets(&mine), ["MATH 101: 86% so far"]);
+        assert!(persona::leads(List::Grades, true).contains(&lead(&mine)));
+        let eng = answer(&mut m, Template::Gemma, &f, &[], "what is my grade in english").unwrap().reply;
+        assert!(eng.contains("ENGL 100") && eng.contains("syllabus") && !eng.contains('%'), "{eng}");
         let none = Facts { today: Some(THU), ..Facts::default() };
-        assert!(answer(&mut m, Template::Gemma, &none, &[], "what's my GWA?").unwrap().reply.starts_with("No grades to show yet"));
+        let r = answer(&mut m, Template::Gemma, &none, &[], "what's my GWA?").unwrap().reply;
+        assert!(persona::lines(Line::NoGrades, false).contains(&r.as_str()), "{r}");
         assert!(m.prompts.is_empty(), "exact answers never reach the model");
     }
 
@@ -425,19 +457,29 @@ mod tests {
         }
     }
 
+    /// The "- fact" lines of a rule answer.
+    fn bullets(r: &str) -> Vec<&str> {
+        r.lines().filter_map(|l| l.strip_prefix("- ")).collect()
+    }
+
+    fn lead(r: &str) -> &str {
+        r.lines().next().unwrap_or("")
+    }
+
     // C10: schedule and grades questions never reach the model, in either language.
     #[test]
     fn empty_schedule_and_deadlines_are_answered_plainly_in_both_languages() {
         let f = bare();
-        for (msg, want) in [
-            ("what is due this week", "Nothing is due in the next few days."),
-            ("Ano ang due ko ngayon", "Wala kang due sa susunod na mga araw."),
-            ("do i have classes today", "You have no classes today."),
-            ("may klase ba ako ngayon", "Wala kang klase ngayon."),
-            ("When is my next exam?", "Nothing is due in the next few days."),
-            ("Kailan ang pasahan ko?", "Wala kang due sa susunod na mga araw."),
+        for (msg, kind, fil) in [
+            ("what is due this week", Line::NoDue, false),
+            ("Ano ang due ko ngayon", Line::NoDue, true),
+            ("do i have classes today", Line::NoClasses, false),
+            ("may klase ba ako ngayon", Line::NoClasses, true),
+            ("When is my next exam?", Line::NoDue, false),
+            ("Kailan ang pasahan ko?", Line::NoDue, true),
         ] {
-            assert_eq!(reply_of(&f, msg), want, "{msg}");
+            let r = reply_of(&f, msg);
+            assert!(persona::lines(kind, fil).contains(&r.as_str()), "{msg}: {r}");
         }
     }
 
@@ -446,14 +488,16 @@ mod tests {
         let f = bare();
         let en = reply_of(&f, "what's my GWA?");
         let tl = reply_of(&f, "ano ang GWA ko?");
-        assert_eq!(en, "No grades to show yet. Set up a subject's grading in its syllabus and I can track where you stand.");
-        assert_eq!(tl, "Wala pang grades na maipapakita. I-set up ang grading sa syllabus ng subject para masubaybayan ko.");
+        assert!(persona::lines(Line::NoGrades, false).contains(&en.as_str()), "{en}");
+        assert!(persona::lines(Line::NoGrades, true).contains(&tl.as_str()), "{tl}");
         for r in [&en, &tl] {
-            assert!(!r.contains('%') && !r.contains("\n- "), "{r}");
+            assert!(!r.contains('%') && !r.contains("\n- ") && r.contains("syllabus"), "{r}");
         }
         // A subject that has no grading in the list says so, in the student's language.
         let f = Facts { standing: vec!["MATH 101: 86% so far".into()], ..rich() };
-        assert_eq!(reply_of(&f, "ano ang grade ko sa english"), "Wala pang grading para sa ENGL 100. I-set up ito sa syllabus ng subject.");
+        let r = reply_of(&f, "ano ang grade ko sa english");
+        assert_eq!(r, persona::no_grading("ENGL 100", true, "ano ang grade ko sa english"));
+        assert!(r.contains("ENGL 100") && r.contains("syllabus") && r.starts_with("Wala"), "{r}");
     }
 
     #[test]
@@ -463,21 +507,30 @@ mod tests {
             due: vec!["Quiz 2: COMP 20073, Fri 2026-10-16".into(), "Essay: ENGL 100, Mon 2026-10-19".into()],
             ..rich()
         };
-        assert_eq!(reply_of(&f, "anong klase ko ngayon"), "Mga klase mo ngayon:\n- COMP 20073 9:00\n- MATH 101 13:00");
-        assert_eq!(reply_of(&f, "which classes today"), "Your classes today:\n- COMP 20073 9:00\n- MATH 101 13:00");
-        assert_eq!(reply_of(&f, "may pasahan ba ako"), "Paparating:\n- Quiz 2: COMP 20073, Fri 2026-10-16\n- Essay: ENGL 100, Mon 2026-10-19");
-        assert_eq!(reply_of(&f, "what's due"), "Coming up:\n- Quiz 2: COMP 20073, Fri 2026-10-16\n- Essay: ENGL 100, Mon 2026-10-19");
-        assert_eq!(reply_of(&f, "ano ang gwa ko"), "Standing mo:\n- MATH 101: 86% so far\n- COMP 20073: 70% so far");
-        assert_eq!(reply_of(&f, "what is my gwa"), "Where you stand:\n- MATH 101: 86% so far\n- COMP 20073: 70% so far");
+        let classes = ["COMP 20073 9:00", "MATH 101 13:00"];
+        let due = ["Quiz 2: COMP 20073, Fri 2026-10-16", "Essay: ENGL 100, Mon 2026-10-19"];
+        let standing = ["MATH 101: 86% so far", "COMP 20073: 70% so far"];
+        for (msg, kind, fil, facts) in [
+            ("anong klase ko ngayon", List::Classes, true, &classes[..]),
+            ("which classes today", List::Classes, false, &classes[..]),
+            ("may pasahan ba ako", List::Due, true, &due[..]),
+            ("what's due", List::Due, false, &due[..]),
+            ("ano ang gwa ko", List::Grades, true, &standing[..]),
+            ("what is my gwa", List::Grades, false, &standing[..]),
+        ] {
+            let r = reply_of(&f, msg);
+            assert!(persona::leads(kind, fil).contains(&lead(&r)), "{msg}: {r}");
+            assert_eq!(bullets(&r), facts, "{msg}: the facts, exact and in order");
+        }
     }
 
     #[test]
     fn a_grade_question_about_an_unknown_or_ambiguous_subject_shows_all_standings() {
         let f = Facts { subject_names: vec![("MATH 101".into(), "Algebra".into()), ("MATH 102".into(), "Calculus".into())], ..rich() };
-        let all = "Where you stand:\n- MATH 101: 86% so far\n- COMP 20073: 70% so far";
-        assert_eq!(reply_of(&f, "what is my grade in math"), all, "two MATH subjects: no guessing");
-        assert_eq!(reply_of(&f, "what is my grade in history"), all, "no such subject");
-        assert_eq!(reply_of(&f, "grade in math 101"), "Where you stand:\n- MATH 101: 86% so far", "named exactly");
+        let all = ["MATH 101: 86% so far", "COMP 20073: 70% so far"];
+        assert_eq!(bullets(&reply_of(&f, "what is my grade in math")), all, "two MATH subjects: no guessing");
+        assert_eq!(bullets(&reply_of(&f, "what is my grade in history")), all, "no such subject");
+        assert_eq!(bullets(&reply_of(&f, "grade in math 101")), ["MATH 101: 86% so far"], "named exactly");
     }
 
     #[test]
@@ -485,7 +538,8 @@ mod tests {
         let mut m = FakeLlm::new(&[]);
         let hist = vec![("hi".to_string(), "hello".to_string())];
         let long = format!("what is due {}", "please ".repeat(200));
-        assert!(answer(&mut m, Template::ChatMl, &rich(), &hist, &long).unwrap().reply.starts_with("Coming up:"));
+        let r = answer(&mut m, Template::ChatMl, &rich(), &hist, &long).unwrap().reply;
+        assert!(persona::leads(List::Due, false).contains(&lead(&r)) && bullets(&r).len() == 1, "{r}");
         assert!(m.prompts.is_empty());
     }
 
@@ -645,8 +699,8 @@ mod tests {
         let p = &m.prompts[0];
         assert!(!p.contains("question 1") && !p.contains("question 2") && !p.contains("answer 2"));
         let at = |s: &str| p.find(s).unwrap_or_else(|| panic!("{s} missing"));
-        assert!(at("Student: question 3\nIntAssis: answer 3") < at("Student: question 4\nIntAssis: answer 4"));
-        assert!(at("Student: question 5\nIntAssis: answer 5") < at("Student: question 6\nIntAssis: answer 6"), "oldest first");
+        assert!(at("Student: question 3\nLAR: answer 3") < at("Student: question 4\nLAR: answer 4"));
+        assert!(at("Student: question 5\nLAR: answer 5") < at("Student: question 6\nLAR: answer 6"), "oldest first");
         assert!(at("## Conversation so far") < at("Student: question 3"));
         assert!(p.ends_with("Student: and now?<end_of_turn>\n<start_of_turn>model\n"));
     }
@@ -656,7 +710,7 @@ mod tests {
         let mut m = FakeLlm::new(&[r#"{"reply":"ok"}"#, r#"{"reply":"ok"}"#]);
         let hist = vec![("only q".to_string(), "only a".to_string())];
         answer(&mut m, Template::Gemma, &facts(), &hist, "next").unwrap();
-        assert!(m.prompts[0].contains("Student: only q\nIntAssis: only a"));
+        assert!(m.prompts[0].contains("Student: only q\nLAR: only a"));
         answer(&mut m, Template::Gemma, &facts(), &[], "next").unwrap();
         assert!(!m.prompts[1].contains("Conversation so far"));
     }
@@ -686,7 +740,7 @@ mod tests {
         let mut m = FakeLlm::new(&[r#"{"reply":"ok"}"#]);
         answer(&mut m, Template::Gemma, &f, &hist, "ano ang chain rule?").unwrap();
         let p = &m.prompts[0];
-        assert!(p.chars().count() <= 7000 + 150, "7000 for the facts plus the question and template: {}", p.chars().count());
+        assert!(p.chars().count() <= PROMPT_BUDGET + 150, "the budget for the system text and facts, plus the question and template: {}", p.chars().count());
         assert!(p.contains("Quiz 2: COMP 20073, Fri 2026-10-16") && p.contains("COMP 20073 9:00"), "today and deadlines survive");
         assert!(p.contains("## Open note") && p.contains("nnnn…"), "the note is cut, not dropped");
         assert!(!p.contains("Conversation so far") && !p.contains("## Grades"), "lower priority goes before the note");
@@ -778,6 +832,7 @@ mod tests {
         let ask = schema(Intent::Ask, &subs, false);
         assert_eq!(req(&ask), ["reply"]);
         assert_eq!(ask["properties"].as_object().unwrap().len(), 1);
+        assert_eq!(ask["properties"]["reply"]["maxLength"], 600, "a long reply ends as JSON, not cut off by the token limit");
 
         let note = schema(Intent::Note, &subs, false);
         assert_eq!(note["properties"]["subject"]["enum"], json!(["MATH 101", "COMP 20073", "none"]), "only real subjects, plus none");
@@ -798,8 +853,8 @@ mod tests {
         let mut m = FakeLlm::new(&[r#"{"reply":"a"}"#, r#"{"reply":"b"}"#]);
         answer(&mut m, Template::ChatMl, &facts(), &[], "hello").unwrap();
         answer(&mut m, Template::Gemma, &facts(), &[], "hello").unwrap();
-        assert!(m.prompts[0].starts_with("<|im_start|>system\nYou are IntAssis"));
-        assert!(m.prompts[1].starts_with("<start_of_turn>user\nYou are IntAssis"));
+        assert!(m.prompts[0].starts_with("<|im_start|>system\nYou are LAR"));
+        assert!(m.prompts[1].starts_with("<start_of_turn>user\nYou are LAR"));
     }
 
     #[test]
@@ -817,15 +872,17 @@ mod tests {
     fn a_personal_question_with_nothing_to_answer_it_gets_a_canned_refusal_not_the_model() {
         let mut m = FakeLlm::new(&[]);
         let f = rich(); // no hits, no open note
-        for (msg, want) in [
-            ("Anong oras ang klase ko bukas?", "Klase mo lang ngayon ang nakikita ko. Itanong ulit sa araw na iyon."),
-            ("what's the room of my class tomorrow", "I only see today's classes. Ask again that day."),
-            ("Sino ang prof ko sa Math?", "Wala akong ganyan na impormasyon. Ang nakikita ko lang ay ang schedule, grades at notes mo."),
-            ("how much is my tuition balance", "I don't have that. I can only see your schedule, grades and notes."),
-            ("Okay lang ba ako sa English?", "Wala pang grading para sa ENGL 100. I-set up ito sa syllabus ng subject."),
+        for (msg, kind, fil) in [
+            ("Anong oras ang klase ko bukas?", Line::OtherDay, true),
+            ("what's the room of my class tomorrow", Line::OtherDay, false),
+            ("Sino ang prof ko sa Math?", Line::NoData, true),
+            ("how much is my tuition balance", Line::NoData, false),
         ] {
-            assert_eq!(answer(&mut m, Template::Gemma, &f, &[], msg).unwrap().reply, want, "{msg}");
+            let r = answer(&mut m, Template::Gemma, &f, &[], msg).unwrap().reply;
+            assert!(persona::lines(kind, fil).contains(&r.as_str()), "{msg}: {r}");
         }
+        let r = answer(&mut m, Template::Gemma, &f, &[], "Okay lang ba ako sa English?").unwrap().reply;
+        assert!(r.contains("ENGL 100") && r.contains("syllabus") && r.starts_with("Wala"), "{r}");
         assert!(m.prompts.is_empty(), "none of these reach the model");
     }
 
@@ -835,11 +892,122 @@ mod tests {
         let mut m = FakeLlm::new(&[r#"{"reply":"75%."}"#, r#"{"reply":"Try Pomodoro."}"#, r#"{"reply":"Passing is 75%."}"#]);
         // a personal word with a note that may hold the answer
         assert_eq!(answer(&mut m, Template::Gemma, &f, &[], "Anong oras ko dapat i-review ang chain rule?").unwrap().reply, "75%.");
-        assert!(m.prompts[0].contains("review the chain rule at 7pm") && m.prompts[0].contains("do not contain the answer"));
+        assert!(m.prompts[0].contains("review the chain rule at 7pm") && m.prompts[0].contains("If they don't say"));
         // general advice with no hits at all
         assert_eq!(answer(&mut m, Template::Gemma, &rich(), &[], "paano ako magfo-focus sa pag-aaral?").unwrap().reply, "Try Pomodoro.");
         // a wellbeing question about a subject that has a standing
         answer(&mut m, Template::Gemma, &rich(), &[], "Okay lang ba ako sa Math?").unwrap();
         assert_eq!(m.prompts.len(), 3);
+    }
+
+    // #165: the persona, the facts and the student's own style note reach the prompt; no sentence cap.
+    #[test]
+    fn an_open_question_gets_the_persona_the_examples_and_the_facts_and_no_sentence_cap() {
+        let mut m = FakeLlm::new(&[r#"{"reply":"ok"}"#]);
+        answer(&mut m, Template::Gemma, &rich(), &[], "how do I focus on studying?").unwrap();
+        let p = &m.prompts[0];
+        assert!(p.contains("You are LAR") && p.contains("Examples (made-up") && p.contains("Rules that always win") && p.contains("read-only"));
+        assert!(p.contains("Quiz 2: COMP 20073, Fri 2026-10-16") && p.contains("COMP 20073 9:00"), "the student's facts");
+        assert!(!p.contains("1-3") && !p.contains("Keep it to"), "length follows the information");
+        assert!(p.find("Examples").unwrap() < p.find("## Today").unwrap(), "voice first, then facts");
+    }
+
+    #[test]
+    fn a_request_gets_the_short_system_text_without_the_examples() {
+        let mut m = FakeLlm::new(&[r#"{"text":"pay tuition"}"#]);
+        answer(&mut m, Template::Gemma, &rich(), &[], "remind me bukas to pay tuition").unwrap();
+        let p = &m.prompts[0];
+        assert!(p.contains("You are LAR") && p.contains("read-only") && p.contains("The student wants a reminder"));
+        assert!(!p.contains("Examples (made-up") && !p.contains("Answer first"));
+    }
+
+    #[test]
+    fn the_students_style_note_reaches_an_open_question_after_the_rules_and_never_a_request() {
+        let f = Facts { style: Some("Call me Ate and keep it playful.".into()), ..rich() };
+        let mut m = FakeLlm::new(&[r#"{"reply":"ok"}"#, r#"{"text":"pay"}"#]);
+        answer(&mut m, Template::Gemma, &f, &[], "paano mag-focus?").unwrap();
+        let p = &m.prompts[0];
+        assert!(p.find("Rules that always win").unwrap() < p.find("Call me Ate").unwrap(), "the safety rules come first");
+        assert!(p.find("Examples").unwrap() < p.find("Call me Ate").unwrap() && p.find("Call me Ate").unwrap() < p.find("## Today").unwrap());
+        answer(&mut m, Template::Gemma, &f, &[], "remind me bukas to pay").unwrap();
+        assert!(!m.prompts[1].contains("Call me Ate"));
+    }
+
+    #[test]
+    fn a_rule_answer_with_n_facts_always_has_all_n_in_order_in_both_languages() {
+        for n in 1..=8 {
+            let items: Vec<String> = (1..=n).map(|i| format!("Item {i}: SUBJ {i}, Fri 2026-10-{:02}", 15 + i)).collect();
+            let f = Facts { due: items.clone(), classes_today: items.clone(), standing: items.clone(), ..rich() };
+            for msg in ["what is due?", "Ano ang due ko?", "ano due this week", "what's due on friday", "kailan ang deadline", "which classes today", "anong klase ko ngayon", "may klase ba ako?", "what are my grades", "ano ang grades ko", "how's my gwa", "ano ang standing ko ngayon"] {
+                let r = reply_of(&f, msg);
+                assert_eq!(bullets(&r), items, "n={n} {msg}: {r}");
+                assert!(r.starts_with(lead(&r)) && !lead(&r).starts_with("- "), "a lead-in comes first: {r}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_filipino_message_gets_filipino_wording_and_an_english_one_gets_english() {
+        let f = Facts { due: vec!["Quiz 2".into()], classes_today: vec!["COMP".into()], standing: vec!["MATH 101: 86%".into()], ..rich() };
+        for i in 0..30 {
+            for (msg, fil) in [(format!("ano ang due ko {i}"), true), (format!("what is due {i}"), false)] {
+                let r = reply_of(&f, &msg);
+                let l = lead(&r);
+                assert!(persona::leads(List::Due, fil).contains(&l) && !persona::leads(List::Due, !fil).contains(&l), "{msg}: {l}");
+            }
+            let r = reply_of(&bare(), &format!("anong klase ko ngayon {i}"));
+            assert!(persona::lines(Line::NoClasses, true).contains(&r.as_str()), "{r}");
+        }
+    }
+
+    #[test]
+    fn the_same_message_gets_the_same_words_and_other_messages_get_other_words() {
+        let f = Facts { due: vec!["Quiz 2".into()], ..rich() };
+        assert_eq!(reply_of(&f, "what is due 7"), reply_of(&f, "what is due 7"));
+        let leads: std::collections::HashSet<String> = (0..40).map(|i| lead(&reply_of(&f, &format!("what is due {i}"))).to_string()).collect();
+        assert!(leads.len() >= 3, "variants are used: {leads:?}");
+    }
+
+    #[test]
+    fn an_overdue_or_failing_list_gets_the_same_neutral_lead_and_never_good_news() {
+        let f = Facts { due: vec!["Quiz 1: COMP 20073, Mon 2026-10-12 (overdue)".into()], standing: vec!["MATH 101: 52% so far, needs 98% on the rest for 75%".into()], ..rich() };
+        for i in 0..40 {
+            for msg in [format!("what is due {i}"), format!("ano ang due ko {i}"), format!("how are my grades {i}"), format!("ano ang grades ko {i}")] {
+                let r = reply_of(&f, &msg).to_lowercase();
+                for bad in ["good news", "great", "congrat", "relax", "don't worry", "on track", "doing well", "magaling"] {
+                    assert!(!r.contains(bad), "{msg}: {r}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn asking_to_delete_or_rename_is_refused_by_the_rules_and_never_reaches_the_model() {
+        let mut m = FakeLlm::new(&[]);
+        for (msg, fil) in [
+            ("Please delete all my notes", false),
+            ("delete my MATH 101 note", false),
+            ("can you rename my event", false),
+            ("Burahin mo ang mga notes ko", true),
+            ("pwede bang tanggalin yung reminder ko", true),
+        ] {
+            let a = answer(&mut m, Template::Gemma, &rich(), &[], msg).unwrap();
+            assert!(persona::lines(Line::CannotChange, fil).contains(&a.reply.as_str()) && a.proposal.is_none(), "{msg}: {}", a.reply);
+        }
+        assert!(m.prompts.is_empty());
+        // Adding or reminding is not deleting, even with the word in it.
+        let mut m = FakeLlm::new(&[r#"{"reply":"ok","text":"remove calculator","subject":"none"}"#, r#"{"text":"delete the draft"}"#]);
+        assert!(answer(&mut m, Template::Gemma, &rich(), &[], "add a note: remove calculator from the bag").unwrap().proposal.is_some());
+        assert!(answer(&mut m, Template::Gemma, &rich(), &[], "remind me bukas to delete the draft").unwrap().proposal.is_some());
+    }
+
+    #[test]
+    fn asking_to_change_a_grade_is_told_they_are_read_only_and_still_shown_where_they_stand() {
+        for (msg, fil) in [("Can you change my MATH 101 grade to 90?", false), ("Pwede mo bang palitan ang grade ko sa Math?", true)] {
+            let r = reply_of(&rich(), msg);
+            assert!(persona::lines(Line::ReadOnly, fil).contains(&lead(&r)), "{msg}: {r}");
+            assert_eq!(bullets(&r), ["MATH 101: 86% so far"]);
+        }
+        assert!(!persona::all_variants().iter().any(|v| v.contains("updated")), "no wording says a grade was changed");
     }
 }

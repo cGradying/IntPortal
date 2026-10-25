@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { cancel, isPermissionGranted, pending as devicePending } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { apply, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, newChat, noteAi, open, refresh, remove, stop, type ModelInfo } from "./assis.svelte";
+import { apply, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -480,6 +480,42 @@ describe("applying a proposal", () => {
     expect(assis.chat[0].problem).toMatch(/couldn't make cards/);
     expect(assis.chat[0].state).toBe("pending");
     expect(assis.busy).toBe("");
+  });
+});
+
+describe("how LAR talks to me", () => {
+  let store: Map<string, string>;
+  beforeEach(() => {
+    store = new Map();
+    vi.stubGlobal("localStorage", { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) });
+  });
+
+  it("keeps the note trimmed and cut at 200 characters, and an empty note removes it", () => {
+    setLarStyle("  Call me Ate.  ");
+    expect(larStyle()).toBe("Call me Ate.");
+    setLarStyle("x".repeat(500));
+    expect(larStyle()).toHaveLength(STYLE_MAX);
+    expect(STYLE_MAX).toBe(200);
+    setLarStyle("   ");
+    expect(larStyle()).toBe("");
+    expect(store.has("larStyle")).toBe(false);
+  });
+
+  it("sends the note with the question, and null when there is none", async () => {
+    backend.ai_ask = () => reply("ok");
+    await ask("hello");
+    expect(ran("ai_ask")[0][1].style).toBeNull();
+    setLarStyle("Taglish, a bit playful");
+    await ask("hello again");
+    expect(ran("ai_ask")[1][1].style).toBe("Taglish, a bit playful");
+  });
+
+  it("asks without a note when storage is off", async () => {
+    vi.stubGlobal("localStorage", { getItem: () => { throw new Error("off"); }, setItem: () => { throw new Error("off"); }, removeItem: () => { throw new Error("off"); } });
+    backend.ai_ask = () => reply("ok");
+    setLarStyle("kept this session only?");
+    await ask("hello");
+    expect(ran("ai_ask")[0][1].style).toBeNull();
   });
 });
 

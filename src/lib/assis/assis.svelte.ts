@@ -163,6 +163,29 @@ export function stop() {
   invoke("ai_cancel").catch(() => {});
 }
 
+const STYLE_KEY = "larStyle";
+/** The most characters of the student's own note on how LAR talks; the core cuts at the same length. */
+export const STYLE_MAX = 200;
+
+/** The student's own note on how LAR should talk, kept on this phone. It only shapes tone: LAR's rules come first. */
+export function larStyle(): string {
+  try {
+    return (localStorage.getItem(STYLE_KEY) ?? "").slice(0, STYLE_MAX);
+  } catch {
+    return "";
+  }
+}
+
+export function setLarStyle(text: string) {
+  const clean = text.trim().slice(0, STYLE_MAX);
+  try {
+    if (clean) localStorage.setItem(STYLE_KEY, clean);
+    else localStorage.removeItem(STYLE_KEY);
+  } catch {
+    // Storage off: the note lasts until the app closes.
+  }
+}
+
 export async function ask(text: string) {
   const message = text.trim();
   if (!message || assis.busy) return;
@@ -180,7 +203,7 @@ export async function ask(text: string) {
   const onText = new Channel<string>();
   onText.onmessage = (words) => (reply.text += words);
   try {
-    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[] }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, onText });
+    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[] }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, style: larStyle() || null, onText });
     reply.text = r.reply;
     reply.sources = r.sources.length ? r.sources : undefined;
     if (r.proposal) [reply.proposal, reply.state] = [r.proposal, "pending"];

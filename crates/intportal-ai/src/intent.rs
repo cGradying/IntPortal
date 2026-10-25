@@ -59,7 +59,9 @@ pub fn resolve(msg: &str, note_open: bool) -> Intent {
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
 pub fn is_filipino(msg: &str) -> bool {
     // "may" is left out on purpose: it is also the English word ("May I see my classes").
-    const FIL: [&str; 15] = ["ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "po", "lang"];
+    const FIL: [&str; 27] = [
+        "ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "po", "lang", "salamat", "kumusta", "kamusta", "paano", "pano", "bakit", "sino", "pwede", "hindi", "wala", "yung", "natin",
+    ];
     words(msg).iter().filter(|w| FIL.contains(&w.as_str())).count() >= 1
 }
 
@@ -245,7 +247,7 @@ mod tests {
 
     #[test]
     fn filipino_is_spotted_by_any_one_marker_word() {
-        for msg in ["Kumusta po", "Wala akong pasahan", "Ano ang GWA ko", "ok lang", "BUKAS ba?"] {
+        for msg in ["Kumusta po", "Wala akong pasahan", "Ano ang GWA ko", "ok lang", "BUKAS ba?", "salamat ha", "Kumusta LAR!", "paano ba?", "Sino ang prof ko"] {
             assert!(is_filipino(msg), "{msg}");
         }
         for msg in ["Hello there", "What is due this week", "Summarize my notes", "go"] {
