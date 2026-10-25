@@ -57,21 +57,30 @@ pub const CATALOG: [Model; 4] = [
         kv_bytes_per_1k: 115_000_000,
     },
     Model {
-        id: "nomic-embed-v1.5",
-        name: "nomic-embed-text v1.5",
+        id: "embeddinggemma-2",
+        name: "EmbeddingGemma-2",
         kind: Kind::Embed,
-        file: "nomic-embed-text-v1.5.Q4_K_M.gguf",
-        url: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf",
-        sha256: "d4e388894e09cf3816e8b0896d81d265b55e7a9fff9ab03fe8bf4ef5e11295ac",
-        bytes: 84_106_624,
-        n_ctx: 2048,
-        kv_bytes_per_1k: 20_000_000,
+        file: "embeddinggemma-2-Q8_0.gguf",
+        url: "https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/main/embeddinggemma-2-Q8_0.gguf",
+        sha256: "2188ac1deca4b77dffefd603c2776a9d76d9d74ec01841392982ebb840b09135",
+        bytes: 309_855_456,
+        // Peak RSS of `/usr/bin/time -l embed <gguf> <n_ctx>` (Apple Silicon, Metal or CPU alike): 518,
+        // 522 and 523 MB at n_ctx 512, 1024 and 2048, against 310 MB of weights. The context barely
+        // matters (4 MB across 512 to 2048); the 210 MB on top is compute buffers and the 262k-token
+        // vocabulary. Kept as a per-1k figure so `gate` sees weights plus that overhead at 1024.
+        n_ctx: 1024,
+        kv_bytes_per_1k: 200_000_000,
     },
 ];
 
 /// Picked by the A2 eval: 20/20 valid JSON and the most natural Taglish of the three (see PR #87).
 pub const DEFAULT_CHAT: &str = "gemma3-1b";
-pub const EMBED: &str = "nomic-embed-v1.5";
+pub const EMBED: &str = "embeddinggemma-2";
+
+/// The embedder before EmbeddingGemma-2 (nomic-embed-text v1.5, 84 MB). It is no
+/// longer in the catalog; its file is deleted when the new embedder lands or the
+/// student removes IntAssis, so nobody keeps 84 MB nothing reads.
+pub const LEGACY_EMBED_FILES: [&str; 1] = ["nomic-embed-text-v1.5.Q4_K_M.gguf"];
 
 pub fn find(id: &str) -> Option<&'static Model> {
     CATALOG.iter().find(|m| m.id == id)
@@ -113,6 +122,14 @@ mod tests {
         assert!(find("nope").is_none());
         assert_eq!(find(DEFAULT_CHAT).unwrap().kind, Kind::Chat);
         assert_eq!(find(EMBED).unwrap().kind, Kind::Embed);
+    }
+
+    #[test]
+    fn the_embedder_is_embeddinggemma_2_and_nomic_is_only_a_file_to_clean_up() {
+        let m = find(EMBED).unwrap();
+        assert_eq!((m.id, m.file, m.bytes, m.kind), ("embeddinggemma-2", "embeddinggemma-2-Q8_0.gguf", 309_855_456, Kind::Embed));
+        assert_eq!(CATALOG.len(), 4);
+        assert!(CATALOG.iter().all(|c| !LEGACY_EMBED_FILES.contains(&c.file) && !c.id.contains("nomic")));
     }
 
     #[test]
