@@ -179,6 +179,18 @@ mod tests {
     }
 
     #[test]
+    fn a_lower_floor_also_returns_the_near_hits_with_their_scores() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).set_note("note:a", "binary tree", None, 1).unwrap();
+        db(&store).set_note("note:b", "tuition due Monday", None, 1).unwrap();
+        let mut llm = Topics(vec![]);
+        assert_eq!(keys(&search(&store, &mut llm, "m", "tree", 4).unwrap()), ["note:a"], "the floor drops the unrelated note");
+        let wide = search_from(&store, &mut llm, "m", "tree", 4, FLOOR - NEAR - 1.0).unwrap();
+        assert_eq!(keys(&wide), ["note:a", "note:b"]);
+        assert!(wide[0].score >= FLOOR && wide[1].score < FLOOR - NEAR, "the score tells a clear hit from a near one");
+    }
+
+    #[test]
     fn prefixes_follow_embeddinggemma_2() {
         assert_eq!(doc_text("Math 101", "limits"), "title: Math 101 | text: limits");
         assert_eq!(doc_text("  ", "limits"), "title: none | text: limits");
