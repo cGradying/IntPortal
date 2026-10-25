@@ -78,8 +78,10 @@ pub fn resolve(msg: &str, note_open: bool) -> Intent {
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
 pub fn is_filipino(msg: &str) -> bool {
     // "may" is left out on purpose: it is also the English word ("May I see my classes").
-    const FIL: [&str; 29] = [
+    const FIL: &[&str] = &[
         "gumawa", "gawan", "ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "po", "lang", "salamat", "kumusta", "kamusta", "paano", "pano", "bakit", "sino", "pwede", "hindi", "wala", "yung", "natin",
+        // short messages with none of the above ("Ayoko nang mabuhay.", a joke that starts "Anong tawag sa ...")
+        "sa", "ng", "nang", "anong", "gaano", "magkano", "saan", "ilang", "ayoko", "ayaw", "gusto", "kasi", "tayo", "namin", "niya", "nalulungkot", "malungkot", "pagod", "dapat", "nasa", "sana", "din", "rin",
     ];
     words(msg).iter().filter(|w| FIL.contains(&w.as_str())).count() >= 1
 }

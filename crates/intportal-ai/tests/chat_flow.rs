@@ -1,8 +1,7 @@
 //! A whole chat through the public API, the way `ai_ask` drives it: each
 //! open question's exchange feeds the next one; requests and exact answers do not.
 use intportal_ai::{
-    assis::{answer, answer_streaming, friendly, Facts, Proposal},
-    intent::{detect, Intent},
+    assis::{answer, answer_streaming, friendly, Facts, Proposal, Route},
     llm::FakeLlm,
     prompt::Template,
 };
@@ -18,6 +17,8 @@ fn facts() -> Facts {
         standing: vec!["MATH 101: 86% so far".into()],
         subjects: vec!["COMP 20073".into(), "MATH 101".into()],
         subject_names: vec![("MATH 101".into(), "Mathematics".into()), ("COMP 20073".into(), "Data Structures".into())],
+        // the search found a note, so an open question is in scope and reaches the model
+        hits: vec!["MATH 101 · Mathematics: the chain rule multiplies derivatives".into()],
         ..Facts::default()
     }
 }
@@ -29,7 +30,7 @@ fn only_open_questions_become_history_for_the_next_turn() {
     let chat = |llm: &mut FakeLlm, history: &mut Vec<(String, String)>, msg: &str| {
         let a = answer(llm, Template::Gemma, &facts(), history, msg).unwrap();
         // ai.rs keeps a turn as "ask" only when the model itself answered an open question.
-        if detect(msg) == Intent::Ask {
+        if a.route == Route::Model {
             history.push((msg.to_string(), a.reply.clone()));
         }
         a
@@ -66,7 +67,7 @@ fn a_whole_taglish_session_stays_plain_and_never_leaks_errors() {
 // C3: the notes LAR was shown are in the prompt for an open question, so the chip can name them.
 #[test]
 fn search_hits_reach_the_model_only_for_open_questions() {
-    let f = Facts { hits: vec!["MATH 101 · Mathematics: the chain rule multiplies derivatives".into()], ..facts() };
+    let f = facts();
     let mut llm = FakeLlm::new(&[r#"{"reply":"ok"}"#, r#"{"topic":"chain rule"}"#]);
     answer(&mut llm, Template::Gemma, &f, &[], "paano gamitin ang chain rule?").unwrap();
     answer(&mut llm, Template::Gemma, &f, &[], "gawan mo ako ng flashcards sa chain rule").unwrap();
