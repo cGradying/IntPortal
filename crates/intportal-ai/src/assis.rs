@@ -231,10 +231,75 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let reply = match (&proposal, intent) {
         (Some(p), _) => confirm(p, fil),
         (None, Intent::Ask) if s("reply").is_empty() => return Err("the reply came back empty".into()), // never a blank bubble
-        (None, Intent::Ask) => s("reply"),
+        (None, Intent::Ask) => postcheck(&s("reply"), msg),
         (None, _) => if fil { "Hindi ko nakuha iyon. Pwede mo bang ulitin?" } else { "I didn't catch that. Could you say it again?" }.into(),
     };
     Ok(Answer { reply, proposal })
+}
+
+/// Lower-case letters and digits only, so a copy matches whatever its punctuation or capitals.
+fn norm(s: &str) -> String {
+    s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+}
+
+/// The sentences of `text`, each with its ending mark.
+fn sentences(text: &str) -> Vec<&str> {
+    let mut out = vec![];
+    let mut start = 0;
+    let chars: Vec<(usize, char)> = text.char_indices().collect();
+    for (k, &(i, c)) in chars.iter().enumerate() {
+        let ends = matches!(c, '.' | '!' | '?') && chars.get(k + 1).is_none_or(|&(_, n)| n.is_whitespace());
+        if ends {
+            let end = i + c.len_utf8();
+            out.push(text[start..end].trim());
+            start = end;
+        }
+    }
+    if !text[start..].trim().is_empty() {
+        out.push(text[start..].trim());
+    }
+    out
+}
+
+/// A sentence that says the model has no answer ("I don't have that in your notes.").
+fn is_refusal(sentence: &str) -> bool {
+    let low = sentence.to_lowercase().replace('\u{2019}', "'");
+    ["i don't have", "i do not have", "i don't see", "i can't find", "i couldn't find", "i can't see", "isn't in your", "is not in your", "not in your notes", "doesn't say", "i don't know", "no information", "wala akong", "hindi ko alam", "hindi ko nakikita", "hindi ko makita", "walang nakalagay", "wala sa notes"]
+        .iter()
+        .any(|p| low.contains(p))
+}
+
+/// A short sentence that only says what the app can show instead ("Want me to check what's due?").
+fn is_pointer(sentence: &str) -> bool {
+    let low = sentence.to_lowercase();
+    sentence.chars().count() <= 140 && (sentence.ends_with('?') || ["schedule", "grades", "notes", "iskedyul"].iter().any(|w| low.contains(w)))
+}
+
+/// What the model wrote for an open question, checked before the student sees it. Qwen3 1.7B in
+/// particular does three things a rule can catch (docs/ai.md, out-of-scope eval):
+/// 1. It copies a sentence of the prompt (the persona's example or a rule) instead of answering. The
+///    example is fine for the message it was written for, and nowhere else. The student is asked to
+///    say it another way (`Line::Retry`), not told that the data is missing.
+/// 2. It refuses, then answers anyway ("I don't have that in your notes. However, here is the code").
+///    Only the refusal and what it points to stay.
+/// 3. It refuses in the other language than the question. The fixed refusal in the student's own
+///    language replaces it. A reply that is not a refusal is never changed for its language.
+fn postcheck(reply: &str, msg: &str) -> String {
+    let fil = is_filipino(msg);
+    let n = norm(reply);
+    // An example's reply fits the message it was written for, or one that says the same thing in other
+    // words ("salamat ha" for "salamat po"): they share a word of five letters or more.
+    let mine = words(msg);
+    let akin = |student: &str| norm(student) == norm(msg) || words(student).iter().any(|w| w.chars().count() >= 5 && mine.contains(w));
+    let copied_example = persona::examples().iter().any(|(student, lar)| !akin(student) && norm(lar).len() >= 20 && n.contains(&norm(lar)));
+    if copied_example || persona::rule_sentences().iter().any(|r| n == norm(r)) {
+        return persona::line(Line::Retry, fil, msg);
+    }
+    let parts = sentences(reply);
+    let Some(first) = parts.first().filter(|s| is_refusal(s)) else { return reply.to_string() };
+    let kept: Vec<&str> = std::iter::once(*first).chain(parts[1..].iter().copied().take_while(|s| is_pointer(s))).collect();
+    let trimmed = kept.join(" ");
+    if is_filipino(&trimmed) == fil { trimmed } else { persona::line(Line::NoData, fil, msg) }
 }
 
 /// What the chat shows when something fails, in the student's language. The
@@ -427,6 +492,72 @@ mod tests {
         let mut m = FakeLlm::new(&[r#"{"reply":"Okay ka, 86%."}"#]);
         answer(&mut m, Template::Gemma, &f, &[], "Okay lang ba ako sa Math?").unwrap();
         assert!(m.prompts[0].contains("The student is asking about\nMATH 101 Mathematics"));
+    }
+
+    fn open(raw_reply: &str, msg: &str) -> String {
+        let raw = json!({ "reply": raw_reply }).to_string();
+        answer(&mut FakeLlm::new(&[&raw]), Template::ChatMl, &Facts { hits: vec!["MATH 101: quiz on Monday".into()], ..facts() }, &[], msg).unwrap().reply
+    }
+
+    #[test]
+    fn a_refusal_followed_by_an_answer_keeps_only_the_refusal() {
+        assert_eq!(open("I don't have that in your notes. However, here's a basic Python function: def insert(root, value): return Node(value)", "Write a Python function for my BST insert exercise."), "I don't have that in your notes.");
+        assert_eq!(open("I don't have that in your notes. Let me solve 3x + 5 = 20 for you: 3x = 15, so x = 5.", "Solve 3x + 5 = 20 and show the steps so I can copy them."), "I don't have that in your notes.");
+        assert_eq!(open("I don't have that in your notes. Want me to check what's due? Here's a joke: a tree walks into a bar.", "Tell me a joke."), "I don't have that in your notes. Want me to check what's due?", "a following question is a pointer and stays, the answer does not");
+    }
+
+    #[test]
+    fn a_refusal_keeps_the_pointer_to_what_the_app_can_show() {
+        let r = "I don't see your tuition balance. I can show your schedule, grades and notes. Want me to check one? By the way, tuition is usually paid at the cashier on Mondays and you should bring the form.";
+        assert_eq!(open(r, "How much is the tuition balance?"), "I don't see your tuition balance. I can show your schedule, grades and notes. Want me to check one?");
+    }
+
+    #[test]
+    fn an_answer_that_does_not_open_with_a_refusal_is_left_alone() {
+        let r = "A derivative is a rate of change. I don't have an example in your notes, though. Want me to make flashcards?";
+        assert_eq!(open(r, "What is a derivative?"), r);
+    }
+
+    #[test]
+    fn a_refusal_comes_in_the_language_of_the_question() {
+        let fil = persona::lines(Line::NoData, true);
+        let en = persona::lines(Line::NoData, false);
+        assert!(fil.contains(&open("I don't have that in your notes.", "Ilang planeta ang nasa solar system?").as_str()));
+        assert!(en.contains(&open("Wala akong nakikita niyan sa notes mo.", "How many planets are in the solar system?").as_str()));
+        assert_eq!(open("Wala akong nakikita niyan sa notes mo.", "Ilang planeta ang nasa solar system?"), "Wala akong nakikita niyan sa notes mo.", "right language: unchanged");
+        assert_eq!(open("I don't have that in your notes.", "What is the capital of France?"), "I don't have that in your notes.");
+        let r = "The planets are Mercury and Venus.";
+        assert_eq!(open(r, "Ilang planeta ang nasa solar system?"), r, "an answer in the wrong language is not a refusal and is not rewritten");
+    }
+
+    #[test]
+    fn a_copied_example_is_replaced_but_is_fine_for_its_own_question() {
+        let adviser = "Your adviser's email isn't in your schedule, grades or notes, so I can't tell you. Want me to check what's due this week instead?";
+        assert!(persona::lines(Line::Retry, true).contains(&open(adviser, "Sino ang prof ko sa Math?").as_str()), "a copy for another question, Filipino asked");
+        assert!(persona::lines(Line::Retry, false).contains(&open(adviser, "Who teaches Math 101?").as_str()));
+        assert_eq!(open(adviser, "what's my adviser's email?"), adviser, "the example's own question");
+        let stress = "Ramdam kita, ang dami nga niyan. Isa-isa lang tayo. Ano ang unang gagawin mo?";
+        assert!(persona::lines(Line::Retry, true).contains(&open(stress, "stressed na ako sa finals").as_str()), "a stressed student is not told the data is missing");
+        assert_eq!(open("Glad it did! Come back anytime.", "thanks LAR, that helped!"), "Glad it did! Come back anytime.");
+        let walang_anuman = "Walang anuman! Nandito lang ako kapag may tanong ka ulit.";
+        assert_eq!(open(walang_anuman, "salamat ha"), walang_anuman, "thanks in other words is the example's own case");
+        assert!(persona::lines(Line::Retry, true).contains(&open(walang_anuman, "kumusta ka na?").as_str()), "but a greeting is not");
+        assert!(persona::lines(Line::Retry, false).contains(&open("glad it did! come back anytime", "hello there").as_str()), "punctuation and capitals do not hide a copy");
+        assert_eq!(open("Glad it helped, see you!", "thanks"), "Glad it helped, see you!", "close is not a copy");
+    }
+
+    #[test]
+    fn a_rule_of_the_prompt_read_back_is_replaced() {
+        let rule = persona::rule_sentences().into_iter().find(|s| s.starts_with("Answer only from the facts")).unwrap();
+        assert!(persona::lines(Line::Retry, false).contains(&open(&format!("{rule}."), "What is a hash table?").as_str()));
+    }
+
+    #[test]
+    fn no_prompt_asks_for_a_language_and_an_open_question_never_sees_a_directive() {
+        let mut m = FakeLlm::new(&[r#"{"reply":"ok"}"#]);
+        answer(&mut m, Template::ChatMl, &facts(), &[], "paano mag-aral para sa finals?").unwrap();
+        let p = m.prompts[0].to_lowercase();
+        assert!(!p.contains("reply in filipino") && !p.contains("respond in filipino") && !p.contains("sagutin sa filipino") && !p.contains("answer in filipino"), "that line made Qwen loop");
     }
 
     #[test]

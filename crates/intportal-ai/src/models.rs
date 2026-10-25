@@ -1,5 +1,6 @@
 //! The models IntAssis can download. Never bundled (ADR 0003). Sizes and
 //! SHA-256 come from the Hugging Face LFS metadata of each file.
+use crate::prompt::Template;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -12,6 +13,8 @@ pub struct Model {
     pub id: &'static str,
     pub name: &'static str,
     pub kind: Kind,
+    /// How the model wants its prompt wrapped (an embedder never gets a chat prompt).
+    pub template: Template,
     pub file: &'static str,
     pub url: &'static str,
     pub sha256: &'static str,
@@ -27,6 +30,7 @@ pub const CATALOG: [Model; 4] = [
         id: "qwen3-0.6b",
         name: "Qwen3 0.6B",
         kind: Kind::Chat,
+        template: Template::ChatMl,
         file: "Qwen3-0.6B-Q4_K_M.gguf",
         url: "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf",
         sha256: "ac2d97712095a558e31573f62f466a3f9d93990898b0ec79d7c974c1780d524a",
@@ -38,6 +42,7 @@ pub const CATALOG: [Model; 4] = [
         id: "gemma3-1b",
         name: "Gemma 3 1B",
         kind: Kind::Chat,
+        template: Template::Gemma,
         file: "gemma-3-1b-it-Q4_K_M.gguf",
         url: "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf",
         sha256: "8270790f3ab69fdfe860b7b64008d9a19986d8df7e407bb018184caa08798ebd",
@@ -49,6 +54,7 @@ pub const CATALOG: [Model; 4] = [
         id: "qwen3-1.7b",
         name: "Qwen3 1.7B",
         kind: Kind::Chat,
+        template: Template::ChatMl,
         file: "Qwen3-1.7B-Q4_K_M.gguf",
         url: "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf",
         sha256: "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897",
@@ -60,6 +66,7 @@ pub const CATALOG: [Model; 4] = [
         id: "embeddinggemma-2",
         name: "EmbeddingGemma-2",
         kind: Kind::Embed,
+        template: Template::ChatMl,
         file: "embeddinggemma-2-Q8_0.gguf",
         url: "https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/main/embeddinggemma-2-Q8_0.gguf",
         sha256: "2188ac1deca4b77dffefd603c2776a9d76d9d74ec01841392982ebb840b09135",
@@ -73,8 +80,10 @@ pub const CATALOG: [Model; 4] = [
     },
 ];
 
-/// Picked by the A2 eval: 20/20 valid JSON and the most natural Taglish of the three (see PR #87).
-pub const DEFAULT_CHAT: &str = "gemma3-1b";
+/// The answering model of a new install (spec 021). Chosen by the user on 2026-10-25 for English answers
+/// that read better than Gemma's; Gemma 3 1B stays in the catalog as the lighter download. Phones that
+/// already hold Gemma keep it (`chatModel()` in the app) until they tap Update.
+pub const DEFAULT_CHAT: &str = "qwen3-1.7b";
 pub const EMBED: &str = "embeddinggemma-2";
 
 /// The embedder before EmbeddingGemma-2 (nomic-embed-text v1.5, 84 MB). It is no
@@ -95,12 +104,18 @@ pub enum Gate {
     Refuse,
 }
 
-/// Compares what loading `m` needs (weights plus KV cache) with the memory
-/// available to the app. `None` (unknown platform) is allowed through.
-pub fn gate(m: &Model, available: Option<u64>) -> Gate {
+/// What a loaded model holds: its weights plus the KV cache at the context the app runs it with.
+fn need(m: &Model) -> u64 {
+    m.bytes + m.kv_bytes_per_1k * u64::from(m.n_ctx) / 1000
+}
+
+/// Compares what IntAssis needs while it answers, the chat model and the note-search
+/// model together (both stay loaded), with the memory available to the app. `None`
+/// (unknown platform) is allowed through. A second chat model is never counted: it is
+/// unloaded before the new one loads.
+pub fn gate(chat: &Model, embed: &Model, available: Option<u64>) -> Gate {
     let Some(avail) = available else { return Gate::Ok };
-    let need = m.bytes + m.kv_bytes_per_1k * u64::from(m.n_ctx) / 1000;
-    match need * 100 / avail.max(1) {
+    match (need(chat) + need(embed)) * 100 / avail.max(1) {
         0..=60 => Gate::Ok,
         61..=90 => Gate::Warn,
         _ => Gate::Refuse,
@@ -133,11 +148,25 @@ mod tests {
     }
 
     #[test]
-    fn gate_warns_over_60_and_refuses_over_90_percent() {
-        let m = find("qwen3-1.7b").unwrap(); // 1.107 GB + 4 x 115 MB = 1.567 GB
-        assert_eq!(gate(m, Some(4_000_000_000)), Gate::Ok); // 39%
-        assert_eq!(gate(m, Some(2_000_000_000)), Gate::Warn); // 78%
-        assert_eq!(gate(m, Some(1_700_000_000)), Gate::Refuse); // 92%
-        assert_eq!(gate(m, None), Gate::Ok);
+    fn qwen_is_the_default_and_every_template_matches_its_family() {
+        assert_eq!(DEFAULT_CHAT, "qwen3-1.7b");
+        for m in &CATALOG {
+            let want = if m.id.starts_with("gemma3") { Template::Gemma } else { Template::ChatMl };
+            assert_eq!(m.template, want, "{}", m.id);
+        }
+        assert!(find("gemma3-1b").is_some(), "Gemma stays installable as the lighter fallback");
+    }
+
+    #[test]
+    fn gate_counts_the_chat_model_and_the_embedder_together() {
+        let (qwen, gemma, eg2) = (find("qwen3-1.7b").unwrap(), find("gemma3-1b").unwrap(), find(EMBED).unwrap());
+        // Qwen 1.107 GB + 4 x 115 MB = 1.567 GB, EmbeddingGemma-2 0.310 GB + 1 x 200 MB = 0.515 GB: 2.082 GB together.
+        assert_eq!(gate(qwen, eg2, Some(4_000_000_000)), Gate::Ok); // 52%
+        assert_eq!(gate(qwen, eg2, Some(2_500_000_000)), Gate::Warn); // 83%
+        assert_eq!(gate(qwen, eg2, Some(2_200_000_000)), Gate::Refuse); // 95%: Qwen alone would be Warn here
+        assert_eq!(gate(qwen, eg2, None), Gate::Ok);
+        // Gemma 0.806 GB + 4 x 25 MB = 0.908 GB, plus the embedder: 1.423 GB. It fits where Qwen is refused.
+        assert_eq!(gate(gemma, eg2, Some(2_200_000_000)), Gate::Warn); // 65%, where Qwen is refused
+        assert_eq!(gate(gemma, eg2, Some(2_500_000_000)), Gate::Ok); // 57%
     }
 }

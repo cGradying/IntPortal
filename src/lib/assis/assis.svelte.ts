@@ -48,10 +48,22 @@ export const assis = $state({
   chat: [] as Msg[],
 });
 
-export const chatModel = () => assis.models.find((m) => m.chat && m.default) ?? assis.models.find((m) => m.chat);
+/** The model a new install gets (the catalog's default chat model). */
+export const defaultChat = () => assis.models.find((m) => m.chat && m.default) ?? assis.models.find((m) => m.chat);
+/**
+ * The model that answers: the default when it is installed, else whichever chat model is
+ * (a phone that has the old default keeps working until its student taps Update), else the
+ * default, so "Add IntAssis" has a target. Nothing is stored: it follows from what is on the phone.
+ */
+export const chatModel = () => {
+  const d = defaultChat();
+  return d?.installed ? d : assis.models.find((m) => m.chat && m.installed) ?? d;
+};
 /** The small model that finds the student's notes. */
 export const embedModel = () => assis.models.find((m) => !m.chat);
 export const installed = () => assis.models.some((m) => m.chat && m.installed);
+/** A chat model is on the phone but it is not the default: the card offers Update. */
+export const updatable = () => installed() && !defaultChat()?.installed;
 export const mb = (bytes: number) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : `${Math.round(bytes / 1e6)} MB`);
 
 const say = (e: unknown) => (typeof e === "string" ? e : (e as { message?: string })?.message ?? JSON.stringify(e));
@@ -64,11 +76,9 @@ export async function refresh() {
   }
 }
 
-/** The one-time download: LAR's brain, then the small model that finds your notes. Resumes if it was cut off; Pause keeps what arrived. */
-export async function install() {
-  const chat = chatModel();
-  const todo = [chat, embedModel()].filter((m): m is ModelInfo => !!m && !m.installed);
-  if (!chat || !todo.length || assis.busy) return;
+/** Downloads `todo` in order with one bar over all of them. True when every file arrived. Resumes if cut off; Pause keeps what arrived. */
+async function fetchAll(todo: ModelInfo[]): Promise<boolean> {
+  if (!todo.length || assis.busy) return false;
   assis.error = "";
   assis.busy = "downloading";
   assis.done = 0;
@@ -82,13 +92,35 @@ export async function install() {
       before += m.bytes;
       await refresh();
     }
+    return true;
   } catch (e) {
     assis.error = say(e) === "paused" ? "" : say(e);
     await refresh();
+    return false;
   } finally {
     assis.busy = "";
   }
 }
+
+/**
+ * The one-time download: LAR's brain, then the model that finds your notes, whichever is missing.
+ * On a phone that has another chat model (the old default) this is the update: that model keeps
+ * answering until the new one has arrived, then goes, so the phone holds one chat model. The chat
+ * history, the notes index and the settings are not touched.
+ */
+export async function install() {
+  const chat = defaultChat();
+  const todo = [chat, embedModel()].filter((m): m is ModelInfo => !!m && !m.installed);
+  const hadOther = updatable();
+  if (!chat || !(await fetchAll(todo))) return;
+  if (hadOther && defaultChat()?.installed) {
+    for (const old of assis.models.filter((m) => m.chat && !m.default && m.installed)) await invoke("ai_delete", { id: old.id }).catch(() => {});
+    await refresh();
+  }
+}
+
+/** Adds only the note search, for a phone whose chat model is already on it. */
+export const addSearch = () => fetchAll([embedModel()].filter((m): m is ModelInfo => !!m && !m.installed));
 
 export const cancelDownload = () => invoke("ai_cancel");
 

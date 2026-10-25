@@ -1,7 +1,7 @@
 //! Flashcards from text, in batches. Small models lose the thread on long
 //! outputs, so ask for 12, retry a failed batch at 6, drop duplicates, and
 //! keep what arrived if a later batch fails (the old macOS app's rules).
-use crate::{llm::Llm, prompt::chatml, reply};
+use crate::{llm::Llm, prompt::Template, reply};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -29,7 +29,8 @@ fn key(front: &str) -> String {
     front.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect()
 }
 
-pub fn cards(llm: &mut dyn Llm, source: &str, want: usize) -> Outcome {
+/// `tpl` is the loaded model's own prompt wrapper: a Gemma model given ChatML answers badly.
+pub fn cards(llm: &mut dyn Llm, tpl: Template, source: &str, want: usize) -> Outcome {
     let schema = json!({"type": "object", "properties": {"cards": {"type": "array", "items": {
         "type": "object", "properties": {"front": {"type": "string", "maxLength": 160}, "back": {"type": "string", "maxLength": 240}}, "required": ["front", "back"]}}},
         "required": ["cards"]});
@@ -40,7 +41,7 @@ pub fn cards(llm: &mut dyn Llm, source: &str, want: usize) -> Outcome {
         let avoid: String = out.iter().map(|c| format!("- {}\n", c.front)).collect();
         let user = format!("Write {n} flashcards from this text.\n\n{source}\n\nAlready written, do not repeat:\n{avoid}");
         let parsed = llm
-            .generate(&chatml(SYSTEM, &user), Some(&schema), 1024, &mut |_| true)
+            .generate(&tpl.wrap(SYSTEM, &user), Some(&schema), 1024, &mut |_| true)
             .and_then(|raw| reply::parse::<Batch>(&raw).map_err(|e| e.to_string()));
         match parsed {
             Ok(b) => {
@@ -74,7 +75,7 @@ mod tests {
     #[test]
     fn dedupes_and_stops_at_want() {
         let mut m = FakeLlm::new(&[&batch(&["What is a tree?", "what is a TREE", "Define heap"])]);
-        let o = cards(&mut m, "text", 2);
+        let o = cards(&mut m, Template::ChatMl, "text", 2);
         assert_eq!(o.cards.iter().map(|c| c.front.as_str()).collect::<Vec<_>>(), ["What is a tree?", "Define heap"]);
         assert_eq!(o.stopped, None);
     }
@@ -82,7 +83,7 @@ mod tests {
     #[test]
     fn a_failed_batch_retries_at_six_and_keeps_partial_results() {
         let mut m = FakeLlm::new(&["garbage", &batch(&["a", "b"]), "garbage", "garbage"]);
-        let o = cards(&mut m, "text", 20);
+        let o = cards(&mut m, Template::ChatMl, "text", 20);
         assert_eq!(o.cards.len(), 2, "kept what arrived");
         assert!(o.stopped.is_some());
         assert!(m.prompts[0].contains("Write 12 flashcards"));
@@ -93,15 +94,25 @@ mod tests {
     #[test]
     fn a_short_batch_is_followed_by_another_until_want_is_met() {
         let mut m = FakeLlm::new(&[&batch(&["a", "b", "c"]), &batch(&["c", "d", "e", "f", "g", "h"])]);
-        let o = cards(&mut m, "text", 8);
+        let o = cards(&mut m, Template::ChatMl, "text", 8);
         assert_eq!(o.cards.len(), 8);
         assert_eq!(o.stopped, None);
         assert!(m.prompts[1].contains("Write 5 flashcards"), "asks only for what is missing");
     }
 
     #[test]
+    fn each_model_gets_its_own_template() {
+        let mut gemma = FakeLlm::new(&[&batch(&["a"])]);
+        cards(&mut gemma, Template::Gemma, "text", 1);
+        assert!(gemma.prompts[0].starts_with("<start_of_turn>user\n") && !gemma.prompts[0].contains("<|im_start|>"), "{}", gemma.prompts[0]);
+        let mut qwen = FakeLlm::new(&[&batch(&["a"])]);
+        cards(&mut qwen, Template::ChatMl, "text", 1);
+        assert!(qwen.prompts[0].starts_with("<|im_start|>system\n") && qwen.prompts[0].ends_with("<think>\n\n</think>\n\n"));
+    }
+
+    #[test]
     fn a_batch_of_only_repeats_ends_the_run() {
         let mut m = FakeLlm::new(&[&batch(&["a"]), &batch(&["A"])]);
-        assert_eq!(cards(&mut m, "t", 5).stopped.as_deref(), Some("no new cards"));
+        assert_eq!(cards(&mut m, Template::ChatMl, "t", 5).stopped.as_deref(), Some("no new cards"));
     }
 }
