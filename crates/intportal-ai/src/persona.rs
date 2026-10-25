@@ -65,6 +65,11 @@ pub fn system(style: Option<&str>) -> String {
     s
 }
 
+/// The `LAR:` lines of the examples, for the eval suite's example-copy check.
+pub fn example_replies() -> Vec<&'static str> {
+    EXAMPLES.lines().filter_map(|l| l.strip_prefix("LAR: ")).collect()
+}
+
 /// The system text of a request (a note, a reminder, flashcards): no chat, no
 /// examples. `assis` adds what to fill in.
 pub fn request_system() -> String {

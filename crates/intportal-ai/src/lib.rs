@@ -3,6 +3,7 @@
 //! compiles it (ADR 0003).
 
 pub mod assis;
+pub mod evalset;
 pub mod gen;
 pub mod intent;
 pub mod llm;
