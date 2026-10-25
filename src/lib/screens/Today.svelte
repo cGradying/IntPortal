@@ -437,7 +437,11 @@
   /* Up next first, then each card 40 ms after the one above. The header is
      there from the first frame. */
   .arriving > :not(header) {
-    animation: rise 0.32s var(--ease) backwards;
+    animation: rise 0.32s var(--ease) backwards paused;
+  }
+  /* Held until the landing's veil starts to lift over them. */
+  :global([data-lifted]) .arriving > :not(header) {
+    animation-play-state: running;
   }
   .arriving > :nth-child(2) { animation-delay: 0.04s; }
   .arriving > :nth-child(3) { animation-delay: 0.08s; }

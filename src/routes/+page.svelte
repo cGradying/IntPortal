@@ -92,6 +92,14 @@
     inside = true;
   }
 
+  // The veil lifts once Today has painted under it: mounting the app can
+  // take longer than the fade, which would otherwise finish unseen.
+  let lifted = $state(false);
+  $effect(() => {
+    if (!inside) return void (lifted = false);
+    requestAnimationFrame(() => requestAnimationFrame(() => (lifted = true)));
+  });
+
   // One portal signed out: stay inside while the other still has a login.
   async function signedOut() {
     await refreshLogins();
@@ -120,7 +128,7 @@
 {/if}
 
 {#if inside}
-  <div class="shell dots" data-glance={island ? "none" : "dock"}>
+  <div class="shell dots" data-glance={island ? "none" : "dock"} data-lifted={lifted || undefined}>
     <div class="topfade" aria-hidden="true"></div>
     {#if !island}<Glance />{/if}
     <main>
@@ -140,7 +148,7 @@
     <AssisOrb />
   </div>
   <!-- The landing's void lifts off the room instead of cutting to it. -->
-  <div class="veil" aria-hidden="true"></div>
+  <div class="veil" class:lifted aria-hidden="true"></div>
   {#if !welcomed}<FirstRun ondone={welcomeDone} />{/if}
   {#if app.subject}
     {#key app.subject.code}<SubjectPage {...app.subject} />{/key}
@@ -174,10 +182,13 @@
     z-index: 70;
     background: var(--void);
     pointer-events: none;
-    animation: lift 0.45s var(--ease) forwards;
+    transition:
+      opacity 0.45s var(--ease),
+      visibility 0s 0.45s;
   }
-  @keyframes lift {
-    to { opacity: 0; visibility: hidden; }
+  .veil.lifted {
+    opacity: 0;
+    visibility: hidden;
   }
   main {
     padding: calc(var(--safe-top) + 12px) var(--gutter) calc(var(--safe-bottom) + 92px);
