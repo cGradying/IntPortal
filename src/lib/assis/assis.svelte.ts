@@ -94,7 +94,8 @@ export const cancelDownload = () => invoke("ai_cancel");
 
 export async function remove() {
   try {
-    for (const m of assis.models) if (m.installed) await invoke("ai_delete", { id: m.id });
+    // The search model is always asked: its delete also takes the old one (nomic) an earlier version left.
+    for (const m of assis.models) if (m.installed || !m.chat) await invoke("ai_delete", { id: m.id });
     await invoke("ai_clear_history");
     assis.chat = [];
     assis.open = false;

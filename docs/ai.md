@@ -27,7 +27,9 @@ Models are downloaded by hand for development (the app does it through `download
 # schema-valid replies on 20 Taglish prompts, tokens/sec
 cargo run --release -p intportal-llm --example eval -- <chat.gguf>
 # does the embedding model rank notes sensibly
-cargo run --release -p intportal-llm --example embed -- <nomic.gguf>
+cargo run --release -p intportal-llm --example embed -- <embeddinggemma-2-Q8_0.gguf> [n_ctx] [cpu]
+# nomic vs EmbeddingGemma-2 on 90 retrieval questions (about 10 s), and the FLOOR table
+cargo run --release -p intportal-llm --example embed_eval -- <nomic.gguf> <embeddinggemma-2-Q8_0.gguf> [none]
 # the assistant, "Why?" and a title guide on a real model
 cargo run --release -p intportal-llm --example assis -- <gemma.gguf>
 ```
@@ -126,6 +128,69 @@ The string heuristics in the example (all expected facts present / reply in the 
 | Qwen: "Sino ang prof ko sa Math?" | Sino ang prof ko sa Math? I don't have that in your notes. | Your adviser's email isn't in your schedule, grades or notes, so I can't tell you. Want me to check what's due this week instead? (right shape, wrong topic; a regression) |
 
 Not measured: a rerun for noise (one greedy run per cell; a changed word in the prompt moves single replies, as the out-of-scope eval also found), real notes from retrieval instead of the four always-on notes, speed on a phone.
+
+## EmbeddingGemma-2 for note search (issue #157)
+
+The note-search model is EmbeddingGemma-2 (`ggml-org/embeddinggemma-2-GGUF`, Q8_0, 309,855,456 bytes, Apache-2.0) instead of nomic-embed-text v1.5 (84 MB). Size and SHA-256 were re-read from the Hugging Face API (`?blobs=true`) and the local file matches. Same 768 dimensions, mean pooling, unit length, never run in f16.
+
+**Engine.** `llama-cpp-2` 0.1.160 (crates.io, llama.cpp 26394b4e) cannot load the arch `gemma-embedding2`. The fix is utilityai/llama-cpp-rs PR #1175 (llama.cpp v0.7.0), still open on 2026-10-25, and crates.io has nothing newer than 0.1.160, so the root `Cargo.toml` has a `[patch.crates-io]` pinned to commit `cb98c630d0fec934a8a379db4fd63cd3622f6984` of the PR's branch (`willsheldon/llama-cpp-rs`), never the branch name. `Cargo.lock` is committed (two package entries change, nothing else). A `cargo fetch` with an empty `CARGO_HOME` fetched the git dependency and its llama.cpp submodule (`src/models/gemma-embedding2.cpp` present; 655 MB, about 3 minutes), so CI does not need a manual submodule step; a Linux CI job clones it on a cold cache. **When the crates.io release carries llama.cpp at or after v0.7.0, delete the two patch lines and the comment above them.** Risk: the commit lives in a contributor's fork; if that fork is deleted, the pin stops resolving until the patch is moved to a fork under our account.
+
+**Prefixes** (`rag::doc_text`, `rag::query_text`): documents `title: {title} | text: {chunk}` with the source's heading as the title (`none` when it has none, or is the placeholder "Untitled note"), queries `task: search result | query: {q}`. The nomic prefixes are gone from `rag.rs` and `examples/embed.rs`.
+
+**Existing phones.** The model id is stored on every chunk, so every source is stale against the new id and re-embeds on the next search or `ai_index`; `replace_chunks` deletes a source's old rows, so nomic vectors do not pile up (test: `switching_the_embedder_makes_every_source_stale_and_replaces_the_old_rows`). Until the new file is on the phone, searching returns no notes and IntAssis answers from the schedule; the You card offers "Add note search · 310 MB". When the new embedder finishes downloading, the old nomic file is deleted; removing IntAssis deletes it too (`models::LEGACY_EMBED_FILES`, `remove_legacy`).
+
+**Memory** (`/usr/bin/time -l embed <gguf> <n_ctx>`, Apple Silicon, short texts): peak resident 518, 522 and 523 MB at n_ctx 512, 1024 and 2048 (nomic at 2048: 184 MB on Metal, 253 MB on CPU); the footprint is 208 to 211 MB beyond the mapped weights. The context hardly matters, so the catalog uses n_ctx 1024 and 200 MB per 1k so that the gate's weights-plus-cache is about the measured 520 MB.
+
+### Retrieval eval and FLOOR
+
+`embed_eval` (data in `examples/data/`, from the spike `spike/eg2-retrieval-eval`): 32 notes cut by `rag::chunk_text` into 37 chunks; 58 questions one note answers (21 English, 14 Filipino or Taglish, 4 typos, 6 keywords, 13 paraphrases) and 32 that nothing answers (8 each of general knowledge, own data, on-topic but absent, chit-chat or injection). Notes keep their first line as the title. Deterministic; with `none` (every chunk `title: none`) it reproduces the spike's numbers exactly (0.707, 87.9% and 12.5%, AUC 0.913), which also shows the bumped engine ranks as the spike's did. Run 2026-10-25, Metal.
+
+| | nomic v1.5 Q4_K_M | EmbeddingGemma-2 Q8_0, title: none | EmbeddingGemma-2 Q8_0, title: first line (the app) |
+|---|---|---|---|
+| In-scope top-1 (58) | 46 | 54 | 54 |
+| In-scope top-3 | 52 | 57 | 57 |
+| AUC in-scope vs out-of-scope | 0.838 | 0.913 | 0.923 |
+| Best single floor, recall / false-accept | 0.674: 74.1% / 6.2% | 0.707: 87.9% / 12.5% | 0.712: 84.5% / 6.2% |
+
+Fine sweep for the app's variant (recall = in-scope kept; false-accept = out-of-scope kept, split a general / b own data / c on-topic absent / d chit-chat):
+
+| floor | recall | false-accept | a | b | c | d |
+|---|---|---|---|---|---|---|
+| 0.69 | 93.1% | 18.8% | 0% | 38% | 38% | 0% |
+| 0.70 | 84.5% | 12.5% | 0% | 25% | 25% | 0% |
+| 0.71 | 84.5% | 9.4% | 0% | 12% | 25% | 0% |
+| **0.72** | **74.1%** | **6.2%** | 0% | 12% | 12% | 0% |
+| 0.73 to 0.76 | 67.2% down to 46.6% | 6.2% | 0% | 12% | 12% | 0% |
+| 0.77 | 44.8% | 3.1% | 0% | 0% | 12% | 0% |
+| 0.5 (before) | 100% | 100% | | | | |
+
+**`rag::FLOOR` is 0.72** (was 0.5, which let every question through). The best balanced floor is 0.71, but one out-of-scope question sits between 0.710 and 0.712, so 0.71 is a cliff; 0.72 is where false-accepts stop falling and it costs 10 points of recall. Choose 0.71 if a missed note hurts more than an invented answer. 74% of questions a note answers still find it; the other 26% fall to "I don't have that" (the answer is then not wrong, only missing). Unchanged: a floor cannot remove on-topic-but-absent questions ("ano ang pokus ng pandiwa" scores 0.82), only the prompt can. Caveats of the spike stand: one author wrote the notes and the questions, thresholds are fitted on them (5-fold CV balanced accuracy 0.836 against 0.891 in-sample), and real notes are messier; recalibrate on a real collection.
+
+### Chat engine on llama.cpp v0.7.0
+
+The bump also moves the chat engine. Two checks on the same machine, Apple Silicon Metal, release builds, greedy sampling:
+
+1. **Out-of-scope set** (the spike's 59 questions, `spike/oos-chat-eval` code unchanged, only the engine differs, condition `all3`) against that branch's committed old-engine replies: **112 of 118 replies are byte-identical** (59 per model). The six that differ, read by hand:
+
+| Model | Question | Old engine | New engine | Label change |
+|---|---|---|---|---|
+| Gemma | k1 ano ang inorder traversal? | answers from the note | "I don't have that in your notes." | control answered, now falsely refused (controls answered 6 of 10 to 5 of 10) |
+| Gemma | d2 Tell me a joke | tells a joke | tells another joke | none (both off-rules) |
+| Qwen | c8 topics on the Math 101 finals | invents "finals will cover limits..., as mentioned in the notes" | same invention, "as stated" | none (invented) |
+| Qwen | c9 time complexity of inorder | O(n), BST | O(n), same words minus "(BST)" | none (invented) |
+| Qwen | c12 practice problems on limits | refuses, then gives tips and the Monday quiz | refuses, then gives tips | none (refuse-then-answer) |
+| Qwen | d6 headache medicine | refusal, then Tagalog nonsense repeated | refusal, then different Tagalog nonsense | none |
+
+Everything else is the same, so the failure counts of the out-of-scope eval stand: Qwen invents on the same near-miss questions, Gemma refuses on the same ones; the only label that moved is Gemma k1.
+
+2. **Taglish open set** (`eval open`, 15 questions) and **voice eval** (`voice_eval`, this branch's code) against the numbers recorded above: Gemma 6/8 grounded and 7/7 refusals, Qwen 8/8 and 5/7 (new prompt, model only: identical to the old-engine rows); voice heuristics Gemma 27/30 complete and 20/30 language, Qwen 28/30 and 21/30 (identical), prompt tokens 1,093 (Gemma) and 1,075 (Qwen) median (identical).
+
+Latency: the new run's median model time per reply was 0.8 s (Gemma) and 1.0 s (Qwen) against 3.1 s and 1.2 s in the committed rows, but the old rows were taken with other builds running and include cold starts, so no speed claim is made either way.
+
+### Cross-compiles
+
+- **iOS simulator** (`pnpm tauri ios build --target aarch64-sim --debug`, the steps of `scripts/sim.sh`): builds, installs and launches on the iPhone 17 simulator (CFAAFAE1). `llama-cpp-sys-2` 0.1.161 compiled for `aarch64-apple-ios-sim` without errors. The note-search download and a chat on the simulator were not run in this PR.
+- **Android** (`cargo check -p intportal --target aarch64-linux-android`): finished in 2 min 30 s with the NDK 28.2 toolchain (`CC_aarch64_linux_android`, `RANLIB_`, `AR_` and `ANDROID_NDK_ROOT` set as in `scripts/emu.sh`); the build script cross-compiled llama.cpp v0.7.0 for `aarch64-linux-android` and `llama-cpp-2` and `intportal-llm` type-checked. That is a compile check only: nothing was linked, installed or run on the emulator (`scripts/emu.sh`), so Android speed, memory and the loading of EmbeddingGemma-2 there are not verified.
 
 ## Android build
 

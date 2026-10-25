@@ -337,6 +337,15 @@ describe("removing IntAssis", () => {
     expect(assis.models.some((m) => m.installed)).toBe(false);
   });
 
+  it("asks the search model to delete even when only the old one is on the phone", async () => {
+    // A phone updated from nomic: the new search model was never added, but the old file is still there.
+    disk = [chat(), embed({ installed: false })];
+    assis.models = structuredClone(disk);
+    backend.ai_delete = () => undefined;
+    await remove();
+    expect(ran("ai_delete").map(([, a]) => a.id)).toEqual(["chat", "embed"]);
+  });
+
   it("keeps the chat and shows the problem if a delete fails", async () => {
     assis.chat = [{ from: "me", text: "hi" }];
     backend.ai_delete = () => Promise.reject({ message: "Couldn't remove the files." });

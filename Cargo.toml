@@ -22,3 +22,12 @@ opt-level = 3
 panic = "abort"
 strip = true
 debug = "line-tables-only"
+
+# llama.cpp v0.7.0 for arch `gemma-embedding2` (EmbeddingGemma-2, issue #157).
+# llama-cpp-2 0.1.160 (crates.io, llama.cpp 26394b4e) cannot load it. This is
+# utilityai/llama-cpp-rs PR #1175, still open: drop the patch and use the
+# crates.io release once it ships a llama.cpp at or after v0.7.0. Pinned to a
+# commit, never a branch; cargo fetches the llama.cpp submodules itself.
+[patch.crates-io]
+llama-cpp-2 = { git = "https://github.com/willsheldon/llama-cpp-rs", rev = "cb98c630d0fec934a8a379db4fd63cd3622f6984" }
+llama-cpp-sys-2 = { git = "https://github.com/willsheldon/llama-cpp-rs", rev = "cb98c630d0fec934a8a379db4fd63cd3622f6984" }

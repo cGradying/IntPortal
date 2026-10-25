@@ -130,8 +130,11 @@ pub async fn ai_download(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, i
         download::download(&m, &dir, &mut |done, total| {
             let _ = on_progress.send(Progress { done, total });
             !cancel.load(Ordering::Relaxed)
-        })
-        .map(|_| ())
+        })?;
+        if m.kind == Kind::Embed {
+            remove_legacy(&dir)?; // the old embedder is useless now, and 84 MB is not nothing
+        }
+        Ok(())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -146,7 +149,25 @@ fn locked<T>(m: &Mutex<T>) -> Res<MutexGuard<'_, T>> {
     m.lock().map_err(|_| "The data is locked. Restart the app.".to_string())
 }
 
+/// Deletes `file` and its half-finished download. A file that is not there is fine.
+fn remove_files(dir: &std::path::Path, file: &str) -> Res<()> {
+    for f in [file.to_string(), format!("{file}.part")] {
+        match std::fs::remove_file(dir.join(f)) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Ok(())
+}
+
+/// The embedder this one replaced (nomic), if an earlier version left it on the phone.
+fn remove_legacy(dir: &std::path::Path) -> Res<()> {
+    models::LEGACY_EMBED_FILES.iter().try_for_each(|f| remove_files(dir, f))
+}
+
 /// Deletes a model and its half-finished download; unloads it first if it is the loaded one.
+/// Deleting the embedder also takes the old one (nomic) off the phone.
 #[tauri::command]
 pub fn ai_delete(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: String) -> Res<()> {
     let m = models::find(&id).ok_or("Unknown model")?;
@@ -157,12 +178,9 @@ pub fn ai_delete(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: Strin
     }
     drop(engine);
     let dir = models_dir(&app)?;
-    for f in [m.file.to_string(), format!("{}.part", m.file)] {
-        match std::fs::remove_file(dir.join(f)) {
-            Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e.to_string()),
-        }
+    remove_files(&dir, m.file)?;
+    if m.kind == Kind::Embed {
+        remove_legacy(&dir)?;
     }
     Ok(())
 }
@@ -575,6 +593,22 @@ mod tests {
         let mut fake = intportal_ai::llm::FakeLlm::new(&["one two three"]);
         let mut c = Cancellable { inner: &mut fake, cancel: &cancel };
         assert_eq!(c.generate("p", None, 8, &mut |_| true).unwrap(), "one ");
+    }
+
+    #[test]
+    fn the_old_embedder_and_its_partial_download_are_deleted_and_nothing_else() {
+        let dir = std::env::temp_dir().join(format!("intportal-legacy-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let old = models::LEGACY_EMBED_FILES[0];
+        for f in [old.to_string(), format!("{old}.part"), models::find(models::EMBED).unwrap().file.to_string()] {
+            std::fs::write(dir.join(f), b"x").unwrap();
+        }
+        remove_legacy(&dir).unwrap();
+        remove_legacy(&dir).unwrap(); // nothing left to delete is fine
+        let mut left: Vec<_> = std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+        left.sort();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(left, [models::find(models::EMBED).unwrap().file]);
     }
 
     #[test]

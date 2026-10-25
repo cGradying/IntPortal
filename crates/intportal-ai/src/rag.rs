@@ -6,10 +6,31 @@ use intportal_core::store::{Store, StoreError};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 pub const CHUNK: usize = 700;
-// nomic-embed v1.5 scores unrelated notes 0.47 to 0.6 and the right one 0.57 to 0.81
-// (crates/intportal-llm/examples/embed.rs), so the old app's 0.35 kept everything.
-pub const FLOOR: f32 = 0.5;
+// Tuned on EmbeddingGemma-2 with crates/intportal-llm/examples/embed_eval.rs (58 questions a note
+// answers, 32 that nothing answers, over 32 notes). 0.72 keeps 74% of the first and lets 6% of
+// the second through (0.5, nomic's old value, let all of them through). The best balanced floor
+// is 0.71, but one question sits between 0.710 and 0.712 and 0.72 starts the plateau where false
+// accepts stop falling, with fewer answers invented from a near-miss note. A floor only drops the
+// clearly unrelated: "ano ang pokus ng pandiwa" scores 0.82 because a note names the topic, so
+// the prompt must still say "I don't know". Scores shift with the embedder: change the model,
+// rerun embed_eval, change this.
+pub const FLOOR: f32 = 0.72;
 pub const BUDGET: usize = 4000;
+
+/// What `notes::heading` calls a note with no title. It says nothing about the note, so it is "none".
+const UNTITLED: &str = "Untitled note";
+
+/// EmbeddingGemma-2 wants a task prefix on every text. A note chunk is a
+/// document, titled with its source's heading ("none" when it has none).
+pub fn doc_text(title: &str, chunk: &str) -> String {
+    let title = title.lines().next().unwrap_or("").trim();
+    format!("title: {} | text: {chunk}", if title.is_empty() || title == UNTITLED { "none" } else { title })
+}
+
+/// The student's question as a search query.
+pub fn query_text(q: &str) -> String {
+    format!("task: search result | query: {q}")
+}
 
 #[derive(Debug, PartialEq)]
 pub struct Hit {
@@ -74,7 +95,7 @@ pub fn refresh(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str) -> Result<(
     };
     for src in stale {
         let texts = chunk_text(&src.text);
-        let docs: Vec<String> = texts.iter().map(|t| format!("search_document: {t}")).collect();
+        let docs: Vec<String> = texts.iter().map(|t| doc_text(&src.title, t)).collect();
         let Ok(vecs) = llm.embed(&docs.iter().map(String::as_str).collect::<Vec<_>>()) else { continue };
         db(store).replace_chunks(&src.key, src.stamp, model, &texts.into_iter().zip(vecs).collect::<Vec<_>>())?;
     }
@@ -85,7 +106,7 @@ pub fn refresh(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str) -> Result<(
 /// within `BUDGET` chars together. Refreshes stale sources first.
 pub fn search(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str, query: &str, k: usize) -> Result<Vec<Hit>, RagError> {
     refresh(store, llm, model)?;
-    let q = llm.embed(&[&format!("search_query: {query}")]).map_err(RagError::Embed)?.pop().unwrap_or_default();
+    let q = llm.embed(&[&query_text(query)]).map_err(RagError::Embed)?.pop().unwrap_or_default();
     let mut hits: Vec<Hit> = db(store)
         .chunks(model)?
         .into_iter()
@@ -137,15 +158,44 @@ mod tests {
     fn search_finds_the_matching_note_with_prefixes_and_embeds_once() {
         let store = Mutex::new(Store::in_memory().unwrap());
         db(&store).set_note("note:a", "binary tree traversal, tree height", None, 1).unwrap();
-        db(&store).set_note("note:b", "tuition due Monday", None, 1).unwrap();
+        db(&store).set_note("note:b", "tuition due Monday", Some("Cashier"), 1).unwrap();
         let mut llm = Topics(vec![]);
         let hits = search(&store, &mut llm, "m", "tree", 3).unwrap();
         assert_eq!(hits.iter().map(|h| h.key.as_str()).collect::<Vec<_>>(), ["note:a"]);
-        assert!(llm.0.contains(&"search_query: tree".to_string()));
-        assert!(llm.0.iter().any(|t| t.starts_with("search_document: tuition")));
+        assert!(llm.0.contains(&"task: search result | query: tree".to_string()));
+        assert!(llm.0.contains(&"title: Cashier | text: tuition due Monday".to_string()), "{:?}", llm.0);
         let embedded = llm.0.len();
         search(&store, &mut llm, "m", "tuition", 3).unwrap();
         assert_eq!(llm.0.len(), embedded + 1, "only the query is embedded the second time");
+    }
+
+    #[test]
+    fn prefixes_follow_embeddinggemma_2() {
+        assert_eq!(doc_text("Math 101", "limits"), "title: Math 101 | text: limits");
+        assert_eq!(doc_text("  ", "limits"), "title: none | text: limits");
+        assert_eq!(doc_text("Untitled note", "limits"), "title: none | text: limits");
+        assert_eq!(doc_text("Line one\nline two", "x"), "title: Line one | text: x", "a title is one line");
+        assert_eq!(query_text("kailan ang quiz?"), "task: search result | query: kailan ang quiz?");
+    }
+
+    #[test]
+    fn switching_the_embedder_makes_every_source_stale_and_replaces_the_old_rows() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).set_note("note:a", "binary tree", None, 1).unwrap();
+        db(&store).save_deck(&deck("d1", &[("tuition", "paid in June")])).unwrap();
+        syllabus(&store, "tree basics");
+        let mut llm = Topics(vec![]);
+        search(&store, &mut llm, "nomic-embed-v1.5", "tree", 4).unwrap();
+        assert_eq!(db(&store).chunks("nomic-embed-v1.5").unwrap().len(), 3);
+        assert_eq!(db(&store).stale_sources("embeddinggemma-2").unwrap().len(), 3, "old vectors are not reusable");
+
+        let embedded = llm.0.len();
+        let hits = search(&store, &mut llm, "embeddinggemma-2", "tree", 4).unwrap();
+        assert_eq!(llm.0.len(), embedded + 3 + 1, "three sources re-embedded, then the query");
+        assert_eq!(keys(&hits), ["note:a", "plan:COMP 1"]);
+        assert!(db(&store).chunks("nomic-embed-v1.5").unwrap().is_empty(), "the old rows are replaced, not kept beside the new");
+        assert_eq!(db(&store).chunks("embeddinggemma-2").unwrap().len(), 3);
+        assert!(db(&store).stale_sources("embeddinggemma-2").unwrap().is_empty());
     }
 
     #[test]
@@ -214,7 +264,7 @@ mod tests {
         search(&store, &mut llm, "m", "tree", 4).unwrap();
         assert_eq!(llm.0.len(), embedded + 1, "nothing changed, so only the query is embedded");
 
-        db(&store).save_deck(&deck("d1", &[("tuition", "paid in June"), ("tree", "has a root")])).unwrap();
+        db(&store).save_deck(&deck("d1", &[("tuition", "paid in June"), ("tree", "a tree has a root")])).unwrap();
         assert_eq!(db(&store).stale_sources("m").unwrap().iter().map(|s| s.key.as_str()).collect::<Vec<_>>(), ["card:d1"]);
         let mut both = keys(&search(&store, &mut llm, "m", "tree", 4).unwrap()).into_iter().map(String::from).collect::<Vec<_>>();
         both.sort();
