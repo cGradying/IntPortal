@@ -5,7 +5,9 @@
 //! Add `open` to run the open-question set instead: Taglish questions asked
 //! with seeded notes as the only facts, scored on valid JSON, grounding in the
 //! right note, refusing when no note supports the question, and latency.
-use intportal_ai::{llm::Llm, prompt::{build, chatml, gemma, Section}, reply, schema::{reply_schema, Reply}};
+//! Add `full` as well to send each question through `assis::answer` (the rules
+//! first, then the model) instead of straight to the model.
+use intportal_ai::{assis::{self, Facts}, llm::Llm, prompt::{build, chatml, gemma, Section, Template}, reply, schema::{reply_schema, Reply}};
 use intportal_llm::{Device, Llama};
 use std::time::Instant;
 
@@ -34,10 +36,7 @@ const FIXTURES: [&str; 20] = [
     "Thanks! Ano pa ang pwede mong gawin?",
 ];
 
-// Same system text as `assis::SYSTEM` (private there), the open-question path.
-const OPEN_SYSTEM: &str = "You are IntAssis, a calm study helper inside a student's schedule app (PUP, Philippines). \
-Answer from the facts below only; if they do not say, say you do not know. Keep it to 1-3 short sentences. \
-Reply in the language the student used (English, Filipino or Taglish). Never invent dates, grades or subjects. Reply as JSON.";
+use intportal_ai::assis::SYSTEM as OPEN_SYSTEM;
 
 /// Three notes the student "wrote"; every open question sees all of them.
 const NOTES: [&str; 3] = [
@@ -65,11 +64,13 @@ const OPEN: [(&str, &[&str]); 15] = [
     ("Magkano ang tuition sa susunod na sem?", &[]),
 ];
 
-const REFUSALS: [&str; 13] = [
-    "hindi ko alam", "di ko alam", "hindi ko", "wala akong", "walang", "wala sa", "don't know", "do not know", "not sure", "no information", "doesn't say", "not familiar", "hindi ako sigurado",
+const REFUSALS: [&str; 22] = [
+    "hindi ko alam", "di ko alam", "hindi ko", "wala akong", "walang", "wala sa", "don't know", "do not know", "not sure", "no information", "doesn't say", "not familiar", "hindi ako sigurado", "don't have", "do not have",
+    // the canned replies of the rules (`full` only)
+    "wala pang", "wala kang", "nothing is due", "no grading", "no grades", "only see today", "klase mo lang",
 ];
 
-fn open(m: &mut Llama, path: &str) {
+fn open(m: &mut Llama, path: &str, full: bool) {
     let schema = serde_json::json!({"type": "object", "properties": {"reply": {"type": "string"}}, "required": ["reply"]});
     let hits: String = NOTES.iter().map(|n| format!("- {n}\n")).collect();
     let system = build(OPEN_SYSTEM, &[Section { title: "From the student's notes", body: &hits, priority: 7 }], 7000);
@@ -79,9 +80,19 @@ fn open(m: &mut Llama, path: &str) {
         let user = format!("Student: {q}");
         let prompt = if path.contains("gemma") { gemma(&system, &user) } else { chatml(&system, &user) };
         let t = Instant::now();
-        let out = m.generate(&prompt, Some(&schema), 300, &mut |_| true);
+        let parsed = if full {
+            let facts = Facts {
+                today: Some(intportal_core::today::Date::new(2026, 10, 15)),
+                hits: NOTES.iter().map(|n| n.to_string()).collect(),
+                subject_names: vec![("MATH 101".into(), "Mathematics".into())],
+                ..Facts::default()
+            };
+            let tpl = if path.contains("gemma") { Template::Gemma } else { Template::ChatMl };
+            assis::answer(m, tpl, &facts, &[], q).map(|a| serde_json::json!({"reply": a.reply}))
+        } else {
+            m.generate(&prompt, Some(&schema), 300, &mut |_| true).map_err(|e| e.to_string()).and_then(|o| reply::parse::<serde_json::Value>(&o).map_err(|e| e.to_string()))
+        };
         lat.push(t.elapsed().as_secs_f64());
-        let parsed = out.map_err(|e| e.to_string()).and_then(|o| reply::parse::<serde_json::Value>(&o).map_err(|e| e.to_string()));
         let Some(text) = parsed.as_ref().ok().and_then(|v| v["reply"].as_str()) else {
             println!("FAIL {q}: {parsed:?}");
             if want.is_empty() { n_refuse += 1 } else { n_grounded += 1 }
@@ -116,7 +127,7 @@ fn main() {
     let device = if std::env::args().any(|a| a == "cpu") { Device::Cpu } else { Device::Gpu };
     let mut m = Llama::load(path.as_ref(), 2048, device).unwrap();
     if std::env::args().any(|a| a == "open") {
-        return open(&mut m, &path);
+        return open(&mut m, &path, std::env::args().any(|a| a == "full"));
     }
     let schema = reply_schema(&["add_note", "add_reminder"]);
     let (mut valid, mut tokens) = (0, 0usize);

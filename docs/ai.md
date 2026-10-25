@@ -32,7 +32,7 @@ cargo run --release -p intportal-llm --example embed -- <nomic.gguf>
 cargo run --release -p intportal-llm --example assis -- <gemma.gguf>
 ```
 
-Add `open` to `eval` for the Taglish open-question set (below). Pass `cpu` as the last argument to `eval` for CPU only. Metal is on by default on Apple targets; the iOS simulator's Metal is software and slow, so measure speed on a CPU run or the user's iPhone (`scripts/phone.sh`, run by the user).
+Add `open` to `eval` for the Taglish open-question set (below), and `open full` to send each question through `assis::answer` (rules first, then the model) instead of straight to the model. Pass `cpu` as the last argument to `eval` for CPU only. Metal is on by default on Apple targets; the iOS simulator's Metal is software and slow, so measure speed on a CPU run or the user's iPhone (`scripts/phone.sh`, run by the user).
 
 ## Open-question eval (Taglish, grounded vs unsupported)
 
@@ -53,6 +53,30 @@ What the replies showed:
 - Both invent on "Okay lang ba ako sa Math?" (the Math 101 note tempts them into advice). Gemma also answered the Physics grade with the Math 101 passing mark; Qwen answered "what time is class tomorrow" with "Monday" (the quiz note) and described preorder with the inorder text.
 - Gemma misses more grounded answers and its Tagalog slips ("lilang sa Monday", an off-topic BST sentence in a refusal); Qwen answers in English to Taglish questions.
 - So "answer from the facts only" is not enough at 1B-2B. Answers that depend on data the app has (grades, classes, due) must stay exact and skip the model, as `assis` already does; for the rest, a relevance floor on RAG hits (`rag::FLOOR`) matters more than the model choice.
+
+### Saying "I don't have that" (issue #138)
+
+Two changes, measured one at a time on the same 15 questions, one run each, Apple Silicon, Metal, release build (latency omitted: other builds were running):
+
+1. **Prompt rule** (`assis::SYSTEM`): "Answer only from the facts and notes below. If they do not contain the answer, say so in one sentence ... and say what you can see instead. Never guess ..." The eval now uses `assis::SYSTEM`, not a copy.
+2. **No-data path** (`assis::no_data`, no model call): a question about the student's own data that nothing the app holds can answer gets a fixed EN/Filipino reply. It fires for (a) a class question about another day ("bukas"), since the app only holds today's classes; (b) "Okay lang ba ako sa <subject>?" when that subject has no grading; (c) first-person questions about room, professor, units, tuition, section and the like with no note hits and no open note. Everything else still reaches the model.
+
+| Model | Run | Grounded | Refusals |
+|---|---|---|---|
+| Gemma 3 1B | before (old prompt, model only) | 7/8 | 5/7 |
+| Gemma 3 1B | new prompt, model only | 6/8 | 7/7 |
+| Gemma 3 1B | new prompt + no-data path (`open full`) | 2/8 | 7/7 |
+| Qwen3 1.7B | before | 8/8 | 4/7 |
+| Qwen3 1.7B | new prompt, model only | 8/8 | 5/7 |
+| Qwen3 1.7B | new prompt + no-data path (`open full`) | 5/8 | 6/7 |
+
+What I read in the printed replies:
+
+- The prompt alone moves Gemma to 7/7 refusals, but it also says "I don't have that" for the study-block question the Finals note answers, and its "inorder traversal" reply (right in substance, no "left"/"right" keyword) counts as a miss, so Gemma's real grounded rate is about 7/8 and a hair worse than before. Qwen only gained one refusal.
+- Qwen still invents on "what time is class tomorrow" ("Monday" from the quiz note) and describes preorder with the inorder note. An extra prompt line saying a note about something else is no answer changed nothing, so it was dropped.
+- In `open full` the no-data path catches the class-time question and "Okay lang ba ako sa Math?". The thesis-deadline, Physics-grade and Math-quiz questions are caught by the older rules (Due/Grades), which print "nothing is due" / "no grading set up". Those canned replies are counted as refusals by the heuristic (the list now includes them).
+- The grounded drop in `open full` is the rules, not the model: the eval seeds no deadlines or grades, so "Kailan ang quiz sa Math 101?" and "Ano ang passing sa Math 101?" hit the Due and Grades rules and get "nothing is due" / "no grading", never reaching the note. In the app a real schedule fills those lists. Questions the model answers (inorder, finals plan) were unchanged for Qwen; Gemma misses two on heuristics, as above.
+- Left: Qwen on preorder (a near-miss note). Only a per-note relevance floor can fix that and `eval` has no retrieval step, so it is not measured (lever 3 not tried).
 
 ## Android build
 

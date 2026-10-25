@@ -3,7 +3,7 @@
 //! confirm. Nothing here writes: the UI shows a card and Apply calls the
 //! existing commands (`set_note`, `set_plan`, `save_deck`).
 use crate::{
-    intent::{is_filipino, resolve, resolve_when, subject_in, Intent},
+    intent::{is_filipino, resolve, resolve_when, subject_in, words, Intent},
     llm::Llm,
     prompt::{build, Section, Template},
     reply::{self, ReplyStream},
@@ -42,8 +42,10 @@ pub struct Answer {
     pub proposal: Option<Proposal>,
 }
 
-const SYSTEM: &str = "You are IntAssis, a calm study helper inside a student's schedule app (PUP, Philippines). \
-Answer from the facts below only; if they do not say, say you do not know. Keep it to 1-3 short sentences. \
+/// The system text of an open question; `eval -- <model> open` uses it too.
+pub const SYSTEM: &str = "You are IntAssis, a calm study helper inside a student's schedule app (PUP, Philippines). \
+Answer only from the facts and notes below. If they do not contain the answer, say so in one sentence (\"I don't have that in your notes.\" / \"Wala akong nakikita niyan sa notes mo.\") \
+and say what you can see instead. Never guess or answer a different question than the one asked. Keep it to 1-3 short sentences. \
 Reply in the language the student used (English, Filipino or Taglish). Never invent dates, grades or subjects. Reply as JSON.";
 
 fn schema(intent: Intent, subjects: &[String], ask_when: bool) -> Value {
@@ -100,6 +102,30 @@ fn canned(intent: Intent, f: &Facts, fil: bool, subject: Option<&str>) -> Option
     }
 }
 
+/// "I don't have that" without the model, when the question is about the
+/// student's own data and nothing the app holds can answer it. A 1B model
+/// given a nearby note invents (a Physics grade from the Math passing mark).
+fn no_data(intent: Intent, f: &Facts, msg: &str, subject: Option<&str>, today: Date) -> Option<String> {
+    let fil = is_filipino(msg);
+    let w = words(msg);
+    let has = |list: &[&str]| w.iter().any(|x| list.contains(&x.as_str()));
+    // The app only holds today's classes: "bukas" must not get today's list.
+    if intent == Intent::Classes && resolve_when(msg, today).is_some_and(|d| d != today) {
+        return Some(if fil { "Klase mo lang ngayon ang nakikita ko. Itanong ulit sa araw na iyon." } else { "I only see today's classes. Ask again that day." }.into());
+    }
+    if intent != Intent::Ask || !has(&["ko", "ako", "akin", "my", "mine"]) {
+        return None;
+    }
+    // "Okay lang ba ako sa Math?" with no grading set up: say that, not advice from a note.
+    if let Some(code) = subject.filter(|c| has(&["okay", "ok", "kumusta", "kamusta", "doing"]) && !f.standing.iter().any(|l| l.starts_with(&format!("{c}:")))) {
+        return canned(Intent::Grades, f, fil, Some(code));
+    }
+    let asks_for_data = has(&["room", "silid", "prof", "professor", "teacher", "guro", "units", "tuition", "balance", "enrolled", "enrollment", "section", "attendance", "absent"]);
+    (asks_for_data && f.hits.is_empty() && f.open_note.is_none()).then(|| {
+        if fil { "Wala akong ganyan na impormasyon. Ang nakikita ko lang ay ang schedule, grades at notes mo." } else { "I don't have that. I can only see your schedule, grades and notes." }.into()
+    })
+}
+
 fn date_table(today: Date) -> String {
     (0..14).map(|n| { let d = today.add_days(n); format!("d{n} = {:?} {d}{}\n", d.weekday(), if n == 0 { " (today)" } else { "" }) }).collect()
 }
@@ -117,7 +143,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let msg = msg.as_str();
     let intent = resolve(msg, facts.open_note.is_some());
     let subject = subject_in(msg, &facts.subject_names);
-    if let Some(reply) = canned(intent, facts, is_filipino(msg), subject.as_deref()) {
+    if let Some(reply) = no_data(intent, facts, msg, subject.as_deref(), today).or_else(|| canned(intent, facts, is_filipino(msg), subject.as_deref())) {
         return Ok(Answer { reply, proposal: None });
     }
     let when = resolve_when(msg, today);
@@ -785,5 +811,35 @@ mod tests {
         answer(&mut m, Template::Gemma, &rich(), &[], "paano mag-aral?").unwrap();
         assert!(!m.prompts[1].contains("The student is asking about"));
         assert!(!m.prompts[1].contains("pick one id"), "open questions never pick dates");
+    }
+
+    #[test]
+    fn a_personal_question_with_nothing_to_answer_it_gets_a_canned_refusal_not_the_model() {
+        let mut m = FakeLlm::new(&[]);
+        let f = rich(); // no hits, no open note
+        for (msg, want) in [
+            ("Anong oras ang klase ko bukas?", "Klase mo lang ngayon ang nakikita ko. Itanong ulit sa araw na iyon."),
+            ("what's the room of my class tomorrow", "I only see today's classes. Ask again that day."),
+            ("Sino ang prof ko sa Math?", "Wala akong ganyan na impormasyon. Ang nakikita ko lang ay ang schedule, grades at notes mo."),
+            ("how much is my tuition balance", "I don't have that. I can only see your schedule, grades and notes."),
+            ("Okay lang ba ako sa English?", "Wala pang grading para sa ENGL 100. I-set up ito sa syllabus ng subject."),
+        ] {
+            assert_eq!(answer(&mut m, Template::Gemma, &f, &[], msg).unwrap().reply, want, "{msg}");
+        }
+        assert!(m.prompts.is_empty(), "none of these reach the model");
+    }
+
+    #[test]
+    fn a_supported_or_general_question_still_reaches_the_model_with_its_note() {
+        let f = Facts { hits: vec!["MATH 101: review the chain rule at 7pm".into()], ..rich() };
+        let mut m = FakeLlm::new(&[r#"{"reply":"75%."}"#, r#"{"reply":"Try Pomodoro."}"#, r#"{"reply":"Passing is 75%."}"#]);
+        // a personal word with a note that may hold the answer
+        assert_eq!(answer(&mut m, Template::Gemma, &f, &[], "Anong oras ko dapat i-review ang chain rule?").unwrap().reply, "75%.");
+        assert!(m.prompts[0].contains("review the chain rule at 7pm") && m.prompts[0].contains("do not contain the answer"));
+        // general advice with no hits at all
+        assert_eq!(answer(&mut m, Template::Gemma, &rich(), &[], "paano ako magfo-focus sa pag-aaral?").unwrap().reply, "Try Pomodoro.");
+        // a wellbeing question about a subject that has a standing
+        answer(&mut m, Template::Gemma, &rich(), &[], "Okay lang ba ako sa Math?").unwrap();
+        assert_eq!(m.prompts.len(), 3);
     }
 }

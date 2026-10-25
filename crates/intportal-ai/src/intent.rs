@@ -16,7 +16,7 @@ pub enum Intent {
     Grades,
 }
 
-fn words(msg: &str) -> Vec<String> {
+pub(crate) fn words(msg: &str) -> Vec<String> {
     msg.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).map(String::from).collect()
 }
 
