@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Storage card for LAR's brain. Light is the default: nothing is
   // downloaded unless the student asks, and they can take it off again.
-  import { assis, cancelDownload, chatModel, embedModel, install, installed, larStyle, mb, open, remove, setLarStyle, STYLE_MAX } from "./assis.svelte";
+  import { addSearch, assis, cancelDownload, chatModel, defaultChat, embedModel, install, installed, larStyle, mb, open, remove, setLarStyle, STYLE_MAX, updatable } from "./assis.svelte";
   import { buzz } from "../haptics";
 
   const m = $derived(chatModel());
@@ -9,6 +9,9 @@
   // Both models install together; someone who added only LAR's brain before can add the note search later.
   const total = $derived((m?.bytes ?? 0) + (e && !e.installed ? e.bytes : 0));
   const searchMissing = $derived(!!e && !e.installed);
+  // A phone that has the old chat model keeps answering with it; the update brings the default (and the search model, if missing).
+  const next = $derived(defaultChat());
+  const update = $derived(updatable() && next ? mb(next.bytes + (e && !e.installed ? e.bytes : 0)) : "");
   const pct = $derived(assis.total ? Math.min(100, Math.round((assis.done / assis.total) * 100)) : 0);
   let confirming = $state(false);
   let style = $state(larStyle());
@@ -31,8 +34,11 @@
         <textarea bind:value={style} oninput={() => setLarStyle(style)} maxlength={STYLE_MAX} rows="2" placeholder="Optional, like “call me Ate” or “Taglish, a bit playful”"></textarea>
         <span class="fine">{style.length}/{STYLE_MAX}. Only changes how LAR sounds; it still follows its own rules and never changes your data without your tap.</span>
       </label>
-      {#if searchMissing && e}
-        <button class="ghost" onclick={() => { buzz.tick(); install(); }}>Add note search · {mb(e.bytes)}</button>
+      {#if update}
+        <button class="ghost" onclick={() => { buzz.tick(); install(); }}>Update IntAssis · {update}</button>
+        <p class="fine">A newer model for LAR. Your chat and notes stay, and {m.name} keeps answering until it arrives. Use Wi-Fi.</p>
+      {:else if searchMissing && e}
+        <button class="ghost" onclick={() => { buzz.tick(); addSearch(); }}>Add note search · {mb(e.bytes)}</button>
       {/if}
       {#if confirming}
         <div class="row">

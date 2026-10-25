@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { cancel, isPermissionGranted, pending as devicePending } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { apply, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, type ModelInfo } from "./assis.svelte";
+import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -37,6 +37,7 @@ function deferred<T>() {
 
 const model = (o: Partial<ModelInfo>): ModelInfo => ({ id: "m", name: "M", chat: true, bytes: 1000, installed: true, default: true, fits: "ok", loaded: true, ...o });
 const chat = (o: Partial<ModelInfo> = {}) => model({ id: "chat", name: "Chat", ...o });
+const gemma = (o: Partial<ModelInfo> = {}) => model({ id: "gemma", name: "Gemma", default: false, bytes: 800, ...o });
 const embed = (o: Partial<ModelInfo> = {}) => model({ id: "embed", name: "Embed", chat: false, default: false, bytes: 500, ...o });
 
 let disk: ModelInfo[];
@@ -321,6 +322,100 @@ describe("installing IntAssis", () => {
     await install();
     expect(assis.error).toBe("");
     expect(assis.busy).toBe("");
+  });
+});
+
+// A phone that has the old default (Gemma) when the default becomes another model (Qwen, here "chat").
+describe("updating from the old chat model", () => {
+  beforeEach(() => {
+    disk = [chat({ installed: false, loaded: false, bytes: 1100 }), gemma({ loaded: true }), embed()];
+    assis.models = structuredClone(disk);
+    backend.ai_delete = (a) => void (disk.find((m) => m.id === a.id)!.installed = false);
+    backend.ai_download = (a) => {
+      a.onProgress.onmessage({ done: 10, total: 10 });
+      disk.find((m) => m.id === a.id)!.installed = true;
+    };
+  });
+
+  it("keeps Gemma as the answering model while the default is not installed, and wakes that one", async () => {
+    expect(chatModel()?.id).toBe("gemma");
+    expect(updatable()).toBe(true);
+    disk[1].loaded = false;
+    assis.models = structuredClone(disk);
+    backend.ai_models = () => structuredClone(disk);
+    backend.ai_load = (a) => void (disk.find((m) => m.id === a.id)!.loaded = true);
+    expect(await wake()).toBe(true);
+    expect(ran("ai_load").map(([, a]) => a.id)).toEqual(["gemma"]);
+  });
+
+  it("answers with the default once it is installed, and with the only model when it is another", async () => {
+    assis.models = [chat(), gemma(), embed()];
+    expect(chatModel()?.id).toBe("chat");
+    expect(updatable()).toBe(false);
+    assis.models = [chat({ installed: false }), gemma({ installed: false }), embed()];
+    expect(chatModel()?.id).toBe("chat"); // nothing installed: the default, so Add has a target
+    expect(updatable()).toBe(false);
+  });
+
+  it("sizes a fresh install as the default chat model plus the search model", () => {
+    assis.models = [chat({ installed: false, bytes: 1_107_409_472 }), gemma({ installed: false, bytes: 806_058_272 }), embed({ installed: false, bytes: 309_855_456 })];
+    expect(mb((chatModel()?.bytes ?? 0) + (embedModel()?.bytes ?? 0))).toBe("1.42 GB"); // what FirstRun and the Add button show
+  });
+
+  it("downloads the new model and leaves Gemma alone until it has finished", async () => {
+    let seenDuring: string[] = [];
+    backend.ai_download = (a) => {
+      seenDuring = [...seenDuring, ...ran("ai_delete").map(([, x]) => x.id)];
+      disk.find((m) => m.id === a.id)!.installed = true;
+    };
+    await install();
+    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["chat"]); // the embedder was already there
+    expect(seenDuring).toEqual([]);
+    expect(ran("ai_delete").map(([, a]) => a.id)).toEqual(["gemma"]);
+    expect(chatModel()?.id).toBe("chat");
+    expect(assis.models.filter((m) => m.installed).map((m) => m.id)).toEqual(["chat", "embed"]);
+  });
+
+  it("keeps the chat history and the search model through the update", async () => {
+    assis.chat = [{ from: "me", text: "hi" }, { from: "lar", text: "hello" }];
+    await install();
+    expect(ran("ai_clear_history")).toHaveLength(0);
+    expect(ran("ai_delete").map(([, a]) => a.id)).not.toContain("embed");
+    expect(assis.chat).toHaveLength(2);
+  });
+
+  it("does not remove Gemma when the download is paused or fails", async () => {
+    backend.ai_download = () => Promise.reject("paused");
+    await install();
+    backend.ai_download = () => Promise.reject("No connection. Check Wi-Fi and try again.");
+    await install();
+    expect(ran("ai_delete")).toHaveLength(0);
+    expect(assis.models.find((m) => m.id === "gemma")?.installed).toBe(true);
+    expect(chatModel()?.id).toBe("gemma");
+  });
+
+  it("also fetches the search model when it is missing, in the same update", async () => {
+    disk[2].installed = false;
+    assis.models = structuredClone(disk);
+    await install();
+    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["chat", "embed"]);
+    expect(ran("ai_delete").map(([, a]) => a.id)).toEqual(["gemma"]);
+  });
+
+  it("adds only the search model on its own, without the update", async () => {
+    disk[2].installed = false;
+    assis.models = structuredClone(disk);
+    await addSearch();
+    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["embed"]);
+    expect(ran("ai_delete")).toHaveLength(0);
+  });
+
+  it("leaves Gemma installed if it can not be deleted, and still ends on the new model", async () => {
+    backend.ai_delete = () => Promise.reject("IntAssis is busy");
+    await install();
+    expect(assis.busy).toBe("");
+    expect(assis.error).toBe("");
+    expect(chatModel()?.id).toBe("chat"); // the default answers once installed, whatever else is on the phone
   });
 });
 

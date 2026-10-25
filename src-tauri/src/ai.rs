@@ -52,9 +52,12 @@ fn models_dir(app: &tauri::AppHandle) -> Res<PathBuf> {
     Ok(app.path().app_data_dir().map_err(|e| e.to_string())?.join("models"))
 }
 
-/// Gemma and Qwen want different prompt wrappers.
-fn template_for(m: &Model) -> Template {
-    if m.id.starts_with("gemma") { Template::Gemma } else { Template::ChatMl }
+/// Whether the chat model `m` (or, for the embedder, the default chat model beside it) fits in memory:
+/// IntAssis holds a chat model and the note-search model at once.
+fn fits(m: &Model) -> Gate {
+    let find = |id| models::find(id).expect("in the catalog");
+    let (chat, embed) = if m.kind == Kind::Embed { (find(models::DEFAULT_CHAT), m) } else { (m, find(models::EMBED)) };
+    models::gate(chat, embed, mem::available())
 }
 
 /// The simulator's Metal is software and slower than the CPU.
@@ -105,7 +108,7 @@ pub fn ai_models(app: tauri::AppHandle, ai: tauri::State<'_, AiState>) -> Res<Ve
             bytes: m.bytes,
             installed: dir.join(m.file).metadata().is_ok_and(|f| f.len() == m.bytes),
             default: m.id == models::DEFAULT_CHAT,
-            fits: match models::gate(m, mem::available()) { Gate::Ok => "ok", Gate::Warn => "warn", Gate::Refuse => "refuse" },
+            fits: match fits(m) { Gate::Ok => "ok", Gate::Warn => "warn", Gate::Refuse => "refuse" },
             loaded: loaded.iter().any(|l| l == m.id),
         })
         .collect())
@@ -189,7 +192,7 @@ pub fn ai_delete(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: Strin
 #[tauri::command]
 pub async fn ai_load(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: String) -> Res<()> {
     let m = *models::find(&id).ok_or("Unknown model")?;
-    if models::gate(&m, mem::available()) == Gate::Refuse {
+    if fits(&m) == Gate::Refuse {
         return Err("This model needs more memory than this phone has free. Try a smaller one.".into());
     }
     let path = models_dir(&app)?.join(m.file);
@@ -204,7 +207,7 @@ fn load_into(slot: &Mutex<Option<Loaded>>, m: &Model, path: &std::path::Path) ->
     let mut slot = slot.try_lock().map_err(|_| "IntAssis is busy".to_string())?;
     *slot = None; // free the old one before the new one loads
     let llm = Llama::load(path, m.n_ctx, device())?;
-    *slot = Some(Loaded { id: m.id.into(), tpl: template_for(m), llm: Box::new(llm) });
+    *slot = Some(Loaded { id: m.id.into(), tpl: m.template, llm: Box::new(llm) });
     Ok(())
 }
 
@@ -490,8 +493,8 @@ pub struct Cards {
 /// Flashcards from a note's text or a PDF's text, for the existing deck review.
 #[tauri::command]
 pub async fn ai_cards(ai: tauri::State<'_, AiState>, text: String, want: usize) -> Res<Cards> {
-    with_model(&ai, move |llm, _| {
-        let o = gen::cards(llm, &text, want.clamp(1, 40));
+    with_model(&ai, move |llm, tpl| {
+        let o = gen::cards(llm, tpl, &text, want.clamp(1, 40));
         Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back }).collect(), stopped: o.stopped })
     })
     .await

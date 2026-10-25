@@ -54,6 +54,31 @@ LAR: The chapter on photosynthesis, from your note.
 Student: and the one after that?
 LAR: Your note doesn't say. Want to jot it down so I remember next time?";
 
+/// The (student, LAR) pairs of the examples above, read from the same text so the two never drift.
+pub fn examples() -> Vec<(String, String)> {
+    let mut out = vec![];
+    let mut student = String::new();
+    for line in EXAMPLES.lines() {
+        if let Some(q) = line.strip_prefix("Student: ") {
+            student = q.to_string();
+        } else if let Some(a) = line.strip_prefix("LAR: ") {
+            out.push((std::mem::take(&mut student), a.to_string()));
+        }
+    }
+    out
+}
+
+/// The sentences of the rules in the prompt (five words or more). A reply that is one of them
+/// is the prompt read back, not an answer.
+pub fn rule_sentences() -> Vec<String> {
+    [IDENTITY, VOICE, ALWAYS]
+        .iter()
+        .flat_map(|t| t.split(['\n', '.', ':']))
+        .map(|s| s.trim().trim_start_matches("- ").trim().to_string())
+        .filter(|s| s.split_whitespace().count() >= 5)
+        .collect()
+}
+
 /// The system text of an open question. `style` is the student's own note
 /// about how LAR should talk; it goes last and is told it cannot override the rules.
 pub fn system(style: Option<&str>) -> String {
@@ -141,7 +166,14 @@ const CANNOT_CHANGE: V = V {
     fil: &["Hindi ko kayang burahin o palitan ang pangalan ng notes, paalala o events. Ikaw mismo ang gagawa niyan sa app.", "Hindi ko magagawang magbura o magpalit ng pangalan. Pwede mo itong gawin mismo sa app."],
 };
 
-const ALL: [&V; 14] = [&DUE_LEAD, &DUE_CLOSE, &CLASSES_LEAD, &CLASSES_CLOSE, &GRADES_LEAD, &GRADES_CLOSE, &NO_DUE, &NO_CLASSES, &NO_GRADES, &NO_GRADING, &OTHER_DAY, &NO_DATA, &READ_ONLY, &CANNOT_CHANGE];
+/// When the model's reply was a sentence of the prompt read back, not an answer. It says nothing about the
+/// student's data, so a stressed student is not told "I don't have that".
+const RETRY: V = V {
+    en: &["Sorry, I didn't answer that well. Can you say it again in other words?", "I can't give you a good answer to that yet. Could you ask it another way?"],
+    fil: &["Pasensya na, hindi ko iyon nasagot nang maayos. Pwede mo bang sabihin ulit sa ibang paraan?", "Hindi pa ako makakasagot nang maayos diyan. Subukan mo bang itanong sa ibang paraan?"],
+};
+
+const ALL: [&V; 15] = [&DUE_LEAD, &DUE_CLOSE, &CLASSES_LEAD, &CLASSES_CLOSE, &GRADES_LEAD, &GRADES_CLOSE, &NO_DUE, &NO_CLASSES, &NO_GRADES, &NO_GRADING, &OTHER_DAY, &NO_DATA, &READ_ONLY, &CANNOT_CHANGE, &RETRY];
 
 /// Every fixed sentence a rule answer can start or end with, for tests.
 pub fn all_variants() -> Vec<&'static str> {
@@ -164,6 +196,7 @@ pub enum Line {
     NoData,
     ReadOnly,
     CannotChange,
+    Retry,
 }
 
 /// FNV-1a over the lowercased message and a salt, so the lead-in and the closer
@@ -201,6 +234,7 @@ pub fn lines(kind: Line, fil: bool) -> &'static [&'static str] {
         Line::NoData => &NO_DATA,
         Line::ReadOnly => &READ_ONLY,
         Line::CannotChange => &CANNOT_CHANGE,
+        Line::Retry => &RETRY,
     };
     if fil { v.fil } else { v.en }
 }
@@ -256,6 +290,15 @@ mod tests {
         assert_eq!(s.matches("\nStudent: ").count(), 8, "7 examples, one of them two turns");
         assert!(!s.contains("1-3") && !s.contains("Keep it to"), "length follows the information");
         assert!(request_system().contains("You are LAR") && !request_system().contains("Examples"));
+    }
+
+    #[test]
+    fn the_examples_are_read_back_as_student_and_reply_pairs() {
+        let e = examples();
+        assert_eq!(e.len(), 8);
+        assert_eq!(e[0], ("thanks LAR, that helped!".to_string(), "Glad it did! Come back anytime.".to_string()));
+        assert!(e.iter().all(|(q, a)| !q.is_empty() && !a.is_empty()));
+        assert!(rule_sentences().iter().any(|r| r == "Your own words every time"), "{:?}", rule_sentences());
     }
 
     #[test]
