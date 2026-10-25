@@ -26,10 +26,12 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | Spec | Status | Covers |
 |---|---|---|
 | [000-sis-data-map](000-sis-data-map.md) | draft | What the app reads from the SIS, and where it lands |
-| [010-landing](010-landing.md) | draft | The tile portal, its states, the carousel, the morph |
+| [010-landing](010-landing.md) | draft | The tile portal, its states, the carousel, the dive |
 | [011-login](011-login.md) | draft | The sign-in form, errors and the lockout guard |
 | [012-portals](012-portals.md) | draft | The portal model: SIS now, Mabini next |
 | [020-ai](020-ai.md) | building | LAR that streams, remembers, cites notes; Ask AI in a note |
+| [043-app-environment](043-app-environment.md) | draft | One night, type roles, pixel numerals, juice, sound, celebrations |
+| [044-pixel-week](044-pixel-week.md) | draft | Stepped blocks, stamps, now-line, day and week swipes |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md) and [ADR 0005](../adr/0005-portals-are-first-class.md).
 
