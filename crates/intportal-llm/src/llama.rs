@@ -54,16 +54,13 @@ impl Llama {
     }
 }
 
-impl Llm for Llama {
-    fn generate(
-        &mut self,
-        prompt: &str,
-        schema: Option<&serde_json::Value>,
-        max_tokens: u32,
-        on_token: &mut dyn FnMut(&str) -> bool,
-    ) -> Result<String, String> {
+impl Llama {
+    /// Reads `prompt` and `prefill`, then writes; the grammar has already seen the prefill's tokens.
+    fn run(&mut self, prompt: &str, prefill: &str, schema: Option<&serde_json::Value>, max_tokens: u32, on_token: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
         let vocab = self.model.vocab();
-        let toks = vocab.tokenize(prompt.as_bytes(), true, true);
+        let mut toks = vocab.tokenize(prompt.as_bytes(), true, true);
+        let given = if prefill.is_empty() { vec![] } else { vocab.tokenize(prefill.as_bytes(), false, false) };
+        toks.extend(&given);
         if toks.len() as u32 + max_tokens > self.n_ctx {
             return Err(format!("prompt of {} tokens does not fit {} context", toks.len(), self.n_ctx));
         }
@@ -86,6 +83,7 @@ impl Llm for Llama {
         }
         samplers.push(LlamaSampler::greedy());
         let mut sampler = LlamaSampler::chain_simple(samplers);
+        sampler.accept_many(&given); // the grammar continues from the prefill, it does not start over
         let (mut out, mut pending) = (String::new(), Vec::new());
         for _ in 0..max_tokens {
             let tok = sampler.sample(&ctx, batch.n_tokens() - 1);
@@ -104,6 +102,16 @@ impl Llm for Llama {
             ctx.decode(&mut batch).map_err(|e| e.to_string())?;
         }
         Ok(out)
+    }
+}
+
+impl Llm for Llama {
+    fn generate(&mut self, prompt: &str, schema: Option<&serde_json::Value>, max_tokens: u32, on_token: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+        self.run(prompt, "", schema, max_tokens, on_token)
+    }
+
+    fn generate_prefilled(&mut self, prompt: &str, prefill: &str, schema: Option<&serde_json::Value>, max_tokens: u32, on_token: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+        self.run(prompt, prefill, schema, max_tokens, on_token).map(|out| format!("{prefill}{out}"))
     }
 
     fn embed(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
