@@ -139,7 +139,7 @@ fn main() {
     let device = if std::env::args().any(|a| a == "cpu") { Device::Cpu } else { Device::Gpu };
     let mut m = Llama::load(path.as_ref(), 4096, device).unwrap();
     // The persona alone, in this model's tokens (a prompt that cannot fit is refused with its count).
-    let alone = format!("{}\n\nStudent: hi", intportal_ai::persona::system(None));
+    let alone = format!("{}\n\nStudent: hi", intportal_ai::persona::system_all(None));
     let probe = m.generate(&alone, None, u32::MAX / 2, &mut |_| false).unwrap_err();
     println!("persona system text: {} chars, {}", alone.chars().count(), probe.split(" does not fit").next().unwrap_or(""));
     let tpl = if path.contains("gemma") { Template::Gemma } else { Template::ChatMl };
