@@ -182,9 +182,11 @@
     z-index: 70;
     background: var(--void);
     pointer-events: none;
+    /* Today's first frame reaches the screen a few hundred ms after it
+       mounts on a phone, so the lift waits for it. */
     transition:
-      opacity 0.45s var(--ease),
-      visibility 0s 0.45s;
+      opacity 0.4s var(--ease) 0.25s,
+      visibility 0s 0.65s;
   }
   .veil.lifted {
     opacity: 0;
