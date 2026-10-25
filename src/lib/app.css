@@ -115,11 +115,13 @@ html {
   font: -apple-system-body;
 }
 
+/* The page itself stays the landing's void, so a day room never shows cream
+   for a frame before the landing draws; the app shell paints the room. */
 html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--ground);
+  background: var(--void);
   color: var(--ink);
   font-family: var(--font-body);
   line-height: 1.4;
