@@ -8,6 +8,7 @@
 //! reading every reply. Greedy sampling, so a rerun gives the same replies.
 use intportal_ai::{
     assis::{self, Facts},
+    evalset::markers,
     llm::Llm,
     prompt::Template,
 };
@@ -124,14 +125,6 @@ impl Llm for Counting<'_> {
     fn embed(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
         self.inner.embed(texts)
     }
-}
-
-fn markers(text: &str) -> (usize, usize) {
-    const FIL: [&str; 24] = ["ang", "ng", "mo", "ko", "sa", "ay", "na", "lang", "ba", "naman", "para", "ito", "iyon", "yung", "wala", "ka", "ako", "tayo", "po", "kung", "kasi", "mga", "natin", "heto"];
-    const EN: [&str; 20] = ["the", "you", "your", "is", "are", "to", "and", "of", "for", "it", "this", "that", "with", "i", "i'm", "have", "here", "can", "let", "what"];
-    let low = text.to_lowercase();
-    let w: Vec<&str> = low.split(|c: char| !(c.is_alphanumeric() || c == '\'')).filter(|x| !x.is_empty()).collect();
-    (w.iter().filter(|x| FIL.contains(x)).count(), w.iter().filter(|x| EN.contains(x)).count())
 }
 
 fn main() {
