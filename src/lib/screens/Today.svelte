@@ -435,21 +435,22 @@
     gap: 18px;
   }
   /* Up next first, then each card 40 ms after the one above. The header is
-     there from the first frame. */
-  .arriving > :not(header) {
+     there from the first frame. Global, so cards drawn by child components
+     (MabiniDue) rise with the rest. */
+  .arriving > :global(:not(header)) {
     animation: rise 0.32s var(--ease) backwards paused;
     animation-delay: var(--after-veil);
     --after-veil: 0.25s;
   }
   /* Held until the landing's veil starts to lift over them. */
-  :global([data-lifted]) .arriving > :not(header) {
+  :global([data-lifted]) .arriving > :global(:not(header)) {
     animation-play-state: running;
   }
-  .arriving > :nth-child(2) { animation-delay: calc(var(--after-veil) + 0.04s); }
-  .arriving > :nth-child(3) { animation-delay: calc(var(--after-veil) + 0.08s); }
-  .arriving > :nth-child(4) { animation-delay: calc(var(--after-veil) + 0.12s); }
-  .arriving > :nth-child(5) { animation-delay: calc(var(--after-veil) + 0.16s); }
-  .arriving > :nth-child(n + 6) { animation-delay: calc(var(--after-veil) + 0.2s); }
+  .arriving > :global(:nth-child(2)) { animation-delay: calc(var(--after-veil) + 0.04s); }
+  .arriving > :global(:nth-child(3)) { animation-delay: calc(var(--after-veil) + 0.08s); }
+  .arriving > :global(:nth-child(4)) { animation-delay: calc(var(--after-veil) + 0.12s); }
+  .arriving > :global(:nth-child(5)) { animation-delay: calc(var(--after-veil) + 0.16s); }
+  .arriving > :global(:nth-child(n + 6)) { animation-delay: calc(var(--after-veil) + 0.2s); }
   @keyframes rise {
     from { opacity: 0; transform: translateY(8px); }
   }
