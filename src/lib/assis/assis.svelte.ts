@@ -278,8 +278,11 @@ export async function apply(i: number) {
       rememberLarReminder(id, reminderAt(p.date));
     } else {
       assis.busy = "cards";
-      const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null }>("ai_cards", { text: `Topic: ${p.topic}`, want: 8 });
+      const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null }>("ai_cards", { text: `Topic: ${p.topic}`, want: p.count });
       if (!found.cards.length) throw new Error("I couldn't make cards for that. Try a note's own text instead.");
+      // The confirm sentence ("Confirm to start.") is spent: from here the bubble says what was made.
+      const n = found.cards.length;
+      msg.text = n < p.count ? `I could make ${n} of ${p.count} from what I know.` : `Here ${n === 1 ? "is 1 card" : `are ${n} cards`} on ${p.topic}.`;
       msg.cards = found.cards; // Shown for the student to edit; confirmCards saves.
       return;
     }
@@ -301,7 +304,7 @@ export async function confirmCards(i: number) {
   msg.problem = "";
   try {
     await api.saveDeck(newDeck(crypto.randomUUID(), p.topic, null, cards));
-    msg.text = `${msg.text} Made ${cards.length} ${cards.length === 1 ? "card" : "cards"}. Find them under Study.`;
+    msg.text = cards.length === 1 ? "Made 1 card." : `Added ${cards.length} cards to ${p.topic}.`;
     msg.cards = undefined;
     msg.state = "done";
   } catch (e) {

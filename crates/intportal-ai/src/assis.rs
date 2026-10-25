@@ -3,7 +3,7 @@
 //! confirm. Nothing here writes: the UI shows a card and Apply calls the
 //! existing commands (`set_note`, `set_plan`, `save_deck`).
 use crate::{
-    intent::{is_filipino, resolve, resolve_when, subject_in, words, Intent},
+    intent::{card_count, is_filipino, resolve, resolve_when, subject_in, words, Intent, CARDS_DEFAULT},
     llm::Llm,
     persona::{self, Line, List},
     prompt::{build, Section, Template},
@@ -36,7 +36,7 @@ pub struct Facts {
 pub enum Proposal {
     AddNote { subject: Option<String>, text: String },
     SetReminder { date: Date, text: String },
-    MakeCards { topic: String },
+    MakeCards { topic: String, count: usize },
 }
 
 #[derive(Debug, PartialEq)]
@@ -225,7 +225,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
             let date = when.or_else(|| s("when").strip_prefix('d').and_then(|n| n.parse::<i64>().ok()).filter(|n| (0..14).contains(n)).map(|n| today.add_days(n)));
             date.map(|date| Proposal::SetReminder { date, text })
         }
-        Intent::Cards => Some(Proposal::MakeCards { topic: s("topic") }).filter(|p| matches!(p, Proposal::MakeCards { topic } if !topic.is_empty())),
+        Intent::Cards => Some(Proposal::MakeCards { topic: s("topic"), count: card_count(msg).unwrap_or(CARDS_DEFAULT) }).filter(|p| matches!(p, Proposal::MakeCards { topic, .. } if !topic.is_empty())),
     };
     let fil = is_filipino(msg);
     let reply = match (&proposal, intent) {
@@ -271,8 +271,8 @@ fn confirm(p: &Proposal, fil: bool) -> String {
         (Proposal::SetReminder { text, .. }, true) => format!("Handa na ang paalala: {text}. I-confirm para i-save."),
         (Proposal::AddNote { subject, text }, false) => format!("Note ready{}: {text}. Confirm to save it.", subject.as_ref().map(|s| format!(" for {s}")).unwrap_or_default()),
         (Proposal::AddNote { subject, text }, true) => format!("Handa na ang note{}: {text}. I-confirm para i-save.", subject.as_ref().map(|s| format!(" sa {s}")).unwrap_or_default()),
-        (Proposal::MakeCards { topic }, false) => format!("I'll make flashcards on {topic}. Confirm to start."),
-        (Proposal::MakeCards { topic }, true) => format!("Gagawa ako ng flashcards sa {topic}. I-confirm para magsimula."),
+        (Proposal::MakeCards { topic, count }, false) => format!("I'll make {count} flashcards on {topic}. Confirm to start."),
+        (Proposal::MakeCards { topic, count }, true) => format!("Gagawa ako ng {count} flashcards sa {topic}. I-confirm para magsimula."),
     }
 }
 
@@ -348,7 +348,23 @@ mod tests {
     fn cards_need_a_topic() {
         let mut m = FakeLlm::new(&[r#"{"reply":"ok","topic":"binary trees"}"#]);
         let a = answer(&mut m, Template::Gemma, &facts(), &[], "gawan mo ako ng flashcards sa trees").unwrap();
-        assert_eq!(a.proposal, Some(Proposal::MakeCards { topic: "binary trees".into() }));
+        assert_eq!(a.proposal, Some(Proposal::MakeCards { topic: "binary trees".into(), count: 8 }), "no number asked: the default");
+    }
+
+    // #161: the count the student asked for rides in the action and in the confirm card.
+    #[test]
+    fn the_asked_card_count_is_carried_in_the_action_and_the_confirm_card() {
+        for (msg, count, says) in [
+            ("make 8 flashcards about recursion", 8, "I'll make 8 flashcards on recursion. Confirm to start."),
+            ("Make 5 cards about recursion", 5, "I'll make 5 flashcards on recursion. Confirm to start."),
+            ("gumawa ng 12 na cards sa recursion", 12, "Gagawa ako ng 12 flashcards sa recursion. I-confirm para magsimula."),
+            ("make 50 flashcards about recursion", 20, "I'll make 20 flashcards on recursion. Confirm to start."),
+        ] {
+            let mut m = FakeLlm::new(&[r#"{"topic":"recursion"}"#]);
+            let a = answer(&mut m, Template::Gemma, &facts(), &[], msg).unwrap();
+            assert_eq!(a.proposal, Some(Proposal::MakeCards { topic: "recursion".into(), count }), "{msg}");
+            assert_eq!(a.reply, says, "{msg}");
+        }
     }
 
     #[test]
@@ -817,9 +833,9 @@ mod tests {
         assert_eq!(confirm(&note(Some("MATH 101")), false), "Note ready for MATH 101: bring ID. Confirm to save it.");
         assert_eq!(confirm(&note(None), true), "Handa na ang note: bring ID. I-confirm para i-save.");
         assert_eq!(confirm(&note(Some("MATH 101")), true), "Handa na ang note sa MATH 101: bring ID. I-confirm para i-save.");
-        let cards = Proposal::MakeCards { topic: "trees".into() };
-        assert_eq!(confirm(&cards, false), "I'll make flashcards on trees. Confirm to start.");
-        assert_eq!(confirm(&cards, true), "Gagawa ako ng flashcards sa trees. I-confirm para magsimula.");
+        let cards = Proposal::MakeCards { topic: "trees".into(), count: 8 };
+        assert_eq!(confirm(&cards, false), "I'll make 8 flashcards on trees. Confirm to start.");
+        assert_eq!(confirm(&cards, true), "Gagawa ako ng 8 flashcards sa trees. I-confirm para magsimula.");
         let rem = Proposal::SetReminder { date: THU, text: "pay".into() };
         assert_eq!(confirm(&rem, false), "Reminder ready: pay. Confirm to save it.");
         assert_eq!(confirm(&rem, true), "Handa na ang paalala: pay. I-confirm para i-save.");
