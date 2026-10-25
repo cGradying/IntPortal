@@ -139,6 +139,8 @@
     <TabBar />
     <AssisOrb />
   </div>
+  <!-- The landing's void lifts off the room instead of cutting to it. -->
+  <div class="veil" aria-hidden="true"></div>
   {#if !welcomed}<FirstRun ondone={welcomeDone} />{/if}
   {#if app.subject}
     {#key app.subject.code}<SubjectPage {...app.subject} />{/key}
@@ -166,15 +168,22 @@
     background: linear-gradient(var(--ground) 55%, transparent);
     pointer-events: none;
   }
+  .veil {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: var(--void);
+    pointer-events: none;
+    animation: lift 0.45s var(--ease) forwards;
+  }
+  @keyframes lift {
+    to { opacity: 0; visibility: hidden; }
+  }
   main {
-    animation: arrive 0.65s var(--ease) backwards;
     padding: calc(var(--safe-top) + 12px) var(--gutter) calc(var(--safe-bottom) + 92px);
   }
   [data-glance="dock"] main {
     padding-bottom: calc(var(--safe-bottom) + 150px);
-  }
-  @keyframes arrive {
-    from { filter: brightness(2.2) saturate(0.4); }
   }
   .page {
     animation: in 0.3s var(--ease) backwards;

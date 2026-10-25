@@ -117,6 +117,7 @@
     font-weight: 800;
   }
   .big small {
+    margin-left: 0.25em;
     font-size: min(0.765rem, 23px);
     font-weight: 600;
     color: var(--ink-3);

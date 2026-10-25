@@ -88,6 +88,10 @@
 :root {
   --font-display: "Montserrat Variable", system-ui, sans-serif;
   --font-body: "Source Sans 3 Variable", system-ui, sans-serif;
+  /* The landing's night, which every room's app is entered from. */
+  --void: #0b0710;
+  /* Checkboxes and other native controls in the room's gold, not system blue. */
+  accent-color: var(--gold);
   --font-pixel: "Pixelify Sans", ui-monospace, monospace;
   /* The phone's own UI face: the sign-in form borrows its calm, like every login screen. */
   --font-ui: -apple-system, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
@@ -183,6 +187,7 @@ button {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

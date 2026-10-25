@@ -1,3 +1,9 @@
+<script lang="ts" module>
+  // Today's cards rise in one after another only on arriving from the
+  // landing, not on every tab switch (spec 010 C30).
+  let arrived = false;
+</script>
+
 <script lang="ts">
   import NeedSis from "../NeedSis.svelte";
   import CampusStrip from "../CampusStrip.svelte";
@@ -101,9 +107,11 @@
 
   /** Classes and the student's own events, with the free stretches between them. */
   const rows = $derived(dayRows(items, app.busy, isoDate(now), now.getHours() * 60 + now.getMinutes()));
+  const arriving = !arrived;
+  arrived = true;
 </script>
 
-<div class="screen">
+<div class="screen" class:arriving>
   <header>
     <p class="label">{dateLine}</p>
     <h1>{greeting}</h1>
@@ -425,6 +433,19 @@
   .screen {
     display: grid;
     gap: 18px;
+  }
+  /* Up next first, then each card 40 ms after the one above. The header is
+     there from the first frame. */
+  .arriving > :not(header) {
+    animation: rise 0.32s var(--ease) backwards;
+  }
+  .arriving > :nth-child(2) { animation-delay: 0.04s; }
+  .arriving > :nth-child(3) { animation-delay: 0.08s; }
+  .arriving > :nth-child(4) { animation-delay: 0.12s; }
+  .arriving > :nth-child(5) { animation-delay: 0.16s; }
+  .arriving > :nth-child(n + 6) { animation-delay: 0.2s; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
   }
   header h1 {
     margin: 2px 0 0;
