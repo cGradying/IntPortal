@@ -15,6 +15,10 @@ pub const CHUNK: usize = 700;
 // the prompt must still say "I don't know". Scores shift with the embedder: change the model,
 // rerun embed_eval, change this.
 pub const FLOOR: f32 = 0.72;
+/// A chunk this close under `FLOOR` is a near hit. Recall at the floor is 74%, and "how long is my study block"
+/// scored 0.70 against a note about 25-minute blocks: it keeps a question about the notes in scope and the
+/// model sees the chunk, but it is not counted as a clear match. 0.03 is the width of the cliff in the sweep.
+pub const NEAR: f32 = 0.03;
 pub const BUDGET: usize = 4000;
 
 /// What `notes::heading` calls a note with no title. It says nothing about the note, so it is "none".
@@ -105,13 +109,18 @@ pub fn refresh(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str) -> Result<(
 /// Best chunks for `query` (best first): at least `FLOOR`, at most `k`, and
 /// within `BUDGET` chars together. Refreshes stale sources first.
 pub fn search(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str, query: &str, k: usize) -> Result<Vec<Hit>, RagError> {
+    search_from(store, llm, model, query, k, FLOOR)
+}
+
+/// Like `search` with another floor; `FLOOR - NEAR` also returns the near hits (their `score` tells them apart).
+pub fn search_from(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str, query: &str, k: usize, floor: f32) -> Result<Vec<Hit>, RagError> {
     refresh(store, llm, model)?;
     let q = llm.embed(&[&query_text(query)]).map_err(RagError::Embed)?.pop().unwrap_or_default();
     let mut hits: Vec<Hit> = db(store)
         .chunks(model)?
         .into_iter()
         .map(|(key, text, v)| Hit { score: q.iter().zip(&v).map(|(a, b)| a * b).sum(), key, text })
-        .filter(|h| h.score >= FLOOR)
+        .filter(|h| h.score >= floor)
         .collect();
     hits.sort_by(|a, b| b.score.total_cmp(&a.score));
     let mut used = 0;
@@ -167,6 +176,18 @@ mod tests {
         let embedded = llm.0.len();
         search(&store, &mut llm, "m", "tuition", 3).unwrap();
         assert_eq!(llm.0.len(), embedded + 1, "only the query is embedded the second time");
+    }
+
+    #[test]
+    fn a_lower_floor_also_returns_the_near_hits_with_their_scores() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).set_note("note:a", "binary tree", None, 1).unwrap();
+        db(&store).set_note("note:b", "tuition due Monday", None, 1).unwrap();
+        let mut llm = Topics(vec![]);
+        assert_eq!(keys(&search(&store, &mut llm, "m", "tree", 4).unwrap()), ["note:a"], "the floor drops the unrelated note");
+        let wide = search_from(&store, &mut llm, "m", "tree", 4, FLOOR - NEAR - 1.0).unwrap();
+        assert_eq!(keys(&wide), ["note:a", "note:b"]);
+        assert!(wide[0].score >= FLOOR && wide[1].score < FLOOR - NEAR, "the score tells a clear hit from a near one");
     }
 
     #[test]

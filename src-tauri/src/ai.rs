@@ -309,8 +309,11 @@ pub struct Ask {
     reply: String,
     /// The one thing IntAssis offers to do. The UI shows a confirm card.
     proposal: Option<ProposalDto>,
-    /// The notes the model was shown for an open question.
+    /// The notes the answer drew on: empty for a scope-guard reply, a canned refusal, a rule answer and a
+    /// reply where the model said it had nothing (#162).
     sources: Vec<Source>,
+    #[serde(skip)]
+    asked_model: bool,
 }
 
 /// Loads the embedding model when it is on the phone but not in memory.
@@ -337,26 +340,36 @@ fn index(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>) -> Res<()> {
     rag::refresh(&app.state::<AppState>().store, l.llm.as_mut(), models::EMBED).map_err(err)
 }
 
+/// What a search found: the clear matches, the near ones (just under `rag::FLOOR`, see `rag::NEAR`), and a chip
+/// for each. `searched` is false when the notes could not be searched at all, which says nothing about them.
+struct Recall {
+    lines: Vec<String>,
+    near: Vec<String>,
+    sources: Vec<Source>,
+    searched: bool,
+}
+
 /// The notes, cards and syllabus text closest to `query`, as lines for the prompt and as chips for the UI.
-fn recall(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>, query: &str) -> Res<(Vec<String>, Vec<Source>)> {
+fn recall(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>, query: &str) -> Res<Recall> {
     if !embedder_ready(app, slot)? {
-        return Ok((vec![], vec![]));
+        return Ok(Recall { lines: vec![], near: vec![], sources: vec![], searched: false });
     }
     let mut guard = slot.try_lock().map_err(|_| "IntAssis is busy".to_string())?;
     let l = guard.as_mut().ok_or("Turn IntAssis on first")?;
     let state = app.state::<AppState>();
-    let hits = rag::search(&state.store, l.llm.as_mut(), models::EMBED, query, 4).map_err(err)?;
+    let hits = rag::search_from(&state.store, l.llm.as_mut(), models::EMBED, query, 4, rag::FLOOR - rag::NEAR).map_err(err)?;
     let all = store(&state)?.sources().map_err(err)?;
-    let (mut lines, mut sources) = (vec![], Vec::<Source>::new());
+    let (mut lines, mut near, mut sources) = (vec![], vec![], Vec::<Source>::new());
     for h in hits {
         let Some(found) = all.iter().find(|s| s.key == h.key) else { continue };
         let title = found.title.clone();
-        lines.push(format!("{title}: {}", h.text.split_whitespace().collect::<Vec<_>>().join(" ")));
+        let line = format!("{title}: {}", h.text.split_whitespace().collect::<Vec<_>>().join(" "));
+        if h.score >= rag::FLOOR { lines.push(line) } else { near.push(line) }
         if !sources.iter().any(|s| s.key == found.key) {
             sources.push(Source { key: found.key.clone(), title });
         }
     }
-    Ok((lines, sources))
+    Ok(Recall { lines, near, sources, searched: true })
 }
 
 /// The note the student has open, cut to what fits the prompt.
@@ -403,10 +416,11 @@ fn ask_pairs(turns: &[intportal_core::store::Turn]) -> Vec<(String, String)> {
     asks.windows(2).filter(|p| p[0].role == "me" && p[1].role == "lar").map(|p| (p[0].text.clone(), p[1].text.clone())).collect()
 }
 
-/// True when the model answers openly (and may read notes) rather than the app acting or answering exactly.
-/// Asking about the open note counts; the same rule `assis::answer` uses.
-fn asks_the_model(message: &str, note_open: bool) -> bool {
-    intent::resolve(message, note_open) == Intent::Ask
+/// True when the notes are searched for a message: every question, not a request to add something. The scope
+/// guard needs the search for an exact-answer question too ("Kailan ang quiz sa Math 101?" with no deadline
+/// listed is answered by the note that names the day).
+fn searches_notes(message: &str, note_open: bool) -> bool {
+    !matches!(intent::resolve(message, note_open), Intent::Note | Intent::Remind | Intent::Cards)
 }
 
 /// One chat turn. The words of an open question's reply arrive on `on_text`
@@ -420,14 +434,18 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
     facts.style = style; // the student's own note on how LAR talks; `persona::system` cleans and caps it
     let history = recent_asks(&state);
     let note = open_key.and_then(|k| open_note(&state, &k));
-    let (mut sources, open) = (vec![], asks_the_model(&message, note.is_some()));
+    let (mut sources, open) = (vec![], searches_notes(&message, note.is_some()));
     // Only an open question reads the notes: the rest are answered from the schedule or acted on.
     if open {
         facts.open_note = note;
         let (slot, q, handle) = (ai.embedder.clone(), message.clone(), app.clone());
         // Notes are a bonus: if searching fails the answer still comes from the schedule.
-        if let Ok(Ok((lines, found))) = tokio::task::spawn_blocking(move || recall(&handle, &slot, &q)).await {
-            (facts.hits, sources) = (lines, found);
+        match tokio::task::spawn_blocking(move || recall(&handle, &slot, &q)).await {
+            Ok(Ok(r)) => {
+                facts.search_off = !r.searched;
+                (facts.hits, facts.near, sources) = (r.lines, r.near, r.sources);
+            }
+            _ => facts.search_off = true, // no verdict on a question the notes could not be searched for
         }
     }
     let (asked, fil) = (message.clone(), intent::is_filipino(&message));
@@ -435,13 +453,16 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
         let a = assis::answer_streaming(llm, tpl, &facts, &history, &asked, &mut |words| {
             let _ = on_text.send(words.to_string());
         })?;
-        Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources })
+        // A chip only when the answer used the notes it was shown.
+        let sources = if a.cited { sources } else { vec![] };
+        Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources, asked_model: a.route == assis::Route::Model })
     })
     .await
     .map_err(|e| assis::friendly(&e, fil))?;
     let at = now_unix();
     if let Ok(store) = store(&state) {
-        let _ = store.add_turn("me", &message, at, open).and_then(|()| store.add_turn("lar", &a.reply, at, open));
+        // Only the model's own open answers are history for the next question; a guard reply or a rule answer is not.
+        let _ = store.add_turn("me", &message, at, a.asked_model).and_then(|()| store.add_turn("lar", &a.reply, at, a.asked_model));
     }
     Ok(a)
 }
@@ -557,10 +578,10 @@ mod tests {
     #[test]
     fn note_chips_go_to_the_model_only_with_a_note_open() {
         for chip in ["Summarize this note", "What should I review from this note?", "ibuod ang note na ito"] {
-            assert!(asks_the_model(chip, true), "{chip}");
-            assert!(!asks_the_model(chip, false), "{chip}");
+            assert!(searches_notes(chip, true), "{chip}");
+            assert!(!searches_notes(chip, false), "{chip}");
         }
-        assert!(!asks_the_model("Add a note: bring calculator", true));
+        assert!(!searches_notes("Add a note: bring calculator", true));
     }
 
     #[test]
