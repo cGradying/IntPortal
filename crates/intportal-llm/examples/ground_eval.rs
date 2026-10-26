@@ -55,7 +55,7 @@ const QS: [(&str, char, &str, &[&str]); 28] = [
     ("o6", 'o', "Magkano ang tuition sa susunod na sem?", &[]),
 ];
 
-const REFUSALS: [&str; 14] = ["hindi ko alam", "wala akong", "walang", "don't know", "don't have", "don't see", "can't find", "only see", "lang ang nasa", "lang ang nakikita", "wala sa", "isn't in", "makita", "wala pa"];
+const REFUSALS: [&str; 18] = ["wala ang", "nakikita ko lang", "hindi nakasulat", "sorry, i didn", "hindi ko alam", "wala akong", "walang", "don't know", "don't have", "don't see", "can't find", "only see", "lang ang nasa", "lang ang nakikita", "wala sa", "isn't in", "makita", "wala pa"];
 
 struct Spy<'a>(&'a mut Llama, usize, String);
 impl Llm for Spy<'_> {

@@ -7,9 +7,11 @@
 //!    and grades). When none does, the model is never called. When some do and some don't, a reply
 //!    that is not already an honest "I don't see it" is replaced.
 //! 2. **Reply support** (`after_model`): the share of the reply's content words that appear neither
-//!    in the sources nor in the question. Above `MAX_UNSUPPORTED` the reply is replaced.
+//!    in the sources nor in the question. Above `MAX_UNSUPPORTED` the reply is replaced by the "ask it
+//!    another way" line.
 //!
-//! The replacement says what the notes do hold (the title of the top hit) and offers to look at it.
+//! The replacement of a missing key term says what the notes do hold (the title of the top hit) and
+//! offers to look at it.
 //! ponytail: words only, no meaning. A paraphrase the notes never use ("exam" for "quiz") reads as
 //! missing; the `GENERIC` list and the offer in the replacement keep the cost of that low. Upgrade
 //! path: score the question against each hit with the embedder.
@@ -138,7 +140,7 @@ fn title(hit: &str) -> String {
 /// "I only see Inorder traversal in your notes, not preorder", in the student's language.
 fn near_miss(f: &Facts, msg: &str, missing: &[String]) -> String {
     let fil = is_filipino(msg);
-    let joined = if missing.is_empty() { if fil { "iyon" } else { "that" }.to_string() } else { missing.iter().take(2).cloned().collect::<Vec<_>>().join(if fil { " at " } else { " or " }) };
+    let joined = missing.iter().take(2).cloned().collect::<Vec<_>>().join(if fil { " at " } else { " or " });
     match f.hits.first().map(|h| title(h)).filter(|t| !t.is_empty()) {
         Some(have) => persona::near_miss(&have, &joined, fil, msg),
         None => persona::line(persona::Line::NoData, fil, msg),
@@ -164,8 +166,10 @@ pub fn after_model(f: &Facts, msg: &str, reply: &str) -> Option<String> {
     if !missing.is_empty() {
         return Some(near_miss(f, msg, &missing));
     }
+    // The topic is in the notes but the words are not: the reply is made up or garbled, and saying "I only
+    // see X, not Y" would be false. Ask for the question again.
     let (share, bad) = unsupported(reply, msg, f);
-    (share > MAX_UNSUPPORTED && bad.len() >= MIN_UNSUPPORTED).then(|| near_miss(f, msg, &key_terms(msg).into_iter().map(|(w, _)| w).take(1).collect::<Vec<_>>()))
+    (share > MAX_UNSUPPORTED && bad.len() >= MIN_UNSUPPORTED).then(|| persona::line(persona::Line::Retry, is_filipino(msg), msg))
 }
 
 #[cfg(test)]
