@@ -2,6 +2,25 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## 0.1.8 (2026-10-26)
+
+- ai: Qwen3 1.7B is the default chat model; existing Gemma installs get an Update IntAssis button (1.1 GB chat model + 310 MB note search, use Wi-Fi) (#174)
+- ai: note search uses EmbeddingGemma-2, on a llama.cpp bump (#173)
+- ai: LAR refuses off-topic, prompt-leak, homework and harmful questions in its own voice; self-harm replies point to the NCMH hotline, 1553 or 0917-899-8727 (#177, #185)
+- ai: LAR talks like a person; chit-chat answers instantly (#166, #177)
+- ai: due-date answers cover overdue, eMabini and this week; reminders ask for notification permission; download sizes itemised (#182)
+- ai: Filipino questions answered in Filipino (eval: Qwen 18/24, Gemma 21/24) (#183)
+- ai: says "I don't have that" instead of inventing; near-miss questions invented 0 of 12 with retrieval (#150, #183)
+- ai: cards from notes or a PDF honour the requested count, with a preview (#163)
+
+Known gaps:
+
+- Qwen's Filipino is garbled in about 1 reply in 4
+- Chat source chips are not restored after relaunch (#180)
+- Not yet run on a real phone with Qwen + EmbeddingGemma-2; speed and memory unverified. Check on a real iPhone and Android phone before wide rollout
+- The in-app model download was only simulated by placing the files
+- The engine is pinned to an unreleased upstream llama.cpp commit (cb98c630)
+
 ## 0.1.7 (2026-10-22)
 
 - Portal hub: about 100 schools from the core, searchable sheet with recent, region and A–Z; far picks warp the orbit (#153)
