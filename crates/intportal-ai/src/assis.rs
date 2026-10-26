@@ -556,7 +556,7 @@ mod tests {
 
     impl Facts {
         fn clone_for_test(&self) -> Facts {
-            Facts { today: self.today, classes_today: self.classes_today.clone(), due: self.due.clone(), standing: self.standing.clone(), open_note: self.open_note.clone(), hits: self.hits.clone(), near: self.near.clone(), search_off: self.search_off, subjects: self.subjects.clone(), subject_names: self.subject_names.clone(), style: self.style.clone() }
+            Facts { today: self.today, classes_today: self.classes_today.clone(), due: self.due.clone(), due_items: self.due_items.clone(), standing: self.standing.clone(), open_note: self.open_note.clone(), hits: self.hits.clone(), near: self.near.clone(), search_off: self.search_off, subjects: self.subjects.clone(), subject_names: self.subject_names.clone(), style: self.style.clone() }
         }
     }
 
