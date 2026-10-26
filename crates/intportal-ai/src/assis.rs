@@ -19,8 +19,10 @@ use serde_json::{json, Value};
 pub struct Facts {
     pub today: Option<Date>,
     pub classes_today: Vec<String>,
-    /// "Quiz 2: COMP 20073, Fri 2026-10-16"
+    /// "Quiz 2: COMP 20073, Fri 2026-10-16": the next week or so, for the model to read.
     pub due: Vec<String>,
+    /// Everything dated, overdue first, for a Due question to cut at the window asked (`due::answer`).
+    pub due_items: Vec<crate::due::DueItem>,
     /// "COMP 20073: 86% so far, needs 78% on the rest for 1.75"
     pub standing: Vec<String>,
     pub open_note: Option<String>,
@@ -111,8 +113,7 @@ fn schema(intent: Intent, subjects: &[String], ask_when: bool) -> Value {
 fn canned(intent: Intent, f: &Facts, msg: &str, subject: Option<&str>) -> Option<String> {
     let fil = is_filipino(msg);
     match intent {
-        Intent::Due if f.due.is_empty() => Some(persona::line(Line::NoDue, fil, msg)),
-        Intent::Due => Some(persona::list(List::Due, &f.due, fil, msg)),
+        Intent::Due => Some(crate::due::answer(f, msg)),
         Intent::Classes if f.classes_today.is_empty() => Some(persona::line(Line::NoClasses, fil, msg)),
         Intent::Classes => Some(persona::list(List::Classes, &f.classes_today, fil, msg)),
         Intent::Grades => {

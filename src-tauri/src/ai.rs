@@ -3,6 +3,7 @@
 use crate::{err, snapshot_of, AppState, Res};
 use intportal_ai::{
     assis::{self, Facts, Proposal},
+    due,
     gen,
     intent::{self, Intent},
     llm::Llm,
@@ -256,8 +257,6 @@ pub fn facts_for(snap: &intportal_core::store::Snapshot, now: Moment) -> Facts {
         .iter()
         .map(|i| format!("{} {}, {} to {}", i.meeting.session.subject_code, i.meeting.session.description, today::clock(i.meeting.session.start), today::clock(i.meeting.session.end)))
         .collect();
-    let all: Vec<_> = snap.syllabus.iter().flat_map(|(code, p)| p.items.iter().map(move |i| (code.clone(), i.clone()))).collect();
-    let due = syllabus::due(&all, now.date, 8).into_iter().map(|(code, i)| format!("{}: {code}, {}", i.topic, i.date.map(|d| format!("{:?} {d}", d.weekday())).unwrap_or_default())).collect();
     let standing = snap
         .syllabus
         .iter()
@@ -276,7 +275,9 @@ pub fn facts_for(snap: &intportal_core::store::Snapshot, now: Moment) -> Facts {
     let mut subject_names: Vec<(String, String)> = snap.sessions.iter().map(|s| (s.subject_code.clone(), s.description.clone())).collect();
     subject_names.sort();
     subject_names.dedup_by(|a, b| a.0 == b.0);
-    Facts { today: Some(now.date), classes_today, due, standing, subjects, subject_names, ..Facts::default() }
+    let mut facts = Facts { today: Some(now.date), classes_today, standing, subjects, subject_names, ..Facts::default() };
+    facts.add_due(due::syllabus_items(&snap.syllabus, now.date));
+    facts
 }
 
 #[derive(Serialize)]
@@ -423,14 +424,23 @@ fn searches_notes(message: &str, note_open: bool) -> bool {
     !matches!(intent::resolve(message, note_open), Intent::Note | Intent::Remind | Intent::Cards)
 }
 
+/// Minutes ahead of UTC in the school's time zone, for a phone that does not say its own.
+const MANILA_OFFSET: i32 = 480;
+
 /// One chat turn. The words of an open question's reply arrive on `on_text`
 /// as the model writes them. `open_key` is the note the student is looking at;
 /// `style` is the student's own "how LAR talks to me" note.
 /// The exchange is kept (encrypted, on the phone) so the chat survives a restart.
 #[tauri::command]
-pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, open_key: Option<String>, style: Option<String>, on_text: Channel<String>) -> Res<Ask> {
+#[allow(clippy::too_many_arguments)] // one argument per field the sheet sends; Tauri has no struct form here
+pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, open_key: Option<String>, style: Option<String>, on_text: Channel<String>, utc_offset: Option<i32>) -> Res<Ask> {
     let state = app.state::<AppState>();
     let mut facts = facts_for(&snapshot_of(&state)?, now);
+    // eMabini work is due work too: it is what Today lists, and a student may have no SIS schedule at all.
+    let mabini = store(&state)?.mabini();
+    if let Ok(mabini) = mabini {
+        facts.add_due(due::mabini_items(&mabini, now, utc_offset.unwrap_or(MANILA_OFFSET)));
+    }
     facts.style = style; // the student's own note on how LAR talks; `persona::system` cleans and caps it
     let history = recent_asks(&state);
     let note = open_key.and_then(|k| open_note(&state, &k));
