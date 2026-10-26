@@ -2,11 +2,11 @@
 // what happens when the student confirms a proposal. The model runs in Rust;
 // nothing here writes until Apply.
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { Schedule } from "@tauri-apps/plugin-notification";
+import { Schedule, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { api, isoDate, moment } from "../api";
 import { app } from "../state.svelte";
 import { tidy, type Draft } from "./cards";
-import { appended, existingText, newDeck, noteFor, noteTarget, reminderAt, reminderId, rememberLarReminder, type Proposal } from "./apply";
+import { appended, existingText, newDeck, noteFor, looksFilipino, noteTarget, notificationsOff, reminderAt, reminderId, rememberLarReminder, type Proposal } from "./apply";
 
 export interface ModelInfo {
   id: string;
@@ -33,6 +33,8 @@ export interface Msg {
   /** pending until the student answers the card. */
   state?: "pending" | "done" | "dismissed";
   problem?: string;
+  /** Shown instead of "Done" when the action worked but needs the student to do something (notifications off). */
+  notice?: string;
   /** make_cards: the cards LAR wrote, shown to edit before anything is saved. */
   cards?: Draft[];
 }
@@ -65,6 +67,14 @@ export const installed = () => assis.models.some((m) => m.chat && m.installed);
 /** A chat model is on the phone but it is not the default: the card offers Update. */
 export const updatable = () => installed() && !defaultChat()?.installed;
 export const mb = (bytes: number) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : `${Math.round(bytes / 1e6)} MB`);
+
+/** What a download is, piece by piece from the sizes the phone reports: "Chat model 1.11 GB + note search 310 MB, use Wi-Fi". */
+export function downloadSizes(todo: ModelInfo[]): string {
+  const parts = todo.map((m) => `${m.chat ? "chat model" : "note search"} ${mb(m.bytes)}`);
+  if (!parts.length) return "";
+  const text = parts.join(" + ");
+  return `${text[0].toUpperCase()}${text.slice(1)}, use Wi-Fi`;
+}
 
 const say = (e: unknown) => (typeof e === "string" ? e : (e as { message?: string })?.message ?? JSON.stringify(e));
 
@@ -236,7 +246,7 @@ export async function ask(text: string) {
   const onText = new Channel<string>();
   onText.onmessage = (words) => (reply.text += words);
   try {
-    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[] }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, style: larStyle() || null, onText });
+    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[] }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText });
     reply.text = r.reply;
     reply.sources = r.sources.length ? r.sources : undefined;
     if (r.proposal) [reply.proposal, reply.state] = [r.proposal, "pending"];
@@ -305,10 +315,19 @@ export async function apply(i: number) {
       app.notes = await api.notes();
     } else if (p.kind === "set_reminder") {
       const id = reminderId(p.text, p.date);
-      await invoke("plugin:notification|notify", {
-        options: { id, title: "LAR", body: p.text, schedule: Schedule.at(asLocalDigits(reminderAt(p.date))) },
-      });
-      rememberLarReminder(id, reminderAt(p.date));
+      // Same rule as scheduleReminders: look first, ask once, and never say it will ring when it cannot.
+      let allowed = await isPermissionGranted();
+      if (!allowed) allowed = (await requestPermission()) === "granted";
+      app.notifications = allowed;
+      try {
+        await invoke("plugin:notification|notify", {
+          options: { id, title: "LAR", body: p.text, schedule: Schedule.at(asLocalDigits(reminderAt(p.date))) },
+        });
+        rememberLarReminder(id, reminderAt(p.date));
+      } catch (e) {
+        if (allowed) throw e; // a refusal is expected while they are off; anything else is a real failure
+      }
+      msg.notice = allowed ? undefined : notificationsOff(looksFilipino(msg.text, p.text, assis.chat[i - 1]?.text));
     } else {
       assis.busy = "cards";
       const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null }>("ai_cards", { text: `Topic: ${p.topic}`, want: p.count });

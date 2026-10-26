@@ -258,6 +258,8 @@
                   <button class="yes" onclick={() => apply(i)} disabled={assis.busy === "cards"}>{assis.busy === "cards" ? "Making…" : d.yes}</button>
                   <button class="no" onclick={() => dismiss(i)}>Not now</button>
                 </div>
+              {:else if m.state === "done" && m.notice}
+                <p class="problem">{m.notice}</p>
               {:else if m.state === "done"}
                 <p class="ok">Done</p>
               {:else}
