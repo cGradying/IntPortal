@@ -360,12 +360,19 @@ fn postcheck(reply: &str, msg: &str) -> String {
     if is_filipino(&trimmed) == fil { trimmed } else { persona::line(Line::NoData, fil, msg) }
 }
 
+/// What `ai_load` says when a phone with little RAM cannot hold the chat model at all.
+pub const SMALL_PHONE: &str = "This phone is too small to run LAR. Everything else in IntPortal still works.";
+
 /// What the chat shows when something fails, in the student's language. The
 /// raw error is for logs, not for a student.
 pub fn friendly(error: &str, fil: bool) -> String {
     // The one English-only sentence from src-tauri/src/ai.rs (ai_load) that needs a Filipino twin.
     if error.starts_with("This model needs more memory") {
         return if fil { "Kulang ang libreng memory ng phone para sa model na ito. Subukan ang mas maliit." } else { "This model needs more memory than this phone has free. Try a smaller one." }.into();
+    }
+    // The small-phone refusal from ai_load: no model is lighter than the app can offer here.
+    if error == SMALL_PHONE {
+        return if fil { "Masyadong maliit ang memory ng phone na ito para patakbuhin si LAR. Gumagana pa rin ang lahat ng iba sa IntPortal." } else { error }.into();
     }
     // A sentence written for the student ("Select the words to explain first.") passes through.
     if error.ends_with('.') || error.ends_with('?') {
@@ -831,6 +838,13 @@ mod tests {
         let raw = "This model needs more memory than this phone has free. Try a smaller one.";
         assert_eq!(friendly(raw, false), raw);
         assert_eq!(friendly(raw, true), "Kulang ang libreng memory ng phone para sa model na ito. Subukan ang mas maliit.");
+    }
+
+    #[test]
+    fn the_small_phone_refusal_is_translated() {
+        let raw = SMALL_PHONE;
+        assert_eq!(friendly(raw, false), raw);
+        assert!(friendly(raw, true).starts_with("Masyadong maliit ang memory"));
     }
 
     #[test]
