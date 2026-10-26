@@ -63,8 +63,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: "0.1.6"
-        CFBundleVersion: "0.1.6"
+        CFBundleShortVersionString: "0.1.7"
+        CFBundleVersion: "0.1.7"
         NSSupportsLiveActivities: true
         NSFaceIDUsageDescription: IntPortal uses Face ID to keep your notes, grades and schedule private when the app lock is on.
         NSCalendarsFullAccessUsageDescription: IntPortal keeps your classes in an IntPortal calendar and counts your own events as busy time when it suggests study breaks.
@@ -117,8 +117,8 @@ targets:
       path: IntPortalWidget/Info.plist
       properties:
         CFBundleDisplayName: IntPortal
-        CFBundleShortVersionString: "0.1.6"
-        CFBundleVersion: "0.1.6"
+        CFBundleShortVersionString: "0.1.7"
+        CFBundleVersion: "0.1.7"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
