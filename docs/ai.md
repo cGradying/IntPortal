@@ -375,9 +375,24 @@ llama.cpp needs a flag at minSdk 24 (`posix_madvise`); see `spikes/s1-llama/REPO
 
 - **`app_data_dir()` is the app's data root** (`/data/user/0/ph.intportal.app`), not `files/`. Models go in `models/` under it. The manifest has `allowBackup="false"`, so nothing there is backed up.
 - To test with a model, push it with `adb push` to `/data/local/tmp`, then `adb shell run-as ph.intportal.app cp` it into `models/` (debug builds only; release builds are not debuggable).
-- Launch, the You card, waking the model (about 1 GB resident) and an exact answer ("Ano ang due ko?") all worked. Free-form generation was very slow: a debug build compiles llama.cpp unoptimised, so judge speed only from a release build on a real phone.
+- Launch, the You card, waking the model (about 1 GB resident) and an exact answer ("Ano ang due ko?") all worked. Free-form generation was very slow. That is not the debug profile: the debug and release builds of ggml-cpu both compile with `-O2 -DNDEBUG` (checked in `flags.make`; `llama-cpp-sys-2` picks the cmake profile itself and cmake-rs drops cargo's `-O0`). Both use `-march=armv8-a`, so no dot-product or i8mm kernels (see "Android on a 4 GB phone"). Judge speed only on a real phone.
 - `adb install` over a different signing key fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`; the emulator may hold another session's debug app, so check before uninstalling.
 - Settled: the Android WebView does open a file picker for `<input type=file>` is **not** tested yet (needed for PDFs).
+
+## Android on a 4 GB phone (#188)
+
+Smoke test of 0.1.8 on a 4 GB API 35 emulator: opening the sheet after the download left "Waking up" for minutes, the low-memory killer ended 15 background processes, and the app logged ANRs at 22:14 and 22:15. What the logs and the code show:
+
+- **The sheet opening started two loads at once.** `open()` called `indexNotes()` (embedder load, then embedding) and `wake()` (chat load) together. Both mapped their files while the system was already short of memory: the ANR report shows the app at 118% CPU, 78% of it kernel time, the tokio workers at 0% user (page faults and reclaim, not computing). Now `open()` wakes first and indexes after, `indexNotes()` does nothing while a model loads or answers, and `index` does not load the embedder at all when no source changed (`rag::pending`).
+- **The sustained CPU was not llama.** Per thread: `Chrome_InProcGpu` 53 min, `RenderThread` 41 min, tokio workers seconds (#189 is the UI handoff for the animations).
+- **llama.cpp used its default of four threads on a four-core phone**, and the model ran at normal priority. `threads_for(cores)` keeps one core for the UI (at most four), and on Android the model runs on its own thread at nice 10 (`lower_priority`, which llama.cpp's worker threads inherit).
+- **Small phones keep one model resident** (`models::SMALL_RAM`, 6.5 GB of `MemTotal`): the embedder is let go after a search or an index pass and before the chat model loads, and `models::gate` counts only what is resident. A refusal there says "This phone is too small to run LAR" (`assis::SMALL_PHONE`, with a Filipino twin).
+- **`n_ctx` stays 4096.** `PROMPT_BUDGET` is 8000 characters (2000 to 2700 tokens) plus 300 for the reply, so 2048 would turn a memory problem into "too long for me". The saving would be about 125 MB of KV. Shrinking the prompt budget with the context is the next step if a phone needs it.
+- **A source whose chunk the model refused was re-embedded on every question.** A chunk over the 512-token batch now embeds its first 512 tokens, a failed batch falls back to one call per chunk, and a blank note is no longer sent to the model.
+- **`wake()` has a bound.** After 15 s the sheet says the phone is slow; after 150 s `wake()` stops waiting and says the phone may be low on memory (EN and Filipino). The load goes on, and the next `wake()` joins it instead of starting another. A `sleep()` that arrives while the model loads waits for the load.
+- **Not changed, for the Android role:** ggml is built for `armv8-a` with `GGML_CPU_ARM_ARCH` unset, so Q4_K_M runs on plain NEON. The emulator reports `asimddp` and `svei8mm`. Pinning `armv8.2-a+dotprod` would crash phones with Cortex-A53/A73 cores; the safe route is runtime dispatch (`GGML_CPU_ALL_VARIANTS`), which needs the shared-library backend build.
+
+Peak resident size on the Mac (`/usr/bin/time -l`, CPU device, `cargo run -p intportal-llm --example memprobe -- <chat|embed|both|embed-then-chat> <chat.gguf> <embed.gguf>`): embedder alone 643 MB, chat alone (Qwen3 1.7B, n_ctx 4096, one 600-token prompt) 1.96 GB, both 1.90 GB, embedder dropped first and then chat 2.11 GB. macOS keeps unmapped file pages in the figure, so the last three are within noise of each other; dropping the embedder returned the process from 600 MB to 151 MB. The emulator itself was not measured (another session was using it).
 
 ## Not done yet
 
