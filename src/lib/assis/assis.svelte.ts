@@ -45,6 +45,8 @@ export const assis = $state({
   busy: "" as "" | "downloading" | "waking" | "thinking" | "cards",
   done: 0,
   total: 0,
+  /** The model is taking long to wake: the sheet says the phone is slow instead of sitting on "Waking up". */
+  slow: false,
   error: "",
   open: false,
   chat: [] as Msg[],
@@ -147,32 +149,66 @@ export async function remove() {
   await refresh();
 }
 
-/** Loads the model when LAR is opened. iOS ends an app holding 1 GB in the background, so it is let go in `sleep`. */
-export async function wake(): Promise<boolean> {
+/** "Waking up" says the phone is slow after this long. */
+export const WAKE_SLOW_MS = 15_000;
+/** After this long the wait ends with an explanation. The load goes on; the next wake joins it. */
+export const WAKE_GIVE_UP_MS = 150_000;
+
+const tooSlow = (fil: boolean) =>
+  fil
+    ? "Matagal akong magising. Baka kulang ang memory ng phone. Isara ang ibang apps at subukan ulit."
+    : "I'm taking too long to wake up. The phone may be low on memory. Close other apps and try again.";
+
+let loading: Promise<void> | null = null; // one load at a time: a second ai_load would only answer "busy"
+let sleepAfterWake = false;
+
+/**
+ * Loads the model when LAR is opened. iOS ends an app holding 1 GB in the background, so it is let go in `sleep`.
+ * `fil`: the student writes Filipino, so a failure is told in Filipino.
+ * The wait is bounded: past `WAKE_SLOW_MS` the sheet says the phone is slow, past `WAKE_GIVE_UP_MS` it stops and says why.
+ */
+export async function wake(fil = false): Promise<boolean> {
   const m = chatModel();
   if (!m?.installed) return false;
   if (m.loaded) return true;
   assis.busy = "waking";
+  const slow = setTimeout(() => (assis.slow = true), WAKE_SLOW_MS);
+  let giveUp: ReturnType<typeof setTimeout> | undefined;
+  loading ??= invoke<void>("ai_load", { id: m.id, fil })
+    .then(refresh) // so a load that finishes after we gave up still shows as loaded
+    .finally(() => (loading = null));
   try {
-    await invoke("ai_load", { id: m.id });
-    await refresh();
+    await Promise.race([loading, new Promise((_, no) => (giveUp = setTimeout(() => no(tooSlow(fil)), WAKE_GIVE_UP_MS)))]);
     return true;
   } catch (e) {
     assis.error = say(e);
     return false;
   } finally {
+    clearTimeout(slow);
+    clearTimeout(giveUp);
+    assis.slow = false;
     assis.busy = "";
+    if (sleepAfterWake) {
+      sleepAfterWake = false;
+      if (globalThis.document?.hidden) sleep();
+    }
   }
 }
 
 export async function sleep() {
+  // Letting go of a model that is still loading would queue behind the load and drop it the moment it lands.
+  if (assis.busy === "waking") {
+    sleepAfterWake = true;
+    return;
+  }
   await invoke("ai_unload").catch(() => {});
   await refresh();
 }
 
 /** Notes edited since LAR last looked get embedded, so the next question can find them. */
 export function indexNotes() {
-  if (installed()) invoke("ai_index").catch(() => {});
+  // Not while a model loads or answers: on a small phone they would fight for memory, and the next question indexes anyway.
+  if (installed() && !assis.busy) invoke("ai_index").catch(() => {});
 }
 
 /** The chat is kept on the phone, so it is still there after the app was closed. */
@@ -195,8 +231,8 @@ export async function open() {
   assis.open = true;
   assis.error = "";
   loadHistory();
+  await wake(); // before indexing: loading both models at once was the 4 GB phone's ANR
   indexNotes();
-  await wake();
 }
 
 let stopped = false;
@@ -234,7 +270,7 @@ export async function ask(text: string) {
   if (!message || assis.busy) return;
   assis.chat.push({ from: "me", text: message });
   stopped = false;
-  const awake = await wake();
+  const awake = await wake(looksFilipino(message));
   if (stopped) return; // Stop while the model was waking: no reply at all
   if (!awake) {
     assis.chat.push({ from: "lar", text: assis.error || "I couldn't wake up. Try again." });
@@ -262,7 +298,7 @@ export type NoteMode = "summarize" | "tidy" | "explain" | "ask";
 
 /** "Ask AI" in a note: the words stream to `onText`; the result is text to insert or swap in. */
 export async function noteAi(mode: NoteMode, text: string, selection: string | null, question: string | null, onText: (words: string) => void): Promise<string> {
-  if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");
+  if (!(await wake(looksFilipino(text)))) throw new Error(assis.error || "I couldn't wake up. Try again.");
   assis.busy = "thinking";
   const ch = new Channel<string>();
   ch.onmessage = onText;
@@ -376,7 +412,7 @@ const asLocalDigits = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() 
 export function watchAssis() {
   refresh();
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) sleep();
+    if (globalThis.document?.hidden) sleep();
   });
 }
 

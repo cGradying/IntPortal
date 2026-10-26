@@ -59,7 +59,7 @@
   );
   const gesture = $derived<Gesture>(waving && mood === "idle" ? "wave" : "idle");
   const status = $derived(
-    assis.busy === "waking" ? "Waking up" : assis.busy === "thinking" ? "Thinking" : assis.busy === "cards" ? "Making cards" : dozing ? "Dozing. Ask me anything." : "On this phone, offline",
+    assis.busy === "waking" ? (assis.slow ? "Still waking up. This phone is slow." : "Waking up") : assis.busy === "thinking" ? "Thinking" : assis.busy === "cards" ? "Making cards" : dozing ? "Dozing. Ask me anything." : "On this phone, offline",
   );
 
   // Where the orb and his perch are, as centres in px. The sheet is still

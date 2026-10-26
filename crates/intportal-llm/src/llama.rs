@@ -1,4 +1,4 @@
-use crate::{take_utf8, Device};
+use crate::{take_utf8, threads_for, Device};
 use intportal_ai::llm::Llm;
 use llama_cpp_2::{
     context::params::{KvCacheType, LlamaContextParams, LlamaPoolingType},
@@ -45,7 +45,10 @@ impl Llama {
 
     fn params(&self) -> LlamaContextParams {
         // q8_0 KV cache needs flash attention (ADR 0003: fits the 4K budget on a phone).
+        let threads = threads_for(std::thread::available_parallelism().map_or(4, |n| n.get()));
         LlamaContextParams::default()
+            .with_n_threads(threads)
+            .with_n_threads_batch(threads)
             .with_n_ctx(NonZeroU32::new(self.n_ctx))
             .with_n_batch(N_BATCH as u32)
             .with_flash_attention_policy(1 /* LLAMA_FLASH_ATTN_TYPE_ENABLED */)
@@ -119,10 +122,8 @@ impl Llm for Llama {
         let mut ctx = self.model.new_context(self.backend, params).map_err(|e| e.to_string())?;
         let mut out = Vec::with_capacity(texts.len());
         for text in texts {
-            let toks = self.model.vocab().tokenize(text.as_bytes(), true, false);
-            if toks.len() > N_BATCH {
-                return Err(format!("text of {} tokens is over the {N_BATCH} embedding limit", toks.len()));
-            }
+            let mut toks = self.model.vocab().tokenize(text.as_bytes(), true, false);
+            toks.truncate(N_BATCH); // the first 512 tokens say what a long chunk is about; refusing it left it unsearchable
             let mut batch = LlamaBatch::new(N_BATCH, 1);
             for (i, t) in toks.iter().enumerate() {
                 batch.add(*t, i as i32, &[0], true).map_err(|e| e.to_string())?;

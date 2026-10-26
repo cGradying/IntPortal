@@ -109,13 +109,23 @@ fn need(m: &Model) -> u64 {
     m.bytes + m.kv_bytes_per_1k * u64::from(m.n_ctx) / 1000
 }
 
-/// Compares what IntAssis needs while it answers, the chat model and the note-search
-/// model together (both stay loaded), with the memory available to the app. `None`
-/// (unknown platform) is allowed through. A second chat model is never counted: it is
-/// unloaded before the new one loads.
-pub fn gate(chat: &Model, embed: &Model, available: Option<u64>) -> Gate {
+/// A phone with at most this much RAM (`MemTotal`, which reads under the label: a "6 GB" phone shows about
+/// 5.5 GB) cannot keep the chat model and the note-search model beside each other: Android's low-memory
+/// killer ended five other apps and the app stopped answering when both loaded on a 4 GB phone.
+pub const SMALL_RAM: u64 = 6_500_000_000;
+
+/// True on a phone that reports its total RAM and has `SMALL_RAM` or less. Unknown (iOS, the Mac) is not small.
+pub fn is_small_ram(total: Option<u64>) -> bool {
+    total.is_some_and(|t| t <= SMALL_RAM)
+}
+
+/// Compares what IntAssis holds at once, the models in `resident` (the chat model and the note-search
+/// model together on a big phone, one of them on a small one), with the memory available to the app.
+/// `None` (unknown platform) is allowed through. A second chat model is never counted: it is unloaded
+/// before the new one loads.
+pub fn gate(resident: &[&Model], available: Option<u64>) -> Gate {
     let Some(avail) = available else { return Gate::Ok };
-    match (need(chat) + need(embed)) * 100 / avail.max(1) {
+    match resident.iter().map(|m| need(m)).sum::<u64>() * 100 / avail.max(1) {
         0..=60 => Gate::Ok,
         61..=90 => Gate::Warn,
         _ => Gate::Refuse,
@@ -158,15 +168,34 @@ mod tests {
     }
 
     #[test]
-    fn gate_counts_the_chat_model_and_the_embedder_together() {
+    fn gate_counts_the_models_that_are_resident_together() {
         let (qwen, gemma, eg2) = (find("qwen3-1.7b").unwrap(), find("gemma3-1b").unwrap(), find(EMBED).unwrap());
         // Qwen 1.107 GB + 4 x 115 MB = 1.567 GB, EmbeddingGemma-2 0.310 GB + 1 x 200 MB = 0.515 GB: 2.082 GB together.
-        assert_eq!(gate(qwen, eg2, Some(4_000_000_000)), Gate::Ok); // 52%
-        assert_eq!(gate(qwen, eg2, Some(2_500_000_000)), Gate::Warn); // 83%
-        assert_eq!(gate(qwen, eg2, Some(2_200_000_000)), Gate::Refuse); // 95%: Qwen alone would be Warn here
-        assert_eq!(gate(qwen, eg2, None), Gate::Ok);
+        assert_eq!(gate(&[qwen, eg2], Some(4_000_000_000)), Gate::Ok); // 52%
+        assert_eq!(gate(&[qwen, eg2], Some(2_500_000_000)), Gate::Warn); // 83%
+        assert_eq!(gate(&[qwen, eg2], Some(2_200_000_000)), Gate::Refuse); // 95%: Qwen alone would be Warn here
+        assert_eq!(gate(&[qwen, eg2], None), Gate::Ok);
         // Gemma 0.806 GB + 4 x 25 MB = 0.908 GB, plus the embedder: 1.423 GB. It fits where Qwen is refused.
-        assert_eq!(gate(gemma, eg2, Some(2_200_000_000)), Gate::Warn); // 65%, where Qwen is refused
-        assert_eq!(gate(gemma, eg2, Some(2_500_000_000)), Gate::Ok); // 57%
+        assert_eq!(gate(&[gemma, eg2], Some(2_200_000_000)), Gate::Warn); // 65%, where Qwen is refused
+        assert_eq!(gate(&[gemma, eg2], Some(2_500_000_000)), Gate::Ok); // 57%
+    }
+
+    #[test]
+    fn a_small_phone_gates_one_model_at_a_time() {
+        let (qwen, gemma, eg2) = (find("qwen3-1.7b").unwrap(), find("gemma3-1b").unwrap(), find(EMBED).unwrap());
+        // The 4 GB emulator of the smoke test showed 2.3 GB available: both together were 90% (the edge of
+        // Warn); Qwen alone is 68%, and the embedder alone, loaded after the chat model is let go, 22%.
+        assert_eq!(gate(&[qwen], Some(2_300_000_000)), Gate::Warn);
+        assert_eq!(gate(&[eg2], Some(2_300_000_000)), Gate::Ok);
+        assert_eq!(gate(&[qwen], Some(1_700_000_000)), Gate::Refuse, "too small for the 1.1 GB model");
+        assert_eq!(gate(&[gemma], Some(1_700_000_000)), Gate::Ok, "the lighter model still fits there");
+    }
+
+    #[test]
+    fn small_ram_is_a_phone_that_reports_six_gb_or_less() {
+        assert!(is_small_ram(Some(4_015_044 * 1024))); // the 4 GB emulator
+        assert!(is_small_ram(Some(5_600_000_000))); // a "6 GB" phone
+        assert!(!is_small_ram(Some(7_500_000_000))); // an "8 GB" phone
+        assert!(!is_small_ram(None)); // iOS and the Mac do not say
     }
 }
