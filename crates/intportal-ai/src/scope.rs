@@ -323,12 +323,12 @@ const CHEAT: V = V {
 };
 const SELF_HARM: V = V {
     en: &[
-        "I'm sorry you're hurting, and I'm glad you told me. Please talk to someone you trust or a guidance counselor today. You can also call the NCMH crisis hotline at 1553, or 911 if you're in danger right now.",
-        "That sounds really heavy, and you don't have to hold it alone. Please reach out to someone you trust or your guidance counselor now. In the Philippines you can call 1553 (NCMH crisis hotline) or 911 in an emergency.",
+        "I'm sorry you're hurting, and I'm glad you told me. Please talk to someone you trust or a guidance counselor today. You can also call the NCMH crisis hotline at 1553 or 0917-899-8727, or 911 if you're in danger right now.",
+        "That sounds really heavy, and you don't have to hold it alone. Please reach out to someone you trust or your guidance counselor now. In the Philippines you can call 1553 or 0917-899-8727 (NCMH crisis hotline), or 911 in an emergency.",
     ],
     fil: &[
-        "Pasensya na at nasasaktan ka, at salamat sa pagsabi sa akin. Kausapin mo ngayon ang taong pinagkakatiwalaan mo o ang guidance counselor. Pwede ka ring tumawag sa NCMH crisis hotline sa 1553, o sa 911 kung nasa panganib ka ngayon.",
-        "Mabigat iyan, at hindi mo kailangang pasanin mag-isa. Lumapit ka ngayon sa taong pinagkakatiwalaan mo o sa guidance counselor. Pwede kang tumawag sa 1553 (NCMH crisis hotline) o sa 911 kung emergency.",
+        "Pasensya na at nasasaktan ka, at salamat sa pagsabi sa akin. Kausapin mo ngayon ang taong pinagkakatiwalaan mo o ang guidance counselor. Pwede ka ring tumawag sa NCMH crisis hotline sa 1553 o 0917-899-8727, o sa 911 kung nasa panganib ka ngayon.",
+        "Mabigat iyan, at hindi mo kailangang pasanin mag-isa. Lumapit ka ngayon sa taong pinagkakatiwalaan mo o sa guidance counselor. Pwede kang tumawag sa 1553 o 0917-899-8727 (NCMH crisis hotline), o sa 911 kung emergency.",
     ],
 };
 const GENERAL: V = V {
