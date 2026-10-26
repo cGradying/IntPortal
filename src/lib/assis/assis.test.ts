@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A stand-in for the Rust side: each test sets `backend[command]`; every call is recorded.
 const backend: Record<string, (args: any) => unknown> = {};
@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { cancel, isPermissionGranted, pending as devicePending, requestPermission } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, type ModelInfo } from "./assis.svelte";
+import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -242,6 +242,81 @@ describe("the chat history", () => {
     await newChat();
     expect(assis.chat).toEqual([]);
     expect(ran("ai_clear_history")).toHaveLength(1);
+  });
+});
+
+describe("waking on a slow phone", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    assis.models = [chat({ loaded: false }), embed()];
+    disk = [chat({ loaded: false }), embed()];
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("says the phone is slow after a while, then clears it", async () => {
+    const d = deferred<unknown>();
+    backend.ai_load = () => d.promise;
+    const p = wake();
+    await vi.advanceTimersByTimeAsync(WAKE_SLOW_MS + 1);
+    expect([assis.busy, assis.slow]).toEqual(["waking", true]);
+    d.resolve(undefined);
+    expect(await p).toBe(true);
+    expect([assis.busy, assis.slow]).toEqual(["", false]);
+  });
+
+  it("stops waiting with an explanation, in the student's language, and a later wake joins the same load", async () => {
+    const d = deferred<unknown>();
+    backend.ai_load = () => d.promise;
+    const p = wake(true);
+    await vi.advanceTimersByTimeAsync(WAKE_GIVE_UP_MS + 1);
+    expect(await p).toBe(false);
+    expect(assis.error).toBe("Matagal akong magising. Baka kulang ang memory ng phone. Isara ang ibang apps at subukan ulit.");
+    expect([assis.busy, assis.slow]).toEqual(["", false]);
+    const again = wake();
+    expect(ran("ai_load")).toHaveLength(1); // no second ai_load: the core would answer "busy"
+    disk[0].loaded = true;
+    d.resolve(undefined);
+    expect(await again).toBe(true);
+    expect(ran("ai_load")).toHaveLength(1);
+  });
+
+  it("asks the core in the language of the question", async () => {
+    backend.ai_load = () => undefined;
+    backend.ai_ask = () => reply("ok");
+    const p = ask("Ano ang due ko?");
+    await vi.advanceTimersByTimeAsync(1);
+    await p;
+    expect(ran("ai_load")[0][1]).toEqual({ id: "chat", fil: true });
+  });
+
+  it("holds the sleep that arrives while the model loads and runs it once the app is still hidden", async () => {
+    const d = deferred<unknown>();
+    backend.ai_load = () => d.promise;
+    backend.ai_unload = () => undefined;
+    const p = wake();
+    await sleep();
+    expect(ran("ai_unload")).toHaveLength(0);
+    vi.stubGlobal("document", { hidden: true });
+    d.resolve(undefined);
+    await p;
+    await vi.advanceTimersByTimeAsync(1);
+    expect(ran("ai_unload")).toHaveLength(1);
+  });
+
+  it("does not index while a model is loading", async () => {
+    assis.busy = "waking";
+    indexNotes();
+    expect(ran("ai_index")).toHaveLength(0);
+  });
+
+  it("wakes the chat model before it indexes when the sheet opens", async () => {
+    backend.ai_history = () => [];
+    backend.ai_load = () => void (disk[0].loaded = true);
+    await open();
+    expect(calls.map(([c]) => c).filter((c) => c === "ai_load" || c === "ai_index")).toEqual(["ai_load", "ai_index"]);
   });
 });
 
