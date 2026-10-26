@@ -1,13 +1,14 @@
 <script lang="ts">
   // The Storage card for LAR's brain. Light is the default: nothing is
   // downloaded unless the student asks, and they can take it off again.
-  import { addSearch, assis, cancelDownload, chatModel, defaultChat, embedModel, install, installed, larStyle, mb, open, remove, setLarStyle, STYLE_MAX, updatable } from "./assis.svelte";
+  import { addSearch, assis, cancelDownload, chatModel, defaultChat, downloadSizes, embedModel, install, installed, larStyle, mb, open, remove, setLarStyle, STYLE_MAX, updatable } from "./assis.svelte";
   import { buzz } from "../haptics";
 
   const m = $derived(chatModel());
   const e = $derived(embedModel());
   // Both models install together; someone who added only LAR's brain before can add the note search later.
   const total = $derived((m?.bytes ?? 0) + (e && !e.installed ? e.bytes : 0));
+  const todo = $derived([m, e].filter((x): x is NonNullable<typeof x> => !!x && !x.installed));
   const searchMissing = $derived(!!e && !e.installed);
   // A phone that has the old chat model keeps answering with it; the update brings the default (and the search model, if missing).
   const next = $derived(defaultChat());
@@ -50,7 +51,7 @@
       {/if}
     {:else}
       <div class="line"><span>Light</span><strong>No AI, nothing downloaded</strong></div>
-      <p class="fine">Add IntAssis to ask LAR about your classes, deadlines, grades and notes, to save a note or a reminder by asking, and to make flashcards on a topic. It is a one-time {mb(total)} download (use Wi-Fi) and it works offline after that.</p>
+      <p class="fine">Add IntAssis to ask LAR about your classes, deadlines, grades and notes, to save a note or a reminder by asking, and to make flashcards on a topic. It is a one-time {mb(total)} download: {downloadSizes(todo)}. It works offline after that.</p>
       {#if m.fits === "refuse"}
         <p class="fine warn">This phone doesn't have enough free memory for it right now. Close other apps and open this again.</p>
       {:else}

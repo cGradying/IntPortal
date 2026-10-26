@@ -23,9 +23,9 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 }));
 
 import { invoke } from "@tauri-apps/api/core";
-import { cancel, isPermissionGranted, pending as devicePending } from "@tauri-apps/plugin-notification";
+import { cancel, isPermissionGranted, pending as devicePending, requestPermission } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, type ModelInfo } from "./assis.svelte";
+import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -82,6 +82,12 @@ describe("asking LAR", () => {
     const args = ran("ai_ask")[0][1];
     expect(args.openKey).toBe("class:MATH 101");
     expect(args.message).toBe("Summarize this note");
+  });
+
+  it("tells the core the phone's time zone, so eMabini deadlines fall on the right day", async () => {
+    backend.ai_ask = () => reply("ok");
+    await ask("ano ang due ko");
+    expect(ran("ai_ask")[0][1].utcOffset).toBe(-new Date().getTimezoneOffset());
   });
 
   it("ignores an empty question, and one sent while LAR is already writing", async () => {
@@ -686,5 +692,76 @@ describe("LAR reminders and the weekly reschedule", () => {
     Object.assign(app, { reminderLead: 0 });
     await scheduleReminders();
     expect(queue).toHaveLength(1);
+  });
+});
+
+describe("a reminder needs the phone's permission to ring", () => {
+  const remind = (text = "Bring ID", before = "remind me tomorrow", said = "Ready: reminder. Confirm to save.") => {
+    assis.chat = [{ from: "me", text: before }, { from: "lar", text: said, proposal: { kind: "set_reminder", date: "2099-01-06", text }, state: "pending" }];
+    return apply(1);
+  };
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) });
+    backend["plugin:notification|notify"] = () => undefined;
+    vi.mocked(isPermissionGranted).mockReset();
+    vi.mocked(requestPermission).mockReset();
+    app.notifications = null;
+  });
+
+  it("schedules without asking when notifications are already allowed", async () => {
+    vi.mocked(isPermissionGranted).mockResolvedValue(true);
+    await remind();
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(ran("plugin:notification|notify")).toHaveLength(1);
+    expect(assis.chat[1]).toMatchObject({ state: "done" });
+    expect(assis.chat[1].notice).toBeUndefined();
+  });
+
+  it("asks first when they are not, and schedules once they say yes", async () => {
+    vi.mocked(isPermissionGranted).mockResolvedValue(false);
+    vi.mocked(requestPermission).mockResolvedValue("granted");
+    await remind();
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(ran("plugin:notification|notify")).toHaveLength(1);
+    expect(assis.chat[1].notice).toBeUndefined();
+    expect(app.notifications).toBe(true);
+  });
+
+  it("says plainly that it will not ring when they say no, in English", async () => {
+    vi.mocked(isPermissionGranted).mockResolvedValue(false);
+    vi.mocked(requestPermission).mockResolvedValue("denied");
+    await remind();
+    expect(assis.chat[1].state).toBe("done");
+    expect(assis.chat[1].notice).toBe("I saved it, but notifications are off. Turn them on in Settings so it can ring.");
+    expect(app.notifications).toBe(false);
+  });
+
+  it("says it in Filipino when the student wrote Filipino", async () => {
+    vi.mocked(isPermissionGranted).mockResolvedValue(false);
+    vi.mocked(requestPermission).mockResolvedValue("denied");
+    await remind("Dalhin ang ID", "i-remind mo ako bukas", "Handa na ang paalala: Dalhin ang ID. I-confirm para i-save.");
+    expect(assis.chat[1].notice).toBe("Na-save ko na, pero naka-off ang notifications. I-on mo sa Settings para tumunog ito.");
+  });
+
+  it("still saves the reminder when the phone refuses to queue it", async () => {
+    vi.mocked(isPermissionGranted).mockResolvedValue(false);
+    vi.mocked(requestPermission).mockResolvedValue("denied");
+    backend["plugin:notification|notify"] = () => Promise.reject("not authorized");
+    await remind();
+    expect(assis.chat[1]).toMatchObject({ state: "done", problem: "" });
+    expect(assis.chat[1].notice).toContain("notifications are off");
+  });
+});
+
+describe("saying honestly what a download is", () => {
+  it("itemises the chat model and the note search from the sizes the phone reports", () => {
+    expect(downloadSizes([chat({ bytes: 1_110_000_000 }), embed({ bytes: 310_000_000 })])).toBe("Chat model 1.11 GB + note search 310 MB, use Wi-Fi");
+  });
+
+  it("names only what is still to come", () => {
+    expect(downloadSizes([embed({ bytes: 310_000_000 })])).toBe("Note search 310 MB, use Wi-Fi");
+    expect(downloadSizes([chat({ bytes: 810_000_000 })])).toBe("Chat model 810 MB, use Wi-Fi");
+    expect(downloadSizes([])).toBe("");
   });
 });
