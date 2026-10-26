@@ -3,11 +3,13 @@
 //! confirm. Nothing here writes: the UI shows a card and Apply calls the
 //! existing commands (`set_note`, `set_plan`, `save_deck`).
 use crate::{
+    ground,
     intent::{card_count, is_filipino, resolve, resolve_when, subject_in, words, Intent, CARDS_DEFAULT},
+    lang,
     llm::Llm,
     persona::{self, Line, List},
     prompt::{build, Section, Template},
-    reply::{self, ReplyStream},
+    reply,
     scope,
 };
 use intportal_core::today::Date;
@@ -217,6 +219,10 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     if let Some(reply) = canned(intent, facts, msg, subject.as_deref()) {
         return Ok(Answer { reply, proposal: None, route: Route::Rule, cited: false });
     }
+    // A question none of whose key words is in any note found never reaches the model (docs/ai.md, "Grounding check").
+    if let Some(reply) = Some(intent).filter(|i| *i == Intent::Ask).and_then(|_| ground::before_model(facts, msg)) {
+        return Ok(Answer { reply, proposal: None, route: Route::Refuse, cited: false });
+    }
     let when = resolve_when(msg, today);
     let ask_when = intent == Intent::Remind && when.is_none();
 
@@ -250,18 +256,16 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
         Intent::Remind => "\nThe student wants a reminder. In `text` put only the thing to be reminded of, under 10 words, no reply. Example: \"remind me to pay tuition on Monday\" -> text \"Pay tuition\".",
         Intent::Cards => "\nThe student wants flashcards. In `topic` put the topic.",
     };
-    // Only an open question chats, so only it gets the voice and the examples; a request just fills a field.
-    let system = if intent == Intent::Ask { persona::system(facts.style.as_deref()) } else { format!("{}{task}", persona::request_system()) };
-    let prompt = tpl.wrap(&build(&system, &live, PROMPT_BUDGET), &format!("Student: {msg}"));
-    let mut stream = ReplyStream::default();
-    let raw = llm.generate(&prompt, Some(&schema(intent, &facts.subjects, ask_when)), 300, &mut |piece| {
-        if intent == Intent::Ask {
-            if let Some(words) = stream.feed(piece) {
-                on_text(&words);
-            }
-        }
-        true
-    })?;
+    let fil = is_filipino(msg);
+    let schema = schema(intent, &facts.subjects, ask_when);
+    let raw = if intent == Intent::Ask {
+        // Only an open question chats, so only it gets the voice, the examples in its language and the reply language checks.
+        lang::open_reply(llm, tpl, lang::Plan::for_template(tpl), facts.style.as_deref(), &live, msg, fil, &schema, on_text)?
+    } else {
+        // A request just fills a field.
+        let prompt = tpl.wrap(&build(&format!("{}{task}", persona::request_system()), &live, PROMPT_BUDGET), &format!("Student: {msg}"));
+        llm.generate(&prompt, Some(&schema), 300, &mut |_| true)?
+    };
     let v: Value = reply::parse(&raw).map_err(|e| e.to_string())?;
     let s = |k: &str| v[k].as_str().unwrap_or("").trim().to_string();
     let text: String = s("text").chars().take(120).collect::<String>().trim_end_matches(['.', ' ']).to_string();
@@ -275,11 +279,10 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
         }
         Intent::Cards => Some(Proposal::MakeCards { topic: s("topic"), count: card_count(msg).unwrap_or(CARDS_DEFAULT) }).filter(|p| matches!(p, Proposal::MakeCards { topic, .. } if !topic.is_empty())),
     };
-    let fil = is_filipino(msg);
     let reply = match (&proposal, intent) {
         (Some(p), _) => confirm(p, fil),
         (None, Intent::Ask) if s("reply").is_empty() => return Err("the reply came back empty".into()), // never a blank bubble
-        (None, Intent::Ask) => postcheck(&s("reply"), msg),
+        (None, Intent::Ask) => ground::after_model(facts, msg, &s("reply")).unwrap_or_else(|| postcheck(&s("reply"), msg)),
         (None, _) => if fil { "Hindi ko nakuha iyon. Pwede mo bang ulitin?" } else { "I didn't catch that. Could you say it again?" }.into(),
     };
     let open = intent == Intent::Ask && proposal.is_none();
@@ -312,7 +315,7 @@ fn sentences(text: &str) -> Vec<&str> {
 }
 
 /// A sentence that says the model has no answer ("I don't have that in your notes.").
-fn is_refusal(sentence: &str) -> bool {
+pub(crate) fn is_refusal(sentence: &str) -> bool {
     let low = sentence.to_lowercase().replace('\u{2019}', "'");
     ["i don't have", "i do not have", "i don't see", "i can't find", "i couldn't find", "i can't see", "isn't in your", "is not in your", "not in your notes", "doesn't say", "i don't know", "no information", "wala akong", "hindi ko alam", "hindi ko nakikita", "hindi ko makita", "walang nakalagay", "wala sa notes"]
         .iter()
@@ -515,7 +518,7 @@ mod tests {
     fn an_open_reply_streams_word_by_word_and_a_request_does_not() {
         let mut m = FakeLlm::new(&[r#"{"reply":"May quiz ka bukas."}"#, r#"{"reply":"ok","text":"pay tuition"}"#]);
         let mut seen = String::new();
-        let a = answer_streaming(&mut m, Template::Gemma, &noted(), &[], "paano mag-aral?", &mut |w| seen.push_str(w)).unwrap();
+        let a = answer_streaming(&mut m, Template::ChatMl, &noted(), &[], "paano mag-aral?", &mut |w| seen.push_str(w)).unwrap();
         assert_eq!((seen.as_str(), a.reply.as_str()), ("May quiz ka bukas.", "May quiz ka bukas."));
         let mut seen2 = String::new();
         answer_streaming(&mut m, Template::Gemma, &noted(), &[], "remind me bukas to pay tuition", &mut |w| seen2.push_str(w)).unwrap();
@@ -562,7 +565,7 @@ mod tests {
 
     /// Facts with one note found, so an open question is in scope and reaches the model.
     fn noted() -> Facts {
-        Facts { hits: vec!["MATH 101: quiz on Monday".into()], ..facts() }
+        Facts { hits: vec!["MATH 101: quiz on Monday. Finals: focus on one chapter at a time. The Monday thing covers limits.".into()], ..facts() }
     }
 
     #[test]
@@ -604,7 +607,7 @@ mod tests {
             let a = answer(&mut m, Template::ChatMl, f, &[], msg).unwrap();
             (m.prompts.len(), a.reply)
         };
-        let note = Facts { hits: vec!["Math 101: Prof. Reyes moved the quiz to Monday.".into()], subject_names: vec![("MATH 101".into(), "Mathematics".into())], ..facts() };
+        let note = Facts { hits: vec!["Math 101: passing is 75%. Prof. Reyes moved the quiz to Monday.".into()], subject_names: vec![("MATH 101".into(), "Mathematics".into())], ..facts() };
         let none = Facts { due: vec![], ..note.clone_for_test() };
         assert_eq!(ask("Kailan ang quiz sa Math 101?", &none).0, 1, "no deadline is listed, the note has the day");
         assert_eq!(ask("Ano ang passing sa Math 101?", &none).0, 1);
@@ -641,7 +644,7 @@ mod tests {
     #[test]
     fn a_copied_example_is_replaced_but_is_fine_for_its_own_question() {
         let adviser = "Your adviser's email isn't in your schedule, grades or notes, so I can't tell you. Want me to check what's due this week instead?";
-        assert!(persona::lines(Line::Retry, true).contains(&open(adviser, "Sino ang prof ko sa Math?").as_str()), "a copy for another question, Filipino asked");
+        assert!(persona::lines(Line::Retry, true).contains(&open(adviser, "Sino ang magtuturo ng Math 101?").as_str()), "a copy for another question, Filipino asked");
         assert!(persona::lines(Line::Retry, false).contains(&open(adviser, "Who teaches Math 101?").as_str()));
         assert_eq!(open(adviser, "what's my adviser's email?"), adviser, "the example's own question");
         let stress = "Ramdam kita, ang dami nga niyan. Isa-isa lang tayo. Ano ang unang gagawin mo?";
@@ -857,7 +860,7 @@ mod tests {
     fn stopping_mid_reply_has_streamed_the_words_and_then_errors_in_plain_words() {
         let mut m = Cut(&["{\"reply\": \"Para mag-focus, ", "patayin muna ang phone at", " mag-aral ng 25 min"]);
         let mut seen = String::new();
-        let err = answer_streaming(&mut m, Template::Gemma, &noted(), &[], "paano mag-focus?", &mut |w| seen.push_str(w)).unwrap_err();
+        let err = answer_streaming(&mut m, Template::ChatMl, &noted(), &[], "paano mag-focus?", &mut |w| seen.push_str(w)).unwrap_err();
         assert_eq!(seen, "Para mag-focus, patayin muna ang phone at mag-aral ng 25 min");
         assert_eq!(err, "the reply has no JSON object");
         assert_eq!(friendly(&err, true), "Nagulo ang sagot ko. Pwede mo bang ulitin?");
@@ -867,7 +870,7 @@ mod tests {
     fn a_streamed_reply_decodes_escapes_and_matches_the_final_answer() {
         let mut m = FakeLlm::new(&["{\"reply\":\"Sabi ni \\\"Isko\\\":\\nMag-aral ka! caf\\u00e9 \\ud83d\\ude00\"}"]);
         let mut pieces = vec![];
-        let a = answer_streaming(&mut m, Template::Gemma, &noted(), &[], "paano mag-aral?", &mut |w| pieces.push(w.to_string())).unwrap();
+        let a = answer_streaming(&mut m, Template::ChatMl, &noted(), &[], "paano mag-aral?", &mut |w| pieces.push(w.to_string())).unwrap();
         assert_eq!(a.reply, "Sabi ni \"Isko\":\nMag-aral ka! café 😀");
         assert_eq!(pieces.concat(), a.reply);
         assert!(pieces.len() > 1, "word by word, not all at once: {pieces:?}");
@@ -900,7 +903,7 @@ mod tests {
     #[test]
     fn open_replies_are_trimmed_and_thinking_and_fences_are_dropped() {
         let mut m = FakeLlm::new(&["<think>hm</think>\n```json\n{\"reply\":\"  Kaya mo 'yan.  \"}\n```"]);
-        assert_eq!(answer(&mut m, Template::Gemma, &facts(), &[], "kaya ko ba?").unwrap().reply, "Kaya mo 'yan.");
+        assert_eq!(answer(&mut m, Template::ChatMl, &facts(), &[], "kaya ko ba?").unwrap().reply, "Kaya mo 'yan.");
     }
 
     #[test]
@@ -1159,7 +1162,7 @@ mod tests {
     #[test]
     fn an_open_question_gets_the_persona_the_examples_and_the_facts_and_no_sentence_cap() {
         let mut m = FakeLlm::new(&[r#"{"reply":"ok"}"#]);
-        answer(&mut m, Template::Gemma, &Facts { hits: vec!["a note".into()], ..rich() }, &[], "how do I focus on studying?").unwrap();
+        answer(&mut m, Template::Gemma, &Facts { hits: vec!["a note on how to focus on studying".into()], ..rich() }, &[], "how do I focus on studying?").unwrap();
         let p = &m.prompts[0];
         assert!(p.contains("You are LAR") && p.contains("Examples (made-up") && p.contains("Rules that always win") && p.contains("read-only"));
         assert!(p.contains("Quiz 2: COMP 20073, Fri 2026-10-16") && p.contains("COMP 20073 9:00"), "the student's facts");
@@ -1178,7 +1181,7 @@ mod tests {
 
     #[test]
     fn the_students_style_note_reaches_an_open_question_after_the_rules_and_never_a_request() {
-        let f = Facts { style: Some("Call me Ate and keep it playful.".into()), hits: vec!["MATH 101: quiz on Monday".into()], ..rich() };
+        let f = Facts { style: Some("Call me Ate and keep it playful.".into()), hits: vec!["MATH 101: quiz on Monday. Focus on one thing at a time.".into()], ..rich() };
         let mut m = FakeLlm::new(&[r#"{"reply":"ok"}"#, r#"{"text":"pay"}"#]);
         answer(&mut m, Template::Gemma, &f, &[], "paano mag-focus?").unwrap();
         let p = &m.prompts[0];

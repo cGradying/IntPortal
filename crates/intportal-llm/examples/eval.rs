@@ -78,7 +78,7 @@ const REFUSALS: [&str; 22] = [
 fn open(m: &mut Llama, path: &str, full: bool) {
     let schema = serde_json::json!({"type": "object", "properties": {"reply": {"type": "string"}}, "required": ["reply"]});
     let hits: String = NOTES.iter().map(|n| format!("- {n}\n")).collect();
-    let system = build(&intportal_ai::persona::system(None), &[Section { title: "From the student's notes", body: &hits, priority: 7 }], 7000);
+    let system = build(&intportal_ai::persona::system_all(None), &[Section { title: "From the student's notes", body: &hits, priority: 7 }], 7000);
     let (mut valid, mut grounded, mut refused) = (0, 0, 0);
     let (mut lat, mut n_grounded, mut n_refuse) = (vec![], 0, 0);
     for (q, want) in OPEN {
@@ -214,6 +214,12 @@ impl Llm for Spy<'_> {
     fn generate(&mut self, p: &str, s: Option<&serde_json::Value>, n: u32, f: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
         self.1 += 1;
         let out = self.0.generate(p, s, n, f)?;
+        self.2 = out.clone();
+        Ok(out)
+    }
+    fn generate_prefilled(&mut self, p: &str, pre: &str, s: Option<&serde_json::Value>, n: u32, f: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+        self.1 += 1;
+        let out = self.0.generate_prefilled(p, pre, s, n, f)?;
         self.2 = out.clone();
         Ok(out)
     }

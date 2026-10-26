@@ -121,6 +121,11 @@ impl Llm for Counting<'_> {
         self.raw = out.clone().unwrap_or_default();
         out
     }
+    fn generate_prefilled(&mut self, prompt: &str, prefill: &str, schema: Option<&Value>, max_tokens: u32, on_token: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+        let out = self.inner.generate_prefilled(prompt, prefill, schema, max_tokens, on_token);
+        self.raw = out.clone().unwrap_or_default();
+        out
+    }
     fn embed(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
         self.inner.embed(texts)
     }
@@ -139,7 +144,7 @@ fn main() {
     let device = if std::env::args().any(|a| a == "cpu") { Device::Cpu } else { Device::Gpu };
     let mut m = Llama::load(path.as_ref(), 4096, device).unwrap();
     // The persona alone, in this model's tokens (a prompt that cannot fit is refused with its count).
-    let alone = format!("{}\n\nStudent: hi", intportal_ai::persona::system(None));
+    let alone = format!("{}\n\nStudent: hi", intportal_ai::persona::system_all(None));
     let probe = m.generate(&alone, None, u32::MAX / 2, &mut |_| false).unwrap_err();
     println!("persona system text: {} chars, {}", alone.chars().count(), probe.split(" does not fit").next().unwrap_or(""));
     let tpl = if path.contains("gemma") { Template::Gemma } else { Template::ChatMl };
