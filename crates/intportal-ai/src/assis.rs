@@ -221,7 +221,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     }
     // A question none of whose key words is in any note found never reaches the model (docs/ai.md, "Grounding check").
     if let Some(reply) = Some(intent).filter(|i| *i == Intent::Ask).and_then(|_| ground::before_model(facts, msg)) {
-        return Ok(Answer { reply, proposal: None });
+        return Ok(Answer { reply, proposal: None, route: Route::Refuse, cited: false });
     }
     let when = resolve_when(msg, today);
     let ask_when = intent == Intent::Remind && when.is_none();
@@ -565,7 +565,7 @@ mod tests {
 
     /// Facts with one note found, so an open question is in scope and reaches the model.
     fn noted() -> Facts {
-        Facts { hits: vec!["MATH 101: quiz on Monday".into()], ..facts() }
+        Facts { hits: vec!["MATH 101: quiz on Monday. Finals: focus on one chapter at a time. The Monday thing covers limits.".into()], ..facts() }
     }
 
     #[test]
@@ -607,7 +607,7 @@ mod tests {
             let a = answer(&mut m, Template::ChatMl, f, &[], msg).unwrap();
             (m.prompts.len(), a.reply)
         };
-        let note = Facts { hits: vec!["Math 101: Prof. Reyes moved the quiz to Monday.".into()], subject_names: vec![("MATH 101".into(), "Mathematics".into())], ..facts() };
+        let note = Facts { hits: vec!["Math 101: passing is 75%. Prof. Reyes moved the quiz to Monday.".into()], subject_names: vec![("MATH 101".into(), "Mathematics".into())], ..facts() };
         let none = Facts { due: vec![], ..note.clone_for_test() };
         assert_eq!(ask("Kailan ang quiz sa Math 101?", &none).0, 1, "no deadline is listed, the note has the day");
         assert_eq!(ask("Ano ang passing sa Math 101?", &none).0, 1);
@@ -1162,7 +1162,7 @@ mod tests {
     #[test]
     fn an_open_question_gets_the_persona_the_examples_and_the_facts_and_no_sentence_cap() {
         let mut m = FakeLlm::new(&[r#"{"reply":"ok"}"#]);
-        answer(&mut m, Template::Gemma, &Facts { hits: vec!["a note".into()], ..rich() }, &[], "how do I focus on studying?").unwrap();
+        answer(&mut m, Template::Gemma, &Facts { hits: vec!["a note on how to focus on studying".into()], ..rich() }, &[], "how do I focus on studying?").unwrap();
         let p = &m.prompts[0];
         assert!(p.contains("You are LAR") && p.contains("Examples (made-up") && p.contains("Rules that always win") && p.contains("read-only"));
         assert!(p.contains("Quiz 2: COMP 20073, Fri 2026-10-16") && p.contains("COMP 20073 9:00"), "the student's facts");
@@ -1181,7 +1181,7 @@ mod tests {
 
     #[test]
     fn the_students_style_note_reaches_an_open_question_after_the_rules_and_never_a_request() {
-        let f = Facts { style: Some("Call me Ate and keep it playful.".into()), hits: vec!["MATH 101: quiz on Monday".into()], ..rich() };
+        let f = Facts { style: Some("Call me Ate and keep it playful.".into()), hits: vec!["MATH 101: quiz on Monday. Focus on one thing at a time.".into()], ..rich() };
         let mut m = FakeLlm::new(&[r#"{"reply":"ok"}"#, r#"{"text":"pay"}"#]);
         answer(&mut m, Template::Gemma, &f, &[], "paano mag-focus?").unwrap();
         let p = &m.prompts[0];

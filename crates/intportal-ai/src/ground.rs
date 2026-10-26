@@ -98,7 +98,7 @@ fn key_terms(text: &str) -> Vec<(String, String)> {
 /// the grades and the student's subjects.
 fn support(f: &Facts) -> Vec<String> {
     let names = f.subject_names.iter().flat_map(|(c, d)| [c.as_str(), d.as_str()]);
-    let parts = f.hits.iter().map(String::as_str).chain(f.open_note.as_deref()).chain(f.classes_today.iter().map(String::as_str)).chain(f.due.iter().map(String::as_str)).chain(f.standing.iter().map(String::as_str)).chain(names);
+    let parts = f.hits.iter().chain(&f.near).map(String::as_str).chain(f.open_note.as_deref()).chain(f.classes_today.iter().map(String::as_str)).chain(f.due.iter().map(String::as_str)).chain(f.standing.iter().map(String::as_str)).chain(names);
     parts.flat_map(raw_words).map(|w| stem(&w)).collect()
 }
 
@@ -141,7 +141,7 @@ fn title(hit: &str) -> String {
 fn near_miss(f: &Facts, msg: &str, missing: &[String]) -> String {
     let fil = is_filipino(msg);
     let joined = missing.iter().take(2).cloned().collect::<Vec<_>>().join(if fil { " at " } else { " or " });
-    match f.hits.first().map(|h| title(h)).filter(|t| !t.is_empty()) {
+    match f.hits.iter().chain(&f.near).next().map(|h| title(h)).filter(|t| !t.is_empty()) {
         Some(have) => persona::near_miss(&have, &joined, fil, msg),
         None => persona::line(persona::Line::NoData, fil, msg),
     }
@@ -152,14 +152,14 @@ fn near_miss(f: &Facts, msg: &str, missing: &[String]) -> String {
 pub fn before_model(f: &Facts, msg: &str) -> Option<String> {
     let keys = key_terms(msg);
     let missing = missing_terms(msg, f);
-    (!f.hits.is_empty() && !keys.is_empty() && missing.len() == keys.len()).then(|| near_miss(f, msg, &missing))
+    ((!f.hits.is_empty() || !f.near.is_empty()) && !keys.is_empty() && missing.len() == keys.len()).then(|| near_miss(f, msg, &missing))
 }
 
 /// After the model wrote `reply`: replaced when it answers a question whose key term the sources do
 /// not have, or when too much of it is in neither the sources nor the question. A reply that already
 /// says "I don't see it" stays.
 pub fn after_model(f: &Facts, msg: &str, reply: &str) -> Option<String> {
-    if f.hits.is_empty() || reply.split_inclusive(['.', '!', '?']).next().is_some_and(is_refusal) {
+    if (f.hits.is_empty() && f.near.is_empty()) || reply.split_inclusive(['.', '!', '?']).next().is_some_and(is_refusal) {
         return None;
     }
     let missing = missing_terms(msg, f);

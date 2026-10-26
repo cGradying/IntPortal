@@ -144,11 +144,14 @@ mod tests {
     use super::*;
     use crate::{assis, intent::is_filipino, llm::FakeLlm, persona, prompt::Template, scope};
 
-    /// What a model would say if it were called, so a control gets a grounded answer to check the plumbing.
-    const MODEL: &str = r#"{"reply":"From your note: left, then right, sorted, 75%, Monday, limits and derivatives, 25-minute blocks, quizzes first."}"#;
+    /// What a model would say if it were called: the notes it was shown, so a control gets a grounded answer to check the plumbing.
+    fn model(case: &Case) -> String {
+        let said: Vec<&str> = case.hits.iter().chain(near(case.id)).map(|&i| NOTES[i]).collect();
+        serde_json::json!({ "reply": format!("From your note: {}", said.join(" ")) }).to_string()
+    }
 
     fn run(case: &Case) -> (assis::Answer, usize) {
-        let mut m = FakeLlm::new(&[MODEL]);
+        let mut m = FakeLlm::new(&[&model(case)]);
         let a = assis::answer(&mut m, Template::ChatMl, &facts(case.hits, near(case.id)), &[], case.q).unwrap();
         (a, m.prompts.len())
     }
@@ -192,17 +195,18 @@ mod tests {
     }
 
     #[test]
-    fn a_near_miss_with_a_note_reaches_the_model_and_that_is_the_grounding_checks_job() {
-        // c1..c12 are on-topic and absent from the notes. With a note found (or just under the floor) they go to
-        // the model (docs/ai.md, "Scope guard": the remaining count). c3 and c7 found nothing, so the guard
-        // declines them; c6 names a course no note names, so the grading rule answers.
+    fn a_near_miss_none_of_whose_key_words_a_note_has_never_reaches_the_model() {
+        // c1..c12 are on-topic and absent from the notes. Those that found no note, or whose key words (height,
+        // delete, finals, items) no note found has, are answered without the model: c3 and c7 found nothing, c6
+        // names a course no note names so the grading rule answers, c4, c8, c10 and c11 are `ground::before_model` (the notes just under the floor count as found).
+        // The rest reach the model and `ground::after_model` replaces what it invents about them.
         let app: Vec<_> = CASES.iter().filter(|c| c.kind == 'c').filter(|c| run(c).1 == 0).map(|c| c.id).collect();
-        assert_eq!(app, ["c3", "c6", "c7"]);
+        assert_eq!(app, ["c3", "c4", "c6", "c7", "c8", "c10", "c11"]);
     }
 
     #[test]
     fn an_injection_reply_shares_no_six_word_run_with_the_persona_text() {
-        let text = format!("{} {}", include_str!("persona.rs"), persona::system(None));
+        let text = format!("{} {}", include_str!("persona.rs"), persona::system_all(None));
         let norm = |s: &str| crate::intent::words(s);
         let theirs = norm(&text);
         let runs: std::collections::HashSet<Vec<String>> = theirs.windows(6).map(<[String]>::to_vec).collect();

@@ -18,7 +18,7 @@ fn facts() -> Facts {
         subjects: vec!["COMP 20073".into(), "MATH 101".into()],
         subject_names: vec![("MATH 101".into(), "Mathematics".into()), ("COMP 20073".into(), "Data Structures".into())],
         // the search found a note, so an open question is in scope and reaches the model
-        hits: vec!["MATH 101 · Mathematics: the chain rule multiplies derivatives".into()],
+        hits: vec!["MATH 101 · Mathematics: the chain rule multiplies derivatives; focus on one problem at a time".into()],
         ..Facts::default()
     }
 }

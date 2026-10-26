@@ -121,6 +121,11 @@ impl Llm for Counting<'_> {
         self.raw = out.clone().unwrap_or_default();
         out
     }
+    fn generate_prefilled(&mut self, prompt: &str, prefill: &str, schema: Option<&Value>, max_tokens: u32, on_token: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+        let out = self.inner.generate_prefilled(prompt, prefill, schema, max_tokens, on_token);
+        self.raw = out.clone().unwrap_or_default();
+        out
+    }
     fn embed(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
         self.inner.embed(texts)
     }

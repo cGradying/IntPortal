@@ -25,6 +25,10 @@ impl Llm for Spy<'_> {
         self.1 += 1;
         self.0.generate(p, s, n, f)
     }
+    fn generate_prefilled(&mut self, p: &str, pre: &str, s: Option<&serde_json::Value>, n: u32, f: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+        self.1 += 1;
+        self.0.generate_prefilled(p, pre, s, n, f)
+    }
     fn embed(&mut self, t: &[&str]) -> Result<Vec<Vec<f32>>, String> {
         self.0.embed(t)
     }
