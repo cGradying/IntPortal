@@ -1,6 +1,6 @@
 # 040 Trust and speed
 
-**Status:** draft
+**Status:** approved (2026-11-03)
 
 ## What changes for the student
 
@@ -112,7 +112,7 @@ The app never shows something it doesn't know: no "Nothing scheduled" while it i
 | C13 | vitest on `weekOffset`; screenshot of next week with a move |
 | C14 | screenshot of Study's Notes entry |
 
-## Open questions
+## Decided
 
-- C12 changes Today's tap from "open the subject" to "open the class sheet". That is one more tap to reach the syllabus from Today. The recommendation is yes, because a consistent tap matters more and the Due card covers the syllabus path. The alternative is to make Schedule's tap open the subject instead.
-- C14: should Notes get its own spot in Study, or a sixth tab? The recommendation is Study, since a sixth tab costs every screen.
+- C12: a tap on a class opens the class sheet on both Today and Schedule. One more tap to the syllabus from Today is accepted; the Due card (041) covers deadlines (user left it to the Head, 2026-11-03).
+- C14: Notes lives on the Study tab, not a sixth tab.
