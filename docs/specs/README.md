@@ -32,6 +32,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [012-portals](012-portals.md) | draft | The portal model: SIS now, Mabini next |
 | [020-ai](020-ai.md) | building | LAR that streams, remembers, cites notes; Ask AI in a note |
 | [040-trust-and-speed](040-trust-and-speed.md) | approved | Honest loading and errors, fixable logins, review all due, consistent taps, week navigation |
+| [041-one-deadline-list](041-one-deadline-list.md) | approved | Syllabus, eMabini and own deadlines in one list: Today, reminders, LAR, calendar; add by typing or photo |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md) and [ADR 0005](../adr/0005-portals-are-first-class.md).
 
