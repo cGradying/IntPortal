@@ -45,7 +45,7 @@ export interface NoteItem {
 }
 
 export type Nudge =
-  | { kind: "deadline"; subject: string; topic: string; more: number }
+  | { kind: "deadline"; subject: string; topic: string; more: number; overdue: boolean; url: string | null }
   | { kind: "keep_streak"; streak: number; cards: number }
   | { kind: "use_the_gap"; minutes: number; cards: number }
   | { kind: "cards_due"; cards: number }
@@ -179,6 +179,37 @@ export interface Snapshot {
   syllabus: Record<string, Plan>;
   host: string | null;
   last_synced: string | null;
+  own_deadlines: OwnDeadline[];
+  done: string[];
+}
+
+/** Spec 041's one deadline list: syllabus, eMabini and the student's own. */
+export interface DeadlineEntry {
+  id: string;
+  source: "syllabus" | "mabini" | "own";
+  subject: string | null;
+  course: string | null;
+  title: string;
+  kind: ItemKind;
+  due: { day: string } | { at: number };
+  overdue: boolean;
+  url: string | null;
+}
+
+export interface OwnDeadline {
+  /** Empty for a new one. */
+  id: string;
+  title: string;
+  subject: string | null;
+  kind: ItemKind;
+  date: string;
+}
+
+export interface DeadlineDraft {
+  title: string;
+  subject: string | null;
+  kind: ItemKind;
+  date: string | null;
 }
 
 export interface Moment {
@@ -341,7 +372,12 @@ export const api = {
   tally: (components: Component[], target: number) => invoke<Tally>("tally", { components, target }),
   due: (today: string, days: number) => invoke<[string, SyllabusItem][]>("due", { today, days }),
   coach: (now: Moment, dismissed: string[], busy: Busy[] = []) =>
-    invoke<{ nudge: Nudge; line: string; key: string } | null>("coach", { now, dismissed, busy }),
+    invoke<{ nudge: Nudge; line: string; key: string } | null>("coach", { now, dismissed, busy, utcOffset: -new Date().getTimezoneOffset() }),
+  deadlines: (now: Moment, days: number) => invoke<DeadlineEntry[]>("deadlines", { now, utcOffset: -new Date().getTimezoneOffset(), days }),
+  setDone: (id: string, done: boolean) => invoke<Snapshot>("set_done", { id, done }),
+  saveOwn: (own: OwnDeadline) => invoke<Snapshot>("save_own", { own }),
+  deleteOwn: (id: string) => invoke<Snapshot>("delete_own", { id }),
+  parseOwn: (text: string, today: string) => invoke<DeadlineDraft[]>("parse_own", { text, today }),
   study: (today: string) => invoke<StudyOverview>("study", { today }),
   deck: (id: string) => invoke<Deck>("deck", { id }),
   saveDeck: (deck: Deck) => invoke<Deck>("save_deck", { deck }),

@@ -2,13 +2,14 @@
 //! already knows. It never guesses and never nags about the same thing
 //! twice in a row; the student can dismiss it for the day.
 
+use crate::deadline::Deadline;
 use serde::{Deserialize, Serialize};
 
 /// What the coach can see right now.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Signals {
-    /// Quizzes, exams and projects due today or tomorrow: (subject, topic).
-    pub due_soon: Vec<(String, String)>,
+    /// Deadlines overdue or due by tomorrow, from the one list (spec 041), soonest first.
+    pub due_soon: Vec<Deadline>,
     /// Flashcards due across decks.
     pub cards_due: usize,
     pub study_streak: u32,
@@ -26,7 +27,8 @@ pub struct Signals {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Nudge {
-    Deadline { subject: String, topic: String, more: usize },
+    /// `url` opens an eMabini deadline where it lives; `overdue` when its time passed.
+    Deadline { subject: String, topic: String, more: usize, overdue: bool, url: Option<String> },
     KeepStreak { streak: u32, cards: usize },
     UseTheGap { minutes: u16, cards: usize },
     CardsDue { cards: usize },
@@ -38,8 +40,9 @@ impl Nudge {
     /// Friendly, clear first, a little Taglish.
     pub fn line(&self) -> String {
         match self {
-            Nudge::Deadline { subject, topic, more: 0 } => format!("{topic} ({subject}) is due by tomorrow. Kaya mo 'yan."),
-            Nudge::Deadline { subject, topic, more } => format!("{topic} ({subject}) and {more} more due by tomorrow. One at a time."),
+            Nudge::Deadline { subject, topic, overdue: true, .. } => format!("{topic} ({subject}) is past due. If it's done, mark it done."),
+            Nudge::Deadline { subject, topic, more: 0, .. } => format!("{topic} ({subject}) is due by tomorrow. Kaya mo 'yan."),
+            Nudge::Deadline { subject, topic, more, .. } => format!("{topic} ({subject}) and {more} more due by tomorrow. One at a time."),
             Nudge::KeepStreak { streak, cards } => format!("{streak}-day streak. {cards} {} keep it alive today.", if *cards == 1 { "card" } else { "cards" }),
             Nudge::UseTheGap { minutes, cards } => {
                 format!("{} free before your next class: enough for {cards} {}.", span(*minutes), if *cards == 1 { "card" } else { "cards" })
@@ -78,7 +81,7 @@ fn span(m: u16) -> String {
 pub fn pick(s: &Signals, dismissed: &[String]) -> Option<Nudge> {
     let cards_fit = |minutes: u16| usize::from(minutes / 30 * 8).min(s.cards_due);
     let candidates = [
-        s.due_soon.first().map(|(subject, topic)| Nudge::Deadline { subject: subject.clone(), topic: topic.clone(), more: s.due_soon.len() - 1 }),
+        s.due_soon.first().map(|d| Nudge::Deadline { subject: d.label().into(), topic: d.title.clone(), more: s.due_soon.len() - 1, overdue: d.overdue, url: d.url.clone() }),
         (s.study_streak > 0 && !s.studied_today && s.cards_due > 0).then(|| Nudge::KeepStreak { streak: s.study_streak, cards: s.cards_due.min(5) }),
         (s.free_minutes >= 30 && s.cards_due > 0 && s.classes_left > 0).then(|| Nudge::UseTheGap { minutes: s.free_minutes, cards: cards_fit(s.free_minutes) }),
         (s.cards_due > 0).then_some(Nudge::CardsDue { cards: s.cards_due }),
@@ -99,9 +102,21 @@ mod tests {
     #[test]
     fn a_deadline_comes_first() {
         let mut s = sig();
-        s.due_soon = vec![("COMP 20073".into(), "Quiz 2".into()), ("GEED 10053".into(), "Essay".into())];
+        s.due_soon = vec![due("COMP 20073", "Quiz 2", false), due("GEED 10053", "Essay", false)];
         let n = pick(&s, &[]).unwrap();
         assert_eq!(n.line(), "Quiz 2 (COMP 20073) and 1 more due by tomorrow. One at a time.");
+    }
+
+    #[test]
+    fn an_overdue_mabini_deadline_is_a_nudge_not_a_rest_day() {
+        let s = Signals { due_soon: vec![due("Purposive Communication", "Reflection", true)], ..Default::default() };
+        assert_eq!(pick(&s, &[]).unwrap().line(), "Reflection (Purposive Communication) is past due. If it's done, mark it done.");
+    }
+
+    fn due(label: &str, title: &str, overdue: bool) -> Deadline {
+        use crate::deadline::{Due, Source};
+        let date = crate::today::Date::new(2026, 11, 4);
+        Deadline { id: title.into(), source: Source::Mabini, subject: None, course: Some(label.into()), title: title.into(), kind: crate::syllabus::Kind::Project, due: Due::Day(date), overdue, url: None }
     }
 
     #[test]
