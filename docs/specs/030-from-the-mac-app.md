@@ -4,7 +4,7 @@
 
 ## What changes for the student
 
-Features students used in the macOS IntPortal come to the phone, in waves. Wave 1: a join link on each online class, the syllabus deadlines in the phone's calendar, and a dated entry in a class note with one tap.
+Features students used in the macOS IntPortal come to the phone, in waves. Wave 1: a join link on each online class, and a dated entry in a class note with one tap. Deadlines in the phone's calendar moved to spec 041.
 
 ## Direction and references
 
@@ -63,7 +63,7 @@ The Mac app's features and where each stands on the phone, from the Head's inven
 | 42 | AI syllabus extraction with grading weights | Wave 2 (#82) |
 | 43 | Study guide from the subject alone | Wave 2 (#93) |
 | 44 | Syllabus table and timeline | Partial: one list |
-| 45 | Syllabus deadlines into the calendar | **Wave 1** (C6–C10) |
+| 45 | Syllabus deadlines into the calendar | Spec 041 (C21–C24) |
 | 46 | Quiz from a syllabus topic | Wave 4 |
 | 47 | Assistant chat grounded in the student's data | Done (IntAssis) |
 | 48 | Assistant actions: calendar event, syllabus item | Partial: note, reminder and cards. Wave 4: the rest |
@@ -95,11 +95,7 @@ The Mac app's features and where each stands on the phone, from the Head's inven
 
 **Deadlines in the calendar (Mac #45)**
 
-- **C6.** Each syllabus item that is a quiz, exam or project, has a date and isn't done becomes an all-day event in the IntPortal calendar, titled `<code> <kind>: <topic>` ("CS 201 Quiz: Loops").
-- **C7.** Marking the item done, deleting it or removing its date takes the event out at the next calendar refresh. Items without a date never appear.
-- **C8.** Deadline events follow the existing calendar setting: off means neither classes nor deadlines are written.
-- **C9.** A refresh never duplicates a deadline: each event is keyed by subject and item id, like the class events.
-- **C10.** **Add classes to calendar** (the `.ics` share) includes the same deadlines as all-day events.
+- **C6–C10.** *Removed* (2026-11-03). They moved to [041](041-one-deadline-list.md) C21–C24, which cover syllabus, eMabini and own deadlines.
 
 **Dated entry in a class note (Mac #30)**
 
@@ -120,8 +116,6 @@ The Mac app's features and where each stands on the phone, from the Head's inven
 - `crates/intportal-core/src/store.rs` `Snapshot` gains `class_info: BTreeMap<String, ClassInfo>` (subject code to info), `#[serde(default)]`, so existing stores load.
 - `ClassInfo { link: Option<String>, about: Option<String> }`, in `today.rs` beside `Marks`, or its own small module.
 - A `set_class_info(subject_code, info)` command following `set_color` in `src-tauri/src/lib.rs`, returning the `Snapshot`. This is a hot file: it waits for #60 or goes in a small PR (TEAM.md, Working in parallel).
-- `calendar.rs`: `ClassEvent` gains `all_day: bool`; `deadline_events(syllabus, from, days)` sits beside `class_events`; `ics` writes deadlines as `DTSTART;VALUE=DATE`.
-- `plugins/tauri-plugin-calendar`: the Swift and Kotlin halves write `isAllDay` / `ALL_DAY` when `all_day` is true. They already read it.
 - `notes.rs` or `today.rs`: `entry_date(sessions, marks, code, today) -> Date` for C12; the editor inserts the heading.
 
 ## Errors
@@ -144,7 +138,6 @@ No new motion. Join and Add entry use the existing button press and haptic.
 
 - Waves 2 to 4 (specs 031+), the year view, fonts, note colour labels.
 - Opening meeting apps directly (Zoom, Meet); the browser hands off to them.
-- Mabini deadlines in the calendar; they belong to spec 013.
 
 ## Test map
 
@@ -154,10 +147,6 @@ No new motion. Join and Add entry use the existing button press and haptic.
 | C2 | `cargo test -p intportal` or core `c2_link_must_be_https` |
 | C3, C5 | vitest on the sheet's view model; screenshot on the iPhone 18 Pro |
 | C4 | `cargo test c4_join_shows_within_15_minutes` (if computed in the core) or vitest; screenshot |
-| C6, C7, C9 | `cargo test c6_deadline_events_from_dated_open_items`, `c7_done_item_leaves_calendar`, `c9_deadline_keys_are_stable` |
-| C8 | vitest on `refreshClassCalendar` with the setting off |
-| C10 | `cargo test c10_ics_has_all_day_deadlines` |
-| Calendar plugin | simulator and emulator screenshot of an all-day deadline in the phone's calendar |
 | C11, C14 | vitest on the insert function |
 | C12, C13 | `cargo test c12_entry_date_skips_vacant_weeks`; vitest for the locale format |
 
