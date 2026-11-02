@@ -1,6 +1,6 @@
 //! On-device AI commands (ADR 0003). None of them writes: IntAssis returns a
 //! proposal and the UI confirms it through the existing commands.
-use crate::{err, snapshot_of, AppState, Res};
+use crate::{err, snapshot_of, AppState, Res, MANILA_OFFSET};
 use intportal_ai::{
     assis::{self, Facts, Proposal},
     due,
@@ -14,6 +14,8 @@ use intportal_ai::{
     rag, why,
 };
 use intportal_core::{
+    deadline,
+    mabini::MabiniData,
     notes,
     store::{Store, Turn},
     syllabus::{self, Item},
@@ -299,8 +301,9 @@ async fn with_model<T: Send + 'static>(ai: &AiState, f: impl FnOnce(&mut dyn Llm
     .await?
 }
 
-/// What IntAssis may know right now, from the student's own data.
-pub fn facts_for(snap: &intportal_core::store::Snapshot, now: Moment) -> Facts {
+/// What IntAssis may know right now, from the student's own data. Due work is
+/// the one deadline list (spec 041 C20); three weeks of it covers "next week".
+pub fn facts_for(snap: &intportal_core::store::Snapshot, mabini: &MabiniData, now: Moment, utc_offset: i32) -> Facts {
     let agenda = today::agenda(&snap.sessions, &snap.marks, now);
     let classes_today = agenda
         .items
@@ -326,7 +329,7 @@ pub fn facts_for(snap: &intportal_core::store::Snapshot, now: Moment) -> Facts {
     subject_names.sort();
     subject_names.dedup_by(|a, b| a.0 == b.0);
     let mut facts = Facts { today: Some(now.date), classes_today, standing, subjects, subject_names, ..Facts::default() };
-    facts.add_due(due::syllabus_items(&snap.syllabus, now.date));
+    facts.add_due(due::items(&deadline::deadlines(snap, mabini, now, utc_offset, 21), utc_offset));
     facts
 }
 
@@ -484,9 +487,6 @@ fn searches_notes(message: &str, note_open: bool) -> bool {
     !matches!(intent::resolve(message, note_open), Intent::Note | Intent::Remind | Intent::Cards)
 }
 
-/// Minutes ahead of UTC in the school's time zone, for a phone that does not say its own.
-const MANILA_OFFSET: i32 = 480;
-
 /// One chat turn. The words of an open question's reply arrive on `on_text`
 /// as the model writes them. `open_key` is the note the student is looking at;
 /// `style` is the student's own "how LAR talks to me" note.
@@ -495,12 +495,8 @@ const MANILA_OFFSET: i32 = 480;
 #[allow(clippy::too_many_arguments)] // one argument per field the sheet sends; Tauri has no struct form here
 pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, open_key: Option<String>, style: Option<String>, on_text: Channel<String>, utc_offset: Option<i32>) -> Res<Ask> {
     let state = app.state::<AppState>();
-    let mut facts = facts_for(&snapshot_of(&state)?, now);
-    // eMabini work is due work too: it is what Today lists, and a student may have no SIS schedule at all.
-    let mabini = store(&state)?.mabini();
-    if let Ok(mabini) = mabini {
-        facts.add_due(due::mabini_items(&mabini, now, utc_offset.unwrap_or(MANILA_OFFSET)));
-    }
+    let mabini = store(&state)?.mabini().unwrap_or_default();
+    let mut facts = facts_for(&snapshot_of(&state)?, &mabini, now, utc_offset.unwrap_or(MANILA_OFFSET));
     facts.style = style; // the student's own note on how LAR talks; `persona::system` cleans and caps it
     let history = recent_asks(&state);
     let note = open_key.and_then(|k| open_note(&state, &k));
@@ -638,11 +634,22 @@ mod tests {
 
     #[test]
     fn facts_hold_todays_classes_deadlines_and_subjects() {
-        let f = facts_for(&snap(), Moment { date: Date::new(2026, 10, 15), minute: 480 });
+        let f = facts_for(&snap(), &MabiniData::default(), Moment { date: Date::new(2026, 10, 15), minute: 480 }, 480);
         assert_eq!(f.classes_today, ["COMP 20073 Data Structures, 9AM to 10:30AM"]);
         assert_eq!(f.due, ["Quiz 2: COMP 20073, Friday 2026-10-16"]);
         assert_eq!(f.subjects, ["COMP 20073"]);
         assert_eq!(f.today, Some(Date::new(2026, 10, 15)));
+    }
+
+    #[test]
+    fn c20_facts_include_mabini_and_own() {
+        let mut s = snap();
+        s.own_deadlines.push(intportal_core::deadline::OwnDeadline { id: "a".into(), title: "Org fee".into(), subject: None, kind: Kind::Project, date: Date::new(2026, 10, 15) });
+        // Due 2026-10-16 10 AM Manila.
+        let essay = intportal_core::mabini::parse::Deadline { id: 7, name: "Essay is due".into(), course_id: 1, course: "COMP20073_First Sem_BSIT 1-A".into(), kind: "assign".into(), due: 1_792_116_000, overdue: false, url: String::new() };
+        let mabini = MabiniData { deadlines: vec![essay], ..MabiniData::default() };
+        let f = facts_for(&s, &mabini, Moment { date: Date::new(2026, 10, 15), minute: 480 }, 480);
+        assert_eq!(f.due, ["Org fee, Thursday 2026-10-15", "Essay: COMP 20073, Friday 2026-10-16", "Quiz 2: COMP 20073, Friday 2026-10-16"]);
     }
 
     #[test]

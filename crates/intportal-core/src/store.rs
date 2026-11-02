@@ -33,6 +33,12 @@ pub struct Snapshot {
     pub host: Option<String>,
     /// RFC 3339, written by the shell.
     pub last_synced: Option<String>,
+    /// Deadlines the student added (spec 041).
+    #[serde(default)]
+    pub own_deadlines: Vec<crate::deadline::OwnDeadline>,
+    /// Deadline ids marked done on this phone: eMabini and own ones (041 C5).
+    #[serde(default)]
+    pub done: std::collections::BTreeSet<String>,
 }
 
 /// The file one student's data lives in. Each student number gets its own,
@@ -193,6 +199,8 @@ impl Store {
             syllabus: self.get("syllabus")?.unwrap_or_default(),
             host: self.get::<Option<_>>("host")?.flatten(),
             last_synced: self.get::<Option<_>>("last_synced")?.flatten(),
+            own_deadlines: self.get("own_deadlines")?.unwrap_or_default(),
+            done: self.get("done")?.unwrap_or_default(),
         })
     }
 
@@ -205,6 +213,8 @@ impl Store {
         self.put("goals", &s.goals)?;
         self.put("syllabus", &s.syllabus)?;
         self.put("host", &s.host)?;
+        self.put("own_deadlines", &s.own_deadlines)?;
+        self.put("done", &s.done)?;
         self.put("last_synced", &s.last_synced)
     }
 

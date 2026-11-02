@@ -8,6 +8,7 @@
   import Lar from "../lar/Lar.svelte";
   import { ago } from "../glance";
   import { longpress } from "../press";
+  import { openLink } from "../openLink";
   import { buzz } from "../haptics";
   import { dayRows } from "../dayrows";
   import { api, clock, isoDate, moment, span, subjectColor, type Meeting, type Nudge, type Standing, type SyllabusItem } from "../api";
@@ -74,7 +75,8 @@
   function act() {
     if (!nudge) return;
     const n = nudge.nudge;
-    if (n.kind === "deadline") openSubject(n.subject, describe(n.subject));
+    if (n.kind === "deadline" && n.url) openLink(n.url);
+    else if (n.kind === "deadline") openSubject(n.subject, describe(n.subject));
     else if (n.kind === "target") app.tab = "grades";
     else if (n.kind !== "day_off") app.tab = "study";
   }

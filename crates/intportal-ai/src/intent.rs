@@ -2,7 +2,6 @@
 //! Gemma 3 1B answered every "remind me" and "add a note" in words and
 //! proposed no action (PR #87's eval), so the rules pick the action and the
 //! schema then forces it. The model only writes the reply and fills the text.
-use intportal_core::{model::Weekday, today::Date};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intent {
@@ -16,9 +15,7 @@ pub enum Intent {
     Grades,
 }
 
-pub(crate) fn words(msg: &str) -> Vec<String> {
-    msg.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).map(String::from).collect()
-}
+pub use intportal_core::when::{resolve_when, subject_in, words};
 
 /// Reminders beat cards beat notes: "remind me to make a note" is a reminder.
 pub fn detect(msg: &str) -> Intent {
@@ -86,53 +83,10 @@ pub fn is_filipino(msg: &str) -> bool {
     words(msg).iter().filter(|w| FIL.contains(&w.as_str())).count() >= 1
 }
 
-/// The one subject a message is about: its code ("MATH 101" or "math101"),
-/// the letters of its code ("math"), or a word of its description
-/// ("calculus"). None when it names none or more than one.
-/// `subjects` is (code, description).
-pub fn subject_in(msg: &str, subjects: &[(String, String)]) -> Option<String> {
-    let w = words(msg);
-    let squashed = w.concat();
-    let letters = |code: &str| code.chars().take_while(|c| c.is_alphabetic()).collect::<String>().to_lowercase();
-    let only = |hit: Vec<&String>| (hit.len() == 1).then(|| hit[0].clone());
-    let key = |c: &str| c.to_lowercase().replace(' ', "");
-    let hits: Vec<&String> = subjects.iter().map(|(c, _)| c).filter(|c| squashed.contains(&key(c))).collect();
-    // "math 101" also contains "math1": the longer code is the one named.
-    let by_code = hits.iter().copied().filter(|c| !hits.iter().any(|o| key(o) != key(c) && key(o).contains(&key(c)))).collect();
-    only(by_code)
-        .or_else(|| only(subjects.iter().map(|(c, _)| c).filter(|c| letters(c).len() >= 3 && w.contains(&letters(c))).collect()))
-        .or_else(|| only(subjects.iter().filter(|(_, d)| words(d).iter().any(|dw| dw.chars().count() >= 5 && w.contains(dw))).map(|(c, _)| c).collect()))
-}
-
-/// A day the message names ("bukas", "tomorrow", "sa Lunes"), or None when
-/// it names none or an unclear one. The model never computes dates.
-pub fn resolve_when(msg: &str, today: Date) -> Option<Date> {
-    let w = words(msg);
-    for (i, x) in w.iter().enumerate() {
-        let day = match x.as_str() {
-            "today" | "ngayon" | "mamaya" => return Some(today),
-            "tomorrow" | "bukas" => return Some(today.add_days(1)),
-            "makalawa" => return Some(today.add_days(2)),
-            "monday" | "lunes" => Weekday::Monday,
-            "tuesday" | "martes" => Weekday::Tuesday,
-            "wednesday" | "miyerkules" => Weekday::Wednesday,
-            "thursday" | "huwebes" => Weekday::Thursday,
-            "friday" | "biyernes" => Weekday::Friday,
-            "saturday" | "sabado" => Weekday::Saturday,
-            "sunday" => Weekday::Sunday,
-            // "linggo" also means "week": only "sa linggo" is Sunday.
-            "linggo" if i > 0 && w[i - 1] == "sa" => Weekday::Sunday,
-            _ => continue,
-        };
-        let ahead = (i64::from(day.number()) - i64::from(today.weekday().number())).rem_euclid(7);
-        return Some(today.add_days(if ahead == 0 { 7 } else { ahead }));
-    }
-    None
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use intportal_core::{model::Weekday, today::Date};
 
     const THU: Date = Date { y: 2026, m: 10, d: 15 };
 

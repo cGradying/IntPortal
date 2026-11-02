@@ -1,18 +1,16 @@
-//! "What is due?": every dated piece of work the app holds (syllabus quizzes,
-//! exams and projects, and eMabini deadlines), overdue first, cut at the end of
-//! the window the student asked about. Pure, so it is tested without a phone.
+//! "What is due?": the one deadline list (core `deadline`, spec 041: syllabus,
+//! eMabini and the student's own), overdue first, cut at the end of the window
+//! the student asked about. Pure, so it is tested without a phone.
 use crate::{
     assis::Facts,
     intent::{is_filipino, resolve_when, words},
     persona::{self, Line, List},
 };
 use intportal_core::{
-    mabini::{parse::split_course_name, MabiniData},
+    deadline::{local_parts, Deadline, Due},
     model::Weekday,
-    syllabus::{Kind, Plan},
-    today::{Date, Moment},
+    today::Date,
 };
-use std::collections::BTreeMap;
 
 /// Days a Due question looks ahead when it names no window: today and the next seven.
 pub const DEFAULT_DAYS: i64 = 8;
@@ -27,48 +25,22 @@ pub struct DueItem {
 
 /// "Quiz 2: COMP 20073, Friday 2026-10-16": the topic, the subject and the day.
 fn describe(title: &str, subject: &str, date: Date, overdue: bool) -> String {
-    format!("{title}: {subject}, {:?} {date}{}", date.weekday(), if overdue { ", overdue" } else { "" })
+    let what = if subject.is_empty() { title.to_string() } else { format!("{title}: {subject}") };
+    format!("{what}, {:?} {date}{}", date.weekday(), if overdue { ", overdue" } else { "" })
 }
 
-/// Quizzes, exams and projects not done and dated today or later. Past ones are left out: a
-/// syllabus item is ticked by hand, so an unticked old quiz is not proof that work was missed.
-pub fn syllabus_items(syllabus: &BTreeMap<String, Plan>, today: Date) -> Vec<DueItem> {
-    let mut out: Vec<DueItem> = syllabus
-        .iter()
-        .flat_map(|(code, p)| p.items.iter().map(move |i| (code, i)))
-        .filter(|(_, i)| !i.done && i.kind != Kind::Lecture)
-        .filter_map(|(code, i)| i.date.filter(|d| *d >= today).map(|d| DueItem { date: d, overdue: false, line: describe(&i.topic, code, d, false) }))
-        .collect();
-    out.sort_by_key(|i| i.date);
-    out
-}
-
-/// The local calendar day and minute of an epoch second, `utc_offset` minutes ahead of UTC.
-fn local_parts(unix: i64, utc_offset: i32) -> (Date, u16) {
-    let local = unix + i64::from(utc_offset) * 60;
-    (Date::new(1970, 1, 1).add_days(local.div_euclid(86_400)), (local.rem_euclid(86_400) / 60) as u16)
-}
-
-/// Moodle titles an event "X is due", "X closes" or "X opens"; the student wants X.
-fn clean_title(name: &str) -> &str {
-    let low = name.to_lowercase();
-    [" is due", " closes", " opens"].iter().find(|s| low.ends_with(*s)).map_or(name, |s| name[..name.len() - s.len()].trim_end())
-}
-
-/// eMabini deadlines the way Today shows them: the ones Moodle calls overdue (or whose time has
-/// passed) are overdue, the rest are dated by the student's local day. `utc_offset` is local minus UTC in minutes.
-pub fn mabini_items(data: &MabiniData, now: Moment, utc_offset: i32) -> Vec<DueItem> {
-    let mut out: Vec<DueItem> = data
-        .deadlines
-        .iter()
+/// The one list as lines the student reads, each dated by its local day.
+/// `utc_offset` is local minus UTC in minutes.
+pub fn items(list: &[Deadline], utc_offset: i32) -> Vec<DueItem> {
+    list.iter()
         .map(|d| {
-            let (date, minute) = local_parts(d.due, utc_offset);
-            let overdue = d.overdue || (date, minute) < (now.date, now.minute);
-            DueItem { date, overdue, line: describe(clean_title(&d.name), &split_course_name(&d.course).0, date, overdue) }
+            let date = match d.due {
+                Due::Day(day) => day,
+                Due::At(unix) => local_parts(unix, utc_offset).0,
+            };
+            DueItem { date, overdue: d.overdue, line: describe(&d.title, d.label(), date, d.overdue) }
         })
-        .collect();
-    out.sort_by_key(|i| (!i.overdue, i.date));
-    out
+        .collect()
 }
 
 impl Facts {
@@ -121,9 +93,17 @@ mod tests {
     use super::*;
     use crate::{assis::answer as ask, llm::FakeLlm, prompt::Template};
     use intportal_core::{
-        mabini::parse::Deadline,
-        syllabus::Item,
+        deadline::deadlines,
+        mabini::{parse::Deadline, MabiniData},
+        store::Snapshot,
+        syllabus::{Item, Kind, Plan},
+        today::Moment,
     };
+    use std::collections::BTreeMap;
+
+    fn mabini_items(data: &MabiniData, now: Moment, utc_offset: i32) -> Vec<DueItem> {
+        items(&deadlines(&Snapshot::default(), data, now, utc_offset, 30), utc_offset)
+    }
 
     /// Monday 2026-10-26 10:00 in Manila (UTC+8).
     const MON: Date = Date { y: 2026, m: 10, d: 26 };
@@ -243,15 +223,15 @@ mod tests {
             Plan {
                 items: vec![
                     item("Quiz 2", Kind::Quiz, Date::new(2026, 10, 28), false),
-                    item("Quiz 1", Kind::Quiz, Date::new(2026, 10, 20), false), // past, not ticked: not proof of missed work
+                    item("Quiz 1", Kind::Quiz, Date::new(2026, 10, 20), false), // six days past: out of the list (041 C4)
                     item("Midterm", Kind::Exam, Date::new(2026, 10, 27), true), // done
                     item("Intro", Kind::Lecture, Date::new(2026, 10, 27), false), // a lecture is not work
                 ],
                 ..Plan::default()
             },
         );
-        let mut f = facts_with(syllabus_items(&syllabus, MON));
-        f.add_due(mabini_items(&demo(), NOW, OFFSET));
+        let snap = Snapshot { syllabus, ..Snapshot::default() };
+        let f = facts_with(items(&deadlines(&snap, &demo(), NOW, OFFSET, 30), OFFSET));
         let lines: Vec<&str> = f.due_items.iter().map(|i| i.line.as_str()).collect();
         assert_eq!(lines.len(), 4);
         assert!(lines[0].contains("overdue") && lines[1].starts_with("Pagsusulit 1") && lines[2] == "Quiz 2: COMP 20073, Wednesday 2026-10-28" && lines[3].starts_with("Problem Set 2"), "{lines:?}");
