@@ -2,7 +2,7 @@
 //! `cargo run --example mabini_live`. Prints counts only, never the password
 //! or any course name.
 
-use intportal_core::mabini::MabiniClient;
+use intportal_core::mabini::LoginPage;
 use std::io::Write;
 
 #[tokio::main(flavor = "current_thread")]
@@ -12,7 +12,11 @@ async fn main() {
     let mut n = String::new();
     std::io::stdin().read_line(&mut n).unwrap();
     let password = rpassword::prompt_password("Password (hidden): ").unwrap();
-    let client = match MabiniClient::sign_in(n.trim(), &password).await {
+    let signed_in = match LoginPage::fetch().await {
+        Ok(page) => page.sign_in(n.trim(), &password).await,
+        Err(e) => Err(e),
+    };
+    let client = match signed_in {
         Ok(c) => c,
         Err(e) => return println!("sign-in failed: {e}"),
     };

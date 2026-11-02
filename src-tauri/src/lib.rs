@@ -5,7 +5,7 @@ use intportal_core::calendar;
 use intportal_core::campus;
 use intportal_core::coach::{self, Nudge, Signals};
 use intportal_core::grades::{self, Goals, GradeReport, Standing};
-use intportal_core::mabini::{MabiniClient, MabiniData};
+use intportal_core::mabini::{LoginPage, MabiniClient, MabiniData};
 use intportal_core::model::{ClassSession, Weekday};
 use intportal_core::notes::{self, Note};
 use intportal_core::schedule;
@@ -421,14 +421,7 @@ mod mabini_vault {
 /// even when the sign-in fails.
 async fn guarded_mabini_sign_in(state: &AppState, login: &MabiniLogin, auto: bool) -> Res<MabiniClient> {
     let mut ledger = state.mabini_ledger.lock().await;
-    let r = match ledger.begin(unix_now() as u64, auto) {
-        Ok(()) => MabiniClient::sign_in(&login.student_number, &login.password).await,
-        Err(e) => Err(e),
-    };
-    // A refused try (limit, or rejected and auto) didn't reach the portal; only a real POST can change the rejection.
-    if !matches!(r, Err(sis::Error::TooManyTries { .. })) {
-        ledger.record(&r);
-    }
+    let r = sis::post_once(&mut ledger, unix_now() as u64, auto, LoginPage::fetch(), |page| page.sign_in(&login.student_number, &login.password)).await;
     if let Ok(json) = serde_json::to_string(&*ledger) {
         let _ = std::fs::write(state.dir.join(MABINI_GUARD_FILE), json);
     }
@@ -442,10 +435,23 @@ async fn mabini_refresh(state: &AppState, client: &MabiniClient) -> Res<MabiniDa
     Ok(data)
 }
 
+/// The store eMabini data goes in: the SIS student's when one is signed in
+/// (another number is refused), else the typed student's (`Some`, to open).
+fn mabini_account<'a>(sis_number: Option<&str>, typed: &'a str) -> Res<Option<&'a str>> {
+    match sis_number {
+        Some(n) if account_file(n) == account_file(typed) => Ok(None),
+        Some(_) => Err("That isn't the student number signed in to the SIS on this phone. Use your own eMabini login, or sign out of the SIS first.".into()),
+        None => Ok(Some(typed)),
+    }
+}
+
 #[tauri::command]
 async fn mabini_sign_in(state: tauri::State<'_, AppState>, login: MabiniLogin) -> Res<MabiniData> {
+    let open = mabini_account(vault::load().as_ref().map(|l| l.student_number.as_str()), &login.student_number)?;
     let client = guarded_mabini_sign_in(&state, &login, false).await?;
-    open_account(&state, &login.student_number)?;
+    if let Some(n) = open {
+        open_account(&state, n)?;
+    }
     mabini_vault::save(&login)?;
     let data = mabini_refresh(&state, &client).await?;
     *state.mabini.lock().await = Some(client);
@@ -1071,4 +1077,16 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn c128_1_mabini_attaches_only_to_the_signed_in_student() {
+        assert_eq!(mabini_account(Some("2024-00001-MN-0"), "2024-00001-mn-0"), Ok(None), "same student: keep the open store");
+        assert!(mabini_account(Some("2024-00001-MN-0"), "2024-00002-MN-0").is_err(), "another student's number is refused");
+        assert_eq!(mabini_account(None, "2024-00002-MN-0"), Ok(Some("2024-00002-MN-0")), "eMabini alone opens that student's store");
+    }
 }
