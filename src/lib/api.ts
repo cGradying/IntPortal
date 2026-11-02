@@ -232,6 +232,8 @@ export interface ClassEvent {
   date: string;
   start: number;
   end: number;
+  /** A whole-day deadline (spec 041 C21). */
+  all_day: boolean;
 }
 
 export type Phase = "past" | "in_session" | "upcoming";
@@ -387,10 +389,10 @@ export const api = {
     invoke<{ deck: Deck }>("review_card", { deckId, cardId, rating, today }),
   checkAnswer: (card: Card, typed: string) => invoke<boolean>("check_answer", { card, typed }),
   distractors: (cards: Card[], index: number, seed: number) => invoke<string[]>("distractors", { cards, index, seed }),
-  exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until }),
+  exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until, utcOffset: -new Date().getTimezoneOffset() }),
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
   today: (now: Moment, syncTrouble: string | null, busy: Busy[] = []) => invoke<Today>("today", { now, syncTrouble, busy }),
-  classEvents: (from: string, days: number) => invoke<ClassEvent[]>("class_events", { from, days }),
+  classEvents: (from: string, days: number) => invoke<ClassEvent[]>("class_events", { from, days, utcOffset: -new Date().getTimezoneOffset() }),
   reminders: (now: Moment, lead: number, days: number, prefs: { deadlines: number | null; study: number | null; utc_offset: number }) =>
     invoke<Reminder[]>("reminders", { now, lead, days, prefs }),
   portals: () => invoke<Portal[]>("portals"),

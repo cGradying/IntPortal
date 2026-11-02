@@ -33,6 +33,8 @@ class ClassEvent {
     var notes: String = ""
     var start: Double = 0.0
     var end: Double = 0.0
+    /** A whole-day deadline (spec 041 C21). */
+    var allDay: Boolean = false
 }
 
 @InvokeArg
@@ -102,19 +104,31 @@ class CalendarPlugin(private val activity: Activity) : Plugin(activity) {
         val args = invoke.parseArgs(SyncArgs::class.java)
         if (access() != "granted") return invoke.reject("Calendar access is off.")
         val calendar = owned()
+        // All-day rows sit at UTC midnight, up to 14 hours before local midnight west of UTC.
+        val early = args.from.toLong() - 14 * 3_600_000
         resolver.delete(
-            Events.CONTENT_URI, "${Events.CALENDAR_ID} = ? AND ${Events.DTSTART} >= ? AND ${Events.DTSTART} < ?",
-            arrayOf(calendar.toString(), args.from.toLong().toString(), args.to.toLong().toString()),
+            Events.CONTENT_URI,
+            "${Events.CALENDAR_ID} = ? AND ((${Events.DTSTART} >= ? AND ${Events.DTSTART} < ?) OR (${Events.ALL_DAY} = 1 AND ${Events.DTSTART} >= ? AND ${Events.DTSTART} < ?))",
+            arrayOf(calendar.toString(), args.from.toLong().toString(), args.to.toLong().toString(), early.toString(), args.to.toLong().toString()),
         )
-        val zone = TimeZone.getDefault().id
+        val tz = TimeZone.getDefault()
         resolver.bulkInsert(Events.CONTENT_URI, args.events.map {
             ContentValues().apply {
                 put(Events.CALENDAR_ID, calendar)
                 put(Events.TITLE, it.title)
                 put(Events.DESCRIPTION, it.notes)
-                put(Events.DTSTART, it.start.toLong())
-                put(Events.DTEND, it.end.toLong())
-                put(Events.EVENT_TIMEZONE, zone)
+                if (it.allDay) {
+                    // CalendarContract wants an all-day event at UTC midnight of its date, in UTC.
+                    val day = it.start.toLong() + tz.getOffset(it.start.toLong())
+                    put(Events.ALL_DAY, 1)
+                    put(Events.DTSTART, day)
+                    put(Events.DTEND, day + 86_400_000)
+                    put(Events.EVENT_TIMEZONE, "UTC")
+                } else {
+                    put(Events.DTSTART, it.start.toLong())
+                    put(Events.DTEND, it.end.toLong())
+                    put(Events.EVENT_TIMEZONE, tz.id)
+                }
             }
         }.toTypedArray())
         invoke.resolve(JSObject().put("count", args.events.size))
