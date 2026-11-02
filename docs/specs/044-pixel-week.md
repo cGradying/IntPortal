@@ -18,7 +18,8 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
 - The Day/Week switch, the day strip and "Hide vacant classes".
 - Tapping a block opens the class sheet (`ClassSheet.svelte`).
 - Course colours from `subjectColor`. The student's own events show hatched behind the classes.
-- Times and rooms in the reading face, never in Pixelify ([043](043-app-environment.md) C9).
+- Events from the phone calendars a student connects ([031](031-calendar-connections.md), in review in #191) use the same hatched treatment, so classes stay the solid blocks.
+- Times and rooms in the reading face, never in Pixelify ([045](045-app-environment.md) C9).
 
 ## Behaviour
 
@@ -65,7 +66,7 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
 
 - **C12.**
   - No thunk, no shake, no spring: stamps appear in place, swipes cut, and the now-line updates every minute without gliding.
-  - The global Reduce Motion rule also sets `animation-iteration-count: 1` ([043](043-app-environment.md) C21).
+  - The global Reduce Motion rule also sets `animation-iteration-count: 1` ([045](045-app-environment.md) C21).
 
 ## Copy
 
@@ -97,7 +98,7 @@ See C5, C8–C10 and C12. The spring is the existing one from `carousel.ts`. Sta
 
 - Editing or creating classes.
 - A month view.
-- The Today list ([043](043-app-environment.md)).
+- The Today list ([045](045-app-environment.md)).
 
 ## Test map
 

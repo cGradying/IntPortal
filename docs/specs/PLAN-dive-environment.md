@@ -66,7 +66,7 @@ The user asked for this: plans first, then step by step.
 - **`docs/specs/010-landing.md`: C20–C21 rewritten as the dive.**
   - Covers the launch and first-sign-in timelines, the load race (the dive ends at whichever is later, the 0.6 s minimum or data ready), LAR leading or the cube fallback, a Bayer dither into Today, Today's cards rising in a 40 ms stagger, the haptics and Reduce Motion.
   - The C20 tile morph is retired. The 10-22 launch decision in spec 040 or the plan is updated to match.
-- **New `docs/specs/043-app-environment.md`.**
+- **New `docs/specs/045-app-environment.md`.**
   - Covers the environment, type roles and scale, pixel numerals, colour tokens for the night surfaces, the juice and motion tokens, the sound kit, the celebration kit and the play limits.
   - The picks it depends on stay open until the mockups are chosen.
 - **New `docs/specs/044-pixel-week.md`.**
@@ -81,7 +81,7 @@ The user asked for this: plans first, then step by step.
 - **Calendar:** layout options from the reference sheet: same views restyled, plus one variant with a deadline month strip.
 - **Dive:** a playable launch version and first-sign-in version, with scrub and replay, showing LAR leading and the cube fallback.
 
-The user picks one per row, and those picks finalise spec 043, spec 044 and DESIGN.md.
+The user picks one per row, and those picks finalise spec 045, spec 044 and DESIGN.md.
 
 ## Step 4: build (after the picks), one branch and PR each, in this order
 1. **`fix/lar-hands`** (can start first, since it's a bug fix). In `src/lib/lar/Lar.svelte`, the GEST offsets and thumb swaps go through an eased per-mitt spring, and the wave's amplitude ramps in and out. A `sprite.test.ts` test checks no mitt moves more than 1 sprite pixel per frame across all gesture and state switches.
@@ -147,5 +147,6 @@ Reuse what already exists:
 ## Checkpoints
 - 2026-10-25 · Step 0 done. This plan was committed. Next is Step 1 (screenshots, critique, market scan).
 - 2026-10-25 · Step 1 done. The simulator pass captured 17 screens in the Day and Night rooms plus the sign-in and dive recordings (local, `docs/review/dive-env/`). The scored critique is `reference/critique-2026-10-25.md` (UX 3, UI 2, motion 1, accessibility 2, environment 2; P0 is the flashbang from the void to a cream Today). The market scan is `reference/market-scan-2026-10-25.md`. Next is Step 2 (specs 010 C18 and C20–C21, 043, 044).
-- 2026-10-25 · Step 2 done. 010 now has C18c (hands) and the dive as C26–C34; C20 and C21 are removed. New specs 043 (app environment) and 044 (pixel week) are drafts, with criteria marked (pick) waiting for the mockups. Spec 040's 10-22 launch decision lives on an unmerged branch; it is superseded here by 010 C26. Next: the fixes that need no picks (fix/lar-hands, fix/review-quick), then Step 3 mockups.
+- 2026-10-25 · Step 2 done. 010 now has C18c (hands) and the dive as C26–C34; C20 and C21 are removed. New specs 045 (app environment) and 044 (pixel week) are drafts, with criteria marked (pick) waiting for the mockups. Spec 040's 10-22 launch decision lives on an unmerged branch; it is superseded here by 010 C26. Next: the fixes that need no picks (fix/lar-hands, fix/review-quick), then Step 3 mockups.
 - 2026-10-25 · Fixes that need no picks, both verified on the iPhone 18 Pro simulator: [#170](https://github.com/cGradying/intportal-app/pull/170) fix/lar-hands (010 C18c) and [#171](https://github.com/cGradying/intportal-app/pull/171) fix/review-quick (no cream launch frame, the void veil lifting into Today, the Today stagger, Reduce Motion loops, gold checkboxes, "0 days"). Neither is merged. Next: Step 3 mockups, then pause for picks.
+- 2026-11-03 · Spec 043 is renumbered 045 (`045-app-environment.md`), because #191 claims 043 for the class-changes and calendars UI. 044 now names 031's connected calendars as hatched events. #170 and #171 are still open. Next: Step 3 mockups.
