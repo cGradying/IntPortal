@@ -151,3 +151,19 @@ Reuse what already exists:
 - 2026-10-25 · Fixes that need no picks, both verified on the iPhone 18 Pro simulator: [#170](https://github.com/cGradying/intportal-app/pull/170) fix/lar-hands (010 C18c) and [#171](https://github.com/cGradying/intportal-app/pull/171) fix/review-quick (no cream launch frame, the void veil lifting into Today, the Today stagger, Reduce Motion loops, gold checkboxes, "0 days"). Neither is merged. Next: Step 3 mockups, then pause for picks.
 - 2026-11-03 · Spec 043 is renumbered 045 (`045-app-environment.md`), because #191 claims 043 for the class-changes and calendars UI. 044 now names 031's connected calendars as hatched events. #170 and #171 are still open. Next: Step 3 mockups.
 - 2026-11-03 · Step 3 done. `reference/prototypes/mockups.html` (source `mockups.src.html`, built by `build-lar-sheet.mjs` with the real sprite inlined) is published as the private artifact https://claude.ai/artifact/M4FAU1zea9VkBqoGwCMs9G. It has 14 pick rows: dive, world, backdrop, campus, accent, checkboxes, type, scale, numerals, juice, sway, week, strip and orb. **Paused for the user's picks.** Step 4 starts after them.
+- 2026-11-03 · Picks, round 1:
+  - **Settled:**
+    - dive LAR leads; world one void; backdrop dot grid; campus kept;
+    - accent: the school's own (DESIGN.md's Theme Stays in the Portal rule will be rewritten);
+    - pixel checkboxes; scale keeps the current sizes; pixel numerals for hero numbers only;
+    - week shows class days with ghosts; deadline strip on; orb in a slot in the header;
+    - sway: no pick (defaults to decor only).
+  - **Feedback that changes things:**
+    1. **Dive.** After the dither, Today must not rise or spawn in again: it is simply there. 010 C30 changes, and #171's stagger is removed.
+    2. **Portal and field.** The portal must feel made of the same pixels as the background, not shown on top of it: one tile field from void to Today.
+    3. **Campus art per school.** Each school's campus art follows how that school actually looks, not one PUP building.
+    4. **Type.** No direction felt seamless. Iterate further, shown as visual-design mockups rather than labels. Keep the original Montserrat and Source Sans as a setting.
+    5. **Juice.** Picked subtle, but marking done must feel addictive (sound researched), the card moves, completion gets more animation, and everything is still once it settles.
+    6. **Week.** The schedule fills the screen; the day view's single card stretched to full height (a bug).
+  - **Next:** mockups round 2.
+
