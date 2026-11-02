@@ -1,6 +1,6 @@
 # 041 One deadline list
 
-**Status:** draft
+**Status:** approved (2026-11-03)
 
 ## What changes for the student
 
@@ -205,7 +205,7 @@ pub fn parse_own(text: &str, today: Date, subjects: &[(String, String)]) -> Draf
 | C24 | `cargo test c24_ics_has_deadlines` |
 | Calendar plugin | simulator and emulator screenshots of an all-day and a timed deadline in the phone's calendar |
 
-## Open questions
+## Decided
 
-- Should C4's 3 days of overdue be longer for eMabini, which sometimes accepts late work? The recommendation is the same 3 days for every source.
-- Should the 8 AM same-day reminder for afternoon eMabini deadlines (C19) count toward 042's daily cap? The recommendation is yes, ranked as a deadline.
+- C4: the same 3 days of overdue for every source, eMabini included (user left it to the Head, 2026-11-03).
+- C19: the 8 AM same-day reminder counts toward 042's daily cap, ranked as a deadline.
