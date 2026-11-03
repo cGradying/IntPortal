@@ -45,7 +45,7 @@ export const app = $state({
   brief: read("brief") !== "off",
   notes: [] as NoteItem[],
   /** The subject page open, if any. */
-  subject: null as null | { code: string; description: string },
+  subject: null as null | { code: string; description: string; tab?: "grading" | "outline"; item?: string },
   /** The deck open on the Study tab, if any. */
   deck: null as string | null,
   /** The note open in the editor, if any. */
@@ -205,8 +205,9 @@ export async function refreshNotes() {
   }
 }
 
-export function openSubject(code: string, description: string) {
-  app.subject = { code, description };
+/** `tab` and `item` open a deadline on its outline (spec 040 C11). */
+export function openSubject(code: string, description: string, tab?: "grading" | "outline", item?: string) {
+  app.subject = { code, description, tab, item };
 }
 
 /** Shows a deck on the Study tab. */

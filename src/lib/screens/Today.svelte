@@ -68,14 +68,14 @@
     const n = nudge.nudge;
     if (n.kind === "plan") return startPlan(n);
     if (n.kind === "deadline" && n.url) openLink(n.url);
-    else if (n.kind === "deadline") openSubject(n.subject, describe(n.subject));
+    else if (n.kind === "deadline") openSubject(n.subject, describe(n.subject), "outline");
     else if (n.kind === "target") app.tab = "grades";
     else if (n.kind !== "day_off") app.tab = "study";
   }
   /** Spec 042 C4: the deadline first (eMabini, or its subject's outline), else the cards. */
   function startPlan(n: Extract<Nudge, { kind: "plan" }>) {
     if (n.step?.url) return openLink(n.step.url);
-    if (n.step?.subject) return openSubject(n.step.subject, describe(n.step.subject));
+    if (n.step?.subject) return openSubject(n.step.subject, describe(n.step.subject), "outline", n.step.id.startsWith("syl:") ? n.step.id.split(":").pop() : undefined);
     if (n.subject) openFromNotification(`study:${n.subject}:${n.cards}`);
     else app.tab = "study";
   }
@@ -217,9 +217,9 @@
               class="class"
               data-phase={r.i.phase}
               style:--c={subjectColor(s.subject_code, colors)}
-              onclick={() => openSubject(s.subject_code, s.description)}
+              onclick={() => (held = r.i)}
               use:longpress={() => { buzz.press(); held = r.i; }}
-              aria-label="{s.subject_code}, {clock(s.start)}. Hold for quick actions"
+              aria-label="{s.subject_code}, {clock(s.start)}. Opens its class sheet"
             >
               <span class="time num">{clock(s.start)}<small>{clock(s.end)}</small></span>
               <span class="stripe"></span>

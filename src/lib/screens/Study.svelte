@@ -2,6 +2,7 @@
   // Decks of flashcards scheduled by FSRS in the core: what's due, the
   // streak, and a way in to each deck.
   import DeckPage from "../DeckPage.svelte";
+  import NotesCard from "../NotesCard.svelte";
   import StudySession from "../StudySession.svelte";
   import ErrorCard from "../ErrorCard.svelte";
   import Flame from "../Flame.svelte";
@@ -100,6 +101,7 @@
         </li>
       {/each}
     </ul>
+    <NotesCard />
   </div>
 {/if}
 

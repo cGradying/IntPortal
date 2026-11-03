@@ -29,6 +29,7 @@
 
   function open(d: DeadlineEntry) {
     if (d.url) openLink(d.url);
+    else if (d.source === "syllabus" && d.subject) openSubject(d.subject, describe(d.subject), "outline", d.id.split(":").pop());
     else if (d.subject) openSubject(d.subject, describe(d.subject));
     else if (d.source === "own") adding = { own: d };
   }
