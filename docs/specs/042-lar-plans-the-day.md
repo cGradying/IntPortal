@@ -1,6 +1,6 @@
 # 042 LAR plans the day
 
-**Status:** draft
+**Status:** approved (2026-11-03)
 
 ## What changes for the student
 
@@ -149,7 +149,7 @@ No new motion. Start uses the existing press and haptic.
 | C15 | `cargo test c15_quiet_hours_move_or_drop` |
 | C16 | vitest on the prefs passed to `reminders` |
 
-## Open questions
+## Decided
 
-- C8 only fires for subjects with a class note already, so it never nags someone who doesn't take notes. The recommendation is yes. The alternative is every class, with the switch.
-- C12 is fixed at 6 PM Sunday. The recommendation is to keep it fixed, since a setting costs a row on You.
+- C8: note after class fires only for subjects whose class note the student has written in (user left it to the Head, 2026-11-03).
+- C12: the brief is fixed at 6 PM Sunday, with no setting.
