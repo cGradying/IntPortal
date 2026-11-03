@@ -50,6 +50,19 @@
     }
   }
 
+  // Spec 040 C8: an emptied note is deleted by the core, its AI chunks with it.
+  let confirming = $state(false);
+  async function remove() {
+    clearTimeout(timer);
+    try {
+      await api.setNote(key, "", null);
+      await refreshNotes();
+      app.editing = null;
+    } catch (e) {
+      problem = String(e);
+    }
+  }
+
   async function done() {
     if (!saved) await save();
     if (problem) return;
@@ -140,9 +153,17 @@
     <div class="actions">
       {#if installed()}<button class="ghost" onclick={() => (bar = !bar)} aria-expanded={bar}>Ask AI</button>{/if}
       <button class="ghost" onclick={share} disabled={!text.trim()}>Share</button>
+      {#if app.notes.some((n) => n.key === key)}<button class="ghost" onclick={() => (confirming = true)}>Delete</button>{/if}
       <button onclick={done}>Done</button>
     </div>
   </header>
+  {#if confirming}
+    <div class="confirm" role="alertdialog" aria-label="Delete this note?">
+      <p>Delete this note? This can't be undone.</p>
+      <button class="danger" onclick={remove}>Delete</button>
+      <button class="ghost" onclick={() => (confirming = false)}>Cancel</button>
+    </div>
+  {/if}
   {#if bar && installed()}
     <section class="ai" aria-label="Ask AI">
       <div class="chips">
@@ -328,5 +349,22 @@
     margin: 0;
     font-size: min(0.765rem, 23px);
     color: var(--ink-3);
+  }
+  .confirm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+  }
+  .confirm p {
+    flex: 1 1 100%;
+    margin: 0;
+  }
+  .confirm button {
+    min-height: 44px;
+  }
+  .danger {
+    color: var(--bad);
   }
 </style>

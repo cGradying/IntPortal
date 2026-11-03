@@ -502,6 +502,17 @@ mod tests {
     }
 
     #[test]
+    fn c8_delete_note_drops_chunks() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "Trees are graphs", None, 100).unwrap();
+        store.replace_chunks("note:a", 100, "m", &[("Trees are graphs".into(), vec![1.0, 0.0])]).unwrap();
+        assert_eq!(store.chunks("m").unwrap().len(), 1);
+        store.set_note("note:a", "", None, 200).unwrap();
+        assert!(store.notes().unwrap().is_empty());
+        assert!(store.chunks("m").unwrap().is_empty(), "spec 040 C8: the AI can't quote a deleted note");
+    }
+
+    #[test]
     fn notes_save_update_list_newest_first_and_blank_deletes() {
         let store = Store::in_memory().unwrap();
         store.set_note("class:COMP 20073", "Quiz Friday", Some("Data Structures"), 100).unwrap();

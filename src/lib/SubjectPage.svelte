@@ -41,6 +41,12 @@
   }
   $effect(() => closable(close));
 
+  // Spec 040 C1 (#158): the Notes tab leaves through close(), so unsaved edits are saved first.
+  async function openNotes() {
+    await close();
+    if (!app.subject) openNote(`class:${code}`, code, description);
+  }
+
   const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
   // Outline: add one, or paste a whole outline and review it first.
@@ -93,7 +99,7 @@
   <div class="tabs" role="tablist">
     <button role="tab" class:on={tab === "grading"} aria-selected={tab === "grading"} onclick={() => (tab = "grading")}>Grading</button>
     <button role="tab" class:on={tab === "outline"} aria-selected={tab === "outline"} onclick={() => (tab = "outline")}>Outline</button>
-    <button role="tab" onclick={() => { app.subject = null; openNote(`class:${code}`, code, description); }}>Notes</button>
+    <button role="tab" onclick={openNotes}>Notes</button>
   </div>
 
   <div class="body">
