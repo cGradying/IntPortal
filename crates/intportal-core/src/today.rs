@@ -47,6 +47,11 @@ impl Date {
         Date::from_days(self.days() + n)
     }
 
+    /// Whole days from `earlier` to this date; negative when `earlier` is later.
+    pub fn days_since(self, earlier: Date) -> i64 {
+        self.days() - earlier.days()
+    }
+
     pub fn weekday(self) -> Weekday {
         // 1970-01-01 was a Thursday.
         Weekday::ALL[(self.days() + 3).rem_euclid(7) as usize]

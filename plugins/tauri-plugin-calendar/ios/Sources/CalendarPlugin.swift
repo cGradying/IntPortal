@@ -22,6 +22,8 @@ struct ClassEvent: Decodable {
   let notes: String
   let start: Double
   let end: Double
+  /// A whole-day deadline (spec 041 C21). Older callers leave it out.
+  let allDay: Bool?
 }
 
 class RangeArgs: Decodable {
@@ -100,6 +102,7 @@ class CalendarPlugin: Plugin {
       event.notes = e.notes
       event.startDate = Date(timeIntervalSince1970: e.start / 1000)
       event.endDate = Date(timeIntervalSince1970: e.end / 1000)
+      event.isAllDay = e.allDay ?? false
       try store.save(event, span: .thisEvent, commit: false)
     }
     try store.commit()

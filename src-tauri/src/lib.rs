@@ -678,13 +678,14 @@ fn set_note(state: tauri::State<'_, AppState>, key: String, text: String, title:
 
 /// The term's classes as an `.ics` file, from this week through `until`.
 #[tauri::command]
-fn export_ics(state: tauri::State<'_, AppState>, from: Date, until: Date) -> Res<String> {
+fn export_ics(state: tauri::State<'_, AppState>, from: Date, until: Date, utc_offset: Option<i32>) -> Res<String> {
     if until < from {
         return Err("The last day of classes has to be after today.".into());
     }
     let snap = snapshot_of(&state)?;
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
-    Ok(calendar::ics(&snap.sessions, &snap.marks, from, until, &calendar::utc_stamp(now)))
+    let deadlines = deadline_events(&state, &snap, from, until.days_since(from) + 1, utc_offset.unwrap_or(MANILA_OFFSET))?;
+    Ok(calendar::ics(&snap.sessions, &snap.marks, &deadlines, from, until, &calendar::utc_stamp(now)))
 }
 
 /// A pasted outline read into items for the student to review; nothing saved.
@@ -972,9 +973,18 @@ fn today(state: tauri::State<'_, AppState>, now: Moment, sync_trouble: Option<St
 /// The classes from `from` through `days` days on, as events for the
 /// phone's IntPortal calendar.
 #[tauri::command]
-fn class_events(state: tauri::State<'_, AppState>, from: Date, days: i64) -> Res<Vec<calendar::ClassEvent>> {
+fn class_events(state: tauri::State<'_, AppState>, from: Date, days: i64, utc_offset: Option<i32>) -> Res<Vec<calendar::ClassEvent>> {
     let snap = snapshot_of(&state)?;
-    Ok(calendar::class_events(&snap.sessions, &snap.marks, from, days))
+    let mut out = calendar::class_events(&snap.sessions, &snap.marks, from, days);
+    out.extend(deadline_events(&state, &snap, from, days, utc_offset.unwrap_or(MANILA_OFFSET))?);
+    Ok(out)
+}
+
+/// Spec 041 C21–C24: the one deadline list as calendar events, from `from` for `days` days.
+fn deadline_events(state: &AppState, snap: &Snapshot, from: Date, days: i64, utc_offset: i32) -> Res<Vec<calendar::ClassEvent>> {
+    let mabini = state.store.lock().unwrap().mabini().map_err(err)?;
+    let list = deadline::deadlines(snap, &mabini, Moment { date: from, minute: 0 }, utc_offset, days);
+    Ok(calendar::deadline_events(&list, from, utc_offset))
 }
 
 /// The campus a student number belongs to, as the student types it.
