@@ -6,6 +6,7 @@ import { api, isoDate, localMs, moment, type Busy, type MabiniData, type NoteIte
 import { busyFrom, keepClasses } from "./devcal";
 import { applyRoom } from "./rooms";
 import { buzz } from "./haptics";
+import { friendly } from "./errors";
 import { larReminderIds } from "./assis/apply";
 
 export type Tab = "today" | "schedule" | "grades" | "study" | "you";
@@ -21,6 +22,9 @@ export const app = $state({
   syncCount: 0,
   /** Which portals have a saved login on this phone. */
   sisConnected: false,
+  /** The portal turned the saved login down (spec 040 C5); only a new password clears it. */
+  sisRejected: false,
+  mabiniRejected: false,
   mabiniConnected: false,
   /** What the last eMabini sync kept; null while not connected. */
   mabini: null as MabiniData | null,
@@ -264,6 +268,8 @@ export async function refreshLogins() {
   const [sis, mabini] = await Promise.all([api.hasLogin().catch(() => false), api.hasMabiniLogin().catch(() => false)]);
   app.sisConnected = sis;
   app.mabiniConnected = mabini;
+  app.sisRejected = sis && (await api.triesLeft().catch(() => null))?.rejected === true;
+  app.mabiniRejected = mabini && (await api.mabiniTriesLeft().catch(() => null))?.rejected === true;
   app.mabini = mabini ? await api.mabiniData().catch(() => null) : null;
 }
 
@@ -279,7 +285,8 @@ export async function mabiniSyncNow() {
     scheduleReminders();
   } catch (e) {
     app.mabiniSync = "failed";
-    app.mabiniError = String(e).includes("reach") ? "Couldn't reach eMabini" : String(e);
+    app.mabiniError = friendly(e);
+    app.mabiniRejected = (await api.mabiniTriesLeft().catch(() => null))?.rejected === true;
     buzz.fail();
   }
 }
@@ -297,7 +304,8 @@ export async function syncNow() {
   } catch (e) {
     app.sync = "failed";
     buzz.fail();
-    app.syncError = String(e).includes("reach") ? "Couldn't reach SIS" : String(e);
+    app.syncError = friendly(e);
+    app.sisRejected = (await api.triesLeft().catch(() => null))?.rejected === true;
     await refreshToday();
   }
 }

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Synced from "../Synced.svelte";
+  import { friendly } from "../errors";
   import MabiniGrades from "../MabiniGrades.svelte";
   import Confetti from "../Confetti.svelte";
   import ErrorCard from "../ErrorCard.svelte";
@@ -90,7 +92,7 @@
       await adopt(await api.setGoals({ target_gpa: num(target), program_units: num(program) }));
       goalError = "";
     } catch (e) {
-      goalError = String(e);
+      goalError = friendly(e);
     }
   }
 
@@ -134,7 +136,7 @@
     try {
       await adopt(await api.loadHistory());
     } catch (e) {
-      error = String(e);
+      error = friendly(e);
     } finally {
       loading = false;
     }
@@ -154,6 +156,7 @@
   <header>
     <p class="label">{report?.semester ?? "This term"}{report?.school_year ? ` · ${report.school_year}` : ""}</p>
     <h1>Grades</h1>
+    <Synced />
   </header>
 
   {#if standing?.past.length}

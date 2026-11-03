@@ -488,6 +488,17 @@ fn mabini_data(state: tauri::State<'_, AppState>) -> Res<MabiniData> {
     state.store.lock().unwrap().mabini().map_err(err)
 }
 
+/// The saved student number, to fill a sign-in form after a rejection
+/// (spec 040 C5). Never the password.
+#[tauri::command]
+fn login_hint(portal: String) -> Option<String> {
+    match portal.as_str() {
+        "sis" => vault::load().map(|l| l.student_number),
+        "mabini" => mabini_vault::load().map(|l| l.student_number),
+        _ => None,
+    }
+}
+
 #[tauri::command]
 fn has_mabini_login() -> bool {
     (cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed)) || mabini_vault::load().is_some()
@@ -1179,7 +1190,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
+            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
             ai::ai_models, ai::ai_download, ai::ai_delete, ai::ai_load, ai::ai_unload, ai::ai_index, ai::ai_cancel, ai::ai_ask, ai::ai_history, ai::ai_clear_history, ai::ai_note, ai::ai_why, ai::ai_cards, ai::ai_pdf_text, ai::ai_outline_text, ai::ai_guide
         ])
         .run(tauri::generate_context!())

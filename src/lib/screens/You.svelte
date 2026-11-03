@@ -141,7 +141,10 @@
 
   <section class="card notch block">
     <p class="label">SIS</p>
-    {#if app.sisConnected}
+    {#if app.sisConnected && app.sisRejected}
+      <p class="fine">The SIS turned your login down. Changed your password?</p>
+      <PortalConnect portal={portalOf("sis")!} prefill />
+    {:else if app.sisConnected}
       <div class="line"><span>Last synced</span><strong>{synced}</strong></div>
       <div class="line"><span>Server</span><strong>{app.snapshot?.host ?? "—"}</strong></div>
       <button class="primary" onclick={syncNow} disabled={app.sync === "syncing"}>{app.sync === "syncing" ? "Syncing…" : "Sync now"}</button>
@@ -153,7 +156,10 @@
 
   <section class="card notch block">
     <p class="label">eMabini</p>
-    {#if app.mabiniConnected}
+    {#if app.mabiniConnected && app.mabiniRejected}
+      <p class="fine">eMabini turned your login down. Changed your password?</p>
+      <PortalConnect portal={portalOf("mabini")!} prefill />
+    {:else if app.mabiniConnected}
       <div class="line"><span>Last synced</span><strong>{mabiniSynced}</strong></div>
       {#if app.mabiniError}<p class="fine">{app.mabiniError}</p>{/if}
       <div class="row">

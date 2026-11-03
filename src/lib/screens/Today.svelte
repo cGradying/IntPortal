@@ -1,8 +1,10 @@
 <script lang="ts">
+  import Synced from "../Synced.svelte";
   import NeedSis from "../NeedSis.svelte";
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
   import DueCard from "../DueCard.svelte";
+  import Skeleton from "../Skeleton.svelte";
   import { app, openFromNotification, openNote, openSubject, syncNow } from "../state.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Lar from "../lar/Lar.svelte";
@@ -106,12 +108,18 @@
   <header>
     <p class="label">{dateLine}</p>
     <h1>{greeting}</h1>
+    <Synced />
     <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? dayNote.preview || "Today's note" : "+ Note for today"}</button>
   </header>
 
-  {#if app.sync === "failed"}
+  {#if app.sisRejected}
     <section class="offline card notch" role="status">
-      <p><strong>{app.syncError ?? "Couldn't reach SIS"}.</strong> Showing what was saved {ago(app.snapshot?.last_synced)}.</p>
+      <p><strong>The SIS turned your login down.</strong> Changed your password?</p>
+      <button onclick={() => (app.tab = "you")}>Update password</button>
+    </section>
+  {:else if app.sync === "failed"}
+    <section class="offline card notch" role="status">
+      <p><strong>{app.syncError ?? "Can't reach the SIS right now."}</strong> Showing what was saved {ago(app.snapshot?.last_synced)}.</p>
       <button onclick={syncNow}>Try again</button>
     </section>
   {/if}
@@ -141,6 +149,9 @@
           <span class="big num">{hero.big}</span>
           <span class="unit">{hero.unit}</span>
         </div>
+      {:else if !t && app.snapshot}
+        <!-- Spec 040 C2: still loading is not "nothing scheduled". -->
+        <div class="who"><Skeleton rows={2} height={22} /></div>
       {:else}
         <div class="who">
           <p class="label">Up next</p>
