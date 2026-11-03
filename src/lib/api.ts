@@ -50,7 +50,16 @@ export type Nudge =
   | { kind: "use_the_gap"; minutes: number; cards: number }
   | { kind: "cards_due"; cards: number }
   | { kind: "target"; needed: number; target: number }
-  | { kind: "day_off" };
+  | { kind: "day_off" }
+  | { kind: "plan"; from: number; to: number; step: PlanStep | null; subject: string | null; cards: number };
+
+export interface PlanStep {
+  id: string;
+  title: string;
+  when: string;
+  subject: string | null;
+  url: string | null;
+}
 
 export type Rating = "again" | "hard" | "good" | "easy";
 
@@ -116,6 +125,29 @@ export interface Tally {
   equivalent: number | null;
   needed: number | null;
   target: number;
+  /** Spec 042 C10; null without a grading system. */
+  risk: Risk | null;
+}
+
+export type Risk =
+  | { kind: "on_track" }
+  | { kind: "needs"; percent: number }
+  | { kind: "out_of_reach"; best: number }
+  | { kind: "done"; percent: number };
+
+/** Grade risk as one line (spec 042 C10). */
+export function riskLine(r: Risk, target: number): string {
+  const pct = (n: number) => `${Math.round(n)}%`;
+  switch (r.kind) {
+    case "on_track":
+      return `On track for ${pct(target)}.`;
+    case "needs":
+      return `Needs ${pct(r.percent)} on what's left for ${pct(target)}.`;
+    case "out_of_reach":
+      return `${pct(target)} is out of reach. Best now: ${pct(r.best)}.`;
+    case "done":
+      return `All graded: ${pct(r.percent)}.`;
+  }
 }
 
 export interface Goals {
@@ -264,6 +296,8 @@ export interface Reminder {
   minute: number;
   title: string;
   body: string;
+  /** Where a tap goes (spec 042): `study:<code>:5`, `note:class:<code>`, or Today. */
+  open: string | null;
 }
 
 export type CampusResolution =
@@ -393,7 +427,7 @@ export const api = {
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
   today: (now: Moment, syncTrouble: string | null, busy: Busy[] = []) => invoke<Today>("today", { now, syncTrouble, busy }),
   classEvents: (from: string, days: number) => invoke<ClassEvent[]>("class_events", { from, days, utcOffset: -new Date().getTimezoneOffset() }),
-  reminders: (now: Moment, lead: number, days: number, prefs: { deadlines: number | null; study: number | null; utc_offset: number }) =>
+  reminders: (now: Moment, lead: number, days: number, prefs: { deadlines: number | null; study: number | null; utc_offset: number; warm_up: boolean; after_class: boolean; brief: boolean }) =>
     invoke<Reminder[]>("reminders", { now, lead, days, prefs }),
   portals: () => invoke<Portal[]>("portals"),
   triesLeft: () => invoke<Tries>("tries_left"),

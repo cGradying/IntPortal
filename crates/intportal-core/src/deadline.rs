@@ -95,6 +95,27 @@ fn local_date(due: Due, utc_offset: i32) -> Date {
     }
 }
 
+/// How LAR says when it's due (spec 042 copy): "past due", "due 3PM",
+/// "due tonight", "due tomorrow", "due Fri", "due Nov 20".
+pub fn when_word(d: &Deadline, now: Moment, utc_offset: i32) -> String {
+    if d.overdue {
+        return "past due".into();
+    }
+    let (date, minute) = match d.due {
+        Due::Day(day) => (day, None),
+        Due::At(unix) => {
+            let (day, m) = local_parts(unix, utc_offset);
+            (day, Some(m))
+        }
+    };
+    match date.days_since(now.date) {
+        0 => minute.filter(|m| *m < 18 * 60).map_or_else(|| "due tonight".into(), |m| format!("due {}", clock(m))),
+        1 => "due tomorrow".into(),
+        2..=6 => format!("due {}", &format!("{:?}", date.weekday())[..3]),
+        _ => format!("due {} {}", ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][usize::from(date.m) - 1], date.d),
+    }
+}
+
 /// Moodle titles an event "X is due", "X closes" or "X opens"; the student wants X.
 pub fn clean_title(name: &str) -> &str {
     let low = name.to_lowercase();
@@ -189,11 +210,11 @@ pub fn reminders(list: &[Deadline], now: Moment, minute: u16, utc_offset: i32, d
                 Kind::Exam => "Exam",
                 _ => "Due",
             };
-            out.push(Reminder { id: reminder_id(&format!("due:{}", d.id)), date: eve, minute, title: format!("{what} tomorrow"), body: body.clone() });
+            out.push(Reminder { id: reminder_id(&format!("due:{}", d.id)), date: eve, minute, title: format!("{what} tomorrow"), body: body.clone(), open: None });
         }
         if let Some(m) = at.filter(|m| *m >= 12 * 60) {
             if later(date, 8 * 60) {
-                out.push(Reminder { id: reminder_id(&format!("due-day:{}", d.id)), date, minute: 8 * 60, title: format!("Due today at {}", clock(m)), body });
+                out.push(Reminder { id: reminder_id(&format!("due-day:{}", d.id)), date, minute: 8 * 60, title: format!("Due today at {}", clock(m)), body, open: None });
             }
         }
     }

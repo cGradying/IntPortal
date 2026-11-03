@@ -1,7 +1,7 @@
 // The app's one piece of shared state: the snapshot from the core, today's
 // reading of it, and sync status. Screens read `app`; only this file writes.
 import { invoke } from "@tauri-apps/api/core";
-import { Schedule, cancel, isPermissionGranted, pending, requestPermission } from "@tauri-apps/plugin-notification";
+import { Schedule, cancel, isPermissionGranted, onAction, pending, requestPermission } from "@tauri-apps/plugin-notification";
 import { api, isoDate, localMs, moment, type Busy, type MabiniData, type NoteItem, type Snapshot, type Today } from "./api";
 import { busyFrom, keepClasses } from "./devcal";
 import { applyRoom } from "./rooms";
@@ -35,6 +35,10 @@ export const app = $state({
   deadlineAt: Number(read("deadlineAt") ?? 19 * 60),
   /** Minute of the day for the study nudge; -1 is off. */
   studyAt: Number(read("studyAt") ?? -1),
+  /** Spec 042 C16: extras that ride the daily budget; on unless turned off. */
+  warmUp: read("warmUp") !== "off",
+  afterClass: read("afterClass") !== "off",
+  brief: read("brief") !== "off",
   notes: [] as NoteItem[],
   /** The subject page open, if any. */
   subject: null as null | { code: string; description: string },
@@ -88,7 +92,7 @@ export async function scheduleReminders(ask = false) {
     if (!allowed && ask) allowed = (await requestPermission()) === "granted";
     app.notifications = allowed;
     if (!allowed) return;
-    const prefs = { deadlines: on(app.deadlineAt), study: on(app.studyAt), utc_offset: -new Date().getTimezoneOffset() };
+    const prefs = { deadlines: on(app.deadlineAt), study: on(app.studyAt), utc_offset: -new Date().getTimezoneOffset(), warm_up: app.warmUp, after_class: app.afterClass, brief: app.brief };
     const list = (await api.reminders(moment(), app.reminderLead, 7, prefs)).slice(0, 60);
     const when = (r: { date: string; minute: number }) => {
       const [y, m, d] = r.date.split("-").map(Number);
@@ -102,7 +106,7 @@ export async function scheduleReminders(ask = false) {
     for (const r of list) {
       try {
         // Awaited notify, not sendNotification(): that one drops its promise, so failures go unseen.
-        await invoke("plugin:notification|notify", { options: { id: r.id, title: r.title, body: r.body, schedule: Schedule.at(asLocalDigits(when(r))) } });
+        await invoke("plugin:notification|notify", { options: { id: r.id, title: r.title, body: r.body, schedule: Schedule.at(asLocalDigits(when(r))), extra: { open: r.open } } });
         ok++;
       } catch (e) {
         lastError = typeof e === "string" ? e : JSON.stringify(e);
@@ -125,6 +129,34 @@ export function setDeadlineAt(minute: number) {
   app.deadlineAt = minute;
   write("deadlineAt", String(minute));
   scheduleReminders(true);
+}
+
+/** Spec 042 C16: one switch per extra. */
+export function setExtra(key: "warmUp" | "afterClass" | "brief", on: boolean) {
+  app[key] = on;
+  write(key, on ? "on" : "off");
+  scheduleReminders(true);
+}
+
+/** Routes notification taps for the app's lifetime; desktop and tests have none. */
+export function listenForTaps() {
+  onAction((n) => openFromNotification(n.extra?.open as string | undefined)).catch(() => {});
+}
+
+/** Where a tapped notification goes (spec 042 C7, C9): a subject's cards, a class note, or Today. */
+export async function openFromNotification(open: string | null | undefined) {
+  const [what, ...rest] = (open ?? "").split(":");
+  if (what === "study") {
+    const code = rest[0];
+    const deck = (await api.study(isoDate(new Date())).catch(() => null))?.decks.find((d) => d.subject === code && d.due > 0);
+    if (deck) return openDeck(deck.id);
+  }
+  if (what === "note" && rest[0] === "class") {
+    const code = rest.slice(1).join(":");
+    const name = app.snapshot?.sessions.find((s) => s.subject_code === code)?.description ?? "";
+    return openNote(`class:${code}`, code, name || null);
+  }
+  app.tab = "today";
 }
 
 export function setStudyAt(minute: number) {

@@ -3,6 +3,8 @@
 //! twice in a row; the student can dismiss it for the day.
 
 use crate::deadline::Deadline;
+use crate::today::{clock, Gap};
+use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 /// What the coach can see right now.
@@ -22,6 +24,23 @@ pub struct Signals {
     pub needed_average: Option<(f64, f64)>,
     /// Classes today still ahead.
     pub classes_left: usize,
+    /// The next free gap today, in progress or ahead (spec 042 C1).
+    pub gap: Option<Gap>,
+    /// The soonest deadline overdue or due within three days, ready to name (C2).
+    pub plan_step: Option<PlanStep>,
+    /// Flashcards due per subject code.
+    pub cards_by_subject: BTreeMap<String, usize>,
+}
+
+/// The deadline a plan starts with.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlanStep {
+    pub id: String,
+    pub title: String,
+    /// "due tonight", "past due" (`deadline::when_word`).
+    pub when: String,
+    pub subject: Option<String>,
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,6 +53,8 @@ pub enum Nudge {
     CardsDue { cards: usize },
     Target { needed: f64, target: f64 },
     DayOff,
+    /// One gap, one plan (spec 042 C2): the deadline first, then cards that fit.
+    Plan { from: u16, to: u16, step: Option<PlanStep>, subject: Option<String>, cards: usize },
 }
 
 impl Nudge {
@@ -50,6 +71,15 @@ impl Nudge {
             Nudge::CardsDue { cards } => format!("{cards} {} due. About {} minutes.", if *cards == 1 { "card" } else { "cards" }, (cards / 4).max(1)),
             Nudge::Target { needed, target } => format!("For a {target:.2} this term, aim for {needed:.2} or better on what's left."),
             Nudge::DayOff => "Nothing due. Rest up, Isko.".into(),
+            Nudge::Plan { from, to, step, subject, cards } => {
+                let free = format!("Free {}–{}", clock(*from), clock(*to));
+                let letters: String = subject.as_deref().map(|c| c.chars().take_while(|ch| ch.is_alphabetic()).collect::<String>() + " ").unwrap_or_default();
+                match (step, cards) {
+                    (Some(st), 0) => format!("{free}: start {} ({}).", st.title, st.when),
+                    (Some(st), n) => format!("{free}: start {} ({}), then {n} {letters}cards.", st.title, st.when),
+                    (None, n) => format!("{free}: {n} cards fit. Kaya mo 'yan."),
+                }
+            }
         }
     }
 
@@ -62,6 +92,7 @@ impl Nudge {
             Nudge::CardsDue { .. } => "cards".into(),
             Nudge::Target { target, .. } => format!("target:{target:.2}"),
             Nudge::DayOff => "rest".into(),
+            Nudge::Plan { from, .. } => format!("plan:{from}"),
         }
     }
 }
@@ -80,7 +111,17 @@ fn span(m: u16) -> String {
 /// today.
 pub fn pick(s: &Signals, dismissed: &[String]) -> Option<Nudge> {
     let cards_fit = |minutes: u16| usize::from(minutes / 30 * 8).min(s.cards_due);
+    // C2–C5: while a gap of 30 minutes or more is ahead, it gets one plan.
+    let plan = s.gap.filter(|g| g.minutes >= 30).and_then(|g| {
+        let step = s.plan_step.clone();
+        let subject = step.as_ref().and_then(|p| p.subject.clone()).filter(|c| s.cards_by_subject.get(c).is_some_and(|n| *n > 0));
+        let pool = subject.as_ref().map_or(s.cards_due, |c| s.cards_by_subject[c]);
+        let time = if step.is_some() { g.minutes / 2 } else { g.minutes };
+        let cards = usize::from(time / 30 * 8).min(pool);
+        (step.is_some() || cards > 0).then(|| Nudge::Plan { from: g.from, to: g.to, subject: subject.filter(|_| cards > 0), step, cards })
+    });
     let candidates = [
+        plan,
         s.due_soon.first().map(|d| Nudge::Deadline { subject: d.label().into(), topic: d.title.clone(), more: s.due_soon.len() - 1, overdue: d.overdue, url: d.url.clone() }),
         (s.study_streak > 0 && !s.studied_today && s.cards_due > 0).then(|| Nudge::KeepStreak { streak: s.study_streak, cards: s.cards_due.min(5) }),
         (s.free_minutes >= 30 && s.cards_due > 0 && s.classes_left > 0).then(|| Nudge::UseTheGap { minutes: s.free_minutes, cards: cards_fit(s.free_minutes) }),
@@ -143,5 +184,52 @@ mod tests {
         let s = Signals::default();
         assert_eq!(pick(&s, &[]).unwrap().line(), "Nothing due. Rest up, Isko.");
         assert_eq!(pick(&s, &["rest".into()]), None);
+    }
+
+    fn step(subject: Option<&str>) -> PlanStep {
+        PlanStep { id: "mab:7".into(), title: "Lab 4".into(), when: "due tonight".into(), subject: subject.map(Into::into), url: None }
+    }
+
+    fn gapped() -> Signals {
+        let mut s = sig();
+        s.gap = Some(Gap { from: 780, to: 900, minutes: 120 });
+        s.cards_by_subject = BTreeMap::from([("COMP 20073".to_string(), 10)]);
+        s
+    }
+
+    #[test]
+    fn c2_plan_picks_soonest_deadline_then_subject_cards() {
+        let mut s = gapped();
+        s.plan_step = Some(step(Some("COMP 20073")));
+        assert_eq!(pick(&s, &[]), Some(Nudge::Plan { from: 780, to: 900, step: Some(step(Some("COMP 20073"))), subject: Some("COMP 20073".into()), cards: 10 }), "half of 2h fits 16, the subject has 10");
+    }
+
+    #[test]
+    fn c3_plan_lines() {
+        let mut s = gapped();
+        s.plan_step = Some(step(Some("COMP 20073")));
+        assert_eq!(pick(&s, &[]).unwrap().line(), "Free 1PM–3PM: start Lab 4 (due tonight), then 10 COMP cards.");
+        s.plan_step = None;
+        assert_eq!(pick(&s, &[]).unwrap().line(), "Free 1PM–3PM: 12 cards fit. Kaya mo 'yan.");
+        s.cards_due = 0;
+        s.plan_step = Some(step(None));
+        assert_eq!(pick(&s, &[]).unwrap().line(), "Free 1PM–3PM: start Lab 4 (due tonight).");
+    }
+
+    #[test]
+    fn c5_plan_outranks_deadline_while_gap_ahead() {
+        let mut s = gapped();
+        s.due_soon = vec![due("COMP 20073", "Lab 4", false)];
+        s.plan_step = Some(step(Some("COMP 20073")));
+        assert!(matches!(pick(&s, &[]), Some(Nudge::Plan { .. })));
+        assert!(matches!(pick(&s, &["plan:780".into()]), Some(Nudge::Deadline { .. })), "dismissed for this gap");
+    }
+
+    #[test]
+    fn c5_no_gap_keeps_old_nudges() {
+        let mut s = sig();
+        s.gap = Some(Gap { from: 780, to: 800, minutes: 20 });
+        s.due_soon = vec![due("COMP 20073", "Lab 4", false)];
+        assert!(matches!(pick(&s, &[]), Some(Nudge::Deadline { .. })));
     }
 }

@@ -74,6 +74,22 @@ pub struct Tally {
     /// The average needed on the unscored parts for `target` percent.
     pub needed: Option<f64>,
     pub target: f64,
+    /// One line's worth of where that leaves the student (spec 042 C10).
+    pub risk: Option<Risk>,
+}
+
+/// Where a subject stands against its target (spec 042 C10).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Risk {
+    /// The pace so far is enough for the target.
+    OnTrack,
+    /// This average on what's left reaches the target.
+    Needs { percent: f64 },
+    /// Even 100 on what's left falls short; `best` is that 100 case.
+    OutOfReach { best: f64 },
+    /// Nothing left to score.
+    Done { percent: f64 },
 }
 
 fn round1(x: f64) -> f64 {
@@ -97,7 +113,13 @@ pub fn tally(components: &[Component], target: f64) -> Tally {
     let standing = (scored_weight > 0.0).then(|| round1(earned / scored_weight * 100.0));
     let remaining = weight_total - scored_weight;
     let needed = (remaining > 0.0).then(|| round1((target - earned) / remaining * 100.0));
-    Tally { weight_total, earned: round1(earned), scored_weight, standing, equivalent: standing.map(equivalent), needed, target }
+    let risk = (weight_total > 0.0).then(|| match (needed, standing) {
+        (None, s) => Risk::Done { percent: s.unwrap_or(0.0) },
+        (Some(n), _) if n > 100.0 => Risk::OutOfReach { best: round1(earned + remaining) },
+        (Some(n), Some(s)) if n <= s => Risk::OnTrack,
+        (Some(n), _) => Risk::Needs { percent: n.max(0.0) },
+    });
+    Tally { weight_total, earned: round1(earned), scored_weight, standing, equivalent: standing.map(equivalent), needed, target, risk }
 }
 
 /// Items not done, dated from `today` through `days` days on, soonest first.
@@ -280,5 +302,16 @@ mod tests {
         let items = [item("later", Kind::Exam, 20, false), item("quiz", Kind::Quiz, 3, false), item("done", Kind::Quiz, 2, true), item("talk", Kind::Lecture, 2, false), item("paper", Kind::Project, 1, false)];
         let got: Vec<String> = due(&items, Date::new(2026, 10, 1), 7).into_iter().map(|(_, i)| i.topic).collect();
         assert_eq!(got, ["paper", "quiz"]);
+    }
+
+    #[test]
+    fn c10_risk_on_track_needs_out_of_reach_done() {
+        let c = |name: &str, weight: f64, score: Option<f64>| Component { name: name.into(), weight, score };
+        let risk = |parts: &[Component], target: f64| tally(parts, target).risk;
+        assert_eq!(risk(&[c("Quizzes", 40.0, Some(95.0)), c("Final", 60.0, None)], 90.0), Some(Risk::OnTrack), "86.7 needed, 95 so far");
+        assert_eq!(risk(&[c("Quizzes", 40.0, Some(80.0)), c("Final", 60.0, None)], 90.0), Some(Risk::Needs { percent: 96.7 }));
+        assert_eq!(risk(&[c("Quizzes", 60.0, Some(70.0)), c("Final", 40.0, None)], 90.0), Some(Risk::OutOfReach { best: 82.0 }));
+        assert_eq!(risk(&[c("Quizzes", 40.0, Some(80.0)), c("Final", 60.0, Some(90.0))], 90.0), Some(Risk::Done { percent: 86.0 }));
+        assert_eq!(risk(&[], 90.0), None, "no grading system, no line (C11)");
     }
 }

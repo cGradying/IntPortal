@@ -7,7 +7,7 @@
   import { resource } from "../load.svelte";
   import { app, adopt, openSubject } from "../state.svelte";
   import { buzz } from "../haptics";
-  import { api, subjectColor, type Reach, type SubjectGrade } from "../api";
+  import { api, riskLine, subjectColor, type Reach, type SubjectGrade } from "../api";
 
   const loaded = resource(() => api.standing());
   const standing = $derived(loaded.current.state === "ready" ? loaded.current.value : null);
@@ -24,6 +24,15 @@
   const report = $derived(pastReport ?? app.snapshot?.grades ?? null);
   const subjects = $derived(report?.subjects ?? []);
   const colors = $derived(app.snapshot?.colors ?? {});
+  // Spec 042 C10, C11: one line per subject that has a grading system.
+  let risks = $state<Record<string, string>>({});
+  $effect(() => {
+    const plans = Object.entries(app.snapshot?.syllabus ?? {}).filter(([, p]) => p.grading.length);
+    Promise.all(plans.map(async ([code, p]) => {
+      const t = await api.tally(p.grading, p.target ?? 90);
+      return [code, t.risk ? riskLine(t.risk, t.target) : ""] as const;
+    })).then((rows) => (risks = Object.fromEntries(rows.filter(([, line]) => line))), () => {});
+  });
   let loading = $state(false);
   let error = $state("");
 
@@ -224,6 +233,7 @@
         <button class="what" onclick={() => openSubject(s.subject_code, s.description)} aria-label="{s.subject_code} syllabus and grading">
           <strong>{s.subject_code}</strong>
           <span>{s.description}</span>
+          {#if risks[s.subject_code]}<span class="risk">{risks[s.subject_code]}</span>{/if}
         </button>
         <span class="units num">{s.units}u</span>
         {#if n !== null}
@@ -477,6 +487,10 @@
     0% { transform: rotate(-12deg) scale(2.2); opacity: 0; }
     60% { transform: rotate(-3deg) scale(0.92); opacity: 1; }
     100% { transform: rotate(-4deg) scale(1); }
+  }
+  .what .risk {
+    color: var(--ink-2);
+    font-size: 0.8rem;
   }
   .pending {
     flex: none;

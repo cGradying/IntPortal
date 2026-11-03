@@ -1,6 +1,6 @@
 <script lang="ts">
   import { askForCalendar } from "../devcal";
-  import { app, mabiniSyncNow, openNote, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
+  import { app, mabiniSyncNow, openNote, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
   import { api, isoDate, type Portal } from "../api";
   import { onMount } from "svelte";
   import PortalConnect from "../PortalConnect.svelte";
@@ -191,6 +191,10 @@
       {/each}
     </div>
     <p class="fine">{app.studyAt >= 0 ? "Only on days your flashcards are due." : "No study reminders."}</p>
+    <label class="lockrow"><input type="checkbox" checked={app.warmUp} onchange={(e) => setExtra("warmUp", e.currentTarget.checked)} /> Warm-up in class reminders</label>
+    <label class="lockrow"><input type="checkbox" checked={app.afterClass} onchange={(e) => setExtra("afterClass", e.currentTarget.checked)} /> Note after class</label>
+    <label class="lockrow"><input type="checkbox" checked={app.brief} onchange={(e) => setExtra("brief", e.currentTarget.checked)} /> Sunday brief</label>
+    <p class="fine">At most 3 a day besides class reminders, none from 10 PM to 7 AM.</p>
     {#if app.notifications === false}
       <p class="fine">Notifications are off for IntPortal, so none of these can reach you.</p>
       <button class="primary" onclick={() => scheduleReminders(true)}>Turn on notifications</button>
