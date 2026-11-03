@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Synced from "../Synced.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Scene from "../Scene.svelte";
   import ErrorCard from "../ErrorCard.svelte";
@@ -103,6 +104,7 @@
   <header>
     <p class="label">This week</p>
     <h1>Schedule</h1>
+    <Synced />
   </header>
 
   <div class="seg" role="tablist" aria-label="View">

@@ -434,6 +434,7 @@ export const api = {
   mabiniSync: () => invoke<MabiniData>("mabini_sync"),
   mabiniData: () => invoke<MabiniData>("mabini_data"),
   hasMabiniLogin: () => invoke<boolean>("has_mabini_login"),
+  loginHint: (portal: string) => invoke<string | null>("login_hint", { portal }),
   mabiniTriesLeft: () => invoke<Tries>("mabini_tries_left"),
   mabiniSignOut: () => invoke<void>("mabini_sign_out"),
   campus: (studentNumber: string) => invoke<CampusResolution>("campus", { studentNumber }),

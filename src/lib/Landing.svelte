@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { friendly } from "./errors";
   // The landing. The tile portal builds itself (spec 010), LAR steps out
   // below it, then the sign-in card rises. Signing in pulses the frame;
   // signed in, it opens onto a swirl in the portal's own colours, and Step
@@ -101,7 +102,7 @@
       rest = "hub";
       buzz.done();
     } catch (err) {
-      error = String(err);
+      error = friendly(err);
       buzz.fail();
     } finally {
       busy = false;
@@ -119,7 +120,7 @@
       rest = "hub";
       buzz.done();
     } catch (err) {
-      error = String(err);
+      error = friendly(err);
     }
   }
 
