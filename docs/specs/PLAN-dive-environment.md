@@ -167,3 +167,16 @@ Reuse what already exists:
     6. **Week.** The schedule fills the screen; the day view's single card stretched to full height (a bug).
   - **Next:** mockups round 2.
 - 2026-11-03 · Mockups round two published to the same artifact (version 2): the field dive, campus per school, four type directions plus Classic in You, the done sequence with rising-pitch sound, and the week filling the screen. Spec 010 C29 and C30 and spec 045 (C4a, Classic) are updated. #171's Today stagger is removed. **Paused for round-two picks.**
+- 2026-11-03 · **Feedback, round two:**
+  - Day mode must work as well as Night.
+  - Put the floating cube back at the bottom right; an artistic design comes later.
+  - PUP only for now.
+  - Redo the fonts with /impeccable (typeset).
+  - More animation.
+- **Mockups round three** published (artifact version 3):
+  - The field dive, verified frame by frame in Day and Night.
+  - New Motion row: tab hop with a directional page slide, pull to sync with a spinning cube and a SYNCED stamp, Grades counting down with stamps on first open, and LAR's chat opening from the floating cube (cube flight, fire spawn, typed hello) and closing back.
+  - Type reworked through a typeset pass. The seam is four families with four stroke logics. Directions: one family tuned (SF Pro only), Pixel-bridged, Squared, Pixel titles, plus Classic in You. Includes a 3× seam inspector.
+  - The campus row and the other schools are dropped.
+- Spec 045 C7 and C4a are updated.
+- **Paused for round-three picks.**

@@ -94,7 +94,9 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .scr .lbl { font: var(--rw-label, 600) 9px/1.2 var(--rf-label); letter-spacing: var(--rt-label, 0.09em); text-transform: uppercase; color: var(--ink-3); }
 .scr .hd { display: flex; justify-content: space-between; align-items: end; gap: 8px; }
 .scr h3.hi { margin: 2px 0 0; font: var(--rw-display) var(--rs-display)/1.05 var(--rf-display); letter-spacing: var(--rt-display); color: var(--ink); }
-.slot { width: 40px; height: 40px; display: grid; place-items: center; margin-bottom: -4px; }
+.orb { position: absolute; right: 12px; bottom: 76px; z-index: 31; width: 44px; height: 44px; display: grid; place-items: center; border: 0; padding: 0; background: none; cursor: pointer; transition: opacity 0.2s var(--ease), scale 0.16s var(--spring); }
+.orb:active { scale: 0.9; }
+.orb.away { opacity: 0; pointer-events: none; }
 .card { background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c); padding: 12px; }
 .card.notch { clip-path: polygon(0 8px,4px 8px,4px 4px,8px 4px,8px 0,calc(100% - 8px) 0,calc(100% - 8px) 4px,calc(100% - 4px) 4px,calc(100% - 4px) 8px,100% 8px,100% calc(100% - 8px),calc(100% - 4px) calc(100% - 8px),calc(100% - 4px) calc(100% - 4px),calc(100% - 8px) calc(100% - 4px),calc(100% - 8px) 100%,8px 100%,8px calc(100% - 4px),4px calc(100% - 4px),4px calc(100% - 8px),0 calc(100% - 8px)); }
 .card.row4 { border-radius: 4px; }
@@ -152,6 +154,41 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .you-set .rowset { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; }
 .you-set .rowset span { padding: 8px; font-size: 10px; text-align: center; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-c); color: var(--ink); }
 .you-set .rowset span.on { box-shadow: inset 0 0 0 2px var(--gold-c); }
+
+/* ---------- seam inspector ---------- */
+.seam { position: relative; height: 270px; overflow: hidden; background: var(--ground); box-shadow: inset 0 0 0 1px var(--edge); }
+.seam .zoom { position: absolute; left: 12px; top: 10px; transform: scale(3); transform-origin: 0 0; display: grid; gap: 3px; color: var(--ink); width: 160px; }
+.seam .zoom .rowz { display: flex; gap: 4px; align-items: center; }
+.seam .zoom svg.ic { width: 12px; height: 12px; shape-rendering: crispEdges; color: var(--gold-c); }
+.seam .grid { position: absolute; inset: 0; background-image: linear-gradient(rgb(244 236 216 / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(244 236 216 / 0.06) 1px, transparent 1px); background-size: 12px 12px; pointer-events: none; }
+
+/* ---------- motion phone ---------- */
+.pages { position: absolute; inset: 0; }
+.pg { position: absolute; inset: 0; }
+.pg[hidden] { display: none !important; }
+.tabs span { cursor: pointer; }
+.tabs span.hop svg { animation: hop 0.35s steps(3) both; }
+@keyframes hop { 0% { translate: 0 0; } 50% { translate: 0 -3px; } 100% { translate: 0 0; } }
+.pull { position: absolute; left: 50%; top: 40px; translate: -50% 0; z-index: 25; display: grid; justify-items: center; gap: 2px; pointer-events: none; opacity: 0; }
+.pull span { font: 500 8px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-2); }
+.synced { position: absolute; left: 50%; top: 52px; translate: -50% 0; z-index: 26; font: 700 9px var(--f-pixel); letter-spacing: 0.08em; padding: 2px 6px; rotate: -4deg; color: var(--good-c); box-shadow: inset 0 0 0 2px var(--good-c); background: var(--ground); opacity: 0; pointer-events: none; }
+.synced.on { animation: thunk 0.42s steps(5) both, fadeout 0.3s ease 1.4s forwards; }
+@keyframes fadeout { to { opacity: 0; } }
+.sheet { position: absolute; left: 6px; right: 6px; bottom: 6px; top: 70px; z-index: 45; background: #140c16; color: #f4ecd8; box-shadow: inset 0 0 0 1px rgb(245 178 39 / 0.16); clip-path: polygon(0 8px,4px 8px,4px 4px,8px 4px,8px 0,calc(100% - 8px) 0,calc(100% - 8px) 4px,calc(100% - 4px) 4px,calc(100% - 4px) 8px,100% 8px,100% 100%,0 100%); display: grid; grid-template-rows: auto minmax(0,1fr) auto; translate: 0 110%; transition: translate 0.42s var(--ease); }
+.sheet.open { translate: 0 0; }
+.sheet .stage { position: relative; height: 104px; overflow: hidden; }
+.sheet .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sheet .stage .who { position: absolute; left: 92px; top: 34px; display: grid; gap: 2px; font-size: 9px; color: rgb(244 236 216 / 0.7); }
+.sheet .stage .who b { font: 700 10px var(--f-pixel); color: var(--gold-c); letter-spacing: 0.06em; }
+.sheet .x { position: absolute; right: 10px; top: 10px; border: 0; background: none; color: #f4ecd8; font: 600 10px var(--f-ui); cursor: pointer; z-index: 2; }
+.sheet .msgs { padding: 10px; display: grid; align-content: start; gap: 6px; font-size: 10px; line-height: 1.4; }
+.sheet .msgs .lar { padding: 7px 9px; background: #170b1a; box-shadow: inset 0 2px 0 var(--gold-c); min-height: 2.6em; }
+.sheet .comp { margin: 8px; height: 30px; background: #0b0710; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14); border-radius: 8px; font-size: 10px; color: rgb(244 236 216 / 0.5); display: flex; align-items: center; padding: 0 10px; }
+.flier { position: absolute; inset: 0; z-index: 48; pointer-events: none; }
+.grow4 { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 9px 10px; }
+.grow4 .gstamp { font: 700 12px var(--f-pixel); color: var(--good-c); padding: 1px 5px; box-shadow: inset 0 0 0 2px var(--good-c); rotate: -4deg; }
+.grow4 .gstamp.thunk { animation: thunk 0.55s steps(6) both; }
+.pb { justify-self: start; font: 700 8px var(--f-pixel); letter-spacing: 0.08em; padding: 2px 5px; color: var(--gold-c); box-shadow: inset 0 0 0 1.5px var(--gold-c); rotate: -5deg; }
 
 /* ---------- done ---------- */
 .dlist { display: grid; gap: 6px; position: relative; }
@@ -222,13 +259,13 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 <div class="wrap">
   <header class="top">
     <h1>Round two: the look of <b>IntPortal</b></h1>
-    <p>Your first picks are settled and already used in every phone on this page: the void, the dot grid, the school's accent, and the cube in the header. Below, your notes from round one are redone: a seamless dive made of the same pixels as the dot grid, campus art per school, a fresh round of type shown as screens, a "done" you want to tap again, and a week that fills the screen.</p>
+    <p>Your picks are settled and used in every phone on this page: the void, the dot grid, PUP's accent and the floating cube at the bottom right. This update makes every row work in Day as well as Night, keeps the page to PUP for now, reworks type through a proper typeset pass, and adds a phone where the whole app moves: tabs, pull to sync, grades landing and LAR's chat opening from the cube.</p>
     <div class="settled" aria-label="Settled picks">
-      <span>LAR leads</span><span>One void</span><span>Dot grid</span><span>Campus kept</span><span>School accent</span><span>Pixel checkboxes</span><span>Current sizes</span><span>Hero pixel numerals</span><span>Subtle juice</span><span>Class days + ghosts</span><span>Deadline strip</span><span>Cube in the header</span>
+      <span>LAR leads</span><span>One void</span><span>Dot grid</span><span>Campus kept</span><span>School accent, PUP only for now</span><span>Pixel checkboxes</span><span>Current sizes</span><span>Hero pixel numerals</span><span>Subtle juice</span><span>Class days + ghosts</span><span>Deadline strip</span><span>Floating cube, bottom right</span>
     </div>
   </header>
   <nav class="jump" aria-label="Rows">
-    <a href="#dive">Dive</a><a href="#campus">Campus</a><a href="#type">Type</a><a href="#done">Done</a><a href="#week">Week</a>
+    <a href="#dive">Dive</a><a href="#motion">Motion</a><a href="#type">Type</a><a href="#done">Done</a><a href="#week">Week</a>
   </nav>
 
   <section class="row" id="dive">
@@ -241,7 +278,6 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
       <div class="seg" role="group" aria-label="Timeline"><span class="lab">When</span><button data-dv="mode" data-v="first" aria-pressed="true">First sign-in, 1.6 s</button><button data-dv="mode" data-v="launch" aria-pressed="false">Every launch, 0.6 s</button></div>
       <div class="seg" role="group" aria-label="Load"><span class="lab">Data</span><button data-dv="slow" data-v="0" aria-pressed="true">Ready</button><button data-dv="slow" data-v="1" aria-pressed="false">Slow, 1.8 s</button></div>
       <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-dv="room" data-v="night" aria-pressed="true">Night</button><button data-dv="room" data-v="day" aria-pressed="false">Day</button></div>
-      <div class="seg" role="group" aria-label="School"><span class="lab">School</span><button data-dv="school" data-v="pup" aria-pressed="true">PUP</button><button data-dv="school" data-v="rtu" aria-pressed="false">RTU</button><button data-dv="school" data-v="mmsu" aria-pressed="false">MMSU</button></div>
     </div>
     <div class="dive">
       <div class="phone" id="divePhone"></div>
@@ -261,17 +297,30 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
     </div>
   </section>
 
-  <section class="row" id="campus">
+  <section class="row" id="motion">
     <div class="q">
-      <span class="spec">045, new criterion</span>
-      <h2>Each school's own campus</h2>
-      <p>The scene on Up next follows how the student's school actually looks: its landmark, its buildings and its surroundings, in its own colours. These three are sketches to show the idea. Each school's real art gets drawn from photos, one school at a time, starting with the portals that are ready.</p>
+      <span class="spec">045 C13–C21, 010 C18b</span>
+      <h2>The whole app, moving</h2>
+      <p>One phone where everything you touch answers. Tap the tabs: the icon hops in three steps and the page slides a little toward the tab you chose. On Today, drag down from the top to sync: the cube spins and a SYNCED stamp lands. Open Grades the first time and the GPA counts down to its new value while the stamps thunk on, one by one. Tap the floating cube and it flies up into LAR's chat while he comes out of his fire. Close it and he goes back into the cube.</p>
     </div>
-    <div class="ctl"><div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-c="room" data-v="night" aria-pressed="true">Night</button><button data-c="room" data-v="day" aria-pressed="false">Day</button></div></div>
-    <div class="opts" id="campusOpts"></div>
     <div class="ctl">
-      <button class="pick inline" data-row="campus" data-v="one per school">Draw one per school</button>
-      <button class="pick inline" data-row="campus" data-v="shared until drawn">Shared scene until each is drawn</button>
+      <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-m="room" data-v="night" aria-pressed="true">Night</button><button data-m="room" data-v="day" aria-pressed="false">Day</button></div>
+      <button class="play small" id="motionReset">Start over</button>
+    </div>
+    <div class="two">
+      <div class="phone" id="motionPhone" style="justify-self:center"></div>
+      <div class="panel">
+        <h3>The motion rules behind it</h3>
+        <p class="note"><b>Pixel things step, interface things ease.</b> Hops, stamps and fills use <code>steps()</code>. Pages, sheets and the cube's flight use the one ease, with a spring only where something lands.</p>
+        <p class="note"><b>Direction carries meaning.</b> Pages slide 12 px toward the tab you picked, so you feel where you went. The chat rises from where the cube lives, and goes back the same way.</p>
+        <p class="note"><b>Count from what you last saw.</b> The GPA counts from the value on your last visit, not from zero, and stamps thunk only when a grade is new to this phone.</p>
+        <p class="note"><b>Then still.</b> Nothing loops on content. The cube bobs, and LAR breathes in his chat; cards never move on their own. Reduce Motion skips all of it to the end state.</p>
+        <div class="ctl">
+          <button class="pick inline" data-row="motion" data-v="yes">This is how it should move</button>
+          <button class="pick inline" data-row="motion" data-v="more">More</button>
+          <button class="pick inline" data-row="motion" data-v="less">Less</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -279,7 +328,7 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
     <div class="q">
       <span class="spec">045 C8, C9</span>
       <h2>Type, round two</h2>
-      <p>The seam you felt is between smooth type and crisp pixels. Each direction below closes it a different way, and each is shown as a full screen in your picked world. Whichever you choose, the original Montserrat and Source Sans stay available as a setting in You.</p>
+      <p>A typeset pass on the app found the seam: four voices that don't share a stroke. Montserrat is round and geometric, Source Sans humanist, Pixelify square, and SF Pro is the phone's own. For a screen you read at a glance, the fix is fewer families, tuned to the pixel grid: line heights on the 4 px step of the card corners, and weights whose stems match the 1.5 px strokes of the pixel icons beside them. The inspector magnifies each direction three times next to the art so you can see the seam close. The original Montserrat and Source Sans stay as a Classic setting in You.</p>
     </div>
     <div class="ctl"><div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-t="room" data-v="night" aria-pressed="true">Night</button><button data-t="room" data-v="day" aria-pressed="false">Day</button></div></div>
     <div class="opts" id="typeOpts"></div>
@@ -289,12 +338,11 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
         <div class="phone" id="youPhone" style="justify-self:center"></div>
       </div>
       <div class="panel">
-        <h3>Why these four</h3>
-        <p class="note"><b>Sharp system</b> keeps your pick and pushes it harder: heavier titles, tighter tracking, and the pixel voice on every label, so the pixels read as part of the type system.</p>
-        <p class="note"><b>Squared</b> uses Chakra Petch, whose cut corners echo the stepped card corners.</p>
-        <p class="note"><b>Soft blocks</b> uses Rubik, whose rounded squares sit between pixels and the phone's own UI.</p>
-        <p class="note"><b>Pixel titles</b> puts Pixelify on screen titles and course codes, with Atkinson Hyperlegible for reading. It's the most seamless of the four, but it breaks DESIGN.md's Pixel Voice rule for headings, so picking it rewrites that rule.</p>
-        <p class="note">In every direction, times, rooms and due dates stay in the reading face.</p>
+        <h3>The seam, magnified 3×</h3>
+        <div class="seg" role="group" aria-label="Direction" id="seamSeg"></div>
+        <div class="seam" id="seam"><div class="grid"></div><div class="zoom" id="seamZoom"></div></div>
+        <p class="note" id="seamNote"></p>
+        <p class="note">The system in every direction: seven roles (screen title, card title, body, meta, label, hero number, LAR's voice) at the current sizes you picked. Body stays at 15 px or more, meta at 12. Times, rooms and due dates are always in the reading face.</p>
       </div>
     </div>
   </section>
@@ -1421,15 +1469,15 @@ const accentOf = (th, room) => (room === "day" ? th.ramp[2] : th.accent);
 /* ---------------- type directions ---------------- */
 const SYS = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif";
 const TYPE = {
-  sharp: { name: "Sharp system", blurb: "Your pick, pushed harder. SF Pro at 800 with tight tracking for titles, and Pixelify on every label, so the pixel voice is part of the system.", display: SYS, title: SYS, read: SYS, label: "'Pixelify Sans', monospace", num: SYS, dw: "800", dt: "-0.035em", tw: "800", tt: "-0.02em", lw: "600", lt: "0.06em", ds: "24px" },
-  squared: { name: "Squared", blurb: "Chakra Petch for titles, codes and labels, with cut corners like the stepped cards. SF Pro reads everything else.", display: "'Chakra Petch', system-ui, sans-serif", title: "'Chakra Petch', system-ui, sans-serif", read: SYS, label: "'Chakra Petch', system-ui, sans-serif", num: "'Chakra Petch', system-ui, sans-serif", dw: "700", dt: "-0.01em", tw: "700", tt: "0", lw: "600", lt: "0.1em", ds: "25px" },
-  soft: { name: "Soft blocks", blurb: "Rubik everywhere. Its rounded squares sit halfway between pixels and the phone's own UI, so nothing jumps between registers.", display: "Rubik, system-ui, sans-serif", title: "Rubik, system-ui, sans-serif", read: "Rubik, system-ui, sans-serif", label: "Rubik, system-ui, sans-serif", num: "Rubik, system-ui, sans-serif", dw: "700", dt: "-0.02em", tw: "600", tt: "0", lw: "500", lt: "0.08em", ds: "24px" },
-  pixel: { name: "Pixel titles", blurb: "Pixelify sets screen titles and course codes; Atkinson Hyperlegible reads. The most of a piece with the art, at the cost of one DESIGN.md rule.", display: "'Pixelify Sans', monospace", title: "'Pixelify Sans', monospace", read: "'Atkinson Hyperlegible', system-ui, sans-serif", label: "'Atkinson Hyperlegible', system-ui, sans-serif", num: "'Atkinson Hyperlegible', system-ui, sans-serif", dw: "700", dt: "0", tw: "600", tt: "0.02em", lw: "700", lt: "0.08em", ds: "25px" },
-  classic: { name: "Classic", display: "Montserrat, system-ui, sans-serif", title: "Montserrat, system-ui, sans-serif", read: "'Source Sans 3', system-ui, sans-serif", label: "Montserrat, system-ui, sans-serif", num: "Montserrat, system-ui, sans-serif", dw: "700", dt: "-0.02em", tw: "700", tt: "-0.01em", lw: "600", lt: "0.09em", ds: "23px" },
+  tuned: { name: "One family, tuned", blurb: "SF Pro alone, the phone's own face, tuned to the pixels: titles at 800 so their stems match the icons, labels in tracked caps, line heights on the 4 px step. Pixel numerals for the hero number and LAR's Pixelify voice stay the only other voices.", seam: "One family, so nothing has to agree with anything else but the art. The 800 stems sit right at the icon's stroke weight.", display: SYS, title: SYS, read: SYS, label: SYS, num: SYS, dw: "800", dt: "-0.03em", tw: "700", tt: "-0.01em", lw: "600", lt: "0.08em", ds: "24px" },
+  sharp: { name: "Pixel-bridged", blurb: "The tuned SF Pro, with every small label, chip, day name and tab label set in Pixelify. The small text becomes pixels, so each step from the art up to the titles has a bridge.", seam: "Labels sit at the size where Pixelify and the icons share one pixel grid, so the eye moves from art to label to title without a jump.", display: SYS, title: SYS, read: SYS, label: "'Pixelify Sans', monospace", num: SYS, dw: "800", dt: "-0.035em", tw: "800", tt: "-0.02em", lw: "600", lt: "0.06em", ds: "24px" },
+  squared: { name: "Squared", blurb: "Chakra Petch for titles, codes and labels. Its cut corners are the stepped card corners in letter form. SF Pro reads everything else.", seam: "The corners match the cards, but two families now share the screen, and the seam moves to between title and body.", display: "'Chakra Petch', system-ui, sans-serif", title: "'Chakra Petch', system-ui, sans-serif", read: SYS, label: "'Chakra Petch', system-ui, sans-serif", num: "'Chakra Petch', system-ui, sans-serif", dw: "700", dt: "-0.01em", tw: "700", tt: "0", lw: "600", lt: "0.1em", ds: "25px" },
+  pixel: { name: "Pixel titles", blurb: "Pixelify sets screen titles and course codes; Atkinson Hyperlegible reads. The most of a piece with the art, at the cost of DESIGN.md's Pixel Voice rule.", seam: "No seam at the top: the title is pixels. The cost is reading speed on long codes, and one rule rewritten.", display: "'Pixelify Sans', monospace", title: "'Pixelify Sans', monospace", read: "'Atkinson Hyperlegible', system-ui, sans-serif", label: "'Atkinson Hyperlegible', system-ui, sans-serif", num: "'Atkinson Hyperlegible', system-ui, sans-serif", dw: "700", dt: "0", tw: "600", tt: "0.02em", lw: "700", lt: "0.08em", ds: "25px" },
+  classic: { name: "Classic", seam: "", display: "Montserrat, system-ui, sans-serif", title: "Montserrat, system-ui, sans-serif", read: "'Source Sans 3', system-ui, sans-serif", label: "Montserrat, system-ui, sans-serif", num: "Montserrat, system-ui, sans-serif", dw: "700", dt: "-0.02em", tw: "700", tt: "-0.01em", lw: "600", lt: "0.09em", ds: "23px" },
 };
 
 function applyRoles(el, o) {
-  const r = ROOMS[o.room], t = TYPE[o.type || "sharp"], s = SCHOOLS[o.school || "pup"], th = s.theme;
+  const r = ROOMS[o.room], t = TYPE[o.type || "tuned"], s = SCHOOLS[o.school || "pup"], th = s.theme;
   const acc = accentOf(th, o.room);
   const set = { ground: r.ground, card: r.card, "card-2": r.card2, sunk: r.sunk, "edge-c": r.edge, ink: r.ink, "ink-2": r.ink2, "ink-3": r.ink3, "gold-c": acc, "on-gold-c": o.room === "day" ? "#ffffff" : "#120a06", "maroon-c": r.maroon, bad: r.bad, "good-c": r.good, "accent-ink": acc,
     dot: css(rgbOf(acc), r.dotA),
@@ -1514,7 +1562,7 @@ function cubeLoop(now) {
     if (!k.c.isConnected) continue;
     const g = k.c.getContext("2d"), w = k.c.width, s = k.size * k.dpr;
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, w); g.setTransform(s, 0, 0, s, w / 2, w / 2);
-    LarKit.drawCube(g, k.theme, t, { still: reduce });
+    LarKit.drawCube(g, k.theme, t, { still: reduce, speed: k.speed || 1 });
   }
   if (!reduce) requestAnimationFrame(cubeLoop);
 }
@@ -1524,7 +1572,7 @@ function todayHTML(o) {
   const s = SCHOOLS[o.school || "pup"];
   return `<div class="status"><span>4:41</span><span>●●● ▮</span></div>
   <div class="scroll"><div class="scr">
-    <div class="hd"><div><div class="lbl">Sunday, October 25</div><h3 class="hi">Good afternoon</h3></div><span class="slot" data-slot></span></div>
+    <div class="hd"><div><div class="lbl">Sunday, October 25</div><h3 class="hi">Good afternoon</h3></div></div>
     <div class="card notch hero"><canvas class="campus" data-campus></canvas>
       <div class="in"><div class="lbl">In session</div><div class="code">${s.code}</div>
         <div class="what"><div><span>${s.title}</span><div class="meta">4–7 PM · ${s.room} · SANTOS, J.</div></div>
@@ -1543,11 +1591,11 @@ function mountToday(phone, o) {
   phone.classList.add("dots");
   phone.innerHTML = `<div class="island"></div>` + todayHTML(o);
   drawCampus($("[data-campus]", phone), o.room, o.school || "pup");
-  $("[data-slot]", phone).appendChild(cubeCanvas(th, 1.9));
+  const orb = document.createElement("button"); orb.className = "orb"; orb.setAttribute("aria-label", "Ask LAR"); orb.appendChild(cubeCanvas(th, 2.4)); phone.appendChild(orb);
 }
 
 /* ---------------- picks and the tray ---------------- */
-const ROWS = [["dive", "Dive"], ["campus", "Campus"], ["type", "Type"], ["done", "Done"], ["week", "Week"]];
+const ROWS = [["dive", "Dive"], ["motion", "Motion"], ["type", "Type"], ["done", "Done"], ["week", "Week"]];
 let picks = {};
 try { picks = JSON.parse(localStorage.getItem("ip-picks-2") || "{}"); } catch { picks = {}; }
 function renderTray() {
@@ -1593,7 +1641,7 @@ function timeline() {
   return { first, fly, build, flood, floodEnd, arrive, arriveEnd, total: arriveEnd + 0.6 };
 }
 function mountDive() {
-  mountToday(phone, { room: dive.room, school: dive.school, type: "sharp" });
+  mountToday(phone, { room: dive.room, school: dive.school, type: "tuned" });
   phone.appendChild(stage); phone.appendChild(bubble);
   const dpr = Math.min(2, devicePixelRatio || 1); stage.width = FW * dpr; stage.height = FH * dpr; stage.style.width = FW + "px"; stage.style.height = FH + "px";
   const tl = timeline();
@@ -1698,26 +1746,19 @@ $("#divePlay").addEventListener("click", diveRestart);
 $("#diveScrub").addEventListener("input", (e) => { cancelAnimationFrame(raf); dive.t = +e.target.value / 1000; drawDive(dive.t); });
 segs("dv", dive, (k) => (k === "speed" ? null : diveRestart()));
 
-/* ================= CAMPUS ================= */
-const C = { room: "night" };
-function renderCampus() {
-  $("#campusOpts").innerHTML = Object.entries(SCHOOLS).map(([k, s]) => `<div class="opt"><div class="phone" data-school="${k}"></div><div class="name"><b>${s.short}</b><span>${s.blurb}</span></div></div>`).join("");
-  $$("#campusOpts .phone").forEach((p) => mountToday(p, { room: C.room, school: p.dataset.school, type: "sharp" }));
-}
-segs("c", C, renderCampus);
-
 /* ================= TYPE ================= */
 const T = { room: "night" };
 function renderType() {
-  $("#typeOpts").innerHTML = ["sharp", "squared", "soft", "pixel"].map((k) => { const t = TYPE[k]; return `<div class="opt"><div class="phone" data-type="${k}"></div>
+  $("#typeOpts").innerHTML = ["tuned", "sharp", "squared", "pixel"].map((k) => { const t = TYPE[k]; return `<div class="opt"><div class="phone" data-type="${k}"></div>
     <div class="spec-strip" style="font-family:${t.read}"><span class="w" style="font-family:${t.display};font-weight:${t.dw};letter-spacing:${t.dt}"><b>Student</b> IntPortal</span><span class="s">Up next at 7:30 in S309. Pagsusulit 1 is due tomorrow.</span></div>
     <div class="name"><b>${t.name}</b><span>${t.blurb}</span></div>
     <button class="pick" data-row="type" data-v="${t.name}">Pick ${t.name.toLowerCase()}</button></div>`; }).join("");
   $$("#typeOpts .phone").forEach((p) => mountToday(p, { room: T.room, school: "pup", type: p.dataset.type }));
-  const you = $("#youPhone"); applyRoles(you, { room: T.room, school: "pup", type: "sharp" }); you.classList.add("dots");
+  renderSeam();
+  const you = $("#youPhone"); applyRoles(you, { room: T.room, school: "pup", type: "tuned" }); you.classList.add("dots");
   you.innerHTML = `<div class="island"></div><div class="status"><span>4:41</span><span>●●● ▮</span></div><div class="scroll"><div class="scr">
     <div class="hd"><div><div class="lbl">Account and look</div><h3 class="hi">You</h3></div></div>
-    <div class="card notch you-set"><div class="lbl">Text style</div><div class="rowset"><span class="on" style="font-family:${TYPE.sharp.read};font-weight:700">IntPortal</span><span style="font-family:Montserrat, sans-serif;font-weight:700">Classic</span></div>
+    <div class="card notch you-set"><div class="lbl">Text style</div><div class="rowset"><span class="on" style="font-family:${TYPE.tuned.read};font-weight:700">IntPortal</span><span style="font-family:Montserrat, sans-serif;font-weight:700">Classic</span></div>
     <span style="font-size:9px;color:var(--ink-2)">Classic brings back Montserrat and Source Sans, the original look. The pixel numerals and LAR's voice stay as they are.</span></div>
     <div class="card notch you-set"><div class="lbl">Room</div><div class="rowset"><span class="on">Night</span><span>Day</span></div></div>
     <div class="card notch" style="display:grid;gap:8px"><div class="lbl">Feel</div>
@@ -1725,6 +1766,19 @@ function renderType() {
       <label style="display:flex;gap:8px;align-items:center;font-size:11px"><span class="pchk"></span>Sounds</label></div>
   </div></div>${tabBar("you")}`;
   renderTray();
+}
+function renderSeam() {
+  const keys = ["tuned", "sharp", "squared", "pixel", "classic"];
+  T.seam ??= "tuned";
+  $("#seamSeg").innerHTML = keys.map((k) => `<button data-seam="${k}" aria-pressed="${k === T.seam}">${TYPE[k].name}</button>`).join("");
+  $$("#seamSeg button").forEach((b) => b.addEventListener("click", () => { T.seam = b.dataset.seam; renderSeam(); }));
+  const box = $("#seam"); applyRoles(box, { room: T.room, school: "pup", type: T.seam });
+  const t = TYPE[T.seam];
+  $("#seamZoom").innerHTML = `<div class="rowz"><svg class="ic" viewBox="0 0 12 12">${ICONS.today.flatMap((r, y) => [...r].map((c, x) => (c === "#" ? `<rect x="${x}" y="${y}" width="1" height="1" fill="currentColor"/>` : ""))).join("")}</svg><span style="font:${t.lw} 9px ${t.label};letter-spacing:${t.lt};text-transform:uppercase;color:var(--ink-3)">In session</span></div>
+    <div style="font:${t.tw} 17px/1.1 ${t.title};letter-spacing:${t.tt};color:var(--gold-c)">COMP 20083</div>
+    <div class="rowz" style="align-items:end"><span style="font:400 11px/1.3 ${t.read};color:var(--ink)">Object-Oriented Prog.</span><span style="margin-left:auto;color:var(--ink)">${pixelNum("4:00", 2)}</span></div>
+    <div style="font:${t.dw} 24px/1.05 ${t.display};letter-spacing:${t.dt};color:var(--ink)">Good day</div>`;
+  $("#seamNote").textContent = T.seam === "classic" ? "The original, kept as a setting: three families with three different stroke logics." : t.seam;
 }
 segs("t", T, renderType);
 
@@ -1763,7 +1817,7 @@ const sfx = {
 const DUE = [["PETA 1", "Physical Activity Towards Health 1", "Overdue", "o"], ["Pagsusulit 1", "Filipinolohiya", "Tomorrow", ""], ["Problem Set 2", "Mathematics in the Modern World", "Wed", ""], ["Reflection paper", "Readings in Philippine History", "Fri", ""], ["Lab 4: Linked lists", "Data Structures and Algorithms", "Sat", ""]];
 let doneLar = null;
 function renderDone() {
-  const p = $("#donePhone"); const { th } = applyRoles(p, { room: "night", school: "pup", type: "sharp" }); p.classList.add("dots");
+  const p = $("#donePhone"); const { th } = applyRoles(p, { room: "night", school: "pup", type: "tuned" }); p.classList.add("dots");
   p.innerHTML = `<div class="island"></div><div class="status"><span>4:41</span><span>●●● ▮</span></div><div class="scroll"><div class="scr">
     <div class="hd"><div><div class="lbl">This week</div><h3 class="hi">Due</h3></div><canvas class="lar" width="66" height="60" style="width:44px;height:40px;image-rendering:pixelated" aria-hidden="true"></canvas></div>
     <div class="dlist" data-open>${DUE.map(([a, b, c, o]) => `<div class="ditem" role="button" tabindex="0"><span class="pchk"></span><div class="tx"><b>${a}</b><i>${b}</i></div><span class="when ${o}">${c}</span><span class="stamp">DONE</span></div>`).join("")}</div>
@@ -1772,6 +1826,7 @@ function renderDone() {
     <div class="dlist" data-done></div>
   </div><canvas class="sparks"></canvas></div>${tabBar()}`;
   doneLar = { cv: $("canvas.lar", p), rig: LarKit.rig("idle"), theme: th, thumbsAt: -9 };
+  floatingOrb(p, th);
   $$(".ditem", p).forEach((it) => {
     it.addEventListener("pointerdown", () => !it.classList.contains("done") && sfx.press());
     const go = () => markDone(p, it);
@@ -1876,9 +1931,10 @@ function dayHTML(r) {
 function renderWeek() {
   $("#weekOpts").innerHTML = [["week", "Week"], ["day", "Day: drag sideways, or tap a day"]].map(([k, n]) => `<div class="opt"><div class="phone" data-week="${k}"></div><div class="name"><b>${n}</b></div></div>`).join("");
   $$("#weekOpts .phone").forEach((p) => {
-    const { r } = applyRoles(p, { room: K.room, school: "pup", type: "sharp" }); p.classList.add("dots");
+    const { r } = applyRoles(p, { room: K.room, school: "pup", type: "tuned" }); p.classList.add("dots");
     p.innerHTML = `<div class="island"></div>` + (p.dataset.week === "day" ? dayHTML(r) : weekHTML(r));
     if (p.dataset.week === "day") setupSwipe(p);
+    floatingOrb(p, SCHOOLS.pup.theme);
   });
   stampIn();
 }
@@ -1904,8 +1960,122 @@ segs("k", K, renderWeek);
 $("#restamp").addEventListener("click", stampIn);
 $("#clock").addEventListener("input", (e) => { nowMin = +e.target.value; renderWeek(); });
 
+
+/* ================= MOTION: the whole app ================= */
+const M = { room: "night" };
+const mlar = { rig: LarKit.rig("idle"), open: false, cv: null, openedAt: 0 };
+let gradesSeen = false;
+function floatingOrb(p, th) { const orb = document.createElement("button"); orb.className = "orb"; orb.setAttribute("aria-label", "Ask LAR"); orb.appendChild(cubeCanvas(th, 2.4)); p.appendChild(orb); return orb; }
+function renderMotion() {
+  const p = $("#motionPhone"); const { r, th } = applyRoles(p, { room: M.room, school: "pup", type: "tuned" }); p.classList.add("dots");
+  gradesSeen = false;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = todayHTML({ school: "pup" }); const todayScroll = $(".scroll", tmp);
+  tmp.innerHTML = weekHTML(r); const weekScroll = $(".scroll", tmp);
+  const grades = `<div class="scroll"><div class="scr">
+    <div class="hd"><div><div class="lbl">First semester · 2026–2027</div><h3 class="hi">Grades</h3></div></div>
+    <div class="card notch" style="display:grid;gap:4px"><div class="lbl">GPA</div><div data-gpa style="font:800 40px/1 var(--rf-num);letter-spacing:-0.03em;color:var(--gold-c);font-variant-numeric:tabular-nums">1.62</div><span class="pb" data-pb style="opacity:0">PERSONAL BEST</span><span style="font-size:9px;color:var(--ink-2)">3 of 6 posted · 8 units</span></div>
+    ${[["COMP 20073", "Data Structures and Algorithms", "1.25"], ["GEED 10053", "Purposive Communication", "1.50"], ["MATH 20013", "Discrete Structures", "1.75"], ["COMP 20083", "Object-Oriented Programming", "1.25"]].map(([c, t, g]) => `<div class="card row4 grow4"><div><b style="font:700 11px var(--rf-title)">${c}</b><span style="display:block;font-size:9px;color:var(--ink-2)">${t}</span></div><span class="gstamp" style="opacity:0">${g}</span></div>`).join("")}
+  </div></div>`;
+  p.innerHTML = `<div class="island"></div><div class="status"><span>4:41</span><span>●●● ▮</span></div>
+    <div class="pages"><div class="pg" data-pg="today"></div><div class="pg" data-pg="sched" hidden></div><div class="pg" data-pg="grades" hidden>${grades}</div></div>
+    <div class="pull"><canvas></canvas><span>PULL TO SYNC</span></div><span class="synced">SYNCED</span>
+    ${tabBar()}
+    <canvas class="flier"></canvas>
+    <div class="sheet" role="dialog" aria-label="LAR"><div class="stage"><canvas></canvas><div class="who"><b>LAR</b><span>On this phone, offline</span></div><button class="x">Close</button></div>
+      <div class="msgs"><div class="lar" data-hello></div></div><div class="comp">Ask LAR…</div></div>`;
+  $("[data-pg=today]", p).appendChild(todayScroll); $("[data-pg=sched]", p).appendChild(weekScroll);
+  drawCampus($("[data-campus]", p), M.room, "pup");
+  const orb = floatingOrb(p, th);
+  // Tabs: the icon hops, the page slides toward the tab you chose.
+  const order = ["today", "sched", "grades", "study", "you"];
+  let cur = "today";
+  $$(".tabs span", p).forEach((t, i) => t.addEventListener("click", () => {
+    const next = order[i]; if (next === cur || !$(`[data-pg=${next}]`, p)) { t.classList.remove("hop"); void t.offsetWidth; t.classList.add("hop"); return; }
+    const dir = order.indexOf(next) > order.indexOf(cur) ? 1 : -1;
+    const from = $(`[data-pg=${cur}]`, p), to = $(`[data-pg=${next}]`, p);
+    $$(".tabs span", p).forEach((x) => x.classList.toggle("on", x === t)); t.classList.remove("hop"); void t.offsetWidth; t.classList.add("hop");
+    if (!reduce) {
+      from.animate([{ opacity: 1, transform: "translateX(0)" }, { opacity: 0, transform: `translateX(${-12 * dir}px)` }], { duration: 120, easing: "ease-in" }).onfinish = () => (from.hidden = true);
+      to.hidden = false; to.animate([{ opacity: 0, transform: `translateX(${12 * dir}px)` }, { opacity: 1, transform: "translateX(0)" }], { duration: 220, delay: 90, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "backwards" });
+    } else { from.hidden = true; to.hidden = false; }
+    cur = next;
+    if (next === "grades" && !gradesSeen) { gradesSeen = true; landGrades(p); }
+  }));
+  // Pull to sync on Today.
+  const sc = todayScroll, pull = $(".pull", p), pcv = $(".pull canvas", p); pull.replaceChild(cubeCanvas(th, 1.6), pcv); const pullCube = cubes.at(-1);
+  let y0 = null, dy = 0;
+  sc.addEventListener("pointerdown", (e) => { if (sc.scrollTop <= 0) { y0 = e.clientY; dy = 0; sc.setPointerCapture(e.pointerId); } });
+  sc.addEventListener("pointermove", (e) => { if (y0 == null) return; dy = Math.max(0, e.clientY - y0); const k = Math.min(1, dy / 70); sc.firstElementChild.style.transform = `translateY(${Math.min(70, dy * 0.55)}px)`; pull.style.opacity = k; pull.style.scale = 0.6 + k * 0.4; $("span", pull).textContent = k >= 1 ? "LET GO" : "PULL TO SYNC"; });
+  const release = () => { if (y0 == null) return; const ok = dy >= 70; y0 = null; const inner = sc.firstElementChild;
+    if (ok) { $("span", pull).textContent = "SYNCING"; pullCube.speed = 4; setTimeout(() => { pullCube.speed = 1; pull.style.opacity = 0; inner.animate([{ transform: inner.style.transform }, { transform: "translateY(0)" }], { duration: 300, easing: "cubic-bezier(0.22,1,0.36,1)" }); inner.style.transform = ""; const st = $(".synced", p); st.classList.remove("on"); void st.offsetWidth; st.classList.add("on"); }, 900); }
+    else { pull.style.opacity = 0; inner.animate([{ transform: inner.style.transform }, { transform: "translateY(0)" }], { duration: 260, easing: "cubic-bezier(0.34,1.56,0.64,1)" }); inner.style.transform = ""; } };
+  sc.addEventListener("pointerup", release); sc.addEventListener("pointercancel", release);
+  // LAR's chat: the cube flies up from the orb, he comes out of his fire.
+  const sheet = $(".sheet", p), flier = $(".flier", p), stageCv = $(".stage canvas", sheet);
+  mlar.cv = stageCv; mlar.th = th; mlar.open = false;
+  const fly = (back) => {
+    const pr = p.getBoundingClientRect(), o = orb.getBoundingClientRect();
+    const sx = o.left - pr.left + o.width / 2, sy = o.top - pr.top + o.height / 2, ex = 6 + 46, ey = 70 + 54;
+    const [ax, ay, bx, by] = back ? [ex, ey, sx, sy] : [sx, sy, ex, ey];
+    const dpr = Math.min(2, devicePixelRatio || 1); flier.width = 280 * dpr; flier.height = 592 * dpr; flier.style.width = "280px"; flier.style.height = "592px";
+    const g = flier.getContext("2d"), t0 = performance.now(), D = 480;
+    return new Promise((done) => { const step = (now) => { const k = Math.min(1, (now - t0) / D), e = 1 - (1 - k) ** 3;
+      const x = ax + (bx - ax) * e, y = ay + (by - ay) * e - Math.sin(e * Math.PI) * 70, s = (back ? 1.4 + e : 2.4 - e) * dpr;
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, flier.width, flier.height); g.setTransform(s, 0, 0, s, x * dpr, y * dpr); LarKit.drawCube(g, th, now / 1000);
+      if (k < 1) requestAnimationFrame(step); else { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, flier.width, flier.height); done(); } }; requestAnimationFrame(step); });
+  };
+  const hello = "Hi! Ako si LAR. May 2h 19m pa sa OOP. Ano'ng gagawin natin?";
+  orb.addEventListener("click", async () => {
+    if (mlar.open) return; orb.classList.add("away"); sheet.classList.add("open");
+    if (!reduce) await fly(false);
+    mlar.open = true; mlar.openedAt = performance.now() / 1000; mlar.rig.start("spawn", mlar.openedAt);
+    const box = $("[data-hello]", sheet); box.textContent = ""; let i = 0; const t0 = performance.now() + 900;
+    const type = (now) => { if (!mlar.open) return; const n = Math.max(0, Math.floor((now - t0) / 22)); if (n > i) { i = n; box.textContent = hello.slice(0, i); } if (i < hello.length) requestAnimationFrame(type); };
+    reduce ? (box.textContent = hello) : requestAnimationFrame(type);
+  });
+  $(".x", sheet).addEventListener("click", async () => {
+    if (!mlar.open) return; mlar.open = false;
+    if (!reduce) await fly(true);
+    sheet.classList.remove("open"); orb.classList.remove("away");
+  });
+}
+function landGrades(p) {
+  const el = $("[data-gpa]", p), from = 1.62, to = 1.28;
+  if (reduce) { el.textContent = to.toFixed(2); $$(".gstamp", p).forEach((s) => (s.style.opacity = 1)); $("[data-pb]", p).style.opacity = 1; return; }
+  const t0 = performance.now() + 250, D = 700;
+  const step = (now) => { const k = clamp((now - t0) / D), e = 1 - (1 - k) ** 3; el.textContent = (from + (to - from) * e).toFixed(2); if (k < 1) requestAnimationFrame(step); else { const pb = $("[data-pb]", p); pb.style.opacity = 1; pb.animate([{ scale: 2, opacity: 0 }, { scale: 0.92, opacity: 1, offset: 0.6 }, { scale: 1, opacity: 1 }], { duration: 420, easing: "steps(5)" }); } };
+  requestAnimationFrame(step);
+  $$(".gstamp", p).forEach((s, i) => setTimeout(() => { s.style.opacity = 1; s.classList.add("thunk"); }, 420 + i * 140));
+}
+function stageLoop(now) {
+  const t = now / 1000;
+  if (mlar.cv && mlar.cv.isConnected) {
+    const cv = mlar.cv, dpr = Math.min(2, devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const g = cv.getContext("2d"), th = mlar.th;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // His stage: soft pools of the portal's ramp drifting, a dither into the card.
+    const grd = g.createLinearGradient(0, 0, w, h); grd.addColorStop(0, th.ramp[1]); grd.addColorStop(1, "#140c16"); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    const pool = (x, y, rad, c, a) => { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, css(rgbOf(c), a)); rg.addColorStop(1, css(rgbOf(c), 0)); g.fillStyle = rg; g.fillRect(0, 0, w, h); };
+    const dr = reduce ? 0 : t;
+    pool(60 + Math.sin(dr / 3) * 30, 40, 90, th.ramp[3], 0.45); pool(200 + Math.cos(dr / 4) * 40, 70, 110, th.accent, 0.25);
+    g.fillStyle = "#140c16"; for (let x = 0; x < w; x += 2) { g.fillRect(x, h - 4, 1, 1); g.fillRect(x + 1, h - 3, 1, 1); g.fillRect(x, h - 2, 2, 2); }
+    if (mlar.open) {
+      const since = t - mlar.openedAt;
+      if (since > 1.2) mlar.rig.set(since > 3 ? "idle" : "happy", t);
+      const pz = mlar.rig.at(t, {}, reduce), s = 2;
+      g.imageSmoothingEnabled = false; g.save(); g.translate(18, 22); g.scale(s, s); LarKit.drawLar(g, pz, th, reduce ? 0 : t); g.restore();
+    }
+  }
+  requestAnimationFrame(stageLoop);
+}
+segs("m", M, renderMotion);
+$("#motionReset").addEventListener("click", renderMotion);
+requestAnimationFrame(stageLoop);
+
 /* ---------------- boot ---------------- */
-renderCampus(); renderType(); renderDone(); renderWeek();
+renderType(); renderMotion(); renderDone(); renderWeek();
 mountDive(); dive.t = timeline().total; drawDive(dive.t);
 requestAnimationFrame(cubeLoop); requestAnimationFrame(larLoop);
 renderTray();

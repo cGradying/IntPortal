@@ -39,7 +39,7 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
   - none.
   Whatever moves stops under Reduce Motion.
 - **C4. (pick) Each school's colours.** The accent and stage gradients come from the active portal's theme (`crates/intportal-core/src/schools.rs`), not fixed gold. Contrast stays at 4.5:1 or better, checked by test for every school.
-- **C4a. Campus art per school** (added 2026-11-03). The scene on Up next is drawn per school from that school's real look: its landmark, its buildings and its surroundings, in its colours. A school without its own art yet shows a shared scene. Art is drawn from photos, ready portals first.
+- **C4a. Campus art per school** (added 2026-11-03). The scene on Up next is drawn per school from that school's real look: its landmark, its buildings and its surroundings, in its colours. A school without its own art yet shows a shared scene. Art is drawn from photos, ready portals first. **For now only PUP is drawn** (decided 2026-11-03); the others come with the artistic pass.
 - **C5. Corner roles.**
   - The pixel notch (stepped 4 px corners) is for stages and hero cards: Up next, the GPA card, sheets.
   - Dense rows and week blocks get a 4 px square-ish radius.
@@ -47,7 +47,7 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
 - **C6. Form controls** take the room's accent (`accent-color`), never system blue. **(pick)** Pixel checkboxes and switches instead.
 - **C7. The orb's lane.**
   - The cube orb never rests on top of a tappable control or a grade stamp.
-  - **(pick)** The lane is one of: a notch in the tab bar's right end, hide while scrolling down, or a slot in the screen header.
+  - **Decided 2026-11-03:** it stays floating at the bottom right for now, as shipped. An artistic redesign that fits the app comes later and settles the overlap.
 
 **Type**
 
