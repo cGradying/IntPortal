@@ -1,7 +1,7 @@
 <script lang="ts">
   // One subject's syllabus: its grading system with the running arithmetic,
   // and its outline of topics, quizzes, exams and projects.
-  import { api, isoDate, type Component, type ItemKind, type Plan, type SyllabusItem, type Tally } from "./api";
+  import { api, isoDate, riskLine, type Component, type ItemKind, type Plan, type SyllabusItem, type Tally } from "./api";
   import { closable } from "./back";
   import { adopt, app, openNote } from "./state.svelte";
 
@@ -101,10 +101,8 @@
       {#if tally && tally.scored_weight > 0}
         <section class="card notch sum">
           <p><strong class="num">{tally.standing?.toFixed(1)}%</strong> so far{#if tally.equivalent !== null}, about <strong class="num">{tally.equivalent.toFixed(2)}</strong>{/if}, on {tally.scored_weight}% of the grade.</p>
-          {#if tally.needed !== null}
-            <p class="need" data-over={tally.needed > 100}>
-              {tally.needed > 100 ? `${target}% is out of reach now; even 100 on the rest won't make it.` : tally.needed <= 0 ? `${target}% is already secured.` : `${tally.needed.toFixed(1)}% on the rest for ${target}%.`}
-            </p>
+          {#if tally.risk}
+            <p class="need" data-over={tally.risk.kind === "out_of_reach"}>{riskLine(tally.risk, target)}</p>
           {/if}
         </section>
       {/if}

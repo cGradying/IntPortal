@@ -317,6 +317,43 @@ pub fn free_minutes(items: &[AgendaItem], now: Moment, busy: &[Busy]) -> u16 {
     u16::try_from(total).unwrap_or(u16::MAX)
 }
 
+/// The free time between two of today's classes still ahead of `now`, the
+/// student's own events cut out (042 C1). `minutes` counts only pieces of 15
+/// minutes or more.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Gap {
+    pub from: u16,
+    pub to: u16,
+    pub minutes: u16,
+}
+
+pub fn gaps(items: &[AgendaItem], now: Moment, busy: &[Busy]) -> Vec<Gap> {
+    let midnight = now.date.days() * 1440;
+    let at = |m: Moment| m.date.days() * 1440 + i64::from(m.minute) - midnight;
+    let busy: Vec<(i64, i64)> = busy.iter().map(|b| (at(b.from), at(b.to))).collect();
+    items
+        .windows(2)
+        .map(|w| (i64::from(w[0].meeting.session.end).max(i64::from(now.minute)), i64::from(w[1].meeting.session.start)))
+        .filter(|&(end, start)| start > end)
+        .map(|(end, start)| {
+            let mut cuts: Vec<(i64, i64)> = busy.iter().map(|&(a, b)| (a.max(end), b.min(start))).filter(|(a, b)| a < b).collect();
+            cuts.sort_unstable();
+            let (mut from, mut free) = (end, 0);
+            for (a, b) in cuts {
+                if a - from >= 15 {
+                    free += a - from;
+                }
+                from = from.max(b);
+            }
+            if start - from >= 15 {
+                free += start - from;
+            }
+            Gap { from: end as u16, to: start as u16, minutes: free as u16 }
+        })
+        .filter(|g| g.minutes > 0)
+        .collect()
+}
+
 pub fn agenda(sessions: &[ClassSession], marks: &Marks, now: Moment) -> Agenda {
     let items: Vec<AgendaItem> = meetings_from(sessions, marks, now.date, 1)
         .into_iter()
@@ -439,6 +476,10 @@ pub struct Reminder {
     pub minute: u16,
     pub title: String,
     pub body: String,
+    /// Where a tap on it goes (spec 042): `study:<code>:5`, `note:class:<code>`,
+    /// or nothing for Today.
+    #[serde(default)]
+    pub open: Option<String>,
 }
 
 /// A stable, positive id for a reminder, so rescheduling replaces it.
@@ -453,8 +494,9 @@ pub fn reminder_id(key: &str) -> i32 {
 /// Reminders `lead` minutes before every meeting in the next `days` days that
 /// hasn't started yet. A meeting marked vacant for its week is skipped, so a
 /// one-week cancellation silences just that week (the old app could only
-/// skip whole-term vacancies).
-pub fn reminders(sessions: &[ClassSession], marks: &Marks, now: Moment, lead: u16, days: u16) -> Vec<Reminder> {
+/// skip whole-term vacancies). `warm` is cards due per subject: a class with
+/// some offers five of them first (042 C6).
+pub fn reminders(sessions: &[ClassSession], marks: &Marks, now: Moment, lead: u16, days: u16, warm: &HashMap<String, usize>) -> Vec<Reminder> {
     let now_abs = now.date.days() * 1440 + i64::from(now.minute);
     let mut out: Vec<(i64, Reminder)> = meetings_from(sessions, marks, now.date, i64::from(days))
         .into_iter()
@@ -470,8 +512,12 @@ pub fn reminders(sessions: &[ClassSession], marks: &Marks, now: Moment, lead: u1
                     id: reminder_id(&format!("{}@{}", m.id, m.date)),
                     date: Date::from_days(at.div_euclid(1440)),
                     minute: at.rem_euclid(1440) as u16,
-                    title: format!("{} in {lead} min", s.subject_code),
+                    title: match warm.get(&s.subject_code).copied().unwrap_or(0) {
+                        0 => format!("{} in {lead} min", s.subject_code),
+                        n => format!("{} in {lead} min · Review {} cards?", s.subject_code, n.min(5)),
+                    },
                     body: format!("{} · {}{}", s.description, clock(s.start), if m.mark == Mark::Online { " · Online" } else { "" }),
+                    open: warm.get(&s.subject_code).filter(|n| **n > 0).map(|_| format!("study:{}:5", s.subject_code)),
                 },
             ))
         })
@@ -598,7 +644,7 @@ mod tests {
     #[test]
     fn reminders_fire_ahead_skip_the_past_and_vacant_weeks() {
         let w = week();
-        let r = reminders(&w, &Marks::default(), at(3, 9, 30), 10, 7);
+        let r = reminders(&w, &Marks::default(), at(3, 9, 30), 10, 7, &HashMap::new());
         let when: Vec<(String, u16, String)> = r.iter().map(|r| (r.date.to_string(), r.minute, r.title.clone())).collect();
         assert_eq!(
             when,
@@ -610,21 +656,21 @@ mod tests {
         let mut marks = Marks::default();
         marks.mode.set(&w[1].id(), Some(Date::new(2026, 8, 3)), Some(Mark::Vacant));
         marks.mode.set(&w[2].id(), None, Some(Mark::Online));
-        let r = reminders(&w, &marks, at(3, 9, 30), 10, 8);
+        let r = reminders(&w, &marks, at(3, 9, 30), 10, 8, &HashMap::new());
         assert_eq!(r.iter().map(|r| r.date.to_string()).collect::<Vec<_>>(), ["2026-08-04", "2026-08-10", "2026-08-10"]);
         assert_eq!(r[0].body, " · 9AM · Online");
     }
 
     #[test]
     fn reminder_before_an_early_class_lands_the_previous_evening() {
-        let r = reminders(&[s("NSTP 001", Tuesday, 5, 60)], &Marks::default(), at(3, 12, 0), 15, 7);
+        let r = reminders(&[s("NSTP 001", Tuesday, 5, 60)], &Marks::default(), at(3, 12, 0), 15, 7, &HashMap::new());
         assert_eq!((r[0].date, r[0].minute), (Date::new(2026, 8, 3), 23 * 60 + 50));
     }
 
     #[test]
     fn reminder_ids_are_stable_and_distinct() {
-        let a = reminders(&week(), &Marks::default(), at(3, 0, 0), 10, 14);
-        let b = reminders(&week(), &Marks::default(), at(3, 0, 0), 10, 14);
+        let a = reminders(&week(), &Marks::default(), at(3, 0, 0), 10, 14, &HashMap::new());
+        let b = reminders(&week(), &Marks::default(), at(3, 0, 0), 10, 14, &HashMap::new());
         assert_eq!(a, b);
         let ids: std::collections::HashSet<i32> = a.iter().map(|r| r.id).collect();
         assert_eq!(ids.len(), a.len());
@@ -656,7 +702,7 @@ mod tests {
         assert_eq!((geed.date, geed.session.start, geed.moved, geed.id.as_str()), (Date::new(2026, 8, 5), 900, true, "GEED 005-1-780-870"));
         assert_eq!(glance(&w, &marks, at(3, 11, 0), None, false).line(), "No more classes today · Tomorrow COMP 001 at 9AM");
         assert_eq!(glance(&w, &marks, at(5, 14, 50), None, false).line(), "GEED 005 · in 10m");
-        let r = reminders(&w, &marks, at(3, 11, 0), 10, 3);
+        let r = reminders(&w, &marks, at(3, 11, 0), 10, 3, &HashMap::new());
         assert_eq!(r.iter().map(|r| (r.date.to_string(), r.minute)).collect::<Vec<_>>(), [("2026-08-04".into(), 530), ("2026-08-05".into(), 890)]);
     }
 
@@ -706,5 +752,23 @@ mod tests {
         assert_eq!(free(&[busy(at(3, 11, 0), at(3, 12, 50))]), 0, "leftovers under 15 minutes don't count");
         assert_eq!(free(&[busy(at(2, 22, 0), at(3, 11, 30))]), 90, "from last night");
         assert_eq!(free(&[busy(at(4, 11, 0), at(4, 12, 0))]), 130, "another day");
+    }
+
+    #[test]
+    fn c1_gaps_cut_by_busy_and_now() {
+        let w = [s("A", Monday, 480, 540), s("B", Monday, 660, 720), s("C", Monday, 750, 840)];
+        let agenda = agenda(&w, &Marks::default(), Moment { date: Date::new(2026, 8, 3), minute: 600 });
+        let busy = [Busy { from: Moment { date: Date::new(2026, 8, 3), minute: 620 }, to: Moment { date: Date::new(2026, 8, 3), minute: 630 }, title: "org".into() }];
+        let g = gaps(&agenda.items, Moment { date: Date::new(2026, 8, 3), minute: 600 }, &busy);
+        assert_eq!(g, [Gap { from: 600, to: 660, minutes: 50 }, Gap { from: 720, to: 750, minutes: 30 }], "the 9–10 gap is past, 10:20–10:30 is the org meeting");
+    }
+
+    #[test]
+    fn c6_warm_up_line_only_with_due_cards() {
+        let w = [s("COMP 20073", Tuesday, 540, 630), s("GEED 10053", Tuesday, 660, 750)];
+        let warm = HashMap::from([("COMP 20073".to_string(), 12), ("GEED 10053".to_string(), 0)]);
+        let r = reminders(&w, &Marks::default(), at(3, 0, 0), 15, 2, &warm);
+        assert_eq!((r[0].title.as_str(), r[0].open.as_deref()), ("COMP 20073 in 15 min · Review 5 cards?", Some("study:COMP 20073:5")));
+        assert_eq!((r[1].title.as_str(), r[1].open.as_deref()), ("GEED 10053 in 15 min", None));
     }
 }

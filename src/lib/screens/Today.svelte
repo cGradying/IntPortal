@@ -3,7 +3,7 @@
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
   import MabiniDue from "../MabiniDue.svelte";
-  import { app, openNote, openSubject, syncNow } from "../state.svelte";
+  import { app, openFromNotification, openNote, openSubject, syncNow } from "../state.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Lar from "../lar/Lar.svelte";
   import { ago } from "../glance";
@@ -75,10 +75,18 @@
   function act() {
     if (!nudge) return;
     const n = nudge.nudge;
+    if (n.kind === "plan") return startPlan(n);
     if (n.kind === "deadline" && n.url) openLink(n.url);
     else if (n.kind === "deadline") openSubject(n.subject, describe(n.subject));
     else if (n.kind === "target") app.tab = "grades";
     else if (n.kind !== "day_off") app.tab = "study";
+  }
+  /** Spec 042 C4: the deadline first (eMabini, or its subject's outline), else the cards. */
+  function startPlan(n: Extract<Nudge, { kind: "plan" }>) {
+    if (n.step?.url) return openLink(n.step.url);
+    if (n.step?.subject) return openSubject(n.step.subject, describe(n.step.subject));
+    if (n.subject) openFromNotification(`study:${n.subject}:${n.cards}`);
+    else app.tab = "study";
   }
   const describe = (code: string) => app.snapshot?.sessions.find((x) => x.subject_code === code)?.description ?? "";
   const dayNote = $derived(app.notes.find((n) => n.key === dayKey));

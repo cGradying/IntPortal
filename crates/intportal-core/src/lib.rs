@@ -9,6 +9,7 @@ pub mod grades;
 pub mod mabini;
 pub mod model;
 pub mod notes;
+pub mod nudge;
 pub mod portal;
 pub mod schedule;
 pub mod schools;
