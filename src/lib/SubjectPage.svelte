@@ -5,14 +5,18 @@
   import { closable } from "./back";
   import { adopt, app, openNote } from "./state.svelte";
 
-  let { code, description }: { code: string; description: string } = $props();
+  let { code, description, tab: start, item }: { code: string; description: string; tab?: "grading" | "outline"; item?: string } = $props();
 
   const saved = $derived(app.snapshot?.syllabus[code]);
   // svelte-ignore state_referenced_locally
   let plan = $state<Plan>(structuredClone($state.snapshot(saved) ?? { items: [], grading: [], target: null }));
   let dirty = $state(false);
   let problem = $state("");
-  let tab = $state<"grading" | "outline">(plan.grading.length || !plan.items.length ? "grading" : "outline");
+  // svelte-ignore state_referenced_locally
+  let tab = $state<"grading" | "outline">(start ?? (plan.grading.length || !plan.items.length ? "grading" : "outline"));
+  $effect(() => {
+    if (item) requestAnimationFrame(() => document.getElementById(`item-${item}`)?.scrollIntoView({ block: "center" }));
+  });
   let tally = $state<Tally | null>(null);
   const target = $derived(plan.target ?? 90);
 
@@ -163,7 +167,7 @@
         {/if}
         <ul class="items">
           {#each sorted as it (it.id || it.topic)}
-            <li class:done={it.done}>
+            <li class:done={it.done} id={it.id ? `item-${it.id}` : undefined} class:here={it.id === item}>
               <input type="checkbox" checked={it.done} aria-label="Done" onchange={() => { it.done = !it.done; changed(); }} />
               <span class="kind" data-kind={it.kind}>{it.kind}</span>
               <span class="topic">{it.topic}</span>
@@ -392,5 +396,8 @@
     margin: 0;
     font-size: min(0.765rem, 23px);
     color: var(--bad);
+  }
+  li.here {
+    box-shadow: inset 3px 0 0 var(--gold);
   }
 </style>
