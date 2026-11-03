@@ -406,7 +406,6 @@ export const api = {
   parseOutline: (text: string, today: string) => invoke<SyllabusItem[]>("parse_outline", { text, today }),
   setPlan: (subjectCode: string, plan: Plan) => invoke<Snapshot>("set_plan", { subjectCode, plan }),
   tally: (components: Component[], target: number) => invoke<Tally>("tally", { components, target }),
-  due: (today: string, days: number) => invoke<[string, SyllabusItem][]>("due", { today, days }),
   coach: (now: Moment, dismissed: string[], busy: Busy[] = []) =>
     invoke<{ nudge: Nudge; line: string; key: string } | null>("coach", { now, dismissed, busy, utcOffset: -new Date().getTimezoneOffset() }),
   deadlines: (now: Moment, days: number) => invoke<DeadlineEntry[]>("deadlines", { now, utcOffset: -new Date().getTimezoneOffset(), days }),

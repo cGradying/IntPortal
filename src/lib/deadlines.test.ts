@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Deadline } from "./api";
-import { dueLabel, splitCourseName, splitDeadlines, subjectOf, titleOf } from "./deadlines";
+import type { Deadline, DeadlineEntry } from "./api";
+import { dueLabel, entryLabel, knowsNothingDue, mabiniState, splitCourseName, splitDeadlines, subjectOf, titleOf } from "./deadlines";
 
 const secs = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h).getTime() / 1000;
 const mk = (id: number, due: number, over: Partial<Deadline> = {}): Deadline => ({
@@ -57,5 +57,36 @@ describe("names", () => {
     expect(subjectOf("Orientation")).toBe("Orientation");
     expect(splitCourseName("Filipino_First Sem 2627_BSIT 1-A")).toEqual({ subject: "Filipino", term: "First Sem 2627", section: "BSIT 1-A" });
     expect(splitCourseName("A_B")).toEqual({ subject: "A_B", term: "", section: "" });
+  });
+});
+
+describe("spec 041 C7: entryLabel", () => {
+  const now = new Date(2026, 10, 3, 12);
+  const e = (due: DeadlineEntry["due"], overdue = false): DeadlineEntry => ({ id: "x", source: "own", subject: null, course: null, title: "T", kind: "project", due, overdue, url: null });
+  it("a whole-day deadline is today until midnight", () => {
+    expect(entryLabel(e({ day: "2026-11-03" }), now)).toBe("Today");
+    expect(entryLabel(e({ day: "2026-11-04" }), now)).toBe("Tomorrow");
+  });
+  it("a timed one is overdue once its time passed, and the core's flag wins", () => {
+    expect(entryLabel(e({ at: new Date(2026, 10, 3, 9).getTime() / 1000 }), now)).toBe("Overdue");
+    expect(entryLabel(e({ day: "2026-11-05" }, true), now)).toBe("Overdue");
+  });
+});
+
+describe("spec 041 C9: the card never says nothing is due without data", () => {
+  const now = new Date(2026, 10, 3, 12);
+  const sec = (h: number) => new Date(2026, 10, 3, h).getTime() / 1000;
+  it("names eMabini's state", () => {
+    expect(mabiniState(false, null, null)).toBe("off");
+    expect(mabiniState(true, null, null)).toBe("never");
+    expect(mabiniState(true, sec(9), "down")).toBe("failed");
+    expect(mabiniState(true, sec(9), null)).toBe("ok");
+  });
+  it("knows nothing is due only with fresh syncs", () => {
+    expect(knowsNothingDue(String(sec(9)), "ok", sec(9), now)).toBe(true);
+    expect(knowsNothingDue(String(sec(9)), "never", null, now)).toBe(false);
+    expect(knowsNothingDue(String(sec(9)), "failed", sec(9), now)).toBe(false);
+    expect(knowsNothingDue(String(sec(9) - 2 * 86_400), "off", null, now)).toBe(false);
+    expect(knowsNothingDue(null, "off", null, now)).toBe(true);
   });
 });
