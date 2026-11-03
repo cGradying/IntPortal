@@ -1688,11 +1688,23 @@ function mountDive() {
   const tl = timeline();
   $("#diveScrub").max = Math.round(tl.total * 1000);
   const f = (v) => (+v.toFixed(2)).toString();
-  const dv = [`${f(tl.zoom)}–${f(tl.zoomEnd)} s`, "The camera dives into the mouth. The frame's tiles grow and rush out past the edges. Inside the mouth is the same field at a quarter of the pitch, swirling, and it grows until its tiles are the screen's tiles"];
+  const dv = [`${f(tl.zoom)}–${f(tl.zoomEnd)} s`, "The camera dives into the mouth. The frame's tiles grow and rush out past the edges. Inside the mouth is the same field at a quarter of the pitch, running a tunnel shader (five twisting arms, rings rushing out, a glowing far end), and it grows until its tiles are the screen's tiles"];
   const ar = [`${f(tl.arrive)}–${f(tl.arriveEnd)} s`, "The swirl warms to the room. A glowing front runs out from the centre: each tile flares, shrinks to a dot and lifts off in a dither, leaving a glint. As the last tiles go, one ripple runs through Today's dot grid. Today was already in place"];
   $("#diveSteps").innerHTML = (tl.first
     ? [[`0–${f(tl.fly)} s`, "The portal stands in the field. LAR says Ayos! and flies to its mouth; the dots near the frame glow in its light"], [dv[0], dv[1] + ". LAR goes in first, shrinking toward the centre"], ar]
     : [[`0–${f(tl.build)} s`, "The field's dots swell into the frame from the bottom centre"], [dv[0], "One quick dive into the mouth. With slow data, the swirl keeps turning at full screen"], [ar[0], dive.slow === "1" ? "Data is ready at 1.8 s, then the tiles fall back to dots" : "Ends at the later of 0.6 s and data ready"]]).map(([a, b]) => `<div><b>${a}</b><span>${b}</span></div>`).join("");
+}
+/* The tunnel: one shader run per tile, the way the Rust scene would. dx, dy are cells from the centre.
+   Five arms twist with depth and rings rush out past you; the far end glows. Whole turns keep it seamless. */
+function tunnel(dx, dy, t, i, j, ramp, glint) {
+  const r = Math.hypot(dx, dy), a = Math.atan2(dy, dx) / (Math.PI * 2);
+  const z = 7 / (r + 0.8);                                   // depth: far at the centre
+  const u = a * 5 + z * 0.6 + t * 0.35, v = z + t * 2.4;      // arms, rings
+  const arms = 0.5 + 0.5 * Math.cos(u * Math.PI * 2), rings = 0.5 + 0.5 * Math.cos(v * Math.PI * 2);
+  const core = Math.exp(-(r * r) / 4);
+  const val = (0.5 * arms + 0.38 * arms * rings + 0.12 * rings) * (0.45 + 0.55 * clamp(r / 5)) + core * 0.9;
+  const lvl = clamp(Math.floor(clamp(val, 0, 0.999) * 5 + BAYER[(j & 3) * 4 + (i & 3)] - 0.5), 0, 4);   // ordered dither between ramp steps
+  return core > 0.45 ? lerp3(ramp[lvl], glint, (core - 0.45) * 1.6) : ramp[lvl];
 }
 function frameOrder(li, lj) {              // build order round the frame, from the bottom centre
   if (lj >= PH - 2) return Math.abs(li - (PW - 1) / 2) / 26;
@@ -1747,9 +1759,8 @@ function drawDive(t) {
     const i0 = Math.floor(((x0 - FX) / k + SX) / P) - 1, i1 = Math.ceil(((x1 - FX) / k + SX) / P), j0 = Math.floor(((y0 - FY) / k + SY) / P) - 1, j1 = Math.ceil(((y1 - FY) / k + SY) / P);
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const cx = i * P + P / 2, cy = j * P + P / 2, X = FX + (cx - SX) * k, Y = FY + (cy - SY) * k;
-      const dx = (cx - SX) / P, dy = (cy - SY) / P, d = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
-      const band = ((Math.floor(Math.log(d + 1) * 3.4 - t * 6 + ang * 0.95) % 5) + 5) % 5;
-      let col = ramp[band], size = (P - 2) * k;
+      const dx = (cx - SX) / P, dy = (cy - SY) / P, d = Math.hypot(dx, dy);
+      let col = tunnel(dx, dy, t + zk * 1.2, i, j, ramp, glint), size = (P - 2) * k;
       if (warm > 0) col = lerp3(col, home, warm * 0.82);
       if (ak > 0) {
         const kk = smooth(clamp((A - d) / 3.2)), lift = 0.45 + 0.35 * BAYER[(j & 3) * 4 + (i & 3)];

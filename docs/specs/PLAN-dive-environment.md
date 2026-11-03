@@ -199,3 +199,4 @@ Reuse what already exists:
     - **Dive fade:** a glowing front, tiles that flare and swell, glints where tiles lift, and one ripple through Today's dot grid on landing.
     - **Motion, less:** removed the tab highlight, the folding title, the tucking cube, the countdown tick and the extra sparks.
   - **Paused for round-five picks** on Dive, Motion and Week.
+- 2026-11-04 · Dive feedback: the swirl had a seam where its angle term wrapped (0.95 of a turn per revolution). It is replaced by a per-tile tunnel shader in `tunnel()`: five arms, so the angle term always completes whole turns; the arms twist with depth (z = 7 / (r + 0.8)), rings rush outward, and the far end glows. The shader is quantised to the school ramp with a 4×4 Bayer dither, and it is the same function the Rust scene would run once per tile. Published to the artifact.
