@@ -89,11 +89,14 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 - **C28. LAR leads.** LAR stays in front of the tunnel the whole way, ahead of the camera and never behind a tile. He shrinks toward the mouth and lands as the cube at the orb's spot on Today.
   - If IntAssis is not added, he lands nowhere and simply fades out with the dither.
   - The mockup decides between two variants: "he leads" (he stays a sprite until the dither) or "he folds" (he becomes his cube at the mouth).
-- **C29. Dither hand-off.**
-  - The last 0.3 s is a 4 × 4 Bayer dither from the tunnel to Today, 8 steps, drawn in the scene.
-  - The tunnel's last frames shift toward the ground colour of the room the student lands in, so a Day room never comes out of black.
+- **C29. One field, void to Today** (revised 2026-11-03 after round one).
+  - The scene is one grid of tiles on the same pitch as Today's dot grid. At rest the void is that grid dimmed to dots. The portal's frame is dots swelling into tiles, and its light spills onto the dots near it, with falloff, turning with the motif.
+  - The dive floods the swirl outward from the portal's mouth across every cell, not a zoom.
+  - The flood's last frames warm toward the ground of the room the student lands in, so a Day room never comes out of black.
+  - Arrival runs from the centre out: each tile shrinks to a dot of Today's dot grid and the ground under it lifts, revealing Today in place.
   - There is no brightness or saturation filter on the hand-off.
-- **C30. Today arrives.** Today's cards rise 8 px and fade in over 0.32 s, top to bottom, 40 ms apart, with Up next first. The tab bar and header are present from the first frame.
+  - Prototype: `reference/prototypes/mockups.html`, round two.
+- **C30. Today is already there** (revised 2026-11-03). Today is fully laid out under the field from the start of arrival. Nothing on it rises, fades in or spawns after the field has landed.
 - **C31. Haptics.** One light tick when the dive starts, and one soft thud on the reveal. They follow the haptics setting.
 - **C32. Reduce Motion.** No portal and no dive: launch and Step through go straight to Today with a 0.2 s cross-fade in the room's ground colour.
 - **C33. No switch.** There is no "Play portal on open" setting. The dive costs at most 0.6 s over loading on a normal launch, and the scene stops drawing and frees its canvas as soon as Today shows.
@@ -151,7 +154,7 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 | C18c | `vitest lar/sprite.test.ts`: `c18c_mitts_move_at_most_one_pixel_per_frame` across every gesture and mood switch |
 | C26 | vitest `dive.test.ts`: `c26_dive_ends_at_later_of_min_and_ready`, `c26_dive_caps_at_3s`; screen recording on 18 Pro and 17e |
 | C27–C29 | `cargo test -p intportal-tiles`: dive frames at fixed `t` (tunnel order, Bayer step count, last frame equals room ground); recording |
-| C30 | vitest: stagger delays; recording |
+| C30 | recording: no Today element moves after the last tile lands |
 | C31 | `cargo test`: haptic events at dive start and reveal |
 | C32 | screenshot with Reduce Motion on: no canvas in the DOM |
 | C33 | review: no setting; canvas removed after reveal |

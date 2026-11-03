@@ -39,6 +39,7 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
   - none.
   Whatever moves stops under Reduce Motion.
 - **C4. (pick) Each school's colours.** The accent and stage gradients come from the active portal's theme (`crates/intportal-core/src/schools.rs`), not fixed gold. Contrast stays at 4.5:1 or better, checked by test for every school.
+- **C4a. Campus art per school** (added 2026-11-03). The scene on Up next is drawn per school from that school's real look: its landmark, its buildings and its surroundings, in its colours. A school without its own art yet shows a shared scene. Art is drawn from photos, ready portals first.
 - **C5. Corner roles.**
   - The pixel notch (stepped 4 px corners) is for stages and hero cards: Up next, the GPA card, sheets.
   - Dense rows and week blocks get a 4 px square-ish radius.
@@ -64,7 +65,7 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
   - (b) Geist with Pixelify;
   - (c) Instrument Serif for titles only, with system UI for reading.
 
-  Montserrat and Source Sans are removed if they are not picked.
+  Montserrat and Source Sans stay as a **Classic** text style in You (added 2026-11-03). Round two of the mockups adds four directions: Sharp system, Squared (Chakra Petch), Soft blocks (Rubik), and Pixel titles (Pixelify with Atkinson Hyperlegible).
 - **C9. The pixel rule.** Pixelify sets play only: LAR's name and bubbles, stamps, chips, section tags and celebrations. It never sets a time, a room, a date or a due item.
 - **C10. Pixel numerals.** A hand-drawn numeral set (0–9, `:`, `.`, `%` and small-caps `AM`/`PM`), drawn as SVG sprites in the way `PixelIcon` is. The numerals are tabular, and their sizes snap to the art pixel. **(pick)** Use them for hero numbers only (the Up next time, GPA, Study counts) or for every number.
 - **C11. Scale.** Seven sizes, one per role, each with a `rem` value and a cap. Each cap is above the caps of the roles under it, so a title never equals body at the largest text size. The 17 sizes in use today collapse into these seven. **(pick)** The values come from the mockup.

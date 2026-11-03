@@ -166,4 +166,4 @@ Reuse what already exists:
     5. **Juice.** Picked subtle, but marking done must feel addictive (sound researched), the card moves, completion gets more animation, and everything is still once it settles.
     6. **Week.** The schedule fills the screen; the day view's single card stretched to full height (a bug).
   - **Next:** mockups round 2.
-
+- 2026-11-03 · Mockups round two published to the same artifact (version 2): the field dive, campus per school, four type directions plus Classic in You, the done sequence with rising-pitch sound, and the week filling the screen. Spec 010 C29 and C30 and spec 045 (C4a, Classic) are updated. #171's Today stagger is removed. **Paused for round-two picks.**
