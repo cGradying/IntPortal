@@ -671,23 +671,35 @@ function mountDive() {
   const tl = timeline();
   $("#diveScrub").max = Math.round(tl.total * 1000);
   const f = (v) => (+v.toFixed(2)).toString();
-  const dv = [`${f(tl.zoom)}–${f(tl.zoomEnd)} s`, "The camera dives into the mouth. The frame's tiles grow and rush out past the edges. Inside the mouth is the same field at a quarter of the pitch, running a tunnel shader (five twisting arms, rings rushing out, a glowing far end), and it grows until its tiles are the screen's tiles"];
+  const dv = [`${f(tl.zoom)}–${f(tl.zoomEnd)} s`, "The camera dives into the mouth. The frame's tiles grow and rush out past the edges. Inside the mouth is the same field at a quarter of the pitch, running a tunnel shader (five slow twisting arms, rings drifting out, and a glow around every dark part), and it grows until its tiles are the screen's tiles"];
   const ar = [`${f(tl.arrive)}–${f(tl.arriveEnd)} s`, "The swirl warms to the room. A glowing front runs out from the centre: each tile flares, shrinks to a dot and lifts off in a dither, leaving a glint. As the last tiles go, one ripple runs through Today's dot grid. Today was already in place"];
   $("#diveSteps").innerHTML = (tl.first
     ? [[`0–${f(tl.fly)} s`, "The portal stands in the field. LAR says Ayos! and flies to its mouth; the dots near the frame glow in its light"], [dv[0], dv[1] + ". LAR goes in first, shrinking toward the centre"], ar]
     : [[`0–${f(tl.build)} s`, "The field's dots swell into the frame from the bottom centre"], [dv[0], "One quick dive into the mouth. With slow data, the swirl keeps turning at full screen"], [ar[0], dive.slow === "1" ? "Data is ready at 1.8 s, then the tiles fall back to dots" : "Ends at the later of 0.6 s and data ready"]]).map(([a, b]) => `<div><b>${a}</b><span>${b}</span></div>`).join("");
 }
-/* The tunnel: one shader run per tile, the way the Rust scene would. dx, dy are cells from the centre.
-   Five arms twist with depth and rings rush out past you; the far end glows. Whole turns keep it seamless. */
-function tunnel(dx, dy, t, i, j, ramp, glint) {
-  const r = Math.hypot(dx, dy), a = Math.atan2(dy, dx) / (Math.PI * 2);
-  const z = 7 / (r + 0.8);                                   // depth: far at the centre
-  const u = a * 5 + z * 0.6 + t * 0.35, v = z + t * 2.4;      // arms, rings
-  const arms = 0.5 + 0.5 * Math.cos(u * Math.PI * 2), rings = 0.5 + 0.5 * Math.cos(v * Math.PI * 2);
-  const core = Math.exp(-(r * r) / 4);
-  const val = (0.5 * arms + 0.38 * arms * rings + 0.12 * rings) * (0.45 + 0.55 * clamp(r / 5)) + core * 0.9;
-  const lvl = clamp(Math.floor(clamp(val, 0, 0.999) * 5 + BAYER[(j & 3) * 4 + (i & 3)] - 0.5), 0, 4);   // ordered dither between ramp steps
-  return core > 0.45 ? lerp3(ramp[lvl], glint, (core - 0.45) * 1.6) : ramp[lvl];
+/* Per-cell geometry for the tunnel, computed once, so the shader costs two cosines a tile.
+   Indexed by screen cell (i, j), padded by LO cells for the mouth's view at the start of the dive. */
+const LO = 12, LW = COLS + 2 * LO, LH = ROWSN + 2 * LO, TAU = Math.PI * 2;
+const LUT = (() => {
+  const n = LW * LH, R = new Float32Array(n), A5 = new Float32Array(n), Z = new Float32Array(n), FOG = new Float32Array(n), HALO = new Float32Array(n), DI = new Float32Array(n);
+  for (let jj = 0; jj < LH; jj++) for (let ii = 0; ii < LW; ii++) {
+    const i = ii - LO, j = jj - LO, q = jj * LW + ii, dx = (i * P + P / 2 - SX) / P, dy = (j * P + P / 2 - SY) / P, r = Math.hypot(dx, dy);
+    R[q] = r; A5[q] = (Math.atan2(dy, dx) / TAU) * 5; Z[q] = 7 / (r + 0.8);
+    FOG[q] = 0.45 + 0.55 * clamp(r / 5); HALO[q] = Math.exp(-((r - 2.7) ** 2)); DI[q] = BAYER[(j & 3) * 4 + (i & 3)];
+  }
+  return { R, A5, Z, FOG, HALO, DI };
+})();
+/* The tunnel shader, run once per tile. Five arms twist with depth (whole turns, so no seam) and rings
+   drift outward. Every dark part glows at its edge: the far end is a dark eye in a ring of light, and each
+   dark lane between the arms has a lit rim. Returns a palette index: 0–4 the school ramp, 5 glow, 6 glint, 7 the eye. */
+function tunnel(q, t) {
+  const r = LUT.R[q]; if (r < 1.7) return 7;
+  const z = LUT.Z[q], fog = LUT.FOG[q], di = LUT.DI[q];
+  const arms = 0.5 + 0.5 * Math.cos(TAU * (LUT.A5[q] + z * 0.6 + t * 0.12)), rings = 0.5 + 0.5 * Math.cos(TAU * (z + t * 0.8));
+  const glow = Math.max(LUT.HALO[q], Math.exp(-(((arms - 0.3) / 0.11) ** 2)) * fog) + 0.25 * di;
+  if (glow > 0.95) return 6;
+  if (glow > 0.7) return 5;
+  return Math.max(0, Math.min(4, Math.floor((0.55 * arms + 0.3 * arms * rings + 0.15 * rings) * fog * 5 + di - 0.5)));
 }
 function frameOrder(li, lj) {              // build order round the frame, from the bottom centre
   if (lj >= PH - 2) return Math.abs(li - (PW - 1) / 2) / 26;
@@ -739,27 +751,32 @@ function drawDive(t) {
   if (open > 0) {
     g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip();
     if (ak === 0) { g.fillStyle = css(lerp3(lerp3(VOID, ramp[0], open), gap, warm)); g.fillRect(x0, y0, x1 - x0, y1 - y0); }
-    const i0 = Math.floor(((x0 - FX) / k + SX) / P) - 1, i1 = Math.ceil(((x1 - FX) / k + SX) / P), j0 = Math.floor(((y0 - FY) / k + SY) / P) - 1, j1 = Math.ceil(((y1 - FY) / k + SY) / P);
+    // One palette a frame: the shader's eight colours, warmed to the room, in four shrink steps toward the dot.
+    const pal = [...ramp, lerp3(ramp[4], glint, 0.5), glint, lerp3(VOID, ramp[0], 0.25)].map((c) => (warm > 0 ? lerp3(c, home, warm * 0.82) : c));
+    const PAL = pal.map((c) => [0, 1, 2, 3].map((st) => css(lerp3(c, dotRoom, st / 3)))), RIM = pal.map((c) => css(lerp3(c, glint, 0.75)));
+    const GAP = css(gap), GLINTS = [0.8, 0.45, 0.18].map((a) => css(glint, a)), st = t + zk * 0.5;
+    const i0 = Math.max(-LO, Math.floor(((x0 - FX) / k + SX) / P) - 1), i1 = Math.min(LW - LO - 1, Math.ceil(((x1 - FX) / k + SX) / P));
+    const j0 = Math.max(-LO, Math.floor(((y0 - FY) / k + SY) / P) - 1), j1 = Math.min(LH - LO - 1, Math.ceil(((y1 - FY) / k + SY) / P));
+    g.globalAlpha = open;
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-      const cx = i * P + P / 2, cy = j * P + P / 2, X = FX + (cx - SX) * k, Y = FY + (cy - SY) * k;
-      const dx = (cx - SX) / P, dy = (cy - SY) / P, d = Math.hypot(dx, dy);
-      let col = tunnel(dx, dy, t + zk * 1.2, i, j, ramp, glint), size = (P - 2) * k;
-      if (warm > 0) col = lerp3(col, home, warm * 0.82);
+      const q = (j + LO) * LW + i + LO, X = FX + (i * P + P / 2 - SX) * k, Y = FY + (j * P + P / 2 - SY) * k, c = tunnel(q, st);
+      let size = (P - 2) * k, fill = PAL[c][0];
       if (ak > 0) {
-        const kk = smooth(clamp((A - d) / 3.2)), lift = 0.45 + 0.35 * BAYER[(j & 3) * 4 + (i & 3)];
+        const kk = smooth(clamp((A - LUT.R[q]) / 3.2)), lift = 0.45 + 0.35 * LUT.DI[q];
         if (kk > lift) {
           // Lifted: Today's own dot shows here, and the tile leaves a glint that fades into it.
           const gk = (kk - lift) / 0.18;
-          if (gk < 1) tile(X, Y, 1.8 + 3.2 * (1 - gk), glint, 0.85 * (1 - gk) ** 2);
+          if (gk < 1) { const sz = 1.8 + 3.2 * (1 - gk); g.fillStyle = GLINTS[Math.min(2, (gk * 3) | 0)]; g.fillRect(X - sz / 2, Y - sz / 2, sz, sz); }
           continue;
         }
         // The front glows: tiles flare and swell as it reaches them, then shrink to a dot.
-        const rim = Math.max(0, 1 - Math.abs(kk - 0.18) / 0.18), s = clamp(kk / lift);
-        g.fillStyle = css(gap); g.fillRect(X - P / 2, Y - P / 2, P, P);
-        size = (size + (1.8 - size) * s) * (1 + 0.28 * rim); col = lerp3(lerp3(col, dotRoom, s), glint, 0.75 * rim);
+        const rim = Math.max(0, 1 - Math.abs(kk - 0.18) / 0.18), sk = clamp(kk / lift);
+        g.fillStyle = GAP; g.fillRect(X - P / 2, Y - P / 2, P, P);
+        size = (size + (1.8 - size) * sk) * (1 + 0.28 * rim); fill = rim > 0.5 ? RIM[c] : PAL[c][Math.round(sk * 3)];
       }
-      tile(X, Y, size, col, open);
+      g.fillStyle = fill; g.fillRect(X - size / 2, Y - size / 2, size, size);
     }
+    g.globalAlpha = 1;
     g.restore();
   }
   // LAR leads: to the mouth, then in ahead of the camera, gone into the swirl before it lands.
