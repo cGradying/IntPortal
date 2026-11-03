@@ -60,13 +60,13 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
   - `caption`
   - `numeral`
 
-  **(pick)** Their faces come from one of these directions:
-  - (a) system UI for reading, with Pixelify for play;
-  - (b) Geist with Pixelify;
-  - (c) Instrument Serif for titles only, with system UI for reading.
+  **Decided 2026-11-03: Pixel-bridged** (round two called it Sharp system).
+  - `display`, `title`, `headline`, `body`, `caption` and `numeral`: SF Pro (`system-ui`). Titles at 800 with −0.035em tracking, headlines at 800 with −0.02em.
+  - `label` (small labels, chips, day names, tab labels): Pixelify Sans at 600 with 0.06em tracking, sized so its pixel lands on the icons' pixel grid.
+  - Hero numbers use the pixel numerals (C10).
 
-  Montserrat and Source Sans stay as a **Classic** text style in You (added 2026-11-03). Round two of the mockups adds four directions: Sharp system, Squared (Chakra Petch), Soft blocks (Rubik), and Pixel titles (Pixelify with Atkinson Hyperlegible).
-- **C9. The pixel rule.** Pixelify sets play only: LAR's name and bubbles, stamps, chips, section tags and celebrations. It never sets a time, a room, a date or a due item.
+  Montserrat and Source Sans stay as a **Classic** text style in You.
+- **C9. The pixel rule.** Pixelify sets play and small labels only: LAR's name and bubbles, stamps, chips, section tags, day and tab labels, and celebrations. It never sets a time, a room, a date or a due item.
 - **C10. Pixel numerals.** A hand-drawn numeral set (0–9, `:`, `.`, `%` and small-caps `AM`/`PM`), drawn as SVG sprites in the way `PixelIcon` is. The numerals are tabular, and their sizes snap to the art pixel. **(pick)** Use them for hero numbers only (the Up next time, GPA, Study counts) or for every number.
 - **C11. Scale.** Seven sizes, one per role, each with a `rem` value and a cap. Each cap is above the caps of the roles under it, so a title never equals body at the largest text size. The 17 sizes in use today collapse into these seven. **(pick)** The values come from the mockup.
 - **C12. Units.** A number and its unit always have a gap or a size change between them, so `0 days`, never `0days`.
@@ -163,7 +163,6 @@ The Step 3 mockups resolve all of these:
 - C4 (school colours across the app)
 - C6 (pixel controls)
 - C7 (orb lane)
-- C8 (type direction)
 - C10 (numeral reach)
 - C11 (scale values)
 - C13 (juice level)

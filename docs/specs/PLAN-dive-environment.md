@@ -180,3 +180,8 @@ Reuse what already exists:
   - The campus row and the other schools are dropped.
 - Spec 045 C7 and C4a are updated.
 - **Paused for round-three picks.**
+- 2026-11-03 · **Picks, round three:**
+  - **Type: Pixel-bridged**, settled. The tray sent "Sharp system", round two's name for the same tokens. Spec 045 C8 and C9 are updated.
+  - **Motion: more.** **Done: more.**
+  - **Dive: needs work.** **Week: needs work.** Waiting on what is off.
+  - Next: mockups round four for dive, motion, done and week. Fix the tray: its header still says "round two", and the `ip-picks-2` key carried round-two picks over.
