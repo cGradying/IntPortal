@@ -1,6 +1,6 @@
 # 044 Pixel week
 
-**Status:** draft. Criteria marked **(pick)** wait for the Step 3 mockups.
+**Status:** draft. The layout was picked in round four of the mockups (B, Week and Day kept), with tap-to-open from round five.
 
 ## What changes for the student
 
@@ -29,19 +29,15 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
   - A class block is a flat fill in its course colour, with pixel-notched corners (one 2 px step) and a 2 px tile gap to its neighbours and the column edge.
   - No rounded corners and no drop shadow.
 - **C2. What a block says.**
-  - Every block shows the course code on one line, never split.
-  - When the block is at least 44 px tall it adds the title, and at 66 px or taller it also adds the room.
-  - Text truncates with an ellipsis, never mid-word wrap.
-- **C3. (pick) Days shown.** One of:
-  - (a) Mon–Sat always, plus Sun when it has a class or is today;
-  - (b) days with classes only, as today, with empty days as thin ghost columns that keep their place.
-
-  Recommendation: (a). The week then reads as a week, and a moved class lands where the student expects it.
+  - A block leads with the class title, wrapping on words only, up to three lines. Under it come the time and, pinned to the bottom, the room, both in the label face.
+  - The course code shows only in an opened day (C13) and in the class sheet.
+  - Text never breaks mid-word, and it clips rather than showing an ellipsis.
+- **C3. Days shown (picked).** Days with classes, plus today, are full columns. Empty days are 7 px hatched ghost columns that keep their place, so a moved class still lands where the student expects it.
 
 **Stamps**
 
 - **C4. Marks are stamps.**
-  - Online, vacant and moved classes carry a small stamp in the block's top-right corner: `ONLINE` in the online ink, `VACANT` in the vacant ink, and `MOVED` in the in-person ink with a dashed outline.
+  - Online, vacant and moved classes carry a small stamp as the block's first line: `ONLINE` in the online ink, `VACANT` in the vacant ink, and `MOVED` in the in-person ink with a dashed outline.
   - Vacant blocks also get a 45° hatch. Colour is never the only signal.
 - **C5. The stamp thunk.** A stamp that is new since the last visit lands with the `thunk` (0.55 s, `steps(6)`) plus a 2 px shake of its block, once. Stamps the student has already seen just sit there.
 - **C6. Moved shows both places.** A moved class shows on its new day and time. In week view, a dashed ghost of the block stays at the old slot for that week.
@@ -50,17 +46,23 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
 
 - **C7. Finished classes fade.** On today's column, classes that have ended drop to 45% opacity. The class in progress keeps full colour and a 2 px inner edge in the accent.
 - **C8. The now-line glides.**
-  - The now-line is a 2 px accent line with a 6 × 6 pixel nub at the hour rail.
+  - The now-line is a 2 px accent line with a time tag (`1:10`) on the hour rail.
   - It moves continuously, drawn with a transform each frame at 1 fps or more, so it never jumps a minute at a time.
   - It sits above the blocks and below the stamps.
 
 **Moving between days and weeks**
 
-- **C9. Day swipe.**
-  - In day view, a horizontal drag moves the list with the finger. Past 60 px or a quick flick, it springs to the next or previous day, using the spring in `carousel.ts`. Otherwise it springs back.
+- **C9. The day view is a timeline.** Classes sit on the hour rail at their real length, as cards with the course colour as a bar, and the free gaps of 45 minutes or more between them are dashed bands labelled `1h 30m free`. A moved class leaves a dashed `Moved to Thu 3:00` card at its old slot.
+- **C9a. Day swipe.**
+  - In day view, a horizontal drag moves the timeline with the finger. Past 60 px or a quick flick, it springs to the next or previous day, using the spring in `carousel.ts`. Otherwise it springs back.
   - The day strip's selection slides with it.
 - **C10. Week swipe.** In week view, a horizontal swipe changes the week with the same spring, and the header names the week (`This week`, `Next week`, or the date range).
-- **C11. (pick) Month strip.** One variant adds a deadline strip above the week: a row of 28 dots, one per day, filled on days with something due. Tapping a dot jumps there. The mockup decides whether it ships.
+- **C11. The four-week month (picked).** Beside the screen title sits a 7 × 4 pixel month: one 5 px square per day for the next four weeks, gold when something is due, red when overdue, with today outlined and the current week lighter. Each day header in the week also carries a 4 px pin when something is due that day.
+- **C13. Open a day.**
+  - Tapping a day's column or header in week view opens it: its column eases to four times the others' width over 0.36 s, and its blocks add the course code, larger text and the free gaps. The other days keep their blocks as colour only, with a white pixel where a block has a stamp.
+  - Tapping the open day again, any drag of more than 10 px on the grid, a scroll, or a week swipe closes it, and the week goes back to even.
+  - With a day open, tapping one of its classes opens the class sheet. With no day open, tapping a class opens its day.
+  - Reduce Motion: the widths change without easing.
 
 **Reduce Motion**
 
@@ -113,10 +115,10 @@ See C5, C8–C10 and C12. The spring is the existing one from `carousel.ts`. Sta
 | C7 | `vitest`: `c7_finished_classes_fade` at a fixed clock |
 | C8 | recording: the line moves smoothly over 2 minutes |
 | C9, C10 | recording; `vitest`: threshold and flick velocity |
-| C11 | screenshot, if picked |
+| C11 | screenshot in both rooms |
+| C13 | `vitest`: `c13_open_day_and_let_go` (tap opens, a second tap or a 10 px drag closes) |
 | C12 | `vitest` on the CSS rule; recording with Reduce Motion on |
 
 ## Open questions
 
-- C3 (days shown)
-- C11 (month strip)
+- C13: should tapping a class in the even week open the sheet directly, skipping the open-day step? The mockup opens the day first.

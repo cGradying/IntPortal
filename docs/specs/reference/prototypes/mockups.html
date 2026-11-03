@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@500;600;700&family=Montserrat:wght@600;700;800&family=Pixelify+Sans:wght@500;600;700&family=Rubik:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-/* Round four. Settled picks sit in a strip at the top; the open rows
+/* Round five. Settled picks sit in a strip at the top; the open rows
    follow as live phones in the picked world (one void, dot grid, the
    school's accent, the cube in the header). Single-theme on purpose:
    the page lives in the portal's night. */
@@ -229,22 +229,20 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .wk .head .dh b { font: 800 11px/1 var(--rf-num); color: var(--ink); }
 .wk .head .dh.today, .wk .head .dh.today b { color: var(--gold-c); }
 .dh .pin { width: 4px; height: 4px; } .dh .pin.due { background: var(--gold-c); } .dh .pin.over { background: var(--bad); }
-.fw .head, .fw .body { transition: grid-template-columns 0.36s var(--ease); }
-.fw .head .dh.focus { background: color-mix(in srgb, var(--gold-c) 14%, transparent); }
-.fw .col { cursor: pointer; }
-.fw .col.empty { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--edge-c) 3px 4px); }
-.fw .col:not(.focus) .blk > * { opacity: 0; transition: opacity 0.1s; }
-.fw .col.focus .blk > * { opacity: 1; transition: opacity 0.18s 0.2s; }
-.fw .col:not(.focus) .blk[data-stamped="1"]::after { content: ""; position: absolute; right: 2px; top: 3px; width: 4px; height: 4px; background: rgb(255 255 255 / 0.92); }
-.fw .col.focus .blk { padding: 4px 6px; }
-.fw .col.focus .blk b { font-size: 10px; -webkit-line-clamp: 2; }
-.fw .col.focus .blk .cd { display: block; }
-.fw .col.focus .blk .tm, .fw .col.focus .blk .rm { font-size: 8px; }
+.wb .head, .wb .body { transition: grid-template-columns 0.36s var(--ease); }
+.wb .head .dh.focus { background: color-mix(in srgb, var(--gold-c) 14%, transparent); }
+.wb .col { cursor: pointer; }
+.wb .blk > * { transition: opacity 0.18s 0.2s; }
+.wb.focusing .col:not(.focus) .blk > * { opacity: 0; transition: opacity 0.1s; }
+.wb.focusing .col:not(.focus) .blk[data-stamped="1"]::after { content: ""; position: absolute; right: 2px; top: 3px; width: 4px; height: 4px; background: rgb(255 255 255 / 0.92); }
+.wb .col.focus .blk { padding: 4px 6px; }
+.wb .col.focus .blk b { font-size: 10px; -webkit-line-clamp: 2; }
+.wb .col.focus .blk .cd { display: block; }
+.wb .col.focus .blk .tm, .wb .col.focus .blk .rm { font-size: 8px; }
 .free { position: absolute; left: 3px; right: 3px; display: grid; place-items: center; border: 1px dashed color-mix(in srgb, var(--ink-3) 60%, transparent); pointer-events: none; }
 .free span { font: 600 7px var(--rf-label); letter-spacing: 0.05em; color: var(--ink-2); background: var(--ground); padding: 1px 3px; white-space: nowrap; }
-.fw .free { opacity: 0; transition: opacity 0.1s; } .fw .col.focus .free { opacity: 1; transition: opacity 0.2s 0.22s; }
+.wb .free { opacity: 0; transition: opacity 0.1s; } .wb .col.focus .free { opacity: 1; transition: opacity 0.2s 0.22s; }
 .rest { position: absolute; left: 4px; right: 4px; top: 38%; text-align: center; font-size: 9px; line-height: 1.4; color: var(--ink-2); }
-.fw .rest { opacity: 0; transition: opacity 0.1s; } .fw .col.focus .rest { opacity: 1; transition: opacity 0.2s 0.22s; }
 .nowline span { position: absolute; right: 100%; top: 50%; translate: 0 -50%; font: 700 7px/1 var(--rf-label); letter-spacing: 0.02em; background: var(--gold-c); color: var(--on-gold-c); padding: 2px 2px; white-space: nowrap; }
 .mm { display: grid; gap: 3px; justify-items: end; }
 .mm span { font: 600 7px var(--rf-label); letter-spacing: 0.06em; color: var(--ink-3); }
@@ -290,12 +288,7 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
 /* ---------- round four: the field and motion ---------- */
 .phone canvas.pulse { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .phone canvas.fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
-.tabs .sel { position: absolute; left: 4px; top: 4px; width: calc((100% - 8px) / 5); height: 34px; pointer-events: none; transition: translate 0.24s steps(4); }
-.tabs .sel::before { content: ""; position: absolute; left: 50%; top: 0; translate: -50% 0; width: 36px; height: 32px; background: color-mix(in srgb, var(--gold-c) 14%, transparent); clip-path: polygon(0 3px,3px 3px,3px 0,calc(100% - 3px) 0,calc(100% - 3px) 3px,100% 3px,100% calc(100% - 3px),calc(100% - 3px) calc(100% - 3px),calc(100% - 3px) 100%,3px 100%,3px calc(100% - 3px),0 calc(100% - 3px)); }
-.mini { position: absolute; top: 0; left: 0; right: 0; height: 46px; z-index: 29; display: grid; place-items: end center; padding-bottom: 6px; background: color-mix(in srgb, var(--ground) 86%, transparent); backdrop-filter: blur(10px); box-shadow: inset 0 -1px 0 var(--edge-c); font: var(--rw-title) 11px var(--rf-title); color: var(--ink); opacity: 0; translate: 0 -6px; transition: opacity 0.18s var(--ease), translate 0.18s var(--ease); pointer-events: none; }
-.mini.on { opacity: 1; translate: 0 0; }
 .orb { transition: opacity 0.2s var(--ease), scale 0.2s var(--spring), translate 0.22s var(--ease); }
-.orb.tuck { scale: 0.7; translate: 18px 0; opacity: 0.7; }
 .scrim { position: absolute; inset: 0; z-index: 44; background: rgb(0 0 0 / 0.32); opacity: 0; pointer-events: none; transition: opacity 0.25s var(--ease); }
 .scrim.on { opacity: 1; pointer-events: auto; }
 .csheet { position: absolute; left: 8px; right: 8px; bottom: 72px; height: 190px; z-index: 46; display: none; transform-origin: 0 0; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c); overflow: hidden; clip-path: polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px)); }
@@ -315,6 +308,7 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
 .tray .chips { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .tray .chips span { flex: none; font: 500 11px var(--f-pixel); letter-spacing: 0.04em; padding: 4px 8px; box-shadow: inset 0 0 0 1px var(--edge); color: var(--parch-3); }
 .tray .chips span.set { color: var(--on-gold); background: var(--gold); box-shadow: none; }
+.settled-note { font: 500 12px var(--f-pixel); letter-spacing: 0.06em; color: var(--parch-3); }
 .tray .copy { flex: none; height: 40px; padding: 0 16px; font-size: 14px; }
 .toast { font-size: 12px; color: var(--parch-2); }
 
@@ -325,10 +319,10 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
 
 <div class="wrap">
   <header class="top">
-    <h1>Round four: the look of <b>IntPortal</b></h1>
-    <p>Type is settled: Pixel-bridged, in every phone on this page. This round turns the dive into a real camera move into the portal, gives the whole app and the done moment more motion, and offers two ways to fix the week. Every row works in Night and Day.</p>
+    <h1>Round five: the look of <b>IntPortal</b></h1>
+    <p>Done and the week's shape are settled. This round gives the dive's fade its effects, pulls the motion back, and lets you open a day in the week by tapping it.</p>
     <div class="settled" aria-label="Settled picks">
-      <span>LAR leads</span><span>One void</span><span>Dot grid</span><span>Campus kept</span><span>School accent, PUP only for now</span><span>Pixel checkboxes</span><span>Current sizes</span><span>Hero pixel numerals</span><span>Subtle juice</span><span>Pixel-bridged type</span><span>Floating cube, bottom right</span>
+      <span>LAR leads</span><span>One void</span><span>Dot grid</span><span>Campus kept</span><span>School accent, PUP only for now</span><span>Pixel checkboxes</span><span>Current sizes</span><span>Hero pixel numerals</span><span>Subtle juice</span><span>Pixel-bridged type</span><span>Done as in round four</span><span>Week and Day</span><span>Floating cube, bottom right</span>
     </div>
   </header>
   <nav class="jump" aria-label="Rows">
@@ -368,7 +362,7 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
     <div class="q">
       <span class="spec">045 C13–C21, 010 C18b</span>
       <h2>The whole app, moving</h2>
-      <p>More this round. A pixel block steps under the tab you pick while the page slides toward it. Scroll Today and the big title folds into a bar while the cube tucks aside until you stop. The Up next countdown ticks (every 4 s here, every minute in the app). Pull to sync and the dot grid ripples out when it lands. On Schedule, tap a class and its sheet grows out of the block, then shrinks back into it. Grades count down with stamps and a spark on the personal best; the cube still flies up into LAR's chat.</p>
+      <p>Less this round. Tabs hop and the page slides toward the tab you chose. Pull Today to sync and the dot grid ripples once when it lands. On Schedule, tap a day to open it, then tap a class and its sheet grows out of the block and shrinks back into it. Grades count down with stamps on first open. The cube flies up into LAR's chat and back. Gone from round four: the tab highlight, the folding title, the tucking cube, the ticking countdown and the extra sparks.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-m="room" data-v="night" aria-pressed="true">Night</button><button data-m="room" data-v="day" aria-pressed="false">Day</button></div>
@@ -381,7 +375,7 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
         <p class="note"><b>Pixel things step, interface things ease.</b> Hops, stamps and fills use <code>steps()</code>. Pages, sheets and the cube's flight use the one ease, with a spring only where something lands.</p>
         <p class="note"><b>Direction carries meaning.</b> Pages slide 12 px toward the tab you picked, so you feel where you went. The chat rises from where the cube lives, and goes back the same way.</p>
         <p class="note"><b>Count from what you last saw.</b> The GPA counts from the value on your last visit, not from zero, and stamps thunk only when a grade is new to this phone.</p>
-        <p class="note"><b>The field answers.</b> The dot grid is the one living surface. It ripples when something lands (a sync, a done, LAR waking), then it's dots again.</p>
+        <p class="note"><b>The field answers, rarely.</b> The dot grid ripples only when something lands: the end of the dive, a sync, a done. Then it's dots again.</p>
         <p class="note"><b>Things grow from where they live.</b> A class sheet opens out of its block, the chat out of the cube. Closing goes back the same way.</p>
         <p class="note"><b>Then still.</b> Nothing loops on content. The cube bobs, and LAR breathes in his chat; cards never move on their own. Reduce Motion skips all of it to the end state.</p>
         <div class="ctl">
@@ -414,9 +408,7 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
         <p class="note"><b>Then silence.</b> Each done finishes within 1.1 s and nothing loops. The list is still the moment the card lands.</p>
         <p class="note">In the app, sound starts off, with a switch in You (045 C19). It's on here so you can hear it. Haptics pair with each step: a tick, a success buzz, then a soft impact under the stamp.</p>
         <div class="ctl">
-          <button class="pick inline" data-row="done" data-v="this is it">This is it</button>
-          <button class="pick inline" data-row="done" data-v="more">More</button>
-          <button class="pick inline" data-row="done" data-v="less">Less</button>
+          <span class="settled-note">Settled in round four.</span>
         </div>
       </div>
     </div>
@@ -425,8 +417,8 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
   <section class="row" id="week">
     <div class="q">
       <span class="spec">044, reworked</span>
-      <h2>Two ways to fix the week</h2>
-      <p>Round three's blocks were too narrow: codes cut off mid-word and titles never showed. Both options here lead with the class title, wrap on words, and fold the deadline strip into a small four-week pixel month beside the title, with due pins under each day. A makes the week one view that opens the day you look at. B keeps the Day/Week switch and fixes both views.</p>
+      <h2>Week and Day, with a day you can open</h2>
+      <p>You picked B. New: tap a day in the week and it opens wide with the code, title, time, room and free gaps, while the rest shrink to colour so the week keeps its shape. Tap it again, or move the grid, and it goes back to even. The Day view stays the timeline.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-k="room" data-v="night" aria-pressed="true">Night</button><button data-k="room" data-v="day" aria-pressed="false">Day</button></div>
@@ -435,8 +427,7 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
     </div>
     <div class="opts" id="weekOpts"></div>
     <div class="ctl">
-      <button class="pick inline" data-row="week" data-v="A focus week">A · Focus week</button>
-      <button class="pick inline" data-row="week" data-v="B week and day">B · Week and Day</button>
+      <button class="pick inline" data-row="week" data-v="this is it">This is the week</button>
       <button class="pick inline" data-row="week" data-v="needs work">Needs more work</button>
     </div>
   </section>
@@ -1640,9 +1631,9 @@ function mountToday(phone, o) {
 }
 
 /* ---------------- picks and the tray ---------------- */
-const ROWS = [["dive", "Dive"], ["motion", "Motion"], ["done", "Done"], ["week", "Week"]];
+const ROWS = [["dive", "Dive"], ["motion", "Motion"], ["week", "Week"]];
 let picks = {};
-try { picks = JSON.parse(localStorage.getItem("ip-picks-4") || "{}"); } catch { picks = {}; }
+try { picks = JSON.parse(localStorage.getItem("ip-picks-5") || "{}"); } catch { picks = {}; }
 function renderTray() {
   $("#chips").innerHTML = ROWS.map(([k, l]) => `<span class="${picks[k] ? "set" : ""}">${l}${picks[k] ? ": " + picks[k] : ""}</span>`).join("");
   $$(".pick").forEach((b) => b.setAttribute("aria-pressed", String(picks[b.dataset.row] === b.dataset.v)));
@@ -1650,11 +1641,11 @@ function renderTray() {
 document.addEventListener("click", (e) => {
   const b = e.target.closest(".pick"); if (!b) return;
   picks[b.dataset.row] = b.dataset.v;
-  try { localStorage.setItem("ip-picks-4", JSON.stringify(picks)); } catch {}
+  try { localStorage.setItem("ip-picks-5", JSON.stringify(picks)); } catch {}
   renderTray();
 });
 $("#copy").addEventListener("click", () => {
-  const text = "IntPortal picks, round four:\n" + ROWS.map(([k, l]) => `- ${l}: ${picks[k] || "(no pick)"}`).join("\n");
+  const text = "IntPortal picks, round five:\n" + ROWS.map(([k, l]) => `- ${l}: ${picks[k] || "(no pick)"}`).join("\n");
   const done = (m) => { $("#toast").textContent = m; setTimeout(() => ($("#toast").textContent = ""), 2400); };
   const fallback = () => { const r = document.createRange(); r.selectNodeContents($("#chips")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); done("Copying is blocked here. The picks are selected, so copy them by hand."); };
   if (!navigator.clipboard) return fallback();
@@ -1696,7 +1687,7 @@ function mountDive() {
   $("#diveScrub").max = Math.round(tl.total * 1000);
   const f = (v) => (+v.toFixed(2)).toString();
   const dv = [`${f(tl.zoom)}–${f(tl.zoomEnd)} s`, "The camera dives into the mouth. The frame's tiles grow and rush out past the edges. Inside the mouth is the same field at a quarter of the pitch, swirling, and it grows until its tiles are the screen's tiles"];
-  const ar = [`${f(tl.arrive)}–${f(tl.arriveEnd)} s`, "The swirl warms to the room. From the centre out, each tile shrinks to a dot and lifts off in a dither: Today's dot grid, with Today already in place"];
+  const ar = [`${f(tl.arrive)}–${f(tl.arriveEnd)} s`, "The swirl warms to the room. A glowing front runs out from the centre: each tile flares, shrinks to a dot and lifts off in a dither, leaving a glint. As the last tiles go, one ripple runs through Today's dot grid. Today was already in place"];
   $("#diveSteps").innerHTML = (tl.first
     ? [[`0–${f(tl.fly)} s`, "The portal stands in the field. LAR says Ayos! and flies to its mouth; the dots near the frame glow in its light"], [dv[0], dv[1] + ". LAR goes in first, shrinking toward the centre"], ar]
     : [[`0–${f(tl.build)} s`, "The field's dots swell into the frame from the bottom centre"], [dv[0], "One quick dive into the mouth. With slow data, the swirl keeps turning at full screen"], [ar[0], dive.slow === "1" ? "Data is ready at 1.8 s, then the tiles fall back to dots" : "Ends at the later of 0.6 s and data ready"]]).map(([a, b]) => `<div><b>${a}</b><span>${b}</span></div>`).join("");
@@ -1716,9 +1707,9 @@ function drawDive(t) {
   const open = tl.first ? 1 : clamp((bk - 0.8) * 5);                               // the mouth opens
   const zk = smooth(clamp((t - tl.zoom) / (tl.zoomEnd - tl.zoom)));                // the dive
   const z = ZMAX ** zk, FX = PCX + (SX - PCX) * zk, FY = PCY + (SY - PCY) * zk;    // zoom about the mouth as it drifts to the centre
-  const ak = clamp((t - tl.arrive) / (tl.arriveEnd - tl.arrive)), A = ease(ak) * 31; // arrival front, in cells
+  const ak = clamp((t - tl.arrive) / (tl.arriveEnd - tl.arrive)), A = ease(ak) * 36; // arrival front, in cells
   const warm = smooth(clamp((t - (tl.arrive - 0.3)) / 0.36));
-  const gap = lerp3(VOID, ground, warm), home = lerp3(ground, dotRoom, 0.35);
+  const gap = lerp3(VOID, ground, warm), home = lerp3(ground, dotRoom, 0.35), glint = lerp3(acc, [255, 246, 220], 0.45);
   const tile = (x, y, s, c, a = 1) => { g.fillStyle = css(c, a); g.fillRect(x - s / 2, y - s / 2, s, s); };
   if (ak === 0) {
     g.fillStyle = css(gap); g.fillRect(0, 0, FW, FH);
@@ -1759,11 +1750,17 @@ function drawDive(t) {
       let col = ramp[band], size = (P - 2) * k;
       if (warm > 0) col = lerp3(col, home, warm * 0.82);
       if (ak > 0) {
-        const kk = smooth(clamp((A - d) / 3.2));
-        if (kk > 0.5 + 0.5 * BAYER[(j & 3) * 4 + (i & 3)]) continue;   // lifted: Today's own dot shows here
-        const s = clamp(kk * 2);
+        const kk = smooth(clamp((A - d) / 3.2)), lift = 0.45 + 0.35 * BAYER[(j & 3) * 4 + (i & 3)];
+        if (kk > lift) {
+          // Lifted: Today's own dot shows here, and the tile leaves a glint that fades into it.
+          const gk = (kk - lift) / 0.18;
+          if (gk < 1) tile(X, Y, 1.8 + 3.2 * (1 - gk), glint, 0.85 * (1 - gk) ** 2);
+          continue;
+        }
+        // The front glows: tiles flare and swell as it reaches them, then shrink to a dot.
+        const rim = Math.max(0, 1 - Math.abs(kk - 0.18) / 0.18), s = clamp(kk / lift);
         g.fillStyle = css(gap); g.fillRect(X - P / 2, Y - P / 2, P, P);
-        size += (1.8 - size) * s; col = lerp3(col, dotRoom, s);
+        size = (size + (1.8 - size) * s) * (1 + 0.28 * rim); col = lerp3(lerp3(col, dotRoom, s), glint, 0.75 * rim);
       }
       tile(X, Y, size, col, open);
     }
@@ -1789,10 +1786,11 @@ function frame(now) {
   dive.t = Math.min(tl.total, ((now - t0) / 1000) * +dive.speed);
   $("#diveScrub").value = Math.round(dive.t * 1000);
   drawDive(dive.t);
+  if (!dive.landed && dive.t >= tl.arriveEnd - 0.1) { dive.landed = true; fieldPulse(phone, SX, SY, 1.3); }
   if (dive.t < tl.total) raf = requestAnimationFrame(frame);
 }
 function diveRestart() {
-  cancelAnimationFrame(raf); mountDive();
+  cancelAnimationFrame(raf); mountDive(); dive.landed = false;
   if (reduce) { dive.t = timeline().total; drawDive(dive.t); return; }
   t0 = performance.now(); raf = requestAnimationFrame(frame);
 }
@@ -2001,40 +1999,37 @@ function freeHTML(d, hh) {
 const weekTop = () => `<div class="status"><span>1:10</span><span>●●● ▮</span></div><div class="scroll" style="padding-bottom:70px"><div class="scr" style="gap:8px">
     <div class="hd"><div><div class="lbl">Oct 19 – 24</div><h3 class="hi">This week</h3></div>${miniMonth()}</div>`;
 
-/* A. Focus week: one view; the focused day opens wide, the rest keep their shape. */
-const FA = { focus: TODAY }, HHA = 31;
-const tplA = (f) => `18px ${[0, 1, 2, 3, 4, 5].map((d) => (d === f ? "minmax(0,4fr)" : hasDay(d) ? "minmax(0,1fr)" : "minmax(0,0.5fr)")).join(" ")}`;
-function focusHTML(r) {
-  const f = FA.focus, tpl = tplA(f);
-  const col = (d) => `<div class="col${d === TODAY ? " today" : ""}${d === f ? " focus" : ""}${hasDay(d) ? "" : " empty"}" data-f="${d}">${dayItems(d).map((c) => blockHTML(c, d, HHA, r)).join("")}${freeHTML(d, HHA)}${hasDay(d) ? "" : `<div class="rest">No classes.<br>Pahinga muna.</div>`}</div>`;
-  return weekTop() + `<div class="wk fw">
-      <div class="head" style="grid-template-columns:${tpl}"><span></span>${[0, 1, 2, 3, 4, 5].map((d) => headCell(d, d === f ? " focus" : "")).join("")}</div>
-      <div class="body" style="grid-template-columns:${tpl};height:${HOURS * HHA}px;--hh:${HHA}px">${hrsHTML(HHA)}${[0, 1, 2, 3, 4, 5].map(col).join("")}${nowHTML(HHA, 18)}</div></div>
-  </div></div>${tabBar("sched")}`;
-}
-function setupFocus(p) {
-  const body = $(".fw .body", p), head = $(".fw .head", p);
-  let x0 = null, swiped = false;
-  const go = (f) => {
-    f = clamp(f, 0, 5); if (f === FA.focus) return; FA.focus = f;
-    const tpl = tplA(f); body.style.gridTemplateColumns = tpl; head.style.gridTemplateColumns = tpl;
-    $$(".fw [data-f]", p).forEach((e) => e.classList.toggle("focus", +e.dataset.f === f));
-  };
-  $$(".fw [data-f]", p).forEach((e) => e.addEventListener("click", () => !swiped && go(+e.dataset.f)));
-  body.addEventListener("pointerdown", (e) => { x0 = e.clientX; swiped = false; });
-  body.addEventListener("pointerup", (e) => { if (x0 == null) return; const dx = e.clientX - x0; x0 = null; if (Math.abs(dx) > 36) { swiped = true; go(FA.focus + (dx < 0 ? 1 : -1)); } });
-}
-
 /* B. Week and Day, both kept and fixed. */
 const HHB = 31, HHD = 27;
+const shown = (d) => d === TODAY || hasDay(d);
+/* Tap a day and it opens wide; any move lets it go back to the even week. */
+const tplB = (f) => `18px ${[0, 1, 2, 3, 4, 5].map((d) => (!shown(d) ? "7px" : f >= 0 && d === f ? "minmax(0,4fr)" : "minmax(0,1fr)")).join(" ")}`;
 function weekHTML(r) {
-  const shown = (d) => d === TODAY || hasDay(d);
-  const tpl = `18px ${[0, 1, 2, 3, 4, 5].map((d) => (shown(d) ? "minmax(0,1fr)" : "7px")).join(" ")}`;
-  const col = (d) => (shown(d) ? `<div class="col${d === TODAY ? " today" : ""}">${dayItems(d).map((c) => blockHTML(c, d, HHB, r)).join("")}</div>` : `<div class="col ghost" title="${DAYS[d]}: no classes"></div>`);
-  return weekTop() + `<div class="wk">
+  const tpl = tplB(-1);
+  const col = (d) => (shown(d) ? `<div class="col${d === TODAY ? " today" : ""}" data-f="${d}">${dayItems(d).map((c) => blockHTML(c, d, HHB, r)).join("")}${freeHTML(d, HHB)}</div>` : `<div class="col ghost" title="${DAYS[d]}: no classes"></div>`);
+  return weekTop() + `<div class="wk wb">
       <div class="head" style="grid-template-columns:${tpl}"><span></span>${[0, 1, 2, 3, 4, 5].map((d) => (shown(d) ? headCell(d) : "<span></span>")).join("")}</div>
       <div class="body" style="grid-template-columns:${tpl};height:${HOURS * HHB}px;--hh:${HHB}px">${hrsHTML(HHB)}${[0, 1, 2, 3, 4, 5].map(col).join("")}${nowHTML(HHB, 18)}</div></div>
   </div></div>${tabBar("sched")}`;
+}
+function setupWeekFocus(p) {
+  const wk = $(".wb", p); if (!wk) return;
+  const body = $(".body", wk), head = $(".head", wk), sc = wk.closest(".scroll");
+  let f = -1, x0 = null, y0 = 0, moved = false;
+  const set = (n) => {
+    f = n; const tpl = tplB(f); body.style.gridTemplateColumns = tpl; head.style.gridTemplateColumns = tpl;
+    wk.classList.toggle("focusing", f >= 0); $$("[data-f]", wk).forEach((e) => e.classList.toggle("focus", +e.dataset.f === f));
+  };
+  $$("[data-f]", wk).forEach((e) => e.addEventListener("click", (ev) => {
+    if (moved) return;
+    if (+e.dataset.f === f && ev.target.closest(".blk[data-i]")) return;   // a class in the open day opens its sheet instead
+    set(+e.dataset.f === f ? -1 : +e.dataset.f);
+  }));
+  wk.addEventListener("pointerdown", (e) => { x0 = e.clientX; y0 = e.clientY; moved = false; });
+  wk.addEventListener("pointermove", (e) => { if (x0 == null || moved || Math.hypot(e.clientX - x0, e.clientY - y0) < 10) return; moved = true; if (f >= 0) set(-1); });
+  addEventListener("pointerup", () => (x0 = null));
+  sc?.addEventListener("scroll", () => f >= 0 && set(-1), { passive: true });
+  sc?.addEventListener("wheel", () => f >= 0 && set(-1), { passive: true });
 }
 function dayHTML(r) {
   const card = (c, d) => {
@@ -2051,16 +2046,15 @@ function dayHTML(r) {
 }
 function renderWeek() {
   const opts = [
-    ["focus", "A · Focus week", "One view. The day you're looking at opens wide with the code, title, time, room and free gaps; the other days shrink to colour, so the week's shape stays. Tap a day or swipe to move. This replaces the Day/Week switch."],
-    ["week", "B · Week, refined", "The switch stays. Blocks lead with the title, wrap on words, and carry the time and room; stamps sit inline; the now-line has its time."],
+    ["week", "Week: tap a day to open it", "Tap Fri (or any day) and it opens wide with the code, title, time, room and free gaps while the other days shrink to colour. Tap it again, or move the grid at all, and the week goes back to even. With a day open, tapping one of its classes opens the class sheet."],
     ["day", "B · Day, as a timeline", "Classes at their real length on the hour rail, with the free gaps between them, so the day fills the screen. Drag sideways or tap a day."],
   ];
   $("#weekOpts").innerHTML = opts.map(([k, n, s]) => `<div class="opt"><div class="phone" data-week="${k}"></div><div class="name"><b>${n}</b><span>${s}</span></div></div>`).join("");
   $$("#weekOpts .phone").forEach((p) => {
     const { r } = applyRoles(p, { room: K.room, school: "pup" }); p.classList.add("dots");
     const k = p.dataset.week;
-    p.innerHTML = `<div class="island"></div>` + (k === "day" ? dayHTML(r) : k === "focus" ? focusHTML(r) : weekHTML(r));
-    if (k === "day") setupSwipe(p); if (k === "focus") setupFocus(p);
+    p.innerHTML = `<div class="island"></div>` + (k === "day" ? dayHTML(r) : weekHTML(r));
+    if (k === "day") setupSwipe(p); else setupWeekFocus(p);
     floatingOrb(p, SCHOOLS.pup.theme);
   });
   stampIn();
@@ -2088,7 +2082,7 @@ $("#restamp").addEventListener("click", stampIn);
 $("#clock").addEventListener("input", (e) => { nowMin = +e.target.value; renderWeek(); });
 
 /* ================= MOTION: the whole app ================= */
-const M = { room: "night", tick: 0 };
+const M = { room: "night" };
 const mlar = { rig: LarKit.rig("idle"), open: false, cv: null, openedAt: 0 };
 let gradesSeen = false;
 function floatingOrb(p, th) { const orb = document.createElement("button"); orb.className = "orb"; orb.setAttribute("aria-label", "Ask LAR"); orb.appendChild(cubeCanvas(th, 2.4)); p.appendChild(orb); return orb; }
@@ -2106,7 +2100,6 @@ function renderMotion() {
   </div></div>`;
   p.innerHTML = `<div class="island"></div><div class="status"><span>4:41</span><span>●●● ▮</span></div>
     <div class="pages"><div class="pg" data-pg="today"></div><div class="pg" data-pg="sched" hidden></div><div class="pg" data-pg="grades" hidden>${grades}</div></div>
-    <div class="mini" aria-hidden="true">Good afternoon</div>
     <div class="pull"><canvas></canvas><span>PULL TO SYNC</span></div><span class="synced">SYNCED</span>
     ${tabBar()}
     <div class="scrim"></div><div class="csheet" role="dialog" aria-label="Class"><i class="morph"></i><div class="in"></div></div>
@@ -2115,40 +2108,23 @@ function renderMotion() {
       <div class="msgs"><div class="lar" data-hello></div></div><div class="comp">Ask LAR…</div></div>`;
   $("[data-pg=today]", p).appendChild(todayScroll); $("[data-pg=sched]", p).appendChild(weekScroll);
   drawCampus($("[data-campus]", p), M.room, "pup");
-  const orb = floatingOrb(p, th), mini = $(".mini", p);
-  // Tabs: a pixel block steps to the tab, the icon hops, the page slides toward it.
-  const order = ["today", "sched", "grades", "study", "you"], tabs = $(".tabs", p), sel = document.createElement("i");
-  sel.className = "sel"; tabs.prepend(sel);
+  const orb = floatingOrb(p, th);
+  // Tabs: the icon hops, the page slides toward the tab.
+  const order = ["today", "sched", "grades", "study", "you"];
   let cur = "today";
   $$(".tabs span", p).forEach((t, i) => t.addEventListener("click", () => {
     const next = order[i]; t.classList.remove("hop"); void t.offsetWidth; t.classList.add("hop");
     if (next === cur || !$(`[data-pg=${next}]`, p)) return;
     const dir = order.indexOf(next) > order.indexOf(cur) ? 1 : -1;
     const from = $(`[data-pg=${cur}]`, p), to = $(`[data-pg=${next}]`, p);
-    $$(".tabs span", p).forEach((x) => x.classList.toggle("on", x === t)); sel.style.translate = `${i * 100}% 0`;
-    mini.classList.remove("on");
+    $$(".tabs span", p).forEach((x) => x.classList.toggle("on", x === t));
     if (!reduce) {
       from.animate([{ opacity: 1, transform: "translateX(0)" }, { opacity: 0, transform: `translateX(${-12 * dir}px)` }], { duration: 120, easing: "ease-in" }).onfinish = () => (from.hidden = true);
       to.hidden = false; to.animate([{ opacity: 0, transform: `translateX(${12 * dir}px)` }, { opacity: 1, transform: "translateX(0)" }], { duration: 220, delay: 90, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "backwards" });
     } else { from.hidden = true; to.hidden = false; }
     cur = next;
-    if (next === "today") mini.classList.toggle("on", todayScroll.scrollTop > 44);
     if (next === "grades" && !gradesSeen) { gradesSeen = true; landGrades(p); }
   }));
-  // Scrolling Today folds the big title into a bar and tucks the cube aside until you stop.
-  let tuck = 0;
-  todayScroll.addEventListener("scroll", () => {
-    mini.classList.toggle("on", todayScroll.scrollTop > 44);
-    orb.classList.add("tuck"); clearTimeout(tuck); tuck = setTimeout(() => orb.classList.remove("tuck"), 650);
-  }, { passive: true });
-  // The Up next countdown ticks: every minute in the app, every 4 s here.
-  clearInterval(M.tick); let left = 139;
-  M.tick = setInterval(() => {
-    const big = $(".hero .big", todayScroll); if (!big || !p.isConnected) return;
-    left = left > 1 ? left - 1 : 139;
-    big.querySelector("svg").outerHTML = pixelNum(`${Math.floor(left / 60)}h ${left % 60}m`, 4);
-    if (!reduce) big.querySelector("svg").animate([{ translate: "0 -4px", opacity: 0.3 }, { translate: "0 0", opacity: 1 }], { duration: 200, easing: "steps(2)" });
-  }, 4000);
   // Pull to sync on Today; the dot grid ripples when it lands.
   const sc = todayScroll, pull = $(".pull", p), pcv = $(".pull canvas", p); pull.replaceChild(cubeCanvas(th, 1.6), pcv); const pullCube = cubes.at(-1);
   let y0 = null, dy = 0;
@@ -2179,7 +2155,8 @@ function renderMotion() {
     morph.animate([{ opacity: 0 }, { opacity: 1, offset: 0.5 }, { opacity: 1 }], { duration: 300, fill: "forwards" });
     cs.animate([{ transform: "none" }, { transform: toRect(fromBlk) }], { duration: 300, easing: "cubic-bezier(0.5,0,0.75,0)" }).onfinish = () => cs.classList.remove("open");
   };
-  $$(".blk[data-i]", weekScroll).forEach((b) => b.addEventListener("click", () => openClass(b)));
+  setupWeekFocus(p);
+  $$(".blk[data-i]", weekScroll).forEach((b) => b.addEventListener("click", () => b.closest(".col.focus") && openClass(b)));
   scrim.addEventListener("click", closeClass);
   // LAR's chat: the cube flies up from the orb, the field ripples, he comes out of his fire.
   const sheet = $(".sheet", p), flier = $(".flier", p), stageCv = $(".stage canvas", sheet);
@@ -2197,7 +2174,7 @@ function renderMotion() {
   };
   const hello = "Hi! Ako si LAR. May 2h 19m pa sa OOP. Ano'ng gagawin natin?";
   orb.addEventListener("click", async () => {
-    if (mlar.open) return; const at = rel(p, orb); orb.classList.add("away"); sheet.classList.add("open"); fieldPulse(p, at.x, at.y, 0.9);
+    if (mlar.open) return; orb.classList.add("away"); sheet.classList.add("open");
     if (!reduce) await fly(false);
     mlar.open = true; mlar.openedAt = performance.now() / 1000; mlar.rig.start("spawn", mlar.openedAt);
     const box = $("[data-hello]", sheet); box.textContent = ""; let i = 0; const t0 = performance.now() + 900;
@@ -2214,7 +2191,7 @@ function landGrades(p) {
   const el = $("[data-gpa]", p), from = 1.62, to = 1.28;
   if (reduce) { el.textContent = to.toFixed(2); $$(".gstamp", p).forEach((s) => (s.style.opacity = 1)); $("[data-pb]", p).style.opacity = 1; return; }
   const t0 = performance.now() + 250, D = 700;
-  const step = (now) => { const k = clamp((now - t0) / D), e = 1 - (1 - k) ** 3; el.textContent = (from + (to - from) * e).toFixed(2); if (k < 1) requestAnimationFrame(step); else { const pb = $("[data-pb]", p); pb.style.opacity = 1; pb.animate([{ scale: 2, opacity: 0 }, { scale: 0.92, opacity: 1, offset: 0.6 }, { scale: 1, opacity: 1 }], { duration: 420, easing: "steps(5)" }); burst(p, rel(p, pb).x, rel(p, pb).y, 14, 1.2); } };
+  const step = (now) => { const k = clamp((now - t0) / D), e = 1 - (1 - k) ** 3; el.textContent = (from + (to - from) * e).toFixed(2); if (k < 1) requestAnimationFrame(step); else { const pb = $("[data-pb]", p); pb.style.opacity = 1; pb.animate([{ scale: 2, opacity: 0 }, { scale: 0.92, opacity: 1, offset: 0.6 }, { scale: 1, opacity: 1 }], { duration: 420, easing: "steps(5)" }); } };
   requestAnimationFrame(step);
   $$(".gstamp", p).forEach((s, i) => setTimeout(() => { s.style.opacity = 1; s.classList.add("thunk"); }, 420 + i * 140));
 }

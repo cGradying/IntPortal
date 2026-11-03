@@ -192,3 +192,10 @@ Reuse what already exists:
   - **Week:** two options. A is a focus week: one view where the focused day opens to 4fr, and it replaces the Day/Week switch. B keeps the switch: title-first blocks with time and room, and the day view as a proportional timeline with free gaps. Both fold the deadline strip into a four-week pixel month and add due pins and a timed now-line. 044 C2 (blocks lead with the code) and C11 (the strip) change with either pick.
   - The Type row is removed (settled). The tray key is now `ip-picks-4`.
   - **Paused for round-four picks.**
+- 2026-11-04 · **Picks, round four:** Done is settled as round four. Week is B (Week and Day). Motion: less. Dive: needs work.
+  - Your feedback: tapping a day such as Fri should open it, and any movement should return the week to normal. The dive's fade needs effects.
+  - **Round five** (artifact version 5):
+    - **Week:** tap to open a day, any move to close it. 044 now records B, C13 open a day, title-first blocks, the four-week month and the day timeline.
+    - **Dive fade:** a glowing front, tiles that flare and swell, glints where tiles lift, and one ripple through Today's dot grid on landing.
+    - **Motion, less:** removed the tab highlight, the folding title, the tucking cube, the countdown tick and the extra sparks.
+  - **Paused for round-five picks** on Dive, Motion and Week.
