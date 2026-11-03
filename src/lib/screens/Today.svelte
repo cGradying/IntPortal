@@ -1,9 +1,3 @@
-<script lang="ts" module>
-  // Today's cards rise in one after another only on arriving from the
-  // landing, not on every tab switch (spec 010 C30).
-  let arrived = false;
-</script>
-
 <script lang="ts">
   import NeedSis from "../NeedSis.svelte";
   import CampusStrip from "../CampusStrip.svelte";
@@ -107,11 +101,9 @@
 
   /** Classes and the student's own events, with the free stretches between them. */
   const rows = $derived(dayRows(items, app.busy, isoDate(now), now.getHours() * 60 + now.getMinutes()));
-  const arriving = !arrived;
-  arrived = true;
 </script>
 
-<div class="screen" class:arriving>
+<div class="screen">
   <header>
     <p class="label">{dateLine}</p>
     <h1>{greeting}</h1>
@@ -433,26 +425,6 @@
   .screen {
     display: grid;
     gap: 18px;
-  }
-  /* Up next first, then each card 40 ms after the one above. The header is
-     there from the first frame. Global, so cards drawn by child components
-     (MabiniDue) rise with the rest. */
-  .arriving > :global(:not(header)) {
-    animation: rise 0.32s var(--ease) backwards paused;
-    animation-delay: var(--after-veil);
-    --after-veil: 0.25s;
-  }
-  /* Held until the landing's veil starts to lift over them. */
-  :global([data-lifted]) .arriving > :global(:not(header)) {
-    animation-play-state: running;
-  }
-  .arriving > :global(:nth-child(2)) { animation-delay: calc(var(--after-veil) + 0.04s); }
-  .arriving > :global(:nth-child(3)) { animation-delay: calc(var(--after-veil) + 0.08s); }
-  .arriving > :global(:nth-child(4)) { animation-delay: calc(var(--after-veil) + 0.12s); }
-  .arriving > :global(:nth-child(5)) { animation-delay: calc(var(--after-veil) + 0.16s); }
-  .arriving > :global(:nth-child(n + 6)) { animation-delay: calc(var(--after-veil) + 0.2s); }
-  @keyframes rise {
-    from { opacity: 0; transform: translateY(8px); }
   }
   header h1 {
     margin: 2px 0 0;

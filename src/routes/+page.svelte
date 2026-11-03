@@ -93,7 +93,8 @@
   }
 
   // The veil lifts once Today has painted under it: mounting the app can
-  // take longer than the fade, which would otherwise finish unseen.
+  // take longer than the fade, which would otherwise finish unseen. Today
+  // itself doesn't move (spec 010 C30).
   let lifted = $state(false);
   $effect(() => {
     if (!inside) return void (lifted = false);
@@ -128,7 +129,7 @@
 {/if}
 
 {#if inside}
-  <div class="shell dots" data-glance={island ? "none" : "dock"} data-lifted={lifted || undefined}>
+  <div class="shell dots" data-glance={island ? "none" : "dock"}>
     <div class="topfade" aria-hidden="true"></div>
     {#if !island}<Glance />{/if}
     <main>
