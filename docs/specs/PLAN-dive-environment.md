@@ -185,3 +185,10 @@ Reuse what already exists:
   - **Motion: more.** **Done: more.**
   - **Dive: needs work.** **Week: needs work.** Waiting on what is off.
   - Next: mockups round four for dive, motion, done and week. Fix the tray: its header still says "round two", and the `ip-picks-2` key carried round-two picks over.
+- 2026-11-03 · Mockups round four (artifact version 4). You said "continue" without saying what was off with the dive and the week, so this round works from my own read of round three:
+  - **Dive:** now a real camera move. The mouth holds the field at 1/4.5 of its pitch, and the camera zooms about the mouth until those tiles are the screen's 12 px tiles. The frame's tiles grow and rush past the edges, and LAR flies in ahead. On arrival the tiles shrink to dots and lift off in a 4×4 Bayer dither from the centre out. Checked in Day and Night, first sign-in and every launch.
+  - **Motion, more:** a pixel selection block steps between tabs; scrolling Today folds the title into a bar and tucks the cube aside; the countdown ticks; the dot grid ripples on sync and when LAR wakes; a class sheet grows out of its block and shrinks back into it; Grades sparks on the personal best.
+  - **Done, more:** shake tiers with a ×N chip, the dot grid ripples, a 5-step progress bar, the card lifts, tilts and drops into Done with a squash, and all clear brings a flash, LAR's hop and three bursts of confetti. Day mode toggle added.
+  - **Week:** two options. A is a focus week: one view where the focused day opens to 4fr, and it replaces the Day/Week switch. B keeps the switch: title-first blocks with time and room, and the day view as a proportional timeline with free gaps. Both fold the deadline strip into a four-week pixel month and add due pins and a timed now-line. 044 C2 (blocks lead with the code) and C11 (the strip) change with either pick.
+  - The Type row is removed (settled). The tray key is now `ip-picks-4`.
+  - **Paused for round-four picks.**

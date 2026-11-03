@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@500;600;700&family=Montserrat:wght@600;700;800&family=Pixelify+Sans:wght@500;600;700&family=Rubik:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-/* Round two. Settled picks sit in a strip at the top; the open rows
+/* Round four. Settled picks sit in a strip at the top; the open rows
    follow as live phones in the picked world (one void, dot grid, the
    school's accent, the cube in the header). Single-theme on purpose:
    the page lives in the portal's night. */
@@ -145,23 +145,6 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .bubble { position: absolute; z-index: 55; padding: 5px 8px; background: #170b1a; box-shadow: inset 0 2px 0 #3a2446; font: 500 11px var(--f-ui); color: var(--parch); pointer-events: none; opacity: 0; white-space: nowrap; }
 .bubble b { font: 700 10px var(--f-pixel); color: var(--gold); margin-right: 5px; letter-spacing: 0.06em; }
 
-/* ---------- type comps ---------- */
-.spec-strip { width: 100%; max-width: 300px; display: grid; gap: 6px; padding: 12px 14px; background: var(--void-2); box-shadow: inset 0 0 0 1px var(--edge); }
-.spec-strip .w { font-size: 22px; line-height: 1.05; }
-.spec-strip .w b { color: var(--gold); font-weight: inherit; }
-.spec-strip .s { font-size: 13px; color: var(--parch-2); }
-.you-set { display: grid; gap: 8px; }
-.you-set .rowset { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; }
-.you-set .rowset span { padding: 8px; font-size: 10px; text-align: center; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-c); color: var(--ink); }
-.you-set .rowset span.on { box-shadow: inset 0 0 0 2px var(--gold-c); }
-
-/* ---------- seam inspector ---------- */
-.seam { position: relative; height: 270px; overflow: hidden; background: var(--ground); box-shadow: inset 0 0 0 1px var(--edge); }
-.seam .zoom { position: absolute; left: 12px; top: 10px; transform: scale(3); transform-origin: 0 0; display: grid; gap: 3px; color: var(--ink); width: 160px; }
-.seam .zoom .rowz { display: flex; gap: 4px; align-items: center; }
-.seam .zoom svg.ic { width: 12px; height: 12px; shape-rendering: crispEdges; color: var(--gold-c); }
-.seam .grid { position: absolute; inset: 0; background-image: linear-gradient(rgb(244 236 216 / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(244 236 216 / 0.06) 1px, transparent 1px); background-size: 12px 12px; pointer-events: none; }
-
 /* ---------- motion phone ---------- */
 .pages { position: absolute; inset: 0; }
 .pg { position: absolute; inset: 0; }
@@ -224,23 +207,107 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .wk .col { position: relative; background: repeating-linear-gradient(var(--edge-c) 0 1px, transparent 1px var(--hh)); }
 .wk .col.today { background-color: color-mix(in srgb, var(--gold-c) 8%, transparent); }
 .wk .col.ghost { opacity: 0.6; background: repeating-linear-gradient(45deg, transparent 0 3px, var(--edge-c) 3px 4px); }
-.blk { position: absolute; left: 1px; right: 1px; padding: 4px 4px 3px; background: var(--c); color: #fff; overflow: hidden; clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px)); display: grid; align-content: start; gap: 1px; }
-.blk b { font: var(--rw-title) 8px/1.1 var(--rf-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.blk span { font-size: 7px; line-height: 1.2; opacity: 0.92; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .blk.past { opacity: 0.45; }
 .blk.now { box-shadow: inset 0 0 0 2px var(--gold-c); }
 .blk.vacant { background: repeating-linear-gradient(45deg, var(--c) 0 3px, color-mix(in srgb, var(--c) 55%, var(--ground)) 3px 6px); }
-.blk.ghostmove { background: none; outline: 1px dashed var(--c); outline-offset: -2px; clip-path: none; color: var(--c); }
-.blk .stp { position: absolute; right: 2px; top: 2px; font: 700 6px var(--f-pixel); letter-spacing: 0.04em; padding: 1px 2px; rotate: -6deg; background: rgb(255 255 255 / 0.92); }
-.blk .stp.thunk { animation: thunk 0.55s steps(6) both; }
+.blk.ghostmove { background: none; box-shadow: none; outline: 1px dashed var(--c); outline-offset: -2px; clip-path: none; color: var(--c); }
 .nowline { position: absolute; right: 0; height: 2px; background: var(--gold-c); z-index: 5; pointer-events: none; }
-.nowline::before { content: ""; position: absolute; left: -6px; top: -2px; width: 6px; height: 6px; background: var(--gold-c); }
-.strip { display: grid; grid-template-columns: repeat(28, 1fr); gap: 2px; }
-.strip i { aspect-ratio: 1; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-c); }
-.strip i.due { background: var(--gold-c); box-shadow: none; } .strip i.over { background: var(--bad); box-shadow: none; } .strip i.today { outline: 1px solid var(--ink); outline-offset: 1px; }
 .dayview { position: relative; overflow: hidden; touch-action: pan-y; cursor: grab; }
 .daytrack { display: flex; align-items: start; will-change: transform; }
 .daytrack > div { flex: 0 0 100%; display: grid; align-content: start; gap: 6px; padding: 2px; }
+
+/* ---------- round four: week ---------- */
+.blk { position: absolute; left: 1px; right: 1px; padding: 4px 4px 4px; background: var(--c); color: #fff; overflow: hidden; display: flex; flex-direction: column; gap: 1px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), inset 0 -2px 0 rgb(0 0 0 / 0.22); clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px)); cursor: pointer; }
+.blk b { font: var(--rw-title) 8.5px/1.15 var(--rf-title); letter-spacing: -0.01em; overflow-wrap: normal; word-break: normal; hyphens: manual; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.blk .cd { display: none; font: 600 7px/1.2 var(--rf-label); letter-spacing: 0.05em; opacity: 0.85; white-space: nowrap; }
+.blk .tm, .blk .rm { font: 600 7px/1.2 var(--rf-label); letter-spacing: 0.04em; opacity: 0.9; white-space: nowrap; overflow: hidden; }
+.blk .rm { margin-top: auto; }
+.stp { flex: none; align-self: flex-start; justify-self: start; font: 700 6px/1.2 var(--f-pixel); letter-spacing: 0.04em; padding: 1px 2px; rotate: -6deg; background: rgb(255 255 255 / 0.94); color: var(--sk); box-shadow: inset 0 0 0 1px var(--sk); margin-bottom: 1px; }
+.stp.mv { box-shadow: none; outline: 1px dashed var(--sk); outline-offset: -1px; }
+.stp.thunk { animation: thunk 0.55s steps(6) both; }
+.wk .head .dh { display: grid; justify-items: center; gap: 1px; padding: 3px 0 3px; border: 0; background: none; color: var(--ink-3); font: 600 7px var(--rf-label); letter-spacing: 0.06em; cursor: pointer; min-width: 0; overflow: hidden; }
+.wk .head .dh b { font: 800 11px/1 var(--rf-num); color: var(--ink); }
+.wk .head .dh.today, .wk .head .dh.today b { color: var(--gold-c); }
+.dh .pin { width: 4px; height: 4px; } .dh .pin.due { background: var(--gold-c); } .dh .pin.over { background: var(--bad); }
+.fw .head, .fw .body { transition: grid-template-columns 0.36s var(--ease); }
+.fw .head .dh.focus { background: color-mix(in srgb, var(--gold-c) 14%, transparent); }
+.fw .col { cursor: pointer; }
+.fw .col.empty { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--edge-c) 3px 4px); }
+.fw .col:not(.focus) .blk > * { opacity: 0; transition: opacity 0.1s; }
+.fw .col.focus .blk > * { opacity: 1; transition: opacity 0.18s 0.2s; }
+.fw .col:not(.focus) .blk[data-stamped="1"]::after { content: ""; position: absolute; right: 2px; top: 3px; width: 4px; height: 4px; background: rgb(255 255 255 / 0.92); }
+.fw .col.focus .blk { padding: 4px 6px; }
+.fw .col.focus .blk b { font-size: 10px; -webkit-line-clamp: 2; }
+.fw .col.focus .blk .cd { display: block; }
+.fw .col.focus .blk .tm, .fw .col.focus .blk .rm { font-size: 8px; }
+.free { position: absolute; left: 3px; right: 3px; display: grid; place-items: center; border: 1px dashed color-mix(in srgb, var(--ink-3) 60%, transparent); pointer-events: none; }
+.free span { font: 600 7px var(--rf-label); letter-spacing: 0.05em; color: var(--ink-2); background: var(--ground); padding: 1px 3px; white-space: nowrap; }
+.fw .free { opacity: 0; transition: opacity 0.1s; } .fw .col.focus .free { opacity: 1; transition: opacity 0.2s 0.22s; }
+.rest { position: absolute; left: 4px; right: 4px; top: 38%; text-align: center; font-size: 9px; line-height: 1.4; color: var(--ink-2); }
+.fw .rest { opacity: 0; transition: opacity 0.1s; } .fw .col.focus .rest { opacity: 1; transition: opacity 0.2s 0.22s; }
+.nowline span { position: absolute; right: 100%; top: 50%; translate: 0 -50%; font: 700 7px/1 var(--rf-label); letter-spacing: 0.02em; background: var(--gold-c); color: var(--on-gold-c); padding: 2px 2px; white-space: nowrap; }
+.mm { display: grid; gap: 3px; justify-items: end; }
+.mm span { font: 600 7px var(--rf-label); letter-spacing: 0.06em; color: var(--ink-3); }
+.mm div { display: grid; grid-template-columns: repeat(7, 5px); gap: 2px; }
+.mm i { width: 5px; height: 5px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-c); }
+.mm i.wk { background: color-mix(in srgb, var(--ink) 16%, var(--sunk)); }
+.mm i.due { background: var(--gold-c); box-shadow: none; } .mm i.over { background: var(--bad); box-shadow: none; }
+.mm i.today { outline: 1px solid var(--ink); outline-offset: 1px; }
+.tline { position: relative; }
+.tline .hrs { position: absolute; left: 0; top: 0; bottom: 0; width: 22px; }
+.tline .hrs span { position: absolute; right: 2px; font: 600 7px var(--rf-label); color: var(--ink-3); translate: 0 -50%; }
+.tline .free { left: 28px; }
+.tline::before { content: ""; position: absolute; left: 24px; right: 0; top: 0; bottom: 0; background: repeating-linear-gradient(var(--edge-c) 0 1px, transparent 1px 27px); }
+.daytrack > div:has(.tline) { padding: 0; }
+.dcard { position: absolute; left: 26px; right: 2px; display: grid; grid-template-columns: 3px minmax(0,1fr) auto; gap: 7px; align-items: start; padding: 4px 6px 4px 0; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c), inset 0 -2px 0 rgb(0 0 0 / 0.12); overflow: hidden; clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px)); }
+.dcard .bar { align-self: stretch; margin: -4px 0; background: var(--c); }
+.dcard b { font: var(--rw-title) 10px var(--rf-title); color: var(--ink); } .dcard .t { font-size: 9px; color: var(--ink); } .dcard .m { display: block; font-size: 8.5px; color: var(--ink-2); }
+.dcard .stp { font-size: 7px; margin-top: 1px; }
+.dcard.past { opacity: 0.45; } .dcard.now { box-shadow: inset 0 0 0 2px var(--gold-c); }
+.dcard.vacant { background: repeating-linear-gradient(45deg, var(--card) 0 3px, var(--sunk) 3px 6px); }
+.dcard.ghostmove { display: block; background: none; box-shadow: none; clip-path: none; outline: 1px dashed var(--c); outline-offset: -1px; padding: 4px 8px; }
+.dcard.ghostmove b { font: 600 8px var(--rf-label); letter-spacing: 0.04em; color: var(--ink-2); }
+
+/* ---------- round four: done ---------- */
+.prog { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)) auto; gap: 3px; align-items: center; }
+.prog i { height: 6px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-c); transform-origin: 50% 100%; }
+.prog i.on { background: var(--gold-c); box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.22); animation: seg 0.3s steps(3) both; }
+.prog span { font: 600 8px var(--rf-label); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.prog.all i { animation: flash 0.6s steps(4) both; }
+@keyframes seg { 0% { scale: 1 2.6; } 100% { scale: 1 1; } }
+@keyframes flash { 0%, 50% { background: var(--ink); } 25%, 75%, 100% { background: var(--gold-c); } }
+.ditem .combo { position: absolute; right: 56px; top: 50%; translate: 0 -50%; font: 700 10px var(--f-pixel); color: var(--gold-c); opacity: 0; pointer-events: none; }
+.ditem.fresh .combo { animation: combo 0.8s steps(8) both 0.08s; }
+@keyframes combo { 0% { opacity: 0; translate: 0 -40%; } 25% { opacity: 1; translate: 0 -130%; } 75% { opacity: 1; translate: 0 -170%; } 100% { opacity: 0; translate: 0 -190%; } }
+.ditem.fresh.t1 { animation: shake1 0.36s steps(6) both 0.2s; }
+.ditem.fresh.t2 { animation: shake2 0.42s steps(7) both 0.2s; }
+@keyframes shake1 { 0%, 100% { translate: 0 0; } 20% { translate: 4px 0; } 40% { translate: -3px 0; } 60% { translate: 2px 0; } 80% { translate: -1px 0; } }
+@keyframes shake2 { 0%, 100% { translate: 0 0; rotate: 0deg; } 15% { translate: 6px -1px; rotate: 0.8deg; } 35% { translate: -5px 0; rotate: -0.8deg; } 55% { translate: 3px 0; rotate: 0.4deg; } 75% { translate: -2px 0; rotate: 0deg; } }
+.ditem.lift { z-index: 3; scale: 1.03; box-shadow: inset 0 0 0 1px var(--edge-c), 0 8px 18px rgb(0 0 0 / 0.3); transition: scale 0.12s var(--ease), box-shadow 0.12s; }
+canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
+@keyframes larhop { 0%, 100% { translate: 0 0; } 40% { translate: 0 -8px; } 70% { translate: 0 -2px; } }
+
+/* ---------- round four: the field and motion ---------- */
+.phone canvas.pulse { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.phone canvas.fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
+.tabs .sel { position: absolute; left: 4px; top: 4px; width: calc((100% - 8px) / 5); height: 34px; pointer-events: none; transition: translate 0.24s steps(4); }
+.tabs .sel::before { content: ""; position: absolute; left: 50%; top: 0; translate: -50% 0; width: 36px; height: 32px; background: color-mix(in srgb, var(--gold-c) 14%, transparent); clip-path: polygon(0 3px,3px 3px,3px 0,calc(100% - 3px) 0,calc(100% - 3px) 3px,100% 3px,100% calc(100% - 3px),calc(100% - 3px) calc(100% - 3px),calc(100% - 3px) 100%,3px 100%,3px calc(100% - 3px),0 calc(100% - 3px)); }
+.mini { position: absolute; top: 0; left: 0; right: 0; height: 46px; z-index: 29; display: grid; place-items: end center; padding-bottom: 6px; background: color-mix(in srgb, var(--ground) 86%, transparent); backdrop-filter: blur(10px); box-shadow: inset 0 -1px 0 var(--edge-c); font: var(--rw-title) 11px var(--rf-title); color: var(--ink); opacity: 0; translate: 0 -6px; transition: opacity 0.18s var(--ease), translate 0.18s var(--ease); pointer-events: none; }
+.mini.on { opacity: 1; translate: 0 0; }
+.orb { transition: opacity 0.2s var(--ease), scale 0.2s var(--spring), translate 0.22s var(--ease); }
+.orb.tuck { scale: 0.7; translate: 18px 0; opacity: 0.7; }
+.scrim { position: absolute; inset: 0; z-index: 44; background: rgb(0 0 0 / 0.32); opacity: 0; pointer-events: none; transition: opacity 0.25s var(--ease); }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.csheet { position: absolute; left: 8px; right: 8px; bottom: 72px; height: 190px; z-index: 46; display: none; transform-origin: 0 0; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c); overflow: hidden; clip-path: polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px)); }
+.csheet.open { display: block; }
+.csheet .morph { position: absolute; inset: 0; z-index: 2; opacity: 0; pointer-events: none; }
+.csheet .in { display: grid; gap: 5px; padding-bottom: 12px; }
+.csheet .in > :not(.band) { margin: 0 12px; }
+.csheet .band { height: 40px; background: var(--c); display: flex; align-items: end; padding: 6px 12px; box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.2); }
+.csheet .band .stp { font-size: 8px; }
+.csheet b.code { font: var(--rw-title) 15px/1.1 var(--rf-title); letter-spacing: -0.02em; color: var(--ink); }
+.csheet .t { font-size: 11px; color: var(--ink); }
+.csheet .rows { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 4px 10px; font-size: 10px; color: var(--ink); padding-top: 4px; align-items: baseline; }
 
 /* ---------- tray ---------- */
 .tray { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: color-mix(in srgb, var(--void-2) 94%, transparent); backdrop-filter: blur(12px); box-shadow: inset 0 1px 0 var(--edge); }
@@ -258,21 +325,21 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 
 <div class="wrap">
   <header class="top">
-    <h1>Round two: the look of <b>IntPortal</b></h1>
-    <p>Your picks are settled and used in every phone on this page: the void, the dot grid, PUP's accent and the floating cube at the bottom right. This update makes every row work in Day as well as Night, keeps the page to PUP for now, reworks type through a proper typeset pass, and adds a phone where the whole app moves: tabs, pull to sync, grades landing and LAR's chat opening from the cube.</p>
+    <h1>Round four: the look of <b>IntPortal</b></h1>
+    <p>Type is settled: Pixel-bridged, in every phone on this page. This round turns the dive into a real camera move into the portal, gives the whole app and the done moment more motion, and offers two ways to fix the week. Every row works in Night and Day.</p>
     <div class="settled" aria-label="Settled picks">
-      <span>LAR leads</span><span>One void</span><span>Dot grid</span><span>Campus kept</span><span>School accent, PUP only for now</span><span>Pixel checkboxes</span><span>Current sizes</span><span>Hero pixel numerals</span><span>Subtle juice</span><span>Class days + ghosts</span><span>Deadline strip</span><span>Floating cube, bottom right</span>
+      <span>LAR leads</span><span>One void</span><span>Dot grid</span><span>Campus kept</span><span>School accent, PUP only for now</span><span>Pixel checkboxes</span><span>Current sizes</span><span>Hero pixel numerals</span><span>Subtle juice</span><span>Pixel-bridged type</span><span>Floating cube, bottom right</span>
     </div>
   </header>
   <nav class="jump" aria-label="Rows">
-    <a href="#dive">Dive</a><a href="#motion">Motion</a><a href="#type">Type</a><a href="#done">Done</a><a href="#week">Week</a>
+    <a href="#dive">Dive</a><a href="#motion">Motion</a><a href="#done">Done</a><a href="#week">Week</a>
   </nav>
 
   <section class="row" id="dive">
     <div class="q">
-      <span class="spec">010 C26–C34, changed</span>
-      <h2>One field of pixels, from the void to Today</h2>
-      <p>The screen is one grid of tiles on the same 12 px pitch as Today's dot grid. At rest, the void is that grid dimmed to dots. The portal is built from those dots swelling into tiles, and its light spills onto the dots around it. The dive floods the whole field with the portal's swirl. On arrival every tile warms to the room and shrinks back to a dot, and those dots are Today's dot grid. Today is simply there underneath: nothing rises or spawns again.</p>
+      <span class="spec">010 C26–C34, reworked</span>
+      <h2>A dive into the field</h2>
+      <p>Round three flooded a flat screen; this one moves the camera. The portal is built from the field's own dots. Its mouth holds the same field at a quarter of the pitch, swirling. Diving in, the frame's tiles grow and rush out past the edges, and the field inside grows until its tiles are the screen's tiles. Then they warm to the room, shrink to dots and lift off in a dither, and those dots are Today's dot grid. Today is simply there underneath.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Timeline"><span class="lab">When</span><button data-dv="mode" data-v="first" aria-pressed="true">First sign-in, 1.6 s</button><button data-dv="mode" data-v="launch" aria-pressed="false">Every launch, 0.6 s</button></div>
@@ -301,7 +368,7 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
     <div class="q">
       <span class="spec">045 C13–C21, 010 C18b</span>
       <h2>The whole app, moving</h2>
-      <p>One phone where everything you touch answers. Tap the tabs: the icon hops in three steps and the page slides a little toward the tab you chose. On Today, drag down from the top to sync: the cube spins and a SYNCED stamp lands. Open Grades the first time and the GPA counts down to its new value while the stamps thunk on, one by one. Tap the floating cube and it flies up into LAR's chat while he comes out of his fire. Close it and he goes back into the cube.</p>
+      <p>More this round. A pixel block steps under the tab you pick while the page slides toward it. Scroll Today and the big title folds into a bar while the cube tucks aside until you stop. The Up next countdown ticks (every 4 s here, every minute in the app). Pull to sync and the dot grid ripples out when it lands. On Schedule, tap a class and its sheet grows out of the block, then shrinks back into it. Grades count down with stamps and a spark on the personal best; the cube still flies up into LAR's chat.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-m="room" data-v="night" aria-pressed="true">Night</button><button data-m="room" data-v="day" aria-pressed="false">Day</button></div>
@@ -314,6 +381,8 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
         <p class="note"><b>Pixel things step, interface things ease.</b> Hops, stamps and fills use <code>steps()</code>. Pages, sheets and the cube's flight use the one ease, with a spring only where something lands.</p>
         <p class="note"><b>Direction carries meaning.</b> Pages slide 12 px toward the tab you picked, so you feel where you went. The chat rises from where the cube lives, and goes back the same way.</p>
         <p class="note"><b>Count from what you last saw.</b> The GPA counts from the value on your last visit, not from zero, and stamps thunk only when a grade is new to this phone.</p>
+        <p class="note"><b>The field answers.</b> The dot grid is the one living surface. It ripples when something lands (a sync, a done, LAR waking), then it's dots again.</p>
+        <p class="note"><b>Things grow from where they live.</b> A class sheet opens out of its block, the chat out of the cube. Closing goes back the same way.</p>
         <p class="note"><b>Then still.</b> Nothing loops on content. The cube bobs, and LAR breathes in his chat; cards never move on their own. Reduce Motion skips all of it to the end state.</p>
         <div class="ctl">
           <button class="pick inline" data-row="motion" data-v="yes">This is how it should move</button>
@@ -324,37 +393,15 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
     </div>
   </section>
 
-  <section class="row" id="type">
-    <div class="q">
-      <span class="spec">045 C8, C9</span>
-      <h2>Type, round two</h2>
-      <p>A typeset pass on the app found the seam: four voices that don't share a stroke. Montserrat is round and geometric, Source Sans humanist, Pixelify square, and SF Pro is the phone's own. For a screen you read at a glance, the fix is fewer families, tuned to the pixel grid: line heights on the 4 px step of the card corners, and weights whose stems match the 1.5 px strokes of the pixel icons beside them. The inspector magnifies each direction three times next to the art so you can see the seam close. The original Montserrat and Source Sans stay as a Classic setting in You.</p>
-    </div>
-    <div class="ctl"><div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-t="room" data-v="night" aria-pressed="true">Night</button><button data-t="room" data-v="day" aria-pressed="false">Day</button></div></div>
-    <div class="opts" id="typeOpts"></div>
-    <div class="two">
-      <div class="panel">
-        <h3>The original stays, in You</h3>
-        <div class="phone" id="youPhone" style="justify-self:center"></div>
-      </div>
-      <div class="panel">
-        <h3>The seam, magnified 3×</h3>
-        <div class="seg" role="group" aria-label="Direction" id="seamSeg"></div>
-        <div class="seam" id="seam"><div class="grid"></div><div class="zoom" id="seamZoom"></div></div>
-        <p class="note" id="seamNote"></p>
-        <p class="note">The system in every direction: seven roles (screen title, card title, body, meta, label, hero number, LAR's voice) at the current sizes you picked. Body stays at 15 px or more, meta at 12. Times, rooms and due dates are always in the reading face.</p>
-      </div>
-    </div>
-  </section>
-
   <section class="row" id="done">
     <div class="q">
       <span class="spec">045 C13–C19</span>
       <h2>A "done" you want to do again</h2>
-      <p>Pressing stays subtle; finishing is generous. Tap a deadline: the box fills in three steps, a line strikes through the title, the card nudges, sparks pop from the box and a DONE stamp lands. Then the card slides down into Done, and the screen goes still. Mark several in a row and each one rings a step higher. Clearing the list plays a short run and LAR gives a thumbs-up.</p>
+      <p>Pressing stays subtle; finishing is generous, and a run of them builds. Tap a deadline: the box fills in three steps, a line strikes through, sparks pop and the dot grid ripples, and a DONE stamp lands. A pixel bar under the title fills one step. The card lifts, tilts and drops into Done, landing with a squash and a soft tick. Mark the next within 4 s and it rings higher, shakes harder and shows its count. Clear the list and the bar flashes, LAR hops with a thumbs up, and tile confetti bursts three times. Then the screen is still.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Sound"><span class="lab">Sound</span><button data-j="sound" data-v="1" aria-pressed="true">On</button><button data-j="sound" data-v="0" aria-pressed="false">Off</button></div>
+      <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-j="room" data-v="night" aria-pressed="true">Night</button><button data-j="room" data-v="day" aria-pressed="false">Day</button></div>
       <button class="play small" id="resetDone">Reset the list</button>
     </div>
     <div class="two">
@@ -363,7 +410,8 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
         <h3>What makes it want another tap</h3>
         <p class="note"><b>Rising pitch.</b> Each done within 4 s of the last climbs the pentatonic scale: C, D, E, G, A, then up an octave. It can't sound wrong, and the climb rewards a run of real work. It resets after a pause. Balatro raises the pitch on every scored card the same way.</p>
         <p class="note"><b>Short and layered.</b> A 2 ms click on press, a soft pluck for the check, a fifth above for the strike, and a low thump under the stamp. Each note is detuned a few cents at random, so the hundredth tap doesn't sound like the first.</p>
-        <p class="note"><b>Then silence.</b> Everything finishes within 0.8 s and nothing loops. The list is still the moment the card lands.</p>
+        <p class="note"><b>Tiers, not slot machines.</b> The first done nudges. The second and third in a run shake and show ×2, ×3. From the fourth on they shake harder and add a high sparkle. Nothing is random but the detune, and nothing is hidden.</p>
+        <p class="note"><b>Then silence.</b> Each done finishes within 1.1 s and nothing loops. The list is still the moment the card lands.</p>
         <p class="note">In the app, sound starts off, with a switch in You (045 C19). It's on here so you can hear it. Haptics pair with each step: a tick, a success buzz, then a soft impact under the stamp.</p>
         <div class="ctl">
           <button class="pick inline" data-row="done" data-v="this is it">This is it</button>
@@ -376,9 +424,9 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 
   <section class="row" id="week">
     <div class="q">
-      <span class="spec">044, with your picks</span>
-      <h2>A week that fills the screen</h2>
-      <p>Class days with ghosts, and the deadline strip, both as you picked. The grid now takes all the room between the header and the tab bar, so blocks are tall enough for the code, the title and the room. The day view no longer stretches a lone class to full height.</p>
+      <span class="spec">044, reworked</span>
+      <h2>Two ways to fix the week</h2>
+      <p>Round three's blocks were too narrow: codes cut off mid-word and titles never showed. Both options here lead with the class title, wrap on words, and fold the deadline strip into a small four-week pixel month beside the title, with due pins under each day. A makes the week one view that opens the day you look at. B keeps the Day/Week switch and fixes both views.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-k="room" data-v="night" aria-pressed="true">Night</button><button data-k="room" data-v="day" aria-pressed="false">Day</button></div>
@@ -387,7 +435,8 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
     </div>
     <div class="opts" id="weekOpts"></div>
     <div class="ctl">
-      <button class="pick inline" data-row="week" data-v="yes">This is the week</button>
+      <button class="pick inline" data-row="week" data-v="A focus week">A · Focus week</button>
+      <button class="pick inline" data-row="week" data-v="B week and day">B · Week and Day</button>
       <button class="pick inline" data-row="week" data-v="needs work">Needs more work</button>
     </div>
   </section>
@@ -449,18 +498,14 @@ const ROOMS = {
 /* The school's accent (picked): bright on the void, deep on Day. */
 const accentOf = (th, room) => (room === "day" ? th.ramp[2] : th.accent);
 
-/* ---------------- type directions ---------------- */
+/* ---------------- type: Pixel-bridged (picked) ---------------- */
 const SYS = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif";
 const TYPE = {
-  tuned: { name: "One family, tuned", blurb: "SF Pro alone, the phone's own face, tuned to the pixels: titles at 800 so their stems match the icons, labels in tracked caps, line heights on the 4 px step. Pixel numerals for the hero number and LAR's Pixelify voice stay the only other voices.", seam: "One family, so nothing has to agree with anything else but the art. The 800 stems sit right at the icon's stroke weight.", display: SYS, title: SYS, read: SYS, label: SYS, num: SYS, dw: "800", dt: "-0.03em", tw: "700", tt: "-0.01em", lw: "600", lt: "0.08em", ds: "24px" },
-  sharp: { name: "Pixel-bridged", blurb: "The tuned SF Pro, with every small label, chip, day name and tab label set in Pixelify. The small text becomes pixels, so each step from the art up to the titles has a bridge.", seam: "Labels sit at the size where Pixelify and the icons share one pixel grid, so the eye moves from art to label to title without a jump.", display: SYS, title: SYS, read: SYS, label: "'Pixelify Sans', monospace", num: SYS, dw: "800", dt: "-0.035em", tw: "800", tt: "-0.02em", lw: "600", lt: "0.06em", ds: "24px" },
-  squared: { name: "Squared", blurb: "Chakra Petch for titles, codes and labels. Its cut corners are the stepped card corners in letter form. SF Pro reads everything else.", seam: "The corners match the cards, but two families now share the screen, and the seam moves to between title and body.", display: "'Chakra Petch', system-ui, sans-serif", title: "'Chakra Petch', system-ui, sans-serif", read: SYS, label: "'Chakra Petch', system-ui, sans-serif", num: "'Chakra Petch', system-ui, sans-serif", dw: "700", dt: "-0.01em", tw: "700", tt: "0", lw: "600", lt: "0.1em", ds: "25px" },
-  pixel: { name: "Pixel titles", blurb: "Pixelify sets screen titles and course codes; Atkinson Hyperlegible reads. The most of a piece with the art, at the cost of DESIGN.md's Pixel Voice rule.", seam: "No seam at the top: the title is pixels. The cost is reading speed on long codes, and one rule rewritten.", display: "'Pixelify Sans', monospace", title: "'Pixelify Sans', monospace", read: "'Atkinson Hyperlegible', system-ui, sans-serif", label: "'Atkinson Hyperlegible', system-ui, sans-serif", num: "'Atkinson Hyperlegible', system-ui, sans-serif", dw: "700", dt: "0", tw: "600", tt: "0.02em", lw: "700", lt: "0.08em", ds: "25px" },
-  classic: { name: "Classic", seam: "", display: "Montserrat, system-ui, sans-serif", title: "Montserrat, system-ui, sans-serif", read: "'Source Sans 3', system-ui, sans-serif", label: "Montserrat, system-ui, sans-serif", num: "Montserrat, system-ui, sans-serif", dw: "700", dt: "-0.02em", tw: "700", tt: "-0.01em", lw: "600", lt: "0.09em", ds: "23px" },
+  sharp: { name: "Pixel-bridged", display: SYS, title: SYS, read: SYS, label: "'Pixelify Sans', monospace", num: SYS, dw: "800", dt: "-0.035em", tw: "800", tt: "-0.02em", lw: "600", lt: "0.06em", ds: "24px" },
 };
 
 function applyRoles(el, o) {
-  const r = ROOMS[o.room], t = TYPE[o.type || "tuned"], s = SCHOOLS[o.school || "pup"], th = s.theme;
+  const r = ROOMS[o.room], t = TYPE[o.type || "sharp"], s = SCHOOLS[o.school || "pup"], th = s.theme;
   const acc = accentOf(th, o.room);
   const set = { ground: r.ground, card: r.card, "card-2": r.card2, sunk: r.sunk, "edge-c": r.edge, ink: r.ink, "ink-2": r.ink2, "ink-3": r.ink3, "gold-c": acc, "on-gold-c": o.room === "day" ? "#ffffff" : "#120a06", "maroon-c": r.maroon, bad: r.bad, "good-c": r.good, "accent-ink": acc,
     dot: css(rgbOf(acc), r.dotA),
@@ -578,9 +623,9 @@ function mountToday(phone, o) {
 }
 
 /* ---------------- picks and the tray ---------------- */
-const ROWS = [["dive", "Dive"], ["motion", "Motion"], ["type", "Type"], ["done", "Done"], ["week", "Week"]];
+const ROWS = [["dive", "Dive"], ["motion", "Motion"], ["done", "Done"], ["week", "Week"]];
 let picks = {};
-try { picks = JSON.parse(localStorage.getItem("ip-picks-2") || "{}"); } catch { picks = {}; }
+try { picks = JSON.parse(localStorage.getItem("ip-picks-4") || "{}"); } catch { picks = {}; }
 function renderTray() {
   $("#chips").innerHTML = ROWS.map(([k, l]) => `<span class="${picks[k] ? "set" : ""}">${l}${picks[k] ? ": " + picks[k] : ""}</span>`).join("");
   $$(".pick").forEach((b) => b.setAttribute("aria-pressed", String(picks[b.dataset.row] === b.dataset.v)));
@@ -588,11 +633,11 @@ function renderTray() {
 document.addEventListener("click", (e) => {
   const b = e.target.closest(".pick"); if (!b) return;
   picks[b.dataset.row] = b.dataset.v;
-  try { localStorage.setItem("ip-picks-2", JSON.stringify(picks)); } catch {}
+  try { localStorage.setItem("ip-picks-4", JSON.stringify(picks)); } catch {}
   renderTray();
 });
 $("#copy").addEventListener("click", () => {
-  const text = "IntPortal picks, round two:\n" + ROWS.map(([k, l]) => `- ${l}: ${picks[k] || "(no pick)"}`).join("\n");
+  const text = "IntPortal picks, round four:\n" + ROWS.map(([k, l]) => `- ${l}: ${picks[k] || "(no pick)"}`).join("\n");
   const done = (m) => { $("#toast").textContent = m; setTimeout(() => ($("#toast").textContent = ""), 2400); };
   const fallback = () => { const r = document.createRange(); r.selectNodeContents($("#chips")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); done("Copying is blocked here. The picks are selected, so copy them by hand."); };
   if (!navigator.clipboard) return fallback();
@@ -604,35 +649,40 @@ const segs = (attr, state, after) => $$(`[data-${attr}]`).forEach((b) => b.addEv
   after(key);
 }));
 
-/* ================= THE DIVE: one tile field ================= */
+/* ================= THE DIVE: into the field ================= */
 const dive = { mode: "first", slow: "0", room: "night", school: "pup", speed: "1", t: 0 };
 const phone = $("#divePhone");
 const stage = document.createElement("canvas"); stage.className = "stage";
 const bubble = document.createElement("div"); bubble.className = "bubble"; bubble.innerHTML = "<b>LAR</b>Ayos! Tara, pasok!";
 const P = 12, FW = 280, FH = 592, COLS = Math.ceil(FW / P), ROWSN = Math.ceil(FH / P);
 const PI0 = 5, PJ0 = 6, PW = 12, PH = 16;               // the portal, in field cells
-const PCX = (PI0 + PW / 2) * P, PCY = (PJ0 + PH / 2) * P;
+const IX0 = (PI0 + 2) * P, IX1 = (PI0 + PW - 2) * P, IY0 = (PJ0 + 2) * P, IY1 = (PJ0 + PH - 2) * P;   // its mouth
+const PCX = (IX0 + IX1) / 2, PCY = (IY0 + IY1) / 2, SX = FW / 2, SY = FH / 2;
+const ZMAX = 4.5;                                        // the mouth holds the field at 1/4.5 of its pitch
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const OBS = ["#1a1622", "#241f2e", "#2f2939", "#3c3548"].map(rgbOf);
 const VOID = rgbOf("#0b0710");
 const larRig = LarKit.rig("idle");
 function timeline() {
   const first = dive.mode === "first", slow = dive.slow === "1";
-  const fly = first ? 0.4 : 0, build = first ? 0 : 0.16;
-  const flood = fly + build, floodEnd = first ? 1.1 : 0.42;
+  const fly = first ? 0.42 : 0, build = first ? 0 : 0.16;
+  const zoom = fly + build, zoomEnd = zoom + (first ? 0.68 : 0.3);
   const ready = slow ? 1.8 : 0;
-  const arrive = Math.max(floodEnd, ready), arriveEnd = arrive + (first ? 0.5 : 0.18);
-  return { first, fly, build, flood, floodEnd, arrive, arriveEnd, total: arriveEnd + 0.6 };
+  const arrive = Math.max(zoomEnd, ready), arriveEnd = arrive + (first ? 0.5 : 0.2);
+  return { first, fly, build, zoom, zoomEnd, arrive, arriveEnd, total: arriveEnd + 0.6 };
 }
 function mountDive() {
-  mountToday(phone, { room: dive.room, school: dive.school, type: "tuned" });
+  mountToday(phone, { room: dive.room, school: dive.school });
   phone.appendChild(stage); phone.appendChild(bubble);
   const dpr = Math.min(2, devicePixelRatio || 1); stage.width = FW * dpr; stage.height = FH * dpr; stage.style.width = FW + "px"; stage.style.height = FH + "px";
   const tl = timeline();
   $("#diveScrub").max = Math.round(tl.total * 1000);
   const f = (v) => (+v.toFixed(2)).toString();
+  const dv = [`${f(tl.zoom)}–${f(tl.zoomEnd)} s`, "The camera dives into the mouth. The frame's tiles grow and rush out past the edges. Inside the mouth is the same field at a quarter of the pitch, swirling, and it grows until its tiles are the screen's tiles"];
+  const ar = [`${f(tl.arrive)}–${f(tl.arriveEnd)} s`, "The swirl warms to the room. From the centre out, each tile shrinks to a dot and lifts off in a dither: Today's dot grid, with Today already in place"];
   $("#diveSteps").innerHTML = (tl.first
-    ? [[`0–${f(tl.fly)} s`, "The portal is already standing. LAR says Ayos! and flies to its mouth; the dots near the frame glow in its light"], [`${f(tl.flood)}–${f(tl.floodEnd)} s`, "The swirl floods out from the mouth across the whole field; LAR leads, shrinking toward the centre"], [`${f(tl.arrive)}–${f(tl.arriveEnd)} s`, "From the centre out, each tile warms to the room and shrinks to a dot: Today's dot grid, with Today already in place"]]
-    : [[`0–${f(tl.build)} s`, "The field's dots swell into the frame from the bottom centre, with no form"], [`${f(tl.flood)}–${f(tl.floodEnd)} s`, "The swirl floods the field and keeps turning while data loads"], [`${f(tl.arrive)}–${f(tl.arriveEnd)} s`, dive.slow === "1" ? "Data is ready at 1.8 s, then the tiles fall back to dots" : "Ends at the later of 0.6 s and data ready"]]).map(([a, b]) => `<div><b>${a}</b><span>${b}</span></div>`).join("");
+    ? [[`0–${f(tl.fly)} s`, "The portal stands in the field. LAR says Ayos! and flies to its mouth; the dots near the frame glow in its light"], [dv[0], dv[1] + ". LAR goes in first, shrinking toward the centre"], ar]
+    : [[`0–${f(tl.build)} s`, "The field's dots swell into the frame from the bottom centre"], [dv[0], "One quick dive into the mouth. With slow data, the swirl keeps turning at full screen"], [ar[0], dive.slow === "1" ? "Data is ready at 1.8 s, then the tiles fall back to dots" : "Ends at the later of 0.6 s and data ready"]]).map(([a, b]) => `<div><b>${a}</b><span>${b}</span></div>`).join("");
 }
 function frameOrder(li, lj) {              // build order round the frame, from the bottom centre
   if (lj >= PH - 2) return Math.abs(li - (PW - 1) / 2) / 26;
@@ -645,69 +695,73 @@ function drawDive(t) {
   if (t >= tl.arriveEnd) { bubble.style.opacity = 0; return; }
   const th = SCHOOLS[dive.school].theme, ramp = th.ramp.map(rgbOf), acc = rgbOf(th.accent);
   const room = ROOMS[dive.room], ground = rgbOf(room.ground), dotRoom = rgbOf(accentOf(th, dive.room));
-  const fk = smooth(clamp((t - tl.flood) / (tl.floodEnd - tl.flood)));            // flood front
-  const ak = clamp((t - tl.arrive) / (tl.arriveEnd - tl.arrive));                   // arrival front
-  const bk = tl.first ? 1 : clamp(t / Math.max(0.01, tl.build));                    // frame build
-  const warm = smooth(clamp((t - (tl.arrive - 0.28)) / 0.36));                      // the flood warms toward the room
-  const maxD = Math.hypot(FW, FH) / P * 0.66;
-  const R = fk * maxD * 1.12, A = ease(ak) * maxD * 1.12;
-  const gap = lerp3(VOID, ground, warm);
-  for (let j = 0; j < ROWSN; j++) for (let i = 0; i < COLS; i++) {
-    const cx = i * P + P / 2, cy = j * P + P / 2;
-    const dx = (cx - PCX) / P, dy = (cy - PCY) / P, d = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
-    const li = i - PI0, lj = j - PJ0;
-    const inPortal = li >= 0 && li < PW && lj >= 0 && lj < PH;
-    const frame = inPortal && (li < 2 || li >= PW - 2 || lj < 2 || lj >= PH - 2);
-    const interior = inPortal && !frame;
-    // Rest: a dim dot, lit by the portal with falloff and turning with its motif.
-    const lightFall = Math.exp(-Math.max(0, d - 5.5) / 3.4) * bk;
-    const turn = 0.5 + 0.5 * Math.sin(ang * 3 - t * 2.2 + d * 0.7);
-    let size = 2 + lightFall * (1.5 + 3 * turn);
-    let col = lerp3(lerp3(VOID, acc, 0.35), ramp[3 + (turn > 0.6 ? 1 : 0)], lightFall);
-    let alpha = 0.32 + lightFall * 0.6;
-    if (frame) {
-      const k = clamp((bk - frameOrder(li, lj)) * 7), pop = k < 1 ? 1 + Math.sin(k * Math.PI) * 0.14 : 1;
-      const inner = (li === 1 || li === PW - 2) && lj > 0 && lj < PH - 1 || (lj === 1 || lj === PH - 2) && li > 0 && li < PW - 1;
-      const tone = inner ? OBS[0] : OBS[1 + ((i * 7 + j * 3) % 3)];
-      const lit = lerp3(tone, acc, 0.12 + 0.1 * turn);
-      const s0 = size;
-      size = s0 + (P - 2 - s0) * k * pop; col = lerp3(col, lit, k); alpha = alpha + (1 - alpha) * k;
-    } else if (interior) {
-      const k = clamp((bk - 0.8) * 5);
-      const band = (Math.floor(((ang + Math.PI) / (Math.PI * 2)) * 5 + d * 0.55 - t * 2.4) % 5 + 5) % 5;
-      size = size + (P - 2 - size) * k; col = lerp3(col, ramp[band], k); alpha = alpha + (1 - alpha) * k;
-    }
-    // Flood: the swirl spreads from the mouth across every cell of the field.
-    if (fk > 0) {
-      const e = clamp((R - d) / 2.4);
-      if (e > 0) {
-        const band = ((Math.floor(Math.log(d + 1) * 3.4 - t * 6 + ang * 0.95) % 5) + 5) % 5;
-        let c = ramp[band]; if (frame) c = lerp3(c, OBS[2], 0.4 * (1 - fk));
-        size = size + (P - 2 - size) * e; col = lerp3(col, c, e); alpha = alpha + (1 - alpha) * e;
+  const bk = tl.first ? 1 : clamp(t / Math.max(0.01, tl.build));                   // frame build
+  const open = tl.first ? 1 : clamp((bk - 0.8) * 5);                               // the mouth opens
+  const zk = smooth(clamp((t - tl.zoom) / (tl.zoomEnd - tl.zoom)));                // the dive
+  const z = ZMAX ** zk, FX = PCX + (SX - PCX) * zk, FY = PCY + (SY - PCY) * zk;    // zoom about the mouth as it drifts to the centre
+  const ak = clamp((t - tl.arrive) / (tl.arriveEnd - tl.arrive)), A = ease(ak) * 31; // arrival front, in cells
+  const warm = smooth(clamp((t - (tl.arrive - 0.3)) / 0.36));
+  const gap = lerp3(VOID, ground, warm), home = lerp3(ground, dotRoom, 0.35);
+  const tile = (x, y, s, c, a = 1) => { g.fillStyle = css(c, a); g.fillRect(x - s / 2, y - s / 2, s, s); };
+  if (ak === 0) {
+    g.fillStyle = css(gap); g.fillRect(0, 0, FW, FH);
+    // The field outside the mouth: dots lit by the portal, and the frame built from them. They grow and fly past as the camera dives.
+    for (let j = 0; j < ROWSN; j++) for (let i = 0; i < COLS; i++) {
+      const li = i - PI0, lj = j - PJ0, inPortal = li >= 0 && li < PW && lj >= 0 && lj < PH;
+      const frame = inPortal && (li < 2 || li >= PW - 2 || lj < 2 || lj >= PH - 2);
+      if (inPortal && !frame && open >= 1) continue;
+      const cx = i * P + P / 2, cy = j * P + P / 2, X = FX + (cx - PCX) * z, Y = FY + (cy - PCY) * z, half = (P * z) / 2;
+      if (X + half < 0 || X - half > FW || Y + half < 0 || Y - half > FH) continue;
+      const dx = (cx - PCX) / P, dy = (cy - PCY) / P, d = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
+      const lightFall = Math.exp(-Math.max(0, d - 7) / 3.4) * bk;
+      const turn = 0.5 + 0.5 * Math.sin(ang * 3 - t * 2.2 + d * 0.7);
+      let size = 2 + lightFall * (1.5 + 3 * turn);
+      let col = lerp3(lerp3(VOID, acc, 0.35), ramp[3 + (turn > 0.6 ? 1 : 0)], lightFall);
+      let alpha = (0.32 + lightFall * 0.6) * (inPortal && !frame ? 1 - open : 1);
+      if (frame) {
+        const k = clamp((bk - frameOrder(li, lj)) * 7), pop = k < 1 ? 1 + Math.sin(k * Math.PI) * 0.14 : 1;
+        const inner = ((li === 1 || li === PW - 2) && lj > 0 && lj < PH - 1) || ((lj === 1 || lj === PH - 2) && li > 0 && li < PW - 1);
+        const lit = lerp3(inner ? OBS[0] : OBS[1 + ((i * 7 + j * 3) % 3)], acc, 0.12 + 0.1 * turn);
+        size = size + (P - 2 - size) * k * pop; col = lerp3(col, lit, k); alpha = alpha + (1 - alpha) * k;
       }
+      if (warm > 0) col = lerp3(col, home, warm * 0.82);
+      tile(X, Y, Math.max(1.4, size) * z, col, clamp(alpha));
     }
-    // The flood warms toward the room before it lands.
-    if (warm > 0) col = lerp3(col, lerp3(ground, dotRoom, 0.35), warm * 0.82);
-    // Arrival: from the centre out, each tile shrinks to Today's dot and the ground lifts off Today.
-    let cover = 1;
-    if (ak > 0) {
-      const k = smooth(clamp((A - d) / 3.2));
-      size = size + (1.8 - size) * k; col = lerp3(col, dotRoom, k); alpha = alpha + (room.dotA * 1.4 - alpha) * k; cover = 1 - k;
-    }
-    if (cover > 0.002) { g.fillStyle = css(gap, cover); g.fillRect(i * P, j * P, P, P); }
-    if (alpha > 0.01) { const sz = Math.max(1.4, size); g.fillStyle = css(col, clamp(alpha)); g.fillRect(cx - sz / 2, cy - sz / 2, sz, sz); }
   }
-  // LAR leads: to the mouth, then ahead of the flood toward its heart, gone as the tiles fall.
+  // The mouth: the same field at a finer pitch. Diving in makes its tiles the screen's tiles.
+  const k = z / ZMAX;
+  const x0 = Math.max(0, FX + (IX0 - PCX) * z), x1 = Math.min(FW, FX + (IX1 - PCX) * z), y0 = Math.max(0, FY + (IY0 - PCY) * z), y1 = Math.min(FH, FY + (IY1 - PCY) * z);
+  if (open > 0) {
+    g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip();
+    if (ak === 0) { g.fillStyle = css(lerp3(lerp3(VOID, ramp[0], open), gap, warm)); g.fillRect(x0, y0, x1 - x0, y1 - y0); }
+    const i0 = Math.floor(((x0 - FX) / k + SX) / P) - 1, i1 = Math.ceil(((x1 - FX) / k + SX) / P), j0 = Math.floor(((y0 - FY) / k + SY) / P) - 1, j1 = Math.ceil(((y1 - FY) / k + SY) / P);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const cx = i * P + P / 2, cy = j * P + P / 2, X = FX + (cx - SX) * k, Y = FY + (cy - SY) * k;
+      const dx = (cx - SX) / P, dy = (cy - SY) / P, d = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
+      const band = ((Math.floor(Math.log(d + 1) * 3.4 - t * 6 + ang * 0.95) % 5) + 5) % 5;
+      let col = ramp[band], size = (P - 2) * k;
+      if (warm > 0) col = lerp3(col, home, warm * 0.82);
+      if (ak > 0) {
+        const kk = smooth(clamp((A - d) / 3.2));
+        if (kk > 0.5 + 0.5 * BAYER[(j & 3) * 4 + (i & 3)]) continue;   // lifted: Today's own dot shows here
+        const s = clamp(kk * 2);
+        g.fillStyle = css(gap); g.fillRect(X - P / 2, Y - P / 2, P, P);
+        size += (1.8 - size) * s; col = lerp3(col, dotRoom, s);
+      }
+      tile(X, Y, size, col, open);
+    }
+    g.restore();
+  }
+  // LAR leads: to the mouth, then in ahead of the camera, gone into the swirl before it lands.
   if (tl.first) {
-    const fly = ease(clamp(t / tl.fly)), sx = 66, sy = 488, mx = PCX, my = PCY + 100;
-    let x = sx + (mx - sx) * fly, y = sy + (my - sy) * fly - Math.sin(fly * Math.PI) * 46, sc = 2;
-    if (fk > 0) { x = mx + (PCX - mx) * fk; y = my + (PCY - my) * fk; sc = 2 - 1.3 * fk; }
-    const fade = 1 - smooth(clamp((t - tl.arrive) / ((tl.arriveEnd - tl.arrive) * 0.5)));
-    bubble.style.opacity = t > 0.02 && t < tl.fly + 0.3 ? 1 : 0;
+    const fly = ease(clamp(t / tl.fly)), sx0 = 66, sy0 = 488, mx = PCX, my = IY1 - 18;
+    let x = sx0 + (mx - sx0) * fly, y = sy0 + (my - sy0) * fly - Math.sin(fly * Math.PI) * 46, sc = 2, fade = 1;
+    if (zk > 0) { x = mx + (SX - mx) * zk; y = my + (SY - my) * zk; sc = 2 - 1.5 * zk; fade = 1 - smooth(clamp((zk - 0.65) / 0.3)); }
+    bubble.style.opacity = t > 0.02 && t < tl.fly + 0.2 ? 1 : 0;
     bubble.style.left = clamp(x - 34, 8, 150) + "px"; bubble.style.top = y - 72 + "px";
-    if (fade > 0) {
-      larRig.set(fly < 1 || fk > 0 ? "fly" : "happy", t);
-      const p = larRig.at(t, { vx: fk > 0 ? 0 : 40, vy: 0 }, reduce);
+    if (fade > 0 && ak === 0) {
+      larRig.set(fly < 1 || zk > 0 ? "fly" : "happy", t);
+      const p = larRig.at(t, { vx: zk > 0 ? 0 : 40, vy: 0 }, reduce);
       g.save(); g.globalAlpha = fade; g.imageSmoothingEnabled = false; g.translate(x - 13 * sc, y - 12 * sc); g.scale(sc, sc); LarKit.drawLar(g, p, th, t, { shadow: false }); g.restore();
     }
   } else bubble.style.opacity = 0;
@@ -729,44 +783,51 @@ $("#divePlay").addEventListener("click", diveRestart);
 $("#diveScrub").addEventListener("input", (e) => { cancelAnimationFrame(raf); dive.t = +e.target.value / 1000; drawDive(dive.t); });
 segs("dv", dive, (k) => (k === "speed" ? null : diveRestart()));
 
-/* ================= TYPE ================= */
-const T = { room: "night" };
-function renderType() {
-  $("#typeOpts").innerHTML = ["tuned", "sharp", "squared", "pixel"].map((k) => { const t = TYPE[k]; return `<div class="opt"><div class="phone" data-type="${k}"></div>
-    <div class="spec-strip" style="font-family:${t.read}"><span class="w" style="font-family:${t.display};font-weight:${t.dw};letter-spacing:${t.dt}"><b>Student</b> IntPortal</span><span class="s">Up next at 7:30 in S309. Pagsusulit 1 is due tomorrow.</span></div>
-    <div class="name"><b>${t.name}</b><span>${t.blurb}</span></div>
-    <button class="pick" data-row="type" data-v="${t.name}">Pick ${t.name.toLowerCase()}</button></div>`; }).join("");
-  $$("#typeOpts .phone").forEach((p) => mountToday(p, { room: T.room, school: "pup", type: p.dataset.type }));
-  renderSeam();
-  const you = $("#youPhone"); applyRoles(you, { room: T.room, school: "pup", type: "tuned" }); you.classList.add("dots");
-  you.innerHTML = `<div class="island"></div><div class="status"><span>4:41</span><span>●●● ▮</span></div><div class="scroll"><div class="scr">
-    <div class="hd"><div><div class="lbl">Account and look</div><h3 class="hi">You</h3></div></div>
-    <div class="card notch you-set"><div class="lbl">Text style</div><div class="rowset"><span class="on" style="font-family:${TYPE.tuned.read};font-weight:700">IntPortal</span><span style="font-family:Montserrat, sans-serif;font-weight:700">Classic</span></div>
-    <span style="font-size:9px;color:var(--ink-2)">Classic brings back Montserrat and Source Sans, the original look. The pixel numerals and LAR's voice stay as they are.</span></div>
-    <div class="card notch you-set"><div class="lbl">Room</div><div class="rowset"><span class="on">Night</span><span>Day</span></div></div>
-    <div class="card notch" style="display:grid;gap:8px"><div class="lbl">Feel</div>
-      <label style="display:flex;gap:8px;align-items:center;font-size:11px"><span class="pchk on"></span>Haptics</label>
-      <label style="display:flex;gap:8px;align-items:center;font-size:11px"><span class="pchk"></span>Sounds</label></div>
-  </div></div>${tabBar("you")}`;
-  renderTray();
+/* ================= THE FIELD ANSWERS: shared by done, sync and chat ================= */
+const rel = (p, el) => { const a = p.getBoundingClientRect(), b = el.getBoundingClientRect(); return { x: b.left - a.left + b.width / 2, y: b.top - a.top + b.height / 2 }; };
+/* A ring of brighter, bigger dots runs out through the dot grid. */
+function fieldPulse(p, x, y, strength = 1) {
+  if (reduce) return;
+  const cv = document.createElement("canvas"), dpr = Math.min(2, devicePixelRatio || 1), W = p.clientWidth, H = p.clientHeight;
+  cv.className = "pulse"; cv.width = W * dpr; cv.height = H * dpr; p.prepend(cv);
+  const g = cv.getContext("2d"), col = rgbOf(getComputedStyle(p).getPropertyValue("--gold-c").trim() || "#f5b227"), t0 = performance.now(), D = 620 + 260 * strength, R = 180 + 260 * strength;
+  const tick = (now) => {
+    const k = (now - t0) / D; if (k >= 1 || !cv.isConnected) { cv.remove(); return; }
+    const r = ease(k) * R; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    for (let j = 0; j * P < H; j++) for (let i = 0; i * P < W; i++) {
+      const cx = i * P + P / 2, cy = j * P + P / 2, dd = Math.hypot(cx - x, cy - y) - r, b = Math.exp(-((dd / 15) ** 2)) * (1 - k);
+      if (b < 0.03) continue;
+      const s = 1.8 + 3.4 * b * Math.min(1.3, strength); g.fillStyle = css(col, Math.min(1, 0.2 + 0.75 * b)); g.fillRect(cx - s / 2, cy - s / 2, s, s);
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
-function renderSeam() {
-  const keys = ["tuned", "sharp", "squared", "pixel", "classic"];
-  T.seam ??= "tuned";
-  $("#seamSeg").innerHTML = keys.map((k) => `<button data-seam="${k}" aria-pressed="${k === T.seam}">${TYPE[k].name}</button>`).join("");
-  $$("#seamSeg button").forEach((b) => b.addEventListener("click", () => { T.seam = b.dataset.seam; renderSeam(); }));
-  const box = $("#seam"); applyRoles(box, { room: T.room, school: "pup", type: T.seam });
-  const t = TYPE[T.seam];
-  $("#seamZoom").innerHTML = `<div class="rowz"><svg class="ic" viewBox="0 0 12 12">${ICONS.today.flatMap((r, y) => [...r].map((c, x) => (c === "#" ? `<rect x="${x}" y="${y}" width="1" height="1" fill="currentColor"/>` : ""))).join("")}</svg><span style="font:${t.lw} 9px ${t.label};letter-spacing:${t.lt};text-transform:uppercase;color:var(--ink-3)">In session</span></div>
-    <div style="font:${t.tw} 17px/1.1 ${t.title};letter-spacing:${t.tt};color:var(--gold-c)">COMP 20083</div>
-    <div class="rowz" style="align-items:end"><span style="font:400 11px/1.3 ${t.read};color:var(--ink)">Object-Oriented Prog.</span><span style="margin-left:auto;color:var(--ink)">${pixelNum("4:00", 2)}</span></div>
-    <div style="font:${t.dw} 24px/1.05 ${t.display};letter-spacing:${t.dt};color:var(--ink)">Good day</div>`;
-  $("#seamNote").textContent = T.seam === "classic" ? "The original, kept as a setting: three families with three different stroke logics." : t.seam;
+/* Square sparks of the school's ramp, with gravity. One canvas per phone. */
+function burst(p, x, y, n, power = 1) {
+  if (reduce) return;
+  let cv = $("canvas.fx", p);
+  if (!cv) { cv = document.createElement("canvas"); cv.className = "fx"; p.appendChild(cv); cv.parts = []; }
+  const dpr = Math.min(2, devicePixelRatio || 1), W = p.clientWidth, H = p.clientHeight;
+  if (cv.width !== W * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+  const th = SCHOOLS.pup.theme, cols = [th.accent, th.ramp[4], th.ramp[3], "#fff6dc", "#7fe0a8"];
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + Math.random() * 0.5, v = (70 + Math.random() * 80) * power; cv.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 50 * power, c: cols[i % cols.length], s: i % 3 ? 2 : 3, age: 0, life: 0.45 + 0.25 * power + Math.random() * 0.2 }); }
+  if (cv.running) return;
+  cv.running = true; let last = performance.now();
+  const g = cv.getContext("2d");
+  const tick = (now) => {
+    const dt = Math.min(0.033, (now - last) / 1000); last = now;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    cv.parts = cv.parts.filter((q) => (q.age += dt) < q.life);
+    for (const q of cv.parts) { q.vy += 320 * dt; q.vx *= 0.97; q.x += q.vx * dt; q.y += q.vy * dt; g.globalAlpha = Math.max(0, 1 - q.age / q.life); g.fillStyle = q.c; g.fillRect(Math.round(q.x), Math.round(q.y), q.s, q.s); }
+    g.globalAlpha = 1;
+    if (cv.parts.length && cv.isConnected) requestAnimationFrame(tick); else { cv.running = false; g.clearRect(0, 0, W, H); }
+  };
+  requestAnimationFrame(tick);
 }
-segs("t", T, renderType);
 
 /* ================= DONE ================= */
-const J = { sound: "1" };
+const J = { sound: "1", room: "night" };
 let actx = null, combo = 0, lastDone = 0;
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
 function audio() { if (J.sound !== "1") return null; try { actx ??= new AudioContext(); if (actx.state === "suspended") actx.resume(); return actx; } catch { return null; } }
@@ -776,10 +837,10 @@ function pluck(a, f, at, dur, type = "triangle", vol = 0.07) {
   g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vol, at + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
   o.connect(g).connect(a.destination); o.start(at); o.stop(at + dur + 0.02);
 }
-function click(a, at) {
+function click(a, at, freq = 3200, vol = 0.22) {
   const n = a.createBuffer(1, Math.round(a.sampleRate * 0.012), a.sampleRate), d = n.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) ** 3;
-  const s = a.createBufferSource(), bp = a.createBiquadFilter(), g = a.createGain(); bp.type = "bandpass"; bp.frequency.value = 3200 * detune(); bp.Q.value = 1.4; g.gain.value = 0.22;
+  const s = a.createBufferSource(), bp = a.createBiquadFilter(), g = a.createGain(); bp.type = "bandpass"; bp.frequency.value = freq * detune(); bp.Q.value = 1.4; g.gain.value = vol;
   s.buffer = n; s.connect(bp).connect(g).connect(a.destination); s.start(at);
 }
 function thump(a, at) {
@@ -793,21 +854,24 @@ const sfx = {
     const a = audio(); if (!a) return; const t = a.currentTime, f = 523.25 * 2 ** (PENTA[Math.min(step, PENTA.length - 1)] / 12);
     pluck(a, f, t, 0.22); pluck(a, f * 2, t, 0.12, "sine", 0.025);
     pluck(a, f * 1.5, t + 0.07, 0.2, "triangle", 0.05);
+    if (step >= 3) pluck(a, f * 2, t + 0.14, 0.18, "square", 0.012);   // the high tier adds a sparkle on top
     thump(a, t + 0.24);
   },
-  clear() { const a = audio(); if (!a) return; const t = a.currentTime + 0.05; [0, 4, 7, 12, 16].forEach((n, i) => pluck(a, 523.25 * 2 ** (n / 12), t + i * 0.06, 0.32, "triangle", 0.06)); pluck(a, 1046.5, t + 0.3, 0.6, "sine", 0.03); },
+  land() { const a = audio(); if (!a) return; click(a, a.currentTime, 1400, 0.14); pluck(a, 196, a.currentTime, 0.09, "triangle", 0.03); },
+  clear() { const a = audio(); if (!a) return; const t = a.currentTime + 0.05; [0, 4, 7, 12, 16, 19].forEach((n, i) => pluck(a, 523.25 * 2 ** (n / 12), t + i * 0.06, 0.32, "triangle", 0.06)); pluck(a, 1046.5, t + 0.36, 0.7, "sine", 0.03); thump(a, t + 0.36); },
 };
 const DUE = [["PETA 1", "Physical Activity Towards Health 1", "Overdue", "o"], ["Pagsusulit 1", "Filipinolohiya", "Tomorrow", ""], ["Problem Set 2", "Mathematics in the Modern World", "Wed", ""], ["Reflection paper", "Readings in Philippine History", "Fri", ""], ["Lab 4: Linked lists", "Data Structures and Algorithms", "Sat", ""]];
 let doneLar = null;
 function renderDone() {
-  const p = $("#donePhone"); const { th } = applyRoles(p, { room: "night", school: "pup", type: "tuned" }); p.classList.add("dots");
+  const p = $("#donePhone"); const { th } = applyRoles(p, { room: J.room, school: "pup" }); p.classList.add("dots");
   p.innerHTML = `<div class="island"></div><div class="status"><span>4:41</span><span>●●● ▮</span></div><div class="scroll"><div class="scr">
     <div class="hd"><div><div class="lbl">This week</div><h3 class="hi">Due</h3></div><canvas class="lar" width="66" height="60" style="width:44px;height:40px;image-rendering:pixelated" aria-hidden="true"></canvas></div>
-    <div class="dlist" data-open>${DUE.map(([a, b, c, o]) => `<div class="ditem" role="button" tabindex="0"><span class="pchk"></span><div class="tx"><b>${a}</b><i>${b}</i></div><span class="when ${o}">${c}</span><span class="stamp">DONE</span></div>`).join("")}</div>
+    <div class="prog" role="img" aria-label="0 of ${DUE.length} done">${DUE.map(() => "<i></i>").join("")}<span data-pn>0 of ${DUE.length}</span></div>
+    <div class="dlist" data-open>${DUE.map(([a, b, c, o]) => `<div class="ditem" role="button" tabindex="0"><span class="pchk"></span><div class="tx"><b>${a}</b><i>${b}</i></div><span class="when ${o}">${c}</span><span class="combo" aria-hidden="true"></span><span class="stamp">DONE</span></div>`).join("")}</div>
     <div class="clear" data-clear>All clear for this week.</div>
     <div class="dgroup" data-donehead hidden>Done</div>
     <div class="dlist" data-done></div>
-  </div><canvas class="sparks"></canvas></div>${tabBar()}`;
+  </div></div>${tabBar()}`;
   doneLar = { cv: $("canvas.lar", p), rig: LarKit.rig("idle"), theme: th, thumbsAt: -9 };
   floatingOrb(p, th);
   $$(".ditem", p).forEach((it) => {
@@ -819,32 +883,37 @@ function renderDone() {
 function markDone(p, it) {
   if (it.classList.contains("done")) return;
   const now = performance.now(); combo = now - lastDone < 4000 ? combo + 1 : 0; lastDone = now;
-  it.classList.add("done", "fresh"); $(".pchk", it).classList.add("on");
+  const c = Math.min(combo, 4);
+  it.classList.add("done", "fresh", combo >= 3 ? "t2" : combo >= 1 ? "t1" : "t0"); $(".pchk", it).classList.add("on");
+  $(".combo", it).textContent = combo ? "×" + (combo + 1) : "";
   sfx.done(combo);
-  sparks(p, $(".pchk", it));
-  // Once the stamp lands, the card slides down into Done, then everything is still.
+  const at = rel(p, $(".pchk", it));
+  burst(p, at.x, at.y, 8 + 4 * c, 1 + 0.15 * c);
+  fieldPulse(p, at.x, at.y, 0.45 + 0.15 * c);
+  const n = $$(".ditem.done", p).length;
+  $$(".prog i", p)[n - 1]?.classList.add("on"); $("[data-pn]", p).textContent = `${n} of ${DUE.length}`; $(".prog", p).setAttribute("aria-label", `${n} of ${DUE.length} done`);
+  // The card lifts, then drops into Done with a tilt and lands with a squash. Then everything is still.
+  setTimeout(() => it.classList.add("lift"), reduce ? 0 : 560);
   setTimeout(() => {
     const items = $$(".ditem", p), first = new Map(items.map((e) => [e, e.getBoundingClientRect().top]));
     $("[data-donehead]", p).hidden = false;
     $("[data-done]", p).prepend(it);
-    it.classList.remove("fresh");
-    if (!$$("[data-open] .ditem", p).length) { $("[data-clear]", p).classList.add("on"); sfx.clear(); doneLar.thumbsAt = performance.now() / 1000; }
-    items.forEach((e) => { const dy = first.get(e) - e.getBoundingClientRect().top; if (!dy || reduce) return; e.animate([{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }], { duration: 340, easing: "cubic-bezier(0.22,1,0.36,1)" }); });
-  }, reduce ? 0 : 660);
+    it.classList.remove("fresh", "t0", "t1", "t2");
+    items.forEach((e) => {
+      const dy = first.get(e) - e.getBoundingClientRect().top; if (!dy || reduce) return;
+      if (e === it) e.animate([{ transform: `translateY(${dy}px) rotate(-1.5deg) scale(1.03)` }, { transform: "translateY(0) rotate(0.4deg) scale(1.03)", offset: 0.78 }, { transform: "scale(1.01, 0.96)", offset: 0.9 }, { transform: "none" }], { duration: 460, easing: "cubic-bezier(0.22,1,0.36,1)" });
+      else e.animate([{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }], { duration: 340, easing: "cubic-bezier(0.22,1,0.36,1)" });
+    });
+    setTimeout(() => { it.classList.remove("lift"); sfx.land(); }, reduce ? 0 : 380);
+    if (!$$("[data-open] .ditem", p).length) setTimeout(() => allClear(p), reduce ? 0 : 440);
+  }, reduce ? 0 : 680);
 }
-function sparks(p, from) {
-  if (reduce) return;
-  const cv = $("canvas.sparks", p), sc = $(".scroll", p), box = sc.getBoundingClientRect(), r = from.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
-  cv.style.cssText = `position:absolute;left:0;top:${sc.scrollTop}px;width:${box.width}px;height:${box.height}px;pointer-events:none;z-index:5`;
-  cv.width = box.width * dpr; cv.height = box.height * dpr; const g = cv.getContext("2d"); g.scale(dpr, dpr);
-  const th = SCHOOLS.pup.theme, cols = [th.accent, th.ramp[4], th.ramp[3], "#fff6dc"];
-  const ox = r.left - box.left + r.width / 2, oy = r.top - box.top + r.height / 2;
-  const ps = Array.from({ length: 9 }, (_, i) => { const a = (i / 9) * Math.PI * 2 + Math.random() * 0.4, v = 70 + Math.random() * 70; return { x: ox, y: oy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, c: cols[i % cols.length], s: i % 3 ? 2 : 3 }; });
-  const t0 = performance.now(); let last = t0;
-  const tick = (now) => { const dt = (now - last) / 1000; last = now; g.clearRect(0, 0, box.width, box.height); const k = (now - t0) / 480;
-    for (const q of ps) { q.vy += 300 * dt; q.vx *= 0.96; q.x += q.vx * dt; q.y += q.vy * dt; g.globalAlpha = Math.max(0, 1 - k); g.fillStyle = q.c; g.fillRect(Math.round(q.x), Math.round(q.y), q.s, q.s); }
-    if (k < 1) requestAnimationFrame(tick); else g.clearRect(0, 0, box.width, box.height); };
-  requestAnimationFrame(tick);
+function allClear(p) {
+  $("[data-clear]", p).classList.add("on"); $(".prog", p).classList.add("all"); sfx.clear(); doneLar.thumbsAt = performance.now() / 1000;
+  const l = rel(p, doneLar.cv);
+  fieldPulse(p, l.x, l.y, 1.5);
+  [0, 150, 300].forEach((d) => setTimeout(() => burst(p, l.x, l.y + 6, 16, 1.7), d));
+  doneLar.cv.classList.remove("hop"); void doneLar.cv.offsetWidth; doneLar.cv.classList.add("hop");
 }
 function larLoop(now) {
   const t = now / 1000;
@@ -858,7 +927,7 @@ function larLoop(now) {
   }
   requestAnimationFrame(larLoop);
 }
-segs("j", J, () => {});
+segs("j", J, (k) => k === "room" && renderDone());
 $("#resetDone").addEventListener("click", () => { combo = 0; renderDone(); });
 
 /* ================= WEEK ================= */
@@ -869,61 +938,119 @@ const CLASSES = [
   { d: 2, s: 600, e: 720, code: "MATH 20013", t: "Discrete Structures", room: "S305", c: 0, mark: "online" },
   { d: 2, s: 900, e: 1080, code: "COMP 20083", t: "Object-Oriented Prog.", room: "S501", c: 0, moved: { d: 3, s: 900, e: 1080 } },
   { d: 4, s: 450, e: 540, code: "COMP 20073", t: "Data Structures", room: "S309", c: 1 },
-  { d: 4, s: 630, e: 720, code: "GEED 10053", t: "Purposive Comm.", room: "S210", c: 0, mark: "vacant" },
+  { d: 4, s: 630, e: 720, code: "GEED 10053", t: "Purposive Comm.", room: "S210", c: 4, mark: "vacant" },
   { d: 4, s: 780, e: 870, code: "MATH 20013", t: "Discrete Structures", room: "S305", c: 0 },
   { d: 4, s: 960, e: 1140, code: "COMP 20083", t: "Object-Oriented Prog.", room: "S501", c: 0 },
 ];
-const TODAY = 4, DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"];
-const FIRST = 7, HOURS = 12, HH = 30.5;    // 12 hours in the room between the header and the tab bar
+const TODAY = 4, DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"], DATES = [19, 20, 21, 22, 23, 24];
+const FIRST = 7, HOURS = 12;
+const PINS = { 3: "over", 5: "due" };      // overdue PETA 1 on Thu, Pagsusulit 1 due Sat
 let nowMin = 790;
-const stripHTML = () => `<div class="strip" aria-label="Deadlines over the next four weeks">${Array.from({ length: 28 }, (_, i) => `<i class="${[5, 7, 9, 12, 16, 23].includes(i) ? "due" : i === 3 ? "over" : ""} ${i === 4 ? "today" : ""}"></i>`).join("")}</div>`;
+const fmt = (m) => `${(Math.floor(m / 60) % 12) || 12}:${String(m % 60).padStart(2, "0")}`;
+const span = (m) => [Math.floor(m / 60) && Math.floor(m / 60) + "h", m % 60 && (m % 60) + "m"].filter(Boolean).join(" ");
+const yy = (m, hh) => ((m - FIRST * 60) / 60) * hh;
+const stampOf = (c) => (c.mark === "online" ? ["ONLINE", "#1b4f99"] : c.mark === "vacant" ? ["VACANT", "#765806"] : c.moved ? ["MOVED", "#7a1128"] : null);
+function dayItems(d) {
+  const out = [];
+  CLASSES.forEach((c, i) => {
+    if (c.moved) { if (c.d === d) out.push({ ...c, i, ghost: true }); if (c.moved.d === d) out.push({ ...c, ...c.moved, i }); }
+    else if (c.d === d) out.push({ ...c, i });
+  });
+  return out.sort((a, b) => a.s - b.s);
+}
+const hasDay = (d) => dayItems(d).length > 0;
+const stampHTML = (st) => (st ? `<span class="stp${st[0] === "MOVED" ? " mv" : ""}" style="--sk:${st[1]}">${st[0]}</span>` : "");
+/* The deadline strip, folded into a four-week pixel month beside the title. */
+function miniMonth() {
+  const due = [5, 7, 9, 12, 16, 23], over = [3];
+  return `<div class="mm" role="img" aria-label="Deadlines over the next four weeks: 6 due, 1 overdue"><span>DUE · 4 WK</span><div>${Array.from({ length: 28 }, (_, i) => `<i class="${due.includes(i) ? "due" : over.includes(i) ? "over" : ""}${i === TODAY ? " today" : ""}${i < 7 ? " wk" : ""}"></i>`).join("")}</div></div>`;
+}
+const hrsHTML = (hh) => `<div class="hrs">${Array.from({ length: HOURS }, (_, k) => `<span style="top:${k * hh}px">${((FIRST + k) % 12) || 12}${FIRST + k < 12 ? "a" : "p"}</span>`).join("")}</div>`;
+const headCell = (d, extra = "") => `<button class="dh${d === TODAY ? " today" : ""}${extra}" data-f="${d}" type="button" aria-label="${DAYS[d]} ${DATES[d]}"><span>${DAYS[d]}</span><b>${DATES[d]}</b><i class="pin ${PINS[d] || ""}"></i></button>`;
+const nowHTML = (hh, left) => `<div class="nowline" style="left:${left}px;top:${yy(nowMin, hh)}px"><span>${fmt(nowMin)}</span></div>`;
+function blockHTML(c, d, hh, r) {
+  const top = yy(c.s, hh), h = yy(c.e, hh) - top - 2, past = d === TODAY && c.e <= nowMin, now = d === TODAY && c.s <= nowMin && nowMin < c.e;
+  const st = !c.ghost && stampOf(c);
+  const cls = ["blk", past && "past", now && "now", c.mark === "vacant" && "vacant", c.ghost && "ghostmove"].filter(Boolean).join(" ");
+  if (c.ghost) return `<div class="${cls}" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]}" aria-label="Moved from here: ${c.t}"><b>moved</b></div>`;
+  const label = `${c.code}, ${c.t}, ${fmt(c.s)} to ${fmt(c.e)}, room ${c.room}${st ? ", " + st[0].toLowerCase() : ""}`;
+  return `<div class="${cls}" data-i="${c.i}" role="button" aria-label="${label}" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]}" data-stamped="${st ? 1 : 0}">${stampHTML(st)}<span class="cd">${c.code}</span><b>${c.t}</b><span class="tm">${fmt(c.s)}–${fmt(c.e)}</span><span class="rm">${c.room}</span></div>`;
+}
+function freeHTML(d, hh) {
+  const it = dayItems(d).filter((c) => !c.ghost); let out = "";
+  for (let k = 1; k < it.length; k++) { const a = it[k - 1].e, b = it[k].s; if (b - a >= 45) out += `<div class="free" style="top:${yy(a, hh) + 2}px;height:${yy(b, hh) - yy(a, hh) - 4}px"><span>${span(b - a)} free</span></div>`; }
+  return out;
+}
+const weekTop = () => `<div class="status"><span>1:10</span><span>●●● ▮</span></div><div class="scroll" style="padding-bottom:70px"><div class="scr" style="gap:8px">
+    <div class="hd"><div><div class="lbl">Oct 19 – 24</div><h3 class="hi">This week</h3></div>${miniMonth()}</div>`;
+
+/* A. Focus week: one view; the focused day opens wide, the rest keep their shape. */
+const FA = { focus: TODAY }, HHA = 31;
+const tplA = (f) => `18px ${[0, 1, 2, 3, 4, 5].map((d) => (d === f ? "minmax(0,4fr)" : hasDay(d) ? "minmax(0,1fr)" : "minmax(0,0.5fr)")).join(" ")}`;
+function focusHTML(r) {
+  const f = FA.focus, tpl = tplA(f);
+  const col = (d) => `<div class="col${d === TODAY ? " today" : ""}${d === f ? " focus" : ""}${hasDay(d) ? "" : " empty"}" data-f="${d}">${dayItems(d).map((c) => blockHTML(c, d, HHA, r)).join("")}${freeHTML(d, HHA)}${hasDay(d) ? "" : `<div class="rest">No classes.<br>Pahinga muna.</div>`}</div>`;
+  return weekTop() + `<div class="wk fw">
+      <div class="head" style="grid-template-columns:${tpl}"><span></span>${[0, 1, 2, 3, 4, 5].map((d) => headCell(d, d === f ? " focus" : "")).join("")}</div>
+      <div class="body" style="grid-template-columns:${tpl};height:${HOURS * HHA}px;--hh:${HHA}px">${hrsHTML(HHA)}${[0, 1, 2, 3, 4, 5].map(col).join("")}${nowHTML(HHA, 18)}</div></div>
+  </div></div>${tabBar("sched")}`;
+}
+function setupFocus(p) {
+  const body = $(".fw .body", p), head = $(".fw .head", p);
+  let x0 = null, swiped = false;
+  const go = (f) => {
+    f = clamp(f, 0, 5); if (f === FA.focus) return; FA.focus = f;
+    const tpl = tplA(f); body.style.gridTemplateColumns = tpl; head.style.gridTemplateColumns = tpl;
+    $$(".fw [data-f]", p).forEach((e) => e.classList.toggle("focus", +e.dataset.f === f));
+  };
+  $$(".fw [data-f]", p).forEach((e) => e.addEventListener("click", () => !swiped && go(+e.dataset.f)));
+  body.addEventListener("pointerdown", (e) => { x0 = e.clientX; swiped = false; });
+  body.addEventListener("pointerup", (e) => { if (x0 == null) return; const dx = e.clientX - x0; x0 = null; if (Math.abs(dx) > 36) { swiped = true; go(FA.focus + (dx < 0 ? 1 : -1)); } });
+}
+
+/* B. Week and Day, both kept and fixed. */
+const HHB = 31, HHD = 27;
 function weekHTML(r) {
-  const shown = [0, 1, 2, 3, 4, 5].filter((d) => d === TODAY || CLASSES.some((c) => c.d === d || c.moved?.d === d));
-  const tpl = `20px ${[0, 1, 2, 3, 4, 5].map((d) => (shown.includes(d) ? "minmax(0,1fr)" : "9px")).join(" ")}`;
-  const y = (m) => ((m - FIRST * 60) / 60) * HH;
-  const block = (c, d, ghost) => {
-    const top = y(c.s), h = y(c.e) - y(c.s) - 2, past = d === TODAY && c.e <= nowMin, now = d === TODAY && c.s <= nowMin && nowMin < c.e;
-    const cls = ["blk", past && "past", now && "now", c.mark === "vacant" && "vacant", ghost && "ghostmove"].filter(Boolean).join(" ");
-    const stp = ghost ? "" : c.mark === "online" ? `<span class="stp" style="color:#1b4f99">ONLINE</span>` : c.mark === "vacant" ? `<span class="stp" style="color:#765806">VACANT</span>` : c.moved ? `<span class="stp" style="color:#7a1128;outline:1px dashed #7a1128">MOVED</span>` : "";
-    return `<div class="${cls}" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]}" data-stamped="${stp ? 1 : 0}">${stp}<b>${ghost ? "moved" : c.code}</b>${!ghost && h >= 34 ? `<span>${c.t}</span>` : ""}${!ghost && h >= 50 ? `<span>${c.room}</span>` : ""}</div>`;
-  };
-  const col = (d) => {
-    if (!shown.includes(d)) return `<div class="col ghost" title="${DAYS[d]}: no classes"></div>`;
-    let inner = "";
-    for (const c of CLASSES) { if (c.moved) { if (c.d === d) inner += block(c, d, true); if (c.moved.d === d) inner += block({ ...c, ...c.moved }, d, false); } else if (c.d === d) inner += block(c, d, false); }
-    return `<div class="col ${d === TODAY ? "today" : ""}">${inner}</div>`;
-  };
-  return `<div class="status"><span>1:10</span><span>●●● ▮</span></div><div class="scroll" style="padding-bottom:70px"><div class="scr" style="gap:8px">
-    <div class="hd"><div><div class="lbl">Oct 19 – 24</div><h3 class="hi">This week</h3></div></div>${stripHTML()}
-    <div class="wk" style="--hh:${HH}px">
-      <div class="head" style="grid-template-columns:${tpl}"><span></span>${[0, 1, 2, 3, 4, 5].map((d) => `<span class="${d === TODAY ? "today" : ""}">${shown.includes(d) ? DAYS[d] : ""}</span>`).join("")}</div>
-      <div class="body" style="grid-template-columns:${tpl};height:${HOURS * HH}px"><div class="hrs">${Array.from({ length: HOURS }, (_, k) => `<span style="top:${k * HH}px">${((FIRST + k) % 12) || 12}${FIRST + k < 12 ? "a" : "p"}</span>`).join("")}</div>${[0, 1, 2, 3, 4, 5].map(col).join("")}
-        <div class="nowline" style="left:20px;top:${y(nowMin)}px"></div></div></div>
+  const shown = (d) => d === TODAY || hasDay(d);
+  const tpl = `18px ${[0, 1, 2, 3, 4, 5].map((d) => (shown(d) ? "minmax(0,1fr)" : "7px")).join(" ")}`;
+  const col = (d) => (shown(d) ? `<div class="col${d === TODAY ? " today" : ""}">${dayItems(d).map((c) => blockHTML(c, d, HHB, r)).join("")}</div>` : `<div class="col ghost" title="${DAYS[d]}: no classes"></div>`);
+  return weekTop() + `<div class="wk">
+      <div class="head" style="grid-template-columns:${tpl}"><span></span>${[0, 1, 2, 3, 4, 5].map((d) => (shown(d) ? headCell(d) : "<span></span>")).join("")}</div>
+      <div class="body" style="grid-template-columns:${tpl};height:${HOURS * HHB}px;--hh:${HHB}px">${hrsHTML(HHB)}${[0, 1, 2, 3, 4, 5].map(col).join("")}${nowHTML(HHB, 18)}</div></div>
   </div></div>${tabBar("sched")}`;
 }
 function dayHTML(r) {
-  const f = (m) => `${(Math.floor(m / 60) % 12) || 12}:${String(m % 60).padStart(2, "0")}`;
-  const day = (d) => `<div>${CLASSES.filter((c) => (c.moved ? c.moved.d : c.d) === d).map((c) => { const s = c.moved || c; return `<div class="card row4 cls" style="--sub:${r.sub[c.c]}"><div class="tm">${f(s.s)}<small>${f(s.e)}</small></div><i class="bar"></i><div><b>${c.code}</b><span>${c.t} · ${c.room}${c.mark ? " · " + c.mark : c.moved ? " · moved" : ""}</span></div></div>`; }).join("") || `<div class="card row4" style="font-size:11px;color:var(--ink-2)">No classes. Pahinga muna.</div>`}</div>`;
-  return `<div class="status"><span>1:10</span><span>●●● ▮</span></div><div class="scroll"><div class="scr">
-    <div class="hd"><div><div class="lbl">Oct 19 – 24</div><h3 class="hi">This week</h3></div></div>${stripHTML()}
-    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">${[0, 1, 2, 3, 4, 5].map((d) => `<span data-day="${d}" style="display:grid;justify-items:center;padding:5px 0;font:600 8px var(--rf-label);color:var(--ink-3);background:var(--card);box-shadow:inset 0 0 0 1px var(--edge-c);cursor:pointer">${DAYS[d]}<b style="font:800 13px var(--rf-num);color:var(--ink)">${19 + d}</b></span>`).join("")}</div>
+  const card = (c, d) => {
+    const top = yy(c.s, HHD), h = yy(c.e, HHD) - top - 3;
+    if (c.ghost) return `<div class="dcard ghostmove" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]}"><b>Moved to ${DAYS[c.moved.d][0] + DAYS[c.moved.d].slice(1).toLowerCase()} ${fmt(c.moved.s)}</b></div>`;
+    const st = stampOf(c), past = d === TODAY && c.e <= nowMin, now = d === TODAY && c.s <= nowMin && nowMin < c.e;
+    return `<div class="dcard${past ? " past" : ""}${now ? " now" : ""}${c.mark === "vacant" ? " vacant" : ""}" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]}" data-stamped="${st ? 1 : 0}"><i class="bar"></i><div><b>${c.code}</b> <span class="t">${c.t}</span><span class="m">${fmt(c.s)}–${fmt(c.e)} · ${c.room}</span></div>${stampHTML(st)}</div>`;
+  };
+  const tline = (d) => { const it = dayItems(d); return `<div class="tline" style="height:${HOURS * HHD}px">${hrsHTML(HHD)}${it.map((c) => card(c, d)).join("")}${freeHTML(d, HHD)}${d === TODAY ? nowHTML(HHD, 22) : ""}${it.length ? "" : `<div class="rest">No classes.<br>Pahinga muna.</div>`}</div>`; };
+  return weekTop() + `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">${[0, 1, 2, 3, 4, 5].map((d) => `<span data-day="${d}" style="display:grid;justify-items:center;padding:5px 0;font:600 8px var(--rf-label);color:var(--ink-3);background:var(--card);box-shadow:inset 0 0 0 1px var(--edge-c);cursor:pointer">${DAYS[d]}<b style="font:800 13px var(--rf-num);color:var(--ink)">${DATES[d]}</b></span>`).join("")}</div>
     <label style="display:flex;gap:8px;align-items:center;font-size:10px;color:var(--ink)"><span class="pchk"></span>Hide vacant classes</label>
-    <div class="dayview"><div class="daytrack">${[0, 1, 2, 3, 4, 5].map(day).join("")}</div></div>
+    <div class="dayview"><div class="daytrack">${[0, 1, 2, 3, 4, 5].map((d) => `<div>${tline(d)}</div>`).join("")}</div></div>
   </div></div>${tabBar("sched")}`;
 }
 function renderWeek() {
-  $("#weekOpts").innerHTML = [["week", "Week"], ["day", "Day: drag sideways, or tap a day"]].map(([k, n]) => `<div class="opt"><div class="phone" data-week="${k}"></div><div class="name"><b>${n}</b></div></div>`).join("");
+  const opts = [
+    ["focus", "A · Focus week", "One view. The day you're looking at opens wide with the code, title, time, room and free gaps; the other days shrink to colour, so the week's shape stays. Tap a day or swipe to move. This replaces the Day/Week switch."],
+    ["week", "B · Week, refined", "The switch stays. Blocks lead with the title, wrap on words, and carry the time and room; stamps sit inline; the now-line has its time."],
+    ["day", "B · Day, as a timeline", "Classes at their real length on the hour rail, with the free gaps between them, so the day fills the screen. Drag sideways or tap a day."],
+  ];
+  $("#weekOpts").innerHTML = opts.map(([k, n, s]) => `<div class="opt"><div class="phone" data-week="${k}"></div><div class="name"><b>${n}</b><span>${s}</span></div></div>`).join("");
   $$("#weekOpts .phone").forEach((p) => {
-    const { r } = applyRoles(p, { room: K.room, school: "pup", type: "tuned" }); p.classList.add("dots");
-    p.innerHTML = `<div class="island"></div>` + (p.dataset.week === "day" ? dayHTML(r) : weekHTML(r));
-    if (p.dataset.week === "day") setupSwipe(p);
+    const { r } = applyRoles(p, { room: K.room, school: "pup" }); p.classList.add("dots");
+    const k = p.dataset.week;
+    p.innerHTML = `<div class="island"></div>` + (k === "day" ? dayHTML(r) : k === "focus" ? focusHTML(r) : weekHTML(r));
+    if (k === "day") setupSwipe(p); if (k === "focus") setupFocus(p);
     floatingOrb(p, SCHOOLS.pup.theme);
   });
   stampIn();
 }
 function stampIn() {
   if (reduce) return;
-  $$("#weekOpts .blk[data-stamped='1']").forEach((b, i) => { const s = $(".stp", b); s.classList.remove("thunk"); void s.offsetWidth; s.style.animationDelay = i * 0.14 + 0.2 + "s"; s.classList.add("thunk"); });
+  $$("#weekOpts [data-stamped='1'] .stp").forEach((s, i) => { s.classList.remove("thunk"); void s.offsetWidth; s.style.animationDelay = (i % 3) * 0.14 + 0.2 + "s"; s.classList.add("thunk"); });
 }
 function setupSwipe(p) {
   const view = $(".dayview", p), track = $(".daytrack", p); let idx = TODAY, x = -idx * 100, v = 0, drag = null, raf2 = 0;
@@ -943,17 +1070,17 @@ segs("k", K, renderWeek);
 $("#restamp").addEventListener("click", stampIn);
 $("#clock").addEventListener("input", (e) => { nowMin = +e.target.value; renderWeek(); });
 
-
 /* ================= MOTION: the whole app ================= */
-const M = { room: "night" };
+const M = { room: "night", tick: 0 };
 const mlar = { rig: LarKit.rig("idle"), open: false, cv: null, openedAt: 0 };
 let gradesSeen = false;
 function floatingOrb(p, th) { const orb = document.createElement("button"); orb.className = "orb"; orb.setAttribute("aria-label", "Ask LAR"); orb.appendChild(cubeCanvas(th, 2.4)); p.appendChild(orb); return orb; }
 function renderMotion() {
-  const p = $("#motionPhone"); const { r, th } = applyRoles(p, { room: M.room, school: "pup", type: "tuned" }); p.classList.add("dots");
+  const p = $("#motionPhone"); const { r, th } = applyRoles(p, { room: M.room, school: "pup" }); p.classList.add("dots");
   gradesSeen = false;
   const tmp = document.createElement("div");
   tmp.innerHTML = todayHTML({ school: "pup" }); const todayScroll = $(".scroll", tmp);
+  $(".scr", todayScroll).insertAdjacentHTML("beforeend", `<div class="card row4 cls"><div class="tm">10:30AM<small>12PM</small></div><i class="bar" style="--sub:${r.sub[4]}"></i><div><b>GEED 10053</b><span>Purposive Comm. · S210</span></div></div><div class="card row4 cls"><div class="tm">1PM<small>2:30PM</small></div><i class="bar"></i><div><b>MATH 20013</b><span>Discrete Structures · S305</span></div></div>`);
   tmp.innerHTML = weekHTML(r); const weekScroll = $(".scroll", tmp);
   const grades = `<div class="scroll"><div class="scr">
     <div class="hd"><div><div class="lbl">First semester · 2026–2027</div><h3 class="hi">Grades</h3></div></div>
@@ -962,39 +1089,82 @@ function renderMotion() {
   </div></div>`;
   p.innerHTML = `<div class="island"></div><div class="status"><span>4:41</span><span>●●● ▮</span></div>
     <div class="pages"><div class="pg" data-pg="today"></div><div class="pg" data-pg="sched" hidden></div><div class="pg" data-pg="grades" hidden>${grades}</div></div>
+    <div class="mini" aria-hidden="true">Good afternoon</div>
     <div class="pull"><canvas></canvas><span>PULL TO SYNC</span></div><span class="synced">SYNCED</span>
     ${tabBar()}
+    <div class="scrim"></div><div class="csheet" role="dialog" aria-label="Class"><i class="morph"></i><div class="in"></div></div>
     <canvas class="flier"></canvas>
     <div class="sheet" role="dialog" aria-label="LAR"><div class="stage"><canvas></canvas><div class="who"><b>LAR</b><span>On this phone, offline</span></div><button class="x">Close</button></div>
       <div class="msgs"><div class="lar" data-hello></div></div><div class="comp">Ask LAR…</div></div>`;
   $("[data-pg=today]", p).appendChild(todayScroll); $("[data-pg=sched]", p).appendChild(weekScroll);
   drawCampus($("[data-campus]", p), M.room, "pup");
-  const orb = floatingOrb(p, th);
-  // Tabs: the icon hops, the page slides toward the tab you chose.
-  const order = ["today", "sched", "grades", "study", "you"];
+  const orb = floatingOrb(p, th), mini = $(".mini", p);
+  // Tabs: a pixel block steps to the tab, the icon hops, the page slides toward it.
+  const order = ["today", "sched", "grades", "study", "you"], tabs = $(".tabs", p), sel = document.createElement("i");
+  sel.className = "sel"; tabs.prepend(sel);
   let cur = "today";
   $$(".tabs span", p).forEach((t, i) => t.addEventListener("click", () => {
-    const next = order[i]; if (next === cur || !$(`[data-pg=${next}]`, p)) { t.classList.remove("hop"); void t.offsetWidth; t.classList.add("hop"); return; }
+    const next = order[i]; t.classList.remove("hop"); void t.offsetWidth; t.classList.add("hop");
+    if (next === cur || !$(`[data-pg=${next}]`, p)) return;
     const dir = order.indexOf(next) > order.indexOf(cur) ? 1 : -1;
     const from = $(`[data-pg=${cur}]`, p), to = $(`[data-pg=${next}]`, p);
-    $$(".tabs span", p).forEach((x) => x.classList.toggle("on", x === t)); t.classList.remove("hop"); void t.offsetWidth; t.classList.add("hop");
+    $$(".tabs span", p).forEach((x) => x.classList.toggle("on", x === t)); sel.style.translate = `${i * 100}% 0`;
+    mini.classList.remove("on");
     if (!reduce) {
       from.animate([{ opacity: 1, transform: "translateX(0)" }, { opacity: 0, transform: `translateX(${-12 * dir}px)` }], { duration: 120, easing: "ease-in" }).onfinish = () => (from.hidden = true);
       to.hidden = false; to.animate([{ opacity: 0, transform: `translateX(${12 * dir}px)` }, { opacity: 1, transform: "translateX(0)" }], { duration: 220, delay: 90, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "backwards" });
     } else { from.hidden = true; to.hidden = false; }
     cur = next;
+    if (next === "today") mini.classList.toggle("on", todayScroll.scrollTop > 44);
     if (next === "grades" && !gradesSeen) { gradesSeen = true; landGrades(p); }
   }));
-  // Pull to sync on Today.
+  // Scrolling Today folds the big title into a bar and tucks the cube aside until you stop.
+  let tuck = 0;
+  todayScroll.addEventListener("scroll", () => {
+    mini.classList.toggle("on", todayScroll.scrollTop > 44);
+    orb.classList.add("tuck"); clearTimeout(tuck); tuck = setTimeout(() => orb.classList.remove("tuck"), 650);
+  }, { passive: true });
+  // The Up next countdown ticks: every minute in the app, every 4 s here.
+  clearInterval(M.tick); let left = 139;
+  M.tick = setInterval(() => {
+    const big = $(".hero .big", todayScroll); if (!big || !p.isConnected) return;
+    left = left > 1 ? left - 1 : 139;
+    big.querySelector("svg").outerHTML = pixelNum(`${Math.floor(left / 60)}h ${left % 60}m`, 4);
+    if (!reduce) big.querySelector("svg").animate([{ translate: "0 -4px", opacity: 0.3 }, { translate: "0 0", opacity: 1 }], { duration: 200, easing: "steps(2)" });
+  }, 4000);
+  // Pull to sync on Today; the dot grid ripples when it lands.
   const sc = todayScroll, pull = $(".pull", p), pcv = $(".pull canvas", p); pull.replaceChild(cubeCanvas(th, 1.6), pcv); const pullCube = cubes.at(-1);
   let y0 = null, dy = 0;
   sc.addEventListener("pointerdown", (e) => { if (sc.scrollTop <= 0) { y0 = e.clientY; dy = 0; sc.setPointerCapture(e.pointerId); } });
   sc.addEventListener("pointermove", (e) => { if (y0 == null) return; dy = Math.max(0, e.clientY - y0); const k = Math.min(1, dy / 70); sc.firstElementChild.style.transform = `translateY(${Math.min(70, dy * 0.55)}px)`; pull.style.opacity = k; pull.style.scale = 0.6 + k * 0.4; $("span", pull).textContent = k >= 1 ? "LET GO" : "PULL TO SYNC"; });
   const release = () => { if (y0 == null) return; const ok = dy >= 70; y0 = null; const inner = sc.firstElementChild;
-    if (ok) { $("span", pull).textContent = "SYNCING"; pullCube.speed = 4; setTimeout(() => { pullCube.speed = 1; pull.style.opacity = 0; inner.animate([{ transform: inner.style.transform }, { transform: "translateY(0)" }], { duration: 300, easing: "cubic-bezier(0.22,1,0.36,1)" }); inner.style.transform = ""; const st = $(".synced", p); st.classList.remove("on"); void st.offsetWidth; st.classList.add("on"); }, 900); }
+    if (ok) { $("span", pull).textContent = "SYNCING"; pullCube.speed = 4; setTimeout(() => { pullCube.speed = 1; pull.style.opacity = 0; inner.animate([{ transform: inner.style.transform }, { transform: "translateY(0)" }], { duration: 300, easing: "cubic-bezier(0.22,1,0.36,1)" }); inner.style.transform = ""; const st = $(".synced", p); st.classList.remove("on"); void st.offsetWidth; st.classList.add("on"); fieldPulse(p, 140, 58, 1.2); }, 900); }
     else { pull.style.opacity = 0; inner.animate([{ transform: inner.style.transform }, { transform: "translateY(0)" }], { duration: 260, easing: "cubic-bezier(0.34,1.56,0.64,1)" }); inner.style.transform = ""; } };
   sc.addEventListener("pointerup", release); sc.addEventListener("pointercancel", release);
-  // LAR's chat: the cube flies up from the orb, he comes out of his fire.
+  // Schedule: a class's sheet grows out of its block, and shrinks back into it.
+  const cs = $(".csheet", p), scrim = $(".scrim", p), morph = $(".morph", cs), inner = $(".in", cs);
+  let fromBlk = null;
+  const toRect = (b) => { const a = cs.getBoundingClientRect(), o = b.getBoundingClientRect(); return `translate(${o.left - a.left}px, ${o.top - a.top}px) scale(${o.width / a.width}, ${o.height / a.height})`; };
+  const openClass = (b) => {
+    const c = CLASSES[+b.dataset.i], s = c.moved || c, st = stampOf(c), color = getComputedStyle(b).getPropertyValue("--c");
+    fromBlk = b; cs.style.setProperty("--c", color); morph.style.background = color;
+    inner.innerHTML = `<div class="band">${stampHTML(st)}</div><b class="code">${c.code}</b><span class="t">${c.t}</span>
+      <div class="rows"><span class="lbl">When</span><span>${DAYS[s.d][0] + DAYS[s.d].slice(1).toLowerCase()} ${fmt(s.s)}–${fmt(s.e)}${c.moved ? ` · moved from ${DAYS[c.d][0] + DAYS[c.d].slice(1).toLowerCase()}` : ""}</span><span class="lbl">Room</span><span>${c.room}</span><span class="lbl">Prof</span><span>SANTOS, J.</span></div>`;
+    cs.classList.add("open"); scrim.classList.add("on");
+    if (reduce) return;
+    cs.animate([{ transform: toRect(b) }, { transform: "none" }], { duration: 380, easing: "cubic-bezier(0.22,1,0.36,1)" });
+    morph.animate([{ opacity: 1 }, { opacity: 1, offset: 0.35 }, { opacity: 0 }], { duration: 380, fill: "forwards" });
+    inner.animate([{ opacity: 0 }, { opacity: 0, offset: 0.45 }, { opacity: 1 }], { duration: 380 });
+  };
+  const closeClass = () => {
+    if (!cs.classList.contains("open")) return; scrim.classList.remove("on");
+    if (reduce || !fromBlk) { cs.classList.remove("open"); return; }
+    morph.animate([{ opacity: 0 }, { opacity: 1, offset: 0.5 }, { opacity: 1 }], { duration: 300, fill: "forwards" });
+    cs.animate([{ transform: "none" }, { transform: toRect(fromBlk) }], { duration: 300, easing: "cubic-bezier(0.5,0,0.75,0)" }).onfinish = () => cs.classList.remove("open");
+  };
+  $$(".blk[data-i]", weekScroll).forEach((b) => b.addEventListener("click", () => openClass(b)));
+  scrim.addEventListener("click", closeClass);
+  // LAR's chat: the cube flies up from the orb, the field ripples, he comes out of his fire.
   const sheet = $(".sheet", p), flier = $(".flier", p), stageCv = $(".stage canvas", sheet);
   mlar.cv = stageCv; mlar.th = th; mlar.open = false;
   const fly = (back) => {
@@ -1010,7 +1180,7 @@ function renderMotion() {
   };
   const hello = "Hi! Ako si LAR. May 2h 19m pa sa OOP. Ano'ng gagawin natin?";
   orb.addEventListener("click", async () => {
-    if (mlar.open) return; orb.classList.add("away"); sheet.classList.add("open");
+    if (mlar.open) return; const at = rel(p, orb); orb.classList.add("away"); sheet.classList.add("open"); fieldPulse(p, at.x, at.y, 0.9);
     if (!reduce) await fly(false);
     mlar.open = true; mlar.openedAt = performance.now() / 1000; mlar.rig.start("spawn", mlar.openedAt);
     const box = $("[data-hello]", sheet); box.textContent = ""; let i = 0; const t0 = performance.now() + 900;
@@ -1027,7 +1197,7 @@ function landGrades(p) {
   const el = $("[data-gpa]", p), from = 1.62, to = 1.28;
   if (reduce) { el.textContent = to.toFixed(2); $$(".gstamp", p).forEach((s) => (s.style.opacity = 1)); $("[data-pb]", p).style.opacity = 1; return; }
   const t0 = performance.now() + 250, D = 700;
-  const step = (now) => { const k = clamp((now - t0) / D), e = 1 - (1 - k) ** 3; el.textContent = (from + (to - from) * e).toFixed(2); if (k < 1) requestAnimationFrame(step); else { const pb = $("[data-pb]", p); pb.style.opacity = 1; pb.animate([{ scale: 2, opacity: 0 }, { scale: 0.92, opacity: 1, offset: 0.6 }, { scale: 1, opacity: 1 }], { duration: 420, easing: "steps(5)" }); } };
+  const step = (now) => { const k = clamp((now - t0) / D), e = 1 - (1 - k) ** 3; el.textContent = (from + (to - from) * e).toFixed(2); if (k < 1) requestAnimationFrame(step); else { const pb = $("[data-pb]", p); pb.style.opacity = 1; pb.animate([{ scale: 2, opacity: 0 }, { scale: 0.92, opacity: 1, offset: 0.6 }, { scale: 1, opacity: 1 }], { duration: 420, easing: "steps(5)" }); burst(p, rel(p, pb).x, rel(p, pb).y, 14, 1.2); } };
   requestAnimationFrame(step);
   $$(".gstamp", p).forEach((s, i) => setTimeout(() => { s.style.opacity = 1; s.classList.add("thunk"); }, 420 + i * 140));
 }
@@ -1058,7 +1228,7 @@ $("#motionReset").addEventListener("click", renderMotion);
 requestAnimationFrame(stageLoop);
 
 /* ---------------- boot ---------------- */
-renderType(); renderMotion(); renderDone(); renderWeek();
+renderMotion(); renderDone(); renderWeek();
 mountDive(); dive.t = timeline().total; drawDive(dive.t);
 requestAnimationFrame(cubeLoop); requestAnimationFrame(larLoop);
 renderTray();
