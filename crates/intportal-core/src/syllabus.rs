@@ -122,15 +122,6 @@ pub fn tally(components: &[Component], target: f64) -> Tally {
     Tally { weight_total, earned: round1(earned), scored_weight, standing, equivalent: standing.map(equivalent), needed, target, risk }
 }
 
-/// Items not done, dated from `today` through `days` days on, soonest first.
-pub fn due(items: &[(String, Item)], today: Date, days: i64) -> Vec<(String, Item)> {
-    let last = today.add_days(days - 1);
-    let mut out: Vec<(String, Item)> =
-        items.iter().filter(|(_, i)| !i.done && i.kind != Kind::Lecture && i.date.is_some_and(|d| d >= today && d <= last)).cloned().collect();
-    out.sort_by_key(|(_, i)| i.date);
-    out
-}
-
 const MONTHS: [&str; 12] = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 /// A month and day with no year lands on the year that puts it no more than
@@ -294,14 +285,6 @@ mod tests {
         let mut plan = Plan { items: vec![item("3"), item(""), item("1"), item("")], ..Default::default() };
         plan.assign_ids();
         assert_eq!(plan.items.iter().map(|i| i.id.as_str()).collect::<Vec<_>>(), ["3", "4", "1", "5"]);
-    }
-
-    #[test]
-    fn due_lists_undone_deadlines_in_the_window() {
-        let item = |topic: &str, kind: Kind, d: u8, done: bool| ("A".to_string(), Item { id: topic.into(), topic: topic.into(), kind, week: None, date: Some(Date::new(2026, 10, d)), done });
-        let items = [item("later", Kind::Exam, 20, false), item("quiz", Kind::Quiz, 3, false), item("done", Kind::Quiz, 2, true), item("talk", Kind::Lecture, 2, false), item("paper", Kind::Project, 1, false)];
-        let got: Vec<String> = due(&items, Date::new(2026, 10, 1), 7).into_iter().map(|(_, i)| i.topic).collect();
-        assert_eq!(got, ["paper", "quiz"]);
     }
 
     #[test]

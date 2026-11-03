@@ -2,7 +2,7 @@
   import NeedSis from "../NeedSis.svelte";
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
-  import MabiniDue from "../MabiniDue.svelte";
+  import DueCard from "../DueCard.svelte";
   import { app, openFromNotification, openNote, openSubject, syncNow } from "../state.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Lar from "../lar/Lar.svelte";
@@ -11,7 +11,7 @@
   import { openLink } from "../openLink";
   import { buzz } from "../haptics";
   import { dayRows } from "../dayrows";
-  import { api, clock, isoDate, moment, span, subjectColor, type Meeting, type Nudge, type Standing, type SyllabusItem } from "../api";
+  import { api, clock, isoDate, moment, span, subjectColor, type Meeting, type Nudge, type Standing } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
   const now = $derived((app.today, new Date()));
@@ -28,17 +28,6 @@
   const colors = $derived(app.snapshot?.colors ?? {});
   const dayKey = $derived(`day:${isoDate(now)}`);
 
-  // Quizzes, exams and projects due this week, from the syllabus pages.
-  let due = $state<[string, SyllabusItem][]>([]);
-  $effect(() => {
-    void app.snapshot;
-    api.due(isoDate(new Date()), 7).then((d) => (due = d)).catch(() => {});
-  });
-  const dueDay = (d: string | null) => {
-    if (!d) return "";
-    const days = Math.round((new Date(`${d}T00:00`).getTime() - new Date(isoDate(new Date()) + "T00:00").getTime()) / 86_400_000);
-    return days === 0 ? "Today" : days === 1 ? "Tomorrow" : new Date(`${d}T00:00`).toLocaleDateString(undefined, { weekday: "short" });
-  };
   // Where the student stands: the reality check behind the day's plans.
   let standing = $state<Standing | null>(null);
   $effect(() => {
@@ -166,23 +155,7 @@
   </section>
 
   {#if !app.sisConnected}<NeedSis what="your classes" />{/if}
-  <MabiniDue />
-
-  {#if due.length}
-    <section class="due card notch">
-      <p class="label">Coming up this week</p>
-      <ul>
-        {#each due as [code, it] (code + it.id)}
-          <li>
-            <button onclick={() => openSubject(code, describe(code))}>
-              <span class="when">{dueDay(it.date)}</span>
-              <span class="what"><strong>{it.topic}</strong><small>{code} · {it.kind}</small></span>
-            </button>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
+  <DueCard />
 
   {#if standing && (standing.term_gpa !== null || standing.units_done > 0)}
     <button class="reality card notch" onclick={() => (app.tab = "grades")} aria-label="Where you stand; open Grades">
@@ -373,47 +346,6 @@
     color: var(--ink-3);
     font-size: min(1.176rem, 26px);
   }
-  .due {
-    --step: 4px;
-    display: grid;
-    gap: 8px;
-    padding: 14px 16px;
-  }
-  .due ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 4px;
-  }
-  .due button {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 6px 0;
-    border: 0;
-    background: none;
-    color: var(--ink);
-    text-align: left;
-  }
-  .due .when {
-    width: 72px;
-    flex: none;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: min(0.765rem, 23px);
-    color: var(--gold);
-  }
-  .due .what {
-    display: grid;
-    min-width: 0;
-  }
-  .due small {
-    font-size: min(0.706rem, 22px);
-    color: var(--ink-3);
-  }
-  /* A long note preview must not widen the whole page: grid items default to min-width auto. */
   .screen > header {
     min-width: 0;
   }

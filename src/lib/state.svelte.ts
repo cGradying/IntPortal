@@ -230,7 +230,9 @@ const reason = (e: unknown) => (typeof e === "string" ? e : ((e as { message?: s
  *  on a new day, so it always reaches eight weeks ahead. */
 export async function refreshClassCalendar(force = false): Promise<string | null> {
   if (!app.calendarClasses || !app.snapshot) return null;
-  const stamp = JSON.stringify([isoDate(new Date()), app.snapshot.sessions, app.snapshot.marks]);
+  // Deadlines live in the same calendar (spec 041 C21, C22): what feeds them is in the stamp too.
+  const s = app.snapshot;
+  const stamp = JSON.stringify([isoDate(new Date()), s.sessions, s.marks, s.syllabus, s.own_deadlines, s.done, app.mabini?.deadlines.map((d) => [d.id, d.due])]);
   if (!force && read("calendarStamp") === stamp) return null;
   try {
     await keepClasses();
@@ -273,6 +275,8 @@ export async function mabiniSyncNow() {
     app.mabiniSync = "ok";
     app.mabiniError = null;
     buzz.done();
+    refreshClassCalendar();
+    scheduleReminders();
   } catch (e) {
     app.mabiniSync = "failed";
     app.mabiniError = String(e).includes("reach") ? "Couldn't reach eMabini" : String(e);
