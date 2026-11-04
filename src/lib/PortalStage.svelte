@@ -12,6 +12,7 @@
   import type { Portal } from "./api";
   import { buzz } from "./haptics";
   import { release, settle, step, type Motion } from "./carousel";
+  import type { Standing } from "./dive";
   import { TICK, fpsFor, loadTiles, type Stage } from "./tiles";
 
   let {
@@ -44,7 +45,18 @@
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  /** The selected portal and LAR, in device px of the screen, for the dive to start from. */
+  export function leaveInfo(): Standing | null {
+    if (!tiles || !canvas) return null;
+    const dpr = Math.min(devicePixelRatio, 3);
+    const box = canvas.getBoundingClientRect();
+    const [x, y] = tiles.rect(motion.pos);
+    const lar = flight?.where();
+    return { ox: x + Math.round(box.left * dpr), oy: y + Math.round(box.top * dpr), ...tiles.metrics(), lar: lar ? { x: lar.x * dpr, y: lar.y * dpr } : null };
+  }
+
   let canvas: HTMLCanvasElement;
+  let flight = $state<LarFlight>();
   let tiles: Awaited<ReturnType<typeof loadTiles>> | null = null;
   let start = performance.now();
   let prev = 0;
@@ -229,7 +241,7 @@
     onpointerup={up}
     onpointercancel={up}
   ></canvas>
-  <div class="sky"><LarFlight getRects={portalRects} show={showLar} {ctx} portal={larPortal} /></div>
+  <div class="sky"><LarFlight bind:this={flight} getRects={portalRects} show={showLar} {ctx} portal={larPortal} /></div>
   {#if portals.length > 1}
     <div class="picker" class:off={locked} role="group" aria-label="Choose a portal">
       <button class="arrow" aria-label="Previous portal" disabled={locked || index === 0} onclick={() => go(index - 1)}>‹</button>
@@ -275,16 +287,12 @@
     height: 100%;
     min-height: 0;
     touch-action: pan-y;
-    transition:
-      transform 1.1s cubic-bezier(0.55, 0, 1, 0.45),
-      opacity 1.1s ease-in;
   }
-  /* Step through: dive into the portal. The morph into Today is spec 010 C20. */
-  .leaving canvas {
-    transform: scale(2.6);
+  /* Step through: the dive (Dive.svelte) draws LAR from here on. */
+  .leaving .sky {
     opacity: 0;
+    transition: none;
   }
-  .leaving .sky,
   .leaving .picker {
     opacity: 0;
   }
@@ -369,7 +377,6 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    canvas,
     .sky,
     .picker {
       transition: none;

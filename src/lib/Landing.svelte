@@ -16,8 +16,9 @@
   import { landingAt, restAt } from "./landing";
   import { adopt, app, refreshLogins, syncNow } from "./state.svelte";
   import { stageFor } from "./tiles";
+  import type { DiveStart } from "./dive";
 
-  let { signedIn, onenter }: { signedIn: boolean; onenter: () => void } = $props();
+  let { signedIn, onenter, ondive }: { signedIn: boolean; onenter: () => void; ondive: (s: DiveStart) => void } = $props();
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const returning = untrack(() => signedIn);
@@ -35,6 +36,8 @@
 
   let t = $state(0);
   let steppedAt = $state<number | null>(null);
+  let leaving = $state(false);
+  let stageEl = $state<PortalStage>();
   const moment = $derived(landingAt(t, { returning, reduce, steppedAt }));
   const resting = $derived(moment.phase === "rest");
   const stage = $derived(stageFor({ busy, open: rest === "hub" }));
@@ -119,24 +122,34 @@
       portalId = "sis";
       rest = "hub";
       buzz.done();
+      try {
+        localStorage.setItem("demo", "1");
+      } catch {
+        // Then demo mode just lasts this launch.
+      }
     } catch (err) {
       error = friendly(err);
     }
   }
 
   function step() {
-    if (!resting || steppedAt !== null) return;
+    if (!resting || leaving) return;
     buzz.release();
+    leaving = true;
+    const from = reduce ? null : stageEl?.leaveInfo();
+    // Without Reduce Motion and with a portal on screen, the dive takes over (spec 010 C27).
+    if (from) return ondive({ first: true, portal, from });
     steppedAt = Math.max(t, restAt({ returning, reduce, steppedAt: null }));
   }
 </script>
 
-<section class="landing" class:leaving={steppedAt !== null}>
+<section class="landing" class:leaving>
   <header class="brand" class:on={resting}>
     <h1>Student <span>IntPortal</span></h1>
   </header>
 
   <PortalStage
+    bind:this={stageEl}
     {portals}
     index={Math.max(0, portals.indexOf(portal))}
     onselect={(i) => ((portalId = portals[i].id), (error = ""))}
@@ -145,7 +158,7 @@
     {returning}
     still={typing}
     showLar={resting}
-    leaving={steppedAt !== null}
+    {leaving}
     {ctx}
   />
 
