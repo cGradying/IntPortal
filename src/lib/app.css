@@ -87,6 +87,10 @@
 }
 
 :root {
+  /* The landing's night, which every room's app is entered from. */
+  --void: #0b0710;
+  /* Checkboxes and other native controls in the room's gold, not system blue. */
+  accent-color: var(--gold);
   /* Pixel-bridged (spec 045 C8): the phone's own face reads and titles; small labels
      are Pixelify, on the icons' pixel grid, so art, label and title share one step. */
   --font-ui: -apple-system, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
@@ -131,11 +135,13 @@ html {
   font: -apple-system-body;
 }
 
+/* The page itself stays the landing's void, so a day room never shows cream
+   for a frame before the landing draws; the app shell paints the room. */
 html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--ground);
+  background: var(--void);
   color: var(--ink);
   font-family: var(--font-body);
   line-height: 1.4;
@@ -159,6 +165,14 @@ textarea {
 button {
   font: inherit;
   color: inherit;
+}
+
+/* Every press squashes a little and springs back (spec 045 C13). */
+button {
+  transition: scale 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+button:not(:disabled):active {
+  scale: 0.97;
 }
 
 /* The legacy dot grid, fixed behind everything. */
@@ -206,7 +220,10 @@ button {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
   }
 }
 

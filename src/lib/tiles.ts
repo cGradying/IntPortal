@@ -45,6 +45,7 @@ interface Exports {
   events(): number;
   gap(): number;
   portal_rect(pos: number, p: number): number;
+  metrics(): number;
 }
 
 export interface Frame {
@@ -65,6 +66,11 @@ export async function loadTiles(url = "/tiles.wasm") {
   const x = (await WebAssembly.instantiate(bytes, {})).instance.exports as unknown as Exports;
   return {
     resize: (w: number, h: number) => x.resize(w, h),
+    /** The front portal's tile pitch and tile side, in device px. */
+    metrics() {
+      const m = x.metrics();
+      return { pitch: m >>> 16, tile: m & 0xffff };
+    },
     /** Device px between neighbouring portals in the last frame. */
     gap: () => x.gap(),
     /** Portal `p`'s frame box in device px, [x, y, w, h], at carousel position `pos` (default: the selected one). */
