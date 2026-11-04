@@ -13,7 +13,7 @@ use std::f32::consts::{PI, TAU};
 pub const TONES: [u32; 4] = [0x1a1622, 0x241f2e, 0x2f2939, 0x3c3548];
 /// The light core a tile shows on its first frame.
 pub const CORE: u32 = 0xece7dc;
-pub const VOID: u32 = 0x060607;
+pub const VOID: u32 = 0x0b0710;
 
 /// Each tile's spawn: it grows from a small light core with a little
 /// overshoot, flashes the accent, and eases into its tone over this long.
@@ -919,7 +919,7 @@ mod tests {
         // The last segment fades in rather than popping: a hair more speed adds at most a faint tile.
         let (a, b) = (stars(1.0, 1.0, false), stars(1.0, 1.01, false));
         let faint = b.iter().filter(|t| !a.iter().any(|o| o.x == t.x && o.y == t.y)).map(lum).max().unwrap_or(0);
-        assert!(faint < 0x14, "new segments start dark: {faint:x}");
+        assert!(faint < 0x1c, "new segments start dark: {faint:x}"); // just above the void, whose brightest channel is 0x10
         assert_eq!(stars(1.0, 2.0, true).len(), still.len(), "Reduce Motion: no tails");
         let [x, y, rw, rh] = rect(&scenes, 1.0, 1, w, h);
         assert!(fast.iter().all(|t| !(t.x >= x && t.x < x + rw && t.y >= y && t.y < y + rh)));

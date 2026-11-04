@@ -157,14 +157,14 @@ The visual reference for all of this is [docs/specs/reference/prototypes/referen
 
 **Creative North Star: "The Other Side of the Portal"**
 
-IntPortal has two registers that share one gold. Inside the app is the legacy calm: a charcoal ground under a faint gold dot grid, quiet gradient cards with hairline edges, Montserrat for anything that carries weight and Source Sans 3 for everything read. On top of that calm sit pixel accents that are drawn, not decorated: stepped card corners, 12 by 12 pixel icons, stepped animations, Isko the pixel student. The landing is the other register, the world the calm app opens onto: a black void, a portal drawn as a minimal low-resolution grid of flat obsidian tiles with gaps, a themed swirl or warp-star interior drawn in the same tiles, and LAR, a small obsidian robot who is the voice above the form. Each portal (SIS, Mabini) has its own theme.
+IntPortal has two registers that share one gold. Inside the app is the legacy calm: the portal's void as the Night room's ground, under a faint dot grid in the school's accent and a slowly drifting glow, quiet gradient cards with hairline edges, Montserrat for anything that carries weight and Source Sans 3 for everything read. On top of that calm sit pixel accents that are drawn, not decorated: stepped card corners, 12 by 12 pixel icons, stepped animations, Isko the pixel student. The landing is the other register, the world the calm app opens onto: a black void, a portal drawn as a minimal low-resolution grid of flat obsidian tiles with gaps, a themed swirl or warp-star interior drawn in the same tiles, and LAR, a small obsidian robot who is the voice above the form. Each portal (SIS, Mabini) has its own theme.
 
 > **The tile portal has shipped** (spec `docs/specs/010-landing.md`, ADR 0004, `crates/intportal-tiles`). Notes marked *(current)* below describe the retired pentomino scene and are kept only until the carousel, the lift and the morph land.
 
 The pixel world exists to serve a glance. Students open the app between classes, on weak data, in jeepneys; clear first, charming second. Every pixel element on screen does a job (a tab, a portal that names a system, a mascot that speaks), and nothing on screen only decorates. The landing deliberately refuses the logo-over-a-form login screen: the portal owns the top third, LAR's line and the sign-in form own the rest, and the one gold button is Sign in.
 
 **Key Characteristics:**
-- Dark-first, charcoal ground with a 14 px gold dot grid; Day and Maroon rooms restyle the same roles.
+- Dark-first, on the void, with a 14 px dot grid in the school's accent; Day and Maroon rooms restyle the same roles.
 - One gold for action and selection, on every room and on the landing.
 - A 3 CSS px art pixel for the portal and LAR; crisp edges and nearest-neighbour scaling everywhere art appears.
 - Stepped (clip-path) corners on cards and pixel slabs, never a border radius on a pixel surface.
@@ -173,7 +173,7 @@ The pixel world exists to serve a glance. Students open the app between classes,
 
 ## Colors
 
-A neutral charcoal system with one warm gold voice, and a separate night palette (obsidian purples, a maroon-to-gold swirl) reserved for the portal world.
+One night family with one warm accent voice from the student's school, shared with a night palette (obsidian purples, a maroon-to-gold swirl) reserved for the portal world.
 
 ### Primary
 - **Portal Gold** (gold): every primary action (Sign in, Step through, the primary app button), the active tab's label and icon accent, the caret, focus rings on the landing, the LAR speaker tag, campus confirmation, and the drifting motes. Its pressed shadow is **Gold Shade** (gold-shade), drawn as a 3 px inner bottom edge; its focus ring on a gold button is **Gold Light** (gold-light). Text on gold is **Burnt Ink** (on-gold).
@@ -202,7 +202,11 @@ A room is one block of roles on `:root[data-room]`; components read roles, never
 ### Named Rules
 **The One Gold Rule.** Gold means "do this" or "you are here": the primary action, the selected option, the active tab. Secondary actions are ghost buttons or underlined text, never a second hue.
 
-**The Theme Stays in the Portal Rule.** A portal's theme ramp lives inside its opening and tiles (and LAR's belly window), and in the one window that looks onto his side: the stage at the top of LAR's chat. It is never a card fill or a text colour, and no other background gradient.
+**The School's Colours Rule (spec 045 C4).** In Night and Day, the accent and the living ground come from the student's school: bright on the void, deep on Day, pushed until they read on the room's cards. Only PUP is drawn for now. A room picked for its own colours keeps them, with the ground's pools in its accent. A theme ramp is never a card fill or a body text colour.
+
+**The One Night Rule (spec 045 C1).** The landing, the hub, LAR's chat and the Night room share one void family (`--void`, `--void-2`, `--void-3`). Hex stays in `app.css`, except the pixel-art palettes.
+
+**The Living Ground Rule (spec 045 C3).** Two layers of soft pools drift behind the dots and the cards, by transform only, over 13 s and 17 s. Cards stay opaque, so text never changes contrast. Nothing on a card moves with them.
 
 **The Roles Not Hex Rule.** App screens read colour roles (`var(--gold)`, `var(--card)`), so every room works. The landing is the one surface that names its own night palette, because it does not change with the room.
 

@@ -58,6 +58,19 @@
   </section>
 
 <style>
+  /* Its two actions: without this they fall back to the system's grey button. */
+  .row button {
+    min-height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge-2);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .row button:disabled {
+    opacity: 0.5;
+  }
   .block {
     --step: 4px;
     display: grid;

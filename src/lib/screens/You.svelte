@@ -339,7 +339,7 @@
   }
   .danger {
     background: var(--bad);
-    color: #fff;
+    color: var(--white);
   }
   .row {
     display: grid;

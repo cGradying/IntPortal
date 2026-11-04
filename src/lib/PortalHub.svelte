@@ -160,8 +160,8 @@
     grid-template-rows: auto auto minmax(0, 1fr);
     gap: 12px;
     padding: 16px var(--gutter) 0;
-    background: #140c16;
-    color: #f4ecd8;
+    background: var(--void-2);
+    color: var(--parch);
     font-family: var(--font-ui);
     box-shadow: inset 0 1px 0 rgb(245 178 39 / 0.16);
     clip-path: polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% 100%, 0 100%);
@@ -184,7 +184,7 @@
     padding: 0 8px;
     border: 0;
     background: none;
-    color: #f5b227;
+    color: var(--portal-gold);
     font: 600 min(0.941rem, 29px) var(--font-ui);
   }
   .search {
@@ -194,7 +194,7 @@
     height: 46px;
     padding: 0 6px 0 14px;
     border-radius: 10px;
-    background: #0b0710;
+    background: var(--void);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
     color: rgb(244 236 216 / 0.55);
     transition: box-shadow 0.16s var(--ease);
@@ -214,9 +214,9 @@
     height: 100%;
     border: 0;
     background: none;
-    color: #fff;
+    color: var(--white);
     font: 400 max(16px, min(0.941rem, 29px)) var(--font-ui);
-    caret-color: #f5b227;
+    caret-color: var(--portal-gold);
     outline: none;
     -webkit-appearance: none;
     appearance: none;
@@ -260,7 +260,7 @@
     z-index: 1;
     margin: 0;
     padding: 6px 0;
-    background: #140c16;
+    background: var(--void-2);
     font: 500 min(0.706rem, 22px) var(--font-pixel);
     letter-spacing: 0.08em;
     color: rgb(244 236 216 / 0.6);
@@ -309,7 +309,7 @@
   .names b {
     font-weight: 600;
     font-size: min(0.941rem, 29px);
-    color: #fff;
+    color: var(--white);
   }
   .row.on b {
     color: var(--c);
@@ -327,9 +327,9 @@
     box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.18);
   }
   .chip.ready {
-    color: #1b1406;
-    background: #f5b227;
-    box-shadow: inset 0 -2px 0 #b87a10;
+    color: var(--on-portal-gold);
+    background: var(--portal-gold);
+    box-shadow: inset 0 -2px 0 var(--portal-gold-shade);
   }
   .none,
   .count {
@@ -358,7 +358,7 @@
     place-items: center;
     flex: 0 1 20px;
     font: 700 min(0.588rem, 16px) var(--font-pixel);
-    color: #f5b227;
+    color: var(--portal-gold);
   }
   @keyframes fade {
     from {

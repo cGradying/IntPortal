@@ -16,7 +16,7 @@ const STRIDE = 10;
 /** Haptic bits from the scene: the two sides of the frame meeting. */
 export const TICK = 1;
 /** The void behind the portal. */
-export const VOID = "#060607";
+export const VOID = "#0b0710";
 
 export const stageFor = (s: { busy: boolean; open: boolean }): Stage => (s.open ? "open" : s.busy ? "connecting" : "rest");
 

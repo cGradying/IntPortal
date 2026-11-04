@@ -165,6 +165,8 @@
 <style>
   .shell {
     min-height: 100vh;
+    /* Its own stacking context, so the dot grid's ripple can sit under the cards. */
+    isolation: isolate;
   }
   /* No fill mode: a lingering filter or transform would turn these into the
      containing block for the fixed dock, tab bar and sheets. */

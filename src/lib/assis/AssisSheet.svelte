@@ -319,7 +319,7 @@
   }
   /* LAR's side of the portal: the night card, stepped, with a gold hairline. */
   .sheet {
-    --sheet: #140c16;
+    --sheet: var(--void-2);
     pointer-events: auto;
     position: relative;
     width: 100%;
@@ -328,7 +328,7 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto auto;
     background: var(--sheet);
-    color: #f4ecd8;
+    color: var(--parch);
     font-family: var(--font-ui);
     box-shadow: inset 0 0 0 1px rgb(245 178 39 / 0.16);
     clip-path: polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px));
@@ -375,7 +375,7 @@
     left: 30%;
     width: 2px;
     height: 2px;
-    background: #fff6dc;
+    background: var(--cream);
     box-shadow:
       48px 6px rgb(255 246 220 / 0.7),
       120px 30px rgb(255 246 220 / 0.5),
@@ -409,7 +409,7 @@
   .tag {
     font: 700 min(0.824rem, 25px) var(--font-pixel);
     letter-spacing: 0.08em;
-    color: #f5b227;
+    color: var(--portal-gold);
     text-shadow: 0 1px 0 rgb(6 3 7 / 0.6);
   }
   .status {
@@ -447,7 +447,7 @@
     padding: 0 8px;
     border: 0;
     background: none;
-    color: #fff6dc;
+    color: var(--cream);
     font: 600 min(0.765rem, 23px) var(--font-ui);
     text-shadow: 0 1px 0 rgb(6 3 7 / 0.6);
   }
@@ -470,11 +470,11 @@
     justify-self: start;
     max-width: 90%;
     padding: 10px 12px;
-    background: #170b1a;
-    color: #f4e8d6;
+    background: var(--void-3);
+    color: var(--parch);
     box-shadow:
-      inset 0 2px 0 color-mix(in srgb, var(--accent) 45%, #3a2446),
-      inset 0 -2px 0 #060307;
+      inset 0 2px 0 color-mix(in srgb, var(--accent) 45%, var(--slab-edge)),
+      inset 0 -2px 0 var(--void-ink);
     clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px));
     transform-origin: 0 0;
     animation: pop 0.24s steps(4, jump-end) both;
@@ -498,7 +498,7 @@
     width: 2px;
     height: 1em;
     margin: 0 1px -0.15em;
-    background: #f5b227;
+    background: var(--portal-gold);
   }
   .caret.done {
     animation: blink 1s steps(2, jump-none) 3 both;
@@ -515,7 +515,7 @@
     padding: 12px 14px;
   }
   .think {
-    color: #f5b227;
+    color: var(--portal-gold);
   }
   .me {
     justify-self: end;
@@ -572,7 +572,7 @@
     display: grid;
     gap: 6px;
     padding: 12px;
-    background: #1c1220;
+    background: var(--void-lift);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
     clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px));
     animation: pop 0.24s steps(4, jump-end) both;
@@ -603,15 +603,15 @@
   .send {
     height: 44px;
     border: 0;
-    background: linear-gradient(180deg, #ffc94a, #f5b227 60%);
-    color: #1b1406;
+    background: linear-gradient(180deg, var(--portal-gold-hi), var(--portal-gold) 60%);
+    color: var(--on-portal-gold);
     font: 600 min(0.824rem, 25px) var(--font-ui);
-    box-shadow: inset 0 -3px 0 #b87a10;
+    box-shadow: inset 0 -3px 0 var(--portal-gold-shade);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
   }
   .yes:active:not(:disabled),
   .send:active:not(:disabled) {
-    box-shadow: inset 0 3px 0 #b87a10;
+    box-shadow: inset 0 3px 0 var(--portal-gold-shade);
     transform: translateY(1px);
   }
   .no {
@@ -620,7 +620,7 @@
     border-radius: 10px;
     background: rgb(255 246 220 / 0.06);
     box-shadow: inset 0 0 0 1px rgb(255 246 220 / 0.14);
-    color: #f4ecd8;
+    color: var(--parch);
     font: 600 min(0.824rem, 25px) var(--font-ui);
   }
   button:disabled {
@@ -650,11 +650,11 @@
     padding: 0 12px;
     border: 0;
     border-radius: 10px;
-    background: #0b0710;
+    background: var(--void);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
-    color: #fff;
+    color: var(--white);
     font: 400 max(16px, min(0.941rem, 29px)) var(--font-ui);
-    caret-color: #f5b227;
+    caret-color: var(--portal-gold);
     outline: none;
   }
   .ed:focus {
@@ -675,13 +675,13 @@
     color: rgb(255 246 220 / 0.55);
   }
   .ok {
-    color: #58c792;
+    color: var(--good);
     font-weight: 600;
   }
   .problem {
     margin: 0;
     font-size: min(0.765rem, 23px);
-    color: #f0a090;
+    color: var(--rose);
   }
 
   /* ---- the composer: the sign-in field's well, the gold pixel Send ---- */
@@ -694,7 +694,7 @@
   .well {
     display: flex;
     border-radius: 12px;
-    background: #0b0710;
+    background: var(--void);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
     transition: box-shadow 0.16s var(--ease);
   }
@@ -708,9 +708,9 @@
     padding: 0 14px;
     border: 0;
     background: none;
-    color: #fff;
+    color: var(--white);
     font: 400 max(16px, min(0.941rem, 29px)) var(--font-ui);
-    caret-color: #f5b227;
+    caret-color: var(--portal-gold);
     outline: none;
     -webkit-appearance: none;
     appearance: none;

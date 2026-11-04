@@ -195,7 +195,7 @@
   }
   .danger {
     background: var(--bad);
-    color: #fff;
+    color: var(--white);
   }
   .modes {
     display: grid;

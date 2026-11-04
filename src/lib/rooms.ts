@@ -40,9 +40,9 @@ function push(fg: string, bg: string, ratio: number, toward: string): string {
 }
 
 export const HAND_TUNED = [
-  { id: "system", name: "System", swatch: ["#19191c", "#f4f2ef", "#f5b227"] },
-  { id: "night", name: "Night", swatch: ["#19191c", "#26262a", "#f5b227"] },
-  { id: "day", name: "Day", swatch: ["#f4f2ef", "#ffffff", "#6d0e1f"] },
+  { id: "system", name: "System", swatch: ["#0b0710", "#f4f2ef", "#e8b04a"] },
+  { id: "night", name: "Night", swatch: ["#0b0710", "#170b1a", "#e8b04a"] },
+  { id: "day", name: "Day", swatch: ["#f4f2ef", "#ffffff", "#b5412a"] },
   { id: "maroon", name: "Maroon Night", swatch: ["#1a0a0e", "#2a1016", "#f2c14e"] },
 ];
 
@@ -103,6 +103,33 @@ export function derive(p: Palette): Record<string, string> {
   return roles;
 }
 
+export interface SchoolTheme {
+  ramp: readonly string[];
+  accent: string;
+}
+/** PUP's ramp, as in crates/intportal-core/src/portal.rs. */
+const PUP: SchoolTheme = { ramp: ["#3b1220", "#7a1c2c", "#b5412a", "#e08a35", "#f3cf6a"], accent: "#e8b04a" };
+
+/**
+ * The roles a school's colours set in Night and Day (spec 045 C4): bright on the void, deep on
+ * Day, pushed until they read on the room's cards. Pools for the living ground come from its ramp.
+ */
+export function schoolRoles(t: SchoolTheme, room: "night" | "day"): Record<string, string> {
+  const night = room === "night";
+  const card = night ? "#170b1a" : "#ffffff";
+  const gold = night ? push(t.accent, card, 4.5, "#ffffff") : push(t.ramp[2], card, 4.5, "#000000");
+  const alpha = (h: string, a: number) => `${h}${Math.round(a * 255).toString(16).padStart(2, "0")}`;
+  return {
+    "--gold": gold,
+    "--gold-soft": alpha(gold, 0.14),
+    "--on-gold": contrast("#ffffff", gold) >= contrast("#120a06", gold) ? "#ffffff" : "#120a06",
+    "--dot": alpha(gold, night ? 0.13 : 0.1),
+    "--aura-a": alpha(t.ramp[night ? 2 : 4], night ? 0.5 : 0.55),
+    "--aura-b": alpha(t.ramp[3], night ? 0.2 : 0.16),
+    "--aura-c": alpha(gold, night ? 0.11 : 0.09),
+  };
+}
+
 const dark = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
 let following = false;
 
@@ -120,4 +147,8 @@ export function applyRoom(id: string) {
   for (const k of [...root.style]) if (k.startsWith("--") || k === "color-scheme") root.style.removeProperty(k);
   root.dataset.room = palette ? "derived" : id;
   if (palette) for (const [k, v] of Object.entries(derive(palette))) root.style.setProperty(k, v);
+  // ponytail: PUP only for now (045 C4a); take the active portal's theme when other schools open.
+  // A room the student picked for its own colours keeps them, with pools in its accent.
+  const school = id === "night" || id === "day" ? schoolRoles(PUP, id) : palette ? { "--aura-a": `${derive(palette)["--gold"]}40`, "--aura-b": `${derive(palette)["--gold"]}1f`, "--aura-c": `${derive(palette)["--gold"]}14` } : schoolRoles(PUP, "night");
+  for (const [k, v] of Object.entries(school)) root.style.setProperty(k, v);
 }

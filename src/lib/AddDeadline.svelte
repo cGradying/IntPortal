@@ -141,7 +141,6 @@
     font: inherit;
   }
   input[type="checkbox"] {
-    width: auto;
     min-height: 0;
   }
   label {

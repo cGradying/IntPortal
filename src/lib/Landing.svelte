@@ -206,8 +206,8 @@
     grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 8px;
     padding: calc(var(--safe-top) + 10px) var(--gutter) calc(var(--safe-bottom) + 12px);
-    color: #f4ecd8;
-    background: #060607;
+    color: var(--parch);
+    background: var(--void);
   }
   .brand {
     text-align: center;
@@ -228,10 +228,10 @@
     font-size: min(1.529rem, 34px);
     font-weight: 700;
     letter-spacing: -0.01em;
-    color: #f5b227;
+    color: var(--portal-gold);
   }
   h1 span {
-    color: #fff5dc;
+    color: var(--cream);
   }
   .dock {
     display: grid;
@@ -264,7 +264,7 @@
     display: grid;
     gap: 12px;
     padding: 16px 16px 12px;
-    background: #140c16;
+    background: var(--void-2);
     box-shadow: inset 0 0 0 1px rgb(245 178 39 / 0.16);
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
   }
@@ -273,15 +273,15 @@
   .field {
     position: relative;
     border-radius: 10px;
-    background: #0b0710;
+    background: var(--void);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
     transition: box-shadow 0.16s var(--ease);
   }
   .field:focus-within {
-    box-shadow: inset 0 0 0 1.5px var(--portal-accent, #f5b227);
+    box-shadow: inset 0 0 0 1.5px var(--portal-accent, var(--portal-gold));
   }
   .field.bad {
-    box-shadow: inset 0 0 0 1.5px #f0a090;
+    box-shadow: inset 0 0 0 1.5px var(--rose);
   }
   input {
     display: block;
@@ -293,9 +293,9 @@
     border-radius: 10px;
     background: transparent;
     box-shadow: none;
-    color: #fff;
+    color: var(--white);
     font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
-    caret-color: #f5b227;
+    caret-color: var(--portal-gold);
     outline: none;
     -webkit-appearance: none;
     appearance: none;
@@ -323,10 +323,10 @@
     transform: translateY(-10px) scale(0.75);
   }
   .field:focus-within label {
-    color: var(--portal-accent, #f5b227);
+    color: var(--portal-accent, var(--portal-gold));
   }
   .field.bad label {
-    color: #f0a090;
+    color: var(--rose);
   }
   /* The example shows only once the label is up. */
   input::placeholder {
@@ -339,8 +339,8 @@
   }
   /* Autofill paints its own yellow; keep the well dark. */
   input:-webkit-autofill {
-    -webkit-text-fill-color: #fff;
-    box-shadow: 0 0 0 100px #0b0710 inset;
+    -webkit-text-fill-color: var(--white);
+    box-shadow: 0 0 0 100px var(--void) inset;
   }
   /* iOS draws an empty date field as a blank slab; give it a hint, and hide the
      browser's own format text so the two never stack. */
@@ -381,7 +381,7 @@
     font: 600 min(0.824rem, 25px) var(--font-ui);
   }
   .eye:focus-visible {
-    outline: 2px solid var(--portal-accent, #f5b227);
+    outline: 2px solid var(--portal-accent, var(--portal-gold));
     outline-offset: -2px;
   }
   .swap {
@@ -408,7 +408,7 @@
   .soon b {
     font-family: var(--font-display);
     font-size: min(0.941rem, 29px);
-    color: #fff5dc;
+    color: var(--cream);
   }
   .soon p {
     margin: 0;
@@ -421,10 +421,10 @@
     text-align: center;
     font-family: var(--font-pixel);
     font-size: min(0.706rem, 22px);
-    color: var(--portal-accent, #f5b227);
+    color: var(--portal-accent, var(--portal-gold));
   }
   .tries.out {
-    color: #f0a090;
+    color: var(--rose);
   }
   ::selection {
     background: rgb(245 178 39 / 0.35);
@@ -432,7 +432,7 @@
   .campus {
     font-family: var(--font-pixel);
     font-size: min(0.706rem, 22px);
-    color: #f5b227;
+    color: var(--portal-gold);
   }
   .campus.dim {
     color: rgb(244 236 216 / 0.55);
@@ -441,29 +441,29 @@
   .step {
     height: 50px;
     border: 0;
-    background: #f5b227;
-    color: #1b1406;
+    background: var(--portal-gold);
+    color: var(--on-portal-gold);
     font-family: var(--font-ui);
     font-weight: 600;
     font-size: min(0.941rem, 29px);
     letter-spacing: 0.01em;
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
-    box-shadow: inset 0 -3px 0 #b87a10;
+    box-shadow: inset 0 -3px 0 var(--portal-gold-shade);
   }
   .go:focus-visible,
   .step:focus-visible {
     outline: none;
     box-shadow:
-      inset 0 0 0 3px #fff6dc,
-      inset 0 -3px 0 #b87a10;
+      inset 0 0 0 3px var(--cream),
+      inset 0 -3px 0 var(--portal-gold-shade);
   }
   .demo:focus-visible {
-    outline: 2px solid #f5b227;
+    outline: 2px solid var(--portal-gold);
     outline-offset: 3px;
   }
   .go:active,
   .step:active {
-    box-shadow: inset 0 3px 0 #b87a10;
+    box-shadow: inset 0 3px 0 var(--portal-gold-shade);
     transform: translateY(1px);
   }
   .go:disabled {
@@ -478,7 +478,7 @@
     margin: 0;
     font-family: var(--font-ui);
     font-size: min(0.824rem, 25px);
-    color: #f0a090;
+    color: var(--rose);
   }
   .fine {
     margin: 0;
