@@ -264,8 +264,8 @@
     margin: 2px 0 0;
     font-family: var(--font-display);
     font-size: min(1.647rem, 36px);
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: var(--title-weight);
+    letter-spacing: var(--title-track);
   }
   .days {
     display: grid;
@@ -284,6 +284,7 @@
     color: var(--ink-2);
   }
   .days span {
+    font-family: var(--font-label);
     font-size: min(0.647rem, 20px);
     font-weight: 600;
     text-transform: uppercase;

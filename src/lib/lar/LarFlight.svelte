@@ -43,6 +43,13 @@
   const LEAVE = 0.16;
   const CPS = 35;
 
+  /** Where he is now, in viewport CSS px: the dive picks him up from here. */
+  export function where(): { x: number; y: number } | null {
+    if (!me || !canvas) return null;
+    const box = canvas.getBoundingClientRect();
+    return { x: box.left + me.x, y: box.top + me.y };
+  }
+
   let canvas: HTMLCanvasElement;
   let bubble: HTMLDivElement;
   let tap: HTMLButtonElement;

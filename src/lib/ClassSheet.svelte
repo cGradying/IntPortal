@@ -52,7 +52,7 @@
 
 <div class="scrim" role="presentation" onclick={onclose}></div>
 <div class="sheet notch" role="dialog" aria-label="Edit {s.subject_code}">
-  <p class="label">{s.subject_code} · {s.day.slice(0, 3)} {clock(s.start)}–{clock(s.end)}</p>
+  <p class="label data">{s.subject_code} · {s.day.slice(0, 3)} {clock(s.start)}–{clock(s.end)}</p>
   {#if moving}
     <h2>Change its time</h2>
     <div class="when">

@@ -46,7 +46,7 @@
     transition: color 0.2s;
   }
   button span {
-    font-family: var(--font-display);
+    font-family: var(--font-label);
     font-size: min(0.647rem, 13px); /* five labels share the width */
     font-weight: 600;
   }

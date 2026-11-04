@@ -2,7 +2,7 @@
   import { app } from "../state.svelte";
   import { SIS, THEMES, type Theme } from "./sprite";
 
-  export type Gesture = "idle" | "wave" | "point" | "reach" | "thumbs";
+  export type { Gesture } from "./sprite";
 
   /** The colours of the portal the student uses: Mabini's when it is the only one connected. */
   export const larTheme = (): Theme => (app.mabiniConnected && !app.sisConnected ? THEMES.mabini : SIS);
@@ -15,7 +15,7 @@
   // Pass `t` to drive him from a timeline; without it he keeps his own
   // clock. Reduce Motion holds him in a still pose.
   import { onMount } from "svelte";
-  import { BOX, H, W, drawLar, rig, type Mood, type State } from "./sprite";
+  import { BOX, H, W, drawLar, hands, rig, type Gesture, type Mood, type State } from "./sprite";
 
   let {
     size = 4,
@@ -64,17 +64,9 @@
     return () => cancelAnimationFrame(raf);
   });
 
-  // [dx, dy, rot] per mitt, in sprite pixels from where it floats.
-  const GEST: Record<Gesture, [number, number, number][]> = {
-    idle: [[0, 0, 0], [0, 0, 0]],
-    wave: [[0, 0, 0], [3, -12, -30]],
-    point: [[0, 0, 0], [9, -6, -20]],
-    reach: [[-3, -10, -30], [3, -10, 30]],
-    thumbs: [[0, 0, 0], [3, -7, 0]],
-  };
-
   // Starts idle, so a first state of error or spawn plays its entrance.
   const r = rig();
+  const mitts = hands();
   let canvas: HTMLCanvasElement;
   const BW = BOX.x1 - BOX.x0;
   const BH = BOX.y1 - BOX.y0;
@@ -85,12 +77,12 @@
     r.set(mode, now, o);
     const p = r.at(now, o, reduce);
     if (mood && mood !== "open") p.mood = mood;
-    p.mitts.forEach((m, i) => {
-      const [dx, dy, rot] = GEST[gesture][i];
-      m.x += dx;
-      m.y += dy;
-      m.rot += rot + (gesture === "wave" && i === 1 ? Math.sin(now * 9) * 28 : 0);
-      if (gesture === "thumbs" && i === 1) m.kind = "thumb";
+    mitts.at(gesture, now, reduce).forEach((g, i) => {
+      const m = p.mitts[i];
+      m.x += g.dx;
+      m.y += g.dy;
+      m.rot += g.rot;
+      if (g.thumb) m.kind = "thumb";
     });
     const dpr = Math.min(3, devicePixelRatio || 1);
     const s = size * dpr;

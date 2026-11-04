@@ -1,0 +1,2332 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IntPortal Look Picks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@500;600;700&family=Montserrat:wght@600;700;800&family=Pixelify+Sans:wght@500;600;700&family=Rubik:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Round seven. Settled picks sit in a strip at the top; the open rows
+   follow as live phones in the picked world (one void, dot grid, the
+   school's accent, the cube in the header). Single-theme on purpose:
+   the page lives in the portal's night. */
+:root {
+  color-scheme: dark;
+  --void: #0b0710;
+  --void-2: #140c16;
+  --void-3: #1d1222;
+  --edge: rgb(244 236 216 / 0.12);
+  --parch: #f4ecd8;
+  --parch-2: rgb(244 236 216 / 0.68);
+  --parch-3: rgb(244 236 216 / 0.48);
+  --gold: #f5b227;
+  --gold-shade: #b87a10;
+  --on-gold: #1b1406;
+  --rose: #f0a090;
+  --f-head: "Montserrat", system-ui, sans-serif;
+  --f-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
+  --f-pixel: "Pixelify Sans", ui-monospace, monospace;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+* { box-sizing: border-box; }
+html { background: var(--void); }
+body {
+  background: var(--void);
+  color: var(--parch);
+  font: 400 15px/1.5 var(--f-ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 120px;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--gold); color: var(--on-gold); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+button, input { font: inherit; color: inherit; }
+code { font: 13px ui-monospace, monospace; color: var(--parch-2); }
+.wrap { max-width: 1180px; margin: 0 auto; }
+
+.top { padding-block: 40px 8px; display: grid; gap: 12px; }
+.top h1 { margin: 0; font: 800 clamp(28px, 5vw, 44px)/1.05 var(--f-head); letter-spacing: -0.02em; text-wrap: balance; max-width: 22ch; }
+.top h1 b { color: var(--gold); font-weight: 800; }
+.top p { margin: 0; color: var(--parch-2); max-width: 70ch; }
+.settled { display: flex; flex-wrap: wrap; gap: 6px; }
+.settled span { font: 500 12px var(--f-pixel); letter-spacing: 0.04em; padding: 4px 8px; color: var(--on-gold); background: var(--gold); }
+nav.jump { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; gap: 6px; flex-wrap: wrap; padding-block: 12px; background: linear-gradient(var(--void) 75%, transparent); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--void); }
+nav.jump a { font: 500 13px var(--f-pixel); letter-spacing: 0.06em; color: var(--parch-2); text-decoration: none; padding: 6px 10px; box-shadow: inset 0 0 0 1px var(--edge); }
+nav.jump a:hover { color: var(--parch); box-shadow: inset 0 0 0 1px var(--parch-3); }
+
+section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-top: 56px; }
+.q { display: grid; gap: 6px; max-width: 72ch; }
+.q h2 { margin: 0; font: 700 clamp(21px, 3vw, 26px)/1.2 var(--f-head); letter-spacing: -0.01em; text-wrap: balance; }
+.q p { margin: 0; color: var(--parch-2); }
+.q .spec { order: 3; font: 500 12px var(--f-pixel); letter-spacing: 0.06em; color: var(--parch-3); }
+.ctl { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.seg { display: inline-flex; flex-wrap: wrap; box-shadow: inset 0 0 0 1px var(--edge); }
+.seg button { border: 0; background: none; padding: 7px 12px; font-size: 13px; color: var(--parch-2); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--void-3); color: var(--parch); box-shadow: inset 0 -2px 0 var(--gold); }
+.seg .lab { padding: 7px 10px; font: 500 12px var(--f-pixel); letter-spacing: 0.06em; color: var(--parch-3); }
+.opts { display: grid; gap: 28px 20px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
+.opt { display: grid; gap: 12px; justify-items: center; min-width: 0; }
+.opt .name { width: 100%; max-width: 300px; display: grid; gap: 3px; }
+.opt .name b { font: 600 15px var(--f-ui); }
+.opt .name span { font-size: 13px; color: var(--parch-2); }
+.pick { justify-self: stretch; max-width: 300px; width: 100%; height: 40px; border: 0; cursor: pointer; font: 600 14px var(--f-ui); color: var(--parch); background: var(--void-3); box-shadow: inset 0 0 0 1px var(--edge); clip-path: polygon(0 3px,3px 3px,3px 0,calc(100% - 3px) 0,calc(100% - 3px) 3px,100% 3px,100% calc(100% - 3px),calc(100% - 3px) calc(100% - 3px),calc(100% - 3px) 100%,3px 100%,3px calc(100% - 3px),0 calc(100% - 3px)); }
+.pick:hover { background: #26172b; }
+.pick[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); box-shadow: inset 0 -3px 0 var(--gold-shade); }
+.pick.inline { width: auto; padding: 0 14px; }
+.note { font-size: 13px; color: var(--parch-3); max-width: 72ch; margin: 0; }
+.note b { color: var(--parch-2); font-weight: 600; }
+.panel { background: var(--void-2); box-shadow: inset 0 0 0 1px var(--edge); padding: 18px; display: grid; gap: 12px; min-width: 0; }
+.panel h3 { margin: 0; font: 600 15px var(--f-ui); }
+.two { display: grid; gap: 28px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+
+/* ---------- the phone ---------- */
+.phone { width: 280px; height: 592px; position: relative; overflow: hidden; border-radius: 34px; box-shadow: 0 0 0 7px #1a1520, 0 0 0 8px #2f2939, 0 24px 50px rgb(0 0 0 / 0.5); background: var(--ground); color: var(--ink); isolation: isolate; flex: none; }
+.phone .island { position: absolute; top: 9px; left: 50%; translate: -50% 0; width: 82px; height: 23px; border-radius: 12px; background: #000; z-index: 60; }
+.phone .status { position: absolute; top: 12px; left: 26px; right: 22px; display: flex; justify-content: space-between; font: 600 12px var(--f-ui); z-index: 59; color: var(--ink); }
+.phone .scroll { position: absolute; inset: 0; overflow-y: auto; scrollbar-width: none; padding: 48px 12px 80px; }
+.phone .scroll::-webkit-scrollbar { display: none; }
+/* The living ground: two gradient layers drift against each other behind the dots and the cards. Transform only, so it runs on the compositor; it stops offscreen and under Reduce Motion. */
+.dots::before, .dots::after { content: ""; position: absolute; inset: -45%; z-index: -1; pointer-events: none; will-change: transform; }
+.dots::before { background: radial-gradient(32% 24% at 32% 30%, var(--aura-a), transparent 72%), radial-gradient(30% 22% at 70% 68%, var(--aura-b), transparent 72%); animation: aura1 13s ease-in-out infinite alternate; }
+.dots::after { background: radial-gradient(26% 24% at 66% 28%, var(--aura-c), transparent 72%), radial-gradient(30% 20% at 26% 72%, var(--aura-b), transparent 72%); animation: aura2 17s ease-in-out infinite alternate; }
+.dots.off::before, .dots.off::after { animation-play-state: paused; }
+@keyframes aura1 { from { transform: translate(-9%, -7%) rotate(-8deg); } to { transform: translate(10%, 9%) rotate(10deg); } }
+@keyframes aura2 { from { transform: translate(10%, 7%) rotate(9deg); } to { transform: translate(-10%, -9%) rotate(-7deg); } }
+@media (prefers-reduced-motion: reduce) { .dots::before, .dots::after { animation: none; } }
+.dots { background-image: radial-gradient(var(--dot) 0.9px, transparent 1.2px); background-size: 12px 12px; }
+
+.scr { display: grid; gap: 10px; font-family: var(--rf-read); }
+.scr .lbl { font: var(--rw-label, 600) 9px/1.2 var(--rf-label); letter-spacing: var(--rt-label, 0.09em); text-transform: uppercase; color: var(--ink-3); }
+.scr .hd { display: flex; justify-content: space-between; align-items: end; gap: 8px; }
+.scr h3.hi { margin: 2px 0 0; font: var(--rw-display) var(--rs-display)/1.05 var(--rf-display); letter-spacing: var(--rt-display); color: var(--ink); }
+.orb { position: absolute; right: 12px; bottom: 76px; z-index: 31; width: 44px; height: 44px; display: grid; place-items: center; border: 0; padding: 0; background: none; cursor: pointer; transition: opacity 0.2s var(--ease), scale 0.16s var(--spring); }
+.orb:active { scale: 0.9; }
+.orb.tuck { scale: 0.7; translate: 18px 0; opacity: 0.7; }
+.tabs .sel { position: absolute; left: 4px; top: 4px; width: calc((100% - 8px) / 5); height: 34px; pointer-events: none; transition: translate 0.24s steps(4); }
+.tabs .sel::before { content: ""; position: absolute; left: 50%; top: 0; translate: -50% 0; width: 36px; height: 32px; background: color-mix(in srgb, var(--gold-c) 14%, transparent); clip-path: polygon(0 3px,3px 3px,3px 0,calc(100% - 3px) 0,calc(100% - 3px) 3px,100% 3px,100% calc(100% - 3px),calc(100% - 3px) calc(100% - 3px),calc(100% - 3px) 100%,3px 100%,3px calc(100% - 3px),0 calc(100% - 3px)); }
+.orb.away { opacity: 0; pointer-events: none; }
+.card { background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c); padding: 12px; }
+.card.notch { clip-path: polygon(0 8px,4px 8px,4px 4px,8px 4px,8px 0,calc(100% - 8px) 0,calc(100% - 8px) 4px,calc(100% - 4px) 4px,calc(100% - 4px) 8px,100% 8px,100% calc(100% - 8px),calc(100% - 4px) calc(100% - 8px),calc(100% - 4px) calc(100% - 4px),calc(100% - 8px) calc(100% - 4px),calc(100% - 8px) 100%,8px 100%,8px calc(100% - 4px),4px calc(100% - 4px),4px calc(100% - 8px),0 calc(100% - 8px)); }
+.card.row4 { border-radius: 4px; }
+.hero { padding: 0; overflow: hidden; }
+.hero canvas.campus { display: block; width: 100%; image-rendering: pixelated; }
+.hero .in { padding: 10px 12px 12px; display: grid; gap: 4px; }
+.hero .code { font: var(--rw-title) var(--rs-title)/1.1 var(--rf-title); color: var(--accent-ink); letter-spacing: var(--rt-title, -0.01em); }
+.hero .what { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: end; }
+.hero .what span { display: block; font-size: 11px; line-height: 1.3; color: var(--ink); }
+.hero .meta { font-size: 9px; color: var(--ink-2); letter-spacing: 0.02em; }
+.hero .big { justify-self: end; text-align: right; display: grid; gap: 3px; justify-items: end; color: var(--ink); }
+.hero .big small { font-size: 9px; color: var(--ink-2); }
+.due { display: grid; gap: 8px; }
+.due .r { display: grid; grid-template-columns: 54px minmax(0,1fr); gap: 8px; align-items: center; }
+.due .when { font: 600 10px var(--rf-read); }
+.due .when.o { color: var(--bad); } .due .when.s { color: var(--gold-c); }
+.due b { display: block; font: 600 11px/1.2 var(--rf-read); color: var(--ink); }
+.due i { display: block; font-style: normal; font-size: 9px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stand { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.stand .v { font: 800 17px/1.1 var(--rf-num); font-variant-numeric: tabular-nums; color: var(--ink); }
+.cls { display: grid; grid-template-columns: 44px 2px minmax(0,1fr); gap: 8px; align-items: center; padding: 9px 10px; }
+.cls .tm { font: 700 10px/1.2 var(--rf-num); color: var(--ink); } .cls .tm small { display: block; font-weight: 400; font-size: 9px; color: var(--ink-2); }
+.cls .bar { align-self: stretch; background: var(--sub, var(--maroon-c)); }
+.cls b { font: var(--rw-title) 11px var(--rf-title); color: var(--ink); } .cls span { display: block; font-size: 9px; color: var(--ink-2); }
+.lar-line { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 8px; align-items: center; padding: 8px 10px; background: #170b1a; box-shadow: inset 0 2px 0 #3a2446; color: #f4ecd8; font-size: 10px; line-height: 1.35; }
+.lar-line b { font: 700 9px var(--f-pixel); color: var(--gold-c); letter-spacing: 0.06em; }
+.tabs { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; padding: 7px 4px 16px; display: grid; grid-template-columns: repeat(5, 1fr); background: color-mix(in srgb, var(--ground) 88%, transparent); backdrop-filter: blur(10px); box-shadow: inset 0 1px 0 var(--edge-c); z-index: 30; }
+.tabs span { display: grid; justify-items: center; gap: 2px; font: 600 8px var(--rf-label); color: var(--ink-3); }
+.tabs span.on { color: var(--gold-c); }
+.tabs svg { width: 18px; height: 18px; shape-rendering: crispEdges; }
+.pchk { width: 14px; height: 14px; flex: none; display: inline-grid; place-items: center; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--ink-3); clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px)); }
+.pchk.on { background: var(--gold-c); box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.25); }
+.pchk.on::after { content: ""; width: 8px; height: 6px; background: var(--on-gold-c); clip-path: polygon(0 50%,25% 50%,25% 75%,37.5% 75%,37.5% 50%,62.5% 50%,62.5% 25%,75% 25%,75% 0,100% 0,100% 25%,87.5% 25%,87.5% 50%,75% 50%,75% 75%,62.5% 75%,62.5% 100%,25% 100%,25% 75%,0 75%); }
+
+/* ---------- dive ---------- */
+.dive { display: grid; gap: 18px; grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+@media (max-width: 720px) { .dive { grid-template-columns: minmax(0, 1fr); justify-items: center; } }
+.dive canvas.stage { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 50; }
+.scrub { width: 100%; accent-color: var(--gold); }
+.tl { display: grid; gap: 4px; font-size: 13px; color: var(--parch-2); }
+.tl div { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 10px; }
+.tl b { font: 500 12px var(--f-pixel); color: var(--parch); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.play { height: 44px; padding: 0 22px; border: 0; cursor: pointer; background: var(--gold); color: var(--on-gold); font: 600 15px var(--f-ui); box-shadow: inset 0 -3px 0 var(--gold-shade); clip-path: polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px)); }
+.play:active { box-shadow: inset 0 3px 0 var(--gold-shade); translate: 0 1px; }
+.play.small { height: 36px; font-size: 13px; padding: 0 14px; }
+.bubble { position: absolute; z-index: 55; padding: 5px 8px; background: #170b1a; box-shadow: inset 0 2px 0 #3a2446; font: 500 11px var(--f-ui); color: var(--parch); pointer-events: none; opacity: 0; white-space: nowrap; }
+.bubble b { font: 700 10px var(--f-pixel); color: var(--gold); margin-right: 5px; letter-spacing: 0.06em; }
+
+/* ---------- motion phone ---------- */
+.pages { position: absolute; inset: 0; }
+.pg { position: absolute; inset: 0; }
+.pg[hidden] { display: none !important; }
+.tabs span { cursor: pointer; }
+.tabs span.hop svg { animation: hop 0.35s steps(3) both; }
+@keyframes hop { 0% { translate: 0 0; } 50% { translate: 0 -3px; } 100% { translate: 0 0; } }
+.pull { position: absolute; left: 50%; top: 40px; translate: -50% 0; z-index: 25; display: grid; justify-items: center; gap: 2px; pointer-events: none; opacity: 0; }
+.pull span { font: 500 8px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-2); }
+.synced { position: absolute; left: 50%; top: 52px; translate: -50% 0; z-index: 26; font: 700 9px var(--f-pixel); letter-spacing: 0.08em; padding: 2px 6px; rotate: -4deg; color: var(--good-c); box-shadow: inset 0 0 0 2px var(--good-c); background: var(--ground); opacity: 0; pointer-events: none; }
+.synced.on { animation: thunk 0.42s steps(5) both, fadeout 0.3s ease 1.4s forwards; }
+@keyframes fadeout { to { opacity: 0; } }
+.sheet { position: absolute; left: 6px; right: 6px; bottom: 6px; top: 70px; z-index: 45; background: #140c16; color: #f4ecd8; box-shadow: inset 0 0 0 1px rgb(245 178 39 / 0.16); clip-path: polygon(0 8px,4px 8px,4px 4px,8px 4px,8px 0,calc(100% - 8px) 0,calc(100% - 8px) 4px,calc(100% - 4px) 4px,calc(100% - 4px) 8px,100% 8px,100% 100%,0 100%); display: grid; grid-template-rows: auto minmax(0,1fr) auto; translate: 0 110%; transition: translate 0.42s var(--ease); }
+.sheet.open { translate: 0 0; }
+.sheet .stage { position: relative; height: 104px; overflow: hidden; }
+.sheet .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sheet .stage .who { position: absolute; left: 92px; top: 34px; display: grid; gap: 2px; font-size: 9px; color: rgb(244 236 216 / 0.7); }
+.sheet .stage .who b { font: 700 10px var(--f-pixel); color: var(--gold-c); letter-spacing: 0.06em; }
+.sheet .x { position: absolute; right: 10px; top: 10px; border: 0; background: none; color: #f4ecd8; font: 600 10px var(--f-ui); cursor: pointer; z-index: 2; }
+.sheet .msgs { padding: 10px; display: grid; align-content: start; gap: 6px; font-size: 10px; line-height: 1.4; }
+.sheet .msgs .lar { padding: 7px 9px; background: #170b1a; box-shadow: inset 0 2px 0 var(--gold-c); min-height: 2.6em; }
+.sheet .comp { margin: 8px; height: 30px; background: #0b0710; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14); border-radius: 8px; font-size: 10px; color: rgb(244 236 216 / 0.5); display: flex; align-items: center; padding: 0 10px; }
+.flier { position: absolute; inset: 0; z-index: 48; pointer-events: none; }
+.grow4 { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 9px 10px; }
+.grow4 .gstamp { font: 700 12px var(--f-pixel); color: var(--good-c); padding: 1px 5px; box-shadow: inset 0 0 0 2px var(--good-c); rotate: -4deg; }
+.grow4 .gstamp.thunk { animation: thunk 0.55s steps(6) both; }
+.pb { justify-self: start; font: 700 8px var(--f-pixel); letter-spacing: 0.08em; padding: 2px 5px; color: var(--gold-c); box-shadow: inset 0 0 0 1.5px var(--gold-c); rotate: -5deg; }
+
+/* ---------- done ---------- */
+.dlist { display: grid; gap: 6px; position: relative; }
+.ditem { position: relative; display: grid; grid-template-columns: 16px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 9px 10px; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c); border-radius: 4px; cursor: pointer; user-select: none; transition: transform 0.14s var(--spring), filter 0.14s; }
+.ditem:active { transform: scale(0.98); filter: brightness(0.94); }
+.ditem b { display: block; font: 600 11px/1.2 var(--rf-read); color: var(--ink); position: relative; justify-self: start; }
+.ditem i { display: block; font-style: normal; font-size: 9px; color: var(--ink-2); }
+.ditem .when { font: 600 10px var(--rf-read); color: var(--gold-c); }
+.ditem .when.o { color: var(--bad); }
+.ditem .tx { min-width: 0; display: grid; justify-items: start; }
+.ditem b::after { content: ""; position: absolute; left: -1px; right: -1px; top: 52%; height: 1.5px; background: var(--ink-2); transform: scaleX(0); transform-origin: left; }
+.ditem.done b { color: var(--ink-2); }
+.ditem.done b::after { transform: scaleX(1); transition: transform 0.2s var(--ease) 0.06s; }
+.ditem.done .when { opacity: 0; }
+.ditem .stamp { position: absolute; right: 8px; top: 50%; translate: 0 -50%; rotate: -7deg; font: 700 10px var(--f-pixel); letter-spacing: 0.08em; padding: 1px 5px; color: var(--good-c); box-shadow: inset 0 0 0 2px var(--good-c); opacity: 0; pointer-events: none; }
+.ditem.done .stamp { opacity: 1; }
+.ditem.fresh .stamp { animation: thunk 0.42s steps(5) both 0.22s; }
+.ditem.fresh { animation: nudge 0.42s var(--spring) both; }
+.ditem.fresh .pchk { animation: fill 0.18s steps(3) both; }
+@keyframes thunk { 0% { scale: 2.2; opacity: 0; } 55% { scale: 0.92; opacity: 1; } 80% { scale: 1.04; } 100% { scale: 1; opacity: 1; } }
+@keyframes nudge { 0% { translate: 0 0; } 35% { translate: 6px 0; } 100% { translate: 0 0; } }
+@keyframes fill { from { scale: 0.6; } to { scale: 1; } }
+.dgroup { font: 600 8px var(--rf-label); letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); padding-top: 4px; }
+.clear { display: none; text-align: center; font-size: 10px; color: var(--ink-2); padding: 6px; }
+.clear.on { display: block; animation: thunk 0.42s steps(5) both; }
+
+/* ---------- week ---------- */
+.wk { display: grid; gap: 4px; }
+.wk .head { display: grid; gap: 2px; font: 600 8px var(--rf-label); letter-spacing: 0.06em; text-align: center; color: var(--ink-3); }
+.wk .head .today { color: var(--gold-c); }
+.wk .body { display: grid; gap: 2px; position: relative; }
+.wk .hrs { position: relative; } .wk .hrs span { position: absolute; right: 2px; font: 600 7.5px var(--rf-read); color: var(--ink-3); translate: 0 -50%; }
+.wk .col { position: relative; background: repeating-linear-gradient(var(--edge-c) 0 1px, transparent 1px var(--hh)); }
+.wk .col.today { background-color: color-mix(in srgb, var(--gold-c) 8%, transparent); }
+.wk .col.ghost { opacity: 0.6; background: repeating-linear-gradient(45deg, transparent 0 3px, var(--edge-c) 3px 4px); }
+.blk.past { background: color-mix(in srgb, var(--c) 42%, var(--ground)); color: var(--ink); box-shadow: inset 0 0 0 1px var(--edge-c); }
+.blk.now { box-shadow: inset 0 0 0 2px var(--gold-c); }
+.blk.vacant, .blk.vacant.past { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--c) 34%, var(--ground)) 0 3px, color-mix(in srgb, var(--c) 18%, var(--ground)) 3px 6px); color: var(--ink); }
+.blk.ghostmove { background: none; box-shadow: none; outline: 1px dashed var(--c); outline-offset: -2px; clip-path: none; color: var(--ink-2); }
+.nowline { position: absolute; right: 0; height: 2px; background: var(--gold-c); z-index: 0; pointer-events: none; }
+.wk .col .blk { z-index: 1; }
+.dayview { position: relative; overflow: hidden; touch-action: pan-y; cursor: grab; }
+.daytrack { display: flex; align-items: start; will-change: transform; }
+.daytrack > div { flex: 0 0 100%; display: grid; align-content: start; gap: 6px; padding: 2px; }
+
+/* ---------- round four: week ---------- */
+.blk { position: absolute; left: 1px; right: 1px; padding: 4px 4px 4px; background: var(--c); color: var(--on, #fff); overflow: hidden; display: flex; flex-direction: column; gap: 1px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), inset 0 -2px 0 rgb(0 0 0 / 0.22); clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px)); cursor: pointer; }
+.blk b { font: 700 9px/1.12 var(--rf-title); letter-spacing: -0.02em; overflow-wrap: normal; word-break: normal; hyphens: manual; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.blk .cd { display: none; font: 600 8px/1.2 var(--rf-read); opacity: 0.9; white-space: nowrap; }
+.blk .ml { margin-top: auto; display: grid; gap: 0; }
+.blk .tm, .blk .rm { font: 600 8px/1.2 var(--rf-read); white-space: nowrap; overflow: hidden; }
+.blk .tm { display: none; }
+.stp { flex: none; align-self: flex-start; justify-self: start; font: 700 6px/1.2 var(--f-pixel); letter-spacing: 0.04em; padding: 1px 2px; rotate: -6deg; background: rgb(255 255 255 / 0.94); color: var(--sk); box-shadow: inset 0 0 0 1px var(--sk); }
+.stp.mv { box-shadow: none; outline: 1px dashed var(--sk); outline-offset: -1px; }
+.stp.thunk { animation: thunk 0.55s steps(6) both; }
+.wk .head .dh { display: grid; justify-items: center; gap: 1px; padding: 3px 0 3px; border: 0; background: none; color: var(--ink-3); font: 600 7px var(--rf-label); letter-spacing: 0.06em; cursor: pointer; min-width: 0; overflow: hidden; }
+.wk .head .dh b { font: 800 11px/1 var(--rf-num); color: var(--ink); }
+.wk .head .dh.today, .wk .head .dh.today b { color: var(--gold-c); }
+.dh .pin { width: 4px; height: 4px; } .dh .pin.due { background: var(--gold-c); } .dh .pin.over { background: var(--bad); }
+.wb .head, .wb .body { transition: grid-template-columns 0.36s var(--ease); }
+.wb .head .dh.focus { background: color-mix(in srgb, var(--gold-c) 14%, transparent); }
+.wb .col { cursor: pointer; }
+.wb .blk > * { transition: opacity 0.18s 0.2s; }
+.wb.focusing .col:not(.focus) .blk > * { opacity: 0; transition: opacity 0.1s; }
+.wb.focusing .col:not(.focus) .stp { visibility: hidden; }
+.wb.focusing .col:not(.focus) .blk[data-stamped="1"]::after { content: ""; position: absolute; right: 2px; top: 3px; width: 4px; height: 4px; background: rgb(255 255 255 / 0.92); }
+.wb .col.focus .blk { padding: 4px 6px; }
+.wb .col.focus .blk b { font-size: 10.5px; letter-spacing: -0.01em; -webkit-line-clamp: 2; } .wb .col.focus .blk.short b { -webkit-line-clamp: 1; }
+.wb .col.focus .blk .cd { display: block; }
+.wb .col.focus .blk .ml { display: flex; gap: 6px; } .wb .col.focus .blk .tm { display: block; } .wb .col.focus .blk .tm, .wb .col.focus .blk .rm { font-size: 9px; }
+.wb .col.focus .blk .stp { position: absolute; right: 4px; top: 4px; margin: 0; }
+.free { position: absolute; left: 3px; right: 3px; display: grid; place-items: center; border: 1px dashed color-mix(in srgb, var(--ink-3) 60%, transparent); pointer-events: none; }
+.free span { font: 600 8px var(--rf-read); color: var(--ink-2); background: var(--ground); padding: 1px 3px; white-space: nowrap; }
+.wb .free { opacity: 0; transition: opacity 0.1s; } .wb .col.focus .free { opacity: 1; transition: opacity 0.2s 0.22s; }
+.rest { position: absolute; left: 4px; right: 4px; top: 38%; text-align: center; font-size: 9px; line-height: 1.4; color: var(--ink-2); }
+.nowline span { position: absolute; right: 100%; top: 50%; translate: 0 -50%; font: 700 7.5px/1 var(--rf-read); font-variant-numeric: tabular-nums; background: var(--gold-c); color: var(--on-gold-c); padding: 2px 2px; white-space: nowrap; }
+.mm { display: grid; gap: 3px; justify-items: end; }
+.mm span { font: 600 7px var(--rf-label); letter-spacing: 0.06em; color: var(--ink-3); }
+.mm div { display: grid; grid-template-columns: repeat(7, 5px); gap: 2px; }
+.mm i { width: 5px; height: 5px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-c); }
+.mm i.wk { background: color-mix(in srgb, var(--ink) 16%, var(--sunk)); }
+.mm i.due { background: var(--gold-c); box-shadow: none; } .mm i.over { background: var(--bad); box-shadow: none; }
+.mm i.today { outline: 1px solid var(--ink); outline-offset: 1px; }
+.dline { display: grid; gap: 4px; align-content: start; padding-bottom: 8px; }
+.daytrack > div:has(.dline) { padding: 0; }
+.dline .rest { position: static; padding: 48px 0; font-size: 11px; }
+.dcard { position: relative; display: grid; grid-template-columns: 32px 3px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 7px 8px; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c), inset 0 -2px 0 rgb(0 0 0 / 0.1); overflow: hidden; clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px)); }
+.dcard .tm { font-variant-numeric: tabular-nums; } .dcard .tm b { display: block; font: 700 11px/1.2 var(--rf-read); color: var(--ink); } .dcard .tm small { font-size: 9.5px; color: var(--ink-2); }
+.dcard .bar { align-self: stretch; background: var(--c); }
+.dcard .tx { min-width: 0; display: grid; gap: 1px; } .dcard .tx b { font: var(--rw-title) 12px/1.2 var(--rf-title); letter-spacing: -0.01em; color: var(--ink); }
+.dcard .t { font-size: 10.5px; line-height: 1.25; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .dcard .m { font-size: 9.5px; line-height: 1.25; color: var(--ink-2); }
+.dcard .stp { align-self: start; font-size: 7px; }
+.dcard.past { background: var(--sunk); } .dcard.past .bar { background: color-mix(in srgb, var(--c) 35%, var(--sunk)); } .dcard.past .tx b, .dcard.past .t, .dcard.past .tm b { color: var(--ink-2); }
+.dcard.now { box-shadow: inset 0 0 0 2px var(--gold-c); }
+.dcard .prog-now { position: absolute; left: 2px; bottom: 2px; height: 2px; width: calc((100% - 4px) * var(--k)); background: var(--gold-c); }
+.dcard.vacant { background: repeating-linear-gradient(45deg, var(--card) 0 3px, var(--sunk) 3px 6px); }
+.fband { display: grid; place-items: center; height: 20px; border: 1px dashed color-mix(in srgb, var(--ink-3) 55%, transparent); }
+.fband span { font: 600 9px var(--rf-read); color: var(--ink-2); }
+.fband.on { border-color: var(--gold-c); border-style: solid; } .fband.on span { color: var(--accent-ink); }
+.dghost { padding: 5px 8px; font-size: 9.5px; color: var(--ink-2); outline: 1px dashed var(--c); outline-offset: -1px; }
+
+/* ---------- round four: done ---------- */
+.prog { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)) auto; gap: 3px; align-items: center; }
+.prog i { height: 6px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-c); transform-origin: 50% 100%; }
+.prog i.on { background: var(--gold-c); box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.22); animation: seg 0.3s steps(3) both; }
+.prog span { font: 600 8px var(--rf-label); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.prog.all i { animation: flash 0.6s steps(4) both; }
+@keyframes seg { 0% { scale: 1 2.6; } 100% { scale: 1 1; } }
+@keyframes flash { 0%, 50% { background: var(--ink); } 25%, 75%, 100% { background: var(--gold-c); } }
+.ditem .combo { position: absolute; right: 56px; top: 50%; translate: 0 -50%; font: 700 10px var(--f-pixel); color: var(--gold-c); opacity: 0; pointer-events: none; }
+.ditem.fresh .combo { animation: combo 0.8s steps(8) both 0.08s; }
+@keyframes combo { 0% { opacity: 0; translate: 0 -40%; } 25% { opacity: 1; translate: 0 -130%; } 75% { opacity: 1; translate: 0 -170%; } 100% { opacity: 0; translate: 0 -190%; } }
+.ditem.fresh.t1 { animation: shake1 0.36s steps(6) both 0.2s; }
+.ditem.fresh.t2 { animation: shake2 0.42s steps(7) both 0.2s; }
+@keyframes shake1 { 0%, 100% { translate: 0 0; } 20% { translate: 4px 0; } 40% { translate: -3px 0; } 60% { translate: 2px 0; } 80% { translate: -1px 0; } }
+@keyframes shake2 { 0%, 100% { translate: 0 0; rotate: 0deg; } 15% { translate: 6px -1px; rotate: 0.8deg; } 35% { translate: -5px 0; rotate: -0.8deg; } 55% { translate: 3px 0; rotate: 0.4deg; } 75% { translate: -2px 0; rotate: 0deg; } }
+.ditem.lift { z-index: 3; scale: 1.03; box-shadow: inset 0 0 0 1px var(--edge-c), 0 8px 18px rgb(0 0 0 / 0.3); transition: scale 0.12s var(--ease), box-shadow 0.12s; }
+canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
+@keyframes larhop { 0%, 100% { translate: 0 0; } 40% { translate: 0 -8px; } 70% { translate: 0 -2px; } }
+
+/* ---------- round four: the field and motion ---------- */
+.phone canvas.pulse { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.phone canvas.fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
+.orb { transition: opacity 0.2s var(--ease), scale 0.2s var(--spring), translate 0.22s var(--ease); }
+.scrim { position: absolute; inset: 0; z-index: 44; background: rgb(0 0 0 / 0.32); opacity: 0; pointer-events: none; transition: opacity 0.25s var(--ease); }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.csheet { position: absolute; left: 8px; right: 8px; bottom: 72px; height: 190px; z-index: 46; display: none; transform-origin: 0 0; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c); overflow: hidden; clip-path: polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px)); }
+.csheet.open { display: block; }
+.csheet .morph { position: absolute; inset: 0; z-index: 2; opacity: 0; pointer-events: none; }
+.csheet .in { display: grid; gap: 5px; padding-bottom: 12px; }
+.csheet .in > :not(.band) { margin: 0 12px; }
+.csheet .band { height: 40px; background: var(--c); display: flex; align-items: end; padding: 6px 12px; box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.2); }
+.csheet .band .stp { font-size: 8px; }
+.csheet b.code { font: var(--rw-title) 15px/1.1 var(--rf-title); letter-spacing: -0.02em; color: var(--ink); }
+.csheet .t { font-size: 11px; color: var(--ink); }
+.csheet .rows { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 4px 10px; font-size: 10px; color: var(--ink); padding-top: 4px; align-items: baseline; }
+
+/* ---------- tray ---------- */
+.tray { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: color-mix(in srgb, var(--void-2) 94%, transparent); backdrop-filter: blur(12px); box-shadow: inset 0 1px 0 var(--edge); }
+.tray .in { max-width: 1180px; margin: 0 auto; display: flex; gap: 12px; align-items: center; }
+.tray .chips { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.tray .chips span { flex: none; font: 500 11px var(--f-pixel); letter-spacing: 0.04em; padding: 4px 8px; box-shadow: inset 0 0 0 1px var(--edge); color: var(--parch-3); }
+.tray .chips span.set { color: var(--on-gold); background: var(--gold); box-shadow: none; }
+.settled-note { font: 500 12px var(--f-pixel); letter-spacing: 0.06em; color: var(--parch-3); }
+.tray .copy { flex: none; height: 40px; padding: 0 16px; font-size: 14px; }
+.toast { font-size: 12px; color: var(--parch-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: 0.01ms !important; transition-delay: 0s !important; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Round seven: the look of <b>IntPortal</b></h1>
+    <p>The dive, motion and done are settled. One row left: a week and a day you can read at a glance.</p>
+    <div class="settled" aria-label="Settled picks">
+      <span>LAR leads</span><span>One void</span><span>Dot grid</span><span>Campus kept</span><span>School accent, PUP only for now</span><span>Pixel checkboxes</span><span>Current sizes</span><span>Hero pixel numerals</span><span>Subtle juice</span><span>Pixel-bridged type</span><span>Done as in round four</span><span>Week and Day</span><span>Tunnel dive</span><span>Motion as in round six</span><span>Floating cube, bottom right</span>
+    </div>
+  </header>
+  <nav class="jump" aria-label="Rows">
+    <a href="#dive">Dive</a><a href="#motion">Motion</a><a href="#done">Done</a><a href="#week">Week</a>
+  </nav>
+
+  <section class="row" id="dive">
+    <div class="q">
+      <span class="spec">010 C26–C34, reworked</span>
+      <h2>A tunnel that keeps changing form</h2>
+      <p>The tunnel now has six forms: spiral arms, round rings, a square corridor, petals, polar checks and plasma. It melts from one into the next mid-dive, and each play takes a different order, so press Play a few times. Speed comes in ramps: the tunnel and the camera surge through each change, then coast. The void behind the portal drifts too, in the school's colours, and surges with it. On arrival the tiles still shrink to Today's dots, over a ground that keeps slowly moving.</p>
+    </div>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Timeline"><span class="lab">When</span><button data-dv="mode" data-v="first" aria-pressed="true">First sign-in, 2.4 s</button><button data-dv="mode" data-v="launch" aria-pressed="false">Every launch, 0.6 s</button></div>
+      <div class="seg" role="group" aria-label="Load"><span class="lab">Data</span><button data-dv="slow" data-v="0" aria-pressed="true">Ready</button><button data-dv="slow" data-v="1" aria-pressed="false">Slow, 1.8 s</button></div>
+      <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-dv="room" data-v="night" aria-pressed="true">Night</button><button data-dv="room" data-v="day" aria-pressed="false">Day</button></div>
+    </div>
+    <div class="dive">
+      <div class="phone" id="divePhone"></div>
+      <div style="display:grid;gap:16px;min-width:0;max-width:520px">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <button class="play" id="divePlay">Play the dive</button>
+          <div class="seg" role="group" aria-label="Speed"><button data-dv="speed" data-v="1" aria-pressed="true">1×</button><button data-dv="speed" data-v="0.25" aria-pressed="false">¼ speed</button></div>
+        </div>
+        <label class="tl" for="diveScrub">Scrub <input class="scrub" id="diveScrub" type="range" min="0" max="2000" value="2000"></label>
+        <div class="tl" id="diveSteps"></div>
+        <div class="ctl">
+          <span class="settled-note">Settled in round six.</span>
+        </div>
+        <p class="note">This is a browser sketch of the Rust scene in <code>intportal-tiles</code>. The real one draws every tile at 60 fps, and only while something moves. Reduce Motion skips straight to Today.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="row" id="motion">
+    <div class="q">
+      <span class="spec">045 C13–C21, 010 C18b</span>
+      <h2>The whole app, moving</h2>
+      <p>Between rounds four and five. Everything on this phone now moves over a ground that drifts: two gradient layers in the school's colours behind the dots and the cards. A pixel block steps under the tab you pick while the page slides toward it. Scroll Today and the cube tucks aside until you stop. The Up next countdown ticks (every 4 s here, every minute in the app). Pull to sync and the dot grid ripples once when it lands. On Schedule, tap a day to open it, then tap a class and its sheet grows out of the block. Grades count down with stamps on first open, and the cube flies up into LAR's chat and back.</p>
+    </div>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-m="room" data-v="night" aria-pressed="true">Night</button><button data-m="room" data-v="day" aria-pressed="false">Day</button></div>
+      <button class="play small" id="motionReset">Start over</button>
+    </div>
+    <div class="two">
+      <div class="phone" id="motionPhone" style="justify-self:center"></div>
+      <div class="panel">
+        <h3>The motion rules behind it</h3>
+        <p class="note"><b>Pixel things step, interface things ease.</b> Hops, stamps and fills use <code>steps()</code>. Pages, sheets and the cube's flight use the one ease, with a spring only where something lands.</p>
+        <p class="note"><b>Direction carries meaning.</b> Pages slide 12 px toward the tab you picked, so you feel where you went. The chat rises from where the cube lives, and goes back the same way.</p>
+        <p class="note"><b>Count from what you last saw.</b> The GPA counts from the value on your last visit, not from zero, and stamps thunk only when a grade is new to this phone.</p>
+        <p class="note"><b>The field answers, rarely.</b> The dot grid ripples only when something lands: the end of the dive, a sync, a done. Then it's dots again.</p>
+        <p class="note"><b>Things grow from where they live.</b> A class sheet opens out of its block, the chat out of the cube. Closing goes back the same way.</p>
+        <p class="note"><b>Then still.</b> Nothing loops on content. The cube bobs, and LAR breathes in his chat; cards never move on their own. Reduce Motion skips all of it to the end state.</p>
+        <div class="ctl">
+          <span class="settled-note">Settled in round six.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row" id="done">
+    <div class="q">
+      <span class="spec">045 C13–C19</span>
+      <h2>A "done" you want to do again</h2>
+      <p>Pressing stays subtle; finishing is generous, and a run of them builds. Tap a deadline: the box fills in three steps, a line strikes through, sparks pop and the dot grid ripples, and a DONE stamp lands. A pixel bar under the title fills one step. The card lifts, tilts and drops into Done, landing with a squash and a soft tick. Mark the next within 4 s and it rings higher, shakes harder and shows its count. Clear the list and the bar flashes, LAR hops with a thumbs up, and tile confetti bursts three times. Then the screen is still.</p>
+    </div>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Sound"><span class="lab">Sound</span><button data-j="sound" data-v="1" aria-pressed="true">On</button><button data-j="sound" data-v="0" aria-pressed="false">Off</button></div>
+      <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-j="room" data-v="night" aria-pressed="true">Night</button><button data-j="room" data-v="day" aria-pressed="false">Day</button></div>
+      <button class="play small" id="resetDone">Reset the list</button>
+    </div>
+    <div class="two">
+      <div class="phone" id="donePhone" style="justify-self:center"></div>
+      <div class="panel">
+        <h3>What makes it want another tap</h3>
+        <p class="note"><b>Rising pitch.</b> Each done within 4 s of the last climbs the pentatonic scale: C, D, E, G, A, then up an octave. It can't sound wrong, and the climb rewards a run of real work. It resets after a pause. Balatro raises the pitch on every scored card the same way.</p>
+        <p class="note"><b>Short and layered.</b> A 2 ms click on press, a soft pluck for the check, a fifth above for the strike, and a low thump under the stamp. Each note is detuned a few cents at random, so the hundredth tap doesn't sound like the first.</p>
+        <p class="note"><b>Tiers, not slot machines.</b> The first done nudges. The second and third in a run shake and show ×2, ×3. From the fourth on they shake harder and add a high sparkle. Nothing is random but the detune, and nothing is hidden.</p>
+        <p class="note"><b>Then silence.</b> Each done finishes within 1.1 s and nothing loops. The list is still the moment the card lands.</p>
+        <p class="note">In the app, sound starts off, with a switch in You (045 C19). It's on here so you can hear it. Haptics pair with each step: a tick, a success buzz, then a soft impact under the stamp.</p>
+        <div class="ctl">
+          <span class="settled-note">Settled in round four.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row" id="week">
+    <div class="q">
+      <span class="spec">044, reworked</span>
+      <h2>A week and a day you can actually read</h2>
+      <p>The Day view no longer squeezes classes to their real length: each card expands to fit its time, code, title and room, and free time folds into short bands. Finished classes keep readable text. In the week, times and rooms moved out of the pixel face into the reading face, text picks ink or white to suit each course colour, and tapping a day still opens it wide.</p>
+    </div>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-k="room" data-v="night" aria-pressed="true">Night</button><button data-k="room" data-v="day" aria-pressed="false">Day</button></div>
+      <button class="play small" id="restamp">Replay the stamps</button>
+      <label class="tl" style="grid-template-columns:auto 160px;display:grid;align-items:center;gap:8px" for="clock">Clock <input class="scrub" id="clock" type="range" min="420" max="1140" value="790"></label>
+    </div>
+    <div class="opts" id="weekOpts"></div>
+    <div class="ctl">
+      <button class="pick inline" data-row="week" data-v="this is it">This is the week</button>
+      <button class="pick inline" data-row="week" data-v="needs work">Needs more work</button>
+    </div>
+  </section>
+</div>
+
+<div class="tray" role="region" aria-label="Your picks">
+  <div class="in">
+    <div class="chips" id="chips"></div>
+    <span class="toast" id="toast" aria-live="polite"></span>
+    <button class="play copy" id="copy">Copy picks</button>
+  </div>
+</div>
+
+<script>
+const { LAR_PAL, MOODS, W, H, VISOR, bodyGrid, faceGrid, MITT, THUMB, ANTENNA, CUBE, STREAK, ZZZ, SPARKLE, rows, dotsGrid, redGrid, mosaic, THEMES, SIS, VOID, contrast, tint, drawSwirl, blinkAt, STATES, BOX, EASE, CUBE_EASE, SPAWN_SECS, ERROR_SECS, PIVOT, cubeAngle, pose, bodyAt, extents, FIRE, fireGrid, SHEEN, sheenGrid, rig, drawLar, CUBE_BOX, drawCube } = (() => {
+// LAR, the Lakbay-Aral Robot: a pocket-size robot from the portal's other
+// side. Ported from the film rig (intportal-films/assets/isko/isko.js, where
+// he was drafted as "Isko 3.0"). An obsidian pebble with stepped block ears,
+// a dark visor with gold eyes, a belly window showing the live swirl, a
+// gold spark antenna, two floating mitts and a tiny orbiting portal cube.
+// Outlined, four-tone, ordered dither between tones. Pure grids here, plus
+// tint() (a portal's colours), pose() (every part's offset for a state),
+// extents() (where the parts land) and drawLar(), the one renderer that
+// Lar.svelte, the landing's flight and the sheet all draw him with.
+const LAR_PAL = {
+    o: "#1a0f20",
+    d: "#2c1c3a",
+    k: "#43295a",
+    b: "#5f3f7e",
+    B: "#8663a8",
+    L: "#b996d8",
+    v: "#140b1b",
+    V: "#2d1d3c",
+    g: "#f5b227",
+    G: "#b87a10",
+    w: "#fff6dc",
+    p: "#ff7a9c",
+    r: "#7a1128",
+    s: "#24162e",
+    e: "#5d3f78",
+    m: "#e27bd0",
+    c: "#c2403a",
+    // The portal's own pixels: belly and ear studs (lit, shade) and the alert red.
+    t: "#f5b227",
+    T: "#b87a10",
+    x: "#ff5a4a",
+    // The spawn fire, coolest to hottest under the white core (the portal's ramp).
+    "1": "#7a1c2c",
+    "2": "#b5412a",
+    "3": "#e08a35",
+    "4": "#f3cf6a",
+};
+const MOODS = ["open", "blink", "happy", "wow", "wink", "focus", "sleep"];
+const W = 26;
+const H = 23;
+/** The visor, where every face is drawn. */
+const VISOR = { x0: 5, x1: W - 6, y0: 6, y1: 13 };
+const BAYER = [
+    [0, 8, 2, 10],
+    [12, 4, 14, 6],
+    [3, 11, 1, 9],
+    [15, 7, 13, 5],
+];
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const grid = (w, h) => Array.from({ length: h }, () => Array(w).fill(null));
+function outline(g) {
+    const out = g.map((r) => r.slice());
+    for (let j = 0; j < g.length; j++)
+        for (let i = 0; i < g[0].length; i++) {
+            if (g[j][i])
+                continue;
+            const near = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => {
+                const k = g[j + b]?.[i + a];
+                return k && k !== "o";
+            });
+            if (near)
+                out[j][i] = "o";
+        }
+    return out;
+}
+/** The pebble body, lit from the top left, with ears, visor and belly window. */
+function bodyGrid() {
+    const g = grid(W, H);
+    const cx = W / 2 - 0.5;
+    const cy = 12.2;
+    const rx = 10.6;
+    const ry = 9.8;
+    const tones = ["d", "k", "b", "B", "L"];
+    for (let j = 0; j < H; j++)
+        for (let i = 0; i < W; i++) {
+            const nx = (i - cx) / rx;
+            const ny = (j - cy) / (j > cy ? ry * 0.92 : ry);
+            if (Math.abs(nx) ** 2.4 + Math.abs(ny) ** 2.2 > 1)
+                continue;
+            const nz = Math.sqrt(Math.max(0, 1 - Math.min(1, nx * nx + ny * ny)));
+            let l = clamp(0.5 + (-nx * 0.55 - ny * 0.65 + nz * 0.55) * 0.62);
+            l = l * 4 + (BAYER[j % 4][i % 4] / 16 - 0.5) * 0.55;
+            g[j][i] = tones[clamp(Math.round(l), 0, 4)];
+        }
+    // Stepped block ears: the portal frame's own corner blocks.
+    const ear = (x0, dir) => {
+        for (let s = 0; s < 3; s++)
+            for (let w = 0; w < 3 - s; w++)
+                g[3 - s][x0 + dir * w] = s === 2 ? "B" : "b";
+    };
+    ear(5, 1);
+    ear(W - 6, -1);
+    g[1][5] = "t";
+    g[1][W - 6] = "t";
+    for (let j = VISOR.y0; j <= VISOR.y1; j++)
+        for (let i = VISOR.x0; i <= VISOR.x1; i++) {
+            const corner = (j === VISOR.y0 || j === VISOR.y1) && (i === VISOR.x0 || i === VISOR.x1);
+            if (corner)
+                continue;
+            const rim = j === VISOR.y0 || j === VISOR.y1 || i === VISOR.x0 || i === VISOR.x1;
+            g[j][i] = rim ? "V" : "v";
+        }
+    g[7][7] = "V";
+    g[7][8] = "V";
+    // Belly window: a tiny pixel portal; the swirl inside is drawn live.
+    const bx0 = W / 2 - 4;
+    const by0 = 14;
+    for (let j = 0; j < 7; j++)
+        for (let i = 0; i < 8; i++) {
+            const corner = (j === 0 || j === 6) && (i === 0 || i === 7);
+            if (corner)
+                continue;
+            g[by0 + j][bx0 + i] = j === 0 || j === 6 || i === 0 || i === 7 ? "s" : "v";
+        }
+    g[by0][bx0 + 1] = "t";
+    g[by0][bx0 + 6] = "t";
+    g[by0 + 6][bx0 + 1] = "T";
+    g[by0 + 6][bx0 + 6] = "T";
+    // Magenta rim light on the right edge, so he reads on dark scenes.
+    for (let j = 0; j < H; j++)
+        for (let i = W - 1; i > 0; i--) {
+            const k = g[j][i];
+            if (k && k !== "o") {
+                if (j > 4 && j < 19 && !"vVsgGtT".includes(k))
+                    g[j][i] = "m";
+                break;
+            }
+        }
+    return outline(g);
+}
+/** Eyes, blush and mouth for one mood, drawn over the visor. */
+function faceGrid(mood) {
+    const g = grid(W, H);
+    const L = 9;
+    const R = W - 11;
+    const y = 8;
+    const put = (i, j, k) => (g[j][i] = k);
+    const open = (x) => {
+        for (let j = 0; j < 4; j++)
+            for (let i = 0; i < 2; i++)
+                put(x + i, y + j, "g");
+        put(x, y, "w");
+        put(x + 1, y + 3, "G");
+    };
+    const closed = (x) => [-1, 0, 1, 2].forEach((d) => put(x + d, y + 2, "g"));
+    const happy = (x) => {
+        put(x - 1, y + 2, "g");
+        put(x, y + 1, "g");
+        put(x + 1, y + 1, "g");
+        put(x + 2, y + 2, "g");
+    };
+    const wow = (x) => {
+        for (let j = 0; j < 4; j++)
+            for (let i = -1; i < 3; i++) {
+                const edge = j === 0 || j === 3 || i === -1 || i === 2;
+                const corner = (j === 0 || j === 3) && (i === -1 || i === 2);
+                if (edge && !corner)
+                    put(x + i, y + j, "g");
+            }
+        put(x, y + 1, "w");
+    };
+    const focus = (x, side) => {
+        put(x - 1, y + 1, "g");
+        for (let i = 0; i < 3; i++)
+            put(x + i - (side < 0 ? 1 : 0), y + 2, "g");
+        put(x, y + 3, "G");
+        put(x + 1, y + 3, "G");
+    };
+    // Eyes shut and drooping, like two little bowls.
+    const shut = (x) => {
+        put(x - 1, y + 2, "G");
+        put(x, y + 3, "g");
+        put(x + 1, y + 3, "g");
+        put(x + 2, y + 2, "G");
+    };
+    const eyes = {
+        open: [open, open],
+        blink: [closed, closed],
+        happy: [happy, happy],
+        wow: [wow, wow],
+        wink: [open, happy],
+        focus: [(x) => focus(x, 1), (x) => focus(x, -1)],
+        sleep: [shut, shut],
+    };
+    eyes[mood][0](L);
+    eyes[mood][1](R);
+    if (mood !== "focus") {
+        put(L - 2, y + 4, "p");
+        put(L - 1, y + 4, "p");
+        put(R + 2, y + 4, "p");
+        put(R + 3, y + 4, "p");
+    }
+    if (mood === "sleep") {
+        put(W / 2 - 1, y + 4, "r");
+        put(W / 2, y + 4, "r");
+    }
+    else if (mood === "wow") {
+        put(W / 2 - 1, y + 4, "g");
+        put(W / 2, y + 4, "g");
+    }
+    else if (mood === "happy" || mood === "wink") {
+        put(W / 2 - 2, y + 4, "g");
+        put(W / 2 + 1, y + 4, "g");
+        put(W / 2 - 1, y + 5, "g");
+        put(W / 2, y + 5, "g");
+    }
+    return g;
+}
+const MITT = ["..ooo..", ".oBLBo.", "oBLBbbo", "obBbbko", "obbbkko", ".okkko.", "..ooo.."];
+const THUMB = ["..oo...", ".oLBo..", ".oBbo..", "oBLBbbo", "obBbbko", "obbbkko", ".ooooo."];
+const ANTENNA = ["...g...", "..gwg..", ".ggwgg.", "..gwg..", "...g...", "..oBo..", "..obo..", "..oko..", ".okkko."];
+const CUBE = ["...o...", "..oto..", ".otwto.", "otwctTo", ".otcTo.", "..oTo..", "...o..."];
+/** Speed dashes behind a flying mitt; the right edge touches the mitt. */
+const STREAK = ["...kbB", ".dkkbB", "...kbB"];
+/** The sleeper's z, three sizes. */
+const ZZZ = [
+    ["LLL", ".L.", "LLL"],
+    ["LLLL", "..L.", ".L..", "LLLL"],
+    ["LLLLL", "...L.", "..L..", ".L...", "LLLLL"],
+];
+/** Sparkle frames: a pip, a plus, a star. */
+const SPARKLE = [["...", ".w.", "..."], [".w.", "www", ".w."], ["..w..", "..g..", "wgwgw", "..g..", "..w.."]];
+const rows = (r) => r.map((line) => [...line].map((c) => (c === "." ? null : c)));
+/** Three dashes across the top of the visor, above the focused eyes; `on` (0 to 2) is the bright one. */
+function dotsGrid(on) {
+    const g = grid(W, H);
+    for (let d = 0; d < 3; d++)
+        for (let i = 0; i < 2; i++)
+            g[7][9 + d * 3 + i] = d === on ? "w" : "G";
+    return g;
+}
+/** A dithered red wash and bright rim over the visor, for the error flicker. */
+function redGrid() {
+    const g = grid(W, H);
+    for (let j = VISOR.y0; j <= VISOR.y1; j++)
+        for (let i = VISOR.x0; i <= VISOR.x1; i++) {
+            if ((j === VISOR.y0 || j === VISOR.y1) && (i === VISOR.x0 || i === VISOR.x1))
+                continue;
+            const rim = j === VISOR.y0 || j === VISOR.y1 || i === VISOR.x0 || i === VISOR.x1;
+            if (rim)
+                g[j][i] = "x";
+            else if ((i + j) % 2 === 0)
+                g[j][i] = "r";
+        }
+    return g;
+}
+/**
+ * Spawn: the grid redrawn as blocks b by b, centred on the sprite, each the
+ * palette colour nearest the average of the pixels in it (empty blocks stay empty).
+ */
+function mosaic(g, b, pal = LAR_PAL) {
+    if (b <= 1)
+        return g;
+    const h = g.length;
+    const w = g[0].length;
+    const out = grid(w, h);
+    const all = Object.keys(pal).map((k) => [k, rgb(pal[k])]);
+    const x0 = -Math.floor((Math.ceil(w / b) * b - w) / 2);
+    const y0 = -Math.floor((Math.ceil(h / b) * b - h) / 2);
+    for (let j = y0; j < h; j += b)
+        for (let i = x0; i < w; i += b) {
+            const sum = [0, 0, 0];
+            let n = 0;
+            for (let y = Math.max(0, j); y < Math.min(h, j + b); y++)
+                for (let x = Math.max(0, i); x < Math.min(w, i + b); x++) {
+                    const k = g[y][x];
+                    if (k)
+                        (n++, rgb(pal[k]).forEach((v, c) => (sum[c] += v)));
+                }
+            const area = (Math.min(w, i + b) - Math.max(0, i)) * (Math.min(h, j + b) - Math.max(0, j));
+            if (n * 2 < area)
+                continue;
+            const k = all.map(([key, c]) => [key, c.reduce((d, v, q) => d + (v - sum[q] / n) ** 2, 0)]).sort((p, q) => p[1] - q[1])[0][0];
+            for (let y = Math.max(0, j); y < Math.min(h, j + b); y++)
+                for (let x = Math.max(0, i); x < Math.min(w, i + b); x++)
+                    out[y][x] = k;
+        }
+    return out;
+}
+/** The six portal themes, as in crates/intportal-core/src/portal.rs (a test keeps them equal). */
+const THEMES = {
+    sis: { ramp: ["#3b1220", "#7a1c2c", "#b5412a", "#e08a35", "#f3cf6a"], accent: "#e8b04a" },
+    mabini: { ramp: ["#0b2238", "#13466f", "#1f78a8", "#3fb4c9", "#a8efe4"], accent: "#5fd0d6" },
+    up: { ramp: ["#0d2418", "#17452c", "#2a7a46", "#6cbf6a", "#d4f2b0"], accent: "#9fe07a" },
+    tup: { ramp: ["#16181f", "#2c3140", "#56607a", "#9aa6bd", "#e6ebf5"], accent: "#ff6b5f" },
+    pnu: { ramp: ["#160f33", "#2d1f66", "#5440b0", "#9a86f0", "#e2dbff"], accent: "#c8b6ff" },
+    bulsu: { ramp: ["#2a1405", "#5c2c08", "#b0560f", "#f0a030", "#ffe3a3"], accent: "#ffc04d" },
+};
+const SIS = THEMES.sis;
+/** The scene LAR flies on; his rim light has to read against it. */
+const VOID = "#0b0710";
+const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const hex = (c) => "#" + c.map((v) => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, "0")).join("");
+const mixHex = (a, b, f) => {
+    const y = rgb(b);
+    return hex(rgb(a).map((v, i) => v + (y[i] - v) * f));
+};
+function lum(h) {
+    const [r, g, b] = rgb(h).map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+/** WCAG contrast ratio of two hex colours. */
+function contrast(a, b) {
+    const [hi, lo] = [lum(a), lum(b)].sort((p, q) => q - p);
+    return (hi + 0.05) / (lo + 0.05);
+}
+function hsl(h) {
+    const [r, g, b] = rgb(h).map((v) => v / 255);
+    const mx = Math.max(r, g, b);
+    const mn = Math.min(r, g, b);
+    const l = (mx + mn) / 2;
+    if (mx === mn)
+        return [0, 0, l];
+    const d = mx - mn;
+    const s = d / (1 - Math.abs(2 * l - 1));
+    const hu = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return [hu * 60, s, l];
+}
+function fromHsl(h, s, l) {
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) => l - a * Math.max(-1, Math.min((n + h / 30) % 12 - 3, 9 - ((n + h / 30) % 12), 1));
+    return hex([f(0), f(8), f(4)].map((v) => v * 255));
+}
+/** Hue a part of the way from a to b, the short way round. */
+const hueMix = (a, b, f) => a + (((((b - a) % 360) + 540) % 360) - 180) * f;
+const BODY_KEYS = ["d", "k", "b", "B", "L"];
+/** How far each body tone (and the outline) leans toward the portal: a hint in the shadows, a little more in the light. */
+const HINT = { o: 0.12, d: 0.12, k: 0.15, b: 0.18, B: 0.22, L: 0.26 };
+/**
+ * LAR's palette for a portal: he is still the obsidian LAR, with a hint of
+ * the university. His body keeps its lightness ladder and dither and its
+ * purple, nudged toward a gradient from the ramp's deep hue in the shadows to
+ * the accent's hue in the light (maroon to gold for PUP, forest to lime for
+ * UP, slate to coral for TUP). The outline and mitts follow. The portal shows
+ * in full where he is lit by it: the rim light is the accent lifted until it
+ * reads on the void, and the studs, cube, swirl and spawn fire take the ramp.
+ * His gold eyes and spark never change: that is how you know him.
+ */
+function tint(theme = SIS) {
+    const [r0, r1, r2, r3, r4] = theme.ramp;
+    const [deep, deepS] = hsl(r1);
+    const [glow, glowS] = hsl(theme.accent);
+    const body = Object.fromEntries(BODY_KEYS.map((k, i) => {
+        // Most of him stays in the deep hue; the accent comes in at the light.
+        const f = (i / (BODY_KEYS.length - 1)) ** 1.6;
+        const s = clamp(deepS + (glowS - deepS) * f, 0.16, 0.46);
+        const portal = fromHsl((hueMix(deep, glow, f) + 360) % 360, s, hsl(LAR_PAL[k])[2]);
+        return [k, mixHex(LAR_PAL[k], portal, HINT[k])];
+    }));
+    let rim = mixHex(theme.accent, "#ffffff", 0.18);
+    for (let i = 0; contrast(rim, VOID) < 3 && i < 20; i++)
+        rim = mixHex(rim, "#ffffff", 0.12);
+    return {
+        ...LAR_PAL,
+        ...body,
+        o: mixHex(LAR_PAL.o, fromHsl(deep, 0.32, hsl(LAR_PAL.o)[2]), HINT.o),
+        e: body.b,
+        m: rim,
+        t: mixHex(r3, r4, 0.45),
+        T: mixHex(r2, r3, 0.3),
+        c: mixHex(r1, r2, 0.5),
+        s: mixHex(LAR_PAL.s, r0, 0.3),
+        V: mixHex(LAR_PAL.V, r1, 0.25),
+        "1": r1,
+        "2": r2,
+        "3": r3,
+        "4": r4,
+    };
+}
+const SWIRL_KEYS = 5;
+/** The live swirl in his belly window, n × m pixels at time t, in a portal's ramp. */
+function drawSwirl(ctx, t, n = 6, m = 5, ramp = SIS.ramp) {
+    const tones = [mixHex(ramp[0], "#000000", 0.35), ramp[1], ramp[2], ramp[3], ramp[4]];
+    ctx.clearRect(0, 0, n, m);
+    const c = (n - 1) / 2;
+    const cy = (m - 1) / 2;
+    for (let j = 0; j < m; j++)
+        for (let i = 0; i < n; i++) {
+            const dx = i - c;
+            const dy = (j - cy) * 1.1;
+            const r = Math.hypot(dx, dy);
+            let v = 0.5 + 0.5 * Math.sin(Math.atan2(dy, dx) * 2 - r * 1.6 + t * 5.5);
+            v = v * (1 - r / (c + 1)) * 1.25 + (1 - r / (c + 0.5)) * 0.35;
+            v += (BAYER[j % 4][i % 4] / 16 - 0.5) * 0.28;
+            ctx.fillStyle = tones[clamp(Math.floor(v * SWIRL_KEYS), 0, SWIRL_KEYS - 1)];
+            ctx.fillRect(i, j, 1, 1);
+        }
+}
+/** Closed for about a tenth of a second at seeded moments, open otherwise. */
+function blinkAt(t, seed = 3, base = "open") {
+    const period = 2.9 + (seed % 3) * 0.4;
+    const k = ((t + seed * 0.37) % period) / period;
+    return k > 0.958 ? "blink" : base;
+}
+// ------------------------------------------------------------------ poses
+const STATES = ["idle", "fly", "spawn", "think", "sleep", "error", "happy"];
+/** The fixed frame every part of every state stays in, with the body at 0,0 to W,H. */
+const BOX = { x0: -13, y0: -17, x1: W + 14, y1: H + 10 };
+/** Seconds offsets take to ease across a state switch. */
+const EASE = 0.25;
+/** The cube eases a little slower, since it has the furthest to go. */
+const CUBE_EASE = 0.6;
+const SPAWN_SECS = 1.1;
+const ERROR_SECS = 0.4;
+const TAU = Math.PI * 2;
+/** The body squashes and leans about this point. */
+const PIVOT = { x: W / 2, y: 15 };
+const MITT_X = [-5, 24];
+const SIDE = [-1, 1];
+const ANT = { x: W / 2 - 3.5, y: -7 };
+const smooth = (u) => u * u * (3 - 2 * u);
+/** Cube orbit: angular speed, and for a parked cube where it rests. */
+const ORBIT = {
+    idle: { w: 2.2 },
+    fly: { w: 2.8 },
+    spawn: { w: 2.2 },
+    think: { w: 3.5 },
+    sleep: { w: 0, park: Math.PI * 1.04 },
+    error: { w: 0.9 },
+    happy: { w: 3 },
+};
+const PARK_ACCEL = 0.8;
+const mix = (a, b, e) => typeof a === "number"
+    ? (a + (b - a) * e)
+    : Array.isArray(a)
+        ? a.map((v, i) => mix(v, b[i], e))
+        : Object.fromEntries(Object.entries(a).map(([k, v]) => [k, mix(v, b[k], e)]));
+const mittRaw = (_i, dx = 0, dy = 0, rot = 0, streak = 0, streakRot = 0) => ({ x: dx, y: dy, rot, streak, streakRot });
+const cubeRaw = (o = {}) => ({ x: W / 2, y: 9.5, rx: 16, ry: 3, s0: 0.75, sa: 0.25, vis: 1, ...o });
+const calm = () => ({ mood: "open", kinds: ["mitt", "mitt"], dots: -1, red: false, zzz: [], sparkle: [], shake: 0, resolve: 1, fire: -1 });
+const body = (o = {}) => ({ x: 0, y: 0, sx: 1, sy: 1, rot: 0, ...o });
+function spec(state, t, o) {
+    const vx = o.vx ?? 40;
+    const vy = o.vy ?? 0;
+    const since = o.since ?? Infinity;
+    const nx = clamp(vx / 60, -1, 1);
+    const ny = clamp(vy / 60, -1, 1);
+    const bob = Math.sin(t * 3.1) * 1.4;
+    const sway = Math.sin(t * 3.1 - 0.9) * 6;
+    const lag = (i) => Math.sin(t * 3.1 - 0.7 - i * 0.3) * 1.2;
+    const pick = calm();
+    switch (state) {
+        case "idle":
+            pick.mood = blinkAt(t);
+            return {
+                raw: { b: body({ y: bob }), a: { x: 0, y: 0, rot: sway }, m: [0, 1].map((i) => mittRaw(i, 0, lag(i))), c: cubeRaw({ y: 9.5 + bob * 0.5 }), alpha: 1 },
+                pick,
+            };
+        case "fly": {
+            pick.mood = blinkAt(t);
+            const sp = clamp(Math.hypot(vx, vy) / 60);
+            const flutter = (i) => Math.sin(t * 11 + i * 1.7);
+            return {
+                raw: {
+                    b: body({ x: 0, y: Math.sin(t * 7) * 0.8 + ny * 1.5, rot: nx * 13 + ny * (nx < 0 ? -4 : 4) }),
+                    a: { x: -nx * 0.5, y: 0, rot: -nx * 34 + ny * 10 + Math.sin(t * 13) * 3 * sp },
+                    m: [0, 1].map((i) => mittRaw(i, -nx * 4.5 - SIDE[i] * 1.5, 2 - ny * 3.5 + flutter(i) * 0.7 * sp, -nx * 14 * SIDE[i] + flutter(i + 1) * 5 * sp, sp, (Math.atan2(vy, vx) * 180) / Math.PI)),
+                    c: cubeRaw({ x: W / 2 - nx * 3.5, y: 9.5 - ny * 2.5, rx: 15 }),
+                    alpha: 1,
+                },
+                pick,
+            };
+        }
+        case "spawn": {
+            // He comes out of a fire: it flares up first, he resolves inside it from
+            // coarse blocks to the sharp sprite, rising, and it burns out round him.
+            const k = clamp(o.k ?? 1);
+            const u = clamp((k - 0.2) / 0.8);
+            const e = 1 - (1 - u) ** 3;
+            pick.mood = k < 1 ? "open" : blinkAt(t);
+            pick.resolve = k >= 1 ? 1 : u <= 0 ? 8 : [8, 6, 4, 3, 2][Math.min(4, Math.floor(u * 5))];
+            pick.fire = k < 1 ? k : -1;
+            if (k > 0.78 && k < 1)
+                pick.sparkle = [{ x: W - 2, y: 0, s: k < 0.88 ? 1 : 2, a: 1 }];
+            return {
+                raw: {
+                    b: body({ y: bob * e + (1 - e) * 4 }),
+                    a: { x: 0, y: 0, rot: sway * e },
+                    m: [0, 1].map((i) => mittRaw(i, 0, lag(i))),
+                    c: cubeRaw({ y: 9.5 + bob * 0.5 }),
+                    alpha: clamp(u * 3),
+                },
+                pick,
+            };
+        }
+        case "think": {
+            pick.mood = "focus";
+            pick.dots = ((Math.floor(t * 3.4) % 3) + 3) % 3;
+            const tap = Math.sin(t * 7);
+            return {
+                raw: {
+                    b: body({ y: 0.5 + Math.sin(t * 2.2) * 0.7 }),
+                    a: { x: 0, y: 0, rot: Math.sin(t * 5) * 4 },
+                    m: [mittRaw(0, 0.5, 1 + tap * 0.6), mittRaw(1, -2.5, -4.5 + Math.sin(t * 2.2) * 0.4, -10)],
+                    c: cubeRaw({ y: 3, rx: 12, ry: 2.5 }),
+                    alpha: 1,
+                },
+                pick,
+            };
+        }
+        case "sleep": {
+            pick.mood = "sleep";
+            const P = 3.6;
+            const br = Math.sin(t * 1.25);
+            for (let i = 0; i < 3; i++) {
+                const p = (((t / P + i / 3) % 1) + 1) % 1;
+                const s = p < 0.3 ? 0 : p < 0.65 ? 1 : 2;
+                const sz = [3, 4, 5][s];
+                pick.zzz.push({ x: 21 + p * 5 + Math.sin(p * 6) - sz / 2, y: -1 - p * 12 - sz / 2, s, a: p < 0.15 ? p / 0.15 : p > 0.7 ? (1 - p) / 0.3 : 1 });
+            }
+            return {
+                raw: {
+                    b: body({ y: 2.5 + br * 0.9, sy: 1 + br * 0.012, rot: 3 }),
+                    a: { x: 0, y: 1, rot: 22 + Math.sin(t * 1.25 - 1) * 2.5 },
+                    m: [mittRaw(0, 2.5, 4 + br * 0.5, -12), mittRaw(1, -2.5, 4 + br * 0.5, 12)],
+                    c: cubeRaw({ y: 15.5, rx: 18, ry: 1 }),
+                    alpha: 1,
+                },
+                pick,
+            };
+        }
+        case "error": {
+            pick.mood = "wow";
+            const dec = clamp(1 - since / ERROR_SECS);
+            const u = (since / 0.2) % 1;
+            const tri = u < 0.25 ? 4 * u : u < 0.75 ? 2 - 4 * u : 4 * u - 4;
+            pick.shake = since < ERROR_SECS ? tri * 2 * dec : 0;
+            pick.red = since < ERROR_SECS && Math.floor(since * 20) % 2 === 0;
+            const tremble = Math.sin(t * 19) * 0.4;
+            return {
+                raw: {
+                    b: body({ x: pick.shake, y: -2 * dec, sy: 1 + 0.05 * dec, sx: 1 - 0.03 * dec }),
+                    a: { x: 0, y: 0, rot: 16 * dec + Math.sin(t * 17) * 2 },
+                    m: [0, 1].map((i) => mittRaw(i, SIDE[i] * 1.5, -5 + tremble * (i ? 1 : -1), SIDE[i] * 16)),
+                    c: cubeRaw({ y: 9.5 - 2 * dec }),
+                    alpha: 1,
+                },
+                pick,
+            };
+        }
+        case "happy": {
+            pick.mood = "happy";
+            const T = 0.8;
+            const u = (((t / T) % 1) + 1) % 1;
+            const hop = -5 * 4 * u * (1 - u);
+            const air = Math.sin(Math.PI * u);
+            const pulse = Math.max(0, 1 - Math.min(u, 1 - u) / 0.14);
+            const sy = 1 - 0.09 * pulse;
+            const by = hop + (1 - sy) * (23 - PIVOT.y);
+            const f = (((Math.floor(t * 6) % 3) + 3) % 3);
+            // The waving hand comes up over the first moments of the cheer.
+            const r = smooth(clamp(since / 0.7));
+            pick.sparkle = [{ x: W - 3, y: -4, s: [1, 2, 0][f], a: 1 }];
+            return {
+                raw: {
+                    b: body({ y: by, sx: 1 + 0.06 * pulse, sy }),
+                    a: { x: 0, y: 0, rot: sway * 0.5 + Math.sin(TAU * u + 0.6) * 5 },
+                    m: [mittRaw(0, 1, hop * 0.7 - 4 * air + 1, -8 * air), mittRaw(1, 2 * r, hop - (4.5 - Math.sin(t * 8)) * r, (-10 + Math.sin(t * 8) * 14) * r)],
+                    c: cubeRaw({ y: 9.5 + hop * 0.5 }),
+                    alpha: 1,
+                },
+                pick,
+            };
+        }
+    }
+}
+/**
+ * The cube's angle. States spin at their own speed, so a switch blends the
+ * speeds (not the angles): the cube speeds up or slows down without a jump.
+ * Sleeping parks it: it coasts to a stop at its resting spot, and a wake-up
+ * eases it back to speed. `phase` is what earlier switches left on the angle.
+ */
+function cubeAngle(state, t, o = {}) {
+    const B = ORBIT[state];
+    const s = o.since ?? Infinity;
+    const steady = (st, tt) => ORBIT[st].park ?? ORBIT[st].w * tt;
+    const phase = o.phase ?? 0;
+    if (!o.from || o.from === state || !isFinite(s))
+        return B.park ?? B.w * t + phase;
+    const A = ORBIT[o.from];
+    const a0 = A.park ?? steady(o.from, t - s) + phase;
+    if (B.park !== undefined) {
+        if (A.park !== undefined)
+            return B.park;
+        // Coast from speed A.w to a stop exactly at the parking spot.
+        let d = (((B.park - a0) % TAU) + TAU) % TAU;
+        if (d < 0.6)
+            d += TAU;
+        const td = (2 * d) / A.w;
+        return a0 + (s < td ? A.w * (s - (s * s) / (2 * td)) : d);
+    }
+    if (A.park !== undefined)
+        return a0 + B.w * (s < PARK_ACCEL ? (s * s) / (2 * PARK_ACCEL) : s - PARK_ACCEL / 2);
+    const u = clamp(s / CUBE_EASE);
+    return a0 + A.w * s + (B.w - A.w) * (s < CUBE_EASE ? CUBE_EASE * (u ** 3 - u ** 4 / 2) : s - CUBE_EASE / 2);
+}
+/**
+ * Every part's offset for `state` at time t (seconds). Pure. With `from` and
+ * `since`, offsets ease from the old state's pose over EASE seconds so a
+ * switch never pops; faces and glyphs swap instantly, they are not offsets.
+ */
+function pose(state, t, o = {}) {
+    const s = o.since ?? Infinity;
+    const B = spec(state, t, o);
+    let raw = B.raw;
+    let pick = B.pick;
+    if (o.from && o.from !== state && s < CUBE_EASE) {
+        // The old state is settled: nothing of its entrance (shake, spawn) is left.
+        const A = spec(o.from, t, { ...o, since: Infinity, k: 1 });
+        const e = smooth(clamp(s / easeTime(o.from, state, t - s, o)));
+        raw = { ...mix(A.raw, B.raw, e), c: mix(A.raw.c, B.raw.c, smooth(clamp(s / CUBE_EASE))) };
+        pick = { ...B.pick };
+        if (e < 0.4)
+            (pick.mood = A.pick.mood, (pick.kinds = A.pick.kinds), (pick.dots = A.pick.dots));
+        pick.zzz = [...A.pick.zzz.map((g) => ({ ...g, a: g.a * (1 - e) })), ...B.pick.zzz.map((g) => ({ ...g, a: g.a * e }))];
+        pick.sparkle = [...A.pick.sparkle.map((g) => ({ ...g, a: g.a * (1 - e) })), ...B.pick.sparkle.map((g) => ({ ...g, a: g.a * e }))];
+    }
+    return build(raw, pick, cubeAngle(state, t, o));
+}
+function build(raw, pick, angle) {
+    const c = raw.c;
+    const sn = Math.sin(angle);
+    const scale = (c.s0 + c.sa * sn) * c.vis;
+    return {
+        body: raw.b,
+        antenna: { x: ANT.x + raw.a.x, y: ANT.y + raw.a.y, rot: raw.a.rot },
+        mitts: [0, 1].map((i) => {
+            const m = raw.m[i];
+            return { x: MITT_X[i] + m.x, y: 13 + m.y, rot: m.rot, side: SIDE[i], kind: pick.kinds[i], streak: m.streak, streakRot: m.streakRot };
+        }),
+        cube: { x: c.x + c.rx * Math.cos(angle), y: c.y + c.ry * sn, scale, front: sn > 0, angle },
+        mood: pick.mood,
+        dots: pick.dots,
+        red: pick.red,
+        zzz: pick.zzz.filter((g) => g.a > 0.02),
+        sparkle: pick.sparkle.filter((g) => g.a > 0.02),
+        shake: pick.shake,
+        resolve: pick.resolve,
+        fire: pick.fire,
+        alpha: raw.alpha,
+    };
+}
+/**
+ * How long a switch takes: EASE, stretched when the two poses are far apart
+ * (measured at the instant of the switch) so no corner ever races.
+ */
+function easeTime(from, to, ts, o) {
+    let d = 0;
+    // The target keeps moving while the offsets ease, so look a little ahead too.
+    for (let i = 0; i <= 6; i++) {
+        const tt = ts + i * 0.1;
+        const ea = extents(build(spec(from, tt, { ...o, since: Infinity, k: 1 }).raw, calm(), 0));
+        const eb = extents(build(spec(to, tt, { ...o, since: i * 0.1, k: 0 }).raw, calm(), 0));
+        for (const n of ["body", "antenna", "mitt0", "mitt1"])
+            ea[n].forEach((p, j) => (d = Math.max(d, Math.hypot(p[0] - eb[n][j][0], p[1] - eb[n][j][1]))));
+    }
+    return clamp(d / 30, EASE, 0.8);
+}
+const rot = ([x, y], c, deg) => {
+    const r = (deg * Math.PI) / 180;
+    const [dx, dy] = [x - c[0], y - c[1]];
+    return [c[0] + dx * Math.cos(r) - dy * Math.sin(r), c[1] + dx * Math.sin(r) + dy * Math.cos(r)];
+};
+const quad = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+/** Where the body's squash and lean put a point of the sprite. */
+function bodyAt(p, pt) {
+    const { x, y, sx, sy, rot: r } = p.body;
+    const q = rot([PIVOT.x + (pt[0] - PIVOT.x) * sx, PIVOT.y + (pt[1] - PIVOT.y) * sy], [PIVOT.x, PIVOT.y], r);
+    return [q[0] + x, q[1] + y];
+}
+/** The corners of each part's box after its transform, for bounds and continuity checks. */
+function extents(p) {
+    const out = {};
+    out.body = quad(0, 0, W, H).map((q) => bodyAt(p, q));
+    const a = p.antenna;
+    out.antenna = quad(a.x, a.y, 7, 9).map((q) => bodyAt(p, rot(q, [a.x + 3.5, a.y + 9], a.rot)));
+    p.mitts.forEach((m, i) => {
+        out[`mitt${i}`] = quad(m.x, m.y, 7, 7).map((q) => rot(q, [m.x + 3.5, m.y + 3.5], m.rot));
+        if (m.streak > 0.02)
+            out[`streak${i}`] = quad(m.x + 3.5 - 9.5, m.y + 2, 6, 3).map((q) => rot(q, [m.x + 3.5, m.y + 3.5], m.streakRot));
+    });
+    const c = p.cube;
+    out.cube = quad(c.x - 3.5 * c.scale, c.y - 3.5 * c.scale, 7 * c.scale, 7 * c.scale);
+    p.zzz.forEach((g, i) => (out[`zzz${i}`] = quad(g.x, g.y, ZZZ[g.s][0].length, ZZZ[g.s].length)));
+    p.sparkle.forEach((g, i) => (out[`spark${i}`] = quad(g.x, g.y, SPARKLE[g.s][0].length, SPARKLE[g.s].length)));
+    if (p.fire >= 0)
+        out.fire = quad(FIRE.x, FIRE.y, FIRE.w, FIRE.h);
+    return out;
+}
+// ------------------------------------------------------------ fire, sheen
+/** Where the spawn fire burns, in sprite px: a bonfire round his body. */
+const FIRE = { x: -2, y: -9, w: 30, h: 34 };
+const FIRE_STEPS = 44;
+const FIRE_MAX = 31;
+const FIRE_KEYS = [null, "1", "2", "3", "4", "w"];
+let fireMemo = { key: "", g: [] };
+/**
+ * The fire he spawns in: a small Doom-style fire. A bonfire-shaped bed of
+ * heat feeds it until k is 0.6; every step each cell's heat rises a row,
+ * drifts sideways and cools at random, so flames lick up and taper. Then the
+ * bed goes out and the last flames rise and die. Coloured cool to hot by the
+ * portal's ramp under a white core. Pure for a k and seed (the last is cached).
+ */
+function fireGrid(k, seed = 7) {
+    const steps = Math.round(clamp(k) * FIRE_STEPS);
+    const key = `${steps}:${seed}`;
+    if (fireMemo.key === key)
+        return fireMemo.g;
+    const { w, h } = FIRE;
+    const heat = new Uint8Array(w * h);
+    let a = seed >>> 0;
+    const rand = () => {
+        a = (a + 0x6d2b79f5) >>> 0;
+        let x = Math.imul(a ^ (a >>> 15), a | 1);
+        x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+        return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+    for (let s = 0; s < steps; s++) {
+        const fuel = clamp(1 - (s / FIRE_STEPS - 0.6) / 0.08);
+        for (let x = 0; x < w; x++) {
+            const bed = Math.max(0, 1 - Math.abs(x - (w - 1) / 2) / (w * 0.44));
+            heat[(h - 1) * w + x] = Math.round(FIRE_MAX * fuel * Math.sqrt(bed) * (rand() < 0.8 ? 1 : 0.5));
+        }
+        // Each cell pulls heat from the one below or a neighbour of it, and cools;
+        // heat that came in sideways cools more, which splits the fire into
+        // tongues. A slow wind sways the whole fire.
+        // Two rows a step, so it flares up fast.
+        const wind = Math.sin(s * 0.45) * 0.35;
+        for (let sub = 0; sub < 2; sub++)
+            for (let y = 1; y < h; y++)
+                for (let x = 0; x < w; x++) {
+                    const dx = Math.round(rand() * 2 - 1 + wind);
+                    const from = Math.min(w - 1, Math.max(0, x + dx));
+                    heat[(y - 1) * w + x] = Math.max(0, heat[y * w + from] - (dx ? 1 : 0) - (rand() < 0.35 ? 1 : 0));
+                }
+    }
+    const g = grid(w, h);
+    for (let j = 0; j < h; j++)
+        for (let i = 0; i < w; i++) {
+            const v = heat[j * w + i];
+            if (v >= 3)
+                g[j][i] = FIRE_KEYS[Math.min(5, Math.ceil((v / FIRE_MAX) * 5))];
+        }
+    fireMemo = { key, g };
+    return g;
+}
+/** Seconds between sheens, and how long one takes to cross him. */
+const SHEEN = { every: 5.5, cross: 0.9 };
+const LIFT = { d: "k", k: "b", b: "B", B: "L", m: "w" };
+let BODY_G = null;
+/**
+ * A whimsical sheen: now and then a diagonal band of light sweeps across his
+ * body, lifting each tone a step (the brightest to white at its core). Its
+ * edges are dithered, so it reads as a gradient in whole pixels. Null
+ * between sweeps.
+ */
+function sheenGrid(t) {
+    const u = (((t % SHEEN.every) + SHEEN.every) % SHEEN.every) / SHEEN.cross;
+    if (u >= 1)
+        return null;
+    BODY_G ??= bodyGrid();
+    const at = -6 + u * (W + H + 12);
+    const g = grid(W, H);
+    BODY_G.forEach((row, j) => row.forEach((k, i) => {
+        if (!k)
+            return;
+        const d = Math.abs(i * 0.8 + j - at);
+        const core = d < 1.2;
+        const edge = d < 3.5 && BAYER[j % 4][i % 4] / 16 < (3.5 - d) / 2.3;
+        const up = k === "L" ? (core ? "w" : undefined) : LIFT[k];
+        if (up && (core || edge))
+            g[j][i] = up;
+    }));
+    return g;
+}
+// ------------------------------------------------------------------- rig
+/**
+ * One LAR's state over time: which state he is in, which he came from, when
+ * he switched and the cube angle owed, so pose() eases every change.
+ */
+function rig(initial = "idle") {
+    let cur = initial;
+    let from;
+    let switched = -Infinity;
+    let phase = 0;
+    let last = 0;
+    return {
+        get state() {
+            return cur;
+        },
+        /** Seconds in the current state at t. */
+        since: (t) => t - switched,
+        /** Switch to `next` at t, easing from wherever he is (a spawn starts afresh). */
+        set(next, t, o = {}) {
+            if (next === cur)
+                return;
+            if (next === "spawn")
+                return this.start(next, t);
+            phase = last - pose(cur, t, { ...o, phase: 0 }).cube.angle;
+            from = cur;
+            cur = next;
+            switched = t;
+        },
+        /** Start `state` afresh at t, with nothing to ease from (a spawn). */
+        start(state, t) {
+            cur = state;
+            from = undefined;
+            switched = t;
+            phase = 0;
+        },
+        /** His pose at t. `still` (Reduce Motion) holds him settled. */
+        at(t, o = {}, still = false) {
+            const since = still ? Infinity : t - switched;
+            const p = pose(cur, still ? 0 : t, { k: still ? 1 : Math.min(1, since / SPAWN_SECS), ...o, from: still ? undefined : from, since, phase });
+            last = p.cube.angle;
+            return p;
+        },
+    };
+}
+const palettes = new Map();
+const baked = new Map();
+const paintInto = (x, g, pal, ox = 0, oy = 0) => g.forEach((row, j) => row.forEach((k, i) => {
+    if (!k)
+        return;
+    x.fillStyle = pal[k];
+    x.fillRect(ox + i, oy + j, 1, 1);
+}));
+let belly = null;
+/**
+ * Draws LAR for a pose. `ctx` is in sprite px with the body's top left at
+ * 0,0 (scale it first); smoothing is off, so every part lands on whole pixels
+ * of whatever scale the caller picked, while positions stay smooth.
+ */
+function drawLar(ctx, p, theme, t, o = {}) {
+    const id = theme.ramp.join() + theme.accent;
+    let pal = palettes.get(id);
+    if (!pal)
+        palettes.set(id, (pal = tint(theme)));
+    const P = pal;
+    const bake = (name, g) => {
+        let c = baked.get(id + name);
+        if (!c) {
+            const gr = g();
+            c = document.createElement("canvas");
+            c.width = gr[0].length;
+            c.height = gr.length;
+            paintInto(c.getContext("2d"), gr, P);
+            baked.set(id + name, c);
+        }
+        return c;
+    };
+    const res = p.resolve;
+    const sharp = (name, g) => (res > 1 ? bake(`${name}@${res}`, () => mosaic(g(), res, P)) : bake(name, g));
+    const deg = Math.PI / 180;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    const fire = p.fire >= 0 ? fireGrid(p.fire) : null;
+    const fireAlpha = clamp((1 - p.fire) / 0.15);
+    // The glow: a soft gradient from the accent through the ramp to nothing.
+    if (o.aura !== false && p.alpha > 0) {
+        const cx = W / 2 + p.body.x;
+        const cy = 12 + p.body.y;
+        const r = 20 + Math.sin(t * 1.3) * 1.5;
+        const g = ctx.createRadialGradient(cx, cy, 1, cx, cy, r);
+        g.addColorStop(0, theme.accent + "38");
+        g.addColorStop(0.55, theme.ramp[2] + "16");
+        g.addColorStop(1, theme.ramp[2] + "00");
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = g;
+        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    }
+    if (fire) {
+        ctx.globalAlpha = fireAlpha;
+        paintInto(ctx, fire, P, FIRE.x, FIRE.y);
+    }
+    ctx.globalAlpha = p.alpha;
+    if (o.shadow !== false) {
+        ctx.fillStyle = "rgb(0 0 0 / 0.3)";
+        ctx.beginPath();
+        ctx.ellipse(W / 2 + p.body.x, 25.5, 8 * Math.max(0.5, 1 + p.body.y / 16), 1, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    const cube = () => {
+        const c = p.cube;
+        if (o.cube === false || c.scale < 0.01)
+            return;
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.scale(c.scale, c.scale);
+        ctx.drawImage(sharp("cube", () => rows(CUBE)), -3.5, -3.5);
+        ctx.restore();
+    };
+    if (!p.cube.front)
+        cube();
+    for (const m of p.mitts) {
+        if (m.streak < 0.02)
+            continue;
+        ctx.save();
+        ctx.globalAlpha = p.alpha * m.streak * 0.9;
+        ctx.translate(m.x + 3.5, m.y + 3.5);
+        ctx.rotate(m.streakRot * deg);
+        ctx.drawImage(bake("streak", () => rows(STREAK)), -9.5, -1.5);
+        ctx.restore();
+    }
+    ctx.save();
+    const b = p.body;
+    ctx.translate(b.x + PIVOT.x, b.y + PIVOT.y);
+    ctx.rotate(b.rot * deg);
+    ctx.scale(b.sx, b.sy);
+    ctx.translate(-PIVOT.x, -PIVOT.y);
+    ctx.save();
+    ctx.translate(p.antenna.x + 3.5, p.antenna.y + 9);
+    ctx.rotate(p.antenna.rot * deg);
+    ctx.drawImage(sharp("antenna", () => rows(ANTENNA)), -3.5, -9);
+    ctx.restore();
+    if (res > 1) {
+        // While he resolves, body and face are blocked together so the blocks agree.
+        const flat = (...layers) => bodyGrid().map((row, j) => row.map((k, i) => layers.reduce((acc, l) => l[j][i] ?? acc, k)));
+        ctx.drawImage(bake(`whole@${res}${p.mood}${p.red}`, () => mosaic(p.red ? flat(redGrid(), faceGrid(p.mood)) : flat(faceGrid(p.mood)), res, P)), 0, 0);
+    }
+    else {
+        ctx.drawImage(bake("body", bodyGrid), 0, 0);
+        const sheen = sheenGrid(t);
+        if (sheen)
+            paintInto(ctx, sheen, P);
+        if (p.red)
+            ctx.drawImage(bake("red", redGrid), 0, 0);
+        ctx.drawImage(bake(`face:${p.mood}`, () => faceGrid(p.mood)), 0, 0);
+        if (p.dots >= 0)
+            ctx.drawImage(bake(`dots:${p.dots}`, () => dotsGrid(p.dots)), 0, 0);
+        belly ??= Object.assign(document.createElement("canvas"), { width: 6, height: 5 });
+        drawSwirl(belly.getContext("2d"), t, 6, 5, theme.ramp);
+        ctx.drawImage(belly, W / 2 - 3, 15);
+    }
+    ctx.restore();
+    if (p.cube.front)
+        cube();
+    for (const m of p.mitts) {
+        ctx.save();
+        ctx.translate(m.x + 3.5, m.y + 3.5);
+        ctx.rotate(m.rot * deg);
+        ctx.scale(m.side, 1);
+        ctx.drawImage(sharp(m.kind, () => rows(m.kind === "thumb" ? THUMB : MITT)), -3.5, -3.5);
+        ctx.restore();
+    }
+    for (const g of p.zzz) {
+        ctx.globalAlpha = g.a * p.alpha;
+        ctx.drawImage(bake(`z${g.s}`, () => rows(ZZZ[g.s])), g.x, g.y);
+    }
+    for (const g of p.sparkle) {
+        ctx.globalAlpha = g.a * p.alpha;
+        ctx.drawImage(bake(`sp${g.s}`, () => rows(SPARKLE[g.s])), g.x, g.y);
+    }
+    // The flames in front of him: the lower part, fading as he comes clear.
+    if (fire) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(FIRE.x, H * 0.6, FIRE.w, FIRE.y + FIRE.h - H * 0.6);
+        ctx.clip();
+        ctx.globalAlpha = fireAlpha * clamp(1.5 - p.fire * 1.7);
+        paintInto(ctx, fire, P, FIRE.x, FIRE.y);
+        ctx.restore();
+    }
+    ctx.restore();
+}
+/** The cube's box in sprite px round its centre: room for its bob and glow. */
+const CUBE_BOX = 9;
+/**
+ * The cube LAR holds, on its own: the way into his chat. It floats on a slow
+ * bob, turns (a squash across its width), catches a sheen every few seconds
+ * and glows in the portal's colours. `ctx` is in sprite px with the cube's
+ * centre at 0,0. `speed` spins it faster while he thinks.
+ */
+function drawCube(ctx, theme, t, o = {}) {
+    const id = theme.ramp.join() + theme.accent;
+    let pal = palettes.get(id);
+    if (!pal)
+        palettes.set(id, (pal = tint(theme)));
+    let c = baked.get(id + "cube");
+    if (!c) {
+        c = Object.assign(document.createElement("canvas"), { width: 7, height: 7 });
+        paintInto(c.getContext("2d"), rows(CUBE), pal);
+        baked.set(id + "cube", c);
+    }
+    const speed = o.speed ?? 1;
+    const tt = o.still ? 0 : t;
+    const bob = Math.sin(tt * 2.1) * 0.9;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    const r = 8 + Math.sin(tt * 1.3) * 0.6;
+    const g = ctx.createRadialGradient(0, bob, 0.5, 0, bob, r);
+    g.addColorStop(0, theme.accent + "55");
+    g.addColorStop(0.5, theme.ramp[2] + "22");
+    g.addColorStop(1, theme.ramp[2] + "00");
+    ctx.fillStyle = g;
+    ctx.fillRect(-r, bob - r, r * 2, r * 2);
+    // Its shadow tightens as it rises.
+    ctx.fillStyle = `rgb(0 0 0 / ${0.32 - bob * 0.05})`;
+    ctx.beginPath();
+    ctx.ellipse(0, 6.5, 2.6 + bob * 0.3, 0.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.translate(0, bob);
+    ctx.scale(0.86 + 0.14 * Math.cos(tt * speed * 1.4), 1);
+    ctx.drawImage(c, -3.5, -3.5);
+    // The sheen: a diagonal of light crossing it once a cycle.
+    const band = ((tt * speed * 2.4) % 9) * 2 - 3;
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = pal.w;
+    rows(CUBE).forEach((row, j) => row.forEach((k, i) => {
+        if (k && k !== "o" && Math.abs(i + j - band) < 0.5)
+            ctx.fillRect(i - 3.5, j - 3.5, 1, 1);
+    }));
+    ctx.restore();
+}
+
+return { LAR_PAL, MOODS, W, H, VISOR, bodyGrid, faceGrid, MITT, THUMB, ANTENNA, CUBE, STREAK, ZZZ, SPARKLE, rows, dotsGrid, redGrid, mosaic, THEMES, SIS, VOID, contrast, tint, drawSwirl, blinkAt, STATES, BOX, EASE, CUBE_EASE, SPAWN_SECS, ERROR_SECS, PIVOT, cubeAngle, pose, bodyAt, extents, FIRE, fireGrid, SHEEN, sheenGrid, rig, drawLar, CUBE_BOX, drawCube };
+})();
+const LarKit = { THEMES, rig, drawLar, drawCube, CUBE_BOX };
+</script>
+<script>
+(() => {
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const ease = (k) => 1 - (1 - k) ** 3, smooth = (k) => k * k * (3 - 2 * k);
+
+/* ---------------- colour ---------------- */
+const rgbOf = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const lerp3 = (a, b, f) => a.map((v, i) => v + (b[i] - v) * f);
+const css = (c, a = 1) => `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${a})`;
+function hexToHsl(h) {
+  const [r, g, b] = rgbOf(h).map((v) => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  if (mx === mn) return [0, 0, l];
+  const d = mx - mn, s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const hh = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [hh / 6, s, l];
+}
+function hslToHex([h, s, l]) {
+  const f = (n) => { const k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l); return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+  return "#" + [0, 8, 4].map((n) => Math.round(f(n) * 255).toString(16).padStart(2, "0")).join("");
+}
+/* The core's theme_from (schools.rs), in JS. */
+function themeFrom(base) {
+  const [h, s, l] = hexToHsl(base);
+  return { ramp: [0.1, 0.2, 0.36, 0.56, 0.84].map((L) => hslToHex([h, s, L])), accent: hslToHex([h, Math.max(s, 0.6), Math.max(l, 0.64)]) };
+}
+const SCHOOLS = {
+  pup: { short: "PUP", theme: LarKit.THEMES.sis, code: "COMP 20083", title: "Object-Oriented Programming", room: "S501", blurb: "A long main building and its white pylon, by the lagoon in Sta. Mesa, in PUP's maroon and gold." },
+  rtu: { short: "RTU", theme: themeFrom("#1e88e5"), code: "IT 213", title: "Data Communications", room: "ITB 304", blurb: "A tall city block with a lit crown, on a busy Mandaluyong avenue, in RTU's blue." },
+  mmsu: { short: "MMSU", theme: themeFrom("#2e7d32"), code: "CS 141", title: "Algorithms and Complexity", room: "CCIS 2", blurb: "Low halls with red roofs on a wide green, the Ilocos hills behind, in MMSU's green." },
+};
+
+/* One void (picked) for Night; Day as it ships. */
+const ROOMS = {
+  night: { ground: "#0b0710", card: "#170b1a", card2: "#1d1022", sunk: "#120914", edge: "rgb(244 236 216 / 0.09)", ink: "#f4ecd8", ink2: "#bfb3c4", ink3: "#8a7d90", maroon: "#9b1d36", bad: "#f07a6e", good: "#7fe0a8", dotA: 0.16, sub: ["#c2465e", "#4f74b8", "#3d9a7a", "#c08f2c", "#8f62b0"] },
+  day: { ground: "#f4f2ef", card: "#ffffff", card2: "#f8f6f3", sunk: "#efece7", edge: "rgb(28 21 23 / 0.09)", ink: "#1c1517", ink2: "#554c4f", ink3: "#766c6f", maroon: "#6d0e1f", bad: "#b42318", good: "#1e7249", dotA: 0.12, sub: ["#7a1128", "#3f517a", "#2e5a4f", "#8f6410", "#5c315f"] },
+};
+/* The school's accent (picked): bright on the void, deep on Day. */
+const accentOf = (th, room) => (room === "day" ? th.ramp[2] : th.accent);
+
+/* ---------------- type: Pixel-bridged (picked) ---------------- */
+const SYS = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif";
+const TYPE = {
+  sharp: { name: "Pixel-bridged", display: SYS, title: SYS, read: SYS, label: "'Pixelify Sans', monospace", num: SYS, dw: "800", dt: "-0.035em", tw: "800", tt: "-0.02em", lw: "600", lt: "0.06em", ds: "24px" },
+};
+
+/* The ground stops drifting on phones you can't see. */
+const onScreen = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle("off", !e.isIntersecting)));
+function applyRoles(el, o) {
+  onScreen.observe(el);
+  const r = ROOMS[o.room], t = TYPE[o.type || "sharp"], s = SCHOOLS[o.school || "pup"], th = s.theme;
+  const acc = accentOf(th, o.room);
+  const set = { ground: r.ground, card: r.card, "card-2": r.card2, sunk: r.sunk, "edge-c": r.edge, ink: r.ink, "ink-2": r.ink2, "ink-3": r.ink3, "gold-c": acc, "on-gold-c": o.room === "day" ? "#ffffff" : "#120a06", "maroon-c": r.maroon, bad: r.bad, "good-c": r.good, "accent-ink": acc,
+    dot: css(rgbOf(acc), r.dotA),
+    "aura-a": css(rgbOf(th.ramp[o.room === "day" ? 4 : 2]), o.room === "day" ? 0.55 : 0.5), "aura-b": css(rgbOf(th.ramp[3]), o.room === "day" ? 0.16 : 0.2), "aura-c": css(rgbOf(acc), o.room === "day" ? 0.09 : 0.11),
+    "rf-display": t.display, "rf-title": t.title, "rf-read": t.read, "rf-label": t.label, "rf-num": t.num, "rw-display": t.dw, "rt-display": t.dt, "rw-title": t.tw, "rt-title": t.tt, "rw-label": t.lw, "rt-label": t.lt, "rs-display": t.ds, "rs-title": "17px" };
+  for (const [k, v] of Object.entries(set)) el.style.setProperty("--" + k, v);
+  return { r, th, s };
+}
+
+/* ---------------- pixel art helpers ---------------- */
+const ICONS = {
+  today: ["....#.#.....", "..#.....#...", ".....##.....", "...######...", "#..##..##..#", "...##..##...", "...######...", ".....##.....", "..#.....#...", "....#.#.....", "............", "............"],
+  sched: ["..#....#....", "############", "#..........#", "############", "#.##.##.##.#", "#..........#", "#.##.##.##.#", "#..........#", "#.##.##....#", "############", "............", "............"],
+  grades: ["............", ".....##.....", "...######...", ".##########.", "...######.#.", "...######.#.", "....####..#.", ".........###", "............", "............", "............", "............"],
+  study: ["..########..", "..#......#..", "#####....#..", "#...#....#..", "#.#.######..", "#...#.......", "#.#.#.......", "#...#.......", "#####.......", "............", "............", "............"],
+  you: ["....####....", "...######...", "...######...", "....####....", "............", "..########..", ".##########.", ".##########.", ".##########.", "............", "............", "............"],
+};
+const svgGrid = (rows) => `<svg viewBox="0 0 ${rows[0].length} ${rows.length}" aria-hidden="true">${rows.flatMap((r, y) => [...r].map((c, x) => (c === "#" ? `<rect x="${x}" y="${y}" width="1" height="1" fill="currentColor"/>` : ""))).join("")}</svg>`;
+const tabBar = (on = "today") => `<div class="tabs">${[["today", "Today"], ["sched", "Schedule"], ["grades", "Grades"], ["study", "Study"], ["you", "You"]].map(([k, l]) => `<span class="${k === on ? "on" : ""}">${svgGrid(ICONS[k])}${l}</span>`).join("")}</div>`;
+
+/* Pixel numerals, 5×7, for hero numbers only (picked). */
+const DIG = {
+  "0": [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."], "1": ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],
+  "2": [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"], "3": ["####.", "....#", "....#", ".###.", "....#", "....#", "####."],
+  "4": ["...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."], "5": ["#####", "#....", "####.", "....#", "....#", "#...#", ".###."],
+  "6": ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."], "7": ["#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."],
+  "8": [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."], "9": [".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."],
+  ":": [".", ".", "#", ".", ".", "#", "."], ".": [".", ".", ".", ".", ".", ".", "#"],
+  "h": ["#...", "#...", "###.", "#..#", "#..#", "#..#", "#..#"], "m": [".....", ".....", "####.", "#.#.#", "#.#.#", "#.#.#", "#.#.#"], " ": ["..", "..", "..", "..", "..", "..", ".."],
+};
+function pixelNum(str, u = 4) {
+  let x = 0; const rects = [];
+  for (const ch of str) { const g = DIG[ch] || DIG[" "]; g.forEach((row, y) => [...row].forEach((c, i) => c === "#" && rects.push(`<rect x="${x + i}" y="${y}" width="1" height="1"/>`))); x += g[0].length + 1; }
+  const w = x - 1;
+  return `<svg role="img" aria-label="${str}" viewBox="0 0 ${w} 7" width="${w * u}" height="${7 * u}" fill="currentColor" shape-rendering="crispEdges" style="display:block">${rects.join("")}</svg>`;
+}
+
+/* ---------------- campus art, one per school (sketches) ---------------- */
+function drawCampus(cv, room, school) {
+  const W = 64, H = 22; cv.width = W; cv.height = H;
+  const g = cv.getContext("2d"), th = SCHOOLS[school].theme, night = room !== "day";
+  const px = (c, x, y, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  const sky = night ? ["#0f1430", "#16204a", "#1e2c5c"] : ["#9fd0ec", "#b9ddf0", "#d6ecf6"];
+  sky.forEach((c, i) => px(c, 0, i * 5, W, 5)); px(night ? "#1e2c5c" : "#d6ecf6", 0, 15, W, 2);
+  if (night) { [[5, 2], [14, 5], [22, 1], [41, 3], [52, 6], [59, 2], [33, 7], [47, 1]].forEach(([x, y]) => px("#fff6dc", x, y)); px("#fff6dc", 55, 2, 2, 2); }
+  else px("#fff1a8", 54, 2, 3, 3);
+  const lit = night ? "#f3cf6a" : "#2a2027";
+  if (school === "pup") {
+    px(th.ramp[1], 6, 9, 52, 8); px(th.ramp[2], 24, 6, 16, 11);
+    px(night ? "#cfc8d4" : "#efe9ef", 30, 0, 4, 17); px(th.accent, 31, 2, 2, 1);
+    for (let x = 8; x < 56; x += 3) { if (x > 23 && x < 41) continue; px(lit, x, 11); px(lit, x, 14); }
+    for (let x = 26; x < 39; x += 3) { if (x > 28 && x < 35) continue; px(lit, x, 8); px(lit, x, 12); }
+    px(night ? "#173322" : "#3f7f45", 1, 11, 4, 6); px(night ? "#173322" : "#3f7f45", 59, 12, 4, 5);
+    px(night ? "#22262e" : "#5d6066", 0, 17, W, 5); px(night ? "#1d3a52" : "#5f9fc0", 0, 20, W, 2);
+    for (let x = 3; x < W; x += 7) px(night ? "#3d6a8a" : "#9fd0ec", x, 20, 3, 1);
+  } else if (school === "rtu") {
+    px(night ? "#0f1838" : "#a9c3d6", 0, 10, 12, 7); px(night ? "#0f1838" : "#a9c3d6", 52, 8, 12, 9);
+    px(th.ramp[1], 20, 2, 18, 15); px(th.ramp[2], 38, 8, 14, 9); px(th.accent, 20, 1, 18, 1); px(th.accent, 27, 0, 4, 1);
+    for (let y = 4; y < 16; y += 2) for (let x = 22; x < 37; x += 3) px((x + y) % 4 ? lit : th.ramp[0], x, y, 2, 1);
+    for (let x = 40; x < 51; x += 3) { px(lit, x, 10, 2, 1); px(lit, x, 13, 2, 1); }
+    px(night ? "#22262e" : "#5d6066", 0, 17, W, 5); for (let x = 0; x < W; x += 8) px("#e8e2d0", x + 2, 19, 4, 1);
+    px(night ? "#ffd27a" : "#c63b2c", 8, 18, 3, 2); px(night ? "#ffd27a" : "#2e5aa8", 46, 18, 4, 2);
+  } else {
+    const hill = night ? "#162a22" : "#7bab7d", hill2 = night ? "#1c3a2a" : "#5f945f";
+    for (let x = 0; x < W; x++) { const h1 = 6 + Math.round(3 * Math.sin(x / 9) + 2 * Math.sin(x / 4.3)); px(hill, x, 15 - h1, 1, h1); const h2 = 3 + Math.round(2 * Math.sin(x / 6 + 1)); px(hill2, x, 15 - h2, 1, h2); }
+    px(night ? "#1f3b1f" : "#4f8f3f", 0, 15, W, 7);
+    [[6, 11, 14], [26, 10, 18], [48, 11, 12]].forEach(([x, y, w]) => { px(th.ramp[3], x, y, w, 5); px(night ? "#7a2a22" : "#b54a34", x - 1, y - 2, w + 2, 2); for (let i = x + 2; i < x + w - 1; i += 3) px(lit, i, y + 2); });
+    px(th.accent, 34, 6, 1, 5); px(th.accent, 35, 6, 3, 2);
+    px(night ? "#2f5f2f" : "#2f6f2f", 3, 16, 3, 3); px(night ? "#2f5f2f" : "#2f6f2f", 60, 16, 3, 3);
+  }
+}
+
+/* The cube, drawn by the app's own drawCube. */
+const cubes = [];
+function cubeCanvas(theme, size = 2.2) {
+  const c = document.createElement("canvas"), box = LarKit.CUBE_BOX * 2, dpr = Math.min(2, devicePixelRatio || 1);
+  c.width = c.height = Math.round(box * size * dpr); c.style.width = c.style.height = box * size + "px"; c.style.imageRendering = "pixelated";
+  cubes.push({ c, theme, size, dpr }); return c;
+}
+function cubeLoop(now) {
+  const t = reduce ? 0 : now / 1000;
+  for (const k of cubes) {
+    if (!k.c.isConnected) continue;
+    const g = k.c.getContext("2d"), w = k.c.width, s = k.size * k.dpr;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, w); g.setTransform(s, 0, 0, s, w / 2, w / 2);
+    LarKit.drawCube(g, k.theme, t, { still: reduce, speed: k.speed || 1 });
+  }
+  if (!reduce) requestAnimationFrame(cubeLoop);
+}
+
+/* ---------------- Today, in the picked world ---------------- */
+function todayHTML(o) {
+  const s = SCHOOLS[o.school || "pup"];
+  return `<div class="status"><span>4:41</span><span>●●● ▮</span></div>
+  <div class="scroll"><div class="scr">
+    <div class="hd"><div><div class="lbl">Sunday, October 25</div><h3 class="hi">Good afternoon</h3></div></div>
+    <div class="card notch hero"><canvas class="campus" data-campus></canvas>
+      <div class="in"><div class="lbl">In session</div><div class="code">${s.code}</div>
+        <div class="what"><div><span>${s.title}</span><div class="meta">4–7 PM · ${s.room} · SANTOS, J.</div></div>
+        <div class="big">${pixelNum("2h 19m", 4)}<small>left in class</small></div></div></div></div>
+    <div class="card notch due"><div class="lbl">Due on eMabini</div>
+      <div class="r"><span class="when o">Overdue</span><div><b>PETA 1</b><i>Physical Activity Towards Health 1</i></div></div>
+      <div class="r"><span class="when s">Tomorrow</span><div><b>Pagsusulit 1</b><i>Filipinolohiya</i></div></div>
+      <div class="r"><span class="when s">Wed</span><div><b>Problem Set 2</b><i>Mathematics in the Modern World</i></div></div></div>
+    <div class="card notch stand"><div><div class="lbl">This term</div><span class="v">1.28</span></div><div><div class="lbl">Overall</div><span class="v">1.38</span></div><div><div class="lbl">Units</div><span class="v">26</span></div></div>
+    <div class="lar-line"><b>LAR</b><span>May 2h 19m pa sa klase. Kaya 'yan!</span></div>
+    <div class="card row4 cls"><div class="tm">7:30AM<small>9AM</small></div><i class="bar"></i><div><b>COMP 20073</b><span>Data Structures · S309</span></div></div>
+  </div></div>${tabBar()}`;
+}
+function mountToday(phone, o) {
+  const { th } = applyRoles(phone, o);
+  phone.classList.add("dots");
+  phone.innerHTML = `<div class="island"></div>` + todayHTML(o);
+  drawCampus($("[data-campus]", phone), o.room, o.school || "pup");
+  const orb = document.createElement("button"); orb.className = "orb"; orb.setAttribute("aria-label", "Ask LAR"); orb.appendChild(cubeCanvas(th, 2.4)); phone.appendChild(orb);
+}
+
+/* ---------------- picks and the tray ---------------- */
+const ROWS = [["week", "Week"]];
+let picks = {};
+try { picks = JSON.parse(localStorage.getItem("ip-picks-7") || "{}"); } catch { picks = {}; }
+function renderTray() {
+  $("#chips").innerHTML = ROWS.map(([k, l]) => `<span class="${picks[k] ? "set" : ""}">${l}${picks[k] ? ": " + picks[k] : ""}</span>`).join("");
+  $$(".pick").forEach((b) => b.setAttribute("aria-pressed", String(picks[b.dataset.row] === b.dataset.v)));
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".pick"); if (!b) return;
+  picks[b.dataset.row] = b.dataset.v;
+  try { localStorage.setItem("ip-picks-7", JSON.stringify(picks)); } catch {}
+  renderTray();
+});
+$("#copy").addEventListener("click", () => {
+  const text = "IntPortal picks, round seven:\n" + ROWS.map(([k, l]) => `- ${l}: ${picks[k] || "(no pick)"}`).join("\n");
+  const done = (m) => { $("#toast").textContent = m; setTimeout(() => ($("#toast").textContent = ""), 2400); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($("#chips")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); done("Copying is blocked here. The picks are selected, so copy them by hand."); };
+  if (!navigator.clipboard) return fallback();
+  navigator.clipboard.writeText(text).then(() => done("Copied. Paste it into the chat."), fallback);
+});
+const segs = (attr, state, after) => $$(`[data-${attr}]`).forEach((b) => b.addEventListener("click", () => {
+  const key = b.dataset[attr]; state[key] = b.dataset.v;
+  $$(`[data-${attr}="${key}"]`).forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  after(key);
+}));
+
+/* ================= THE DIVE: into the field ================= */
+const dive = { mode: "first", slow: "0", room: "night", school: "pup", speed: "1", t: 0, seed: 0 };
+const phone = $("#divePhone");
+const stage = document.createElement("canvas"); stage.className = "stage";
+const bubble = document.createElement("div"); bubble.className = "bubble"; bubble.innerHTML = "<b>LAR</b>Ayos! Tara, pasok!";
+const P = 12, FW = 280, FH = 592, COLS = Math.ceil(FW / P), ROWSN = Math.ceil(FH / P);
+const PI0 = 5, PJ0 = 6, PW = 12, PH = 16;               // the portal, in field cells
+const IX0 = (PI0 + 2) * P, IX1 = (PI0 + PW - 2) * P, IY0 = (PJ0 + 2) * P, IY1 = (PJ0 + PH - 2) * P;   // its mouth
+const PCX = (IX0 + IX1) / 2, PCY = (IY0 + IY1) / 2, SX = FW / 2, SY = FH / 2;
+const ZMAX = 4.5;                                        // the mouth holds the field at 1/4.5 of its pitch
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
+const OBS = ["#1a1622", "#241f2e", "#2f2939", "#3c3548"].map(rgbOf);
+const VOID = rgbOf("#0b0710");
+const larRig = LarKit.rig("idle");
+function timeline() {
+  const first = dive.mode === "first", slow = dive.slow === "1";
+  const fly = first ? 0.42 : 0, build = first ? 0 : 0.16;
+  const forms = first ? 3 : 1, zoom = fly + build, zoomEnd = zoom + (first ? 1.5 : 0.3);
+  const ready = slow ? (first ? 3 : 1.8) : 0;
+  const arrive = Math.max(zoomEnd, ready), arriveEnd = arrive + (first ? 0.5 : 0.2);
+  return { first, fly, build, forms, formT: (zoomEnd - zoom) / forms, zoom, zoomEnd, arrive, arriveEnd, total: arriveEnd + 0.6 };
+}
+function mountDive() {
+  mountToday(phone, { room: dive.room, school: dive.school });
+  phone.appendChild(stage); phone.appendChild(bubble);
+  const dpr = Math.min(2, devicePixelRatio || 1); stage.width = FW * dpr; stage.height = FH * dpr; stage.style.width = FW + "px"; stage.style.height = FH + "px";
+  const tl = timeline();
+  $("#diveScrub").max = Math.round(tl.total * 1000);
+  const f = (v) => (+v.toFixed(2)).toString();
+  const dv = [`${f(tl.zoom)}–${f(tl.zoomEnd)} s`, "The camera dives into the mouth in surges. The frame's tiles grow and rush out past the edges. Inside the mouth is the same field at a quarter of the pitch, running the tunnel shader, and it melts through its forms until its tiles are the screen's tiles"];
+  const ar = [`${f(tl.arrive)}–${f(tl.arriveEnd)} s`, "The swirl warms to the room. A glowing front runs out from the centre: each tile flares, shrinks to a dot and lifts off in a dither, leaving a glint. As the last tiles go, one ripple runs through Today's dot grid. Today was already in place"];
+  $("#diveSteps").innerHTML = (tl.first
+    ? [[`0–${f(tl.fly)} s`, "The portal stands in the field. LAR says Ayos! and flies to its mouth; the dots near the frame glow in its light"], [dv[0], dv[1] + ". LAR goes in first, shrinking toward the centre"], ar]
+    : [[`0–${f(tl.build)} s`, "The field's dots swell into the frame from the bottom centre"], [dv[0], "One quick dive into the mouth, with one change of form. With slow data, the tunnel keeps changing at full screen"], [ar[0], dive.slow === "1" ? "Data is ready, then the tiles fall back to dots" : "Ends at the later of 0.6 s and data ready"]]).map(([a, b]) => `<div><b>${a}</b><span>${b}</span></div>`).join("");
+}
+/* Per-cell geometry for the tunnel, computed once, so a form costs a few cosines a tile.
+   Indexed by screen cell (i, j), padded by LO cells for the mouth's view at the start of the dive. */
+const LO = 12, LW = COLS + 2 * LO, LH = ROWSN + 2 * LO, TAU = Math.PI * 2;
+const LUT = (() => {
+  const n = LW * LH, f32 = () => new Float32Array(n), L = { R: f32(), A: f32(), Z: f32(), ZS: f32(), DX: f32(), DY: f32(), FOG: f32(), HALO: f32(), DI: f32() };
+  for (let jj = 0; jj < LH; jj++) for (let ii = 0; ii < LW; ii++) {
+    const i = ii - LO, j = jj - LO, q = jj * LW + ii, dx = (i * P + P / 2 - SX) / P, dy = (j * P + P / 2 - SY) / P, r = Math.hypot(dx, dy);
+    L.R[q] = r; L.A[q] = Math.atan2(dy, dx) / TAU; L.Z[q] = 7 / (r + 0.8); L.ZS[q] = 7 / (Math.max(Math.abs(dx), Math.abs(dy) * 0.55) + 0.8);
+    L.DX[q] = dx; L.DY[q] = dy; L.FOG[q] = 0.45 + 0.55 * clamp(r / 5); L.HALO[q] = Math.exp(-((r - 2.7) ** 2)); L.DI[q] = BAYER[(j & 3) * 4 + (i & 3)];
+  }
+  return L;
+})();
+const c01 = (x) => 0.5 + 0.5 * Math.cos(TAU * x);
+/* The forms the tunnel changes between. Each returns a brightness 0–1 for a cell, at shader time s.
+   Angles only ever get whole multiples, so no form has a seam. */
+const FORMS = [
+  (q, s) => { const ring = c01(LUT.Z[q] + s * 0.8); return c01(LUT.A[q] * 5 + LUT.Z[q] * 0.6 + s * 0.12) * (0.7 + 0.3 * ring); },   // spiral arms
+  (q, s) => c01(LUT.Z[q] * 1.1 + s * 0.8),                                                                                           // round rings
+  (q, s) => c01(LUT.ZS[q] * 1.1 + s * 0.8),                                                                                          // square corridor
+  (q, s) => c01(LUT.Z[q] + 0.22 * Math.cos(TAU * LUT.A[q] * 6) + s * 0.6),                                                          // petals
+  (q, s) => 0.5 + 0.5 * Math.cos(TAU * (LUT.A[q] * 4 + s * 0.08)) * Math.cos(TAU * (LUT.Z[q] * 1.2 + s * 0.7)),                     // polar checks
+  (q, s) => 0.5 + 0.25 * (Math.cos(TAU * (LUT.DX[q] * 0.055 + s * 0.18)) + Math.cos(TAU * (LUT.DY[q] * 0.04 - s * 0.14 + 0.15 * Math.cos(TAU * LUT.DX[q] * 0.03)))),   // plasma
+];
+/* The shared look: every dark part glows at its edge, the far end is a dark eye in a ring of light, and
+   the brightness lands on the school's ramp through a Bayer dither. Returns a palette index: 0–4 the ramp, 5 glow, 6 glint, 7 the eye. */
+function tunnel(q, f) {
+  if (LUT.R[q] < 1.7) return 7;
+  const fog = LUT.FOG[q], di = LUT.DI[q], glow = Math.max(LUT.HALO[q], Math.exp(-(((f - 0.3) / 0.11) ** 2)) * fog) + 0.25 * di;
+  if (glow > 0.95) return 6;
+  if (glow > 0.7) return 5;
+  return Math.max(0, Math.min(4, Math.floor(f * fog * 5 + di - 0.5)));
+}
+/* Soft colour pool, shared by the void behind the portal and LAR's stage. */
+function pool(g, w, h, x, y, rad, c, a) { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, css(c, a)); rg.addColorStop(1, css(c, 0)); g.fillStyle = rg; g.fillRect(0, 0, w, h); }
+function frameOrder(li, lj) {              // build order round the frame, from the bottom centre
+  if (lj >= PH - 2) return Math.abs(li - (PW - 1) / 2) / 26;
+  if (li < 2 || li >= PW - 2) return (6 + (PH - 1 - lj)) / 26;
+  return (6 + PH - 2 + (5.5 - Math.abs(li - (PW - 1) / 2))) / 26;
+}
+function drawDive(t) {
+  const tl = timeline(), g = stage.getContext("2d"), dpr = stage.width / FW;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, FW, FH);
+  if (t >= tl.arriveEnd) { bubble.style.opacity = 0; return; }
+  const th = SCHOOLS[dive.school].theme, ramp = th.ramp.map(rgbOf), acc = rgbOf(th.accent);
+  const room = ROOMS[dive.room], ground = rgbOf(room.ground), dotRoom = rgbOf(accentOf(th, dive.room));
+  const bk = tl.first ? 1 : clamp(t / Math.max(0.01, tl.build));                   // frame build
+  const open = tl.first ? 1 : clamp((bk - 0.8) * 5);                               // the mouth opens
+  // Forms: a new one every formT, slower once the camera has landed and data is still loading. Each play takes its own order.
+  const fs = t < tl.zoomEnd ? Math.max(0, t - tl.zoom) / tl.formT : tl.forms + (t - tl.zoomEnd) / 0.7;
+  const fn = Math.floor(fs), fm = smooth(clamp((fs - fn - 0.4) / 0.6)), fl = fn + fm, fstep = 1 + dive.seed % 5;
+  const formA = FORMS[(dive.seed * 5 + fn * fstep) % 6], formB = FORMS[(dive.seed * 5 + (fn + 1) * fstep) % 6];
+  // Speed ramp: shader time and the camera both surge during each morph, and coast between them.
+  const tau = t * 0.5 + fl * 1.3;
+  const zk = 0.25 * smooth(clamp((t - tl.zoom) / (tl.zoomEnd - tl.zoom))) + 0.75 * smooth(clamp(fl / tl.forms));
+  const z = ZMAX ** zk, FX = PCX + (SX - PCX) * zk, FY = PCY + (SY - PCY) * zk;    // zoom about the mouth as it drifts to the centre
+  const ak = clamp((t - tl.arrive) / (tl.arriveEnd - tl.arrive)), A = ease(ak) * 36; // arrival front, in cells
+  const warm = smooth(clamp((t - (tl.arrive - 0.18)) / 0.3));
+  const gap = lerp3(VOID, ground, warm), home = lerp3(ground, dotRoom, 0.35), glint = lerp3(acc, [255, 246, 220], 0.45);
+  const tile = (x, y, s, c, a = 1) => { g.fillStyle = css(c, a); g.fillRect(x - s / 2, y - s / 2, s, s); };
+  if (ak === 0) {
+    g.fillStyle = css(gap); g.fillRect(0, 0, FW, FH);
+    // The void isn't flat: pools of the school's ramp drift behind the dots, and they surge with the tunnel.
+    const wash = 1 - warm;
+    if (wash > 0 && !reduce) {
+      pool(g, FW, FH, FW * (0.26 + 0.18 * Math.sin(tau * 0.5)), FH * (0.28 + 0.1 * Math.cos(tau * 0.4)), 210, ramp[2], 0.42 * wash);
+      pool(g, FW, FH, FW * (0.8 + 0.14 * Math.cos(tau * 0.6)), FH * (0.66 + 0.12 * Math.sin(tau * 0.35)), 240, ramp[3], 0.22 * wash);
+      pool(g, FW, FH, FW * (0.5 + 0.3 * Math.sin(tau * 0.3 + 2)), FH * (0.95 + 0.04 * Math.cos(tau)), 180, acc, 0.12 * wash);
+    }
+    // The field outside the mouth: dots lit by the portal, and the frame built from them. They grow and fly past as the camera dives.
+    for (let j = 0; j < ROWSN; j++) for (let i = 0; i < COLS; i++) {
+      const li = i - PI0, lj = j - PJ0, inPortal = li >= 0 && li < PW && lj >= 0 && lj < PH;
+      const frame = inPortal && (li < 2 || li >= PW - 2 || lj < 2 || lj >= PH - 2);
+      if (inPortal && !frame && open >= 1) continue;
+      const cx = i * P + P / 2, cy = j * P + P / 2, X = FX + (cx - PCX) * z, Y = FY + (cy - PCY) * z, half = (P * z) / 2;
+      if (X + half < 0 || X - half > FW || Y + half < 0 || Y - half > FH) continue;
+      const dx = (cx - PCX) / P, dy = (cy - PCY) / P, d = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
+      const lightFall = Math.exp(-Math.max(0, d - 7) / 3.4) * bk;
+      const turn = 0.5 + 0.5 * Math.sin(ang * 3 - t * 2.2 + d * 0.7);
+      let size = 2 + lightFall * (1.5 + 3 * turn);
+      let col = lerp3(lerp3(VOID, acc, 0.35), ramp[3 + (turn > 0.6 ? 1 : 0)], lightFall);
+      let alpha = (0.32 + lightFall * 0.6) * (inPortal && !frame ? 1 - open : 1);
+      if (frame) {
+        const k = clamp((bk - frameOrder(li, lj)) * 7), pop = k < 1 ? 1 + Math.sin(k * Math.PI) * 0.14 : 1;
+        const inner = ((li === 1 || li === PW - 2) && lj > 0 && lj < PH - 1) || ((lj === 1 || lj === PH - 2) && li > 0 && li < PW - 1);
+        const lit = lerp3(inner ? OBS[0] : OBS[1 + ((i * 7 + j * 3) % 3)], acc, 0.12 + 0.1 * turn);
+        size = size + (P - 2 - size) * k * pop; col = lerp3(col, lit, k); alpha = alpha + (1 - alpha) * k;
+      }
+      if (warm > 0) col = lerp3(col, home, warm * 0.82);
+      tile(X, Y, Math.max(1.4, size) * z, col, clamp(alpha));
+    }
+  }
+  // The mouth: the same field at a finer pitch. Diving in makes its tiles the screen's tiles.
+  const k = z / ZMAX;
+  const x0 = Math.max(0, FX + (IX0 - PCX) * z), x1 = Math.min(FW, FX + (IX1 - PCX) * z), y0 = Math.max(0, FY + (IY0 - PCY) * z), y1 = Math.min(FH, FY + (IY1 - PCY) * z);
+  if (open > 0) {
+    g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip();
+    if (ak === 0) { g.fillStyle = css(lerp3(lerp3(VOID, ramp[0], open), gap, warm)); g.fillRect(x0, y0, x1 - x0, y1 - y0); }
+    // One palette a frame: the shader's eight colours, warmed to the room, in four shrink steps toward the dot.
+    const pal = [...ramp, lerp3(ramp[4], glint, 0.5), glint, lerp3(VOID, ramp[0], 0.25)].map((c) => (warm > 0 ? lerp3(c, home, warm * 0.82) : c));
+    const PAL = pal.map((c) => [0, 1, 2, 3].map((st) => css(lerp3(c, dotRoom, st / 3)))), RIM = pal.map((c) => css(lerp3(c, glint, 0.75)));
+    const GAP = css(gap), GLINTS = [0.8, 0.45, 0.18].map((a) => css(glint, a));
+    const i0 = Math.max(-LO, Math.floor(((x0 - FX) / k + SX) / P) - 1), i1 = Math.min(LW - LO - 1, Math.ceil(((x1 - FX) / k + SX) / P));
+    const j0 = Math.max(-LO, Math.floor(((y0 - FY) / k + SY) / P) - 1), j1 = Math.min(LH - LO - 1, Math.ceil(((y1 - FY) / k + SY) / P));
+    g.globalAlpha = open;
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const q = (j + LO) * LW + i + LO, X = FX + (i * P + P / 2 - SX) * k, Y = FY + (j * P + P / 2 - SY) * k, fa = formA(q, tau), c = tunnel(q, fm > 0 ? fa + (formB(q, tau) - fa) * fm : fa);
+      let size = (P - 2) * k, fill = PAL[c][0];
+      if (ak > 0) {
+        const kk = smooth(clamp((A - LUT.R[q]) / 3.2)), lift = 0.45 + 0.35 * LUT.DI[q];
+        if (kk > lift) {
+          // Lifted: Today's own dot shows here, and the tile leaves a glint that fades into it.
+          const gk = (kk - lift) / 0.18;
+          if (gk < 1) { const sz = 1.8 + 3.2 * (1 - gk); g.fillStyle = GLINTS[Math.min(2, (gk * 3) | 0)]; g.fillRect(X - sz / 2, Y - sz / 2, sz, sz); }
+          continue;
+        }
+        // The front glows: tiles flare and swell as it reaches them, then shrink to a dot.
+        const rim = Math.max(0, 1 - Math.abs(kk - 0.18) / 0.18), sk = clamp(kk / lift);
+        g.fillStyle = GAP; g.fillRect(X - P / 2, Y - P / 2, P, P);
+        size = (size + (1.8 - size) * sk) * (1 + 0.28 * rim); fill = rim > 0.5 ? RIM[c] : PAL[c][Math.round(sk * 3)];
+      }
+      g.fillStyle = fill; g.fillRect(X - size / 2, Y - size / 2, size, size);
+    }
+    g.globalAlpha = 1;
+    g.restore();
+  }
+  // LAR leads: to the mouth, then in ahead of the camera, gone into the swirl before it lands.
+  if (tl.first) {
+    const fly = ease(clamp(t / tl.fly)), sx0 = 66, sy0 = 488, mx = PCX, my = IY1 - 18;
+    let x = sx0 + (mx - sx0) * fly, y = sy0 + (my - sy0) * fly - Math.sin(fly * Math.PI) * 46, sc = 2, fade = 1;
+    if (zk > 0) { x = mx + (SX - mx) * zk; y = my + (SY - my) * zk; sc = 2 - 1.5 * zk; fade = 1 - smooth(clamp((zk - 0.65) / 0.3)); }
+    bubble.style.opacity = t > 0.02 && t < tl.fly + 0.2 ? 1 : 0;
+    bubble.style.left = clamp(x - 34, 8, 150) + "px"; bubble.style.top = y - 72 + "px";
+    if (fade > 0 && ak === 0) {
+      larRig.set(fly < 1 || zk > 0 ? "fly" : "happy", t);
+      const p = larRig.at(t, { vx: zk > 0 ? 0 : 40, vy: 0 }, reduce);
+      g.save(); g.globalAlpha = fade; g.imageSmoothingEnabled = false; g.translate(x - 13 * sc, y - 12 * sc); g.scale(sc, sc); LarKit.drawLar(g, p, th, t, { shadow: false }); g.restore();
+    }
+  } else bubble.style.opacity = 0;
+}
+let raf = 0, t0 = 0;
+function frame(now) {
+  const tl = timeline();
+  dive.t = Math.min(tl.total, ((now - t0) / 1000) * +dive.speed);
+  $("#diveScrub").value = Math.round(dive.t * 1000);
+  drawDive(dive.t);
+  if (!dive.landed && dive.t >= tl.arriveEnd - 0.1) { dive.landed = true; fieldPulse(phone, SX, SY, 1.3); }
+  if (dive.t < tl.total) raf = requestAnimationFrame(frame);
+}
+function diveRestart() {
+  cancelAnimationFrame(raf); dive.seed++; mountDive(); dive.landed = false;
+  if (reduce) { dive.t = timeline().total; drawDive(dive.t); return; }
+  t0 = performance.now(); raf = requestAnimationFrame(frame);
+}
+$("#divePlay").addEventListener("click", diveRestart);
+$("#diveScrub").addEventListener("input", (e) => { cancelAnimationFrame(raf); dive.t = +e.target.value / 1000; drawDive(dive.t); });
+segs("dv", dive, (k) => (k === "speed" ? null : diveRestart()));
+
+/* ================= THE FIELD ANSWERS: shared by done, sync and chat ================= */
+const rel = (p, el) => { const a = p.getBoundingClientRect(), b = el.getBoundingClientRect(); return { x: b.left - a.left + b.width / 2, y: b.top - a.top + b.height / 2 }; };
+/* A ring of brighter, bigger dots runs out through the dot grid. */
+function fieldPulse(p, x, y, strength = 1) {
+  if (reduce) return;
+  const cv = document.createElement("canvas"), dpr = Math.min(2, devicePixelRatio || 1), W = p.clientWidth, H = p.clientHeight;
+  cv.className = "pulse"; cv.width = W * dpr; cv.height = H * dpr; p.prepend(cv);
+  const g = cv.getContext("2d"), col = rgbOf(getComputedStyle(p).getPropertyValue("--gold-c").trim() || "#f5b227"), t0 = performance.now(), D = 620 + 260 * strength, R = 180 + 260 * strength;
+  const tick = (now) => {
+    const k = (now - t0) / D; if (k >= 1 || !cv.isConnected) { cv.remove(); return; }
+    const r = ease(k) * R; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    for (let j = 0; j * P < H; j++) for (let i = 0; i * P < W; i++) {
+      const cx = i * P + P / 2, cy = j * P + P / 2, dd = Math.hypot(cx - x, cy - y) - r, b = Math.exp(-((dd / 15) ** 2)) * (1 - k);
+      if (b < 0.03) continue;
+      const s = 1.8 + 3.4 * b * Math.min(1.3, strength); g.fillStyle = css(col, Math.min(1, 0.2 + 0.75 * b)); g.fillRect(cx - s / 2, cy - s / 2, s, s);
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+/* Square sparks of the school's ramp, with gravity. One canvas per phone. */
+function burst(p, x, y, n, power = 1) {
+  if (reduce) return;
+  let cv = $("canvas.fx", p);
+  if (!cv) { cv = document.createElement("canvas"); cv.className = "fx"; p.appendChild(cv); cv.parts = []; }
+  const dpr = Math.min(2, devicePixelRatio || 1), W = p.clientWidth, H = p.clientHeight;
+  if (cv.width !== W * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+  const th = SCHOOLS.pup.theme, cols = [th.accent, th.ramp[4], th.ramp[3], "#fff6dc", "#7fe0a8"];
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + Math.random() * 0.5, v = (70 + Math.random() * 80) * power; cv.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 50 * power, c: cols[i % cols.length], s: i % 3 ? 2 : 3, age: 0, life: 0.45 + 0.25 * power + Math.random() * 0.2 }); }
+  if (cv.running) return;
+  cv.running = true; let last = performance.now();
+  const g = cv.getContext("2d");
+  const tick = (now) => {
+    const dt = Math.min(0.033, (now - last) / 1000); last = now;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    cv.parts = cv.parts.filter((q) => (q.age += dt) < q.life);
+    for (const q of cv.parts) { q.vy += 320 * dt; q.vx *= 0.97; q.x += q.vx * dt; q.y += q.vy * dt; g.globalAlpha = Math.max(0, 1 - q.age / q.life); g.fillStyle = q.c; g.fillRect(Math.round(q.x), Math.round(q.y), q.s, q.s); }
+    g.globalAlpha = 1;
+    if (cv.parts.length && cv.isConnected) requestAnimationFrame(tick); else { cv.running = false; g.clearRect(0, 0, W, H); }
+  };
+  requestAnimationFrame(tick);
+}
+
+/* ================= DONE ================= */
+const J = { sound: "1", room: "night" };
+let actx = null, combo = 0, lastDone = 0;
+const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
+function audio() { if (J.sound !== "1") return null; try { actx ??= new AudioContext(); if (actx.state === "suspended") actx.resume(); return actx; } catch { return null; } }
+const detune = () => 2 ** ((Math.random() - 0.5) * 0.02);
+function pluck(a, f, at, dur, type = "triangle", vol = 0.07) {
+  const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = f * detune();
+  g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vol, at + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(g).connect(a.destination); o.start(at); o.stop(at + dur + 0.02);
+}
+function click(a, at, freq = 3200, vol = 0.22) {
+  const n = a.createBuffer(1, Math.round(a.sampleRate * 0.012), a.sampleRate), d = n.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) ** 3;
+  const s = a.createBufferSource(), bp = a.createBiquadFilter(), g = a.createGain(); bp.type = "bandpass"; bp.frequency.value = freq * detune(); bp.Q.value = 1.4; g.gain.value = vol;
+  s.buffer = n; s.connect(bp).connect(g).connect(a.destination); s.start(at);
+}
+function thump(a, at) {
+  const o = a.createOscillator(), g = a.createGain(); o.type = "sine"; o.frequency.setValueAtTime(150, at); o.frequency.exponentialRampToValueAtTime(55, at + 0.12);
+  g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.16, at + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
+  o.connect(g).connect(a.destination); o.start(at); o.stop(at + 0.2);
+}
+const sfx = {
+  press() { const a = audio(); if (a) click(a, a.currentTime); },
+  done(step) {
+    const a = audio(); if (!a) return; const t = a.currentTime, f = 523.25 * 2 ** (PENTA[Math.min(step, PENTA.length - 1)] / 12);
+    pluck(a, f, t, 0.22); pluck(a, f * 2, t, 0.12, "sine", 0.025);
+    pluck(a, f * 1.5, t + 0.07, 0.2, "triangle", 0.05);
+    if (step >= 3) pluck(a, f * 2, t + 0.14, 0.18, "square", 0.012);   // the high tier adds a sparkle on top
+    thump(a, t + 0.24);
+  },
+  land() { const a = audio(); if (!a) return; click(a, a.currentTime, 1400, 0.14); pluck(a, 196, a.currentTime, 0.09, "triangle", 0.03); },
+  clear() { const a = audio(); if (!a) return; const t = a.currentTime + 0.05; [0, 4, 7, 12, 16, 19].forEach((n, i) => pluck(a, 523.25 * 2 ** (n / 12), t + i * 0.06, 0.32, "triangle", 0.06)); pluck(a, 1046.5, t + 0.36, 0.7, "sine", 0.03); thump(a, t + 0.36); },
+};
+const DUE = [["PETA 1", "Physical Activity Towards Health 1", "Overdue", "o"], ["Pagsusulit 1", "Filipinolohiya", "Tomorrow", ""], ["Problem Set 2", "Mathematics in the Modern World", "Wed", ""], ["Reflection paper", "Readings in Philippine History", "Fri", ""], ["Lab 4: Linked lists", "Data Structures and Algorithms", "Sat", ""]];
+let doneLar = null;
+function renderDone() {
+  const p = $("#donePhone"); const { th } = applyRoles(p, { room: J.room, school: "pup" }); p.classList.add("dots");
+  p.innerHTML = `<div class="island"></div><div class="status"><span>4:41</span><span>●●● ▮</span></div><div class="scroll"><div class="scr">
+    <div class="hd"><div><div class="lbl">This week</div><h3 class="hi">Due</h3></div><canvas class="lar" width="66" height="60" style="width:44px;height:40px;image-rendering:pixelated" aria-hidden="true"></canvas></div>
+    <div class="prog" role="img" aria-label="0 of ${DUE.length} done">${DUE.map(() => "<i></i>").join("")}<span data-pn>0 of ${DUE.length}</span></div>
+    <div class="dlist" data-open>${DUE.map(([a, b, c, o]) => `<div class="ditem" role="button" tabindex="0"><span class="pchk"></span><div class="tx"><b>${a}</b><i>${b}</i></div><span class="when ${o}">${c}</span><span class="combo" aria-hidden="true"></span><span class="stamp">DONE</span></div>`).join("")}</div>
+    <div class="clear" data-clear>All clear for this week.</div>
+    <div class="dgroup" data-donehead hidden>Done</div>
+    <div class="dlist" data-done></div>
+  </div></div>${tabBar()}`;
+  doneLar = { cv: $("canvas.lar", p), rig: LarKit.rig("idle"), theme: th, thumbsAt: -9 };
+  floatingOrb(p, th);
+  $$(".ditem", p).forEach((it) => {
+    it.addEventListener("pointerdown", () => !it.classList.contains("done") && sfx.press());
+    const go = () => markDone(p, it);
+    it.addEventListener("click", go); it.addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), go()));
+  });
+}
+function markDone(p, it) {
+  if (it.classList.contains("done")) return;
+  const now = performance.now(); combo = now - lastDone < 4000 ? combo + 1 : 0; lastDone = now;
+  const c = Math.min(combo, 4);
+  it.classList.add("done", "fresh", combo >= 3 ? "t2" : combo >= 1 ? "t1" : "t0"); $(".pchk", it).classList.add("on");
+  $(".combo", it).textContent = combo ? "×" + (combo + 1) : "";
+  sfx.done(combo);
+  const at = rel(p, $(".pchk", it));
+  burst(p, at.x, at.y, 8 + 4 * c, 1 + 0.15 * c);
+  fieldPulse(p, at.x, at.y, 0.45 + 0.15 * c);
+  const n = $$(".ditem.done", p).length;
+  $$(".prog i", p)[n - 1]?.classList.add("on"); $("[data-pn]", p).textContent = `${n} of ${DUE.length}`; $(".prog", p).setAttribute("aria-label", `${n} of ${DUE.length} done`);
+  // The card lifts, then drops into Done with a tilt and lands with a squash. Then everything is still.
+  setTimeout(() => it.classList.add("lift"), reduce ? 0 : 560);
+  setTimeout(() => {
+    const items = $$(".ditem", p), first = new Map(items.map((e) => [e, e.getBoundingClientRect().top]));
+    $("[data-donehead]", p).hidden = false;
+    $("[data-done]", p).prepend(it);
+    it.classList.remove("fresh", "t0", "t1", "t2");
+    items.forEach((e) => {
+      const dy = first.get(e) - e.getBoundingClientRect().top; if (!dy || reduce) return;
+      if (e === it) e.animate([{ transform: `translateY(${dy}px) rotate(-1.5deg) scale(1.03)` }, { transform: "translateY(0) rotate(0.4deg) scale(1.03)", offset: 0.78 }, { transform: "scale(1.01, 0.96)", offset: 0.9 }, { transform: "none" }], { duration: 460, easing: "cubic-bezier(0.22,1,0.36,1)" });
+      else e.animate([{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }], { duration: 340, easing: "cubic-bezier(0.22,1,0.36,1)" });
+    });
+    setTimeout(() => { it.classList.remove("lift"); sfx.land(); }, reduce ? 0 : 380);
+    if (!$$("[data-open] .ditem", p).length) setTimeout(() => allClear(p), reduce ? 0 : 440);
+  }, reduce ? 0 : 680);
+}
+function allClear(p) {
+  $("[data-clear]", p).classList.add("on"); $(".prog", p).classList.add("all"); sfx.clear(); doneLar.thumbsAt = performance.now() / 1000;
+  const l = rel(p, doneLar.cv);
+  fieldPulse(p, l.x, l.y, 1.5);
+  [0, 150, 300].forEach((d) => setTimeout(() => burst(p, l.x, l.y + 6, 16, 1.7), d));
+  doneLar.cv.classList.remove("hop"); void doneLar.cv.offsetWidth; doneLar.cv.classList.add("hop");
+}
+function larLoop(now) {
+  const t = now / 1000;
+  if (doneLar && doneLar.cv.isConnected) {
+    const g = doneLar.cv.getContext("2d"), thumbs = t - doneLar.thumbsAt < 1.6;
+    doneLar.rig.set(thumbs ? "happy" : "idle", t);
+    const p = doneLar.rig.at(t, {}, reduce);
+    if (thumbs) p.mitts[1].kind = "thumb";
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 66, 60); g.imageSmoothingEnabled = false; g.setTransform(1.2, 0, 0, 1.2, 16, 16);
+    LarKit.drawLar(g, p, doneLar.theme, reduce ? 0 : t, { shadow: false, aura: false });
+  }
+  requestAnimationFrame(larLoop);
+}
+segs("j", J, (k) => k === "room" && renderDone());
+$("#resetDone").addEventListener("click", () => { combo = 0; renderDone(); });
+
+/* ================= WEEK ================= */
+const K = { room: "night" };
+const CLASSES = [
+  { d: 0, s: 480, e: 600, code: "PATHFIT 2", t: "Physical Fitness", room: "Gym", c: 2 },
+  { d: 0, s: 780, e: 990, code: "GEED 10103", t: "Readings in History", room: "S402", c: 3 },
+  { d: 2, s: 600, e: 720, code: "MATH 20013", t: "Discrete Structures", room: "S305", c: 0, mark: "online" },
+  { d: 2, s: 900, e: 1080, code: "COMP 20083", t: "Object-Oriented Prog.", room: "S501", c: 0, moved: { d: 3, s: 900, e: 1080 } },
+  { d: 4, s: 450, e: 540, code: "COMP 20073", t: "Data Structures", room: "S309", c: 1 },
+  { d: 4, s: 630, e: 720, code: "GEED 10053", t: "Purposive Comm.", room: "S210", c: 4, mark: "vacant" },
+  { d: 4, s: 780, e: 870, code: "MATH 20013", t: "Discrete Structures", room: "S305", c: 0 },
+  { d: 4, s: 960, e: 1140, code: "COMP 20083", t: "Object-Oriented Prog.", room: "S501", c: 0 },
+];
+const TODAY = 4, DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"], DATES = [19, 20, 21, 22, 23, 24];
+const FIRST = 7, HOURS = 12;
+const PINS = { 3: "over", 5: "due" };      // overdue PETA 1 on Thu, Pagsusulit 1 due Sat
+let nowMin = 790;
+const fmt = (m) => `${(Math.floor(m / 60) % 12) || 12}:${String(m % 60).padStart(2, "0")}`;
+const span = (m) => [Math.floor(m / 60) && Math.floor(m / 60) + "h", m % 60 && (m % 60) + "m"].filter(Boolean).join(" ");
+const yy = (m, hh) => ((m - FIRST * 60) / 60) * hh;
+const stampOf = (c) => (c.mark === "online" ? ["ONLINE", "#1b4f99"] : c.mark === "vacant" ? ["VACANT", "#765806"] : c.moved ? ["MOVED", "#7a1128"] : null);
+function dayItems(d) {
+  const out = [];
+  CLASSES.forEach((c, i) => {
+    if (c.moved) { if (c.d === d) out.push({ ...c, i, ghost: true }); if (c.moved.d === d) out.push({ ...c, ...c.moved, i }); }
+    else if (c.d === d) out.push({ ...c, i });
+  });
+  return out.sort((a, b) => a.s - b.s);
+}
+const hasDay = (d) => dayItems(d).length > 0;
+/* The block's text: whichever of ink or white reads better on its course colour (044: 4.5:1 on every colour). */
+const onColor = (hex) => { const lum = rgbOf(hex).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }), L = 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2]; return 1.05 / (L + 0.05) >= (L + 0.05) / 0.0533 ? "#ffffff" : "#120a06"; };
+const stampHTML = (st) => (st ? `<span class="stp${st[0] === "MOVED" ? " mv" : ""}" style="--sk:${st[1]}">${st[0]}</span>` : "");
+/* The deadline strip, folded into a four-week pixel month beside the title. */
+function miniMonth() {
+  const due = [5, 7, 9, 12, 16, 23], over = [3];
+  return `<div class="mm" role="img" aria-label="Deadlines over the next four weeks: 6 due, 1 overdue"><span>DUE · 4 WK</span><div>${Array.from({ length: 28 }, (_, i) => `<i class="${due.includes(i) ? "due" : over.includes(i) ? "over" : ""}${i === TODAY ? " today" : ""}${i < 7 ? " wk" : ""}"></i>`).join("")}</div></div>`;
+}
+const hrsHTML = (hh) => `<div class="hrs">${Array.from({ length: HOURS }, (_, k) => `<span style="top:${k * hh}px">${((FIRST + k) % 12) || 12}${FIRST + k < 12 ? "a" : "p"}</span>`).join("")}</div>`;
+const headCell = (d, extra = "") => `<button class="dh${d === TODAY ? " today" : ""}${extra}" data-f="${d}" type="button" aria-label="${DAYS[d]} ${DATES[d]}"><span>${DAYS[d]}</span><b>${DATES[d]}</b><i class="pin ${PINS[d] || ""}"></i></button>`;
+const nowHTML = (hh, left) => `<div class="nowline" style="left:${left}px;top:${yy(nowMin, hh)}px"><span>${fmt(nowMin)}</span></div>`;
+function blockHTML(c, d, hh, r) {
+  const top = yy(c.s, hh), h = yy(c.e, hh) - top - 2, past = d === TODAY && c.e <= nowMin, now = d === TODAY && c.s <= nowMin && nowMin < c.e;
+  const st = !c.ghost && stampOf(c);
+  const cls = ["blk", h < 56 && "short", past && "past", now && "now", c.mark === "vacant" && "vacant", c.ghost && "ghostmove"].filter(Boolean).join(" ");
+  if (c.ghost) return `<div class="${cls}" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]}" aria-label="Moved from here: ${c.t}"><b>moved</b></div>`;
+  const label = `${c.code}, ${c.t}, ${fmt(c.s)} to ${fmt(c.e)}, room ${c.room}${st ? ", " + st[0].toLowerCase() : ""}`;
+  return `<div class="${cls}" data-i="${c.i}" role="button" aria-label="${label}" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]};--on:${onColor(r.sub[c.c])}" data-stamped="${st ? 1 : 0}">${stampHTML(st)}<span class="cd">${c.code}</span><b>${c.t}</b><span class="ml"><span class="tm">${fmt(c.s)}–${fmt(c.e)}</span><span class="rm">${c.room}</span></span></div>`;
+}
+function freeHTML(d, hh) {
+  const it = dayItems(d).filter((c) => !c.ghost); let out = "";
+  for (let k = 1; k < it.length; k++) { const a = it[k - 1].e, b = it[k].s; if (b - a >= 45) out += `<div class="free" style="top:${yy(a, hh) + 2}px;height:${yy(b, hh) - yy(a, hh) - 4}px"><span>${span(b - a)} free</span></div>`; }
+  return out;
+}
+const weekTop = () => `<div class="status"><span>1:10</span><span>●●● ▮</span></div><div class="scroll" style="padding-bottom:70px"><div class="scr" style="gap:8px">
+    <div class="hd"><div><div class="lbl">Oct 19 – 24</div><h3 class="hi">This week</h3></div>${miniMonth()}</div>`;
+
+/* B. Week and Day, both kept and fixed. */
+const HHB = 33;
+const shown = (d) => d === TODAY || hasDay(d);
+/* Tap a day and it opens wide; any move lets it go back to the even week. */
+const tplB = (f) => `18px ${[0, 1, 2, 3, 4, 5].map((d) => (!shown(d) ? "7px" : f >= 0 && d === f ? "minmax(0,5.5fr)" : "minmax(0,1fr)")).join(" ")}`;
+function weekHTML(r) {
+  const tpl = tplB(-1);
+  const col = (d) => (shown(d) ? `<div class="col${d === TODAY ? " today" : ""}" data-f="${d}">${dayItems(d).map((c) => blockHTML(c, d, HHB, r)).join("")}${freeHTML(d, HHB)}</div>` : `<div class="col ghost" title="${DAYS[d]}: no classes"></div>`);
+  return weekTop() + `<div class="wk wb">
+      <div class="head" style="grid-template-columns:${tpl}"><span></span>${[0, 1, 2, 3, 4, 5].map((d) => (shown(d) ? headCell(d) : "<span></span>")).join("")}</div>
+      <div class="body" style="grid-template-columns:${tpl};height:${HOURS * HHB}px;--hh:${HHB}px">${hrsHTML(HHB)}${[0, 1, 2, 3, 4, 5].map(col).join("")}${nowHTML(HHB, 18)}</div></div>
+  </div></div>${tabBar("sched")}`;
+}
+function setupWeekFocus(p) {
+  const wk = $(".wb", p); if (!wk) return;
+  const body = $(".body", wk), head = $(".head", wk), sc = wk.closest(".scroll");
+  let f = -1, x0 = null, y0 = 0, moved = false;
+  const set = (n) => {
+    f = n; const tpl = tplB(f); body.style.gridTemplateColumns = tpl; head.style.gridTemplateColumns = tpl;
+    wk.classList.toggle("focusing", f >= 0); $$("[data-f]", wk).forEach((e) => e.classList.toggle("focus", +e.dataset.f === f));
+  };
+  $$("[data-f]", wk).forEach((e) => e.addEventListener("click", (ev) => {
+    if (moved) return;
+    if (+e.dataset.f === f && ev.target.closest(".blk[data-i]")) return;   // a class in the open day opens its sheet instead
+    set(+e.dataset.f === f ? -1 : +e.dataset.f);
+  }));
+  wk.addEventListener("pointerdown", (e) => { x0 = e.clientX; y0 = e.clientY; moved = false; });
+  wk.addEventListener("pointermove", (e) => { if (x0 == null || moved || Math.hypot(e.clientX - x0, e.clientY - y0) < 10) return; moved = true; if (f >= 0) set(-1); });
+  addEventListener("pointerup", () => (x0 = null));
+  sc?.addEventListener("scroll", () => f >= 0 && set(-1), { passive: true });
+  sc?.addEventListener("wheel", () => f >= 0 && set(-1), { passive: true });
+}
+/* The day view gives each class the room its details need, and folds the free time into short bands.
+   The time is on every card, so it doesn't need a proportional rail to read at a glance. */
+function dayHTML(r) {
+  const day3 = (d) => DAYS[d][0] + DAYS[d].slice(1).toLowerCase();
+  const band = (txt, on) => `<div class="fband${on ? " on" : ""}"><span>${txt}</span></div>`;
+  const card = (c, d) => {
+    if (c.ghost) return `<div class="dghost" style="--c:${r.sub[c.c]}">${fmt(c.s)} · ${c.t} moved to ${day3(c.moved.d)} ${fmt(c.moved.s)}</div>`;
+    const st = stampOf(c), past = d === TODAY && c.e <= nowMin, now = d === TODAY && c.s <= nowMin && nowMin < c.e, dur = c.e - c.s;
+    return `<div class="dcard${past ? " past" : ""}${now ? " now" : ""}${c.mark === "vacant" ? " vacant" : ""}" style="min-height:${Math.round(58 + Math.max(0, dur - 60) * 0.2)}px;--c:${r.sub[c.c]}" data-stamped="${st ? 1 : 0}">
+      <div class="tm"><b>${fmt(c.s)}</b><small>${fmt(c.e)}</small></div><i class="bar"></i>
+      <div class="tx"><b>${c.code}</b><span class="t">${c.t}</span><span class="m">${c.room}${now ? ` · ${span(c.e - nowMin)} left` : ""}</span></div>${stampHTML(st)}
+      ${now ? `<i class="prog-now" style="--k:${((nowMin - c.s) / dur).toFixed(3)}"></i>` : ""}</div>`;
+  };
+  const dline = (d) => {
+    const it = dayItems(d); if (!it.length) return `<div class="dline"><div class="rest">No classes.<br>Pahinga muna.</div></div>`;
+    const real = it.filter((c) => !c.ghost); let out = "";
+    it.forEach((c) => {
+      out += card(c, d);
+      if (c.ghost) return;
+      const next = real[real.indexOf(c) + 1];
+      if (next && next.s - c.e >= 30) { const inGap = d === TODAY && c.e <= nowMin && nowMin < next.s; out += band(inGap ? `Now · free for ${span(next.s - nowMin)}` : `${span(next.s - c.e)} free`, inGap); }
+    });
+    return `<div class="dline">${out}</div>`;
+  };
+  return weekTop() + `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">${[0, 1, 2, 3, 4, 5].map((d) => `<span data-day="${d}" style="display:grid;justify-items:center;padding:5px 0;font:600 8px var(--rf-label);color:var(--ink-3);background:var(--card);box-shadow:inset 0 0 0 1px var(--edge-c);cursor:pointer">${DAYS[d]}<b style="font:800 13px var(--rf-num);color:var(--ink)">${DATES[d]}</b></span>`).join("")}</div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:10px;color:var(--ink)"><span class="pchk"></span>Hide vacant classes</label>
+    <div class="dayview"><div class="daytrack">${[0, 1, 2, 3, 4, 5].map((d) => `<div>${dline(d)}</div>`).join("")}</div></div>
+  </div></div>${tabBar("sched")}`;
+}
+function renderWeek() {
+  const opts = [
+    ["week", "Week: tap a day to open it", "Tap Fri (or any day) and it opens wide with the code, title, time, room and free gaps while the other days shrink to colour. Tap it again, or move the grid at all, and the week goes back to even. With a day open, tapping one of its classes opens the class sheet."],
+    ["day", "Day: details first", "Every class gets the room its details need: time, code, title and room in full, at larger sizes. Free time folds into short bands. Finished classes lose their colour but keep readable text, and the class in progress shows how long is left. Drag sideways or tap a day."],
+  ];
+  $("#weekOpts").innerHTML = opts.map(([k, n, s]) => `<div class="opt"><div class="phone" data-week="${k}"></div><div class="name"><b>${n}</b><span>${s}</span></div></div>`).join("");
+  $$("#weekOpts .phone").forEach((p) => {
+    const { r } = applyRoles(p, { room: K.room, school: "pup" }); p.classList.add("dots");
+    const k = p.dataset.week;
+    p.innerHTML = `<div class="island"></div>` + (k === "day" ? dayHTML(r) : weekHTML(r));
+    if (k === "day") setupSwipe(p); else setupWeekFocus(p);
+    floatingOrb(p, SCHOOLS.pup.theme);
+  });
+  stampIn();
+}
+function stampIn() {
+  if (reduce) return;
+  $$("#weekOpts [data-stamped='1'] .stp").forEach((s, i) => { s.classList.remove("thunk"); void s.offsetWidth; s.style.animationDelay = (i % 3) * 0.14 + 0.2 + "s"; s.classList.add("thunk"); });
+}
+function setupSwipe(p) {
+  const view = $(".dayview", p), track = $(".daytrack", p); let idx = TODAY, x = -idx * 100, v = 0, drag = null, raf2 = 0;
+  const mark = () => $$("[data-day]", p).forEach((s) => { const on = +s.dataset.day === idx; s.style.background = on ? "var(--gold-c)" : "var(--card)"; s.style.color = on ? "var(--on-gold-c)" : "var(--ink-3)"; s.querySelector("b").style.color = on ? "var(--on-gold-c)" : "var(--ink)"; });
+  const place = () => (track.style.transform = `translateX(${x}%)`);
+  const spring = () => { cancelAnimationFrame(raf2); let last = performance.now(); const goal = -idx * 100;
+    const step = (now) => { const dt = Math.min(0.032, (now - last) / 1000); last = now; v += (-170 * (x - goal) - 22 * v) * dt; x += v * dt; place(); if (Math.abs(x - goal) > 0.05 || Math.abs(v) > 0.5) raf2 = requestAnimationFrame(step); else { x = goal; v = 0; place(); } };
+    reduce ? ((x = goal), place()) : (raf2 = requestAnimationFrame(step)); };
+  view.addEventListener("pointerdown", (e) => { drag = { x0: e.clientX, x, t: performance.now(), lx: e.clientX }; view.setPointerCapture(e.pointerId); cancelAnimationFrame(raf2); });
+  view.addEventListener("pointermove", (e) => { if (!drag) return; const w = view.clientWidth; x = drag.x + ((e.clientX - drag.x0) / w) * 100; if ((idx === 0 && x > 0) || (idx === 5 && x < -500)) x = drag.x + ((e.clientX - drag.x0) / w) * 30; v = (((e.clientX - drag.lx) / w) * 100) / Math.max(0.008, (performance.now() - drag.t) / 1000); drag.lx = e.clientX; drag.t = performance.now(); place(); });
+  const end = (e) => { if (!drag) return; const dx = e.clientX - drag.x0; drag = null; if ((dx < -60 || v < -120) && idx < 5) idx++; else if ((dx > 60 || v > 120) && idx > 0) idx--; mark(); spring(); };
+  view.addEventListener("pointerup", end); view.addEventListener("pointercancel", end);
+  $$("[data-day]", p).forEach((s) => s.addEventListener("click", () => { idx = +s.dataset.day; mark(); spring(); }));
+  mark(); place();
+}
+segs("k", K, renderWeek);
+$("#restamp").addEventListener("click", stampIn);
+$("#clock").addEventListener("input", (e) => { nowMin = +e.target.value; renderWeek(); });
+
+/* ================= MOTION: the whole app ================= */
+const M = { room: "night" };
+const mlar = { rig: LarKit.rig("idle"), open: false, cv: null, openedAt: 0 };
+let gradesSeen = false;
+function floatingOrb(p, th) { const orb = document.createElement("button"); orb.className = "orb"; orb.setAttribute("aria-label", "Ask LAR"); orb.appendChild(cubeCanvas(th, 2.4)); p.appendChild(orb); return orb; }
+function renderMotion() {
+  const p = $("#motionPhone"); const { r, th } = applyRoles(p, { room: M.room, school: "pup" }); p.classList.add("dots");
+  gradesSeen = false;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = todayHTML({ school: "pup" }); const todayScroll = $(".scroll", tmp);
+  $(".scr", todayScroll).insertAdjacentHTML("beforeend", `<div class="card row4 cls"><div class="tm">10:30AM<small>12PM</small></div><i class="bar" style="--sub:${r.sub[4]}"></i><div><b>GEED 10053</b><span>Purposive Comm. · S210</span></div></div><div class="card row4 cls"><div class="tm">1PM<small>2:30PM</small></div><i class="bar"></i><div><b>MATH 20013</b><span>Discrete Structures · S305</span></div></div>`);
+  tmp.innerHTML = weekHTML(r); const weekScroll = $(".scroll", tmp);
+  const grades = `<div class="scroll"><div class="scr">
+    <div class="hd"><div><div class="lbl">First semester · 2026–2027</div><h3 class="hi">Grades</h3></div></div>
+    <div class="card notch" style="display:grid;gap:4px"><div class="lbl">GPA</div><div data-gpa style="font:800 40px/1 var(--rf-num);letter-spacing:-0.03em;color:var(--gold-c);font-variant-numeric:tabular-nums">1.62</div><span class="pb" data-pb style="opacity:0">PERSONAL BEST</span><span style="font-size:9px;color:var(--ink-2)">3 of 6 posted · 8 units</span></div>
+    ${[["COMP 20073", "Data Structures and Algorithms", "1.25"], ["GEED 10053", "Purposive Communication", "1.50"], ["MATH 20013", "Discrete Structures", "1.75"], ["COMP 20083", "Object-Oriented Programming", "1.25"]].map(([c, t, g]) => `<div class="card row4 grow4"><div><b style="font:700 11px var(--rf-title)">${c}</b><span style="display:block;font-size:9px;color:var(--ink-2)">${t}</span></div><span class="gstamp" style="opacity:0">${g}</span></div>`).join("")}
+  </div></div>`;
+  p.innerHTML = `<div class="island"></div><div class="status"><span>4:41</span><span>●●● ▮</span></div>
+    <div class="pages"><div class="pg" data-pg="today"></div><div class="pg" data-pg="sched" hidden></div><div class="pg" data-pg="grades" hidden>${grades}</div></div>
+    <div class="pull"><canvas></canvas><span>PULL TO SYNC</span></div><span class="synced">SYNCED</span>
+    ${tabBar()}
+    <div class="scrim"></div><div class="csheet" role="dialog" aria-label="Class"><i class="morph"></i><div class="in"></div></div>
+    <canvas class="flier"></canvas>
+    <div class="sheet" role="dialog" aria-label="LAR"><div class="stage"><canvas></canvas><div class="who"><b>LAR</b><span>On this phone, offline</span></div><button class="x">Close</button></div>
+      <div class="msgs"><div class="lar" data-hello></div></div><div class="comp">Ask LAR…</div></div>`;
+  $("[data-pg=today]", p).appendChild(todayScroll); $("[data-pg=sched]", p).appendChild(weekScroll);
+  drawCampus($("[data-campus]", p), M.room, "pup");
+  const orb = floatingOrb(p, th);
+  // Tabs: a pixel block steps to the tab, the icon hops, the page slides toward it.
+  const order = ["today", "sched", "grades", "study", "you"], sel = document.createElement("i");
+  sel.className = "sel"; $(".tabs", p).prepend(sel);
+  let cur = "today";
+  $$(".tabs span", p).forEach((t, i) => t.addEventListener("click", () => {
+    const next = order[i]; t.classList.remove("hop"); void t.offsetWidth; t.classList.add("hop");
+    if (next === cur || !$(`[data-pg=${next}]`, p)) return;
+    const dir = order.indexOf(next) > order.indexOf(cur) ? 1 : -1;
+    const from = $(`[data-pg=${cur}]`, p), to = $(`[data-pg=${next}]`, p);
+    $$(".tabs span", p).forEach((x) => x.classList.toggle("on", x === t)); sel.style.translate = `${i * 100}% 0`;
+    if (!reduce) {
+      from.animate([{ opacity: 1, transform: "translateX(0)" }, { opacity: 0, transform: `translateX(${-12 * dir}px)` }], { duration: 120, easing: "ease-in" }).onfinish = () => (from.hidden = true);
+      to.hidden = false; to.animate([{ opacity: 0, transform: `translateX(${12 * dir}px)` }, { opacity: 1, transform: "translateX(0)" }], { duration: 220, delay: 90, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "backwards" });
+    } else { from.hidden = true; to.hidden = false; }
+    cur = next;
+    if (next === "grades" && !gradesSeen) { gradesSeen = true; landGrades(p); }
+  }));
+  // The cube tucks aside while Today scrolls, and comes back when you stop.
+  let tuck = 0;
+  todayScroll.addEventListener("scroll", () => { orb.classList.add("tuck"); clearTimeout(tuck); tuck = setTimeout(() => orb.classList.remove("tuck"), 650); }, { passive: true });
+  // The Up next countdown ticks: every minute in the app, every 4 s here.
+  clearInterval(M.tick); let left = 139;
+  M.tick = setInterval(() => {
+    const big = $(".hero .big", todayScroll); if (!big || !p.isConnected) return;
+    left = left > 1 ? left - 1 : 139;
+    big.querySelector("svg").outerHTML = pixelNum(`${Math.floor(left / 60)}h ${left % 60}m`, 4);
+    if (!reduce) big.querySelector("svg").animate([{ translate: "0 -4px", opacity: 0.3 }, { translate: "0 0", opacity: 1 }], { duration: 200, easing: "steps(2)" });
+  }, 4000);
+  // Pull to sync on Today; the dot grid ripples when it lands.
+  const sc = todayScroll, pull = $(".pull", p), pcv = $(".pull canvas", p); pull.replaceChild(cubeCanvas(th, 1.6), pcv); const pullCube = cubes.at(-1);
+  let y0 = null, dy = 0;
+  sc.addEventListener("pointerdown", (e) => { if (sc.scrollTop <= 0) { y0 = e.clientY; dy = 0; sc.setPointerCapture(e.pointerId); } });
+  sc.addEventListener("pointermove", (e) => { if (y0 == null) return; dy = Math.max(0, e.clientY - y0); const k = Math.min(1, dy / 70); sc.firstElementChild.style.transform = `translateY(${Math.min(70, dy * 0.55)}px)`; pull.style.opacity = k; pull.style.scale = 0.6 + k * 0.4; $("span", pull).textContent = k >= 1 ? "LET GO" : "PULL TO SYNC"; });
+  const release = () => { if (y0 == null) return; const ok = dy >= 70; y0 = null; const inner = sc.firstElementChild;
+    if (ok) { $("span", pull).textContent = "SYNCING"; pullCube.speed = 4; setTimeout(() => { pullCube.speed = 1; pull.style.opacity = 0; inner.animate([{ transform: inner.style.transform }, { transform: "translateY(0)" }], { duration: 300, easing: "cubic-bezier(0.22,1,0.36,1)" }); inner.style.transform = ""; const st = $(".synced", p); st.classList.remove("on"); void st.offsetWidth; st.classList.add("on"); fieldPulse(p, 140, 58, 1.2); }, 900); }
+    else { pull.style.opacity = 0; inner.animate([{ transform: inner.style.transform }, { transform: "translateY(0)" }], { duration: 260, easing: "cubic-bezier(0.34,1.56,0.64,1)" }); inner.style.transform = ""; } };
+  sc.addEventListener("pointerup", release); sc.addEventListener("pointercancel", release);
+  // Schedule: a class's sheet grows out of its block, and shrinks back into it.
+  const cs = $(".csheet", p), scrim = $(".scrim", p), morph = $(".morph", cs), inner = $(".in", cs);
+  let fromBlk = null;
+  const toRect = (b) => { const a = cs.getBoundingClientRect(), o = b.getBoundingClientRect(); return `translate(${o.left - a.left}px, ${o.top - a.top}px) scale(${o.width / a.width}, ${o.height / a.height})`; };
+  const openClass = (b) => {
+    const c = CLASSES[+b.dataset.i], s = c.moved || c, st = stampOf(c), color = getComputedStyle(b).getPropertyValue("--c");
+    fromBlk = b; cs.style.setProperty("--c", color); morph.style.background = color;
+    inner.innerHTML = `<div class="band">${stampHTML(st)}</div><b class="code">${c.code}</b><span class="t">${c.t}</span>
+      <div class="rows"><span class="lbl">When</span><span>${DAYS[s.d][0] + DAYS[s.d].slice(1).toLowerCase()} ${fmt(s.s)}–${fmt(s.e)}${c.moved ? ` · moved from ${DAYS[c.d][0] + DAYS[c.d].slice(1).toLowerCase()}` : ""}</span><span class="lbl">Room</span><span>${c.room}</span><span class="lbl">Prof</span><span>SANTOS, J.</span></div>`;
+    cs.classList.add("open"); scrim.classList.add("on");
+    if (reduce) return;
+    cs.animate([{ transform: toRect(b) }, { transform: "none" }], { duration: 380, easing: "cubic-bezier(0.22,1,0.36,1)" });
+    morph.animate([{ opacity: 1 }, { opacity: 1, offset: 0.35 }, { opacity: 0 }], { duration: 380, fill: "forwards" });
+    inner.animate([{ opacity: 0 }, { opacity: 0, offset: 0.45 }, { opacity: 1 }], { duration: 380 });
+  };
+  const closeClass = () => {
+    if (!cs.classList.contains("open")) return; scrim.classList.remove("on");
+    if (reduce || !fromBlk) { cs.classList.remove("open"); return; }
+    morph.animate([{ opacity: 0 }, { opacity: 1, offset: 0.5 }, { opacity: 1 }], { duration: 300, fill: "forwards" });
+    cs.animate([{ transform: "none" }, { transform: toRect(fromBlk) }], { duration: 300, easing: "cubic-bezier(0.5,0,0.75,0)" }).onfinish = () => cs.classList.remove("open");
+  };
+  setupWeekFocus(p);
+  $$(".blk[data-i]", weekScroll).forEach((b) => b.addEventListener("click", () => b.closest(".col.focus") && openClass(b)));
+  scrim.addEventListener("click", closeClass);
+  // LAR's chat: the cube flies up from the orb, the field ripples, he comes out of his fire.
+  const sheet = $(".sheet", p), flier = $(".flier", p), stageCv = $(".stage canvas", sheet);
+  mlar.cv = stageCv; mlar.th = th; mlar.open = false;
+  const fly = (back) => {
+    const pr = p.getBoundingClientRect(), o = orb.getBoundingClientRect();
+    const sx = o.left - pr.left + o.width / 2, sy = o.top - pr.top + o.height / 2, ex = 6 + 46, ey = 70 + 54;
+    const [ax, ay, bx, by] = back ? [ex, ey, sx, sy] : [sx, sy, ex, ey];
+    const dpr = Math.min(2, devicePixelRatio || 1); flier.width = 280 * dpr; flier.height = 592 * dpr; flier.style.width = "280px"; flier.style.height = "592px";
+    const g = flier.getContext("2d"), t0 = performance.now(), D = 480;
+    return new Promise((done) => { const step = (now) => { const k = Math.min(1, (now - t0) / D), e = 1 - (1 - k) ** 3;
+      const x = ax + (bx - ax) * e, y = ay + (by - ay) * e - Math.sin(e * Math.PI) * 70, s = (back ? 1.4 + e : 2.4 - e) * dpr;
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, flier.width, flier.height); g.setTransform(s, 0, 0, s, x * dpr, y * dpr); LarKit.drawCube(g, th, now / 1000);
+      if (k < 1) requestAnimationFrame(step); else { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, flier.width, flier.height); done(); } }; requestAnimationFrame(step); });
+  };
+  const hello = "Hi! Ako si LAR. May 2h 19m pa sa OOP. Ano'ng gagawin natin?";
+  orb.addEventListener("click", async () => {
+    if (mlar.open) return; orb.classList.add("away"); sheet.classList.add("open");
+    if (!reduce) await fly(false);
+    mlar.open = true; mlar.openedAt = performance.now() / 1000; mlar.rig.start("spawn", mlar.openedAt);
+    const box = $("[data-hello]", sheet); box.textContent = ""; let i = 0; const t0 = performance.now() + 900;
+    const type = (now) => { if (!mlar.open) return; const n = Math.max(0, Math.floor((now - t0) / 22)); if (n > i) { i = n; box.textContent = hello.slice(0, i); } if (i < hello.length) requestAnimationFrame(type); };
+    reduce ? (box.textContent = hello) : requestAnimationFrame(type);
+  });
+  $(".x", sheet).addEventListener("click", async () => {
+    if (!mlar.open) return; mlar.open = false;
+    if (!reduce) await fly(true);
+    sheet.classList.remove("open"); orb.classList.remove("away");
+  });
+}
+function landGrades(p) {
+  const el = $("[data-gpa]", p), from = 1.62, to = 1.28;
+  if (reduce) { el.textContent = to.toFixed(2); $$(".gstamp", p).forEach((s) => (s.style.opacity = 1)); $("[data-pb]", p).style.opacity = 1; return; }
+  const t0 = performance.now() + 250, D = 700;
+  const step = (now) => { const k = clamp((now - t0) / D), e = 1 - (1 - k) ** 3; el.textContent = (from + (to - from) * e).toFixed(2); if (k < 1) requestAnimationFrame(step); else { const pb = $("[data-pb]", p); pb.style.opacity = 1; pb.animate([{ scale: 2, opacity: 0 }, { scale: 0.92, opacity: 1, offset: 0.6 }, { scale: 1, opacity: 1 }], { duration: 420, easing: "steps(5)" }); } };
+  requestAnimationFrame(step);
+  $$(".gstamp", p).forEach((s, i) => setTimeout(() => { s.style.opacity = 1; s.classList.add("thunk"); }, 420 + i * 140));
+}
+function stageLoop(now) {
+  const t = now / 1000;
+  if (mlar.cv && mlar.cv.isConnected) {
+    const cv = mlar.cv, dpr = Math.min(2, devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const g = cv.getContext("2d"), th = mlar.th;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // His stage: soft pools of the portal's ramp drifting, a dither into the card.
+    const grd = g.createLinearGradient(0, 0, w, h); grd.addColorStop(0, th.ramp[1]); grd.addColorStop(1, "#140c16"); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    const dr = reduce ? 0 : t;
+    pool(g, w, h, 60 + Math.sin(dr / 3) * 30, 40, 90, rgbOf(th.ramp[3]), 0.45); pool(g, w, h, 200 + Math.cos(dr / 4) * 40, 70, 110, rgbOf(th.accent), 0.25);
+    g.fillStyle = "#140c16"; for (let x = 0; x < w; x += 2) { g.fillRect(x, h - 4, 1, 1); g.fillRect(x + 1, h - 3, 1, 1); g.fillRect(x, h - 2, 2, 2); }
+    if (mlar.open) {
+      const since = t - mlar.openedAt;
+      if (since > 1.2) mlar.rig.set(since > 3 ? "idle" : "happy", t);
+      const pz = mlar.rig.at(t, {}, reduce), s = 2;
+      g.imageSmoothingEnabled = false; g.save(); g.translate(18, 22); g.scale(s, s); LarKit.drawLar(g, pz, th, reduce ? 0 : t); g.restore();
+    }
+  }
+  requestAnimationFrame(stageLoop);
+}
+segs("m", M, renderMotion);
+$("#motionReset").addEventListener("click", renderMotion);
+requestAnimationFrame(stageLoop);
+
+/* ---------------- boot ---------------- */
+renderMotion(); renderDone(); renderWeek();
+mountDive(); dive.t = timeline().total; drawDive(dive.t);
+requestAnimationFrame(cubeLoop); requestAnimationFrame(larLoop);
+renderTray();
+const hash = location.hash.slice(1); if (hash && document.getElementById(hash)) document.getElementById(hash).scrollIntoView();
+})();
+</script>

@@ -237,7 +237,9 @@ The root is the iPhone's body text size (`font: -apple-system-body`, 17 px at th
 ### Named Rules
 **The Capped Growth Rule.** Every font size is `min(rem, px)`. A new size divides the design px by 17 for the rem and sets the cap near 1.3 times (headings) or 1.8 times (body, labels). The tab bar is the one tighter cap (13 px), because five labels share the width.
 
-**The Pixel Voice Rule.** Pixelify Sans speaks for the other side (LAR, the stones, system hints) and never sets a heading, a button, or a sentence the student has to read twice.
+**The Pixel Voice Rule.** Pixelify Sans speaks for the other side (LAR, the stones, system hints) and sets small labels, chips, day names and tab labels, where its pixel lands on the icons' grid. It never sets a heading, a button, a time, a room, a date, a due item, or a sentence the student has to read twice.
+
+**The Pixel-Bridged Rule (spec 045 C8).** The phone's own face reads and titles: titles at 800 with -0.035em tracking. Pixelify bridges up from the art through the small labels. Hero numbers (the Up next time, GPA, Study counts) are the hand-drawn pixel numerals in `PixelNum.svelte`, growing in whole pixels. The wordmark stays Montserrat. Montserrat and Source Sans stay as the Classic text style in You.
 
 ## Layout
 
@@ -327,11 +329,11 @@ The 14 by 20 pixel student, drawn as SVG rects, waving on a slow stepped loop an
 ### Motion
 Interface motion uses one ease, `cubic-bezier(0.22, 1, 0.36, 1)`: the landing dock rises 40 px over 0.7 s, sheets rise over 0.35 s, the wordmark fades in over 0.6 s, and leaving drops dock and wordmark 16 px over 0.25 s ease-in. Pixel motion uses `steps()`: the tab hop, skeleton shimmer (1.4 s, 8 steps), Isko's wave, the campus strip.
 
-The landing scene is a pure function of time and state (spec 010). The tile portal's spawn, waves, interior states and the sign-in morph into Today are specified there: intro, waves and morph run at 30 to 60 fps, rest at 12 to 20 fps stepped, and rendering stops when the app is backgrounded. The morph runs about 30% longer than a plain transition, as the hero moment.
+The landing scene is a pure function of time and state (spec 010). The tile portal's spawn, waves and interior states are specified there: they run at 30 to 60 fps, and rendering stops when the app is backgrounded.
 
-*(current)* Until the renderer ships, the pentomino timeline in `landingAt(t)` (`landing.ts`) runs: dark 0.4 s, assembling 2.66 s, igniting 0.7 s, arrival 1.0 s, glimpse 0.7 s, rest from 5.46 s, then a 1.1 s dive on Step through. A returning student skips the build and rests at 2.0 s.
+**The dive** (spec 010 C26–C30, `crates/intportal-tiles/src/dive.rs`) is one field of tiles from the void to Today, and the loading screen on every signed-in launch. The camera zooms into the portal's mouth, which holds the field at a finer pitch, until the mouth's tiles are the screen's tiles. The tunnel changes form on the way in (spiral arms, round rings, a square corridor, petals, polar checks, plasma), and every dark part glows at its edge, all in the school's ramp through a Bayer dither. Speed comes in ramps: the tunnel and the camera surge through each change and coast between. The field then warms to the room, and from the centre out each tile flares, shrinks to one of Today's dots and lifts off, leaving a glint. Today is already in place and nothing on it moves; one ripple runs through the dot grid. A launch lasts about 0.66 s and a first sign-in about 2.4 s.
 
-**Reduce Motion.** A global rule clamps every CSS animation and transition to 0.01 ms. The landing shows a still, open portal and skips the morph. LAR holds still and stops blinking, Isko stands, the skeleton stops shimmering, confetti is skipped, and the campus strip redraws one still frame a minute.
+**Reduce Motion.** A global rule clamps every CSS animation and transition to 0.01 ms. The landing shows a still, open portal, and there is no dive: launch and Step through go straight to Today. LAR holds still and stops blinking, Isko stands, the skeleton stops shimmering, confetti is skipped, and the campus strip redraws one still frame a minute.
 
 ### Haptics
 Eight verbs, all silent when haptics are off in You or there is no engine, and two buzzes within 35 ms collapse into one:
