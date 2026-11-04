@@ -93,6 +93,15 @@
     inside = true;
   }
 
+  // The veil lifts once Today has painted under it: mounting the app can
+  // take longer than the fade, which would otherwise finish unseen. Today
+  // itself doesn't move (spec 010 C30).
+  let lifted = $state(false);
+  $effect(() => {
+    if (!inside) return void (lifted = false);
+    requestAnimationFrame(() => requestAnimationFrame(() => (lifted = true)));
+  });
+
   // One portal signed out: stay inside while the other still has a login.
   async function signedOut() {
     await refreshLogins();
@@ -140,6 +149,8 @@
     <TabBar />
     <AssisOrb />
   </div>
+  <!-- The landing's void lifts off the room instead of cutting to it. -->
+  <div class="veil" class:lifted aria-hidden="true"></div>
   {#if !welcomed}<FirstRun ondone={welcomeDone} />{/if}
   {#if app.subject}
     {#key app.subject.code}<SubjectPage {...app.subject} />{/key}
@@ -167,15 +178,27 @@
     background: linear-gradient(var(--ground) 55%, transparent);
     pointer-events: none;
   }
+  .veil {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: var(--void);
+    pointer-events: none;
+    /* Today's first frame reaches the screen a few hundred ms after it
+       mounts on a phone, so the lift waits for it. */
+    transition:
+      opacity 0.4s var(--ease) 0.25s,
+      visibility 0s 0.65s;
+  }
+  .veil.lifted {
+    opacity: 0;
+    visibility: hidden;
+  }
   main {
-    animation: arrive 0.65s var(--ease) backwards;
     padding: calc(var(--safe-top) + 12px) var(--gutter) calc(var(--safe-bottom) + 92px);
   }
   [data-glance="dock"] main {
     padding-bottom: calc(var(--safe-bottom) + 150px);
-  }
-  @keyframes arrive {
-    from { filter: brightness(2.2) saturate(0.4); }
   }
   .page {
     animation: in 0.3s var(--ease) backwards;
