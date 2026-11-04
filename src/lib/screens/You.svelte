@@ -1,9 +1,10 @@
 <script lang="ts">
   import { askForCalendar } from "../devcal";
-  import { app, mabiniSyncNow, openNote, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
+  import { app, mabiniSyncNow, openNote, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
   import { api, isoDate, type Portal } from "../api";
   import { onMount } from "svelte";
   import PortalConnect from "../PortalConnect.svelte";
+  import NotesCard from "../NotesCard.svelte";
   import { shareFile } from "../share";
   import { buzz, haptics, setHaptics } from "../haptics";
   import { lock, setLock, unlockWith } from "../lock.svelte";
@@ -55,33 +56,6 @@
     } catch (e) {
       exportNote = String(e);
     }
-  }
-
-  let query = $state("");
-  let notesNote = $state("");
-  const shown = $derived.by(() => {
-    const q = query.trim().toLowerCase();
-    return q ? app.notes.filter((n) => `${noteHeading(n.key, n.title)} ${n.text}`.toLowerCase().includes(q)) : app.notes;
-  });
-
-  function newNote() {
-    openNote(`note:${crypto.randomUUID()}`, "New note", "");
-  }
-
-  async function exportAll() {
-    notesNote = "";
-    try {
-      await shareFile("IntPortal notes.md", "text/markdown", await api.notesMarkdown(null));
-    } catch (e) {
-      notesNote = String(e);
-    }
-  }
-
-  function noteHeading(key: string, title: string | null = null): string {
-    if (key.startsWith("note:")) return title?.trim() || "Untitled note";
-    if (key.startsWith("class:")) return key.slice(6);
-    const [y, m, d] = key.slice(4).split("-").map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
   }
 
   const rooms = [
@@ -141,7 +115,10 @@
 
   <section class="card notch block">
     <p class="label">SIS</p>
-    {#if app.sisConnected}
+    {#if app.sisConnected && app.sisRejected}
+      <p class="fine">The SIS turned your login down. Changed your password?</p>
+      <PortalConnect portal={portalOf("sis")!} prefill />
+    {:else if app.sisConnected}
       <div class="line"><span>Last synced</span><strong>{synced}</strong></div>
       <div class="line"><span>Server</span><strong>{app.snapshot?.host ?? "—"}</strong></div>
       <button class="primary" onclick={syncNow} disabled={app.sync === "syncing"}>{app.sync === "syncing" ? "Syncing…" : "Sync now"}</button>
@@ -153,7 +130,10 @@
 
   <section class="card notch block">
     <p class="label">eMabini</p>
-    {#if app.mabiniConnected}
+    {#if app.mabiniConnected && app.mabiniRejected}
+      <p class="fine">eMabini turned your login down. Changed your password?</p>
+      <PortalConnect portal={portalOf("mabini")!} prefill />
+    {:else if app.mabiniConnected}
       <div class="line"><span>Last synced</span><strong>{mabiniSynced}</strong></div>
       {#if app.mabiniError}<p class="fine">{app.mabiniError}</p>{/if}
       <div class="row">
@@ -191,6 +171,10 @@
       {/each}
     </div>
     <p class="fine">{app.studyAt >= 0 ? "Only on days your flashcards are due." : "No study reminders."}</p>
+    <label class="lockrow"><input type="checkbox" checked={app.warmUp} onchange={(e) => setExtra("warmUp", e.currentTarget.checked)} /> Warm-up in class reminders</label>
+    <label class="lockrow"><input type="checkbox" checked={app.afterClass} onchange={(e) => setExtra("afterClass", e.currentTarget.checked)} /> Note after class</label>
+    <label class="lockrow"><input type="checkbox" checked={app.brief} onchange={(e) => setExtra("brief", e.currentTarget.checked)} /> Sunday brief</label>
+    <p class="fine">At most 3 a day besides class reminders, none from 10 PM to 7 AM.</p>
     {#if app.notifications === false}
       <p class="fine">Notifications are off for IntPortal, so none of these can reach you.</p>
       <button class="primary" onclick={() => scheduleReminders(true)}>Turn on notifications</button>
@@ -229,30 +213,7 @@
     {#if exportNote}<p class="fine" role="status">{exportNote}</p>{/if}
   </section>
 
-  <section class="card notch block">
-    <p class="label">Your notes</p>
-    <div class="row">
-      <button class="primary" onclick={newNote}>New note</button>
-      <button class="ghost" onclick={exportAll} disabled={app.notes.length === 0}>Export all</button>
-    </div>
-    {#if app.notes.length === 0}
-      <p class="fine">Nothing written yet. Open a class on Schedule to keep notes for it, add a note for today on Today, or start a new one here.</p>
-    {:else}
-      <input class="search" type="search" bind:value={query} placeholder="Search notes" aria-label="Search notes" />
-      <ul class="notes">
-        {#each shown as n (n.key)}
-          <li>
-            <button onclick={() => openNote(n.key, noteHeading(n.key, n.title), n.title)}>
-              <strong>{noteHeading(n.key, n.title)}</strong>
-              <span>{n.preview}</span>
-            </button>
-          </li>
-        {/each}
-      </ul>
-      {#if shown.length === 0}<p class="fine">No note mentions "{query}".</p>{/if}
-    {/if}
-    {#if notesNote}<p class="fine" role="alert">{notesNote}</p>{/if}
-  </section>
+  <NotesCard />
 
   {#if __REVIEW__ && ongallery}
     <button class="ghost" onclick={ongallery}>Open the design gallery</button>
@@ -332,43 +293,6 @@
     color: var(--ink);
     font: inherit;
     font-size: max(16px, min(0.941rem, 29px));
-  }
-  .search {
-    height: 40px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 10px;
-    background: var(--sunk);
-    box-shadow: inset 0 0 0 1px var(--edge);
-    color: var(--ink);
-    font: inherit;
-    font-size: min(0.941rem, 29px);
-  }
-  .notes {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 6px;
-  }
-  .notes button {
-    width: 100%;
-    height: auto;
-    display: grid;
-    gap: 2px;
-    padding: 10px 12px;
-    background: var(--sunk);
-    box-shadow: inset 0 0 0 1px var(--edge);
-    text-align: left;
-  }
-  .notes span {
-    font-family: var(--font-body, inherit);
-    font-weight: 400;
-    font-size: min(0.765rem, 23px);
-    color: var(--ink-2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .screen {
     display: grid;

@@ -11,6 +11,23 @@ pub trait Llm: Send {
         on_token: &mut dyn FnMut(&str) -> bool,
     ) -> Result<String, String>;
 
+    /// Like `generate`, but the assistant's turn is already started with `prefill` (the opening of the
+    /// JSON and the first words of the reply): the model continues from it, the grammar counts it as
+    /// written, `on_token` gets only the continuation, and the text returned is `prefill` plus what the
+    /// model wrote. A wrapper around a model must forward this too (the default cannot honour the schema).
+    fn generate_prefilled(
+        &mut self,
+        prompt: &str,
+        prefill: &str,
+        schema: Option<&serde_json::Value>,
+        max_tokens: u32,
+        on_token: &mut dyn FnMut(&str) -> bool,
+    ) -> Result<String, String> {
+        let _ = schema;
+        let out = self.generate(&format!("{prompt}{prefill}"), None, max_tokens, on_token)?;
+        Ok(format!("{prefill}{out}"))
+    }
+
     fn embed(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String>;
 }
 
@@ -45,6 +62,16 @@ impl Llm for FakeLlm {
             }
         }
         Ok(out)
+    }
+
+    /// A queued reply that is a whole JSON object (starts with `{`) stands for a model that ignored the
+    /// prefill: it comes back as it is. Any other queued reply is what the model writes after the prefill.
+    fn generate_prefilled(&mut self, prompt: &str, prefill: &str, schema: Option<&serde_json::Value>, max_tokens: u32, on_token: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+        if self.replies.front().is_some_and(|r| r.trim_start().starts_with('{')) {
+            return self.generate(&format!("{prompt}{prefill}"), schema, max_tokens, on_token);
+        }
+        let out = self.generate(&format!("{prompt}{prefill}"), None, max_tokens, on_token)?;
+        Ok(format!("{prefill}{out}"))
     }
 
     fn embed(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {

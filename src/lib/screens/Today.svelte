@@ -1,16 +1,19 @@
 <script lang="ts">
+  import Synced from "../Synced.svelte";
   import NeedSis from "../NeedSis.svelte";
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
-  import MabiniDue from "../MabiniDue.svelte";
-  import { app, openNote, openSubject, syncNow } from "../state.svelte";
+  import DueCard from "../DueCard.svelte";
+  import Skeleton from "../Skeleton.svelte";
+  import { app, openFromNotification, openNote, openSubject, syncNow } from "../state.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Lar from "../lar/Lar.svelte";
   import { ago } from "../glance";
   import { longpress } from "../press";
+  import { openLink } from "../openLink";
   import { buzz } from "../haptics";
   import { dayRows } from "../dayrows";
-  import { api, clock, isoDate, moment, span, subjectColor, type Meeting, type Nudge, type Standing, type SyllabusItem } from "../api";
+  import { api, clock, isoDate, moment, span, subjectColor, type Meeting, type Nudge, type Standing } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
   const now = $derived((app.today, new Date()));
@@ -27,17 +30,6 @@
   const colors = $derived(app.snapshot?.colors ?? {});
   const dayKey = $derived(`day:${isoDate(now)}`);
 
-  // Quizzes, exams and projects due this week, from the syllabus pages.
-  let due = $state<[string, SyllabusItem][]>([]);
-  $effect(() => {
-    void app.snapshot;
-    api.due(isoDate(new Date()), 7).then((d) => (due = d)).catch(() => {});
-  });
-  const dueDay = (d: string | null) => {
-    if (!d) return "";
-    const days = Math.round((new Date(`${d}T00:00`).getTime() - new Date(isoDate(new Date()) + "T00:00").getTime()) / 86_400_000);
-    return days === 0 ? "Today" : days === 1 ? "Tomorrow" : new Date(`${d}T00:00`).toLocaleDateString(undefined, { weekday: "short" });
-  };
   // Where the student stands: the reality check behind the day's plans.
   let standing = $state<Standing | null>(null);
   $effect(() => {
@@ -74,9 +66,18 @@
   function act() {
     if (!nudge) return;
     const n = nudge.nudge;
-    if (n.kind === "deadline") openSubject(n.subject, describe(n.subject));
+    if (n.kind === "plan") return startPlan(n);
+    if (n.kind === "deadline" && n.url) openLink(n.url);
+    else if (n.kind === "deadline") openSubject(n.subject, describe(n.subject), "outline");
     else if (n.kind === "target") app.tab = "grades";
     else if (n.kind !== "day_off") app.tab = "study";
+  }
+  /** Spec 042 C4: the deadline first (eMabini, or its subject's outline), else the cards. */
+  function startPlan(n: Extract<Nudge, { kind: "plan" }>) {
+    if (n.step?.url) return openLink(n.step.url);
+    if (n.step?.subject) return openSubject(n.step.subject, describe(n.step.subject), "outline", n.step.id.startsWith("syl:") ? n.step.id.split(":").pop() : undefined);
+    if (n.subject) openFromNotification(`study:${n.subject}:${n.cards}`);
+    else app.tab = "study";
   }
   const describe = (code: string) => app.snapshot?.sessions.find((x) => x.subject_code === code)?.description ?? "";
   const dayNote = $derived(app.notes.find((n) => n.key === dayKey));
@@ -107,12 +108,18 @@
   <header>
     <p class="label">{dateLine}</p>
     <h1>{greeting}</h1>
+    <Synced />
     <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? dayNote.preview || "Today's note" : "+ Note for today"}</button>
   </header>
 
-  {#if app.sync === "failed"}
+  {#if app.sisRejected}
     <section class="offline card notch" role="status">
-      <p><strong>{app.syncError ?? "Couldn't reach SIS"}.</strong> Showing what was saved {ago(app.snapshot?.last_synced)}.</p>
+      <p><strong>The SIS turned your login down.</strong> Changed your password?</p>
+      <button onclick={() => (app.tab = "you")}>Update password</button>
+    </section>
+  {:else if app.sync === "failed"}
+    <section class="offline card notch" role="status">
+      <p><strong>{app.syncError ?? "Can't reach the SIS right now."}</strong> Showing what was saved {ago(app.snapshot?.last_synced)}.</p>
       <button onclick={syncNow}>Try again</button>
     </section>
   {/if}
@@ -142,6 +149,9 @@
           <span class="big num">{hero.big}</span>
           <span class="unit">{hero.unit}</span>
         </div>
+      {:else if !t && app.snapshot}
+        <!-- Spec 040 C2: still loading is not "nothing scheduled". -->
+        <div class="who"><Skeleton rows={2} height={22} /></div>
       {:else}
         <div class="who">
           <p class="label">Up next</p>
@@ -156,23 +166,7 @@
   </section>
 
   {#if !app.sisConnected}<NeedSis what="your classes" />{/if}
-  <MabiniDue />
-
-  {#if due.length}
-    <section class="due card notch">
-      <p class="label">Coming up this week</p>
-      <ul>
-        {#each due as [code, it] (code + it.id)}
-          <li>
-            <button onclick={() => openSubject(code, describe(code))}>
-              <span class="when">{dueDay(it.date)}</span>
-              <span class="what"><strong>{it.topic}</strong><small>{code} · {it.kind}</small></span>
-            </button>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
+  <DueCard />
 
   {#if standing && (standing.term_gpa !== null || standing.units_done > 0)}
     <button class="reality card notch" onclick={() => (app.tab = "grades")} aria-label="Where you stand; open Grades">
@@ -223,9 +217,9 @@
               class="class"
               data-phase={r.i.phase}
               style:--c={subjectColor(s.subject_code, colors)}
-              onclick={() => openSubject(s.subject_code, s.description)}
+              onclick={() => (held = r.i)}
               use:longpress={() => { buzz.press(); held = r.i; }}
-              aria-label="{s.subject_code}, {clock(s.start)}. Hold for quick actions"
+              aria-label="{s.subject_code}, {clock(s.start)}. Opens its class sheet"
             >
               <span class="time num">{clock(s.start)}<small>{clock(s.end)}</small></span>
               <span class="stripe"></span>
@@ -363,47 +357,6 @@
     color: var(--ink-3);
     font-size: min(1.176rem, 26px);
   }
-  .due {
-    --step: 4px;
-    display: grid;
-    gap: 8px;
-    padding: 14px 16px;
-  }
-  .due ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 4px;
-  }
-  .due button {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 6px 0;
-    border: 0;
-    background: none;
-    color: var(--ink);
-    text-align: left;
-  }
-  .due .when {
-    width: 72px;
-    flex: none;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: min(0.765rem, 23px);
-    color: var(--gold);
-  }
-  .due .what {
-    display: grid;
-    min-width: 0;
-  }
-  .due small {
-    font-size: min(0.706rem, 22px);
-    color: var(--ink-3);
-  }
-  /* A long note preview must not widen the whole page: grid items default to min-width auto. */
   .screen > header {
     min-width: 0;
   }

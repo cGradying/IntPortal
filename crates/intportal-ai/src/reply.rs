@@ -162,6 +162,19 @@ mod tests {
         }
     }
 
+    // A reply that starts with a prefill: the opener is fed first and shown at once, the model's words
+    // follow, and nothing is shown twice.
+    #[test]
+    fn a_prefilled_reply_shows_its_opener_first_and_the_continuation_after() {
+        let mut s = ReplyStream::default();
+        assert_eq!(s.feed("{\"reply\":\"Ayon sa notes mo,"), Some("Ayon sa notes mo,".into()));
+        assert_eq!(s.feed(" ang passing"), Some(" ang passing".into()));
+        assert_eq!(s.feed(" ay 75%.\"}"), Some(" ay 75%.".into()));
+        let full = "{\"reply\":\"Ayon sa notes mo, ang passing ay 75%.\"}";
+        assert_eq!(parse::<R>(full), Ok(R { reply: "Ayon sa notes mo, ang passing ay 75%.".into() }));
+        assert_eq!(streamed(full, 1), "Ayon sa notes mo, ang passing ay 75%.", "any split gives the same words");
+    }
+
     #[test]
     fn a_stream_never_repeats_or_loses_words() {
         let raw = r#"{"reply":"May quiz ka bukas.\nMag-aral ka na!"}"#;

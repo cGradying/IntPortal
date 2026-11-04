@@ -26,7 +26,7 @@
   import { watchDynamicIsland } from "$lib/glance";
   import { watchBars } from "$lib/bars";
   import { watchBack } from "$lib/back";
-  import { app, adopt, refreshLogins, setRoom, startClock } from "$lib/state.svelte";
+  import { app, adopt, listenForTaps, refreshLogins, setRoom, startClock } from "$lib/state.svelte";
 
   let ready = $state(false);
   let signedIn = $state(false);
@@ -55,6 +55,7 @@
   let island = $state(false);
 
   onMount(async () => {
+    listenForTaps();
     if (__REVIEW__) {
       // Review builds put uncaught errors on screen; there is no console on a phone.
       const show = (m: string) => document.body.insertAdjacentHTML("beforeend", `<pre style="position:fixed;inset:auto 8px 90px;z-index:99;padding:8px;background:#300;color:#fbb;white-space:pre-wrap;font-size:11px">${m.replace(/</g, "&lt;")}</pre>`);

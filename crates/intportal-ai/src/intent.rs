@@ -2,7 +2,6 @@
 //! Gemma 3 1B answered every "remind me" and "add a note" in words and
 //! proposed no action (PR #87's eval), so the rules pick the action and the
 //! schema then forces it. The model only writes the reply and fills the text.
-use intportal_core::{model::Weekday, today::Date};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intent {
@@ -16,9 +15,7 @@ pub enum Intent {
     Grades,
 }
 
-fn words(msg: &str) -> Vec<String> {
-    msg.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).map(String::from).collect()
-}
+pub use intportal_core::when::{resolve_when, subject_in, words};
 
 /// Reminders beat cards beat notes: "remind me to make a note" is a reminder.
 pub fn detect(msg: &str) -> Intent {
@@ -41,6 +38,25 @@ pub fn detect(msg: &str) -> Intent {
     }
 }
 
+/// Most cards one request makes; a 1B model's context is the next limit.
+pub const CARDS_MAX: usize = 20;
+/// Cards made when the student names no number.
+pub const CARDS_DEFAULT: usize = 8;
+
+/// The number in front of "cards" ("8 flashcards", "12 na cards", "eight cards"), capped at
+/// `CARDS_MAX`. None when the message names none, so the caller picks the default.
+pub fn card_count(msg: &str) -> Option<usize> {
+    const NAMED: [&str; 12] = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+    let w = words(msg);
+    let n = w.iter().enumerate().filter(|(_, x)| ["flashcard", "flashcards", "card", "cards"].contains(&x.as_str())).find_map(|(i, _)| {
+        // "12 na cards", "8 of cards": skip one linking word.
+        let before = |k: usize| i.checked_sub(k).map(|j| w[j].as_str());
+        let num = |x: &str| x.parse::<usize>().ok().or_else(|| NAMED.iter().position(|n| *n == x).map(|p| p + 1));
+        before(1).and_then(num).or_else(|| before(1).filter(|l| ["na", "ng", "of"].contains(l)).and(before(2)).and_then(num))
+    })?;
+    (n > 0).then_some(n.min(CARDS_MAX))
+}
+
 /// Like `detect`, knowing whether a note is open. Asking about the open note
 /// ("Summarize this note") is a question for the model with the note as context,
 /// not a request to add a note; "add a note: ..." still is.
@@ -59,57 +75,18 @@ pub fn resolve(msg: &str, note_open: bool) -> Intent {
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
 pub fn is_filipino(msg: &str) -> bool {
     // "may" is left out on purpose: it is also the English word ("May I see my classes").
-    const FIL: [&str; 15] = ["ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "po", "lang"];
+    const FIL: &[&str] = &[
+        "gumawa", "gawan", "ang", "ano", "ko", "ako", "mo", "ba", "naman", "ngayon", "bukas", "kailan", "klase", "pasahan", "mga", "po", "lang", "salamat", "kumusta", "kamusta", "paano", "pano", "bakit", "sino", "pwede", "hindi", "wala", "yung", "natin",
+        // short messages with none of the above ("Ayoko nang mabuhay.", a joke that starts "Anong tawag sa ...")
+        "sa", "ng", "nang", "anong", "gaano", "magkano", "saan", "ilang", "ayoko", "ayaw", "gusto", "kasi", "tayo", "namin", "niya", "nalulungkot", "malungkot", "pagod", "dapat", "nasa", "sana", "din", "rin",
+    ];
     words(msg).iter().filter(|w| FIL.contains(&w.as_str())).count() >= 1
-}
-
-/// The one subject a message is about: its code ("MATH 101" or "math101"),
-/// the letters of its code ("math"), or a word of its description
-/// ("calculus"). None when it names none or more than one.
-/// `subjects` is (code, description).
-pub fn subject_in(msg: &str, subjects: &[(String, String)]) -> Option<String> {
-    let w = words(msg);
-    let squashed = w.concat();
-    let letters = |code: &str| code.chars().take_while(|c| c.is_alphabetic()).collect::<String>().to_lowercase();
-    let only = |hit: Vec<&String>| (hit.len() == 1).then(|| hit[0].clone());
-    let key = |c: &str| c.to_lowercase().replace(' ', "");
-    let hits: Vec<&String> = subjects.iter().map(|(c, _)| c).filter(|c| squashed.contains(&key(c))).collect();
-    // "math 101" also contains "math1": the longer code is the one named.
-    let by_code = hits.iter().copied().filter(|c| !hits.iter().any(|o| key(o) != key(c) && key(o).contains(&key(c)))).collect();
-    only(by_code)
-        .or_else(|| only(subjects.iter().map(|(c, _)| c).filter(|c| letters(c).len() >= 3 && w.contains(&letters(c))).collect()))
-        .or_else(|| only(subjects.iter().filter(|(_, d)| words(d).iter().any(|dw| dw.chars().count() >= 5 && w.contains(dw))).map(|(c, _)| c).collect()))
-}
-
-/// A day the message names ("bukas", "tomorrow", "sa Lunes"), or None when
-/// it names none or an unclear one. The model never computes dates.
-pub fn resolve_when(msg: &str, today: Date) -> Option<Date> {
-    let w = words(msg);
-    for (i, x) in w.iter().enumerate() {
-        let day = match x.as_str() {
-            "today" | "ngayon" | "mamaya" => return Some(today),
-            "tomorrow" | "bukas" => return Some(today.add_days(1)),
-            "makalawa" => return Some(today.add_days(2)),
-            "monday" | "lunes" => Weekday::Monday,
-            "tuesday" | "martes" => Weekday::Tuesday,
-            "wednesday" | "miyerkules" => Weekday::Wednesday,
-            "thursday" | "huwebes" => Weekday::Thursday,
-            "friday" | "biyernes" => Weekday::Friday,
-            "saturday" | "sabado" => Weekday::Saturday,
-            "sunday" => Weekday::Sunday,
-            // "linggo" also means "week": only "sa linggo" is Sunday.
-            "linggo" if i > 0 && w[i - 1] == "sa" => Weekday::Sunday,
-            _ => continue,
-        };
-        let ahead = (i64::from(day.number()) - i64::from(today.weekday().number())).rem_euclid(7);
-        return Some(today.add_days(if ahead == 0 { 7 } else { ahead }));
-    }
-    None
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use intportal_core::{model::Weekday, today::Date};
 
     const THU: Date = Date { y: 2026, m: 10, d: 15 };
 
@@ -146,6 +123,26 @@ mod tests {
             assert_eq!(resolve(msg, true), Intent::Note, "{msg}");
         }
         assert_eq!(resolve("remind me about this note", true), Intent::Remind);
+    }
+
+    // #161
+    #[test]
+    fn the_number_of_cards_asked_for_is_read_in_english_and_filipino() {
+        for (msg, want) in [
+            ("make 8 flashcards about recursion", Some(8)),
+            ("Make 5 cards about recursion", Some(5)),
+            ("gumawa ng 8 cards", Some(8)),
+            ("gumawa ng 12 na flashcards sa trees", Some(12)),
+            ("Gawan mo ako ng 6 na card sa heaps", Some(6)),
+            ("make eight flashcards", Some(8)),
+            ("make 50 flashcards", Some(20)),
+            ("make 0 flashcards", None),
+            ("make flashcards about recursion", None),
+            ("flashcards for COMP 20073", None),
+            ("flashcards for chapter 8", None),
+        ] {
+            assert_eq!(card_count(msg), want, "{msg}");
+        }
     }
 
     #[test]
@@ -245,7 +242,7 @@ mod tests {
 
     #[test]
     fn filipino_is_spotted_by_any_one_marker_word() {
-        for msg in ["Kumusta po", "Wala akong pasahan", "Ano ang GWA ko", "ok lang", "BUKAS ba?"] {
+        for msg in ["Kumusta po", "Wala akong pasahan", "Ano ang GWA ko", "ok lang", "BUKAS ba?", "salamat ha", "Kumusta LAR!", "paano ba?", "Sino ang prof ko"] {
             assert!(is_filipino(msg), "{msg}");
         }
         for msg in ["Hello there", "What is due this week", "Summarize my notes", "go"] {

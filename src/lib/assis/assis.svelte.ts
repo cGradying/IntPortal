@@ -2,11 +2,11 @@
 // what happens when the student confirms a proposal. The model runs in Rust;
 // nothing here writes until Apply.
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { Schedule } from "@tauri-apps/plugin-notification";
+import { Schedule, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { api, isoDate, moment } from "../api";
 import { app } from "../state.svelte";
 import { tidy, type Draft } from "./cards";
-import { appended, existingText, newDeck, noteFor, noteTarget, reminderAt, reminderId, rememberLarReminder, type Proposal } from "./apply";
+import { appended, existingText, newDeck, noteFor, looksFilipino, noteTarget, notificationsOff, reminderAt, reminderId, rememberLarReminder, type Proposal } from "./apply";
 
 export interface ModelInfo {
   id: string;
@@ -33,6 +33,8 @@ export interface Msg {
   /** pending until the student answers the card. */
   state?: "pending" | "done" | "dismissed";
   problem?: string;
+  /** Shown instead of "Done" when the action worked but needs the student to do something (notifications off). */
+  notice?: string;
   /** make_cards: the cards LAR wrote, shown to edit before anything is saved. */
   cards?: Draft[];
 }
@@ -43,16 +45,38 @@ export const assis = $state({
   busy: "" as "" | "downloading" | "waking" | "thinking" | "cards",
   done: 0,
   total: 0,
+  /** The model is taking long to wake: the sheet says the phone is slow instead of sitting on "Waking up". */
+  slow: false,
   error: "",
   open: false,
   chat: [] as Msg[],
 });
 
-export const chatModel = () => assis.models.find((m) => m.chat && m.default) ?? assis.models.find((m) => m.chat);
+/** The model a new install gets (the catalog's default chat model). */
+export const defaultChat = () => assis.models.find((m) => m.chat && m.default) ?? assis.models.find((m) => m.chat);
+/**
+ * The model that answers: the default when it is installed, else whichever chat model is
+ * (a phone that has the old default keeps working until its student taps Update), else the
+ * default, so "Add IntAssis" has a target. Nothing is stored: it follows from what is on the phone.
+ */
+export const chatModel = () => {
+  const d = defaultChat();
+  return d?.installed ? d : assis.models.find((m) => m.chat && m.installed) ?? d;
+};
 /** The small model that finds the student's notes. */
 export const embedModel = () => assis.models.find((m) => !m.chat);
 export const installed = () => assis.models.some((m) => m.chat && m.installed);
+/** A chat model is on the phone but it is not the default: the card offers Update. */
+export const updatable = () => installed() && !defaultChat()?.installed;
 export const mb = (bytes: number) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : `${Math.round(bytes / 1e6)} MB`);
+
+/** What a download is, piece by piece from the sizes the phone reports: "Chat model 1.11 GB + note search 310 MB, use Wi-Fi". */
+export function downloadSizes(todo: ModelInfo[]): string {
+  const parts = todo.map((m) => `${m.chat ? "chat model" : "note search"} ${mb(m.bytes)}`);
+  if (!parts.length) return "";
+  const text = parts.join(" + ");
+  return `${text[0].toUpperCase()}${text.slice(1)}, use Wi-Fi`;
+}
 
 const say = (e: unknown) => (typeof e === "string" ? e : (e as { message?: string })?.message ?? JSON.stringify(e));
 
@@ -64,11 +88,9 @@ export async function refresh() {
   }
 }
 
-/** The one-time download: LAR's brain, then the small model that finds your notes. Resumes if it was cut off; Pause keeps what arrived. */
-export async function install() {
-  const chat = chatModel();
-  const todo = [chat, embedModel()].filter((m): m is ModelInfo => !!m && !m.installed);
-  if (!chat || !todo.length || assis.busy) return;
+/** Downloads `todo` in order with one bar over all of them. True when every file arrived. Resumes if cut off; Pause keeps what arrived. */
+async function fetchAll(todo: ModelInfo[]): Promise<boolean> {
+  if (!todo.length || assis.busy) return false;
   assis.error = "";
   assis.busy = "downloading";
   assis.done = 0;
@@ -82,19 +104,42 @@ export async function install() {
       before += m.bytes;
       await refresh();
     }
+    return true;
   } catch (e) {
     assis.error = say(e) === "paused" ? "" : say(e);
     await refresh();
+    return false;
   } finally {
     assis.busy = "";
   }
 }
 
+/**
+ * The one-time download: LAR's brain, then the model that finds your notes, whichever is missing.
+ * On a phone that has another chat model (the old default) this is the update: that model keeps
+ * answering until the new one has arrived, then goes, so the phone holds one chat model. The chat
+ * history, the notes index and the settings are not touched.
+ */
+export async function install() {
+  const chat = defaultChat();
+  const todo = [chat, embedModel()].filter((m): m is ModelInfo => !!m && !m.installed);
+  const hadOther = updatable();
+  if (!chat || !(await fetchAll(todo))) return;
+  if (hadOther && defaultChat()?.installed) {
+    for (const old of assis.models.filter((m) => m.chat && !m.default && m.installed)) await invoke("ai_delete", { id: old.id }).catch(() => {});
+    await refresh();
+  }
+}
+
+/** Adds only the note search, for a phone whose chat model is already on it. */
+export const addSearch = () => fetchAll([embedModel()].filter((m): m is ModelInfo => !!m && !m.installed));
+
 export const cancelDownload = () => invoke("ai_cancel");
 
 export async function remove() {
   try {
-    for (const m of assis.models) if (m.installed) await invoke("ai_delete", { id: m.id });
+    // The search model is always asked: its delete also takes the old one (nomic) an earlier version left.
+    for (const m of assis.models) if (m.installed || !m.chat) await invoke("ai_delete", { id: m.id });
     await invoke("ai_clear_history");
     assis.chat = [];
     assis.open = false;
@@ -104,32 +149,66 @@ export async function remove() {
   await refresh();
 }
 
-/** Loads the model when LAR is opened. iOS ends an app holding 1 GB in the background, so it is let go in `sleep`. */
-export async function wake(): Promise<boolean> {
+/** "Waking up" says the phone is slow after this long. */
+export const WAKE_SLOW_MS = 15_000;
+/** After this long the wait ends with an explanation. The load goes on; the next wake joins it. */
+export const WAKE_GIVE_UP_MS = 150_000;
+
+const tooSlow = (fil: boolean) =>
+  fil
+    ? "Matagal akong magising. Baka kulang ang memory ng phone. Isara ang ibang apps at subukan ulit."
+    : "I'm taking too long to wake up. The phone may be low on memory. Close other apps and try again.";
+
+let loading: Promise<void> | null = null; // one load at a time: a second ai_load would only answer "busy"
+let sleepAfterWake = false;
+
+/**
+ * Loads the model when LAR is opened. iOS ends an app holding 1 GB in the background, so it is let go in `sleep`.
+ * `fil`: the student writes Filipino, so a failure is told in Filipino.
+ * The wait is bounded: past `WAKE_SLOW_MS` the sheet says the phone is slow, past `WAKE_GIVE_UP_MS` it stops and says why.
+ */
+export async function wake(fil = false): Promise<boolean> {
   const m = chatModel();
   if (!m?.installed) return false;
   if (m.loaded) return true;
   assis.busy = "waking";
+  const slow = setTimeout(() => (assis.slow = true), WAKE_SLOW_MS);
+  let giveUp: ReturnType<typeof setTimeout> | undefined;
+  loading ??= invoke<void>("ai_load", { id: m.id, fil })
+    .then(refresh) // so a load that finishes after we gave up still shows as loaded
+    .finally(() => (loading = null));
   try {
-    await invoke("ai_load", { id: m.id });
-    await refresh();
+    await Promise.race([loading, new Promise((_, no) => (giveUp = setTimeout(() => no(tooSlow(fil)), WAKE_GIVE_UP_MS)))]);
     return true;
   } catch (e) {
     assis.error = say(e);
     return false;
   } finally {
+    clearTimeout(slow);
+    clearTimeout(giveUp);
+    assis.slow = false;
     assis.busy = "";
+    if (sleepAfterWake) {
+      sleepAfterWake = false;
+      if (globalThis.document?.hidden) sleep();
+    }
   }
 }
 
 export async function sleep() {
+  // Letting go of a model that is still loading would queue behind the load and drop it the moment it lands.
+  if (assis.busy === "waking") {
+    sleepAfterWake = true;
+    return;
+  }
   await invoke("ai_unload").catch(() => {});
   await refresh();
 }
 
 /** Notes edited since LAR last looked get embedded, so the next question can find them. */
 export function indexNotes() {
-  if (installed()) invoke("ai_index").catch(() => {});
+  // Not while a model loads or answers: on a small phone they would fight for memory, and the next question indexes anyway.
+  if (installed() && !assis.busy) invoke("ai_index").catch(() => {});
 }
 
 /** The chat is kept on the phone, so it is still there after the app was closed. */
@@ -152,8 +231,8 @@ export async function open() {
   assis.open = true;
   assis.error = "";
   loadHistory();
+  await wake(); // before indexing: loading both models at once was the 4 GB phone's ANR
   indexNotes();
-  await wake();
 }
 
 let stopped = false;
@@ -163,12 +242,35 @@ export function stop() {
   invoke("ai_cancel").catch(() => {});
 }
 
+const STYLE_KEY = "larStyle";
+/** The most characters of the student's own note on how LAR talks; the core cuts at the same length. */
+export const STYLE_MAX = 200;
+
+/** The student's own note on how LAR should talk, kept on this phone. It only shapes tone: LAR's rules come first. */
+export function larStyle(): string {
+  try {
+    return (localStorage.getItem(STYLE_KEY) ?? "").slice(0, STYLE_MAX);
+  } catch {
+    return "";
+  }
+}
+
+export function setLarStyle(text: string) {
+  const clean = text.trim().slice(0, STYLE_MAX);
+  try {
+    if (clean) localStorage.setItem(STYLE_KEY, clean);
+    else localStorage.removeItem(STYLE_KEY);
+  } catch {
+    // Storage off: the note lasts until the app closes.
+  }
+}
+
 export async function ask(text: string) {
   const message = text.trim();
   if (!message || assis.busy) return;
   assis.chat.push({ from: "me", text: message });
   stopped = false;
-  const awake = await wake();
+  const awake = await wake(looksFilipino(message));
   if (stopped) return; // Stop while the model was waking: no reply at all
   if (!awake) {
     assis.chat.push({ from: "lar", text: assis.error || "I couldn't wake up. Try again." });
@@ -180,7 +282,7 @@ export async function ask(text: string) {
   const onText = new Channel<string>();
   onText.onmessage = (words) => (reply.text += words);
   try {
-    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[] }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, onText });
+    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[] }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText });
     reply.text = r.reply;
     reply.sources = r.sources.length ? r.sources : undefined;
     if (r.proposal) [reply.proposal, reply.state] = [r.proposal, "pending"];
@@ -196,7 +298,7 @@ export type NoteMode = "summarize" | "tidy" | "explain" | "ask";
 
 /** "Ask AI" in a note: the words stream to `onText`; the result is text to insert or swap in. */
 export async function noteAi(mode: NoteMode, text: string, selection: string | null, question: string | null, onText: (words: string) => void): Promise<string> {
-  if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");
+  if (!(await wake(looksFilipino(text)))) throw new Error(assis.error || "I couldn't wake up. Try again.");
   assis.busy = "thinking";
   const ch = new Channel<string>();
   ch.onmessage = onText;
@@ -249,14 +351,26 @@ export async function apply(i: number) {
       app.notes = await api.notes();
     } else if (p.kind === "set_reminder") {
       const id = reminderId(p.text, p.date);
-      await invoke("plugin:notification|notify", {
-        options: { id, title: "LAR", body: p.text, schedule: Schedule.at(asLocalDigits(reminderAt(p.date))) },
-      });
-      rememberLarReminder(id, reminderAt(p.date));
+      // Same rule as scheduleReminders: look first, ask once, and never say it will ring when it cannot.
+      let allowed = await isPermissionGranted();
+      if (!allowed) allowed = (await requestPermission()) === "granted";
+      app.notifications = allowed;
+      try {
+        await invoke("plugin:notification|notify", {
+          options: { id, title: "LAR", body: p.text, schedule: Schedule.at(asLocalDigits(reminderAt(p.date))) },
+        });
+        rememberLarReminder(id, reminderAt(p.date));
+      } catch (e) {
+        if (allowed) throw e; // a refusal is expected while they are off; anything else is a real failure
+      }
+      msg.notice = allowed ? undefined : notificationsOff(looksFilipino(msg.text, p.text, assis.chat[i - 1]?.text));
     } else {
       assis.busy = "cards";
-      const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null }>("ai_cards", { text: `Topic: ${p.topic}`, want: 8 });
+      const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null }>("ai_cards", { text: `Topic: ${p.topic}`, want: p.count });
       if (!found.cards.length) throw new Error("I couldn't make cards for that. Try a note's own text instead.");
+      // The confirm sentence ("Confirm to start.") is spent: from here the bubble says what was made.
+      const n = found.cards.length;
+      msg.text = n < p.count ? `I could make ${n} of ${p.count} from what I know.` : `Here ${n === 1 ? "is 1 card" : `are ${n} cards`} on ${p.topic}.`;
       msg.cards = found.cards; // Shown for the student to edit; confirmCards saves.
       return;
     }
@@ -278,7 +392,7 @@ export async function confirmCards(i: number) {
   msg.problem = "";
   try {
     await api.saveDeck(newDeck(crypto.randomUUID(), p.topic, null, cards));
-    msg.text = `${msg.text} Made ${cards.length} ${cards.length === 1 ? "card" : "cards"}. Find them under Study.`;
+    msg.text = cards.length === 1 ? "Made 1 card." : `Added ${cards.length} cards to ${p.topic}.`;
     msg.cards = undefined;
     msg.state = "done";
   } catch (e) {
@@ -298,7 +412,7 @@ const asLocalDigits = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() 
 export function watchAssis() {
   refresh();
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) sleep();
+    if (globalThis.document?.hidden) sleep();
   });
 }
 

@@ -1,18 +1,22 @@
 <script lang="ts">
   // One subject's syllabus: its grading system with the running arithmetic,
   // and its outline of topics, quizzes, exams and projects.
-  import { api, isoDate, type Component, type ItemKind, type Plan, type SyllabusItem, type Tally } from "./api";
+  import { api, isoDate, riskLine, type Component, type ItemKind, type Plan, type SyllabusItem, type Tally } from "./api";
   import { closable } from "./back";
   import { adopt, app, openNote } from "./state.svelte";
 
-  let { code, description }: { code: string; description: string } = $props();
+  let { code, description, tab: start, item }: { code: string; description: string; tab?: "grading" | "outline"; item?: string } = $props();
 
   const saved = $derived(app.snapshot?.syllabus[code]);
   // svelte-ignore state_referenced_locally
   let plan = $state<Plan>(structuredClone($state.snapshot(saved) ?? { items: [], grading: [], target: null }));
   let dirty = $state(false);
   let problem = $state("");
-  let tab = $state<"grading" | "outline">(plan.grading.length || !plan.items.length ? "grading" : "outline");
+  // svelte-ignore state_referenced_locally
+  let tab = $state<"grading" | "outline">(start ?? (plan.grading.length || !plan.items.length ? "grading" : "outline"));
+  $effect(() => {
+    if (item) requestAnimationFrame(() => document.getElementById(`item-${item}`)?.scrollIntoView({ block: "center" }));
+  });
   let tally = $state<Tally | null>(null);
   const target = $derived(plan.target ?? 90);
 
@@ -40,6 +44,12 @@
     if (!problem) app.subject = null;
   }
   $effect(() => closable(close));
+
+  // Spec 040 C1 (#158): the Notes tab leaves through close(), so unsaved edits are saved first.
+  async function openNotes() {
+    await close();
+    if (!app.subject) openNote(`class:${code}`, code, description);
+  }
 
   const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
@@ -93,7 +103,7 @@
   <div class="tabs" role="tablist">
     <button role="tab" class:on={tab === "grading"} aria-selected={tab === "grading"} onclick={() => (tab = "grading")}>Grading</button>
     <button role="tab" class:on={tab === "outline"} aria-selected={tab === "outline"} onclick={() => (tab = "outline")}>Outline</button>
-    <button role="tab" onclick={() => { app.subject = null; openNote(`class:${code}`, code, description); }}>Notes</button>
+    <button role="tab" onclick={openNotes}>Notes</button>
   </div>
 
   <div class="body">
@@ -101,10 +111,8 @@
       {#if tally && tally.scored_weight > 0}
         <section class="card notch sum">
           <p><strong class="num">{tally.standing?.toFixed(1)}%</strong> so far{#if tally.equivalent !== null}, about <strong class="num">{tally.equivalent.toFixed(2)}</strong>{/if}, on {tally.scored_weight}% of the grade.</p>
-          {#if tally.needed !== null}
-            <p class="need" data-over={tally.needed > 100}>
-              {tally.needed > 100 ? `${target}% is out of reach now; even 100 on the rest won't make it.` : tally.needed <= 0 ? `${target}% is already secured.` : `${tally.needed.toFixed(1)}% on the rest for ${target}%.`}
-            </p>
+          {#if tally.risk}
+            <p class="need" data-over={tally.risk.kind === "out_of_reach"}>{riskLine(tally.risk, target)}</p>
           {/if}
         </section>
       {/if}
@@ -159,7 +167,7 @@
         {/if}
         <ul class="items">
           {#each sorted as it (it.id || it.topic)}
-            <li class:done={it.done}>
+            <li class:done={it.done} id={it.id ? `item-${it.id}` : undefined} class:here={it.id === item}>
               <input type="checkbox" checked={it.done} aria-label="Done" onchange={() => { it.done = !it.done; changed(); }} />
               <span class="kind" data-kind={it.kind}>{it.kind}</span>
               <span class="topic">{it.topic}</span>
@@ -388,5 +396,8 @@
     margin: 0;
     font-size: min(0.765rem, 23px);
     color: var(--bad);
+  }
+  li.here {
+    box-shadow: inset 3px 0 0 var(--gold);
   }
 </style>

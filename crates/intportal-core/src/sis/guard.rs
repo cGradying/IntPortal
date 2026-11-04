@@ -64,16 +64,8 @@ impl Ledger {
         Ok(())
     }
 
-    /// For a portal with one host and nothing to probe (eMabini): the same
-    /// rules around its one credential POST. `auto` as in `sign_in_guarded`.
-    /// Call `record` with the POST's result afterwards.
-    pub fn begin(&mut self, now: u64, auto: bool) -> Result<(), Error> {
-        self.precheck(auto)?;
-        self.spend(now)
-    }
-
     /// Remembers whether the portal turned the login down.
-    pub fn record<T>(&mut self, result: &Result<T, Error>) {
+    fn record<T>(&mut self, result: &Result<T, Error>) {
         if let Err(e) = result {
             self.rejected = matches!(e, Error::Rejected(_));
         }
@@ -87,6 +79,24 @@ impl Ledger {
         self.attempts.push(now);
         Ok(())
     }
+}
+
+/// For a portal with one host (eMabini): `page` is the GET of its login
+/// form, and a try is spent only once it answered, right before the one
+/// credential POST. `auto` as in `sign_in_guarded`.
+pub async fn post_once<P, T, Fut: std::future::Future<Output = Result<T, Error>>>(
+    ledger: &mut Ledger,
+    now: u64,
+    auto: bool,
+    page: impl std::future::Future<Output = Result<P, Error>>,
+    post: impl FnOnce(P) -> Fut,
+) -> Result<T, Error> {
+    ledger.precheck(auto)?;
+    let page = page.await?;
+    ledger.spend(now)?;
+    let r = post(page).await;
+    ledger.record(&r);
+    r
 }
 
 /// Picks a live host with GETs, then makes exactly one credential POST on it.
@@ -260,16 +270,47 @@ mod tests {
         assert_eq!(back.tries_left(1000), 2);
     }
 
+    fn once(l: &mut Ledger, now: u64, auto: bool, page_up: bool, post: Result<(), Error>) -> (Result<(), Error>, usize) {
+        let posts = RefCell::new(0);
+        let r = pollster(post_once(
+            l,
+            now,
+            auto,
+            async move { if page_up { Ok(()) } else { Err(Error::Network("down".into())) } },
+            |()| async {
+                *posts.borrow_mut() += 1;
+                post
+            },
+        ));
+        (r, posts.into_inner())
+    }
+
     #[test]
-    fn begin_and_record_guard_a_single_host_portal() {
+    fn post_once_guards_a_single_host_portal() {
         let mut l = Ledger::default();
-        l.begin(1000, false).unwrap();
-        l.record::<()>(&Err(Error::Rejected("bad".into())));
+        assert_eq!(once(&mut l, 1000, false, true, Err(Error::Rejected("bad".into()))), (Err(Error::Rejected("bad".into())), 1));
         assert!(l.rejected());
-        assert_eq!(l.begin(1100, true), Err(Error::Rejected(REJECTED_AGAIN.into())));
+        assert_eq!(once(&mut l, 1100, true, true, Ok(())), (Err(Error::Rejected(REJECTED_AGAIN.into())), 0));
         assert_eq!(l.tries_left(1100), 2, "a refused auto try spends nothing");
-        l.begin(1200, false).unwrap();
-        l.record(&Ok(()));
+        assert_eq!(once(&mut l, 1200, false, true, Ok(())), (Ok(()), 1));
         assert!(!l.rejected(), "the tap cleared it and a success leaves it clear");
+    }
+
+    #[test]
+    fn c128_3_page_down_spends_no_try() {
+        let mut l = Ledger::default();
+        for now in [1000, 1001, 1002, 1003] {
+            assert_eq!(once(&mut l, now, true, false, Ok(())), (Err(Error::Network("down".into())), 0));
+        }
+        assert_eq!(l.tries_left(1003), 3, "no credential was sent, so no try is spent");
+    }
+
+    #[test]
+    fn post_once_stops_at_the_limit_without_posting() {
+        let mut l = Ledger::default();
+        for now in [1000, 1001, 1002] {
+            assert_eq!(once(&mut l, now, false, true, Err(Error::Network("dropped".into()))).1, 1);
+        }
+        assert_eq!(once(&mut l, 1003, false, true, Ok(())), (Err(Error::TooManyTries { retry_at: 1900 }), 0));
     }
 }

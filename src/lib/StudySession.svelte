@@ -3,8 +3,8 @@
 </script>
 
 <script lang="ts">
-  // One pass through a deck's due cards (every card when none is due, as
-  // practice). Flashcards take the student's own rating; typed and
+  // One pass through due cards: one deck's (every card when none is due, as
+  // practice), or every deck's at once, oldest due first (spec 040 C9). Flashcards take the student's own rating; typed and
   // multiple-choice answers rate themselves: right is Good, wrong is Again.
   import { closable } from "./back";
   import WhyButton from "./assis/WhyButton.svelte";
@@ -13,15 +13,20 @@
   import { api, isoDate, type Card, type Deck, type Rating } from "./api";
   import { buzz } from "./haptics";
 
-  let { deck, mode, onclose }: { deck: Deck; mode: Mode; onclose: () => void } = $props();
+  let { decks, mode, onclose, title }: { decks: Deck[]; mode: Mode; onclose: () => void; title?: string } = $props();
   $effect(() => closable(() => onclose()));
 
   const now = Math.floor(Date.now() / 1000);
   // svelte-ignore state_referenced_locally
-  const dueCards = deck.cards.filter((c) => c.memory.due <= now);
+  const mixed = decks.length > 1;
+  type Entry = { deck: Deck; card: Card };
   // svelte-ignore state_referenced_locally
-  const queue: Card[] = shuffle(dueCards.length ? dueCards : [...deck.cards]);
+  const dueCards: Entry[] = decks.flatMap((deck) => deck.cards.filter((c) => c.memory.due <= now).map((card) => ({ deck, card })));
   const practice = dueCards.length === 0;
+  // svelte-ignore state_referenced_locally
+  const queue: Entry[] = mixed ? dueCards.sort((a, b) => a.card.memory.due - b.card.memory.due) : shuffle(practice ? decks[0].cards.map((card) => ({ deck: decks[0], card })) : dueCards);
+  // svelte-ignore state_referenced_locally
+  const name = title ?? decks[0]?.name ?? "";
 
   let index = $state(0);
   let shown = $state(false);
@@ -32,7 +37,8 @@
   let right = $state(0);
   let problem = $state("");
 
-  const card = $derived(queue[index]);
+  const card = $derived(queue[index]?.card as Card);
+  const deck = $derived(queue[index]?.deck ?? decks[0]);
   const finished = $derived(index >= queue.length);
   // Four in five remembered is worth a cheer.
   const great = $derived(queue.length > 0 && right / queue.length >= 0.8);
@@ -48,9 +54,9 @@
 
   $effect(() => {
     if (mode !== "choice" || finished) return;
-    const c = queue[index];
-    const at = deck.cards.findIndex((x) => x.id === c.id);
-    api.distractors(deck.cards, at, index).then((d) => (options = shuffle([c.back, ...d])));
+    const { deck: d, card: c } = queue[index];
+    const at = d.cards.findIndex((x) => x.id === c.id);
+    api.distractors(d.cards, at, index).then((ds) => (options = shuffle([c.back, ...ds])));
   });
 
   async function rate(r: Rating) {
@@ -85,9 +91,9 @@
   }
 </script>
 
-<div class="session" role="dialog" aria-label="Studying {deck.name}">
+<div class="session" role="dialog" aria-label="Studying {name}">
   <header>
-    <button class="back" onclick={onclose}>‹ {deck.name}</button>
+    <button class="back" onclick={onclose}>‹ {name}</button>
     <p class="label num">{Math.min(index + 1, queue.length)} / {queue.length}{practice ? " · practice" : ""}</p>
   </header>
   <div class="bar"><i style:width="{(index / queue.length) * 100}%"></i></div>
@@ -99,11 +105,11 @@
       <p class="label">Done</p>
       <h2>{right} of {queue.length} remembered</h2>
       <p class="fine">{practice ? "Practice round: the schedule is unchanged." : "FSRS has scheduled each card for when you're about to forget it."}</p>
-      <button class="primary" onclick={onclose}>Back to the deck</button>
+      <button class="primary" onclick={onclose}>{mixed ? "Back to Study" : "Back to the deck"}</button>
     </section>
   {:else if mode === "flash"}
     <button class="card notch face tap" onclick={() => { if (!shown) buzz.tick(); shown = true; }}>
-      <p class="label">Term</p>
+      <p class="label">{mixed ? deck.name : "Term"}</p>
       <h2>{card.front}</h2>
       {#if shown}<p class="answer">{card.back}</p>{:else}<p class="fine">Tap to show the meaning</p>{/if}
     </button>
@@ -117,7 +123,7 @@
     {/if}
   {:else if mode === "type"}
     <section class="card notch face">
-      <p class="label">Meaning</p>
+      <p class="label">{mixed ? deck.name : "Meaning"}</p>
       <h2>{card.back}</h2>
       <p class="fine">Type the term.</p>
     </section>
@@ -131,7 +137,7 @@
     {/if}
   {:else}
     <section class="card notch face">
-      <p class="label">Term</p>
+      <p class="label">{mixed ? deck.name : "Term"}</p>
       <h2>{card.front}</h2>
     </section>
     <div class="options">

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A stand-in for the Rust side: each test sets `backend[command]`; every call is recorded.
 const backend: Record<string, (args: any) => unknown> = {};
@@ -23,9 +23,9 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 }));
 
 import { invoke } from "@tauri-apps/api/core";
-import { cancel, isPermissionGranted, pending as devicePending } from "@tauri-apps/plugin-notification";
+import { cancel, isPermissionGranted, pending as devicePending, requestPermission } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { apply, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, newChat, noteAi, open, refresh, remove, stop, type ModelInfo } from "./assis.svelte";
+import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -37,6 +37,7 @@ function deferred<T>() {
 
 const model = (o: Partial<ModelInfo>): ModelInfo => ({ id: "m", name: "M", chat: true, bytes: 1000, installed: true, default: true, fits: "ok", loaded: true, ...o });
 const chat = (o: Partial<ModelInfo> = {}) => model({ id: "chat", name: "Chat", ...o });
+const gemma = (o: Partial<ModelInfo> = {}) => model({ id: "gemma", name: "Gemma", default: false, bytes: 800, ...o });
 const embed = (o: Partial<ModelInfo> = {}) => model({ id: "embed", name: "Embed", chat: false, default: false, bytes: 500, ...o });
 
 let disk: ModelInfo[];
@@ -81,6 +82,12 @@ describe("asking LAR", () => {
     const args = ran("ai_ask")[0][1];
     expect(args.openKey).toBe("class:MATH 101");
     expect(args.message).toBe("Summarize this note");
+  });
+
+  it("tells the core the phone's time zone, so eMabini deadlines fall on the right day", async () => {
+    backend.ai_ask = () => reply("ok");
+    await ask("ano ang due ko");
+    expect(ran("ai_ask")[0][1].utcOffset).toBe(-new Date().getTimezoneOffset());
   });
 
   it("ignores an empty question, and one sent while LAR is already writing", async () => {
@@ -238,6 +245,81 @@ describe("the chat history", () => {
   });
 });
 
+describe("waking on a slow phone", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    assis.models = [chat({ loaded: false }), embed()];
+    disk = [chat({ loaded: false }), embed()];
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("says the phone is slow after a while, then clears it", async () => {
+    const d = deferred<unknown>();
+    backend.ai_load = () => d.promise;
+    const p = wake();
+    await vi.advanceTimersByTimeAsync(WAKE_SLOW_MS + 1);
+    expect([assis.busy, assis.slow]).toEqual(["waking", true]);
+    d.resolve(undefined);
+    expect(await p).toBe(true);
+    expect([assis.busy, assis.slow]).toEqual(["", false]);
+  });
+
+  it("stops waiting with an explanation, in the student's language, and a later wake joins the same load", async () => {
+    const d = deferred<unknown>();
+    backend.ai_load = () => d.promise;
+    const p = wake(true);
+    await vi.advanceTimersByTimeAsync(WAKE_GIVE_UP_MS + 1);
+    expect(await p).toBe(false);
+    expect(assis.error).toBe("Matagal akong magising. Baka kulang ang memory ng phone. Isara ang ibang apps at subukan ulit.");
+    expect([assis.busy, assis.slow]).toEqual(["", false]);
+    const again = wake();
+    expect(ran("ai_load")).toHaveLength(1); // no second ai_load: the core would answer "busy"
+    disk[0].loaded = true;
+    d.resolve(undefined);
+    expect(await again).toBe(true);
+    expect(ran("ai_load")).toHaveLength(1);
+  });
+
+  it("asks the core in the language of the question", async () => {
+    backend.ai_load = () => undefined;
+    backend.ai_ask = () => reply("ok");
+    const p = ask("Ano ang due ko?");
+    await vi.advanceTimersByTimeAsync(1);
+    await p;
+    expect(ran("ai_load")[0][1]).toEqual({ id: "chat", fil: true });
+  });
+
+  it("holds the sleep that arrives while the model loads and runs it once the app is still hidden", async () => {
+    const d = deferred<unknown>();
+    backend.ai_load = () => d.promise;
+    backend.ai_unload = () => undefined;
+    const p = wake();
+    await sleep();
+    expect(ran("ai_unload")).toHaveLength(0);
+    vi.stubGlobal("document", { hidden: true });
+    d.resolve(undefined);
+    await p;
+    await vi.advanceTimersByTimeAsync(1);
+    expect(ran("ai_unload")).toHaveLength(1);
+  });
+
+  it("does not index while a model is loading", async () => {
+    assis.busy = "waking";
+    indexNotes();
+    expect(ran("ai_index")).toHaveLength(0);
+  });
+
+  it("wakes the chat model before it indexes when the sheet opens", async () => {
+    backend.ai_history = () => [];
+    backend.ai_load = () => void (disk[0].loaded = true);
+    await open();
+    expect(calls.map(([c]) => c).filter((c) => c === "ai_load" || c === "ai_index")).toEqual(["ai_load", "ai_index"]);
+  });
+});
+
 describe("indexing notes", () => {
   it("runs when the sheet opens", async () => {
     backend.ai_history = () => [];
@@ -324,6 +406,100 @@ describe("installing IntAssis", () => {
   });
 });
 
+// A phone that has the old default (Gemma) when the default becomes another model (Qwen, here "chat").
+describe("updating from the old chat model", () => {
+  beforeEach(() => {
+    disk = [chat({ installed: false, loaded: false, bytes: 1100 }), gemma({ loaded: true }), embed()];
+    assis.models = structuredClone(disk);
+    backend.ai_delete = (a) => void (disk.find((m) => m.id === a.id)!.installed = false);
+    backend.ai_download = (a) => {
+      a.onProgress.onmessage({ done: 10, total: 10 });
+      disk.find((m) => m.id === a.id)!.installed = true;
+    };
+  });
+
+  it("keeps Gemma as the answering model while the default is not installed, and wakes that one", async () => {
+    expect(chatModel()?.id).toBe("gemma");
+    expect(updatable()).toBe(true);
+    disk[1].loaded = false;
+    assis.models = structuredClone(disk);
+    backend.ai_models = () => structuredClone(disk);
+    backend.ai_load = (a) => void (disk.find((m) => m.id === a.id)!.loaded = true);
+    expect(await wake()).toBe(true);
+    expect(ran("ai_load").map(([, a]) => a.id)).toEqual(["gemma"]);
+  });
+
+  it("answers with the default once it is installed, and with the only model when it is another", async () => {
+    assis.models = [chat(), gemma(), embed()];
+    expect(chatModel()?.id).toBe("chat");
+    expect(updatable()).toBe(false);
+    assis.models = [chat({ installed: false }), gemma({ installed: false }), embed()];
+    expect(chatModel()?.id).toBe("chat"); // nothing installed: the default, so Add has a target
+    expect(updatable()).toBe(false);
+  });
+
+  it("sizes a fresh install as the default chat model plus the search model", () => {
+    assis.models = [chat({ installed: false, bytes: 1_107_409_472 }), gemma({ installed: false, bytes: 806_058_272 }), embed({ installed: false, bytes: 309_855_456 })];
+    expect(mb((chatModel()?.bytes ?? 0) + (embedModel()?.bytes ?? 0))).toBe("1.42 GB"); // what FirstRun and the Add button show
+  });
+
+  it("downloads the new model and leaves Gemma alone until it has finished", async () => {
+    let seenDuring: string[] = [];
+    backend.ai_download = (a) => {
+      seenDuring = [...seenDuring, ...ran("ai_delete").map(([, x]) => x.id)];
+      disk.find((m) => m.id === a.id)!.installed = true;
+    };
+    await install();
+    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["chat"]); // the embedder was already there
+    expect(seenDuring).toEqual([]);
+    expect(ran("ai_delete").map(([, a]) => a.id)).toEqual(["gemma"]);
+    expect(chatModel()?.id).toBe("chat");
+    expect(assis.models.filter((m) => m.installed).map((m) => m.id)).toEqual(["chat", "embed"]);
+  });
+
+  it("keeps the chat history and the search model through the update", async () => {
+    assis.chat = [{ from: "me", text: "hi" }, { from: "lar", text: "hello" }];
+    await install();
+    expect(ran("ai_clear_history")).toHaveLength(0);
+    expect(ran("ai_delete").map(([, a]) => a.id)).not.toContain("embed");
+    expect(assis.chat).toHaveLength(2);
+  });
+
+  it("does not remove Gemma when the download is paused or fails", async () => {
+    backend.ai_download = () => Promise.reject("paused");
+    await install();
+    backend.ai_download = () => Promise.reject("No connection. Check Wi-Fi and try again.");
+    await install();
+    expect(ran("ai_delete")).toHaveLength(0);
+    expect(assis.models.find((m) => m.id === "gemma")?.installed).toBe(true);
+    expect(chatModel()?.id).toBe("gemma");
+  });
+
+  it("also fetches the search model when it is missing, in the same update", async () => {
+    disk[2].installed = false;
+    assis.models = structuredClone(disk);
+    await install();
+    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["chat", "embed"]);
+    expect(ran("ai_delete").map(([, a]) => a.id)).toEqual(["gemma"]);
+  });
+
+  it("adds only the search model on its own, without the update", async () => {
+    disk[2].installed = false;
+    assis.models = structuredClone(disk);
+    await addSearch();
+    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["embed"]);
+    expect(ran("ai_delete")).toHaveLength(0);
+  });
+
+  it("leaves Gemma installed if it can not be deleted, and still ends on the new model", async () => {
+    backend.ai_delete = () => Promise.reject("IntAssis is busy");
+    await install();
+    expect(assis.busy).toBe("");
+    expect(assis.error).toBe("");
+    expect(chatModel()?.id).toBe("chat"); // the default answers once installed, whatever else is on the phone
+  });
+});
+
 describe("removing IntAssis", () => {
   it("deletes both models, empties the chat and closes the sheet", async () => {
     assis.chat = [{ from: "me", text: "hi" }];
@@ -335,6 +511,15 @@ describe("removing IntAssis", () => {
     expect(assis.chat).toEqual([]);
     expect(assis.open).toBe(false);
     expect(assis.models.some((m) => m.installed)).toBe(false);
+  });
+
+  it("asks the search model to delete even when only the old one is on the phone", async () => {
+    // A phone updated from nomic: the new search model was never added, but the old file is still there.
+    disk = [chat(), embed({ installed: false })];
+    assis.models = structuredClone(disk);
+    backend.ai_delete = () => undefined;
+    await remove();
+    expect(ran("ai_delete").map(([, a]) => a.id)).toEqual(["chat", "embed"]);
   });
 
   it("keeps the chat and shows the problem if a delete fails", async () => {
@@ -423,7 +608,7 @@ describe("applying a proposal", () => {
   it("shows the cards LAR wrote first and saves nothing until the student confirms", async () => {
     backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }], stopped: null });
     backend.save_deck = () => undefined;
-    pending({ kind: "make_cards", topic: "Trees" });
+    pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
     expect(ran("save_deck")).toHaveLength(0);
     expect(assis.chat[0].cards).toEqual([{ front: "a", back: "b" }, { front: "c", back: "d" }]);
@@ -434,7 +619,7 @@ describe("applying a proposal", () => {
   it("saves the deck with the student's edits and removals on confirm", async () => {
     backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }, { front: "e", back: "f" }], stopped: null });
     backend.save_deck = () => undefined;
-    pending({ kind: "make_cards", topic: "Trees" });
+    pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
     assis.chat[0].cards![0].back = "edited";
     assis.chat[0].cards!.splice(1, 1);
@@ -442,22 +627,48 @@ describe("applying a proposal", () => {
     const deck = ran("save_deck")[0][1].deck;
     expect(deck.name).toBe("Trees");
     expect(deck.cards.map((c: any) => [c.front, c.back])).toEqual([["a", "edited"], ["e", "f"]]);
-    expect(assis.chat[0].text).toBe("Sure. Made 2 cards. Find them under Study.");
+    expect(assis.chat[0].text).toBe("Added 2 cards to Trees.");
     expect(assis.chat[0]).toMatchObject({ state: "done", cards: undefined });
   });
 
   it("says 1 card, not 1 cards", async () => {
     backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
     backend.save_deck = () => undefined;
-    pending({ kind: "make_cards", topic: "Trees" });
+    pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
     await confirmCards(0);
-    expect(assis.chat[0].text).toBe("Sure. Made 1 card. Find them under Study.");
+    expect(assis.chat[0].text).toBe("Made 1 card.");
+  });
+
+  it("asks the generator for the count the student asked for", async () => {
+    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
+    pending({ kind: "make_cards", topic: "Trees", count: 5 });
+    await apply(0);
+    expect(ran("ai_cards")[0][1]).toMatchObject({ text: "Topic: Trees", want: 5 });
+  });
+
+  it("says plainly when fewer cards than asked could be made, and drops the stale leading sentence", async () => {
+    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }, { front: "e", back: "f" }, { front: "g", back: "h" }], stopped: "no new cards" });
+    backend.save_deck = () => undefined;
+    pending({ kind: "make_cards", topic: "Trees", count: 8 });
+    assis.chat[0].text = "I'll make 8 flashcards on Trees. Confirm to start.";
+    await apply(0);
+    expect(assis.chat[0].text).toBe("I could make 4 of 8 from what I know.");
+    await confirmCards(0);
+    expect(assis.chat[0].text).toBe("Added 4 cards to Trees.");
+  });
+
+  it("reads only the result once the cards are shown, when all were made", async () => {
+    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }], stopped: null });
+    pending({ kind: "make_cards", topic: "Trees", count: 2 });
+    assis.chat[0].text = "I'll make 2 flashcards on Trees. Confirm to start.";
+    await apply(0);
+    expect(assis.chat[0].text).toBe("Here are 2 cards on Trees.");
   });
 
   it("discarding the preview saves nothing and offers the proposal again", async () => {
     backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
-    pending({ kind: "make_cards", topic: "Trees" });
+    pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
     discardCards(0);
     expect(ran("save_deck")).toHaveLength(0);
@@ -466,7 +677,7 @@ describe("applying a proposal", () => {
 
   it("confirms nothing when every card was removed", async () => {
     backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
-    pending({ kind: "make_cards", topic: "Trees" });
+    pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
     assis.chat[0].cards!.length = 0;
     await confirmCards(0);
@@ -475,11 +686,47 @@ describe("applying a proposal", () => {
 
   it("explains when no cards could be made", async () => {
     backend.ai_cards = () => ({ cards: [], stopped: null });
-    pending({ kind: "make_cards", topic: "Trees" });
+    pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
     expect(assis.chat[0].problem).toMatch(/couldn't make cards/);
     expect(assis.chat[0].state).toBe("pending");
     expect(assis.busy).toBe("");
+  });
+});
+
+describe("how LAR talks to me", () => {
+  let store: Map<string, string>;
+  beforeEach(() => {
+    store = new Map();
+    vi.stubGlobal("localStorage", { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) });
+  });
+
+  it("keeps the note trimmed and cut at 200 characters, and an empty note removes it", () => {
+    setLarStyle("  Call me Ate.  ");
+    expect(larStyle()).toBe("Call me Ate.");
+    setLarStyle("x".repeat(500));
+    expect(larStyle()).toHaveLength(STYLE_MAX);
+    expect(STYLE_MAX).toBe(200);
+    setLarStyle("   ");
+    expect(larStyle()).toBe("");
+    expect(store.has("larStyle")).toBe(false);
+  });
+
+  it("sends the note with the question, and null when there is none", async () => {
+    backend.ai_ask = () => reply("ok");
+    await ask("hello");
+    expect(ran("ai_ask")[0][1].style).toBeNull();
+    setLarStyle("Taglish, a bit playful");
+    await ask("hello again");
+    expect(ran("ai_ask")[1][1].style).toBe("Taglish, a bit playful");
+  });
+
+  it("asks without a note when storage is off", async () => {
+    vi.stubGlobal("localStorage", { getItem: () => { throw new Error("off"); }, setItem: () => { throw new Error("off"); }, removeItem: () => { throw new Error("off"); } });
+    backend.ai_ask = () => reply("ok");
+    setLarStyle("kept this session only?");
+    await ask("hello");
+    expect(ran("ai_ask")[0][1].style).toBeNull();
   });
 });
 
@@ -520,5 +767,76 @@ describe("LAR reminders and the weekly reschedule", () => {
     Object.assign(app, { reminderLead: 0 });
     await scheduleReminders();
     expect(queue).toHaveLength(1);
+  });
+});
+
+describe("a reminder needs the phone's permission to ring", () => {
+  const remind = (text = "Bring ID", before = "remind me tomorrow", said = "Ready: reminder. Confirm to save.") => {
+    assis.chat = [{ from: "me", text: before }, { from: "lar", text: said, proposal: { kind: "set_reminder", date: "2099-01-06", text }, state: "pending" }];
+    return apply(1);
+  };
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) });
+    backend["plugin:notification|notify"] = () => undefined;
+    vi.mocked(isPermissionGranted).mockReset();
+    vi.mocked(requestPermission).mockReset();
+    app.notifications = null;
+  });
+
+  it("schedules without asking when notifications are already allowed", async () => {
+    vi.mocked(isPermissionGranted).mockResolvedValue(true);
+    await remind();
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(ran("plugin:notification|notify")).toHaveLength(1);
+    expect(assis.chat[1]).toMatchObject({ state: "done" });
+    expect(assis.chat[1].notice).toBeUndefined();
+  });
+
+  it("asks first when they are not, and schedules once they say yes", async () => {
+    vi.mocked(isPermissionGranted).mockResolvedValue(false);
+    vi.mocked(requestPermission).mockResolvedValue("granted");
+    await remind();
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(ran("plugin:notification|notify")).toHaveLength(1);
+    expect(assis.chat[1].notice).toBeUndefined();
+    expect(app.notifications).toBe(true);
+  });
+
+  it("says plainly that it will not ring when they say no, in English", async () => {
+    vi.mocked(isPermissionGranted).mockResolvedValue(false);
+    vi.mocked(requestPermission).mockResolvedValue("denied");
+    await remind();
+    expect(assis.chat[1].state).toBe("done");
+    expect(assis.chat[1].notice).toBe("I saved it, but notifications are off. Turn them on in Settings so it can ring.");
+    expect(app.notifications).toBe(false);
+  });
+
+  it("says it in Filipino when the student wrote Filipino", async () => {
+    vi.mocked(isPermissionGranted).mockResolvedValue(false);
+    vi.mocked(requestPermission).mockResolvedValue("denied");
+    await remind("Dalhin ang ID", "i-remind mo ako bukas", "Handa na ang paalala: Dalhin ang ID. I-confirm para i-save.");
+    expect(assis.chat[1].notice).toBe("Na-save ko na, pero naka-off ang notifications. I-on mo sa Settings para tumunog ito.");
+  });
+
+  it("still saves the reminder when the phone refuses to queue it", async () => {
+    vi.mocked(isPermissionGranted).mockResolvedValue(false);
+    vi.mocked(requestPermission).mockResolvedValue("denied");
+    backend["plugin:notification|notify"] = () => Promise.reject("not authorized");
+    await remind();
+    expect(assis.chat[1]).toMatchObject({ state: "done", problem: "" });
+    expect(assis.chat[1].notice).toContain("notifications are off");
+  });
+});
+
+describe("saying honestly what a download is", () => {
+  it("itemises the chat model and the note search from the sizes the phone reports", () => {
+    expect(downloadSizes([chat({ bytes: 1_110_000_000 }), embed({ bytes: 310_000_000 })])).toBe("Chat model 1.11 GB + note search 310 MB, use Wi-Fi");
+  });
+
+  it("names only what is still to come", () => {
+    expect(downloadSizes([embed({ bytes: 310_000_000 })])).toBe("Note search 310 MB, use Wi-Fi");
+    expect(downloadSizes([chat({ bytes: 810_000_000 })])).toBe("Chat model 810 MB, use Wi-Fi");
+    expect(downloadSizes([])).toBe("");
   });
 });

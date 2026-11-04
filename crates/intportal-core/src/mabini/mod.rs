@@ -31,17 +31,28 @@ pub struct MabiniClient {
     sesskey: String,
 }
 
-impl MabiniClient {
-    /// Signs in with one credential POST. `student_number` may have dashes
-    /// and capitals; eMabini's username is derived from it.
-    pub async fn sign_in(student_number: &str, password: &str) -> Result<Self, Error> {
+/// eMabini's login form, fetched with a GET that sends no credentials.
+pub struct LoginPage {
+    http: reqwest::Client,
+    token: String,
+}
+
+impl LoginPage {
+    pub async fn fetch() -> Result<Self, Error> {
         let http = reqwest::Client::builder()
             .cookie_store(true)
             .redirect(Policy::custom(|a| if host::is_trusted(a.url()) && a.previous().len() < 10 { a.follow() } else { a.stop() }))
             .build()?;
-        let login = format!("{BASE}/login/index.php");
-        let page = http.get(&login).send().await?.error_for_status()?.text().await?;
+        let page = http.get(format!("{BASE}/login/index.php")).send().await?.error_for_status()?.text().await?;
         let token = parse::login_token(&page).ok_or_else(|| Error::Network("no login form on the eMabini page".into()))?;
+        Ok(LoginPage { http, token })
+    }
+
+    /// The one credential POST. `student_number` may have dashes and
+    /// capitals; eMabini's username is derived from it.
+    pub async fn sign_in(self, student_number: &str, password: &str) -> Result<MabiniClient, Error> {
+        let LoginPage { http, token } = self;
+        let login = format!("{BASE}/login/index.php");
         let username = parse::username(student_number);
         let after = http
             .post(&login)
@@ -60,7 +71,9 @@ impl MabiniClient {
         let sesskey = parse::sesskey(&after).ok_or_else(|| Error::Network("eMabini gave no session key".into()))?;
         Ok(MabiniClient { http, sesskey })
     }
+}
 
+impl MabiniClient {
     async fn call(&self, method: &str, args: Value) -> Result<Value, Error> {
         let url = format!("{BASE}/lib/ajax/service.php?sesskey={}&info={method}", self.sesskey);
         let body = json!([{ "index": 0, "methodname": method, "args": args }]);
@@ -72,19 +85,7 @@ impl MabiniClient {
     /// session that expired fails the whole sync (the caller signs in again);
     /// any other failure keeps what `previous` had for that part.
     pub async fn sync(&self, now: i64, previous: &MabiniData) -> Result<MabiniData, Error> {
-        fn keep<T: Clone>(r: Result<Vec<T>, Error>, old: &[T]) -> Result<Vec<T>, Error> {
-            match r {
-                Err(Error::SignedOut) => Err(Error::SignedOut),
-                Err(_) => Ok(old.to_vec()),
-                Ok(v) => Ok(v),
-            }
-        }
-        Ok(MabiniData {
-            courses: keep(self.courses().await, &previous.courses)?,
-            deadlines: keep(self.deadlines(now - 86_400, 50).await, &previous.deadlines)?,
-            grades: keep(self.grades().await, &previous.grades)?,
-            last_synced: Some(now as u64),
-        })
+        combine(self.courses().await, self.deadlines(now - 86_400, 50).await, self.grades().await, previous, now)
     }
 
     pub async fn courses(&self) -> Result<Vec<Course>, Error> {
@@ -105,5 +106,57 @@ impl MabiniClient {
             return Err(Error::SignedOut);
         }
         Ok(parse::course_grades(&page))
+    }
+}
+
+/// One sync's three reads into what the phone keeps. Nothing read at all
+/// fails like a SIS sync does, rather than stamping old data as fresh.
+fn combine(
+    courses: Result<Vec<Course>, Error>,
+    deadlines: Result<Vec<Deadline>, Error>,
+    grades: Result<Vec<CourseGrade>, Error>,
+    previous: &MabiniData,
+    now: i64,
+) -> Result<MabiniData, Error> {
+    if [courses.as_ref().err(), deadlines.as_ref().err(), grades.as_ref().err()].contains(&Some(&Error::SignedOut)) {
+        return Err(Error::SignedOut);
+    }
+    let (courses, deadlines, grades) = match (courses, deadlines, grades) {
+        (Err(e), Err(_), Err(_)) => return Err(e),
+        all => all,
+    };
+    Ok(MabiniData {
+        courses: courses.unwrap_or_else(|_| previous.courses.clone()),
+        deadlines: deadlines.unwrap_or_else(|_| previous.deadlines.clone()),
+        grades: grades.unwrap_or_else(|_| previous.grades.clone()),
+        last_synced: Some(now as u64),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn old() -> MabiniData {
+        MabiniData { grades: vec![CourseGrade { course_id: Some(1), name: "OOP".into(), grade: None }], last_synced: Some(500), ..Default::default() }
+    }
+
+    #[test]
+    fn c128_2_every_fetch_failing_fails_the_sync() {
+        let down = || Err::<Vec<()>, _>(Error::Network("down".into()));
+        let r = combine(down().map(|_| vec![]), down().map(|_| vec![]), down().map(|_| vec![]), &old(), 1000);
+        assert_eq!(r, Err(Error::Network("down".into())), "no fresh last_synced over old data");
+    }
+
+    #[test]
+    fn one_failed_part_keeps_the_old_part() {
+        let r = combine(Ok(vec![]), Ok(vec![]), Err(Error::Network("down".into())), &old(), 1000).unwrap();
+        assert_eq!(r.grades, old().grades);
+        assert_eq!(r.last_synced, Some(1000));
+    }
+
+    #[test]
+    fn signed_out_fails_the_sync() {
+        assert_eq!(combine(Ok(vec![]), Err(Error::SignedOut), Ok(vec![]), &old(), 1000), Err(Error::SignedOut));
     }
 }

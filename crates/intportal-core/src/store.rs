@@ -33,6 +33,12 @@ pub struct Snapshot {
     pub host: Option<String>,
     /// RFC 3339, written by the shell.
     pub last_synced: Option<String>,
+    /// Deadlines the student added (spec 041).
+    #[serde(default)]
+    pub own_deadlines: Vec<crate::deadline::OwnDeadline>,
+    /// Deadline ids marked done on this phone: eMabini and own ones (041 C5).
+    #[serde(default)]
+    pub done: std::collections::BTreeSet<String>,
 }
 
 /// The file one student's data lives in. Each student number gets its own,
@@ -193,6 +199,8 @@ impl Store {
             syllabus: self.get("syllabus")?.unwrap_or_default(),
             host: self.get::<Option<_>>("host")?.flatten(),
             last_synced: self.get::<Option<_>>("last_synced")?.flatten(),
+            own_deadlines: self.get("own_deadlines")?.unwrap_or_default(),
+            done: self.get("done")?.unwrap_or_default(),
         })
     }
 
@@ -205,6 +213,8 @@ impl Store {
         self.put("goals", &s.goals)?;
         self.put("syllabus", &s.syllabus)?;
         self.put("host", &s.host)?;
+        self.put("own_deadlines", &s.own_deadlines)?;
+        self.put("done", &s.done)?;
         self.put("last_synced", &s.last_synced)
     }
 
@@ -489,6 +499,17 @@ mod tests {
         assert_eq!(marks.mode.get("A-1-0-60", Date::new(2026, 8, 5)), Some(Mark::Vacant));
         assert_eq!(marks.mode.get("A-1-0-60", Date::new(2026, 8, 10)), Some(Mark::Online));
         assert_eq!(marks.moved, Default::default());
+    }
+
+    #[test]
+    fn c8_delete_note_drops_chunks() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "Trees are graphs", None, 100).unwrap();
+        store.replace_chunks("note:a", 100, "m", &[("Trees are graphs".into(), vec![1.0, 0.0])]).unwrap();
+        assert_eq!(store.chunks("m").unwrap().len(), 1);
+        store.set_note("note:a", "", None, 200).unwrap();
+        assert!(store.notes().unwrap().is_empty());
+        assert!(store.chunks("m").unwrap().is_empty(), "spec 040 C8: the AI can't quote a deleted note");
     }
 
     #[test]

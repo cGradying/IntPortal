@@ -166,6 +166,7 @@ pub fn study_reminders(decks: &[Deck], now: Moment, minute: u16, days: i64, utc_
                 minute,
                 title: "Time to study".into(),
                 body: format!("{due} {} due. A few minutes keeps them.", if due == 1 { "card" } else { "cards" }),
+                open: None,
             })
         })
         .collect()

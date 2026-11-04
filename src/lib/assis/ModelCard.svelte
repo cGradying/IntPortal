@@ -1,16 +1,21 @@
 <script lang="ts">
   // The Storage card for LAR's brain. Light is the default: nothing is
   // downloaded unless the student asks, and they can take it off again.
-  import { assis, cancelDownload, chatModel, embedModel, install, installed, mb, open, remove } from "./assis.svelte";
+  import { addSearch, assis, cancelDownload, chatModel, defaultChat, downloadSizes, embedModel, install, installed, larStyle, mb, open, remove, setLarStyle, STYLE_MAX, updatable } from "./assis.svelte";
   import { buzz } from "../haptics";
 
   const m = $derived(chatModel());
   const e = $derived(embedModel());
   // Both models install together; someone who added only LAR's brain before can add the note search later.
   const total = $derived((m?.bytes ?? 0) + (e && !e.installed ? e.bytes : 0));
+  const todo = $derived([m, e].filter((x): x is NonNullable<typeof x> => !!x && !x.installed));
   const searchMissing = $derived(!!e && !e.installed);
+  // A phone that has the old chat model keeps answering with it; the update brings the default (and the search model, if missing).
+  const next = $derived(defaultChat());
+  const update = $derived(updatable() && next ? mb(next.bytes + (e && !e.installed ? e.bytes : 0)) : "");
   const pct = $derived(assis.total ? Math.min(100, Math.round((assis.done / assis.total) * 100)) : 0);
   let confirming = $state(false);
+  let style = $state(larStyle());
 </script>
 
 {#if m}
@@ -25,8 +30,16 @@
       <div class="line"><span>On · {m.name}</span><strong>{mb(m.bytes + (e?.installed ? e.bytes : 0))} on this phone</strong></div>
       <p class="fine">{searchMissing ? "LAR answers from your schedule and grades." : "LAR answers from your schedule, grades and notes, and can summarize or tidy a note."} It runs on this phone, so it works offline and nothing is sent anywhere.</p>
       <button class="primary" onclick={open}>Ask LAR</button>
-      {#if searchMissing && e}
-        <button class="ghost" onclick={() => { buzz.tick(); install(); }}>Add note search · {mb(e.bytes)}</button>
+      <label class="style">
+        <span class="label">How LAR talks to me</span>
+        <textarea bind:value={style} oninput={() => setLarStyle(style)} maxlength={STYLE_MAX} rows="2" placeholder="Optional, like “call me Ate” or “Taglish, a bit playful”"></textarea>
+        <span class="fine">{style.length}/{STYLE_MAX}. Only changes how LAR sounds; it still follows its own rules and never changes your data without your tap.</span>
+      </label>
+      {#if update}
+        <button class="ghost" onclick={() => { buzz.tick(); install(); }}>Update IntAssis · {update}</button>
+        <p class="fine">A newer model for LAR. Your chat and notes stay, and {m.name} keeps answering until it arrives. Use Wi-Fi.</p>
+      {:else if searchMissing && e}
+        <button class="ghost" onclick={() => { buzz.tick(); addSearch(); }}>Add note search · {mb(e.bytes)}</button>
       {/if}
       {#if confirming}
         <div class="row">
@@ -38,7 +51,7 @@
       {/if}
     {:else}
       <div class="line"><span>Light</span><strong>No AI, nothing downloaded</strong></div>
-      <p class="fine">Add IntAssis to ask LAR about your classes, deadlines, grades and notes, to save a note or a reminder by asking, and to make flashcards on a topic. It is a one-time {mb(total)} download (use Wi-Fi) and it works offline after that.</p>
+      <p class="fine">Add IntAssis to ask LAR about your classes, deadlines, grades and notes, to save a note or a reminder by asking, and to make flashcards on a topic. It is a one-time {mb(total)} download: {downloadSizes(todo)}. It works offline after that.</p>
       {#if m.fits === "refuse"}
         <p class="fine warn">This phone doesn't have enough free memory for it right now. Close other apps and open this again.</p>
       {:else}
@@ -77,6 +90,22 @@
   }
   .warn {
     color: var(--ink-2);
+  }
+  .style {
+    display: grid;
+    gap: 6px;
+  }
+  textarea {
+    min-width: 0;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink);
+    font: inherit;
+    font-size: max(16px, min(0.941rem, 29px));
+    resize: none;
   }
   .bar {
     height: 10px;

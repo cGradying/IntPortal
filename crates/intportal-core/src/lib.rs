@@ -4,10 +4,12 @@
 pub mod calendar;
 pub mod campus;
 pub mod coach;
+pub mod deadline;
 pub mod grades;
 pub mod mabini;
 pub mod model;
 pub mod notes;
+pub mod nudge;
 pub mod portal;
 pub mod schedule;
 pub mod schools;
@@ -16,3 +18,4 @@ pub mod store;
 pub mod study;
 pub mod syllabus;
 pub mod today;
+pub mod when;
