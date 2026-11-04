@@ -1,6 +1,6 @@
 // eMabini deadlines as the student reads them: a day word, a clean title, the
 // subject, overdue ones apart. Pure, so the card only draws.
-import type { Deadline } from "./api";
+import type { Deadline, DeadlineEntry } from "./api";
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 
@@ -32,3 +32,33 @@ export function splitCourseName(fullname: string): { subject: string; term: stri
 
 /** The subject part of a course name. */
 export const subjectOf = (fullname: string) => splitCourseName(fullname).subject;
+
+/** Spec 041 C7: the day word for any deadline in the one list. A whole-day one is due at 11:59 PM. */
+export function entryLabel(d: DeadlineEntry, now: Date): string {
+  if (d.overdue) return "Overdue";
+  const due = "at" in d.due ? new Date(d.due.at * 1000) : new Date(`${d.due.day}T23:59`);
+  if (due.getTime() < now.getTime()) return "Overdue";
+  const days = Math.round((startOfDay(due) - startOfDay(now)) / 86_400_000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return days < 7 ? due.toLocaleDateString(undefined, { weekday: "short" }) : due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** Spec 041 C9: eMabini's part in the card. `off` when not connected. */
+export type MabiniState = "off" | "never" | "failed" | "ok";
+
+export function mabiniState(connected: boolean, lastSynced: number | null | undefined, error: string | null): MabiniState {
+  if (!connected) return "off";
+  if (error) return "failed";
+  return lastSynced ? "ok" : "never";
+}
+
+const DAY_MS = 86_400_000;
+
+/** "Nothing due" is only said when every connected source synced in the last day (C9). */
+export function knowsNothingDue(sisSynced: string | null | undefined, mabini: MabiniState, mabiniSynced: number | null | undefined, now: Date): boolean {
+  const fresh = (ms: number) => now.getTime() - ms < DAY_MS;
+  const sisOk = !sisSynced || fresh(Number(sisSynced) * 1000 || Date.parse(sisSynced));
+  const mabiniOk = mabini === "off" || (mabini === "ok" && !!mabiniSynced && fresh(mabiniSynced * 1000));
+  return sisOk && mabiniOk;
+}

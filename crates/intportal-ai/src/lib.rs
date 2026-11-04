@@ -3,15 +3,21 @@
 //! compiles it (ADR 0003).
 
 pub mod assis;
+pub mod due;
+pub mod evalset;
 pub mod gen;
+pub mod ground;
 pub mod intent;
+pub mod lang;
 pub mod llm;
 pub mod models;
 pub mod note;
 pub mod outline;
 pub mod pdf;
+pub mod persona;
 pub mod prompt;
 pub mod rag;
+pub mod scope;
 pub mod reply;
 pub mod schema;
 pub mod why;

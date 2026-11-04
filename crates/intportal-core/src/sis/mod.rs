@@ -7,7 +7,7 @@ pub mod host;
 pub mod scrape;
 
 pub use client::SisClient;
-pub use guard::{sign_in_guarded, Ledger};
+pub use guard::{post_once, sign_in_guarded, Ledger};
 
 /// The student's own SIS login. `Debug` never prints the password.
 #[derive(Clone)]

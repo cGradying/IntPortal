@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Synced from "../Synced.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Scene from "../Scene.svelte";
   import ErrorCard from "../ErrorCard.svelte";
@@ -18,22 +19,31 @@
   let view = $state<"day" | "week">(stored("scheduleView") === "week" ? "week" : "day");
   const colors = $derived(app.snapshot?.colors ?? {});
 
-  const monday = (() => {
+  // Spec 040 C13: weeks before and after this one; 0 is this week.
+  let offset = $state(0);
+  const monday = $derived.by(() => {
     const d = new Date();
-    d.setDate(d.getDate() - todayIdx);
-    return d;
-  })();
-  const dates = WEEKDAYS.map((_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - todayIdx + offset * 7);
     return d;
   });
+  const dates = $derived(
+    WEEKDAYS.map((_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return d;
+    }),
+  );
+  const weekLabel = $derived(
+    offset === 0 ? "This week" : offset === 1 ? "Next week" : offset === -1 ? "Last week" : `Week of ${monday.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+  );
 
   // The core applies marks and moves; re-read whenever the snapshot changes.
   const week = resource(() => api.week(isoDate(monday)));
   const meetings = $derived(week.current.state === "ready" ? week.current.value : []);
   $effect(() => {
     void app.snapshot;
+    void monday;
     week.reload();
   });
 
@@ -101,8 +111,14 @@
 
 <div class="screen">
   <header>
-    <p class="label">This week</p>
+    <div class="weeks">
+      <button class="nav" onclick={() => offset--} aria-label="Previous week">‹</button>
+      <p class="label">{weekLabel}</p>
+      <button class="nav" onclick={() => offset++} aria-label="Next week">›</button>
+      {#if offset !== 0}<button class="nav this" onclick={() => (offset = 0)}>This week</button>{/if}
+    </div>
     <h1>Schedule</h1>
+    <Synced />
   </header>
 
   <div class="seg" role="tablist" aria-label="View">
@@ -115,12 +131,12 @@
   {:else if week.current.state === "failed"}
     <ErrorCard error={week.current.error} onretry={week.reload} />
   {:else if view === "week"}
-    <WeekGrid meetings={meetings.filter((m) => !(hideVacant && m.mark === "vacant"))} {colors} {todayIdx} {spans} onpick={pick} />
+    <WeekGrid meetings={meetings.filter((m) => !(hideVacant && m.mark === "vacant"))} {colors} todayIdx={offset === 0 ? todayIdx : -1} {spans} onpick={pick} />
     <label class="toggle"><input type="checkbox" checked={hideVacant} onchange={toggleVacant} /> Hide vacant classes</label>
   {:else}
   <div class="days" role="tablist">
     {#each WEEKDAYS as d, i (d)}
-      <button role="tab" class:on={day === d} class:today={i === todayIdx} aria-selected={day === d} onclick={() => (day = d)}>
+      <button role="tab" class:on={day === d} class:today={offset === 0 && i === todayIdx} aria-selected={day === d} onclick={() => (day = d)}>
         <span>{d.slice(0, 3)}</span>
         <strong class="num">{dates[i].getDate()}</strong>
         <i class:has={busy.has(d)}></i>
@@ -345,5 +361,25 @@
   }
   @keyframes fade {
     from { opacity: 0; }
+  }
+  .weeks {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .nav {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 8px;
+    border: 0;
+    background: none;
+    color: var(--ink-2);
+    font-size: 1.1rem;
+  }
+  .nav.this {
+    margin-left: auto;
+    font-size: min(0.765rem, 23px);
+    font-weight: 700;
+    color: var(--gold);
   }
 </style>

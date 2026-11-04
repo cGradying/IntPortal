@@ -59,7 +59,7 @@
   );
   const gesture = $derived<Gesture>(waving && mood === "idle" ? "wave" : "idle");
   const status = $derived(
-    assis.busy === "waking" ? "Waking up" : assis.busy === "thinking" ? "Thinking" : assis.busy === "cards" ? "Making cards" : dozing ? "Dozing. Ask me anything." : "On this phone, offline",
+    assis.busy === "waking" ? (assis.slow ? "Still waking up. This phone is slow." : "Waking up") : assis.busy === "thinking" ? "Thinking" : assis.busy === "cards" ? "Making cards" : dozing ? "Dozing. Ask me anything." : "On this phone, offline",
   );
 
   // Where the orb and his perch are, as centres in px. The sheet is still
@@ -258,6 +258,8 @@
                   <button class="yes" onclick={() => apply(i)} disabled={assis.busy === "cards"}>{assis.busy === "cards" ? "Making…" : d.yes}</button>
                   <button class="no" onclick={() => dismiss(i)}>Not now</button>
                 </div>
+              {:else if m.state === "done" && m.notice}
+                <p class="problem">{m.notice}</p>
               {:else if m.state === "done"}
                 <p class="ok">Done</p>
               {:else}

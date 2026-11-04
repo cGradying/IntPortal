@@ -31,8 +31,8 @@ export async function busyFrom(from: Date, days: number): Promise<Busy[]> {
 /** How far ahead the IntPortal calendar holds classes. Each sync renews it. */
 const DAYS = 56;
 
-/** Replaces the IntPortal calendar's next eight weeks with the classes,
- *  or with nothing when the student turns it off. */
+/** Replaces the IntPortal calendar's next eight weeks with the classes and
+ *  deadlines (spec 041 C21–C23), or with nothing when the student turns it off. */
 export async function keepClasses(none = false) {
   const from = new Date();
   from.setHours(0, 0, 0, 0);
@@ -42,7 +42,9 @@ export async function keepClasses(none = false) {
     title: e.title,
     notes: e.notes,
     start: localMs(e.date, e.start),
-    end: localMs(e.date, e.end),
+    // A whole-day event ends at the next midnight.
+    end: e.all_day ? localMs(e.date, 24 * 60) : localMs(e.date, e.end),
+    allDay: e.all_day,
   }));
   await invoke("plugin:calendar|sync_classes", { from: from.getTime(), to: to.getTime(), events });
 }

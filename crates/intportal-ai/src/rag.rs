@@ -2,14 +2,39 @@
 //! (vectors are unit length, so a dot product), a 0.5 floor and a 4000-char
 //! budget, as the old macOS app tuned them.
 use crate::llm::Llm;
-use intportal_core::store::{Store, StoreError};
+use intportal_core::store::{Source, Store, StoreError};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 pub const CHUNK: usize = 700;
-// nomic-embed v1.5 scores unrelated notes 0.47 to 0.6 and the right one 0.57 to 0.81
-// (crates/intportal-llm/examples/embed.rs), so the old app's 0.35 kept everything.
-pub const FLOOR: f32 = 0.5;
+// Tuned on EmbeddingGemma-2 with crates/intportal-llm/examples/embed_eval.rs (58 questions a note
+// answers, 32 that nothing answers, over 32 notes). 0.72 keeps 74% of the first and lets 6% of
+// the second through (0.5, nomic's old value, let all of them through). The best balanced floor
+// is 0.71, but one question sits between 0.710 and 0.712 and 0.72 starts the plateau where false
+// accepts stop falling, with fewer answers invented from a near-miss note. A floor only drops the
+// clearly unrelated: "ano ang pokus ng pandiwa" scores 0.82 because a note names the topic, so
+// the prompt must still say "I don't know". Scores shift with the embedder: change the model,
+// rerun embed_eval, change this.
+pub const FLOOR: f32 = 0.72;
+/// A chunk this close under `FLOOR` is a near hit. Recall at the floor is 74%, and "how long is my study block"
+/// scored 0.70 against a note about 25-minute blocks: it keeps a question about the notes in scope and the
+/// model sees the chunk, but it is not counted as a clear match. 0.03 is the width of the cliff in the sweep.
+pub const NEAR: f32 = 0.03;
 pub const BUDGET: usize = 4000;
+
+/// What `notes::heading` calls a note with no title. It says nothing about the note, so it is "none".
+const UNTITLED: &str = "Untitled note";
+
+/// EmbeddingGemma-2 wants a task prefix on every text. A note chunk is a
+/// document, titled with its source's heading ("none" when it has none).
+pub fn doc_text(title: &str, chunk: &str) -> String {
+    let title = title.lines().next().unwrap_or("").trim();
+    format!("title: {} | text: {chunk}", if title.is_empty() || title == UNTITLED { "none" } else { title })
+}
+
+/// The student's question as a search query.
+pub fn query_text(q: &str) -> String {
+    format!("task: search result | query: {q}")
+}
 
 #[derive(Debug, PartialEq)]
 pub struct Hit {
@@ -67,30 +92,56 @@ fn db(store: &Mutex<Store>) -> MutexGuard<'_, Store> {
 /// whose source is gone. A source the model cannot embed is skipped, so one
 /// odd one never stops the rest from being found.
 pub fn refresh(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str) -> Result<(), RagError> {
-    let stale = {
-        let s = db(store);
-        s.prune_chunks()?;
-        s.stale_sources(model)?
-    };
-    for src in stale {
+    for src in pending(store, model)? {
         let texts = chunk_text(&src.text);
-        let docs: Vec<String> = texts.iter().map(|t| format!("search_document: {t}")).collect();
-        let Ok(vecs) = llm.embed(&docs.iter().map(String::as_str).collect::<Vec<_>>()) else { continue };
-        db(store).replace_chunks(&src.key, src.stamp, model, &texts.into_iter().zip(vecs).collect::<Vec<_>>())?;
+        let docs: Vec<String> = texts.iter().map(|t| doc_text(&src.title, t)).collect();
+        let rows = embed_all(llm, texts, &docs);
+        if rows.is_empty() {
+            continue; // nothing embedded: stays stale and is tried again
+        }
+        db(store).replace_chunks(&src.key, src.stamp, model, &rows)?;
     }
     Ok(())
+}
+
+/// The sources `refresh` would embed: changed since their last chunks, or chunked by another model, and
+/// with something to embed (a blank note stays "stale" in the store forever and must not count). Also
+/// drops chunks whose source is gone. The caller asks this before loading the embedder, so a pass with
+/// nothing to do never wakes the model.
+pub fn pending(store: &Mutex<Store>, model: &str) -> Result<Vec<Source>, RagError> {
+    let s = db(store);
+    s.prune_chunks()?;
+    Ok(s.stale_sources(model)?.into_iter().filter(|src| !chunk_text(&src.text).is_empty()).collect())
+}
+
+/// One call for the whole source (one model context). If it fails, each chunk is tried alone, so a
+/// chunk the model refuses costs only itself and the source is no longer retried on every question.
+fn embed_all(llm: &mut dyn Llm, texts: Vec<String>, docs: &[String]) -> Vec<(String, Vec<f32>)> {
+    if let Ok(vecs) = llm.embed(&docs.iter().map(String::as_str).collect::<Vec<_>>()) {
+        return texts.into_iter().zip(vecs).collect();
+    }
+    texts
+        .into_iter()
+        .zip(docs)
+        .filter_map(|(t, d)| Some((t, llm.embed(&[d.as_str()]).ok()?.pop()?)))
+        .collect()
 }
 
 /// Best chunks for `query` (best first): at least `FLOOR`, at most `k`, and
 /// within `BUDGET` chars together. Refreshes stale sources first.
 pub fn search(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str, query: &str, k: usize) -> Result<Vec<Hit>, RagError> {
+    search_from(store, llm, model, query, k, FLOOR)
+}
+
+/// Like `search` with another floor; `FLOOR - NEAR` also returns the near hits (their `score` tells them apart).
+pub fn search_from(store: &Mutex<Store>, llm: &mut dyn Llm, model: &str, query: &str, k: usize, floor: f32) -> Result<Vec<Hit>, RagError> {
     refresh(store, llm, model)?;
-    let q = llm.embed(&[&format!("search_query: {query}")]).map_err(RagError::Embed)?.pop().unwrap_or_default();
+    let q = llm.embed(&[&query_text(query)]).map_err(RagError::Embed)?.pop().unwrap_or_default();
     let mut hits: Vec<Hit> = db(store)
         .chunks(model)?
         .into_iter()
         .map(|(key, text, v)| Hit { score: q.iter().zip(&v).map(|(a, b)| a * b).sum(), key, text })
-        .filter(|h| h.score >= FLOOR)
+        .filter(|h| h.score >= floor)
         .collect();
     hits.sort_by(|a, b| b.score.total_cmp(&a.score));
     let mut used = 0;
@@ -137,15 +188,56 @@ mod tests {
     fn search_finds_the_matching_note_with_prefixes_and_embeds_once() {
         let store = Mutex::new(Store::in_memory().unwrap());
         db(&store).set_note("note:a", "binary tree traversal, tree height", None, 1).unwrap();
-        db(&store).set_note("note:b", "tuition due Monday", None, 1).unwrap();
+        db(&store).set_note("note:b", "tuition due Monday", Some("Cashier"), 1).unwrap();
         let mut llm = Topics(vec![]);
         let hits = search(&store, &mut llm, "m", "tree", 3).unwrap();
         assert_eq!(hits.iter().map(|h| h.key.as_str()).collect::<Vec<_>>(), ["note:a"]);
-        assert!(llm.0.contains(&"search_query: tree".to_string()));
-        assert!(llm.0.iter().any(|t| t.starts_with("search_document: tuition")));
+        assert!(llm.0.contains(&"task: search result | query: tree".to_string()));
+        assert!(llm.0.contains(&"title: Cashier | text: tuition due Monday".to_string()), "{:?}", llm.0);
         let embedded = llm.0.len();
         search(&store, &mut llm, "m", "tuition", 3).unwrap();
         assert_eq!(llm.0.len(), embedded + 1, "only the query is embedded the second time");
+    }
+
+    #[test]
+    fn a_lower_floor_also_returns_the_near_hits_with_their_scores() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).set_note("note:a", "binary tree", None, 1).unwrap();
+        db(&store).set_note("note:b", "tuition due Monday", None, 1).unwrap();
+        let mut llm = Topics(vec![]);
+        assert_eq!(keys(&search(&store, &mut llm, "m", "tree", 4).unwrap()), ["note:a"], "the floor drops the unrelated note");
+        let wide = search_from(&store, &mut llm, "m", "tree", 4, FLOOR - NEAR - 1.0).unwrap();
+        assert_eq!(keys(&wide), ["note:a", "note:b"]);
+        assert!(wide[0].score >= FLOOR && wide[1].score < FLOOR - NEAR, "the score tells a clear hit from a near one");
+    }
+
+    #[test]
+    fn prefixes_follow_embeddinggemma_2() {
+        assert_eq!(doc_text("Math 101", "limits"), "title: Math 101 | text: limits");
+        assert_eq!(doc_text("  ", "limits"), "title: none | text: limits");
+        assert_eq!(doc_text("Untitled note", "limits"), "title: none | text: limits");
+        assert_eq!(doc_text("Line one\nline two", "x"), "title: Line one | text: x", "a title is one line");
+        assert_eq!(query_text("kailan ang quiz?"), "task: search result | query: kailan ang quiz?");
+    }
+
+    #[test]
+    fn switching_the_embedder_makes_every_source_stale_and_replaces_the_old_rows() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).set_note("note:a", "binary tree", None, 1).unwrap();
+        db(&store).save_deck(&deck("d1", &[("tuition", "paid in June")])).unwrap();
+        syllabus(&store, "tree basics");
+        let mut llm = Topics(vec![]);
+        search(&store, &mut llm, "nomic-embed-v1.5", "tree", 4).unwrap();
+        assert_eq!(db(&store).chunks("nomic-embed-v1.5").unwrap().len(), 3);
+        assert_eq!(db(&store).stale_sources("embeddinggemma-2").unwrap().len(), 3, "old vectors are not reusable");
+
+        let embedded = llm.0.len();
+        let hits = search(&store, &mut llm, "embeddinggemma-2", "tree", 4).unwrap();
+        assert_eq!(llm.0.len(), embedded + 3 + 1, "three sources re-embedded, then the query");
+        assert_eq!(keys(&hits), ["note:a", "plan:COMP 1"]);
+        assert!(db(&store).chunks("nomic-embed-v1.5").unwrap().is_empty(), "the old rows are replaced, not kept beside the new");
+        assert_eq!(db(&store).chunks("embeddinggemma-2").unwrap().len(), 3);
+        assert!(db(&store).stale_sources("embeddinggemma-2").unwrap().is_empty());
     }
 
     #[test]
@@ -178,6 +270,53 @@ mod tests {
         db(&store).set_note("note:b", "tree", None, 1).unwrap();
         let hits = search(&store, &mut Picky, "m", "tree", 3).unwrap();
         assert_eq!(hits.iter().map(|h| h.key.as_str()).collect::<Vec<_>>(), ["note:b"]);
+    }
+
+    /// Counts embed calls and fails the test if the store is locked while the model runs.
+    struct Counting<'a> {
+        store: &'a Mutex<Store>,
+        calls: usize,
+        texts: usize,
+    }
+    impl Llm for Counting<'_> {
+        fn generate(&mut self, _: &str, _: Option<&serde_json::Value>, _: u32, _: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+            Err("unused".into())
+        }
+        fn embed(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+            assert!(self.store.try_lock().is_ok(), "the store must be free while a model embeds");
+            self.calls += 1;
+            self.texts += texts.len();
+            Ok(texts.iter().map(|_| vec![1.0]).collect())
+        }
+    }
+
+    #[test]
+    fn indexing_converges_embeds_one_call_per_source_and_holds_no_store_lock() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        db(&store).set_note("note:a", "binary tree", None, 1).unwrap();
+        db(&store).set_note("note:b", "tuition due Monday", Some("Cashier"), 1).unwrap();
+        db(&store).set_note("note:blank", "  \n\n ", None, 1).unwrap();
+        db(&store).save_deck(&deck("d1", &[("tuition", "paid in June")])).unwrap();
+        syllabus(&store, "tree basics");
+        let mut llm = Counting { store: &store, calls: 0, texts: 0 };
+        refresh(&store, &mut llm, "m").unwrap();
+        assert_eq!((llm.calls, llm.texts), (4, 4), "note a, note b, the deck and the plan; the blank note costs no call");
+        refresh(&store, &mut llm, "m").unwrap();
+        refresh(&store, &mut llm, "m").unwrap();
+        assert_eq!(llm.calls, 4, "the second and third pass are no-ops");
+        assert!(pending(&store, "m").unwrap().is_empty(), "the blank note stays stale in the store but is not pending, so nothing wakes the model");
+    }
+
+    #[test]
+    fn a_chunk_the_model_refuses_does_not_cost_the_rest_of_its_source() {
+        let store = Mutex::new(Store::in_memory().unwrap());
+        let text = format!("tree {}\n\nbad {}", "a".repeat(650), "b".repeat(650));
+        db(&store).set_note("note:a", &text, None, 1).unwrap();
+        assert_eq!(chunk_text(&text).len(), 2);
+        let hits = search(&store, &mut Picky, "m", "tree", 3).unwrap();
+        assert_eq!(keys(&hits), ["note:a"], "the good chunk is found");
+        assert_eq!(db(&store).chunks("m").unwrap().len(), 1);
+        assert!(db(&store).stale_sources("m").unwrap().is_empty(), "so the source is not re-embedded on every question");
     }
 
     fn deck(id: &str, cards: &[(&str, &str)]) -> intportal_core::study::Deck {
@@ -214,7 +353,7 @@ mod tests {
         search(&store, &mut llm, "m", "tree", 4).unwrap();
         assert_eq!(llm.0.len(), embedded + 1, "nothing changed, so only the query is embedded");
 
-        db(&store).save_deck(&deck("d1", &[("tuition", "paid in June"), ("tree", "has a root")])).unwrap();
+        db(&store).save_deck(&deck("d1", &[("tuition", "paid in June"), ("tree", "a tree has a root")])).unwrap();
         assert_eq!(db(&store).stale_sources("m").unwrap().iter().map(|s| s.key.as_str()).collect::<Vec<_>>(), ["card:d1"]);
         let mut both = keys(&search(&store, &mut llm, "m", "tree", 4).unwrap()).into_iter().map(String::from).collect::<Vec<_>>();
         both.sort();

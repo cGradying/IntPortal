@@ -2010,7 +2010,7 @@ dependencies = [
 
 [[package]]
 name = "intportal"
-version = "0.1.6"
+version = "0.1.8"
 dependencies = [
  "getrandom 0.3.4",
  "intportal-ai",
@@ -2035,7 +2035,7 @@ dependencies = [
 
 [[package]]
 name = "intportal-ai"
-version = "0.1.6"
+version = "0.1.8"
 dependencies = [
  "intportal-core",
  "lopdf",
@@ -2046,7 +2046,7 @@ dependencies = [
 
 [[package]]
 name = "intportal-core"
-version = "0.1.6"
+version = "0.1.8"
 dependencies = [
  "regex",
  "reqwest 0.12.28",
@@ -2061,7 +2061,7 @@ dependencies = [
 
 [[package]]
 name = "intportal-llm"
-version = "0.1.6"
+version = "0.1.8"
 dependencies = [
  "intportal-ai",
  "intportal-core",
@@ -2402,9 +2402,8 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "llama-cpp-2"
-version = "0.1.159"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fab4a3cd6f539c1d658161c85390c18b1d3f67283275e1567b34417dca3dd8c9"
+version = "0.1.161"
+source = "git+https://github.com/willsheldon/llama-cpp-rs?rev=cb98c630d0fec934a8a379db4fd63cd3622f6984#cb98c630d0fec934a8a379db4fd63cd3622f6984"
 dependencies = [
  "enumflags2",
  "llama-cpp-sys-2",
@@ -2415,9 +2414,8 @@ dependencies = [
 
 [[package]]
 name = "llama-cpp-sys-2"
-version = "0.1.159"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a96d43d9370ff79293fe9777c9a4bda9d3bacb7100b61ed1e3690df39e9ad9e"
+version = "0.1.161"
+source = "git+https://github.com/willsheldon/llama-cpp-rs?rev=cb98c630d0fec934a8a379db4fd63cd3622f6984#cb98c630d0fec934a8a379db4fd63cd3622f6984"
 dependencies = [
  "bindgen",
  "cc",
@@ -4653,7 +4651,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-calendar"
-version = "0.1.6"
+version = "0.1.8"
 dependencies = [
  "tauri",
  "tauri-plugin",
@@ -4661,7 +4659,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-glance"
-version = "0.1.6"
+version = "0.1.8"
 dependencies = [
  "tauri",
  "tauri-plugin",

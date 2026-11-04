@@ -9,7 +9,9 @@
 //! exceptions: a week marked vacant or moved is an EXDATE on the series, and
 //! a week-only move is its own one-off VEVENT.
 
+use crate::deadline::{local_parts, Deadline, Due};
 use crate::model::{ClassSession, Weekday};
+use crate::syllabus::Kind;
 use crate::today::{meetings_from, Date, Mark, Marks, Slot};
 use serde::{Deserialize, Serialize};
 
@@ -73,6 +75,8 @@ pub struct ClassEvent {
     pub date: Date,
     pub start: u16,
     pub end: u16,
+    /// A whole-day deadline (spec 041 C21); `start` and `end` are 0.
+    pub all_day: bool,
 }
 
 /// The meetings from `from` through `days` days on, with the student's
@@ -87,6 +91,31 @@ pub fn class_events(sessions: &[ClassSession], marks: &Marks, from: Date, days: 
             date: m.date,
             start: m.session.start,
             end: m.session.end,
+            all_day: false,
+        })
+        .collect()
+}
+
+/// Deadlines from 041's one list as calendar events from `from` on (C21):
+/// a whole-day one all day, a timed one (eMabini) as the 30 minutes ending
+/// at its due time. `key` is the deadline id, so a refresh replaces it.
+pub fn deadline_events(list: &[Deadline], from: Date, utc_offset: i32) -> Vec<ClassEvent> {
+    list.iter()
+        .filter_map(|d| {
+            let what = match d.kind {
+                Kind::Quiz => "Quiz",
+                Kind::Exam => "Exam",
+                _ => "Due",
+            };
+            let title = if d.label().is_empty() { format!("{what}: {}", d.title) } else { format!("{} {what}: {}", d.label(), d.title) };
+            let (date, start, end, all_day) = match d.due {
+                Due::Day(day) => (day, 0, 0, true),
+                Due::At(unix) => {
+                    let (day, m) = local_parts(unix, utc_offset);
+                    (day, m.saturating_sub(30), m, false)
+                }
+            };
+            (date >= from).then(|| ClassEvent { key: format!("dl:{}", d.id), title, notes: d.url.clone().unwrap_or_default(), date, start, end, all_day })
         })
         .collect()
 }
@@ -100,7 +129,8 @@ pub fn utc_stamp(unix_secs: i64) -> String {
 
 /// Every class from the week holding `from` through `until`, the last day of
 /// classes. `now_utc` is `YYYYMMDDTHHMMSSZ`, for DTSTAMP.
-pub fn ics(sessions: &[ClassSession], marks: &Marks, from: Date, until: Date, now_utc: &str) -> String {
+/// `deadlines` (from `deadline_events`) go in as one-off events (041 C24).
+pub fn ics(sessions: &[ClassSession], marks: &Marks, deadlines: &[ClassEvent], from: Date, until: Date, now_utc: &str) -> String {
     let monday = from.week_start();
     let weeks: Vec<Date> = std::iter::successors(Some(monday), |w| Some(w.add_days(7))).take_while(|w| *w <= until).collect();
     let mut lines: Vec<String> = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//IntPortal//Schedule//EN", "CALSCALE:GREGORIAN"].map(String::from).into();
@@ -138,6 +168,24 @@ pub fn ics(sessions: &[ClassSession], marks: &Marks, from: Date, until: Date, no
         }
         lines.push("END:VEVENT".into());
     }
+    for d in deadlines {
+        lines.push("BEGIN:VEVENT".into());
+        lines.push(format!("UID:{}@intportal", d.key));
+        lines.push(format!("DTSTAMP:{now_utc}"));
+        if d.all_day {
+            let day = |x: Date| format!("{:04}{:02}{:02}", x.y, x.m, x.d);
+            lines.push(format!("DTSTART;VALUE=DATE:{}", day(d.date)));
+            lines.push(format!("DTEND;VALUE=DATE:{}", day(d.date.add_days(1))));
+        } else {
+            lines.push(format!("DTSTART:{}", stamp(d.date, d.start)));
+            lines.push(format!("DTEND:{}", stamp(d.date, d.end)));
+        }
+        lines.push(format!("SUMMARY:{}", escape(&d.title)));
+        if !d.notes.is_empty() {
+            lines.push(format!("URL:{}", d.notes));
+        }
+        lines.push("END:VEVENT".into());
+    }
     lines.push("END:VCALENDAR".into());
     lines.iter().map(|l| fold(l)).collect::<Vec<_>>().join("\r\n") + "\r\n"
 }
@@ -159,7 +207,7 @@ mod tests {
 
     #[test]
     fn a_class_repeats_weekly_until_the_last_day() {
-        let out = ics(&[s("COMP 20073", Tuesday, 540, 630)], &Marks::default(), Date::new(2026, 8, 5), Date::new(2026, 12, 12), NOW);
+        let out = ics(&[s("COMP 20073", Tuesday, 540, 630)], &Marks::default(), &[], Date::new(2026, 8, 5), Date::new(2026, 12, 12), NOW);
         let body: Vec<&str> = out.split("\r\n").collect();
         assert_eq!(body[0], "BEGIN:VCALENDAR");
         assert!(body.contains(&"UID:COMP 20073-2-540-630@intportal"));
@@ -177,7 +225,7 @@ mod tests {
         marks.mode.set(&w[0].id(), None, Some(Mark::Vacant));
         marks.mode.set(&w[1].id(), None, Some(Mark::Online));
         marks.moved.set(&w[2].id(), None, Some(Slot { day: Friday, start: 900, end: 960 }));
-        let out = ics(&w, &marks, mon(), Date::new(2026, 8, 31), NOW);
+        let out = ics(&w, &marks, &[], mon(), Date::new(2026, 8, 31), NOW);
         assert!(!out.contains("SUMMARY:A"));
         assert!(out.contains("SUMMARY:B (Online)\r\nDESCRIPTION"));
         assert!(out.contains("LOCATION:Online"));
@@ -191,7 +239,7 @@ mod tests {
         let mut marks = Marks::default();
         marks.mode.set(&w[0].id(), Some(Date::new(2026, 8, 10)), Some(Mark::Vacant));
         marks.moved.set(&w[0].id(), Some(Date::new(2026, 8, 17)), Some(Slot { day: Wednesday, start: 780, end: 840 }));
-        let out = ics(&w, &marks, mon(), Date::new(2026, 8, 31), NOW);
+        let out = ics(&w, &marks, &[], mon(), Date::new(2026, 8, 31), NOW);
         assert!(out.contains("EXDATE:20260810T080000,20260817T080000"));
         assert!(out.contains("UID:A-1-480-540-2026-08-17@intportal\r\nDTSTAMP:20260927T120000Z\r\nDTSTART:20260819T130000"));
         assert!(!out.contains("-2026-08-10@intportal"));
@@ -230,5 +278,36 @@ mod tests {
         );
         let keys: std::collections::HashSet<String> = class_events(&w, &marks, mon(), 14).into_iter().map(|e| e.key).collect();
         assert_eq!(keys.len(), 3);
+    }
+
+    fn deadline(id: &str, label: &str, kind: Kind, due: Due) -> Deadline {
+        Deadline { id: id.into(), source: crate::deadline::Source::Own, subject: Some(label.into()), course: None, title: "Loops".into(), kind, due, overdue: false, url: None }
+    }
+
+    #[test]
+    fn c21_deadline_events_all_day_and_timed() {
+        // 2026-08-05 15:00 in Manila.
+        let at = (Date::new(2026, 8, 5).days() * 1440 + 15 * 60 - 480) * 60;
+        let list = [deadline("own:a", "COMP 20073", Kind::Quiz, Due::Day(Date::new(2026, 8, 4))), deadline("mab:7", "GEED 10053", Kind::Project, Due::At(at))];
+        let got = deadline_events(&list, mon(), 480);
+        assert_eq!(got[0], ClassEvent { key: "dl:own:a".into(), title: "COMP 20073 Quiz: Loops".into(), notes: String::new(), date: Date::new(2026, 8, 4), start: 0, end: 0, all_day: true });
+        assert_eq!((got[1].title.as_str(), got[1].date, got[1].start, got[1].end, got[1].all_day), ("GEED 10053 Due: Loops", Date::new(2026, 8, 5), 870, 900, false));
+    }
+
+    #[test]
+    fn c22_past_deadlines_never_reach_the_calendar() {
+        let list = [deadline("own:a", "COMP 20073", Kind::Quiz, Due::Day(Date::new(2026, 8, 2)))];
+        assert!(deadline_events(&list, mon(), 480).is_empty(), "before the synced range, where a refresh couldn't remove it");
+    }
+
+    #[test]
+    fn c24_ics_has_deadlines() {
+        let events = deadline_events(&[deadline("own:a", "COMP 20073", Kind::Exam, Due::Day(Date::new(2026, 8, 7)))], mon(), 480);
+        let out = ics(&[], &Marks::default(), &events, mon(), Date::new(2026, 12, 12), NOW);
+        let body: Vec<&str> = out.split("\r\n").collect();
+        assert!(body.contains(&"UID:dl:own:a@intportal"));
+        assert!(body.contains(&"DTSTART;VALUE=DATE:20260807"));
+        assert!(body.contains(&"DTEND;VALUE=DATE:20260808"));
+        assert!(body.contains(&"SUMMARY:COMP 20073 Exam: Loops"));
     }
 }

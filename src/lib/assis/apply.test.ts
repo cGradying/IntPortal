@@ -36,7 +36,7 @@ suite("applying a proposal", () => {
 
   it("says what it will do before it does it", () => {
     expect(describe({ kind: "add_note", subject: "MATH 101", text: "x" })).toEqual({ label: "Note for MATH 101", text: "x", yes: "Save note" });
-    expect(describe({ kind: "make_cards", topic: "trees" }).yes).toBe("Make cards");
+    expect(describe({ kind: "make_cards", topic: "trees", count: 8 }).yes).toBe("Make cards");
     expect(describe({ kind: "set_reminder", date: "2026-10-16", text: "Pay" }).label).toMatch(/^Reminder · .*8 AM$/);
   });
 });

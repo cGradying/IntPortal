@@ -45,12 +45,21 @@ export interface NoteItem {
 }
 
 export type Nudge =
-  | { kind: "deadline"; subject: string; topic: string; more: number }
+  | { kind: "deadline"; subject: string; topic: string; more: number; overdue: boolean; url: string | null }
   | { kind: "keep_streak"; streak: number; cards: number }
   | { kind: "use_the_gap"; minutes: number; cards: number }
   | { kind: "cards_due"; cards: number }
   | { kind: "target"; needed: number; target: number }
-  | { kind: "day_off" };
+  | { kind: "day_off" }
+  | { kind: "plan"; from: number; to: number; step: PlanStep | null; subject: string | null; cards: number };
+
+export interface PlanStep {
+  id: string;
+  title: string;
+  when: string;
+  subject: string | null;
+  url: string | null;
+}
 
 export type Rating = "again" | "hard" | "good" | "easy";
 
@@ -116,6 +125,29 @@ export interface Tally {
   equivalent: number | null;
   needed: number | null;
   target: number;
+  /** Spec 042 C10; null without a grading system. */
+  risk: Risk | null;
+}
+
+export type Risk =
+  | { kind: "on_track" }
+  | { kind: "needs"; percent: number }
+  | { kind: "out_of_reach"; best: number }
+  | { kind: "done"; percent: number };
+
+/** Grade risk as one line (spec 042 C10). */
+export function riskLine(r: Risk, target: number): string {
+  const pct = (n: number) => `${Math.round(n)}%`;
+  switch (r.kind) {
+    case "on_track":
+      return `On track for ${pct(target)}.`;
+    case "needs":
+      return `Needs ${pct(r.percent)} on what's left for ${pct(target)}.`;
+    case "out_of_reach":
+      return `${pct(target)} is out of reach. Best now: ${pct(r.best)}.`;
+    case "done":
+      return `All graded: ${pct(r.percent)}.`;
+  }
 }
 
 export interface Goals {
@@ -179,6 +211,37 @@ export interface Snapshot {
   syllabus: Record<string, Plan>;
   host: string | null;
   last_synced: string | null;
+  own_deadlines: OwnDeadline[];
+  done: string[];
+}
+
+/** Spec 041's one deadline list: syllabus, eMabini and the student's own. */
+export interface DeadlineEntry {
+  id: string;
+  source: "syllabus" | "mabini" | "own";
+  subject: string | null;
+  course: string | null;
+  title: string;
+  kind: ItemKind;
+  due: { day: string } | { at: number };
+  overdue: boolean;
+  url: string | null;
+}
+
+export interface OwnDeadline {
+  /** Empty for a new one. */
+  id: string;
+  title: string;
+  subject: string | null;
+  kind: ItemKind;
+  date: string;
+}
+
+export interface DeadlineDraft {
+  title: string;
+  subject: string | null;
+  kind: ItemKind;
+  date: string | null;
 }
 
 export interface Moment {
@@ -201,6 +264,8 @@ export interface ClassEvent {
   date: string;
   start: number;
   end: number;
+  /** A whole-day deadline (spec 041 C21). */
+  all_day: boolean;
 }
 
 export type Phase = "past" | "in_session" | "upcoming";
@@ -231,6 +296,8 @@ export interface Reminder {
   minute: number;
   title: string;
   body: string;
+  /** Where a tap goes (spec 042): `study:<code>:5`, `note:class:<code>`, or Today. */
+  open: string | null;
 }
 
 export type CampusResolution =
@@ -339,9 +406,13 @@ export const api = {
   parseOutline: (text: string, today: string) => invoke<SyllabusItem[]>("parse_outline", { text, today }),
   setPlan: (subjectCode: string, plan: Plan) => invoke<Snapshot>("set_plan", { subjectCode, plan }),
   tally: (components: Component[], target: number) => invoke<Tally>("tally", { components, target }),
-  due: (today: string, days: number) => invoke<[string, SyllabusItem][]>("due", { today, days }),
   coach: (now: Moment, dismissed: string[], busy: Busy[] = []) =>
-    invoke<{ nudge: Nudge; line: string; key: string } | null>("coach", { now, dismissed, busy }),
+    invoke<{ nudge: Nudge; line: string; key: string } | null>("coach", { now, dismissed, busy, utcOffset: -new Date().getTimezoneOffset() }),
+  deadlines: (now: Moment, days: number) => invoke<DeadlineEntry[]>("deadlines", { now, utcOffset: -new Date().getTimezoneOffset(), days }),
+  setDone: (id: string, done: boolean) => invoke<Snapshot>("set_done", { id, done }),
+  saveOwn: (own: OwnDeadline) => invoke<Snapshot>("save_own", { own }),
+  deleteOwn: (id: string) => invoke<Snapshot>("delete_own", { id }),
+  parseOwn: (text: string, today: string) => invoke<DeadlineDraft[]>("parse_own", { text, today }),
   study: (today: string) => invoke<StudyOverview>("study", { today }),
   deck: (id: string) => invoke<Deck>("deck", { id }),
   saveDeck: (deck: Deck) => invoke<Deck>("save_deck", { deck }),
@@ -351,11 +422,11 @@ export const api = {
     invoke<{ deck: Deck }>("review_card", { deckId, cardId, rating, today }),
   checkAnswer: (card: Card, typed: string) => invoke<boolean>("check_answer", { card, typed }),
   distractors: (cards: Card[], index: number, seed: number) => invoke<string[]>("distractors", { cards, index, seed }),
-  exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until }),
+  exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until, utcOffset: -new Date().getTimezoneOffset() }),
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
   today: (now: Moment, syncTrouble: string | null, busy: Busy[] = []) => invoke<Today>("today", { now, syncTrouble, busy }),
-  classEvents: (from: string, days: number) => invoke<ClassEvent[]>("class_events", { from, days }),
-  reminders: (now: Moment, lead: number, days: number, prefs: { deadlines: number | null; study: number | null; utc_offset: number }) =>
+  classEvents: (from: string, days: number) => invoke<ClassEvent[]>("class_events", { from, days, utcOffset: -new Date().getTimezoneOffset() }),
+  reminders: (now: Moment, lead: number, days: number, prefs: { deadlines: number | null; study: number | null; utc_offset: number; warm_up: boolean; after_class: boolean; brief: boolean }) =>
     invoke<Reminder[]>("reminders", { now, lead, days, prefs }),
   portals: () => invoke<Portal[]>("portals"),
   triesLeft: () => invoke<Tries>("tries_left"),
@@ -363,6 +434,7 @@ export const api = {
   mabiniSync: () => invoke<MabiniData>("mabini_sync"),
   mabiniData: () => invoke<MabiniData>("mabini_data"),
   hasMabiniLogin: () => invoke<boolean>("has_mabini_login"),
+  loginHint: (portal: string) => invoke<string | null>("login_hint", { portal }),
   mabiniTriesLeft: () => invoke<Tries>("mabini_tries_left"),
   mabiniSignOut: () => invoke<void>("mabini_sign_out"),
   campus: (studentNumber: string) => invoke<CampusResolution>("campus", { studentNumber }),
