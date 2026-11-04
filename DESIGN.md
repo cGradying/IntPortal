@@ -233,7 +233,9 @@ The root is the iPhone's body text size (`font: -apple-system-body`, 17 px at th
 ### Named Rules
 **The Capped Growth Rule.** Every font size is `min(rem, px)`. A new size divides the design px by 17 for the rem and sets the cap near 1.3 times (headings) or 1.8 times (body, labels). The tab bar is the one tighter cap (13 px), because five labels share the width.
 
-**The Pixel Voice Rule.** Pixelify Sans speaks for the other side (LAR, the stones, system hints) and never sets a heading, a button, or a sentence the student has to read twice.
+**The Pixel Voice Rule.** Pixelify Sans speaks for the other side (LAR, the stones, system hints) and sets small labels, chips, day names and tab labels, where its pixel lands on the icons' grid. It never sets a heading, a button, a time, a room, a date, a due item, or a sentence the student has to read twice.
+
+**The Pixel-Bridged Rule (spec 045 C8).** The phone's own face reads and titles: titles at 800 with -0.035em tracking. Pixelify bridges up from the art through the small labels. Hero numbers (the Up next time, GPA, Study counts) are the hand-drawn pixel numerals in `PixelNum.svelte`, growing in whole pixels. The wordmark stays Montserrat. Montserrat and Source Sans stay as the Classic text style in You.
 
 ## Layout
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PixelNum from "../PixelNum.svelte";
   // Decks of flashcards scheduled by FSRS in the core: what's due, the
   // streak, and a way in to each deck.
   import DeckPage from "../DeckPage.svelte";
@@ -61,9 +62,9 @@
     </header>
 
     <section class="card notch sum">
-      <div><p class="label">Due now</p><p class="big num">{overview?.due ?? 0}</p></div>
-      <div><p class="label">Streak</p><p class="big num">{#if overview?.streak}<Flame />{/if}{overview?.streak ?? 0}<small> {overview?.streak === 1 ? "day" : "days"}</small></p></div>
-      <div><p class="label">Today</p><p class="big num">{overview?.reviews_today ?? 0}<small> cards</small></p></div>
+      <div><p class="label">Due now</p><p class="big num"><PixelNum text={String(overview?.due ?? 0)} size={4} /></p></div>
+      <div><p class="label">Streak</p><p class="big num">{#if overview?.streak}<Flame />{/if}<PixelNum text={String(overview?.streak ?? 0)} size={4} /><small> {overview?.streak === 1 ? "day" : "days"}</small></p></div>
+      <div><p class="label">Today</p><p class="big num"><PixelNum text={String(overview?.reviews_today ?? 0)} size={4} /><small> cards</small></p></div>
     </section>
     <button class="primary all" onclick={reviewAll} disabled={!overview?.due}>{overview?.due ? `Review all due (${overview.due})` : "Nothing due"}</button>
 
@@ -114,8 +115,8 @@
     margin: 2px 0 0;
     font-family: var(--font-display);
     font-size: min(1.647rem, 36px);
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: var(--title-weight);
+    letter-spacing: var(--title-track);
   }
   .sum {
     --step: 4px;
@@ -130,6 +131,7 @@
     font-weight: 800;
   }
   .big small {
+    margin-left: 0.25em;
     font-size: min(0.765rem, 23px);
     font-weight: 600;
     color: var(--ink-3);
