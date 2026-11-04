@@ -237,7 +237,7 @@
   }
   h1 {
     margin: 0;
-    font-family: var(--font-display);
+    font-family: var(--font-wordmark);
     font-size: min(1.529rem, 34px);
     font-weight: 700;
     letter-spacing: -0.01em;

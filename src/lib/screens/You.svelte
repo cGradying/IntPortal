@@ -1,6 +1,6 @@
 <script lang="ts">
   import { askForCalendar } from "../devcal";
-  import { app, mabiniSyncNow, openNote, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setReminderLead, setRoom, setStudyAt, syncNow } from "../state.svelte";
+  import { app, mabiniSyncNow, openNote, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
   import { api, isoDate, type Portal } from "../api";
   import { onMount } from "svelte";
   import PortalConnect from "../PortalConnect.svelte";
@@ -197,6 +197,12 @@
         </button>
       {/each}
     </div>
+    <p class="label">Text style</p>
+    <div class="styles" role="group" aria-label="Text style">
+      <button class:on={app.textStyle === "intportal"} aria-pressed={app.textStyle === "intportal"} onclick={() => setTextStyle("intportal")}><span style:font-family="var(--font-ui)" style:font-weight="700">IntPortal</span></button>
+      <button class:on={app.textStyle === "classic"} aria-pressed={app.textStyle === "classic"} onclick={() => setTextStyle("classic")}><span style:font-family='"Montserrat Variable", system-ui, sans-serif' style:font-weight="700">Classic</span></button>
+    </div>
+    <p class="fine">Classic brings back Montserrat and Source Sans, the original look. The pixel numerals and LAR's voice stay as they are.</p>
     <label class="lockrow"><input type="checkbox" checked={haptics.on} onchange={(e) => { setHaptics(e.currentTarget.checked); buzz.tick(); }} /> Haptics</label>
     <p class="fine">Small taps you feel when you mark a class, pull to sync, finish a deck or unlock.</p>
     <label class="lockrow"><input type="checkbox" checked={sound.on} onchange={(e) => { setSound(e.currentTarget.checked); sfx.done(0); }} /> Sounds</label>
@@ -305,8 +311,8 @@
     margin: 2px 0 0;
     font-family: var(--font-display);
     font-size: min(1.647rem, 36px);
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: var(--title-weight);
+    letter-spacing: var(--title-track);
   }
   .block {
     --step: 4px;
@@ -366,6 +372,21 @@
     box-shadow: none;
   }
   /* Two rows that scroll sideways: no scroll area nested inside the page. */
+  .styles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .styles button {
+    min-height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--ground);
+    box-shadow: inset 0 0 0 1px var(--edge);
+  }
+  .styles button.on {
+    box-shadow: inset 0 0 0 2px var(--gold);
+  }
   .rooms {
     display: grid;
     grid-auto-flow: column;

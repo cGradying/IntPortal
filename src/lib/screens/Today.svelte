@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PixelNum from "../PixelNum.svelte";
   import Synced from "../Synced.svelte";
   import NeedSis from "../NeedSis.svelte";
   import CampusStrip from "../CampusStrip.svelte";
@@ -106,7 +107,7 @@
 
 <div class="screen">
   <header>
-    <p class="label">{dateLine}</p>
+    <p class="label data">{dateLine}</p>
     <h1>{greeting}</h1>
     <Synced />
     <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? dayNote.preview || "Today's note" : "+ Note for today"}</button>
@@ -146,7 +147,7 @@
           <p class="meta">{clock(next.session.start)}–{clock(next.session.end)}{next.session.faculty ? ` · ${next.session.faculty}` : ""}</p>
         </div>
         <div class="count">
-          <span class="big num">{hero.big}</span>
+          <span class="big"><PixelNum text={hero.big} size={5} /></span>
           <span class="unit">{hero.unit}</span>
         </div>
       {:else if !t && app.snapshot}
@@ -383,8 +384,8 @@
     margin: 2px 0 0;
     font-family: var(--font-display);
     font-size: min(1.647rem, 36px);
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: var(--title-weight);
+    letter-spacing: var(--title-track);
   }
   .hero {
     --step: 4px;
