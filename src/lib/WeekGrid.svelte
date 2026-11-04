@@ -23,7 +23,7 @@
     meetings: Meeting[];
     colors: Record<string, string>;
     todayIdx: number;
-    onpick: (m: Meeting) => void;
+    onpick: (m: Meeting, from: DOMRect) => void;
     /** A sideways swipe changes the week: -1 back, 1 on (C10). */
     onswipe?: (dir: -1 | 1) => void;
     spans?: Span[];
@@ -88,7 +88,7 @@
   function tapBlock(e: Event, m: Meeting, i: number) {
     if (moved) return;
     e.stopPropagation();
-    if (i === open) onpick(m);
+    if (i === open) onpick(m, (e.currentTarget as HTMLElement).getBoundingClientRect());
     else tapDay(i);
   }
 

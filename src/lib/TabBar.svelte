@@ -13,6 +13,7 @@
 </script>
 
 <nav class="bar">
+  <i class="sel" style:translate="{tabs.findIndex((t) => t.id === app.tab) * 100}% 0"></i>
   {#each tabs as t (t.id)}
     <button class:on={app.tab === t.id} onclick={() => { if (app.tab !== t.id) buzz.select(); app.tab = t.id; }} aria-current={app.tab === t.id ? "page" : undefined}>
       <PixelIcon name={t.icon} size={22} accent={app.tab === t.id ? "var(--gold)" : "currentColor"} />
@@ -22,6 +23,27 @@
 </nav>
 
 <style>
+  /* A pixel block steps under the chosen tab (spec 045 C22). */
+  .sel {
+    position: absolute;
+    left: 8px;
+    top: 6px;
+    width: calc((100% - 16px) / 5);
+    height: 44px;
+    pointer-events: none;
+    transition: translate 0.24s steps(4);
+  }
+  .sel::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 52px;
+    height: 44px;
+    translate: -50% 0;
+    background: var(--gold-soft);
+    clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
+  }
   .bar {
     position: fixed;
     left: 0;
@@ -36,6 +58,7 @@
     box-shadow: 0 -1px 0 var(--edge);
   }
   button {
+    position: relative;
     display: grid;
     justify-items: center;
     gap: 4px;

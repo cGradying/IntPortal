@@ -1,5 +1,6 @@
 <script lang="ts">
   import PixelNum from "../PixelNum.svelte";
+  import { counted } from "../count.svelte";
   // Decks of flashcards scheduled by FSRS in the core: what's due, the
   // streak, and a way in to each deck.
   import DeckPage from "../DeckPage.svelte";
@@ -16,6 +17,8 @@
 
   const study = resource(() => api.study(isoDate(new Date())));
   const overview = $derived(study.current.state === "ready" ? study.current.value : null);
+  const dueCount = counted("due", () => overview?.due ?? null);
+  const todayCount = counted("reviews", () => overview?.reviews_today ?? null);
   // Leaving the tab closes the deck, as it always did.
   $effect(() => () => {
     app.deck = null;
@@ -62,9 +65,9 @@
     </header>
 
     <section class="card notch sum">
-      <div><p class="label">Due now</p><p class="big num"><PixelNum text={String(overview?.due ?? 0)} size={4} /></p></div>
+      <div><p class="label">Due now</p><p class="big num"><PixelNum text={String(Math.round(dueCount.value ?? 0))} size={4} /></p></div>
       <div><p class="label">Streak</p><p class="big num">{#if overview?.streak}<Flame />{/if}<PixelNum text={String(overview?.streak ?? 0)} size={4} /><small> {overview?.streak === 1 ? "day" : "days"}</small></p></div>
-      <div><p class="label">Today</p><p class="big num"><PixelNum text={String(overview?.reviews_today ?? 0)} size={4} /><small> cards</small></p></div>
+      <div><p class="label">Today</p><p class="big num"><PixelNum text={String(Math.round(todayCount.value ?? 0))} size={4} /><small> cards</small></p></div>
     </section>
     <button class="primary all" onclick={reviewAll} disabled={!overview?.due}>{overview?.due ? `Review all due (${overview.due})` : "Nothing due"}</button>
 

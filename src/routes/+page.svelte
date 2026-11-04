@@ -139,6 +139,9 @@
   // Each tab opens at its top, not wherever the last one was scrolled.
   $effect(() => {
     if (app.tab !== firstTab) tabbed = true;
+    // The page slides toward the tab you chose (spec 045 C22).
+    slide = TAB_ORDER.indexOf(app.tab) >= TAB_ORDER.indexOf(lastTab) ? 12 : -12;
+    lastTab = app.tab;
     gallery = false;
     window.scrollTo(0, 0);
   });
@@ -147,6 +150,9 @@
   // there when they arrive (spec 010 C30).
   const firstTab = app.tab;
   let tabbed = $state(false);
+  const TAB_ORDER = ["today", "schedule", "grades", "study", "you"];
+  let lastTab = app.tab;
+  let slide = $state(12);
 
   function enter() {
     inside = true;
@@ -201,7 +207,7 @@
     <main>
       <PullToSync />
       {#key app.tab}
-        <div class="page" class:slides={tabbed}>
+        <div class="page" class:slides={tabbed} style:--slide="{slide}px">
           {#if app.tab === "today"}<Today />
           {:else if app.tab === "schedule"}{#if app.sisConnected}<Schedule />{:else}<div class="needs"><NeedSis what="your schedule" /></div>{/if}
           {:else if app.tab === "grades"}{#if app.sisConnected}<Grades />{:else}<div class="needs"><NeedSis what="your grades" /><MabiniGrades /></div>{/if}
@@ -272,13 +278,13 @@
     padding-bottom: calc(var(--safe-bottom) + 150px);
   }
   .page.slides {
-    animation: in 0.3s var(--ease) backwards;
+    animation: in 0.22s var(--ease) backwards;
   }
   .needs {
     display: grid;
     gap: 14px;
   }
   @keyframes in {
-    from { opacity: 0; transform: translateY(6px); }
+    from { opacity: 0; translate: var(--slide) 0; }
   }
 </style>
