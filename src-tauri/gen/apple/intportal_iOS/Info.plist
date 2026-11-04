@@ -21,7 +21,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>IntPortal uses the camera only when you tap it, to read a deadline from a photo or to add a photo. Nothing is sent anywhere.</string>
+	<string>IntPortal uses the camera only when you tap it, to read a deadline or a theme code from a photo, or to add a photo. Nothing is sent anywhere.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>IntPortal keeps your classes in an IntPortal calendar and counts your own events as busy time when it suggests study breaks.</string>
 	<key>NSCalendarsUsageDescription</key>

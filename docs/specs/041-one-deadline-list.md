@@ -104,7 +104,7 @@ Every deadline the student has is in one list, wherever it came from: the syllab
 - Sync failed: "Couldn't reach eMabini. Showing what we had at 3:40 PM."
 - Add sheet: "What's due?", placeholder "quiz COMP fri, or paste the GC message". Buttons **Paste**, **Scan**.
 - Confirm card: **Save**, **Cancel**. No date: "When is it due?" No subject: "Subject: None".
-- Camera permission: "IntPortal uses the camera only when you tap it, to read a deadline from a photo or to add a photo. Nothing is sent anywhere." (One line for every use of the camera; Scan's photo still isn't kept, per C16.)
+- Camera permission: "IntPortal uses the camera only when you tap it, to read a deadline or a theme code from a photo, or to add a photo. Nothing is sent anywhere." (One line for every use of the camera; Scan's photo still isn't kept, per C16.)
 - Camera denied: "Camera is off for IntPortal. Turn it on in Settings, or type it instead."
 - Calendar event title: `COMP 20073 Quiz: Loops`.
 
