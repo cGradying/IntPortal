@@ -13,17 +13,17 @@
 :root,
 :root[data-room="night"] {
   color-scheme: dark;
-  --ground: #19191c;
-  --ground-2: #202024;
-  --dot: rgba(245, 178, 39, 0.07);
-  --card: #26262a;
-  --card-2: #2d2d32;
-  --sunk: #1f1f23;
-  --edge: rgba(255, 255, 255, 0.07);
-  --edge-2: rgba(255, 255, 255, 0.13);
-  --ink: #efeff1;
-  --ink-2: #a9a9b1;
-  --ink-3: #7c7c85;
+  --ground: #0b0710;
+  --ground-2: #110a14;
+  --dot: rgba(232, 176, 74, 0.13);
+  --card: #170b1a;
+  --card-2: #1d1022;
+  --sunk: #120914;
+  --edge: rgba(244, 236, 216, 0.09);
+  --edge-2: rgba(244, 236, 216, 0.16);
+  --ink: #f4ecd8;
+  --ink-2: #bfb3c4;
+  --ink-3: #8f8296;
   --gold: #f5b227;
   --gold-soft: rgba(245, 178, 39, 0.14);
   --on-gold: #1b1406;
@@ -31,7 +31,7 @@
   --maroon-2: #9b1d36;
   --good: #58c792;
   --bad: #f07a6e;
-  --island: #0e0e10;
+  --island: #08050b;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   --s1: #e0697e; --s2: #e8866f; --s3: #e0b04a; --s4: #b58ad0; --s5: #5fbf9c; --s6: #7ea3e0;
 }
@@ -87,8 +87,27 @@
 }
 
 :root {
-  /* The landing's night, which every room's app is entered from. */
+  /* One night (spec 045 C1): the landing, the hub, LAR's chat and the Night room. */
   --void: #0b0710;
+  --void-2: #140c16;
+  --void-3: #170b1a;
+  --void-lift: #1c1220;
+  --void-ink: #060307;
+  --slab-edge: #3a2446;
+  --parch: #f4ecd8;
+  --cream: #fff6dc;
+  --white: #ffffff;
+  --rose: #f0a090;
+  /* Rubber stamps on the week's blocks: inks on paper, whatever the room. */
+  --stamp-paper: #fffdf6;
+  --stamp-online: #1b4f99;
+  --stamp-vacant: #765806;
+  --stamp-moved: #7a1128;
+  /* The portal world's own gold, on the void whatever the room. */
+  --portal-gold: #f5b227;
+  --portal-gold-hi: #ffc94a;
+  --portal-gold-shade: #b87a10;
+  --on-portal-gold: #1b1406;
   /* Checkboxes and other native controls in the room's gold, not system blue. */
   accent-color: var(--gold);
   /* Pixel-bridged (spec 045 C8): the phone's own face reads and titles; small labels
@@ -176,6 +195,73 @@ button:not(:disabled):active {
 }
 
 /* The legacy dot grid, fixed behind everything. */
+/* The living ground (spec 045 C3): two layers of soft pools in the school's ramp drift
+   against each other behind the dots and the cards. Transform only, so it runs on the
+   compositor; a backgrounded app stops it, and the Reduce Motion rule below ends it. */
+.dots::before,
+.dots::after {
+  content: "";
+  position: fixed;
+  inset: -45%;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform;
+}
+.dots::before {
+  background:
+    radial-gradient(32% 24% at 32% 30%, var(--aura-a), transparent 72%),
+    radial-gradient(30% 22% at 70% 68%, var(--aura-b), transparent 72%);
+  animation: aura1 13s ease-in-out infinite alternate;
+}
+.dots::after {
+  background:
+    radial-gradient(26% 24% at 66% 28%, var(--aura-c), transparent 72%),
+    radial-gradient(30% 20% at 26% 72%, var(--aura-b), transparent 72%);
+  animation: aura2 17s ease-in-out infinite alternate;
+}
+@keyframes aura1 {
+  from { transform: translate(-9%, -7%) rotate(-8deg); }
+  to { transform: translate(10%, 9%) rotate(10deg); }
+}
+@keyframes aura2 {
+  from { transform: translate(10%, 7%) rotate(9deg); }
+  to { transform: translate(-10%, -9%) rotate(-7deg); }
+}
+/* Pixel checkboxes in the room's accent (C6). The label around each one is the 44 pt target. */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 2px var(--ink-3);
+  clip-path: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+}
+input[type="checkbox"]:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+input[type="checkbox"]:checked {
+  background: var(--gold);
+  box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.25);
+  animation: stamp-in 0.18s steps(3) backwards;
+}
+input[type="checkbox"]:checked::after {
+  content: "";
+  width: 12px;
+  height: 9px;
+  background: var(--on-gold);
+  clip-path: polygon(0 50%, 25% 50%, 25% 75%, 37.5% 75%, 37.5% 50%, 62.5% 50%, 62.5% 25%, 75% 25%, 75% 0, 100% 0, 100% 25%, 87.5% 25%, 87.5% 50%, 75% 50%, 75% 75%, 62.5% 75%, 62.5% 100%, 25% 100%, 25% 75%, 0 75%);
+}
+@keyframes stamp-in {
+  from { scale: 0.6; }
+}
+
 .dots {
   background-color: var(--ground);
   background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);

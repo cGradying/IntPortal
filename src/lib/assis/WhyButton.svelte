@@ -52,9 +52,9 @@
     display: grid;
     gap: 6px;
     padding: 10px 12px;
-    background: #170b1a;
-    color: #f4e8d6;
-    box-shadow: inset 0 2px 0 #3a2446, inset 0 -2px 0 #060307;
+    background: var(--void-3);
+    color: var(--parch);
+    box-shadow: inset 0 2px 0 var(--slab-edge), inset 0 -2px 0 var(--void-ink);
   }
   .lar p {
     margin: 0;
