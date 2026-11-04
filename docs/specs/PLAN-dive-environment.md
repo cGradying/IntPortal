@@ -201,3 +201,13 @@ Reuse what already exists:
   - **Paused for round-five picks** on Dive, Motion and Week.
 - 2026-11-04 · Dive feedback: the swirl had a seam where its angle term wrapped (0.95 of a turn per revolution). It is replaced by a per-tile tunnel shader in `tunnel()`: five arms, so the angle term always completes whole turns; the arms twist with depth (z = 7 / (r + 0.8)), rings rush outward, and the far end glows. The shader is quantised to the school ramp with a 4×4 Bayer dither, and it is the same function the Rust scene would run once per tile. Published to the artifact.
 - 2026-11-04 · Tunnel shader, second pass. Slower: the arms turn at 0.12 a second and the rings drift at 0.8, down from 0.35 and 2.4. Every dark part now glows at its edge: a dark eye at the far end inside a ring of light, and a lit rim on each dark lane between the arms. Faster to draw: the per-cell geometry is computed once into a lookup table, so each tile costs two cosines; the shader returns one of 8 palette indices, and the colour strings are built once a frame. It measures 0.55 ms a frame in the browser.
+- 2026-11-04 · **Picks, round five:** Dive needs work, Motion more, Week needs work. Your asks: the shader changes form mid-animation with a speed ramp, and the background gets gradient animation.
+  - **Round six** (artifact version 8):
+    - **Tunnel forms:** six forms (spiral arms, round rings, square corridor, petals, polar checks, plasma) over one per-cell lookup table, blended as brightness fields so the shapes melt into each other. Each play takes a different order.
+    - **Speed ramp:** shader time and the camera both surge during each morph and coast between them. First sign-in grows from about 1.6 s to about 2.4 s to make room for three forms, which changes 010's timing once the dive is picked. Every launch keeps about 0.66 s with one change of form; with slow data the forms keep changing at full screen.
+    - **Gradient ground:** the portal's void has drifting pools of the school's ramp that surge with the tunnel. Every app screen gets two gradient layers drifting behind the dots and cards, moved by transform only, paused offscreen and off under Reduce Motion. This goes in 045 once picked.
+    - **Motion:** back up between rounds four and five: the tab highlight, the cube tucking aside on scroll, and the countdown tick return. The folding title and the extra sparks stay out.
+    - **Fixed:** the hero card's title line height.
+  - The drawing costs about 0.6 ms a frame in the browser, measured before the last small colour and layout tweaks.
+  - **Week:** no detail given yet, so nothing changed this round. Waiting on what is off.
+  - **Paused for round-six picks.**

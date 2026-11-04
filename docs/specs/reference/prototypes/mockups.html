@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@500;600;700&family=Montserrat:wght@600;700;800&family=Pixelify+Sans:wght@500;600;700&family=Rubik:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-/* Round five. Settled picks sit in a strip at the top; the open rows
+/* Round six. Settled picks sit in a strip at the top; the open rows
    follow as live phones in the picked world (one void, dot grid, the
    school's accent, the cube in the header). Single-theme on purpose:
    the page lives in the portal's night. */
@@ -90,6 +90,14 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .phone .status { position: absolute; top: 12px; left: 26px; right: 22px; display: flex; justify-content: space-between; font: 600 12px var(--f-ui); z-index: 59; color: var(--ink); }
 .phone .scroll { position: absolute; inset: 0; overflow-y: auto; scrollbar-width: none; padding: 48px 12px 80px; }
 .phone .scroll::-webkit-scrollbar { display: none; }
+/* The living ground: two gradient layers drift against each other behind the dots and the cards. Transform only, so it runs on the compositor; it stops offscreen and under Reduce Motion. */
+.dots::before, .dots::after { content: ""; position: absolute; inset: -45%; z-index: -1; pointer-events: none; will-change: transform; }
+.dots::before { background: radial-gradient(32% 24% at 32% 30%, var(--aura-a), transparent 72%), radial-gradient(30% 22% at 70% 68%, var(--aura-b), transparent 72%); animation: aura1 13s ease-in-out infinite alternate; }
+.dots::after { background: radial-gradient(26% 24% at 66% 28%, var(--aura-c), transparent 72%), radial-gradient(30% 20% at 26% 72%, var(--aura-b), transparent 72%); animation: aura2 17s ease-in-out infinite alternate; }
+.dots.off::before, .dots.off::after { animation-play-state: paused; }
+@keyframes aura1 { from { transform: translate(-9%, -7%) rotate(-8deg); } to { transform: translate(10%, 9%) rotate(10deg); } }
+@keyframes aura2 { from { transform: translate(10%, 7%) rotate(9deg); } to { transform: translate(-10%, -9%) rotate(-7deg); } }
+@media (prefers-reduced-motion: reduce) { .dots::before, .dots::after { animation: none; } }
 .dots { background-image: radial-gradient(var(--dot) 0.9px, transparent 1.2px); background-size: 12px 12px; }
 
 .scr { display: grid; gap: 10px; font-family: var(--rf-read); }
@@ -98,6 +106,9 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .scr h3.hi { margin: 2px 0 0; font: var(--rw-display) var(--rs-display)/1.05 var(--rf-display); letter-spacing: var(--rt-display); color: var(--ink); }
 .orb { position: absolute; right: 12px; bottom: 76px; z-index: 31; width: 44px; height: 44px; display: grid; place-items: center; border: 0; padding: 0; background: none; cursor: pointer; transition: opacity 0.2s var(--ease), scale 0.16s var(--spring); }
 .orb:active { scale: 0.9; }
+.orb.tuck { scale: 0.7; translate: 18px 0; opacity: 0.7; }
+.tabs .sel { position: absolute; left: 4px; top: 4px; width: calc((100% - 8px) / 5); height: 34px; pointer-events: none; transition: translate 0.24s steps(4); }
+.tabs .sel::before { content: ""; position: absolute; left: 50%; top: 0; translate: -50% 0; width: 36px; height: 32px; background: color-mix(in srgb, var(--gold-c) 14%, transparent); clip-path: polygon(0 3px,3px 3px,3px 0,calc(100% - 3px) 0,calc(100% - 3px) 3px,100% 3px,100% calc(100% - 3px),calc(100% - 3px) calc(100% - 3px),calc(100% - 3px) 100%,3px 100%,3px calc(100% - 3px),0 calc(100% - 3px)); }
 .orb.away { opacity: 0; pointer-events: none; }
 .card { background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c); padding: 12px; }
 .card.notch { clip-path: polygon(0 8px,4px 8px,4px 4px,8px 4px,8px 0,calc(100% - 8px) 0,calc(100% - 8px) 4px,calc(100% - 4px) 4px,calc(100% - 4px) 8px,100% 8px,100% calc(100% - 8px),calc(100% - 4px) calc(100% - 8px),calc(100% - 4px) calc(100% - 4px),calc(100% - 8px) calc(100% - 4px),calc(100% - 8px) 100%,8px 100%,8px calc(100% - 4px),4px calc(100% - 4px),4px calc(100% - 8px),0 calc(100% - 8px)); }
@@ -107,7 +118,7 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .hero .in { padding: 10px 12px 12px; display: grid; gap: 4px; }
 .hero .code { font: var(--rw-title) var(--rs-title)/1.1 var(--rf-title); color: var(--accent-ink); letter-spacing: var(--rt-title, -0.01em); }
 .hero .what { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: end; }
-.hero .what span { font-size: 11px; line-height: 1.3; color: var(--ink); }
+.hero .what span { display: block; font-size: 11px; line-height: 1.3; color: var(--ink); }
 .hero .meta { font-size: 9px; color: var(--ink-2); letter-spacing: 0.02em; }
 .hero .big { justify-self: end; text-align: right; display: grid; gap: 3px; justify-items: end; color: var(--ink); }
 .hero .big small { font-size: 9px; color: var(--ink-2); }
@@ -321,8 +332,8 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
 
 <div class="wrap">
   <header class="top">
-    <h1>Round five: the look of <b>IntPortal</b></h1>
-    <p>Done and the week's shape are settled. This round gives the dive's fade its effects, pulls the motion back, and lets you open a day in the week by tapping it.</p>
+    <h1>Round six: the look of <b>IntPortal</b></h1>
+    <p>The dive's tunnel now changes form with speed ramps, every phone sits on a slowly drifting gradient ground, and motion is back up between rounds four and five.</p>
     <div class="settled" aria-label="Settled picks">
       <span>LAR leads</span><span>One void</span><span>Dot grid</span><span>Campus kept</span><span>School accent, PUP only for now</span><span>Pixel checkboxes</span><span>Current sizes</span><span>Hero pixel numerals</span><span>Subtle juice</span><span>Pixel-bridged type</span><span>Done as in round four</span><span>Week and Day</span><span>Floating cube, bottom right</span>
     </div>
@@ -334,11 +345,11 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
   <section class="row" id="dive">
     <div class="q">
       <span class="spec">010 C26–C34, reworked</span>
-      <h2>A dive into the field</h2>
-      <p>Round three flooded a flat screen; this one moves the camera. The portal is built from the field's own dots. Its mouth holds the same field at a quarter of the pitch, swirling. Diving in, the frame's tiles grow and rush out past the edges, and the field inside grows until its tiles are the screen's tiles. Then they warm to the room, shrink to dots and lift off in a dither, and those dots are Today's dot grid. Today is simply there underneath.</p>
+      <h2>A tunnel that keeps changing form</h2>
+      <p>The tunnel now has six forms: spiral arms, round rings, a square corridor, petals, polar checks and plasma. It melts from one into the next mid-dive, and each play takes a different order, so press Play a few times. Speed comes in ramps: the tunnel and the camera surge through each change, then coast. The void behind the portal drifts too, in the school's colours, and surges with it. On arrival the tiles still shrink to Today's dots, over a ground that keeps slowly moving.</p>
     </div>
     <div class="ctl">
-      <div class="seg" role="group" aria-label="Timeline"><span class="lab">When</span><button data-dv="mode" data-v="first" aria-pressed="true">First sign-in, 1.6 s</button><button data-dv="mode" data-v="launch" aria-pressed="false">Every launch, 0.6 s</button></div>
+      <div class="seg" role="group" aria-label="Timeline"><span class="lab">When</span><button data-dv="mode" data-v="first" aria-pressed="true">First sign-in, 2.4 s</button><button data-dv="mode" data-v="launch" aria-pressed="false">Every launch, 0.6 s</button></div>
       <div class="seg" role="group" aria-label="Load"><span class="lab">Data</span><button data-dv="slow" data-v="0" aria-pressed="true">Ready</button><button data-dv="slow" data-v="1" aria-pressed="false">Slow, 1.8 s</button></div>
       <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-dv="room" data-v="night" aria-pressed="true">Night</button><button data-dv="room" data-v="day" aria-pressed="false">Day</button></div>
     </div>
@@ -364,7 +375,7 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
     <div class="q">
       <span class="spec">045 C13–C21, 010 C18b</span>
       <h2>The whole app, moving</h2>
-      <p>Less this round. Tabs hop and the page slides toward the tab you chose. Pull Today to sync and the dot grid ripples once when it lands. On Schedule, tap a day to open it, then tap a class and its sheet grows out of the block and shrinks back into it. Grades count down with stamps on first open. The cube flies up into LAR's chat and back. Gone from round four: the tab highlight, the folding title, the tucking cube, the ticking countdown and the extra sparks.</p>
+      <p>Between rounds four and five. Everything on this phone now moves over a ground that drifts: two gradient layers in the school's colours behind the dots and the cards. A pixel block steps under the tab you pick while the page slides toward it. Scroll Today and the cube tucks aside until you stop. The Up next countdown ticks (every 4 s here, every minute in the app). Pull to sync and the dot grid ripples once when it lands. On Schedule, tap a day to open it, then tap a class and its sheet grows out of the block. Grades count down with stamps on first open, and the cube flies up into LAR's chat and back.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-m="room" data-v="night" aria-pressed="true">Night</button><button data-m="room" data-v="day" aria-pressed="false">Day</button></div>
@@ -1514,11 +1525,15 @@ const TYPE = {
   sharp: { name: "Pixel-bridged", display: SYS, title: SYS, read: SYS, label: "'Pixelify Sans', monospace", num: SYS, dw: "800", dt: "-0.035em", tw: "800", tt: "-0.02em", lw: "600", lt: "0.06em", ds: "24px" },
 };
 
+/* The ground stops drifting on phones you can't see. */
+const onScreen = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle("off", !e.isIntersecting)));
 function applyRoles(el, o) {
+  onScreen.observe(el);
   const r = ROOMS[o.room], t = TYPE[o.type || "sharp"], s = SCHOOLS[o.school || "pup"], th = s.theme;
   const acc = accentOf(th, o.room);
   const set = { ground: r.ground, card: r.card, "card-2": r.card2, sunk: r.sunk, "edge-c": r.edge, ink: r.ink, "ink-2": r.ink2, "ink-3": r.ink3, "gold-c": acc, "on-gold-c": o.room === "day" ? "#ffffff" : "#120a06", "maroon-c": r.maroon, bad: r.bad, "good-c": r.good, "accent-ink": acc,
     dot: css(rgbOf(acc), r.dotA),
+    "aura-a": css(rgbOf(th.ramp[o.room === "day" ? 4 : 2]), o.room === "day" ? 0.55 : 0.5), "aura-b": css(rgbOf(th.ramp[3]), o.room === "day" ? 0.16 : 0.2), "aura-c": css(rgbOf(acc), o.room === "day" ? 0.09 : 0.11),
     "rf-display": t.display, "rf-title": t.title, "rf-read": t.read, "rf-label": t.label, "rf-num": t.num, "rw-display": t.dw, "rt-display": t.dt, "rw-title": t.tw, "rt-title": t.tt, "rw-label": t.lw, "rt-label": t.lt, "rs-display": t.ds, "rs-title": "17px" };
   for (const [k, v] of Object.entries(set)) el.style.setProperty("--" + k, v);
   return { r, th, s };
@@ -1635,7 +1650,7 @@ function mountToday(phone, o) {
 /* ---------------- picks and the tray ---------------- */
 const ROWS = [["dive", "Dive"], ["motion", "Motion"], ["week", "Week"]];
 let picks = {};
-try { picks = JSON.parse(localStorage.getItem("ip-picks-5") || "{}"); } catch { picks = {}; }
+try { picks = JSON.parse(localStorage.getItem("ip-picks-6") || "{}"); } catch { picks = {}; }
 function renderTray() {
   $("#chips").innerHTML = ROWS.map(([k, l]) => `<span class="${picks[k] ? "set" : ""}">${l}${picks[k] ? ": " + picks[k] : ""}</span>`).join("");
   $$(".pick").forEach((b) => b.setAttribute("aria-pressed", String(picks[b.dataset.row] === b.dataset.v)));
@@ -1643,11 +1658,11 @@ function renderTray() {
 document.addEventListener("click", (e) => {
   const b = e.target.closest(".pick"); if (!b) return;
   picks[b.dataset.row] = b.dataset.v;
-  try { localStorage.setItem("ip-picks-5", JSON.stringify(picks)); } catch {}
+  try { localStorage.setItem("ip-picks-6", JSON.stringify(picks)); } catch {}
   renderTray();
 });
 $("#copy").addEventListener("click", () => {
-  const text = "IntPortal picks, round five:\n" + ROWS.map(([k, l]) => `- ${l}: ${picks[k] || "(no pick)"}`).join("\n");
+  const text = "IntPortal picks, round six:\n" + ROWS.map(([k, l]) => `- ${l}: ${picks[k] || "(no pick)"}`).join("\n");
   const done = (m) => { $("#toast").textContent = m; setTimeout(() => ($("#toast").textContent = ""), 2400); };
   const fallback = () => { const r = document.createRange(); r.selectNodeContents($("#chips")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); done("Copying is blocked here. The picks are selected, so copy them by hand."); };
   if (!navigator.clipboard) return fallback();
@@ -1660,7 +1675,7 @@ const segs = (attr, state, after) => $$(`[data-${attr}]`).forEach((b) => b.addEv
 }));
 
 /* ================= THE DIVE: into the field ================= */
-const dive = { mode: "first", slow: "0", room: "night", school: "pup", speed: "1", t: 0 };
+const dive = { mode: "first", slow: "0", room: "night", school: "pup", speed: "1", t: 0, seed: 0 };
 const phone = $("#divePhone");
 const stage = document.createElement("canvas"); stage.className = "stage";
 const bubble = document.createElement("div"); bubble.className = "bubble"; bubble.innerHTML = "<b>LAR</b>Ayos! Tara, pasok!";
@@ -1676,10 +1691,10 @@ const larRig = LarKit.rig("idle");
 function timeline() {
   const first = dive.mode === "first", slow = dive.slow === "1";
   const fly = first ? 0.42 : 0, build = first ? 0 : 0.16;
-  const zoom = fly + build, zoomEnd = zoom + (first ? 0.68 : 0.3);
-  const ready = slow ? 1.8 : 0;
+  const forms = first ? 3 : 1, zoom = fly + build, zoomEnd = zoom + (first ? 1.5 : 0.3);
+  const ready = slow ? (first ? 3 : 1.8) : 0;
   const arrive = Math.max(zoomEnd, ready), arriveEnd = arrive + (first ? 0.5 : 0.2);
-  return { first, fly, build, zoom, zoomEnd, arrive, arriveEnd, total: arriveEnd + 0.6 };
+  return { first, fly, build, forms, formT: (zoomEnd - zoom) / forms, zoom, zoomEnd, arrive, arriveEnd, total: arriveEnd + 0.6 };
 }
 function mountDive() {
   mountToday(phone, { room: dive.room, school: dive.school });
@@ -1688,36 +1703,46 @@ function mountDive() {
   const tl = timeline();
   $("#diveScrub").max = Math.round(tl.total * 1000);
   const f = (v) => (+v.toFixed(2)).toString();
-  const dv = [`${f(tl.zoom)}–${f(tl.zoomEnd)} s`, "The camera dives into the mouth. The frame's tiles grow and rush out past the edges. Inside the mouth is the same field at a quarter of the pitch, running a tunnel shader (five slow twisting arms, rings drifting out, and a glow around every dark part), and it grows until its tiles are the screen's tiles"];
+  const dv = [`${f(tl.zoom)}–${f(tl.zoomEnd)} s`, "The camera dives into the mouth in surges. The frame's tiles grow and rush out past the edges. Inside the mouth is the same field at a quarter of the pitch, running the tunnel shader, and it melts through its forms until its tiles are the screen's tiles"];
   const ar = [`${f(tl.arrive)}–${f(tl.arriveEnd)} s`, "The swirl warms to the room. A glowing front runs out from the centre: each tile flares, shrinks to a dot and lifts off in a dither, leaving a glint. As the last tiles go, one ripple runs through Today's dot grid. Today was already in place"];
   $("#diveSteps").innerHTML = (tl.first
     ? [[`0–${f(tl.fly)} s`, "The portal stands in the field. LAR says Ayos! and flies to its mouth; the dots near the frame glow in its light"], [dv[0], dv[1] + ". LAR goes in first, shrinking toward the centre"], ar]
-    : [[`0–${f(tl.build)} s`, "The field's dots swell into the frame from the bottom centre"], [dv[0], "One quick dive into the mouth. With slow data, the swirl keeps turning at full screen"], [ar[0], dive.slow === "1" ? "Data is ready at 1.8 s, then the tiles fall back to dots" : "Ends at the later of 0.6 s and data ready"]]).map(([a, b]) => `<div><b>${a}</b><span>${b}</span></div>`).join("");
+    : [[`0–${f(tl.build)} s`, "The field's dots swell into the frame from the bottom centre"], [dv[0], "One quick dive into the mouth, with one change of form. With slow data, the tunnel keeps changing at full screen"], [ar[0], dive.slow === "1" ? "Data is ready, then the tiles fall back to dots" : "Ends at the later of 0.6 s and data ready"]]).map(([a, b]) => `<div><b>${a}</b><span>${b}</span></div>`).join("");
 }
-/* Per-cell geometry for the tunnel, computed once, so the shader costs two cosines a tile.
+/* Per-cell geometry for the tunnel, computed once, so a form costs a few cosines a tile.
    Indexed by screen cell (i, j), padded by LO cells for the mouth's view at the start of the dive. */
 const LO = 12, LW = COLS + 2 * LO, LH = ROWSN + 2 * LO, TAU = Math.PI * 2;
 const LUT = (() => {
-  const n = LW * LH, R = new Float32Array(n), A5 = new Float32Array(n), Z = new Float32Array(n), FOG = new Float32Array(n), HALO = new Float32Array(n), DI = new Float32Array(n);
+  const n = LW * LH, f32 = () => new Float32Array(n), L = { R: f32(), A: f32(), Z: f32(), ZS: f32(), DX: f32(), DY: f32(), FOG: f32(), HALO: f32(), DI: f32() };
   for (let jj = 0; jj < LH; jj++) for (let ii = 0; ii < LW; ii++) {
     const i = ii - LO, j = jj - LO, q = jj * LW + ii, dx = (i * P + P / 2 - SX) / P, dy = (j * P + P / 2 - SY) / P, r = Math.hypot(dx, dy);
-    R[q] = r; A5[q] = (Math.atan2(dy, dx) / TAU) * 5; Z[q] = 7 / (r + 0.8);
-    FOG[q] = 0.45 + 0.55 * clamp(r / 5); HALO[q] = Math.exp(-((r - 2.7) ** 2)); DI[q] = BAYER[(j & 3) * 4 + (i & 3)];
+    L.R[q] = r; L.A[q] = Math.atan2(dy, dx) / TAU; L.Z[q] = 7 / (r + 0.8); L.ZS[q] = 7 / (Math.max(Math.abs(dx), Math.abs(dy) * 0.55) + 0.8);
+    L.DX[q] = dx; L.DY[q] = dy; L.FOG[q] = 0.45 + 0.55 * clamp(r / 5); L.HALO[q] = Math.exp(-((r - 2.7) ** 2)); L.DI[q] = BAYER[(j & 3) * 4 + (i & 3)];
   }
-  return { R, A5, Z, FOG, HALO, DI };
+  return L;
 })();
-/* The tunnel shader, run once per tile. Five arms twist with depth (whole turns, so no seam) and rings
-   drift outward. Every dark part glows at its edge: the far end is a dark eye in a ring of light, and each
-   dark lane between the arms has a lit rim. Returns a palette index: 0–4 the school ramp, 5 glow, 6 glint, 7 the eye. */
-function tunnel(q, t) {
-  const r = LUT.R[q]; if (r < 1.7) return 7;
-  const z = LUT.Z[q], fog = LUT.FOG[q], di = LUT.DI[q];
-  const arms = 0.5 + 0.5 * Math.cos(TAU * (LUT.A5[q] + z * 0.6 + t * 0.12)), rings = 0.5 + 0.5 * Math.cos(TAU * (z + t * 0.8));
-  const glow = Math.max(LUT.HALO[q], Math.exp(-(((arms - 0.3) / 0.11) ** 2)) * fog) + 0.25 * di;
+const c01 = (x) => 0.5 + 0.5 * Math.cos(TAU * x);
+/* The forms the tunnel changes between. Each returns a brightness 0–1 for a cell, at shader time s.
+   Angles only ever get whole multiples, so no form has a seam. */
+const FORMS = [
+  (q, s) => { const ring = c01(LUT.Z[q] + s * 0.8); return c01(LUT.A[q] * 5 + LUT.Z[q] * 0.6 + s * 0.12) * (0.7 + 0.3 * ring); },   // spiral arms
+  (q, s) => c01(LUT.Z[q] * 1.1 + s * 0.8),                                                                                           // round rings
+  (q, s) => c01(LUT.ZS[q] * 1.1 + s * 0.8),                                                                                          // square corridor
+  (q, s) => c01(LUT.Z[q] + 0.22 * Math.cos(TAU * LUT.A[q] * 6) + s * 0.6),                                                          // petals
+  (q, s) => 0.5 + 0.5 * Math.cos(TAU * (LUT.A[q] * 4 + s * 0.08)) * Math.cos(TAU * (LUT.Z[q] * 1.2 + s * 0.7)),                     // polar checks
+  (q, s) => 0.5 + 0.25 * (Math.cos(TAU * (LUT.DX[q] * 0.055 + s * 0.18)) + Math.cos(TAU * (LUT.DY[q] * 0.04 - s * 0.14 + 0.15 * Math.cos(TAU * LUT.DX[q] * 0.03)))),   // plasma
+];
+/* The shared look: every dark part glows at its edge, the far end is a dark eye in a ring of light, and
+   the brightness lands on the school's ramp through a Bayer dither. Returns a palette index: 0–4 the ramp, 5 glow, 6 glint, 7 the eye. */
+function tunnel(q, f) {
+  if (LUT.R[q] < 1.7) return 7;
+  const fog = LUT.FOG[q], di = LUT.DI[q], glow = Math.max(LUT.HALO[q], Math.exp(-(((f - 0.3) / 0.11) ** 2)) * fog) + 0.25 * di;
   if (glow > 0.95) return 6;
   if (glow > 0.7) return 5;
-  return Math.max(0, Math.min(4, Math.floor((0.55 * arms + 0.3 * arms * rings + 0.15 * rings) * fog * 5 + di - 0.5)));
+  return Math.max(0, Math.min(4, Math.floor(f * fog * 5 + di - 0.5)));
 }
+/* Soft colour pool, shared by the void behind the portal and LAR's stage. */
+function pool(g, w, h, x, y, rad, c, a) { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, css(c, a)); rg.addColorStop(1, css(c, 0)); g.fillStyle = rg; g.fillRect(0, 0, w, h); }
 function frameOrder(li, lj) {              // build order round the frame, from the bottom centre
   if (lj >= PH - 2) return Math.abs(li - (PW - 1) / 2) / 26;
   if (li < 2 || li >= PW - 2) return (6 + (PH - 1 - lj)) / 26;
@@ -1731,14 +1756,27 @@ function drawDive(t) {
   const room = ROOMS[dive.room], ground = rgbOf(room.ground), dotRoom = rgbOf(accentOf(th, dive.room));
   const bk = tl.first ? 1 : clamp(t / Math.max(0.01, tl.build));                   // frame build
   const open = tl.first ? 1 : clamp((bk - 0.8) * 5);                               // the mouth opens
-  const zk = smooth(clamp((t - tl.zoom) / (tl.zoomEnd - tl.zoom)));                // the dive
+  // Forms: a new one every formT, slower once the camera has landed and data is still loading. Each play takes its own order.
+  const fs = t < tl.zoomEnd ? Math.max(0, t - tl.zoom) / tl.formT : tl.forms + (t - tl.zoomEnd) / 0.7;
+  const fn = Math.floor(fs), fm = smooth(clamp((fs - fn - 0.4) / 0.6)), fl = fn + fm, fstep = 1 + dive.seed % 5;
+  const formA = FORMS[(dive.seed * 5 + fn * fstep) % 6], formB = FORMS[(dive.seed * 5 + (fn + 1) * fstep) % 6];
+  // Speed ramp: shader time and the camera both surge during each morph, and coast between them.
+  const tau = t * 0.5 + fl * 1.3;
+  const zk = 0.25 * smooth(clamp((t - tl.zoom) / (tl.zoomEnd - tl.zoom))) + 0.75 * smooth(clamp(fl / tl.forms));
   const z = ZMAX ** zk, FX = PCX + (SX - PCX) * zk, FY = PCY + (SY - PCY) * zk;    // zoom about the mouth as it drifts to the centre
   const ak = clamp((t - tl.arrive) / (tl.arriveEnd - tl.arrive)), A = ease(ak) * 36; // arrival front, in cells
-  const warm = smooth(clamp((t - (tl.arrive - 0.3)) / 0.36));
+  const warm = smooth(clamp((t - (tl.arrive - 0.18)) / 0.3));
   const gap = lerp3(VOID, ground, warm), home = lerp3(ground, dotRoom, 0.35), glint = lerp3(acc, [255, 246, 220], 0.45);
   const tile = (x, y, s, c, a = 1) => { g.fillStyle = css(c, a); g.fillRect(x - s / 2, y - s / 2, s, s); };
   if (ak === 0) {
     g.fillStyle = css(gap); g.fillRect(0, 0, FW, FH);
+    // The void isn't flat: pools of the school's ramp drift behind the dots, and they surge with the tunnel.
+    const wash = 1 - warm;
+    if (wash > 0 && !reduce) {
+      pool(g, FW, FH, FW * (0.26 + 0.18 * Math.sin(tau * 0.5)), FH * (0.28 + 0.1 * Math.cos(tau * 0.4)), 210, ramp[2], 0.42 * wash);
+      pool(g, FW, FH, FW * (0.8 + 0.14 * Math.cos(tau * 0.6)), FH * (0.66 + 0.12 * Math.sin(tau * 0.35)), 240, ramp[3], 0.22 * wash);
+      pool(g, FW, FH, FW * (0.5 + 0.3 * Math.sin(tau * 0.3 + 2)), FH * (0.95 + 0.04 * Math.cos(tau)), 180, acc, 0.12 * wash);
+    }
     // The field outside the mouth: dots lit by the portal, and the frame built from them. They grow and fly past as the camera dives.
     for (let j = 0; j < ROWSN; j++) for (let i = 0; i < COLS; i++) {
       const li = i - PI0, lj = j - PJ0, inPortal = li >= 0 && li < PW && lj >= 0 && lj < PH;
@@ -1771,12 +1809,12 @@ function drawDive(t) {
     // One palette a frame: the shader's eight colours, warmed to the room, in four shrink steps toward the dot.
     const pal = [...ramp, lerp3(ramp[4], glint, 0.5), glint, lerp3(VOID, ramp[0], 0.25)].map((c) => (warm > 0 ? lerp3(c, home, warm * 0.82) : c));
     const PAL = pal.map((c) => [0, 1, 2, 3].map((st) => css(lerp3(c, dotRoom, st / 3)))), RIM = pal.map((c) => css(lerp3(c, glint, 0.75)));
-    const GAP = css(gap), GLINTS = [0.8, 0.45, 0.18].map((a) => css(glint, a)), st = t + zk * 0.5;
+    const GAP = css(gap), GLINTS = [0.8, 0.45, 0.18].map((a) => css(glint, a));
     const i0 = Math.max(-LO, Math.floor(((x0 - FX) / k + SX) / P) - 1), i1 = Math.min(LW - LO - 1, Math.ceil(((x1 - FX) / k + SX) / P));
     const j0 = Math.max(-LO, Math.floor(((y0 - FY) / k + SY) / P) - 1), j1 = Math.min(LH - LO - 1, Math.ceil(((y1 - FY) / k + SY) / P));
     g.globalAlpha = open;
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-      const q = (j + LO) * LW + i + LO, X = FX + (i * P + P / 2 - SX) * k, Y = FY + (j * P + P / 2 - SY) * k, c = tunnel(q, st);
+      const q = (j + LO) * LW + i + LO, X = FX + (i * P + P / 2 - SX) * k, Y = FY + (j * P + P / 2 - SY) * k, fa = formA(q, tau), c = tunnel(q, fm > 0 ? fa + (formB(q, tau) - fa) * fm : fa);
       let size = (P - 2) * k, fill = PAL[c][0];
       if (ak > 0) {
         const kk = smooth(clamp((A - LUT.R[q]) / 3.2)), lift = 0.45 + 0.35 * LUT.DI[q];
@@ -1820,7 +1858,7 @@ function frame(now) {
   if (dive.t < tl.total) raf = requestAnimationFrame(frame);
 }
 function diveRestart() {
-  cancelAnimationFrame(raf); mountDive(); dive.landed = false;
+  cancelAnimationFrame(raf); dive.seed++; mountDive(); dive.landed = false;
   if (reduce) { dive.t = timeline().total; drawDive(dive.t); return; }
   t0 = performance.now(); raf = requestAnimationFrame(frame);
 }
@@ -2139,15 +2177,16 @@ function renderMotion() {
   $("[data-pg=today]", p).appendChild(todayScroll); $("[data-pg=sched]", p).appendChild(weekScroll);
   drawCampus($("[data-campus]", p), M.room, "pup");
   const orb = floatingOrb(p, th);
-  // Tabs: the icon hops, the page slides toward the tab.
-  const order = ["today", "sched", "grades", "study", "you"];
+  // Tabs: a pixel block steps to the tab, the icon hops, the page slides toward it.
+  const order = ["today", "sched", "grades", "study", "you"], sel = document.createElement("i");
+  sel.className = "sel"; $(".tabs", p).prepend(sel);
   let cur = "today";
   $$(".tabs span", p).forEach((t, i) => t.addEventListener("click", () => {
     const next = order[i]; t.classList.remove("hop"); void t.offsetWidth; t.classList.add("hop");
     if (next === cur || !$(`[data-pg=${next}]`, p)) return;
     const dir = order.indexOf(next) > order.indexOf(cur) ? 1 : -1;
     const from = $(`[data-pg=${cur}]`, p), to = $(`[data-pg=${next}]`, p);
-    $$(".tabs span", p).forEach((x) => x.classList.toggle("on", x === t));
+    $$(".tabs span", p).forEach((x) => x.classList.toggle("on", x === t)); sel.style.translate = `${i * 100}% 0`;
     if (!reduce) {
       from.animate([{ opacity: 1, transform: "translateX(0)" }, { opacity: 0, transform: `translateX(${-12 * dir}px)` }], { duration: 120, easing: "ease-in" }).onfinish = () => (from.hidden = true);
       to.hidden = false; to.animate([{ opacity: 0, transform: `translateX(${12 * dir}px)` }, { opacity: 1, transform: "translateX(0)" }], { duration: 220, delay: 90, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "backwards" });
@@ -2155,6 +2194,17 @@ function renderMotion() {
     cur = next;
     if (next === "grades" && !gradesSeen) { gradesSeen = true; landGrades(p); }
   }));
+  // The cube tucks aside while Today scrolls, and comes back when you stop.
+  let tuck = 0;
+  todayScroll.addEventListener("scroll", () => { orb.classList.add("tuck"); clearTimeout(tuck); tuck = setTimeout(() => orb.classList.remove("tuck"), 650); }, { passive: true });
+  // The Up next countdown ticks: every minute in the app, every 4 s here.
+  clearInterval(M.tick); let left = 139;
+  M.tick = setInterval(() => {
+    const big = $(".hero .big", todayScroll); if (!big || !p.isConnected) return;
+    left = left > 1 ? left - 1 : 139;
+    big.querySelector("svg").outerHTML = pixelNum(`${Math.floor(left / 60)}h ${left % 60}m`, 4);
+    if (!reduce) big.querySelector("svg").animate([{ translate: "0 -4px", opacity: 0.3 }, { translate: "0 0", opacity: 1 }], { duration: 200, easing: "steps(2)" });
+  }, 4000);
   // Pull to sync on Today; the dot grid ripples when it lands.
   const sc = todayScroll, pull = $(".pull", p), pcv = $(".pull canvas", p); pull.replaceChild(cubeCanvas(th, 1.6), pcv); const pullCube = cubes.at(-1);
   let y0 = null, dy = 0;
@@ -2234,9 +2284,8 @@ function stageLoop(now) {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     // His stage: soft pools of the portal's ramp drifting, a dither into the card.
     const grd = g.createLinearGradient(0, 0, w, h); grd.addColorStop(0, th.ramp[1]); grd.addColorStop(1, "#140c16"); g.fillStyle = grd; g.fillRect(0, 0, w, h);
-    const pool = (x, y, rad, c, a) => { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, css(rgbOf(c), a)); rg.addColorStop(1, css(rgbOf(c), 0)); g.fillStyle = rg; g.fillRect(0, 0, w, h); };
     const dr = reduce ? 0 : t;
-    pool(60 + Math.sin(dr / 3) * 30, 40, 90, th.ramp[3], 0.45); pool(200 + Math.cos(dr / 4) * 40, 70, 110, th.accent, 0.25);
+    pool(g, w, h, 60 + Math.sin(dr / 3) * 30, 40, 90, rgbOf(th.ramp[3]), 0.45); pool(g, w, h, 200 + Math.cos(dr / 4) * 40, 70, 110, rgbOf(th.accent), 0.25);
     g.fillStyle = "#140c16"; for (let x = 0; x < w; x += 2) { g.fillRect(x, h - 4, 1, 1); g.fillRect(x + 1, h - 3, 1, 1); g.fillRect(x, h - 2, 2, 2); }
     if (mlar.open) {
       const since = t - mlar.openedAt;
