@@ -221,3 +221,8 @@ Reuse what already exists:
     - 044 is updated to match.
   - **Paused for the week pick.** Once it is settled, Step 4 starts with `ui/dive`.
 - 2026-11-04 · **Week picked in round seven: "this is it".** Every row is settled. Step 3 is done, and Step 4 builds start in plan order: `ui/dive`, `ui/type-system`, `ui/environment`, `ui/juice`, `ui/motion`, `ui/pixel-week`, one branch and PR each.
+- 2026-11-04 · **Step 4 builds up, one PR each, none merged:**
+  - **Merge order:** #212 docs, #171 fix, #170 fix (independent), #213 `ui/dive`, #216 `ui/juice` (on #213), #214 `ui/type-system`, #215 `ui/environment`, #217 `ui/pixel-week` (on #215), then #218 `ui/motion` (merges them all, and shows how the conflicts resolve). Before deleting a merged base branch, retarget the PR above it to main.
+  - **Found on the way:** the app has no room data, so 044 now says faculty where the mockups showed a room. Xcode 27.2 has no 27.2 simulator runtime on this Mac, so `scripts/sim.sh` fails until it is installed; builds went through a local workaround.
+  - **Spec gaps left:** 045 C5 corner roles. 045 C17 lists three celebrations, but Study's great-session confetti also exists and was kept, since the user built it.
+  - **Not yet watched running:** stamps, the now-line, swipes, the count-ups, the SYNCED stamp, sound and haptics. A real phone and a release build are also unchecked.

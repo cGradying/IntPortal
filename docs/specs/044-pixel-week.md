@@ -19,7 +19,7 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
 - Tapping a block opens the class sheet (`ClassSheet.svelte`).
 - Course colours from `subjectColor`. The student's own events show hatched behind the classes.
 - Events from the phone calendars a student connects ([031](031-calendar-connections.md), in review in #191) use the same hatched treatment, so classes stay the solid blocks.
-- Times and rooms in the reading face, never in Pixelify ([045](045-app-environment.md) C9).
+- Times and faculty names in the reading face, never in Pixelify ([045](045-app-environment.md) C9).
 
 ## Behaviour
 
@@ -29,10 +29,11 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
   - A class block is a flat fill in its course colour, with pixel-notched corners (one 2 px step) and a 2 px tile gap to its neighbours and the column edge.
   - No rounded corners and no drop shadow.
 - **C2. What a block says.**
-  - In the even week, a block shows the class title (up to three lines, wrapping on words only) and the room pinned to the bottom. The hour rail gives the time.
-  - In an open day (C13), a block adds the code and the time and room on one line.
+  - In the even week, a block shows the class title, up to four lines, wrapping on words only. The hour rail gives the time.
+  - The app has no room data (`ClassSession` has the code, title, faculty, day and times), so the mockups' rooms were sample text. Where they show a room, the app shows the faculty.
+  - In an open day (C13), a block adds the code, and the time and faculty on one line.
   - Text picks ink or white, whichever reads better on the course colour.
-  - Times and rooms are in the reading face (045 C9).
+  - Times and faculty names are in the reading face (045 C9).
 - **C3. Days shown (picked).** Days with classes, plus today, are full columns. Empty days are 7 px hatched ghost columns that keep their place, so a moved class still lands where the student expects it.
 
 **Stamps**
@@ -53,9 +54,9 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
 **Moving between days and weeks**
 
 - **C9. The day view puts details first.**
-  - Each class is a card tall enough for all its details: the start and end time on the left, then the course colour as a bar, then the code, title and room in full. Its height grows gently with length (58 px, plus 0.2 px for each minute over an hour).
+  - Each class is a card tall enough for all its details: the start and end time on the left, then the course colour as a bar, then the code, title and faculty in full. Its height grows gently with length (58 px, plus 0.2 px for each minute over an hour).
   - Free time of 30 minutes or more folds into a 20 px dashed band labelled `1h 30m free`. If the student is in that gap now, the band is outlined in the accent and reads `Now · free for 40m`.
-  - A finished class keeps readable text on a sunken fill. The class in progress has an accent edge, `1h 20m left` beside its room, and a 2 px progress bar along its bottom.
+  - A finished class keeps readable text on a sunken fill. The class in progress has an accent edge, `1h 20m left` beside its faculty, and a 2 px progress bar along its bottom.
   - A moved class leaves one dashed row at its old place: `4:00 · Object-Oriented Prog. moved to Thu 3:00`.
   - The day fits one screen in the normal case, and otherwise it scrolls.
 - **C9a. Day swipe.**
@@ -96,7 +97,7 @@ See C5, C8–C10 and C12. The spring is the existing one from `carousel.ts`. Sta
 
 ## Accessibility
 
-- Each block's label reads the code, title, time, room and mark (`COMP 20073, Data Structures, 7:30 to 9 AM, room S501, online`).
+- Each block's label reads the code, title, time, faculty and mark (`COMP 20073, Data Structures, 7:30AM to 9AM, SANTOS, JUAN, online`).
 - The stamps are part of the block's label, not separate elements.
 - Swipes also have buttons: previous and next day or week, 44 pt each.
 - Block text keeps 4.5:1 contrast on every course colour in every room.
