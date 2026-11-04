@@ -343,7 +343,8 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 18px 6px 12px 14px;
+    /* Room above him: the card's clip-path cut the top of his sleeping z's. */
+    padding: 28px 6px 12px 14px;
     box-shadow: inset 3px 0 0 var(--gold);
   }
   .coach .say {

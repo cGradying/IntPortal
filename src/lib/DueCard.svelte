@@ -136,13 +136,13 @@
         {@const word = entryLabel(d, now)}
         {@const mark = marking[d.id]}
         <li animate:flip={{ duration: reduce ? 0 : 340, easing: cubicOut }} out:send={{ key: d.id }} in:receive={{ key: d.id }} class:fresh={!!mark} class="{mark?.tier ?? ''}" class:lift={mark?.lifted}>
+          <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={(e) => done(d, e.currentTarget)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
           <button class="row" onclick={() => open(d)} aria-label="{d.title}, {d.subject ?? d.course ?? 'no subject'}, due {word}">
             <span class="when" class:late={word === "Overdue"}>{word}</span>
             <span class="what"><strong>{d.title}</strong><small>{d.subject ?? d.course ?? "Your own"}</small></span>
           </button>
           {#if mark?.combo}<span class="combo" aria-hidden="true">{mark.combo}</span>{/if}
           {#if mark}<span class="stamp" aria-hidden="true">DONE</span>{/if}
-          <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={(e) => done(d, e.currentTarget)} aria-label="Mark {d.title} done"><i></i></button>
         </li>
       {/each}
     </ul>
@@ -236,11 +236,19 @@
     color: var(--ink-3);
   }
   /* The box: empty, then filled in three steps. */
+  /* On the left, clear of the floating cube, and it says what it does (#220). */
   .check {
+    flex: none;
     display: grid;
     place-items: center;
+    align-content: center;
+    gap: 2px;
+    padding: 0;
     background: none;
     box-shadow: none;
+    font-size: min(0.647rem, 20px);
+    line-height: 1;
+    color: var(--ink-2);
   }
   .check i {
     display: grid;
@@ -323,7 +331,7 @@
   }
   .stamp {
     position: absolute;
-    right: 52px;
+    right: 4px;
     top: 50%;
     translate: 0 -50%;
     rotate: -7deg;
@@ -350,7 +358,7 @@
   }
   .combo {
     position: absolute;
-    right: 108px;
+    right: 60px;
     top: 50%;
     font: 700 min(0.765rem, 23px) var(--font-pixel);
     color: var(--gold);
