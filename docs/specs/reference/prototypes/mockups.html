@@ -249,6 +249,7 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .wb .col { cursor: pointer; }
 .wb .blk > * { transition: opacity 0.18s 0.2s; }
 .wb.focusing .col:not(.focus) .blk > * { opacity: 0; transition: opacity 0.1s; }
+.wb.focusing .col:not(.focus) .stp { visibility: hidden; }
 .wb.focusing .col:not(.focus) .blk[data-stamped="1"]::after { content: ""; position: absolute; right: 2px; top: 3px; width: 4px; height: 4px; background: rgb(255 255 255 / 0.92); }
 .wb .col.focus .blk { padding: 4px 6px; }
 .wb .col.focus .blk b { font-size: 10.5px; letter-spacing: -0.01em; -webkit-line-clamp: 2; } .wb .col.focus .blk.short b { -webkit-line-clamp: 1; }
