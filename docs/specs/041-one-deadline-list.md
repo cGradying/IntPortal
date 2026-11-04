@@ -110,7 +110,7 @@ Every deadline the student has is in one list, wherever it came from: the syllab
 - Adder: field "What's due?", placeholder "quiz COMP fri", chips **Paste** and **Scan**; window "Add a due" or "Edit due".
 - Ticket: placeholder "Name it"; no date "DAY ?"; meta "No subject · Quiz". Rows **When** (Today, Tomorrow, Fri 13, **Pick…**), **Subject** (codes, No subject), **Kind** (Quiz, Exam, Project).
 - Button: **Add**, **Add 2**, **Save**; greyed **Keep one**, **Add a day**, **Name it**. **Delete** when editing.
-- Camera permission: "IntPortal uses the camera only when you tap it, to read a deadline from a photo or to add a photo. Nothing is sent anywhere." (One line for every use of the camera; Scan's photo still isn't kept, per C16.)
+- Camera permission: "IntPortal uses the camera only when you tap it, to read a deadline or a theme code from a photo, or to add a photo. Nothing is sent anywhere." (One line for every use of the camera; Scan's photo still isn't kept, per C16.)
 - Camera denied: "Camera is off for IntPortal. Turn it on in Settings, or type it instead."
 - Calendar event title: `COMP 20073 Quiz: Loops`.
 
