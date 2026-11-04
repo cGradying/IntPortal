@@ -1,6 +1,6 @@
 # 045 App environment
 
-**Status:** draft. Criteria marked **(pick)** wait for the Step 3 mockups.
+**Status:** ready to build. Every pick is settled (mockup rounds one to six).
 
 ## What changes for the student
 
@@ -29,22 +29,17 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
 **Environment**
 
 - **C1. One night.** The void family becomes tokens in `app.css`: `--void` `#0b0710`, `--void-2` `#140c16` and `--void-3` `#170b1a`. The landing, the hub, LAR's chat and the Glance read these tokens. No hex stays outside `app.css`, except the pixel-art palettes in `CampusStrip`, `Scene`, `Jeepney` and `lar/sprite.ts`.
-- **C2. (pick) The Night room** takes one of the following:
-  - (a) the void family as its ground;
-  - (b) the charcoal it has today, with the void kept only for stages;
-  - (c) charcoal tinted toward the void.
-- **C3. (pick) The backdrop:**
-  - the dot grid as today;
-  - a slow drifting gradient in the school's ramp, as on LAR's stage;
-  - none.
-  Whatever moves stops under Reduce Motion.
-- **C4. (pick) Each school's colours.** The accent and stage gradients come from the active portal's theme (`crates/intportal-core/src/schools.rs`), not fixed gold. Contrast stays at 4.5:1 or better, checked by test for every school.
+- **C2. The Night room (picked)** uses the void family as its ground: one night across the landing, the hub, LAR's chat and the app.
+- **C3. The ground (picked).** The dot grid stays, on a living ground.
+  - Two layers of soft gradient pools in the school's ramp drift against each other behind the dots and the cards, over 13 s and 17 s, alternating. Alpha stays low (0.09–0.55 by colour and room), and cards stay opaque, so text contrast does not change.
+  - They move by transform only, so they run on the compositor. They pause when the app is backgrounded, and they are off under Reduce Motion.
+- **C4. Each school's colours (picked).** The accent and the ground's pools come from the active portal's theme (`crates/intportal-core/src/schools.rs`), not fixed gold. Contrast stays at 4.5:1 or better, checked by test for every school. Only PUP is tuned by eye for now.
 - **C4a. Campus art per school** (added 2026-11-03). The scene on Up next is drawn per school from that school's real look: its landmark, its buildings and its surroundings, in its colours. A school without its own art yet shows a shared scene. Art is drawn from photos, ready portals first. **For now only PUP is drawn** (decided 2026-11-03); the others come with the artistic pass.
 - **C5. Corner roles.**
   - The pixel notch (stepped 4 px corners) is for stages and hero cards: Up next, the GPA card, sheets.
   - Dense rows and week blocks get a 4 px square-ish radius.
   - Nothing else.
-- **C6. Form controls** take the room's accent (`accent-color`), never system blue. **(pick)** Pixel checkboxes and switches instead.
+- **C6. Form controls (picked)** are pixel checkboxes and switches in the room's accent, never system blue.
 - **C7. The orb's lane.**
   - The cube orb never rests on top of a tappable control or a grade stamp.
   - **Decided 2026-11-03:** it stays floating at the bottom right for now, as shipped. An artistic redesign that fits the app comes later and settles the overlap.
@@ -67,31 +62,44 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
 
   Montserrat and Source Sans stay as a **Classic** text style in You.
 - **C9. The pixel rule.** Pixelify sets play and small labels only: LAR's name and bubbles, stamps, chips, section tags, day and tab labels, and celebrations. It never sets a time, a room, a date or a due item.
-- **C10. Pixel numerals.** A hand-drawn numeral set (0–9, `:`, `.`, `%` and small-caps `AM`/`PM`), drawn as SVG sprites in the way `PixelIcon` is. The numerals are tabular, and their sizes snap to the art pixel. **(pick)** Use them for hero numbers only (the Up next time, GPA, Study counts) or for every number.
-- **C11. Scale.** Seven sizes, one per role, each with a `rem` value and a cap. Each cap is above the caps of the roles under it, so a title never equals body at the largest text size. The 17 sizes in use today collapse into these seven. **(pick)** The values come from the mockup.
+- **C10. Pixel numerals.** A hand-drawn numeral set (0–9, `:`, `.`, `%` and small-caps `AM`/`PM`), drawn as SVG sprites in the way `PixelIcon` is. The numerals are tabular, and their sizes snap to the art pixel. **Picked:** hero numbers only (the Up next time, GPA, Study counts).
+- **C11. Scale (picked).** The current sizes stay. Each existing text style maps onto a role in C8 without changing size.
 - **C12. Units.** A number and its unit always have a gap or a size change between them, so `0 days`, never `0days`.
 
 **Juice**
 
 - **C13. Press.**
-  - Every tappable card and button squashes to 0.97 on press and springs back with a slight overshoot. **(pick)** The level is subtle, medium or loud.
+  - Every tappable card and button squashes to 0.97 on press and springs back with a slight overshoot (the subtle level, picked).
   - The data inside a card never moves on its own.
 - **C14. Count-up.** Hero numbers (GPA, the Study counts, units done) count up from their last seen value when the screen opens. They do not count up from zero on every visit.
 - **C15. Stamps thunk.** Stamps land with the existing `thunk` (0.55 s, `steps(6)`) plus a 2 px shake of the card they land on, once per new grade or status.
-- **C16. (pick) Idle sway.** Decorative pieces may sway (LAR, the cube, stamps, scene props). Cards and data never do.
+- **C16. Idle sway.** Decorative pieces only (LAR, the cube, scene props). Cards and data never sway.
 - **C17. Celebrations.** One kit: tile confetti, LAR's hop and a cube sparkle. It fires only on these three:
   - the first sign-in (the dive's reveal);
   - a deadline marked done;
   - a new grade posting.
 
   Nothing else celebrates.
-- **C18. Play limits.**
-  - No streak guilt, no loss framing, no hidden suspense and no random rewards.
-  - Repeated actions get smaller feedback: the second "done" within 10 s gets only the press.
+- **C18. Done (picked in round four).**
+  - **The sequence, 1.1 s at most:** the box fills in three steps, a line strikes through the title, sparks pop, the dot grid ripples from the box, and a `DONE` stamp lands. A five-step pixel bar under the title fills one step. The card lifts, tilts, drops into Done and lands with a small squash and a soft tick.
+  - **A run builds:** a done within 4 s of the last climbs the pentatonic scale. The first nudges, the second and third shake and show `×2`, `×3`, and from the fourth on they shake harder with a high sparkle.
+  - **All clear:** the bar flashes, LAR hops with a thumbs up, confetti bursts three times, and a rising run plays.
+  - **Then still.** Nothing loops.
+  - **Limits:** no streak guilt, no loss framing, no hidden suspense and no random rewards. Only the detune is random.
 - **C19. Sound.**
   - A tiny pixel sound kit (press tick, stamp, done, celebrate, LAR blip), under 40 KB in all.
   - A switch in You turns it on. It is off by default.
   - It respects the silent switch, and plays nothing under Reduce Motion with "Play animated effects" off.
+
+**Moving around (picked in round six)**
+
+- **C22. Tabs.** A pixel highlight steps under the chosen tab in four steps (0.24 s), the icon hops, and the page slides 12 px toward the tab you picked.
+- **C23. Scrolling.** The cube shrinks and tucks aside while Today scrolls, and returns 0.65 s after you stop.
+- **C24. Up next counts.** When its minute changes, the pixel countdown drops in over 0.2 s in two steps.
+- **C25. Sync.** Pull past 70 px; the cube spins fast while syncing, and a `SYNCED` stamp lands with one ripple through the dot grid.
+- **C26. Things grow from where they live.** A class's sheet grows out of its block and shrinks back into it (0.38 s in, 0.3 s out). The chat comes from the cube ([010](010-landing.md) C18b).
+- **C27. Grades.** On first open, the GPA counts from the last seen value and the stamps thunk one by one.
+- **C28. Ripples are rare.** The dot grid ripples only when something lands: the dive's end, a sync, a done.
 
 **Motion tokens**
 
@@ -150,20 +158,13 @@ See C13–C21. Under Reduce Motion: no sway, shake, count-up, confetti or drifti
 | C10 | `vitest`: numeral sprite set complete; `aria-label` equals the text |
 | C12 | screenshot of Study at zero |
 | C13–C17 | recording; `vitest`: celebration fires only for the three events |
-| C18 | `vitest`: `c18_second_done_within_10s_is_quiet` |
+| C18 | `vitest`: `c18_combo_climbs_within_4s_and_resets`; recording of a five-item run |
+| C3 | `vitest` on the CSS: transform-only keyframes, off under Reduce Motion |
+| C22–C28 | recording in both rooms |
 | C19 | `vitest`: off by default; muted under Reduce Motion |
 | C20 | `vitest`: `c20_no_raw_durations` (scan for `s` literals outside tokens and `steps()`) |
 | C21 | `vitest` on the CSS: the reduce rule sets the iteration count |
 
 ## Open questions
 
-The Step 3 mockups resolve all of these:
-- C2 (Night room)
-- C3 (backdrop)
-- C4 (school colours across the app)
-- C6 (pixel controls)
-- C7 (orb lane)
-- C10 (numeral reach)
-- C11 (scale values)
-- C13 (juice level)
-- C16 (sway)
+None. The orb's artistic redesign (C7) and the other schools' art (C4a) come later.

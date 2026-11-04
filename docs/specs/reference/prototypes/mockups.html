@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@500;600;700&family=Montserrat:wght@600;700;800&family=Pixelify+Sans:wght@500;600;700&family=Rubik:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-/* Round six. Settled picks sit in a strip at the top; the open rows
+/* Round seven. Settled picks sit in a strip at the top; the open rows
    follow as live phones in the picked world (one void, dot grid, the
    school's accent, the cube in the header). Single-theme on purpose:
    the page lives in the portal's night. */
@@ -216,26 +216,28 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .wk .head { display: grid; gap: 2px; font: 600 8px var(--rf-label); letter-spacing: 0.06em; text-align: center; color: var(--ink-3); }
 .wk .head .today { color: var(--gold-c); }
 .wk .body { display: grid; gap: 2px; position: relative; }
-.wk .hrs { position: relative; } .wk .hrs span { position: absolute; right: 2px; font: 600 7px var(--rf-num); color: var(--ink-3); translate: 0 -50%; }
+.wk .hrs { position: relative; } .wk .hrs span { position: absolute; right: 2px; font: 600 7.5px var(--rf-read); color: var(--ink-3); translate: 0 -50%; }
 .wk .col { position: relative; background: repeating-linear-gradient(var(--edge-c) 0 1px, transparent 1px var(--hh)); }
 .wk .col.today { background-color: color-mix(in srgb, var(--gold-c) 8%, transparent); }
 .wk .col.ghost { opacity: 0.6; background: repeating-linear-gradient(45deg, transparent 0 3px, var(--edge-c) 3px 4px); }
-.blk.past { opacity: 0.45; }
+.blk.past { background: color-mix(in srgb, var(--c) 42%, var(--ground)); color: var(--ink); box-shadow: inset 0 0 0 1px var(--edge-c); }
 .blk.now { box-shadow: inset 0 0 0 2px var(--gold-c); }
-.blk.vacant { background: repeating-linear-gradient(45deg, var(--c) 0 3px, color-mix(in srgb, var(--c) 55%, var(--ground)) 3px 6px); }
-.blk.ghostmove { background: none; box-shadow: none; outline: 1px dashed var(--c); outline-offset: -2px; clip-path: none; color: var(--c); }
-.nowline { position: absolute; right: 0; height: 2px; background: var(--gold-c); z-index: 5; pointer-events: none; }
+.blk.vacant, .blk.vacant.past { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--c) 34%, var(--ground)) 0 3px, color-mix(in srgb, var(--c) 18%, var(--ground)) 3px 6px); color: var(--ink); }
+.blk.ghostmove { background: none; box-shadow: none; outline: 1px dashed var(--c); outline-offset: -2px; clip-path: none; color: var(--ink-2); }
+.nowline { position: absolute; right: 0; height: 2px; background: var(--gold-c); z-index: 0; pointer-events: none; }
+.wk .col .blk { z-index: 1; }
 .dayview { position: relative; overflow: hidden; touch-action: pan-y; cursor: grab; }
 .daytrack { display: flex; align-items: start; will-change: transform; }
 .daytrack > div { flex: 0 0 100%; display: grid; align-content: start; gap: 6px; padding: 2px; }
 
 /* ---------- round four: week ---------- */
-.blk { position: absolute; left: 1px; right: 1px; padding: 4px 4px 4px; background: var(--c); color: #fff; overflow: hidden; display: flex; flex-direction: column; gap: 1px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), inset 0 -2px 0 rgb(0 0 0 / 0.22); clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px)); cursor: pointer; }
-.blk b { font: var(--rw-title) 8.5px/1.15 var(--rf-title); letter-spacing: -0.01em; overflow-wrap: normal; word-break: normal; hyphens: manual; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.blk .cd { display: none; font: 600 7px/1.2 var(--rf-label); letter-spacing: 0.05em; opacity: 0.85; white-space: nowrap; }
-.blk .tm, .blk .rm { font: 600 7px/1.2 var(--rf-label); letter-spacing: 0.04em; opacity: 0.9; white-space: nowrap; overflow: hidden; }
-.blk .rm { margin-top: auto; }
-.stp { flex: none; align-self: flex-start; justify-self: start; font: 700 6px/1.2 var(--f-pixel); letter-spacing: 0.04em; padding: 1px 2px; rotate: -6deg; background: rgb(255 255 255 / 0.94); color: var(--sk); box-shadow: inset 0 0 0 1px var(--sk); margin-bottom: 1px; }
+.blk { position: absolute; left: 1px; right: 1px; padding: 4px 4px 4px; background: var(--c); color: var(--on, #fff); overflow: hidden; display: flex; flex-direction: column; gap: 1px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), inset 0 -2px 0 rgb(0 0 0 / 0.22); clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px)); cursor: pointer; }
+.blk b { font: 700 9px/1.12 var(--rf-title); letter-spacing: -0.02em; overflow-wrap: normal; word-break: normal; hyphens: manual; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.blk .cd { display: none; font: 600 8px/1.2 var(--rf-read); opacity: 0.9; white-space: nowrap; }
+.blk .ml { margin-top: auto; display: grid; gap: 0; }
+.blk .tm, .blk .rm { font: 600 8px/1.2 var(--rf-read); white-space: nowrap; overflow: hidden; }
+.blk .tm { display: none; }
+.stp { flex: none; align-self: flex-start; justify-self: start; font: 700 6px/1.2 var(--f-pixel); letter-spacing: 0.04em; padding: 1px 2px; rotate: -6deg; background: rgb(255 255 255 / 0.94); color: var(--sk); box-shadow: inset 0 0 0 1px var(--sk); }
 .stp.mv { box-shadow: none; outline: 1px dashed var(--sk); outline-offset: -1px; }
 .stp.thunk { animation: thunk 0.55s steps(6) both; }
 .wk .head .dh { display: grid; justify-items: center; gap: 1px; padding: 3px 0 3px; border: 0; background: none; color: var(--ink-3); font: 600 7px var(--rf-label); letter-spacing: 0.06em; cursor: pointer; min-width: 0; overflow: hidden; }
@@ -249,14 +251,15 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .wb.focusing .col:not(.focus) .blk > * { opacity: 0; transition: opacity 0.1s; }
 .wb.focusing .col:not(.focus) .blk[data-stamped="1"]::after { content: ""; position: absolute; right: 2px; top: 3px; width: 4px; height: 4px; background: rgb(255 255 255 / 0.92); }
 .wb .col.focus .blk { padding: 4px 6px; }
-.wb .col.focus .blk b { font-size: 10px; -webkit-line-clamp: 2; }
+.wb .col.focus .blk b { font-size: 10.5px; letter-spacing: -0.01em; -webkit-line-clamp: 2; } .wb .col.focus .blk.short b { -webkit-line-clamp: 1; }
 .wb .col.focus .blk .cd { display: block; }
-.wb .col.focus .blk .tm, .wb .col.focus .blk .rm { font-size: 8px; }
+.wb .col.focus .blk .ml { display: flex; gap: 6px; } .wb .col.focus .blk .tm { display: block; } .wb .col.focus .blk .tm, .wb .col.focus .blk .rm { font-size: 9px; }
+.wb .col.focus .blk .stp { position: absolute; right: 4px; top: 4px; margin: 0; }
 .free { position: absolute; left: 3px; right: 3px; display: grid; place-items: center; border: 1px dashed color-mix(in srgb, var(--ink-3) 60%, transparent); pointer-events: none; }
-.free span { font: 600 7px var(--rf-label); letter-spacing: 0.05em; color: var(--ink-2); background: var(--ground); padding: 1px 3px; white-space: nowrap; }
+.free span { font: 600 8px var(--rf-read); color: var(--ink-2); background: var(--ground); padding: 1px 3px; white-space: nowrap; }
 .wb .free { opacity: 0; transition: opacity 0.1s; } .wb .col.focus .free { opacity: 1; transition: opacity 0.2s 0.22s; }
 .rest { position: absolute; left: 4px; right: 4px; top: 38%; text-align: center; font-size: 9px; line-height: 1.4; color: var(--ink-2); }
-.nowline span { position: absolute; right: 100%; top: 50%; translate: 0 -50%; font: 700 7px/1 var(--rf-label); letter-spacing: 0.02em; background: var(--gold-c); color: var(--on-gold-c); padding: 2px 2px; white-space: nowrap; }
+.nowline span { position: absolute; right: 100%; top: 50%; translate: 0 -50%; font: 700 7.5px/1 var(--rf-read); font-variant-numeric: tabular-nums; background: var(--gold-c); color: var(--on-gold-c); padding: 2px 2px; white-space: nowrap; }
 .mm { display: grid; gap: 3px; justify-items: end; }
 .mm span { font: 600 7px var(--rf-label); letter-spacing: 0.06em; color: var(--ink-3); }
 .mm div { display: grid; grid-template-columns: repeat(7, 5px); gap: 2px; }
@@ -264,20 +267,23 @@ section.row { padding-block: 44px 8px; display: grid; gap: 18px; scroll-margin-t
 .mm i.wk { background: color-mix(in srgb, var(--ink) 16%, var(--sunk)); }
 .mm i.due { background: var(--gold-c); box-shadow: none; } .mm i.over { background: var(--bad); box-shadow: none; }
 .mm i.today { outline: 1px solid var(--ink); outline-offset: 1px; }
-.tline { position: relative; }
-.tline .hrs { position: absolute; left: 0; top: 0; bottom: 0; width: 22px; }
-.tline .hrs span { position: absolute; right: 2px; font: 600 7px var(--rf-label); color: var(--ink-3); translate: 0 -50%; }
-.tline .free { left: 28px; }
-.tline::before { content: ""; position: absolute; left: 24px; right: 0; top: 0; bottom: 0; background: repeating-linear-gradient(var(--edge-c) 0 1px, transparent 1px 27px); }
-.daytrack > div:has(.tline) { padding: 0; }
-.dcard { position: absolute; left: 26px; right: 2px; display: grid; grid-template-columns: 3px minmax(0,1fr) auto; gap: 7px; align-items: start; padding: 4px 6px 4px 0; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c), inset 0 -2px 0 rgb(0 0 0 / 0.12); overflow: hidden; clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px)); }
-.dcard .bar { align-self: stretch; margin: -4px 0; background: var(--c); }
-.dcard b { font: var(--rw-title) 10px var(--rf-title); color: var(--ink); } .dcard .t { font-size: 9px; color: var(--ink); } .dcard .m { display: block; font-size: 8.5px; color: var(--ink-2); }
-.dcard .stp { font-size: 7px; margin-top: 1px; }
-.dcard.past { opacity: 0.45; } .dcard.now { box-shadow: inset 0 0 0 2px var(--gold-c); }
+.dline { display: grid; gap: 4px; align-content: start; padding-bottom: 8px; }
+.daytrack > div:has(.dline) { padding: 0; }
+.dline .rest { position: static; padding: 48px 0; font-size: 11px; }
+.dcard { position: relative; display: grid; grid-template-columns: 32px 3px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 7px 8px; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-c), inset 0 -2px 0 rgb(0 0 0 / 0.1); overflow: hidden; clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px)); }
+.dcard .tm { font-variant-numeric: tabular-nums; } .dcard .tm b { display: block; font: 700 11px/1.2 var(--rf-read); color: var(--ink); } .dcard .tm small { font-size: 9.5px; color: var(--ink-2); }
+.dcard .bar { align-self: stretch; background: var(--c); }
+.dcard .tx { min-width: 0; display: grid; gap: 1px; } .dcard .tx b { font: var(--rw-title) 12px/1.2 var(--rf-title); letter-spacing: -0.01em; color: var(--ink); }
+.dcard .t { font-size: 10.5px; line-height: 1.25; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .dcard .m { font-size: 9.5px; line-height: 1.25; color: var(--ink-2); }
+.dcard .stp { align-self: start; font-size: 7px; }
+.dcard.past { background: var(--sunk); } .dcard.past .bar { background: color-mix(in srgb, var(--c) 35%, var(--sunk)); } .dcard.past .tx b, .dcard.past .t, .dcard.past .tm b { color: var(--ink-2); }
+.dcard.now { box-shadow: inset 0 0 0 2px var(--gold-c); }
+.dcard .prog-now { position: absolute; left: 2px; bottom: 2px; height: 2px; width: calc((100% - 4px) * var(--k)); background: var(--gold-c); }
 .dcard.vacant { background: repeating-linear-gradient(45deg, var(--card) 0 3px, var(--sunk) 3px 6px); }
-.dcard.ghostmove { display: block; background: none; box-shadow: none; clip-path: none; outline: 1px dashed var(--c); outline-offset: -1px; padding: 4px 8px; }
-.dcard.ghostmove b { font: 600 8px var(--rf-label); letter-spacing: 0.04em; color: var(--ink-2); }
+.fband { display: grid; place-items: center; height: 20px; border: 1px dashed color-mix(in srgb, var(--ink-3) 55%, transparent); }
+.fband span { font: 600 9px var(--rf-read); color: var(--ink-2); }
+.fband.on { border-color: var(--gold-c); border-style: solid; } .fband.on span { color: var(--accent-ink); }
+.dghost { padding: 5px 8px; font-size: 9.5px; color: var(--ink-2); outline: 1px dashed var(--c); outline-offset: -1px; }
 
 /* ---------- round four: done ---------- */
 .prog { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)) auto; gap: 3px; align-items: center; }
@@ -332,10 +338,10 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
 
 <div class="wrap">
   <header class="top">
-    <h1>Round six: the look of <b>IntPortal</b></h1>
-    <p>The dive's tunnel now changes form with speed ramps, every phone sits on a slowly drifting gradient ground, and motion is back up between rounds four and five.</p>
+    <h1>Round seven: the look of <b>IntPortal</b></h1>
+    <p>The dive, motion and done are settled. One row left: a week and a day you can read at a glance.</p>
     <div class="settled" aria-label="Settled picks">
-      <span>LAR leads</span><span>One void</span><span>Dot grid</span><span>Campus kept</span><span>School accent, PUP only for now</span><span>Pixel checkboxes</span><span>Current sizes</span><span>Hero pixel numerals</span><span>Subtle juice</span><span>Pixel-bridged type</span><span>Done as in round four</span><span>Week and Day</span><span>Floating cube, bottom right</span>
+      <span>LAR leads</span><span>One void</span><span>Dot grid</span><span>Campus kept</span><span>School accent, PUP only for now</span><span>Pixel checkboxes</span><span>Current sizes</span><span>Hero pixel numerals</span><span>Subtle juice</span><span>Pixel-bridged type</span><span>Done as in round four</span><span>Week and Day</span><span>Tunnel dive</span><span>Motion as in round six</span><span>Floating cube, bottom right</span>
     </div>
   </header>
   <nav class="jump" aria-label="Rows">
@@ -363,8 +369,7 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
         <label class="tl" for="diveScrub">Scrub <input class="scrub" id="diveScrub" type="range" min="0" max="2000" value="2000"></label>
         <div class="tl" id="diveSteps"></div>
         <div class="ctl">
-          <button class="pick inline" data-row="dive" data-v="yes">This is the dive</button>
-          <button class="pick inline" data-row="dive" data-v="needs work">Needs more work</button>
+          <span class="settled-note">Settled in round six.</span>
         </div>
         <p class="note">This is a browser sketch of the Rust scene in <code>intportal-tiles</code>. The real one draws every tile at 60 fps, and only while something moves. Reduce Motion skips straight to Today.</p>
       </div>
@@ -392,9 +397,7 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
         <p class="note"><b>Things grow from where they live.</b> A class sheet opens out of its block, the chat out of the cube. Closing goes back the same way.</p>
         <p class="note"><b>Then still.</b> Nothing loops on content. The cube bobs, and LAR breathes in his chat; cards never move on their own. Reduce Motion skips all of it to the end state.</p>
         <div class="ctl">
-          <button class="pick inline" data-row="motion" data-v="yes">This is how it should move</button>
-          <button class="pick inline" data-row="motion" data-v="more">More</button>
-          <button class="pick inline" data-row="motion" data-v="less">Less</button>
+          <span class="settled-note">Settled in round six.</span>
         </div>
       </div>
     </div>
@@ -430,8 +433,8 @@ canvas.lar.hop { animation: larhop 0.5s steps(5) both; }
   <section class="row" id="week">
     <div class="q">
       <span class="spec">044, reworked</span>
-      <h2>Week and Day, with a day you can open</h2>
-      <p>You picked B. New: tap a day in the week and it opens wide with the code, title, time, room and free gaps, while the rest shrink to colour so the week keeps its shape. Tap it again, or move the grid, and it goes back to even. The Day view stays the timeline.</p>
+      <h2>A week and a day you can actually read</h2>
+      <p>The Day view no longer squeezes classes to their real length: each card expands to fit its time, code, title and room, and free time folds into short bands. Finished classes keep readable text. In the week, times and rooms moved out of the pixel face into the reading face, text picks ink or white to suit each course colour, and tapping a day still opens it wide.</p>
     </div>
     <div class="ctl">
       <div class="seg" role="group" aria-label="Room"><span class="lab">Room</span><button data-k="room" data-v="night" aria-pressed="true">Night</button><button data-k="room" data-v="day" aria-pressed="false">Day</button></div>
@@ -1648,9 +1651,9 @@ function mountToday(phone, o) {
 }
 
 /* ---------------- picks and the tray ---------------- */
-const ROWS = [["dive", "Dive"], ["motion", "Motion"], ["week", "Week"]];
+const ROWS = [["week", "Week"]];
 let picks = {};
-try { picks = JSON.parse(localStorage.getItem("ip-picks-6") || "{}"); } catch { picks = {}; }
+try { picks = JSON.parse(localStorage.getItem("ip-picks-7") || "{}"); } catch { picks = {}; }
 function renderTray() {
   $("#chips").innerHTML = ROWS.map(([k, l]) => `<span class="${picks[k] ? "set" : ""}">${l}${picks[k] ? ": " + picks[k] : ""}</span>`).join("");
   $$(".pick").forEach((b) => b.setAttribute("aria-pressed", String(picks[b.dataset.row] === b.dataset.v)));
@@ -1658,11 +1661,11 @@ function renderTray() {
 document.addEventListener("click", (e) => {
   const b = e.target.closest(".pick"); if (!b) return;
   picks[b.dataset.row] = b.dataset.v;
-  try { localStorage.setItem("ip-picks-6", JSON.stringify(picks)); } catch {}
+  try { localStorage.setItem("ip-picks-7", JSON.stringify(picks)); } catch {}
   renderTray();
 });
 $("#copy").addEventListener("click", () => {
-  const text = "IntPortal picks, round six:\n" + ROWS.map(([k, l]) => `- ${l}: ${picks[k] || "(no pick)"}`).join("\n");
+  const text = "IntPortal picks, round seven:\n" + ROWS.map(([k, l]) => `- ${l}: ${picks[k] || "(no pick)"}`).join("\n");
   const done = (m) => { $("#toast").textContent = m; setTimeout(() => ($("#toast").textContent = ""), 2400); };
   const fallback = () => { const r = document.createRange(); r.selectNodeContents($("#chips")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); done("Copying is blocked here. The picks are selected, so copy them by hand."); };
   if (!navigator.clipboard) return fallback();
@@ -2042,6 +2045,8 @@ function dayItems(d) {
   return out.sort((a, b) => a.s - b.s);
 }
 const hasDay = (d) => dayItems(d).length > 0;
+/* The block's text: whichever of ink or white reads better on its course colour (044: 4.5:1 on every colour). */
+const onColor = (hex) => { const lum = rgbOf(hex).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }), L = 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2]; return 1.05 / (L + 0.05) >= (L + 0.05) / 0.0533 ? "#ffffff" : "#120a06"; };
 const stampHTML = (st) => (st ? `<span class="stp${st[0] === "MOVED" ? " mv" : ""}" style="--sk:${st[1]}">${st[0]}</span>` : "");
 /* The deadline strip, folded into a four-week pixel month beside the title. */
 function miniMonth() {
@@ -2054,10 +2059,10 @@ const nowHTML = (hh, left) => `<div class="nowline" style="left:${left}px;top:${
 function blockHTML(c, d, hh, r) {
   const top = yy(c.s, hh), h = yy(c.e, hh) - top - 2, past = d === TODAY && c.e <= nowMin, now = d === TODAY && c.s <= nowMin && nowMin < c.e;
   const st = !c.ghost && stampOf(c);
-  const cls = ["blk", past && "past", now && "now", c.mark === "vacant" && "vacant", c.ghost && "ghostmove"].filter(Boolean).join(" ");
+  const cls = ["blk", h < 56 && "short", past && "past", now && "now", c.mark === "vacant" && "vacant", c.ghost && "ghostmove"].filter(Boolean).join(" ");
   if (c.ghost) return `<div class="${cls}" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]}" aria-label="Moved from here: ${c.t}"><b>moved</b></div>`;
   const label = `${c.code}, ${c.t}, ${fmt(c.s)} to ${fmt(c.e)}, room ${c.room}${st ? ", " + st[0].toLowerCase() : ""}`;
-  return `<div class="${cls}" data-i="${c.i}" role="button" aria-label="${label}" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]}" data-stamped="${st ? 1 : 0}">${stampHTML(st)}<span class="cd">${c.code}</span><b>${c.t}</b><span class="tm">${fmt(c.s)}–${fmt(c.e)}</span><span class="rm">${c.room}</span></div>`;
+  return `<div class="${cls}" data-i="${c.i}" role="button" aria-label="${label}" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]};--on:${onColor(r.sub[c.c])}" data-stamped="${st ? 1 : 0}">${stampHTML(st)}<span class="cd">${c.code}</span><b>${c.t}</b><span class="ml"><span class="tm">${fmt(c.s)}–${fmt(c.e)}</span><span class="rm">${c.room}</span></span></div>`;
 }
 function freeHTML(d, hh) {
   const it = dayItems(d).filter((c) => !c.ghost); let out = "";
@@ -2068,10 +2073,10 @@ const weekTop = () => `<div class="status"><span>1:10</span><span>●●● ▮<
     <div class="hd"><div><div class="lbl">Oct 19 – 24</div><h3 class="hi">This week</h3></div>${miniMonth()}</div>`;
 
 /* B. Week and Day, both kept and fixed. */
-const HHB = 31, HHD = 27;
+const HHB = 33;
 const shown = (d) => d === TODAY || hasDay(d);
 /* Tap a day and it opens wide; any move lets it go back to the even week. */
-const tplB = (f) => `18px ${[0, 1, 2, 3, 4, 5].map((d) => (!shown(d) ? "7px" : f >= 0 && d === f ? "minmax(0,4fr)" : "minmax(0,1fr)")).join(" ")}`;
+const tplB = (f) => `18px ${[0, 1, 2, 3, 4, 5].map((d) => (!shown(d) ? "7px" : f >= 0 && d === f ? "minmax(0,5.5fr)" : "minmax(0,1fr)")).join(" ")}`;
 function weekHTML(r) {
   const tpl = tplB(-1);
   const col = (d) => (shown(d) ? `<div class="col${d === TODAY ? " today" : ""}" data-f="${d}">${dayItems(d).map((c) => blockHTML(c, d, HHB, r)).join("")}${freeHTML(d, HHB)}</div>` : `<div class="col ghost" title="${DAYS[d]}: no classes"></div>`);
@@ -2099,23 +2104,39 @@ function setupWeekFocus(p) {
   sc?.addEventListener("scroll", () => f >= 0 && set(-1), { passive: true });
   sc?.addEventListener("wheel", () => f >= 0 && set(-1), { passive: true });
 }
+/* The day view gives each class the room its details need, and folds the free time into short bands.
+   The time is on every card, so it doesn't need a proportional rail to read at a glance. */
 function dayHTML(r) {
+  const day3 = (d) => DAYS[d][0] + DAYS[d].slice(1).toLowerCase();
+  const band = (txt, on) => `<div class="fband${on ? " on" : ""}"><span>${txt}</span></div>`;
   const card = (c, d) => {
-    const top = yy(c.s, HHD), h = yy(c.e, HHD) - top - 3;
-    if (c.ghost) return `<div class="dcard ghostmove" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]}"><b>Moved to ${DAYS[c.moved.d][0] + DAYS[c.moved.d].slice(1).toLowerCase()} ${fmt(c.moved.s)}</b></div>`;
-    const st = stampOf(c), past = d === TODAY && c.e <= nowMin, now = d === TODAY && c.s <= nowMin && nowMin < c.e;
-    return `<div class="dcard${past ? " past" : ""}${now ? " now" : ""}${c.mark === "vacant" ? " vacant" : ""}" style="top:${top}px;height:${h}px;--c:${r.sub[c.c]}" data-stamped="${st ? 1 : 0}"><i class="bar"></i><div><b>${c.code}</b> <span class="t">${c.t}</span><span class="m">${fmt(c.s)}–${fmt(c.e)} · ${c.room}</span></div>${stampHTML(st)}</div>`;
+    if (c.ghost) return `<div class="dghost" style="--c:${r.sub[c.c]}">${fmt(c.s)} · ${c.t} moved to ${day3(c.moved.d)} ${fmt(c.moved.s)}</div>`;
+    const st = stampOf(c), past = d === TODAY && c.e <= nowMin, now = d === TODAY && c.s <= nowMin && nowMin < c.e, dur = c.e - c.s;
+    return `<div class="dcard${past ? " past" : ""}${now ? " now" : ""}${c.mark === "vacant" ? " vacant" : ""}" style="min-height:${Math.round(58 + Math.max(0, dur - 60) * 0.2)}px;--c:${r.sub[c.c]}" data-stamped="${st ? 1 : 0}">
+      <div class="tm"><b>${fmt(c.s)}</b><small>${fmt(c.e)}</small></div><i class="bar"></i>
+      <div class="tx"><b>${c.code}</b><span class="t">${c.t}</span><span class="m">${c.room}${now ? ` · ${span(c.e - nowMin)} left` : ""}</span></div>${stampHTML(st)}
+      ${now ? `<i class="prog-now" style="--k:${((nowMin - c.s) / dur).toFixed(3)}"></i>` : ""}</div>`;
   };
-  const tline = (d) => { const it = dayItems(d); return `<div class="tline" style="height:${HOURS * HHD}px">${hrsHTML(HHD)}${it.map((c) => card(c, d)).join("")}${freeHTML(d, HHD)}${d === TODAY ? nowHTML(HHD, 22) : ""}${it.length ? "" : `<div class="rest">No classes.<br>Pahinga muna.</div>`}</div>`; };
+  const dline = (d) => {
+    const it = dayItems(d); if (!it.length) return `<div class="dline"><div class="rest">No classes.<br>Pahinga muna.</div></div>`;
+    const real = it.filter((c) => !c.ghost); let out = "";
+    it.forEach((c) => {
+      out += card(c, d);
+      if (c.ghost) return;
+      const next = real[real.indexOf(c) + 1];
+      if (next && next.s - c.e >= 30) { const inGap = d === TODAY && c.e <= nowMin && nowMin < next.s; out += band(inGap ? `Now · free for ${span(next.s - nowMin)}` : `${span(next.s - c.e)} free`, inGap); }
+    });
+    return `<div class="dline">${out}</div>`;
+  };
   return weekTop() + `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">${[0, 1, 2, 3, 4, 5].map((d) => `<span data-day="${d}" style="display:grid;justify-items:center;padding:5px 0;font:600 8px var(--rf-label);color:var(--ink-3);background:var(--card);box-shadow:inset 0 0 0 1px var(--edge-c);cursor:pointer">${DAYS[d]}<b style="font:800 13px var(--rf-num);color:var(--ink)">${DATES[d]}</b></span>`).join("")}</div>
     <label style="display:flex;gap:8px;align-items:center;font-size:10px;color:var(--ink)"><span class="pchk"></span>Hide vacant classes</label>
-    <div class="dayview"><div class="daytrack">${[0, 1, 2, 3, 4, 5].map((d) => `<div>${tline(d)}</div>`).join("")}</div></div>
+    <div class="dayview"><div class="daytrack">${[0, 1, 2, 3, 4, 5].map((d) => `<div>${dline(d)}</div>`).join("")}</div></div>
   </div></div>${tabBar("sched")}`;
 }
 function renderWeek() {
   const opts = [
     ["week", "Week: tap a day to open it", "Tap Fri (or any day) and it opens wide with the code, title, time, room and free gaps while the other days shrink to colour. Tap it again, or move the grid at all, and the week goes back to even. With a day open, tapping one of its classes opens the class sheet."],
-    ["day", "B · Day, as a timeline", "Classes at their real length on the hour rail, with the free gaps between them, so the day fills the screen. Drag sideways or tap a day."],
+    ["day", "Day: details first", "Every class gets the room its details need: time, code, title and room in full, at larger sizes. Free time folds into short bands. Finished classes lose their colour but keep readable text, and the class in progress shows how long is left. Drag sideways or tap a day."],
   ];
   $("#weekOpts").innerHTML = opts.map(([k, n, s]) => `<div class="opt"><div class="phone" data-week="${k}"></div><div class="name"><b>${n}</b><span>${s}</span></div></div>`).join("");
   $$("#weekOpts .phone").forEach((p) => {

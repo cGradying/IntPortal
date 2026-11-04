@@ -211,3 +211,12 @@ Reuse what already exists:
   - The drawing costs about 0.6 ms a frame in the browser, measured before the last small colour and layout tweaks.
   - **Week:** no detail given yet, so nothing changed this round. Waiting on what is off.
   - **Paused for round-six picks.**
+- 2026-11-04 · **Picks, round six:** Dive yes, Motion yes. Week needs work: "the details are more visible since it's kinda unreadable, or make sure it expands for day".
+  - **Specs finalised:** 010 (C26–C29a, the tunnel dive at about 2.4 s on first sign-in) and 045 (all picks, the done sequence, C22–C28 moving around, the gradient ground). 045 C18's old "second done is quiet" rule is gone, replaced by the picked run.
+  - DESIGN.md changes land with the builds that ship them (`ui/type-system`, `ui/environment`), so it never describes what isn't in the app.
+  - **Round seven** (artifact version 9), Week only:
+    - **Three causes found:** Pixelify on tiny times and rooms (which broke 045 C9), 45% fading of finished classes, and class cards squeezed to real length so lines clipped.
+    - **Day view:** each card expands to fit its details, and free time folds into short bands.
+    - **Week:** no times in the even week, reading face for times and rooms, ink or white text by course colour, now-line behind blocks, and a wider open day.
+    - 044 is updated to match.
+  - **Paused for the week pick.** Once it is settled, Step 4 starts with `ui/dive`.

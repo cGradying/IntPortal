@@ -79,23 +79,26 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 - **C26. Launch, signed in.**
   - The app opens on the void with the student's own portal. It builds and dives at once, with no form and no Step through.
   - The cached snapshot loads and adopts while the dive runs, never after it. The dive ends at the later of 0.6 s and data ready.
-  - If data is still loading after the dive, the tunnel keeps swirling. At 3 s it enters Today with whatever is cached, and the sync carries on behind.
+  - If data is still loading after the dive, the tunnel keeps changing form at full screen (C29a). At 3 s it enters Today with whatever is cached, and the sync carries on behind.
 - **C27. First sign-in.**
   1. After a successful sign-in, Step through shows as today.
-  2. Tapping it starts the full dive, about 1.6 s.
-  3. LAR says "Ayos!" and flies to the portal's mouth (0–0.4 s).
-  4. The camera dives through the frame into the motif tunnel (0.4–1.2 s).
-  5. The dither hands over to Today (1.2–1.6 s).
-- **C28. LAR leads.** LAR stays in front of the tunnel the whole way, ahead of the camera and never behind a tile. He shrinks toward the mouth and lands as the cube at the orb's spot on Today.
-  - If IntAssis is not added, he lands nowhere and simply fades out with the dither.
-  - The mockup decides between two variants: "he leads" (he stays a sprite until the dither) or "he folds" (he becomes his cube at the mouth).
-- **C29. One field, void to Today** (revised 2026-11-03 after round one).
-  - The scene is one grid of tiles on the same pitch as Today's dot grid. At rest the void is that grid dimmed to dots. The portal's frame is dots swelling into tiles, and its light spills onto the dots near it, with falloff, turning with the motif.
-  - The dive floods the swirl outward from the portal's mouth across every cell, not a zoom.
-  - The flood's last frames warm toward the ground of the room the student lands in, so a Day room never comes out of black.
-  - Arrival runs from the centre out: each tile shrinks to a dot of Today's dot grid and the ground under it lifts, revealing Today in place.
+  2. Tapping it starts the full dive, about 2.4 s (picked in round six; it was 1.6 s).
+  3. LAR says "Ayos!" and flies to the portal's mouth (0–0.42 s).
+  4. The camera dives into the mouth through three forms of the tunnel, in speed-ramped surges (0.42–1.92 s).
+  5. The field lands on Today (1.92–2.42 s).
+- **C28. LAR leads (picked).** LAR goes in ahead of the camera, shrinking toward the centre of the tunnel, and is gone into it before the field lands. The cube is already at its spot on Today. He stays a sprite the whole way.
+- **C29. One field, void to Today** (revised 2026-11-04, picked in round six).
+  - The scene is one grid of tiles on the same pitch as Today's dot grid. At rest the void is that grid dimmed to dots, over pools of the school's ramp that drift and surge with the tunnel. The portal's frame is dots swelling into tiles, and its light spills onto the dots near it, with falloff.
+  - The portal's mouth holds the same grid at 1/4.5 of its pitch. The dive is a real camera move: the camera zooms about the mouth, the frame's tiles grow and rush past the edges, and the camera stops when the mouth's tiles are the screen's tiles.
+  - The field's last frames warm toward the ground of the room the student lands in, so a Day room never comes out of black.
+  - Arrival runs from the centre out on a glowing front. Each tile flares and swells 28% as the front reaches it, shrinks to a dot of Today's dot grid and lifts off in a 4 × 4 Bayer dither, leaving a glint that fades. As the last tiles go, one ripple runs through Today's dot grid.
   - There is no brightness or saturation filter on the hand-off.
-  - Prototype: `reference/prototypes/mockups.html`, round two.
+  - Prototype: `reference/prototypes/mockups.html`, round six.
+- **C29a. The tunnel shader** (added 2026-11-04). One function per tile, in the same tiles as everything else.
+  - **Forms:** spiral arms, round rings, a square corridor, petals, polar checks and plasma. Each gives a brightness for a cell. They blend as brightness, so one shape melts into the next, and each play takes a different order. Angles only take whole multiples, so no form has a seam.
+  - **Look, shared by every form:** every dark part glows at its edge, and the far end is a dark eye in a ring of light. Brightness lands on the school's ramp through a 4 × 4 Bayer dither. There are eight colours a frame.
+  - **Speed ramp:** shader time and the camera both surge through each change of form and coast between them. A first sign-in has three changes, a launch has one, and slow data keeps changing every 0.7 s.
+  - **Cost:** per-cell geometry is computed once into a table, so a tile costs a few cosines. Target: under 2 ms a frame in Rust on the iPhone 17e.
 - **C30. Today is already there** (revised 2026-11-03). Today is fully laid out under the field from the start of arrival. Nothing on it rises, fades in or spawns after the field has landed.
 - **C31. Haptics.** One light tick when the dive starts, and one soft thud on the reveal. They follow the haptics setting.
 - **C32. Reduce Motion.** No portal and no dive: launch and Step through go straight to Today with a 0.2 s cross-fade in the room's ground colour.
