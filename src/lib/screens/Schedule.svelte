@@ -16,6 +16,7 @@
   const todayIdx = (new Date().getDay() + 6) % 7;
   let day = $state<Weekday>(WEEKDAYS[todayIdx]);
   let picked = $state<Meeting | null>(null);
+  let pickedFrom = $state<DOMRect>();
   let hideVacant = $state(stored("hideVacant") === "1");
   let view = $state<"day" | "week">(stored("scheduleView") === "week" ? "week" : "day");
   const colors = $derived(app.snapshot?.colors ?? {});
@@ -165,8 +166,9 @@
     }
   }
 
-  function pick(m: Meeting) {
+  function pick(m: Meeting, rect?: DOMRect) {
     picked = m;
+    pickedFrom = rect;
   }
 </script>
 
@@ -232,7 +234,7 @@
           {@const stamp = stampOf(m.mark, m.moved)}
           {@const phase = phaseOf(s, onToday, nowMin)}
           <li>
-            <button class="class {phase}" data-mark={m.mark} style:--c={subjectColor(s.subject_code, colors)} style:min-height="{Math.round(58 + Math.max(0, s.end - s.start - 60) * 0.2)}px" onclick={() => pick(m)}>
+            <button class="class {phase}" data-mark={m.mark} style:--c={subjectColor(s.subject_code, colors)} style:min-height="{Math.round(58 + Math.max(0, s.end - s.start - 60) * 0.2)}px" onclick={(e) => pick(m, e.currentTarget.getBoundingClientRect())}>
               <span class="time num">{clock(s.start)}<small>{clock(s.end)}</small></span>
               <span class="stripe"></span>
               <span class="what">
@@ -253,7 +255,7 @@
   {/if}
 </div>
 
-{#if picked}<ClassSheet meeting={picked} onclose={() => (picked = null)} />{/if}
+{#if picked}<ClassSheet meeting={picked} from={pickedFrom} onclose={() => (picked = null)} />{/if}
 
 <style>
   .screen {

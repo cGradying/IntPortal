@@ -1,5 +1,6 @@
 <script lang="ts">
   import PixelNum from "../PixelNum.svelte";
+  import { counted } from "../count.svelte";
   import Synced from "../Synced.svelte";
   import { friendly } from "../errors";
   import MabiniGrades from "../MabiniGrades.svelte";
@@ -44,7 +45,10 @@
     return Number.isFinite(n) ? n : null;
   };
 
+  const gpaCount = counted("gpa", () => standing?.term_gpa ?? null);
   const shownGpa = $derived(viewing ? (standing?.past.find((p) => termKey(p) === viewing)?.gpa ?? null) : (standing?.term_gpa ?? null));
+  // Only this term counts; a past term just shows.
+  const heroGpa = $derived(viewing ? shownGpa : gpaCount.value);
   const posted = $derived(subjects.filter((s) => numeric(s) !== null));
   const units = $derived(posted.reduce((a, s) => a + s.units, 0));
   const best = $derived(!viewing && !!standing?.personal_best);
@@ -173,7 +177,7 @@
     {#if celebrate}<Confetti />{/if}
     <div>
       <p class="label">GPA</p>
-      <p class="value num"><PixelNum text={shownGpa === null ? "—" : shownGpa.toFixed(2)} size={6} />{#if best}<span class="pb" class:fresh={celebrate}>Personal best</span>{/if}</p>
+      <p class="value num"><PixelNum text={heroGpa === null ? "—" : heroGpa.toFixed(2)} size={6} />{#if best}<span class="pb" class:fresh={celebrate}>Personal best</span>{/if}</p>
       <p class="sub">
         {#if shownGpa === null}No grades posted yet{:else}{posted.length} of {subjects.length} posted · {units} units{/if}
       </p>
@@ -483,6 +487,15 @@
   }
   .stamp.mark {
     color: var(--ink-2);
+  }
+  /* The card takes a little of the stamp's weight (spec 045 C15). */
+  .row:has(.stamp.fresh) {
+    animation: stamp-shake 0.3s steps(4) 0.2s;
+  }
+  @keyframes stamp-shake {
+    25% { translate: 2px 0; }
+    50% { translate: -2px 0; }
+    75% { translate: 1px 0; }
   }
   .stamp.fresh {
     animation: thunk 0.55s steps(6) both;

@@ -1,4 +1,15 @@
 <script lang="ts">
+  // The Up next count drops in when its value changes, never on first paint (spec 045 C24).
+  function tick(el: HTMLElement, value: string) {
+    let last = value;
+    return {
+      update(next: string) {
+        if (next === last) return;
+        last = next;
+        if (!matchMedia("(prefers-reduced-motion: reduce)").matches) el.animate([{ translate: "0 -4px", opacity: 0.3 }, { translate: "0 0", opacity: 1 }], { duration: 200, easing: "steps(2)" });
+      },
+    };
+  }
   import PixelNum from "../PixelNum.svelte";
   import Synced from "../Synced.svelte";
   import NeedSis from "../NeedSis.svelte";
@@ -146,7 +157,7 @@
           <p class="desc">{next.session.description}</p>
           <p class="meta">{clock(next.session.start)}–{clock(next.session.end)}{next.session.faculty ? ` · ${next.session.faculty}` : ""}</p>
         </div>
-        <div class="count">
+        <div class="count" use:tick={`${hero.big} ${hero.unit}`}>
           <span class="big"><PixelNum text={hero.big} size={5} /></span>
           <span class="unit">{hero.unit}</span>
         </div>

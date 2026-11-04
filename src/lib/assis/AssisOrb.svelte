@@ -8,10 +8,26 @@
   import { assis, installed, open } from "./assis.svelte";
 
   const thinking = $derived(assis.busy === "thinking" || assis.busy === "waking");
+
+  // It tucks aside while the page scrolls, and comes back when you stop (spec 045 C23).
+  let tucked = $state(false);
+  $effect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const scrolled = () => {
+      tucked = true;
+      clearTimeout(timer);
+      timer = setTimeout(() => (tucked = false), 650);
+    };
+    addEventListener("scroll", scrolled, { passive: true });
+    return () => {
+      clearTimeout(timer);
+      removeEventListener("scroll", scrolled);
+    };
+  });
 </script>
 
 {#if installed()}
-  <button class="orb" data-orb class:away={assis.open} aria-label="Ask LAR" onclick={() => { buzz.tick(); open(); }}>
+  <button class="orb" data-orb class:away={assis.open} class:tucked aria-label="Ask LAR" onclick={() => { buzz.tick(); open(); }}>
     <Cube size={4} speed={thinking ? 4 : 1} />
     {#if thinking}<span class="pip" aria-hidden="true"><i></i><i></i><i></i></span>{/if}
   </button>
@@ -34,7 +50,14 @@
     -webkit-tap-highlight-color: transparent;
     transition:
       opacity 0.2s var(--ease),
-      transform 0.2s var(--ease);
+      transform 0.2s var(--ease),
+      translate 0.22s var(--ease),
+      scale 0.22s var(--ease);
+  }
+  .orb.tucked {
+    translate: 22px 0;
+    scale: 0.7;
+    opacity: 0.7;
   }
   .orb :global(canvas) {
     grid-area: 1 / 1;
