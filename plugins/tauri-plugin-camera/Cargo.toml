@@ -1,0 +1,13 @@
+[package]
+name = "tauri-plugin-camera"
+version.workspace = true
+edition = "2021"
+publish = false
+description = "One photo from the camera or the library, read on the phone (text, QR) and kept only when asked."
+links = "tauri-plugin-camera"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = "2"

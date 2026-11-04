@@ -3,6 +3,7 @@
   // by the core, confirmed before anything is saved. With `own` it edits one.
   import { api, isoDate, type DeadlineDraft, type DeadlineEntry, type ItemKind } from "./api";
   import { closable } from "./back";
+  import { cameraProblem, capture } from "./camera";
   import { buzz } from "./haptics";
   import { adopt, app } from "./state.svelte";
 
@@ -32,6 +33,31 @@
     problem = "";
     const drafts = await api.parseOwn(text, isoDate(new Date())).catch((e) => ((problem = String(e)), []));
     rows = drafts.map((d) => ({ ...d, keep: true }));
+  }
+
+  // Spec 041 C15–C18: one photo, read on the phone, not kept. A phone with no
+  // camera (the simulator) picks from the library instead.
+  let scanning = $state(false);
+  async function scan() {
+    problem = "";
+    scanning = true;
+    try {
+      const r = await capture({ source: "camera", read: { text: true } }).catch((e) => {
+        if (cameraProblem(e) === "no_camera") return capture({ source: "library", read: { text: true } });
+        throw e;
+      });
+      if (r.cancelled) return;
+      if (!r.text?.trim()) {
+        problem = "Couldn't read any text. Try closer, with more light.";
+        return;
+      }
+      text = r.text;
+      await read();
+    } catch (e) {
+      problem = cameraProblem(e) === "camera_denied" ? "Camera is off for IntPortal. Turn it on in Settings, or type it instead." : "Couldn't use the camera. Type it instead.";
+    } finally {
+      scanning = false;
+    }
   }
 
   async function save() {
@@ -65,6 +91,7 @@
     <textarea bind:value={text} rows="3" placeholder="quiz COMP fri, or paste the GC message" aria-label="What's due?"></textarea>
     <div class="bar">
       <button class="ghost" onclick={paste}>Paste</button>
+      <button class="ghost" onclick={scan} disabled={scanning}>{scanning ? "Reading…" : "Scan"}</button>
       <button class="ghost" onclick={read} disabled={!text.trim()}>Read it</button>
     </div>
   {/if}
