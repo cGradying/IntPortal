@@ -913,6 +913,54 @@ export function rig(initial: State = "idle") {
   };
 }
 
+// ----------------------------------------------------------------- hands
+
+export type Gesture = "idle" | "wave" | "point" | "reach" | "thumbs";
+
+/** [dx, dy, rot] per mitt, in sprite pixels and degrees from where it floats. */
+export const GEST: Record<Gesture, [number, number, number][]> = {
+  idle: [[0, 0, 0], [0, 0, 0]],
+  wave: [[0, 0, 0], [3, -12, -30]],
+  point: [[0, 0, 0], [9, -6, -20]],
+  reach: [[-3, -10, -30], [3, -10, 30]],
+  thumbs: [[0, 0, 0], [3, -7, 0]],
+};
+
+/**
+ * Eases his mitts into a gesture and out again, so they glide instead of
+ * teleporting (spec 010 C18c): at most one sprite pixel a frame at 60 fps,
+ * the wave's swing ramps in and out over 0.2 s, and a mitt changes shape
+ * only once it has settled on its target.
+ */
+export function hands() {
+  const cur = [
+    [0, 0, 0],
+    [0, 0, 0],
+  ];
+  const thumb = [false, false];
+  let swing = 0;
+  let last: number | undefined;
+  return {
+    /** Offsets per mitt at t; `still` (Reduce Motion) snaps to the gesture. */
+    at(g: Gesture, t: number, still = false) {
+      const dt = still || last === undefined ? 0 : Math.min(0.1, Math.max(0, t - last));
+      last = t;
+      const want = g === "wave" ? 1 : 0;
+      swing = still ? want : swing + Math.sign(want - swing) * Math.min(Math.abs(want - swing), dt / 0.2);
+      return cur.map((c, i) => {
+        const goal = GEST[g][i];
+        const move = Math.hypot(goal[0] - c[0], goal[1] - c[1]);
+        // Ease out, but never faster than a pixel a frame.
+        const k = still ? 1 : Math.min(1 - Math.exp(-dt * 14), move ? (dt * 60) / move : 1);
+        for (let a = 0; a < 3; a++) c[a] += (goal[a] - c[a]) * k;
+        if (Math.hypot(goal[0] - c[0], goal[1] - c[1]) <= 1) thumb[i] = g === "thumbs" && i === 1;
+        const wave = i === 1 ? Math.sin(t * 9) * 28 * swing : 0;
+        return { dx: c[0], dy: c[1], rot: c[2] + wave, thumb: thumb[i] };
+      });
+    },
+  };
+}
+
 // --------------------------------------------------------------- drawing
 
 export interface DrawOpts {
