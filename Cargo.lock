@@ -2026,6 +2026,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-biometric",
  "tauri-plugin-calendar",
+ "tauri-plugin-camera",
  "tauri-plugin-glance",
  "tauri-plugin-haptics",
  "tauri-plugin-notification",
@@ -4651,6 +4652,14 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-calendar"
+version = "0.1.8"
+dependencies = [
+ "tauri",
+ "tauri-plugin",
+]
+
+[[package]]
+name = "tauri-plugin-camera"
 version = "0.1.8"
 dependencies = [
  "tauri",

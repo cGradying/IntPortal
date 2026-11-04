@@ -8,6 +8,7 @@
   import { api, isoDate, subjectColor, type DeadlineDraft, type DeadlineEntry } from "./api";
   import { dayLabel, dayName, guessSubject, KINDS, kindName, meets, stub, tickets, verdict, whenDays, type Fix } from "./addDue";
   import { closable } from "./back";
+  import { cameraProblem, capture } from "./camera";
   import { friendly } from "./errors";
   import { buzz } from "./haptics";
   import PixelIcon from "./PixelIcon.svelte";
@@ -77,6 +78,34 @@
     if (me !== seq || leaving) return;
     problem = "";
     await grow(() => (parsed = drafts));
+  }
+
+  // Spec 041 C15–C18: one photo, read on the phone, not kept. A phone with no
+  // camera (the simulator) picks from the library instead.
+  let scanning = $state(false);
+  async function scan() {
+    problem = "";
+    scanning = true;
+    try {
+      const r = await capture({ source: "camera", read: { text: true } }).catch((e) => {
+        if (cameraProblem(e) === "no_camera") return capture({ source: "library", read: { text: true } });
+        throw e;
+      });
+      if (r.cancelled) return;
+      if (!r.text?.trim()) {
+        problem = "Couldn't read any text. Try closer, with more light.";
+        return;
+      }
+      text = r.text;
+      await tick();
+      autosize();
+      soon(true);
+      area.blur();
+    } catch (e) {
+      problem = cameraProblem(e) === "camera_denied" ? "Camera is off for IntPortal. Turn it on in Settings, or type it instead." : "Couldn't use the camera. Type it instead.";
+    } finally {
+      scanning = false;
+    }
   }
 
   function autosize() {
@@ -279,7 +308,10 @@
             placeholder="quiz COMP fri"
             aria-label="What's due?"
           ></textarea>
-          {#if !text}<button class="chip paste" onclick={paste}><span class="face">Paste</span></button>{/if}
+          {#if !text}
+            <button class="chip paste" onclick={paste}><span class="face">Paste</span></button>
+            <button class="chip paste" onclick={scan} disabled={scanning} aria-label="Scan a photo"><span class="face">{scanning ? "Reading…" : "Scan"}</span></button>
+          {/if}
         </div>
         <button class="x" onclick={close} aria-label="Close"><PixelIcon name="close" size={14} /></button>
       </div>
