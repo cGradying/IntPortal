@@ -107,10 +107,10 @@ Every deadline the student has is in one list, wherever it came from: the syllab
 - Nothing due: LAR "Walang due this week. Ayos!"
 - Not synced: "eMabini hasn't synced yet." **Sync**
 - Sync failed: "Couldn't reach eMabini. Showing what we had at 3:40 PM."
-- Adder: field "What's due?", placeholder "quiz COMP fri", chip **Paste**; window "Add a due" or "Edit due".
+- Adder: field "What's due?", placeholder "quiz COMP fri", chips **Paste** and **Scan**; window "Add a due" or "Edit due".
 - Ticket: placeholder "Name it"; no date "DAY ?"; meta "No subject · Quiz". Rows **When** (Today, Tomorrow, Fri 13, **Pick…**), **Subject** (codes, No subject), **Kind** (Quiz, Exam, Project).
 - Button: **Add**, **Add 2**, **Save**; greyed **Keep one**, **Add a day**, **Name it**. **Delete** when editing.
-- Camera permission: "IntPortal reads the text in one photo, on your phone. The photo isn't kept."
+- Camera permission: "IntPortal uses the camera only when you tap it, to read a deadline from a photo or to add a photo. Nothing is sent anywhere." (One line for every use of the camera; Scan's photo still isn't kept, per C16.)
 - Camera denied: "Camera is off for IntPortal. Turn it on in Settings, or type it instead."
 - Calendar event title: `COMP 20073 Quiz: Loops`.
 
@@ -153,9 +153,11 @@ pub fn parse_own(text: &str, today: Date, subjects: &[(String, String)]) -> Draf
 
   They replace `due` (`lib.rs:713`) and its one caller (`Today.svelte:34`).
 - **Calendar.** `calendar.rs` `ClassEvent` gains `all_day: bool`. A new `deadline_events(&[Deadline])` sits beside `class_events`, and `ics` takes the deadlines too. In `plugins/tauri-plugin-calendar`, the Swift and Kotlin halves write `isAllDay` / `ALL_DAY`.
-- **Camera.** A new `plugins/tauri-plugin-scan` has one command, `scan() -> { text: String }`:
-  - iOS: `VNRecognizeTextRequest` on a photo from `UIImagePickerController` (camera source), with `NSCameraUsageDescription` set from C18's copy;
-  - Android: ML Kit `com.google.mlkit:text-recognition` (bundled) on a photo from `ActivityResultContracts.TakePicture`.
+- **Camera.** `plugins/tauri-plugin-camera` has one command, `capture({ source, read: { text, qr }, saveTo }) -> { cancelled, path, width, height, text, qr }`, shared with photos in notes and theme QR codes (#197):
+  - iOS: `VNRecognizeTextRequest` and `VNDetectBarcodesRequest` on a photo from `UIImagePickerController` or `PHPickerViewController`, with `NSCameraUsageDescription` set from the copy above;
+  - Android: ML Kit bundled text and barcode recognition on a photo from `ACTION_IMAGE_CAPTURE` or `ACTION_GET_CONTENT`, so it needs no CAMERA permission.
+
+  Without `saveTo` the photo is not kept (C16).
 - **UI.**
   - `src/lib/DueCard.svelte` replaces `MabiniDue.svelte` and Today's `.due` section.
   - `src/lib/AddDeadline.svelte` holds the adder window and its tickets; `src/lib/addDue.ts` holds its logic (tickets, class days, the button's words).
