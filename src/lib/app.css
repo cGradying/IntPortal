@@ -7,6 +7,7 @@
 @import "@fontsource-variable/montserrat";
 @import "@fontsource-variable/source-sans-3";
 @import "@fontsource/pixelify-sans/500.css";
+@import "@fontsource/pixelify-sans/600.css";
 @import "@fontsource/pixelify-sans/700.css";
 
 :root,
@@ -86,8 +87,6 @@
 }
 
 :root {
-  --font-display: "Montserrat Variable", system-ui, sans-serif;
-  --font-body: "Source Sans 3 Variable", system-ui, sans-serif;
   /* One night (spec 045 C1): the landing, the hub, LAR's chat and the Night room. */
   --void: #0b0710;
   --void-2: #140c16;
@@ -106,14 +105,35 @@
   --on-portal-gold: #1b1406;
   /* Checkboxes and other native controls in the room's gold, not system blue. */
   accent-color: var(--gold);
-  --font-pixel: "Pixelify Sans", ui-monospace, monospace;
-  /* The phone's own UI face: the sign-in form borrows its calm, like every login screen. */
+  /* Pixel-bridged (spec 045 C8): the phone's own face reads and titles; small labels
+     are Pixelify, on the icons' pixel grid, so art, label and title share one step. */
   --font-ui: -apple-system, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-pixel: "Pixelify Sans", ui-monospace, monospace;
+  --font-display: var(--font-ui);
+  --font-body: var(--font-ui);
+  --font-label: var(--font-pixel);
+  /* A label holding a time, room, date or due item stays in a reading face (C9). */
+  --font-data: var(--font-ui);
+  --font-wordmark: "Montserrat Variable", system-ui, sans-serif;
+  --title-weight: 800;
+  --title-track: -0.035em;
+  --label-track: 0.06em;
   --step: 3px; /* one pixel-notch step */
   --gutter: 16px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* The original look, kept as a text style in You. */
+:root[data-type="classic"] {
+  --font-display: "Montserrat Variable", system-ui, sans-serif;
+  --font-body: "Source Sans 3 Variable", system-ui, sans-serif;
+  --font-label: var(--font-display);
+  --font-data: var(--font-display);
+  --title-weight: 700;
+  --title-track: -0.02em;
+  --label-track: 0.08em;
 }
 
 * {
@@ -159,6 +179,14 @@ textarea {
 button {
   font: inherit;
   color: inherit;
+}
+
+/* Every press squashes a little and springs back (spec 045 C13). */
+button {
+  transition: scale 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+button:not(:disabled):active {
+  scale: 0.97;
 }
 
 /* The legacy dot grid, fixed behind everything. */
@@ -257,12 +285,15 @@ input[type="checkbox"]:checked::after {
 }
 
 .label {
-  font-family: var(--font-display);
+  font-family: var(--font-label);
   font-size: min(0.647rem, 20px);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--label-track);
   text-transform: uppercase;
   color: var(--ink-3);
+}
+.label.data {
+  font-family: var(--font-data);
 }
 
 @media (prefers-reduced-motion: reduce) {

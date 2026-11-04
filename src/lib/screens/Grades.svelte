@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PixelNum from "../PixelNum.svelte";
   import Synced from "../Synced.svelte";
   import { friendly } from "../errors";
   import MabiniGrades from "../MabiniGrades.svelte";
@@ -154,7 +155,7 @@
 
 <div class="screen">
   <header>
-    <p class="label">{report?.semester ?? "This term"}{report?.school_year ? ` · ${report.school_year}` : ""}</p>
+    <p class="label data">{report?.semester ?? "This term"}{report?.school_year ? ` · ${report.school_year}` : ""}</p>
     <h1>Grades</h1>
     <Synced />
   </header>
@@ -172,7 +173,7 @@
     {#if celebrate}<Confetti />{/if}
     <div>
       <p class="label">GPA</p>
-      <p class="value num">{shownGpa === null ? "—" : shownGpa.toFixed(2)}{#if best}<span class="pb" class:fresh={celebrate}>Personal best</span>{/if}</p>
+      <p class="value num"><PixelNum text={shownGpa === null ? "—" : shownGpa.toFixed(2)} size={6} />{#if best}<span class="pb" class:fresh={celebrate}>Personal best</span>{/if}</p>
       <p class="sub">
         {#if shownGpa === null}No grades posted yet{:else}{posted.length} of {subjects.length} posted · {units} units{/if}
       </p>
@@ -275,8 +276,8 @@
     margin: 2px 0 0;
     font-family: var(--font-display);
     font-size: min(1.647rem, 36px);
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: var(--title-weight);
+    letter-spacing: var(--title-track);
   }
   .gpa {
     --step: 4px;

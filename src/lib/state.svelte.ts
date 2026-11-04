@@ -33,6 +33,8 @@ export const app = $state({
   /** The eMabini page (courses, deadlines, grades) is open. */
   mabiniPage: false,
   room: read("room") || "system",
+  /** The text style in You: IntPortal's own, or the original Classic. */
+  textStyle: read("textStyle") === "classic" ? "classic" : "intportal",
   /** Minutes before class; 0 turns reminders off. */
   reminderLead: Number(read("reminderLead") ?? 10),
   /** Minute of the day for the evening-before deadline heads-up; -1 is off. */
@@ -309,6 +311,13 @@ export async function syncNow() {
     app.sisRejected = (await api.triesLeft().catch(() => null))?.rejected === true;
     await refreshToday();
   }
+}
+
+export function setTextStyle(style: string) {
+  app.textStyle = style === "classic" ? "classic" : "intportal";
+  if (app.textStyle === "classic") document.documentElement.dataset.type = "classic";
+  else delete document.documentElement.dataset.type;
+  write("textStyle", app.textStyle);
 }
 
 export function setRoom(room: string) {

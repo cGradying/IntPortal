@@ -82,6 +82,7 @@
   }
   .head span {
     text-align: center;
+    font-family: var(--font-label);
     font-size: min(0.647rem, 20px);
     font-weight: 700;
     text-transform: uppercase;
