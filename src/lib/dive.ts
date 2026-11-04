@@ -79,7 +79,7 @@ export async function loadDive(url = "/tiles.wasm") {
       const f = s.from;
       // Each dive takes its own order of forms (C29a). A phone whose scale isn't whole rounds the
       // dot pitch, so its tiles drift off Today's dots by a few px: they lift too fast to see it.
-      x.dive_start(w, h, Math.round(DOT_PITCH * dpr), f ? 0x060607 : color("--void", 0x0b0710), color("--ground", 0x19191c), color("--dot", 0xf5b227), Math.floor(Date.now() / 1000) >>> 0, f?.ox ?? 0, f?.oy ?? 0, f?.pitch ?? 0, f?.tile ?? 0, f?.lar?.x ?? w / 2, f?.lar?.y ?? h, dpr);
+      x.dive_start(w, h, Math.round(DOT_PITCH * dpr), color("--void", 0x0b0710), color("--ground", 0x19191c), color("--dot", 0xf5b227), Math.floor(Date.now() / 1000) >>> 0, f?.ox ?? 0, f?.oy ?? 0, f?.pitch ?? 0, f?.tile ?? 0, f?.lar?.x ?? w / 2, f?.lar?.y ?? h, dpr);
     },
     /** When the field starts landing. `readyAt` < 0: data isn't ready yet. */
     arrive: (readyAt: number) => x.dive_arrive(readyAt),
