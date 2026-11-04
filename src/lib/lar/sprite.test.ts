@@ -2,7 +2,7 @@ import rust from "../../../crates/intportal-core/src/portal.rs?raw";
 import { describe, expect, it } from "vitest";
 import {
   ANTENNA, BOX, CUBE, H, LAR_PAL, MITT, MOODS, SPARKLE, STATES, STREAK, THEMES, THUMB, VISOR, VOID, W, ZZZ,
-  FIRE, SHEEN, blinkAt, bodyGrid, contrast, cubeAngle, dotsGrid, extents, faceGrid, fireGrid, mosaic, pose, redGrid, rig, rows, sheenGrid, tint,
+  FIRE, GEST, SHEEN, blinkAt, hands, bodyGrid, contrast, cubeAngle, dotsGrid, extents, faceGrid, fireGrid, mosaic, pose, redGrid, rig, rows, sheenGrid, tint,
   type PoseOpts, type State,
 } from "./sprite";
 
@@ -268,5 +268,53 @@ describe("rig", () => {
     expect(r.at(2.1).fire).toBeGreaterThanOrEqual(0);
     expect(r.at(2 + 1.2).fire).toBe(-1);
     expect(r.at(5, {}, true).alpha).toBe(1);
+  });
+});
+
+describe("hands", () => {
+  const GS = Object.keys(GEST) as (keyof typeof GEST)[];
+
+  it("c18c_mitts_move_at_most_one_pixel_per_frame", () => {
+    const h = hands();
+    let t = 0;
+    let prev = h.at("idle", t);
+    // Every gesture to every other, held long enough to settle and cut short.
+    for (const a of GS)
+      for (const b of GS)
+        for (const hold of [0.05, 0.6]) {
+          for (const g of [a, b]) {
+            for (let f = 0; f < hold * 60; f++) {
+              t += 1 / 60;
+              const now = h.at(g, t);
+              now.forEach((m, i) => expect(Math.hypot(m.dx - prev[i].dx, m.dy - prev[i].dy)).toBeLessThanOrEqual(1.0001));
+              prev = now;
+            }
+          }
+        }
+  });
+
+  it("ramps the wave in instead of starting at full swing", () => {
+    const h = hands();
+    h.at("idle", 0);
+    const first = h.at("wave", 1 / 60);
+    expect(Math.abs(first[1].rot)).toBeLessThan(5);
+    let t = 1 / 60;
+    for (; t < 1; t += 1 / 60) h.at("wave", t);
+    expect(h.at("wave", t)[1].dy).toBeCloseTo(GEST.wave[1][1], 0);
+  });
+
+  it("changes a mitt's shape only once it has settled", () => {
+    const h = hands();
+    h.at("idle", 0);
+    expect(h.at("thumbs", 1 / 60)[1].thumb).toBe(false);
+    let t = 1 / 60;
+    for (; t < 1; t += 1 / 60) h.at("thumbs", t);
+    expect(h.at("thumbs", t)[1].thumb).toBe(true);
+    expect(h.at("idle", t + 1 / 60)[1].thumb).toBe(true);
+  });
+
+  it("snaps under Reduce Motion", () => {
+    const m = hands().at("point", 0, true);
+    expect([m[1].dx, m[1].dy]).toEqual([GEST.point[1][0], GEST.point[1][1]]);
   });
 });
