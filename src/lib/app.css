@@ -99,6 +99,11 @@
   --cream: #fff6dc;
   --white: #ffffff;
   --rose: #f0a090;
+  /* Rubber stamps on the week's blocks: inks on paper, whatever the room. */
+  --stamp-paper: #fffdf6;
+  --stamp-online: #1b4f99;
+  --stamp-vacant: #765806;
+  --stamp-moved: #7a1128;
   /* The portal world's own gold, on the void whatever the room. */
   --portal-gold: #f5b227;
   --portal-gold-hi: #ffc94a;
