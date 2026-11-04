@@ -220,3 +220,4 @@ Reuse what already exists:
     - **Week:** no times in the even week, reading face for times and rooms, ink or white text by course colour, now-line behind blocks, and a wider open day.
     - 044 is updated to match.
   - **Paused for the week pick.** Once it is settled, Step 4 starts with `ui/dive`.
+- 2026-11-04 · **Week picked in round seven: "this is it".** Every row is settled. Step 3 is done, and Step 4 builds start in plan order: `ui/dive`, `ui/type-system`, `ui/environment`, `ui/juice`, `ui/motion`, `ui/pixel-week`, one branch and PR each.

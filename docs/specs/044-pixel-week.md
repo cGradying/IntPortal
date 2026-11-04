@@ -1,6 +1,6 @@
 # 044 Pixel week
 
-**Status:** draft, waiting on the round-seven pick. The layout was picked in round four (B, Week and Day kept), with tap-to-open from round five and readable details from round seven.
+**Status:** ready to build. Picked in round seven of the mockups: Week and Day kept, tap to open a day, and readable details.
 
 ## What changes for the student
 
