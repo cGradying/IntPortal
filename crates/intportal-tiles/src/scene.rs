@@ -255,6 +255,16 @@ pub fn blocks(s: Shape) -> Vec<(i32, i32)> {
 }
 
 impl Scene {
+    /// The cells inside the frame, as (column, row).
+    pub fn interior_cells(&self) -> &[(i32, i32)] {
+        &self.interior
+    }
+
+    /// The frame's tiles as (column, row, ring distance from the bottom centre, 0 to 11).
+    pub fn frame_cells(&self) -> impl Iterator<Item = (i32, i32, f32)> + '_ {
+        self.marks.iter().map(|m| (m.c, m.r, m.d))
+    }
+
     pub fn new(seed: u32, look: Look) -> Scene {
         let s = look.shape;
         let set = blocks(s);
@@ -506,6 +516,11 @@ const AIR: (i32, i32, i32) = (3, 2, 5);
 fn shared(scenes: &[Scene], w: u32, h: u32) -> Layout {
     let (gc, gr) = (scenes.iter().map(|s| s.gc).max().unwrap_or(12), scenes.iter().map(|s| s.gr).max().unwrap_or(16));
     layout(w, h, gc + 2 * AIR.0 - 2, gr + AIR.1 + AIR.2 - 2)
+}
+
+/// The front portal's pitch and tile at this size.
+pub fn base(scenes: &[Scene], w: u32, h: u32) -> Layout {
+    shared(scenes, w, h)
 }
 
 /// Radians between neighbouring portals on the orbit.
