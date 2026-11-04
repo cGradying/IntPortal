@@ -29,7 +29,7 @@
   import { watchDynamicIsland } from "$lib/glance";
   import { watchBars } from "$lib/bars";
   import { watchBack } from "$lib/back";
-  import { app, adopt, listenForTaps, refreshLogins, setRoom, startClock, syncNow } from "$lib/state.svelte";
+  import { app, adopt, listenForTaps, refreshLogins, setRoom, setTextStyle, startClock, syncNow } from "$lib/state.svelte";
 
   let ready = $state(false);
   let signedIn = $state(false);
@@ -71,6 +71,7 @@
       addEventListener("unhandledrejection", (e) => show(String(e.reason?.stack ?? e.reason)));
     }
     setRoom(app.room);
+    setTextStyle(app.textStyle);
     watchLock();
     // The keyboard covers the bottom; the tab bar and dock step aside while
     // a text field has focus, so they don't ride up on top of it.
