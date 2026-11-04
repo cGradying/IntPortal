@@ -288,7 +288,7 @@
     pointer-events: auto;
   }
   .tap:focus-visible {
-    outline: 2px solid #f5b227;
+    outline: 2px solid var(--portal-gold);
     outline-offset: 2px;
   }
   .bubble {
@@ -304,13 +304,13 @@
   /* Grows out of the corner nearest LAR, in whole steps like the rest of him. */
   .pop {
     padding: 7px 10px;
-    background: #170b1a;
+    background: var(--void-3);
     box-shadow:
-      inset 0 2px 0 #3a2446,
-      inset 0 -2px 0 #060307;
+      inset 0 2px 0 var(--slab-edge),
+      inset 0 -2px 0 var(--void-ink);
     font-size: min(0.765rem, 23px);
     line-height: 1.35;
-    color: #f4e8d6;
+    color: var(--parch);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
     transform-origin: 0 100%;
     animation: grow 0.24s steps(4, end) both;
@@ -339,7 +339,7 @@
     top: 0;
     width: 3px;
     height: 100%;
-    background: #f5b227;
+    background: var(--portal-gold);
     animation: blink 0.5s steps(1) infinite;
   }
   .caret.done {
@@ -358,7 +358,7 @@
     font-family: var(--font-pixel);
     font-weight: 400;
     letter-spacing: 0.06em;
-    color: #f5b227;
+    color: var(--portal-gold);
   }
   @keyframes grow {
     from {
