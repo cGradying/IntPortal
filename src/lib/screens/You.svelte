@@ -7,6 +7,7 @@
   import NotesCard from "../NotesCard.svelte";
   import { shareFile } from "../share";
   import { buzz, haptics, setHaptics } from "../haptics";
+  import { sfx, setSound, sound } from "../sound";
   import { lock, setLock, unlockWith } from "../lock.svelte";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
   import Isko from "../Isko.svelte";
@@ -198,6 +199,8 @@
     </div>
     <label class="lockrow"><input type="checkbox" checked={haptics.on} onchange={(e) => { setHaptics(e.currentTarget.checked); buzz.tick(); }} /> Haptics</label>
     <p class="fine">Small taps you feel when you mark a class, pull to sync, finish a deck or unlock.</p>
+    <label class="lockrow"><input type="checkbox" checked={sound.on} onchange={(e) => { setSound(e.currentTarget.checked); sfx.done(0); }} /> Sounds</label>
+    <p class="fine">Little pixel blips when you tap, mark done or get a grade. Off by default.</p>
   </section>
 
   <section class="card notch block">
