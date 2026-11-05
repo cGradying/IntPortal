@@ -106,30 +106,25 @@ The Mac app's features and where each stands on the phone, from the Head's inven
 - Class sheet: **Join class**, **Meeting link**, **Your description**, placeholder "https://meet.google.com/…", **Clear link**.
 - Today, Up next: **Join**.
 - Error (C2): "Use a link that starts with https://".
-- Note editor: **Add entry**.
 
 ## Data shape
 
 - `crates/intportal-core/src/store.rs` `Snapshot` gains `class_info: BTreeMap<String, ClassInfo>` (subject code to info), `#[serde(default)]`, so existing stores load.
 - `ClassInfo { link: Option<String>, about: Option<String> }`, in `today.rs` beside `Marks`, or its own small module.
 - A `set_class_info(subject_code, info)` command following `set_color` in `src-tauri/src/lib.rs`, returning the `Snapshot`. This is a hot file: it waits for #60 or goes in a small PR (TEAM.md, Working in parallel).
-- `notes.rs` or `today.rs`: `entry_date(sessions, marks, code, today) -> Date` for C12; the editor inserts the heading.
 
 ## Errors
 
 - A non-https link: the C2 copy under the field; nothing saved.
-- Calendar permission denied: no deadline events, the same as classes today; You keeps showing the calendar switch as it does.
-- A class with no future meeting (the term ended): Add entry uses today's date.
 
 ## Motion and Reduce Motion
 
-No new motion. Join and Add entry use the existing button press and haptic.
+No new motion. Join uses the existing button press and haptic.
 
 ## Accessibility
 
 - Join is a button labelled "Join <code> class" with a 44 pt touch target.
 - The link and description fields have visible labels and work with Dynamic Type.
-- Add entry is reachable by VoiceOver in the note's toolbar.
 
 ## Out of scope
 
@@ -144,8 +139,6 @@ No new motion. Join and Add entry use the existing button press and haptic.
 | C2 | `cargo test -p intportal` or core `c2_link_must_be_https` |
 | C3, C5 | vitest on the sheet's view model; screenshot on the iPhone 18 Pro |
 | C4 | `cargo test c4_join_shows_within_15_minutes` (if computed in the core) or vitest; screenshot |
-| C11, C14 | vitest on the insert function |
-| C12, C13 | `cargo test c12_entry_date_skips_vacant_weeks`; vitest for the locale format |
 
 ## Open questions
 
