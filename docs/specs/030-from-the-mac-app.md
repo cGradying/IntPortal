@@ -44,14 +44,14 @@ The Mac app's features and where each stands on the phone, from the Head's inven
 | 23 | Past terms, GPA trend, units done | Done |
 | 24 | Grading calculator | Done (Subject, Grading) |
 | 25 | Class note across weeks, day note | Done |
-| 26 | Notes vault with folders and tabs | Wave 4: folders |
-| 27 | PUPNotes live Markdown editor | Wave 3 (#20) |
-| 28 | Checkboxes, KaTeX, code, `[[links]]`, tables | Wave 3 |
-| 29 | Images in notes | Wave 3, with the camera |
-| 30 | Dated log entry in a class note | **Wave 1** (C11–C14) |
-| 31 | Colour labels on notes | Deferred |
-| 32 | Export a note as .md, .txt, PDF | Partial: .md only |
-| 33 | Choose which notes the AI reads | Wave 4 |
+| 26 | Notes vault with folders and tabs | Moved to [046](046-study-and-notes.md): sorted by subject |
+| 27 | PUPNotes live Markdown editor | Moved to [046](046-study-and-notes.md) C9 (#20) |
+| 28 | Checkboxes, KaTeX, code, `[[links]]`, tables | Moved to [046](046-study-and-notes.md): checkboxes and code; the rest later |
+| 29 | Images in notes | Moved to [046](046-study-and-notes.md) C15–C17d |
+| 30 | Dated log entry in a class note | Moved to [046](046-study-and-notes.md) C14, C14a |
+| 31 | Colour labels on notes | Deferred; [046](046-study-and-notes.md) sorts by subject colour |
+| 32 | Export a note as .md, .txt, PDF | Partial: .md; [046](046-study-and-notes.md) C17 adds photos as a zip |
+| 33 | Choose which notes the AI reads | Wave 4; touches `rag.rs`, needs the Code engineer first |
 | 34 | Decks, FSRS, manual cards | Done |
 | 35 | Study modes: flash, identification, choice, true/false, matching | Partial: flash, type, choice. Wave 4: true/false and matching |
 | 36 | Study streak and stats | Done |
@@ -99,10 +99,7 @@ The Mac app's features and where each stands on the phone, from the Head's inven
 
 **Dated entry in a class note (Mac #30)**
 
-- **C11.** A class note has an **Add entry** button. It appends a heading with a date and puts the cursor on the line after it.
-- **C12.** The date is today when the class meets today; otherwise the class's next meeting. Vacant weeks are skipped, and a moved meeting uses its moved date.
-- **C13.** The heading reads `### Mon, Oct 20` in the phone's locale.
-- **C14.** Adding an entry when the note already ends with that date's heading moves the cursor there and adds nothing.
+- **C11–C14.** *Removed* (2026-11-05). They moved to [046](046-study-and-notes.md) C14 and C14a. The date logic stays in the core with a test, as C12 said.
 
 ## Copy
 
