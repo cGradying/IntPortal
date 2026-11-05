@@ -140,8 +140,20 @@
     color: var(--ink);
     font: inherit;
   }
+  /* Not the fields' width and padding: the pixel checkbox stays its own size. */
   input[type="checkbox"] {
+    width: 20px;
     min-height: 0;
+    padding: 0;
+    border-radius: 0;
+  }
+  /* The phone's date control would otherwise push past the sheet's edge. */
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
   }
   label {
     display: grid;
@@ -172,12 +184,29 @@
     justify-content: flex-end;
     gap: 8px;
   }
+  /* The app's own controls, not the browser's grey pill. */
   .bar button {
     min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge-2);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: min(0.824rem, 25px);
   }
-  .danger {
+  .bar button.primary {
+    background: var(--gold);
+    box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.22);
+    color: var(--on-gold);
+  }
+  .bar .danger {
     margin-right: auto;
     color: var(--bad);
+  }
+  .bar button:disabled {
+    opacity: 0.45;
   }
   .problem {
     margin: 0;

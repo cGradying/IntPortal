@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { slide } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
   // The Up next count drops in when its value changes, never on first paint (spec 045 C24).
   function tick(el: HTMLElement, value: string) {
     let last = value;
@@ -114,6 +116,8 @@
 
   /** Classes and the student's own events, with the free stretches between them. */
   const rows = $derived(dayRows(items, app.busy, isoDate(now), now.getHours() * 60 + now.getMinutes()));
+  // LAR's card leaves and arrives by closing and opening, so the page under it never jumps.
+  const quiet = matchMedia("(prefers-reduced-motion: reduce)").matches;
 </script>
 
 <div class="screen">
@@ -137,7 +141,7 @@
   {/if}
 
   {#if nudge}
-    <section class="coach card notch" data-kind={nudge.nudge.kind}>
+    <section class="coach card notch" data-kind={nudge.nudge.kind} transition:slide={{ duration: quiet ? 0 : 360, easing: cubicOut }}>
       <Lar size={2} cube={false} state={now.getHours() >= 23 || now.getHours() < 5 ? "sleep" : "idle"} />
       <button class="say" onclick={act}>
         <span class="label">LAR</span>

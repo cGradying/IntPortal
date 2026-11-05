@@ -8,20 +8,22 @@
   import { openLink } from "./openLink";
   import { adopt, app, mabiniSyncNow, openSubject } from "./state.svelte";
   import { flip } from "svelte/animate";
-  import { crossfade } from "svelte/transition";
+  import { crossfade, slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import Lar from "./lar/Lar.svelte";
   import { burst } from "./burst";
   import { barSegments, comboText, nextRun, tierOf, type Run } from "./doneRun";
-  import { fieldPulse } from "./fieldPulse";
+  import { fieldPulse, sinkTiles } from "./fieldPulse";
   import { sfx } from "./sound";
 
   const MAX = 5;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   /** The stamp lands, the card lifts, then it drops into Done. */
-  const LIFT_MS = 560;
-  const MOVE_MS = 680;
-  const LAND_MS = 380;
+  const LIFT_MS = 500;
+  const MOVE_MS = 700;
+  const LAND_MS = 420;
+  /** Rows, the progress bar and the Done heading open and close over this, so the page below never jumps. */
+  const FLOW_MS = 360;
   let list = $state<DeadlineEntry[]>([]);
   let card: HTMLElement;
   let all = $state(false);
@@ -33,7 +35,7 @@
   let run: Run | null = null;
   let cleared = $state(false);
 
-  const [send, receive] = crossfade({ duration: reduce ? 0 : 460, easing: cubicOut, fallback: () => ({ duration: 0 }) });
+  const [send, receive] = crossfade({ duration: reduce ? 0 : 480, easing: cubicOut, fallback: () => ({ duration: 0 }) });
 
   $effect(() => {
     void app.snapshot;
@@ -60,8 +62,9 @@
     return [b.left + b.width / 2, b.top + b.height / 2] as const;
   }
 
-  // The done sequence (spec 045 C18): the box fills, the title strikes, sparks and a ripple,
-  // the stamp lands, the card lifts and drops into Done. Then everything is still.
+  // The done sequence (spec 045 C18): the box fills, the title strikes, sparks and a ripple through
+  // the field, the stamp lands, the row lifts, sheds tiles into the dot grid and glides into Done.
+  // Then everything is still.
   function done(d: DeadlineEntry, box: HTMLElement) {
     if (marking[d.id]) return;
     run = nextRun(run, performance.now());
@@ -74,7 +77,11 @@
     burst(x, y, 8 + 4 * c, 1 + 0.15 * c);
     fieldPulse(x, y, 0.45 + 0.15 * c);
     setTimeout(() => buzz.pull(), 240);
-    setTimeout(() => marking[d.id] && (marking[d.id].lifted = true), reduce ? 0 : LIFT_MS);
+    const row = box.closest("li");
+    setTimeout(() => {
+      if (marking[d.id]) marking[d.id].lifted = true;
+      if (row) sinkTiles(row.getBoundingClientRect(), 10 + 2 * c);
+    }, reduce ? 0 : LIFT_MS);
     setTimeout(() => settle(d), reduce ? 0 : MOVE_MS);
   }
 
@@ -118,7 +125,7 @@
   </div>
 
   {#if finished.length && segments > 1}
-    <div class="prog" class:cleared role="img" aria-label="{finished.length} of {segments} done">
+    <div class="prog" class:cleared role="img" transition:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }} aria-label="{finished.length} of {segments} done">
       {#each { length: segments } as _, i (i)}<i class:on={i < finished.length}></i>{/each}
       <span class="num">{finished.length} of {segments}</span>
     </div>
@@ -135,7 +142,8 @@
       {#each rows as d (d.id)}
         {@const word = entryLabel(d, now)}
         {@const mark = marking[d.id]}
-        <li animate:flip={{ duration: reduce ? 0 : 340, easing: cubicOut }} out:send={{ key: d.id }} in:receive={{ key: d.id }} class:fresh={!!mark} class="{mark?.tier ?? ''}" class:lift={mark?.lifted}>
+        <li animate:flip={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }} in:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }} out:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }}>
+          <div class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
           <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={(e) => done(d, e.currentTarget)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
           <button class="row" onclick={() => open(d)} aria-label="{d.title}, {d.subject ?? d.course ?? 'no subject'}, due {word}">
             <span class="when" class:late={word === "Overdue"}>{word}</span>
@@ -143,6 +151,7 @@
           </button>
           {#if mark?.combo}<span class="combo" aria-hidden="true">{mark.combo}</span>{/if}
           {#if mark}<span class="stamp" aria-hidden="true">DONE</span>{/if}
+          </div>
         </li>
       {/each}
     </ul>
@@ -150,7 +159,7 @@
       <button class="all" onclick={() => (all = !all)}>{all ? "Show less" : "All deadlines"}</button>
     {/if}
   {:else if cleared}
-    <p class="none clear"><span class="hop"><Lar size={2} state="happy" gesture="thumbs" cube={false} /></span> All clear for this week.</p>
+    <p class="none clear" in:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }}><span class="hop"><Lar size={2} state="happy" gesture="thumbs" cube={false} /></span> All clear for this week.</p>
   {:else if knowsNothingDue(app.snapshot?.last_synced, mabini, app.mabini?.last_synced, now) && !finished.length}
     <p class="none"><b>LAR</b> Walang due this week. Ayos!</p>
   {:else if !finished.length}
@@ -158,13 +167,15 @@
   {/if}
 
   {#if finished.length}
-    <p class="label group">Done</p>
+    <p class="label group" transition:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }}>Done</p>
     <ul>
       {#each finished as d (d.id)}
-        <li class="finished" animate:flip={{ duration: reduce ? 0 : 340, easing: cubicOut }} in:receive={{ key: d.id }} out:send={{ key: d.id }}>
+        <li animate:flip={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }} in:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }} out:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }}>
+          <div class="ri finished" in:receive={{ key: d.id }} out:send={{ key: d.id }}>
           <span class="what"><s>{d.title}</s><small>{d.subject ?? d.course ?? "Your own"}</small></span>
           <span class="stamp set" aria-hidden="true">DONE</span>
           <button class="link" onclick={() => undo(d)} aria-label="Undo {d.title}">Undo</button>
+          </div>
         </li>
       {/each}
     </ul>
@@ -194,7 +205,8 @@
     display: grid;
     gap: 4px;
   }
-  li {
+  .ri {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -262,7 +274,7 @@
   .check.on i {
     background: var(--gold);
     box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.25);
-    animation: fill 0.18s steps(3) backwards;
+    animation: fill 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   }
   .check.on i::after {
     content: "";
@@ -274,18 +286,15 @@
   @keyframes fill {
     from { scale: 0.6; }
   }
-  li {
-    position: relative;
-  }
   .what strong {
     position: relative;
     justify-self: start;
     max-width: 100%;
   }
-  li.fresh .what strong {
+  .ri.fresh .what strong {
     color: var(--ink-2);
   }
-  li.fresh .what strong::after {
+  .ri.fresh .what strong::after {
     content: "";
     position: absolute;
     left: -1px;
@@ -299,20 +308,21 @@
   @keyframes strike {
     from { transform: scaleX(0); }
   }
-  li.nudge {
+  .ri.nudge {
     animation: nudge 0.42s var(--ease) both;
   }
-  li.shake {
-    animation: shake 0.36s steps(6) both 0.2s;
+  .ri.shake {
+    animation: shake 0.36s ease-out both 0.2s;
   }
-  li.hard {
-    animation: hard 0.42s steps(7) both 0.2s;
+  .ri.hard {
+    animation: hard 0.42s ease-out both 0.2s;
   }
-  li.lift {
+  .ri {
+    transition: scale 0.2s var(--ease);
+  }
+  .ri.lift {
     z-index: 3;
-    scale: 1.03;
-    filter: drop-shadow(0 8px 12px rgb(0 0 0 / 0.3));
-    transition: scale 0.12s var(--ease);
+    scale: 1.02;
   }
   @keyframes nudge {
     35% { translate: 6px 0; }
@@ -342,7 +352,7 @@
     background: var(--card);
     box-shadow: inset 0 0 0 2px var(--good);
     pointer-events: none;
-    animation: thunk 0.42s steps(5) both 0.22s;
+    animation: thunk 0.36s cubic-bezier(0.22, 1, 0.36, 1) both 0.2s;
   }
   .stamp.set {
     position: static;
@@ -351,9 +361,8 @@
     animation: none;
   }
   @keyframes thunk {
-    0% { scale: 2.2; opacity: 0; }
-    55% { scale: 0.92; opacity: 1; }
-    80% { scale: 1.04; }
+    0% { scale: 1.9; opacity: 0; }
+    60% { scale: 0.97; opacity: 1; }
     100% { scale: 1; opacity: 1; }
   }
   .combo {
@@ -363,7 +372,7 @@
     font: 700 min(0.765rem, 23px) var(--font-pixel);
     color: var(--gold);
     pointer-events: none;
-    animation: combo 0.8s steps(8) both 0.08s;
+    animation: combo 0.8s ease-out both 0.08s;
   }
   @keyframes combo {
     0% { opacity: 0; translate: 0 -40%; }
@@ -386,7 +395,7 @@
   .prog i.on {
     background: var(--gold);
     box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.22);
-    animation: seg 0.3s steps(3) backwards;
+    animation: seg 0.3s var(--ease) backwards;
   }
   .prog.cleared i {
     animation: flash 0.6s steps(4) both;
@@ -426,7 +435,7 @@
   }
   .hop {
     display: inline-block;
-    animation: hop 0.5s steps(5) both;
+    animation: hop 0.5s var(--ease) both;
   }
   @keyframes hop {
     40% { translate: 0 -8px; }
