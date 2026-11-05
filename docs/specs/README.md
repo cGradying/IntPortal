@@ -36,6 +36,8 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [042-lar-plans-the-day](042-lar-plans-the-day.md) | approved | Gap plan on Today, warm-up and after-class nudges, grade risk, Sunday brief, 3-a-day budget |
 | [044-pixel-week](044-pixel-week.md) | approved | Week and Day, tap to open a day, details first, stamps, now-line |
 | [045-app-environment](045-app-environment.md) | approved | One night, gradient ground, Pixel-bridged type, the done run, moving around |
+| [046-study-and-notes](046-study-and-notes.md) | draft | Notes sorted by subject, formatting, templates, photos, note to cards, a Done you can find |
+| [047-you-and-themes](047-you-and-themes.md) | draft | You on one screen, search, new settings, backup, custom themes shared by code and QR |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md) and [ADR 0005](../adr/0005-portals-are-first-class.md).
 

@@ -226,3 +226,18 @@ Reuse what already exists:
   - **Found on the way:** the app has no room data, so 044 now says faculty where the mockups showed a room. Xcode 27.2 has no 27.2 simulator runtime on this Mac, so `scripts/sim.sh` fails until it is installed; builds went through a local workaround.
   - **Spec gaps left:** 045 C5 corner roles. 045 C17 lists three celebrations, but Study's great-session confetti also exists and was kept, since the user built it.
   - **Not yet watched running:** stamps, the now-line, swipes, the count-ups, the SYNCED stamp, sound and haptics. A real phone and a release build are also unchecked.
+- 2026-11-04 · The look PRs merged (main 6f9ad40). The user's phone check passed.
+- 2026-11-05 · **Study, notes, You and themes:** specs 046 and 047, picks page reference/prototypes/study-you.src.html. Round two picked: shelf, crystal, editor, icons, You, theme all "this is it". Done: "needs work, integrate the new with the latest merge, make it smooth", delivered in #221.
+  - **The system, from "it lacks which system you are in":** the field is your data, and one table of materials, both in DESIGN.md's Overview. The Smooth Travel Rule replaces stepped motion on anything that travels.
+  - **Build order, one PR each, after the Head's review of this spec:**
+    1. Core (Code engineer, by issue): note `subject` and `pinned`, guarded migration, `set_note_pin`, `set_note_subject`, `entry_date`, photo folder or table per the user's answer.
+    2. `ui/crystal`: WebGL2 crystal in `AssisOrb` (046 C1b to C1d), rest state in tokens, then neuron forms and roots.
+    3. `ui/study-shelf`: notebook shelf with data pixels (C1, C1a to C7).
+    4. `ui/note-editor`: live editor ported from `IntPortal/notes-editor` (CodeMirror 6, #20), tools, page settings, note options, templates, icon set (C9 to C14a).
+    5. `ui/note-cards`: note to cards (C18 to C21).
+    6. `ui/you-deck`: You rebuilt (047 C1 to C4), then layout, motion and backup settings (C5 to C11).
+    7. `ui/theme-maker`: themes, codes, QR (047 C12 to C19).
+    8. Photos, after #219 merges (046 C15 to C17d).
+    9. Spec 022, quiz from notes, with the AI engineer.
+  - **Port from the mock, don't redraw:** `CRYSTAL_FS`, `neuronForm`, `rootPull`, `ICONS`, `encodeTheme` and `decodeTheme` are in study-you.src.html.
+

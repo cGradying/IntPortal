@@ -163,6 +163,23 @@ IntPortal has two registers that share one gold. Inside the app is the legacy ca
 
 The pixel world exists to serve a glance. Students open the app between classes, on weak data, in jeepneys; clear first, charming second. Every pixel element on screen does a job (a tab, a portal that names a system, a mascot that speaks), and nothing on screen only decorates. The landing deliberately refuses the logo-over-a-form login screen: the portal owns the top third, LAR's line and the sign-in form own the rest, and the one gold button is Sign in.
 
+**The one idea: the field is your data.** The dot grid is not a texture. Everything that holds or moves the student's data speaks through it, so every screen says which system you are in:
+- Pixels in a notebook on Study are its notes and due cards. Dots on the cube are stored data.
+- What you finish sinks into the field. When LAR finishes thinking, roots grow along the grid and pull data home.
+- The portal and the dive are the same field, seen from the other side.
+
+**Which material, where:**
+
+| Material | Used for | Never for |
+|---|---|---|
+| Ground: void or room colour, dot grid, drifting pools | Behind everything, and where data lands | Text backgrounds |
+| Surfaces: stepped cards and chips, hairlines | Cards, sheets, floating controls | Art |
+| Controls: 10 px radius, hairline or gold | Buttons, fields, segments | Pixel slabs |
+| Art pixel: 12 by 12 icons, LAR, Isko, numerals, small labels | Identity and small labels | Times, rooms, dates, sentences |
+| Glass: the crystal, only while something moves | The AI cube and + awake | Anything at rest |
+
+A new element picks one material from this table. If it needs a new one, change this table first.
+
 **Key Characteristics:**
 - Dark-first, on the void, with a 14 px dot grid in the school's accent; Day and Maroon rooms restyle the same roles.
 - One gold for action and selection, on every room and on the landing.
@@ -327,6 +344,8 @@ The Lakbay-Aral Robot, 26 by 23 art pixels: a pebble lit from the top left in fo
 The 14 by 20 pixel student, drawn as SVG rects, waving on a slow stepped loop and standing still under Reduce Motion. He fronts error cards and empty states. He belongs to the user's own redesign.
 
 ### Motion
+**The Smooth Travel Rule.** Anything that travels, scales or changes the page's layout is eased, never stepped, and layout changes open and close over about 0.36 s so nothing jumps. `steps()` is only for frames of art that stay in place: LAR's sprite, the tab hop, skeleton shimmer, a stamp's flash. This replaces the older "stepped for pixel things" habit (round two, 2026-11-05).
+
 Interface motion uses one ease, `cubic-bezier(0.22, 1, 0.36, 1)`: the landing dock rises 40 px over 0.7 s, sheets rise over 0.35 s, the wordmark fades in over 0.6 s, and leaving drops dock and wordmark 16 px over 0.25 s ease-in. Pixel motion uses `steps()`: the tab hop, skeleton shimmer (1.4 s, 8 steps), Isko's wave, the campus strip.
 
 The landing scene is a pure function of time and state (spec 010). The tile portal's spawn, waves and interior states are specified there: they run at 30 to 60 fps, and rendering stops when the app is backgrounded.
@@ -353,7 +372,7 @@ Eight verbs, all silent when haptics are off in You or there is no engine, and t
 - **Do** size every art element on the 3 px art pixel, with `image-rendering: pixelated` or `shape-rendering: crispEdges`.
 - **Do** write every font size as `min(<px / 17>rem, <cap>px)`, capping headings near 1.3 times and body near 1.8 times.
 - **Do** cut pixel surfaces with stepped corners (3 px, or 4 px on cards and sheets) and put their shadow on an unclipped parent.
-- **Do** use `steps()` for pixel motion and the shared ease for interface motion, and give every animation a Reduce Motion resting state.
+- **Do** use the shared ease for anything that travels or resizes, keep `steps()` for frames of art that stay in place, and give every animation a Reduce Motion resting state.
 - **Do** pair each meaningful change with its haptic verb from `haptics.ts`.
 - **Do** say plainly where login happens that the login stays on the phone and the app only talks to PUP SIS.
 

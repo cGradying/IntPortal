@@ -81,7 +81,7 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
 
   Nothing else celebrates.
 - **C18. Done (picked in round four).**
-  - **The sequence, 1.1 s at most:** the box fills in three steps, a line strikes through the title, sparks pop, the dot grid ripples from the box, and a `DONE` stamp lands. A five-step pixel bar under the title fills one step. The card lifts, tilts, drops into Done and lands with a small squash and a soft tick.
+  - **The sequence, about 1.1 s:** the box fills, a line strikes through the title, sparks pop, the dot grid ripples from the box, and a `DONE` stamp lands, all eased (round two, 2026-11-05). At 0.5 s the row lifts and a few tiles fall from it onto the dot grid. At 0.7 s it glides into Done. The row, the progress bar, the Done heading and LAR's card open and close over 0.36 s, so nothing jumps. The Done control is on the left of the row with the word under it, clear of the floating cube.
   - **A run builds:** a done within 4 s of the last climbs the pentatonic scale. The first nudges, the second and third shake and show `×2`, `×3`, and from the fourth on they shake harder with a high sparkle.
   - **All clear:** the bar flashes, LAR hops with a thumbs up, confetti bursts three times, and a rising run plays.
   - **Then still.** Nothing loops.
