@@ -17,6 +17,7 @@ A change that contradicts an approved spec changes the spec first, in the same P
 - `000-099` shared reference (data maps, glossaries).
 - `010-019` first-run and sign-in (landing, login, portals).
 - `020-029` IntAssis (on-device AI).
+- `030-039` Features from the macOS app, wave by wave.
 - `040-049` everyday UX: deadlines, trust and speed, the day plan.
 - Later ranges follow the app's areas as they get specs.
 
@@ -31,6 +32,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [011-login](011-login.md) | draft | The sign-in form, errors and the lockout guard |
 | [012-portals](012-portals.md) | draft | The portal model: SIS now, Mabini next |
 | [020-ai](020-ai.md) | building | LAR that streams, remembers, cites notes; Ask AI in a note |
+| [030-from-the-mac-app](030-from-the-mac-app.md) | draft | The Mac app's features mapped to the phone; wave 1: join links, deadlines in the calendar, dated note entries |
 | [040-trust-and-speed](040-trust-and-speed.md) | approved | Honest loading and errors, fixable logins, review all due, consistent taps, week navigation |
 | [041-one-deadline-list](041-one-deadline-list.md) | approved | Syllabus, eMabini and own deadlines in one list: Today, reminders, LAR, calendar; add by typing or photo |
 | [042-lar-plans-the-day](042-lar-plans-the-day.md) | approved | Gap plan on Today, warm-up and after-class nudges, grade risk, Sunday brief, 3-a-day budget |
