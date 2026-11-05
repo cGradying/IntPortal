@@ -344,9 +344,7 @@ The Lakbay-Aral Robot, 26 by 23 art pixels: a pebble lit from the top left in fo
 The 14 by 20 pixel student, drawn as SVG rects, waving on a slow stepped loop and standing still under Reduce Motion. He fronts error cards and empty states. He belongs to the user's own redesign.
 
 ### Motion
-**The Smooth Travel Rule.** Anything that travels, scales or changes the page's layout is eased, never stepped, and layout changes open and close over about 0.36 s so nothing jumps. `steps()` is only for frames of art that stay in place: LAR's sprite, the tab hop, skeleton shimmer, a stamp's flash. This replaces the older "stepped for pixel things" habit (round two, 2026-11-05).
-
-Named exceptions, settled picks that stay stepped until the user says otherwise: the tab highlight (045 C22), stamp thunks outside the done run (045 C15, 044 C5), the countdown drop (045 C24), and the small press, checklist, `+N CARDS` and `SAVED` steps in 046 and 047. Anything else that travels is eased.
+**The Smooth Travel Rule.** Anything that travels, scales or changes the page's layout is eased, never stepped, and layout changes open and close over about 0.36 s so nothing jumps. `steps()` is only for frames of art that stay in place: LAR's sprite, the tab hop, skeleton shimmer. Stamps, presses, the tab highlight and the countdown are eased too (the user, 2026-11-05). This replaces the older "stepped for pixel things" habit (round two, 2026-11-05).
 
 Interface motion uses one ease, `cubic-bezier(0.22, 1, 0.36, 1)`: the landing dock rises 40 px over 0.7 s, sheets rise over 0.35 s, the wordmark fades in over 0.6 s, and leaving drops dock and wordmark 16 px over 0.25 s ease-in. Pixel motion uses `steps()`: the tab hop, skeleton shimmer (1.4 s, 8 steps), Isko's wave, the campus strip.
 

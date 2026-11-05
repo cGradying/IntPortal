@@ -27,14 +27,14 @@ Every setting on You today, reachable within two taps:
 ## Behaviour
 
 **One screen**
-- **C1.** You's home is a list of rows: Accounts, Theme, Reminders, Calendar, Layout, Motion and effects, IntAssis, Backup and data, Privacy. Each shows its current value and opens a page. Rows are grouped: Account, Look, Alerts, Data. Eight switches (haptics, sounds, lock, moving ground, class, deadline and study nudges, calendar) and search are pinned above the tab bar, in thumb reach. A lit switch shows gold on its icon and edge, not a gold block. Each page closes with a large Back at the bottom. Every target is at least 48 pt, or 44 pt in Compact (C7).
+- **C1.** You's home is a list of rows: Accounts, Theme, Reminders, Calendar, Layout, Motion and effects, IntAssis, Backup and data, Privacy. Each shows its current value and opens a page. Rows are grouped: Account, Look, Alerts, Data. Eight switches (haptics, sounds, lock, moving ground, class, deadline and study nudges, calendar) and search stay at the top of the screen, above the rows (the user, 2026-11-05; the picks page still shows them at the bottom). A lit switch shows gold on its icon and edge, not a gold block. Each page closes with a large Back at the bottom. Every target is at least 48 pt, or 44 pt in Compact (C7).
 - **C2.** Search matches every setting's name and synonyms, in English and common Taglish words, and goes to its page.
 - **C3.** A problem shows on its row: a rejected login on Accounts, notifications off on Reminders. It never hides a page deep.
 - **C4.** Accounts holds SIS and eMabini as two compact blocks. eMabini's sync and Due feed don't change, and it can still be connected or signed out here.
 
 **New settings**
 - **C5.** App opens on: Today, Schedule or Study. The dive still lands on the chosen tab.
-- **C6.** Today's cards: show or hide and reorder Up next, LAR's plan, This term and Your events. Due can be moved but never hidden, for "never miss a deadline": Up next shows no deadlines, so it can't stand in for it. *The user's call, see Open questions.* *Reorder is buttons, no drag, so it works with VoiceOver.*
+- **C6.** Today's cards: show or hide and reorder Up next, Due, LAR's plan, This term and Your events. A student can hide Due (the user, 2026-11-05). *Reorder is buttons, no drag, so it works with VoiceOver.*
 - **C7.** Lists: Comfy or Compact. Compact keeps every target at least 44 pt.
 - **C8.** The dive: Full, Short or Off. Off reverses the 10-25 decision that dropped the "Play portal on open" switch, and it's the user's call (see Open questions). With Off, the 040 C2 skeleton shows while data loads. Done effects: Full, Calm or Off. Moving ground: on or off. The phone's Reduce Motion wins over all of them.
 - **C9.** Backup: one file with notes (with subject and pin), photos, decks, syllabus pages, goals, marks, own deadlines and Done marks (`own_deadlines`, `done`, spec 041), subject colours, the study streak (`study_stats`), `class_info` once 030 C1 lands, and themes. Sign-out keeps all of this, so a new phone gets it too. Logins are never in it. It's built from the data, never a copy of the store: a restored store can't open without this phone's keychain key, and Android has `allowBackup=false`, so this file is the only way to a new phone.
@@ -79,7 +79,7 @@ As on the picks page. Final strings go here after the picks.
 
 ## Motion and Reduce Motion
 
-Pages slide in over 0.26 s with the shared ease. Quick switches press one step, and `SAVED` stamps with `steps()`: both stay in place, and they are named exceptions to the Smooth Travel Rule. Reduce Motion skips to rest. Haptics: `select` on a segment, `tick` on a switch, `done` on Save and Keep.
+Pages slide in over 0.26 s with the shared ease. Quick switches press and `SAVED` stamps with the shared ease. Reduce Motion skips to rest. Haptics: `select` on a segment, `tick` on a switch, `done` on Save and Keep.
 
 ## Accessibility
 
@@ -90,7 +90,7 @@ Rows and switches are at least 48 pt, or 44 pt in Compact, with names and states
 | Criterion | Test |
 |---|---|
 | C2 | `vitest`: `c2_search_finds_every_setting` |
-| C5–C8 | `vitest`: settings round trip, `c6_due_cannot_be_hidden` |
+| C5–C8 | `vitest`: settings round trip, `c6_every_card_can_hide_and_move` |
 | C9, C10 | `cargo`: `c9_backup_has_no_logins`, `c10_bad_backup_changes_nothing`, `c10_other_students_backup_refused` (including nobody signed in), `c9_backup_keeps_own_deadlines_and_done` |
 | C13 | `vitest`: `c13_every_theme_meets_contrast` over a sweep of colours |
 | C16, C17 | `vitest`: `c16_code_round_trip`, `c17_bad_code_refused` (cut, tampered, wrong version, markup in the name) |
@@ -98,7 +98,6 @@ Rows and switches are at least 48 pt, or 44 pt in Compact, with names and states
 
 ## Open questions
 
-- C6: Due can't be hidden. This is the recommendation, written in as the default, and today's rule let it be hidden alone.
 - C8: the dive's Off brings back what the 10-25 decision dropped. Keep Off, or only Full and Short?
 - Notes on You (046 C8): the recommendation is a short row that opens them. It stays as today until the user answers.
 - Backup: the store is encrypted but this file would not be. Keep it plain with a clear warning, or add a password flow? It holds private notes, and the student decides where it goes.

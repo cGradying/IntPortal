@@ -111,7 +111,7 @@ As on the picks page. Final strings go here after the picks.
 
 ## Motion and Reduce Motion
 
-A notebook pulled out changes the layout, so it opens over `--t-flow` (0.36 s) with the shared ease; a sheet rising uses the shared ease and spring, 0.3 s. What the notebook shows below it is simply there: nothing rises or spawns in after it. Checklist boxes and the `+N CARDS` stamp stay in place, so they may use `steps()`, and they are named exceptions to the Smooth Travel Rule. Reduce Motion skips to the resting state. Haptics: `select` on a subject, `tick` on a checklist, `done` on Save cards.
+A notebook pulled out changes the layout, so it opens over `--t-flow` (0.36 s) with the shared ease; a sheet rising uses the shared ease and spring, 0.3 s. What the notebook shows below it is simply there: nothing rises or spawns in after it. Checklist boxes and the `+N CARDS` stamp are eased too. Reduce Motion skips to the resting state. Haptics: `select` on a subject, `tick` on a checklist, `done` on Save cards.
 
 ## Accessibility
 
