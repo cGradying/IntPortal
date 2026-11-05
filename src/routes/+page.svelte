@@ -272,10 +272,10 @@
     visibility: hidden;
   }
   main {
-    padding: calc(var(--safe-top) + 12px) var(--gutter) calc(var(--safe-bottom) + 92px);
+    padding: calc(var(--safe-top) + 12px) var(--gutter) calc(var(--safe-bottom) + 140px);
   }
   [data-glance="dock"] main {
-    padding-bottom: calc(var(--safe-bottom) + 150px);
+    padding-bottom: calc(var(--safe-bottom) + 198px);
   }
   .page.slides {
     animation: in 0.22s var(--ease) backwards;

@@ -13,7 +13,8 @@
   import { api, isoDate, type Deck } from "../api";
   import { buzz } from "../haptics";
   import { resource } from "../load.svelte";
-  import { app } from "../state.svelte";
+  import { app, openNote } from "../state.svelte";
+  import { assis } from "../assis/assis.svelte";
 
   const study = resource(() => api.study(isoDate(new Date())));
   const overview = $derived(study.current.state === "ready" ? study.current.value : null);
@@ -22,6 +23,14 @@
   // Leaving the tab closes the deck, as it always did.
   $effect(() => () => {
     app.deck = null;
+  });
+  // The crystal's + (spec 046 C1b): Ask LAR first, then what this screen can add.
+  $effect(() => {
+    assis.menu = [
+      { label: "Today's note", run: () => openNote(`day:${isoDate(new Date())}`, new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })) },
+      { label: "New deck", run: () => (naming = true) },
+    ];
+    return () => (assis.menu = []);
   });
   // Spec 040 C9: every due card across decks in one session.
   let reviewing = $state<Deck[] | null>(null);
