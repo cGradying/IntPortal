@@ -131,8 +131,8 @@ export type CrystalMode = "cube" | "plus";
 /** One floating button (046 C1b, C1c): the + on Study, the cube elsewhere once LAR's model is on the phone. */
 export const crystalMode = (tab: string, hasModel: boolean): CrystalMode | null => (tab === "study" ? "plus" : hasModel ? "cube" : null);
 
-/** Glass needs WebGL2, motion, and memory to spare: #188 and #189 stall on 4 GB phones (C1d, C1d2). */
-export const useGlass = (reduceMotion: boolean, deviceMemoryGb: number | undefined, webgl2: boolean) => webgl2 && !reduceMotion && !(deviceMemoryGb !== undefined && deviceMemoryGb <= 4);
+/** Glass needs WebGL2, motion, and memory to spare: `smallRam` is the tier #188 and #189 stall on (C1d, C1d2). */
+export const useGlass = (reduceMotion: boolean, smallRam: boolean, webgl2: boolean) => webgl2 && !reduceMotion && !smallRam;
 
 /** It settles this long after the last movement (C1b2). */
 export const REST_MS = 2200;

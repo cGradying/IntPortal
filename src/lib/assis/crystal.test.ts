@@ -12,16 +12,13 @@ describe("the crystal (046 C1b to C1d2)", () => {
   });
 
   it("c1d2_low_ram_never_starts_webgl", () => {
-    expect(useGlass(false, 4, true)).toBe(false);
-    expect(useGlass(false, 2, true)).toBe(false);
-    expect(useGlass(false, 8, true)).toBe(true);
-    // iOS doesn't report memory.
-    expect(useGlass(false, undefined, true)).toBe(true);
+    expect(useGlass(false, true, true)).toBe(false);
+    expect(useGlass(false, false, true)).toBe(true);
   });
 
   it("c1d_no_webgl_or_reduce_motion_is_the_still_image", () => {
-    expect(useGlass(false, 8, false)).toBe(false);
-    expect(useGlass(true, 8, true)).toBe(false);
+    expect(useGlass(false, false, false)).toBe(false);
+    expect(useGlass(true, false, true)).toBe(false);
   });
 
   it("c1b2_settles_and_wakes", () => {

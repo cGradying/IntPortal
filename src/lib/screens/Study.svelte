@@ -26,10 +26,10 @@
   });
   // The crystal's + (spec 046 C1b): Ask LAR first, then what this screen can add.
   $effect(() => {
-    assis.menu = [
-      { label: "Today's note", run: () => openNote(`day:${isoDate(new Date())}`, new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })) },
-      { label: "New deck", run: () => (naming = true) },
-    ];
+    const note = { label: "Today's note", run: () => openNote(`day:${isoDate(new Date())}`, new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })) };
+    // The form only lives on the list, so a deck page or a review offers just the note.
+    const deck = { label: "New deck", run: () => { naming = true; scrollTo({ top: 0, behavior: "smooth" }); } };
+    assis.menu = reviewing || app.deck ? [note] : [note, deck];
     return () => (assis.menu = []);
   });
   // Spec 040 C9: every due card across decks in one session.

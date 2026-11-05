@@ -218,7 +218,7 @@
       {/key}
     </main>
     <TabBar />
-    <AssisOrb />
+    <AssisOrb settled={!dive} />
   </div>
   <!-- Without a dive, the void lifts off the room instead of cutting to it. -->
   {#if !dived}<div class="veil" class:lifted aria-hidden="true"></div>{/if}

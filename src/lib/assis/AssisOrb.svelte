@@ -3,7 +3,9 @@
   // IntAssis has been added; it folds into a + on Study. At rest it is flat, in the room's own
   // tokens, and draws nothing. Opening the chat sends LAR's cube flying up to him (AssisSheet),
   // so it is away while the chat is open.
+  import { invoke } from "@tauri-apps/api/core";
   import { untrack } from "svelte";
+  import { closable } from "../back";
   import { buzz } from "../haptics";
   import { api } from "../api";
   import { rootPull } from "../fieldPulse";
@@ -14,7 +16,14 @@
 
   const SIZE = 48;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  const webgl2 = "WebGL2RenderingContext" in window;
+  /** False until the dive is over: compiling the shader on the main thread would hitch it. */
+  let { settled = true }: { settled?: boolean } = $props();
+
+  // The app's own tier, the one the AI keys on. Still image until it answers, and if it can't.
+  let smallRam = $state(true);
+  invoke<boolean>("ai_small_ram").then((small) => (smallRam = small)).catch(() => {});
+  const glass = $derived(useGlass(reduce, smallRam, webgl2));
 
   const mode = $derived(crystalMode(app.tab, installed()));
   const thinking = $derived(assis.busy === "thinking" || assis.busy === "waking" || assis.busy === "cards");
@@ -24,6 +33,7 @@
   let button = $state<HTMLButtonElement>();
   let crystal = $state<Crystal | null>(null);
   let menuOpen = $state(false);
+  let remount = $state(0);
   let tones = $state(readTones());
   const faces = $derived(restCube(tones));
   let ramp = FALLBACK_SIS.theme.ramp;
@@ -40,6 +50,7 @@
   let tucked = $state(false);
   $effect(() => {
     let timer: ReturnType<typeof setTimeout>;
+    const tapped = () => crystal?.wake();
     const scrolled = () => {
       tucked = true;
       crystal?.wake();
@@ -47,9 +58,11 @@
       timer = setTimeout(() => (tucked = false), 650);
     };
     addEventListener("scroll", scrolled, { passive: true });
+    addEventListener("pointerdown", tapped, { passive: true });
     return () => {
       clearTimeout(timer);
       removeEventListener("scroll", scrolled);
+      removeEventListener("pointerdown", tapped);
     };
   });
 
@@ -67,22 +80,32 @@
   // and stays when glass can't start.
   $effect(() => {
     const cv = canvas;
-    if (!cv || !useGlass(reduce, memory, "WebGL2RenderingContext" in window)) return;
+    void remount;
+    if (!cv || !glass || !settled) return;
     const timer = setTimeout(() => {
       crystal = mountCrystal(cv, { mode: untrack(() => mode) ?? "cube", size: SIZE, ramp, onlost: () => (crystal = null) });
     }, 400);
+    // A context lost in the background comes back here, so the student keeps the glass.
+    const restored = () => remount++;
+    cv.addEventListener("webglcontextrestored", restored);
     return () => {
       clearTimeout(timer);
-      crystal?.dispose();
+      cv.removeEventListener("webglcontextrestored", restored);
+      untrack(() => crystal)?.dispose();
       crystal = null;
     };
   });
 
   $effect(() => {
+    void app.tab;
     if (mode) crystal?.set(mode);
     menuOpen = false;
   });
   $effect(() => crystal?.menu(menuOpen));
+  // Android's back closes the menu, not the tab.
+  $effect(() => {
+    if (menuOpen) return closable(() => (menuOpen = false));
+  });
   $effect(() => crystal?.hide(assis.open));
 
   // Thinking maps something (C1b3). Finishing grows roots behind the cards (C1b4).
@@ -120,7 +143,7 @@
     bind:this={button}
     class="orb card notch"
     class:open={menuOpen}
-    class:sweep={thinking && !crystal}
+    class:sweep={thinking && !crystal && !assis.open}
     data-orb
     class:away={assis.open}
     class:tucked
@@ -143,7 +166,7 @@
         {/if}
       </svg>
     {/if}
-    {#if useGlass(reduce, memory, true)}<canvas bind:this={canvas} class:live={!!crystal} aria-hidden="true"></canvas>{/if}
+    {#if glass}<canvas bind:this={canvas} class:live={!!crystal} aria-hidden="true"></canvas>{/if}
   </button>
 {/if}
 

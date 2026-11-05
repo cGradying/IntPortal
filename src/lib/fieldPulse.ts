@@ -104,7 +104,8 @@ export function rootPull(from: DOMRect, ondone?: () => void) {
     return ondone?.();
   }
   const { segs, packets, maxD } = growRoots(from.left + from.width / 2, from.top + from.height / 2, w, h);
-  const gold = getComputedStyle(document.documentElement).getPropertyValue("--gold").trim();
+  const vars = getComputedStyle(document.documentElement);
+  const [gold, ink] = [vars.getPropertyValue("--gold").trim(), vars.getPropertyValue("--ink").trim()];
   const clamp = (v: number) => Math.min(1, Math.max(0, v));
   const start = performance.now();
   let flashed = false;
@@ -130,7 +131,7 @@ export function rootPull(from: DOMRect, ondone?: () => void) {
     }
     // Each leaf's data runs home along its own root.
     g.globalAlpha = 1;
-    g.fillStyle = "#fff6dc";
+    g.fillStyle = ink;
     for (const p of packets) {
       const u = clamp((k - 0.34 - p.delay) / 0.5);
       if (u <= 0 || u >= 1) continue;
