@@ -41,7 +41,7 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
 - **C4. Marks are stamps.**
   - Online, vacant and moved classes carry a small stamp as the block's first line: `ONLINE` in the online ink, `VACANT` in the vacant ink, and `MOVED` in the in-person ink with a dashed outline.
   - Vacant blocks also get a 45° hatch. Colour is never the only signal.
-- **C5. The stamp thunk.** A stamp that is new since the last visit lands with the `thunk` (0.55 s, `steps(6)`) plus a 2 px shake of its block, once. Stamps the student has already seen just sit there.
+- **C5. The stamp thunk.** A stamp that is new since the last visit lands with the `thunk` (0.55 s, eased) plus a 2 px shake of its block, once. Stamps the student has already seen just sit there.
 - **C6. Moved shows both places.** A moved class shows on its new day and time. In week view, a dashed ghost of the block stays at the old slot for that week.
 
 **Time**
@@ -93,7 +93,7 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
 
 ## Motion and Reduce Motion
 
-See C5, C8–C10 and C12. The spring is the existing one from `carousel.ts`. Stamps use 0.55 s `steps(6)`. Nothing loops.
+See C5, C8–C10 and C12. The spring is the existing one from `carousel.ts`. Stamps use 0.55 s, eased. Nothing loops.
 
 ## Accessibility
 

@@ -175,7 +175,7 @@ The pixel world exists to serve a glance. Students open the app between classes,
 | Ground: void or room colour, dot grid, drifting pools | Behind everything, and where data lands | Text backgrounds |
 | Surfaces: stepped cards and chips, hairlines | Cards, sheets, floating controls | Art |
 | Controls: 10 px radius, hairline or gold | Buttons, fields, segments | Pixel slabs |
-| Art pixel: 12 by 12 icons, LAR, Isko, numerals, small labels | Identity and small labels | Times, rooms, dates, sentences |
+| Art pixel: 12 by 12 icons, LAR, Isko, numerals, small labels | Identity and small labels | Clock times, rooms, dates, sentences |
 | Glass: the crystal, only while something moves | The AI cube and + awake | Anything at rest |
 
 A new element picks one material from this table. If it needs a new one, change this table first.
@@ -344,7 +344,7 @@ The Lakbay-Aral Robot, 26 by 23 art pixels: a pebble lit from the top left in fo
 The 14 by 20 pixel student, drawn as SVG rects, waving on a slow stepped loop and standing still under Reduce Motion. He fronts error cards and empty states. He belongs to the user's own redesign.
 
 ### Motion
-**The Smooth Travel Rule.** Anything that travels, scales or changes the page's layout is eased, never stepped, and layout changes open and close over about 0.36 s so nothing jumps. `steps()` is only for frames of art that stay in place: LAR's sprite, the tab hop, skeleton shimmer, a stamp's flash. This replaces the older "stepped for pixel things" habit (round two, 2026-11-05).
+**The Smooth Travel Rule.** Anything that travels, scales or changes the page's layout is eased, never stepped, and layout changes open and close over about 0.36 s so nothing jumps. `steps()` is only for frames of art that stay in place: LAR's sprite, the tab hop, skeleton shimmer. Stamps, presses, the tab highlight and the countdown are eased too (the user, 2026-11-05). This replaces the older "stepped for pixel things" habit (round two, 2026-11-05).
 
 Interface motion uses one ease, `cubic-bezier(0.22, 1, 0.36, 1)`: the landing dock rises 40 px over 0.7 s, sheets rise over 0.35 s, the wordmark fades in over 0.6 s, and leaving drops dock and wordmark 16 px over 0.25 s ease-in. Pixel motion uses `steps()`: the tab hop, skeleton shimmer (1.4 s, 8 steps), Isko's wave, the campus strip.
 

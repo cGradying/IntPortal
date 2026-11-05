@@ -72,7 +72,7 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
   - Every tappable card and button squashes to 0.97 on press and springs back with a slight overshoot (the subtle level, picked).
   - The data inside a card never moves on its own.
 - **C14. Count-up.** Hero numbers (GPA, the Study counts, units done) count up from their last seen value when the screen opens. They do not count up from zero on every visit.
-- **C15. Stamps thunk.** Stamps land with the existing `thunk` (0.55 s, `steps(6)`) plus a 2 px shake of the card they land on, once per new grade or status.
+- **C15. Stamps thunk.** Stamps land with the `thunk` (0.55 s, eased, per the Smooth Travel Rule) plus a 2 px shake of the card they land on, once per new grade or status.
 - **C16. Idle sway.** Decorative pieces only (LAR, the cube, scene props). Cards and data never sway.
 - **C17. Celebrations.** One kit: tile confetti, LAR's hop and a cube sparkle. It fires only on these three:
   - the first sign-in (the dive's reveal);
@@ -82,6 +82,7 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
   Nothing else celebrates.
 - **C18. Done (picked in round four).**
   - **The sequence, about 1.1 s:** the box fills, a line strikes through the title, sparks pop, the dot grid ripples from the box, and a `DONE` stamp lands, all eased (round two, 2026-11-05). At 0.5 s the row lifts and a few tiles fall from it onto the dot grid. At 0.7 s it glides into Done. The row, the progress bar, the Done heading and LAR's card open and close over 0.36 s, so nothing jumps. The Done control is on the left of the row with the word under it, clear of the floating cube.
+  - **The bar:** with more than one item, a bar of up to eight segments above the rows fills one segment per done.
   - **A run builds:** a done within 4 s of the last climbs the pentatonic scale. The first nudges, the second and third shake and show `×2`, `×3`, and from the fourth on they shake harder with a high sparkle.
   - **All clear:** the bar flashes, LAR hops with a thumbs up, confetti bursts three times, and a rising run plays.
   - **Then still.** Nothing loops.
@@ -93,9 +94,9 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
 
 **Moving around (picked in round six)**
 
-- **C22. Tabs.** A pixel highlight steps under the chosen tab in four steps (0.24 s), the icon hops, and the page slides 12 px toward the tab you picked.
+- **C22. Tabs.** A pixel highlight glides under the chosen tab (0.24 s, eased), the icon hops, and the page slides 12 px toward the tab you picked.
 - **C23. Scrolling.** The cube shrinks and tucks aside while Today scrolls, and returns 0.65 s after you stop.
-- **C24. Up next counts.** When its minute changes, the pixel countdown drops in over 0.2 s in two steps.
+- **C24. Up next counts.** When its minute changes, the pixel countdown drops in over 0.2 s, eased.
 - **C25. Sync.** Pull past 70 px; the cube spins fast while syncing, and a `SYNCED` stamp lands with one ripple through the dot grid.
 - **C26. Things grow from where they live.** A class's sheet grows out of its block and shrinks back into it (0.38 s in, 0.3 s out). The chat comes from the cube ([010](010-landing.md) C18b).
 - **C27. Grades.** On first open, the GPA counts from the last seen value and the stamps thunk one by one.
@@ -108,6 +109,7 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
   - `--ease-spring` (overshoot);
   - `--t-quick` 0.16 s;
   - `--t-move` 0.32 s;
+  - `--t-flow` 0.36 s, for layout that opens and closes;
   - `--t-hero` 0.55 s.
 
   No component hardcodes another duration, except the stepped pixel animations.
