@@ -1,6 +1,6 @@
 # 047 You and themes
 
-**Status:** draft. Every look is picked (round two, 2026-11-05, on the [study picks page](reference/prototypes/study-you.src.html)). The Head's review fixes are in. The questions at the end are still the user's.
+**Status:** approved (2026-11-05). The user took the recommendations: the dive keeps Off, and backup has no password, with a clear warning.
 
 ## What changes for the student
 
@@ -36,8 +36,8 @@ Every setting on You today, reachable within two taps:
 - **C5.** App opens on: Today, Schedule or Study. The dive still lands on the chosen tab.
 - **C6.** Today's cards: show or hide and reorder Up next, Due, LAR's plan, This term and Your events. A student can hide Due (the user, 2026-11-05). *Reorder is buttons, no drag, so it works with VoiceOver.*
 - **C7.** Lists: Comfy or Compact. Compact keeps every target at least 44 pt.
-- **C8.** The dive: Full, Short or Off. Off reverses the 10-25 decision that dropped the "Play portal on open" switch, and it's the user's call (see Open questions). With Off, the 040 C2 skeleton shows while data loads. Done effects: Full, Calm or Off. Moving ground: on or off. The phone's Reduce Motion wins over all of them.
-- **C9.** Backup: one file with notes (with subject and pin), photos, decks, syllabus pages, goals, marks, own deadlines and Done marks (`own_deadlines`, `done`, spec 041), subject colours, the study streak (`study_stats`), `class_info` once 030 C1 lands, and themes. Sign-out keeps all of this, so a new phone gets it too. Logins are never in it. It's built from the data, never a copy of the store: a restored store can't open without this phone's keychain key, and Android has `allowBackup=false`, so this file is the only way to a new phone.
+- **C8.** The dive: Full, Short or Off. Off reverses the 10-25 decision that dropped the "Play portal on open" switch (the user, 2026-11-05). With Off, the 040 C2 skeleton shows while data loads. Done effects: Full, Calm or Off. Moving ground: on or off. The phone's Reduce Motion wins over all of them.
+- **C9.** Backup: one file with notes (with subject and pin), photos, decks, syllabus pages, goals, marks, own deadlines and Done marks (`own_deadlines`, `done`, spec 041), subject colours, the study streak (`study_stats`), `class_info` once 030 C1 lands, and themes. Sign-out keeps all of this, so a new phone gets it too. Logins are never in it. The file is not encrypted, has no password, and says so plainly before it's saved (the user, 2026-11-05). It's built from the data, never a copy of the store: a restored store can't open without this phone's keychain key, and Android has `allowBackup=false`, so this file is the only way to a new phone.
 - **C10.** Restore shows what's in the file and asks before it replaces anything. A file from a newer app version, or a damaged one, is refused and changes nothing. The file carries a hash of the student's number, and each student has their own store, so a file from another student is refused the same way. Restore needs someone signed in, because the check has nothing to compare against otherwise: on a new phone it says "Sign in first, then restore", and changes nothing.
 - **C11.** Backup and data shows the space notes, photos, decks and the rest take. The AI model's size stays on its card.
 
@@ -95,9 +95,3 @@ Rows and switches are at least 48 pt, or 44 pt in Compact, with names and states
 | C13 | `vitest`: `c13_every_theme_meets_contrast` over a sweep of colours |
 | C16, C17 | `vitest`: `c16_code_round_trip`, `c17_bad_code_refused` (cut, tampered, wrong version, markup in the name) |
 | C1, C3, C4, C12, C18 | screenshot, real phone |
-
-## Open questions
-
-- C8: the dive's Off brings back what the 10-25 decision dropped. Keep Off, or only Full and Short?
-- Notes on You (046 C8): the recommendation is a short row that opens them. It stays as today until the user answers.
-- Backup: the store is encrypted but this file would not be. Keep it plain with a clear warning, or add a password flow? It holds private notes, and the student decides where it goes.

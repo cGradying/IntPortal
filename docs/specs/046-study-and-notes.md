@@ -1,6 +1,6 @@
 # 046 Study and notes
 
-**Status:** draft. Every look is picked (round two, 2026-11-05, on the [study picks page](reference/prototypes/study-you.src.html)). The Head's review fixes are in. Three questions at the end are still the user's.
+**Status:** approved (2026-11-05). The user took the recommendations: photos are rows in the store, and notes on You are a short row.
 
 ## What changes for the student
 
@@ -36,7 +36,7 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 - **C1b3.** While LAR thinks, the cube does not spin faster. Its 27 boxes rearrange every 1.5 to 2 s into something being mapped: a random neuron, roots, a helix or a lattice, with a signal running out from the centre. It keeps turning slowly. This also happens from the +.
 - **C1b4.** When LAR finishes, a small moment in the ground, behind the cards: thin roots grow out along the dot grid from the crystal, about four trunks with a few branches, data runs back along them, the crystal gives one small pulse, and the roots fade. About 1.5 s. Reduce Motion skips it.
 - **C1c.** The crystal only shows as a cube once LAR's model is installed (`installed()`). Without it, Study and the editor show the + and other tabs show nothing. It keeps `data-orb` (`AssisSheet.svelte:68` reads its position for the flight to LAR, which is checked from each position).
-- **C1d.** Drawn with WebGL2 in one small canvas, with no new library: at most 30 frames a second while awake and no frames at rest, stopped when hidden (`class:away`, so LAR's sheet being open draws nothing), off-screen or backgrounded. Without WebGL2, or under Reduce Motion, it is a still image, and the morph is skipped.
+- **C1d.** Drawn with WebGL2 in one small canvas, with no new library: at most 30 frames a second while awake, full rate only during the 0.7 s fold so it stays smooth, and no frames at rest, stopped when hidden (`class:away`, so LAR's sheet being open draws nothing), off-screen or backgrounded. Without WebGL2, or under Reduce Motion, it is a still image, and the morph is skipped.
 - **C1d2.** On a low-RAM phone, the tier #188 and #189 stall on, thinking keeps the rest state with a cheap CSS sweep across it, with no WebGL, neuron forms or roots (C1b3, C1b4). *This is a real-phone check before it ships, including a low-end Android (#189).*
 - **C2.** A class note belongs to its subject by its key, with no second field to disagree with it. A freeform note carries a subject, chosen on creation and changeable in the note. The editor holds the choice until the first save with text. No subject means General.
 - **C3.** Day notes go under General, newest first, and can't be moved.
@@ -44,7 +44,7 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 - **C5.** Long press a note, or use its menu, to pin or delete, and to move a freeform note to another subject. Delete keeps its confirm (040). Pinning or moving doesn't change the note's edit time, so it neither jumps the list nor re-indexes the note for AI.
 - **C6.** Search covers every note's name and text, and every deck's name, across subjects. It works offline.
 - **C7.** A subject code can outlive its term. Once it leaves the schedule, its notes and decks stay together under the code alone, in a Past subjects group, with no description. Nothing is lost on a new term.
-- **C8.** Notes stay reachable from You (040 C14). *The user built that placement: keep, port or drop is theirs, asked 2026-11-05. Until they answer, it stays.*
+- **C8.** Notes stay reachable from You (040 C14), as a short row that opens them (the user, 2026-11-05).
 
 **Writing**
 - **C9.** The note shows formatted as it is typed: headings, bold, highlight, bullets, checklists. A line's Markdown marks appear only while the cursor is on it. The build PR states CodeMirror 6's measured bundle size.
@@ -90,18 +90,17 @@ As on the picks page. Final strings go here after the picks.
 - `notes::preview` strips `- [ ]`, `- [x]` and `==` as well.
 - Sort pinned-first in the list the UI reads. `notes()` keeps its order for RAG and `notes_markdown`.
 - Tags: not in this spec. They'd need their own table.
-- Photos: an attachments table (`id, note_key, file, w, h`) and a folder per student so another student on the phone can't see them. `wipe` only clears tables today, so it must remove the folder too. Write the file first, then the row. The orphan sweep removes only files with no row that are older than a day, in the current student's folder. `Store::wipe` doesn't know the path, so the erase command in `lib.rs` removes the folder. Display is bytes through a command as `tauri::ipc::Response`, then a Blob URL revoked when the note closes, with no `tauri.conf.json` change. `notes_markdown` returns one String, so a note with photos exports through a new zip path.
-- If photos are rows: photo commands are async with `spawn_blocking` and return bytes through `tauri::ipc::Response`, because sync commands run on the main thread and a waiting one freezes the UI. Deleting a note is one transaction, bounded by C15a's cap: about 110 ms for 20 photos on a Mac, estimated 0.3-1 s on a low-cost phone. Larger jobs (zip export, 047's backup) take one photo per lock and release between; 500 in one statement took 2.7 s on the Mac. Lists never select `bytes` and read by an indexed `note_key`. Deleting doesn't shrink the file, and new photos reuse the space: Erase everything VACUUMs after clearing (22 ms when empty), and normal use never VACUUMs. `wipe` gets `DELETE FROM photos`; `forget_sis` leaves them.
+- Photos: a separate table of JPEG rows (`id, note_key, w, h, jpeg`), loaded only when shown. Per-student, Erase everything and atomic delete come from the store, with no new crypto, key or orphan sweep.
+- Photo commands are async with `spawn_blocking` and return bytes through `tauri::ipc::Response`, because sync commands run on the main thread and a waiting one freezes the UI. Deleting a note is one transaction, bounded by C15a's cap: about 110 ms for 20 photos on a Mac, estimated 0.3-1 s on a low-cost phone. Larger jobs (zip export, 047's backup) take one photo per lock and release between; 500 in one statement took 2.7 s on the Mac. Lists never select `bytes` and read by an indexed `note_key`. Deleting doesn't shrink the file, and new photos reuse the space: Erase everything VACUUMs after clearing (22 ms when empty), and normal use never VACUUMs. `wipe` gets `DELETE FROM photos`; `forget_sis` leaves them.
 - Ownership: `store.rs` and `lib.rs` belong to the Core role and are hot, so this goes to the Code engineer as an issue.
 - Lifetime: subjects, pins and photos survive sign-out (`forget_sis` doesn't touch them), and Erase everything removes them (`store.wipe`).
 - Entry date: `entry_date(sessions, marks, code, today)` in `notes.rs` or `today.rs` (030 C12).
 - Commands: `src-tauri/src/lib.rs` is a hot file, so new commands go in one small PR.
 - Camera: one plugin, shared with Scan (#197) and 047's QR, on `core/camera-plugin`, owned by the Head. `plugin:camera|capture` takes `{ source: "camera" | "library", read?: { text?, qr? }, saveTo? }` and returns `{ cancelled, path?, width?, height?, text?, qr? }`. It rejects with `camera_denied`, `no_camera`, `no_space`, `save_failed`, `bad_photo`, `bad_folder` or `busy`, and a cancel is not an error. Use `capture()` and `cameraProblem()` from `src/lib/camera.ts`.
 - `saveTo` is an absolute folder inside the app's data directory. The plugin names the file and writes a JPEG of at most 1600 px on the long side, so downscaling happens there and not in the WebView. On iOS it sets `isExcludedFromBackup` and file protection.
-- A new core command returns the per-student photo folder to pass as `saveTo`.
+- The plugin saves to a temp folder under the app's data directory (`tmp` and `Caches` are refused on iOS), and the core takes the file in and deletes it. A launch sweep and Erase everything clear that folder. The claim is "encrypted after a moment as a plain file", never "never on disk".
 - `src/lib/api.ts`: `NoteItem` follows; `setNote` keeps its contract.
 - Export: subject and pin stay out of the Markdown, which goes to classmates when shared. 047 C9's backup carries them.
-- If photos are encrypted files: `XChaCha20Poly1305` from `chacha20poly1305` (pure Rust), a 24-byte random nonce from `getrandom`, the attachment id as associated data so files can't be swapped, and a second random key per student under the same keychain service as `dbkey`, not the SQLCipher key.
 
 ## Errors
 
@@ -134,7 +133,7 @@ Every tool and row has a 44 pt target and a name. Checklist boxes are real contr
 | C17c | `cargo`: `c17c_kept_row_drops_its_chunks`, `c17c_blank_keeps_a_note_with_photos`, `c17c_first_photo_creates_the_row`, next to `c8_delete_note_drops_chunks`; Delete removes the photos |
 | C17d | `vitest`: `c17d_photo_only_preview`, `c17d_after_class_needs_text`; `cargo`: empty `notes_markdown` section |
 | Data | `cargo`: `old_schema_opens_and_gains_columns`, `migration_error_is_not_locked`, `pin_and_subject_keep_updated`, `meta_on_missing_key_errors`, `subject_refused_on_class_and_day`, `preview_strips_checklist_and_highlight` |
-| C16, C17 | `cargo`: `c17_note_delete_removes_photos`, per-student folder |
+| C16, C17 | `cargo`: `c17_note_delete_removes_photos`, per-student store |
 | C18–C20 | `vitest`: `c18_term_lines_start_chosen`, `c20_duplicates_dropped` |
 | C9, C11, C12, C15, C22 | screenshot, real phone |
 
@@ -142,13 +141,5 @@ Every tool and row has a 44 pt target and a name. Checklist boxes are real contr
 
 - "Add fonts for the cube": the user asked for this and it isn't clear what it means. Nothing is built for it.
 - Mathematics and tables in notes: offered, not requested.
-- C8: notes on You: keep, port to a row, or drop?
-- Photo storage, for the user. The store is SQLCipher-encrypted, and plain files sit outside it. Options:
-  - Rows in the store (recommended): a separate table of JPEG BLOBs loaded only when shown. No new crypto, key or orphan sweep; per-student, erase and atomic delete come free. Measured on a Mac with a real store, 0.5 MB photo, flat from 0 to 500 photos: insert 17-19 ms, read 2-4 ms, delete 25-34 ms. Estimated on a low-cost Android, not measured: insert 60-200 ms, read 15-50 ms, delete 100-300 ms. Bulk work is the risk, see the rules in Data shape.
-  - Files encrypted with a new crate: photos stay out of the store and don't hold its lock. Costs: our own key and nonce handling, plus a sweep for orphans.
-  - Plain files in private storage, left out of backups: cheapest and weakest, and no encryption claim.
-- With either encrypted option, the plugin saves to a temp folder under the app's data directory (`tmp` and `Caches` are refused on iOS), and the core takes the file in and deletes it. A launch sweep and Erase everything clear that folder. Deleting doesn't guarantee the plain file is gone from flash, so the claim is "encrypted after a moment as a plain file", never "never on disk". Avoiding that entirely needs a plugin mode that returns bytes, which the Head can add if asked.
-- Whichever is picked, photo references stay out of the note's text (C16), so they never reach AI chunks. The strip reads them by note key.
-- Strip or between paragraphs: the mockup shows a strip, which keeps the text clean for AI. A photo beside a specific paragraph would need references in the text, so it's the user's call if they care.
-- C15a's cap of 20 is a proposal, sized by the delete timing above.
-- Photos are the largest piece, so they ship in their own later phase, with the camera plugin.
+- Strip or between paragraphs: the picks page shows a strip, which keeps the text clean for AI, and that's what gets built. A photo beside a specific paragraph would need references in the text.
+- C15a's cap of 20 is a proposal, sized by the delete timing measured on a Mac (0.5 MB photo: insert 17-19 ms, read 2-4 ms, delete 25-34 ms). Measure on a low-cost Android in the photos phase.
