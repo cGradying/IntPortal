@@ -240,4 +240,4 @@ Reuse what already exists:
     8. Photos, after #219 merges (046 C15 to C17d).
     9. Spec 022, quiz from notes, with the AI engineer.
   - **Port from the mock, don't redraw:** `CRYSTAL_FS`, `neuronForm`, `rootPull`, `ICONS`, `encodeTheme` and `decodeTheme` are in study-you.src.html.
-
+- 2026-11-05 · #222 and #146 merged at the user's word, before the Head's review arrived. The review's fixes follow in `docs/spec-046-review`. Still the user's: smooth the named stepped exceptions, whether Due can be hidden, the dive's Off.
