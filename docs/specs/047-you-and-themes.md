@@ -38,7 +38,7 @@ Every setting on You today, reachable within two taps:
 - **C7.** Lists: Comfy or Compact. Compact keeps every target at least 44 pt.
 - **C8.** The dive: Full, Short or Off. Off reverses the 10-25 decision that dropped the "Play portal on open" switch, and it's the user's call (see Open questions). With Off, the 040 C2 skeleton shows while data loads. Done effects: Full, Calm or Off. Moving ground: on or off. The phone's Reduce Motion wins over all of them.
 - **C9.** Backup: one file with notes (with subject and pin), photos, decks, syllabus pages, goals, marks, own deadlines and Done marks (`own_deadlines`, `done`, spec 041), subject colours, the study streak (`study_stats`), `class_info` once 030 C1 lands, and themes. Sign-out keeps all of this, so a new phone gets it too. Logins are never in it. It's built from the data, never a copy of the store: a restored store can't open without this phone's keychain key, and Android has `allowBackup=false`, so this file is the only way to a new phone.
-- **C10.** Restore shows what's in the file and asks before it replaces anything. A file from a newer app version, or a damaged one, is refused and changes nothing. The file carries a hash of the student's number, and each student has their own store, so a file from another student is refused the same way.
+- **C10.** Restore shows what's in the file and asks before it replaces anything. A file from a newer app version, or a damaged one, is refused and changes nothing. The file carries a hash of the student's number, and each student has their own store, so a file from another student is refused the same way. Restore needs someone signed in, because the check has nothing to compare against otherwise: on a new phone it says "Sign in first, then restore", and changes nothing.
 - **C11.** Backup and data shows the space notes, photos, decks and the rest take. The AI model's size stays on its card.
 
 **Custom themes**
@@ -91,7 +91,7 @@ Rows and switches are at least 48 pt, or 44 pt in Compact, with names and states
 |---|---|
 | C2 | `vitest`: `c2_search_finds_every_setting` |
 | C5–C8 | `vitest`: settings round trip, `c6_due_cannot_be_hidden` |
-| C9, C10 | `cargo`: `c9_backup_has_no_logins`, `c10_bad_backup_changes_nothing`, `c10_other_students_backup_refused`, `c9_backup_keeps_own_deadlines_and_done` |
+| C9, C10 | `cargo`: `c9_backup_has_no_logins`, `c10_bad_backup_changes_nothing`, `c10_other_students_backup_refused` (including nobody signed in), `c9_backup_keeps_own_deadlines_and_done` |
 | C13 | `vitest`: `c13_every_theme_meets_contrast` over a sweep of colours |
 | C16, C17 | `vitest`: `c16_code_round_trip`, `c17_bad_code_refused` (cut, tampered, wrong version, markup in the name) |
 | C1, C3, C4, C12, C18 | screenshot, real phone |
