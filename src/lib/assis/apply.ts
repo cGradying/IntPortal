@@ -5,7 +5,7 @@ import type { Card, Deck, NoteItem } from "../api";
 export type Proposal =
   | { kind: "add_note"; subject: string | null; text: string }
   | { kind: "set_reminder"; date: string; text: string }
-  | { kind: "make_cards"; topic: string };
+  | { kind: "make_cards"; topic: string; count: number };
 
 /** A note about a class goes on that class's note; any other goes on one running "From LAR" note for the day. */
 export function noteTarget(p: { subject: string | null }, today: string): { key: string; title: string | null } {
@@ -47,6 +47,16 @@ export function reminderAt(date: string, hour = 8): Date {
   const [y, m, d] = date.split("-").map(Number);
   return new Date(y, m - 1, d, hour, 0);
 }
+
+/** True when the words read as Filipino or Taglish. A small word list is enough to pick the language of a one-line notice. */
+export function looksFilipino(...texts: (string | undefined)[]): boolean {
+  const fil = ["ang", "ng", "sa", "na", "ko", "mo", "ako", "ba", "po", "para", "paalala", "handa", "bukas", "mamaya", "ngayon", "lang", "i-remind", "i-confirm", "pa-remind"];
+  return (texts.join(" ").toLowerCase().match(/[\p{L}-]+/gu) ?? []).some((w) => fil.includes(w));
+}
+
+/** What a reminder says when the phone will not show notifications: saved, but it cannot ring until they are on. */
+export const notificationsOff = (fil: boolean) =>
+  fil ? "Na-save ko na, pero naka-off ang notifications. I-on mo sa Settings para tumunog ito." : "I saved it, but notifications are off. Turn them on in Settings so it can ring.";
 
 /** A stable positive id, so applying the same reminder twice replaces it. */
 export function reminderId(text: string, date: string): number {

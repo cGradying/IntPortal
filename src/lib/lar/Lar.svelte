@@ -1,28 +1,56 @@
 <script lang="ts" module>
-  export type Gesture = "idle" | "wave" | "point" | "reach" | "thumbs";
+  import { app } from "../state.svelte";
+  import { SIS, THEMES, type Theme } from "./sprite";
+
+  export type { Gesture } from "./sprite";
+
+  /** The colours of the portal the student uses: Mabini's when it is the only one connected. */
+  export const larTheme = (): Theme => (app.mabiniConnected && !app.sisConnected ? THEMES.mabini : SIS);
 </script>
 
 <script lang="ts">
-  // LAR on screen. The parts are separate canvases so he moves smoothly
-  // between whole pixels: the body bobs, the antenna sways, the mitts float
-  // and lag, the cube orbits behind and in front, the belly swirl turns.
-  // Pass `t` to drive him from a timeline; without it he keeps his own idle
-  // clock. Reduce Motion holds him still.
+  // LAR on screen: one canvas, drawn by drawLar (sprite.ts) from his pose for
+  // the state he is in. A rig eases every change of state, so nothing pops.
+  // He wears the colours of the student's portal unless given a `theme`.
+  // Pass `t` to drive him from a timeline; without it he keeps his own
+  // clock. Reduce Motion holds him in a still pose.
   import { onMount } from "svelte";
-  import { ANTENNA, CUBE, H, LAR_PAL, MITT, THUMB, W, blinkAt, bodyGrid, drawSwirl, faceGrid, rows, type Grid, type Mood } from "./sprite";
+  import { BOX, H, W, drawLar, hands, rig, type Gesture, type Mood, type State } from "./sprite";
 
   let {
     size = 4,
-    mood = "open",
+    mood,
     gesture = "idle",
+    state: mode = "idle",
+    theme,
+    vx,
+    vy,
     t: driven,
     cube = true,
+    fit = false,
     label = "LAR, the Lakbay-Aral Robot",
-  }: { size?: number; mood?: Mood; gesture?: Gesture; t?: number; cube?: boolean; label?: string } = $props();
+  }: {
+    size?: number;
+    /** Overrides the face his state would wear. */
+    mood?: Mood;
+    gesture?: Gesture;
+    state?: State;
+    /** A portal's ramp and accent; defaults to the portal the student uses. */
+    theme?: Theme;
+    /** Fly velocity in sprite px per second. */
+    vx?: number;
+    vy?: number;
+    t?: number;
+    cube?: boolean;
+    /** Take up the room his cube, mitts and glow reach, so a box round him never clips them. */
+    fit?: boolean;
+    label?: string;
+  } = $props();
 
   const reduce = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   let own = $state(0);
   const t = $derived(driven ?? (reduce ? 0 : own));
+  const look = $derived(theme ?? larTheme());
 
   onMount(() => {
     if (driven !== undefined || reduce) return;
@@ -36,78 +64,44 @@
     return () => cancelAnimationFrame(raf);
   });
 
-  function paint(cv: HTMLCanvasElement, g: Grid) {
-    cv.width = g[0].length;
-    cv.height = g.length;
-    const x = cv.getContext("2d")!;
-    g.forEach((row, j) =>
-      row.forEach((k, i) => {
-        if (!k) return;
-        x.fillStyle = LAR_PAL[k];
-        x.fillRect(i, j, 1, 1);
-      }),
-    );
-  }
+  // Starts idle, so a first state of error or spawn plays its entrance.
+  const r = rig();
+  const mitts = hands();
+  let canvas: HTMLCanvasElement;
+  const BW = BOX.x1 - BOX.x0;
+  const BH = BOX.y1 - BOX.y0;
 
-  let belly: HTMLCanvasElement;
   $effect(() => {
-    const x = belly?.getContext("2d");
-    if (x) drawSwirl(x, t, 6, 5);
+    const now = t;
+    const o = { vx, vy };
+    r.set(mode, now, o);
+    const p = r.at(now, o, reduce);
+    if (mood && mood !== "open") p.mood = mood;
+    mitts.at(gesture, now, reduce).forEach((g, i) => {
+      const m = p.mitts[i];
+      m.x += g.dx;
+      m.y += g.dy;
+      m.rot += g.rot;
+      if (g.thumb) m.kind = "thumb";
+    });
+    const dpr = Math.min(3, devicePixelRatio || 1);
+    const s = size * dpr;
+    const w = Math.round(BW * s);
+    const h = Math.round(BH * s);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    const ctx = canvas.getContext("2d")!;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.setTransform(s, 0, 0, s, -BOX.x0 * s, -BOX.y0 * s);
+    drawLar(ctx, p, look, now, { cube });
   });
-
-  // [dx, dy, rot] per mitt, in sprite pixels from where it floats.
-  const GEST: Record<Gesture, [number, number, number][]> = {
-    idle: [[0, 0, 0], [0, 0, 0]],
-    wave: [[0, 0, 0], [3, -12, -30]],
-    point: [[0, 0, 0], [9, -6, -20]],
-    reach: [[-3, -10, -30], [3, -10, 30]],
-    thumbs: [[0, 0, 0], [3, -7, 0]],
-  };
-
-  const face = $derived(mood === "open" && !reduce ? blinkAt(t) : mood);
-  const bob = $derived(Math.sin(t * 3.1) * 1.4);
-  const sway = $derived(Math.sin(t * 3.1 - 0.9) * 6);
-  const angle = $derived(t * 2.2);
-  const cubeFront = $derived(Math.sin(angle) > 0);
-  const hands = $derived(
-    [0, 1].map((i) => {
-      const side = i === 0 ? -1 : 1;
-      const lag = Math.sin(t * 3.1 - 0.7 - i * 0.3) * 1.2;
-      let [dx, dy, rot] = GEST[gesture][i];
-      if (gesture === "wave" && i === 1) rot += Math.sin(t * 9) * 28;
-      return { x: W / 2 + side * 14.5 - 3.5 + dx, y: 13 + dy + lag, rot, side, thumb: gesture === "thumbs" && i === 1 };
-    }),
-  );
 </script>
 
-{#snippet orbit()}
-  <canvas
-    class="part"
-    use:paint={rows(CUBE)}
-    style:transform="translate({(W / 2 - 3.5 + Math.cos(angle) * 16) * size}px, {(6 + Math.sin(angle) * 3 + bob * 0.5) * size}px) scale({0.75 + 0.25 * Math.sin(angle)})"
-    style:width="{7 * size}px"
-  ></canvas>
-{/snippet}
-
-<span class="lar" role="img" aria-label={label} style:width="{W * size}px" style:height="{H * size}px" style:--s="{size}px">
-  {#if cube && !cubeFront}{@render orbit()}{/if}
-  <span class="body" style:transform="translateY({bob * size}px)">
-    <canvas class="part" use:paint={rows(ANTENNA)} style:width="{7 * size}px" style:transform="translate({(W / 2 - 3.5) * size}px, {-7 * size}px) rotate({sway}deg)" style:transform-origin="{3.5 * size}px {9 * size}px"></canvas>
-    <canvas class="part" use:paint={bodyGrid()} style:width="{W * size}px"></canvas>
-    {#key face}<canvas class="part" use:paint={faceGrid(face)} style:width="{W * size}px"></canvas>{/key}
-    <canvas class="part" bind:this={belly} width="6" height="5" style:width="{6 * size}px" style:transform="translate({(W / 2 - 3) * size}px, {15 * size}px)"></canvas>
-  </span>
-  {#if cube && cubeFront}{@render orbit()}{/if}
-  {#each hands as h, i (i)}
-    <canvas
-      class="part"
-      use:paint={rows(h.thumb ? THUMB : MITT)}
-      style:width="{7 * size}px"
-      style:transform="translate({h.x * size}px, {h.y * size}px) rotate({h.rot}deg) scaleX({h.side})"
-      style:transform-origin="{3.5 * size}px {3.5 * size}px"
-    ></canvas>
-  {/each}
-  <i class="shadow" style:transform="scaleX({1 - bob / 16})"></i>
+<span class="lar" class:fit role="img" aria-label={label} style:width="{(fit ? BW : W) * size}px" style:height="{(fit ? BH : H) * size}px" style:--s="{size}px">
+  <canvas bind:this={canvas} style:left="{fit ? 0 : BOX.x0 * size}px" style:top="{fit ? 0 : BOX.y0 * size}px" style:width="{BW * size}px" style:height="{BH * size}px"></canvas>
 </span>
 
 <style>
@@ -118,24 +112,12 @@
     flex: none;
     margin-inline: calc(var(--s) * 5);
   }
-  .body {
-    position: absolute;
-    inset: 0;
+  .lar.fit {
+    margin-inline: 0;
   }
-  .part {
+  canvas {
     position: absolute;
-    top: 0;
-    left: 0;
-    height: auto;
+    pointer-events: none;
     image-rendering: pixelated;
-  }
-  .shadow {
-    position: absolute;
-    left: calc(var(--s) * 5);
-    top: calc(var(--s) * 24.5);
-    width: calc(var(--s) * 16);
-    height: calc(var(--s) * 2);
-    border-radius: 50%;
-    background: rgb(0 0 0 / 0.3);
   }
 </style>

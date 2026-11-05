@@ -1,13 +1,16 @@
 <script lang="ts">
+  import { friendly } from "./errors";
   // Connect one portal from inside the app: the fields it asks for, its tries
   // line, its own words. Same rules as the landing card, in the app's look.
   import { onMount } from "svelte";
-  import type { Portal, Tries } from "./api";
+  import { api, type Portal, type Tries } from "./api";
+  import { refreshLogins } from "./state.svelte";
   import { buzz } from "./haptics";
   import { portalApiFor } from "./portalApi";
   import { portalCopy, triesLine, validate } from "./portals";
 
-  let { portal }: { portal: Portal } = $props();
+  // `prefill`: start from the saved student number, to fix a rejected login (spec 040 C5).
+  let { portal, prefill = false }: { portal: Portal; prefill?: boolean } = $props();
 
   let studno = $state("");
   let birthday = $state("");
@@ -20,7 +23,10 @@
   const locked = $derived(!!tries && tries.left <= 0);
 
   const refreshTries = () => portalApiFor(portal.id).tries().then((t) => (tries = t)).catch(() => {});
-  onMount(refreshTries);
+  onMount(() => {
+    refreshTries();
+    if (prefill) api.loginHint(portal.id).then((n) => (studno ||= n ?? "")).catch(() => {});
+  });
 
   async function submit(e: Event) {
     e.preventDefault();
@@ -31,8 +37,9 @@
       await portalApiFor(portal.id).signIn({ student_number: studno, birthdate: birthday, password });
       password = "";
       buzz.done();
+      refreshLogins();
     } catch (err) {
-      error = String(err);
+      error = friendly(err);
       buzz.fail();
     } finally {
       busy = false;

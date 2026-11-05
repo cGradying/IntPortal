@@ -1,22 +1,35 @@
 <script lang="ts">
+  import PixelNum from "../PixelNum.svelte";
+  import { counted } from "../count.svelte";
   // Decks of flashcards scheduled by FSRS in the core: what's due, the
   // streak, and a way in to each deck.
   import DeckPage from "../DeckPage.svelte";
+  import NotesCard from "../NotesCard.svelte";
+  import StudySession from "../StudySession.svelte";
   import ErrorCard from "../ErrorCard.svelte";
   import Flame from "../Flame.svelte";
   import LarNote from "../LarNote.svelte";
   import Skeleton from "../Skeleton.svelte";
-  import { api, isoDate } from "../api";
+  import { api, isoDate, type Deck } from "../api";
   import { buzz } from "../haptics";
   import { resource } from "../load.svelte";
   import { app } from "../state.svelte";
 
   const study = resource(() => api.study(isoDate(new Date())));
   const overview = $derived(study.current.state === "ready" ? study.current.value : null);
+  const dueCount = counted("due", () => overview?.due ?? null);
+  const todayCount = counted("reviews", () => overview?.reviews_today ?? null);
   // Leaving the tab closes the deck, as it always did.
   $effect(() => () => {
     app.deck = null;
   });
+  // Spec 040 C9: every due card across decks in one session.
+  let reviewing = $state<Deck[] | null>(null);
+  async function reviewAll() {
+    const due = (overview?.decks ?? []).filter((d) => d.due > 0);
+    reviewing = await Promise.all(due.map((d) => api.deck(d.id)));
+  }
+
   let naming = $state(false);
   let name = $state("");
   let subject = $state("");
@@ -40,7 +53,9 @@
   }
 </script>
 
-{#if app.deck}
+{#if reviewing}
+  <StudySession decks={reviewing} mode="flash" title="All due" onclose={() => { reviewing = null; study.reload(); }} />
+{:else if app.deck}
   {#key app.deck}<DeckPage id={app.deck} onclose={() => { app.deck = null; study.reload(); }} />{/key}
 {:else}
   <div class="screen">
@@ -50,10 +65,11 @@
     </header>
 
     <section class="card notch sum">
-      <div><p class="label">Due now</p><p class="big num">{overview?.due ?? 0}</p></div>
-      <div><p class="label">Streak</p><p class="big num">{#if overview?.streak}<Flame />{/if}{overview?.streak ?? 0}<small> {overview?.streak === 1 ? "day" : "days"}</small></p></div>
-      <div><p class="label">Today</p><p class="big num">{overview?.reviews_today ?? 0}<small> cards</small></p></div>
+      <div><p class="label">Due now</p><p class="big num"><PixelNum text={String(Math.round(dueCount.value ?? 0))} size={4} /></p></div>
+      <div><p class="label">Streak</p><p class="big num">{#if overview?.streak}<Flame />{/if}<PixelNum text={String(overview?.streak ?? 0)} size={4} /><small> {overview?.streak === 1 ? "day" : "days"}</small></p></div>
+      <div><p class="label">Today</p><p class="big num"><PixelNum text={String(Math.round(todayCount.value ?? 0))} size={4} /><small> cards</small></p></div>
     </section>
+    <button class="primary all" onclick={reviewAll} disabled={!overview?.due}>{overview?.due ? `Review all due (${overview.due})` : "Nothing due"}</button>
 
     {#if naming}
       <section class="card notch new">
@@ -89,6 +105,7 @@
         </li>
       {/each}
     </ul>
+    <NotesCard />
   </div>
 {/if}
 
@@ -101,8 +118,8 @@
     margin: 2px 0 0;
     font-family: var(--font-display);
     font-size: min(1.647rem, 36px);
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: var(--title-weight);
+    letter-spacing: var(--title-track);
   }
   .sum {
     --step: 4px;
@@ -117,6 +134,7 @@
     font-weight: 800;
   }
   .big small {
+    margin-left: 0.25em;
     font-size: min(0.765rem, 23px);
     font-weight: 600;
     color: var(--ink-3);
@@ -207,5 +225,9 @@
     font-weight: 600;
     font-size: min(0.706rem, 22px);
     color: var(--ink-3);
+  }
+  .all {
+    width: 100%;
+    min-height: 44px;
   }
 </style>

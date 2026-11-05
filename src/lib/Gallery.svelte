@@ -6,7 +6,7 @@
   import Flame from "./Flame.svelte";
   import Isko from "./Isko.svelte";
   import Lar from "./lar/Lar.svelte";
-  import { MOODS } from "./lar/sprite";
+  import { MOODS, STATES, THEMES } from "./lar/sprite";
   import Jeepney from "./Jeepney.svelte";
   import { glanceView } from "./glance";
   import PixelIcon, { SPRITES, type SpriteName } from "./PixelIcon.svelte";
@@ -45,6 +45,14 @@
   <div class="row">
     {#each MOODS as mood (mood)}<figure class="card notch icon"><Lar size={3} {mood} cube={false} /><figcaption>{mood}</figcaption></figure>{/each}
     {#each GESTURES as gesture (gesture)}<figure class="card notch icon"><Lar size={3} {gesture} /><figcaption>{gesture}</figcaption></figure>{/each}
+  </div>
+  <p class="label">LAR's states</p>
+  <div class="row">
+    {#each STATES as state (state)}<figure class="card notch icon"><Lar size={3} {state} /><figcaption>{state}</figcaption></figure>{/each}
+  </div>
+  <p class="label">LAR in each portal's colours</p>
+  <div class="row">
+    {#each Object.entries(THEMES) as [id, theme] (id)}<figure class="card notch icon"><Lar size={3} {theme} /><figcaption>{id}</figcaption></figure>{/each}
   </div>
 
   <p class="label">Streak flame</p>

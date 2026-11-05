@@ -3,9 +3,11 @@
 
 use intportal_core::calendar;
 use intportal_core::campus;
-use intportal_core::coach::{self, Nudge, Signals};
+use intportal_core::coach::{self, Nudge, PlanStep, Signals};
+use intportal_core::nudge;
+use intportal_core::deadline::{self, Deadline, Draft, OwnDeadline};
 use intportal_core::grades::{self, Goals, GradeReport, Standing};
-use intportal_core::mabini::{MabiniClient, MabiniData};
+use intportal_core::mabini::{LoginPage, MabiniClient, MabiniData};
 use intportal_core::model::{ClassSession, Weekday};
 use intportal_core::notes::{self, Note};
 use intportal_core::schedule;
@@ -346,7 +348,7 @@ fn demo_mabini(now: i64) -> MabiniData {
 
 #[tauri::command]
 fn portals() -> Vec<intportal_core::portal::Portal> {
-    intportal_core::portal::ALL.to_vec()
+    intportal_core::portal::ALL.clone()
 }
 
 #[tauri::command]
@@ -421,14 +423,7 @@ mod mabini_vault {
 /// even when the sign-in fails.
 async fn guarded_mabini_sign_in(state: &AppState, login: &MabiniLogin, auto: bool) -> Res<MabiniClient> {
     let mut ledger = state.mabini_ledger.lock().await;
-    let r = match ledger.begin(unix_now() as u64, auto) {
-        Ok(()) => MabiniClient::sign_in(&login.student_number, &login.password).await,
-        Err(e) => Err(e),
-    };
-    // A refused try (limit, or rejected and auto) didn't reach the portal; only a real POST can change the rejection.
-    if !matches!(r, Err(sis::Error::TooManyTries { .. })) {
-        ledger.record(&r);
-    }
+    let r = sis::post_once(&mut ledger, unix_now() as u64, auto, LoginPage::fetch(), |page| page.sign_in(&login.student_number, &login.password)).await;
     if let Ok(json) = serde_json::to_string(&*ledger) {
         let _ = std::fs::write(state.dir.join(MABINI_GUARD_FILE), json);
     }
@@ -442,10 +437,23 @@ async fn mabini_refresh(state: &AppState, client: &MabiniClient) -> Res<MabiniDa
     Ok(data)
 }
 
+/// The store eMabini data goes in: the SIS student's when one is signed in
+/// (another number is refused), else the typed student's (`Some`, to open).
+fn mabini_account<'a>(sis_number: Option<&str>, typed: &'a str) -> Res<Option<&'a str>> {
+    match sis_number {
+        Some(n) if account_file(n) == account_file(typed) => Ok(None),
+        Some(_) => Err("That isn't the student number signed in to the SIS on this phone. Use your own eMabini login, or sign out of the SIS first.".into()),
+        None => Ok(Some(typed)),
+    }
+}
+
 #[tauri::command]
 async fn mabini_sign_in(state: tauri::State<'_, AppState>, login: MabiniLogin) -> Res<MabiniData> {
+    let open = mabini_account(vault::load().as_ref().map(|l| l.student_number.as_str()), &login.student_number)?;
     let client = guarded_mabini_sign_in(&state, &login, false).await?;
-    open_account(&state, &login.student_number)?;
+    if let Some(n) = open {
+        open_account(&state, n)?;
+    }
     mabini_vault::save(&login)?;
     let data = mabini_refresh(&state, &client).await?;
     *state.mabini.lock().await = Some(client);
@@ -478,6 +486,17 @@ async fn mabini_sync(state: tauri::State<'_, AppState>) -> Res<MabiniData> {
 #[tauri::command]
 fn mabini_data(state: tauri::State<'_, AppState>) -> Res<MabiniData> {
     state.store.lock().unwrap().mabini().map_err(err)
+}
+
+/// The saved student number, to fill a sign-in form after a rejection
+/// (spec 040 C5). Never the password.
+#[tauri::command]
+fn login_hint(portal: String) -> Option<String> {
+    match portal.as_str() {
+        "sis" => vault::load().map(|l| l.student_number),
+        "mabini" => mabini_vault::load().map(|l| l.student_number),
+        _ => None,
+    }
 }
 
 #[tauri::command]
@@ -671,13 +690,14 @@ fn set_note(state: tauri::State<'_, AppState>, key: String, text: String, title:
 
 /// The term's classes as an `.ics` file, from this week through `until`.
 #[tauri::command]
-fn export_ics(state: tauri::State<'_, AppState>, from: Date, until: Date) -> Res<String> {
+fn export_ics(state: tauri::State<'_, AppState>, from: Date, until: Date, utc_offset: Option<i32>) -> Res<String> {
     if until < from {
         return Err("The last day of classes has to be after today.".into());
     }
     let snap = snapshot_of(&state)?;
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
-    Ok(calendar::ics(&snap.sessions, &snap.marks, from, until, &calendar::utc_stamp(now)))
+    let deadlines = deadline_events(&state, &snap, from, until.days_since(from) + 1, utc_offset.unwrap_or(MANILA_OFFSET))?;
+    Ok(calendar::ics(&snap.sessions, &snap.marks, &deadlines, from, until, &calendar::utc_stamp(now)))
 }
 
 /// A pasted outline read into items for the student to review; nothing saved.
@@ -708,13 +728,70 @@ fn tally(components: Vec<Component>, target: f64) -> Tally {
     syllabus::tally(&components, target)
 }
 
-/// Quizzes, exams and projects due in the next `days` days, every subject.
+/// The one deadline list (spec 041): syllabus, eMabini and the student's own,
+/// overdue for up to three days, then the next `days` days, soonest first.
 #[tauri::command]
-fn due(state: tauri::State<'_, AppState>, today: Date, days: i64) -> Res<Vec<(String, Item)>> {
-    let snap = snapshot_of(&state)?;
-    let all: Vec<(String, Item)> = snap.syllabus.iter().flat_map(|(code, p)| p.items.iter().map(move |i| (code.clone(), i.clone()))).collect();
-    Ok(syllabus::due(&all, today, days))
+fn deadlines(state: tauri::State<'_, AppState>, now: Moment, utc_offset: i32, days: i64) -> Res<Vec<Deadline>> {
+    let store = state.store.lock().unwrap();
+    Ok(deadline::deadlines(&store.load().map_err(err)?, &store.mabini().map_err(err)?, now, utc_offset, days))
 }
+
+/// Marks a deadline done or not (041 C5, C6). A syllabus item ticks its own
+/// box; eMabini and own deadlines are remembered on this phone.
+#[tauri::command]
+fn set_done(state: tauri::State<'_, AppState>, id: String, done: bool) -> Res<Snapshot> {
+    edit(&state, |snap| match id.strip_prefix("syl:").and_then(|rest| rest.rsplit_once(':')) {
+        Some((code, item)) => {
+            if let Some(i) = snap.syllabus.get_mut(code).and_then(|p| p.items.iter_mut().find(|i| i.id == item)) {
+                i.done = done;
+            }
+        }
+        None if done => {
+            snap.done.insert(id);
+        }
+        None => {
+            snap.done.remove(&id);
+        }
+    })
+}
+
+/// Adds the student's own deadline (an empty `id`) or replaces the one with that id (041 C12, C14).
+#[tauri::command]
+fn save_own(state: tauri::State<'_, AppState>, mut own: OwnDeadline) -> Res<Snapshot> {
+    let title = own.title.trim().to_string();
+    if title.is_empty() {
+        return Err("Give it a name first.".into());
+    }
+    own.title = title;
+    if own.id.is_empty() {
+        own.id = format!("{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(err)?.as_nanos());
+    }
+    edit(&state, |snap| match snap.own_deadlines.iter_mut().find(|o| o.id == own.id) {
+        Some(o) => *o = own,
+        None => snap.own_deadlines.push(own),
+    })
+}
+
+#[tauri::command]
+fn delete_own(state: tauri::State<'_, AppState>, id: String) -> Res<Snapshot> {
+    edit(&state, |snap| {
+        snap.own_deadlines.retain(|o| o.id != id);
+        snap.done.remove(&format!("own:{id}"));
+    })
+}
+
+/// Reads typed, pasted or scanned text into drafts for the student to confirm (041 C11, C13, C17).
+#[tauri::command]
+fn parse_own(state: tauri::State<'_, AppState>, text: String, today: Date) -> Res<Vec<Draft>> {
+    let snap = snapshot_of(&state)?;
+    let mut subjects: Vec<(String, String)> = snap.sessions.iter().map(|s| (s.subject_code.clone(), s.description.clone())).collect();
+    subjects.sort();
+    subjects.dedup();
+    Ok(deadline::parse_own(&text, today, &subjects))
+}
+
+/// Minutes ahead of UTC in the school's time zone, for a phone that does not say its own.
+pub(crate) const MANILA_OFFSET: i32 = 480;
 
 fn unix_now() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
@@ -826,24 +903,45 @@ struct CoachLine {
 /// Today's one nudge, from deadlines, flashcards, free time and the target
 /// GPA. `dismissed` holds the keys waved off today.
 #[tauri::command]
-fn coach(state: tauri::State<'_, AppState>, now: Moment, dismissed: Vec<String>, busy: Option<Vec<Busy>>) -> Res<Option<CoachLine>> {
+fn coach(state: tauri::State<'_, AppState>, now: Moment, dismissed: Vec<String>, busy: Option<Vec<Busy>>, utc_offset: Option<i32>) -> Res<Option<CoachLine>> {
     let store = state.store.lock().unwrap();
     let snap = store.load().map_err(err)?;
     let unix = unix_now();
-    let items: Vec<(String, Item)> = snap.syllabus.iter().flat_map(|(c, p)| p.items.iter().map(move |i| (c.clone(), i.clone()))).collect();
+    let offset = utc_offset.unwrap_or(MANILA_OFFSET);
     let stats = store.study_stats().map_err(err)?;
+    let decks = store.decks().map_err(err)?;
+    let mabini = store.mabini().map_err(err)?;
     let agenda = today::agenda(&snap.sessions, &snap.marks, now);
+    let busy = busy.unwrap_or_default();
     let needed = snap.goals.target_gpa.zip(snap.grades.as_ref()).and_then(|(t, g)| grades::needed_average(&g.subjects, t).filter(|n| (1.0..5.0).contains(n)).map(|n| (n, t)));
+    // Overdue through three days on (spec 042 C2); the first two days are the deadline nudge's.
+    let soon = deadline::deadlines(&snap, &mabini, now, offset, 4);
+    let plan_step = soon.first().map(|d| PlanStep { id: d.id.clone(), title: d.title.clone(), when: deadline::when_word(d, now, offset), subject: d.subject.clone(), url: d.url.clone() });
+    let tomorrow = now.date.add_days(1);
     let signals = Signals {
-        due_soon: syllabus::due(&items, now.date, 2).into_iter().map(|(c, i)| (c, i.topic)).collect(),
-        cards_due: store.decks().map_err(err)?.iter().map(|d| d.due(unix)).sum(),
+        due_soon: soon.iter().filter(|d| d.overdue || matches!(d.due, deadline::Due::Day(day) if day <= tomorrow) || matches!(d.due, deadline::Due::At(u) if deadline::local_parts(u, offset).0 <= tomorrow)).cloned().collect(),
+        cards_due: decks.iter().map(|d| d.due(unix)).sum(),
         study_streak: study::current_streak(&stats, now.date),
         studied_today: stats.last_day == Some(now.date),
-        free_minutes: today::free_minutes(&agenda.items, now, &busy.unwrap_or_default()),
+        free_minutes: today::free_minutes(&agenda.items, now, &busy),
         needed_average: needed,
         classes_left: agenda.items.iter().filter(|i| i.phase != today::Phase::Past).count(),
+        gap: today::gaps(&agenda.items, now, &busy).into_iter().find(|g| g.minutes >= 30),
+        plan_step,
+        cards_by_subject: cards_by_subject(&decks, unix).into_iter().collect(),
     };
     Ok(coach::pick(&signals, &dismissed).map(|n| CoachLine { line: n.line(), key: n.key(), nudge: n }))
+}
+
+/// Flashcards due now, per subject code.
+fn cards_by_subject(decks: &[Deck], unix: i64) -> std::collections::HashMap<String, usize> {
+    let mut out = std::collections::HashMap::new();
+    for d in decks {
+        if let Some(code) = &d.subject {
+            *out.entry(code.clone()).or_default() += d.due(unix);
+        }
+    }
+    out
 }
 
 /// The target GPA and the program's units; either can be empty.
@@ -900,9 +998,18 @@ fn today(state: tauri::State<'_, AppState>, now: Moment, sync_trouble: Option<St
 /// The classes from `from` through `days` days on, as events for the
 /// phone's IntPortal calendar.
 #[tauri::command]
-fn class_events(state: tauri::State<'_, AppState>, from: Date, days: i64) -> Res<Vec<calendar::ClassEvent>> {
+fn class_events(state: tauri::State<'_, AppState>, from: Date, days: i64, utc_offset: Option<i32>) -> Res<Vec<calendar::ClassEvent>> {
     let snap = snapshot_of(&state)?;
-    Ok(calendar::class_events(&snap.sessions, &snap.marks, from, days))
+    let mut out = calendar::class_events(&snap.sessions, &snap.marks, from, days);
+    out.extend(deadline_events(&state, &snap, from, days, utc_offset.unwrap_or(MANILA_OFFSET))?);
+    Ok(out)
+}
+
+/// Spec 041 C21–C24: the one deadline list as calendar events, from `from` for `days` days.
+fn deadline_events(state: &AppState, snap: &Snapshot, from: Date, days: i64, utc_offset: i32) -> Res<Vec<calendar::ClassEvent>> {
+    let mabini = state.store.lock().unwrap().mabini().map_err(err)?;
+    let list = deadline::deadlines(snap, &mabini, Moment { date: from, minute: 0 }, utc_offset, days);
+    Ok(calendar::deadline_events(&list, from, utc_offset))
 }
 
 /// The campus a student number belongs to, as the student types it.
@@ -918,23 +1025,40 @@ struct ReminderPrefs {
     study: Option<u16>,
     /// Local minus UTC, in minutes.
     utc_offset: i32,
+    /// Spec 042 C16; on unless the student turns them off.
+    warm_up: Option<bool>,
+    after_class: Option<bool>,
+    brief: Option<bool>,
 }
 
-/// The next `days` of reminders, soonest first: classes, deadlines the
-/// evening before, and study days. The UI hands them to the platform.
+/// The next `days` of reminders, soonest first: classes (with a warm-up line
+/// when cards are due), then everything else through the daily budget
+/// (spec 042 C14, C15): deadlines, the Sunday brief, study days, notes after class.
 #[tauri::command]
 fn reminders(state: tauri::State<'_, AppState>, now: Moment, lead: u16, days: u16, prefs: Option<ReminderPrefs>) -> Res<Vec<Reminder>> {
     let store = state.store.lock().unwrap();
     let snap = store.load().map_err(err)?;
     let prefs = prefs.unwrap_or_default();
-    let mut out = if lead > 0 { today::reminders(&snap.sessions, &snap.marks, now, lead, days) } else { vec![] };
+    let decks = store.decks().map_err(err)?;
+    let warm = if prefs.warm_up.unwrap_or(true) { cards_by_subject(&decks, unix_now()) } else { Default::default() };
+    let mut out = if lead > 0 { today::reminders(&snap.sessions, &snap.marks, now, lead, days, &warm) } else { vec![] };
+    let mut rest: Vec<(nudge::Kind, Reminder)> = vec![];
+    // Two weeks reaches the end of the week a Sunday brief looks at.
+    let list = deadline::deadlines(&snap, &store.mabini().map_err(err)?, now, prefs.utc_offset, i64::from(days).max(14));
     if let Some(minute) = prefs.deadlines {
-        let items: Vec<(String, Item)> = snap.syllabus.iter().flat_map(|(c, p)| p.items.iter().map(move |i| (c.clone(), i.clone()))).collect();
-        out.extend(syllabus::deadline_reminders(&items, now, minute, i64::from(days)));
+        rest.extend(deadline::reminders(&list, now, minute, prefs.utc_offset, i64::from(days)).into_iter().map(|r| (nudge::Kind::Deadline, r)));
+    }
+    if prefs.brief.unwrap_or(true) {
+        rest.extend(nudge::brief(&list, &snap.sessions, &snap.marks, now, prefs.utc_offset).filter(|r| r.date < now.date.add_days(i64::from(days))).map(|r| (nudge::Kind::Brief, r)));
     }
     if let Some(minute) = prefs.study {
-        out.extend(study::study_reminders(&store.decks().map_err(err)?, now, minute, i64::from(days), prefs.utc_offset));
+        rest.extend(study::study_reminders(&decks, now, minute, i64::from(days), prefs.utc_offset).into_iter().map(|r| (nudge::Kind::Study, r)));
     }
+    if prefs.after_class.unwrap_or(true) {
+        let noted: Vec<String> = store.notes().map_err(err)?.into_iter().filter(|n| !n.text.trim().is_empty()).filter_map(|n| n.key.strip_prefix("class:").map(String::from)).collect();
+        rest.extend(nudge::after_class(&snap.sessions, &snap.marks, &noted, now, i64::from(days)).into_iter().map(|r| (nudge::Kind::AfterClass, r)));
+    }
+    out.extend(nudge::budget(rest, nudge::PER_DAY));
     out.sort_by_key(|r| (r.date, r.minute));
     Ok(out)
 }
@@ -1066,9 +1190,21 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, due, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
+            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
             ai::ai_models, ai::ai_download, ai::ai_delete, ai::ai_load, ai::ai_unload, ai::ai_index, ai::ai_cancel, ai::ai_ask, ai::ai_history, ai::ai_clear_history, ai::ai_note, ai::ai_why, ai::ai_cards, ai::ai_pdf_text, ai::ai_outline_text, ai::ai_guide
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn c128_1_mabini_attaches_only_to_the_signed_in_student() {
+        assert_eq!(mabini_account(Some("2024-00001-MN-0"), "2024-00001-mn-0"), Ok(None), "same student: keep the open store");
+        assert!(mabini_account(Some("2024-00001-MN-0"), "2024-00002-MN-0").is_err(), "another student's number is refused");
+        assert_eq!(mabini_account(None, "2024-00002-MN-0"), Ok(Some("2024-00002-MN-0")), "eMabini alone opens that student's store");
+    }
 }

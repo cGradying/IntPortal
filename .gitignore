@@ -29,3 +29,6 @@ docs/specs/reference/private/
 
 # Release APKs and bundles from scripts/emu.sh --release
 /dist
+
+# Built by scripts/tiles.sh from crates/intportal-tiles
+static/tiles.wasm

@@ -2,13 +2,13 @@
   // LAR saying one line, for empty states and tips. LAR talks; Isko is you.
   import type { Snippet } from "svelte";
   import Lar, { type Gesture } from "./lar/Lar.svelte";
-  import type { Mood } from "./lar/sprite";
+  import type { Mood, State } from "./lar/sprite";
 
-  let { mood = "open", gesture = "idle", children }: { mood?: Mood; gesture?: Gesture; children: Snippet } = $props();
+  let { mood = "open", gesture = "idle", state = "idle", children }: { mood?: Mood; gesture?: Gesture; state?: State; children: Snippet } = $props();
 </script>
 
 <div class="card notch note">
-  <Lar size={2} {mood} {gesture} cube={false} />
+  <Lar size={2} {mood} {gesture} {state} cube={false} />
   <p>{@render children()}</p>
 </div>
 

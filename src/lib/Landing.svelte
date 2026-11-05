@@ -1,21 +1,24 @@
 <script lang="ts">
-  // The landing. The portal builds itself from pentominoes, the swirl
-  // ignites, LAR comes through and pulls out three stones that show what's on
-  // the other side, then the sign-in card rises. Signed in, Step through
-  // dives into the swirl and lands on Today. A returning student skips the
-  // build. The scene runs on one clock through landing.ts.
+  import { friendly } from "./errors";
+  // The landing. The tile portal builds itself (spec 010), LAR steps out
+  // below it, then the sign-in card rises. Signing in pulses the frame;
+  // signed in, it opens onto a swirl in the portal's own colours, and Step
+  // through dives in and lands on Today. A returning student skips the
+  // build. The portal takes whatever room the card leaves, so it fits every
+  // phone's shape.
   import { onMount, untrack } from "svelte";
   import PortalStage from "./PortalStage.svelte";
-  import type { Gesture } from "./lar/Lar.svelte";
-  import type { Mood } from "./lar/sprite";
-  import { api, isoDate, type CampusResolution, type Portal, type Tries } from "./api";
+  import type { Context } from "./lar/LarFlight.svelte";
+  import { api, isoDate, type CampusResolution, type Portal, type PortalField, type Tries } from "./api";
   import { FALLBACK_SIS, portalCopy, triesLine, validate } from "./portals";
   import { portalApiFor } from "./portalApi";
   import { buzz } from "./haptics";
   import { landingAt, restAt } from "./landing";
   import { adopt, app, refreshLogins, syncNow } from "./state.svelte";
+  import { stageFor } from "./tiles";
+  import type { DiveStart } from "./dive";
 
-  let { signedIn, onenter }: { signedIn: boolean; onenter: () => void } = $props();
+  let { signedIn, onenter, ondive }: { signedIn: boolean; onenter: () => void; ondive: (s: DiveStart) => void } = $props();
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const returning = untrack(() => signedIn);
@@ -27,16 +30,22 @@
   let studno = $state("");
   let birthday = $state("");
   let password = $state("");
+  let showPw = $state(false);
+  // Set by a failed check; each field then clears its own mark once it is fixed.
+  let tried = $state(false);
 
   let t = $state(0);
   let steppedAt = $state<number | null>(null);
+  let leaving = $state(false);
+  let stageEl = $state<PortalStage>();
   const moment = $derived(landingAt(t, { returning, reduce, steppedAt }));
   const resting = $derived(moment.phase === "rest");
-  // The card needs room, so the portal sits higher above it; once signed
-  // in, the camera moves in and the portal comes down to meet Step through.
-  const frameFor = (at: "signin" | "hub") => (at === "hub" ? { lift: 0.083, span: 11.4 } : { lift: 0.2, span: 16.5 });
-  let lift = $state(frameFor(returning ? "hub" : "signin").lift);
-  let span = $state(frameFor(returning ? "hub" : "signin").span);
+  const stage = $derived(stageFor({ busy, open: rest === "hub" }));
+  let cardH = $state(0);
+  let cardMin = $state(0);
+  $effect(() => {
+    if (cardH > cardMin) cardMin = cardH;
+  });
 
   // The portals the core lists; the card below follows the chosen one.
   let portals = $state<Portal[]>([FALLBACK_SIS]);
@@ -62,37 +71,15 @@
     api.campus(n).then((r) => (campus = r)).catch(() => {});
   });
 
-  // LAR's face and hands follow what's happening.
-  const mood = $derived<Mood>(error ? "wow" : busy || typing ? "focus" : rest === "hub" ? "happy" : "open");
-  const gesture = $derived<Gesture>(moment.phase === "glimpse" ? "reach" : rest === "hub" || moment.phase === "arrival" ? "wave" : "idle");
-  const line = $derived(
-    error
-      ? "Hindi pumasok. Check the details and try again."
-      : rest === "hub"
-        ? returning
-          ? "Welcome back, iskolar. Tara?"
-          : "Ayos! Your schedule and grades are in."
-        : copy.lar,
-  );
+  // LAR's face and flight follow what's happening; he talks for himself.
+  const ctx = $derived<Context>(error ? "error" : busy ? "busy" : rest === "hub" ? "signed" : typing ? "typing" : "idle");
 
   onMount(() => {
     let raf = 0;
     const start = performance.now();
-    let placed = moment.placed;
-    let lit = false;
     const frame = (now: number) => {
       t = (now - start) / 1000;
-      const want = frameFor(rest);
-      lift += (want.lift - lift) * 0.08;
-      span += (want.span - span) * 0.08;
-      const m = moment;
-      if (m.placed > placed) buzz.tick();
-      placed = m.placed;
-      if (m.phase === "igniting" && !lit) {
-        lit = true;
-        buzz.done();
-      }
-      if (m.phase === "entered") {
+      if (moment.phase === "entered") {
         if (signedIn) syncNow();
         onenter();
         return;
@@ -103,9 +90,13 @@
     return () => cancelAnimationFrame(raf);
   });
 
+  const values = $derived({ student_number: studno, birthdate: birthday, password });
+  const bad = (field: PortalField) => tried && !!validate({ ...portal, fields: [field] }, values);
+
   async function submit(e: Event) {
     e.preventDefault();
-    error = validate(portal, { student_number: studno, birthdate: birthday, password });
+    error = validate(portal, values);
+    tried = !!error;
     if (error) return;
     busy = true;
     try {
@@ -114,7 +105,7 @@
       rest = "hub";
       buzz.done();
     } catch (err) {
-      error = String(err);
+      error = friendly(err);
       buzz.fail();
     } finally {
       busy = false;
@@ -127,65 +118,82 @@
     try {
       await adopt(await api.demo(isoDate(new Date())));
       await refreshLogins();
+      // The demo is SIS data, so the carousel shows SIS whatever was picked.
+      portalId = "sis";
       rest = "hub";
       buzz.done();
+      try {
+        localStorage.setItem("demo", "1");
+      } catch {
+        // Then demo mode just lasts this launch.
+      }
     } catch (err) {
-      error = String(err);
+      error = friendly(err);
     }
   }
 
   function step() {
-    if (!resting || steppedAt !== null) return;
+    if (!resting || leaving) return;
     buzz.release();
+    leaving = true;
+    const from = reduce ? null : stageEl?.leaveInfo();
+    // Without Reduce Motion and with a portal on screen, the dive takes over (spec 010 C27).
+    if (from) return ondive({ first: true, portal, from });
     steppedAt = Math.max(t, restAt({ returning, reduce, steppedAt: null }));
   }
 </script>
 
-<section class="landing" class:leaving={steppedAt !== null}>
-  <PortalStage {moment} {t} {lift} {span} {mood} {gesture} still={typing} />
-
+<section class="landing" class:leaving>
   <header class="brand" class:on={resting}>
     <h1>Student <span>IntPortal</span></h1>
   </header>
 
-  {#if resting}
-    <div class="dock" class:hub={rest === "hub"}>
-      <p class="say" aria-live="polite"><b>LAR</b> {line}</p>
+  <PortalStage
+    bind:this={stageEl}
+    {portals}
+    index={Math.max(0, portals.indexOf(portal))}
+    onselect={(i) => ((portalId = portals[i].id), (error = ""))}
+    locked={busy || rest === "hub"}
+    {stage}
+    {returning}
+    still={typing}
+    showLar={resting}
+    {leaving}
+    {ctx}
+  />
+
+  <!-- In the layout from the start, so the portal's room never jumps when it shows. -->
+  <div class="dock" class:on={resting} class:hub={rest === "hub"} inert={!resting}>
       {#if rest === "hub"}
         <button class="step" onclick={step}>Step through</button>
         <p class="hint">{app.sisConnected ? `PUP SIS · via ${(app.snapshot?.host ?? "sis8").split(".")[0]}` : copy.hint}</p>
       {:else}
-        <form class="card" style:--portal-accent={portal.theme.accent} onsubmit={submit} onfocusin={() => (typing = true)} onfocusout={() => (typing = false)}>
-          {#if portals.length > 1}
-            <div class="switch" role="group" aria-label="Portal">
-              {#each portals as p (p.id)}
-                <button type="button" class:on={p.id === portalId} aria-pressed={p.id === portalId} onclick={() => ((portalId = p.id), (error = ""))}>
-                  <i style:background={p.theme.accent} aria-hidden="true"></i>{p.name}{#if p.status !== "ready"}<small>Opens soon</small>{/if}
-                </button>
-              {/each}
+        <!-- The card keeps the tallest height it has had, so swiping between portals never resizes the portal above it. -->
+        <form class="card" style:--portal-accent={portal.theme.accent} style:min-height="{cardMin}px" bind:offsetHeight={cardH} onsubmit={submit} onfocusin={() => (typing = true)} onfocusout={() => (typing = false)}>
+          {#key portal.id}<div class="swap">
+          {#if !ready}
+            <div class="soon">
+              <b>{portal.school}</b>
+              <p>Its portal opens soon. IntPortal will connect here once it's ready; for now, SIS and Mabini work.</p>
+            </div>
+          {:else}
+          <div class="field" class:filled={!!studno} class:bad={bad("student_number")}>
+            <input id="f-studno" bind:value={studno} placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" aria-invalid={bad("student_number")} />
+            <label for="f-studno">Student number</label>
+          </div>
+          {#if campus.kind === "known"}<small class="campus">{campus.campus.name} · campus found</small>
+          {:else if campus.kind === "unknown_code"}<small class="campus dim">{campus.code} · campus not confirmed yet, sign-in still works</small>{/if}
+          {#if portal.fields.includes("birthdate")}
+            <div class="field date" class:empty={!birthday} class:bad={bad("birthdate")}>
+              <input id="f-birthday" type="date" bind:value={birthday} aria-invalid={bad("birthdate")} />
+              <label for="f-birthday">Birthdate</label>
+              <i aria-hidden="true">mm / dd / yyyy</i>
             </div>
           {/if}
-          {#if !ready}
-            <p class="soon">{portal.name} opens soon.</p>
-          {:else}
-          <label>
-            <span>Student number</span>
-            <input bind:value={studno} placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" />
-            {#if campus.kind === "known"}<small class="campus">{campus.campus.name} · campus found</small>
-            {:else if campus.kind === "unknown_code"}<small class="campus dim">{campus.code} · campus not confirmed yet, sign-in still works</small>{/if}
-          </label>
-          <div class="pair" class:single={!portal.fields.includes("birthdate")}>
-            {#if portal.fields.includes("birthdate")}
-              <label class="date" class:empty={!birthday}>
-                <span>Birthdate</span>
-                <input type="date" bind:value={birthday} />
-                <i aria-hidden="true">mm / dd / yyyy</i>
-              </label>
-            {/if}
-            <label>
-              <span>Password</span>
-              <input type="password" bind:value={password} autocomplete="current-password" />
-            </label>
+          <div class="field" class:filled={!!password} class:bad={bad("password")}>
+            <input id="f-password" type={showPw ? "text" : "password"} bind:value={password} autocomplete="current-password" aria-invalid={bad("password")} />
+            <label for="f-password">Password</label>
+            <button type="button" class="eye" aria-label="Show password" aria-pressed={showPw} onclick={() => (showPw = !showPw)}>{showPw ? "Hide" : "Show"}</button>
           </div>
           <button class="go" disabled={busy || locked}>{busy ? "Signing in…" : "Sign in"}</button>
           {#if triesText}<p class="tries" class:out={locked} aria-live="polite">{triesText}</p>{/if}
@@ -195,25 +203,26 @@
           {#if __REVIEW__}
             <button type="button" class="demo" onclick={demo}>Look around with demo data</button>
           {/if}
+          </div>{/key}
         </form>
       {/if}
-    </div>
-  {/if}
+  </div>
 </section>
 
 <style>
+  /* Wordmark, portal, card: the portal row takes whatever height is left. */
   .landing {
     position: fixed;
     inset: 0;
     z-index: 50;
-    color: #f4ecd8;
-    background: #0b0710;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: calc(var(--safe-top) + 10px) var(--gutter) calc(var(--safe-bottom) + 12px);
+    color: var(--parch);
+    background: var(--void);
   }
   .brand {
-    position: absolute;
-    top: calc(var(--safe-top) + 10px);
-    left: 0;
-    right: 0;
     text-align: center;
     pointer-events: none;
     opacity: 0;
@@ -228,35 +237,33 @@
   }
   h1 {
     margin: 0;
-    font-family: var(--font-display);
+    font-family: var(--font-wordmark);
     font-size: min(1.529rem, 34px);
     font-weight: 700;
     letter-spacing: -0.01em;
-    color: #f5b227;
+    color: var(--portal-gold);
   }
   h1 span {
-    color: #fff5dc;
+    color: var(--cream);
   }
   .dock {
-    position: absolute;
-    left: var(--gutter);
-    right: var(--gutter);
-    bottom: calc(var(--safe-bottom) + 12px);
     display: grid;
     gap: 10px;
-    animation: rise 0.7s var(--ease) both;
+    opacity: 0;
+    transform: translateY(40px);
+    transition:
+      opacity 0.7s var(--ease),
+      transform 0.7s var(--ease);
     /* On the unclipped parent: the card's clip-path would cut its own shadow. */
     filter: drop-shadow(0 -10px 30px rgb(0 0 0 / 0.5));
   }
+  .dock.on {
+    opacity: 1;
+    transform: none;
+  }
   .dock.hub {
     justify-items: center;
-    bottom: calc(var(--safe-bottom) + 40px);
-  }
-  @keyframes rise {
-    from {
-      transform: translateY(40px);
-      opacity: 0;
-    }
+    padding-bottom: 28px;
   }
   .leaving .dock,
   .leaving .brand {
@@ -266,73 +273,90 @@
       opacity 0.25s ease-in,
       transform 0.25s ease-in;
   }
-  .say {
-    margin: 0;
-    padding: 10px 12px;
-    background: #170b1a;
-    box-shadow:
-      inset 0 2px 0 #3a2446,
-      inset 0 -2px 0 #060307;
-    font-size: min(0.824rem, 25px);
-    line-height: 1.35;
-    color: #f4e8d6;
-    clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
-  }
-  .hub .say {
-    text-align: center;
-  }
-  .say b {
-    margin-right: 6px;
-    font-family: var(--font-pixel);
-    font-weight: 400;
-    letter-spacing: 0.06em;
-    color: #f5b227;
-  }
   .card {
     display: grid;
     gap: 12px;
     padding: 16px 16px 12px;
-    background: #140c16;
+    background: var(--void-2);
     box-shadow: inset 0 0 0 1px rgb(245 178 39 / 0.16);
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
   }
-  label {
-    display: grid;
-    gap: 5px;
-    min-width: 0;
+  /* The fields follow the phone's own login pattern: a rounded well, the label
+     inside it floating up once there is something to say. */
+  .field {
+    position: relative;
+    border-radius: 10px;
+    background: var(--void);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+    transition: box-shadow 0.16s var(--ease);
   }
-  label > span {
-    font-size: min(0.706rem, 22px);
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgb(244 236 216 / 0.6);
+  .field:focus-within {
+    box-shadow: inset 0 0 0 1.5px var(--portal-accent, var(--portal-gold));
   }
-  .pair {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+  .field.bad {
+    box-shadow: inset 0 0 0 1.5px var(--rose);
   }
   input {
+    display: block;
     width: 100%;
     min-width: 0;
-    height: 46px;
-    padding: 0 12px;
+    height: 54px;
+    padding: 20px 14px 4px;
     border: 0;
-    border-radius: 0;
-    background: #0b0710;
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
-    color: #fff;
-    font: max(16px, min(0.941rem, 29px)) var(--font-body);
-    caret-color: #f5b227;
+    border-radius: 10px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--white);
+    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
+    caret-color: var(--portal-gold);
     outline: none;
     -webkit-appearance: none;
     appearance: none;
   }
-  /* iOS draws an empty date field as a blank slab; give it a hint. */
-  .date {
-    position: relative;
+  .field:has(.eye) input {
+    padding-right: 66px;
   }
+  .field label {
+    position: absolute;
+    left: 14px;
+    top: 17px;
+    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
+    color: rgb(244 236 216 / 0.55);
+    transform-origin: 0 0;
+    pointer-events: none;
+    transition:
+      transform 0.16s var(--ease),
+      color 0.16s var(--ease);
+  }
+  /* Floated: focus, a value, the browser's autofill, or a date (it always shows a format). */
+  .field:focus-within label,
+  .field.filled label,
+  .field.date label,
+  .field:has(input:-webkit-autofill) label {
+    transform: translateY(-10px) scale(0.75);
+  }
+  .field:focus-within label {
+    color: var(--portal-accent, var(--portal-gold));
+  }
+  .field.bad label {
+    color: var(--rose);
+  }
+  /* The example shows only once the label is up. */
+  input::placeholder {
+    color: rgb(255 255 255 / 0.4);
+    opacity: 0;
+    transition: opacity 0.16s var(--ease);
+  }
+  input:focus::placeholder {
+    opacity: 1;
+  }
+  /* Autofill paints its own yellow; keep the well dark. */
+  input:-webkit-autofill {
+    -webkit-text-fill-color: var(--white);
+    box-shadow: 0 0 0 100px var(--void) inset;
+  }
+  /* iOS draws an empty date field as a blank slab; give it a hint, and hide the
+     browser's own format text so the two never stack. */
   .date input {
     display: flex;
     align-items: center;
@@ -340,76 +364,80 @@
   .date input::-webkit-date-and-time-value {
     text-align: left;
   }
+  .date.empty:not(:focus-within) input::-webkit-datetime-edit {
+    opacity: 0;
+  }
   .date i {
     position: absolute;
-    left: 12px;
-    bottom: 13px;
+    left: 14px;
+    bottom: 11px;
     display: none;
-    font-style: normal;
-    color: rgb(255 255 255 / 0.58);
+    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
+    color: rgb(255 255 255 / 0.4);
     pointer-events: none;
   }
-  .date.empty i {
+  .date.empty:not(:focus-within) i {
     display: block;
   }
-  input::placeholder {
-    color: rgb(255 255 255 / 0.58);
-  }
-  input:focus {
-    box-shadow: inset 0 0 0 2px var(--portal-accent, #f5b227);
-  }
-  .pair.single {
-    grid-template-columns: 1fr;
-  }
-  .switch {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    gap: 6px;
-  }
-  .switch button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    height: 40px;
+  /* A quiet text toggle, with a 44 px hit area inside the field. */
+  .eye {
+    position: absolute;
+    top: 5px;
+    right: 2px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 12px;
     border: 0;
-    background: #0b0710;
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+    border-radius: 8px;
+    background: none;
     color: rgb(244 236 216 / 0.7);
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font: 600 min(0.824rem, 25px) var(--font-ui);
   }
-  .switch button.on {
-    color: #fff5dc;
-    box-shadow: inset 0 0 0 2px var(--portal-accent, #f5b227);
+  .eye:focus-visible {
+    outline: 2px solid var(--portal-accent, var(--portal-gold));
+    outline-offset: -2px;
   }
-  .switch i {
-    width: 8px;
-    height: 8px;
+  .swap {
+    display: grid;
+    gap: 10px;
+    animation: swap 0.32s var(--ease);
   }
-  .switch small {
-    font-family: var(--font-pixel);
-    font-weight: 400;
-    font-size: min(0.647rem, 20px);
-    color: rgb(244 236 216 / 0.5);
+  @keyframes swap {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  .card {
+    align-content: center;
   }
   .soon {
-    margin: 0;
-    padding: 18px 0;
+    display: grid;
+    gap: 6px;
+    padding: 12px 4px;
     text-align: center;
     color: rgb(244 236 216 / 0.7);
+  }
+  .soon b {
+    font-family: var(--font-display);
+    font-size: min(0.941rem, 29px);
+    color: var(--cream);
+  }
+  .soon p {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: min(0.824rem, 25px);
+    text-wrap: balance;
   }
   .tries {
     margin: 0;
     text-align: center;
     font-family: var(--font-pixel);
     font-size: min(0.706rem, 22px);
-    color: var(--portal-accent, #f5b227);
+    color: var(--portal-accent, var(--portal-gold));
   }
   .tries.out {
-    color: #f0a090;
+    color: var(--rose);
   }
   ::selection {
     background: rgb(245 178 39 / 0.35);
@@ -417,7 +445,7 @@
   .campus {
     font-family: var(--font-pixel);
     font-size: min(0.706rem, 22px);
-    color: #f5b227;
+    color: var(--portal-gold);
   }
   .campus.dim {
     color: rgb(244 236 216 / 0.55);
@@ -426,32 +454,34 @@
   .step {
     height: 50px;
     border: 0;
-    background: #f5b227;
-    color: #1b1406;
-    font-family: var(--font-display);
-    font-weight: 700;
+    background: var(--portal-gold);
+    color: var(--on-portal-gold);
+    font-family: var(--font-ui);
+    font-weight: 600;
     font-size: min(0.941rem, 29px);
+    letter-spacing: 0.01em;
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
-    box-shadow: inset 0 -3px 0 #b87a10;
+    box-shadow: inset 0 -3px 0 var(--portal-gold-shade);
   }
   .go:focus-visible,
   .step:focus-visible {
     outline: none;
     box-shadow:
-      inset 0 0 0 3px #fff6dc,
-      inset 0 -3px 0 #b87a10;
+      inset 0 0 0 3px var(--cream),
+      inset 0 -3px 0 var(--portal-gold-shade);
   }
   .demo:focus-visible {
-    outline: 2px solid #f5b227;
+    outline: 2px solid var(--portal-gold);
     outline-offset: 3px;
   }
   .go:active,
   .step:active {
-    box-shadow: inset 0 3px 0 #b87a10;
+    box-shadow: inset 0 3px 0 var(--portal-gold-shade);
     transform: translateY(1px);
   }
   .go:disabled {
     opacity: 0.7;
+    cursor: progress;
   }
   .step {
     min-width: 220px;
@@ -459,11 +489,13 @@
   }
   .error {
     margin: 0;
+    font-family: var(--font-ui);
     font-size: min(0.824rem, 25px);
-    color: #f0a090;
+    color: var(--rose);
   }
   .fine {
     margin: 0;
+    font-family: var(--font-ui);
     font-size: min(0.706rem, 22px);
     text-align: center;
     text-wrap: balance;
@@ -478,6 +510,7 @@
   }
   .demo {
     border: 0;
+    font-family: var(--font-ui);
     background: none;
     color: rgb(245 178 39 / 0.85);
     font-size: min(0.765rem, 23px);
@@ -485,6 +518,14 @@
     text-underline-offset: 3px;
   }
   @media (prefers-reduced-motion: reduce) {
+    .swap {
+      animation: none;
+    }
+    .field,
+    .field label,
+    input::placeholder {
+      transition: none;
+    }
     .dock,
     .brand {
       animation: none;

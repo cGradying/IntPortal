@@ -20,13 +20,15 @@ The landing already speaks of a portal as the gate to a system ([010](010-landin
 ## Behaviour
 
 - **C1.** A `Portal` has: `id`, `name`, `status` (`ready` or `opens_soon`), `theme`, `sign_in` fields, attempt limits, and a keychain service name.
-- **C2.** SIS is the only `ready` portal. Mabini (eMabini, the Open University's Moodle portal) is listed as `opens_soon`. Its sign-in fields are student number and password, with no birthdate; its username is the student number lowercased with dashes removed.
+- **C2.** SIS and Mabini (eMabini, the Open University's Moodle portal) are `ready`; state-university placeholders are `opens_soon` (C12). Its sign-in fields are student number and password, with no birthdate; its username is the student number lowercased with dashes removed.
 - **C3.** (No portal is `opens_soon` now that Mabini is ready; the rule stays for the next one.) An `opens_soon` portal cannot be signed in to or stepped into. The UI shows "Opens soon" and offers no form.
 - **C4.** Each portal has its own connection state and its own store namespace. Signing in to or syncing one portal never reads or writes another's data.
 - **C5.** Each portal has its own keychain entry. Clearing one never clears another.
 - **C6.** Each portal has its own attempt counter ([011](011-login.md) C12). A rejected SIS login does not spend Mabini attempts.
 - **C7.** A portal's `theme` is five ramp tones plus one accent. SIS is PUP maroon and gold. Mabini is blue (ramp `#0b2238` to `#a8efe4`, accent `#5fd0d6`), chosen by the user, because eMabini's own brand colour is the same maroon as the SIS.
 - **C8.** The registry lists portals in a fixed order; the landing carousel follows it ([010](010-landing.md) C13).
+- **C11.** Each portal has its own tile-portal look so the carousel varies widely: a `shape` (frame `cols` × `rows` blocks, 5–8 by 7–9, with `square`, `cut` or `arch` corners), an interior `motif` (`swirl`, `ripple`, `bloom`, `rain`, `lattice`, `aurora`), its theme, and the school's full name. No two portals share both shape and motif.
+- **C12.** Placeholders, `opens_soon` with no sign-in fields, are listed so the carousel shows where IntPortal is heading: University of the Philippines (green, bloom, arch), Technological University of the Philippines (slate and red, lattice, wide), Philippine Normal University (indigo, rain, tall) and Bulacan State University (amber, aurora, cut). Names and colours only, never a seal or logo. Their palettes are placeholders until the universities reference (`docs/specs/reference/universities.md`) confirms each school's colours.
 - **C9.** Migrating SIS onto the registry changes no behaviour: existing stores, keychain entries and snapshots keep working untouched.
 - **C10.** Adding a portal is one registry entry plus its client; no landing or login code branches on a portal id.
 
@@ -42,10 +44,13 @@ New in the core, `crates/intportal-core/src/portal.rs` (name provisional):
 
 ```rust
 pub struct Portal {
-    pub id: &'static str,          // "sis", "mabini"
-    pub name: &'static str,
+    pub id: &'static str,          // "sis", "mabini", "up", …
+    pub name: &'static str,        // short, on the carousel
+    pub school: &'static str,      // written out, in the caption
     pub status: Status,            // Ready | OpensSoon
     pub theme: Theme,              // 5-tone ramp + accent
+    pub shape: Shape,              // cols × rows blocks, corner (C11)
+    pub motif: Motif,              // interior pattern (C11)
     pub fields: &'static [Field],  // sign-in fields, in order
     pub limits: Limits,            // attempts per window
     pub keychain_service: &'static str,

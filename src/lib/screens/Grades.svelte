@@ -1,4 +1,8 @@
 <script lang="ts">
+  import PixelNum from "../PixelNum.svelte";
+  import { counted } from "../count.svelte";
+  import Synced from "../Synced.svelte";
+  import { friendly } from "../errors";
   import MabiniGrades from "../MabiniGrades.svelte";
   import Confetti from "../Confetti.svelte";
   import ErrorCard from "../ErrorCard.svelte";
@@ -7,7 +11,7 @@
   import { resource } from "../load.svelte";
   import { app, adopt, openSubject } from "../state.svelte";
   import { buzz } from "../haptics";
-  import { api, subjectColor, type Reach, type SubjectGrade } from "../api";
+  import { api, riskLine, subjectColor, type Reach, type SubjectGrade } from "../api";
 
   const loaded = resource(() => api.standing());
   const standing = $derived(loaded.current.state === "ready" ? loaded.current.value : null);
@@ -24,6 +28,15 @@
   const report = $derived(pastReport ?? app.snapshot?.grades ?? null);
   const subjects = $derived(report?.subjects ?? []);
   const colors = $derived(app.snapshot?.colors ?? {});
+  // Spec 042 C10, C11: one line per subject that has a grading system.
+  let risks = $state<Record<string, string>>({});
+  $effect(() => {
+    const plans = Object.entries(app.snapshot?.syllabus ?? {}).filter(([, p]) => p.grading.length);
+    Promise.all(plans.map(async ([code, p]) => {
+      const t = await api.tally(p.grading, p.target ?? 90);
+      return [code, t.risk ? riskLine(t.risk, t.target) : ""] as const;
+    })).then((rows) => (risks = Object.fromEntries(rows.filter(([, line]) => line))), () => {});
+  });
   let loading = $state(false);
   let error = $state("");
 
@@ -32,7 +45,10 @@
     return Number.isFinite(n) ? n : null;
   };
 
+  const gpaCount = counted("gpa", () => standing?.term_gpa ?? null);
   const shownGpa = $derived(viewing ? (standing?.past.find((p) => termKey(p) === viewing)?.gpa ?? null) : (standing?.term_gpa ?? null));
+  // Only this term counts; a past term just shows.
+  const heroGpa = $derived(viewing ? shownGpa : gpaCount.value);
   const posted = $derived(subjects.filter((s) => numeric(s) !== null));
   const units = $derived(posted.reduce((a, s) => a + s.units, 0));
   const best = $derived(!viewing && !!standing?.personal_best);
@@ -81,7 +97,7 @@
       await adopt(await api.setGoals({ target_gpa: num(target), program_units: num(program) }));
       goalError = "";
     } catch (e) {
-      goalError = String(e);
+      goalError = friendly(e);
     }
   }
 
@@ -125,7 +141,7 @@
     try {
       await adopt(await api.loadHistory());
     } catch (e) {
-      error = String(e);
+      error = friendly(e);
     } finally {
       loading = false;
     }
@@ -143,8 +159,9 @@
 
 <div class="screen">
   <header>
-    <p class="label">{report?.semester ?? "This term"}{report?.school_year ? ` · ${report.school_year}` : ""}</p>
+    <p class="label data">{report?.semester ?? "This term"}{report?.school_year ? ` · ${report.school_year}` : ""}</p>
     <h1>Grades</h1>
+    <Synced />
   </header>
 
   {#if standing?.past.length}
@@ -160,7 +177,7 @@
     {#if celebrate}<Confetti />{/if}
     <div>
       <p class="label">GPA</p>
-      <p class="value num">{shownGpa === null ? "—" : shownGpa.toFixed(2)}{#if best}<span class="pb" class:fresh={celebrate}>Personal best</span>{/if}</p>
+      <p class="value num"><PixelNum text={heroGpa === null ? "—" : heroGpa.toFixed(2)} size={6} />{#if best}<span class="pb" class:fresh={celebrate}>Personal best</span>{/if}</p>
       <p class="sub">
         {#if shownGpa === null}No grades posted yet{:else}{posted.length} of {subjects.length} posted · {units} units{/if}
       </p>
@@ -224,6 +241,7 @@
         <button class="what" onclick={() => openSubject(s.subject_code, s.description)} aria-label="{s.subject_code} syllabus and grading">
           <strong>{s.subject_code}</strong>
           <span>{s.description}</span>
+          {#if risks[s.subject_code]}<span class="risk">{risks[s.subject_code]}</span>{/if}
         </button>
         <span class="units num">{s.units}u</span>
         {#if n !== null}
@@ -262,8 +280,8 @@
     margin: 2px 0 0;
     font-family: var(--font-display);
     font-size: min(1.647rem, 36px);
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: var(--title-weight);
+    letter-spacing: var(--title-track);
   }
   .gpa {
     --step: 4px;
@@ -470,6 +488,15 @@
   .stamp.mark {
     color: var(--ink-2);
   }
+  /* The card takes a little of the stamp's weight (spec 045 C15). */
+  .row:has(.stamp.fresh) {
+    animation: stamp-shake 0.3s steps(4) 0.2s;
+  }
+  @keyframes stamp-shake {
+    25% { translate: 2px 0; }
+    50% { translate: -2px 0; }
+    75% { translate: 1px 0; }
+  }
   .stamp.fresh {
     animation: thunk 0.55s steps(6) both;
   }
@@ -477,6 +504,10 @@
     0% { transform: rotate(-12deg) scale(2.2); opacity: 0; }
     60% { transform: rotate(-3deg) scale(0.92); opacity: 1; }
     100% { transform: rotate(-4deg) scale(1); }
+  }
+  .what .risk {
+    color: var(--ink-2);
+    font-size: 0.8rem;
   }
   .pending {
     flex: none;

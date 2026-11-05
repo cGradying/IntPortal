@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { PALETTES, contrast, derive } from "./rooms";
+import { PALETTES, contrast, derive, schoolRoles } from "./rooms";
+import { THEMES } from "./lar/sprite";
+// @ts-expect-error type error without @types/node package
+import { readFileSync } from "node:fs";
+
+const css = readFileSync(new URL("./app.css", import.meta.url), "utf8");
 
 describe("derived rooms", () => {
   for (const [id, p] of Object.entries(PALETTES)) {
@@ -22,5 +27,51 @@ describe("derived rooms", () => {
   it("contrast is the WCAG ratio", () => {
     expect(contrast("#000000", "#ffffff")).toBeCloseTo(21, 5);
     expect(contrast("#777777", "#ffffff")).toBeCloseTo(4.48, 2);
+  });
+});
+
+describe("app.css", () => {
+  it("c21_reduce_motion_stops_loops", () => {
+    const reduce = css.slice(css.indexOf("prefers-reduced-motion: reduce"));
+    expect(reduce.slice(0, reduce.indexOf("}"))).toContain("animation-iteration-count: 1 !important");
+  });
+
+  it("c6_controls_take_the_room_accent", () => {
+    expect(css).toContain("accent-color: var(--gold)");
+  });
+});
+
+describe("the environment (spec 045)", () => {
+  const svelte = (f: string): string => readFileSync(new URL(f, import.meta.url), "utf8");
+  it("c1_no_void_hex_outside_app_css: the void's world reads tokens", () => {
+    for (const f of ["./Landing.svelte", "./PortalHub.svelte", "./assis/AssisSheet.svelte", "./lar/LarFlight.svelte", "./Glance.svelte"]) {
+      const style = svelte(f).split("<style")[1];
+      expect(style, f).not.toMatch(/#(0b0710|140c16|170b1a|060607|060307|f5b227|f4ecd8)\b/i);
+    }
+  });
+  it("c2_night_is_the_void: the Night room's ground is the landing's", () => {
+    const night = css.slice(css.indexOf(':root[data-room="night"]'));
+    expect(night).toMatch(/--ground: #0b0710;/);
+    expect(night).toMatch(/--card: #170b1a;/);
+  });
+  it("c3_the_ground_moves_by_transform_only", () => {
+    for (const k of ["aura1", "aura2"]) {
+      const frames = css.slice(css.indexOf(`@keyframes ${k}`)).split("\n}")[0];
+      expect(frames).toMatch(/transform:/);
+      expect(frames).not.toMatch(/opacity|background|left:|top:/);
+    }
+  });
+  for (const [id, t] of Object.entries(THEMES)) {
+    for (const room of ["night", "day"] as const) {
+      it(`c4_accent_contrast: ${id} reads in ${room}`, () => {
+        const r = schoolRoles(t, room);
+        const card = room === "night" ? "#170b1a" : "#ffffff";
+        expect(contrast(r["--gold"], card)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(r["--on-gold"], r["--gold"])).toBeGreaterThanOrEqual(3);
+      });
+    }
+  }
+  it("c6_pixel_checkboxes: no system control left", () => {
+    expect(css).toMatch(/input\[type="checkbox"\] \{\s*appearance: none;/);
   });
 });

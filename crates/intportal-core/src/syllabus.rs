@@ -2,7 +2,7 @@
 //! week or date) and its grading system (weighted components), with the
 //! arithmetic students do by hand every term.
 
-use crate::today::{reminder_id, Date, Moment, Reminder};
+use crate::today::Date;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -74,6 +74,22 @@ pub struct Tally {
     /// The average needed on the unscored parts for `target` percent.
     pub needed: Option<f64>,
     pub target: f64,
+    /// One line's worth of where that leaves the student (spec 042 C10).
+    pub risk: Option<Risk>,
+}
+
+/// Where a subject stands against its target (spec 042 C10).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Risk {
+    /// The pace so far is enough for the target.
+    OnTrack,
+    /// This average on what's left reaches the target.
+    Needs { percent: f64 },
+    /// Even 100 on what's left falls short; `best` is that 100 case.
+    OutOfReach { best: f64 },
+    /// Nothing left to score.
+    Done { percent: f64 },
 }
 
 fn round1(x: f64) -> f64 {
@@ -97,42 +113,13 @@ pub fn tally(components: &[Component], target: f64) -> Tally {
     let standing = (scored_weight > 0.0).then(|| round1(earned / scored_weight * 100.0));
     let remaining = weight_total - scored_weight;
     let needed = (remaining > 0.0).then(|| round1((target - earned) / remaining * 100.0));
-    Tally { weight_total, earned: round1(earned), scored_weight, standing, equivalent: standing.map(equivalent), needed, target }
-}
-
-/// Items not done, dated from `today` through `days` days on, soonest first.
-pub fn due(items: &[(String, Item)], today: Date, days: i64) -> Vec<(String, Item)> {
-    let last = today.add_days(days - 1);
-    let mut out: Vec<(String, Item)> =
-        items.iter().filter(|(_, i)| !i.done && i.kind != Kind::Lecture && i.date.is_some_and(|d| d >= today && d <= last)).cloned().collect();
-    out.sort_by_key(|(_, i)| i.date);
-    out
-}
-
-/// A heads-up the evening before each dated quiz, exam and project that is
-/// not done, at `minute` (7 PM by default), for the next `days` days.
-pub fn deadline_reminders(items: &[(String, Item)], now: Moment, minute: u16, days: i64) -> Vec<Reminder> {
-    let mut out: Vec<Reminder> = items
-        .iter()
-        .filter(|(_, i)| !i.done && i.kind != Kind::Lecture)
-        .filter_map(|(code, i)| {
-            let date = i.date?.add_days(-1);
-            let later = date > now.date || (date == now.date && minute > now.minute);
-            (later && date < now.date.add_days(days)).then(|| Reminder {
-                id: reminder_id(&format!("due:{code}:{}:{}", i.id, i.topic)),
-                date,
-                minute,
-                title: format!("{} tomorrow", match i.kind {
-                    Kind::Quiz => "Quiz",
-                    Kind::Exam => "Exam",
-                    _ => "Due",
-                }),
-                body: format!("{} · {code}", i.topic),
-            })
-        })
-        .collect();
-    out.sort_by_key(|r| (r.date, r.minute));
-    out
+    let risk = (weight_total > 0.0).then(|| match (needed, standing) {
+        (None, s) => Risk::Done { percent: s.unwrap_or(0.0) },
+        (Some(n), _) if n > 100.0 => Risk::OutOfReach { best: round1(earned + remaining) },
+        (Some(n), Some(s)) if n <= s => Risk::OnTrack,
+        (Some(n), _) => Risk::Needs { percent: n.max(0.0) },
+    });
+    Tally { weight_total, earned: round1(earned), scored_weight, standing, equivalent: standing.map(equivalent), needed, target, risk }
 }
 
 const MONTHS: [&str; 12] = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
@@ -293,23 +280,6 @@ mod tests {
     }
 
     #[test]
-    fn deadlines_remind_the_evening_before() {
-        let item = |id: &str, topic: &str, kind: Kind, d: u8, done: bool| ("COMP 20073".to_string(), Item { id: id.into(), topic: topic.into(), kind, week: None, date: Some(Date::new(2026, 10, d)), done });
-        let items = [
-            item("1", "Quiz 2", Kind::Quiz, 3, false),
-            item("2", "Trees", Kind::Lecture, 3, false),
-            item("3", "Midterm", Kind::Exam, 2, false),
-            item("4", "Old quiz", Kind::Quiz, 4, true),
-            item("5", "Paper", Kind::Project, 20, false),
-        ];
-        let now = Moment { date: Date::new(2026, 10, 1), minute: 20 * 60 };
-        let got: Vec<(String, u16, String, String)> = deadline_reminders(&items, now, 19 * 60, 7).into_iter().map(|r| (r.date.to_string(), r.minute, r.title, r.body)).collect();
-        assert_eq!(got, [("2026-10-02".into(), 1140, "Quiz tomorrow".into(), "Quiz 2 · COMP 20073".into())]);
-        let earlier = Moment { date: Date::new(2026, 10, 1), minute: 8 * 60 };
-        assert_eq!(deadline_reminders(&items, earlier, 19 * 60, 7).len(), 2);
-    }
-
-    #[test]
     fn new_items_get_the_next_free_ids() {
         let item = |id: &str| Item { id: id.into(), topic: "t".into(), kind: Kind::Lecture, week: None, date: None, done: false };
         let mut plan = Plan { items: vec![item("3"), item(""), item("1"), item("")], ..Default::default() };
@@ -318,10 +288,13 @@ mod tests {
     }
 
     #[test]
-    fn due_lists_undone_deadlines_in_the_window() {
-        let item = |topic: &str, kind: Kind, d: u8, done: bool| ("A".to_string(), Item { id: topic.into(), topic: topic.into(), kind, week: None, date: Some(Date::new(2026, 10, d)), done });
-        let items = [item("later", Kind::Exam, 20, false), item("quiz", Kind::Quiz, 3, false), item("done", Kind::Quiz, 2, true), item("talk", Kind::Lecture, 2, false), item("paper", Kind::Project, 1, false)];
-        let got: Vec<String> = due(&items, Date::new(2026, 10, 1), 7).into_iter().map(|(_, i)| i.topic).collect();
-        assert_eq!(got, ["paper", "quiz"]);
+    fn c10_risk_on_track_needs_out_of_reach_done() {
+        let c = |name: &str, weight: f64, score: Option<f64>| Component { name: name.into(), weight, score };
+        let risk = |parts: &[Component], target: f64| tally(parts, target).risk;
+        assert_eq!(risk(&[c("Quizzes", 40.0, Some(95.0)), c("Final", 60.0, None)], 90.0), Some(Risk::OnTrack), "86.7 needed, 95 so far");
+        assert_eq!(risk(&[c("Quizzes", 40.0, Some(80.0)), c("Final", 60.0, None)], 90.0), Some(Risk::Needs { percent: 96.7 }));
+        assert_eq!(risk(&[c("Quizzes", 60.0, Some(70.0)), c("Final", 40.0, None)], 90.0), Some(Risk::OutOfReach { best: 82.0 }));
+        assert_eq!(risk(&[c("Quizzes", 40.0, Some(80.0)), c("Final", 60.0, Some(90.0))], 90.0), Some(Risk::Done { percent: 86.0 }));
+        assert_eq!(risk(&[], 90.0), None, "no grading system, no line (C11)");
     }
 }

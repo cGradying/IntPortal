@@ -160,15 +160,15 @@
     font-size: min(0.824rem, 25px);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: #f5b227;
+    color: var(--portal-gold);
   }
   [data-tone="trouble"] .trail {
-    color: #f0a090;
+    color: var(--rose);
   }
   .live {
     width: 7px;
     height: 7px;
-    background: #f5b227;
+    background: var(--portal-gold);
     animation: blink 1.6s steps(1) infinite;
   }
   @keyframes blink {
@@ -199,8 +199,8 @@
     flex: none;
     padding: 7px 14px;
     border-radius: 14px;
-    background: #f5b227;
-    color: #1b1406;
+    background: var(--portal-gold);
+    color: var(--on-portal-gold);
     font-family: var(--font-display);
     font-weight: 700;
     font-size: min(0.706rem, 22px);

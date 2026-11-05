@@ -86,7 +86,7 @@
 </script>
 
 {#if studying && deck}
-  <StudySession {deck} mode={studying} onclose={async () => { studying = null; deck = await api.deck(id); }} />
+  <StudySession decks={[deck]} mode={studying} onclose={async () => { studying = null; deck = await api.deck(id); }} />
 {:else}
   <div class="screen">
     <header>
@@ -195,7 +195,7 @@
   }
   .danger {
     background: var(--bad);
-    color: #fff;
+    color: var(--white);
   }
   .modes {
     display: grid;

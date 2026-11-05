@@ -24,6 +24,10 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      # pnpm build compiles the landing's tile portal to WebAssembly.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm test
@@ -41,5 +45,5 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # The shell embeds the web build, so it needs build/ to exist.
       - run: mkdir -p build
-      - run: cargo test -p intportal-core -p intportal -p s0-sis-http
-      - run: cargo clippy -p intportal-core -p intportal -p s0-sis-http --all-targets -- -D warnings
+      - run: cargo test -p intportal-core -p intportal -p intportal-tiles -p s0-sis-http
+      - run: cargo clippy -p intportal-core -p intportal -p intportal-tiles -p s0-sis-http --all-targets -- -D warnings

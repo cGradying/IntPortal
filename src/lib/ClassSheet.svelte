@@ -7,8 +7,27 @@
   import { app, adopt, openNote, openSubject } from "./state.svelte";
   import { api, clock, isoDate, WEEKDAYS, type Mark, type Meeting, type Snapshot, type Weekday } from "./api";
 
-  let { meeting, onclose }: { meeting: Meeting; onclose: () => void } = $props();
-  $effect(() => closable(() => onclose()));
+  let { meeting, onclose, from }: { meeting: Meeting; onclose: () => void; from?: DOMRect } = $props();
+  $effect(() => closable(() => close()));
+
+  // A class's sheet grows out of its block and shrinks back into it (spec 045 C26).
+  let sheet = $state<HTMLElement>();
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const blockTransform = (el: HTMLElement, r: DOMRect) => {
+    const b = el.getBoundingClientRect();
+    return `translate(${r.left - b.left}px, ${r.top - b.top}px) scale(${r.width / b.width}, ${r.height / b.height})`;
+  };
+  $effect(() => {
+    if (!sheet || !from || reduce) return;
+    sheet.animate([{ transform: blockTransform(sheet, from), transformOrigin: "0 0", opacity: 0.4 }, { transform: "none", transformOrigin: "0 0", opacity: 1 }], { duration: 380, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+  });
+  let closing = false;
+  function close() {
+    if (closing) return;
+    closing = true;
+    if (!sheet || !from || reduce) return onclose();
+    sheet.animate([{ transform: "none", transformOrigin: "0 0", opacity: 1 }, { transform: blockTransform(sheet, from), transformOrigin: "0 0", opacity: 0.2 }], { duration: 300, easing: "cubic-bezier(0.5, 0, 0.75, 0)", fill: "forwards" }).onfinish = () => onclose();
+  }
 
   let moving = $state<{ day: Weekday; start: string; end: string } | null>(null);
   let problem = $state("");
@@ -50,9 +69,9 @@
 </script>
 
 
-<div class="scrim" role="presentation" onclick={onclose}></div>
-<div class="sheet notch" role="dialog" aria-label="Edit {s.subject_code}">
-  <p class="label">{s.subject_code} · {s.day.slice(0, 3)} {clock(s.start)}–{clock(s.end)}</p>
+<div class="scrim" role="presentation" onclick={close}></div>
+<div class="sheet notch" class:grown={!!from} bind:this={sheet} role="dialog" aria-label="Edit {s.subject_code}">
+  <p class="label data">{s.subject_code} · {s.day.slice(0, 3)} {clock(s.start)}–{clock(s.end)}</p>
   {#if moving}
     <h2>Change its time</h2>
     <div class="when">
@@ -82,10 +101,10 @@
       <button onclick={() => mark("vacant", true)}>Vacant</button>
     </div>
     <div class="opts two">
-      <button class="note" onclick={() => { const p = meeting; onclose(); openNote(`class:${p.session.subject_code}`, p.session.subject_code, p.session.description); }}>
+      <button class="note" onclick={() => { const p = meeting; close(); openNote(`class:${p.session.subject_code}`, p.session.subject_code, p.session.description); }}>
         {app.notes.some((n) => n.key === `class:${s.subject_code}`) ? "Class notes" : "Write notes"}
       </button>
-      <button class="note" onclick={() => { const p = meeting; onclose(); openSubject(p.session.subject_code, p.session.description); }}>Syllabus & grading</button>
+      <button class="note" onclick={() => { const p = meeting; close(); openSubject(p.session.subject_code, p.session.description); }}>Syllabus & grading</button>
     </div>
     <p class="label">Time</p>
     <div class="opts two">
@@ -123,6 +142,9 @@
     padding: 18px 16px;
     background: var(--card-2);
     animation: rise 0.35s var(--ease) both;
+  }
+  .sheet.grown {
+    animation: none;
   }
   .sheet h2 {
     margin: 0 0 4px;
