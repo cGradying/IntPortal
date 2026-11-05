@@ -569,7 +569,7 @@ describe("Ask AI in a note", () => {
 
 describe("Why?", () => {
   it("grounds the explanation in the student's own class note", async () => {
-    app.notes = [{ key: "class:COMP 20073", text: "root is min", title: null, updated: 1, preview: "" }];
+    app.notes = [{ key: "class:COMP 20073", text: "root is min", title: null, updated: 1, subject: null, pinned: false, preview: "" }];
     backend.ai_why = () => ({ why: "w", tip: "t" });
     expect(await explain("Root?", "Top", "bottom", "COMP 20073")).toEqual({ why: "w", tip: "t" });
     expect(ran("ai_why")[0][1]).toEqual({ front: "Root?", back: "Top", typed: "bottom", note: "root is min" });
@@ -582,7 +582,7 @@ describe("applying a proposal", () => {
   const pending = (proposal: any) => (assis.chat = [{ from: "lar", text: "Sure.", proposal, state: "pending" }]);
 
   it("adds to the class note without overwriting it", async () => {
-    app.notes = [{ key: "class:MATH 101", text: "Quiz Friday", title: null, updated: 1, preview: "" }];
+    app.notes = [{ key: "class:MATH 101", text: "Quiz Friday", title: null, updated: 1, subject: null, pinned: false, preview: "" }];
     backend.set_note = () => undefined;
     backend.notes = () => [];
     pending({ kind: "add_note", subject: "MATH 101", text: "Bring calculator" });

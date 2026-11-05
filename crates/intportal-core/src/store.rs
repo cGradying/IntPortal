@@ -94,6 +94,24 @@ pub enum StoreError {
     /// The file is encrypted under a different key, or isn't a database.
     #[error("This store can't be opened with this phone's key.")]
     Locked,
+    #[error("That note isn't saved yet.")]
+    NoSuchNote,
+    #[error("Only a freeform note can change subject.")]
+    SubjectIsFixed,
+}
+
+/// `CREATE TABLE IF NOT EXISTS` leaves a store's existing table alone, so
+/// columns added later are added here. A blind ALTER fails on the second open,
+/// so each is checked first. A failure is an ordinary error, never `Locked`:
+/// the shell moves a Locked store aside, which would look like a wipe.
+fn add_note_columns(db: &Connection) -> rusqlite::Result<()> {
+    let have: Vec<String> = db.prepare("PRAGMA table_info(notes)")?.query_map([], |r| r.get(1))?.collect::<Result<_, _>>()?;
+    for (name, column) in [("subject", "subject TEXT"), ("pinned", "pinned INTEGER NOT NULL DEFAULT 0")] {
+        if !have.iter().any(|h| h == name) {
+            db.execute_batch(&format!("ALTER TABLE notes ADD COLUMN {column};"))?;
+        }
+    }
+    Ok(())
 }
 
 /// Opens with the key and proves it by reading the schema.
@@ -171,6 +189,7 @@ impl Store {
              CREATE TABLE IF NOT EXISTS chunks (note_key TEXT NOT NULL, n INTEGER NOT NULL, text TEXT NOT NULL, vec BLOB NOT NULL, note_updated INTEGER NOT NULL, model TEXT NOT NULL, PRIMARY KEY (note_key, n));
              CREATE TABLE IF NOT EXISTS turns (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, ask INTEGER NOT NULL);",
         )?;
+        add_note_columns(&db)?;
         Ok(Store { db })
     }
 
@@ -220,8 +239,8 @@ impl Store {
 
     /// Every note, the latest edit first.
     pub fn notes(&self) -> Result<Vec<Note>, StoreError> {
-        let mut q = self.db.prepare("SELECT key, text, title, updated FROM notes ORDER BY updated DESC, key")?;
-        let rows = q.query_map([], |r| Ok(Note { key: r.get(0)?, text: r.get(1)?, title: r.get(2)?, updated: r.get(3)? }))?;
+        let mut q = self.db.prepare("SELECT key, text, title, updated, subject, pinned FROM notes ORDER BY updated DESC, key")?;
+        let rows = q.query_map([], |r| Ok(Note { key: r.get(0)?, text: r.get(1)?, title: r.get(2)?, updated: r.get(3)?, subject: r.get(4)?, pinned: r.get(5)? }))?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
@@ -241,16 +260,26 @@ impl Store {
         Ok(())
     }
 
-    /// Notes with no chunks from `model` at their current edit. The AI embeds
-    /// these just before a search; `set_note` itself never embeds.
-    pub fn stale_notes(&self, model: &str) -> Result<Vec<Note>, StoreError> {
-        let mut q = self.db.prepare(
-            "SELECT key, text, title, updated FROM notes n WHERE NOT EXISTS
-             (SELECT 1 FROM chunks c WHERE c.note_key = n.key AND c.note_updated = n.updated AND c.model = ?1)
-             ORDER BY updated DESC, key",
-        )?;
-        let rows = q.query_map([model], |r| Ok(Note { key: r.get(0)?, text: r.get(1)?, title: r.get(2)?, updated: r.get(3)? }))?;
-        Ok(rows.collect::<Result<_, _>>()?)
+    /// Pins or unpins a note. Not an edit: `updated` stays, so the note neither
+    /// moves in its list nor goes stale for the AI.
+    pub fn set_note_pin(&self, key: &str, pinned: bool) -> Result<(), StoreError> {
+        match self.db.execute("UPDATE notes SET pinned = ?2 WHERE key = ?1", params![key, pinned])? {
+            0 => Err(StoreError::NoSuchNote),
+            _ => Ok(()),
+        }
+    }
+
+    /// Files a freeform note under a subject, or under none. Not an edit, like
+    /// a pin. A class note's subject is its key, and a day note has none.
+    pub fn set_note_subject(&self, key: &str, subject: Option<&str>) -> Result<(), StoreError> {
+        if !key.starts_with("note:") {
+            return Err(StoreError::SubjectIsFixed);
+        }
+        let subject = subject.map(str::trim).filter(|s| !s.is_empty());
+        match self.db.execute("UPDATE notes SET subject = ?2 WHERE key = ?1", params![key, subject])? {
+            0 => Err(StoreError::NoSuchNote),
+            _ => Ok(()),
+        }
     }
 
     /// Replaces a note's chunks with `chunks` (text and unit vector each).
@@ -512,6 +541,133 @@ mod tests {
         assert!(store.chunks("m").unwrap().is_empty(), "spec 040 C8: the AI can't quote a deleted note");
     }
 
+    const OLD_NOTES: &str = "CREATE TABLE notes (key TEXT PRIMARY KEY, text TEXT NOT NULL, title TEXT, updated INTEGER NOT NULL);";
+
+    fn temp_store(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("intportal-store-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join("store.db")
+    }
+
+    #[test]
+    fn old_schema_opens_and_gains_columns() {
+        let path = temp_store("old");
+        let db = Connection::open(&path).unwrap();
+        db.execute_batch(OLD_NOTES).unwrap();
+        db.execute("INSERT INTO notes (key, text, title, updated) VALUES ('note:a', 'Trees', 'Ideas', 100)", []).unwrap();
+        drop(db);
+
+        let store = Store::open_plain(&path).unwrap();
+        let notes = store.notes().unwrap();
+        assert_eq!((notes[0].text.as_str(), notes[0].updated, notes[0].subject.as_deref(), notes[0].pinned), ("Trees", 100, None, false));
+        store.set_note_pin("note:a", true).unwrap();
+        drop(store);
+
+        let store = Store::open_plain(&path).unwrap();
+        assert!(store.notes().unwrap()[0].pinned, "a second open changes nothing");
+        drop(store);
+
+        // A crash between the two ALTERs leaves one column: the next open adds the other.
+        let path = temp_store("half");
+        let db = Connection::open(&path).unwrap();
+        db.execute_batch(OLD_NOTES).unwrap();
+        db.execute_batch("ALTER TABLE notes ADD COLUMN subject TEXT;").unwrap();
+        drop(db);
+        let store = Store::open_plain(&path).unwrap();
+        assert!(store.notes().unwrap().is_empty());
+    }
+
+    #[test]
+    fn migration_error_is_not_locked() {
+        // A view named `notes` can't take a new column, so the migration fails.
+        for (name, encrypted) in [("plain", false), ("encrypted", true)] {
+            let path = temp_store(&format!("broken-{name}"));
+            let db = Connection::open(&path).unwrap();
+            db.execute_batch("CREATE VIEW notes AS SELECT 1 AS key;").unwrap();
+            drop(db);
+            let result = if encrypted { Store::open(&path, &[7; 32]) } else { Store::open_plain(&path) };
+            let error = result.err().expect("the migration fails");
+            assert!(!matches!(error, StoreError::Locked), "{name}: the shell would move the store aside");
+            assert!(path.exists(), "{name}: the store stays where it is");
+        }
+    }
+
+    #[test]
+    fn pin_and_subject_keep_updated() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "alpha", None, 100).unwrap();
+        store.set_note("note:b", "beta", None, 200).unwrap();
+        store.replace_chunks("note:a", 100, "m", &[("alpha".into(), vec![1.0])]).unwrap();
+
+        store.set_note_pin("note:a", true).unwrap();
+        store.set_note_subject("note:a", Some("MATH 1")).unwrap();
+        let notes = store.notes().unwrap();
+        assert_eq!(notes.iter().map(|n| n.key.as_str()).collect::<Vec<_>>(), ["note:b", "note:a"], "no jump in the list");
+        assert_eq!((notes[1].updated, notes[1].pinned, notes[1].subject.as_deref()), (100, true, Some("MATH 1")));
+        assert_eq!(store.stale_sources("m").unwrap().iter().map(|s| s.key.as_str()).collect::<Vec<_>>(), ["note:b"], "still fresh for the AI");
+
+        store.set_note_subject("note:a", Some("  ")).unwrap();
+        assert_eq!(store.notes().unwrap()[1].subject, None, "blank means General");
+        store.set_note_subject("note:a", Some("MATH 1")).unwrap();
+        store.set_note_subject("note:a", None).unwrap();
+        assert_eq!(store.notes().unwrap()[1].subject, None);
+        store.set_note_pin("note:a", false).unwrap();
+        assert!(!store.notes().unwrap()[1].pinned);
+    }
+
+    #[test]
+    fn autosave_does_not_touch_pin_or_subject() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "alpha", Some("Name"), 100).unwrap();
+        store.set_note_pin("note:a", true).unwrap();
+        store.set_note_subject("note:a", Some("MATH 1")).unwrap();
+        store.set_note("note:a", "alpha beta", None, 200).unwrap();
+        let note = &store.notes().unwrap()[0];
+        assert_eq!((note.text.as_str(), note.updated, note.pinned, note.subject.as_deref()), ("alpha beta", 200, true, Some("MATH 1")));
+    }
+
+    #[test]
+    fn meta_on_missing_key_errors() {
+        let store = Store::in_memory().unwrap();
+        assert!(matches!(store.set_note_pin("note:gone", true), Err(StoreError::NoSuchNote)));
+        assert!(matches!(store.set_note_subject("note:gone", Some("MATH 1")), Err(StoreError::NoSuchNote)));
+        assert!(store.notes().unwrap().is_empty(), "never creates a row");
+    }
+
+    #[test]
+    fn subject_refused_on_class_and_day() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("class:MATH 1", "x", None, 100).unwrap();
+        store.set_note("day:2026-09-28", "y", None, 100).unwrap();
+        assert!(matches!(store.set_note_subject("class:MATH 1", Some("COMP 2")), Err(StoreError::SubjectIsFixed)));
+        assert!(matches!(store.set_note_subject("day:2026-09-28", Some("COMP 2")), Err(StoreError::SubjectIsFixed)));
+        store.set_note_pin("class:MATH 1", true).unwrap();
+        store.set_note_pin("day:2026-09-28", true).unwrap();
+        assert!(store.notes().unwrap().iter().all(|n| n.pinned && n.subject.is_none()), "any note can be pinned");
+    }
+
+    #[test]
+    fn pin_and_subject_leave_with_the_note_and_outlast_sign_out() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "alpha", None, 100).unwrap();
+        store.set_note_pin("note:a", true).unwrap();
+        store.set_note_subject("note:a", Some("MATH 1")).unwrap();
+
+        store.forget_sis().unwrap();
+        let note = &store.notes().unwrap()[0];
+        assert_eq!((note.pinned, note.subject.as_deref()), (true, Some("MATH 1")), "sign-out keeps them");
+
+        store.set_note("note:a", "", None, 200).unwrap();
+        store.set_note("note:a", "again", None, 300).unwrap();
+        let note = &store.notes().unwrap()[0];
+        assert_eq!((note.pinned, note.subject.as_deref()), (false, None), "they go with a deleted note");
+
+        store.set_note_pin("note:a", true).unwrap();
+        store.wipe().unwrap();
+        assert!(store.notes().unwrap().is_empty(), "Erase everything removes them");
+    }
+
     #[test]
     fn notes_save_update_list_newest_first_and_blank_deletes() {
         let store = Store::in_memory().unwrap();
@@ -532,13 +688,13 @@ mod tests {
         let store = Store::in_memory().unwrap();
         store.set_note("note:a", "alpha", None, 100).unwrap();
         store.set_note("note:b", "beta", None, 100).unwrap();
-        assert_eq!(store.stale_notes("m1").unwrap().len(), 2);
+        assert_eq!(store.stale_sources("m1").unwrap().len(), 2);
         store.replace_chunks("note:a", 100, "m1", &[("alpha".into(), vec![1.0, 0.0]), ("al".into(), vec![0.0, 1.0])]).unwrap();
-        assert_eq!(store.stale_notes("m1").unwrap().iter().map(|n| n.key.as_str()).collect::<Vec<_>>(), ["note:b"]);
-        assert_eq!(store.stale_notes("m2").unwrap().len(), 2, "another model's vectors are not reusable");
+        assert_eq!(store.stale_sources("m1").unwrap().iter().map(|n| n.key.as_str()).collect::<Vec<_>>(), ["note:b"]);
+        assert_eq!(store.stale_sources("m2").unwrap().len(), 2, "another model's vectors are not reusable");
         assert_eq!(store.chunks("m1").unwrap(), [("note:a".to_string(), "alpha".to_string(), vec![1.0, 0.0]), ("note:a".to_string(), "al".to_string(), vec![0.0, 1.0])]);
         store.set_note("note:a", "alpha edited", None, 200).unwrap();
-        assert_eq!(store.stale_notes("m1").unwrap().len(), 2, "an edit makes the note stale");
+        assert_eq!(store.stale_sources("m1").unwrap().len(), 2, "an edit makes the note stale");
         store.replace_chunks("note:a", 200, "m1", &[("x".into(), vec![1.0, 0.0])]).unwrap();
         assert_eq!(store.chunks("m1").unwrap().len(), 1, "replace drops the old chunks");
         store.set_note("note:a", "", None, 300).unwrap();

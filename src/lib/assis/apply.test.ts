@@ -28,7 +28,7 @@ suite("applying a proposal", () => {
   });
 
   it("finds the student's note on a deck's subject", () => {
-    const notes = [{ key: "class:COMP 20073", text: "heaps: root is min", title: null, updated: 1, preview: "" }];
+    const notes = [{ key: "class:COMP 20073", text: "heaps: root is min", title: null, updated: 1, subject: null, pinned: false, preview: "" }];
     expect(noteFor(notes, "COMP 20073")).toBe("heaps: root is min");
     expect(noteFor(notes, "MATH 101")).toBeUndefined();
     expect(noteFor(notes, null)).toBeUndefined();
