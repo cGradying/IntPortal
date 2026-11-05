@@ -9,7 +9,7 @@
       update(next: string) {
         if (next === last) return;
         last = next;
-        if (!matchMedia("(prefers-reduced-motion: reduce)").matches) el.animate([{ translate: "0 -4px", opacity: 0.3 }, { translate: "0 0", opacity: 1 }], { duration: 200, easing: "steps(2)" });
+        if (!matchMedia("(prefers-reduced-motion: reduce)").matches) el.animate([{ translate: "0 -4px", opacity: 0.3 }, { translate: "0 0", opacity: 1 }], { duration: 200, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
       },
     };
   }

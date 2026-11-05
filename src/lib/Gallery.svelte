@@ -204,7 +204,7 @@
     transform: rotate(-4deg);
   }
   .stamp.fresh {
-    animation: thunk 0.55s steps(6) infinite alternate;
+    animation: thunk 0.55s var(--ease) infinite alternate;
   }
   .stamp.fail {
     color: var(--bad);

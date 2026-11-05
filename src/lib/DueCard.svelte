@@ -403,7 +403,7 @@
     animation: seg 0.3s var(--ease) backwards;
   }
   .prog.cleared i {
-    animation: flash 0.6s steps(4) both;
+    animation: flash 0.6s ease-in-out both;
   }
   .prog span {
     margin-left: 4px;

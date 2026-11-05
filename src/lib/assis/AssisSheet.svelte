@@ -477,7 +477,7 @@
       inset 0 -2px 0 var(--void-ink);
     clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px));
     transform-origin: 0 0;
-    animation: pop 0.24s steps(4, jump-end) both;
+    animation: pop 0.24s var(--ease) both;
   }
   .lar p {
     margin: 0;
@@ -575,7 +575,7 @@
     background: var(--void-lift);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
     clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px));
-    animation: pop 0.24s steps(4, jump-end) both;
+    animation: pop 0.24s var(--ease) both;
   }
   .offer.done {
     opacity: 0.7;

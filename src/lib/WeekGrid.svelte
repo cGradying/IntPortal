@@ -327,7 +327,7 @@
     outline-offset: -1px;
   }
   .stamp.fresh {
-    animation: thunk 0.55s steps(6) both 0.2s;
+    animation: thunk 0.55s var(--ease) both 0.2s;
   }
   @keyframes thunk {
     0% { scale: 2.2; opacity: 0; }

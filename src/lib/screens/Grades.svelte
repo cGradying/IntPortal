@@ -315,7 +315,7 @@
     transform: rotate(-5deg);
   }
   .pb.fresh {
-    animation: thunk 0.55s steps(6) both 0.3s;
+    animation: thunk 0.55s var(--ease) both 0.3s;
   }
   .sub {
     margin: 6px 0 0;
@@ -490,7 +490,7 @@
   }
   /* The card takes a little of the stamp's weight (spec 045 C15). */
   .row:has(.stamp.fresh) {
-    animation: stamp-shake 0.3s steps(4) 0.2s;
+    animation: stamp-shake 0.3s ease-in-out 0.2s;
   }
   @keyframes stamp-shake {
     25% { translate: 2px 0; }
@@ -498,7 +498,7 @@
     75% { translate: 1px 0; }
   }
   .stamp.fresh {
-    animation: thunk 0.55s steps(6) both;
+    animation: thunk 0.55s var(--ease) both;
   }
   @keyframes thunk {
     0% { transform: rotate(-12deg) scale(2.2); opacity: 0; }

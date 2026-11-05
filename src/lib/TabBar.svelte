@@ -31,7 +31,7 @@
     width: calc((100% - 16px) / 5);
     height: 44px;
     pointer-events: none;
-    transition: translate 0.24s steps(4);
+    transition: translate 0.24s var(--ease);
   }
   .sel::before {
     content: "";
