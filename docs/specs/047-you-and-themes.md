@@ -34,7 +34,7 @@ Every setting on You today, reachable within two taps:
 
 **New settings**
 - **C5.** App opens on: Today, Schedule or Study. The dive still lands on the chosen tab.
-- **C6.** Today's cards: show or hide and reorder Up next, Due, LAR's plan, This term and Your events. A student can hide Due (the user, 2026-11-05). *Reorder is buttons, no drag, so it works with VoiceOver.*
+- **C6.** Today's cards: show or hide and reorder Up next, Due, LAR's plan, This term and Your events. A student can hide Due (the user's call, 2026-11-05, against the Head's recommendation). Hiding it only removes the card: reminders and nudges keep working. *Reorder is buttons, no drag, so it works with VoiceOver.*
 - **C7.** Lists: Comfy or Compact. Compact keeps every target at least 44 pt.
 - **C8.** The dive: Full, Short or Off. Off reverses the 10-25 decision that dropped the "Play portal on open" switch (the user, 2026-11-05). With Off, the 040 C2 skeleton shows while data loads. Done effects: Full, Calm or Off. Moving ground: on or off. The phone's Reduce Motion wins over all of them.
 - **C9.** Backup: one file with notes (with subject and pin), photos, decks, syllabus pages, goals, marks, own deadlines and Done marks (`own_deadlines`, `done`, spec 041), subject colours, the study streak (`study_stats`), `class_info` once 030 C1 lands, and themes. Sign-out keeps all of this, so a new phone gets it too. Logins are never in it. The file is not encrypted, has no password, and says so plainly before it's saved (the user, 2026-11-05). It's built from the data, never a copy of the store: a restored store can't open without this phone's keychain key, and Android has `allowBackup=false`, so this file is the only way to a new phone.
