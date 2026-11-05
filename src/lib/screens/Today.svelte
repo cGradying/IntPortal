@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick as settled } from "svelte";
   import { slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   // The Up next count drops in when its value changes, never on first paint (spec 045 C24).
@@ -18,6 +19,7 @@
   import CampusStrip from "../CampusStrip.svelte";
   import Scene from "../Scene.svelte";
   import DueCard from "../DueCard.svelte";
+  import { FLOW_MS } from "../doneRun";
   import Skeleton from "../Skeleton.svelte";
   import { app, openFromNotification, openNote, openSubject, syncNow } from "../state.svelte";
   import ClassSheet from "../ClassSheet.svelte";
@@ -54,6 +56,8 @@
 
   // The coach's one nudge; dismissals last for the day on this device.
   let nudge = $state<{ nudge: Nudge; line: string; key: string } | null>(null);
+  // Already there when you arrive: LAR's card opens only for a nudge that changes after that.
+  let coachLoaded = false;
   const dismissKey = () => `coach-dismissed-${isoDate(new Date())}`;
   const dismissed = (): string[] => {
     try {
@@ -65,7 +69,10 @@
   $effect(() => {
     void app.snapshot;
     void app.today;
-    api.coach(moment(), dismissed(), app.busy).then((n) => (nudge = n)).catch(() => {});
+    api.coach(moment(), dismissed(), app.busy)
+      .then((n) => (nudge = n))
+      .catch(() => {})
+      .finally(() => settled().then(() => (coachLoaded = true)));
   });
   function dismiss() {
     if (!nudge) return;
@@ -118,6 +125,7 @@
   const rows = $derived(dayRows(items, app.busy, isoDate(now), now.getHours() * 60 + now.getMinutes()));
   // LAR's card leaves and arrives by closing and opening, so the page under it never jumps.
   const quiet = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const coachFlow = () => ({ duration: quiet || !coachLoaded ? 0 : FLOW_MS, easing: cubicOut });
 </script>
 
 <div class="screen">
@@ -141,7 +149,7 @@
   {/if}
 
   {#if nudge}
-    <section class="coach card notch" data-kind={nudge.nudge.kind} transition:slide={{ duration: quiet ? 0 : 360, easing: cubicOut }}>
+    <section class="coach card notch" data-kind={nudge.nudge.kind} transition:slide={coachFlow()}>
       <Lar size={2} cube={false} state={now.getHours() >= 23 || now.getHours() < 5 ? "sleep" : "idle"} />
       <button class="say" onclick={act}>
         <span class="label">LAR</span>

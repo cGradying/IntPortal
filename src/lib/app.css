@@ -126,6 +126,7 @@
   --step: 3px; /* one pixel-notch step */
   --gutter: 16px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-flow: 0.36s;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }

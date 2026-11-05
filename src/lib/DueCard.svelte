@@ -7,12 +7,13 @@
   import { buzz } from "./haptics";
   import { openLink } from "./openLink";
   import { adopt, app, mabiniSyncNow, openSubject } from "./state.svelte";
+  import { tick } from "svelte";
   import { flip } from "svelte/animate";
   import { crossfade, slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import Lar from "./lar/Lar.svelte";
   import { burst } from "./burst";
-  import { barSegments, comboText, nextRun, tierOf, type Run } from "./doneRun";
+  import { barSegments, comboText, FLOW_MS, nextRun, tierOf, type Run } from "./doneRun";
   import { fieldPulse, sinkTiles } from "./fieldPulse";
   import { sfx } from "./sound";
 
@@ -22,9 +23,10 @@
   const LIFT_MS = 500;
   const MOVE_MS = 700;
   const LAND_MS = 420;
-  /** Rows, the progress bar and the Done heading open and close over this, so the page below never jumps. */
-  const FLOW_MS = 360;
   let list = $state<DeadlineEntry[]>([]);
+  // The first load is already there when you arrive: rows open only for what changes after it.
+  let loaded = false;
+  const flow = () => ({ duration: reduce || !loaded ? 0 : FLOW_MS, easing: cubicOut });
   let card: HTMLElement;
   let all = $state(false);
   let adding = $state<null | { own?: DeadlineEntry }>(null);
@@ -40,7 +42,10 @@
   $effect(() => {
     void app.snapshot;
     void app.mabini;
-    api.deadlines(moment(), all ? 30 : 8).then((d) => (list = d)).catch(() => {});
+    api.deadlines(moment(), all ? 30 : 8)
+      .then((d) => (list = d))
+      .catch(() => {})
+      .finally(() => tick().then(() => (loaded = true)));
   });
 
   const now = $derived((app.today, new Date()));
@@ -125,7 +130,7 @@
   </div>
 
   {#if finished.length && segments > 1}
-    <div class="prog" class:cleared role="img" transition:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }} aria-label="{finished.length} of {segments} done">
+    <div class="prog" class:cleared role="img" transition:slide={flow()} aria-label="{finished.length} of {segments} done">
       {#each { length: segments } as _, i (i)}<i class:on={i < finished.length}></i>{/each}
       <span class="num">{finished.length} of {segments}</span>
     </div>
@@ -142,7 +147,7 @@
       {#each rows as d (d.id)}
         {@const word = entryLabel(d, now)}
         {@const mark = marking[d.id]}
-        <li animate:flip={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }} in:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }} out:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }}>
+        <li animate:flip={flow()} in:slide={flow()} out:slide={flow()}>
           <div class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
           <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={(e) => done(d, e.currentTarget)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
           <button class="row" onclick={() => open(d)} aria-label="{d.title}, {d.subject ?? d.course ?? 'no subject'}, due {word}">
@@ -159,7 +164,7 @@
       <button class="all" onclick={() => (all = !all)}>{all ? "Show less" : "All deadlines"}</button>
     {/if}
   {:else if cleared}
-    <p class="none clear" in:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }}><span class="hop"><Lar size={2} state="happy" gesture="thumbs" cube={false} /></span> All clear for this week.</p>
+    <p class="none clear" in:slide={flow()}><span class="hop"><Lar size={2} state="happy" gesture="thumbs" cube={false} /></span> All clear for this week.</p>
   {:else if knowsNothingDue(app.snapshot?.last_synced, mabini, app.mabini?.last_synced, now) && !finished.length}
     <p class="none"><b>LAR</b> Walang due this week. Ayos!</p>
   {:else if !finished.length}
@@ -167,14 +172,14 @@
   {/if}
 
   {#if finished.length}
-    <p class="label group" transition:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }}>Done</p>
+    <p class="label group" transition:slide={flow()}>Done</p>
     <ul>
       {#each finished as d (d.id)}
-        <li animate:flip={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }} in:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }} out:slide={{ duration: reduce ? 0 : FLOW_MS, easing: cubicOut }}>
+        <li animate:flip={flow()} in:slide={flow()} out:slide={flow()}>
           <div class="ri finished" in:receive={{ key: d.id }} out:send={{ key: d.id }}>
+          <button class="link" onclick={() => undo(d)} aria-label="Undo {d.title}">Undo</button>
           <span class="what"><s>{d.title}</s><small>{d.subject ?? d.course ?? "Your own"}</small></span>
           <span class="stamp set" aria-hidden="true">DONE</span>
-          <button class="link" onclick={() => undo(d)} aria-label="Undo {d.title}">Undo</button>
           </div>
         </li>
       {/each}
@@ -482,8 +487,10 @@
     color: var(--gold);
   }
   .link {
+    flex: none;
+    min-width: 44px;
     min-height: 44px;
-    padding: 0 6px;
+    padding: 0;
     border: 0;
     background: none;
     color: var(--gold);
