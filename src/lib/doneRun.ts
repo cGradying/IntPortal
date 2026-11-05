@@ -1,3 +1,6 @@
+/** Layout changes open and close over this, so nothing jumps. Same as `--t-flow` in app.css. */
+export const FLOW_MS = 360;
+
 // A run of deadlines marked done (spec 045 C18): each one within RUN_MS of the
 // last climbs a step, and the tiers follow. Pure, so it can be tested.
 export const RUN_MS = 4000;
