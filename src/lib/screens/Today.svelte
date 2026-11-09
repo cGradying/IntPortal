@@ -85,6 +85,7 @@
     if (!nudge) return;
     const n = nudge.nudge;
     if (n.kind === "plan") return startPlan(n);
+    if (n.kind === "later") return n.url ? openLink(n.url) : n.subject && openSubject(n.subject, describe(n.subject), "outline");
     if (n.kind === "deadline" && n.url) openLink(n.url);
     else if (n.kind === "deadline") openSubject(n.subject, describe(n.subject), "outline");
     else if (n.kind === "target") app.tab = "grades";
