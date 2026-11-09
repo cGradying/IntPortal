@@ -228,6 +228,11 @@ button:not(:disabled):active {
   from { transform: translate(10%, 7%) rotate(9deg); }
   to { transform: translate(-10%, -9%) rotate(-7deg); }
 }
+/* Moving ground off in You (spec 047 C8): the pools stay where they are. */
+:root[data-ground="still"] .dots::before,
+:root[data-ground="still"] .dots::after {
+  animation: none;
+}
 /* Pixel checkboxes in the room's accent (C6). The label around each one is the 44 pt target. */
 input[type="checkbox"] {
   appearance: none;

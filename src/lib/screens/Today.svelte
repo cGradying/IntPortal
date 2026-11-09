@@ -30,6 +30,7 @@
   import { buzz } from "../haptics";
   import { dateLine as longDate } from "../greeting";
   import { dayRows } from "../dayrows";
+  import type { CardId } from "../you";
   import { api, clock, isoDate, moment, span, subjectColor, type Meeting, type Nudge, type Standing } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
@@ -119,7 +120,10 @@
   });
 
   /** Classes and the student's own events, with the free stretches between them. */
-  const rows = $derived(dayRows(items, app.busy, isoDate(now), now.getHours() * 60 + now.getMinutes()));
+  // Hiding Your events in You (spec 047 C6) drops their rows; the free stretches still count them.
+  const rows = $derived(dayRows(items, app.busy, isoDate(now), now.getHours() * 60 + now.getMinutes()).filter((r) => r.kind !== "busy" || !app.cards.hidden.includes("events")));
+  // C6: each card's place from 1, or 0 when the student hid it. The grid's order puts them.
+  const at = (id: CardId) => (app.cards.hidden.includes(id) ? 0 : app.cards.order.indexOf(id) + 1);
   // LAR's card leaves and arrives by closing and opening, so the page under it never jumps.
   const quiet = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const coachFlow = () => ({ duration: quiet || !coachLoaded ? 0 : FLOW_MS, easing: cubicOut });
@@ -145,8 +149,8 @@
     </section>
   {/if}
 
-  {#if nudge}
-    <section class="coach card notch" data-kind={nudge.nudge.kind} transition:slide={coachFlow()}>
+  {#if nudge && at("coach")}
+    <section style:order={at("coach")} class="coach card notch" data-kind={nudge.nudge.kind} transition:slide={coachFlow()}>
       <Lar size={2} cube={false} state={now.getHours() >= 23 || now.getHours() < 5 ? "sleep" : "idle"} />
       <button class="say" onclick={act}>
         <span class="label">LAR</span>
@@ -156,7 +160,8 @@
     </section>
   {/if}
 
-  <section class="hero card notch">
+  {#if at("next")}
+  <section style:order={at("next")} class="hero card notch">
     <CampusStrip litKey={next?.session.subject_code ?? ""} />
     <div class="up">
       {#if next && hero}
@@ -186,11 +191,13 @@
     {/if}
   </section>
 
-  {#if !app.sisConnected}<NeedSis what="your classes" />{/if}
-  <DueCard />
+  {/if}
 
-  {#if standing && (standing.term_gpa !== null || standing.units_done > 0)}
-    <button class="reality card notch" onclick={() => (app.tab = "grades")} aria-label="Where you stand; open Grades">
+  {#if !app.sisConnected}<div style:order={at("next") || 0}><NeedSis what="your classes" /></div>{/if}
+  {#if at("due")}<div style:order={at("due")} class="slot"><DueCard /></div>{/if}
+
+  {#if at("term") && standing && (standing.term_gpa !== null || standing.units_done > 0)}
+    <button style:order={at("term")} class="reality card notch" onclick={() => (app.tab = "grades")} aria-label="Where you stand; open Grades">
       <span>
         <small>This term</small>
         <strong class="num">{standing.term_gpa?.toFixed(2) ?? "—"}</strong>
@@ -208,7 +215,7 @@
     </button>
   {/if}
 
-  <section class="day">
+  <section class="day" style:order="9">
     <div class="head">
       <p class="label">Today</p>
       {#if t && t.agenda.free_minutes_left > 0}
@@ -400,6 +407,13 @@
   .screen {
     display: grid;
     gap: 18px;
+  }
+  .slot {
+    display: grid;
+  }
+  /* Compact lists in You (spec 047 C7): shorter class rows, still past 44 pt. */
+  :global(:root[data-density="compact"]) .class {
+    padding-block: 8px;
   }
   /* After the launch hello, Today rises one block at a time (spec 010 C35). */
   :global(html[data-entering]) .screen > :global(*) {

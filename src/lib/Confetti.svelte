@@ -6,7 +6,8 @@
   let cv: HTMLCanvasElement;
 
   onMount(() => {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const fx = document.documentElement.dataset.effects;
+    if (fx === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const g = cv.getContext("2d")!;
     const r = cv.getBoundingClientRect();
     const dpr = Math.min(3, devicePixelRatio || 1);
@@ -15,7 +16,7 @@
     g.scale(dpr, dpr);
     const css = getComputedStyle(cv);
     const colors = ["--gold", "--s1", "--s2", "--s3", "--s4", "--s5", "--s6"].map((v) => css.getPropertyValue(v).trim() || "#f5b227");
-    const bits = Array.from({ length: 70 }, (_, i) => ({
+    const bits = Array.from({ length: fx === "calm" ? 24 : 70 }, (_, i) => ({
       x: r.width * (0.25 + Math.random() * 0.5),
       y: r.height * 0.55,
       vx: (Math.random() - 0.5) * 7,
