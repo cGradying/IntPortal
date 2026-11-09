@@ -1,29 +1,33 @@
 <script lang="ts">
   // Spec 010 C35: after the dive lands, the day says hello, slowly, then
   // Today rises under it. A tap skips the wait; it never cuts loading short.
-  import { dateLine, greeting, helloTimes } from "./greeting";
+  import { HELLO_CAP_MS, dateLine, greeting, helloTimes } from "./greeting";
 
+  // `ready` is Today's data, not just Today mounted: the hello must not lift onto a skeleton.
   let { start, ready, ondone }: { start: boolean; ready: boolean; ondone: () => void } = $props();
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const now = new Date();
   const lines = [`${greeting(now)}.`, `Today is ${dateLine(now)}.`];
-  const T = helloTimes(false, reduce);
+  const T = helloTimes(reduce);
 
   let shown = $state(false);
   let held = $state(false);
   let leaving = $state(false);
+  // Past the cap, Today shows what is cached rather than the hello waiting on.
+  let capped = $state(false);
 
   $effect(() => {
     if (!start) return;
     // One frame on the hidden state first, so the words have somewhere to rise from.
     requestAnimationFrame(() => requestAnimationFrame(() => (shown = true)));
     const id = setTimeout(() => (held = true), T.hold);
-    return () => clearTimeout(id);
+    const cap = setTimeout(() => (capped = true), HELLO_CAP_MS);
+    return () => (clearTimeout(id), clearTimeout(cap));
   });
 
   $effect(() => {
-    if (!held || !ready || leaving) return;
+    if (!held || !(ready || capped) || leaving) return;
     leaving = true;
     const root = document.documentElement;
     root.dataset.entering = "";

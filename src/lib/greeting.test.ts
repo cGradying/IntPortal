@@ -12,17 +12,11 @@ describe("the launch hello (spec 010 C35)", () => {
   });
 
   it("c35_lines_arrive_in_order_then_hold", () => {
-    for (const slow of [false, true]) {
-      const t = helloTimes(slow, false);
-      expect(t.in[0]).toBeLessThan(t.in[1]);
-      expect(t.in[1]).toBeLessThan(t.in[2]);
-      expect(t.hold).toBeGreaterThan(t.in[2]);
-    }
-    expect(helloTimes(true, false).hold).toBeGreaterThan(helloTimes(false, false).hold);
+    expect(helloTimes(false)).toEqual({ in: [0, 450], hold: 1500, out: 500 });
   });
 
   it("c35_reduce_motion_is_one_short_cross_fade", () => {
-    const t = helloTimes(false, true);
+    const t = helloTimes(true);
     expect(new Set(t.in).size).toBe(1);
     expect(t.out).toBeLessThanOrEqual(300);
   });

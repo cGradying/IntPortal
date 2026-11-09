@@ -240,7 +240,7 @@
 {/if}
 
 {#if greet && inside}
-  <Greeting start={!dive} ready={lifted} ondone={() => (greet = false)} />
+  <Greeting start={!dive} ready={lifted && (app.today !== null || !app.sisConnected)} ondone={() => (greet = false)} />
 {/if}
 
 {#if dive}
