@@ -118,13 +118,23 @@
   </li>
 {/snippet}
 
-<input class="search" type="search" bind:value={query} placeholder="Search notes" aria-label="Search notes" />
+{#snippet deckRow(d: ShelfDeck)}
+  <li>
+    <button class="rowb" onclick={() => (app.deck = d.id)}>
+      <span class="tx"><strong>{d.name}</strong><small>{d.cards} cards</small></span>
+      {#if d.due}<span class="val due">{d.due} due</span>{:else}<span class="val">Caught up</span>{/if}
+    </button>
+  </li>
+{/snippet}
+
+<input class="search" type="search" bind:value={query} placeholder="Search notes and decks" aria-label="Search notes and decks" />
 
 {#if query.trim()}
   <section class="card notch list" aria-label="Search results">
-    {#if found.length}
+    {#if found.notes.length || found.decks.length}
       <ul>
-        {#each found as n (n.key)}{@render noteRow(n)}{/each}
+        {#each found.notes as n (n.key)}{@render noteRow(n)}{/each}
+        {#each found.decks as d (d.id)}{@render deckRow(d)}{/each}
       </ul>
     {:else}
       <p class="fine pad">Nothing mentions "{query.trim()}".</p>
@@ -384,6 +394,15 @@
     font: 500 min(0.588rem, 18px) var(--font-label);
     letter-spacing: var(--label-track);
     text-transform: uppercase;
+    color: var(--gold);
+  }
+  .val {
+    font-size: min(0.765rem, 23px);
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .val.due {
+    font-weight: 700;
     color: var(--gold);
   }
   .more {

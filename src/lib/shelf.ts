@@ -60,15 +60,15 @@ export function pixels(b: Notebook): ("note" | "due")[] {
 /** A fuller notebook stands taller. */
 export const heightOf = (b: Notebook) => 112 + pixels(b).length * 3;
 
-/** Search covers every note's name and text, across subjects (C6). Decks all sit on Cards, so it skips them. */
-export function search(books: Notebook[], query: string): NoteItem[] {
+/** Search covers every note's name and text and every deck's name, across subjects (C6). */
+export function search(books: Notebook[], query: string) {
   const q = query.trim().toLowerCase();
-  if (!q) return [];
+  if (!q) return { notes: [] as NoteItem[], decks: [] as ShelfDeck[] };
   const has = (s: string | null | undefined) => (s ?? "").toLowerCase().includes(q);
-  return books
-    .flatMap((b) => b.notes)
-    .filter((n) => has(n.title) || has(n.text) || has(subjectOf(n)))
-    .sort(byPinThenNewest);
+  return {
+    notes: books.flatMap((b) => b.notes).filter((n) => has(n.title) || has(n.text) || has(subjectOf(n))).sort(byPinThenNewest),
+    decks: books.flatMap((b) => b.decks).filter((d) => has(d.name)),
+  };
 }
 
 /** The Cards page (C1): decks by subject, in shelf order, only subjects that have decks. */

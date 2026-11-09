@@ -47,7 +47,7 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 - **C3.** Day notes go under General, newest first, and can't be moved.
 - **C4.** Inside a subject: pinned notes first, then newest edit first. The subject's decks are on the Cards part, under its code, with their due counts (C1).
 - **C5.** Long press a note, or use its menu, to pin or delete, and to move a freeform note to another subject. Delete keeps its confirm (040). Pinning or moving doesn't change the note's edit time, so it neither jumps the list nor re-indexes the note for AI.
-- **C6.** Search on Notes covers every note's name and text across subjects. It works offline. Decks are all on the Cards part, so search leaves them out.
+- **C6.** Search on Notes covers every note's name and text, and every deck's name, across subjects. It works offline. A deck found there opens its deck page (the user kept decks in search, 2026-11-09).
 - **C7.** A subject code can outlive its term. Once it leaves the schedule, its notes and decks stay together under the code alone, in a Past subjects group, with no description. Nothing is lost on a new term.
 - **C8.** Notes stay reachable from You (040 C14), as a short row that opens them (the user, 2026-11-05).
 

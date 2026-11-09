@@ -54,8 +54,10 @@ describe("the notebook shelf (046 C1 to C7)", () => {
 
   it("c6_search_across_subjects", () => {
     const books = shelves(subjects, [note("note:a", 1, { subject: "MATH 20133", title: "Graphs", text: "trees and cycles" }), note("class:COMP 20083", 2, { text: "inheritance" })], [deck("Trees deck", "COMP 20083")]);
-    expect(search(books, "tree").map((n) => n.key)).toEqual(["note:a"]);
-    expect(search(books, "  ")).toHaveLength(0);
+    const found = search(books, "tree");
+    expect(found.notes.map((n) => n.key)).toEqual(["note:a"]);
+    expect(found.decks.map((d) => d.id)).toEqual(["Trees deck"]);
+    expect(search(books, "  ").notes).toHaveLength(0);
   });
 
   it("c1_cards_group_decks_by_subject_in_shelf_order", () => {
