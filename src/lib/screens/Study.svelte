@@ -4,7 +4,8 @@
   // Decks of flashcards scheduled by FSRS in the core: what's due, the
   // streak, and a way in to each deck.
   import DeckPage from "../DeckPage.svelte";
-  import NotesCard from "../NotesCard.svelte";
+  import Shelf from "../Shelf.svelte";
+  import { GENERAL } from "../shelf";
   import StudySession from "../StudySession.svelte";
   import ErrorCard from "../ErrorCard.svelte";
   import Flame from "../Flame.svelte";
@@ -26,14 +27,17 @@
   });
   // The crystal's + (spec 046 C1b): Ask LAR first, then what this screen can add.
   $effect(() => {
+    const fresh = { label: "New note", run: () => openNote(`note:${crypto.randomUUID()}`, "New note", "", shelfAt || undefined) };
     const note = { label: "Today's note", run: () => openNote(`day:${isoDate(new Date())}`, new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })) };
     // The form only lives on the list, so a deck page or a review offers just the note.
     const deck = { label: "New deck", run: () => { naming = true; scrollTo({ top: 0, behavior: "smooth" }); } };
-    assis.menu = reviewing || app.deck ? [note] : [note, deck];
+    assis.menu = reviewing || app.deck ? [fresh, note] : [fresh, note, deck];
     return () => (assis.menu = []);
   });
   // Spec 040 C9: every due card across decks in one session.
   let reviewing = $state<Deck[] | null>(null);
+  // The notebook pulled out on the shelf; a new note from the + is filed there (046 C2).
+  let shelfAt = $state(GENERAL);
   async function reviewAll() {
     const due = (overview?.decks ?? []).filter((d) => d.due > 0);
     reviewing = await Promise.all(due.map((d) => api.deck(d.id)));
@@ -104,17 +108,7 @@
     {:else if overview && overview.decks.length === 0}
       <LarNote gesture="wave">No decks yet. Make one per subject or per exam, then paste your terms in as "term - meaning".</LarNote>
     {/if}
-    <ul class="decks">
-      {#each overview?.decks ?? [] as d (d.id)}
-        <li>
-          <button onclick={() => (app.deck = d.id)}>
-            <span class="what"><strong>{d.name}</strong><small>{d.subject ?? "No subject"} · {d.cards} cards</small></span>
-            {#if d.due}<span class="due num">{d.due} due</span>{:else}<span class="done">Caught up</span>{/if}
-          </button>
-        </li>
-      {/each}
-    </ul>
-    <NotesCard />
+    <Shelf decks={overview?.decks ?? []} bind:current={shelfAt} />
   </div>
 {/if}
 
@@ -122,6 +116,8 @@
   .screen {
     display: grid;
     gap: 14px;
+    /* The shelf scrolls sideways inside the page, never widening it. */
+    grid-template-columns: minmax(0, 1fr);
   }
   h1 {
     margin: 2px 0 0;
@@ -196,44 +192,6 @@
     margin: 0;
     font-size: min(0.765rem, 23px);
     color: var(--bad);
-  }
-  .decks {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 8px;
-  }
-  .decks button {
-    width: 100%;
-    height: auto;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px;
-    background: var(--card);
-    box-shadow: inset 0 0 0 1px var(--edge);
-    color: var(--ink);
-    text-align: left;
-  }
-  .what {
-    display: grid;
-    flex: 1;
-    min-width: 0;
-  }
-  .what small {
-    font-family: var(--font-body, inherit);
-    font-weight: 400;
-    font-size: min(0.765rem, 23px);
-    color: var(--ink-3);
-  }
-  .due {
-    color: var(--gold);
-  }
-  .done {
-    font-weight: 600;
-    font-size: min(0.706rem, 22px);
-    color: var(--ink-3);
   }
   .all {
     width: 100%;

@@ -25,6 +25,12 @@
     clearTimeout(timer);
     try {
       await api.setNote(key, text, named ? name.trim() || null : title);
+      // A note started in a notebook joins it once it has text (046 C2).
+      const filed = app.editing?.subject;
+      if (filed && text.trim() && app.editing) {
+        await api.setNoteSubject(key, filed);
+        app.editing.subject = undefined;
+      }
       saved = true;
       problem = "";
       refreshNotes();
