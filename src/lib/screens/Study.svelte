@@ -138,7 +138,7 @@
                 <span><span class="sq" style:--c={colorOf(d.subject?.trim() || GENERAL)}></span><span class="dp">{@render px(bar.gold)}{@render px(bar.rest, "o")}</span></span>
               {/each}
             </span>
-            <span class="tm">{plural(decks.length, "deck")}, {plural(totalCards, "card")}</span>
+            <span class="tm">{decks.length ? `${plural(decks.length, "deck")}, ${plural(totalCards, "card")}` : "No decks yet. Make your first."}</span>
           </button>
         </div>
       {:else if part === "review"}
