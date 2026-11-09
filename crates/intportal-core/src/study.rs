@@ -146,17 +146,23 @@ pub fn count_review(s: &Stats, today: Date) -> Stats {
         _ => (1, 1),
     };
     let mut days: Vec<(Date, u32)> = s.days.iter().copied().filter(|(d, _)| *d < today && today.days_since(*d) < KEEP_DAYS).collect();
-    let n = s.days.iter().find(|(d, _)| *d == today).map_or(0, |(_, n)| *n);
+    let n = count_on(s, today);
     days.push((today, n + 1));
     Stats { streak, last_day: Some(today), reviews_today, total_reviews: s.total_reviews + 1, days }
 }
 
+/// Reviews on one day. Stats saved before `days` existed still know `last_day`'s count.
+fn count_on(s: &Stats, day: Date) -> u32 {
+    match s.days.iter().find(|(d, _)| *d == day) {
+        Some((_, n)) => *n,
+        None if s.last_day == Some(day) => s.reviews_today,
+        None => 0,
+    }
+}
+
 /// Reviews on each of the seven days ending `today`, oldest first; 0 for a day with none.
 pub fn week(s: &Stats, today: Date) -> [u32; 7] {
-    std::array::from_fn(|i| {
-        let day = today.add_days(i as i64 - 6);
-        s.days.iter().find(|(d, _)| *d == day).map_or(0, |(_, n)| *n)
-    })
+    std::array::from_fn(|i| count_on(s, today.add_days(i as i64 - 6)))
 }
 
 /// The streak as of `today`: it lapses once a whole day passes unstudied.
@@ -329,7 +335,9 @@ mod tests {
     fn stats_saved_before_days_load_with_none() {
         let old: Stats = serde_json::from_str(r#"{"streak":3,"last_day":"2026-11-08","reviews_today":2,"total_reviews":40}"#).unwrap();
         assert_eq!((old.streak, old.days.len()), (3, 0));
-        assert_eq!(week(&old, Date::new(2026, 11, 8)), [0; 7]);
+        // The day it was saved keeps its count, and the next review adds to it.
+        assert_eq!(week(&old, Date::new(2026, 11, 8)), [0, 0, 0, 0, 0, 0, 2]);
+        assert_eq!(week(&count_review(&old, Date::new(2026, 11, 8)), Date::new(2026, 11, 8)), [0, 0, 0, 0, 0, 0, 3]);
     }
 
     #[test]
