@@ -6,7 +6,7 @@
   // back into the Due card. With `own` it edits one, and can delete it.
   import { onMount, tick } from "svelte";
   import { api, isoDate, subjectColor, type DeadlineDraft, type DeadlineEntry } from "./api";
-  import { dayLabel, dayName, KINDS, kindName, meets, stub, tickets, verdict, whenDays, type Fix } from "./addDue";
+  import { dayLabel, dayName, guessSubject, KINDS, kindName, meets, stub, tickets, verdict, whenDays, type Fix } from "./addDue";
   import { closable } from "./back";
   import { friendly } from "./errors";
   import { buzz } from "./haptics";
@@ -69,7 +69,7 @@
     const me = ++seq;
     let drafts: DeadlineDraft[] = [];
     try {
-      if (text.trim()) drafts = await api.parseOwn(text, isoDate(new Date()));
+      if (text.trim()) drafts = (await api.parseOwn(text, isoDate(new Date()))).map((d) => guessSubject(d, app.snapshot?.sessions ?? []));
     } catch (e) {
       if (me === seq) problem = friendly(e);
       return;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClassSession, DeadlineDraft } from "./api";
-import { dayLabel, dayName, kindName, meets, nextClassDays, stub, tickets, verdict, whenDays, type Ticket } from "./addDue";
+import { dayLabel, dayName, guessSubject, kindName, meets, nextClassDays, stub, tickets, verdict, whenDays, type Ticket } from "./addDue";
 
 const MON = "2026-11-09";
 const at = (subject_code: string, day: ClassSession["day"]): ClassSession => ({ subject_code, description: "", faculty: "", day, start: 480, end: 570, occurrence: 0 });
@@ -77,5 +77,22 @@ describe("verdict", () => {
   });
   it("asks for the day before the name", () => {
     expect(verdict([ticket({ title: "", date: null })], false)).toEqual({ ok: false, label: "Add a day", why: "day", i: 0 });
+  });
+});
+
+describe("guessSubject", () => {
+  const two = [...SESSIONS, at("COMP 20083", "Monday")];
+  it("picks the COMP that meets on the day when two share the letters", () => {
+    expect(guessSubject(draft({ title: "Quiz COMP", subject: null }), two)).toEqual(draft({ title: "Quiz", subject: "COMP 20073" }));
+  });
+  it("takes the only subject with those letters", () => {
+    expect(guessSubject(draft({ title: "math quiz", subject: null, date: "2026-11-13" }), SESSIONS)).toEqual(draft({ title: "quiz", subject: "MATH 20133" }));
+  });
+  it("leaves it alone when neither or both meet that day", () => {
+    const d = draft({ title: "Quiz COMP", subject: null, date: "2026-11-11" });
+    expect(guessSubject(d, two)).toEqual(d);
+  });
+  it("never replaces a subject the core found", () => {
+    expect(guessSubject(draft({ title: "math quiz" }), SESSIONS).subject).toBe("COMP 20073");
   });
 });
