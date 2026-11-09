@@ -832,6 +832,8 @@ struct StudyOverview {
     due: usize,
     streak: u32,
     reviews_today: u32,
+    /// Reviews on each of the last seven days, oldest first (#239).
+    week: [u32; 7],
 }
 
 /// Every deck with its due count, and the streak as of `today`.
@@ -847,7 +849,7 @@ fn study(state: tauri::State<'_, AppState>, today: Date) -> Res<StudyOverview> {
         .collect();
     let stats = store.study_stats().map_err(err)?;
     let reviews_today = if stats.last_day == Some(today) { stats.reviews_today } else { 0 };
-    Ok(StudyOverview { due: decks.iter().map(|d| d.due).sum(), decks, streak: study::current_streak(&stats, today), reviews_today })
+    Ok(StudyOverview { due: decks.iter().map(|d| d.due).sum(), decks, streak: study::current_streak(&stats, today), reviews_today, week: study::week(&stats, today) })
 }
 
 #[tauri::command]
