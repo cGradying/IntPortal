@@ -60,13 +60,22 @@ export function pixels(b: Notebook): ("note" | "due")[] {
 /** A fuller notebook stands taller. */
 export const heightOf = (b: Notebook) => 112 + pixels(b).length * 3;
 
-/** Search covers every note's name and text and every deck's name, across subjects (C6). */
-export function search(books: Notebook[], query: string) {
+/** Search covers every note's name and text, across subjects (C6). Decks all sit on Cards, so it skips them. */
+export function search(books: Notebook[], query: string): NoteItem[] {
   const q = query.trim().toLowerCase();
-  if (!q) return { notes: [] as NoteItem[], decks: [] as ShelfDeck[] };
+  if (!q) return [];
   const has = (s: string | null | undefined) => (s ?? "").toLowerCase().includes(q);
-  return {
-    notes: books.flatMap((b) => b.notes).filter((n) => has(n.title) || has(n.text) || has(subjectOf(n))).sort(byPinThenNewest),
-    decks: books.flatMap((b) => b.decks).filter((d) => has(d.name)),
-  };
+  return books
+    .flatMap((b) => b.notes)
+    .filter((n) => has(n.title) || has(n.text) || has(subjectOf(n)))
+    .sort(byPinThenNewest);
+}
+
+/** The Cards page (C1): decks by subject, in shelf order, only subjects that have decks. */
+export const deckGroups = (subjects: [string, string][], decks: ShelfDeck[]) => shelves(subjects, [], decks).filter((b) => b.decks.length);
+
+/** A deck's bar on the Cards tile: a pixel per 3 cards, gold for the due ones, at most `max`. */
+export function deckBar(d: ShelfDeck, max = 20) {
+  const gold = Math.min(max, Math.ceil(d.due / 3));
+  return { gold, rest: Math.max(0, Math.min(max, Math.ceil(d.cards / 3)) - gold) };
 }

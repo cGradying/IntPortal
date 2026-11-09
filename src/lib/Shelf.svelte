@@ -1,14 +1,23 @@
+<script lang="ts" module>
+  import { subjectColor } from "./api";
+  import { app } from "./state.svelte";
+  import { GENERAL } from "./shelf";
+
+  /** A notebook's colour: the subject's, or a quiet plum for General. */
+  export const colorOf = (code: string) => (code === GENERAL ? "#5a4a63" : subjectColor(code, app.snapshot?.colors ?? {}));
+</script>
+
 <script lang="ts">
   // The notebook shelf (spec 046 C1 to C7): a notebook per subject, its window lit with one pixel
-  // per note and one gold pixel per card due. Pull one out to see its notes and decks below.
-  import { api, subjectColor, type NoteItem } from "./api";
+  // per note and one gold pixel per card due. Pull one out to see its notes below; decks live on Cards.
+  import { api, type NoteItem } from "./api";
   import { assis } from "./assis/assis.svelte";
   import { closable } from "./back";
   import { buzz } from "./haptics";
   import { contrast } from "./rooms";
   import { shareFile } from "./share";
-  import { GENERAL, heightOf, pixels, search, shelves, subjectOf, type Notebook, type ShelfDeck } from "./shelf";
-  import { app, openNote, refreshNotes } from "./state.svelte";
+  import { heightOf, pixels, search, shelves, subjectOf, type Notebook, type ShelfDeck } from "./shelf";
+  import { openNote, refreshNotes } from "./state.svelte";
 
   let { decks, current = $bindable(GENERAL) }: { decks: ShelfDeck[]; current?: string } = $props();
 
@@ -20,7 +29,6 @@
   // The due pixels hold still while the model runs or LAR's sheet is up (#189).
   const still = $derived(assis.open || !!assis.busy);
 
-  const colorOf = (b: Notebook) => (b.code === GENERAL ? "#5a4a63" : subjectColor(b.code, app.snapshot?.colors ?? {}));
   const inkOn = (c: string) => (contrast("#ffffff", c) >= contrast("#120a06", c) ? "#ffffff" : "#120a06");
   const label = (b: Notebook) => `${b.code || "General"}${b.past ? ", past subject" : ""}: ${b.notes.length} ${b.notes.length === 1 ? "note" : "notes"}${b.due ? `, ${b.due} ${b.due === 1 ? "card" : "cards"} due` : ""}`;
 
@@ -110,23 +118,13 @@
   </li>
 {/snippet}
 
-{#snippet deckRow(d: ShelfDeck)}
-  <li>
-    <button class="rowb" onclick={() => (app.deck = d.id)}>
-      <span class="tx"><strong>{d.name}</strong><small>{d.cards} cards</small></span>
-      {#if d.due}<span class="val due">{d.due} due</span>{:else}<span class="val">Caught up</span>{/if}
-    </button>
-  </li>
-{/snippet}
-
-<input class="search" type="search" bind:value={query} placeholder="Search notes and decks" aria-label="Search notes and decks" />
+<input class="search" type="search" bind:value={query} placeholder="Search notes" aria-label="Search notes" />
 
 {#if query.trim()}
   <section class="card notch list" aria-label="Search results">
-    {#if found.notes.length || found.decks.length}
+    {#if found.length}
       <ul>
-        {#each found.notes as n (n.key)}{@render noteRow(n)}{/each}
-        {#each found.decks as d (d.id)}{@render deckRow(d)}{/each}
+        {#each found as n (n.key)}{@render noteRow(n)}{/each}
       </ul>
     {:else}
       <p class="fine pad">Nothing mentions "{query.trim()}".</p>
@@ -136,7 +134,7 @@
   <div class="spines" role="group" aria-label="Notebooks" class:still>
     {#each books as b, i (b.code)}
       {#if b.past && !books[i - 1]?.past}<span class="gap" aria-hidden="true">Past</span>{/if}
-      {@const c = colorOf(b)}
+      {@const c = colorOf(b.code)}
       <button class="spine" style:--c={c} style:--on-c={inkOn(c)} style:--h="{heightOf(b)}px" aria-pressed={b.code === open.code} aria-label={label(b)} onclick={() => pull(b)}>
         <b>{b.code ? b.code.split(" ")[0] : "General"}</b>
         {#if b.code}<small>{b.code.split(" ").slice(1).join(" ")}</small>{/if}
@@ -155,10 +153,9 @@
       </div>
       <button class="ghost" onclick={() => newNote(open.code)}>New note</button>
     </div>
-    {#if open.notes.length || open.decks.length}
+    {#if open.notes.length}
       <ul>
         {#each open.notes as n (n.key)}{@render noteRow(n)}{/each}
-        {#each open.decks as d (d.id)}{@render deckRow(d)}{/each}
       </ul>
     {:else}
       <p class="fine pad">{open.code ? "Nothing here yet. Notes you keep from this class on Schedule land here too." : "Day notes and notes without a subject land here."}</p>
@@ -387,15 +384,6 @@
     font: 500 min(0.588rem, 18px) var(--font-label);
     letter-spacing: var(--label-track);
     text-transform: uppercase;
-    color: var(--gold);
-  }
-  .val {
-    font-size: min(0.765rem, 23px);
-    color: var(--ink-2);
-    white-space: nowrap;
-  }
-  .val.due {
-    font-weight: 700;
     color: var(--gold);
   }
   .more {

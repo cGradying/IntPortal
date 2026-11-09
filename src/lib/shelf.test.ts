@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NoteItem } from "./api";
-import { heightOf, MAX_PX, pixels, search, shelves, subjectOf } from "./shelf";
+import { deckBar, deckGroups, heightOf, MAX_PX, pixels, search, shelves, subjectOf } from "./shelf";
 
 const note = (key: string, updated: number, extra: Partial<NoteItem> = {}): NoteItem => ({ key, text: "", title: null, updated, subject: null, pinned: false, preview: "", ...extra });
 const deck = (id: string, subject: string | null, due = 0) => ({ id, name: id, subject, cards: 10, due });
@@ -54,9 +54,22 @@ describe("the notebook shelf (046 C1 to C7)", () => {
 
   it("c6_search_across_subjects", () => {
     const books = shelves(subjects, [note("note:a", 1, { subject: "MATH 20133", title: "Graphs", text: "trees and cycles" }), note("class:COMP 20083", 2, { text: "inheritance" })], [deck("Trees deck", "COMP 20083")]);
-    const found = search(books, "tree");
-    expect(found.notes.map((n) => n.key)).toEqual(["note:a"]);
-    expect(found.decks.map((d) => d.id)).toEqual(["Trees deck"]);
-    expect(search(books, "  ").notes).toHaveLength(0);
+    expect(search(books, "tree").map((n) => n.key)).toEqual(["note:a"]);
+    expect(search(books, "  ")).toHaveLength(0);
+  });
+
+  it("c1_cards_group_decks_by_subject_in_shelf_order", () => {
+    const groups = deckGroups(subjects, [deck("old", "CHEM 10013", 2), deck("oop", "COMP 20083", 4), deck("free", null), deck("oop2", "COMP 20083", 1)]);
+    expect(groups.map((g) => g.code)).toEqual(["", "COMP 20083", "CHEM 10013"]);
+    expect(groups[1].decks.map((d) => d.id)).toEqual(["oop", "oop2"]);
+    expect(groups[1].due).toBe(5);
+    expect(deckGroups(subjects, [])).toEqual([]);
+  });
+
+  it("c1_deck_bar_is_a_pixel_per_3_cards_gold_for_due", () => {
+    expect(deckBar({ ...deck("a", null, 7), cards: 42 })).toEqual({ gold: 3, rest: 11 });
+    expect(deckBar({ ...deck("b", null, 0), cards: 16 })).toEqual({ gold: 0, rest: 6 });
+    expect(deckBar({ ...deck("c", null, 90), cards: 300 })).toEqual({ gold: 20, rest: 0 });
+    expect(deckBar({ ...deck("d", null, 3), cards: 300 })).toEqual({ gold: 1, rest: 19 });
   });
 });
