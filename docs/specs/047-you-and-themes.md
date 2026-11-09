@@ -28,18 +28,29 @@ Every setting on You today, reachable within two taps:
 
 **One screen**
 - **C1.** You's home is a list of rows: Accounts, Theme, Reminders, Calendar, Layout, Motion and effects, IntAssis, Backup and data, Privacy. Each shows its current value and opens a page. Rows are grouped: Account, Look, Alerts, Data. Eight switches (haptics, sounds, lock, moving ground, class, deadline and study nudges, calendar) and search stay at the top of the screen, above the rows (the user, 2026-11-05; the picks page still shows them at the bottom). A lit switch shows gold on its icon and edge, not a gold block. Each page closes with a large Back at the bottom. Every target is at least 48 pt, or 44 pt in Compact (C7).
+  *Built 2026-11-09:* rows also include Notes (in Data), the student's pick of notes on You as a short row; it opens the notes card. The quick switches and search are at the top. Classes, Deadlines and Study switch back on at the time they had before they were turned off. Back is the last thing on each page, in the page's flow rather than pinned.
 - **C2.** Search matches every setting's name and synonyms, in English and common Taglish words, and goes to its page.
+  *Built 2026-11-09:* `searchSettings` in `src/lib/you.ts` matches 30 settings; every word typed must appear in a setting's name or words, ignoring case and accents. Results show the setting with its page.
 - **C3.** A problem shows on its row: a rejected login on Accounts, notifications off on Reminders. It never hides a page deep.
+  *Built 2026-11-09:* also eMabini's sync error on Accounts, a reminder that couldn't be scheduled on Reminders, and a lock that couldn't turn on on Privacy. Notifications off only counts while any nudge is on.
 - **C4.** Accounts holds SIS and eMabini as two compact blocks. eMabini's sync and Due feed don't change, and it can still be connected or signed out here.
+  *Built 2026-11-09:* sign-out of SIS (with its confirm) and of eMabini moved here from Privacy, which keeps Erase everything and points to Accounts for signing out.
 
 **New settings**
 - **C5.** App opens on: Today, Schedule or Study. The dive still lands on the chosen tab.
+  *Built 2026-11-09:* stored on the phone (`opensOn`); Android's back still goes to Today.
 - **C6.** Today's cards: show or hide and reorder Up next, Due, LAR's plan, This term and Your events. A student can hide Due (the user's call, 2026-11-05, against the Head's recommendation). Hiding it only removes the card: reminders and nudges keep working. *Reorder is buttons, no drag, so it works with VoiceOver.*
+  *Built 2026-11-09:* Your events are rows inside Today's list, not a card, so they hide but don't move; hiding them keeps their time counted in the free stretches and LAR's plan. The four cards move with up and down buttons. Stored as `todayCards`.
 - **C7.** Lists: Comfy or Compact. Compact keeps every target at least 44 pt.
+  *Built 2026-11-09:* Compact shortens You's rows and switches and Today's class rows, all still at least 44 pt.
 - **C8.** The dive: Full, Short or Off. Off reverses the 10-25 decision that dropped the "Play portal on open" switch (the user, 2026-11-05). With Off, the 040 C2 skeleton shows while data loads. Done effects: Full, Calm or Off. Moving ground: on or off. The phone's Reduce Motion wins over all of them.
+  *Built 2026-11-09:* Short runs the same dive at double speed. Off also skips the dive after Step through. Calm is a third of the sparks and 24 confetti bits instead of 70. Moving ground off stops the pools where they are.
 - **C9.** Backup: one file with notes (with subject and pin), photos, decks, syllabus pages, goals, marks, own deadlines and Done marks (`own_deadlines`, `done`, spec 041), subject colours, the study streak (`study_stats`), `class_info` once 030 C1 lands, and themes. Sign-out keeps all of this, so a new phone gets it too. Logins are never in it. The file is not encrypted, has no password, and says so plainly before it's saved (the user, 2026-11-05). It's built from the data, never a copy of the store: a restored store can't open without this phone's keychain key, and Android has `allowBackup=false`, so this file is the only way to a new phone.
+  *Built 2026-11-09:* not yet. The core has no backup command, so the page says "Coming in the next update", describes the file, the missing password and what's never in it, and offers Notes' Export all meanwhile.
 - **C10.** Restore shows what's in the file and asks before it replaces anything. A file from a newer app version, or a damaged one, is refused and changes nothing. The file carries a hash of the student's number, and each student has their own store, so a file from another student is refused the same way. Restore needs someone signed in, because the check has nothing to compare against otherwise: on a new phone it says "Sign in first, then restore", and changes nothing.
+  *Built 2026-11-09:* not yet; needs the core restore command with the student-number hash check.
 - **C11.** Backup and data shows the space notes, photos, decks and the rest take. The AI model's size stays on its card.
+  *Built 2026-11-09:* not yet; needs a core command for sizes. The row says Coming.
 
 **Custom themes**
 - **C12.** Make a theme: a live preview on top with Today, Study and Dive tabs, and every control in the bottom half, with section tabs at the very bottom: Colour, Ground, Shape, LAR, Share.

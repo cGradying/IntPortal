@@ -15,7 +15,10 @@ let cv: HTMLCanvasElement | null = null;
 let sparks: Spark[] = [];
 
 export function burst(x: number, y: number, n: number, power = 1) {
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  // Done effects in You (spec 047 C8): Calm is a third of the sparks, softer; Off is none.
+  const fx = document.documentElement.dataset.effects;
+  if (fx === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (fx === "calm") [n, power] = [Math.ceil(n / 3), power * 0.7];
   const vars = getComputedStyle(document.documentElement);
   const colors = ["--gold", "--s3", "--s1", "--ink", "--good"].map((v) => vars.getPropertyValue(v).trim() || "#f5b227");
   for (let i = 0; i < n; i++) {
