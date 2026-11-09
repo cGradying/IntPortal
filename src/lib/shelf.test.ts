@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NoteItem } from "./api";
-import { heightOf, MAX_PX, pixels, search, shelves, subjectOf } from "./shelf";
+import { deckBar, deckGroups, heightOf, MAX_PX, pixels, search, shelves, subjectOf, weekBars } from "./shelf";
 
 const note = (key: string, updated: number, extra: Partial<NoteItem> = {}): NoteItem => ({ key, text: "", title: null, updated, subject: null, pinned: false, preview: "", ...extra });
 const deck = (id: string, subject: string | null, due = 0) => ({ id, name: id, subject, cards: 10, due });
@@ -58,5 +58,29 @@ describe("the notebook shelf (046 C1 to C7)", () => {
     expect(found.notes.map((n) => n.key)).toEqual(["note:a"]);
     expect(found.decks.map((d) => d.id)).toEqual(["Trees deck"]);
     expect(search(books, "  ").notes).toHaveLength(0);
+  });
+
+  it("c1_cards_group_decks_by_subject_in_shelf_order", () => {
+    const groups = deckGroups(subjects, [deck("old", "CHEM 10013", 2), deck("oop", "COMP 20083", 4), deck("free", null), deck("oop2", "COMP 20083", 1)]);
+    expect(groups.map((g) => g.code)).toEqual(["", "COMP 20083", "CHEM 10013"]);
+    expect(groups[1].decks.map((d) => d.id)).toEqual(["oop", "oop2"]);
+    expect(groups[1].due).toBe(5);
+    expect(deckGroups(subjects, [])).toEqual([]);
+  });
+
+  it("c1_deck_bar_is_a_pixel_per_3_cards_gold_for_due", () => {
+    expect(deckBar({ ...deck("a", null, 7), cards: 42 })).toEqual({ gold: 3, rest: 11 });
+    expect(deckBar({ ...deck("b", null, 0), cards: 16 })).toEqual({ gold: 0, rest: 6 });
+    expect(deckBar({ ...deck("c", null, 90), cards: 300 })).toEqual({ gold: 20, rest: 0 });
+    expect(deckBar({ ...deck("d", null, 3), cards: 300 })).toEqual({ gold: 1, rest: 19 });
+  });
+});
+
+describe("the Done bars (046 C1)", () => {
+  it("c1_done_bars_are_the_last_seven_days_ending_today", () => {
+    const bars = weekBars([0, 3, 4, 0, 40, 1, 7], new Date(2026, 10, 9));
+    expect(bars.map((b) => b.day)).toEqual(["Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Mon"]);
+    expect(bars.map((b) => b.px)).toEqual([0, 1, 2, 0, 12, 1, 3]);
+    expect(bars.map((b) => b.today)).toEqual([false, false, false, false, false, false, true]);
   });
 });
