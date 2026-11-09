@@ -11,12 +11,15 @@
 
   let {
     start,
+    speed = 1,
     ready,
     oncovered,
     ondone,
     onfail,
   }: {
     start: DiveStart;
+    /** 2 for the Short dive in You (spec 047 C8): the same dive in half the time. */
+    speed?: number;
     /** Today has painted under the field. */
     ready: boolean;
     /** The field fully hides what was under it: the landing can go. */
@@ -63,7 +66,7 @@
         if (!first) buzz.release();
         const frame = (now: number) => {
           raf = requestAnimationFrame(frame);
-          t += Math.min(MAX_STEP, Math.max(0, now - last) / 1000);
+          t += Math.min(MAX_STEP, Math.max(0, now - last) / 1000) * speed;
           last = now;
           if (ready && readyAt < 0) readyAt = t;
           if (!covered && (!first || t >= COVER)) {
