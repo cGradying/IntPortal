@@ -50,7 +50,7 @@ Every deadline the student has is in one list, wherever it came from: the syllab
   - It shows overdue deadlines first, then the next 7 days, at most 5 rows.
   - Each row shows the day word, the title, and the subject or course.
   - There is an **All deadlines** link.
-- **C8.** Tapping a syllabus or own deadline opens its subject on the Outline. Tapping an eMabini one opens it in eMabini. A long press offers Done.
+- **C8.** Tapping a syllabus deadline opens its subject on the Outline; tapping an own deadline edits it (C14). Tapping an eMabini one opens it in eMabini. A long press offers Done.
 - **C9.** The card tells three states apart, and never says "nothing due" without data:
   - **Nothing due:** LAR "Walang due this week. Ayos!" This shows only when every connected source has synced within the last 24 hours.
   - **Not synced:** "eMabini hasn't synced yet", with a **Sync** button. This shows when eMabini is connected but has no `last_synced`, and the rest of the list still shows.
@@ -58,16 +58,21 @@ Every deadline the student has is in one list, wherever it came from: the syllab
 
 **Add your own**
 
-- **C10.** The Due card has an **Add** button. It opens one text field, "What's due?", with a paste button.
-- **C11.** The student types or pastes free text (for example "quiz COMP fri" or a group-chat message). The core reads three things from it:
+- **C10.** The Due card has an **Add** button. It opens the adder: a floating window that grows out of Add (eased, `--t-flow`), over a dim, with one field, "What's due?", focused, and a small **Paste** chip inside the field while it is empty. Paste reads the clipboard; an empty or blocked clipboard does nothing and the field stays focused. The window sits above the keyboard (it follows the visual viewport). It closes with a quiet X, a swipe down, a tap on the dim or the back gesture, and nothing is saved. *(Picked 2026-11-09, round three B: the ticket. Mockup `docs/specs/reference/prototypes/lar-window/due.html`.)*
+- **C11.** The student types or pastes free text (for example "quiz COMP fri" or a group-chat message). The core reads it as they type, 250 ms after the last key; there is no Read it step. It reads three things:
   - **the date:** `resolve_when`, extended to short weekday names ("fri", "lun") and to dates like "Oct 24" and "10/24";
   - **the subject:** LAR's `subject_in` (`intent.rs:70`);
   - **the kind:** the words quiz, exam, project, report or assignment; anything else is Project.
 
-  What's left becomes the title.
-- **C12.** A confirm card shows the title, date, subject and kind, each editable. **Save** adds it, and **Cancel** discards it. Nothing is saved before Save.
-- **C13.** With no date found, the confirm card asks for one with a date picker, and Save stays disabled until a date is set. With no subject found, the subject is "None", and the student can pick one.
-- **C14.** The student can edit or delete an own deadline from All deadlines.
+  What's left becomes the title. Two or more lines that name a day become one draft each.
+- **C12.** Each draft shows as a **ticket**: a date stub (FRI over 13 over NOV, or DAY ? with no date), the title, which can be retyped in place, and "subject · kind". Under the tickets, three rows fix the selected one with one tap each:
+  - **When:** Today, Tomorrow, the next two days that subject meets on the timetable (marked with its colour), and **Pick…**, the phone's own date picker;
+  - **Subject:** the timetable's codes, scrolling sideways, and No subject;
+  - **Kind:** Quiz, Exam or Project.
+
+  Several tickets each have a keep checkbox, and tapping one selects it. The button reads **Add**, or **Add 2** for two kept. Nothing is saved before it is tapped; it then shrinks the window back into the Due card. A problem from the core shows inline in plain words, and the window stays open.
+- **C13.** The button greys out and says what is missing, in this order: **Keep one** (every ticket unticked), **Add a day** (no date), **Name it** (no title). Tapping it then goes there: the field, the When row (with a gold flash) or the title. With no subject found, the subject is No subject, and the student can pick one.
+- **C14.** Tapping one of the student's own deadlines on the Due card opens the same window from that row, filled in, with the keyboard down, a **Save** button and a **Delete** button. Save and Delete shrink the window into the row.
 
 **Camera**
 
@@ -102,8 +107,9 @@ Every deadline the student has is in one list, wherever it came from: the syllab
 - Nothing due: LAR "Walang due this week. Ayos!"
 - Not synced: "eMabini hasn't synced yet." **Sync**
 - Sync failed: "Couldn't reach eMabini. Showing what we had at 3:40 PM."
-- Add sheet: "What's due?", placeholder "quiz COMP fri, or paste the GC message". Buttons **Paste**, **Scan**.
-- Confirm card: **Save**, **Cancel**. No date: "When is it due?" No subject: "Subject: None".
+- Adder: field "What's due?", placeholder "quiz COMP fri", chip **Paste**; window "Add a due" or "Edit due".
+- Ticket: placeholder "Name it"; no date "DAY ?"; meta "No subject · Quiz". Rows **When** (Today, Tomorrow, Fri 13, **Pick…**), **Subject** (codes, No subject), **Kind** (Quiz, Exam, Project).
+- Button: **Add**, **Add 2**, **Save**; greyed **Keep one**, **Add a day**, **Name it**. **Delete** when editing.
 - Camera permission: "IntPortal reads the text in one photo, on your phone. The photo isn't kept."
 - Camera denied: "Camera is off for IntPortal. Turn it on in Settings, or type it instead."
 - Calendar event title: `COMP 20073 Quiz: Loops`.
@@ -152,7 +158,7 @@ pub fn parse_own(text: &str, today: Date, subjects: &[(String, String)]) -> Draf
   - Android: ML Kit `com.google.mlkit:text-recognition` (bundled) on a photo from `ActivityResultContracts.TakePicture`.
 - **UI.**
   - `src/lib/DueCard.svelte` replaces `MabiniDue.svelte` and Today's `.due` section.
-  - `src/lib/AddDeadline.svelte` holds the sheet and the confirm card.
+  - `src/lib/AddDeadline.svelte` holds the adder window and its tickets; `src/lib/addDue.ts` holds its logic (tickets, class days, the button's words).
   - `src/lib/deadlines.ts` keeps `dueLabel` and `titleOf`, which now work on `Deadline`.
 
 ## Errors
@@ -166,13 +172,13 @@ pub fn parse_own(text: &str, today: Date, subjects: &[(String, String)]) -> Draf
 ## Motion and Reduce Motion
 
 - Done slides the row out (160 ms). It fades instead under Reduce Motion.
-- The confirm card rises with the existing sheet motion.
+- The adder grows out of Add (or the row it edits) and shrinks back into the Due card (or that row) on save, over about 0.4 s with the shared ease; a swipe down drops it off the screen; its height eases as tickets come and go. Reduce Motion: a cross-fade.
 - Done and Save play the "success" haptic.
 
 ## Accessibility
 
 - Each row is one button labelled "<title>, <subject>, due <day word>". Done is also offered as a VoiceOver custom action, so it doesn't need a long press.
-- Add, Paste, Scan, Save and Undo are at least 44 pt.
+- Add, Paste, Scan, Save and Undo are at least 44 pt, and so is every chip, keep checkbox and the X in the adder. The adder is a labelled dialog; each day chip reads its full date ("Friday, November 13, COMP 20073 meets").
 - The Undo toast is announced, and stays up while VoiceOver focus is on it.
 - The date picker and fields have visible labels and follow Dynamic Type.
 
@@ -195,7 +201,8 @@ pub fn parse_own(text: &str, today: Date, subjects: &[(String, String)]) -> Draf
 | C7, C8 | vitest on the Due card view model; screenshot on the Head sim, demo mode |
 | C9 | vitest `c9_three_states`; screenshot of each |
 | C11, C13 | `cargo test c11_parse_own` with "quiz COMP fri", "Exam sa Lunes CS 201", "report on 10/24", a pasted GC message, and text with no date |
-| C12, C14 | vitest on the confirm card and on All deadlines |
+| C12, C13 | vitest `src/lib/addDue.test.ts`: drafts to tickets with fixes and keep toggles, the When row's class days, the chip and stub words, and the button's missing-field verdict |
+| C10, C12, C14 | simulator pass: grow from Add, live parse, paste, chips, swipe and back to close, edit and delete from a row, large text, Reduce Motion |
 | C15–C18 | simulator (iOS) and emulator (Android) run with a photo of a printed sheet; screenshot of the permission copy |
 | C17 | `cargo test c17_many_dated_lines` |
 | C19 | `cargo test c19_reminders_all_sources` (evening before; 8 AM same day for timed afternoon deadlines) |

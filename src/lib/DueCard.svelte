@@ -56,10 +56,10 @@
   const describe = (code: string) => app.snapshot?.sessions.find((x) => x.subject_code === code)?.description ?? "";
 
   function open(d: DeadlineEntry) {
-    if (d.url) openLink(d.url);
+    if (d.source === "own") adding = { own: d };
+    else if (d.url) openLink(d.url);
     else if (d.source === "syllabus" && d.subject) openSubject(d.subject, describe(d.subject), "outline", d.id.split(":").pop());
     else if (d.subject) openSubject(d.subject, describe(d.subject));
-    else if (d.source === "own") adding = { own: d };
   }
 
   function centre(el: Element) {
@@ -123,10 +123,10 @@
   }
 </script>
 
-<section class="due card notch" aria-label="Due" bind:this={card}>
+<section class="due card notch" aria-label="Due" bind:this={card} data-due-card>
   <div class="head">
     <p class="label">Due</p>
-    <button class="add" onclick={() => (adding = {})}>Add</button>
+    <button class="add" data-due-add onclick={() => (adding = {})}>Add</button>
   </div>
 
   {#if finished.length && segments > 1}
@@ -147,7 +147,7 @@
       {#each rows as d (d.id)}
         {@const word = entryLabel(d, now)}
         {@const mark = marking[d.id]}
-        <li animate:flip={flow()} in:slide={flow()} out:slide={flow()}>
+        <li animate:flip={flow()} in:slide={flow()} out:slide={flow()} data-due-row={d.id}>
           <div class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
           <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={(e) => done(d, e.currentTarget)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
           <button class="row" onclick={() => open(d)} aria-label="{d.title}, {d.subject ?? d.course ?? 'no subject'}, due {word}">
