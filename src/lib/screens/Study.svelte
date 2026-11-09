@@ -146,7 +146,7 @@
 
         <button class="card notch tile wide" onclick={() => go("done")}>
           <span class="tl">Done{@render chev()}</span>
-          <span class="mbars" aria-hidden="true">{#each bars as b, i (i)}<span class:t={b.today}>{@render px(Math.min(9, b.px))}</span>{/each}</span>
+          <span class="mbars" aria-hidden="true">{#each bars as b, i (i)}<span class:t={b.today}>{#if b.px}{@render px(Math.min(9, b.px))}{:else}<u class="z"></u>{/if}</span>{/each}</span>
           <span class="tm">{plural(weekTotal, "card")} in 7 days</span>
         </button>
       {:else if part === "review"}
@@ -176,7 +176,7 @@
         <section class="card notch wk">
           <div class="bars" role="img" aria-label="Cards reviewed each day for the last 7 days: {bars.map((b) => `${b.day} ${b.n}`).join(', ')}">
             {#each bars as b, i (i)}
-              <div class:t={b.today}><span>{@render px(b.px)}</span><small>{b.day}</small></div>
+              <div class:t={b.today}><span>{#if b.px}{@render px(b.px)}{:else}<u class="z"></u>{/if}</span><small>{b.day}</small></div>
             {/each}
           </div>
           <p class="fine"><b>{weekTotal}</b> {weekTotal === 1 ? "card" : "cards"} in the last 7 days. One pixel is {CARDS_PER_PX} cards.</p>
@@ -457,6 +457,11 @@
   .mbars .t u,
   .bars .t u {
     background: var(--gold);
+  }
+  /* A day with no reviews keeps one faint pixel, so the week still reads as seven days. */
+  .mbars u.z,
+  .bars u.z {
+    opacity: 0.35;
   }
   .wk {
     display: grid;
