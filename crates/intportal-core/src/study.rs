@@ -130,7 +130,14 @@ pub struct Stats {
     pub last_day: Option<Date>,
     pub reviews_today: u32,
     pub total_reviews: u32,
+    /// Reviews per local day, oldest first, for the last `KEEP_DAYS` days (Study's Done tile, #239).
+    /// Stats saved before it existed read as empty.
+    #[serde(default)]
+    pub days: Vec<(Date, u32)>,
 }
+
+/// How many days of review counts the stats keep; older ones drop on the next review.
+pub const KEEP_DAYS: i64 = 14;
 
 pub fn count_review(s: &Stats, today: Date) -> Stats {
     let (streak, reviews_today) = match s.last_day {
@@ -138,7 +145,24 @@ pub fn count_review(s: &Stats, today: Date) -> Stats {
         Some(d) if d.add_days(1) == today => (s.streak + 1, 1),
         _ => (1, 1),
     };
-    Stats { streak, last_day: Some(today), reviews_today, total_reviews: s.total_reviews + 1 }
+    let mut days: Vec<(Date, u32)> = s.days.iter().copied().filter(|(d, _)| *d < today && today.days_since(*d) < KEEP_DAYS).collect();
+    let n = count_on(s, today);
+    days.push((today, n + 1));
+    Stats { streak, last_day: Some(today), reviews_today, total_reviews: s.total_reviews + 1, days }
+}
+
+/// Reviews on one day. Stats saved before `days` existed still know `last_day`'s count.
+fn count_on(s: &Stats, day: Date) -> u32 {
+    match s.days.iter().find(|(d, _)| *d == day) {
+        Some((_, n)) => *n,
+        None if s.last_day == Some(day) => s.reviews_today,
+        None => 0,
+    }
+}
+
+/// Reviews on each of the seven days ending `today`, oldest first; 0 for a day with none.
+pub fn week(s: &Stats, today: Date) -> [u32; 7] {
+    std::array::from_fn(|i| count_on(s, today.add_days(i as i64 - 6)))
 }
 
 /// The streak as of `today`: it lapses once a whole day passes unstudied.
@@ -279,6 +303,41 @@ mod tests {
         assert_eq!((s.streak, s.reviews_today), (2, 1));
         assert_eq!([current_streak(&s, d(2)), current_streak(&s, d(3)), current_streak(&s, d(4))], [2, 2, 0]);
         assert_eq!(count_review(&s, d(5)).streak, 1);
+    }
+
+    #[test]
+    fn week_counts_each_local_day_with_gaps_as_zero() {
+        let d = |m: u8, n: u8| Date::new(2026, m, n);
+        // Late on Oct 31, then just after midnight on Nov 1: two days, one streak.
+        let s = count_review(&Stats::default(), d(10, 31));
+        let s = count_review(&s, d(11, 1));
+        let s = count_review(&s, d(11, 1));
+        // Nov 2 skipped; Nov 3 once.
+        let s = count_review(&s, d(11, 3));
+        assert_eq!(week(&s, d(11, 3)), [0, 0, 0, 1, 2, 0, 1]);
+        assert_eq!(week(&s, d(11, 9)), [1, 0, 0, 0, 0, 0, 0], "Nov 3 is the first of the seven days ending Nov 9");
+        assert_eq!(count_review(&s, d(11, 1)).streak, 1, "a clock set back starts over, as before");
+    }
+
+    #[test]
+    fn days_older_than_the_window_drop_on_write() {
+        let start = Date::new(2026, 10, 1);
+        let mut s = Stats::default();
+        for i in 0..20 {
+            s = count_review(&s, start.add_days(i));
+        }
+        assert_eq!(s.days.len() as i64, KEEP_DAYS);
+        assert_eq!(s.days[0].0, Date::new(2026, 10, 7));
+        assert_eq!(s.days.last(), Some(&(Date::new(2026, 10, 20), 1)));
+    }
+
+    #[test]
+    fn stats_saved_before_days_load_with_none() {
+        let old: Stats = serde_json::from_str(r#"{"streak":3,"last_day":"2026-11-08","reviews_today":2,"total_reviews":40}"#).unwrap();
+        assert_eq!((old.streak, old.days.len()), (3, 0));
+        // The day it was saved keeps its count, and the next review adds to it.
+        assert_eq!(week(&old, Date::new(2026, 11, 8)), [0, 0, 0, 0, 0, 0, 2]);
+        assert_eq!(week(&count_review(&old, Date::new(2026, 11, 8)), Date::new(2026, 11, 8)), [0, 0, 0, 0, 0, 0, 3]);
     }
 
     #[test]

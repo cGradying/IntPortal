@@ -95,6 +95,8 @@ export interface StudyOverview {
   due: number;
   streak: number;
   reviews_today: number;
+  /** Reviews on each of the last seven days, oldest first. */
+  week: number[];
 }
 
 export type ItemKind = "lecture" | "quiz" | "exam" | "project";
