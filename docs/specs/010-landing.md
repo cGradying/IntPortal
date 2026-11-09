@@ -99,11 +99,14 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
   - **Look, shared by every form:** every dark part glows at its edge, and the far end is a dark eye in a ring of light. Brightness lands on the school's ramp through a 4 × 4 Bayer dither. There are eight colours a frame.
   - **Speed ramp:** shader time and the camera both surge through each change of form and coast between them. A first sign-in has three changes, a launch has one, and slow data keeps changing every 0.7 s.
   - **Cost:** per-cell geometry is computed once into a table, so a tile costs a few cosines. Target: under 2 ms a frame in Rust on the iPhone 17e.
-- **C30. Today is already there** (revised 2026-11-03). Today is fully laid out under the field from the start of arrival. Nothing on it rises, fades in or spawns after the field has landed.
+- **C30. Today rises once** (revised 2026-11-09, the user's pick in round three). Today is fully laid out under the hello from the start of arrival. It rises once, block by block, as the hello leaves (C35), and nothing else on it moves. This replaces the 2026-11-03 rule that nothing on Today rises after the field lands.
 - **C31. Haptics.** One light tick when the dive starts, and one soft thud on the reveal. They follow the haptics setting.
 - **C32. Reduce Motion.** No portal and no dive: launch and Step through go straight to Today with a 0.2 s cross-fade in the room's ground colour.
 - **C33. No switch.** There is no "Play portal on open" setting. The dive costs at most 0.6 s over loading on a normal launch, and the scene stops drawing and frees its canvas as soon as Today shows.
 - **C34. Signed out.** A launch with no login, or one whose adoption fails, lands on the landing and form as today.
+- **C35. The hello** (added 2026-11-09, the user's ask). On every way in (launch signed in, and Step through), the dive lands on the room's ground and the day says hello: "Good afternoon." then "Today is Monday, November 9.", each word fading up out of a soft blur, slowly, like a new device saying hello. It holds (about 1.5 s in all), then lifts away as Today rises block by block (C30). Picked 2026-11-09, round three: A, two lines, Today rises. The greeting is no longer at the top of Today; the date is Today's title.
+  - The hello waits for Today's data (not only Today mounted), so Today never rises as a skeleton. It waits at most 3 s from the dive's landing; past that Today rises with what is cached and the data follows, as in C26. A tap skips the rest of the hold.
+  - Reduce Motion: no dive, the hello cross-fades in and out (C32's cross-fade becomes this).
 
 **Motion budget and renderer**
 
@@ -157,11 +160,12 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 | C18c | `vitest lar/sprite.test.ts`: `c18c_mitts_move_at_most_one_pixel_per_frame` across every gesture and mood switch |
 | C26 | vitest `dive.test.ts`: `c26_dive_ends_at_later_of_min_and_ready`, `c26_dive_caps_at_3s`; screen recording on 18 Pro and 17e |
 | C27–C29 | `cargo test -p intportal-tiles`: dive frames at fixed `t` (tunnel order, Bayer step count, last frame equals room ground); recording |
-| C30 | recording: no Today element moves after the last tile lands |
+| C30 | recording: Today's blocks rise once as the hello leaves, and nothing moves after |
 | C31 | `cargo test`: haptic events at dive start and reveal |
 | C32 | screenshot with Reduce Motion on: no canvas in the DOM |
 | C33 | review: no setting; canvas removed after reveal |
 | C34 | vitest on the launch state |
+| C35 | vitest `greeting.test.ts`; screen recording: dive, hello, Today rising, no pops; a tap skips |
 | C22–C23 | measured fps on the 17e, reported in the PR |
 | C24 | review: no three.js in `package.json`; bundle size reported |
 | C25 | `cargo test`: same input gives the same tiles |
