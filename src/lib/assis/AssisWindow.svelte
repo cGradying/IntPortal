@@ -26,7 +26,8 @@
   import { sourceTarget } from "./sources";
   import { describe, starters as startersFor } from "./apply";
   import { tidy } from "./cards";
-  import { cellsOf, mountNeuron, type Neuron, type Rect } from "./neuron";
+  import { cellsOf, mountNeuron, neuronStill, type Neuron, type Rect } from "./neuron";
+  import { invoke } from "@tauri-apps/api/core";
   import { apply, ask, assis, confirmCards, discardCards, dismiss, newChat, stop } from "./assis.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
@@ -34,6 +35,9 @@
   $effect(() => closable(() => close()));
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // The low-RAM tier keeps the neuron still, as the chip keeps its glass (046 C1d2); true until it answers.
+  let smallRam = $state(true);
+  invoke<boolean>("ai_small_ram").then((small) => (smallRam = small)).catch(() => {});
   const vv = visualViewport();
   const theme = larTheme();
   const HELLO = "Hi! Ask me about your classes, what's due, your grades, or what's in your notes. I can also save a note or set a reminder, if you say so.";
@@ -160,7 +164,7 @@
 
   onMount(() => {
     safeTop = parseFloat(getComputedStyle(scrim).paddingTop) || 0;
-    neuron = mountNeuron(nv, reduce);
+    neuron = mountNeuron(nv, () => neuronStill(reduce, smallRam));
     const watch = new ResizeObserver(measure);
     for (const el of [inn, top, dock]) watch.observe(el);
     measure();

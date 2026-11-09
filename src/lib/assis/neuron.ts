@@ -190,7 +190,13 @@ interface Pulse {
 const ease = (k: number) => 1 - (1 - k) ** 3;
 
 /** One canvas over the page. 30 fps at most, nothing drawn at rest, paused while the app is hidden. */
-export function mountNeuron(cv: HTMLCanvasElement, reduce: boolean): Neuron {
+/** The neuron moves only where it costs nothing to spare: never under Reduce Motion, and never on the
+ *  low-RAM tier (046 C1d2), where a full-page canvas at 30 fps stalls the model as it loads and runs
+ *  (#188, #189). There it draws one still, lit frame. `smallRam` is true until the phone answers. */
+export const neuronStill = (reduce: boolean, smallRam: boolean) => reduce || smallRam;
+
+/** `calm` is read on every start, so the tier answering after mount still applies. */
+export function mountNeuron(cv: HTMLCanvasElement, calm: () => boolean): Neuron {
   const g = cv.getContext("2d");
   const now = () => performance.now() / 1000;
   let R = rng(seed());
@@ -271,19 +277,19 @@ export function mountNeuron(cv: HTMLCanvasElement, reduce: boolean): Neuron {
     const fade = 1 - clamp((t - fadeAt) / fadeDur);
     if (fade <= 0 || !soma) return false;
     g!.lineCap = "round";
-    if (!tFire && !reduce && t > nextP) {
+    if (!tFire && !calm() && t > nextP) {
       const ready = tips.filter((b) => t - tStart > b.t0 + b.dur);
       if (ready.length) pulses.push({ p: inward(ready[Math.floor(R() * ready.length)]), t0: t, v: 190, home: true });
       nextP = t + 0.14 + R() * 0.2;
     }
     charge += (0.25 - charge) * (1 - Math.exp(-dt * 2.2));
-    const grown = (b: { t0: number; dur: number }, from: number) => (reduce ? 1 : ease(clamp((t - from - b.t0) / b.dur)));
+    const grown = (b: { t0: number; dur: number }, from: number) => (calm() ? 1 : ease(clamp((t - from - b.t0) / b.dur)));
     for (const b of dend) {
       const u = grown(b, tStart);
       if (u > 0) light(pointAt(b, u * b.L), 0.55);
     }
     for (const c of cells) {
-      c.lit = reduce ? c.aim : c.lit + (c.aim - c.lit) * (1 - Math.exp(-dt * 4));
+      c.lit = calm() ? c.aim : c.lit + (c.aim - c.lit) * (1 - Math.exp(-dt * 4));
       if (c.lit < 0.01) continue;
       const [cx, cy] = [c.x + c.w / 2, c.y + c.h / 2];
       const gr = g!.createRadialGradient(cx, cy, 0, cx, cy, Math.max(c.w, c.h) * 0.62);
@@ -343,7 +349,7 @@ export function mountNeuron(cv: HTMLCanvasElement, reduce: boolean): Neuron {
   // Reduce Motion: one still, lit frame, cleared when it would have faded.
   const run = () => {
     if (!g) return;
-    if (reduce) {
+    if (calm()) {
       draw(now(), 0);
       clearTimeout(still);
       if (fadeAt < Infinity) still = setTimeout(() => ((soma = null), draw(now(), 0)), (fadeAt - now() + fadeDur) * 1000);
@@ -371,15 +377,15 @@ export function mountNeuron(cv: HTMLCanvasElement, reduce: boolean): Neuron {
       colors();
       [tFire, fadeAt, fadeDur] = [now(), now() + 2.3, 0.7];
       targets = rects;
-      hit = rects.map(() => (reduce ? tFire : 0));
+      hit = rects.map(() => (calm() ? tFire : 0));
       parts = axon(soma, rects, R);
-      if (!reduce) [0.55, 0.68, 0.81].forEach((d) => pulses.push({ p: parts[0], t0: tFire + d, v: 380, on: 0 }));
+      if (!calm()) [0.55, 0.68, 0.81].forEach((d) => pulses.push({ p: parts[0], t0: tFire + d, v: 380, on: 0 }));
       run();
     },
     spark() {
       if (!soma) return;
       [tFire, fadeAt, fadeDur, charge] = [now(), now() + 1, 0.6, 1.6];
-      if (!reduce)
+      if (!calm())
         tips
           .map((b) => [R(), b] as const)
           .sort((a, b) => a[0] - b[0])

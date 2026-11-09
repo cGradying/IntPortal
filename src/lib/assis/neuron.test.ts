@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { rng } from "../lar/wander";
-import { axon, cellsOf, curve, dendrites, edgePoint, inward, path, pointAt, pulseAt } from "./neuron";
+import { axon, cellsOf, curve, dendrites, edgePoint, inward, mountNeuron, neuronStill, path, pointAt, pulseAt } from "./neuron";
 
 const box = { x: 0, y: 0, w: 300, h: 400 };
 const soma = { x: 52, y: 360 };
@@ -86,3 +86,36 @@ describe("the neuron in LAR's window (046 C1d3)", () => {
   });
 });
 
+
+describe("the neuron on the low-RAM tier (046 C1d2)", () => {
+  it("c1d2_neuron_is_still_on_small_ram_and_under_reduce_motion", () => {
+    expect(neuronStill(false, false)).toBe(false);
+    expect(neuronStill(false, true), "small RAM").toBe(true);
+    expect(neuronStill(true, false), "Reduce Motion").toBe(true);
+  });
+
+  it("c1d2_a_still_neuron_never_starts_a_frame_loop", () => {
+    // A 2D context that accepts every call, so the still frame can draw.
+    const g: object = new Proxy({}, { get: (_t, k) => (k === "canvas" ? undefined : () => g), set: () => true });
+    const cv = { getContext: () => g, width: 0, height: 0, style: {} } as unknown as HTMLCanvasElement;
+    // The test runs without a browser: just enough of one for the neuron to mount.
+    const raf = vi.fn(() => 1);
+    vi.stubGlobal("requestAnimationFrame", raf);
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    vi.stubGlobal("innerWidth", 390);
+    vi.stubGlobal("innerHeight", 844);
+    vi.stubGlobal("devicePixelRatio", 1);
+    vi.stubGlobal("document", { hidden: false, addEventListener() {}, removeEventListener() {}, documentElement: {} });
+    vi.stubGlobal("getComputedStyle", () => ({ getPropertyValue: () => "#f5b227" }));
+    let small = true;
+    const n = mountNeuron(cv, () => neuronStill(false, small));
+    n.think({ soma, box, cells: cellsOf(box), fan });
+    n.fire([{ x: 200, y: 20, w: 60, h: 30 }]);
+    expect(raf, "small RAM draws one still frame, no loop").not.toHaveBeenCalled();
+    small = false;
+    n.think({ soma, box, cells: cellsOf(box), fan });
+    expect(raf, "once the phone says it has room, it moves").toHaveBeenCalled();
+    n.dispose();
+    vi.unstubAllGlobals();
+  });
+});
