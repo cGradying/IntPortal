@@ -661,10 +661,11 @@ struct NoteItem {
     preview: String,
 }
 
-/// Every note, the latest edit first, with a one-line preview.
+/// Every note, pinned ones first, then the latest edit first, with a one-line preview.
 #[tauri::command]
 fn notes(state: tauri::State<'_, AppState>) -> Res<Vec<NoteItem>> {
-    let list = state.store.lock().unwrap().notes().map_err(err)?;
+    let mut list = state.store.lock().unwrap().notes().map_err(err)?;
+    notes::pinned_first(&mut list);
     Ok(list.into_iter().map(|note| NoteItem { preview: notes::preview(&note.text, 80), note }).collect())
 }
 
@@ -686,6 +687,25 @@ fn set_note(state: tauri::State<'_, AppState>, key: String, text: String, title:
     }
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
     state.store.lock().unwrap().set_note(&key, &text, title.as_deref(), now).map_err(err)
+}
+
+/// Pinning isn't an edit: the note keeps its place and its AI chunks.
+#[tauri::command]
+fn set_note_pin(state: tauri::State<'_, AppState>, key: String, pinned: bool) -> Res<()> {
+    state.store.lock().unwrap().set_note_pin(&key, pinned).map_err(err)
+}
+
+/// Files a freeform note under a subject, or none. Not an edit, like a pin.
+#[tauri::command]
+fn set_note_subject(state: tauri::State<'_, AppState>, key: String, subject: Option<String>) -> Res<()> {
+    state.store.lock().unwrap().set_note_subject(&key, subject.as_deref()).map_err(err)
+}
+
+/// The date a new entry in a class note belongs to (spec 046 C14).
+#[tauri::command]
+fn entry_date(state: tauri::State<'_, AppState>, code: String, today: Date) -> Res<Date> {
+    let snap = snapshot_of(&state)?;
+    Ok(today::entry_date(&snap.sessions, &snap.marks, &code, today))
 }
 
 /// The term's classes as an `.ics` file, from this week through `until`.
@@ -1190,7 +1210,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
+            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, set_note_pin, set_note_subject, entry_date, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
             ai::ai_models, ai::ai_download, ai::ai_delete, ai::ai_load, ai::ai_unload, ai::ai_index, ai::ai_cancel, ai::ai_ask, ai::ai_history, ai::ai_clear_history, ai::ai_note, ai::ai_why, ai::ai_cards, ai::ai_pdf_text, ai::ai_outline_text, ai::ai_guide
         ])
         .run(tauri::generate_context!())

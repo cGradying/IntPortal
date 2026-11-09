@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { NoteItem } from "../api";
 import { friendlyError, hasText, MAX_CARDS, MAX_PDF, MAX_SOURCE, noteLabel, pdfError, pdfProblem, sourceText, tidy, usable } from "./cards";
 
-const note = (key: string, text: string, updated = 0, title: string | null = null): NoteItem => ({ key, text, title, updated, preview: "" });
+const note = (key: string, text: string, updated = 0, title: string | null = null): NoteItem => ({ key, text, title, updated, subject: null, pinned: false, preview: "" });
 
 describe("cards from a note", () => {
   it("cuts a long note at a line break and leaves a short one whole", () => {

@@ -15,6 +15,12 @@ pub struct Note {
     pub title: Option<String>,
     /// Unix seconds of the last edit.
     pub updated: i64,
+    /// The subject a `note:` note is filed under: a code that may outlive its
+    /// term. `class:` notes get theirs from the key, and `day:` notes have none.
+    #[serde(default)]
+    pub subject: Option<String>,
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 pub fn class_key(subject_code: &str) -> String {
@@ -49,13 +55,46 @@ pub fn markdown(notes: &[Note]) -> String {
     notes.iter().map(|n| format!("# {}\n\n{}\n", heading(n), n.text.trim_end())).collect::<Vec<_>>().join("\n")
 }
 
-/// The first line with words in it, without Markdown heading, list or
-/// emphasis marks, cut to `max` characters.
+/// Pinned notes first; each group keeps the order it came in.
+pub fn pinned_first(notes: &mut [Note]) {
+    notes.sort_by_key(|n| !n.pinned);
+}
+
+/// A line without its checklist box. The box only counts as one after a list
+/// mark, so `[x] marks the spot` keeps its words.
+fn without_box(line: &str) -> &str {
+    ["- [ ]", "- [x]", "- [X]"]
+        .iter()
+        .find_map(|b| line.strip_prefix(b).filter(|rest| rest.is_empty() || rest.starts_with(' ')))
+        .unwrap_or(line)
+}
+
+/// A line without `==highlight==` marks. A mark touches its text on the inner
+/// side, so `a == b` stays as written.
+fn without_highlight(line: &str) -> String {
+    let parts: Vec<&str> = line.split("==").collect();
+    let mut out = parts[0].to_string();
+    let mut open = false;
+    for (i, part) in parts.iter().enumerate().skip(1) {
+        let closes = open && !parts[i - 1].ends_with(' ');
+        let opens = !open && !part.starts_with(' ') && !part.is_empty() && i + 1 < parts.len();
+        if closes || opens {
+            open = opens;
+        } else {
+            out.push_str("==");
+        }
+        out.push_str(part);
+    }
+    out
+}
+
+/// The first line with words in it, without Markdown heading, list, checklist,
+/// highlight or emphasis marks, cut to `max` characters.
 pub fn preview(text: &str, max: usize) -> String {
     let line = text
         .lines()
-        .map(|l| l.trim().trim_start_matches(['#', '-', '*', '>', ' ']).replace("**", "").replace('`', ""))
-        .map(|l| l.trim().to_string())
+        .map(|l| without_box(l.trim()).trim_start_matches(['#', '-', '*', '>', ' ']).replace("**", "").replace('`', ""))
+        .map(|l| without_highlight(l.trim()).trim().to_string())
         .find(|l| !l.is_empty())
         .unwrap_or_default();
     if line.chars().count() <= max {
@@ -76,7 +115,7 @@ mod tests {
     }
 
     fn note(key: &str, title: Option<&str>, text: &str) -> Note {
-        Note { key: key.into(), text: text.into(), title: title.map(Into::into), updated: 0 }
+        Note { key: key.into(), text: text.into(), title: title.map(Into::into), updated: 0, subject: None, pinned: false }
     }
 
     #[test]
@@ -105,5 +144,31 @@ mod tests {
         assert_eq!(preview("- `BFS` vs DFS", 40), "BFS vs DFS");
         assert_eq!(preview("   ", 40), "");
         assert_eq!(preview("Linked lists and their many uses", 12), "Linked list…");
+    }
+
+    #[test]
+    fn preview_strips_checklist_and_highlight() {
+        assert_eq!(preview("- [ ] Buy a bluebook", 40), "Buy a bluebook");
+        assert_eq!(preview("- [x] Read chapter 3", 40), "Read chapter 3");
+        assert_eq!(preview("- [X] Read chapter 4", 40), "Read chapter 4");
+        assert_eq!(preview("- [ ]\n- [ ] Second box", 40), "Second box", "an empty box has no words");
+        assert_eq!(preview("Quiz on ==Friday== at ==8AM==", 40), "Quiz on Friday at 8AM");
+        assert_eq!(preview("==Whole line==", 40), "Whole line");
+    }
+
+    #[test]
+    fn preview_keeps_words_that_only_look_like_marks() {
+        assert_eq!(preview("[x] marks the spot", 40), "[x] marks the spot");
+        assert_eq!(preview("if a == b and c == d", 40), "if a == b and c == d");
+        assert_eq!(preview("a ==", 40), "a ==");
+    }
+
+    #[test]
+    fn pinned_notes_come_first_and_each_group_keeps_its_order() {
+        let mut notes = [note("note:new", None, "x"), note("note:pin-new", None, "x"), note("note:old", None, "x"), note("note:pin-old", None, "x")];
+        notes[1].pinned = true;
+        notes[3].pinned = true;
+        pinned_first(&mut notes);
+        assert_eq!(notes.iter().map(|n| n.key.as_str()).collect::<Vec<_>>(), ["note:pin-new", "note:pin-old", "note:new", "note:old"]);
     }
 }

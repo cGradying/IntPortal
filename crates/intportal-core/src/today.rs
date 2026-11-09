@@ -240,6 +240,14 @@ pub(crate) fn meetings_from(sessions: &[ClassSession], marks: &Marks, from: Date
     out
 }
 
+/// The date a new note entry for a subject belongs to: today when the class
+/// meets today, otherwise its next meeting, skipping vacant weeks and following
+/// moved meetings. Today when nothing meets within half a year.
+pub fn entry_date(sessions: &[ClassSession], marks: &Marks, code: &str, today: Date) -> Date {
+    let own: Vec<ClassSession> = sessions.iter().filter(|s| s.subject_code == code).cloned().collect();
+    meetings_from(&own, marks, today, 183).first().map_or(today, |m| m.date)
+}
+
 /// `8AM`, `2:30PM`: the old app's format.
 pub fn clock(minutes: u16) -> String {
     let (h24, m) = (minutes / 60, minutes % 60);
@@ -541,6 +549,57 @@ mod tests {
             end,
             occurrence: 0,
         }
+    }
+
+    #[test]
+    fn c14_entry_date_is_today_when_the_class_meets_today() {
+        let sessions = [s("MATH 1", Monday, 480, 570), s("COMP 2", Monday, 600, 690)];
+        let monday = Date::new(2026, 8, 3);
+        assert_eq!(entry_date(&sessions, &Marks::default(), "MATH 1", monday), monday);
+    }
+
+    #[test]
+    fn c14_entry_date_is_the_next_meeting_of_that_subject_only() {
+        let sessions = [s("OTHER", Tuesday, 480, 570), s("MATH 1", Thursday, 480, 570), s("MATH 1", Friday, 480, 570)];
+        let monday = Date::new(2026, 8, 3);
+        assert_eq!(entry_date(&sessions, &Marks::default(), "MATH 1", monday), Date::new(2026, 8, 6));
+        let saturday = Date::new(2026, 8, 8);
+        assert_eq!(entry_date(&sessions, &Marks::default(), "MATH 1", saturday), Date::new(2026, 8, 13), "next week");
+    }
+
+    #[test]
+    fn c14_entry_date_skips_vacant_follows_moved() {
+        let math = s("MATH 1", Monday, 480, 570);
+        let sessions = [math.clone()];
+        let monday = Date::new(2026, 8, 3);
+        let mut marks = Marks::default();
+        marks.mode.set(&math.id(), Some(monday), Some(Mark::Vacant));
+        marks.mode.set(&math.id(), Some(monday.add_days(7)), Some(Mark::Vacant));
+        assert_eq!(entry_date(&sessions, &marks, "MATH 1", monday), monday.add_days(14), "two vacant weeks");
+
+        let mut marks = Marks::default();
+        marks.moved.set(&math.id(), Some(monday), Some(Slot { day: Wednesday, start: 480, end: 570 }));
+        assert_eq!(entry_date(&sessions, &marks, "MATH 1", monday), Date::new(2026, 8, 5), "moved later this week");
+
+        let mut marks = Marks::default();
+        marks.moved.set(&math.id(), None, Some(Slot { day: Friday, start: 480, end: 570 }));
+        let tuesday = Date::new(2026, 8, 4);
+        assert_eq!(entry_date(&sessions, &marks, "MATH 1", tuesday), Date::new(2026, 8, 7), "a term move");
+
+        let mut marks = Marks::default();
+        marks.moved.set(&math.id(), Some(monday), Some(Slot { day: Wednesday, start: 480, end: 570 }));
+        assert_eq!(entry_date(&sessions, &marks, "MATH 1", Date::new(2026, 8, 6)), monday.add_days(7), "this week's move has passed");
+    }
+
+    #[test]
+    fn c14_no_future_meeting_uses_today() {
+        let math = s("MATH 1", Monday, 480, 570);
+        let today = Date::new(2026, 8, 3);
+        assert_eq!(entry_date(&[], &Marks::default(), "MATH 1", today), today, "no such class");
+        assert_eq!(entry_date(std::slice::from_ref(&math), &Marks::default(), "GONE 9", today), today, "a past subject");
+        let mut marks = Marks::default();
+        marks.mode.set(&math.id(), None, Some(Mark::Vacant));
+        assert_eq!(entry_date(&[math], &marks, "MATH 1", today), today, "vacant all term");
     }
 
     // 2026-08-03 is a Monday.
