@@ -23,13 +23,18 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 - Save while typing and on Done. Delete with its confirm (040 C8). A row always has text: blank text deletes the note and its AI chunks (`store.set_note`), and the class sheet, the Schedule dot, Today's day note, the Delete button and 042 all read a row as "has notes". Share as `.md`, Export all.
 - Ask AI in a note, source chips, the AI index over note text. AI stays on-device and rules first, and writes nothing without a tap.
 - The after-class prompt only fires for subjects whose `class:` note has text (042 C8, C9).
-- Due count, streak, today's count, Review all (040 C9), New deck, DeckPage, FSRS.
+- Due count, streak, today's count, Review all (040 C9), New deck, DeckPage, FSRS. Since the tiles home they live on the Review and Cards parts (C1).
 - Opening a note from Today, a class sheet, a notification or a subject page.
 
 ## Behaviour
 
 **Sorted**
-- **C1.** Study is a notebook shelf (picked 2026-11-05): one notebook per subject from the student's classes, plus General. Pulling one out shows its notes and decks below.
+- **C1.** Study opens on a home of part tiles (picked 2026-11-09, round three A, "Tiles home"), always on the home. Each tile shows live data and opens its own page with "‹ Study" as the way back, which the phone's back gesture also takes. A page slides in 28 px over `--t-flow` with the shared ease, from the right going in and from the left coming back; under Reduce Motion it cross-fades in place. Each part fits about one phone screen.
+  - **Review:** cards due now in pixel numerals, a gold pixel per card due (up to 30), the streak and today's count. Its page lists every deck with its due pixels and count, the streak and today, and "Review N due", which starts the all-due session (040 C9).
+  - **Notes:** a little shelf, each notebook lit as on the real one (C1a), and the note and notebook counts. Its page is the notebook shelf (picked 2026-11-05): one notebook per subject from the student's classes, plus General. Pulling one out shows its notes below.
+  - **Cards:** a bar per deck, one pixel per 3 cards with the due ones gold, and the deck and card counts. Its page lists decks grouped by subject in shelf order, with their due counts, and New deck. Tapping a deck opens DeckPage.
+  - The mockup's fourth tile, Done (cards reviewed each day for 7 days), is left out: the core keeps only each card's last review and today's count, with no daily history. It comes back if the core gains one.
+  - The + offers New note (in the notebook last pulled out), Today's note and New deck, which opens Cards with the form.
 - **C1a.** A notebook's window holds one pixel per note and one beating gold pixel per card due, up to 15, and a fuller notebook stands taller. The beat is a slow opacity change in CSS, with no canvas, and it stops under Reduce Motion, while the model runs, behind LAR's sheet and while hidden (#189). Every other pixel moves only when the data changes, on a pull, or in a rare twinkle. The counts are also written in reading type, and read out by VoiceOver. *Details are in round two.*
 - **C1b.** One floating button, the crystal (picked 2026-11-05): a real 3D 3x3x3 cube of obsidian glass, dark in every room. Lit cubes are windows onto the school's portal (the dive's tunnel, in its five tones, through the 4x4 Bayer dither), each standing for data. It reflects the room's dot grid and carries LAR's sheen. Cubes that leave during the fold dissolve in the same dither. It replaces the pixel gem. On Study and in the note editor it folds into a + of the same glass, on a spring of about 0.7 s, and turns 45 degrees into a close mark while its menu is open. Every control can scroll clear of it: each page's bottom padding is at least the chip's top plus 8 pt. Today the orb starts at `safe-bottom + 84` and pages pad `safe-bottom + 92`, or +142 and +150 with the dock, so with a 48 pt chip the padding rises to +140 and +198 in `ui/crystal`. On Today, Done and Undo sit on the left of the row, away from it. Ask LAR is the first item in the + menu on those screens. While LAR thinks, a query sweeps through the cubes, or through the + on those screens.
 - **C1b2.** At rest it belongs to the UI. It is a 48 pt stepped chip on the page's gutter, like the app's other controls, with no shadow, bob or glow. The cube inside is a true isometric view in exact room tokens: three flat tones of the card colour, card hairlines, and one gold dot on each cube that holds data. The + is flat, in the room's gold, per the One Gold Rule. About 2 s after the last movement (a scroll, a tap, a tab change, the end of LAR's work) it settles through the dither and draws nothing until it wakes. Scrolling, tapping or LAR thinking wakes the glass in about 0.2 s. Reduce Motion shows the rest state only.
@@ -40,9 +45,9 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 - **C1d2.** On a low-RAM phone, the tier #188 and #189 stall on (`models::is_small_ram`, under 6.5 GB), WebGL never starts: the fold is skipped, and thinking keeps the rest state with a cheap CSS sweep across it, with no neuron forms or roots (C1b, C1b3, C1b4). *This is a real-phone check before it ships, including a low-end Android (#189).*
 - **C2.** A class note belongs to its subject by its key, with no second field to disagree with it. A freeform note carries a subject, chosen on creation and changeable in the note. The editor holds the choice until the first save with text. No subject means General.
 - **C3.** Day notes go under General, newest first, and can't be moved.
-- **C4.** Inside a subject: pinned notes first, then newest edit first, then that subject's decks with their due counts.
+- **C4.** Inside a subject: pinned notes first, then newest edit first. The subject's decks are on the Cards part, under its code, with their due counts (C1).
 - **C5.** Long press a note, or use its menu, to pin or delete, and to move a freeform note to another subject. Delete keeps its confirm (040). Pinning or moving doesn't change the note's edit time, so it neither jumps the list nor re-indexes the note for AI.
-- **C6.** Search covers every note's name and text, and every deck's name, across subjects. It works offline.
+- **C6.** Search on Notes covers every note's name and text across subjects. It works offline. Decks are all on the Cards part, so search leaves them out.
 - **C7.** A subject code can outlive its term. Once it leaves the schedule, its notes and decks stay together under the code alone, in a Past subjects group, with no description. Nothing is lost on a new term.
 - **C8.** Notes stay reachable from You (040 C14), as a short row that opens them (the user, 2026-11-05).
 
@@ -124,6 +129,7 @@ Every tool and row has a 44 pt target and a name. Checklist boxes are real contr
 | C1b2, C1c, C1d, C1d2 | `vitest`: `c1b2_settles_and_wakes`, `c1c_no_cube_until_installed`, `c1d2_low_ram_never_starts_webgl`; real phone for the look |
 | C1b | `vitest`: `c1b_page_padding_clears_the_chip` |
 | C6 | `vitest`: `c6_search_across_subjects` |
+| C1 | `vitest`: `c1_cards_group_decks_by_subject_in_shelf_order`, `c1_deck_bar_is_a_pixel_per_3_cards_gold_for_due`; screenshot, real phone for the tiles and the slide |
 | C10 | `vitest`: `c10_markdown_round_trip` |
 | C13, C14 | `vitest`: `c13_template_never_replaces`, `c14_entry_not_repeated`, `c14_heading_in_the_phones_locale`; `cargo`: `c14_entry_date_skips_vacant_follows_moved`, `c14_no_future_meeting_uses_today` |
 | C14a | `vitest`: `c14a_after_class_opens_the_entry` |
