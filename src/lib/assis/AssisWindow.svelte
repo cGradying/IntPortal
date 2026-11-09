@@ -108,7 +108,9 @@
   let home = $state<Rect>(chipRect());
   // The glass sits 2 px outside the chip and the gutter, its bottom on the chip's, and lifts with
   // the keyboard so the input stays in view; it grows upward with the chat, under the status bar.
-  const bottom = $derived(Math.min(home.y + home.h + 2, vv.top + vv.h - 8));
+  // With the keyboard up the chip is hidden and its fallback corner sits ~90 pt high, so the glass
+  // rests on the keyboard instead (seen on the 18 Pro sim, 2026-11-09).
+  const bottom = $derived(vv.keyboard ? vv.top + vv.h - 8 : Math.min(home.y + home.h + 2, vv.top + vv.h - 8));
   const room = $derived(bottom - (vv.top + safeTop + 8));
   const H = $derived(Math.min(room, Math.max(120, Math.min(need, MAX))));
   const width = $derived(home.x + home.w + 2 - (gutter - 2));
