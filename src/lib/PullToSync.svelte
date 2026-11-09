@@ -6,8 +6,14 @@
   import { buzz } from "./haptics";
   import { fieldPulse } from "./fieldPulse";
   import { app, syncNow } from "./state.svelte";
+  import { slide } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
+  import { FLOW_MS } from "./doneRun";
 
   const PULL = 72;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // The strip opens and closes so the page never jumps (#224). Under a finger it follows the finger.
+  const flow = () => ({ duration: reduce || pull > 0 ? 0 : FLOW_MS, easing: cubicOut });
   let start: number | null = null;
   let pull = $state(0);
   let armed = false;
@@ -57,7 +63,7 @@
 
 {#if stamped}<span class="synced" role="status">SYNCED</span>{/if}
 {#if pull > 8 || app.sync === "syncing"}
-  <div class="pull" style:height="{app.sync === "syncing" ? PULL * 0.6 : pull}px" aria-live="polite">
+  <div class="pull" class:held={pull > 0} transition:slide={flow()} style:height="{app.sync === "syncing" ? PULL * 0.6 : pull}px" aria-live="polite">
     <Jeepney mode="drive" />
     <span>{app.sync === "syncing" ? "Syncing with SIS…" : pull >= PULL ? "Let go to sync" : "Pull to sync"}</span>
   </div>
@@ -78,7 +84,7 @@
     background: var(--ground);
     box-shadow: inset 0 0 0 2px var(--good);
     animation:
-      land 0.42s steps(5) both,
+      land 0.42s var(--ease) both,
       leave 0.3s ease 1.4s forwards;
   }
   @keyframes land {
@@ -99,5 +105,9 @@
     font-size: min(0.765rem, 23px);
     font-weight: 600;
     color: var(--ink-3);
+    transition: height var(--t-flow) var(--ease);
+  }
+  .pull.held {
+    transition: none;
   }
 </style>

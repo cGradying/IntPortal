@@ -250,7 +250,7 @@ input[type="checkbox"]:focus-visible {
 input[type="checkbox"]:checked {
   background: var(--gold);
   box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.25);
-  animation: stamp-in 0.18s steps(3) backwards;
+  animation: stamp-in 0.18s var(--ease) backwards;
 }
 input[type="checkbox"]:checked::after {
   content: "";

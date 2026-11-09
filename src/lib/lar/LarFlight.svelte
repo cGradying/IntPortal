@@ -313,13 +313,13 @@
     color: var(--parch);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
     transform-origin: 0 100%;
-    animation: grow 0.24s steps(4, end) both;
+    animation: grow 0.24s var(--ease) both;
   }
   .bubble:global([data-side="left"]) .pop {
     transform-origin: 100% 100%;
   }
   .bubble.leaving .pop {
-    animation: leave 0.16s steps(3, end) both;
+    animation: leave 0.16s var(--ease) both;
   }
   /* The not-yet-typed rest keeps its room, so the bubble never changes size. */
   .rest {
