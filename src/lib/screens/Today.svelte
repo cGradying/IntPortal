@@ -28,16 +28,13 @@
   import { longpress } from "../press";
   import { openLink } from "../openLink";
   import { buzz } from "../haptics";
+  import { dateLine as longDate } from "../greeting";
   import { dayRows } from "../dayrows";
   import { api, clock, isoDate, moment, span, subjectColor, type Meeting, type Nudge, type Standing } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
   const now = $derived((app.today, new Date()));
-  const greeting = $derived.by(() => {
-    const h = now.getHours();
-    return h < 5 ? "Up late" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-  });
-  const dateLine = $derived(now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }));
+  const dateLine = $derived(longDate(now));
   const t = $derived(app.today);
   const next = $derived(t?.next ?? null);
   const items = $derived(t?.agenda.items ?? []);
@@ -130,8 +127,8 @@
 
 <div class="screen">
   <header>
-    <p class="label data">{dateLine}</p>
-    <h1>{greeting}</h1>
+    <!-- The greeting moved to the launch hello (spec 010 C35); the date is the title. -->
+    <h1>{dateLine}</h1>
     <Synced />
     <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? dayNote.preview || "Today's note" : "+ Note for today"}</button>
   </header>
@@ -404,10 +401,28 @@
     display: grid;
     gap: 18px;
   }
+  /* After the launch hello, Today rises one block at a time (spec 010 C35). */
+  :global(html[data-entering]) .screen > :global(*) {
+    animation: rise 0.45s var(--ease) backwards;
+    animation-delay: calc(120ms + var(--n, 6) * 60ms);
+  }
+  .screen > :global(:nth-child(1)) { --n: 0; }
+  .screen > :global(:nth-child(2)) { --n: 1; }
+  .screen > :global(:nth-child(3)) { --n: 2; }
+  .screen > :global(:nth-child(4)) { --n: 3; }
+  .screen > :global(:nth-child(5)) { --n: 4; }
+  @keyframes rise {
+    from { opacity: 0; translate: 0 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(html[data-entering]) .screen > :global(*) {
+      animation: none;
+    }
+  }
   header h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.647rem, 36px);
+    font-size: min(1.4rem, 32px);
     font-weight: var(--title-weight);
     letter-spacing: var(--title-track);
   }

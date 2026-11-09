@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import Landing from "$lib/Landing.svelte";
   import Dive from "$lib/Dive.svelte";
+  import Greeting from "$lib/Greeting.svelte";
   import { DIVE_WAIT_MS, type DiveStart } from "$lib/dive";
   import { FALLBACK_SIS } from "$lib/portals";
   import Glance from "$lib/Glance.svelte";
@@ -41,6 +42,8 @@
   // A dive hands over to Today itself, so the veil stays out of it.
   let dived = $state(false);
   let welcomed = $state(remembered("welcomed") === "1");
+  // The hello after the dive, on every way in (spec 010 C35).
+  let greet = $state(false);
 
   function remembered(key: string): string | null {
     try {
@@ -92,6 +95,7 @@
     signedIn = app.sisConnected || app.mabiniConnected;
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Signed in: the dive is the loading screen, and the snapshot loads while it runs (spec 010 C26).
+    greet = signedIn;
     if (signedIn && !reduce) {
       dived = true;
       dive = { first: false, portal: await ownPortal() };
@@ -108,6 +112,7 @@
       inside = true;
     } else {
       // A login that won't adopt lands on the landing (C34).
+      greet = false;
       dive = null;
       dived = false;
     }
@@ -124,6 +129,7 @@
   function diveIn(start: DiveStart) {
     dived = true;
     holdLanding = true;
+    greet = true;
     dive = start;
     if (signedIn) syncNow();
     inside = true;
@@ -231,6 +237,10 @@
   {/if}
   {#if app.mabiniPage}<MabiniPage />{/if}
   {#if assis.open}<AssisSheet onclose={() => (assis.open = false)} />{/if}
+{/if}
+
+{#if greet && inside}
+  <Greeting start={!dive} ready={lifted} ondone={() => (greet = false)} />
 {/if}
 
 {#if dive}
