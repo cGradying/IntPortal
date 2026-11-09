@@ -201,12 +201,12 @@
   }
 </script>
 
-{#snippet row(id: PageId, name: string, sub?: string)}
+{#snippet row(id: PageId, name: string, sub?: string, summary = true)}
   {@const bad = problem(id)}
   <button class="yrow" onclick={() => go(id)}>
     <span class="yi"><PixelIcon name={ICON[id]} size={18} /></span>
     <span class="tx"><strong>{name}</strong>{#if sub}<small>{sub}</small>{/if}</span>
-    {#if bad}<span class="val bad">{bad}</span>{:else if value(id)}<span class="val">{value(id)}</span>{/if}
+    {#if bad}<span class="val bad">{bad}</span>{:else if summary && value(id)}<span class="val">{value(id)}</span>{/if}
     <span class="chev"><PixelIcon name="chev" size={11} /></span>
   </button>
 {/snippet}
@@ -436,7 +436,7 @@
     {#if query.trim()}
       {#if hits.length}
         <div class="card notch list">
-          {#each hits as s (s.name)}{@render row(s.page, s.name, NAME[s.page])}{/each}
+          {#each hits as s (s.name)}{@render row(s.page, s.name, NAME[s.page], false)}{/each}
         </div>
       {:else}
         <p class="fine">No setting matches "{query}".</p>
