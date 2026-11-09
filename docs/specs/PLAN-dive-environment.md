@@ -241,3 +241,4 @@ Reuse what already exists:
     9. Spec 022, quiz from notes, with the AI engineer.
   - **Port from the mock, don't redraw:** `CRYSTAL_FS`, `neuronForm`, `rootPull`, `ICONS`, `encodeTheme` and `decodeTheme` are in study-you.src.html.
 - 2026-11-05 · #222 and #146 merged at the user's word, before the Head's review arrived. The review's fixes follow in `docs/spec-046-review`. The user answered: smooth every stepped exception too, Due can be hidden, You's switches and search go to the top. Still the user's: the dive's Off, and an explicit "approved" for 030, 046 and 047. App code for the smoothing follows main's merge of #221, in a small PR.
+- 2026-11-05 · The user approved 030, 046 and 047 and took the recommendations. Building in the order above, starting with core (by issue) and `ui/crystal`.
