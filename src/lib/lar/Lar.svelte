@@ -1,11 +1,16 @@
 <script lang="ts" module>
-  import { app } from "../state.svelte";
+  import { activeTheme, app } from "../state.svelte";
+  import { larLook } from "../theme";
   import { SIS, THEMES, type Theme } from "./sprite";
 
   export type { Gesture } from "./sprite";
 
-  /** The colours of the portal the student uses: Mabini's when it is the only one connected. */
-  export const larTheme = (): Theme => (app.mabiniConnected && !app.sisConnected ? THEMES.mabini : SIS);
+  /** The colour the student gave him in their theme (047 C12), else the portal they use: Mabini's when it is the only one connected. */
+  export const larTheme = (): Theme => {
+    const hue = activeTheme()?.lar;
+    if (hue != null) return larLook(hue);
+    return app.mabiniConnected && !app.sisConnected ? THEMES.mabini : SIS;
+  };
 </script>
 
 <script lang="ts">

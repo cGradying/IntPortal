@@ -2,6 +2,7 @@
 // hand-tuned rooms live in app.css; the rest are the legacy Theme.swift
 // palettes as data, and `derive` turns each into the full set of roles with
 // contrast clamps (the port of `Palette.Roles.derived(from:)`).
+import { look, type Theme } from "./theme";
 
 export interface Palette {
   name: string;
@@ -15,9 +16,9 @@ export interface Palette {
 
 type RGB = [number, number, number];
 
-const hex = (h: string): RGB => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)) as RGB;
-const toHex = (c: RGB) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
-const mix = (a: string, b: string, t: number) => toHex(hex(a).map((v, i) => v + (hex(b)[i] - v) * t) as RGB);
+export const hex = (h: string): RGB => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)) as RGB;
+export const toHex = (c: RGB) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+export const mix = (a: string, b: string, t: number) => toHex(hex(a).map((v, i) => v + (hex(b)[i] - v) * t) as RGB);
 
 export function luminance(h: string): number {
   const [r, g, b] = hex(h).map((v) => {
@@ -33,7 +34,7 @@ export function contrast(a: string, b: string): number {
 }
 
 /** Moves `fg` toward `toward` until it reaches `ratio` against `bg`. */
-function push(fg: string, bg: string, ratio: number, toward: string): string {
+export function push(fg: string, bg: string, ratio: number, toward: string): string {
   let c = fg;
   for (let i = 1; i <= 20 && contrast(c, bg) < ratio; i++) c = mix(fg, toward, i / 20);
   return c;
@@ -133,8 +134,21 @@ export function schoolRoles(t: SchoolTheme, room: "night" | "day"): Record<strin
 const dark = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
 let following = false;
 
-/** "system" follows the phone: Night when it's dark, Day when it's light. */
-export function applyRoom(id: string) {
+/** "system" follows the phone: Night when it's dark, Day when it's light. A saved theme (spec 047 C15) comes with its id. */
+export function applyRoom(id: string, theme?: Theme | null) {
+  const root = document.documentElement;
+  for (const k of [...root.style]) if (k.startsWith("--") || k === "color-scheme") root.style.removeProperty(k);
+  delete root.dataset.corners;
+  delete root.dataset.cards;
+  if (theme) {
+    following = false;
+    root.dataset.room = "theme";
+    root.dataset.corners = theme.corners;
+    root.dataset.cards = theme.cards;
+    for (const [k, v] of Object.entries(look(theme))) root.style.setProperty(k, v);
+    return;
+  }
+  if (id.startsWith("theme:")) id = "night";
   if (id === "system") {
     if (!following && dark) dark.addEventListener("change", () => following && applyRoom("system"));
     following = true;
@@ -142,9 +156,7 @@ export function applyRoom(id: string) {
   } else {
     following = false;
   }
-  const root = document.documentElement;
   const palette = PALETTES[id];
-  for (const k of [...root.style]) if (k.startsWith("--") || k === "color-scheme") root.style.removeProperty(k);
   root.dataset.room = palette ? "derived" : id;
   if (palette) for (const [k, v] of Object.entries(derive(palette))) root.style.setProperty(k, v);
   // ponytail: PUP only for now (045 C4a); take the active portal's theme when other schools open.

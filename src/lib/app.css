@@ -207,6 +207,8 @@ button:not(:disabled):active {
   z-index: -1;
   pointer-events: none;
   will-change: transform;
+  /* A theme's moving pools: full, soft or still (047 C12). */
+  opacity: var(--aura-o, 1);
 }
 .dots::before {
   background:
@@ -265,8 +267,26 @@ input[type="checkbox"]:checked::after {
 
 .dots {
   background-color: var(--ground);
-  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
-  background-size: 14px 14px;
+  /* A theme's ground pattern (047 C12) replaces the dots; `look()` in theme.ts draws it. */
+  background-image: var(--pattern, radial-gradient(var(--dot) 1px, transparent 1.2px));
+  background-size: var(--pattern-size, 14px 14px);
+}
+
+/* A theme's corners and cards (047 C12), on the root or on the theme maker's preview. */
+:is(:root, .tm)[data-corners="deep"] .notch {
+  --s: 6px;
+}
+:is(:root, .tm)[data-corners="round"] .notch {
+  clip-path: none;
+  border-radius: 16px;
+}
+:is(:root, .tm)[data-corners="sharp"] .notch {
+  clip-path: none;
+  border-radius: 0;
+}
+:is(:root, .tm)[data-cards="outline"] .card {
+  background: var(--card);
+  box-shadow: inset 0 0 0 1.5px var(--edge-2);
 }
 
 /* A stepped pixel corner, two steps deep: clean at arm's length, pixel up close. */

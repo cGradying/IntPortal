@@ -1,6 +1,6 @@
 <script lang="ts">
   import { askForCalendar } from "../devcal";
-  import { app, mabiniSyncNow, openNote, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
+  import { app, forgetThemes, mabiniSyncNow, openNote, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
   import { api, isoDate, type Portal } from "../api";
   import { onMount } from "svelte";
   import PortalConnect from "../PortalConnect.svelte";
@@ -10,6 +10,7 @@
   import { sfx, setSound, sound } from "../sound";
   import { lock, setLock, unlockWith } from "../lock.svelte";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
+  import { roles } from "../theme";
   import Lar from "../lar/Lar.svelte";
   import ModelCard from "../assis/ModelCard.svelte";
 
@@ -58,13 +59,17 @@
     }
   }
 
-  const rooms = [
+  const rooms = $derived([
     ...HAND_TUNED,
+    ...app.themes.map((s) => {
+      const r = roles(s.theme);
+      return { id: `theme:${s.id}`, name: s.theme.name, swatch: [r["--ground"], r["--card"], r["--gold"]] };
+    }),
     ...Object.entries(PALETTES).map(([id, p]) => {
       const r = derive(p);
       return { id, name: p.name, swatch: [r["--ground"], r["--card"], r["--gold"]] };
     }),
-  ];
+  ]);
 
   const synced = $derived.by(() => {
     const s = app.snapshot?.last_synced;
@@ -99,6 +104,7 @@
     await api.signOut();
     await api.mabiniSignOut();
     await api.eraseEverything();
+    forgetThemes();
     await refreshLogins();
     onsignout();
   }
@@ -191,11 +197,12 @@
     <div class="rooms">
       {#each rooms as r (r.id)}
         <button class:on={app.room === r.id} onclick={() => setRoom(r.id)}>
-          <span class="swatch">{#each r.swatch as c (c)}<i style:background={c}></i>{/each}</span>
+          <span class="swatch">{#each r.swatch as c, i (i)}<i style:background={c}></i>{/each}</span>
           <span>{r.name}</span>
         </button>
       {/each}
     </div>
+    <button class="ghost" onclick={() => (app.themeMaker = true)}>Make a theme</button>
     <p class="label">Text style</p>
     <div class="styles" role="group" aria-label="Text style">
       <button class:on={app.textStyle === "intportal"} aria-pressed={app.textStyle === "intportal"} onclick={() => setTextStyle("intportal")}><span style:font-family="var(--font-ui)" style:font-weight="700">IntPortal</span></button>

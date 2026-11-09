@@ -27,6 +27,7 @@
   import MabiniGrades from "$lib/MabiniGrades.svelte";
   import NeedSis from "$lib/NeedSis.svelte";
   import MabiniPage from "$lib/MabiniPage.svelte";
+  import ThemeMaker from "$lib/ThemeMaker.svelte";
   import { watchDynamicIsland } from "$lib/glance";
   import { watchBars } from "$lib/bars";
   import { watchBack } from "$lib/back";
@@ -236,6 +237,7 @@
     {#key app.editing.key}<NoteEditor {...app.editing} />{/key}
   {/if}
   {#if app.mabiniPage}<MabiniPage />{/if}
+  {#if app.themeMaker}<ThemeMaker />{/if}
   {#if assis.open}<AssisSheet onclose={() => (assis.open = false)} />{/if}
 {/if}
 

@@ -5,6 +5,8 @@ import { Schedule, cancel, isPermissionGranted, onAction, pending, requestPermis
 import { api, isoDate, localMs, moment, type Busy, type MabiniData, type NoteItem, type Snapshot, type Today } from "./api";
 import { busyFrom, keepClasses } from "./devcal";
 import { applyRoom } from "./rooms";
+import type { Theme } from "./theme";
+import { decodeTheme, encodeTheme } from "./themeCode";
 import { buzz } from "./haptics";
 import { friendly } from "./errors";
 import { larReminderIds } from "./assis/apply";
@@ -33,6 +35,10 @@ export const app = $state({
   /** The eMabini page (courses, deadlines, grades) is open. */
   mabiniPage: false,
   room: read("room") || "system",
+  /** The student's own themes (spec 047 C14); a room id of `theme:<id>` wears one. */
+  themes: loadThemes(),
+  /** The theme maker is open. */
+  themeMaker: false,
   /** The text style in You: IntPortal's own, or the original Classic. */
   textStyle: read("textStyle") === "classic" ? "classic" : "intportal",
   /** Minutes before class; 0 turns reminders off. */
@@ -321,9 +327,63 @@ export function setTextStyle(style: string) {
   write("textStyle", app.textStyle);
 }
 
+export interface SavedTheme {
+  id: string;
+  theme: Theme;
+}
+
+/** Kept as share codes, so whatever is stored goes through the same strict check as a pasted one. */
+function loadThemes(): SavedTheme[] {
+  try {
+    const list: unknown = JSON.parse(read("themes") ?? "[]");
+    if (!Array.isArray(list)) return [];
+    return list.flatMap((x) => {
+      const theme = typeof x?.id === "string" && typeof x?.code === "string" ? decodeTheme(x.code) : null;
+      return theme ? [{ id: x.id as string, theme }] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function writeThemes() {
+  write("themes", JSON.stringify(app.themes.map((s) => ({ id: s.id, code: encodeTheme(s.theme) }))));
+}
+
+const themeOf = (room: string) => (room.startsWith("theme:") ? (app.themes.find((s) => `theme:${s.id}` === room)?.theme ?? null) : null);
+
+/** The theme the app wears, when it is one of the student's. */
+export const activeTheme = () => themeOf(app.room);
+
+/** Saves a new theme, or replaces the one with `id`, and returns its id. A worn theme re-applies. */
+export function saveTheme(theme: Theme, id?: string): string {
+  const saved = { id: id ?? `t${Date.now().toString(36)}`, theme: { ...theme } };
+  const i = app.themes.findIndex((s) => s.id === saved.id);
+  app.themes = i < 0 ? [...app.themes, saved] : app.themes.map((s, j) => (j === i ? saved : s));
+  writeThemes();
+  if (app.room === `theme:${saved.id}`) setRoom(app.room);
+  return saved.id;
+}
+
+/** Deleting the theme the app wears falls back to Night (C14). */
+export function deleteTheme(id: string) {
+  app.themes = app.themes.filter((s) => s.id !== id);
+  writeThemes();
+  if (app.room === `theme:${id}`) setRoom("night");
+}
+
+/** Erase everything takes the themes too. */
+export function forgetThemes() {
+  app.themes = [];
+  writeThemes();
+  if (app.room.startsWith("theme:")) setRoom("night");
+}
+
 export function setRoom(room: string) {
+  const theme = themeOf(room);
+  if (room.startsWith("theme:") && !theme) room = "night";
   app.room = room;
-  applyRoom(room);
+  applyRoom(room, theme);
   write("room", room);
 }
 
