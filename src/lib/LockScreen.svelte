@@ -1,7 +1,7 @@
 <script lang="ts">
   // Covers the app while it's locked or in the background (so the app
-  // switcher shows Isko, not the student's grades).
-  import Isko from "./Isko.svelte";
+  // switcher shows LAR, not the student's grades).
+  import Lar from "./lar/Lar.svelte";
   import { lock, unlock } from "./lock.svelte";
 
   $effect(() => {
@@ -10,7 +10,7 @@
 </script>
 
 <div class="cover" role="dialog" aria-label="IntPortal is locked">
-  <Isko size={96} pose="stand" />
+  <Lar size={5} />
   <p class="wordmark"><span>Student</span> IntPortal</p>
   {#if lock.locked && !lock.hidden}
     <button onclick={unlock}>Unlock</button>

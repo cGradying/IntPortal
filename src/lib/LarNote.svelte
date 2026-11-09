@@ -1,5 +1,5 @@
 <script lang="ts">
-  // LAR saying one line, for empty states and tips. LAR talks; Isko is you.
+  // LAR saying one line, for empty states and tips. LAR talks.
   import type { Snippet } from "svelte";
   import Lar, { type Gesture } from "./lar/Lar.svelte";
   import type { Mood, State } from "./lar/sprite";
