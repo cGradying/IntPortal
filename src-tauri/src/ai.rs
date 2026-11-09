@@ -62,6 +62,12 @@ fn small_ram() -> bool {
     *SMALL.get_or_init(|| models::is_small_ram(mem::total()))
 }
 
+/// The same tier decides whether the phone gets the crystal's glass (spec 046 C1d2).
+#[tauri::command]
+pub fn ai_small_ram() -> bool {
+    small_ram()
+}
+
 /// Whether the chat model `m` (or, for the embedder, the default chat model beside it) fits in memory
 /// given `available`: a big phone holds both models at once, a small one a single model.
 fn fits(m: &Model, available: Option<u64>) -> Gate {

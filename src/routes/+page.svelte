@@ -218,7 +218,7 @@
       {/key}
     </main>
     <TabBar />
-    <AssisOrb />
+    <AssisOrb settled={!dive} />
   </div>
   <!-- Without a dive, the void lifts off the room instead of cutting to it. -->
   {#if !dived}<div class="veil" class:lifted aria-hidden="true"></div>{/if}
@@ -272,10 +272,10 @@
     visibility: hidden;
   }
   main {
-    padding: calc(var(--safe-top) + 12px) var(--gutter) calc(var(--safe-bottom) + 92px);
+    padding: calc(var(--safe-top) + 12px) var(--gutter) calc(var(--safe-bottom) + 140px);
   }
   [data-glance="dock"] main {
-    padding-bottom: calc(var(--safe-bottom) + 150px);
+    padding-bottom: calc(var(--safe-bottom) + 198px);
   }
   .page.slides {
     animation: in 0.22s var(--ease) backwards;

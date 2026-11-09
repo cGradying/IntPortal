@@ -50,6 +50,8 @@ export const assis = $state({
   error: "",
   open: false,
   chat: [] as Msg[],
+  /** What this screen adds to the crystal's + menu, after Ask LAR. */
+  menu: [] as { label: string; run: () => void }[],
 });
 
 /** The model a new install gets (the catalog's default chat model). */

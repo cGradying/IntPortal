@@ -13,7 +13,8 @@
   import { api, isoDate, type Deck } from "../api";
   import { buzz } from "../haptics";
   import { resource } from "../load.svelte";
-  import { app } from "../state.svelte";
+  import { app, openNote } from "../state.svelte";
+  import { assis } from "../assis/assis.svelte";
 
   const study = resource(() => api.study(isoDate(new Date())));
   const overview = $derived(study.current.state === "ready" ? study.current.value : null);
@@ -22,6 +23,14 @@
   // Leaving the tab closes the deck, as it always did.
   $effect(() => () => {
     app.deck = null;
+  });
+  // The crystal's + (spec 046 C1b): Ask LAR first, then what this screen can add.
+  $effect(() => {
+    const note = { label: "Today's note", run: () => openNote(`day:${isoDate(new Date())}`, new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })) };
+    // The form only lives on the list, so a deck page or a review offers just the note.
+    const deck = { label: "New deck", run: () => { naming = true; scrollTo({ top: 0, behavior: "smooth" }); } };
+    assis.menu = reviewing || app.deck ? [note] : [note, deck];
+    return () => (assis.menu = []);
   });
   // Spec 040 C9: every due card across decks in one session.
   let reviewing = $state<Deck[] | null>(null);
