@@ -1,11 +1,11 @@
 <script lang="ts">
   import PixelNum from "../PixelNum.svelte";
   import { counted } from "../count.svelte";
-  // Study opens on a home of part tiles (spec 046 C1): Review, Notes and Cards,
+  // Study opens on a home of part tiles (spec 046 C1): Review, Notes, Cards and Done,
   // each opening its own page with "‹ Study" as the way back.
   import DeckPage from "../DeckPage.svelte";
   import Shelf, { colorOf } from "../Shelf.svelte";
-  import { deckBar, deckGroups, GENERAL, pixels, shelves } from "../shelf";
+  import { CARDS_PER_PX, deckBar, deckGroups, GENERAL, pixels, shelves, weekBars } from "../shelf";
   import StudySession from "../StudySession.svelte";
   import ErrorCard from "../ErrorCard.svelte";
   import Flame from "../Flame.svelte";
@@ -23,10 +23,12 @@
   const decks = $derived(overview?.decks ?? []);
   const dueCount = counted("due", () => overview?.due ?? null);
   const todayCount = counted("reviews", () => overview?.reviews_today ?? null);
+  const bars = $derived(weekBars(overview?.week ?? [0, 0, 0, 0, 0, 0, 0], new Date()));
+  const weekTotal = $derived(bars.reduce((a, b) => a + b.n, 0));
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
   // Which part is open. Home every time Study opens, as the mockup did.
-  type Part = "home" | "review" | "notes" | "cards";
+  type Part = "home" | "review" | "notes" | "cards" | "done";
   let part = $state<Part>("home");
   // Opening slides in from the right, going back from the left (C1).
   let from = $state(28);
@@ -141,6 +143,12 @@
             <span class="tm">{decks.length ? `${plural(decks.length, "deck")}, ${plural(totalCards, "card")}` : "No decks yet. Make your first."}</span>
           </button>
         </div>
+
+        <button class="card notch tile wide" onclick={() => go("done")}>
+          <span class="tl">Done{@render chev()}</span>
+          <span class="mbars" aria-hidden="true">{#each bars as b, i (i)}<span class:t={b.today}>{@render px(Math.min(9, b.px))}</span>{/each}</span>
+          <span class="tm">{plural(weekTotal, "card")} in 7 days</span>
+        </button>
       {:else if part === "review"}
         {@render back()}
         <h1>Review</h1>
@@ -162,6 +170,21 @@
           <section class="card notch st"><p class="label">Today</p><p class="num"><PixelNum text={String(Math.round(todayCount.value ?? 0))} size={4} /><span>{overview?.reviews_today === 1 ? "card" : "cards"}</span></p></section>
         </div>
         <button class="primary start" onclick={reviewAll} disabled={!overview?.due}>{overview?.due ? `Review ${overview.due} due` : "All caught up"}</button>
+      {:else if part === "done"}
+        {@render back()}
+        <h1>Done</h1>
+        <section class="card notch wk">
+          <div class="bars" role="img" aria-label="Cards reviewed each day for the last 7 days: {bars.map((b) => `${b.day} ${b.n}`).join(', ')}">
+            {#each bars as b, i (i)}
+              <div class:t={b.today}><span>{@render px(b.px)}</span><small>{b.day}</small></div>
+            {/each}
+          </div>
+          <p class="fine"><b>{weekTotal}</b> {weekTotal === 1 ? "card" : "cards"} in the last 7 days. One pixel is {CARDS_PER_PX} cards.</p>
+        </section>
+        <div class="sts">
+          <section class="card notch st"><p class="label">Streak</p><p class="num">{#if overview?.streak}<Flame />{/if}<PixelNum text={String(overview?.streak ?? 0)} size={4} /><span>{overview?.streak === 1 ? "day" : "days"}</span></p></section>
+          <section class="card notch st"><p class="label">Today</p><p class="num"><PixelNum text={String(overview?.reviews_today ?? 0)} size={4} /><span>{overview?.reviews_today === 1 ? "card" : "cards"}</span></p></section>
+        </div>
       {:else if part === "notes"}
         {@render back()}
         <h1>Notes</h1>
@@ -403,6 +426,63 @@
     flex: none;
     width: 4px;
     height: 8px;
+  }
+
+  /* Done: a pixel per 3 cards, a bar per day, today in gold. */
+  .mbars {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    align-items: end;
+    height: 36px;
+  }
+  .mbars > span,
+  .bars > div > span {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 2px;
+  }
+  .mbars u,
+  .bars u {
+    display: block;
+    width: 12px;
+    height: 2px;
+    background: var(--ink-3);
+    text-decoration: none;
+  }
+  .bars u {
+    width: 14px;
+    height: 6px;
+  }
+  .mbars .t u,
+  .bars .t u {
+    background: var(--gold);
+  }
+  .wk {
+    display: grid;
+    gap: 10px;
+  }
+  .bars {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+  }
+  .bars > div {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+  }
+  .bars > div > span {
+    height: 94px;
+  }
+  .bars small {
+    font: 500 11px var(--font-pixel, monospace);
+    color: var(--ink-3);
+  }
+  .bars .t small {
+    color: var(--gold);
+  }
+  .wk b {
+    color: var(--ink);
   }
 
   /* Review */

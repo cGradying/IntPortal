@@ -79,3 +79,15 @@ export function deckBar(d: ShelfDeck, max = 20) {
   const gold = Math.min(max, Math.ceil(d.due / 3));
   return { gold, rest: Math.max(0, Math.min(max, Math.ceil(d.cards / 3)) - gold) };
 }
+
+/** One pixel is this many cards on the Done bars. */
+export const CARDS_PER_PX = 3;
+
+/** The Done bars (C1): the core's last seven days, oldest first, each with its weekday
+ *  ("Mon") and a pixel per 3 cards up to `max`; the last bar is today. */
+export function weekBars(week: number[], today: Date, max = 12) {
+  return week.map((n, i) => {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (week.length - 1 - i));
+    return { n, day: d.toLocaleDateString("en-US", { weekday: "short" }), px: Math.min(max, Math.ceil(n / CARDS_PER_PX)), today: i === week.length - 1 };
+  });
+}

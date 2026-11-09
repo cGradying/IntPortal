@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NoteItem } from "./api";
-import { deckBar, deckGroups, heightOf, MAX_PX, pixels, search, shelves, subjectOf } from "./shelf";
+import { deckBar, deckGroups, heightOf, MAX_PX, pixels, search, shelves, subjectOf, weekBars } from "./shelf";
 
 const note = (key: string, updated: number, extra: Partial<NoteItem> = {}): NoteItem => ({ key, text: "", title: null, updated, subject: null, pinned: false, preview: "", ...extra });
 const deck = (id: string, subject: string | null, due = 0) => ({ id, name: id, subject, cards: 10, due });
@@ -73,5 +73,14 @@ describe("the notebook shelf (046 C1 to C7)", () => {
     expect(deckBar({ ...deck("b", null, 0), cards: 16 })).toEqual({ gold: 0, rest: 6 });
     expect(deckBar({ ...deck("c", null, 90), cards: 300 })).toEqual({ gold: 20, rest: 0 });
     expect(deckBar({ ...deck("d", null, 3), cards: 300 })).toEqual({ gold: 1, rest: 19 });
+  });
+});
+
+describe("the Done bars (046 C1)", () => {
+  it("c1_done_bars_are_the_last_seven_days_ending_today", () => {
+    const bars = weekBars([0, 3, 4, 0, 40, 1, 7], new Date(2026, 10, 9));
+    expect(bars.map((b) => b.day)).toEqual(["Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Mon"]);
+    expect(bars.map((b) => b.px)).toEqual([0, 1, 2, 0, 12, 1, 3]);
+    expect(bars.map((b) => b.today)).toEqual([false, false, false, false, false, false, true]);
   });
 });
