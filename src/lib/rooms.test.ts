@@ -44,7 +44,7 @@ describe("app.css", () => {
 describe("the environment (spec 045)", () => {
   const svelte = (f: string): string => readFileSync(new URL(f, import.meta.url), "utf8");
   it("c1_no_void_hex_outside_app_css: the void's world reads tokens", () => {
-    for (const f of ["./Landing.svelte", "./PortalHub.svelte", "./assis/AssisSheet.svelte", "./lar/LarFlight.svelte", "./Glance.svelte"]) {
+    for (const f of ["./Landing.svelte", "./PortalHub.svelte", "./assis/AssisWindow.svelte", "./lar/LarFlight.svelte", "./Glance.svelte"]) {
       const style = svelte(f).split("<style")[1];
       expect(style, f).not.toMatch(/#(0b0710|140c16|170b1a|060607|060307|f5b227|f4ecd8)\b/i);
     }

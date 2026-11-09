@@ -18,7 +18,7 @@
   import SubjectPage from "$lib/SubjectPage.svelte";
   import FirstRun from "$lib/FirstRun.svelte";
   import AssisOrb from "$lib/assis/AssisOrb.svelte";
-  import AssisSheet from "$lib/assis/AssisSheet.svelte";
+  import AssisWindow from "$lib/assis/AssisWindow.svelte";
   import { assis, watchAssis } from "$lib/assis/assis.svelte";
   import PullToSync from "$lib/PullToSync.svelte";
   import LockScreen from "$lib/LockScreen.svelte";
@@ -236,7 +236,7 @@
     {#key app.editing.key}<NoteEditor {...app.editing} />{/key}
   {/if}
   {#if app.mabiniPage}<MabiniPage />{/if}
-  {#if assis.open}<AssisSheet onclose={() => (assis.open = false)} />{/if}
+  {#if assis.open}<AssisWindow onclose={() => (assis.open = false)} />{/if}
 {/if}
 
 {#if greet && inside}

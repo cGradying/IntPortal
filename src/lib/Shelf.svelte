@@ -108,7 +108,7 @@
 
 {#snippet noteRow(n: NoteItem)}
   <li>
-    <button class="rowb" onclick={() => !held && openNote(n.key, heading(n), n.title)} onpointerdown={() => hold(n)} onpointerup={release} onpointerleave={release} oncontextmenu={(e) => e.preventDefault()}>
+    <button class="rowb" data-source={n.key} onclick={() => !held && openNote(n.key, heading(n), n.title)} onpointerdown={() => hold(n)} onpointerup={release} onpointerleave={release} oncontextmenu={(e) => e.preventDefault()}>
       <span class="tx">
         <strong>{#if n.pinned}<span class="pinned">Pinned</span>{/if}{heading(n)}</strong>
         <small>{edited(n.updated)} · {n.preview || "Empty"}</small>
