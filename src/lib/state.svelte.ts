@@ -51,7 +51,8 @@ export const app = $state({
   /** The deck open on the Study tab, if any. */
   deck: null as string | null,
   /** The note open in the editor, if any. */
-  editing: null as null | { key: string; heading: string; title: string | null },
+  /** `subject` files a new freeform note on its first save with text (046 C2). */
+  editing: null as null | { key: string; heading: string; title: string | null; subject?: string },
   /** What is queued with the platform right now. */
   queued: { count: 0, next: null as null | { title: string; at: Date }, error: "" },
   /** Notifications allowed by the phone; null until checked. */
@@ -218,8 +219,8 @@ export function openDeck(id: string) {
   app.deck = id;
 }
 
-export function openNote(key: string, heading: string, title: string | null = null) {
-  app.editing = { key, heading, title };
+export function openNote(key: string, heading: string, title: string | null = null, subject?: string) {
+  app.editing = { key, heading, title, subject };
 }
 
 export async function adopt(snap: Snapshot) {
