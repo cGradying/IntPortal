@@ -1,0 +1,364 @@
+<style>
+/* Study in parts: shared part bodies, then the three ways between them. */
+.s-ph .view { padding-bottom: 138px; }
+.s-ph .view.s-fix { overflow: hidden; padding: 48px 0 70px; gap: 10px; }
+.s-ph .s-pad { margin-inline: 14px; }
+.s-ph .s-pane { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none; padding: 2px 14px 68px; display: flex; flex-direction: column; gap: 12px; }
+.s-pane::-webkit-scrollbar { display: none; }
+.s-pane > * { flex: none; min-width: 0; }
+.s-ib { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; padding: 0; background: none; color: var(--ink-2) !important; }
+.s-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+.s-head .btn { gap: 6px; }
+.s-lc { padding: 2px 0; }
+.s-empty { padding: 4px 2px; }
+.s-dp { display: flex; flex-wrap: wrap; gap: 2px; min-width: 0; }
+.s-dp u { display: block; width: 6px; height: 6px; background: var(--gold); text-decoration: none; }
+.s-dp u.o { background: color-mix(in srgb, var(--ink) 22%, transparent); }
+
+/* Notes: the shelf, then the pulled notebook */
+.s-ph-h { display: flex; align-items: center; gap: 4px; min-height: 40px; margin-top: -4px; }
+.s-ph-h p { flex: 1; min-width: 0; margin: 0; font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-ph-h b { font-weight: 600; color: var(--ink); }
+.s-ph-h .s-ib { margin-right: -10px; }
+.s-pulled { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.s-pulled > *, .s-res > * { animation: s-in 0.36s var(--ease) both; }
+.s-find { margin-top: -2px; padding-right: 0; }
+.s-find .s-ib { width: 40px; }
+@keyframes s-in { from { opacity: 0; translate: 0 8px; } }
+
+/* Cards */
+.s-gl { margin: 0; display: flex; align-items: center; gap: 8px; padding: 12px 12px 0; font: 500 12px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-2); }
+.list > .s-gl + .rowb { box-shadow: none; }
+
+/* Review */
+.s-rv { display: grid; gap: 14px; padding: 16px; }
+.s-big { display: flex; align-items: flex-end; gap: 10px; color: var(--ink); }
+.s-big > span { font-size: 15px; color: var(--ink-2); line-height: 1; }
+.s-dk { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; font-size: 13px; }
+.s-dk .s-dn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-dk .s-dp { flex-wrap: nowrap; }
+.s-dc { font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; text-align: right; min-width: 18px; }
+.s-dc.z { font-weight: 400; color: var(--ink-3); }
+.s-sts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.s-st { display: grid; gap: 6px; padding: 12px; }
+.s-st p:last-child { margin: 0; display: flex; align-items: flex-end; gap: 6px; color: var(--ink); }
+.s-st p:last-child span { font-size: 13px; color: var(--ink-2); line-height: 1; }
+.s-ph .s-start { min-height: 52px; font-size: 16px; margin-top: auto; }
+
+/* Done */
+.s-wk { display: grid; gap: 10px; padding: 14px 12px 12px; }
+.s-bars { display: grid; grid-template-columns: repeat(7, 1fr); }
+.s-bars > div { display: grid; justify-items: center; gap: 6px; }
+.s-bars > div > span { height: 94px; display: flex; flex-direction: column-reverse; gap: 2px; }
+.s-bars u { display: block; width: 14px; height: 6px; background: var(--ink-3); text-decoration: none; }
+.s-bars small { font: 500 11px var(--f-pixel); color: var(--ink-3); }
+.s-bars .t u { background: var(--gold); }
+.s-bars .t small { color: var(--gold); }
+.s-wk b { color: var(--ink); }
+
+/* A: Study home of part tiles, each opening its own page */
+.s-tile { width: 100%; border: 0; text-align: left; display: grid; gap: 10px; align-content: start; color: var(--ink) !important; transition: scale 0.16s var(--spring); }
+.s-tile:active { scale: 0.98; }
+.s-tile:focus-visible { outline: 0; box-shadow: inset 0 0 0 2px var(--gold); }
+.s-tl { display: flex; align-items: center; justify-content: space-between; font: 600 15px/1.2 var(--f-ui); }
+.s-tl svg { color: var(--ink-3); }
+.s-tm { font-size: 13px; color: var(--ink-2); line-height: 1.3; }
+.s-tile .s-dp u { width: 8px; height: 8px; }
+.s-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.s-mini { display: flex; align-items: flex-end; gap: 4px; height: 78px; }
+.s-mini i { width: 18px; height: var(--h); padding: 2px; display: flex; align-items: flex-end; background: var(--c); clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% 100%,0 100%); box-shadow: inset 2px 0 0 rgb(255 255 255 / 0.16), inset -2px 0 0 rgb(0 0 0 / 0.22); }
+.s-mini i > span { width: 100%; min-height: 6px; padding: 1px; display: flex; flex-wrap: wrap-reverse; gap: 1px; background: rgb(0 0 0 / 0.42); }
+.s-mini u { display: block; width: 3px; height: 3px; text-decoration: none; }
+.s-mini u.n { background: #fff6dc; } .s-mini u.d { background: #f5b227; }
+.s-decks { display: grid; gap: 8px; height: 78px; align-content: end; }
+.s-decks > span { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 6px; align-items: center; }
+.s-decks .s-dp { gap: 1px; } .s-tile .s-decks .s-dp u { width: 4px; height: 8px; }
+.s-tw { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "l b" "m b"; align-items: end; }
+.s-tw .s-tl { grid-area: l; } .s-tw .s-tm { grid-area: m; } .s-tw .s-tl svg { display: none; }
+.s-mbars { grid-area: b; display: flex; align-items: flex-end; gap: 3px; height: 40px; }
+.s-mbars > span { display: flex; flex-direction: column-reverse; gap: 1px; }
+.s-mbars u { display: block; width: 8px; height: 4px; background: var(--ink-3); text-decoration: none; }
+.s-mbars .t u { background: var(--gold); }
+.s-ph .view.s-a { transition: opacity 0.36s var(--ease), translate 0.36s var(--ease); }
+.s-ph .view.s-a.s-away { opacity: 0; translate: -28px 0; pointer-events: none; }
+.s-page { position: absolute; inset: 0 0 70px; z-index: 29; display: flex; flex-direction: column; padding-top: 42px; opacity: 0; translate: 28px 0; visibility: hidden; transition: opacity 0.36s var(--ease), translate 0.36s var(--ease), visibility 0s 0.36s; }
+.s-page.on { opacity: 1; translate: 0 0; visibility: visible; transition-delay: 0s; }
+.s-ph .s-page > .s-pane { flex: 1; min-height: 0; }
+.s-back { flex: none; align-self: flex-start; min-height: 44px; margin-left: 4px; padding: 0 12px 0 6px; border: 0; background: none; display: inline-flex; align-items: center; gap: 2px; font-weight: 600; font-size: 15px; color: var(--gold) !important; }
+
+/* B: a switch at the top, the part slides under the gold */
+.s-seg { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge); border-radius: 10px; }
+.s-seg > i { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3); background: var(--gold); border-radius: 8px; box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.22); translate: calc(var(--k, 0) * 100%) 0; transition: translate 0.36s var(--ease); }
+.s-seg button { position: relative; z-index: 1; min-height: 40px; border: 0; padding: 0 2px; background: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font: 600 14px var(--f-ui); color: var(--ink-2) !important; transition: color 0.24s var(--ease); }
+.s-seg button[aria-selected="true"] { color: var(--on-gold) !important; }
+.s-seg em { font: 600 11px/1 var(--f-pixel); font-style: normal; padding: 3px 4px; background: var(--gold-soft); color: var(--gold); transition: background 0.24s var(--ease), color 0.24s var(--ease); }
+.s-seg button[aria-selected="true"] em { background: rgb(0 0 0 / 0.16); color: inherit; }
+.s-ph .s-track { flex: 1; min-height: 0; display: flex; translate: calc(var(--k, 0) * -100%) 0; transition: translate 0.36s var(--ease); }
+.s-ph .s-track > .s-pane { flex: 0 0 100%; gap: 10px; padding-top: 0; transition: opacity 0.36s var(--ease); }
+.s-track .s-ph-h { min-height: 32px; }
+.s-ph .s-track .spines { padding-top: 16px; min-height: 172px; }
+.s-ph .s-seg button { min-height: 36px; }
+.s-ph .view.s-vb { gap: 8px; }
+.s-track > .s-pane:not(.on) { opacity: 0; }
+
+/* C: swipe pages, with a rail beside the + in thumb reach */
+.s-ph .s-pages { flex: 1; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.s-pages::-webkit-scrollbar { display: none; }
+.s-ph .s-pages > .s-pane { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+.s-rail { position: absolute; left: 14px; right: 70px; bottom: 82px; height: 48px; z-index: 31; display: grid; grid-template-columns: repeat(4, 1fr); background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-2); clip-path: var(--n3); }
+.s-rail > i { position: absolute; left: 0; bottom: 5px; width: 25%; height: 3px; padding-inline: 16px; background: var(--gold); background-clip: content-box; pointer-events: none; }
+.s-rail button { position: relative; border: 0; padding: 0 0 6px; background: none; display: grid; justify-items: center; align-content: center; gap: 4px; font: 500 11px/1 var(--f-pixel); letter-spacing: 0.04em; color: var(--ink-3) !important; transition: color 0.24s var(--ease); }
+.s-rail button.on { color: var(--ink) !important; }
+.s-rail button:first-of-type .s-rn { color: var(--gold); }
+.s-rail .s-rn { color: var(--ink-2); }
+
+/* Review session, the full-screen state */
+.s-sess { position: absolute; inset: 0 0 70px; z-index: 32; display: flex; flex-direction: column; gap: 12px; padding: 42px 14px 14px; background: var(--ground); opacity: 0; translate: 0 28px; transition: opacity 0.36s var(--ease), translate 0.36s var(--ease); }
+.s-sess.on { opacity: 1; translate: 0 0; }
+.s-sbar { display: flex; align-items: center; gap: 6px; margin-left: -10px; }
+.s-sbar b { flex: 1; min-width: 0; font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-sbar span { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.s-prog { display: flex; flex-wrap: wrap; gap: 3px; }
+.s-prog u { display: block; width: 12px; height: 6px; background: var(--edge-2); text-decoration: none; transition: background 0.3s var(--ease); }
+.s-prog u.on { background: var(--gold); }
+.s-fc { flex: 1; min-height: 0; position: relative; border: 0; padding: 0; background: none; perspective: 900px; }
+.s-fc:focus-visible { outline-offset: 4px; }
+.s-fi { position: absolute; inset: 0; }
+.s-f, .s-b { transition: transform 0.4s var(--ease); }
+.s-snap .s-f, .s-snap .s-b { transition: none; }
+.s-fc.flip .s-f { transform: perspective(900px) rotateY(180deg); }
+.s-fc.flip .s-b { transform: perspective(900px) rotateY(0deg); }
+.s-fi.s-new { animation: s-in 0.36s var(--ease) both; }
+.s-f, .s-b { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 22px; text-align: center; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-2); clip-path: var(--n4); }
+.s-f { transform: perspective(900px) rotateY(0deg); }
+.s-b { transform: perspective(900px) rotateY(-180deg); box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 3px 0 var(--gold); }
+.s-f small, .s-b small { display: inline-flex; align-items: center; gap: 6px; font: 500 12px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-2); }
+.s-f strong { font: 800 26px/1.12 var(--f-ui); letter-spacing: -0.03em; text-wrap: balance; }
+.s-b strong { font: 600 20px/1.3 var(--f-ui); text-wrap: balance; }
+.s-hint { text-align: center; }
+.s-ans { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.s-ans .btn { min-height: 52px; font-size: 15px; }
+.s-ans.s-one { grid-template-columns: 1fr; }
+
+/* page chrome */
+.s-one-pick { grid-template-columns: 1fr; }
+.s-panel { grid-column: 1 / -1; max-width: 760px; justify-self: stretch; }
+.s-panel dl { grid-template-columns: auto 1fr; }
+.s-panel dd { font-weight: 400; color: var(--parch); }
+</style>
+
+<section class="row" id="study">
+  <div class="q"><h2>Study in parts, each one screen tall</h2><p>Notes, Cards and Review get a short page each, one tap apart, instead of one long scroll. Three ways to move between them. Every phone is live: pull a notebook, open a note, review a card.</p></div>
+  <div class="wide">
+    <div class="opt"><div class="phone" id="sPhA"></div><div class="name"><b>A: Tiles home</b><span>Study opens on four live tiles. Each opens its own page, with Study as the way back.</span></div><div class="picks s-one-pick"><button class="pick" data-row="study" data-v="A: Tiles home">Pick A</button></div></div>
+    <div class="opt"><div class="phone" id="sPhB"></div><div class="name"><b>B: Top switch</b><span>Notes, Cards and Review across the top. The part slides in under the gold.</span></div><div class="picks s-one-pick"><button class="pick" data-row="study" data-v="B: Top switch">Pick B</button></div></div>
+    <div class="opt"><div class="phone" id="sPhC"></div><div class="name"><b>C: Thumb rail</b><span>Swipe between parts, or tap the rail beside the +. Everything you switch with sits in thumb reach.</span></div><div class="picks s-one-pick"><button class="pick" data-row="study" data-v="C: Thumb rail">Pick C</button></div></div>
+    <div class="panel s-panel">
+      <h3>Try it</h3>
+      <div class="seg0" role="group" aria-label="Room"><button data-s-room="night" aria-pressed="true">Night</button><button data-s-room="day" aria-pressed="false">Day</button></div>
+      <p>Tap a part to open it. Start a review and tap the card to flip it: Got it takes a card off every count, in every part, and logs it under Done. Tap a deck with cards due to review only that deck. The + offers Ask LAR, a new note and a new deck, as it does today.</p>
+      <h3>How far each part scrolls</h3>
+      <dl id="sScroll"></dl>
+      <p>Measured live on these phones, with the notebook that's pulled right now. 0 px means the part fits above the + and the tab bar. The shelf still scrolls sideways inside Notes, as it does today.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+const sTerms = {
+  "OOP midterm": [["Encapsulation", "Keeping an object's state private, behind its methods"], ["Polymorphism", "One call, many behaviours"], ["Composition", "A class holds another class as a part"], ["Interface", "Says what a class does, never how"]],
+  "Complexity": [["Binary search", "O(log n)"], ["Merge sort", "O(n log n), in every case"], ["Hash table lookup", "O(1) on average"]],
+  "Logic rules": [["Modus ponens", "p, and p → q, so q"], ["De Morgan", "¬(p ∧ q) ≡ ¬p ∨ ¬q"]],
+};
+const sDays = ["T", "W", "T", "F", "S", "S", "M"];
+let sTheme = NIGHT;
+const sUis = [];
+const sState = () => ({ decks: DECKS.map((d) => ({ ...d })), today: 4, streak: 5, cur: "COMP 20083", find: null, week: [12, 0, 22, 15, 30, 9],
+  log: [{ name: "OOP midterm", n: 12, s: 1, when: "Sat" }, { name: "Complexity", n: 9, s: 2, when: "Fri" }, { name: "Logic rules", n: 16, s: 3, when: "Thu" }] });
+const sSub = (code) => SUBJECTS.find((s) => s.code === code);
+const sDue = (st, code) => st.decks.reduce((a, d) => a + (!code || d.sub === code ? d.due : 0), 0);
+const sPx = (n, cls = "") => Array.from({ length: Math.max(0, n) }, (_, i) => `<u class="${cls}" style="--i:${i}"></u>`).join("");
+const sTall = (st, code) => Math.min(MAXPX, notesOf(code).length + sDue(st, code));
+const sWell = (st, code) => { const n = Math.min(MAXPX, notesOf(code).length); return sPx(n, "n") + sPx(Math.min(MAXPX - n, sDue(st, code)), "d"); };
+const sWeek = (st) => [...st.week, st.today];
+const sPl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const sChev = () => pi("chev", 12);
+
+/* ---- the parts: same bodies in every version ---- */
+function sList(st) {
+  const q = (st.find || "").trim().toLowerCase();
+  const ns = st.find != null ? (q ? NOTES.filter((n) => `${n.title} ${n.preview} ${n.sub}`.toLowerCase().includes(q)) : []) : notesOf(st.cur);
+  if (!ns.length) return `<p class="fine s-empty">${st.find != null ? (q ? "No notes match that." : "Searches every note's name and text, offline.") : "No notes here yet. Tap + to write one."}</p>`;
+  return `<div class="card s-lc"><div class="list">${ns.map(noteRow).join("")}</div></div>`;
+}
+function sPulled(st) {
+  if (st.find != null) return `<label class="search s-find">${pi("search", 16)}<input value="${esc(st.find)}" placeholder="Search all notes" aria-label="Search all notes" enterkeyhint="search"><button class="s-ib" data-find-x aria-label="Close search">${pi("x", 14)}</button></label><div class="s-res">${sList(st)}</div>`;
+  const s = sSub(st.cur);
+  return `<div class="s-ph-h"><p><b>${esc(s.name)}</b> · ${sPl(notesOf(st.cur).length, "note")}</p><button class="s-ib" data-find aria-label="Search notes">${pi("search", 18)}</button></div><div class="s-res">${sList(st)}</div>`;
+}
+function sNotes(ui, hdr) {
+  const { st, el } = ui, cs = getComputedStyle(el);
+  return `${hdr ? `<h3 class="ttl">Notes</h3>` : ""}<div><div class="spines">${SUBJECTS.map((s) => `<button class="spine" style="--c:var(--s${s.s});--on-c:${onColor(cs.getPropertyValue(`--s${s.s}`).trim() || "#888888")};--h:${112 + sTall(st, s.code) * 3}px" data-sp="${s.code}" aria-pressed="${s.code === st.cur}" aria-label="${s.code}, ${sPl(notesOf(s.code).length, "note")}, ${sDue(st, s.code)} cards due"><b>${s.short[0]}</b>${s.short[1] ? `<small>${s.short[1]}</small>` : ""}<span class="well">${sWell(st, s.code)}</span></button>`).join("")}</div><div class="ledge"></div></div><div class="s-pulled">${sPulled(st)}</div>`;
+}
+function sCards(ui, hdr) {
+  const { st } = ui, subs = SUBJECTS.filter((s) => st.decks.some((d) => d.sub === s.code)), total = st.decks.reduce((a, d) => a + d.cards, 0);
+  return `<div class="s-head">${hdr ? `<h3 class="ttl">Cards</h3>` : `<p class="fine">${sPl(st.decks.length, "deck")} · ${total} cards</p>`}<button class="btn sm" data-newdeck>${pi("plus", 14)}New deck</button></div><div class="card s-lc"><div class="list">${subs.map((s) => `<p class="s-gl"><span class="tile" style="--c:var(--s${s.s})"></span>${s.code}</p>${st.decks.filter((d) => d.sub === s.code).map(deckRow).join("")}`).join("")}</div></div><p class="fine">${hdr ? `${sPl(st.decks.length, "deck")}, ${total} cards. ` : ""}Tap a deck with cards due to review just that deck.</p>`;
+}
+function sReview(ui, hdr) {
+  const { st } = ui, due = sDue(st);
+  return `${hdr ? `<h3 class="ttl">Review</h3>` : ""}<div class="card s-rv"><div class="s-big">${pn(due, 6)}<span>${due === 1 ? "card" : "cards"} due now</span></div><div class="s-dk">${st.decks.map((d) => `<span class="tile" style="--c:var(--s${sSub(d.sub).s})"></span><span class="s-dn">${esc(d.name)}</span><span class="s-dp">${sPx(Math.min(d.due, 8))}</span><span class="s-dc${d.due ? "" : " z"}">${d.due || "Caught up"}</span>`).join("")}</div></div><div class="s-sts"><div class="card s-st"><p class="lb">Streak</p><p>${pn(st.streak, 3)}<span>${st.streak === 1 ? "day" : "days"}</span></p></div><div class="card s-st"><p class="lb">Today</p><p>${pn(st.today, 3)}<span>${st.today === 1 ? "card" : "cards"}</span></p></div></div><button class="btn go s-start" data-go ${due ? "" : "disabled"}>${due ? `Review ${due} due` : "All caught up"}</button>`;
+}
+function sDone(ui, hdr) {
+  const { st } = ui, w = sWeek(st), sum = w.reduce((a, b) => a + b, 0);
+  return `${hdr ? `<h3 class="ttl">Done</h3>` : ""}<div class="card s-wk"><div class="s-bars" role="img" aria-label="Cards reviewed each day for the last 7 days: ${w.join(", ")}">${w.map((v, i) => `<div class="${i === 6 ? "t" : ""}"><span>${sPx(Math.min(12, Math.ceil(v / 3)))}</span><small>${sDays[i]}</small></div>`).join("")}</div><p class="fine"><b>${sum}</b> cards in the last 7 days. One pixel is 3 cards.</p></div><div class="card s-lc"><div class="list">${st.log.slice(0, 4).map((l) => `<div class="rowb"><span class="tile" style="--c:var(--s${l.s})"></span><span class="tx"><strong>${esc(l.name)}</strong><small>${sPl(l.n, "card")} reviewed</small></span><span class="val">${l.when}</span></div>`).join("")}</div></div>`;
+}
+const sParts = { notes: sNotes, cards: sCards, review: sReview, done: sDone };
+const sNames = { notes: "Notes", cards: "Cards", review: "Review", done: "Done" };
+
+/* ---- A: the tiles ---- */
+function sHome(ui) {
+  const { st } = ui, due = sDue(st), w = sWeek(st), total = st.decks.reduce((a, d) => a + d.cards, 0);
+  return `<h3 class="ttl">Study</h3>
+<button class="card s-tile" data-open="review"><span class="s-tl">Review${sChev()}</span><span class="s-big">${pn(due, 6)}<span>${due === 1 ? "card" : "cards"} due now</span></span><span class="s-dp">${sPx(Math.min(due, 30))}</span><span class="s-tm">Streak ${sPl(st.streak, "day")} · ${st.today} reviewed today</span></button>
+<div class="s-two"><button class="card s-tile" data-open="notes"><span class="s-tl">Notes${sChev()}</span><span class="s-mini" aria-hidden="true">${SUBJECTS.map((s) => `<i style="--c:var(--s${s.s});--h:${30 + sTall(st, s.code) * 3}px"><span>${sWell(st, s.code)}</span></i>`).join("")}</span><span class="s-tm">${sPl(NOTES.length, "note")} in ${SUBJECTS.length} notebooks</span></button>
+<button class="card s-tile" data-open="cards"><span class="s-tl">Cards${sChev()}</span><span class="s-decks" aria-hidden="true">${st.decks.map((d) => { const g = Math.ceil(d.due / 3); return `<span><span class="tile" style="--c:var(--s${sSub(d.sub).s})"></span><span class="s-dp">${sPx(g) + sPx(Math.ceil(d.cards / 3) - g, "o")}</span></span>`; }).join("")}</span><span class="s-tm">${sPl(st.decks.length, "deck")}, ${total} cards</span></button></div>
+<button class="card s-tile s-tw" data-open="done"><span class="s-tl">Done</span><span class="s-mbars" aria-hidden="true">${w.map((v, i) => `<span class="${i === 6 ? "t" : ""}">${sPx(Math.min(9, Math.ceil(v / 4)))}</span>`).join("")}</span><span class="s-tm">${w.reduce((a, b) => a + b, 0)} cards in 7 days</span></button>`;
+}
+
+/* ---- one phone ---- */
+function sMount(el, kind) {
+  const ui = { el, kind, st: sState(), v: shell(el, sTheme, "study"), hdr: kind !== "B" };
+  el.classList.add("s-ph");
+  el.insertAdjacentHTML("beforeend", `<button class="crystal" data-s-add aria-label="Add">${fallbackSvg("plus")}</button>`);
+  const { v, st } = ui;
+  if (kind === "A") {
+    v.classList.add("s-a");
+    el.insertAdjacentHTML("beforeend", Object.keys(sNames).map((p) => `<div class="s-page" data-page="${p}" aria-label="${sNames[p]}"><button class="s-back" data-back>${pi("backi", 16)}Study</button><div class="s-pane" data-part="${p}"></div></div>`).join(""));
+    ui.home = () => (v.innerHTML = sHome(ui));
+  } else if (kind === "B") {
+    const order = ["notes", "cards", "review"];
+    v.classList.add("s-fix", "s-vb");
+    v.innerHTML = `<h3 class="ttl s-pad">Study</h3><div class="s-seg s-pad" role="tablist" aria-label="Study parts" style="--k:0"><i></i>${order.map((p, i) => `<button role="tab" data-tab="${i}" aria-selected="${i === 0}">${sNames[p]}<em hidden></em></button>`).join("")}</div><div class="s-track" style="--k:0">${order.map((p, i) => `<div class="s-pane${i ? "" : " on"}" role="tabpanel" aria-label="${sNames[p]}" data-part="${p}"${i ? " inert" : ""}></div>`).join("")}</div>`;
+    ui.home = () => { const e = $('[data-tab="2"] em', v), due = sDue(st); e.hidden = !due; e.textContent = due; };
+  } else {
+    const order = ["review", "notes", "cards", "done"];
+    v.classList.add("s-fix");
+    v.innerHTML = `<div class="s-pages">${order.map((p) => `<div class="s-pane" aria-label="${sNames[p]}" data-part="${p}"></div>`).join("")}</div>`;
+    el.insertAdjacentHTML("beforeend", `<nav class="s-rail" aria-label="Study parts"><i></i>${order.map((p, i) => `<button data-rail="${i}" class="${i ? "" : "on"}"><span class="s-rn"></span>${sNames[p]}</button>`).join("")}</nav>`);
+    const pages = $(".s-pages", v), ind = $(".s-rail > i", el);
+    pages.addEventListener("scroll", () => {
+      const x = pages.scrollLeft / pages.clientWidth;
+      ind.style.translate = `${x * 100}% 0`;
+      $$(".s-rail button", el).forEach((b, i) => b.classList.toggle("on", i === Math.round(x)));
+    }, { passive: true });
+    ui.home = () => { const n = [sDue(st), NOTES.length, st.decks.length, st.today]; $$(".s-rn", el).forEach((r, i) => (r.innerHTML = pn(n[i], 2))); };
+  }
+  ui.draw = () => { ui.home(); $$("[data-part]", el).forEach((p) => (p.innerHTML = sParts[p.dataset.part](ui, ui.hdr))); sMeasure(); };
+  ui.draw();
+
+  const closeSheet = () => { $(".scrim", el)?.remove(); $(".sheet", el)?.remove(); $("[data-s-add]", el).classList.remove("open"); };
+  const pulled = () => { const p = $(".s-pulled", el); p.innerHTML = sPulled(st); sMeasure(); return p; };
+  el.addEventListener("input", (e) => { if (e.target.closest(".s-find")) { st.find = e.target.value; $(".s-res", el).innerHTML = sList(st); } });
+  el.addEventListener("click", (e) => {
+    const t = e.target;
+    if (t.closest(".ed, .s-sess")) return;
+    const sp = t.closest("[data-sp]");
+    if (sp) {
+      st.cur = sp.dataset.sp; st.find = null;
+      $$(".spine", el).forEach((x) => x.setAttribute("aria-pressed", String(x === sp)));
+      pulled();
+      $$("u", sp).forEach((u) => { u.classList.remove("rip"); void u.offsetWidth; u.classList.add("rip"); setTimeout(() => u.classList.remove("rip"), 900); });
+      return;
+    }
+    if (t.closest("[data-find]")) { st.find = ""; $("input", pulled())?.focus({ preventScroll: true }); return; }
+    if (t.closest("[data-find-x]")) { e.preventDefault(); st.find = null; pulled(); return; }
+    const n = t.closest("[data-note]"); if (n) return editor(el, NOTES.find((x) => x.id === n.dataset.note));
+    const dk = t.closest("[data-deck]"); if (dk) { const d = st.decks.find((x) => x.name === dk.dataset.deck); return d?.due ? sSession(ui, d) : sStamp(el, "CAUGHT UP"); }
+    if (t.closest("[data-go]")) return sSession(ui);
+    if (t.closest("[data-newdeck]")) return sStamp(el, "NEW DECK");
+    if (t.closest("[data-scrim]")) return closeSheet();
+    if (t.closest("[data-s-add]")) {
+      if ($(".sheet", el)) return closeSheet();
+      $("[data-s-add]", el).classList.add("open");
+      el.insertAdjacentHTML("beforeend", `<button class="scrim" aria-label="Close" data-scrim></button><div class="sheet above"><h4>Add</h4><div class="menu"><button data-add="lar">${cubeImg(22)}Ask LAR</button><button data-add="note">${pi("note2", 18)}New note</button><button data-add="deck">${pi("cards", 18)}New deck</button></div></div>`);
+      return;
+    }
+    const add = t.closest("[data-add]");
+    if (add) { closeSheet(); return add.dataset.add === "note" ? editor(el, { id: "new", sub: st.cur, title: "", tmpl: "pick" }) : sStamp(el, add.dataset.add === "lar" ? "LAR!" : "NEW DECK"); }
+    // How each version moves between parts.
+    const open = t.closest("[data-open]");
+    if (open) { const pg = $(`[data-page="${open.dataset.open}"]`, el); $(".s-pane", pg).scrollTop = 0; pg.classList.add("on"); v.classList.add("s-away"); v.inert = true; ui.back = open.dataset.open; $(".s-back", pg).focus({ preventScroll: true }); return; }
+    if (t.closest("[data-back]")) { $$(".s-page", el).forEach((p) => p.classList.remove("on")); v.classList.remove("s-away"); v.inert = false; $(`[data-open="${ui.back}"]`, v)?.focus({ preventScroll: true }); return; }
+    const tab = t.closest("[data-tab]");
+    if (tab) {
+      const k = +tab.dataset.tab;
+      $(".s-seg", v).style.setProperty("--k", k); $(".s-track", v).style.setProperty("--k", k);
+      $$("[data-tab]", v).forEach((b, i) => b.setAttribute("aria-selected", String(i === k)));
+      $$(".s-track > .s-pane", v).forEach((p, i) => { p.classList.toggle("on", i === k); p.inert = i !== k; });
+      return;
+    }
+    const rail = t.closest("[data-rail]");
+    if (rail) { const pages = $(".s-pages", v); pages.scrollTo({ left: +rail.dataset.rail * pages.clientWidth, behavior: reduce ? "auto" : "smooth" }); }
+  });
+  sUis.push(ui);
+  return ui;
+}
+function sStamp(el, txt) { const s = document.createElement("div"); s.className = "bigstamp"; s.textContent = txt; el.appendChild(s); setTimeout(() => s.remove(), 900); }
+
+/* ---- a review: the full-screen state, as today ---- */
+function sSession(ui, only) {
+  const { el, st } = ui, q = [];
+  st.decks.filter((d) => d.due && (!only || d === only)).forEach((d) => { for (let i = 0; i < d.due; i++) q.push({ d, t: sTerms[d.name][i % sTerms[d.name].length] }); });
+  if (!q.length) return;
+  const total = q.length; let got = 0;
+  const s = document.createElement("div"); s.className = "s-sess";
+  s.innerHTML = `<div class="s-sbar"><button class="s-ib" data-x aria-label="End review">${pi("x", 18)}</button><b>${only ? esc(only.name) : "All due"}</b><span class="s-cnt"></span></div><div class="s-prog" aria-hidden="true">${sPx(total)}</div><button class="s-fc" aria-label="Flip card"><span class="s-fi"><span class="s-f"></span><span class="s-b"></span></span></button><p class="fine s-hint">Tap the card to see the answer</p><div class="s-ans"><button class="btn" data-again>Again</button><button class="btn go" data-good>Got it</button></div>`;
+  el.appendChild(s);
+  requestAnimationFrame(() => requestAnimationFrame(() => s.classList.add("on")));
+  const fc = $(".s-fc", s), fi = $(".s-fi", s);
+  const show = () => {
+    fi.classList.add("s-snap"); fc.classList.remove("flip"); fi.classList.remove("s-new"); void fi.offsetWidth; fi.classList.remove("s-snap"); fi.classList.add("s-new");
+    if (!q.length) {
+      $(".s-f", s).innerHTML = `${pi("check", 36)}<strong>All caught up</strong><small>${sPl(got, "card")} reviewed</small>`;
+      fc.disabled = true; $(".s-hint", s).textContent = `Streak ${sPl(st.streak, "day")}. See you tomorrow.`;
+      $(".s-ans", s).className = "s-ans s-one"; $(".s-ans", s).innerHTML = `<button class="btn go" data-x>Back to Study</button>`;
+      $(".s-cnt", s).textContent = ""; return;
+    }
+    const { d, t } = q[0], c = sSub(d.sub).s;
+    $(".s-f", s).innerHTML = `<small><span class="tile" style="--c:var(--s${c})"></span>${esc(d.name)}</small><strong>${esc(t[0])}</strong>`;
+    $(".s-b", s).innerHTML = `<small>${esc(t[0])}</small><strong>${esc(t[1])}</strong>`;
+    $(".s-cnt", s).textContent = `${got + 1} of ${total}`;
+  };
+  const close = () => {
+    if (got) st.log.unshift({ name: only ? only.name : "All due", n: got, s: only ? sSub(only.sub).s : 5, when: "Today" });
+    s.classList.remove("on"); setTimeout(() => s.remove(), 380); ui.draw();
+  };
+  s.addEventListener("click", (e) => {
+    if (e.target.closest("[data-x]")) return close();
+    if (e.target.closest(".s-fc")) return fc.classList.toggle("flip");
+    if (e.target.closest("[data-good]") && q.length) { const it = q.shift(); it.d.due--; st.today++; $$(".s-prog u", s)[got++].classList.add("on"); return show(); }
+    if (e.target.closest("[data-again]") && q.length) { q.push(q.shift()); return show(); }
+  });
+  show();
+}
+
+/* ---- how much each part scrolls ---- */
+function sMeasure() {
+  const dl = $("#sScroll"); if (!dl || sUis.length < 3) return;
+  const px = (n) => `${Math.max(0, Math.round(n.scrollHeight - n.clientHeight))} px`;
+  dl.innerHTML = sUis.map((ui) => {
+    const parts = $$("[data-part]", ui.el).map((p) => `${sNames[p.dataset.part]} ${px(p)}`);
+    if (ui.kind === "A") parts.unshift(`Home ${px(ui.v)}`);
+    return `<dt>${ui.kind}</dt><dd>${parts.join(" · ")}</dd>`;
+  }).join("");
+}
+
+["A", "B", "C"].forEach((k) => sMount($(`#sPh${k}`), k));
+document.fonts?.ready.then(sMeasure);
+$("#study").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-s-room]"); if (!b) return;
+  sTheme = b.dataset.sRoom === "day" ? DAY : NIGHT;
+  $$("[data-s-room]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  sUis.forEach((ui) => { dress(ui.el, sTheme); ui.draw(); });
+});
+</script>

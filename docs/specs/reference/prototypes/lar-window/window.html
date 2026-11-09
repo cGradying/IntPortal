@@ -1,0 +1,323 @@
+<style>
+/* LAR's floating window. The crystal is one element per phone: it leaves its chip, flies into
+   the window, drifts beside LAR while he talks and flies home on close. Same flight in A, B, C. */
+.w-phone { --w-sky: radial-gradient(70% 95% at 16% 100%, rgb(148 28 48 / 0.42), transparent 70%), radial-gradient(46% 70% at 82% 6%, rgb(232 176 74 / 0.1), transparent 70%), #140c16; --w-slab: polygon(0 6px,3px 6px,3px 3px,6px 3px,6px 0,calc(100% - 6px) 0,calc(100% - 6px) 3px,calc(100% - 3px) 3px,calc(100% - 3px) 6px,100% 6px,100% calc(100% - 6px),calc(100% - 3px) calc(100% - 6px),calc(100% - 3px) calc(100% - 3px),calc(100% - 6px) calc(100% - 3px),calc(100% - 6px) 100%,6px 100%,6px calc(100% - 3px),3px calc(100% - 3px),3px calc(100% - 6px),0 calc(100% - 6px)); }
+/* The chip's box lives on a layer of its own, so the glass can leave it behind and float free. */
+.w-phone .crystal { background: none; box-shadow: none; transition: scale 0.16s var(--spring), opacity 0.2s linear; will-change: transform; }
+.w-phone .crystal::before { content: ""; grid-area: 1 / 1; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-2); transition: opacity 0.3s var(--ease); }
+.w-phone .crystal.w-free::before { opacity: 0; }
+
+.w-phone .w-scrim { position: absolute; inset: 0; z-index: 45; background: rgb(6 3 8 / 0.32); opacity: 0; pointer-events: none; transition: opacity 0.36s var(--ease); }
+.w-phone.w-open .w-scrim { opacity: 1; pointer-events: auto; }
+.w-phone .w-win { position: absolute; z-index: 50; filter: drop-shadow(0 16px 24px rgb(0 0 0 / 0.42)); transform: scale(0.12); opacity: 0; visibility: hidden; transition: transform 0.46s var(--ease), opacity 0.2s var(--ease) 0.24s, height 0.36s var(--ease), visibility 0s linear 0.46s; }
+.w-phone.w-open .w-win { transform: none; opacity: 1; visibility: visible; transition: transform 0.56s var(--ease), opacity 0.18s var(--ease), height 0.36s var(--ease), visibility 0s; }
+.w-a { left: 12px; right: 12px; bottom: 138px; height: 404px; }
+.w-b { left: 12px; right: 12px; top: 50px; bottom: 12px; }
+.w-c { left: 12px; right: 12px; bottom: 80px; height: 200px; }
+.w-card { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 30%, transparent); clip-path: var(--n4); }
+/* The field inside the window: the roots run along these dots. Flipped so they grow away from the crystal. */
+.w-roots { position: absolute; inset: 0; z-index: 0; pointer-events: none; background-image: radial-gradient(color-mix(in srgb, var(--dot) 55%, transparent) 1px, transparent 1.3px); background-size: 14px 14px; background-position: -7px -7px; }
+.w-a .w-roots, .w-b .w-roots { transform: scale(-1, -1); }
+.w-c .w-roots { transform: scaleX(-1); }
+
+/* LAR's pocket of the other side: always the void, in every room. */
+.w-stage { position: relative; flex: none; z-index: 2; background: var(--w-sky); }
+.w-stage::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 6px; background: conic-gradient(#140c16 25%, transparent 0 50%, #140c16 0 75%, transparent 0) 0 0 / 6px 6px; }
+.w-perch { position: absolute; }
+.w-cv { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
+.w-who { position: absolute; display: grid; gap: 1px; }
+.w-tag { font: 600 13px var(--f-pixel); letter-spacing: 0.08em; color: #e8b04a; }
+.w-st { font: 500 12px var(--f-pixel); letter-spacing: 0.04em; color: rgb(244 236 216 / 0.62); white-space: nowrap; }
+.w-phone .w-stage .w-x { position: absolute; top: 2px; right: 2px; height: 40px; padding: 0 12px; border: 0; background: none; font: 600 13px var(--f-ui); color: rgb(244 236 216 / 0.78); }
+.w-phone .w-stage .w-x:hover { color: #f4ecd8; }
+.w-a .w-stage { height: 92px; }
+.w-a .w-perch { left: 4px; top: -4px; width: 106px; height: 100px; }
+.w-a .w-who { left: 152px; top: 50%; translate: 0 -50%; }
+.w-b .w-stage { position: absolute; top: 0; left: 0; right: 0; height: calc(132px - 62px * var(--p, 0)); }
+.w-b .w-perch { left: 6px; bottom: calc(-14px + 10px * var(--p, 0)); width: 106px; height: 100px; transform-origin: 0 100%; scale: calc(1 - 0.42 * var(--p, 0)); }
+.w-b .w-who { left: calc(160px - 70px * var(--p, 0)); bottom: calc(30px - 12px * var(--p, 0)); }
+
+.w-log { position: relative; z-index: 1; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.w-log::-webkit-scrollbar { display: none; }
+.w-in { display: grid; gap: 10px; align-content: start; padding: 14px 12px 10px; }
+.w-b .w-in { padding-top: 144px; }
+.w-c .w-in { padding-top: 2px; }
+
+/* His lines: the obsidian slab with its lit top edge. Yours: a quiet bubble in the room's ink. */
+.w-lar { justify-self: start; max-width: 92%; padding: 10px 12px; background: #1d1222; color: #f4ecd8; box-shadow: inset 0 2px 0 color-mix(in srgb, #e8b04a 45%, #3a2446), inset 0 -2px 0 #060307; clip-path: var(--w-slab); font: 400 14px/1.4 var(--f-ui); transform-origin: 0 0; animation: wPop 0.28s var(--ease) both; }
+.w-lar p { margin: 0; overflow-wrap: anywhere; }
+.w-lar p + p { margin-top: 8px; }
+.w-rest { visibility: hidden; }
+.w-caret { display: inline-block; width: 2px; height: 1em; margin: 0 1px -0.15em; background: #e8b04a; }
+.w-caret.done { animation: wBlink 1s steps(2, jump-none) 3 both; }
+.w-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.w-wait { display: flex; gap: 5px; padding: 15px 14px; }
+.w-wait i { width: 5px; height: 5px; background: #e8b04a; animation: wDot 1.05s steps(1, end) infinite; }
+.w-wait i:nth-child(2) { animation-delay: 0.35s; } .w-wait i:nth-child(3) { animation-delay: 0.7s; }
+.w-due { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 7px; }
+.w-due li { display: flex; gap: 10px; align-items: baseline; }
+.w-due em { flex: none; width: 30px; font-style: normal; font-weight: 700; color: #e8b04a; }
+.w-due b { display: block; font-weight: 600; }
+.w-due small { font-size: 12.5px; color: rgb(244 236 216 / 0.72); }
+.w-me { justify-self: end; max-width: 82%; margin: 0; padding: 9px 13px; border-radius: 16px 16px 4px 16px; background: color-mix(in srgb, var(--ink) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 13%, transparent); color: var(--ink); font: 400 14px/1.35 var(--f-ui); overflow-wrap: anywhere; animation: wSend 0.28s var(--ease) both; }
+.w-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.w-phone .w-chip { min-height: 40px; max-width: 100%; padding: 6px 12px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--ink) 5%, transparent); box-shadow: inset 0 0 0 1px var(--edge-2); color: var(--ink); font: 400 13.5px/1.3 var(--f-ui); text-align: left; transition: background 0.16s var(--ease); animation: wSend 0.3s calc(var(--i, 0) * 60ms) var(--ease) both; }
+.w-phone .w-chip:hover { background: color-mix(in srgb, var(--gold) 10%, transparent); }
+.w-phone .w-chip:active { background: color-mix(in srgb, var(--gold) 18%, transparent); }
+.w-phone .w-chip.w-from { min-height: 36px; font-size: 12.5px; color: var(--ink-2); }
+
+.w-form { position: relative; z-index: 1; flex: none; display: flex; gap: 8px; padding: 8px 10px 10px; }
+.w-well { flex: 1; min-width: 0; height: 44px; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); transition: box-shadow 0.16s var(--ease); }
+.w-well:focus-within { box-shadow: inset 0 0 0 1.5px var(--gold); }
+.w-well input { flex: 1; min-width: 0; border: 0; padding: 0; background: none; outline: 0; font: 400 16px var(--f-ui); color: var(--ink); caret-color: var(--gold); }
+.w-well input::placeholder { color: var(--ink-3); }
+.w-phone .w-send { flex: none; width: 60px; height: 44px; border: 0; background: var(--gold); color: var(--on-gold); font: 600 14px var(--f-ui); clip-path: var(--n3); box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.24); transition: background-color 0.16s var(--ease), color 0.16s var(--ease); }
+.w-phone .w-send:active:not(:disabled) { box-shadow: inset 0 3px 0 rgb(0 0 0 / 0.24); translate: 0 1px; }
+.w-phone .w-send:disabled { background: var(--sunk); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--edge-2); cursor: default; }
+.w-foot { margin: 0; padding: 0 12px 10px; flex: none; font-size: 12px; text-align: center; color: var(--ink-3); position: relative; z-index: 1; }
+.w-b .w-form { padding-bottom: 6px; }
+
+/* C: a top line for his name, and his pocket beside the input. */
+.w-top { position: relative; z-index: 1; flex: none; display: flex; align-items: center; gap: 8px; height: 38px; padding-left: 12px; }
+.w-c .w-tag { color: var(--gold); }
+.w-c .w-st { color: var(--ink-3); }
+.w-phone .w-top .w-x { margin-left: auto; height: 38px; padding: 0 12px; border: 0; background: none; font: 600 13px var(--f-ui); color: var(--ink-2); }
+.w-dock { position: relative; z-index: 1; flex: none; display: flex; align-items: flex-end; gap: 6px; padding: 4px 8px 8px; }
+.w-c .w-perch { position: relative; flex: none; width: 80px; height: 56px; overflow: hidden; background: var(--w-sky); clip-path: var(--n3); }
+.w-c .w-cv { left: -12px; top: -14px; }
+.w-c .w-form { flex: 1; min-width: 0; padding: 0; gap: 6px; }
+.w-c .w-send { width: 56px; }
+
+.w-panel .pbtns { align-items: center; }
+.w-panel .seg0 { margin-left: auto; }
+.picks.w-one { grid-template-columns: 1fr; }
+@keyframes wPop { from { opacity: 0; transform: translateY(6px) scale(0.96); } }
+@keyframes wSend { from { opacity: 0; transform: translateY(8px); } }
+@keyframes wDot { 0% { opacity: 1; } 33% { opacity: 0.3; } }
+@keyframes wBlink { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .w-phone .w-win, .w-phone .w-scrim, .w-phone .crystal { transition: opacity 0.2s linear !important; }
+  .w-phone .w-win { transform: none !important; }
+}
+</style>
+
+<section class="row" id="window">
+  <div class="q"><h2>LAR's chat, in a floating window</h2><p>The crystal is the way in, and now it stays at his side. It flies from its spot into the window, drifts beside LAR while you talk, thinks with him, roots the answer into the field, and flies home when you close.</p></div>
+  <div class="panel w-panel">
+    <h3>Try it on all three</h3>
+    <div class="pbtns"><button class="pbtn" type="button" data-w="open">Open</button><button class="pbtn" type="button" data-w="ask">Ask something</button><button class="pbtn" type="button" data-w="close">Close</button><div class="seg0" role="group" aria-label="Room"><button type="button" data-wr="night" aria-pressed="true">Night</button><button type="button" data-wr="day" aria-pressed="false">Day</button></div></div>
+    <p>Or tap a crystal, a starter, or the dim around a window. With Reduce Motion on, every flight becomes a cross-fade.</p>
+  </div>
+  <div class="wide">
+    <div class="opt"><div class="phone" id="wPhA"></div><div class="name"><b>A: Card above the crystal</b><span>A card 60% tall that grows out of the crystal's corner. LAR stands in a strip along its top.</span></div><div class="picks w-one"><button class="pick" data-row="window" data-v="A: Card above the crystal">Pick A</button></div></div>
+    <div class="opt"><div class="phone" id="wPhB"></div><div class="name"><b>B: Tall panel</b><span>Nearly full height, 12 px from every edge. LAR's stage shrinks as the chat scrolls.</span></div><div class="picks w-one"><button class="pick" data-row="window" data-v="B: Tall panel">Pick B</button></div></div>
+    <div class="opt"><div class="phone" id="wPhC"></div><div class="name"><b>C: Compact, grows with the chat</b><span>Starts small, with LAR beside the input, and grows upward as messages arrive.</span></div><div class="picks w-one"><button class="pick" data-row="window" data-v="C: Compact, grows with the chat">Pick C</button></div></div>
+  </div>
+</section>
+
+<script>
+const W_TODAY = `<h3 class="ttl">Today</h3><div class="card" style="display:grid;gap:4px"><p class="lb">Up next</p><b style="font:800 17px var(--f-ui);color:var(--gold)">COMP 20083</b><p class="fine">Object-Oriented Programming, 10:30 AM</p></div><div class="card"><p class="lb">Due</p><p style="margin:6px 0 0;font-weight:600">Lab 4: Interfaces</p><p class="fine">Wednesday, 11:59 PM</p></div><div class="card"><p class="lb">This term</p><div style="margin-top:6px">${pn("1.28")}</div></div>`;
+const W_HELLO = "Hi! I'm LAR. Ask me what's due, your classes, or your grades.";
+const W_STARTERS = ["What's due this week?", "Anong klase ko ngayon?"];
+const W_ANS = {
+  due: { html: `<p>Two things are due this week:</p><ul class="w-due"><li><em>Wed</em><span><b>Lab 4: Interfaces</b><small>COMP 20083 · 11:59 PM</small></span></li><li><em>Fri</em><span><b>Problem set 2</b><small>MATH 20133 · in class</small></span></li></ul><p>Lab 4 muna, it's due first.</p>`, from: "COMP 20083 · Lab 4" },
+  cls: { html: `<p>Next is COMP 20083, Object-Oriented Programming, at 10:30 AM.</p>`, from: "Schedule · Today" },
+};
+/* Where the crystal floats, round LAR's body centre: radius, ellipse squash, resting angle,
+   swing, the angle it lifts to while he thinks (above his head), and its size in the window. */
+const W_KIND = {
+  a: { R: 62, ry: 0.62, a0: 0.1, sw: 0.42, aT: -1.1, s: 0.75, flip: [-1, -1] },
+  b: { R: 64, ry: 0.62, a0: 0.1, sw: 0.42, aT: -1.1, s: 0.85, flip: [-1, -1] },
+  c: { R: 40, ry: 0.72, a0: -0.75, sw: 0.28, aT: -1.4, s: 0.62, flip: [-1, 1] },
+};
+
+/* LAR without his own pixel cube: the glass crystal is his cube here. Same rig and art as startLar. */
+const wLars = new Set();
+function wLar(cv) { cv.width = LW; cv.height = LH; cv.style.width = LW + "px"; cv.style.height = LH + "px"; const L = { cv, rig: LarKit.rig("idle"), on: false, fold: 0, back: 0 }; wLars.add(L); return L; }
+let wLarLast = 0;
+(function wLarLoop(ts) {
+  if (ts - wLarLast > 33) {
+    wLarLast = ts; const t = ts / 1000;
+    for (const L of wLars) {
+      const g = L.cv.getContext("2d"); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, LW, LH);
+      if (!L.on) continue;
+      if (L.back && t > L.back) { L.rig.set("idle", t); L.back = 0; }
+      let o = {};
+      // Folding back is his spawn played in reverse: he coarsens into blocks and the fire takes him.
+      if (L.fold) { const k = clamp((t - L.fold) / 0.55); if (k >= 1) { L.on = false; L.fold = 0; continue; } o = { k: 1 - k }; }
+      g.imageSmoothingEnabled = false; g.save(); g.translate(-LBOX.x0 * 2, -LBOX.y0 * 2); g.scale(2, 2);
+      try { LarKit.drawLar(g, L.rig.at(t, o, reduce), larTheme(null), reduce ? 0 : t, { shadow: false, cube: false }); } catch { /* the sketch can do without him */ }
+      g.restore();
+    }
+  }
+  requestAnimationFrame(wLarLoop);
+})(0);
+
+function wMarkup(kind) {
+  const stage = `<header class="w-stage"><div class="w-perch"><canvas class="w-cv"></canvas></div><div class="w-who"><span class="w-tag">LAR</span><span class="w-st" aria-live="polite">On this phone</span></div><button class="w-x" type="button">Close</button></header>`;
+  const form = `<form class="w-form"><label class="w-well"><input placeholder="Ask LAR…" aria-label="Message LAR" enterkeyhint="send" autocomplete="off"></label><button class="w-send" type="submit" disabled>Send</button></form>`;
+  const log = `<div class="w-log" aria-live="polite"><div class="w-in"></div></div>`;
+  const body = kind === "a" ? stage + log + form
+    : kind === "b" ? log + stage + form + `<p class="w-foot">Runs on this phone. Nothing leaves it.</p>`
+    : `<div class="w-top"><span class="w-tag">LAR</span><span class="w-st" aria-live="polite">On this phone</span><button class="w-x" type="button">Close</button></div>${log}<div class="w-dock"><div class="w-perch" aria-hidden="true"><canvas class="w-cv"></canvas></div>${form}</div>`;
+  return `<div class="w-scrim"></div><div class="w-win w-${kind}" role="dialog" aria-label="Ask LAR"><div class="w-card"><div class="w-roots"></div>${body}</div></div>`;
+}
+
+function wPhone(el, kind) {
+  const K = W_KIND[kind];
+  el.classList.add("w-phone");
+  shell(el, NIGHT, "today").innerHTML = W_TODAY;
+  const cr = mountCrystal(el, { mode: "cube" });
+  cr.el.setAttribute("aria-expanded", "false");
+  el.insertAdjacentHTML("beforeend", wMarkup(kind));
+  const win = $(".w-win", el), log = $(".w-log", win), inn = $(".w-in", win), roots = $(".w-roots", win), input = $("input", win), send = $(".w-send", win), st = $(".w-st", win), cv = $(".w-cv", win);
+  const L = wLar(cv);
+  let state = "closed", timers = [], fly = { from: 0, to: 0, t0: 0, dur: 1 }, think = 0, thinking = false, queued = null, pin = null, lastN = performance.now();
+  // Every step waits on a timer; clearing the timers freezes whatever sequence was running.
+  const wait = (ms) => new Promise((r) => timers.push(setTimeout(r, ms)));
+  const now = () => performance.now() / 1000;
+  const status = (s) => (st.textContent = s);
+  const flyAt = (n) => fly.from + (fly.to - fly.from) * ease(clamp((n - fly.t0) / fly.dur));
+  const flyTo = (to, dur) => { const n = performance.now(); fly = { from: flyAt(n), to, t0: n, dur: Math.max(1, dur) }; };
+  const box = el.getBoundingClientRect.bind(el);
+  const chip = () => ({ x: cr.el.offsetLeft + cr.el.offsetWidth / 2, y: cr.el.offsetTop + cr.el.offsetHeight / 2 });
+  const syncSend = () => { send.textContent = state === "busy" ? "Stop" : "Send"; send.disabled = state !== "busy" && !input.value.trim(); };
+  const toEnd = () => log.scrollTo({ top: log.scrollHeight, behavior: reduce ? "auto" : "smooth" });
+  const fit = () => { if (kind !== "c") return; const need = $(".w-top", win).offsetHeight + inn.offsetHeight + $(".w-dock", win).offsetHeight; win.style.height = Math.min(404, need) + "px"; };
+  const add = (html) => { inn.insertAdjacentHTML("beforeend", html); fit(); toEnd(); if (kind === "c") wait(400).then(toEnd); };
+
+  // The crystal's spot beside LAR, read live from his canvas, so it rides along when the window grows or the stage shrinks.
+  function home(t) {
+    const p = box(), c = cv.getBoundingClientRect(), sc = c.width / LW, cx = c.left - p.left + 52 * sc, cy = c.top - p.top + 55 * sc;
+    const a = K.a0 + Math.sin(t * 0.7) * K.sw, ang = a + (K.aT - a) * think, R = K.R * sc * (1 - 0.12 * think);
+    return { x: cx + Math.cos(ang) * R, y: cy + Math.sin(ang) * R * K.ry + Math.sin(t * 1.4) * 1.5, s: K.s * (0.4 + 0.6 * sc) };
+  }
+  function frame(n) {
+    const dt = Math.min(0.05, (n - lastN) / 1000); lastN = n;
+    think += ((thinking ? 1 : 0) - think) * (reduce ? 1 : 1 - Math.exp(-dt * 3));
+    const k = flyAt(n);
+    if (state === "closed" && k < 0.001) return;
+    const H = pin || home(reduce ? 0 : n / 1000), P = chip();
+    // One eased flight from the chip to his side, bowed into a shallow arc.
+    const dx = H.x - P.x, dy = H.y - P.y, len = Math.hypot(dx, dy) || 1, arc = Math.sin(Math.PI * k) * 28;
+    const x = dx * k - (dy / len) * arc, y = dy * k + (dx / len) * arc, s = 1 + (H.s - 1) * k;
+    cr.el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${s.toFixed(3)})`;
+    cr.wake();
+  }
+
+  const hello = `<div class="w-lar"><span class="w-sr">${esc(W_HELLO)}</span><p aria-hidden="true"><span class="w-ty"></span><i class="w-caret"></i><span class="w-rest">${esc(W_HELLO)}</span></p></div>`;
+  const starters = () => `<div class="w-chips">${W_STARTERS.map((s, i) => `<button class="w-chip" type="button" style="--i:${i}" data-ask="${esc(s)}">${esc(s)}</button>`).join("")}</div>`;
+  async function typeHello() {
+    const ty = $(".w-ty", inn), rest = $(".w-rest", inn);
+    for (let i = 1; i <= W_HELLO.length; i++) { ty.textContent = W_HELLO.slice(0, i); rest.textContent = W_HELLO.slice(i); await wait(22); }
+    $(".w-caret", inn).classList.add("done");
+  }
+
+  async function open() {
+    if (state !== "closed") return;
+    state = "opening"; pin = null;
+    inn.innerHTML = hello; log.scrollTop = 0; win.style.setProperty("--p", 0); fit();
+    const P = chip();
+    win.style.transformOrigin = `${P.x - win.offsetLeft}px ${P.y - win.offsetTop}px`;
+    cr.el.style.zIndex = 61; cr.el.setAttribute("aria-expanded", "true");
+    if (reduce) {
+      cr.el.style.opacity = 0; el.classList.add("w-open");
+      await wait(200);
+      flyTo(1, 0); cr.el.classList.add("w-free"); cr.el.style.opacity = "";
+      L.on = true; L.rig.start("idle", now());
+      $(".w-ty", inn).textContent = W_HELLO; $(".w-rest", inn).textContent = ""; $(".w-caret", inn).remove();
+      add(starters());
+    } else {
+      cr.el.classList.add("w-free"); el.classList.add("w-open"); flyTo(1, 700); status("Waking up");
+      await wait(380);
+      L.on = true; L.fold = 0; L.rig.start("spawn", now());
+      await wait(1100);
+      L.rig.set("happy", now()); L.back = now() + 1.5; status("On this phone");
+      await typeHello();
+      await wait(140);
+      add(starters());
+    }
+    state = "open"; syncSend();
+    if (queued) { const q = queued; queued = null; ask(q, true); }
+  }
+
+  async function ask(q = W_STARTERS[0], typed = false) {
+    if (state === "closed") { queued = q; return open(); }
+    if (state === "opening") { queued = q; return; }
+    if (state !== "open") return;
+    state = "busy";
+    if (typed && !reduce) for (let i = 1; i <= q.length; i++) { input.value = q.slice(0, i); syncSend(); await wait(26); }
+    input.value = ""; syncSend();
+    add(`<p class="w-me">${esc(q)}</p><div class="w-lar w-wait" role="status" aria-label="LAR is thinking"><i></i><i></i><i></i></div>`);
+    thinking = true; cr.think(true); L.rig.set("think", now()); status("Thinking");
+    await wait(reduce ? 700 : 2600);
+    $(".w-wait", inn)?.remove();
+    const A = /klase|class/i.test(q) ? W_ANS.cls : W_ANS.due;
+    add(`<div class="w-lar">${A.html}</div><div class="w-chips"><button class="w-chip w-from" type="button">From: ${esc(A.from)}</button></div>`);
+    thinking = false; cr.think(false); cr.pulse();
+    L.rig.set("happy", now()); L.back = now() + 1.4; status("On this phone");
+    state = "open"; syncSend();
+    // Roots grow out of the crystal through the window's field and pull the answer's data home.
+    requestAnimationFrame(() => rootPull(roots, rootsFrom()));
+  }
+  // rootPull grows left and up from its origin; the roots layer is mirrored, so mirror the origin too.
+  function rootsFrom() {
+    const r = roots.getBoundingClientRect(), c = cr.el.getBoundingClientRect();
+    let x = (c.left + c.right) / 2, y = (c.top + c.bottom) / 2;
+    if (K.flip[0] < 0) x = r.left + r.right - x;
+    if (K.flip[1] < 0) y = r.top + r.bottom - y;
+    return { getBoundingClientRect: () => ({ left: x, top: y, width: 0, height: 0 }) };
+  }
+  function stop() {
+    timers.forEach(clearTimeout); timers = [];
+    $(".w-wait", inn)?.remove();
+    thinking = false; cr.think(false); L.rig.set("idle", now()); status("On this phone");
+    add(`<div class="w-lar"><p>Okay, stopped.</p></div>`);
+    state = "open"; syncSend();
+  }
+
+  async function close() {
+    if (state === "closed" || state === "closing") return;
+    timers.forEach(clearTimeout); timers = []; queued = null;
+    if (thinking) { thinking = false; cr.think(false); }
+    state = "closing"; cr.el.setAttribute("aria-expanded", "false"); status("See you");
+    if (reduce) {
+      cr.el.style.opacity = 0; el.classList.remove("w-open");
+      await wait(200);
+      flyTo(0, 0); L.on = false; cr.el.classList.remove("w-free"); cr.el.style.opacity = "";
+    } else {
+      L.fold = now(); L.rig.start("spawn", now());
+      await wait(300);
+      // Pin where it leaves from, so the window shrinking under it doesn't add to the flight.
+      pin = home(performance.now() / 1000); flyTo(0, 760); el.classList.remove("w-open");
+      await wait(400);
+      cr.el.classList.remove("w-free");
+      await wait(280);
+    }
+    cr.el.style.transform = ""; cr.el.style.zIndex = ""; L.on = false;
+    inn.innerHTML = ""; input.value = ""; win.style.height = "";
+    state = "closed"; syncSend();
+  }
+
+  cr.el.addEventListener("click", () => { if (state === "closed") open(); });
+  $(".w-scrim", el).addEventListener("click", close);
+  $(".w-x", win).addEventListener("click", close);
+  win.addEventListener("click", (e) => { const b = e.target.closest("[data-ask]"); if (b) ask(b.dataset.ask); });
+  $("form", win).addEventListener("submit", (e) => { e.preventDefault(); if (state === "busy") stop(); else if (input.value.trim()) ask(input.value.trim()); });
+  input.addEventListener("input", syncSend);
+  if (kind === "b") log.addEventListener("scroll", () => win.style.setProperty("--p", clamp(log.scrollTop / 48).toFixed(3)), { passive: true });
+  return {
+    frame, open, close, ask: () => ask(W_STARTERS[0], true),
+    room(day) { dress(el, day ? DAY : NIGHT); cr.look(LOOKS[day ? 1 : 0]); },
+  };
+}
+
+const wPhones = [["wPhA", "a"], ["wPhB", "b"], ["wPhC", "c"]].map(([id, k]) => wPhone($("#" + id), k));
+(function wLoop(n) { wPhones.forEach((p) => p.frame(n)); requestAnimationFrame(wLoop); })(performance.now());
+$("#window .w-panel").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-w]");
+  if (b) wPhones.forEach((p) => p[b.dataset.w]());
+  const r = e.target.closest("[data-wr]");
+  if (r) { $$("[data-wr]").forEach((x) => x.setAttribute("aria-pressed", String(x === r))); wPhones.forEach((p) => p.room(r.dataset.wr === "day")); }
+});
+</script>
