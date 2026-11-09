@@ -1,0 +1,518 @@
+<style>
+#due .picks { grid-template-columns: 1fr; }
+.d-ph { --d-kb: #262629; --d-key: #4a4a4f; --d-keyt: #a3a3ab; --d-bad: #f07a6e; --d-scrim: rgb(5 2 8 / 0.5); --d-shadow: rgb(0 0 0 / 0.5); }
+.d-ph[data-droom="day"] { --d-kb: #d3d6dc; --d-key: #fdfdfd; --d-keyt: #6b6b72; --d-bad: #b3261e; --d-scrim: rgb(28 21 23 / 0.24); --d-shadow: rgb(60 30 20 / 0.22); }
+
+/* the Due card on Today */
+.d-dh { display: flex; align-items: center; justify-content: space-between; margin: -4px 0 2px; }
+.d-addb { display: inline-flex; align-items: center; gap: 6px; height: 36px; }
+.d-due .drow .x { border: 0; background: none; padding: 6px 0; text-align: left; color: var(--ink); display: grid; gap: 1px; }
+.d-due .drow .x small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d-due .drow .sq { pointer-events: none; }
+.d-land { opacity: 0; }
+
+/* the keyboard, drawn so the layout is judged with it up */
+.d-kb { position: absolute; left: 0; right: 0; bottom: 0; height: 290px; z-index: 66; background: var(--d-kb); display: grid; grid-template-rows: 32px repeat(4, 42px); row-gap: 11px; align-content: start; padding: 6px 3px 0; translate: 0 100%; transition: translate 0.32s var(--ease); cursor: pointer; }
+.d-kbon .d-kb { translate: 0 0; }
+.d-kb div { display: flex; gap: 6px; justify-content: center; padding: 0 3px; }
+.d-kb span { flex: 0 1 26px; border-radius: 5px; background: var(--d-key); box-shadow: 0 1px 0 rgb(0 0 0 / 0.3); }
+.d-kb .w { flex-basis: 40px; } .d-kb .w2 { flex-basis: 84px; } .d-kb .sp { flex: 1 1 auto; }
+.d-kb .d-sug { align-items: center; font-size: 12px; color: var(--d-keyt); }
+
+/* the window: a floating card that grows out of Add and shrinks back into the list */
+.d-scrim { position: absolute; inset: 0; z-index: 58; border: 0; padding: 0; background: var(--d-scrim); opacity: 0; pointer-events: none; transition: opacity 0.3s var(--ease); }
+.d-open .d-scrim { opacity: 1; pointer-events: auto; }
+.d-win { position: absolute; left: 8px; right: 8px; bottom: 24px; z-index: 60; transform-origin: 0 0; filter: drop-shadow(0 12px 22px var(--d-shadow)); transition: translate 0.36s var(--ease); }
+.d-kbon .d-win { translate: 0 -274px; }
+.d-card { display: flex; flex-direction: column; max-height: 600px; overflow: hidden; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 30%, transparent); clip-path: var(--n4); transition: max-height 0.36s var(--ease); touch-action: none; }
+.d-kbon .d-card { max-height: 330px; }
+.d-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 10px; padding: 10px 10px 0; }
+.d-body > * { flex: none; }
+.d-body::-webkit-scrollbar { display: none; }
+.d-body:empty { padding: 0; }
+.d-date { position: absolute; left: 50%; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+.d-head { position: relative; height: 12px; }
+.d-head::before { content: ""; position: absolute; left: 50%; top: 5px; width: 32px; height: 4px; translate: -50% 0; background: var(--edge-2); }
+.d-top { display: flex; align-items: flex-start; gap: 2px; padding: 0 4px 0 10px; }
+.d-top .d-x { height: 44px; }
+.d-card .d-del[hidden] { display: none; }
+.d-x { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border: 0; padding: 0; background: none; color: var(--ink-2); border-radius: 8px; }
+.d-x:hover { color: var(--ink); }
+.d-field { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 6px; padding: 4px 4px 4px 12px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge); border-radius: 10px; transition: box-shadow 0.2s var(--ease); }
+.d-field:focus-within { box-shadow: inset 0 0 0 1.5px var(--gold); }
+.d-field textarea { flex: 1; min-width: 0; height: 36px; padding: 7px 0; border: 0; outline: 0; resize: none; background: none; font: 16px/22px var(--f-ui); color: var(--ink); caret-color: var(--gold); scrollbar-width: none; }
+.d-field textarea::placeholder { color: var(--ink-2); }
+.d-field textarea::selection, .d-tt::selection { background: var(--gold); color: var(--on-gold); }
+.d-field.has .d-paste { display: none; }
+
+.d-chip { flex: none; min-height: 34px; padding: 0 11px; border: 0; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font: 600 13px var(--f-ui); color: var(--ink); background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); clip-path: var(--corner-s); transition: background 0.2s var(--ease), color 0.2s var(--ease), box-shadow 0.2s var(--ease), scale 0.16s var(--spring); }
+.d-chip:active, .d-cell:active, .d-tok:active { scale: 0.95; }
+.d-chip[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.22); }
+.d-chip[aria-pressed="true"] .tile { --c: var(--on-gold) !important; }
+.d-chip .tile { width: 8px; height: 8px; }
+.d-paste { min-height: 30px; padding: 0 10px; margin-top: 3px; color: var(--ink-2); }
+.d-q { color: var(--ink-2); }
+.d-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-inline: -10px; padding-inline: 10px; -webkit-mask: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 22px), transparent); mask: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 22px), transparent); }
+.d-row::-webkit-scrollbar, .d-strip::-webkit-scrollbar { display: none; }
+.d-seg { padding: 2px; }
+.d-seg button { min-height: 32px; }
+.d-keep { flex: none; width: 36px; height: 36px; margin: -7px; display: grid; place-items: center; border: 0; padding: 0; background: none; }
+.d-keep .pchk { pointer-events: none; }
+.d-keep .pchk.on { animation: none; }
+.off > :not(.d-keep) { opacity: 0.45; }
+[data-zone] { border-radius: 4px; }
+.d-nudge { animation: dnudge 0.9s var(--ease); }
+@keyframes dnudge { 25%, 65% { background-color: var(--gold-soft); box-shadow: 0 0 0 2px var(--gold-soft); } }
+
+.d-bar { display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px; }
+.d-go { flex: 1; min-height: 46px; border: 0; border-radius: 10px; font: 700 15px var(--f-ui); background: var(--gold); color: var(--on-gold) !important; box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.22); transition: background 0.24s var(--ease), color 0.24s var(--ease), box-shadow 0.24s var(--ease), scale 0.16s var(--spring); }
+.d-go:active { scale: 0.97; }
+.d-go[aria-disabled="true"] { background: var(--sunk); color: var(--ink-2) !important; box-shadow: inset 0 0 0 1px var(--edge-2); }
+.d-del { flex: none; min-height: 46px; padding: 0 14px; border: 0; border-radius: 10px; background: none; box-shadow: inset 0 0 0 1px var(--edge-2); font: 700 14px var(--f-ui); color: var(--d-bad) !important; }
+
+/* A: one line over the keyboard */
+.d-A .d-bar { gap: 6px; padding: 8px; align-items: flex-end; }
+.d-A .d-x { width: 36px; height: 44px; margin-right: -4px; }
+.d-A .d-go { flex: none; width: 92px; min-height: 44px; font-size: 14px; }
+.d-A .d-del { width: 44px; padding: 0; display: grid; place-items: center; }
+.d-ar { display: flex; align-items: flex-start; gap: 10px; }
+.d-ar .d-keep { margin-top: -6px; }
+.d-atx { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.d-atx b { font: 700 16px/1.25 var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-toks { display: flex; flex-wrap: wrap; align-items: center; }
+.d-toks i { font-style: normal; color: var(--ink-3); padding: 0 1px; }
+.d-tok { border: 0; background: none; min-height: 30px; padding: 0 4px; margin-inline: -2px; display: inline-flex; align-items: center; gap: 5px; border-radius: 6px; font: 600 13px var(--f-ui); color: var(--ink-2); text-decoration: underline dotted var(--ink-3) 1.5px; text-underline-offset: 4px; transition: background 0.2s var(--ease), color 0.2s var(--ease); }
+.d-tok .tile { width: 8px; height: 8px; }
+.d-tok[aria-expanded="true"] { color: var(--gold); background: var(--gold-soft); text-decoration-color: var(--gold); }
+.d-tok.miss { color: var(--gold); text-decoration: underline dashed var(--gold) 1.5px; }
+
+/* B: the ticket */
+.d-tks { display: grid; gap: 6px; }
+.d-tk { position: relative; display: flex; min-height: 64px; background: color-mix(in srgb, var(--gold) 6%, var(--sunk)); box-shadow: inset 0 0 0 1px var(--edge-2); transition: box-shadow 0.2s var(--ease);
+  clip-path: polygon(0 3px,3px 3px,3px 0,55px 0,55px 4px,61px 4px,61px 0,calc(100% - 3px) 0,calc(100% - 3px) 3px,100% 3px,100% calc(100% - 3px),calc(100% - 3px) calc(100% - 3px),calc(100% - 3px) 100%,61px 100%,61px calc(100% - 4px),55px calc(100% - 4px),55px 100%,3px 100%,3px calc(100% - 3px),0 calc(100% - 3px)); }
+.d-tk.on { box-shadow: inset 0 0 0 1.5px var(--gold); }
+.d-stub { flex: none; width: 58px; border: 0; padding: 6px 0; display: grid; justify-items: center; align-content: center; gap: 1px; color: var(--ink); background: linear-gradient(var(--edge-2) 50%, transparent 0) right top / 2px 6px repeat-y, var(--gold-soft); }
+.d-stub span { font: 500 11px var(--f-pixel); letter-spacing: 0.06em; color: var(--gold); }
+.d-stub span + b + span { color: var(--ink-2); }
+.d-stub b { font: 800 24px/1 var(--f-ui); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.d-stub.miss b, .d-stub.miss span { color: var(--ink-3); }
+.d-tb { flex: 1; min-width: 0; display: grid; align-content: center; gap: 3px; padding: 8px 12px; }
+.d-tk .d-keep { position: absolute; right: 12px; top: 13px; }
+.d-tk:has(.d-keep) .d-tb { padding-right: 40px; }
+.d-tt { width: 100%; padding: 0; border: 0; outline: 0; background: none; font: 700 17px/1.2 var(--f-ui); color: var(--ink); caret-color: var(--gold); }
+.d-tt:focus { box-shadow: 0 1.5px 0 var(--gold); }
+.d-tt::placeholder { color: var(--ink-3); }
+.d-tb small { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; }
+.d-tb .tile { width: 8px; height: 8px; }
+.d-fix { display: grid; gap: 6px; }
+.d-crow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.d-crow .d-row { flex: 1; min-width: 0; margin: 0 -10px 0 0; padding: 0 10px 0 0; -webkit-mask: linear-gradient(90deg, #000 calc(100% - 22px), transparent); mask: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
+.d-crow .d-seg { flex: 1; }
+.d-lab { flex: none; width: 52px; font: 500 11px var(--f-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+
+/* C: the week strip */
+.d-C .d-body { gap: 8px; }
+.d-cps { display: grid; gap: 2px; }
+.d-cp { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 8px; margin-inline: -8px; border-radius: 8px; transition: background 0.2s var(--ease); }
+.d-cp.on { background: var(--gold-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 45%, transparent); }
+.d-cpt { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.d-cpt b { font: 700 16px/1.25 var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-cpt small { font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d-strip { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; margin-inline: -10px; padding: 0 10px; }
+.d-cell { flex: none; width: 40px; height: 60px; border: 0; padding: 7px 0 6px; display: grid; justify-items: center; align-content: space-between; color: var(--ink); background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge); clip-path: var(--corner-s); transition: background 0.2s var(--ease), color 0.2s var(--ease), scale 0.16s var(--spring); }
+.d-cell span { font: 500 10px var(--f-pixel); letter-spacing: 0.04em; color: var(--ink-2); }
+.d-cell b { font: 700 16px/1 var(--f-ui); font-variant-numeric: tabular-nums; }
+.d-cell i { width: 6px; height: 6px; background: var(--c); opacity: 0; }
+.d-cell.cls i { opacity: 1; }
+.d-cell.wk { margin-left: 8px; }
+.d-cell[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.22); }
+.d-cell[aria-pressed="true"] span { color: var(--on-gold); }
+.d-cell[aria-pressed="true"] i { background: var(--on-gold); }
+.d-cell.d-q { width: 52px; align-content: center; gap: 4px; color: var(--ink-2); }
+</style>
+
+<section class="row" id="due">
+  <div class="q">
+    <h2>Adding a due: it reads as you type</h2>
+    <p>No Read it step and no form. It reads what you type, chips fix what it got wrong, and one Add sits under your thumb. The window grows out of Add and shrinks back into the Due card.</p>
+  </div>
+  <div class="wide">
+    <div class="opt">
+      <div class="phone d-phone" data-v="A"></div>
+      <div class="name"><b>A: Command bar</b><span>One line on the keyboard. What it read grows above it; tap any underlined part to fix it. Return adds. The keyboard never drops.</span></div>
+      <div class="picks"><button class="pick" data-row="due" data-v="A: Command bar">Pick A</button></div>
+    </div>
+    <div class="opt">
+      <div class="phone d-phone" data-v="B"></div>
+      <div class="name"><b>B: Ticket</b><span>What it read is a ticket you can rename. Every fix is one tap in the three rows under it: when, subject, kind.</span></div>
+      <div class="picks"><button class="pick" data-row="due" data-v="B: Ticket">Pick B</button></div>
+    </div>
+    <div class="opt">
+      <div class="phone d-phone" data-v="C"></div>
+      <div class="name"><b>C: Week strip</b><span>The day is picked on your own two weeks, with the subject's class days marked in its colour. Good for "next COMP class".</span></div>
+      <div class="picks"><button class="pick" data-row="due" data-v="C: Week strip">Pick C</button></div>
+    </div>
+  </div>
+  <div class="panel" id="d-try">
+    <h3>Try it</h3>
+    <p>These drive all three phones. Each phone is live too: tap Add on its Due card, type, tap a chip, tap the grey keyboard to put it away, swipe the window down to cancel, or tap a due to edit it.</p>
+    <div class="pbtns">
+      <button class="pbtn" data-dtry="open">Open</button>
+      <button class="pbtn" data-dtry="type">Type "quiz COMP fri"</button>
+      <button class="pbtn" data-dtry="paste">Paste a GC message</button>
+      <button class="pbtn" data-dtry="edit">Edit an existing one</button>
+      <button class="pbtn" data-dtry="room">Day</button>
+      <button class="pbtn" data-dtry="reset">Reset</button>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ---- the parser, faked: the real one is the core's parse_own ---- */
+const dEASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const dT0 = new Date(2026, 10, 9); // Monday, the phones' 9:41
+const dAt = (n) => new Date(2026, 10, 9 + n);
+const dDiff = (d) => Math.round((d - dT0) / 864e5);
+const dIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const dFmt = (d) => d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+const dDow = (d) => d.toLocaleDateString("en-US", { weekday: "short" });
+const dShort = (d) => d.getMonth() === dT0.getMonth() ? `${dDow(d)} ${d.getDate()}` : dFmt(d);
+const dWhen = (d) => { const n = dDiff(d); return n === 0 ? "Today" : n === 1 ? "Tmrw" : n > 1 && n < 7 ? dDow(d) : d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); };
+const dMEETS = { "COMP 20083": [1, 3], "COMP 20073": [2, 5], "MATH 20133": [1, 4], "GEED 10053": [3, 6] };
+const dCODES = SUBJECTS.filter((s) => s.code in dMEETS);
+const dSub = (code) => SUBJECTS.find((s) => s.code === code);
+const dMeets = (code, d) => !!code && !!dMEETS[code]?.includes(d.getDay());
+const dNextClasses = (code) => { const r = []; for (let i = 2; i < 21 && r.length < 2; i++) if (dMeets(code, dAt(i))) r.push(dAt(i)); return r; };
+const dKINDS = [["quiz", "Quiz"], ["exam", "Exam"], ["project", "Project"], ["other", "Other"]];
+const dKind = (k) => dKINDS.find((x) => x[0] === k)[1];
+const dGC = "Reminders! Lab 4 due Thursday 11:59pm\nMidterm exam next Monday";
+const dALIAS = [[/\b(oop|object[- ]oriented)\b/i, "COMP 20083"], [/\b(dsa|data struct\w*)\b/i, "COMP 20073"], [/\b(discrete|dismath)\b/i, "MATH 20133"], [/\b(purcom|purposive)\b/i, "GEED 10053"]];
+function dParseLine(s) {
+  let t = ` ${s} `, date = null, sub = null, m;
+  const cut = (re) => { const x = re.exec(t); if (x) t = t.slice(0, x.index) + " " + t.slice(x.index + x[0].length); return x; };
+  cut(/^\s*(reminders?|announcement|guys|@everyone)\b[!:,.]*/i);
+  cut(/\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b\d{1,2}:\d{2}\b/i); // the core keeps days, not times
+  if (cut(/\b(today|tonight|mamaya|ngayon)\b/i)) date = dAt(0);
+  else if (cut(/\b(tomorrow|tmrw|bukas)\b/i)) date = dAt(1);
+  else if (cut(/\bnext\s+week\b/i)) date = dAt(7 - ((dT0.getDay() + 6) % 7));
+  else if ((m = cut(/\b(next\s+)?(sun(?:day)?|mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?)\b/i))) {
+    let n = (["sun", "mon", "tue", "wed", "thu", "fri", "sat"].indexOf(m[2].slice(0, 3).toLowerCase()) - dT0.getDay() + 7) % 7 || 7;
+    if (m[1] && n < 7) n += 7;
+    date = dAt(n);
+  } else if ((m = cut(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/i))) {
+    date = new Date(2026, "janfebmaraprmayjunjulaugsepoctnovdec".indexOf(m[1].toLowerCase()) / 3, +m[2]);
+    if (date < dT0) date.setFullYear(2027);
+  }
+  if ((m = cut(/\b(comp|math|geed)\s*(\d{5})?\b/i))) {
+    const all = dCODES.filter((x) => x.code.startsWith(m[1].toUpperCase()));
+    sub = (all.find((x) => m[2] && x.code.endsWith(m[2])) || (date && all.find((x) => dMeets(x.code, date))) || all[0])?.code ?? null;
+  } else sub = dALIAS.find(([re]) => re.test(t))?.[1] ?? null;
+  const kind = /\b(quiz|qz)\b/i.test(s) ? "quiz" : /\b(exams?|midterms?|finals?|prelims?)\b/i.test(s) ? "exam" : /\b(project|lab|report|paper|essay|assignment|activity|problem set)\b/i.test(s) ? "project" : "other";
+  let title = t.replace(/\b(due|deadline|sa|until)\b/gi, " ").replace(/\s+/g, " ").replace(/^[\s,.:;!-]+|[\s,.:;!-]+$/g, "");
+  title = title ? title[0].toUpperCase() + title.slice(1) : kind === "other" ? "" : dKind(kind);
+  return { title, kind, sub, date };
+}
+// One draft per line when two or more lines name a day, like the core.
+function dParse(text) {
+  const lines = text.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const dated = lines.map(dParseLine).filter((d) => d.date);
+  return dated.length >= 2 ? dated : [dParseLine(lines.join(" "))];
+}
+{ // the one check: if the parser drifts, the console says so
+  const t = (s) => dParse(s).map((d) => `${d.title}|${d.kind}|${d.sub}|${d.date && dIso(d.date)}`).join(" / ");
+  console.assert(t("quiz COMP fri") === "Quiz|quiz|COMP 20073|2026-11-13", t("quiz COMP fri"));
+  console.assert(t(dGC) === "Lab 4|project|null|2026-11-12 / Midterm exam|exam|null|2026-11-16", t(dGC));
+}
+function dVerdict(ds, edit) {
+  const k = ds.filter((d) => d.keep);
+  if (!ds.length) return { ok: false, label: edit ? "Save" : "Add", why: "text" };
+  if (!k.length) return { ok: false, label: "Keep one", why: "keep" };
+  const i = ds.findIndex((d) => d.keep && !d.date);
+  if (i >= 0) return { ok: false, label: "Add a day", why: "day", i };
+  const j = ds.findIndex((d) => d.keep && !d.title.trim());
+  if (j >= 0) return { ok: false, label: "Name it", why: "name", i: j };
+  return { ok: true, label: edit ? "Save" : k.length > 1 ? `Add ${k.length}` : "Add" };
+}
+const dSeed = () => [
+  { id: "l4", title: "Lab 4: Interfaces", sub: "COMP 20083", kind: "project", date: dAt(0) },
+  { id: "q3", title: "Quiz 3", sub: "COMP 20073", kind: "quiz", date: dAt(4) },
+  { id: "p2", title: "Problem Set 2", sub: "MATH 20133", kind: "project", date: dAt(5) },
+];
+const dKB = `<div class="d-sug">Keyboard · tap to hide</div>` + [10, 9, 7].map((n, r) => `<div>${r === 2 ? '<span class="w"></span>' : ""}${"<span></span>".repeat(n)}${r === 2 ? '<span class="w"></span>' : ""}</div>`).join("") + `<div><span class="w"></span><span class="w"></span><span class="sp"></span><span class="w2"></span></div>`;
+const dTile = (code) => code ? `<span class="tile" style="--c:var(--s${dSub(code).s})"></span>` : "";
+const dMeta = (d) => `${dKind(d.kind)} · ${esc(d.sub || "No subject")} · ${d.date ? dFmt(d.date) : "No day yet"}`;
+
+/* ---- one phone, one version ---- */
+function dAdder(el, V) {
+  const view = shell(el, NIGHT, "today");
+  el.classList.add("d-ph", "d-" + V);
+  el.dataset.droom = "night";
+  view.innerHTML = `<h3 class="ttl">Today</h3><div class="card" style="display:grid;gap:4px"><p class="lb">Up next</p><b style="font:800 17px var(--f-ui);color:var(--gold)">COMP 20083</b><p class="fine">Object-Oriented Programming, 10:30 AM</p></div><div class="card d-due"><div class="d-dh"><p class="lb">Due</p><button class="pill d-addb" data-add>${pi("plus", 12)}Add</button></div><div class="d-list"></div></div>`;
+  const field = `<div class="d-field"><textarea rows="1" enterkeyhint="${V === "A" ? "done" : "enter"}" placeholder="quiz COMP fri" aria-label="What's due?"></textarea><button class="d-chip d-paste" data-paste>Paste</button></div>`;
+  const x = `<button class="d-x" data-close aria-label="Close">${pi("x", 14)}</button>`;
+  const go = `<button class="d-go" data-go aria-disabled="true">Add</button>`;
+  const del = V === "A" ? `<button class="d-del" data-del aria-label="Delete" hidden>${pi("trash", 16)}</button>` : `<button class="d-del" data-del hidden>Delete</button>`;
+  const inner = V === "A" ? `<div class="d-body"></div><div class="d-bar">${x}${field}${del}${go}</div>`
+    : `<div class="d-head"></div><div class="d-top">${field}${x}</div><div class="d-body"></div><div class="d-bar">${del}${go}</div>`;
+  el.insertAdjacentHTML("beforeend", `<button class="d-scrim" data-close tabindex="-1" aria-label="Close"></button><div class="d-win" role="dialog" aria-label="Add a due" hidden><div class="d-card">${inner}</div><input type="date" class="d-date" tabindex="-1" aria-hidden="true" min="${dIso(dT0)}"></div><div class="d-kb" aria-hidden="true">${dKB}</div>`);
+  const win = $(".d-win", el), card = $(".d-card", el), body = $(".d-body", el), ta = $("textarea", el), fieldEl = $(".d-field", el);
+  const goB = $("[data-go]", el), delB = $("[data-del]", el), dt = $(".d-date", el), list = $(".d-list", el), due = $(".d-due", el), addB = $("[data-add]", el);
+  const st = { items: dSeed(), open: false, busy: false, kb: false, edit: null, text: "", parsed: [], over: [], keep: [], tray: null, trayTouched: false, sel: 0, seq: 0 };
+  let timer = 0, autoT = 0, typing = 0;
+
+  const drafts = () => st.parsed.map((p, i) => ({ ...p, ...st.over[i], keep: st.keep[i] !== false }));
+  const setKb = (on) => { st.kb = on; el.classList.toggle("d-kbon", on); if (!on && el.contains(document.activeElement)) document.activeElement.blur(); };
+  const autosize = () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, V === "A" ? 58 : 80) + "px"; };
+  const grow = (box, fn) => { const h0 = box.offsetHeight; fn(); const h1 = box.offsetHeight; if (h0 !== h1 && !reduce) box.animate([{ height: h0 + "px" }, { height: h1 + "px" }], { duration: 360, easing: dEASE }); };
+  const rowEl = (id) => $(`.drow[data-id="${id}"]`, list);
+
+  function drawList(fresh = []) {
+    st.items.sort((a, b) => a.date - b.date);
+    list.innerHTML = st.items.map((d) => `<div class="drow${fresh.includes(d.id) ? " d-land" : ""}" data-id="${d.id}"><span class="sq" aria-hidden="true"><span class="pchk"></span>Done</span><em>${dWhen(d.date)}</em><button class="x" data-edit="${d.id}" aria-label="Edit ${esc(d.title)}, due ${dFmt(d.date)}"><b>${esc(d.title)}</b><small>${esc(d.sub || "Your own")} · ${dKind(d.kind)}</small></button></div>`).join("");
+  }
+
+  /* chips every version shares */
+  const keepBtn = (d, i) => `<button class="d-keep" data-keep="${i}" aria-pressed="${d.keep}" aria-label="Add this one"><span class="pchk${d.keep ? " on" : ""}"></span></button>`;
+  const dayChips = (d, i) => {
+    const opts = [dAt(0), dAt(1), ...dNextClasses(d.sub)];
+    if (d.date && !opts.some((o) => dIso(o) === dIso(d.date))) opts.push(d.date);
+    opts.sort((a, b) => a - b);
+    return opts.map((o) => { const n = dDiff(o), cls = dMeets(d.sub, o); return `<button class="d-chip" data-set="date" data-i="${i}" data-v="${dIso(o)}" aria-pressed="${!!d.date && dIso(d.date) === dIso(o)}"${cls ? ` title="${d.sub} meets"` : ""}>${cls ? dTile(d.sub) : ""}${n === 0 ? "Today" : n === 1 ? "Tomorrow" : dShort(o)}</button>`; }).join("")
+      + `<button class="d-chip d-q" data-pick data-i="${i}">${pi("date", 12)}Pick…</button>`;
+  };
+  const subChips = (d, i) => dCODES.map((s) => `<button class="d-chip" data-set="sub" data-i="${i}" data-v="${s.code}" aria-pressed="${d.sub === s.code}">${dTile(s.code)}${s.code}</button>`).join("")
+    + `<button class="d-chip" data-set="sub" data-i="${i}" data-v="" aria-pressed="${!d.sub}">No subject</button>`;
+  const kindSeg = (d, i) => `<div class="seg d-seg" data-zone="kind">${dKINDS.map(([k, l]) => `<button data-set="kind" data-i="${i}" data-v="${k}" aria-pressed="${d.kind === k}">${l}</button>`).join("")}</div>`;
+
+  /* A: a line per draft, its parts underlined; one tray of chips under them */
+  const tok = (i, k, html, miss) => `<button class="d-tok${miss ? " miss" : ""}" data-tray="${k}" data-i="${i}" aria-expanded="${st.tray === `${i}:${k}`}">${html}</button>`;
+  function bodyA(ds) {
+    const multi = ds.length > 1;
+    const rows = ds.map((d, i) => `<div class="d-ar${d.keep ? "" : " off"}">${multi ? keepBtn(d, i) : ""}<div class="d-atx"><b>${esc(d.title || "Name it")}</b><span class="d-toks">${tok(i, "kind", dKind(d.kind))}<i>·</i>${tok(i, "sub", dTile(d.sub) + esc(d.sub || "No subject"))}<i>·</i>${tok(i, "day", d.date ? dFmt(d.date) : "Add a day", !d.date)}</span></div></div>`).join("");
+    const [ti, tk] = (st.tray || "").split(":"), d = st.tray && ds[+ti];
+    const tray = !d ? "" : tk === "kind" ? kindSeg(d, +ti) : `<div class="d-row" data-scroll="${tk}" data-zone="${tk}">${tk === "day" ? dayChips(d, +ti) : subChips(d, +ti)}</div>`;
+    return rows + tray;
+  }
+  /* B: tickets, then three rows of chips for the selected one */
+  function bodyB(ds) {
+    if (!ds.length) return "";
+    const multi = ds.length > 1, d = ds[st.sel], i = st.sel;
+    const tks = ds.map((t, k) => `<div class="d-tk${multi && k === i ? " on" : ""}${t.keep ? "" : " off"}" data-tk="${k}"><button class="d-stub${t.date ? "" : " miss"}" data-sel="${k}" aria-label="${t.date ? dFmt(t.date) : "No day yet"}">${t.date ? `<span>${dDow(t.date).toUpperCase()}</span><b>${t.date.getDate()}</b><span>${t.date.toLocaleDateString("en-US", { month: "short" }).toUpperCase()}</span>` : "<span>DAY</span><b>?</b><span>&nbsp;</span>"}</button><div class="d-tb"><input class="d-tt" data-title="${k}" value="${esc(t.title)}" placeholder="Name it" aria-label="Name"><small>${dTile(t.sub)}${esc(t.sub || "No subject")} · ${dKind(t.kind)}</small></div>${multi ? keepBtn(t, k) : ""}</div>`).join("");
+    return `<div class="d-tks">${tks}</div><div class="d-fix"><div class="d-crow" data-zone="day"><span class="d-lab">When</span><div class="d-row" data-scroll="day">${dayChips(d, i)}</div></div><div class="d-crow"><span class="d-lab">Subject</span><div class="d-row" data-scroll="sub">${subChips(d, i)}</div></div><div class="d-crow"><span class="d-lab">Kind</span>${kindSeg(d, i)}</div></div>`;
+  }
+  /* C: previews, subject chips, two weeks of days, kind */
+  function bodyC(ds) {
+    if (!ds.length) return "";
+    const multi = ds.length > 1, d = ds[st.sel], i = st.sel, far = d.date && dDiff(d.date) > 13;
+    const cps = ds.map((t, k) => `<div class="d-cp${multi && k === i ? " on" : ""}${t.keep ? "" : " off"}"${multi ? ` data-tk="${k}"` : ""}>${multi ? keepBtn(t, k) : ""}<span class="d-cpt"><b>${esc(t.title || "Name it")}</b><small>${dMeta(t)}</small></span></div>`).join("");
+    const cells = Array.from({ length: 14 }, (_, n) => { const o = dAt(n); return `<button class="d-cell${dMeets(d.sub, o) ? " cls" : ""}${n && o.getDay() === 1 ? " wk" : ""}" data-set="date" data-i="${i}" data-v="${dIso(o)}" aria-pressed="${!!d.date && dIso(d.date) === dIso(o)}" aria-label="${dFmt(o)}${dMeets(d.sub, o) ? `, ${d.sub} meets` : ""}"><span>${n === 0 ? "TODAY" : n === 1 ? "TMRW" : dDow(o).toUpperCase()}</span><b>${o.getDate()}</b><i style="--c:var(--s${d.sub ? dSub(d.sub).s : 1})"></i></button>`; }).join("");
+    return `<div class="d-cps">${cps}</div><div class="d-row" data-scroll="sub">${subChips(d, i)}</div><div class="d-strip" data-scroll="strip" data-zone="day">${cells}<button class="d-cell d-q" data-pick data-i="${i}" aria-pressed="${!!far}">${far ? `<span>${dDow(d.date).toUpperCase()}</span><b>${d.date.getDate()}</b>` : `${pi("date", 14)}<span>PICK</span>`}</button></div>${kindSeg(d, i)}`;
+  }
+
+  function bar(ds = drafts()) {
+    const v = dVerdict(ds, st.edit);
+    goB.textContent = v.label;
+    goB.setAttribute("aria-disabled", String(!v.ok));
+    delB.hidden = !st.edit;
+    return v;
+  }
+  function render(still) {
+    const ds = drafts();
+    if (st.sel >= ds.length) st.sel = 0;
+    const keep = {}, focused = document.activeElement?.dataset?.title, caret = document.activeElement?.selectionStart;
+    $$("[data-scroll]", body).forEach((s) => (keep[s.dataset.scroll] = s.scrollLeft));
+    const paint = () => (body.innerHTML = (V === "A" ? bodyA : V === "B" ? bodyB : bodyC)(ds));
+    still ? paint() : grow(card, paint);
+    $$("[data-scroll]", body).forEach((s) => (s.scrollLeft = keep[s.dataset.scroll] ?? 0));
+    if (focused != null) { const n = $(`[data-title="${focused}"]`, body); n?.focus({ preventScroll: true }); n?.setSelectionRange(caret, caret); }
+    if (V === "C") { // keep the chosen day in view
+      const s = $(".d-strip", body), c = s && $('[aria-pressed="true"]', s);
+      if (c && (c.offsetLeft < s.scrollLeft || c.offsetLeft + c.offsetWidth > s.scrollLeft + s.clientWidth)) s.scrollTo({ left: c.offsetLeft - 60, behavior: reduce ? "auto" : "smooth" });
+    }
+    bar(ds);
+  }
+  function onInput(now) {
+    fieldEl.classList.toggle("has", !!ta.value);
+    autosize();
+    st.text = ta.value;
+    clearTimeout(timer); clearTimeout(autoT);
+    timer = setTimeout(() => {
+      st.parsed = dParse(st.text);
+      render();
+      // A: if a day still hasn't come after a pause, offer the day chips.
+      if (V === "A" && !st.trayTouched && st.parsed.length === 1 && !drafts()[0].date) autoT = setTimeout(() => { if (st.open && !st.tray && !drafts()[0]?.date) { st.tray = "0:day"; render(); } }, 1100);
+    }, now ? 0 : 250);
+  }
+
+  function freeze() {
+    const t = getComputedStyle(win).translate;
+    win.style.transition = card.style.transition = "none";
+    win.style.translate = t;
+    card.style.height = card.offsetHeight + "px";
+    return win.getBoundingClientRect();
+  }
+  function unfreeze() { win.style.transition = win.style.translate = win.style.transform = card.style.transition = card.style.height = ""; }
+  const toward = (R, T) => `translate(${T.left - R.left}px, ${T.top - R.top}px) scale(${T.width / R.width}, ${T.height / R.height})`;
+  const fadeKids = (from, to, o) => [...card.children].map((c) => c.animate([{ opacity: from }, { opacity: to }], { duration: reduce ? 0 : 160, fill: "both", easing: dEASE, ...o }));
+
+  function open(item) {
+    if (st.open || st.busy) return;
+    Object.assign(st, { open: true, edit: item?.id ?? null, text: item?.title ?? "", over: item ? [{ date: item.date, sub: item.sub, kind: item.kind }] : [], keep: [], tray: null, trayTouched: false, sel: 0 });
+    ta.value = st.text;
+    st.parsed = dParse(st.text);
+    fieldEl.classList.toggle("has", !!ta.value);
+    win.setAttribute("aria-label", item ? "Edit due" : "Add a due");
+    win.hidden = false;
+    el.classList.add("d-open");
+    win.style.transition = card.style.transition = "none";
+    render(true);
+    autosize();
+    if (!item) { ta.focus({ preventScroll: true }); setKb(true); }
+    const to = win.getBoundingClientRect(), from = (item ? rowEl(item.id) : addB).getBoundingClientRect();
+    win.animate([{ transform: toward(to, from), opacity: 0.6 }, { transform: "none", opacity: 1 }], { duration: reduce ? 0 : 420, easing: dEASE });
+    fadeKids(0, 1, { duration: reduce ? 0 : 240, delay: reduce ? 0 : 140 }).forEach((a) => (a.onfinish = () => a.cancel()));
+    requestAnimationFrame(() => requestAnimationFrame(() => (win.style.transition = card.style.transition = "")));
+  }
+  // Leaving: into a rect (Add, or the row it became), or down off the screen after a swipe.
+  function leave(T, dy, after) {
+    st.busy = true; clearTimeout(timer); clearTimeout(autoT); typing++;
+    const R = freeze();
+    setKb(false);
+    el.classList.remove("d-open");
+    st.open = false;
+    const kids = fadeKids(1, 0);
+    const a = dy != null
+      ? win.animate([{ transform: `translateY(${dy}px)`, opacity: 1 }, { transform: `translateY(${dy + 160}px)`, opacity: 0 }], { duration: reduce ? 0 : 260, easing: "cubic-bezier(0.4, 0, 1, 1)" })
+      : win.animate([{ transform: "none", opacity: 1 }, { opacity: 1, offset: 0.7 }, { transform: toward(R, T), opacity: 0 }], { duration: reduce ? 0 : 440, easing: dEASE });
+    a.onfinish = () => { win.hidden = true; unfreeze(); kids.forEach((k) => k.cancel()); st.busy = false; after?.(); };
+  }
+  const close = (dy) => st.open && leave(addB.getBoundingClientRect(), dy);
+  function closeNow() {
+    typing++; clearTimeout(timer); clearTimeout(autoT);
+    [win, ...card.children].forEach((n) => n.getAnimations().forEach((a) => a.cancel()));
+    win.hidden = true; unfreeze(); el.classList.remove("d-open"); setKb(false);
+    st.open = st.busy = false;
+  }
+  function land(ids) {
+    const soft = getComputedStyle(el).getPropertyValue("--gold-soft").trim();
+    ids.forEach((id, k) => {
+      const r = rowEl(id); if (!r) return;
+      r.classList.remove("d-land");
+      r.animate([{ opacity: 0, scale: 0.97 }, { opacity: 1, scale: 1 }], { duration: reduce ? 0 : 320, delay: k * 80, easing: dEASE, fill: "backwards" });
+      r.animate([{ backgroundColor: soft }, { backgroundColor: "transparent" }], { duration: reduce ? 0 : 1100, delay: k * 80, easing: "ease-out", fill: "backwards" });
+      const b = r.getBoundingClientRect();
+      setTimeout(() => dotRipple($(".ground", el), b.left + 30, b.top + b.height / 2), k * 80);
+    });
+  }
+  function save() {
+    if (st.busy) return;
+    const ds = drafts(), v = bar(ds);
+    if (!v.ok) return nudge(v);
+    const kept = ds.filter((d) => d.keep), top = new Map($$(".drow", list).map((r) => [r.dataset.id, r.getBoundingClientRect().top]));
+    let ids;
+    if (st.edit) { Object.assign(st.items.find((x) => x.id === st.edit), { title: kept[0].title.trim(), sub: kept[0].sub, kind: kept[0].kind, date: kept[0].date }); ids = [st.edit]; }
+    else ids = kept.map((d) => { const id = "n" + ++st.seq; st.items.push({ id, title: d.title.trim(), sub: d.sub, kind: d.kind, date: d.date }); return id; });
+    grow(due, () => drawList(ids));
+    // FLIP: the rows already there glide aside to make room.
+    $$(".drow", list).forEach((r) => { const y = top.get(r.dataset.id); if (y == null || ids.includes(r.dataset.id)) return; const dy = y - r.getBoundingClientRect().top; if (dy) r.animate([{ translate: `0 ${dy}px` }, { translate: "0 0" }], { duration: reduce ? 0 : 420, easing: dEASE }); });
+    leave(rowEl(ids[0]).getBoundingClientRect(), null, () => land(ids));
+  }
+  function remove() {
+    const id = st.edit, r = rowEl(id);
+    leave(r.getBoundingClientRect(), null, () => {
+      r.style.minHeight = "0"; r.style.overflow = "hidden";
+      r.animate([{ height: r.offsetHeight + "px", opacity: 1 }, { height: "0px", opacity: 0 }], { duration: reduce ? 0 : 360, easing: dEASE }).onfinish = () => { st.items = st.items.filter((x) => x.id !== id); drawList(); };
+    });
+  }
+  // A greyed Add says what's missing; tapping it takes you there.
+  function nudge(v) {
+    if (v.why === "text") return ta.focus({ preventScroll: true });
+    if (v.why === "name") { const n = $(`[data-title="${v.i}"]`, body); return (n || ta).focus({ preventScroll: true }); }
+    if (v.why === "day") { if (V === "A") { st.tray = `${v.i}:day`; st.trayTouched = true; } else st.sel = v.i; render(); }
+    const z = $(`[data-zone="${v.why}"]`, body);
+    if (z) { z.classList.remove("d-nudge"); void z.offsetWidth; z.classList.add("d-nudge"); }
+  }
+
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("button, .d-kb, [data-tk]");
+    if (!b) return;
+    if (b.matches(".d-kb")) return setKb(false);
+    if (b.matches("[data-tk]")) { if (st.sel !== +b.dataset.tk) { st.sel = +b.dataset.tk; render(); } return; }
+    const ds = b.dataset;
+    if ("add" in ds) open();
+    else if (ds.edit) open(st.items.find((x) => x.id === ds.edit));
+    else if ("close" in ds) close();
+    else if ("paste" in ds) paste();
+    else if ("go" in ds) save();
+    else if ("del" in ds) remove();
+    else if (ds.set) {
+      const i = +ds.i;
+      (st.over[i] ||= {})[ds.set] = ds.set === "date" ? new Date(ds.v + "T00:00") : ds.set === "sub" ? ds.v || null : ds.v;
+      if (V === "A") { st.tray = null; st.trayTouched = true; }
+      render();
+    } else if ("pick" in ds) {
+      dt.dataset.i = ds.i;
+      const d = drafts()[+ds.i];
+      dt.value = d?.date ? dIso(d.date) : "";
+      try { dt.showPicker(); } catch { dt.focus(); }
+    } else if (ds.keep != null) { st.keep[+ds.keep] = st.keep[+ds.keep] === false; render(); }
+    else if (ds.tray) { const k = `${ds.i}:${ds.tray}`; st.tray = st.tray === k ? null : k; st.trayTouched = true; clearTimeout(autoT); render(); }
+    else if (ds.sel != null) { st.sel = +ds.sel; render(); }
+  });
+  dt.addEventListener("change", () => { if (!dt.value) return; (st.over[+dt.dataset.i] ||= {}).date = new Date(dt.value + "T00:00"); if (V === "A") st.tray = null; render(); });
+  ta.addEventListener("input", () => onInput());
+  ta.addEventListener("keydown", (e) => { if (V === "A" && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); save(); } });
+  body.addEventListener("input", (e) => { const i = e.target.dataset.title; if (i == null) return; (st.over[+i] ||= {}).title = e.target.value; bar(); });
+  el.addEventListener("focusin", (e) => { if (st.open && e.target.matches("textarea, .d-tt")) setKb(true); });
+  el.addEventListener("keydown", (e) => { if (e.key === "Escape" && st.open) close(); });
+  // Taps on the window keep the caret where it is, so the keyboard stays up between chips.
+  win.addEventListener("mousedown", (e) => { if (!e.target.closest("textarea, input")) e.preventDefault(); });
+  // Swipe the window down to cancel.
+  let drag = null;
+  card.addEventListener("pointerdown", (e) => { if (e.target.closest("button, textarea, input, .d-row, .d-strip")) return; drag = { y: e.clientY, dy: 0 }; card.setPointerCapture(e.pointerId); });
+  card.addEventListener("pointermove", (e) => { if (!drag) return; drag.dy = Math.max(0, e.clientY - drag.y); win.style.transform = `translateY(${drag.dy}px)`; });
+  const letGo = () => {
+    if (!drag) return;
+    const dy = drag.dy; drag = null;
+    if (dy > 70) return close(dy);
+    win.style.transform = "";
+    if (dy) win.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: reduce ? 0 : 320, easing: dEASE });
+  };
+  card.addEventListener("pointerup", letGo);
+  card.addEventListener("pointercancel", letGo);
+
+  // The app reads the clipboard; the sketch pastes a GC message. B and C put the keyboard away to review.
+  function paste() { ta.value = dGC; onInput(true); if (V !== "A") setKb(false); }
+  drawList();
+  async function typeIn(s) {
+    closeNow(); open();
+    const me = ++typing;
+    ta.value = ""; onInput(true);
+    for (const ch of s) {
+      await new Promise((r) => setTimeout(r, ch === " " ? 340 : 90));
+      if (me !== typing || !st.open) return;
+      ta.value += ch; onInput();
+    }
+  }
+  return {
+    open: () => { closeNow(); open(); },
+    type: () => typeIn("quiz COMP fri"),
+    paste: () => { closeNow(); open(); paste(); },
+    edit: () => { closeNow(); open(st.items.find((x) => x.id === "q3") || st.items[0]); },
+    reset: () => { closeNow(); st.items = dSeed(); drawList(); },
+    theme: (t) => { dress(el, t); el.dataset.droom = t === DAY ? "day" : "night"; },
+  };
+}
+
+const dApis = $$("#due .d-phone").map((el) => dAdder(el, el.dataset.v));
+let dDay = false;
+$("#d-try").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-dtry]");
+  if (!b) return;
+  const k = b.dataset.dtry;
+  if (k === "room") { dDay = !dDay; b.textContent = dDay ? "Night" : "Day"; dApis.forEach((a) => a.theme(dDay ? DAY : NIGHT)); }
+  else dApis.forEach((a) => a[k]());
+});
+</script>

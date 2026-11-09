@@ -1,0 +1,34 @@
+<style>
+.k-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); width: 100%; }
+.k-spot { position: relative; isolation: isolate; overflow: hidden; display: grid; justify-items: center; align-content: center; gap: 10px; min-height: 260px; padding: 18px; background-color: var(--ground); color: var(--ink); clip-path: var(--n4); }
+.k-spot > :not(.ground) { position: relative; z-index: 1; }
+.k-spot h4 { margin: 0; font: 800 22px/1.1 var(--f-ui); letter-spacing: -0.03em; }
+.k-spot p { margin: 0; font-size: 13px; color: var(--ink-2); text-align: center; }
+.k-spot .k-tag { position: absolute; top: 10px; left: 12px; font: 500 11px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-2); text-transform: uppercase; }
+.k-res { display: grid; justify-items: center; gap: 6px; padding: 14px 18px; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); clip-path: var(--n3); }
+.k-res b { font: 800 20px var(--f-ui); }
+.k-you { display: flex; align-items: center; gap: 12px; justify-self: stretch; }
+.k-you div { display: grid; gap: 2px; }
+.k-you b { font: 800 20px var(--f-ui); white-space: nowrap; }
+</style>
+
+<section class="row" id="isko">
+  <div class="q">
+    <h2>Without Isko: LAR is the only character</h2>
+    <p>You are Isko, so the student figure goes. These are the three places Isko stood, now with LAR. Already built on its own branch; this row only confirms the look.</p>
+  </div>
+  <div class="k-grid" id="kGrid">
+    <div class="k-spot" data-k="lock"><div class="ground" data-p="dots"><i></i></div><span class="k-tag">Lock screen</span><canvas class="lar k-lar"></canvas><h4>IntPortal</h4><p>Face ID to open</p></div>
+    <div class="k-spot" data-k="study"><div class="ground" data-p="dots"><i></i></div><span class="k-tag">After a review</span><div class="k-res"><canvas class="lar k-lar" data-happy></canvas><b>12 of 12</b><p>A clean run. Next review Thursday.</p></div></div>
+    <div class="k-spot" data-k="you"><div class="ground" data-p="dots"><i></i></div><span class="k-tag">You</span><div class="k-you"><canvas class="lar k-lar"></canvas><div><b>Your name</b><p style="text-align:left">BSCS 2-1 · PUP Sta. Mesa</p></div></div></div>
+  </div>
+  <div class="picks" style="max-width:340px"><button class="pick" data-row="isko" data-v="Looks right">Looks right</button><button class="pick" data-row="isko" data-v="Needs work">Needs work</button></div>
+</section>
+
+<script>
+$$("#kGrid .k-spot").forEach((el) => dress(el, NIGHT));
+$$("#kGrid canvas.k-lar").forEach((cv) => {
+  startLar(cv, () => larTheme(null));
+  if (cv.hasAttribute("data-happy")) cv._rig.set("happy", performance.now() / 1000);
+});
+</script>

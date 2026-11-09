@@ -1,0 +1,138 @@
+<style>
+.g-ctl { display: grid; gap: 10px; }
+.g-ctl input[type="range"] { width: 100%; accent-color: var(--pg); }
+.g-tl { font: 500 12px var(--f-pixel); letter-spacing: 0.04em; color: var(--parch-2); display: flex; justify-content: space-between; }
+.g-dive { position: absolute; inset: 0; z-index: 40; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
+.g-hello { position: absolute; inset: 0; z-index: 35; display: grid; align-content: center; gap: 10px; padding: 0 30px 70px; pointer-events: none; }
+.g-hello p { margin: 0; }
+.g-l1 { font: var(--title-w) 36px/1.04 var(--f-title); letter-spacing: var(--title-t); color: var(--ink); text-wrap: balance; }
+.g-l2 { font: 500 19px/1.3 var(--f-ui); color: var(--ink-2); text-wrap: balance; }
+.g-l3 { font: 500 14px/1.3 var(--f-ui); color: var(--ink-3, var(--ink-2)); display: flex; gap: 8px; align-items: center; margin-top: 8px !important; }
+.g-l3 i { width: 6px; height: 6px; background: var(--gold); display: inline-block; }
+.g-w { display: inline-block; will-change: transform, opacity, filter; }
+.g-skip { position: absolute; z-index: 45; bottom: 92px; left: 0; right: 0; text-align: center; font: 500 12px var(--f-ui); color: var(--ink-2); pointer-events: none; }
+.g-today header { display: grid; gap: 4px; padding: 6px 2px 2px; }
+.g-today .g-date { margin: 0; font: 500 12px var(--f-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.g-today .g-sync { margin: 0; font-size: 12px; color: var(--ink-2); }
+.g-today .g-note { justify-self: start; margin-top: 4px; height: 34px; padding: 0 12px; border: 0; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); clip-path: var(--corner-s); font: 600 13px var(--f-ui); color: var(--ink); }
+.g-hero { display: grid; gap: 2px; }
+.g-hero small, .g-due small { font: 500 11px var(--f-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.g-hero b { font: 800 24px/1.1 var(--f-ui); color: var(--gold); letter-spacing: -0.02em; }
+.g-hero span { font-size: 14px; color: var(--ink-2); }
+.g-due { display: grid; gap: 8px; }
+.g-due div { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.g-due div em { font-style: normal; color: var(--ink-2); font-size: 13px; }
+</style>
+
+<section class="row" id="greet">
+  <div class="q">
+    <h2>Greeting: after the dive, the day says hello</h2>
+    <p>The portal dive ends, then a slow hello, then Today, with no greeting of its own at the top. Tap anywhere to skip. Drag the bar to scrub; Replay plays it again.</p>
+    <p><b>Two picks here.</b> Earlier you ruled that after the dive Today must not rise in again: it is simply there. So also pick how Today arrives: rising block by block as the hello lifts, or already in place as the hello fades off it. Switch between them with the Today button.</p>
+  </div>
+  <div class="wide">
+    <div class="opt"><div class="phone" id="gPhoneA"></div><div class="name"><b>A: Two lines</b><span>“Good afternoon.” then the date. About 1.5 s of hello.</span></div><div class="picks"><button class="pick" data-row="greet" data-v="A: Two lines">This one</button></div></div>
+    <div class="opt"><div class="phone" id="gPhoneB"></div><div class="name"><b>B: Slower, with your day</b><span>A longer breath, and a third quiet line: today's classes and what's due. About 2.4 s.</span></div><div class="picks"><button class="pick" data-row="greet" data-v="B: Slower, with your day">This one</button></div></div>
+    <div class="panel g-ctl">
+      <h3>Try it</h3>
+      <div class="pbtns"><button class="pbtn" id="gReplay">Replay</button><button class="pbtn" id="gRoom">Day room</button><button class="pbtn" id="gReduce" aria-pressed="false">Reduce Motion: off</button><button class="pbtn" id="gRise" aria-pressed="true">Today: rises</button></div>
+      <input type="range" id="gScrub" min="0" max="1000" value="0" aria-label="Scrub the launch">
+      <div class="g-tl"><span>dive</span><span>hello</span><span>Today</span></div>
+      <div class="picks"><button class="pick" data-row="today" data-v="Rises after the hello">Today rises after the hello</button><button class="pick" data-row="today" data-v="Already there">Today is already there</button></div>
+      <p>The rings are a sketch of the dive's last frames; the real one is the app's.</p>
+      <p>Both wait for loading: if the snapshot is slow, the hello holds instead of the tunnel swirling. With Reduce Motion the dive is skipped and the hello cross-fades in and out.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+const gB = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const gState = { theme: NIGHT, reduce, rise: true, t: 0, playing: true, t0: 0 };
+const gWords = (s) => s.split(" ").map((w) => `<span class="g-w">${esc(w)}</span>`).join(" ");
+function gBuild(el, slow) {
+  const view = shell(el, gState.theme, "today");
+  view.classList.add("g-today");
+  view.innerHTML = `<header><p class="g-date">Monday, November 9</p><p class="g-sync">Synced 2 min ago</p><button class="g-note">+ Note for today</button></header>
+    <div class="card g-hero"><small>Up next</small><b>COMP 20083</b><span>Object Oriented Programming · 1:30–4:30 PM</span><span>in 42 min</span></div>
+    <div class="card g-due"><small>Due</small><div><span>Lab 4: Interfaces</span><em>Thu</em></div><div><span>Quiz 3</span><em>Fri</em></div></div>`;
+  const hello = document.createElement("div");
+  hello.className = "g-hello";
+  hello.innerHTML = `<p class="g-l1">${gWords("Good afternoon.")}</p><p class="g-l2">${gWords("Today is Monday, November 9.")}</p>${slow ? `<p class="g-l3"><i></i>${gWords("2 classes, and Lab 4 is due Thursday.")}</p>` : ""}`;
+  const dive = document.createElement("canvas");
+  dive.className = "g-dive"; dive.width = 80; dive.height = 168;
+  const skip = document.createElement("p"); skip.className = "g-skip"; skip.textContent = "Tap to skip";
+  el.append(hello, dive, skip);
+  const s = slow ? 1.6 : 1;
+  const lines = [...hello.querySelectorAll("p")];
+  const rise = [...view.children, el.querySelector(".tabs")];
+  const T = { dive: 420, in1: 300, in2: 300 + 450 * s, in3: 300 + 900 * s, hold: 300 + 1500 * s };
+  T.end = T.hold + 500 + rise.length * 60 + 450;
+  el.addEventListener("click", () => { if (gState.t < T.hold) { gState.t0 = performance.now() - T.hold; gState.playing = true; } });
+  return { el, view, hello, dive, skip, lines, rise, T, slow };
+}
+function gDraw(p, t) {
+  const R = gState.reduce, T = p.T, k = (a, d) => ease(clamp((t - a) / d));
+  // The dive's last frames: the tunnel in the portal's tones, dithered away on a 4x4 Bayer grid.
+  const g = p.dive.getContext("2d"), w = p.dive.width, h = p.dive.height;
+  g.clearRect(0, 0, w, h);
+  if (!R && t < T.dive) {
+    const ramp = rampOf(hexToHsl(gState.theme.accent)[0]);
+    const z = t / T.dive, gone = clamp((t - 180) / 240);
+    const img = g.createImageData(w, h), cols = ramp.map(hex);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (gone > gB[(y % 4) * 4 + (x % 4)] / 16) continue;
+      const d = Math.hypot(x - w / 2, (y - h / 2) * 0.62) / (w * 0.7);
+      const band = Math.floor((d * 7 - z * 6) % 5 + 5) % 5;
+      const c = cols[band], i = (y * w + x) * 4;
+      img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  }
+  // The hello: each word fades up out of a soft blur, one after another.
+  const starts = [T.in1, T.in2, T.in3];
+  const out = k(T.hold, 500);
+  p.lines.forEach((line, li) => {
+    [...line.querySelectorAll(".g-w")].forEach((wd, wi) => {
+      const a = R ? T.in1 : starts[li] + wi * 70;
+      const v = R ? clamp((t - a) / 400) : k(a, 650);
+      wd.style.opacity = String(v);
+      wd.style.transform = R ? "" : `translateY(${(1 - v) * 14}px)`;
+      wd.style.filter = R || v > 0.99 ? "" : `blur(${(1 - v) * 6}px)`;
+    });
+  });
+  p.hello.style.opacity = String(1 - out);
+  p.hello.style.transform = R ? "" : `translateY(${-out * 22}px)`;
+  p.skip.style.opacity = String(t > T.in1 && t < T.hold ? 0.6 * (1 - out) : 0);
+  // Today rises after it, one card at a time.
+  p.rise.forEach((c, i) => {
+    // Already there: Today sits under the hello at full strength and shows as the hello fades off it.
+    const still = !gState.rise, cover = 1 - out;
+    const v = still ? 1 - cover : R ? clamp((t - T.hold) / 400) : k(T.hold + 200 + i * 60, 450);
+    c.style.opacity = String(v);
+    c.style.transform = R || still ? "" : `translateY(${(1 - v) * 18}px)`;
+  });
+}
+const gPhones = [];
+function gSetup() {
+  gPhones.length = 0;
+  gPhones.push(gBuild($("#gPhoneA"), false), gBuild($("#gPhoneB"), true));
+  gState.t0 = performance.now(); gState.playing = true;
+}
+const gMax = () => Math.max(...gPhones.map((p) => p.T.end));
+function gLoop(now) {
+  if (gState.playing) {
+    gState.t = now - gState.t0;
+    if (gState.t > gMax() + 300) gState.playing = false;
+    $("#gScrub").value = String(Math.round(clamp(gState.t / gMax()) * 1000));
+  }
+  for (const p of gPhones) gDraw(p, gState.t);
+  requestAnimationFrame(gLoop);
+}
+gSetup();
+requestAnimationFrame(gLoop);
+$("#gReplay").addEventListener("click", () => { gState.t0 = performance.now(); gState.playing = true; });
+$("#gScrub").addEventListener("input", (e) => { gState.playing = false; gState.t = (+e.target.value / 1000) * gMax(); });
+$("#gRoom").addEventListener("click", (e) => { const day = gState.theme === NIGHT; gState.theme = day ? DAY : NIGHT; e.target.textContent = day ? "Night room" : "Day room"; gSetup(); });
+$("#gRise").addEventListener("click", (e) => { gState.rise = !gState.rise; e.target.setAttribute("aria-pressed", String(gState.rise)); e.target.textContent = `Today: ${gState.rise ? "rises" : "already there"}`; gState.t0 = performance.now(); gState.playing = true; });
+$("#gReduce").addEventListener("click", (e) => { gState.reduce = !gState.reduce; e.target.setAttribute("aria-pressed", String(gState.reduce)); e.target.textContent = `Reduce Motion: ${gState.reduce ? "on" : "off"}`; gState.t0 = performance.now(); gState.playing = true; });
+</script>

@@ -242,3 +242,21 @@ Reuse what already exists:
   - **Port from the mock, don't redraw:** `CRYSTAL_FS`, `neuronForm`, `rootPull`, `ICONS`, `encodeTheme` and `decodeTheme` are in study-you.src.html.
 - 2026-11-05 · #222 and #146 merged at the user's word, before the Head's review arrived. The review's fixes follow in `docs/spec-046-review`. The user answered: smooth every stepped exception too, Due can be hidden, You's switches and search go to the top. Still the user's: the dive's Off, and an explicit "approved" for 030, 046 and 047. App code for the smoothing follows main's merge of #221, in a small PR.
 - 2026-11-05 · The user approved 030, 046 and 047 and took the recommendations. Building in the order above, starting with core (by issue) and `ui/crystal`.
+
+## 2026-11-09: LAR window, due adder, launch greeting, Study parts, no Isko
+
+The user's request:
+- LAR's chat becomes a floating window in place of the bottom sheet, with the crystal floating round LAR and its animations going with him.
+- The "What's due?" adder is rebuilt to look good and be easy one-handed.
+- On launch the dive plays, then a slow "Good afternoon. Today is …" screen; the greeting leaves the top of Today.
+- Study gets several parts, not one long scroll.
+- The Isko mascot goes; the student is Isko.
+- Afterwards the PRs merge, and #143, #144, #169 and #191 close unmerged. #219 stays with the Head.
+
+Order:
+1. A picks page first (`docs/specs/reference/prototypes/lar-window.src.html`), with rows for the LAR window, the due adder, Study's parts and the greeting. The user picks one per row.
+2. Then one PR each: `ui/no-isko` (starts now, needs no pick), `ui/launch-greeting`, `ui/lar-window`, `ui/add-due`, `ui/study-parts`. Each carries its spec edit, goes to the Head, merges under the user's word, then gets a simulator pass.
+3. Close the four old spec PRs, update the memory.
+
+Checkpoints:
+- 2026-11-09: plan written; `ui/no-isko` and the picks page started.
