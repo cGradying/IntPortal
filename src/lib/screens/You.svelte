@@ -455,7 +455,7 @@
     {#if __REVIEW__ && ongallery}
       <button class="ghost" onclick={ongallery}>Open the design gallery</button>
     {/if}
-    <p class="about">IskoLAR. You're Isko, and LAR is the Lakbay-Aral Robot who came through the portal to study with you.</p>
+    <p class="about">LAR is the Lakbay-Aral Robot who came through the portal to study with you.</p>
   </div>
 {/if}
 
