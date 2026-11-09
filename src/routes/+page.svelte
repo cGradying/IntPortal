@@ -30,7 +30,7 @@
   import { watchDynamicIsland } from "$lib/glance";
   import { watchBars } from "$lib/bars";
   import { watchBack } from "$lib/back";
-  import { app, adopt, listenForTaps, refreshLogins, setRoom, setTextStyle, startClock, syncNow } from "$lib/state.svelte";
+  import { app, adopt, applyLook, listenForTaps, refreshLogins, setRoom, setTextStyle, startClock, syncNow } from "$lib/state.svelte";
 
   let ready = $state(false);
   let signedIn = $state(false);
@@ -75,6 +75,7 @@
     }
     setRoom(app.room);
     setTextStyle(app.textStyle);
+    applyLook();
     watchLock();
     // The keyboard covers the bottom; the tab bar and dock step aside while
     // a text field has focus, so they don't ride up on top of it.
@@ -96,7 +97,8 @@
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Signed in: the dive is the loading screen, and the snapshot loads while it runs (spec 010 C26).
     greet = signedIn;
-    if (signedIn && !reduce) {
+    // The dive can be turned off in You (spec 047 C8); Today then shows its skeleton while data loads.
+    if (signedIn && !reduce && app.dive !== "off") {
       dived = true;
       dive = { first: false, portal: await ownPortal() };
     }
@@ -127,6 +129,12 @@
   // Step through, on a first sign-in (C27). Today mounts now, under the landing,
   // so the work is done at the tap and not in the middle of the dive.
   function diveIn(start: DiveStart) {
+    if (app.dive === "off") {
+      greet = true;
+      if (signedIn) syncNow();
+      inside = true;
+      return;
+    }
     dived = true;
     holdLanding = true;
     greet = true;
@@ -244,7 +252,7 @@
 {/if}
 
 {#if dive}
-  <Dive start={dive} ready={lifted} oncovered={() => (holdLanding = false)} ondone={() => (dive = null)} onfail={noDive} />
+  <Dive start={dive} speed={app.dive === "short" ? 2 : 1} ready={lifted} oncovered={() => (holdLanding = false)} ondone={() => (dive = null)} onfail={noDive} />
 {/if}
 
 <style>

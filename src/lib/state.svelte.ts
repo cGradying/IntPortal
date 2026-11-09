@@ -8,6 +8,7 @@ import { applyRoom } from "./rooms";
 import { buzz } from "./haptics";
 import { friendly } from "./errors";
 import { larReminderIds } from "./assis/apply";
+import { oneOf, parseCards, type Cards } from "./you";
 
 export type Tab = "today" | "schedule" | "grades" | "study" | "you";
 export type SyncState = "idle" | "syncing" | "ok" | "failed";
@@ -15,7 +16,16 @@ export type SyncState = "idle" | "syncing" | "ok" | "failed";
 export const app = $state({
   snapshot: null as Snapshot | null,
   today: null as Today | null,
-  tab: "today" as Tab,
+  /** Spec 047 C5: the tab the app opens on. */
+  tab: oneOf(read("opensOn"), ["today", "schedule", "study"]) as Tab,
+  opensOn: oneOf(read("opensOn"), ["today", "schedule", "study"]),
+  /** C6: Today's card order and the ones hidden. */
+  cards: parseCards(read("todayCards")),
+  /** C7, C8: lists, the dive, done effects and the moving ground. */
+  density: oneOf(read("density"), ["comfy", "compact"]),
+  dive: oneOf(read("dive"), ["full", "short", "off"]),
+  effects: oneOf(read("effects"), ["full", "calm", "off"]),
+  ground: read("ground") !== "still",
   sync: "idle" as SyncState,
   syncError: null as string | null,
   /** Bumps on every successful sync, so moments can react to it. */
@@ -319,6 +329,25 @@ export function setTextStyle(style: string) {
   if (app.textStyle === "classic") document.documentElement.dataset.type = "classic";
   else delete document.documentElement.dataset.type;
   write("textStyle", app.textStyle);
+}
+
+export type Look = { opensOn: "today" | "schedule" | "study"; density: "comfy" | "compact"; dive: "full" | "short" | "off"; effects: "full" | "calm" | "off"; ground: boolean; cards: Cards };
+
+/** Spec 047 C5–C8: one app-side choice. Lists, effects and the ground show
+ *  as attributes on the page, which app.css, burst and Confetti read. */
+export function setLook<K extends keyof Look>(key: K, value: Look[K]) {
+  (app as Look)[key] = value;
+  if (key === "cards") write("todayCards", JSON.stringify(value));
+  else if (key === "ground") write("ground", value ? "on" : "still");
+  else write(key, String(value));
+  applyLook();
+}
+
+export function applyLook() {
+  const d = document.documentElement.dataset;
+  d.density = app.density;
+  d.effects = app.effects;
+  d.ground = app.ground ? "on" : "still";
 }
 
 export function setRoom(room: string) {
