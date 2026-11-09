@@ -41,6 +41,9 @@ export interface NoteItem {
   text: string;
   title: string | null;
   updated: number;
+  /** The subject a `note:` note is filed under. Class notes get theirs from the key. */
+  subject: string | null;
+  pinned: boolean;
   preview: string;
 }
 
@@ -424,6 +427,9 @@ export const api = {
   distractors: (cards: Card[], index: number, seed: number) => invoke<string[]>("distractors", { cards, index, seed }),
   exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until, utcOffset: -new Date().getTimezoneOffset() }),
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
+  setNotePin: (key: string, pinned: boolean) => invoke<void>("set_note_pin", { key, pinned }),
+  setNoteSubject: (key: string, subject: string | null) => invoke<void>("set_note_subject", { key, subject }),
+  entryDate: (code: string, today: string) => invoke<string>("entry_date", { code, today }),
   today: (now: Moment, syncTrouble: string | null, busy: Busy[] = []) => invoke<Today>("today", { now, syncTrouble, busy }),
   classEvents: (from: string, days: number) => invoke<ClassEvent[]>("class_events", { from, days, utcOffset: -new Date().getTimezoneOffset() }),
   reminders: (now: Moment, lead: number, days: number, prefs: { deadlines: number | null; study: number | null; utc_offset: number; warm_up: boolean; after_class: boolean; brief: boolean }) =>

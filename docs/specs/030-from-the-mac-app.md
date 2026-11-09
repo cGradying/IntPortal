@@ -1,6 +1,6 @@
 # 030 From the Mac app
 
-**Status:** draft
+**Status:** approved (2026-11-05)
 
 ## What changes for the student
 
@@ -140,6 +140,4 @@ No new motion. Join uses the existing button press and haptic.
 | C3, C5 | vitest on the sheet's view model; screenshot on the iPhone 18 Pro |
 | C4 | `cargo test c4_join_shows_within_15_minutes` (if computed in the core) or vitest; screenshot |
 
-## Open questions
-
-- Should Join also appear for a class marked in person that has a link (a hybrid class)? The recommendation is yes, on the sheet only, not on Today.
+A class marked in person that has a link shows Join on its sheet only, not on Today (the user, 2026-11-05).
