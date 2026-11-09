@@ -9,7 +9,7 @@
   import { closable } from "./back";
   import WhyButton from "./assis/WhyButton.svelte";
   import Confetti from "./Confetti.svelte";
-  import Isko from "./Isko.svelte";
+  import Lar from "./lar/Lar.svelte";
   import { api, isoDate, type Card, type Deck, type Rating } from "./api";
   import { buzz } from "./haptics";
 
@@ -101,7 +101,7 @@
   {#if finished}
     <section class="card notch face">
       {#if great}<Confetti />{/if}
-      <div class="isko"><Isko size={72} pose={great ? "cheer" : "stand"} /></div>
+      <div class="lar"><Lar size={4} state={great ? "happy" : "idle"} /></div>
       <p class="label">Done</p>
       <h2>{right} of {queue.length} remembered</h2>
       <p class="fine">{practice ? "Practice round: the schedule is unchanged." : "FSRS has scheduled each card for when you're about to forget it."}</p>
@@ -183,7 +183,7 @@
     background: var(--gold);
     transition: width 0.3s var(--ease);
   }
-  .isko {
+  .lar {
     justify-self: center;
   }
   .face {

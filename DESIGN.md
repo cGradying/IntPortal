@@ -157,7 +157,7 @@ The visual reference for all of this is [docs/specs/reference/prototypes/referen
 
 **Creative North Star: "The Other Side of the Portal"**
 
-IntPortal has two registers that share one gold. Inside the app is the legacy calm: the portal's void as the Night room's ground, under a faint dot grid in the school's accent and a slowly drifting glow, quiet gradient cards with hairline edges, Montserrat for anything that carries weight and Source Sans 3 for everything read. On top of that calm sit pixel accents that are drawn, not decorated: stepped card corners, 12 by 12 pixel icons, stepped animations, Isko the pixel student. The landing is the other register, the world the calm app opens onto: a black void, a portal drawn as a minimal low-resolution grid of flat obsidian tiles with gaps, a themed swirl or warp-star interior drawn in the same tiles, and LAR, a small obsidian robot who is the voice above the form. Each portal (SIS, Mabini) has its own theme.
+IntPortal has two registers that share one gold. Inside the app is the legacy calm: the portal's void as the Night room's ground, under a faint dot grid in the school's accent and a slowly drifting glow, quiet gradient cards with hairline edges, Montserrat for anything that carries weight and Source Sans 3 for everything read. On top of that calm sit pixel accents that are drawn, not decorated: stepped card corners, 12 by 12 pixel icons, stepped animations. (The Isko mascot was retired on 2026-11-09: the student is Isko, and LAR is the only character.) The landing is the other register, the world the calm app opens onto: a black void, a portal drawn as a minimal low-resolution grid of flat obsidian tiles with gaps, a themed swirl or warp-star interior drawn in the same tiles, and LAR, a small obsidian robot who is the voice above the form. Each portal (SIS, Mabini) has its own theme.
 
 > **The tile portal has shipped** (spec `docs/specs/010-landing.md`, ADR 0004, `crates/intportal-tiles`). Notes marked *(current)* below describe the retired pentomino scene and are kept only until the carousel, the lift and the morph land.
 
@@ -175,7 +175,7 @@ The pixel world exists to serve a glance. Students open the app between classes,
 | Ground: void or room colour, dot grid, drifting pools | Behind everything, and where data lands | Text backgrounds |
 | Surfaces: stepped cards and chips, hairlines | Cards, sheets, floating controls | Art |
 | Controls: 10 px radius, hairline or gold | Buttons, fields, segments | Pixel slabs |
-| Art pixel: 12 by 12 icons, LAR, Isko, numerals, small labels | Identity and small labels | Clock times, rooms, dates, sentences |
+| Art pixel: 12 by 12 icons, LAR, numerals, small labels | Identity and small labels | Clock times, rooms, dates, sentences |
 | Glass: the crystal, only while something moves | The AI cube and + awake | Anything at rest |
 
 A new element picks one material from this table. If it needs a new one, change this table first.
@@ -340,19 +340,16 @@ The Lakbay-Aral Robot, 26 by 23 art pixels: a pebble lit from the top left in fo
 - **The chat:** opening it is one moment (about 2 s): the sheet rises while the cube flies from the orb along an arc to the top of the sheet, shrinking to the size he holds it; LAR comes out of his fire round it, waves, and types his hello (45 characters a second, caret, the slab never resizes); the starters follow, each 60 ms after the last. Closing reverses it: he goes, the cube flies back to the orb, the sheet falls. Reduce Motion: a cross-fade with him already standing and the hello written. The sheet is the night card (#140c16) with 8 px stepped corners and a gold hairline. Its top is his stage, 124 px (104 px with the keyboard up): soft pools of the portal's ramp and accent drifting past each other over 16 s, a few twinkling pixel stars, and a two-row dither into the card; he stands there with room for his whole box (`fit`), with his name in gold Pixelify and what he is doing (Waking up, Thinking, Making cards, Dozing) beside him. His state follows the chat: think while busy, happy when an answer lands, error on a problem, sleep after a quiet minute. His lines are the obsidian slab with its lit top edge in his accent, popping in over four steps; the student's are quiet rounded bubbles in the system face. The composer is the sign-in field's well with an accent focus ring and a gold pixel Send with its lip.
 - **Speech:** LAR talks through a 3 px stepped obsidian slab, his name in gold Pixelify, his line in light Taglish ("Hi, I'm LAR...", "Ayos! Your schedule and grades are in.", "Welcome back, iskolar. Tara?").
 
-### Isko
-The 14 by 20 pixel student, drawn as SVG rects, waving on a slow stepped loop and standing still under Reduce Motion. He fronts error cards and empty states. He belongs to the user's own redesign.
-
 ### Motion
 **The Smooth Travel Rule.** Anything that travels, scales or changes the page's layout is eased, never stepped, and layout changes open and close over about 0.36 s so nothing jumps. `steps()` is only for frames of art that stay in place: LAR's sprite, the tab hop, skeleton shimmer. Stamps, presses, the tab highlight and the countdown are eased too (the user, 2026-11-05). This replaces the older "stepped for pixel things" habit (round two, 2026-11-05).
 
-Interface motion uses one ease, `cubic-bezier(0.22, 1, 0.36, 1)`: the landing dock rises 40 px over 0.7 s, sheets rise over 0.35 s, the wordmark fades in over 0.6 s, and leaving drops dock and wordmark 16 px over 0.25 s ease-in. Pixel motion uses `steps()`: the tab hop, skeleton shimmer (1.4 s, 8 steps), Isko's wave, the campus strip.
+Interface motion uses one ease, `cubic-bezier(0.22, 1, 0.36, 1)`: the landing dock rises 40 px over 0.7 s, sheets rise over 0.35 s, the wordmark fades in over 0.6 s, and leaving drops dock and wordmark 16 px over 0.25 s ease-in. Pixel motion uses `steps()`: the tab hop, skeleton shimmer (1.4 s, 8 steps), the campus strip.
 
 The landing scene is a pure function of time and state (spec 010). The tile portal's spawn, waves and interior states are specified there: they run at 30 to 60 fps, and rendering stops when the app is backgrounded.
 
 **The dive** (spec 010 C26–C30, `crates/intportal-tiles/src/dive.rs`) is one field of tiles from the void to Today, and the loading screen on every signed-in launch. The camera zooms into the portal's mouth, which holds the field at a finer pitch, until the mouth's tiles are the screen's tiles. The tunnel changes form on the way in (spiral arms, round rings, a square corridor, petals, polar checks, plasma), and every dark part glows at its edge, all in the school's ramp through a Bayer dither. Speed comes in ramps: the tunnel and the camera surge through each change and coast between. The field then warms to the room, and from the centre out each tile flares, shrinks to one of Today's dots and lifts off, leaving a glint. Today is already in place and nothing on it moves; one ripple runs through the dot grid. A launch lasts about 0.66 s and a first sign-in about 2.4 s.
 
-**Reduce Motion.** A global rule clamps every CSS animation and transition to 0.01 ms. The landing shows a still, open portal, and there is no dive: launch and Step through go straight to Today. LAR holds still and stops blinking, Isko stands, the skeleton stops shimmering, confetti is skipped, and the campus strip redraws one still frame a minute.
+**Reduce Motion.** A global rule clamps every CSS animation and transition to 0.01 ms. The landing shows a still, open portal, and there is no dive: launch and Step through go straight to Today. LAR holds still and stops blinking, the skeleton stops shimmering, confetti is skipped, and the campus strip redraws one still frame a minute.
 
 ### Haptics
 Eight verbs, all silent when haptics are off in You or there is no engine, and two buzzes within 35 ms collapse into one:
@@ -383,6 +380,5 @@ Eight verbs, all silent when haptics are off in You or there is no engine, and t
 - **Don't** add generic effects (glows, gradients, particles) that only decorate; the tiles and the interior exist because the portal is the brand.
 - **Don't** use a portal theme ramp outside that portal's opening and tiles.
 - **Don't** set headings, buttons or long sentences in Pixelify Sans.
-- **Don't** redesign Isko unasked.
 - **Don't** invent user counts, ratings, testimonials or press.
 - **Don't** introduce a second accent hue for actions; gold is the only one.

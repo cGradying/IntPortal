@@ -10,7 +10,6 @@
   import { sfx, setSound, sound } from "../sound";
   import { lock, setLock, unlockWith } from "../lock.svelte";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
-  import Isko from "../Isko.svelte";
   import Lar from "../lar/Lar.svelte";
   import ModelCard from "../assis/ModelCard.svelte";
 
@@ -111,7 +110,7 @@
       <p class="label">Account and look</p>
       <h1>You</h1>
     </div>
-    <span class="pair"><Isko size={52} pose="stand" /><Lar size={2} cube={false} /></span>
+    <Lar size={2} cube={false} />
   </header>
 
   <section class="card notch block">
@@ -255,7 +254,7 @@
     {/if}
   </section>
 
-  <p class="about">IskoLAR. You're Isko, and LAR is the Lakbay-Aral Robot who came through the portal to study with you.</p>
+  <p class="about">LAR is the Lakbay-Aral Robot who came through the portal to study with you.</p>
 </div>
 
 <style>
@@ -263,11 +262,6 @@
     display: flex;
     align-items: end;
     justify-content: space-between;
-  }
-  .pair {
-    display: flex;
-    align-items: end;
-    gap: 6px;
   }
   .about {
     margin: 8px 0 0;

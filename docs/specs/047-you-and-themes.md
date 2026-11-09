@@ -22,7 +22,7 @@ Every setting on You today, reachable within two taps:
 - Rooms, text style (Classic), haptics, sounds.
 - Calendar: keep classes, own events, last day, Add classes to calendar.
 - Privacy: lock, the privacy lines, sign out, Erase everything with its confirm.
-- Isko and LAR in the header, the about line, the review builds' design gallery.
+- LAR in the header (the Isko mascot was retired 2026-11-09: the student is Isko), the about line, the review builds' design gallery.
 
 ## Behaviour
 

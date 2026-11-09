@@ -46,10 +46,8 @@ It works offline after one sign-in. Everything stays on the phone, and the app o
 ## Brand Commitments
 
 - **Name:** IntPortal, written "Student IntPortal" on the landing.
-- **Mascots: IskoLAR.**
-  - **Isko** is the 14×20 pixel student; he stands for the user. The user will redesign him later, so don't redesign him unasked.
-  - **LAR** (Lakbay-Aral Robot) is a small obsidian robot from the portal's other side. He is the voice: coach, tips, empty states, and later IntAssis.
-  - ISKO + LAR = ISKOLAR, as in *Iskolar ng Bayan*.
+- **Mascot: LAR** (Lakbay-Aral Robot), a small obsidian robot from the portal's other side, and the only character. He is the voice: coach, tips, empty states and IntAssis.
+  - The student is Isko: ISKO + LAR = ISKOLAR, as in *Iskolar ng Bayan*. The Isko mascot was retired on 2026-11-09, so no figure stands for the student.
 - **The portal** is the brand's core image. Swirl ramp: #170509, #540a1c, #941c30, #cca128, #faebb3.
 - **Voice:** friendly, light Taglish, clear first.
 

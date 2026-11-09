@@ -3,7 +3,6 @@
   // where their data lives, and reminders (the only place that asks the
   // phone for notification permission unprompted).
   import { buzz } from "./haptics";
-  import Isko from "./Isko.svelte";
   import Lar from "./lar/Lar.svelte";
   import { chatModel, downloadSizes, embedModel, install, mb } from "./assis/assis.svelte";
   import { app, scheduleReminders } from "./state.svelte";
@@ -15,7 +14,7 @@
   const size = $derived(mb(todo.reduce((n, m) => n + m.bytes, 0)));
   // The AI choice only shows on builds that have it.
   const steps = $derived([
-    { title: "Meet IskoLAR.", body: "You're Isko. I'm LAR, the Lakbay-Aral Robot, here to study with you. Your schedule, grades, notes and study cards are in one place, and I'll count down to your next class." },
+    { title: "Meet LAR.", body: "I'm LAR, the Lakbay-Aral Robot, here to study with you. Your schedule, grades, notes and study cards are in one place, and I'll count down to your next class." },
     { title: "Everything stays on this phone.", body: "Your login sits in the phone's keychain. IntPortal only talks to PUP SIS, and your notes and decks never leave the device." },
     ...(chatModel()
       ? [{ title: "Light, or with AI?", ai: true, body: `Light is the app with no AI and nothing extra to download. With AI, LAR answers questions about your classes and notes and can summarize a note, all on this phone. It is a one-time download of ${size}: ${downloadSizes(todo)}. It works offline, and you can remove it any time on You.` }]
@@ -40,7 +39,7 @@
 </script>
 
 <div class="first" role="dialog" aria-label="Welcome">
-  <div class="art"><Isko size={120} /><Lar size={4} state="happy" /></div>
+  <div class="art"><Lar size={4} state="happy" /></div>
   <div class="card notch text">
     <p class="label">{step + 1} of {steps.length}</p>
     <h1>{steps[step].title}</h1>

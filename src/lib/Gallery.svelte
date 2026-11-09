@@ -4,7 +4,6 @@
   import CampusStrip from "./CampusStrip.svelte";
   import Glance from "./Glance.svelte";
   import Flame from "./Flame.svelte";
-  import Isko from "./Isko.svelte";
   import Lar from "./lar/Lar.svelte";
   import { MOODS, STATES, THEMES } from "./lar/sprite";
   import Jeepney from "./Jeepney.svelte";
@@ -32,14 +31,6 @@
     <h1>Gallery</h1>
     <button onclick={onclose}>Done</button>
   </header>
-
-  <p class="label">Isko (for your approval)</p>
-  <div class="row">
-    <figure class="card notch icon"><Isko size={96} pose="stand" /><figcaption>standing</figcaption></figure>
-    <figure class="card notch icon"><Isko size={96} /><figcaption>waving</figcaption></figure>
-    <figure class="card notch icon"><Isko size={96} pose="cheer" /><figcaption>cheering</figcaption></figure>
-    <figure class="card notch icon"><Isko size={48} /><figcaption>small</figcaption></figure>
-  </div>
 
   <p class="label">LAR, the Lakbay-Aral Robot</p>
   <div class="row">
