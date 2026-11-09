@@ -2,9 +2,9 @@
   // You (spec 047 C1–C11): eight quick switches and search on top, then short
   // rows in four groups. Each row opens its own page, closed by a large Back.
   import { askForCalendar } from "../devcal";
-  import { app, mabiniSyncNow, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
+  import { app, forgetThemes, mabiniSyncNow, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
   import { api, isoDate, type Portal } from "../api";
-  import { onMount, type Component } from "svelte";
+  import { onMount } from "svelte";
   import PortalConnect from "../PortalConnect.svelte";
   import NotesCard from "../NotesCard.svelte";
   import { shareFile } from "../share";
@@ -12,6 +12,7 @@
   import { sfx, setSound, sound } from "../sound";
   import { lock, setLock, unlockWith } from "../lock.svelte";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
+  import { roles } from "../theme";
   import { closable } from "../back";
   import Lar from "../lar/Lar.svelte";
   import ModelCard from "../assis/ModelCard.svelte";
@@ -29,14 +30,10 @@
   let hapticsOn = $state(haptics.on);
   let soundOn = $state(sound.on);
 
-  // The theme maker (C12–C19) arrives in its own PR: offered once its file exists.
-  const makers = import.meta.glob<{ default: Component<{ onclose: () => void }> }>("../ThemeMaker.svelte");
-  const loadMaker = Object.values(makers).at(0);
-  let Maker = $state<Component<{ onclose: () => void }> | null>(null);
-  async function openMaker() {
+  // The theme maker (C12–C19) is its own page, mounted by +page.svelte.
+  function openMaker() {
     buzz.select();
-    if (loadMaker) Maker = (await loadMaker()).default;
-    scrollTo(0, 0);
+    app.themeMaker = true;
   }
 
   function go(id: PageId) {
@@ -48,14 +45,10 @@
   }
   function home() {
     page = null;
-    Maker = null;
     scrollTo(0, 0);
   }
   $effect(() => {
     if (page) return closable(home);
-  });
-  $effect(() => {
-    if (Maker) return closable(() => (Maker = null));
   });
 
   // The last day of classes: remembered, or about a semester from now.
@@ -123,13 +116,17 @@
     q.set(!q.on());
   }
 
-  const rooms = [
+  const rooms = $derived([
     ...HAND_TUNED,
+    ...app.themes.map((t) => {
+      const r = roles(t.theme);
+      return { id: `theme:${t.id}`, name: t.theme.name, swatch: [r["--ground"], r["--card"], r["--gold"]] };
+    }),
     ...Object.entries(PALETTES).map(([id, p]) => {
       const r = derive(p);
       return { id, name: p.name, swatch: [r["--ground"], r["--card"], r["--gold"]] };
     }),
-  ];
+  ]);
 
   const ICON: Record<PageId, SpriteName> = { accounts: "you", theme: "mark", layout: "bullet", motion: "wave", reminders: "bell", calendar: "date", assis: "ai", notes: "note2", backup: "disk", privacy: "lock" };
   const TAB_NAME = { today: "Today", schedule: "Schedule", study: "Study" };
@@ -196,6 +193,7 @@
     await api.signOut();
     await api.mabiniSignOut();
     await api.eraseEverything();
+    forgetThemes();
     await refreshLogins();
     onsignout();
   }
@@ -241,9 +239,7 @@
   {/if}
 {/snippet}
 
-{#if Maker}
-  <Maker onclose={() => (Maker = null)} />
-{:else if page}
+{#if page}
   {#key page}
     <div class="screen ypage">
       <header class="top"><h1>{NAME[page]}</h1></header>
@@ -293,11 +289,11 @@
           </div>
         {/if}
       {:else if page === "theme"}
-        {#if loadMaker}<button class="primary" onclick={openMaker}>Make a theme</button>{/if}
+        <button class="primary" onclick={openMaker}>Make a theme</button>
         <div class="rooms">
           {#each rooms as r (r.id)}
             <button class="notch" class:on={app.room === r.id} aria-pressed={app.room === r.id} onclick={() => { buzz.select(); setRoom(r.id); }}>
-              <span class="swatch">{#each r.swatch as c (c)}<i style:background={c}></i>{/each}</span>
+              <span class="swatch">{#each r.swatch as c, i (i)}<i style:background={c}></i>{/each}</span>
               <span>{r.name}</span>
             </button>
           {/each}
