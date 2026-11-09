@@ -122,8 +122,6 @@
   /** Classes and the student's own events, with the free stretches between them. */
   // Hiding Your events in You (spec 047 C6) drops their rows; the free stretches still count them.
   const rows = $derived(dayRows(items, app.busy, isoDate(now), now.getHours() * 60 + now.getMinutes()).filter((r) => r.kind !== "busy" || !app.cards.hidden.includes("events")));
-  // C6: each card's place from 1, or 0 when the student hid it. The grid's order puts them.
-  const at = (id: CardId) => (app.cards.hidden.includes(id) ? 0 : app.cards.order.indexOf(id) + 1);
   // LAR's card leaves and arrives by closing and opening, so the page under it never jumps.
   const quiet = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const coachFlow = () => ({ duration: quiet || !coachLoaded ? 0 : FLOW_MS, easing: cubicOut });
@@ -149,73 +147,77 @@
     </section>
   {/if}
 
-  {#if nudge && at("coach")}
-    <section style:order={at("coach")} class="coach card notch" data-kind={nudge.nudge.kind} transition:slide={coachFlow()}>
-      <Lar size={2} cube={false} state={now.getHours() >= 23 || now.getHours() < 5 ? "sleep" : "idle"} />
-      <button class="say" onclick={act}>
-        <span class="label">LAR</span>
-        <span class="line">{nudge.line}</span>
-      </button>
-      <button class="x" aria-label="Dismiss for today" onclick={dismiss}>×</button>
-    </section>
-  {/if}
-
-  {#if at("next")}
-  <section style:order={at("next")} class="hero card notch">
-    <CampusStrip litKey={next?.session.subject_code ?? ""} />
-    <div class="up">
-      {#if next && hero}
-        <div class="who">
-          <p class="label">{next.is_now ? "In session" : "Up next"}</p>
-          <h2 style:color={subjectColor(next.session.subject_code, colors)}>{next.session.subject_code}</h2>
-          <p class="desc">{next.session.description}</p>
-          <p class="meta">{clock(next.session.start)}–{clock(next.session.end)}{next.session.faculty ? ` · ${next.session.faculty}` : ""}</p>
-        </div>
-        <div class="count" use:tick={`${hero.big} ${hero.unit}`}>
-          <span class="big"><PixelNum text={hero.big} size={5} /></span>
-          <span class="unit">{hero.unit}</span>
-        </div>
-      {:else if !t && app.snapshot}
-        <!-- Spec 040 C2: still loading is not "nothing scheduled". -->
-        <div class="who"><Skeleton rows={2} height={22} /></div>
-      {:else}
-        <div class="who">
-          <p class="label">Up next</p>
-          <h2>Nothing scheduled</h2>
-          <p class="desc">Sync to pull your classes from the SIS.</p>
-        </div>
+  <!-- Today's cards in the student's order (spec 047 C6), rendered in that order so VoiceOver and focus follow it. -->
+  {#snippet card(id: CardId)}
+    {#if id === "coach"}
+      {#if nudge}
+        <section class="coach card notch" data-kind={nudge.nudge.kind} transition:slide={coachFlow()}>
+          <Lar size={2} cube={false} state={now.getHours() >= 23 || now.getHours() < 5 ? "sleep" : "idle"} />
+          <button class="say" onclick={act}>
+            <span class="label">LAR</span>
+            <span class="line">{nudge.line}</span>
+          </button>
+          <button class="x" aria-label="Dismiss for today" onclick={dismiss}>×</button>
+        </section>
       {/if}
-    </div>
-    {#if next?.is_now}
-      <div class="bar" aria-hidden="true"><span style:width="{progress * 100}%"></span></div>
+    {:else if id === "next"}
+      <section class="hero card notch">
+        <CampusStrip litKey={next?.session.subject_code ?? ""} />
+        <div class="up">
+          {#if next && hero}
+            <div class="who">
+              <p class="label">{next.is_now ? "In session" : "Up next"}</p>
+              <h2 style:color={subjectColor(next.session.subject_code, colors)}>{next.session.subject_code}</h2>
+              <p class="desc">{next.session.description}</p>
+              <p class="meta">{clock(next.session.start)}–{clock(next.session.end)}{next.session.faculty ? ` · ${next.session.faculty}` : ""}</p>
+            </div>
+            <div class="count" use:tick={`${hero.big} ${hero.unit}`}>
+              <span class="big"><PixelNum text={hero.big} size={5} /></span>
+              <span class="unit">{hero.unit}</span>
+            </div>
+          {:else if !t && app.snapshot}
+            <!-- Spec 040 C2: still loading is not "nothing scheduled". -->
+            <div class="who"><Skeleton rows={2} height={22} /></div>
+          {:else}
+            <div class="who">
+              <p class="label">Up next</p>
+              <h2>Nothing scheduled</h2>
+              <p class="desc">Sync to pull your classes from the SIS.</p>
+            </div>
+          {/if}
+        </div>
+        {#if next?.is_now}
+          <div class="bar" aria-hidden="true"><span style:width="{progress * 100}%"></span></div>
+        {/if}
+      </section>
+
+      {#if !app.sisConnected}<NeedSis what="your classes" />{/if}
+    {:else if id === "due"}
+      <DueCard />
+    {:else if id === "term"}
+      {#if standing && (standing.term_gpa !== null || standing.units_done > 0)}
+        <button class="reality card notch" onclick={() => (app.tab = "grades")} aria-label="Where you stand; open Grades">
+          <span>
+            <small>This term</small>
+            <strong class="num">{standing.term_gpa?.toFixed(2) ?? "—"}</strong>
+            {#if standing.goals.target_gpa}<em class:ok={standing.term_gpa !== null && standing.term_gpa <= standing.goals.target_gpa}>target {standing.goals.target_gpa.toFixed(2)}</em>{/if}
+          </span>
+          <span>
+            <small>Overall</small>
+            <strong class="num">{standing.cumulative_gpa?.toFixed(2) ?? "—"}</strong>
+          </span>
+          <span class="units">
+            <small>Units</small>
+            <strong class="num">{standing.units_done}{#if standing.goals.program_units}<i>/{standing.goals.program_units}</i>{/if}</strong>
+            {#if unitsPct !== null}<b class="bar"><b style:width="{unitsPct}%"></b></b>{/if}
+          </span>
+        </button>
+      {/if}
     {/if}
-  </section>
+  {/snippet}
+  {#each app.cards.order.filter((id) => !app.cards.hidden.includes(id)) as id (id)}{@render card(id)}{/each}
 
-  {/if}
-
-  {#if !app.sisConnected}<div style:order={at("next") || 0}><NeedSis what="your classes" /></div>{/if}
-  {#if at("due")}<div style:order={at("due")} class="slot"><DueCard /></div>{/if}
-
-  {#if at("term") && standing && (standing.term_gpa !== null || standing.units_done > 0)}
-    <button style:order={at("term")} class="reality card notch" onclick={() => (app.tab = "grades")} aria-label="Where you stand; open Grades">
-      <span>
-        <small>This term</small>
-        <strong class="num">{standing.term_gpa?.toFixed(2) ?? "—"}</strong>
-        {#if standing.goals.target_gpa}<em class:ok={standing.term_gpa !== null && standing.term_gpa <= standing.goals.target_gpa}>target {standing.goals.target_gpa.toFixed(2)}</em>{/if}
-      </span>
-      <span>
-        <small>Overall</small>
-        <strong class="num">{standing.cumulative_gpa?.toFixed(2) ?? "—"}</strong>
-      </span>
-      <span class="units">
-        <small>Units</small>
-        <strong class="num">{standing.units_done}{#if standing.goals.program_units}<i>/{standing.goals.program_units}</i>{/if}</strong>
-        {#if unitsPct !== null}<b class="bar"><b style:width="{unitsPct}%"></b></b>{/if}
-      </span>
-    </button>
-  {/if}
-
-  <section class="day" style:order="9">
+  <section class="day">
     <div class="head">
       <p class="label">Today</p>
       {#if t && t.agenda.free_minutes_left > 0}
@@ -407,9 +409,6 @@
   .screen {
     display: grid;
     gap: 18px;
-  }
-  .slot {
-    display: grid;
   }
   /* Compact lists in You (spec 047 C7): shorter class rows, still past 44 pt. */
   :global(:root[data-density="compact"]) .class {
