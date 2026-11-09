@@ -794,16 +794,18 @@ svg.pi { display: block; flex: none; }
 <section class="row" id="greet">
   <div class="q">
     <h2>Greeting: after the dive, the day says hello</h2>
-    <p>The portal dive ends, then a slow hello, then Today rises with no greeting of its own at the top. Tap anywhere to skip. Drag the bar to scrub; Replay plays it again.</p>
+    <p>The portal dive ends, then a slow hello, then Today, with no greeting of its own at the top. Tap anywhere to skip. Drag the bar to scrub; Replay plays it again.</p>
+    <p><b>Two picks here.</b> Earlier you ruled that after the dive Today must not rise in again: it is simply there. So also pick how Today arrives: rising block by block as the hello lifts, or already in place as the hello fades off it. Switch between them with the Today button.</p>
   </div>
   <div class="wide">
     <div class="opt"><div class="phone" id="gPhoneA"></div><div class="name"><b>A: Two lines</b><span>“Good afternoon.” then the date. About 1.5 s of hello.</span></div><div class="picks"><button class="pick" data-row="greet" data-v="A: Two lines">This one</button></div></div>
     <div class="opt"><div class="phone" id="gPhoneB"></div><div class="name"><b>B: Slower, with your day</b><span>A longer breath, and a third quiet line: today's classes and what's due. About 2.4 s.</span></div><div class="picks"><button class="pick" data-row="greet" data-v="B: Slower, with your day">This one</button></div></div>
     <div class="panel g-ctl">
       <h3>Try it</h3>
-      <div class="pbtns"><button class="pbtn" id="gReplay">Replay</button><button class="pbtn" id="gRoom">Day room</button><button class="pbtn" id="gReduce" aria-pressed="false">Reduce Motion: off</button></div>
+      <div class="pbtns"><button class="pbtn" id="gReplay">Replay</button><button class="pbtn" id="gRoom">Day room</button><button class="pbtn" id="gReduce" aria-pressed="false">Reduce Motion: off</button><button class="pbtn" id="gRise" aria-pressed="true">Today: rises</button></div>
       <input type="range" id="gScrub" min="0" max="1000" value="0" aria-label="Scrub the launch">
       <div class="g-tl"><span>dive</span><span>hello</span><span>Today</span></div>
+      <div class="picks"><button class="pick" data-row="today" data-v="Rises after the hello">Today rises after the hello</button><button class="pick" data-row="today" data-v="Already there">Today is already there</button></div>
       <p>The rings are a sketch of the dive's last frames; the real one is the app's.</p>
       <p>Both wait for loading: if the snapshot is slow, the hello holds instead of the tunnel swirling. With Reduce Motion the dive is skipped and the hello cross-fades in and out.</p>
     </div>
@@ -2987,7 +2989,7 @@ requestAnimationFrame(larLoop);
 const larTheme = (h) => { if (h == null) return LarKit.THEMES.sis; return { ramp: [0.1, 0.2, 0.36, 0.56, 0.84].map((L) => hsl(h, 0.7, L)), accent: hsl(h, 0.8, 0.64) }; };
 
 /* ---------------- picks ---------------- */
-const ROWS = [["greet", "Greeting"], ["window", "LAR window"], ["due", "Due adder"], ["study", "Study"], ["isko", "Without Isko"]];
+const ROWS = [["greet", "Greeting"], ["today", "Today after hello"], ["window", "LAR window"], ["due", "Due adder"], ["study", "Study"], ["isko", "Without Isko"]];
 let picks = {};
 try { picks = JSON.parse(localStorage.getItem("ip-larwin-3") || "{}"); } catch { picks = {}; }
 function renderTray() {
@@ -3012,7 +3014,7 @@ $("#copy").addEventListener("click", () => {
 {
 
 const gB = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const gState = { theme: NIGHT, reduce, t: 0, playing: true, t0: 0 };
+const gState = { theme: NIGHT, reduce, rise: true, t: 0, playing: true, t0: 0 };
 const gWords = (s) => s.split(" ").map((w) => `<span class="g-w">${esc(w)}</span>`).join(" ");
 function gBuild(el, slow) {
   const view = shell(el, gState.theme, "today");
@@ -3070,9 +3072,11 @@ function gDraw(p, t) {
   p.skip.style.opacity = String(t > T.in1 && t < T.hold ? 0.6 * (1 - out) : 0);
   // Today rises after it, one card at a time.
   p.rise.forEach((c, i) => {
-    const v = R ? clamp((t - T.hold) / 400) : k(T.hold + 200 + i * 60, 450);
+    // Already there: Today sits under the hello at full strength and shows as the hello fades off it.
+    const still = !gState.rise, cover = 1 - out;
+    const v = still ? 1 - cover : R ? clamp((t - T.hold) / 400) : k(T.hold + 200 + i * 60, 450);
     c.style.opacity = String(v);
-    c.style.transform = R ? "" : `translateY(${(1 - v) * 18}px)`;
+    c.style.transform = R || still ? "" : `translateY(${(1 - v) * 18}px)`;
   });
 }
 const gPhones = [];
@@ -3096,6 +3100,7 @@ requestAnimationFrame(gLoop);
 $("#gReplay").addEventListener("click", () => { gState.t0 = performance.now(); gState.playing = true; });
 $("#gScrub").addEventListener("input", (e) => { gState.playing = false; gState.t = (+e.target.value / 1000) * gMax(); });
 $("#gRoom").addEventListener("click", (e) => { const day = gState.theme === NIGHT; gState.theme = day ? DAY : NIGHT; e.target.textContent = day ? "Night room" : "Day room"; gSetup(); });
+$("#gRise").addEventListener("click", (e) => { gState.rise = !gState.rise; e.target.setAttribute("aria-pressed", String(gState.rise)); e.target.textContent = `Today: ${gState.rise ? "rises" : "already there"}`; gState.t0 = performance.now(); gState.playing = true; });
 $("#gReduce").addEventListener("click", (e) => { gState.reduce = !gState.reduce; e.target.setAttribute("aria-pressed", String(gState.reduce)); e.target.textContent = `Reduce Motion: ${gState.reduce ? "on" : "off"}`; gState.t0 = performance.now(); gState.playing = true; });
 
 }

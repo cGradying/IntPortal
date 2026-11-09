@@ -1319,7 +1319,7 @@ requestAnimationFrame(larLoop);
 const larTheme = (h) => { if (h == null) return LarKit.THEMES.sis; return { ramp: [0.1, 0.2, 0.36, 0.56, 0.84].map((L) => hsl(h, 0.7, L)), accent: hsl(h, 0.8, 0.64) }; };
 
 /* ---------------- picks ---------------- */
-const ROWS = [["greet", "Greeting"], ["window", "LAR window"], ["due", "Due adder"], ["study", "Study"], ["isko", "Without Isko"]];
+const ROWS = [["greet", "Greeting"], ["today", "Today after hello"], ["window", "LAR window"], ["due", "Due adder"], ["study", "Study"], ["isko", "Without Isko"]];
 let picks = {};
 try { picks = JSON.parse(localStorage.getItem("ip-larwin-3") || "{}"); } catch { picks = {}; }
 function renderTray() {
