@@ -45,7 +45,7 @@
       <ul class="notes">
         {#each shown as n (n.key)}
           <li>
-            <button onclick={() => openNote(n.key, noteHeading(n.key, n.title), n.title)}>
+            <button data-source={n.key} onclick={() => openNote(n.key, noteHeading(n.key, n.title), n.title)}>
               <strong>{noteHeading(n.key, n.title)}</strong>
               <span>{n.preview}</span>
             </button>

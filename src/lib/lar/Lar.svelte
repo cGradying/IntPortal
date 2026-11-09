@@ -32,6 +32,8 @@
     vy,
     t: driven,
     cube = true,
+    shadow = true,
+    k,
     fit = false,
     label = "LAR, the Lakbay-Aral Robot",
   }: {
@@ -47,6 +49,9 @@
     vy?: number;
     t?: number;
     cube?: boolean;
+    shadow?: boolean;
+    /** Holds spawn progress (0 to 1) instead of his clock: run it down and the fire takes him back. */
+    k?: number;
     /** Take up the room his cube, mitts and glow reach, so a box round him never clips them. */
     fit?: boolean;
     label?: string;
@@ -78,7 +83,7 @@
 
   $effect(() => {
     const now = t;
-    const o = { vx, vy };
+    const o = k === undefined ? { vx, vy } : { vx, vy, k };
     r.set(mode, now, o);
     const p = r.at(now, o, reduce);
     if (mood && mood !== "open") p.mood = mood;
@@ -101,7 +106,7 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, w, h);
     ctx.setTransform(s, 0, 0, s, -BOX.x0 * s, -BOX.y0 * s);
-    drawLar(ctx, p, look, now, { cube });
+    drawLar(ctx, p, look, now, { cube, shadow });
   });
 </script>
 

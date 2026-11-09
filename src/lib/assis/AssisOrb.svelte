@@ -1,8 +1,9 @@
 <script lang="ts">
   // The crystal (spec 046 C1b to C1d2): one floating button. A cube of data on most tabs, once
   // IntAssis has been added; it folds into a + on Study. At rest it is flat, in the room's own
-  // tokens, and draws nothing. Opening the chat sends LAR's cube flying up to him (AssisSheet),
-  // so it is away while the chat is open.
+  // tokens, and draws nothing. Opening the chat grows it into LAR's window (AssisWindow): the chip
+  // rides the growing glass and fades into it, sleeps while the window is open, and fades back in at
+  // its spot as the window folds into it (`chip.at`).
   import { invoke } from "@tauri-apps/api/core";
   import { untrack } from "svelte";
   import { closable } from "../back";
@@ -12,6 +13,7 @@
   import { FALLBACK_SIS } from "../portals";
   import { app } from "../state.svelte";
   import { assis, installed, open } from "./assis.svelte";
+  import { chip } from "./AssisWindow.svelte";
   import { crystalMode, mountCrystal, readTones, restCube, useGlass, type Crystal } from "./crystal";
 
   const SIZE = 48;
@@ -106,7 +108,7 @@
   $effect(() => {
     if (menuOpen) return closable(() => (menuOpen = false));
   });
-  $effect(() => crystal?.hide(assis.open));
+  $effect(() => crystal?.hide(chip.at === "hidden"));
 
   // Thinking maps something (C1b3). Finishing grows roots behind the cards (C1b4).
   let wasThinking = false;
@@ -145,7 +147,7 @@
     class:open={menuOpen}
     class:sweep={thinking && !crystal && !assis.open}
     data-orb
-    class:away={assis.open}
+    class:away={chip.at !== "here"}
     class:tucked
     aria-label={mode === "plus" ? "Add" : "Ask LAR"}
     aria-expanded={mode === "plus" ? menuOpen : undefined}
