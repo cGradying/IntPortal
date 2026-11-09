@@ -60,15 +60,23 @@ Every setting on You today, reachable within two taps:
   - **LAR:** his colour, or the school's. The Dive preview shows the tunnel in this theme.
   - **Share:** name, share card, save, scan.
   - **The dice** on the preview rolls a whole theme and a name.
+  - *Built 2026-11-09 (`src/lib/ThemeMaker.svelte`, `theme.ts`):* a full-screen page with Back in the preview's top row (Android back closes it too), opened by `app.themeMaker`. The page wears the theme being made; the app wears it once saved. Presets and saved themes share the Colour row. Share has name, share card, Save, and Add a code (scan waits for the camera, C18). The Dive tab draws the tunnel preview in the theme's accent and pool hues; the real dive is unchanged. LAR's colour reaches him across the app. The Pixel and Classic title picks set `--font-display`; Phone leaves the text style in You in charge.
 - **C13.** Every theme goes through the clamps when applied: text at least 7:1 on cards, quieter text 4.5:1, the accent 3:1. The student's picks can't make it unreadable.
+  - *Built 2026-11-09 (`roles` in `theme.ts`):* the ground and cards are first pushed to the theme's side of light until 7:1 text exists on them, so any fine-tuned colour works; text is also 7:1 on the ground, subject colours 3:1, good and bad 4.5:1. Tinted cards are the card mixed 14% with the accent, and outline cards are filled with the ground colour (kept opaque, per the Living Ground Rule), so the clamps measure the real fill.
 - **C14.** Saved themes sit beside the rooms and can be renamed or deleted. Deleting the active one falls back to Night.
+  - *Built 2026-11-09:* they show after the four hand-tuned rooms in You, as room ids `theme:<id>`, stored in `localStorage` under `themes` as share codes (so storage gets the C17 check too). Rename is the name field and Save; Delete asks first. A room naming a missing theme wears Night. Erase everything forgets them. Backup (C9) isn't built yet.
 - **C15.** A theme applies to the whole app, including derived subject colours and the ground. The landing and the portal keep their own world.
+  - *Built 2026-11-09:* `setRoom` hands the saved theme to `applyRoom`, which sets every role, `--pattern`, `--aura-o` and the titles on the root, plus `data-corners` and `data-cards`. Corners act on `.notch` surfaces (Deep 6 px steps, Round 16 px radius, Sharp square).
 
 **Sharing**
 - **C16.** Share gives a code and a QR of it. Format `IPT1.` plus base64url of: version, choices (pattern, moving pools, corners, cards, titles), two hues, four RGB colours, name length, name (at most 24 characters), and a checksum byte. The code sits on a theme card with the QR, in the theme's own colours.
+  - *Built 2026-11-09 (`themeCode.ts`), byte for byte as the picks page:* version byte 2; flags = pattern (4 bits) | pools << 4 | corners << 6; flags2 = cards | titles << 2; pool hue and LAR hue in 255 steps (LAR 255 = the school's); accent, ground, card, ink; name length; UTF-8 name; checksum = sum of all bytes mod 256. The QR is drawn as one SVG path by `qrcode-generator` (MIT, error correction M, four-module quiet zone). Copy code uses the clipboard; the code text is selectable if that is blocked.
 - **C17.** A code holds only the C16 fields: the theme's look and a name, with nothing that runs or links. Decoding validates length, version and checksum, and the name is shown as plain text and never as markup.
+  - *Built 2026-11-09:* decoding also refuses unknown choice values, unused flag bits, bad base64, a name that isn't UTF-8, over 24 characters, or holds control or direction-changing characters. The name is only ever a Svelte text node: no `{@html}`, never a URL or attribute.
 - **C18.** Add a theme by pasting a code or photographing its QR. The student sees it first and chooses Keep or Not now. A bad code changes nothing and says so.
+  - *Built 2026-11-09:* paste only. The maker takes on the pasted theme while Keep or Not now is open; Keep saves and wears it, Not now puts back what was there. Photographing waits for the camera plugin (#219): `scanQr` in `themeCode.ts` is the hook, null for now, and the photo button appears once it is set.
 - **C19.** Sharing needs no network and no account. Nothing about the student is in the code.
+  - *Built 2026-11-09:* encoding, decoding and the QR all run on the phone; the code holds only the C16 fields.
 
 ## Copy
 
@@ -78,7 +86,7 @@ As on the picks page. Final strings go here after the picks.
 
 - Themes: `{ name, accent, ground, card, ink, hue2, lar, pattern, aura, corners, cards, titles }`, stored with settings and included in backups. They survive sign-out, and Erase everything removes them.
 - `src/lib/rooms.ts`: `derive` gains a path from a theme; `applyRoom` accepts a saved theme's id. `themeCode.ts`: `encodeTheme`, `decodeTheme`.
-- QR drawing: `qrcode-generator` (new dependency, small, MIT; licence to check before it ships).
+- QR drawing: `qrcode-generator` 2.0.4 (MIT, checked; no dependencies; its ES module is 52 KB unminified, 11 KB gzipped).
 - QR scanning: the one camera plugin, shared with Scan (#197) and 046's photos, owned by the Head. `plugin:camera|capture` with `{ source: "camera", read: { qr: true } }` takes one photo and keeps nothing; there's no live scanner. Until it lands, paste works alone. If the user chooses Play services for Android's reader, the first QR read needs a one-time download, so 047 adds an offline line then.
 - Backup commands: `src-tauri/src/lib.rs` is a hot file, so they go in one small PR.
 
@@ -104,5 +112,6 @@ Rows and switches are at least 48 pt, or 44 pt in Compact, with names and states
 | C5–C8 | `vitest`: settings round trip, `c6_every_card_can_hide_and_move` |
 | C9, C10 | `cargo`: `c9_backup_has_no_logins`, `c10_bad_backup_changes_nothing`, `c10_other_students_backup_refused` (including nobody signed in), `c9_backup_keeps_own_deadlines_and_done` |
 | C13 | `vitest`: `c13_every_theme_meets_contrast` over a sweep of colours |
-| C16, C17 | `vitest`: `c16_code_round_trip`, `c17_bad_code_refused` (cut, tampered, wrong version, markup in the name) |
+| C16, C17 | `vitest`: `c16_code_round_trip`, `c17_bad_code_refused` (cut, tampered, wrong version, markup in the name) — `src/lib/theme.test.ts` |
+| C14 | `vitest`: deleting the worn theme falls back to Night — `src/lib/theme.test.ts` |
 | C1, C3, C4, C12, C18 | screenshot, real phone |
