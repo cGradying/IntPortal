@@ -783,13 +783,15 @@
     padding: 0;
     border: 0;
     box-shadow: inset 0 0 0 1px var(--edge-2), 0 8px 20px rgb(0 0 0 / 0.35);
-    transition: rotate 0.2s var(--ease);
   }
   .plus svg {
     width: 26px;
     height: 26px;
   }
-  .plus.open {
+  .plus svg {
+    transition: rotate 0.2s var(--ease);
+  }
+  .plus.open svg {
     rotate: 45deg;
   }
   /* Sheets rise from the bottom, over the page. */

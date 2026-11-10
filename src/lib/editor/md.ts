@@ -98,7 +98,8 @@ export function entryHeading(iso: string, locale?: string): string {
 
 /** Add a dated heading at the end with the cursor on the line after it; a note already ending in it only moves the cursor (C14). */
 export function addEntry(text: string, heading: string): Edit {
-  const trimmed = text.replace(/\s+$/, "");
+  // Only blank lines go: an empty checklist item keeps its "- [ ] ".
+  const trimmed = text.replace(/\n+$/, "");
   const last = trimmed.slice(trimmed.lastIndexOf("\n") + 1);
   if (last === heading) {
     const t = trimmed + "\n";
