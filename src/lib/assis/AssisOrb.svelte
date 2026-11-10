@@ -195,7 +195,8 @@
       transform 0.2s var(--ease),
       translate 0.22s var(--ease),
       scale 0.22s var(--ease);
-  }  /* Over the note editor, where there is no tab bar (046 C11). */
+  }
+  /* Over the note editor, where there is no tab bar (046 C11). */
   .orb.over {
     z-index: 56;
     bottom: calc(var(--safe-bottom) + 16px);
