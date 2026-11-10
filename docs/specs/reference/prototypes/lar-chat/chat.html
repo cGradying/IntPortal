@@ -1,0 +1,283 @@
+<style>
+/* The chat, once open. The sky header is shared (.lh). LAR's steps are a pixel trace: a gold line of
+   whole pixels down the left of the trail, a little 2.5D cube for each step (lit top, shaded side),
+   and a square corner out to each note he found. No free curves; nothing leaves the glass. */
+.c-phone {
+  --g-a: color-mix(in srgb, var(--card), var(--ink) 8%);
+  --g-b: color-mix(in srgb, var(--card), var(--ground) 45%);
+  --g-rim: color-mix(in srgb, var(--gold) 42%, transparent);
+  --g-hi: rgb(168 134 210 / 0.42); --g-lo: rgb(0 0 0 / 0.5); --g-sheen: rgb(255 236 214 / 0.07);
+  --tr: color-mix(in srgb, var(--gold) 55%, transparent);
+  --tr-lo: rgb(0 0 0 / 0.45);
+}
+.c-phone.c-day { --g-hi: rgb(255 255 255 / 0.95); --g-lo: rgb(90 40 50 / 0.16); --g-sheen: rgb(255 255 255 / 0.7); --tr-lo: rgb(90 40 50 / 0.22); }
+.c-scrim { position: absolute; inset: 0; z-index: 45; background: rgb(6 3 8 / 0.32); opacity: 0; pointer-events: none; transition: opacity 0.3s var(--ease); }
+.c-open .c-scrim { opacity: 1; pointer-events: auto; }
+/* The glass: one face, a 1 px lit top-left, and a 2 px pixel extrusion bottom and right (2.5D). */
+.c-win {
+  position: absolute; z-index: 50; left: 12px; width: 296px; display: flex; flex-direction: column; overflow: hidden;
+  background:
+    linear-gradient(to bottom, var(--g-hi) 0 1px, transparent 1px),
+    linear-gradient(to right, var(--g-hi) 0 1px, transparent 1px),
+    linear-gradient(to left, var(--g-rim) 0 1px, transparent 1px),
+    linear-gradient(165deg, var(--g-a), var(--g-b));
+  box-shadow: 2px 2px 0 var(--tr-lo), 0 16px 30px -12px rgb(0 0 0 / 0.6);
+  opacity: 0; visibility: hidden;
+  transition: top 0.36s var(--ease), height 0.36s var(--ease), opacity 0.2s linear, visibility 0s linear 0.2s;
+}
+.c-open .c-win { opacity: 1; visibility: visible; transition: top 0.36s var(--ease), height 0.36s var(--ease), opacity 0.2s linear, visibility 0s; }
+
+.c-log { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.c-log::-webkit-scrollbar { display: none; }
+.c-in { display: grid; gap: 10px; align-content: start; padding: 8px 12px 10px; }
+.c-lar { justify-self: start; max-width: 92%; padding: 10px 12px; background: #1d1222; color: #f4ecd8; box-shadow: inset 0 2px 0 color-mix(in srgb, #e8b04a 45%, #3a2446), inset 0 -2px 0 #060307; clip-path: var(--n3); font: 400 14px/1.4 var(--f-ui); animation: cPop 0.28s var(--ease) both; }
+.c-lar p { margin: 0; overflow-wrap: anywhere; }
+.c-lar p + p { margin-top: 8px; }
+.c-due { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 7px; }
+.c-due li { display: flex; gap: 10px; align-items: baseline; }
+.c-due em { flex: none; width: 30px; font-style: normal; font-weight: 700; color: #e8b04a; }
+.c-due b { display: block; font-weight: 600; }
+.c-due small { font-size: 12.5px; color: rgb(244 236 216 / 0.72); }
+.c-me { justify-self: end; max-width: 82%; margin: 0; padding: 9px 13px; border-radius: 16px 16px 4px 16px; background: color-mix(in srgb, var(--ink) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 13%, transparent); color: var(--ink); font: 400 14px/1.35 var(--f-ui); animation: cSend 0.28s var(--ease) both; }
+.c-caret { display: inline-block; width: 2px; height: 1em; margin: 0 1px -0.15em; background: #e8b04a; }
+
+/* The trace. Each step is a row: its cube on the line, then what he did. The line between two cubes
+   grows down in whole pixels, and a 2 px packet runs down it to the next step. */
+.c-trail { position: relative; display: grid; padding: 2px 0 0 1px; }
+.c-trail[hidden] { display: none; }
+.c-step { position: relative; display: grid; grid-template-columns: 14px 1fr; column-gap: 9px; padding-bottom: 10px; font: 400 12.5px/1.4 var(--f-ui); color: var(--ink-2); animation: cSend 0.22s var(--ease) both; }
+.c-step:last-of-type { padding-bottom: 2px; }
+.c-step:not(:last-of-type)::before { content: ""; position: absolute; left: 5px; top: 13px; bottom: 1px; width: 2px; background: var(--tr); box-shadow: 1px 1px 0 var(--tr-lo); transform-origin: 50% 0; animation: cGrow 0.24s steps(6, end) both; }
+.c-step.c-done > span { color: var(--ink); }
+/* A step's cube: gold face, lit top, shaded side. Running, it blinks; done, a lit datum pixel shows. */
+.c-node { position: relative; width: 8px; height: 8px; margin: 4px 0 0 2px; background: var(--gold); box-shadow: inset 0 2px 0 rgb(255 246 220 / 0.55), inset -2px 0 0 rgb(0 0 0 / 0.28), 1px 1px 0 var(--tr-lo); }
+.c-run .c-node { animation: cBlink 0.8s steps(1, end) infinite; }
+.c-done .c-node::after, .c-sum .c-node::after { content: ""; position: absolute; left: 2px; top: 2px; width: 2px; height: 2px; background: #fff6dc; }
+.c-packet { position: absolute; left: 6px; width: 2px; height: 2px; background: #fff6dc; box-shadow: 0 0 4px var(--gold); pointer-events: none; animation: cRun 0.3s steps(8, end) both; }
+/* What a search found: a square corner out of the step, then the notes, then the line it matched. */
+.c-found { position: relative; grid-column: 2; display: grid; gap: 6px; margin-top: 7px; }
+.c-found::before { content: ""; position: absolute; left: -17px; top: -3px; width: 12px; height: 19px; border-left: 2px solid var(--tr); border-bottom: 2px solid var(--tr); filter: drop-shadow(1px 1px 0 var(--tr-lo)); animation: cCorner 0.2s steps(5, end) both; }
+.c-notes { display: flex; gap: 6px; flex-wrap: wrap; }
+.c-phone .c-note { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 0; background: var(--g-a); box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -2px 0 var(--tr-lo), inset 0 0 0 1px var(--edge-2); font: 500 12px var(--f-ui); color: var(--ink); clip-path: var(--n3); animation: cSend 0.22s calc(0.2s + var(--i, 0) * 80ms) var(--ease) both; }
+.c-note svg { color: var(--gold); }
+.c-quote { margin: 0; padding-left: 8px; box-shadow: inset 2px 0 0 var(--tr); font: italic 400 12.5px/1.4 var(--f-ui); color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; animation: cSend 0.22s 0.36s var(--ease) both; }
+/* Folded: one cube and one line, to open again. */
+.c-phone .c-sum { justify-self: start; display: inline-grid; grid-template-columns: 14px auto 8px; align-items: center; column-gap: 9px; min-height: 32px; padding: 0 6px 0 1px; border: 0; background: none; font: 400 12.5px var(--f-ui); color: var(--ink-2); }
+.c-sum .c-node { margin: 0 0 0 2px; }
+.c-sum svg { transition: rotate 0.2s var(--ease); }
+.c-sum[aria-expanded="true"] svg { rotate: 90deg; }
+
+.c-src { display: flex; flex-wrap: wrap; gap: 6px; }
+.c-phone .c-from { min-height: 32px; padding: 0 10px; border: 0; background: var(--g-a); box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -2px 0 var(--tr-lo), inset 0 0 0 1px var(--edge-2); clip-path: var(--n3); font: 400 12px var(--f-ui); color: var(--ink-2); animation: cSend 0.3s var(--ease) both; }
+/* Where an answer came from lights up in whole-pixel corners: its chip, and its card on the page. */
+.c-hit { position: relative; }
+.c-hit::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background:
+    linear-gradient(var(--gold), var(--gold)) 0 0 / 8px 2px, linear-gradient(var(--gold), var(--gold)) 0 0 / 2px 8px,
+    linear-gradient(var(--gold), var(--gold)) 100% 0 / 8px 2px, linear-gradient(var(--gold), var(--gold)) 100% 0 / 2px 8px,
+    linear-gradient(var(--gold), var(--gold)) 0 100% / 8px 2px, linear-gradient(var(--gold), var(--gold)) 0 100% / 2px 8px,
+    linear-gradient(var(--gold), var(--gold)) 100% 100% / 8px 2px, linear-gradient(var(--gold), var(--gold)) 100% 100% / 2px 8px;
+  background-repeat: no-repeat; animation: cHit 1.4s steps(7, end) both; }
+
+/* Suggestions: one row over the input that scrolls sideways; from the day first, then from each answer. */
+.c-sug { flex: none; display: flex; gap: 6px; overflow-x: auto; padding: 6px 12px 2px; scrollbar-width: none; -webkit-mask: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 22px), transparent); mask: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 22px), transparent); }
+.c-sug::-webkit-scrollbar { display: none; }
+.c-sug:empty { display: none; }
+.c-phone .c-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--card) 70%, transparent); box-shadow: inset 0 0 0 1px var(--edge-2); color: var(--ink); font: 400 13px var(--f-ui); white-space: nowrap; transition: background 0.16s var(--ease); animation: cSend 0.3s calc(var(--i, 0) * 60ms) var(--ease) both; }
+.c-phone .c-chip:hover { background: color-mix(in srgb, var(--gold) 12%, var(--card)); }
+.c-chip .c-why { font-size: 11.5px; color: var(--gold); }
+.c-dock { flex: none; display: flex; gap: 6px; padding: 6px 8px 8px; }
+.c-well { flex: 1; min-width: 0; height: 44px; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); }
+.c-well:focus-within { box-shadow: inset 0 0 0 1.5px var(--gold); }
+.c-well input { flex: 1; min-width: 0; border: 0; padding: 0; background: none; outline: 0; font: 400 16px var(--f-ui); color: var(--ink); caret-color: var(--gold); }
+.c-well input::placeholder { color: var(--ink-3); }
+.c-phone .c-send { flex: none; width: 56px; height: 44px; border: 0; background: var(--gold); color: var(--on-gold); font: 600 14px var(--f-ui); clip-path: var(--n3); box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.24); }
+.c-phone .c-send:disabled { background: var(--sunk); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--edge-2); }
+
+.c-kb { position: absolute; left: 0; right: 0; bottom: 0; height: 270px; z-index: 64; background: #2b2830; translate: 0 100%; transition: translate 0.36s var(--ease); display: grid; grid-template-rows: repeat(4, 1fr); gap: 10px; padding: 10px 4px 40px; }
+.c-day .c-kb { background: #d3d1d8; }
+.c-kb i { display: block; background: repeating-linear-gradient(to right, rgb(255 255 255 / 0.16) 0 26px, transparent 26px 31.6px); border-radius: 5px; }
+.c-day .c-kb i { background: repeating-linear-gradient(to right, #fff 0 26px, transparent 26px 31.6px); }
+.c-phone.c-keys .c-kb { translate: 0 0; }
+.c-panel .pbtns { align-items: center; }
+.c-panel .seg0 { margin-left: auto; }
+@keyframes cPop { from { opacity: 0; transform: translateY(6px) scale(0.97); } }
+@keyframes cSend { from { opacity: 0; transform: translateY(6px); } }
+@keyframes cBlink { 50% { opacity: 0.35; } }
+@keyframes cGrow { from { scale: 1 0; } }
+@keyframes cCorner { from { clip-path: inset(0 100% 100% 0); } to { clip-path: inset(0); } }
+@keyframes cRun { from { top: var(--from); opacity: 1; } 90% { opacity: 1; } to { top: var(--to); opacity: 0; } }
+@keyframes cHit { from { opacity: 1; } 60% { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .c-phone * { animation-duration: 0.01ms !important; } .c-win { transition-duration: 0.01ms !important; } }
+</style>
+
+<section class="row" id="chat">
+  <div class="q">
+    <h2>The chat: the sky header, LAR's steps as a pixel trace</h2>
+    <p>The header is the old sheet's sky again: a solid band in the portal's colours, split from the chat by a dithered pixel edge, with LAR standing on it.</p>
+    <p>His steps are a quiet pixel trace: one small cube per real step, a line of whole pixels between them, and a square corner out to each note he found. When he answers, the trace folds into one line, and the source lights up in pixel corners, here and on the page behind.</p>
+  </div>
+  <div class="panel c-panel">
+    <h3>Try it on both</h3>
+    <div class="pbtns"><button class="pbtn" type="button" data-c="due">Ask what's due</button><button class="pbtn" type="button" data-c="notes">Ask about a note</button><button class="pbtn" type="button" data-c="miss">Ask what isn't in notes</button><button class="pbtn" type="button" data-c="thx">Thank LAR</button><button class="pbtn" type="button" data-c="reset">New chat</button><div class="seg0" role="group" aria-label="Room"><button type="button" data-cr="night" aria-pressed="true">Night</button><button type="button" data-cr="day" aria-pressed="false">Day</button></div></div>
+    <p>Left: keyboard down. Right: keyboard up. The header is one size in both, and stays that size however long the chat gets. Tap a suggestion, a found note, or the folded line.</p>
+    <div class="picks"><button class="pick" data-row="chat" data-v="Looks right">Looks right</button><button class="pick" data-row="chat" data-v="Needs work">Needs work</button></div>
+  </div>
+  <div class="wide">
+    <div class="opt"><div class="phone" id="cPh1"></div><div class="name"><b>Keyboard down</b><span>The sky header, 104 pt. The window grows up from the cube's corner with the chat.</span></div></div>
+    <div class="opt"><div class="phone" id="cPh2"></div><div class="name"><b>Keyboard up</b><span>The same header, LAR the same size. The window rests on the keyboard.</span></div></div>
+  </div>
+</section>
+
+<script>
+const C_TODAY = `<h3 class="ttl">Today</h3><div class="card" data-src="due"><p class="lb">Due this week</p><p style="margin:6px 0 0;font-weight:600">Lab 4: Interfaces</p><p class="fine">COMP 20083 · Wednesday, 11:59 PM</p></div><div class="card" data-src="next" style="display:grid;gap:4px"><p class="lb">Up next</p><b style="font:800 17px var(--f-ui);color:var(--gold)">COMP 20083</b><p class="fine">Object-Oriented Programming, 10:30 AM</p></div><div class="card" data-src="note"><p class="lb">Last note</p><p style="margin:6px 0 0;font-weight:600">OOP Interfaces</p><p class="fine">Yesterday · 2 pages</p></div>`;
+const C_HELLO = "Hi! Ask me about your classes, what's due, your grades, or what's in your notes.";
+// Before the first message: from the day. The short gold note is why it is offered.
+const C_DAY = [{ q: "What's due this week?", why: "Lab 4 Wed" }, { q: "Explain interfaces simply", why: "last note" }, { q: "Anong klase ko ngayon?", why: "10:30" }, { q: "Remind me bukas ng umaga", why: "" }];
+const C_TURNS = {
+  due: {
+    q: "What's due this week?",
+    steps: [{ t: "Read your dues and timetable", ms: 300 }],
+    sum: "Read your dues",
+    html: `<p>Two things are due this week:</p><ul class="c-due"><li><em>Wed</em><span><b>Lab 4: Interfaces</b><small>COMP 20083 · 11:59 PM</small></span></li><li><em>Fri</em><span><b>Problem set 2</b><small>MATH 20133 · in class</small></span></li></ul><p>Lab 4 muna, it's due first.</p>`,
+    from: ["COMP 20083 · Lab 4"], src: "due",
+    next: [{ q: "Remind me Tuesday night" }, { q: "Open Lab 4" }, { q: "Anong klase ko ngayon?" }],
+  },
+  notes: {
+    q: "Explain interfaces simply",
+    steps: [
+      { t: "Read your timetable", ms: 260 },
+      { t: "Searching your notes", done: "Found 2 in your notes", ms: 1000, found: ["OOP Interfaces", "Lab 4 brief"], quote: "An interface lists what a class must do, not how it does it." },
+      { t: "Waking up", done: "Woke up", ms: 800, once: true },
+      { t: "Writing", ms: 0, writing: true },
+    ],
+    sum: "Looked at 2 notes",
+    text: "An interface is a promise. It lists methods a class must have, like a checklist, without saying how they work. In your Lab 4, Shape is the interface: Circle and Square each write their own area(). So you can call area() on any Shape without caring which one it is.",
+    from: ["OOP Interfaces", "Lab 4 brief"], src: "note",
+    next: [{ q: "Make 5 cards from this" }, { q: "Open OOP Interfaces" }, { q: "Give me an example" }],
+  },
+  miss: {
+    q: "What did Ma'am say about the midterm?",
+    steps: [{ t: "Read your timetable", ms: 260 }, { t: "Searching your notes", done: "Nothing close in your notes", ms: 900, found: [] }, { t: "Writing", ms: 0, writing: true }],
+    sum: "Searched your notes, nothing close",
+    text: "I couldn't find the midterm in your notes, so I won't guess. If she posted it, add it as a note and I'll remember it.",
+    from: [], src: null,
+    next: [{ q: "Add a note: midterm" }, { q: "What's due this week?" }],
+  },
+  thx: { q: "Salamat, LAR!", steps: [], html: `<p>Walang anuman! Galingan mo sa Lab 4.</p>`, from: [], src: null, next: C_DAY.slice(0, 3) },
+};
+const C_CHEV = `<svg width="8" height="10" viewBox="0 0 4 5" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM1 3h1v1H1zM0 4h1v1H0z"/></svg>`;
+
+function cPhone(el, keys) {
+  el.classList.add("c-phone", "c-open");
+  if (keys) el.classList.add("c-keys");
+  shell(el, NIGHT, "today").innerHTML = C_TODAY;
+  skyRamp(el);
+  const cr = mountCrystal(el, { mode: "cube" });
+  cr.el.style.opacity = "0";
+  el.insertAdjacentHTML("beforeend", `<div class="c-scrim"></div>
+    <div class="c-win" role="dialog" aria-label="Ask LAR">${larHeader()}
+      <div class="c-log"><div class="c-in" aria-live="polite"></div></div>
+      <div class="c-sug" role="group" aria-label="Suggestions"></div>
+      <form class="c-dock"><label class="c-well"><input placeholder="Ask LAR…" aria-label="Message LAR" enterkeyhint="send" autocomplete="off"></label><button class="c-send" type="submit" disabled>Send</button></form>
+    </div>
+    <div class="c-kb" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`);
+  const win = $(".c-win", el), hd = $(".lh", win), log = $(".c-log", win), inn = $(".c-in", win), sug = $(".c-sug", win), st = $(".lh-st", win), input = $("input", win), send = $(".c-send", win), newBtn = $(".lh-new", win);
+  const L = headLar($(".lh-cv", win));
+  let busy = false, woke = false, timers = [];
+  const wait = (ms) => new Promise((r) => timers.push(setTimeout(r, ms)));
+  const tnow = () => performance.now() / 1000;
+  const status = (s, dots) => (st.innerHTML = esc(s) + (dots ? "<i></i><i></i><i></i>" : ""));
+
+  // The glass sits on the cube's corner, or on the keyboard, and grows up with the chat.
+  function layout() {
+    const bottom = keys ? 672 - 270 - 8 : 592, top = 52;
+    const need = hd.offsetHeight + inn.offsetHeight + (sug.childElementCount ? sug.offsetHeight : 0) + $(".c-dock", win).offsetHeight;
+    const h = clamp(need, 220, keys ? bottom - top : 440);
+    Object.assign(win.style, { top: bottom - h + "px", height: h + "px" });
+  }
+
+
+  const toEnd = () => log.scrollTo({ top: log.scrollHeight, behavior: reduce ? "auto" : "smooth" });
+  const add = (html) => { inn.insertAdjacentHTML("beforeend", html); layout(); toEnd(); wait(380).then(toEnd); return inn.lastElementChild; };
+  const suggest = (list) => { sug.innerHTML = list.map((s, i) => `<button class="c-chip" type="button" style="--i:${i}" data-ask="${esc(s.q)}">${esc(s.q)}${s.why ? `<span class="c-why">${esc(s.why)}</span>` : ""}</button>`).join(""); sug.scrollLeft = 0; layout(); };
+  const hit = (e) => { if (!e) return; e.classList.remove("c-hit"); void e.offsetWidth; e.classList.add("c-hit"); wait(1500).then(() => e.classList.remove("c-hit")); };
+
+  function hello() { inn.innerHTML = `<div class="c-lar"><p>${esc(C_HELLO)}</p></div>`; suggest(C_DAY); newBtn.hidden = true; status("On this phone"); }
+
+  async function ask(key) {
+    if (busy) return;
+    const T = C_TURNS[key] || { ...C_TURNS.notes, q: key };
+    busy = true; newBtn.hidden = false; sug.innerHTML = ""; layout();
+    add(`<p class="c-me">${esc(T.q)}</p>`);
+    L.rig.set("think", tnow());
+    const steps = T.steps.filter((s) => !(s.once && woke));
+    const trail = steps.length ? add(`<div class="c-trail" role="list" aria-label="What LAR did"></div>`) : null;
+    for (const s of steps) {
+      const prev = [...trail.querySelectorAll(".c-step")].pop();
+      const row = document.createElement("div");
+      row.className = "c-step c-run"; row.setAttribute("role", "listitem");
+      row.innerHTML = `<i class="c-node"></i><span>${esc(s.t)}${s.writing ? "" : "…"}</span>`;
+      trail.appendChild(row);
+      // A packet runs down the line from the step before to this one.
+      if (prev && !reduce) { const pk = document.createElement("i"); pk.className = "c-packet"; pk.style.setProperty("--from", prev.offsetTop + 8 + "px"); pk.style.setProperty("--to", row.offsetTop + 4 + "px"); trail.appendChild(pk); wait(320).then(() => pk.remove()); }
+      layout(); toEnd();
+      status(s.t + (s.writing ? "" : "…"), true);
+      if (s.once) woke = true;
+      if (s.writing) break;
+      await wait(reduce ? 120 : s.ms);
+      row.classList.replace("c-run", "c-done");
+      $("span", row).textContent = s.done || s.t;
+      if (s.found?.length) {
+        row.insertAdjacentHTML("beforeend", `<div class="c-found"><div class="c-notes">${s.found.map((n, k) => `<button class="c-note" type="button" style="--i:${k}">${pi("note2", 12)}${esc(n)}</button>`).join("")}</div>${s.quote ? `<p class="c-quote">“${esc(s.quote)}”</p>` : ""}</div>`);
+        layout(); toEnd();
+        await wait(reduce ? 0 : 600);
+      }
+    }
+    // The answer: streamed when the model writes it, at once when it comes from the schedule.
+    const bubble = add(`<div class="c-lar"><p></p></div>`), p = $("p", bubble);
+    if (T.text) {
+      const words = T.text.split(" ");
+      for (let i = 1; i <= words.length; i++) { p.innerHTML = esc(words.slice(0, i).join(" ")) + (i < words.length ? `<i class="c-caret"></i>` : ""); if (i % 6 === 0) { layout(); toEnd(); } await wait(reduce ? 0 : 38); }
+    } else bubble.innerHTML = T.html;
+    // The trace folds into one line, to open again.
+    if (trail) {
+      trail.querySelector(".c-run")?.classList.replace("c-run", "c-done");
+      const sum = document.createElement("button");
+      sum.className = "c-sum"; sum.type = "button"; sum.setAttribute("aria-expanded", "false");
+      sum.innerHTML = `<i class="c-node"></i><span>${esc(T.sum)}</span>${C_CHEV}`;
+      trail.before(sum); trail.hidden = true;
+      sum.addEventListener("click", () => { const o = trail.hidden; trail.hidden = !o; sum.setAttribute("aria-expanded", String(o)); layout(); });
+    }
+    if (T.from.length) bubble.insertAdjacentHTML("afterend", `<div class="c-src">${T.from.map((f) => `<button class="c-from" type="button">From: ${esc(f)}</button>`).join("")}</div>`);
+    layout(); toEnd();
+    L.rig.set("happy", tnow()); L.back = tnow() + 1.4; status("On this phone");
+    suggest(T.next);
+    busy = false;
+    await wait(reduce ? 0 : 380);
+    // Where it came from lights up: the chips, and the card on the page behind.
+    if (T.from.length) [...bubble.nextElementSibling.children].forEach((f, i) => wait(i * 90).then(() => hit(f)));
+    if (T.src) wait(160).then(() => hit($(`.view [data-src="${T.src}"]`, el)));
+  }
+
+  function reset() { timers.forEach(clearTimeout); timers = []; busy = false; L.rig.set("idle", tnow()); hello(); layout(); log.scrollTop = 0; }
+  win.addEventListener("click", (e) => { const b = e.target.closest("[data-ask]"); if (!b) return; const k = Object.keys(C_TURNS).find((k) => C_TURNS[k].q === b.dataset.ask); ask(k || b.dataset.ask); });
+  newBtn.addEventListener("click", reset);
+  const shut = () => { el.classList.remove("c-open"); cr.el.style.opacity = ""; };
+  $(".lh-x", win).addEventListener("click", shut);
+  $(".c-scrim", el).addEventListener("click", shut);
+  cr.el.addEventListener("click", () => { el.classList.add("c-open"); cr.el.style.opacity = "0"; layout(); });
+  $("form", win).addEventListener("submit", (e) => { e.preventDefault(); const q = input.value.trim(); if (q) { input.value = ""; send.disabled = true; ask(q); } });
+  input.addEventListener("input", () => (send.disabled = !input.value.trim()));
+  hello(); requestAnimationFrame(layout);
+  return { ask, reset, room(day) { dress(el, day ? DAY : NIGHT); skyRamp(el); el.classList.toggle("c-day", day); cr.look(LOOKS[day ? 1 : 0]); }, open() { el.classList.add("c-open"); layout(); } };
+}
+
+const cPhones = [cPhone($("#cPh1"), false), cPhone($("#cPh2"), true)];
+$("#chat .c-panel").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-c]");
+  if (b) cPhones.forEach((p) => { p.open(); b.dataset.c === "reset" ? p.reset() : p.ask(b.dataset.c); });
+  const r = e.target.closest("[data-cr]");
+  if (r) { $$("[data-cr]").forEach((x) => x.setAttribute("aria-pressed", String(x === r))); cPhones.forEach((p) => p.room(r.dataset.cr === "day")); }
+});
+</script>

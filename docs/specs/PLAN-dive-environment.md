@@ -260,3 +260,19 @@ Order:
 
 Checkpoints:
 - 2026-11-09: plan written; `ui/no-isko` and the picks page started.
+
+## 2026-11-10: LAR's chat, round four (animation and design only)
+The user's request: give the chat the old sheet's clear, smooth header again; make the cube open the chat by changing its atom form; rework the suggestions; and show what LAR is doing while he works. The user left every design call to me ("you decide on all mock up decides").
+
+Decided:
+1. Shell: the floating glass window stays (round three, C2); only its header, opening, suggestions and working state change.
+2. Header: a fixed 64 pt strip inside the glass. LAR stands on a perch at the left (he leaves the input), then "LAR" and a live status, then New chat (only once there are messages) and Close as 44 pt icon buttons. A hairline shows once the chat scrolls under it. With the keyboard up, or the chat scrolled, it folds to 44 pt with LAR's head only.
+3. Opening: the cube's 27 atoms part, turn to face front and lie flat in a 3 by 9 wall, the wall grows into the window from the chip's corner, and the seams melt into one face. Then the header, then LAR spawns. Closing plays it backwards. Reduce Motion cross-fades. Shown beside it for comparison: the atoms become the window's frame.
+4. Suggestions: one row over the input that scrolls sideways. Before the first message they come from the day (a lab due, the next class, the last note) with a short reason; after an answer, from what it was about ("Remind me Tuesday night", "Make 5 cards from this", "Open OOP Interfaces"). They come from rules, with no extra model call.
+5. LAR's steps: only what `ai_ask` really does, in order: read the schedule, search the notes (and what it found, named, with the line it matched, or "nothing close"), wake the model, write. They fold into one line ("Looked at 2 notes") when the answer lands, which opens again. No made-up thoughts. Needs one backend change: `ai_ask` sends a step event beside the text.
+6. The neuron follows the steps: one dendrite per step, and a branch with a lit node to each note found. The answer's axon reaches its sources, as now.
+7. Process: round-four page `docs/specs/reference/prototypes/lar-chat.src.html` (rows `morph`, `chat`; `node docs/specs/reference/prototypes/build-lar-window.mjs lar-chat`). Then spec edits (010, 020, 046) and two PRs: `ui/lar-chat-r4` (the window) and a small `core/ask-steps` (the step event).
+
+Checkpoints:
+- 2026-11-10: decisions written; round-four page built (chat row by me, opening row by a fork).
+- 2026-11-10: picks after four passes: opening A, Pour; the sky header at one fixed size (104 pt, LAR at 1.4x, never folds); the step trace in pixels. Spec 048 written; 010 C18b, 020, 046 C1d, C1d2, C1d3 point to it. Next: `core/ask-steps` (the step event and intent), then `ui/lar-chat-r4`.

@@ -1,0 +1,427 @@
+<style>
+/* Opening: three ways the cube opens LAR's window, on one canvas engine. Each starts with the cube
+   turning to face you; at 120 ms a canvas takes over from that 3 x 3 face, and at its end the DOM
+   window, drawn the same, replaces the canvas in one frame. Then the sky lights, LAR spawns on the
+   dither edge and says hello.
+   A Pour: 27 atoms pour upward into a 3 x 9 tiling of the window; the seams close.
+   E Dither pour: the same pour, but each atom sheds a trail of dive pixels, and the seams knit
+     shut in 4 x 4 Bayer order instead of closing; the sky knits last.
+   F Liquid fill: the cube dissolves into dive pixels that stream out of it and fill the window like
+     a glass: a level rising from the bottom with a dithered, settling wave; the sky fills last. */
+.m-phone {
+  --sl: 1;
+  --g-a: color-mix(in srgb, var(--card), var(--ink) 8%);
+  --g-b: color-mix(in srgb, var(--card), var(--ground) 45%);
+  --g-rim: color-mix(in srgb, var(--gold) 42%, transparent);
+  --g-ext: color-mix(in srgb, var(--card), #000 55%);
+  --m-tone: color-mix(in srgb, var(--card), var(--ink) 3.5%);
+  --m-hair: color-mix(in srgb, var(--card), var(--ink) 14%);
+}
+.m-phone.m-day { --g-ext: color-mix(in srgb, var(--card), var(--ink) 18%); --m-tone: color-mix(in srgb, var(--card), var(--ink) 15%); --m-hair: color-mix(in srgb, var(--card), var(--ink) 20%); }
+.m-probe { position: absolute; width: 0; height: 0; overflow: hidden; }
+.m-cv { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 52; pointer-events: none; }
+.m-scrim { position: absolute; inset: 0; z-index: 45; background: rgb(6 3 8 / 0.32); opacity: 0; pointer-events: none; transition: opacity calc(0.36s * var(--sl)) var(--ease); }
+.m-phone.m-open .m-scrim { opacity: 1; pointer-events: auto; }
+
+/* The window: plain glass with a 1 px gold rim and a 2 px pixel extrusion to the lower right. The
+   canvas draws exactly this at the end of every opening, so the swap shows nothing. */
+.m-phone .m-win { position: absolute; z-index: 50; left: 12px; width: 296px; display: flex; flex-direction: column; overflow: hidden; opacity: 0; pointer-events: none;
+  background: linear-gradient(165deg, var(--g-a), var(--g-b));
+  box-shadow: 0 0 0 1px var(--g-rim), 2px 2px 0 1px var(--g-ext), 0 14px 30px -12px rgb(0 0 0 / 0); transition: box-shadow calc(0.3s * var(--sl)) var(--ease); }
+.m-phone .m-win.m-on { opacity: 1; pointer-events: auto; }
+.m-phone .m-win.m-drop { box-shadow: 0 0 0 1px var(--g-rim), 2px 2px 0 1px var(--g-ext), 0 14px 30px -12px rgb(0 0 0 / 0.6); }
+.m-rm .m-win { transition: opacity calc(0.2s * var(--sl)) linear; }
+/* The sky is laid down flat by the opening; its pools of light and its stars come up after. */
+.m-phone .lh-sky { background: linear-gradient(172deg, var(--r0), var(--r1) 72%, var(--r0)); animation: none; }
+.m-phone .lh-sky::before { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity calc(0.7s * var(--sl)) var(--ease);
+  background:
+    radial-gradient(42% 70% at 18% 100%, color-mix(in srgb, var(--r3) 70%, transparent), transparent 70%),
+    radial-gradient(38% 80% at 86% 0%, color-mix(in srgb, var(--r4) 30%, transparent), transparent 70%),
+    radial-gradient(60% 90% at 62% 118%, color-mix(in srgb, var(--r2) 80%, transparent), transparent 75%);
+  background-size: 180% 160%, 200% 180%, 160% 140%; background-position: 0% 100%, 100% 0%, 50% 100%;
+  animation: lhDrift 16s ease-in-out infinite alternate; }
+.m-phone .m-lit .lh-sky::before { opacity: 1; }
+.m-phone .m-win:not(.m-lit) .lh-sky i { visibility: hidden; }
+.m-phone .lh-sky i { transition: visibility 0s linear calc(var(--n, 0) * 90ms * var(--sl)); }
+/* Everything but the sky waits for the glass. */
+.m-win .lh-who, .m-win .lh-btns, .m-log, .m-sug, .m-dock { opacity: 0; transition: opacity calc(0.16s * var(--sl)) linear, translate calc(0.16s * var(--sl)) var(--ease); }
+.m-win.m-in .lh-who, .m-win.m-in .lh-btns, .m-win.m-in .m-log, .m-win.m-in .m-sug, .m-win.m-in .m-dock { opacity: 1; translate: 0 0; transition: opacity calc(0.3s * var(--sl)) linear, translate calc(0.42s * var(--sl)) var(--ease); }
+.m-win:not(.m-in) .lh-who { translate: -6px 0; }
+.m-win:not(.m-in) .m-dock { translate: 0 10px; }
+.m-win.m-in .m-dock { transition-delay: calc(0.08s * var(--sl)); }
+
+.m-log { position: relative; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.m-inner { display: grid; gap: 10px; align-content: start; padding: 8px 12px 6px; }
+.m-lar { justify-self: start; max-width: 92%; padding: 10px 12px; background: #1d1222; color: #f4ecd8; box-shadow: inset 0 2px 0 color-mix(in srgb, #e8b04a 45%, #3a2446), inset 0 -2px 0 #060307; clip-path: var(--n3); font: 400 14px/1.4 var(--f-ui); }
+.m-lar p { margin: 0; }
+.m-rest { visibility: hidden; }
+.m-caret { display: inline-block; width: 2px; height: 1em; margin: 0 1px -0.15em; background: #e8b04a; }
+.m-sug { flex: none; display: flex; gap: 6px; min-height: 42px; overflow-x: auto; padding: 6px 12px 0; scrollbar-width: none; -webkit-mask: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 22px), transparent); mask: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 22px), transparent); }
+.m-sug::-webkit-scrollbar { display: none; }
+.m-phone .m-chip { flex: none; height: 36px; padding: 0 12px; white-space: nowrap; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--card) 70%, transparent); box-shadow: inset 0 0 0 1px var(--edge-2); color: var(--ink); font: 400 13px var(--f-ui); animation: mUp calc(0.3s * var(--sl)) calc(var(--i, 0) * 60ms * var(--sl)) var(--ease) both; }
+.m-dock { flex: none; display: flex; gap: 6px; padding: 6px 8px 8px; }
+.m-well { flex: 1; min-width: 0; height: 44px; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); font: 400 16px var(--f-ui); color: var(--ink-3); }
+.m-phone .m-send { flex: none; width: 56px; height: 44px; border: 0; background: var(--sunk); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--edge-2); font: 600 14px var(--f-ui); clip-path: var(--n3); }
+.m-panel .pbtns { align-items: center; }
+.m-panel .seg0 { margin-left: auto; }
+.m-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; background: var(--void-3); box-shadow: inset 0 0 0 1px var(--line); }
+.m-modes button { min-height: 40px; border: 0; background: none; font: 600 13px var(--f-ui); color: var(--parch-2); }
+.m-modes button[aria-pressed="true"] { background: var(--pg); color: var(--void, #120a06); }
+.picks.m-picks { grid-template-columns: repeat(3, 1fr); }
+.m-scrub { display: grid; gap: 6px; font: 500 12px var(--f-pixel); letter-spacing: 0.04em; color: var(--parch-2); }
+.m-scrub input { width: 100%; accent-color: var(--pg); }
+@keyframes mUp { from { opacity: 0; transform: translateY(8px); } }
+</style>
+
+<section class="row" id="morph">
+  <div class="q">
+    <h2>Opening: Pour, and Pour with the dive's dither</h2>
+    <p>You picked Pour. E and F mix it with the portal dive's pixel dither. E pours the same 27 atoms, trailing pixels, and knits their seams shut in pixels. F melts the cube into pixels that fill the window like a glass, its surface a settling dithered wave. Each turns the cube to face you first, moves in one continuous motion, and hands over to the real window in one frame.</p>
+  </div>
+  <div class="panel m-panel">
+    <h3>Try it</h3>
+    <div class="m-modes" role="group" aria-label="Opening"><button type="button" data-mm="A" aria-pressed="true">A Pour</button><button type="button" data-mm="E" aria-pressed="false">E Dither pour</button><button type="button" data-mm="F" aria-pressed="false">F Liquid fill</button></div>
+    <div class="pbtns"><button class="pbtn" type="button" data-m="open">Open</button><button class="pbtn" type="button" data-m="close">Close</button><button class="pbtn" type="button" data-ms="slow" aria-pressed="false">Slow motion</button><button class="pbtn" type="button" data-ms="rm" aria-pressed="false">Reduce Motion</button><div class="seg0" role="group" aria-label="Room"><button type="button" data-mr="night" aria-pressed="true">Night</button><button type="button" data-mr="day" aria-pressed="false">Day</button></div></div>
+    <label class="m-scrub" for="mScrub"><span>Scrub the opening (pauses it)</span><input type="range" id="mScrub" min="0" max="1000" value="0"></label>
+    <p>Each opens in about 0.7 s and closes in about 0.6 s, the opening played backwards. Slow motion runs it at a quarter speed. With Reduce Motion the window cross-fades and nothing moves.</p>
+    <div class="picks m-picks"><button class="pick" data-row="morph" data-v="A: Pour">A: Pour</button><button class="pick" data-row="morph" data-v="E: Dither pour">E: Dither pour</button><button class="pick" data-row="morph" data-v="F: Liquid fill">F: Liquid fill</button></div>
+  </div>
+  <div class="wide">
+    <div class="opt"><div class="phone" id="mPh"></div><div class="name"><b id="mCapB"></b><span id="mCapS"></span></div></div>
+  </div>
+</section>
+
+<script>
+const M_TODAY = `<h3 class="ttl">Today</h3><div class="card"><p class="lb">Due this week</p><p style="margin:6px 0 0;font-weight:600">Lab 4: Interfaces</p><p class="fine">COMP 20083 · Wednesday, 11:59 PM</p></div><div class="card" style="display:grid;gap:4px"><p class="lb">Up next</p><b style="font:800 17px var(--f-ui);color:var(--gold)">COMP 20083</b><p class="fine">Object-Oriented Programming, 10:30 AM</p></div><div class="card"><p class="lb">This term</p><div style="margin-top:6px">${pn("1.28")}</div></div>`;
+const M_HELLO = "Hi! I'm LAR. Ask me what's due, your classes, or your grades.";
+const M_STARTERS = ["What's due this week?", "Anong klase ko ngayon?", "Remind me bukas ng umaga"];
+const M_CAPS = {
+  A: ["A: Pour", "It faces you, then its 27 atoms pour up into the chat's tiles in one wave, and the seams close."],
+  E: ["E: Dither pour", "The same pour, each atom trailing dive pixels; the seams knit shut in pixels, the sky last."],
+  F: ["F: Liquid fill", "The cube melts into dive pixels that fill the window like a glass, a dithered wave settling as it rises; the sky fills last."],
+};
+/* Virtual ms. HAND: the canvas takes over from the cube's face. END: the DOM window replaces the
+   canvas. A's FLY and SEAM: each atom's flight, and when its seams start to close. */
+const M_HAND = 120, M_FLY = 400, M_SEAM = 540, M_WH = 324, M_HEAD = 104, M_P = 6.8, M_E = 6.2, M_W0 = 2 * M_P + M_E;
+// E flies a touch quicker so its knitting still ends near 0.7 s; F's level rises over FILL.
+const M_FLY_E = 370, M_KNIT = 80, M_FILL0 = 190, M_FILL = 450;
+const M_ENDS = { A: 664, E: 708, F: 700 };
+const M_CLOSE_SWAP = 160, M_CLOSE = 440;
+const M_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const mS = { slow: 1, rm: false, mode: "A" };
+const mEnd = () => M_ENDS[mS.mode];
+const mRM = () => reduce || mS.rm;
+const mLerp = (a, b, u) => a + (b - a) * u;
+const mEio = (k) => (k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2);
+const mSmooth = (k) => k * k * (3 - 2 * k);
+// F's fill level in px at time t: rises over FILL, a little past the top so the dithered surface clears it.
+const mLevel = (t) => (M_WH + 10) * mEio(clamp((t - M_FILL0) / M_FILL));
+// Row from the bottom: the cube's bottom layer fills the bottom rows, its top layer the sky.
+const M_ATOMS = [];
+for (let k = 1; k >= -1; k--) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) M_ATOMS.push({ i, j, k, c: i + 1, r: (j + 1) * 3 + (k + 1) });
+/* A CSS linear-gradient(deg) drawn on a canvas, on the same line CSS uses. */
+function mLinear(g, x, y, w, h, deg, stops) {
+  const a = (deg * Math.PI) / 180, dx = Math.sin(a), dy = -Math.cos(a), len = Math.abs(w * dx) + Math.abs(h * dy), cx = x + w / 2, cy = y + h / 2;
+  const gr = g.createLinearGradient(cx - (dx * len) / 2, cy - (dy * len) / 2, cx + (dx * len) / 2, cy + (dy * len) / 2);
+  stops.forEach(([p, c]) => gr.addColorStop(p, c));
+  g.fillStyle = gr; g.fillRect(x, y, w, h);
+}
+
+function mPhone(el) {
+  el.classList.add("m-phone");
+  shell(el, NIGHT, "today").innerHTML = M_TODAY;
+  skyRamp(el);
+  const cr = mountCrystal(el, { mode: "cube" });
+  el.insertAdjacentHTML("beforeend", `<i class="m-probe" aria-hidden="true"></i><div class="m-scrim"></div>
+    <div class="m-win" role="dialog" aria-label="Ask LAR">${larHeader()}
+      <div class="m-log"><div class="m-inner"></div></div>
+      <div class="m-sug" role="group" aria-label="Suggestions"></div>
+      <div class="m-dock"><div class="m-well">Ask LAR…</div><button class="m-send" type="button" disabled>Send</button></div>
+    </div><canvas class="m-cv" aria-hidden="true"></canvas>`);
+  const win = $(".m-win", el), inn = $(".m-inner", win), sug = $(".m-sug", win), st = $(".lh-st", win), probe = $(".m-probe", el), cv = $(".m-cv", el);
+  $$(".lh-sky i", win).forEach((s, n) => s.style.setProperty("--n", n));
+  const dpr = Math.min(devicePixelRatio || 1, 2), PW = 320, PH = 672;
+  cv.width = PW * dpr; cv.height = PH * dpr;
+  const g = cv.getContext("2d");
+  const face = document.createElement("canvas");
+  // E's and F's mask: one texel per 4 px pixel of the window, and the window's face masked by it.
+  const mask = document.createElement("canvas"), MW = 296 / 4, MH = M_WH / 4;
+  mask.width = MW; mask.height = MH;
+  const mg = mask.getContext("2d"), mImg = mg.createImageData(MW, MH), dith = document.createElement("canvas"), dg = dith.getContext("2d");
+  let vt = 0, t0 = 0, ev = [], state = "closed", typing = null, C, Wn, col, parts = [], knit;
+  const L = headLar($(".lh-cv", win));
+  L.on = false; L.clock = () => vt / 1000;
+  const at = (ms, f) => ev.push({ t: vt + ms, f });
+  const tok = (v) => { probe.style.color = `var(${v})`; return getComputedStyle(probe).color; };
+
+  // Where things are, and the window's face drawn once: body glass, the sky band, its dither edge.
+  function geometry() {
+    C = { x: cr.el.offsetLeft, y: cr.el.offsetTop, w: cr.el.offsetWidth, h: cr.el.offsetHeight };
+    C.cx = C.x + C.w / 2; C.cy = C.y + C.h / 2;
+    Wn = { x: 12, y: C.y + C.h - M_WH, w: 296, h: M_WH };
+    win.style.top = Wn.y + "px"; win.style.height = Wn.h + "px";
+    const cs = getComputedStyle(el), r = [0, 1, 2, 3, 4].map((n) => cs.getPropertyValue(`--r${n}`).trim());
+    col = { a: tok("--g-a"), b: tok("--g-b"), rim: tok("--g-rim"), ext: tok("--g-ext"), tone: tok("--m-tone"), hair: tok("--m-hair"), gold: tok("--gold"), r };
+    face.width = dith.width = Wn.w * dpr; face.height = dith.height = Wn.h * dpr;
+    const f = face.getContext("2d");
+    f.setTransform(dpr, 0, 0, dpr, 0, 0);
+    mLinear(f, 0, 0, Wn.w, Wn.h, 165, [[0, col.a], [1, col.b]]);
+    mLinear(f, 0, 0, Wn.w, M_HEAD, 172, [[0, r[0]], [0.72, r[1]], [1, r[0]]]);
+    f.fillStyle = "rgb(255 236 214 / 0.2)"; f.fillRect(0, 0, Wn.w, 1);
+    f.fillStyle = col.a;
+    for (let x = 0; x < Wn.w; x += 6) { f.fillRect(x + 3, M_HEAD - 6, 3, 3); f.fillRect(x, M_HEAD - 3, 3, 3); }
+    // E: which texels sit on a seam, and when each may knit (its row's atoms have landed).
+    const cw = (Wn.w - 4) / 3, ch = (Wn.h - 16) / 9;
+    knit = new Float32Array(MW * MH).fill(-1);
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+      const x0 = x * 4, y0 = y * 4, yc = y0 + 2;
+      const onCol = [cw, 2 * cw + 2].some((sx) => x0 < sx + 2 && x0 + 4 > sx);
+      const onRow = Array.from({ length: 8 }, (_, r) => Wn.h - (r + 1) * (ch + 2)).some((sy) => y0 < sy + 2 && y0 + 4 > sy);
+      if (!onCol && !onRow) continue;
+      const r = Math.min(8, Math.floor((Wn.h - yc + 2) / (ch + 2)));
+      knit[y * MW + x] = M_HAND + r * 14 + 12 + 0.97 * M_FLY_E + (yc < M_HEAD ? 20 : 0);
+    }
+    // F's pixels, the same every time so the scrubber holds still: they leave the cube's face in
+    // Bayer order and fall into the glass where its surface will be when they land.
+    let s = 7;
+    const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    parts = Array.from({ length: 110 }, (_, i) => {
+      const n = i % 25, sx = C.cx - 10 + (n % 5) * 4 + 2, sy = C.cy - 10 + Math.floor(n / 5) * 4 + 2;
+      // A narrow stream up the glass's right side; every pixel lands by ~640, before the hand-off.
+      const l = M_HAND + 20 + (i / 110) * 260 + R() * 20, tx = Wn.x + Wn.w - 34 - R() * 50;
+      const ty = Math.max(Wn.y + 4, Wn.y + Wn.h - mLevel(l + 220) + 2 + R() * 8);
+      return { sx, sy, tx, ty, px: sx - 30 - R() * 20, py: Math.max(Wn.y + 10, Math.min(sy, ty) - 24 - R() * 20), l, c: ty - Wn.y < M_HEAD ? [r[3], r[4], r[2]][i % 3] : [col.a, col.b, col.gold, col.tone][i % 4] };
+    });
+  }
+
+  // ------------------------------------------------------------- shared pieces
+  // 2.5D: a lit top and a dark side, d px deep.
+  function bevel(X, Y, w, h, d, tone = col.tone) {
+    if (d <= 0.2) return;
+    g.fillStyle = tone;
+    g.beginPath(); g.moveTo(X, Y); g.lineTo(X + d, Y - d); g.lineTo(X + w + d, Y - d); g.lineTo(X + w + d, Y + h - d); g.lineTo(X + w, Y + h); g.lineTo(X + w, Y); g.closePath(); g.fill();
+    g.fillStyle = "rgb(255 240 220 / 0.24)";
+    g.beginPath(); g.moveTo(X, Y); g.lineTo(X + d, Y - d); g.lineTo(X + w + d, Y - d); g.lineTo(X + w, Y); g.closePath(); g.fill();
+    g.fillStyle = "rgb(0 0 0 / 0.36)";
+    g.beginPath(); g.moveTo(X + w, Y); g.lineTo(X + w + d, Y - d); g.lineTo(X + w + d, Y + h - d); g.lineTo(X + w, Y + h); g.closePath(); g.fill();
+  }
+  // The rim and the pixel extrusion, k of the way up. Only a ring: inside, the page shows through.
+  function ring(k) {
+    if (k <= 0) return;
+    g.globalAlpha = k;
+    g.fillStyle = col.ext; g.fillRect(Wn.x + 1, Wn.y + 1, Wn.w + 2, Wn.h + 2);
+    g.fillStyle = col.rim; g.fillRect(Wn.x - 1, Wn.y - 1, Wn.w + 2, Wn.h + 2);
+    g.globalAlpha = 1;
+    g.clearRect(Wn.x, Wn.y, Wn.w, Wn.h);
+  }
+  const whole = () => g.drawImage(face, Wn.x, Wn.y, Wn.w, Wn.h);
+  // ------------------------------------------------------------- the openings
+  // The pour shared by A and E: 27 atoms fly upward, bottom rows first, into a 3 x 9 tiling with s px
+  // seams, each a 2.5D tile carrying its own slice of the window's face. E trails dive pixels.
+  function pour(t, s, fly, trail) {
+    const cw = (Wn.w - 2 * s) / 3, ch = (Wn.h - 8 * s) / 9;
+    const at = (a, u, tx, ty) => {
+      const sx = C.cx + a.i * M_P, sy = C.cy - a.j * M_P, ex = tx + cw / 2, ey = ty + ch / 2;
+      const dx = ex - sx, dy = ey - sy, len = Math.hypot(dx, dy) || 1, arc = Math.sin(Math.PI * u) * 6;
+      return [mLerp(sx, ex, u) - (dy / len) * arc, mLerp(sy, ey, u) + (dx / len) * arc, mLerp(M_E, cw, u), mLerp(M_E, ch, u)];
+    };
+    for (const a of M_ATOMS) {
+      const t1 = t - M_HAND - a.r * 14 - a.c * 6, u = mEio(clamp(t1 / fly));
+      const tx = Wn.x + a.c * (cw + s), ty = Wn.y + Wn.h - (a.r + 1) * ch - a.r * s;
+      // The trail: where it was 18, 36 ... ms ago, a few 4 px pixels each, older ones thinner,
+      // thinning in Bayer order so it frays into the dive's dither and is gone in ~110 ms.
+      if (trail && u > 0 && u < 1) {
+        g.fillStyle = a.r >= 6 ? col.r[1] : col.a;
+        for (let n = 1; n <= 5; n++) {
+          const un = mEio(clamp((t1 - n * 18) / fly));
+          if (un <= 0 || un >= 1) continue;
+          const [x, y, w, h] = at(a, un, tx, ty), age = (n * 18) / 110;
+          for (let q = 0; q < 4; q++) {
+            if (M_BAYER[(n * 4 + q + a.c * 5 + a.r * 3) % 16] / 16 < age) continue;
+            const ox = ((q % 2) - 0.5) * w * 0.5, oy = (Math.floor(q / 2) - 0.5) * h * 0.5;
+            g.fillRect(Math.round((x + ox) / 2) * 2 - 2, Math.round((y + oy) / 2) * 2 - 2, 4, 4);
+          }
+        }
+      }
+      const [x, y, w, h] = at(a, u, tx, ty), X = x - w / 2, Y = y - h / 2;
+      bevel(X, Y, w, h, 3 * Math.sin(Math.PI * u));
+      g.fillStyle = col.tone; g.fillRect(X, Y, w, h);
+      const f = mSmooth(clamp((u - 0.1) / 0.7));
+      if (f > 0) { g.globalAlpha = f; g.drawImage(face, (tx - Wn.x) * dpr, (ty - Wn.y) * dpr, cw * dpr, ch * dpr, X, Y, w, h); g.globalAlpha = 1; }
+      if (u < 1) { g.globalAlpha = 1 - u; g.strokeStyle = col.hair; g.lineWidth = 1; g.strokeRect(X + 0.5, Y + 0.5, w - 1, h - 1); g.globalAlpha = 1; }
+    }
+  }
+  // The window's face through the 4 px mask (alpha from `on(i, x, y)`), scaled up without smoothing.
+  function masked(on) {
+    const d = mImg.data;
+    for (let y = 0, i = 0; y < MH; y++) for (let x = 0; x < MW; x++, i++) d[i * 4 + 3] = on(i, x, y) ? 255 : 0;
+    mg.putImageData(mImg, 0, 0);
+    dg.globalCompositeOperation = "copy"; dg.drawImage(face, 0, 0);
+    dg.globalCompositeOperation = "destination-in"; dg.imageSmoothingEnabled = false; dg.drawImage(mask, 0, 0, MW, MH, 0, 0, dith.width, dith.height);
+    g.drawImage(dith, Wn.x, Wn.y, Wn.w, Wn.h);
+  }
+  const bayer = (x, y) => (M_BAYER[(y % 4) * 4 + (x % 4)] + 0.5) / 16;
+
+  const POSE = {
+    // A, Pour: the seams close as the last atoms land.
+    A(t) {
+      const k = mEio(clamp((t - M_SEAM) / (M_ENDS.A - 4 - M_SEAM)));
+      ring(k);
+      if (k >= 1) return whole();
+      pour(t, 2 * (1 - k), M_FLY, false);
+    },
+
+    // E, Dither pour: the seams stay; once a row has landed its seams knit shut in Bayer order,
+    // the window's own face filling them pixel by pixel. The sky's seams knit last.
+    E(t) {
+      const k = mEio(clamp((t - (M_ENDS.E - 100)) / 96));
+      ring(k);
+      if (k >= 1) return whole();
+      pour(t, 2, M_FLY_E, true);
+      masked((i, x, y) => knit[i] >= 0 && bayer(x, y) < (t - knit[i]) / M_KNIT);
+    },
+
+    // F, Liquid fill: the cube's face melts into pixels in Bayer order; they arc out of the chip and
+    // fall into the window, which fills from the bottom like a glass: a dithered surface with a wave
+    // that settles flat as the level reaches the top, so the sky fills last.
+    F(t) {
+      const k = mEio(clamp((t - (M_ENDS.F - 96)) / 92));
+      ring(k);
+      if (k >= 1) return whole();
+      // What is left of the cube's face: 5 x 5 pixels, leaving in Bayer order.
+      const gone = clamp((t - 130) / 210);
+      g.fillStyle = col.tone;
+      for (let n = 0; n < 25; n++) if ((M_BAYER[n % 16] + (n >> 4) * 0.5 + 0.5) / 16 >= gone) g.fillRect(C.cx - 10 + (n % 5) * 4, C.cy - 10 + Math.floor(n / 5) * 4, 4, 4);
+      const lv = mLevel(t), p = clamp(lv / Wn.h), amp = 9 * (1 - p) ** 0.7, ph = t / 90;
+      const surfAt = (xc) => Wn.h - lv + amp * Math.sin(xc / 26 + ph) - amp * 0.8 * (xc / Wn.w);
+      if (lv > 0) masked((i, x, y) => bayer(x, y) < clamp(0.5 + (y * 4 + 2 - surfAt(x * 4 + 2)) / 10));
+      // The surface: a line of faint gold pixels on the 4 px grid, so the level reads on dark glass.
+      if (lv > 0 && amp > 0.3) {
+        g.globalAlpha = 0.5 * clamp(amp / 3); g.fillStyle = col.gold;
+        for (let x = 0; x < MW; x++) { const y = Math.round(surfAt(x * 4 + 2) / 4) * 4; if (y >= 0 && y < Wn.h) g.fillRect(Wn.x + x * 4, Wn.y + y, 4, 2); }
+        g.globalAlpha = 1;
+      }
+      for (const q of parts) {
+        const u = clamp((t - q.l) / 220);
+        if (u <= 0 || u >= 1) continue;
+        const e = mEio(u), a = 1 - e, x = a * a * q.sx + 2 * a * e * q.px + e * e * q.tx, y = a * a * q.sy + 2 * a * e * q.py + e * e * q.ty;
+        g.globalAlpha = u < 0.85 ? 1 : (1 - u) / 0.15;
+        g.fillStyle = q.c; g.fillRect(Math.round(x / 2) * 2 - 2, Math.round(y / 2) * 2 - 2, 4, 4);
+      }
+      g.globalAlpha = 1;
+    },
+  };
+
+  /* The opening at virtual time t: 0 the cube, its END the window whole. Closing plays it backwards. */
+  function pose(t, opening) {
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, PW, PH);
+    cr.el.style.opacity = String(1 - clamp((t - M_HAND) / 60));
+    cr.el.style.scale = opening ? String(1 - 0.06 * Math.sin(Math.PI * clamp(t / 150))) : "";
+    if (t >= M_HAND) POSE[mS.mode](t);
+  }
+  const clear = () => { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); };
+  const showWin = (on) => { win.classList.toggle("m-on", on); if (!on) win.classList.remove("m-in", "m-lit", "m-drop"); };
+
+  function hello() { inn.innerHTML = `<div class="m-lar"><p><span class="m-ty"></span><i class="m-caret"></i><span class="m-rest">${esc(M_HELLO)}</span></p></div>`; typing = vt; }
+  const chipsIn = () => (sug.innerHTML = M_STARTERS.map((s, i) => `<button class="m-chip" type="button" style="--i:${i}">${esc(s)}</button>`).join(""));
+  // The glass is whole: the sky lights, the content comes in, LAR spawns on the dither edge.
+  function settle() {
+    win.classList.add("m-in", "m-lit", "m-drop");
+    at(40, () => { L.on = true; L.fold = 0; L.rig.start("spawn", vt / 1000); st.innerHTML = "Waking up<i></i><i></i><i></i>"; });
+    at(1140, () => { L.rig.set("happy", vt / 1000); L.back = vt / 1000 + 1.5; st.textContent = "On this phone"; hello(); });
+  }
+  function reset() { ev = []; typing = null; inn.innerHTML = ""; sug.innerHTML = ""; L.on = false; L.fold = 0; }
+
+  function open() {
+    if (state !== "closed") return;
+    reset(); geometry(); el.classList.add("m-open");
+    if (mRM()) {
+      el.classList.add("m-rm"); cr.el.style.opacity = "0"; showWin(true); win.classList.add("m-in", "m-lit", "m-drop");
+      L.on = true; L.rig.set("idle", vt / 1000); st.textContent = "On this phone"; hello(); typing = -1e9; state = "open"; return;
+    }
+    el.classList.remove("m-rm");
+    cr.el.style.transition = "none"; cr.face(true);
+    state = "opening"; t0 = vt;
+  }
+  function close() {
+    if (state === "closed" || state === "closing") return;
+    ev = []; typing = null; st.textContent = "See you";
+    if (el.classList.contains("m-rm") || mRM()) {
+      el.classList.remove("m-open"); showWin(false); cr.el.style.opacity = ""; L.on = false; state = "closed"; clear(); return;
+    }
+    if (state === "scrub") return shut();
+    state = "closing"; t0 = vt; geometry();
+    win.classList.remove("m-in", "m-lit", "m-drop");
+    if (L.on) L.fold = vt / 1000;
+    el.classList.remove("m-open");
+  }
+  // Closed at once, from wherever it is: for the scrubber and for switching openings.
+  function shut() { reset(); el.classList.remove("m-open", "m-rm"); showWin(false); clear(); cr.el.style.opacity = ""; cr.el.style.scale = ""; cr.el.style.transition = ""; cr.face(false); state = "closed"; }
+
+  function frame(dv) {
+    vt += dv;
+    const due = ev.filter((e) => e.t <= vt); ev = ev.filter((e) => e.t > vt); due.forEach((e) => e.f());
+    if (state === "opening") {
+      const t = vt - t0;
+      if (t < mEnd()) pose(t, true);
+      else { showWin(true); clear(); state = "open"; settle(); }
+    } else if (state === "closing") {
+      const t = vt - t0;
+      if (t < M_CLOSE_SWAP) { /* LAR folds and the content goes, on the glass */ }
+      else if (t < M_CLOSE_SWAP + M_CLOSE) { if (win.classList.contains("m-on")) { pose(mEnd(), false); showWin(false); } pose(mEnd() * (1 - (t - M_CLOSE_SWAP) / M_CLOSE), false); }
+      else shut();
+    }
+    if (typing !== null) {
+      const n = Math.min(M_HELLO.length, Math.floor((vt - typing) / 22)), ty = $(".m-ty", inn);
+      if (ty && ty.textContent.length !== n) { ty.textContent = M_HELLO.slice(0, n); $(".m-rest", inn).textContent = M_HELLO.slice(n); }
+      if (n >= M_HELLO.length) { typing = null; $(".m-caret", inn)?.remove(); at(140, chipsIn); }
+    }
+  }
+
+  // A frozen frame of the opening, for the scrubber and for checking by hand.
+  function peek(t) {
+    ev = []; typing = null; geometry(); state = "scrub"; el.classList.add("m-open"); cr.el.style.transition = "none"; cr.face(t > 0);
+    if (t >= mEnd()) { clear(); cr.el.style.opacity = "0"; showWin(true); win.classList.add("m-in", "m-lit", "m-drop"); L.on = true; L.fold = 0; L.rig.set("idle", vt / 1000); st.textContent = "On this phone"; if (!inn.childElementCount) { hello(); typing = -1e9; } }
+    else { reset(); showWin(false); pose(t, true); }
+  }
+
+  geometry();
+  cr.el.addEventListener("click", open);
+  $(".m-scrim", el).addEventListener("click", close);
+  $(".lh-x", win).addEventListener("click", close);
+  return {
+    open, close, frame, peek, shut,
+    sl(f) { el.style.setProperty("--sl", f); },
+    room(day) { dress(el, day ? DAY : NIGHT); skyRamp(el); el.classList.toggle("m-day", day); cr.look(LOOKS[day ? 1 : 0]); geometry(); if (state === "scrub") peek((+$("#mScrub").value / 1000) * mEnd()); },
+  };
+}
+
+const mPh = mPhone($("#mPh"));
+function mMode(m) {
+  mS.mode = m; mPh.shut(); $("#mScrub").value = 0;
+  $$("[data-mm]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.mm === m)));
+  $("#mCapB").textContent = M_CAPS[m][0]; $("#mCapS").textContent = M_CAPS[m][1];
+}
+mMode("A");
+let mLast = performance.now();
+(function mLoop(now) {
+  const dt = Math.min(50, now - mLast); mLast = now;
+  mPh.frame(dt / mS.slow);
+  requestAnimationFrame(mLoop);
+})(mLast);
+$("#morph .m-panel").addEventListener("click", (e) => {
+  const mm = e.target.closest("[data-mm]");
+  if (mm) mMode(mm.dataset.mm);
+  const b = e.target.closest("[data-m]");
+  if (b) mPh[b.dataset.m]();
+  const s = e.target.closest("[data-ms]");
+  if (s) {
+    const on = s.getAttribute("aria-pressed") !== "true"; s.setAttribute("aria-pressed", String(on));
+    if (s.dataset.ms === "slow") { mS.slow = on ? 4 : 1; mPh.sl(mS.slow); } else mS.rm = on;
+  }
+  const r = e.target.closest("[data-mr]");
+  if (r) { $$("[data-mr]").forEach((x) => x.setAttribute("aria-pressed", String(x === r))); mPh.room(r.dataset.mr === "day"); }
+});
+$("#mScrub").addEventListener("input", (e) => mPh.peek((+e.target.value / 1000) * mEnd()));
+window.__morph = { peek: (t) => mPh.peek(t), phone: mPh, s: mS, mode: mMode, ends: M_ENDS };
+</script>
