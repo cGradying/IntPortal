@@ -99,6 +99,13 @@
   const day = css.colorScheme === "light";
   /** Compact: at most 60% of the screen, as in the mockup. */
   const MAX = Math.round(innerHeight * 0.6);
+  /**
+   * LAR's scale in the header: about 2.4 pt a sprite pixel, rounded so one sprite pixel is a whole number
+   * of screen pixels (7 on a 3x iPhone) and he stays sharp. The header is his 40 sprite px from the top of
+   * his box to his feet, so his sleep Z, antenna and waving mitt always fit inside it (048 C9).
+   */
+  const dpr = Math.min(3, devicePixelRatio || 1);
+  const LS = Math.floor(2.5 * dpr) / dpr;
   const orb = () => document.querySelector<HTMLElement>("[data-orb]");
   let safeTop = 0;
 
@@ -151,7 +158,7 @@
     if (reduce) {
       open = true;
       chip.at = "hidden";
-      input.focus({ preventScroll: true });
+      win.focus({ preventScroll: true });
     } else {
       // The window takes its open box hidden, so the pour lands exactly on it (048 C1–C5).
       pouring = true;
@@ -161,13 +168,13 @@
         measure();
         return tick();
       }).then(() =>
-        runPour({ canvas: pc, chip: home, win: box, tokens: win, mode: "open", chipEl: orb() ?? undefined }).then(() => {
+        runPour({ canvas: pc, chip: home, win: box, tokens: win, headerH: top.offsetHeight, mode: "open", chipEl: orb() ?? undefined }).then(() => {
           pouring = false; // the swap frame: the real window, no cross-fade
           if (leaving) return;
           chip.at = "hidden";
           buzz.tick();
           phase = "spawn";
-          input.focus({ preventScroll: true });
+          win.focus({ preventScroll: true });
           later(SPAWN_SECS * 1000, greet);
         }),
       );
@@ -214,7 +221,7 @@
       home = chipRect();
       pouring = true;
       chip.at = "here";
-      runPour({ canvas: pc, chip: home, win: from, tokens: win, mode: "close", chipEl: orb() ?? undefined }).then(() => {
+      runPour({ canvas: pc, chip: home, win: from, tokens: win, headerH: top.offsetHeight, mode: "close", chipEl: orb() ?? undefined }).then(() => {
         open = false;
         chip.face = false;
         done();
@@ -316,6 +323,7 @@
   class:pouring
   bind:this={win}
   role="dialog"
+  tabindex="-1"
   aria-modal="true"
   aria-label="Ask LAR"
   style:left="{box.x}px"
@@ -323,6 +331,7 @@
   style:width="{box.w}px"
   style:height="{box.h}px"
   style:--accent={theme.accent}
+  style:--ls="{LS}px"
   style:--r0={theme.ramp[0]}
   style:--r1={theme.ramp[1]}
   style:--r2={theme.ramp[2]}
@@ -336,7 +345,7 @@
       <div class="hd" class:still={smallRam && thinking} bind:this={top}>
         <div class="sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="perch" aria-hidden="true">
-          <div class="cv">{#if phase !== "fly" && fold !== 0}<Lar size={3} fit cube={false} shadow={false} state={mood} k={fold} {gesture} {theme} />{/if}</div>
+          <div class="cv">{#if phase !== "fly" && fold !== 0}<Lar size={LS} fit cube={false} shadow={false} state={mood} k={fold} {gesture} {theme} />{/if}</div>
         </div>
         <div class="who">
           <span class="tag">LAR</span>
@@ -502,6 +511,9 @@
   .win.open {
     opacity: 1;
   }
+  .win:focus {
+    outline: none;
+  }
   /* Hidden under the pour, and laid out once: no eased top or height while it draws (048 Motion). */
   .win.pouring {
     opacity: 0;
@@ -540,8 +552,9 @@
   /* ---- the sky header (048 C7–C11): one fixed size, LAR on its dithered edge ---- */
   .hd {
     position: relative;
+    z-index: 1; /* over the log, so his feet can stand on the dither */
     flex: none;
-    height: 104px;
+    height: calc(var(--ls) * 40);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -598,19 +611,17 @@
   .hd.still .status::before {
     animation-play-state: paused;
   }
-  /* LAR at 3 px a pixel: his art runs from 6 pt under the top to just over the dither. */
+  /* LAR's box from its top to his feet, 48 sprite px wide: nothing of him is cut off (048 C9). */
   .perch {
     position: relative;
     flex: none;
     align-self: stretch;
-    width: 112px;
-    margin-top: -2px;
-    overflow: hidden;
+    width: calc(var(--ls) * 48);
   }
   .cv {
     position: absolute;
-    left: -21px;
-    top: -22px;
+    left: calc(var(--ls) * -3);
+    top: 0;
   }
   .who {
     flex: 1;
