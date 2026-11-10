@@ -502,8 +502,10 @@
   .win.open {
     opacity: 1;
   }
+  /* Hidden under the pour, and laid out once: no eased top or height while it draws (048 Motion). */
   .win.pouring {
     opacity: 0;
+    transition: none;
   }
   .win.reduce {
     transition: opacity 0.2s linear;
