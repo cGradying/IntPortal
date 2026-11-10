@@ -34,7 +34,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 **The header**
 
 - **C7.** The header is one fixed size, 104 pt, and never folds: not with the keyboard up, not in a long chat. LAR is the same size throughout.
-- **C8.** The sky is a solid band in the portal ramp (`--r0` to `--r4`): three slow pools of light (a 16 s drift), six 2 pt stars that twinkle in steps, and a 1 pt lit top edge. A two-row pixel dither, 6 pt tall, splits it from the glass below.
+- **C8.** The sky is a solid band in the portal ramp (`--r0` to `--r4`): three slow pools of light (a 16 s drift), six 2 pt stars that twinkle in steps, and a 1 pt lit top edge. A two-row pixel dither, 6 pt tall, splits it from the glass below. The pools are one oversized pseudo-element layer whose drift is a `transform`, and the stars and the live pixel change only `opacity`, so nothing repaints per frame (no `background-position` animation). On the low-RAM tier (046 C1d2) the sky holds still, the stars stop and the live pixel stays lit while the model is waking or thinking (#189); it moves again once he is done.
 - **C9.** LAR stands in a 104 pt perch at 1.4 times his sprite. His art runs from 12 pt under the top to 2 pt above the dither. The name, status and keys are centred vertically on him.
 - **C10.** "LAR" is in the pixel face at 16 pt, cream. The status line (12.5 pt) starts with a 6 pt live pixel: gold and still at rest, blinking while he works. The status reads what he is doing now (Copy).
 - **C11.** New chat (shown only once there are messages) and Close are one pair: 36 pt pixel-cut keys, dark on the sky, with a lit top edge and a shaded bottom. Each has a 44 pt hit area, and both icons are drawn on the same 7×7 pixel grid at 2 pt a pixel.
@@ -44,9 +44,9 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 - **C12.** While LAR works, a trace of his real steps appears under the question, in order, and only the steps that happen:
   - "Waking up", only when the model has to load first.
   - "Read your timetable" ("Read your dues and timetable" for a due question).
-  - For an open question: "Searching your notes", which ends as one of these:
-    - "Found N in your notes", with up to three note chips and the first line it matched (two lines at most).
-    - "Nothing close in your notes".
+  - For an open question: "Searching your notes and decks", which ends as one of these:
+    - "Found …", named from the kinds of what it found (recall returns notes, decks as `card:` keys and subjects as `plan:` keys; `sources.ts`): "Found 2 notes", "Found 1 note and 1 deck", "Found 2 notes, 1 deck and 1 subject". Up to three chips follow, each with its kind's icon, then the first line it matched (two lines at most).
+    - "Nothing close in your notes or decks".
     - "Note search is off".
   - "Writing", only while the model writes.
 
@@ -55,7 +55,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
   - Each step is an 8 pt gold cube with a lit top and a shaded side. Running, it blinks; done, a cream datum pixel shows on it.
   - A 2 pt gold line joins the cubes, with a 1 pt shadow. It grows down in six steps, and a 2 pt packet runs down it to each new step.
   - A search that finds notes turns a square pixel corner out to the note chips.
-- **C14.** When the answer arrives, the trace folds into one line: its cube, a summary, and a chevron. Tapping the line opens the trace again. Summaries: "Looked at N notes", "Read your dues", "Read your timetable", "Searched your notes, nothing close".
+- **C14.** When the answer arrives, the trace folds into one line: its cube, a summary, and a chevron. Tapping the line opens the trace again. Summaries: "Looked at" with the same kinds as the found line ("Looked at 2 notes", "Looked at 1 note and 1 deck"), "Read your dues", "Read your timetable", "Searched, nothing close".
 - **C15.** Where an answer came from lights up in 8 pt pixel corner brackets for 1.4 s: its From chips, and its card on the page behind (`data-source`) when that card is on screen. Nothing is drawn outside the glass otherwise. The neuron canvas (046 C1d3) is removed.
 
 **Suggestions**
@@ -68,7 +68,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
   - "Remind me bukas ng umaga", which fills the field.
 
   With a note open, the editor's starters lead, as now (020 C5).
-- **C18.** After an answer, the follow-ups come from its intent and sources, by rule, with no model call:
+- **C18.** After an answer in this session, the follow-ups come from its intent and sources, by rule, with no model call:
   - Due: "Remind me *day before* night" (fills the field), "Open *title*".
   - Classes: "What's due this week?", "Open *subject*".
   - An open answer with sources: "Make 5 cards from this", "Open *first source*".
@@ -80,16 +80,17 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 
 ## Copy
 
-- Header: "LAR". Status: "On this phone", "Waking up…", "Reading your timetable…", "Searching your notes…", "Writing", "Making cards", "Still waking up. This phone is slow.", "Dozing. Ask me anything."
-- Steps: "Waking up" / "Woke up", "Read your timetable", "Read your dues and timetable", "Searching your notes…", "Found 1 in your notes", "Found N in your notes", "Nothing close in your notes", "Note search is off", "Writing".
-- Folded trace: "Looked at 1 note", "Looked at N notes", "Read your dues", "Read your timetable", "Searched your notes, nothing close".
+- Header: "LAR". Status: "On this phone", "Waking up…", "Reading your timetable…", "Searching your notes and decks…", "Writing", "Making cards", "Still waking up. This phone is slow.", "Dozing. Ask me anything."
+- Steps: "Waking up" / "Woke up", "Read your timetable", "Read your dues and timetable", "Searching your notes and decks…", "Found " + the kinds list, "Nothing close in your notes or decks", "Note search is off", "Writing".
+- Kinds list: counts in the order notes, decks, subjects, singular at 1 ("1 note", "2 decks", "1 subject"), joined with commas and a final "and": "2 notes", "1 note and 1 deck", "2 notes, 1 deck and 1 subject". Built by one pure function, `foundLine(sources)` in `apply.ts`.
+- Folded trace: "Looked at " + the kinds list, "Read your dues", "Read your timetable", "Searched, nothing close".
 - Keys: "New chat", "Close" (accessible names).
 - Suggestions: as in C17 and C18.
 
 ## Data shape
 
 - `src-tauri/src/ai.rs` `ai_ask` gains `on_step: Channel<Step>`. It sends `{ step: "read" }` before the facts, `{ step: "search" }` before recall, then `{ step: "found", found: Source[], quote: string }`, `{ step: "nothing" }` or `{ step: "search_off" }`, and `{ step: "write" }` when the model's first words arrive. `Ask` gains `intent: "ask" | "note" | "remind" | "cards" | "due" | "classes" | "grades"`, from `intent::resolve`. The quote is the first recalled line, trimmed to 140 characters.
-- `src/lib/assis/assis.svelte.ts`: each LAR turn in `assis.chat` gains `steps: Step[]` and `intent`. The wake step comes from the app's own load (`busy === "waking"`). Steps are kept in history like the rest of the turn.
+- `src/lib/assis/assis.svelte.ts`: each LAR turn in `assis.chat` gains `steps: Step[]` and `intent`. The wake step comes from the app's own load (`busy === "waking"`). Steps and intent are session-only: the `turns` table (`store.rs`) is unchanged, so a turn restored from history shows its answer and From chips with no trace, and the suggestions fall back to the day's (C17).
 - `src/lib/assis/apply.ts`: `starters(day)` and `followUps(turn)`, both pure and tested.
 - `src/lib/assis/pour.ts` (new): the pour's geometry and timing, pure; the canvas drawing lives in `AssisWindow.svelte`. The crystal gains `face(on)` in `crystal.ts`.
 - `src/lib/assis/neuron.ts` and its tests are removed.
@@ -103,7 +104,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 ## Motion and Reduce Motion
 
 - Opening is about 664 ms and closing about 740 ms (fold included). Only the canvas and transforms move: no width, height or position is laid out per frame. The target is 60 fps, measured on the iPhone 18 Pro simulator and a real phone. The tick haptic fires as the window lands.
-- The sky drifts at no cost: CSS background position only. It stops when the window is closed.
+- The sky moves only on the compositor: the pools' layer by `transform`, the stars and the live pixel by `opacity`. It stops when the window is closed or the app is hidden, and on the low-RAM tier while the model wakes or thinks (C8). The mockup animates `background-position` for convenience; the app does not.
 - Reduce Motion: a 200 ms cross-fade, with no turn, no atoms, no sky drift, no twinkle, no packets. The trace appears without growing, and the source corners show without fading.
 - Low-RAM phones pour too: it is 27 rectangles on a 2D canvas for 0.66 s.
 
@@ -125,7 +126,8 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 |---|---|
 | C1–C6 | `vitest pour` (timing, order, cell geometry, the reverse); simulator recording, frames at 120, 400, 664 ms and close; frame times during open |
 | C7–C11 | Simulator screenshots in Night and Day, keyboard down and up, in a long chat: the header stays 104 pt |
-| C12–C15 | `cargo test` for `ai_ask` step order (read, search, found/nothing/off, write) with a stub model; `vitest assis` for steps in a turn and history; screenshots of each trace |
+| C12–C15 | `cargo test` for `ai_ask` step order (read, search, found/nothing/off, write) with a stub model; `vitest apply` for `foundLine` (notes only, mixed kinds, singulars); `vitest assis` for steps on a live turn and none on a restored one; screenshots of each trace |
+| C8 | Screenshot of the sky; on a small-RAM simulator run, the sky still while waking and thinking; the release gate's real-phone 60 fps includes the sky |
 | C16–C18 | `vitest apply` for `starters` and `followUps` with fixtures |
 | C19 | Screenshot |
 
