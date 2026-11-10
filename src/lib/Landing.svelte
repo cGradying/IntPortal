@@ -146,6 +146,7 @@
 <section class="landing" class:leaving>
   <header class="brand" class:on={resting}>
     <h1>Student <span>IntPortal</span></h1>
+    <p class="pitch">{ready ? copy.pitch : `${portal.school} is next. For now, IntPortal works with PUP.`}</p>
   </header>
 
   <PortalStage
@@ -245,6 +246,13 @@
   }
   h1 span {
     color: var(--cream);
+  }
+  .pitch {
+    margin: 4px auto 0;
+    max-width: 30ch;
+    font: 400 min(0.82rem, 22px) / 1.35 var(--font-ui);
+    color: rgb(244 236 216 / 0.66);
+    text-wrap: balance;
   }
   .dock {
     display: grid;

@@ -9,6 +9,8 @@
   import { onMount, untrack } from "svelte";
   import LarFlight, { type Context } from "./lar/LarFlight.svelte";
   import PortalHub from "./PortalHub.svelte";
+  import PortalPeek from "./PortalPeek.svelte";
+  import { PAGES, PAGE_MS, isTap, nextPage } from "./peek";
   import type { Portal } from "./api";
   import { buzz } from "./haptics";
   import { release, settle, step, type Motion } from "./carousel";
@@ -69,6 +71,17 @@
   let drag: { x: number; pos: number; t: number; lastX: number; lastT: number } | null = null;
   let moving = $state(false);
   let hub = $state(false);
+
+  // The peek through the portal (C36–C37): which page is open, and where the portal was when it opened.
+  let peek = $state<number | null>(null);
+  let peekAt = $state({ box: { x: 0, y: 0, w: 0, h: 0 }, room: { w: 0, h: 0 }, inset: 0 });
+  let press: { x: number; y: number; t: number } | null = null;
+  let peeked = $state(false);
+  try {
+    peeked = localStorage.getItem("peeked") === "1";
+  } catch {
+    // Then the hint shows until the first peek this launch.
+  }
 
   const now = () => (performance.now() - start) / 1000;
   const current = $derived(portals[index] ?? portals[0]);
@@ -205,6 +218,7 @@
   // portal under the finger moves with it.
   const width = () => (tiles?.gap() ?? 0) / Math.min(devicePixelRatio, 3) || canvas.getBoundingClientRect().width * 0.6;
   function down(e: PointerEvent) {
+    press = { x: e.clientX, y: e.clientY, t: performance.now() };
     if (locked || portals.length < 2) return;
     const t = performance.now() / 1000;
     drag = { x: e.clientX, pos: motion.pos, t, lastX: e.clientX, lastT: t };
@@ -224,11 +238,75 @@
     drag.lastT = t;
     if (reduce) draw(now());
   }
-  function up() {
+  function up(e: PointerEvent) {
+    const p = press;
+    press = null;
+    const tap = !!p && isTap(e.clientX - p.x, e.clientY - p.y, performance.now() - p.t);
+    if (drag) {
+      drag = null;
+      go(release(motion.pos, tap ? 0 : motion.vel, portals.length));
+    }
+    if (tap) touch(e);
+  }
+  function cancel() {
+    press = null;
     if (!drag) return;
     drag = null;
     go(release(motion.pos, motion.vel, portals.length));
   }
+
+  // A tap on the portal rings its tiles from the finger and opens, or turns, the peek;
+  // a tap on the void round it closes the peek (C36).
+  function touch(e: PointerEvent) {
+    if (!tiles || !canvas || leaving) return;
+    const dpr = Math.min(devicePixelRatio, 3);
+    const cb = canvas.getBoundingClientRect();
+    const px = (e.clientX - cb.left) * dpr;
+    const py = (e.clientY - cb.top) * dpr;
+    const [x, y, w, h] = tiles.rect(motion.pos);
+    if (px < x || px > x + w || py < y || py > y + h) {
+      peek = null;
+      return;
+    }
+    const { pitch } = tiles.metrics();
+    tiles.poke((px - x) / pitch, (py - y) / pitch, now());
+    buzz.select();
+    if (peek === null) {
+      peekAt = { box: { x: x / dpr, y: y / dpr, w: w / dpr, h: h / dpr }, room: { w: cb.width, h: cb.height }, inset: (2 * pitch) / dpr };
+      peek = 0;
+    } else turn();
+  }
+  function turn() {
+    peek = peek === null ? null : nextPage(peek);
+  }
+
+  // Each page: LAR names it, and it turns on its own after a while; the last one closes.
+  $effect(() => {
+    const p = peek;
+    if (p === null) return;
+    untrack(() => {
+      flight?.speak(PAGES[p].lar);
+      if (!peeked) {
+        peeked = true;
+        try {
+          localStorage.setItem("peeked", "1");
+        } catch {
+          // Only this launch remembers it.
+        }
+      }
+    });
+    const id = setTimeout(turn, PAGE_MS);
+    return () => clearTimeout(id);
+  });
+
+  // A field, a swipe to another portal or Step through closes the peek.
+  $effect(() => {
+    if (still || leaving) peek = null;
+  });
+  $effect(() => {
+    void index;
+    untrack(() => (peek = null));
+  });
 
 </script>
 
@@ -239,8 +317,13 @@
     onpointerdown={down}
     onpointermove={move}
     onpointerup={up}
-    onpointercancel={up}
+    onpointercancel={cancel}
   ></canvas>
+  {#if peek !== null}
+    <PortalPeek box={peekAt.box} room={peekAt.room} inset={peekAt.inset} page={peek} accent={current.theme.accent} onnext={turn} />
+  {:else if !peeked && showLar && !locked}
+    <p class="hint" aria-hidden="true">Tap the portal to peek inside</p>
+  {/if}
   <div class="sky"><LarFlight bind:this={flight} getRects={portalRects} show={showLar} {ctx} portal={larPortal} /></div>
   {#if portals.length > 1}
     <div class="picker" class:off={locked} role="group" aria-label="Choose a portal">
@@ -268,10 +351,20 @@
     justify-items: center;
     min-height: 0;
   }
-  /* LAR's sky shares the portal's cell, over it. */
+  /* LAR's sky, the peek and its hint share the portal's cell, over it. */
   canvas,
-  .sky {
+  .sky,
+  .hint {
     grid-area: 1 / 1;
+  }
+  .hint {
+    align-self: end;
+    margin: 0 0 2px;
+    font: 500 min(0.7rem, 20px) var(--font-pixel);
+    letter-spacing: 0.06em;
+    color: rgb(244 236 216 / 0.55);
+    pointer-events: none;
+    animation: fade 0.6s var(--ease) 1.2s both;
   }
   .sky {
     position: relative;
@@ -279,6 +372,8 @@
     height: 100%;
     min-height: 0;
     pointer-events: none;
+    /* LAR flies over the peek, so he can name what it shows. */
+    z-index: 3;
     transition: opacity 0.4s var(--ease);
   }
   canvas {

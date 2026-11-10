@@ -42,6 +42,8 @@ export interface PortalCopy {
   keychainNote: string;
   /** Label of the field that names the student. */
   hint: string;
+  /** One line under the wordmark: what IntPortal does with this portal (spec 010 C38). */
+  pitch: string;
 }
 
 const COPY: Record<string, PortalCopy> = {
@@ -49,11 +51,13 @@ const COPY: Record<string, PortalCopy> = {
     lar: "Hi, I'm LAR. Sign in with your SIS login and I'll bring everything over.",
     keychainNote: "Your login stays in this phone's keychain. IntPortal only talks to PUP SIS.",
     hint: "PUP SIS",
+    pitch: "Your SIS schedule, grades and deadlines on your phone. Works offline.",
   },
   mabini: {
     lar: "Hi, I'm LAR. Sign in to eMabini and I'll bring your courses and deadlines.",
     keychainNote: "Your login stays in this phone's keychain. IntPortal only talks to PUP eMabini.",
     hint: "PUP eMabini",
+    pitch: "Your eMabini courses and deadlines, next to your classes. Works offline.",
   },
 };
 
