@@ -52,6 +52,8 @@ describe("dated entries", () => {
     const b = addEntry(a.text + "\n\n", "### Mon, Oct 20");
     expect(b.text).toBe(a.text);
     expect(addEntry("", "### Tue, Oct 21").text).toBe("### Tue, Oct 21\n");
+    const written = "### Mon, Oct 20\nwe covered trees";
+    expect(addEntry(written, "### Mon, Oct 20")).toEqual({ text: written, from: written.length, to: written.length });
     expect(addEntry("- [x] ", "### Tue, Oct 21").text.startsWith("- [x] \n")).toBe(true);
   });
 });

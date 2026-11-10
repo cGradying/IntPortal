@@ -44,10 +44,11 @@
 
   // ------------------------------------------------------------ saving
 
-  async function save() {
+  /** True once the core holds what is on screen. */
+  async function save(): Promise<boolean> {
     clearTimeout(timer);
     // Blank text is never saved: select-all and retype loses nothing (C17a).
-    if (!autosaves(text)) return;
+    if (!autosaves(text)) return true;
     const body = text;
     try {
       await api.setNote(key, body, named ? name.trim() || null : title);
@@ -61,8 +62,10 @@
       saved = text === body;
       problem = "";
       refreshNotes();
+      return true;
     } catch (e) {
       problem = String(e);
+      return false;
     }
   }
 
@@ -90,21 +93,23 @@
     clearTimeout(timer);
     // Closing on blank text deletes the note (C17a).
     const act = onClose(text, !!item, saved);
-    if (act === "delete") await api.setNote(key, "", null).then(refreshNotes).catch((e) => (problem = String(e)));
-    else if (act === "save") await save();
-    if (problem) return;
+    const ok = act === "delete" ? await remove(false) : act === "save" ? await save() : true;
+    // Only a failed save or delete keeps the page open; a tool's message never does.
+    if (!ok) return;
     indexNotes();
     app.editing = null;
   }
 
-  async function remove() {
+  async function remove(close = true): Promise<boolean> {
     clearTimeout(timer);
     try {
       await api.setNote(key, "", null);
       await refreshNotes();
-      app.editing = null;
+      if (close) app.editing = null;
+      return true;
     } catch (e) {
       problem = String(e);
+      return false;
     }
   }
 
@@ -153,19 +158,34 @@
     });
     return () => {
       dead = true;
+      // Closed without Done (sign-out): nothing more is written (C17a).
+      clearTimeout(timer);
       nv?.destroy();
       nv = null;
     };
   });
 
+  // The crystal's + is this page's (C11).
+  $effect(() => {
+    assis.plus = () => (sheet = sheet === "tools" ? null : "tools");
+    return () => (assis.plus = null);
+  });
   $effect(() => closable(() => (sheet ? (sheet = null) : void done())));
 
   // Keep the screen awake while writing, if asked (C11a).
   $effect(() => {
     if (!look.awake || !("wakeLock" in navigator)) return;
     let lock: WakeLockSentinel | null = null;
-    navigator.wakeLock.request("screen").then((l) => (lock = l)).catch(() => {});
-    return () => void lock?.release();
+    const take = () => {
+      if (document.visibilityState === "visible") navigator.wakeLock.request("screen").then((l) => (lock = l)).catch(() => {});
+    };
+    // The phone drops the lock when the app leaves the screen: take it again on return.
+    take();
+    document.addEventListener("visibilitychange", take);
+    return () => {
+      document.removeEventListener("visibilitychange", take);
+      void lock?.release();
+    };
   });
 
   function setLook(p: Partial<PageLook>) {
@@ -317,16 +337,20 @@
   let drafts = $state<Draft[] | null>(null);
   let decks = $state<{ id: string; name: string; subject: string | null }[]>([]);
   let cardsMsg = $state("");
+  let decksLoaded = $state(false);
+  /** The deck a first Save made, so a second Save adds to it instead of making another. */
+  let madeDeck = $state<string | null>(null);
   const deckName = $derived((named ? name.trim() : heading) || subjectOf || "Note cards");
-  const target = $derived(decks.find((d) => subjectOf && d.subject === subjectOf));
+  const target = $derived(decks.find((d) => d.id === madeDeck) ?? decks.find((d) => subjectOf && d.subject === subjectOf));
 
   async function startCards() {
-    cardsMsg = "";
     drafts = null;
     lines = cardLines(text);
-    if (!lines.length) return void (problem = "There's nothing in this note to make cards from yet.");
+    cardsMsg = lines.length ? "" : "There's nothing in this note to make cards from yet.";
     sheet = "cards";
+    decksLoaded = false;
     decks = (await api.study(isoDate(new Date())).catch(() => null))?.decks ?? [];
+    decksLoaded = true;
   }
   function review() {
     drafts = lines.filter((l) => l.chosen).map((l) => ({ front: l.front, back: l.back }));
@@ -338,7 +362,11 @@
       const fresh = tidy(drafts, deck.cards.map((c) => c.front));
       if (!fresh.length) return void (cardsMsg = "Those cards are already in the deck.");
       const blank = (f: string, b: string) => ({ id: "", front: f, back: b, accepted: [], memory: { due: 0, stability: 0, difficulty: 0, reps: 0, lapses: 0, last_review: null } });
-      await api.saveDeck({ ...deck, cards: [...deck.cards, ...fresh.map((c) => blank(c.front, c.back))] });
+      const kept = await api.saveDeck({ ...deck, cards: [...deck.cards, ...fresh.map((c) => blank(c.front, c.back))] });
+      if (!target) {
+        madeDeck = kept.id;
+        decks = [...decks, { id: kept.id, name: kept.name, subject: kept.subject }];
+      }
       buzz.done();
       cardsMsg = `Saved ${fresh.length} ${fresh.length === 1 ? "card" : "cards"} to ${deck.name}.`;
       drafts = null;
@@ -386,11 +414,6 @@
     {#if look.count}<p class="count">{count} {count === 1 ? "word" : "words"}</p>{/if}
   </footer>
 
-  <!-- The crystal's flat gold +, as on Study (C11): every tool and Ask LAR. -->
-  <button class="plus card notch" class:open={sheet === "tools"} aria-label="Add to this note" aria-expanded={sheet === "tools"} onclick={() => (buzz.tick(), (sheet = sheet === "tools" ? null : "tools"))}>
-    <svg viewBox="-3.25 -3.25 6.5 6.5" aria-hidden="true"><g fill="var(--gold)"><rect x="-1.77" y="-0.57" width="3.54" height="1.14" /><rect x="-0.57" y="-1.77" width="1.14" height="3.54" /></g></svg>
-  </button>
-
   {#if sheet}
     <button class="scrim" aria-label="Close" onclick={() => (sheet = null)}></button>
     <div class="sheet card notch" role="dialog" aria-label={sheet}>
@@ -432,7 +455,7 @@
         {#if confirming}
           <div class="confirm" role="alertdialog" aria-label="Delete this note?">
             <p>Delete this note? This can't be undone.</p>
-            <button class="danger" onclick={remove}>Delete</button>
+            <button class="danger" onclick={() => remove()}>Delete</button>
             <button onclick={() => (confirming = false)}>Cancel</button>
           </div>
         {/if}
@@ -489,7 +512,7 @@
               <label class="pickline"><input type="checkbox" bind:checked={l.chosen} /><span>{l.text}</span></label>
             {/each}
           </div>
-          <button class="go wide" onclick={review} disabled={!lines.some((l) => l.chosen)}>Review {lines.filter((l) => l.chosen).length} cards</button>
+          {#if lines.length}<button class="go wide" onclick={review} disabled={!lines.some((l) => l.chosen)}>Review {lines.filter((l) => l.chosen).length} cards</button>{/if}
         {:else}
           <p class="fine">Into <b>{target?.name ?? deckName}</b>{target ? "" : " (a new deck)"}. Nothing is saved until Save cards.</p>
           <div class="lines">
@@ -501,7 +524,7 @@
             {/each}
           </div>
           <div class="two">
-            <button class="go" onclick={saveCards} disabled={!drafts.some((d) => d.front.trim() && d.back.trim())}>Save cards</button>
+            <button class="go" onclick={saveCards} disabled={!decksLoaded || !drafts.some((d) => d.front.trim() && d.back.trim())}>Save cards</button>
             <button onclick={() => (drafts = null)}>Back</button>
           </div>
         {/if}
@@ -771,29 +794,6 @@
     color: var(--bad);
   }
 
-  .plus {
-    position: fixed;
-    right: var(--gutter);
-    bottom: calc(var(--safe-bottom) + 16px);
-    z-index: 53;
-    width: 52px;
-    height: 52px;
-    display: grid;
-    place-items: center;
-    padding: 0;
-    border: 0;
-    box-shadow: inset 0 0 0 1px var(--edge-2), 0 8px 20px rgb(0 0 0 / 0.35);
-  }
-  .plus svg {
-    width: 26px;
-    height: 26px;
-  }
-  .plus svg {
-    transition: rotate 0.2s var(--ease);
-  }
-  .plus.open svg {
-    rotate: 45deg;
-  }
   /* Sheets rise from the bottom, over the page. */
   .scrim {
     position: fixed;

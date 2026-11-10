@@ -129,7 +129,8 @@ void main() { vec2 v = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); gl_Positio
 export type CrystalMode = "cube" | "plus";
 
 /** One floating button (046 C1b, C1c): the + on Study, the cube elsewhere once LAR's model is on the phone. */
-export const crystalMode = (tab: string, hasModel: boolean): CrystalMode | null => (tab === "study" ? "plus" : hasModel ? "cube" : null);
+/** The + on Study and in the note editor (046 C1b, C11); the cube elsewhere once a model is installed. */
+export const crystalMode = (tab: string, hasModel: boolean, editing = false): CrystalMode | null => (editing || tab === "study" ? "plus" : hasModel ? "cube" : null);
 
 /** Glass needs WebGL2, motion, and memory to spare: `smallRam` is the tier #188 and #189 stall on (C1d, C1d2). */
 export const useGlass = (reduceMotion: boolean, smallRam: boolean, webgl2: boolean) => webgl2 && !reduceMotion && !smallRam;

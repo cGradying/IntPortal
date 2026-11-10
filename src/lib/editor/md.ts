@@ -100,9 +100,10 @@ export function entryHeading(iso: string, locale?: string): string {
 export function addEntry(text: string, heading: string): Edit {
   // Only blank lines go: an empty checklist item keeps its "- [ ] ".
   const trimmed = text.replace(/\n+$/, "");
-  const last = trimmed.slice(trimmed.lastIndexOf("\n") + 1);
-  if (last === heading) {
-    const t = trimmed + "\n";
+  // That day's entry is already the last one, written under or not: go to the end, add nothing.
+  const headings = trimmed.split("\n").filter((l) => /^#{1,6} /.test(l));
+  if (headings.at(-1) === heading) {
+    const t = trimmed.split("\n").at(-1) === heading ? trimmed + "\n" : text;
     return { text: t, from: t.length, to: t.length };
   }
   const t = (trimmed ? trimmed + "\n\n" : "") + heading + "\n";

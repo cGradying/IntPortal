@@ -233,6 +233,10 @@
       {/key}
     </main>
     <TabBar />
+    <!-- In the shell's stacking context, so the crystal can sit above it as its + (046 C11). -->
+    {#if app.editing}
+      {#key app.editing.key}<NoteEditor {...app.editing} />{/key}
+    {/if}
     <AssisOrb settled={!dive} />
   </div>
   <!-- Without a dive, the void lifts off the room instead of cutting to it. -->
@@ -240,9 +244,6 @@
   {#if !welcomed}<FirstRun ondone={welcomeDone} />{/if}
   {#if app.subject}
     {#key app.subject.code}<SubjectPage {...app.subject} />{/key}
-  {/if}
-  {#if app.editing}
-    {#key app.editing.key}<NoteEditor {...app.editing} />{/key}
   {/if}
   {#if app.mabiniPage}<MabiniPage />{/if}
   {#if app.themeMaker}<ThemeMaker />{/if}
