@@ -26,16 +26,16 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 
 - **C1.** Tapping the chip turns its cube to face the student (WebGL, about 150 ms, with a dip to 0.94 scale and back). At 120 ms one 2D canvas over the page takes over: the 27 atoms start as the face's 3×3 grid, centred on the chip, with the 18 behind stacked under the 9 in front, and the chip fades out over 60 ms.
 - **C2.** Each atom flies to its cell of a 3-column, 9-row tiling of the window, for 400 ms on an ease-in-out curve, starting 14 ms later per row from the bottom and 6 ms later per column, on a slight arc (up to 6 pt). The atoms pour upward as one wave with nothing stopping on the way. While flying, each is a 2.5D pixel tile: a lit top band and a shaded side whose depth peaks mid-flight and is 0 on landing.
-- **C3.** Each tile shows its own slice of the window's face, drawn once in window coordinates, so the landed tiles form the window exactly. Tiles in the header's 104 pt take the sky; the rest take the glass. From 540 to 660 ms the 2 pt seams close, and the gold rim and the 2 pt extrusion come in. At about 664 ms the real window replaces the canvas in one frame, with no cross-fade.
+- **C3.** Each tile shows its own slice of the window's face, drawn once in window coordinates, so the landed tiles form the window exactly. Tiles in the header's height (C7) take the sky; the rest take the glass. From 540 to 660 ms the 2 pt seams close, and the gold rim and the 2 pt extrusion come in. At about 664 ms the real window replaces the canvas in one frame, with no cross-fade.
 - **C4.** After the swap, the sky's light and stars come up, LAR spawns on the horizon, his hello types in, and the suggestions appear.
 - **C5.** The window lands at its measured first-open height (header, hello, suggestions and dock), not a fixed one. After that it grows with the chat, as it does now.
 - **C6.** Closing: LAR folds into his fire (0.3 s). The window swaps back to tiles, and the pour plays backwards in 440 ms, top rows first. The chip reappears under the atoms as they land, then the cube turns back to its three-quarter view.
 
 **The header**
 
-- **C7.** The header is one fixed size, 104 pt, and never folds: not with the keyboard up, not in a long chat. LAR is the same size throughout.
+- **C7.** The header is one fixed size, 40 of LAR's sprite pixels tall (about 93 pt on an iPhone), and never folds: not with the keyboard up, not in a long chat. LAR is the same size throughout.
 - **C8.** The sky is a solid band in the portal ramp (`--r0` to `--r4`): three slow pools of light (a 16 s drift), six 2 pt stars that twinkle in steps, and a 1 pt lit top edge. A two-row pixel dither, 6 pt tall, splits it from the glass below. The pools are one oversized pseudo-element layer whose drift is a `transform`, and the stars and the live pixel change only `opacity`, so nothing repaints per frame (no `background-position` animation). On the low-RAM tier (046 C1d2) the sky holds still, the stars stop and the live pixel stays lit while the model is waking or thinking (#189); it moves again once he is done.
-- **C9.** LAR stands in a 104 pt perch at 1.4 times his sprite. His art runs from 12 pt under the top to 2 pt above the dither. The name, status and keys are centred vertically on him.
+- **C9.** LAR is drawn at about 2.4 pt a sprite pixel, rounded down so one sprite pixel is a whole number of screen pixels (7 on a 3x iPhone) and he stays sharp. His perch is the top of his sprite box down to his feet, 48 sprite pixels wide, and nothing clips him: his sleep Z, antenna and waving mitt stay inside the header, and his feet may stand a few points over the dither, drawn above the chat. The name, status and keys are centred vertically on him. (Owner, 2026-11-10: "make lar smaller… a little bit more compress… his assets doesnt suddenly vanish".)
 - **C10.** "LAR" is in the pixel face at 16 pt, cream. The status line (12.5 pt) starts with a 6 pt live pixel: gold and still at rest, blinking while he works. The status reads what he is doing now (Copy).
 - **C11.** New chat (shown only once there are messages) and Close are one pair: 36 pt pixel-cut keys, dark on the sky, with a lit top edge and a shaded bottom. Each has a 44 pt hit area, and both icons are drawn on the same 7×7 pixel grid at 2 pt a pixel.
 
@@ -110,7 +110,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 
 ## Accessibility
 
-- The dialog is still "Ask LAR"; focus goes to the input on open and back to the chip on close.
+- The dialog is still "Ask LAR"; focus goes to the dialog on open and back to the chip on close. The input takes focus only when tapped: a text field focused from code sets the app's keyboard state and hides the tab bar and dock, but iOS shows no keyboard for it, so the bottom of the page went blank behind the window (owner, 2026-11-10).
 - The trace is a list named "What LAR did". The folded line is a button with `aria-expanded`. Each step's words are its accessible name; the cubes are hidden from VoiceOver. The log stays a polite live region announced once per reply.
 - The keys and chips meet 44 pt hit areas. Cream on the sky ramp's darkest band meets 4.5:1, checked for each room.
 
@@ -125,7 +125,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 | Criterion | Check |
 |---|---|
 | C1–C6 | `vitest pour` (timing, order, cell geometry, the reverse); simulator recording, frames at 120, 400, 664 ms and close; frame times during open |
-| C7–C11 | Simulator screenshots in Night and Day, keyboard down and up, in a long chat: the header stays 104 pt |
+| C7–C11 | Simulator screenshots in Night and Day, keyboard down and up, in a long chat: the header keeps one height, and LAR's Z, antenna and wave are whole |
 | C12–C15 | `cargo test` for `ai_ask` step order (read, search, found/nothing/off, write) with a stub model; `vitest apply` for `foundLine` (notes only, mixed kinds, singulars); `vitest assis` for steps on a live turn and none on a restored one; screenshots of each trace |
 | C8 | Screenshot of the sky; on a small-RAM simulator run, the sky still while waking and thinking; the release gate's real-phone 60 fps includes the sky |
 | C16–C18 | `vitest apply` for `starters` and `followUps` with fixtures |
