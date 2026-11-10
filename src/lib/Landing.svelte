@@ -10,7 +10,9 @@
   import PortalStage from "./PortalStage.svelte";
   import type { Context } from "./lar/LarFlight.svelte";
   import { api, isoDate, type CampusResolution, type Portal, type PortalField, type Tries } from "./api";
-  import { FALLBACK_SIS, portalCopy, triesLine, validate } from "./portals";
+  import { DOWN, FALLBACK_SIS, REJECTED, maskStudentNumber, portalCopy, triesLine, validate } from "./portals";
+  import { FALLBACK } from "./errors";
+  import DateWheels from "./DateWheels.svelte";
   import { portalApiFor } from "./portalApi";
   import { buzz } from "./haptics";
   import { landingAt, restAt } from "./landing";
@@ -31,6 +33,15 @@
   let birthday = $state("");
   let password = $state("");
   let showPw = $state(false);
+  // The birthdate wheels' sheet (011 C1), and an SIS that didn't answer (C9).
+  let wheels = $state(false);
+  let down = $state(false);
+  // The password hides again whenever the app leaves the screen (C5).
+  onMount(() => {
+    const hide = () => document.hidden && (showPw = false);
+    document.addEventListener("visibilitychange", hide);
+    return () => document.removeEventListener("visibilitychange", hide);
+  });
   // Set by a failed check; each field then clears its own mark once it is fixed.
   let tried = $state(false);
 
@@ -93,8 +104,9 @@
   const values = $derived({ student_number: studno, birthdate: birthday, password });
   const bad = (field: PortalField) => tried && !!validate({ ...portal, fields: [field] }, values);
 
-  async function submit(e: Event) {
-    e.preventDefault();
+  async function submit(e?: Event) {
+    e?.preventDefault();
+    down = false;
     error = validate(portal, values);
     tried = !!error;
     if (error) return;
@@ -105,7 +117,11 @@
       rest = "hub";
       buzz.done();
     } catch (err) {
-      error = friendly(err);
+      const said = friendly(err);
+      // No host answered: the down state, with Try again; it spends no try (C9).
+      down = /^couldn't reach the SIS/i.test(String((err as { message?: string })?.message ?? err)) || said === "Can't reach the SIS right now.";
+      // A rejection in words we can't read gets ours (C8).
+      error = down ? DOWN : said === FALLBACK ? REJECTED : said;
       buzz.fail();
     } finally {
       busy = false;
@@ -182,16 +198,16 @@
             </div>
           {:else}
           <div class="field" class:filled={!!studno} class:bad={bad("student_number")}>
-            <input id="f-studno" bind:value={studno} placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" aria-invalid={bad("student_number")} />
+            <input id="f-studno" value={studno} oninput={(e) => (studno = e.currentTarget.value = maskStudentNumber(e.currentTarget.value))} maxlength="15" placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" aria-invalid={bad("student_number")} />
             <label for="f-studno">Student number</label>
           </div>
           {#if campus.kind === "known"}<small class="campus">{campus.campus.name} · campus found</small>
           {:else if campus.kind === "unknown_code"}<small class="campus dim">{campus.code} · campus not confirmed yet, sign-in still works</small>{/if}
           {#if portal.fields.includes("birthdate")}
             <div class="field date" class:empty={!birthday} class:bad={bad("birthdate")}>
-              <input id="f-birthday" type="date" bind:value={birthday} aria-invalid={bad("birthdate")} />
+              <button type="button" id="f-birthday" class="pick" aria-haspopup="dialog" onclick={() => (wheels = true)}>{birthday ? new Date(birthday + "T00:00").toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) : ""}</button>
               <label for="f-birthday">Birthdate</label>
-              <i aria-hidden="true">mm / dd / yyyy</i>
+              {#if !birthday}<i aria-hidden="true">mm / dd / yyyy</i>{/if}
             </div>
           {/if}
           <div class="field" class:filled={!!password} class:bad={bad("password")}>
@@ -199,9 +215,10 @@
             <label for="f-password">Password</label>
             <button type="button" class="eye" aria-label="Show password" aria-pressed={showPw} onclick={() => (showPw = !showPw)}>{showPw ? "Hide" : "Show"}</button>
           </div>
-          <button class="go" disabled={busy || locked}>{busy ? "Signing in…" : "Sign in"}</button>
+          <button class="go" disabled={busy || locked || !!validate(portal, values)}>{busy ? "Signing in…" : "Sign in"}</button>
           {#if triesText}<p class="tries" class:out={locked} aria-live="polite">{triesText}</p>{/if}
-          {#if error}<p class="error" role="alert">{error}</p>{/if}
+          {#if error}<p class="error" class:down role="alert">{error}</p>{/if}
+          {#if down}<button type="button" class="retry" onclick={() => submit()}>Try again</button>{/if}
           <p class="fine">{copy.keychainNote}</p>
           {/if}
           {#if __REVIEW__}
@@ -211,6 +228,9 @@
         </form>
       {/if}
   </div>
+  {#if wheels}
+    <DateWheels value={birthday} onclose={() => (wheels = false)} ondone={(iso) => ((birthday = iso), (wheels = false), buzz.tick())} />
+  {/if}
 </section>
 
 <style>
@@ -381,15 +401,24 @@
   }
   /* iOS draws an empty date field as a blank slab; give it a hint, and hide the
      browser's own format text so the two never stack. */
-  .date input {
-    display: flex;
-    align-items: center;
-  }
-  .date input::-webkit-date-and-time-value {
+  /* The birthdate opens its wheels (011 C1): a field that reads like the others. */
+  .pick {
+    display: block;
+    width: 100%;
+    height: 54px;
+    padding: 20px 14px 4px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--white);
+    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
     text-align: left;
   }
-  .date.empty:not(:focus-within) input::-webkit-datetime-edit {
-    opacity: 0;
+  .pick:focus-visible {
+    outline: none;
+  }
+  .field.date:has(.pick:focus-visible) {
+    box-shadow: inset 0 0 0 1.5px var(--portal-accent, var(--portal-gold));
   }
   .date i {
     position: absolute;
@@ -400,7 +429,7 @@
     color: rgb(255 255 255 / 0.4);
     pointer-events: none;
   }
-  .date.empty:not(:focus-within) i {
+  .date.empty i {
     display: block;
   }
   /* A quiet text toggle, with a 44 px hit area inside the field. */
@@ -510,6 +539,18 @@
   .step {
     min-width: 220px;
     padding: 0 28px;
+  }
+  .retry {
+    min-height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: rgb(244 236 216 / 0.08);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.16);
+    color: var(--parch);
+    font: 600 max(16px, min(0.941rem, 29px)) var(--font-ui);
+  }
+  .error.down {
+    color: var(--parch);
   }
   .error {
     margin: 0;
