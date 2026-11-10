@@ -8,7 +8,6 @@ describe("the crystal (046 C1b to C1d2)", () => {
     expect(crystalMode("today", false)).toBeNull();
     expect(crystalMode("today", true)).toBe("cube");
     expect(crystalMode("study", false)).toBe("plus");
-    expect(crystalMode("today", true, true)).toBe("plus"); // the note editor's tools (046 C11)
     expect(crystalMode("study", true)).toBe("plus");
   });
 

@@ -27,7 +27,7 @@
   invoke<boolean>("ai_small_ram").then((small) => (smallRam = small)).catch(() => {});
   const glass = $derived(useGlass(reduce, smallRam, webgl2));
 
-  const mode = $derived(crystalMode(app.tab, installed(), !!app.editing));
+  const mode = $derived(crystalMode(app.tab, installed()));
   const thinking = $derived(assis.busy === "thinking" || assis.busy === "waking" || assis.busy === "cards");
   const items = $derived([...(installed() ? [{ label: "Ask LAR", run: open }] : []), ...assis.menu]);
 
@@ -124,8 +124,7 @@
   function press() {
     buzz.tick();
     crystal?.pulse();
-    if (mode === "plus" && assis.plus) assis.plus();
-    else if (mode === "plus") menuOpen = !menuOpen;
+    if (mode === "plus") menuOpen = !menuOpen;
     else open();
   }
   function choose(run: () => void) {
@@ -152,7 +151,6 @@
     data-orb
     class:away={chip.at !== "here"}
     class:tucked
-    class:over={!!app.editing}
     aria-label={mode === "plus" ? "Add" : "Ask LAR"}
     aria-expanded={mode === "plus" ? menuOpen : undefined}
     onclick={press}
@@ -196,12 +194,6 @@
       translate 0.22s var(--ease),
       scale 0.22s var(--ease);
   }
-  /* Over the note editor, where there is no tab bar (046 C11). */
-  .orb.over {
-    z-index: 56;
-    bottom: calc(var(--safe-bottom) + 16px);
-  }
-
   .orb > * {
     grid-area: 1 / 1;
     width: 100%;

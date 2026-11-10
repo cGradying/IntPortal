@@ -65,8 +65,6 @@ export const assis = $state({
   chat: [] as Msg[],
   /** What this screen adds to the crystal's + menu, after Ask LAR. */
   menu: [] as { label: string; run: () => void }[],
-  /** Set by the note editor: the crystal's + opens its tool sheet instead of the menu (046 C11). */
-  plus: null as null | (() => void),
 });
 
 /** The model a new install gets (the catalog's default chat model). */

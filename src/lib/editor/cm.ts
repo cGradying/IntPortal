@@ -57,6 +57,16 @@ class Bullet extends WidgetType {
 }
 const BULLET = new Bullet();
 
+/** A bad range must never take the page down: the plain Markdown still edits and saves. */
+function safeBuild(view: EditorView, tick: (at: number) => void): DecorationSet {
+  try {
+    return build(view, tick);
+  } catch (e) {
+    console.error("note formatting", e);
+    return Decoration.none;
+  }
+}
+
 function build(view: EditorView, tick: (at: number) => void): DecorationSet {
   const { state } = view;
   const doc = state.doc;
@@ -96,7 +106,8 @@ function build(view: EditorView, tick: (at: number) => void): DecorationSet {
           // The "- " before the box goes too, so the box sits where the bullet was.
           const start = doc.sliceString(line.from, n.from).endsWith("- ") ? n.from - 2 : n.from;
           marks.push(Decoration.replace({ widget: new Box(on, line.from, tick) }).range(start, Math.min(n.to + 1, line.to)));
-          if (on) marks.push(Decoration.mark({ class: "cm-done" }).range(Math.min(n.to + 1, line.to), line.to));
+          // A mark may not be empty: an item with no words yet has nothing to strike.
+          if (on && n.to + 1 < line.to) marks.push(Decoration.mark({ class: "cm-done" }).range(n.to + 1, line.to));
         } else if (name === "ListMark") {
           const after = doc.sliceString(n.to, n.to + 4);
           if (/^ \[[ xX]\]/.test(after)) return;
@@ -150,10 +161,10 @@ export function mountNote(
     class {
       decorations: DecorationSet;
       constructor(v: EditorView) {
-        this.decorations = build(v, on.tick);
+        this.decorations = safeBuild(v, on.tick);
       }
       update(u: ViewUpdate) {
-        if (u.docChanged || u.selectionSet || u.viewportChanged || u.focusChanged) this.decorations = build(u.view, on.tick);
+        if (u.docChanged || u.selectionSet || u.viewportChanged || u.focusChanged) this.decorations = safeBuild(u.view, on.tick);
       }
     },
     { decorations: (v) => v.decorations },

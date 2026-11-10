@@ -158,11 +158,6 @@
     };
   });
 
-  // The + is this page's (C11).
-  $effect(() => {
-    assis.plus = () => (sheet = sheet === "tools" ? null : "tools");
-    return () => (assis.plus = null);
-  });
   $effect(() => closable(() => (sheet ? (sheet = null) : void done())));
 
   // Keep the screen awake while writing, if asked (C11a).
@@ -391,6 +386,11 @@
     {#if look.count}<p class="count">{count} {count === 1 ? "word" : "words"}</p>{/if}
   </footer>
 
+  <!-- The crystal's flat gold +, as on Study (C11): every tool and Ask LAR. -->
+  <button class="plus card notch" class:open={sheet === "tools"} aria-label="Add to this note" aria-expanded={sheet === "tools"} onclick={() => (buzz.tick(), (sheet = sheet === "tools" ? null : "tools"))}>
+    <svg viewBox="-3.25 -3.25 6.5 6.5" aria-hidden="true"><g fill="var(--gold)"><rect x="-1.77" y="-0.57" width="3.54" height="1.14" /><rect x="-0.57" y="-1.77" width="1.14" height="3.54" /></g></svg>
+  </button>
+
   {#if sheet}
     <button class="scrim" aria-label="Close" onclick={() => (sheet = null)}></button>
     <div class="sheet card notch" role="dialog" aria-label={sheet}>
@@ -518,6 +518,7 @@
     inset: 0;
     z-index: 50;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     padding: calc(var(--safe-top) + 8px) var(--gutter) calc(var(--safe-bottom) + 8px);
     background: var(--ground);
@@ -770,6 +771,27 @@
     color: var(--bad);
   }
 
+  .plus {
+    position: fixed;
+    right: var(--gutter);
+    bottom: calc(var(--safe-bottom) + 16px);
+    z-index: 53;
+    width: 52px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    box-shadow: inset 0 0 0 1px var(--edge-2), 0 8px 20px rgb(0 0 0 / 0.35);
+    transition: rotate 0.2s var(--ease);
+  }
+  .plus svg {
+    width: 26px;
+    height: 26px;
+  }
+  .plus.open {
+    rotate: 45deg;
+  }
   /* Sheets rise from the bottom, over the page. */
   .scrim {
     position: fixed;
