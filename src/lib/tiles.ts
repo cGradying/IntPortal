@@ -46,6 +46,7 @@ interface Exports {
   gap(): number;
   portal_rect(pos: number, p: number): number;
   metrics(): number;
+  poke(c: number, r: number, t: number): void;
 }
 
 export interface Frame {
@@ -66,6 +67,8 @@ export async function loadTiles(url = "/tiles.wasm") {
   const x = (await WebAssembly.instantiate(bytes, {})).instance.exports as unknown as Exports;
   return {
     resize: (w: number, h: number) => x.resize(w, h),
+    /** A touch on the selected portal at tile `c`, `r` of its grid, at `t` on the landing's clock (C36). */
+    poke: (c: number, r: number, t: number) => x.poke(c, r, t),
     /** The front portal's tile pitch and tile side, in device px. */
     metrics() {
       const m = x.metrics();

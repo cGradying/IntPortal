@@ -3,7 +3,7 @@
 // while the student is typing. Pure, so the picking is testable.
 import type { Rand } from "./wander";
 
-export type Topic = "greet" | "tip" | "portal" | "tap" | "error" | "busy" | "signed";
+export type Topic = "greet" | "tip" | "portal" | "tap" | "drop" | "error" | "busy" | "signed";
 export type Daypart = "morning" | "afternoon" | "evening";
 
 export interface Line {
@@ -40,6 +40,12 @@ export const LINES: Line[] = [
   { topic: "tap", text: "Lakbay-Aral Robot, at your service!" },
   { topic: "tap", text: "Hehe, nakikiliti ako." },
   { topic: "tap", text: "Kailangan mo ng tulong? Sign in lang, ako na bahala." },
+
+  { topic: "drop", text: "Wheee! Sige, lipad ulit ako." },
+  { topic: "drop", text: "Uy, ingat! Marupok ako. Joke lang." },
+  { topic: "drop", text: "Ayan, dito na lang ako. Pero babalik ako sa portal." },
+
+  { topic: "tip", text: "I-tap mo ang portal, silipin mo ang nasa loob." },
 
   { topic: "error", text: "Ay, hindi pumasok. Check mo ulit ang details, ha?" },
   { topic: "error", text: "Hmm, ayaw pa. Dahan-dahan lang, may limit ang tries." },

@@ -132,6 +132,32 @@ pub struct Input {
     /// The carousel's speed in portals per second, signed (positive is
     /// toward higher portals): the starfield's trails follow it.
     pub vel: f32,
+    /// The last touch on the selected portal (C36): its column and row in the
+    /// portal's own tile grid, and when, in the same clock as `t`. A negative
+    /// time means no touch yet.
+    pub poke: [f32; 3],
+}
+
+/// No touch on the portal yet.
+pub const NO_POKE: [f32; 3] = [0.0, 0.0, -1.0];
+/// A touch's ring: tiles a second, its width in tiles, and how long it runs.
+const RIPPLE_SPEED: f32 = 20.0;
+const RIPPLE_WIDTH: f32 = 2.6;
+const RIPPLE_LIFE: f32 = 1.2;
+
+/// How strongly a touch's ring lights tile `c`, `r` now, 0 to 1 (C36). It runs
+/// out from the finger across the frame and the interior alike, and fades.
+pub fn ripple(inp: &Input, c: i32, r: i32) -> f32 {
+    let [pc, pr, at] = inp.poke;
+    let s = inp.t - at;
+    if inp.reduce || at < 0.0 || !(0.0..RIPPLE_LIFE).contains(&s) {
+        return 0.0;
+    }
+    let ph = s * RIPPLE_SPEED - (c as f32 - pc).hypot(r as f32 - pr);
+    if !(0.0..RIPPLE_WIDTH).contains(&ph) {
+        return 0.0;
+    }
+    (ph / RIPPLE_WIDTH * PI).sin() * (1.0 - s / RIPPLE_LIFE)
 }
 
 /// Whole device pixels: the pitch between tiles, the tile's side, and the
@@ -371,7 +397,7 @@ impl Scene {
         let standing = t > FORM;
         let shade = |c: u32| if dim > 0.0 { mix(c, VOID, dim) } else { c };
         if standing {
-            self.interior(t, stage, opened, lay, dim, out);
+            self.interior(inp, t, stage, opened, lay, dim, out);
         }
         for (i, m) in self.marks.iter().enumerate() {
             let k = t - m.start;
@@ -413,12 +439,16 @@ impl Scene {
                     Stage::Rest => {}
                 }
             }
+            // A touch: the ring dips each block and lights it in the accent as it passes.
+            let rk = ripple(inp, m.c, m.r);
+            let (size, col) = if rk > 0.0 { (size * (1.0 - 0.32 * rk), mix(col, th.accent, 0.85 * rk)) } else { (size, col) };
             push(out, lay, m.c, m.r, size, shade(col), true);
         }
         events
     }
 
-    fn interior(&self, t: f32, stage: Stage, opened: f32, lay: &Layout, dim: f32, out: &mut Vec<Tile>) {
+    #[allow(clippy::too_many_arguments)]
+    fn interior(&self, inp: &Input, t: f32, stage: Stage, opened: f32, lay: &Layout, dim: f32, out: &mut Vec<Tile>) {
         let th = self.look.theme;
         let reach = (t - FORM) * 260.0;
         let k = if stage == Stage::Open { ((t - opened) / 0.7).clamp(0.0, 1.0) } else { 0.0 };
@@ -455,6 +485,9 @@ impl Scene {
                     (lv, 0.55 + lv.min(4) as f32 * 0.1)
                 }
             };
+            // A touch: the ring brightens the interior by up to three steps as it passes.
+            let rk = ripple(inp, c, r);
+            let (lv, size) = if rk > 0.0 { (lv + (rk * 3.0).round() as i32, size + 0.3 * rk) } else { (lv, size) };
             if lv > 0 {
                 let col = th.ramp[lv.min(4) as usize];
                 push(out, lay, c, r, size.min(1.0), if dim > 0.0 { mix(col, VOID, dim) } else { col }, false);
@@ -641,7 +674,7 @@ pub fn carousel(scenes: &[Scene], pos: f32, inp: &Input, w: u32, h: u32, out: &m
     order.sort_by(|a, b| (b.0 as f32 - pos).abs().total_cmp(&(a.0 as f32 - pos).abs()));
     let mut events = 0;
     for (p, lay, dim) in order {
-        let mine = if p == sel { *inp } else { Input { stage: Stage::Rest, ..*inp } };
+        let mine = if p == sel { *inp } else { Input { stage: Stage::Rest, poke: NO_POKE, ..*inp } };
         let ev = scenes[p].frame(&mine, &lay, dim, out);
         if p == sel {
             events = ev;
@@ -671,7 +704,23 @@ mod tests {
     const MOTIFS: [Motif; 6] = [Motif::Swirl, Motif::Ripple, Motif::Bloom, Motif::Rain, Motif::Lattice, Motif::Aurora];
 
     fn at(t: f32, stage: Stage) -> Input {
-        Input { t, prev: t - 1.0 / 60.0, stage, opened_at: 0.0, returning: false, reduce: false, vel: 0.0 }
+        Input { t, prev: t - 1.0 / 60.0, stage, opened_at: 0.0, returning: false, reduce: false, vel: 0.0, poke: NO_POKE }
+    }
+
+    #[test]
+    fn c36_a_touch_rings_out_from_the_finger_and_fades() {
+        let poked = |t: f32| Input { poke: [5.0, 8.0, 3.0], ..at(t, Stage::Rest) };
+        // A tenth of a second in, the ring has run two tiles: lit one tile out, not yet far away.
+        assert!(ripple(&poked(3.1), 6, 8) > 0.0);
+        assert_eq!(ripple(&poked(3.1), 5, 0), 0.0);
+        assert_eq!(ripple(&poked(2.9), 7, 8), 0.0, "nothing before the touch");
+        assert_eq!(ripple(&poked(4.5), 5, 0), 0.0, "gone once it has run its course");
+        assert_eq!(ripple(&Input { reduce: true, ..poked(3.1) }, 6, 8), 0.0, "Reduce Motion: no ring");
+        assert_eq!(ripple(&at(3.1, Stage::Rest), 7, 8), 0.0, "no touch, no ring");
+        // The ring changes the frame the student touched.
+        let (calm, _) = draw_look(SIS, at(FORM + 3.1, Stage::Rest));
+        let (rung, _) = draw_look(SIS, Input { poke: [0.0, 8.0, FORM + 3.0], ..at(FORM + 3.1, Stage::Rest) });
+        assert_ne!(calm, rung);
     }
 
     fn draw_look(look: Look, inp: Input) -> (Vec<Tile>, u32) {

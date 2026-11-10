@@ -146,8 +146,11 @@
 <section class="landing" class:leaving>
   <header class="brand" class:on={resting}>
     <h1>Student <span>IntPortal</span></h1>
+    <p class="pitch">{ready ? copy.pitch : `${portal.school} is next. For now, IntPortal works with PUP.`}</p>
   </header>
 
+  <!-- C16: while the frame builds, the portal stands larger in the middle of the screen; it lifts into its place as the form rises. -->
+  <div class="lift" class:up={resting} style:--drop="{Math.round(cardMin / 2)}px">
   <PortalStage
     bind:this={stageEl}
     {portals}
@@ -161,6 +164,7 @@
     {leaving}
     {ctx}
   />
+  </div>
 
   <!-- In the layout from the start, so the portal's room never jumps when it shows. -->
   <div class="dock" class:on={resting} class:hub={rest === "hub"} inert={!resting}>
@@ -245,6 +249,26 @@
   }
   h1 span {
     color: var(--cream);
+  }
+  .pitch {
+    margin: 4px auto 0;
+    max-width: 30ch;
+    font: 400 min(0.82rem, 22px) / 1.35 var(--font-ui);
+    color: rgb(244 236 216 / 0.66);
+    text-wrap: balance;
+  }
+  .lift {
+    display: grid;
+    min-height: 0;
+    transform: translateY(var(--drop)) scale(1.3);
+    transition: transform 0.7s var(--ease);
+  }
+  .lift.up {
+    transform: none;
+  }
+  /* The school's name comes with the form, not before. */
+  .lift:not(.up) :global(.picker) {
+    opacity: 0;
   }
   .dock {
     display: grid;

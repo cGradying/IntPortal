@@ -15,11 +15,11 @@ const FLY: f32 = 0.42;
 const FIRST_ZOOM: f32 = 1.5;
 const FIRST_FORMS: u32 = 3;
 const FIRST_ARRIVE: f32 = 0.5;
-/// A launch: the frame builds, then one quick change of form (C26).
-const BUILD: f32 = 0.16;
-const LAUNCH_ZOOM: f32 = 0.3;
-const LAUNCH_FORMS: u32 = 1;
-const LAUNCH_ARRIVE: f32 = 0.2;
+/// A launch: the frame builds, then two changes of form, about 1.8 s (C26).
+const BUILD: f32 = 0.45;
+const LAUNCH_ZOOM: f32 = 0.95;
+const LAUNCH_FORMS: u32 = 2;
+const LAUNCH_ARRIVE: f32 = 0.4;
 /// Seconds per form once the camera has landed and data is still loading.
 const HOLD_FORM: f32 = 0.7;
 /// The dark eye's radius, in cells, and how far out its ring of light sits.
@@ -403,7 +403,7 @@ impl Dive {
         // The frame takes its real colours from the portal scene, so a first sign-in lines up with the landing.
         let mut frame_rgb = vec![0u32; (gc * gr) as usize];
         let mut shown = Vec::new();
-        self.scene.frame(&Input { t: FORM + 8.0, prev: FORM + 8.0, stage: Stage::Open, opened_at: 0.0, returning: false, reduce: true, vel: 0.0 }, &Layout { pitch: 1, tile: 1, ox: 0, oy: 0 }, 0.0, &mut shown);
+        self.scene.frame(&Input { t: FORM + 8.0, prev: FORM + 8.0, stage: Stage::Open, opened_at: 0.0, returning: false, reduce: true, vel: 0.0, poke: crate::scene::NO_POKE }, &Layout { pitch: 1, tile: 1, ox: 0, oy: 0 }, 0.0, &mut shown);
         for s in shown.iter().filter(|s| s.frame) {
             frame_rgb[(s.r * gc + s.c) as usize] = s.rgb;
         }
@@ -479,10 +479,11 @@ mod tests {
     #[test]
     fn c26_a_launch_lasts_at_least_the_minimum_and_ends_with_the_data() {
         let quick = timeline(false, 0.0);
-        assert!(quick.arrive_end >= 0.6 && quick.arrive_end < 1.0, "{quick:?}");
-        let slow = timeline(false, 1.8);
-        assert_eq!(slow.arrive, 1.8);
-        assert!((slow.arrive_end - 2.0).abs() < 1e-5);
+        assert!((quick.arrive_end - 1.8).abs() < 0.01, "{quick:?}");
+        assert_eq!(quick.forms, 2);
+        let slow = timeline(false, 2.6);
+        assert_eq!(slow.arrive, 2.6);
+        assert!((slow.arrive_end - 3.0).abs() < 1e-5);
     }
 
     #[test]

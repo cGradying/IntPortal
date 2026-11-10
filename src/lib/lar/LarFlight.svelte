@@ -76,6 +76,8 @@
   let leaveTimer: ReturnType<typeof setTimeout> | undefined;
   let recent: string[] = [];
   let tappedAt = -9;
+  /** Held by the student's finger (C36), in this canvas's CSS px; `moved` once it is a drag, not a tap. */
+  let held: { x: number; y: number; moved: boolean; from: { x: number; y: number } } | null = null;
   let restFrom = 0;
 
   const now = () => (performance.now() - start) / 1000;
@@ -153,7 +155,16 @@
     if (k >= 1) {
       if (!me) me = create(w, rand);
       const was = me.mode;
-      if (!reduce) tick(me, w, ctx, dt, rand);
+      if (held) {
+        // Carried: he follows the finger closely, leaning into the pull.
+        const k = Math.min(1, dt * 18);
+        const nx = me.x + (held.x - me.x) * k;
+        const ny = me.y + (held.y - me.y) * k;
+        me.vx = dt > 0 ? (nx - me.x) / dt : 0;
+        me.vy = dt > 0 ? (ny - me.y) / dt : 0;
+        me.x = nx;
+        me.y = ny;
+      } else if (!reduce) tick(me, w, ctx, dt, rand);
       if (me.mode === "rest" && was !== "rest") restFrom = t;
       ({ x, y, vx, vy } = me);
       look.set(stateFor(t, Math.hypot(vx, vy)), t);
@@ -236,7 +247,37 @@
     });
   });
 
+  // He can be picked up and carried (C36). A press that barely moves is still a tap.
+  function grab(e: PointerEvent) {
+    if (!me || reduce) return;
+    const box = canvas.getBoundingClientRect();
+    held = { x: e.clientX - box.left, y: e.clientY - box.top, moved: false, from: { x: e.clientX, y: e.clientY } };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function carry(e: PointerEvent) {
+    if (!held) return;
+    const box = canvas.getBoundingClientRect();
+    held.x = Math.max(R * 0.6, Math.min(box.width - R * 0.6, e.clientX - box.left));
+    held.y = Math.max(R * 0.6, Math.min(box.height - R * 0.6, e.clientY - box.top));
+    if (!held.moved && Math.hypot(e.clientX - held.from.x, e.clientY - held.from.y) > 10) {
+      held.moved = true;
+      buzz.select();
+    }
+  }
+  function drop() {
+    if (!held) return;
+    const moved = held.moved;
+    held = null;
+    if (moved) {
+      tappedAt = now();
+      say("drop", true);
+    }
+  }
+  // The click after a carry is not a tap.
+  let carried = false;
+
   function poke() {
+    if (carried) return void (carried = false);
     tappedAt = now();
     buzz.select();
     say("tap", true);
@@ -246,7 +287,17 @@
 
 <div class="flight">
   <canvas bind:this={canvas} aria-hidden="true"></canvas>
-  <button bind:this={tap} class="tap" class:on={show} aria-label="LAR, tap to talk" onclick={poke}></button>
+  <button
+    bind:this={tap}
+    class="tap"
+    class:on={show}
+    aria-label="LAR, tap to talk"
+    onclick={poke}
+    onpointerdown={grab}
+    onpointermove={carry}
+    onpointerup={() => ((carried = !!held?.moved), drop())}
+    onpointercancel={drop}
+  ></button>
   <div bind:this={bubble} class="bubble" class:on={!!shown} class:leaving aria-live={live ? "polite" : "off"}>
     <!-- Screen readers get the whole line at once; the typed copy is only for the eyes. -->
     <span class="sr">{shown ? `LAR: ${shown}` : ""}</span>
@@ -283,6 +334,8 @@
     -webkit-appearance: none;
     appearance: none;
     pointer-events: none;
+    /* He can be carried: the finger moves him, not the page. */
+    touch-action: none;
   }
   .tap.on {
     pointer-events: auto;
