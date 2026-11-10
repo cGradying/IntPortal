@@ -355,6 +355,49 @@ svg.pi { display: block; flex: none; }
 .ministamp { position: absolute; right: 8px; top: 6px; padding: 2px 6px; font: 700 13px var(--f-pixel); letter-spacing: 0.06em; color: var(--gold); box-shadow: inset 0 0 0 2px currentColor; rotate: -7deg; animation: thunk 0.36s var(--ease) both 0.2s; }
 /* Phones narrower than a mock phone plus the gutters: shrink the mock, not the page. */
 @media (max-width: 360px) { .phone { zoom: 0.86; } }
+
+/* ---------------- shared: LAR's header ----------------
+   The sky stage from the old sheet, inside the glass: a solid band in the portal's ramp with slow
+   pools of light and a few pixel stars, split from the chat by a dithered pixel edge. LAR stands on
+   that edge. With the keyboard up or the chat scrolled it folds to 56 px and LAR shrinks with it. */
+.lh { position: relative; flex: none; height: 96px; display: flex; align-items: flex-end; gap: 6px; padding: 0 4px 0 2px; isolation: isolate; color: #fff6dc; transition: height 0.34s var(--ease); }
+.lh-sky { position: absolute; inset: 0; z-index: -1; overflow: hidden;
+  background:
+    radial-gradient(42% 70% at 18% 100%, color-mix(in srgb, var(--r3) 70%, transparent), transparent 70%),
+    radial-gradient(38% 80% at 86% 0%, color-mix(in srgb, var(--r4) 30%, transparent), transparent 70%),
+    radial-gradient(60% 90% at 62% 118%, color-mix(in srgb, var(--r2) 80%, transparent), transparent 75%),
+    linear-gradient(172deg, var(--r0), var(--r1) 72%, var(--r0));
+  background-size: 180% 160%, 200% 180%, 160% 140%, 100% 100%;
+  background-position: 0% 100%, 100% 0%, 50% 100%, 0 0;
+  box-shadow: inset 0 1px 0 rgb(255 236 214 / 0.2);
+  animation: lhDrift 16s ease-in-out infinite alternate; }
+/* Pixel stars, each its own twinkle, on whole pixels. */
+.lh-sky i { position: absolute; width: 2px; height: 2px; background: #fff6dc; animation: lhTw 2.6s steps(3, jump-none) infinite alternate; }
+.lh-sky i:nth-child(1) { left: 34%; top: 16px; } .lh-sky i:nth-child(2) { left: 52%; top: 30px; opacity: 0.6; animation-delay: -0.8s; }
+.lh-sky i:nth-child(3) { left: 66%; top: 12px; animation-delay: -1.6s; } .lh-sky i:nth-child(4) { left: 78%; top: 44px; opacity: 0.5; animation-delay: -0.4s; }
+.lh-sky i:nth-child(5) { left: 92%; top: 26px; opacity: 0.7; animation-delay: -2s; } .lh-sky i:nth-child(6) { left: 44%; top: 52px; opacity: 0.4; animation-delay: -1.2s; }
+/* The split: a 2-row dither from the sky into the glass, then a hairline of the glass's lit edge. */
+.lh-sky::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+  background: conic-gradient(var(--g-a) 25%, transparent 0 50%, var(--g-a) 0 75%, transparent 0) 0 0 / 6px 6px; }
+.lh-perch { position: relative; flex: none; width: 76px; height: 100%; overflow: hidden; transition: width 0.34s var(--ease); }
+.lh-cv { position: absolute; left: 50%; bottom: 0; translate: -50% 0; image-rendering: pixelated; transform-origin: 50% 100%; scale: 0.8; margin-bottom: -10px; transition: scale 0.34s var(--ease); }
+.lh-who { flex: 1; min-width: 0; display: grid; gap: 3px; padding-bottom: 16px; transition: padding 0.34s var(--ease); }
+.lh-tag { font: 600 13px var(--f-pixel); letter-spacing: 0.1em; color: var(--r4); text-shadow: 0 1px 0 rgb(6 3 7 / 0.7); }
+.lh-st { display: flex; align-items: center; gap: 5px; min-height: 16px; font: 500 12.5px var(--f-ui); color: rgb(255 246 220 / 0.86); text-shadow: 0 1px 0 rgb(6 3 7 / 0.6); white-space: nowrap; overflow: hidden; }
+.lh-st i { flex: none; width: 3px; height: 3px; background: currentColor; animation: lhBlink 1s steps(2, jump-none) infinite; }
+.lh-st i:nth-of-type(2) { animation-delay: 0.2s; } .lh-st i:nth-of-type(3) { animation-delay: 0.4s; }
+.lh-btns { position: absolute; top: 4px; right: 4px; display: flex; }
+.phone .lh-ib { display: grid; place-items: center; width: 44px; height: 44px; border: 0; background: none; color: rgb(255 246 220 / 0.82); filter: drop-shadow(0 1px 0 rgb(6 3 7 / 0.6)); transition: color 0.16s var(--ease); }
+.phone .lh-ib:hover { color: #fff6dc; }
+.lh-ib[hidden] { display: none; }
+.lh.lh-small { height: 56px; }
+.lh-small .lh-perch { width: 56px; }
+.lh-small .lh-cv { scale: 0.5; margin-bottom: -5px; }
+.lh-small .lh-who { padding-bottom: 12px; grid-auto-flow: column; justify-content: start; align-items: baseline; gap: 8px; padding-right: 90px; }
+@keyframes lhDrift { to { background-position: 100% 60%, 0% 100%, 30% 80%, 0 0; } }
+@keyframes lhTw { from { opacity: 0.25; } }
+@keyframes lhBlink { 50% { opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) { .lh-sky, .lh-sky i, .lh-st i { animation: none; } .lh, .lh-perch, .lh-cv, .lh-who { transition: none; } }
 /*ROWCSS*/
 </style>
 
@@ -852,7 +895,10 @@ function mountCrystal(parent, o = {}) {
       c.lit += (lt - c.lit) * (1 - Math.exp(-dt * 9));
       L[i] = c.lit;
     });
-    if (!reduce) {
+    if (!reduce && s.face) {
+      const f = 1 - Math.exp(-dt * 24), q = Math.PI / 2;
+      s.yaw += (Math.round(s.yaw / q) * q - s.yaw) * f; s.pitch += (0 - s.pitch) * f; s.roll += (0 - s.roll) * f;
+    } else if (!reduce) {
       if (s.mode === "plus") {
         if (s.think) { s.yaw += dt * 0.42; s.pitch += (0.5 - s.pitch) * (1 - Math.exp(-dt * 5)); }
         const near = s.think ? s.yaw : Math.round(s.yaw / (Math.PI * 2)) * Math.PI * 2;
@@ -889,6 +935,7 @@ function mountCrystal(parent, o = {}) {
     set(mode) { wake(); s.mode = mode; if (o.tag !== "div") el.setAttribute("aria-label", mode === "plus" ? "Add" : "Ask LAR"); s.rollT = 0; if (reduce) frame(0.016, 0); },
     think(on) { wake(); s.think = on; if (reduce) frame(0.016, 0); },
     pulse() { wake(); s.sv += 3.4; },
+    face(on) { wake(); s.face = on; },
     wake,
     asleep: () => s.asleep,
     menu(on) { wake(); s.rollT = on ? Math.PI / 4 : 0; el.classList.toggle("open", on); if (reduce) frame(0.016, 0); },
@@ -1340,6 +1387,32 @@ $("#copy").addEventListener("click", () => {
   navigator.clipboard.writeText(text).then(() => done("Copied. Paste it into the chat."), fallback);
 });
 
+/* ---------------- shared: LAR's header ---------------- */
+const LH_NEW = `<svg width="18" height="18" viewBox="0 0 9 9" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M4 1h1v3h3v1H5v3H4V5H1V4h3z"/></svg>`;
+const larHeader = () => `<div class="lh"><div class="lh-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="lh-perch" aria-hidden="true"><canvas class="lh-cv"></canvas></div><div class="lh-who"><span class="lh-tag">LAR</span><span class="lh-st" aria-live="polite">On this phone</span></div><div class="lh-btns"><button class="lh-ib lh-new" type="button" aria-label="New chat" hidden>${LH_NEW}</button><button class="lh-ib lh-x" type="button" aria-label="Close">${pi("close", 18)}</button></div></div>`;
+/** The sky takes the room's portal ramp. */
+const skyRamp = (el, ramp = PUP_RAMP) => ramp.forEach((c, i) => el.style.setProperty(`--r${i}`, c));
+/* LAR in the header, the app's rig and art without his old pixel cube. `on` false draws nothing;
+   `fold` set plays his spawn backwards, so he coarsens into blocks and his fire takes him. */
+const headLars = new Set();
+function headLar(cv) { cv.width = LW; cv.height = LH; cv.style.width = LW + "px"; cv.style.height = LH + "px"; const L = { cv, rig: LarKit.rig("idle"), on: true, fold: 0, back: 0, clock: () => performance.now() / 1000 }; headLars.add(L); return L; }
+let headLast = 0;
+(function headLoop(ts) {
+  if (ts - headLast > 33) {
+    headLast = ts;
+    for (const L of headLars) {
+      const t = L.clock(), g = L.cv.getContext("2d"); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, LW, LH);
+      if (!L.on) continue;
+      if (L.back && t > L.back) { L.rig.set("idle", t); L.back = 0; }
+      let o = {};
+      if (L.fold) { const k = clamp((t - L.fold) / 0.3); if (k >= 1) { L.on = false; L.fold = 0; continue; } o = { k: 1 - k }; }
+      g.imageSmoothingEnabled = false; g.save(); g.translate(-LBOX.x0 * 2, -LBOX.y0 * 2); g.scale(2, 2);
+      try { LarKit.drawLar(g, L.rig.at(t, o, reduce), larTheme(null), reduce ? 0 : t, { shadow: false, cube: false }); } catch { /* the sketch can do without him */ }
+      g.restore();
+    }
+  }
+  requestAnimationFrame(headLoop);
+})(0);
 /*ROWJS*/
 renderTray();
 window.__lw = { crystals: crystalTick };
