@@ -75,6 +75,36 @@ describe("asking LAR", () => {
     expect(assis.busy).toBe("");
   });
 
+  it("c12: keeps the steps LAR really took on his turn, in order, with the intent", async () => {
+    backend.ai_ask = (a) => {
+      a.onStep.onmessage({ step: "read" });
+      a.onStep.onmessage({ step: "search" });
+      a.onStep.onmessage({ step: "found", found: [{ key: "card:7", title: "OOP" }], quote: "a promise" });
+      a.onStep.onmessage({ step: "write" });
+      return reply("An interface is a promise.", { intent: "ask" });
+    };
+    await ask("what is an interface?");
+    expect(assis.chat[1].steps?.map((s) => s.step)).toEqual(["read", "search", "found", "write"]);
+    expect(assis.chat[1].intent).toBe("ask");
+  });
+
+  it("c12: a turn that had to wake the model starts with the wake step", async () => {
+    disk = [chat({ loaded: false }), embed()];
+    assis.models = structuredClone(disk);
+    backend.ai_load = () => (disk = [chat(), embed()], undefined);
+    backend.ai_ask = (a) => (a.onStep.onmessage({ step: "read" }), reply("Walang due.", { intent: "due" }));
+    await ask("ano ang due ko");
+    expect(assis.chat[1].steps?.map((s) => s.step)).toEqual(["wake", "read"]);
+  });
+
+  it("c12: steps are session-only, so a turn from history has none", async () => {
+    backend.ai_history = () => [{ role: "me", text: "hi" }, { role: "lar", text: "Hello!" }];
+    await open();
+    await settle();
+    expect(assis.chat).toHaveLength(2);
+    expect(assis.chat.every((m) => m.steps === undefined && m.intent === undefined)).toBe(true);
+  });
+
   it("tells the core which note is open, and the question it sent", async () => {
     app.editing = { key: "class:MATH 101", heading: "MATH 101", title: null };
     backend.ai_ask = () => reply("ok");

@@ -50,7 +50,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
     - "Note search is off".
   - "Writing", only while the model writes.
 
-  A rule answer shows only the read step. No thoughts are made up.
+  A rule answer (due, classes, grades) never shows "Writing"; it may still show the search, which really runs for it. A request (remind, note, cards) is not searched, so it shows only the read step. No thoughts are made up.
 - **C13.** The trace is pixel and 2.5D:
   - Each step is an 8 pt gold cube with a lit top and a shaded side. Running, it blinks; done, a cream datum pixel shows on it.
   - A 2 pt gold line joins the cubes, with a 1 pt shadow. It grows down in six steps, and a 2 pt packet runs down it to each new step.
@@ -90,7 +90,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 ## Data shape
 
 - `src-tauri/src/ai.rs` `ai_ask` gains `on_step: Channel<Step>`. It sends `{ step: "read" }` before the facts, `{ step: "search" }` before recall, then `{ step: "found", found: Source[], quote: string }`, `{ step: "nothing" }` or `{ step: "search_off" }`, and `{ step: "write" }` when the model's first words arrive. `Ask` gains `intent: "ask" | "note" | "remind" | "cards" | "due" | "classes" | "grades"`, from `intent::resolve`. The quote is the first recalled line, trimmed to 140 characters.
-- `src/lib/assis/assis.svelte.ts`: each LAR turn in `assis.chat` gains `steps: Step[]` and `intent`. The wake step comes from the app's own load (`busy === "waking"`). Steps and intent are session-only: the `turns` table (`store.rs`) is unchanged, so a turn restored from history shows its answer and From chips with no trace, and the suggestions fall back to the day's (C17).
+- `src/lib/assis/assis.svelte.ts`: each LAR turn in `assis.chat` gains `steps: Step[]` and `intent`. The wake step comes from the app's own load (`busy === "waking"`). Steps and intent are session-only: the `turns` table (`store.rs`) is unchanged, so a turn restored from history shows its answer with no trace (history keeps only the text today), and the suggestions fall back to the day's (C17).
 - `src/lib/assis/apply.ts`: `starters(day)` and `followUps(turn)`, both pure and tested.
 - `src/lib/assis/pour.ts` (new): the pour's geometry and timing, pure; the canvas drawing lives in `AssisWindow.svelte`. The crystal gains `face(on)` in `crystal.ts`.
 - `src/lib/assis/neuron.ts` and its tests are removed.

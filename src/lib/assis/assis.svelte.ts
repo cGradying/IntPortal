@@ -24,9 +24,22 @@ export interface Source {
   title: string;
 }
 
+/**
+ * One step LAR really took for a turn, as it happened (spec 048 C12). `wake` is the app's own model load;
+ * the rest come from `ai_ask`. Session-only: a turn restored from history has none.
+ */
+export type Step = { step: "wake" | "read" | "search" | "nothing" | "search_off" | "write" } | { step: "found"; found: Source[]; quote: string };
+
+/** What the rules took a question for; the chat picks its follow-ups by it (spec 048 C18). */
+export type Intent = "ask" | "note" | "remind" | "cards" | "due" | "classes" | "grades";
+
 export interface Msg {
   from: "me" | "lar";
   text: string;
+  /** This session's turns only: what LAR did for this answer, in order. */
+  steps?: Step[];
+  /** This session's turns only. */
+  intent?: Intent;
   proposal?: Proposal;
   /** The notes LAR was shown for this answer; each opens that note. */
   sources?: Source[];
@@ -272,6 +285,7 @@ export async function ask(text: string) {
   if (!message || assis.busy) return;
   assis.chat.push({ from: "me", text: message });
   stopped = false;
+  const asleep = !chatModel()?.loaded;
   const awake = await wake(looksFilipino(message));
   if (stopped) return; // Stop while the model was waking: no reply at all
   if (!awake) {
@@ -281,11 +295,15 @@ export async function ask(text: string) {
   assis.busy = "thinking";
   assis.chat.push({ from: "lar", text: "" });
   const reply = assis.chat[assis.chat.length - 1];
+  if (asleep) reply.steps = [{ step: "wake" }];
   const onText = new Channel<string>();
   onText.onmessage = (words) => (reply.text += words);
+  const onStep = new Channel<Step>();
+  onStep.onmessage = (s) => (reply.steps ??= []).push(s);
   try {
-    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[] }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText });
+    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[]; intent: Intent }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText, onStep });
     reply.text = r.reply;
+    reply.intent = r.intent;
     reply.sources = r.sources.length ? r.sources : undefined;
     if (r.proposal) [reply.proposal, reply.state] = [r.proposal, "pending"];
   } catch (e) {
