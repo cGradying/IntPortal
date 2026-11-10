@@ -58,9 +58,9 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 - **C10.** The saved text is plain Markdown, with `==text==` for highlight and `- [ ]` for checklists, so Share, Export and the AI index keep working.
   *Built 2026-11-11:* every edit is a pure function on the Markdown in `src/lib/editor/md.ts`; the store still holds plain text.
 - **C11.** One floating crystal +, the same as on Study, opens a sheet of Ask LAR first, shown only when `installed()`, then 15 tools: heading, bold, italic, highlight, strike, bullets, numbers, checklist, quote, code, divider, date entry, photo, template, make cards. Selecting text shows a small bar of bold, italic, highlight and strike.
-  *Built 2026-11-11:* the editor draws its own flat gold + at the bottom right, because the app's crystal lives in the tab shell's stacking context, under the full-screen editor. The sheet has Ask LAR first (only with a model), then the 15 tools. Photo shows "Soon" until the Photos phase (C15). Selecting text shows bold, italic, highlight and strike at the top right.
+  *Built 2026-11-11:* the crystal is the +: the editor mounts inside the tab shell's stacking context, the crystal sits above it at the bottom right, and its press opens the editor's sheet (`assis.plus`). The sheet has Ask LAR first (only with a model), then the 15 tools. Photo shows "Soon" until the Photos phase (C15). Selecting text shows bold, italic, highlight and strike at the top right.
 - **C11a.** Page settings (Aa): text size, font (Phone, Classic, Mono), line spacing, paper (plain, lines, dots, grid), what a new note starts as, word count, keep the screen awake while writing. They apply to every note, and they change how the page looks, never its Markdown.
-  *Built 2026-11-11:* kept on the phone as `notePage`. Keep awake uses the Wake Lock API where the webview has it.
+  *Built 2026-11-11:* kept on the phone as `notePage`. Keep awake uses the Wake Lock API where the webview has it, and asks again each time the app comes back on screen.
 - **C11b.** This note (the dots): pin, move to a subject, find in note, share with its word count, delete with its confirm. Undo and redo sit in the top bar.
   *Built 2026-11-11:* pin, move (freeform notes only: class notes are filed by their class), find (Next jumps to the next match, wrapping), share with its word count, delete with its confirm. Undo and redo are CodeMirror's history.
 - **C11c.** Tool icons are the hand-placed 12 by 12 set on the picks page: chunky stems and one gold accent. Only the crystal is 3D.
@@ -72,7 +72,7 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 - **C13.** A new note offers Blank, Lecture, Cornell, Exam reviewer and Dated log. A template on a note with text adds below it and never replaces it.
   *Built 2026-11-11:* a new note opens on Start from, unless Aa says Blank or Last used. Dated log starts with today's entry.
 - **C14.** Add entry (030 C11–C14): Dated log and class notes add a dated heading with one tap and put the cursor on the line after it. The date is today when the class meets today, otherwise its next meeting, skipping vacant weeks and following moved meetings, and a class with no future meeting uses today. The heading reads `### Mon, Oct 20` in the phone's locale. If the note already ends with that date's heading, the cursor moves there and nothing is added. The date comes from the core, tested. The editor only inserts the heading.
-  *Built 2026-11-11:* the Date entry tool. For a class note the date comes from the core's `entry_date`; for any other note it is today.
+  *Built 2026-11-11:* the Date entry tool. For a class note the date comes from the core's `entry_date`; for any other note it is today. If the last dated heading is already that day's, written under or not, the cursor goes to the end and nothing is added.
 - **C14a.** The after-class prompt's tap opens the class note on that meeting's dated entry, finishing what 042 C8 and C9 left waiting on Add entry.
   *Built 2026-11-11:* the after-class tap opens the class note with `entry`, which adds or finds that day's heading.
 
@@ -92,7 +92,7 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
   *Built 2026-11-11:* Make cards (a tool, and in Ask LAR) lists the note's lines with boxes; `term - meaning` lines (also with – or —) start ticked, split into front and back.
 - **C19.** A review step shows each card's front and back, editable, and which deck they go to: the subject's deck, or a new one named after the subject.
 - **C20.** Nothing is saved until Save cards. Fronts the deck already has are dropped, using `tidy` in `assis/cards.ts`.
-  *Built 2026-11-11:* the subject's deck if it has one, else a new deck named after the note. `tidy` drops fronts the deck already has.
+  *Built 2026-11-11:* the subject's deck if it has one, else a new deck named after the note, made once: a second Save adds to it. Save waits until the decks have loaded. `tidy` drops fronts the deck already has.
 - **C21.** With a model installed (`installed()`), Ask AI cards (`DeckCards`) still works and goes through the same review.
 
 **A Done you can find**
@@ -159,6 +159,7 @@ Every tool and row has a 44 pt target and a name. Checklist boxes are real contr
 | C16, C17 | `cargo`: `c17_note_delete_removes_photos`, per-student store |
 | C18–C20 | `vitest`: `c18_term_lines_start_chosen`, `c20_duplicates_dropped` |
 | C9, C11, C12, C15, C22 | screenshot, real phone |
+| C11a | real phone: keep awake holds while writing, and again after leaving the app and coming back |
 
 ## Open questions
 
