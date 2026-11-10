@@ -28,7 +28,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | Spec | Status | Covers |
 |---|---|---|
 | [000-sis-data-map](000-sis-data-map.md) | draft | What the app reads from the SIS, and where it lands |
-| [010-landing](010-landing.md) | draft | The tile portal, its states, the carousel, the dive |
+| [010-landing](010-landing.md) | shipped | The tile portal, its states, the carousel, the dive, touch and the peek |
 | [011-login](011-login.md) | draft | The sign-in form, errors and the lockout guard |
 | [012-portals](012-portals.md) | draft | The portal model: SIS now, Mabini next |
 | [020-ai](020-ai.md) | building | LAR that streams, remembers, cites notes; Ask AI in a note |

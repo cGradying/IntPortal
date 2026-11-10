@@ -266,6 +266,10 @@
   .lift.up {
     transform: none;
   }
+  /* The school's name comes with the form, not before. */
+  .lift:not(.up) :global(.picker) {
+    opacity: 0;
+  }
   .dock {
     display: grid;
     gap: 10px;

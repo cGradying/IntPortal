@@ -1,6 +1,6 @@
 # 010 Landing
 
-**Status:** draft
+**Status:** shipped (2026-11-10). Every criterion is built; C20 and C21 are removed.
 
 ## What changes for the student
 
@@ -22,7 +22,7 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 
 ## Behaviour
 
-Shipped in `crates/intportal-tiles` (the scene), `PortalStage.svelte` and `lar/LarFlight.svelte`: C1–C15, C17–C19, C22–C25. Next: the lift (C16), C18c and the dive (C26–C34).
+Shipped in `crates/intportal-tiles` (the scene and the dive), `Landing.svelte`, `PortalStage.svelte`, `PortalPeek.svelte`, `Dive.svelte`, `Greeting.svelte` and `lar/LarFlight.svelte`: C1–C19, C22–C38.
 
 **Fit.** The portal takes whatever height the form leaves and picks the largest whole-pixel tile pitch that fits the 12 × 16 grid with a tile of margin, so it stays crisp and centred on every phone's aspect ratio.
 
@@ -59,7 +59,7 @@ Shipped in `crates/intportal-tiles` (the scene), `PortalStage.svelte` and `lar/L
 
 **Layout**
 
-- **C16.** During the intro the portal fills the screen. It then lifts and shrinks to the top third as the form rises.
+- **C16.** While the frame builds, the portal stands larger (1.3×) in the middle of the screen, with no form and no school name. As the form rises it lifts and shrinks into its place above the form over 0.7 s, on the same ease. A returning student and Reduce Motion start at rest. (The 2026-10 wording said the portal fills the screen; a full-screen canvas scaled 2.5× blurs the tiles, so it stands at 1.3× instead.)
 - **C17.** The portal holds still while a form field has focus.
 
 **LAR**
@@ -78,7 +78,7 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 - **C21.** *Removed* (2026-10-25). The "fourth dimension" morph prototype is retired with C20.
 - **C26. Launch, signed in.**
   - The app opens on the void with the student's own portal. It builds and dives at once, with no form and no Step through.
-  - The cached snapshot loads and adopts while the dive runs, never after it. The dive ends at the later of 0.6 s and data ready.
+  - The cached snapshot loads and adopts while the dive runs, never after it. The dive ends at the later of 1.8 s and data ready: the frame builds over 0.45 s, the camera dives through two changes of form over 0.95 s, and the field lands over 0.4 s. (Slowed on 2026-11-10 at the user's ask, from 0.6 s, which read as a flash: "the already logged one its too fast".)
   - If data is still loading after the dive, the tunnel keeps changing form at full screen (C29a). At 3 s it enters Today with whatever is cached, and the sync carries on behind.
 - **C27. First sign-in.**
   1. After a successful sign-in, Step through shows as today.
@@ -97,16 +97,29 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 - **C29a. The tunnel shader** (added 2026-11-04). One function per tile, in the same tiles as everything else.
   - **Forms:** spiral arms, round rings, a square corridor, petals, polar checks and plasma. Each gives a brightness for a cell. They blend as brightness, so one shape melts into the next, and each play takes a different order. Angles only take whole multiples, so no form has a seam.
   - **Look, shared by every form:** every dark part glows at its edge, and the far end is a dark eye in a ring of light. Brightness lands on the school's ramp through a 4 × 4 Bayer dither. There are eight colours a frame.
-  - **Speed ramp:** shader time and the camera both surge through each change of form and coast between them. A first sign-in has three changes, a launch has one, and slow data keeps changing every 0.7 s.
+  - **Speed ramp:** shader time and the camera both surge through each change of form and coast between them. A first sign-in has three changes, a launch has two, and slow data keeps changing every 0.7 s.
   - **Cost:** per-cell geometry is computed once into a table, so a tile costs a few cosines. Target: under 2 ms a frame in Rust on the iPhone 17e.
 - **C30. Today rises once** (revised 2026-11-09, the user's pick in round three). Today is fully laid out under the hello from the start of arrival. It rises once, block by block, as the hello leaves (C35), and nothing else on it moves. This replaces the 2026-11-03 rule that nothing on Today rises after the field lands.
 - **C31. Haptics.** One light tick when the dive starts, and one soft thud on the reveal. They follow the haptics setting.
 - **C32. Reduce Motion.** No portal and no dive: launch and Step through go straight to Today with a 0.2 s cross-fade in the room's ground colour.
-- **C33. No switch.** There is no "Play portal on open" setting. The dive costs at most 0.6 s over loading on a normal launch, and the scene stops drawing and frees its canvas as soon as Today shows.
+- **C33. No switch.** There is no "Play portal on open" setting. The dive costs at most 1.8 s over loading on a normal launch, and the scene stops drawing and frees its canvas as soon as Today shows.
 - **C34. Signed out.** A launch with no login, or one whose adoption fails, lands on the landing and form as today.
 - **C35. The hello** (added 2026-11-09, the user's ask). On every way in (launch signed in, and Step through), the dive lands on the room's ground and the day says hello: "Good afternoon." then "Today is Monday, November 9.", each word fading up out of a soft blur, slowly, like a new device saying hello. It holds (about 1.5 s in all), then lifts away as Today rises block by block (C30). Picked 2026-11-09, round three: A, two lines, Today rises. The greeting is no longer at the top of Today; the date is Today's title.
   - The hello waits for Today's data (not only Today mounted), so Today never rises as a skeleton. It waits at most 3 s from the dive's landing; past that Today rises with what is cached and the data follows, as in C26. A tap skips the rest of the hold.
   - Reduce Motion: no dive, the hello cross-fades in and out (C32's cross-fade becomes this).
+
+**Touch and the peek** (added 2026-11-10, the user's ask for an "interactive and sensical landing page"; picks: peek through the portal, the portal and LAR react to touch, a one-line pitch)
+
+- **C36. The portal and LAR answer a touch.**
+  - A tap on the selected portal sends a ring out from the finger at 20 tiles a second, across the frame and the interior alike: each frame block dips and lights in the accent as it passes, and the interior brightens up to three steps. It fades over 1.2 s. One `select` haptic. A tap is a touch that moves under 10 px and lifts within 0.4 s, so swipes still turn the carousel.
+  - LAR can be picked up and carried: he follows the finger closely, leaning into the pull, and when let go he says a "drop" line and wanders on. A press that barely moves is still a tap (C18a).
+  - Reduce Motion: no ring, and LAR can't be carried.
+- **C37. Peek through the portal.**
+  - After the ring has run 0.38 s, a view opens out of the portal's mouth in six pixel steps, larger than the portal, and shows what is on the other side, with sample data marked "Sample": Today (the next class and a due), Schedule (a week of blocks), Grades (this term's average and three subjects) and Study (a flashcard and cards due). LAR names each page in a line inside the view.
+  - Each page holds 4.5 s, then turns; a tap on the view turns it at once; the last page closes it. A tap on the void round the portal, a focused field, a swipe to another portal or Step through closes it too.
+  - Until the student's first peek, "Tap the portal to peek inside" shows under the portal, in Pixelify; it is remembered on the phone.
+  - The view is one button: VoiceOver reads the page's name and "Tap for the next one".
+- **C38. A one-line pitch.** Under the wordmark, one line in the system face says what IntPortal does with the selected portal: "Your SIS schedule, grades and deadlines on your phone. Works offline." (SIS), "Your eMabini courses and deadlines, next to your classes. Works offline." (Mabini), and "{school} is next. For now, IntPortal works with PUP." for a portal that is not ready.
 
 **Motion budget and renderer**
 
@@ -156,9 +169,9 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 | C4–C8 | `cargo test`: tiles present at fixed `t` values; bottom-centre first; meeting haptic at the right frame |
 | C9–C12 | `cargo test`: tile colours at fixed `t` per stage |
 | C13–C15 | vitest on the carousel state; screenshot |
-| C16–C19 | screenshot on iPhone 18 Pro and 17e |
+| C17–C19 | screenshot on iPhone 18 Pro and 17e |
 | C18c | `vitest lar/sprite.test.ts`: `c18c_mitts_move_at_most_one_pixel_per_frame` across every gesture and mood switch |
-| C26 | vitest `dive.test.ts`: `c26_dive_ends_at_later_of_min_and_ready`, `c26_dive_caps_at_3s`; screen recording on 18 Pro and 17e |
+| C26 | `cargo test`: `c26_a_launch_lasts_at_least_the_minimum_and_ends_with_the_data` (1.8 s, two forms), `c26_the_tunnel_holds_until_data_is_ready`; screen recording on 18 Pro |
 | C27–C29 | `cargo test -p intportal-tiles`: dive frames at fixed `t` (tunnel order, Bayer step count, last frame equals room ground); recording |
 | C30 | recording: Today's blocks rise once as the hello leaves, and nothing moves after |
 | C31 | `cargo test`: haptic events at dive start and reveal |
@@ -166,11 +179,14 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 | C33 | review: no setting; canvas removed after reveal |
 | C34 | vitest on the launch state |
 | C35 | vitest `greeting.test.ts`; screen recording: dive, hello, Today rising, no pops; a tap skips |
+| C36 | `cargo test`: `c36_a_touch_rings_out_from_the_finger_and_fades`; vitest `peek.test.ts`: `c36_a_tap_is_short_and_still_a_swipe_is_not`; recording: the ring, LAR carried and dropped |
+| C37 | vitest `peek.test.ts`: `c37_the_peek_shows_today_schedule_grades_study_then_closes`; recording: the view opens out of the mouth, turns, closes on a tap outside |
+| C38 | screenshot |
+| C16 | recording: the portal builds in the middle and lifts as the form rises |
 | C22–C23 | measured fps on the 17e, reported in the PR |
 | C24 | review: no three.js in `package.json`; bundle size reported |
 | C25 | `cargo test`: same input gives the same tiles |
 
 ## Open questions
 
-- C28: whether LAR leads as a sprite or folds into his cube at the mouth. The Step 3 mockup decides.
-- Whether LAR's two lines are kept as they are.
+None. C28 was settled in round six (LAR leads as a sprite), and LAR's lines live in `lar/lines.ts`.
