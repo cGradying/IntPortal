@@ -358,7 +358,7 @@ impl From<Proposal> for ProposalDto {
 }
 
 /// A note, deck (`card:<id>`) or syllabus (`plan:<code>`) an answer drew on. The chat shows it as a chip.
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Source {
     key: String,
     title: String,
@@ -372,6 +372,8 @@ pub struct Ask {
     /// The notes the answer drew on: empty for a scope-guard reply, a canned refusal, a rule answer and a
     /// reply where the model said it had nothing (#162).
     sources: Vec<Source>,
+    /// What the rules took the question for; the chat picks its follow-ups by it (spec 048 C18).
+    intent: &'static str,
     #[serde(skip)]
     asked_model: bool,
 }
@@ -413,12 +415,14 @@ struct Recall {
     near: Vec<String>,
     sources: Vec<Source>,
     searched: bool,
+    /// The text of the best hit, for the found step (spec 048 C12).
+    quote: String,
 }
 
 /// The notes, cards and syllabus text closest to `query`, as lines for the prompt and as chips for the UI.
 fn recall(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>, query: &str) -> Res<Recall> {
     if !embedder_ready(app, slot)? {
-        return Ok(Recall { lines: vec![], near: vec![], sources: vec![], searched: false });
+        return Ok(Recall { lines: vec![], near: vec![], sources: vec![], searched: false, quote: String::new() });
     }
     let state = app.state::<AppState>();
     let hits = {
@@ -429,17 +433,85 @@ fn recall(app: &tauri::AppHandle, slot: &Mutex<Option<Loaded>>, query: &str) -> 
     release_on_small_ram(slot); // before the chat model answers
     let hits = hits.map_err(err)?;
     let all = store(&state)?.sources().map_err(err)?;
-    let (mut lines, mut near, mut sources) = (vec![], vec![], Vec::<Source>::new());
+    let (mut lines, mut near, mut sources, mut quote) = (vec![], vec![], Vec::<Source>::new(), String::new());
     for h in hits {
         let Some(found) = all.iter().find(|s| s.key == h.key) else { continue };
         let title = found.title.clone();
-        let line = format!("{title}: {}", h.text.split_whitespace().collect::<Vec<_>>().join(" "));
+        let text = h.text.split_whitespace().collect::<Vec<_>>().join(" ");
+        if quote.is_empty() {
+            quote = clip(&text, QUOTE_CHARS);
+        }
+        let line = format!("{title}: {text}");
         if h.score >= rag::FLOOR { lines.push(line) } else { near.push(line) }
         if !sources.iter().any(|s| s.key == found.key) {
             sources.push(Source { key: found.key.clone(), title });
         }
     }
-    Ok(Recall { lines, near, sources, searched: true })
+    Ok(Recall { lines, near, sources, searched: true, quote })
+}
+
+/// One step of a chat turn, sent as it happens, for the trace under the question (spec 048 C12).
+/// Only steps that really ran: a rule answer reads and nothing more.
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(tag = "step", rename_all = "snake_case")]
+pub enum Step {
+    /// The schedule, dues and grades were read for the facts.
+    Read,
+    /// An open question: the notes, decks and syllabi are being searched.
+    Search,
+    Found { found: Vec<Source>, quote: String },
+    Nothing,
+    /// The search could not run, which says nothing about the notes.
+    SearchOff,
+    /// The model's first words arrived.
+    Write,
+}
+
+/// The found step's quote is the best hit's text, cut to this many characters.
+const QUOTE_CHARS: usize = 140;
+
+fn clip(text: &str, max: usize) -> String {
+    match text.char_indices().nth(max) {
+        Some((i, _)) => format!("{}…", text[..i].trim_end()),
+        None => text.to_string(),
+    }
+}
+
+/// What a search gave the facts, and the step that says so. `None` is a search that failed.
+fn searched(r: Option<Recall>, facts: &mut Facts, step: &mut dyn FnMut(Step)) -> Vec<Source> {
+    // Notes are a bonus: if searching fails the answer still comes from the schedule.
+    let Some(r) = r.filter(|r| r.searched) else {
+        facts.search_off = true; // no verdict on a question the notes could not be searched for
+        step(Step::SearchOff);
+        return vec![];
+    };
+    step(if r.sources.is_empty() { Step::Nothing } else { Step::Found { found: r.sources.clone(), quote: r.quote } });
+    (facts.hits, facts.near) = (r.lines, r.near);
+    r.sources
+}
+
+/// The answer, with a write step the moment the model's first words arrive. A rule answer never calls
+/// `on_text`, so it never writes.
+fn answer_with_steps(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history: &[(String, String)], msg: &str, on_text: &mut dyn FnMut(&str), step: &mut dyn FnMut(Step)) -> Result<assis::Answer, String> {
+    let mut wrote = false;
+    assis::answer_streaming(llm, tpl, facts, history, msg, &mut |words| {
+        if !std::mem::replace(&mut wrote, true) {
+            step(Step::Write);
+        }
+        on_text(words);
+    })
+}
+
+const fn intent_name(i: Intent) -> &'static str {
+    match i {
+        Intent::Ask => "ask",
+        Intent::Note => "note",
+        Intent::Remind => "remind",
+        Intent::Cards => "cards",
+        Intent::Due => "due",
+        Intent::Classes => "classes",
+        Intent::Grades => "grades",
+    }
 }
 
 /// The note the student has open, cut to what fits the prompt.
@@ -494,40 +566,37 @@ fn searches_notes(message: &str, note_open: bool) -> bool {
 }
 
 /// One chat turn. The words of an open question's reply arrive on `on_text`
-/// as the model writes them. `open_key` is the note the student is looking at;
-/// `style` is the student's own "how LAR talks to me" note.
+/// as the model writes them, and the steps it really takes on `on_step` (spec 048 C12).
+/// `open_key` is the note the student is looking at; `style` is the student's own
+/// "how LAR talks to me" note.
 /// The exchange is kept (encrypted, on the phone) so the chat survives a restart.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)] // one argument per field the sheet sends; Tauri has no struct form here
-pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, open_key: Option<String>, style: Option<String>, on_text: Channel<String>, utc_offset: Option<i32>) -> Res<Ask> {
+pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, open_key: Option<String>, style: Option<String>, on_text: Channel<String>, on_step: Channel<Step>, utc_offset: Option<i32>) -> Res<Ask> {
+    let mut send = |s: Step| drop(on_step.send(s));
+    send(Step::Read);
     let state = app.state::<AppState>();
     let mabini = store(&state)?.mabini().unwrap_or_default();
     let mut facts = facts_for(&snapshot_of(&state)?, &mabini, now, utc_offset.unwrap_or(MANILA_OFFSET));
     facts.style = style; // the student's own note on how LAR talks; `persona::system` cleans and caps it
     let history = recent_asks(&state);
     let note = open_key.and_then(|k| open_note(&state, &k));
+    let intent = intent_name(intent::resolve(&message, note.is_some()));
     let (mut sources, open) = (vec![], searches_notes(&message, note.is_some()));
     // Only an open question reads the notes: the rest are answered from the schedule or acted on.
     if open {
         facts.open_note = note;
+        send(Step::Search);
         let (slot, q, handle) = (ai.embedder.clone(), message.clone(), app.clone());
-        // Notes are a bonus: if searching fails the answer still comes from the schedule.
-        match background(move || recall(&handle, &slot, &q)).await {
-            Ok(Ok(r)) => {
-                facts.search_off = !r.searched;
-                (facts.hits, facts.near, sources) = (r.lines, r.near, r.sources);
-            }
-            _ => facts.search_off = true, // no verdict on a question the notes could not be searched for
-        }
+        let r = background(move || recall(&handle, &slot, &q)).await.ok().and_then(Result::ok);
+        sources = searched(r, &mut facts, &mut send);
     }
     let (asked, fil) = (message.clone(), intent::is_filipino(&message));
     let a = with_model(&ai, move |llm, tpl| {
-        let a = assis::answer_streaming(llm, tpl, &facts, &history, &asked, &mut |words| {
-            let _ = on_text.send(words.to_string());
-        })?;
+        let a = answer_with_steps(llm, tpl, &facts, &history, &asked, &mut |words| drop(on_text.send(words.to_string())), &mut |s| drop(on_step.send(s)))?;
         // A chip only when the answer used the notes it was shown.
         let sources = if a.cited { sources } else { vec![] };
-        Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources, asked_model: a.route == assis::Route::Model })
+        Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources, intent, asked_model: a.route == assis::Route::Model })
     })
     .await
     .map_err(|e| assis::friendly(&e, fil))?;
@@ -625,6 +694,7 @@ pub async fn ai_guide(ai: tauri::State<'_, AiState>, course: String, weeks: u16,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use intportal_ai::llm::FakeLlm;
     use intportal_core::{
         model::{ClassSession, Weekday},
         store::Snapshot,
@@ -656,6 +726,71 @@ mod tests {
         let mabini = MabiniData { deadlines: vec![essay], ..MabiniData::default() };
         let f = facts_for(&s, &mabini, Moment { date: Date::new(2026, 10, 15), minute: 480 }, 480);
         assert_eq!(f.due, ["Org fee, Thursday 2026-10-15", "Essay: COMP 20073, Friday 2026-10-16", "Quiz 2: COMP 20073, Friday 2026-10-16"]);
+    }
+
+    fn at_8am() -> Facts {
+        facts_for(&snap(), &MabiniData::default(), Moment { date: Date::new(2026, 10, 15), minute: 480 }, 480)
+    }
+
+    fn hit(key: &str, title: &str) -> Recall {
+        Recall { lines: vec![format!("{title}: an interface lists what a class must do")], near: vec![], sources: vec![Source { key: key.into(), title: title.into() }], searched: true, quote: "an interface lists what a class must do".into() }
+    }
+
+    /// The order `ai_ask` takes for an open question: read, search, what it found, then write as the words come.
+    #[test]
+    fn c12_an_open_question_reads_searches_finds_then_writes() {
+        let mut steps = vec![Step::Read, Step::Search];
+        let mut f = at_8am();
+        let sources = searched(Some(hit("card:7", "OOP")), &mut f, &mut |s| steps.push(s));
+        assert_eq!(f.hits, ["OOP: an interface lists what a class must do"]);
+        let mut m = FakeLlm::new(&[r#"{"reply":"An interface is a promise."}"#]);
+        let mut seen = vec![];
+        answer_with_steps(&mut m, Template::ChatMl, &f, &[], "what is an interface?", &mut |w| seen.push(w.to_string()), &mut |s| steps.push(s)).unwrap();
+        assert_eq!(steps, [Step::Read, Step::Search, Step::Found { found: sources, quote: "an interface lists what a class must do".into() }, Step::Write]);
+        assert!(seen.len() > 1, "the words still stream after the one write step");
+    }
+
+    #[test]
+    fn c12_a_rule_answer_never_writes() {
+        let mut steps = vec![];
+        let mut m = FakeLlm::new(&[]);
+        let a = answer_with_steps(&mut m, Template::ChatMl, &at_8am(), &[], "anong due ko?", &mut |_| panic!("a rule answer does not stream"), &mut |s| steps.push(s)).unwrap();
+        assert_eq!(a.route, assis::Route::Rule);
+        assert!(steps.is_empty(), "no write step is invented: {steps:?}");
+        assert!(!searches_notes("remind me bukas to pay tuition", false), "a request is not searched for either");
+    }
+
+    #[test]
+    fn c12_a_search_says_nothing_found_or_off() {
+        let mut steps = vec![];
+        let mut f = at_8am();
+        assert!(searched(Some(Recall { sources: vec![], lines: vec![], ..hit("n", "x") }), &mut f, &mut |s| steps.push(s)).is_empty());
+        assert!(!f.search_off);
+        let mut off = at_8am();
+        assert!(searched(None, &mut off, &mut |s| steps.push(s)).is_empty());
+        assert!(off.search_off);
+        let mut unsearched = at_8am();
+        searched(Some(Recall { searched: false, ..hit("n", "x") }), &mut unsearched, &mut |s| steps.push(s));
+        assert!(unsearched.search_off && unsearched.hits.is_empty());
+        assert_eq!(steps, [Step::Nothing, Step::SearchOff, Step::SearchOff]);
+    }
+
+    #[test]
+    fn c12_steps_go_to_the_chat_tagged_and_the_quote_is_cut() {
+        let found = Step::Found { found: vec![Source { key: "plan:COMP 20083".into(), title: "OOP".into() }], quote: "q".into() };
+        assert_eq!(serde_json::to_value(&found).unwrap(), serde_json::json!({ "step": "found", "found": [{ "key": "plan:COMP 20083", "title": "OOP" }], "quote": "q" }));
+        assert_eq!(serde_json::to_value(Step::SearchOff).unwrap(), serde_json::json!({ "step": "search_off" }));
+        assert_eq!(clip("short", 140), "short");
+        let long = "word ".repeat(40);
+        let cut = clip(&long, QUOTE_CHARS);
+        assert!(cut.ends_with('…') && cut.chars().count() <= QUOTE_CHARS + 1, "{cut}");
+    }
+
+    #[test]
+    fn c18_ask_names_its_intent() {
+        assert_eq!(intent_name(intent::resolve("anong due ko?", false)), "due");
+        assert_eq!(intent_name(intent::resolve("remind me bukas to pay tuition", false)), "remind");
+        assert_eq!(intent_name(intent::resolve("what is an interface?", false)), "ask");
     }
 
     #[test]
