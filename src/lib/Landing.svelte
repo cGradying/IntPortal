@@ -55,7 +55,9 @@
   let cardH = $state(0);
   let cardMin = $state(0);
   $effect(() => {
-    if (cardH > cardMin) cardMin = cardH;
+    // A frame later: growing the card inside its own resize callback is a ResizeObserver loop.
+    const h = cardH;
+    if (h > cardMin) requestAnimationFrame(() => (cardMin = Math.max(cardMin, h)));
   });
 
   // The portals the core lists; the card below follows the chosen one.
