@@ -68,7 +68,8 @@ export const app = $state({
   deck: null as string | null,
   /** The note open in the editor, if any. */
   /** `subject` files a new freeform note on its first save with text (046 C2). */
-  editing: null as null | { key: string; heading: string; title: string | null; subject?: string },
+  /** `entry`: open on today's dated entry (046 C14a). */
+  editing: null as null | { key: string; heading: string; title: string | null; subject?: string; entry?: boolean },
   /** What is queued with the platform right now. */
   queued: { count: 0, next: null as null | { title: string; at: Date }, error: "" },
   /** Notifications allowed by the phone; null until checked. */
@@ -177,7 +178,8 @@ export async function openFromNotification(open: string | null | undefined) {
   if (what === "note" && rest[0] === "class") {
     const code = rest.slice(1).join(":");
     const name = app.snapshot?.sessions.find((s) => s.subject_code === code)?.description ?? "";
-    return openNote(`class:${code}`, code, name || null);
+    // After class: straight to that meeting's dated entry (046 C14a).
+    return openNote(`class:${code}`, code, name || null, undefined, true);
   }
   app.tab = "today";
 }
@@ -235,8 +237,8 @@ export function openDeck(id: string) {
   app.deck = id;
 }
 
-export function openNote(key: string, heading: string, title: string | null = null, subject?: string) {
-  app.editing = { key, heading, title, subject };
+export function openNote(key: string, heading: string, title: string | null = null, subject?: string, entry = false) {
+  app.editing = { key, heading, title, subject, entry };
 }
 
 export async function adopt(snap: Snapshot) {
