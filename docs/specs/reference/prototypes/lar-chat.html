@@ -359,10 +359,12 @@ svg.pi { display: block; flex: none; }
 /* ---------------- shared: LAR's header ----------------
    The sky stage from the old sheet, inside the glass: a solid band in the portal's ramp with slow
    pools of light and a few pixel stars, split from the chat by a dithered pixel edge. Everything
-   stands on that edge, the horizon: LAR's feet, his name and status, and the two buttons, on one
-   line. The buttons are one pair: 36 px pixel-cut keys, both icons on the same 7 x 7 pixel grid.
-   With the keyboard up or the chat scrolled it folds to 64 px and LAR shrinks with it. */
-.lh { --lh-h: 104px; --lh-base: 14px; position: relative; flex: none; height: var(--lh-h); display: flex; align-items: flex-end; gap: 4px; padding: 0 10px var(--lh-base) 4px; isolation: isolate; color: #fff6dc; transition: height 0.34s var(--ease), padding 0.34s var(--ease); }
+   LAR fills its height, his feet on that edge; his name, status and the two buttons are centred
+   on his body, so all of it reads as one line. The buttons are one pair: 36 px pixel-cut keys,
+   both icons on the same 7 x 7 pixel grid. With the keyboard up or the chat scrolled it folds to
+   64 px and LAR shrinks with it, still standing on the edge.
+   His art is 71 x 60 px inside a 106 x 100 canvas, from (16, 19); the numbers below place it. */
+.lh { --lh-h: 104px; position: relative; flex: none; height: var(--lh-h); display: flex; align-items: center; gap: 6px; padding: 4px 10px 0 0; isolation: isolate; color: #fff6dc; transition: height 0.34s var(--ease), padding 0.34s var(--ease); }
 .lh-sky { position: absolute; inset: 0; z-index: -1; overflow: hidden;
   background:
     radial-gradient(42% 70% at 18% 100%, color-mix(in srgb, var(--r3) 70%, transparent), transparent 70%),
@@ -380,9 +382,9 @@ svg.pi { display: block; flex: none; }
 /* The split: a 2-row dither from the sky into the glass. */
 .lh-sky::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
   background: conic-gradient(var(--g-a) 25%, transparent 0 50%, var(--g-a) 0 75%, transparent 0) 0 0 / 6px 6px; }
-/* LAR at full size, his feet on the horizon. */
-.lh-perch { position: relative; flex: none; align-self: stretch; width: 88px; margin-bottom: calc(-1 * var(--lh-base)); overflow: hidden; transition: width 0.34s var(--ease); }
-.lh-cv { position: absolute; left: 50%; bottom: 0; translate: -50% 0; image-rendering: pixelated; transform-origin: 50% 100%; scale: 1; margin-bottom: -14px; transition: scale 0.34s var(--ease), margin 0.34s var(--ease); }
+/* LAR at 1.4x: his art runs from 12 px under the top to 2 px over the dither, centred in 104 px. */
+.lh-perch { position: relative; flex: none; align-self: stretch; width: 104px; margin-top: -4px; overflow: hidden; transition: width 0.34s var(--ease); }
+.lh-cv { position: absolute; left: -20px; top: -15px; image-rendering: pixelated; transform-origin: 0 0; scale: 1.4; transition: scale 0.34s var(--ease), left 0.34s var(--ease), top 0.34s var(--ease); }
 .lh-who { flex: 1; min-width: 0; display: grid; gap: 4px; align-content: end; }
 .lh-tag { font: 600 16px/1 var(--f-pixel); letter-spacing: 0.12em; color: #fff6dc; text-shadow: 0 2px 0 rgb(6 3 7 / 0.55); }
 .lh-st { display: flex; align-items: center; gap: 6px; height: 16px; font: 500 12.5px/1 var(--f-ui); color: rgb(255 246 220 / 0.82); text-shadow: 0 1px 0 rgb(6 3 7 / 0.6); white-space: nowrap; overflow: hidden; }
@@ -400,9 +402,9 @@ svg.pi { display: block; flex: none; }
 .phone .lh-ib:active { translate: 0 1px; box-shadow: inset 0 2px 0 rgb(0 0 0 / 0.32); }
 .lh-ib[hidden] { display: none; }
 .lh-ib svg { display: block; filter: drop-shadow(0 1px 0 rgb(6 3 7 / 0.5)); }
-.lh.lh-small { --lh-h: 64px; --lh-base: 12px; }
-.lh-small .lh-perch { width: 60px; }
-.lh-small .lh-cv { scale: 0.6; margin-bottom: -9px; }
+.lh.lh-small { --lh-h: 64px; padding: 0 10px 6px 0; }
+.lh-small .lh-perch { width: 64px; margin: 0 0 -6px; }
+.lh-small .lh-cv { scale: 0.78; left: -8px; top: -9px; }
 .lh-small .lh-who { gap: 3px; }
 .lh-small .lh-tag { font-size: 14px; }
 @keyframes lhDrift { to { background-position: 100% 60%, 0% 100%, 30% 80%, 0 0; } }
@@ -411,15 +413,15 @@ svg.pi { display: block; flex: none; }
 @media (prefers-reduced-motion: reduce) { .lh-sky, .lh-sky i, .lh-st i, .lh-st::before { animation: none; } .lh, .lh-perch, .lh-cv { transition: none; } }
 /* morph */
 
-/* Opening: four ways the cube opens LAR's window, on one canvas engine. Each starts with the cube
+/* Opening: three ways the cube opens LAR's window, on one canvas engine. Each starts with the cube
    turning to face you; at 120 ms a canvas takes over from that 3 x 3 face, and at its end the DOM
    window, drawn the same, replaces the canvas in one frame. Then the sky lights, LAR spawns on the
    dither edge and says hello.
-   A Pour: 27 atoms pour upward into a 3 x 9 tiling of the window (Material's container transform).
-   B Layers: the top layer twists like a Rubik's turn; the three layers become sky, chat and input,
-     staged width then height with a little overshoot (the Dynamic Island's staged springs).
-   C Turn: a Fez quarter-turn brings the window round on the cube's side; it grows out of that face.
-   D Dither: the cube breaks into the portal dive's Bayer pixels, which stream up and resolve it. */
+   A Pour: 27 atoms pour upward into a 3 x 9 tiling of the window; the seams close.
+   E Dither pour: the same pour, but each atom sheds a trail of dive pixels, and the seams knit
+     shut in 4 x 4 Bayer order instead of closing; the sky knits last.
+   F Liquid fill: the cube dissolves into dive pixels that stream out of it and fill the window like
+     a glass: a level rising from the bottom with a dithered, settling wave; the sky fills last. */
 .m-phone {
   --sl: 1;
   --g-a: color-mix(in srgb, var(--card), var(--ink) 8%);
@@ -476,10 +478,10 @@ svg.pi { display: block; flex: none; }
 .m-phone .m-send { flex: none; width: 56px; height: 44px; border: 0; background: var(--sunk); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--edge-2); font: 600 14px var(--f-ui); clip-path: var(--n3); }
 .m-panel .pbtns { align-items: center; }
 .m-panel .seg0 { margin-left: auto; }
-.m-modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; background: var(--void-3); box-shadow: inset 0 0 0 1px var(--line); }
+.m-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; background: var(--void-3); box-shadow: inset 0 0 0 1px var(--line); }
 .m-modes button { min-height: 40px; border: 0; background: none; font: 600 13px var(--f-ui); color: var(--parch-2); }
 .m-modes button[aria-pressed="true"] { background: var(--pg); color: var(--void, #120a06); }
-.picks.m-picks { grid-template-columns: repeat(2, 1fr); }
+.picks.m-picks { grid-template-columns: repeat(3, 1fr); }
 .m-scrub { display: grid; gap: 6px; font: 500 12px var(--f-pixel); letter-spacing: 0.04em; color: var(--parch-2); }
 .m-scrub input { width: 100%; accent-color: var(--pg); }
 @keyframes mUp { from { opacity: 0; transform: translateY(8px); } }
@@ -609,16 +611,16 @@ svg.pi { display: block; flex: none; }
 
 <section class="row" id="morph">
   <div class="q">
-    <h2>Opening: four ways the cube opens the chat</h2>
-    <p>Pour stays as A. B, C and D are new, each from something that ships: Material's container transform, the Dynamic Island's staged springs, Fez's quarter-turns, and the portal dive's own pixel dither. Each turns the cube to face you first and hands over to the real window in one frame, with no cross-fade.</p>
+    <h2>Opening: Pour, and Pour with the dive's dither</h2>
+    <p>You picked Pour. E and F mix it with the portal dive's pixel dither. E pours the same 27 atoms, trailing pixels, and knits their seams shut in pixels. F melts the cube into pixels that fill the window like a glass, its surface a settling dithered wave. Each turns the cube to face you first, moves in one continuous motion, and hands over to the real window in one frame.</p>
   </div>
   <div class="panel m-panel">
     <h3>Try it</h3>
-    <div class="m-modes" role="group" aria-label="Opening"><button type="button" data-mm="A" aria-pressed="true">A Pour</button><button type="button" data-mm="B" aria-pressed="false">B Layers</button><button type="button" data-mm="C" aria-pressed="false">C Turn</button><button type="button" data-mm="D" aria-pressed="false">D Dither</button></div>
+    <div class="m-modes" role="group" aria-label="Opening"><button type="button" data-mm="A" aria-pressed="true">A Pour</button><button type="button" data-mm="E" aria-pressed="false">E Dither pour</button><button type="button" data-mm="F" aria-pressed="false">F Liquid fill</button></div>
     <div class="pbtns"><button class="pbtn" type="button" data-m="open">Open</button><button class="pbtn" type="button" data-m="close">Close</button><button class="pbtn" type="button" data-ms="slow" aria-pressed="false">Slow motion</button><button class="pbtn" type="button" data-ms="rm" aria-pressed="false">Reduce Motion</button><div class="seg0" role="group" aria-label="Room"><button type="button" data-mr="night" aria-pressed="true">Night</button><button type="button" data-mr="day" aria-pressed="false">Day</button></div></div>
     <label class="m-scrub" for="mScrub"><span>Scrub the opening (pauses it)</span><input type="range" id="mScrub" min="0" max="1000" value="0"></label>
-    <p>Each opens in about 0.7 s and closes in about 0.6 s. Slow motion runs it at a quarter speed. With Reduce Motion the window cross-fades and nothing moves.</p>
-    <div class="picks m-picks"><button class="pick" data-row="morph" data-v="A: Pour">A: Pour</button><button class="pick" data-row="morph" data-v="B: Layers">B: Layers</button><button class="pick" data-row="morph" data-v="C: Turn">C: Turn</button><button class="pick" data-row="morph" data-v="D: Dither">D: Dither</button></div>
+    <p>Each opens in about 0.7 s and closes in about 0.6 s, the opening played backwards. Slow motion runs it at a quarter speed. With Reduce Motion the window cross-fades and nothing moves.</p>
+    <div class="picks m-picks"><button class="pick" data-row="morph" data-v="A: Pour">A: Pour</button><button class="pick" data-row="morph" data-v="E: Dither pour">E: Dither pour</button><button class="pick" data-row="morph" data-v="F: Liquid fill">F: Liquid fill</button></div>
   </div>
   <div class="wide">
     <div class="opt"><div class="phone" id="mPh"></div><div class="name"><b id="mCapB"></b><span id="mCapS"></span></div></div>
@@ -3028,15 +3030,16 @@ const M_TODAY = `<h3 class="ttl">Today</h3><div class="card"><p class="lb">Due t
 const M_HELLO = "Hi! I'm LAR. Ask me what's due, your classes, or your grades.";
 const M_STARTERS = ["What's due this week?", "Anong klase ko ngayon?", "Remind me bukas ng umaga"];
 const M_CAPS = {
-  A: ["A: Pour", "It faces you, then its 27 atoms pour up into the chat's tiles in one wave. After Material's container transform."],
-  B: ["B: Layers", "The top layer twists like a Rubik's turn; the three layers become the sky, the chat and the input, width first, then height. Staged like the Dynamic Island."],
-  C: ["C: Turn", "A Fez quarter-turn brings the window round on the cube's side, and it grows out of that face from the cube's corner."],
-  D: ["D: Dither", "The cube breaks into the portal dive's pixels, which stream up and resolve the window, sky first. The app's own dive language."],
+  A: ["A: Pour", "It faces you, then its 27 atoms pour up into the chat's tiles in one wave, and the seams close."],
+  E: ["E: Dither pour", "The same pour, each atom trailing dive pixels; the seams knit shut in pixels, the sky last."],
+  F: ["F: Liquid fill", "The cube melts into dive pixels that fill the window like a glass, a dithered wave settling as it rises; the sky fills last."],
 };
 /* Virtual ms. HAND: the canvas takes over from the cube's face. END: the DOM window replaces the
    canvas. A's FLY and SEAM: each atom's flight, and when its seams start to close. */
-const M_HAND = 120, M_FLY = 400, M_SEAM = 540, M_WH = 324, M_HEAD = 104, M_DOCK = 58, M_P = 6.8, M_E = 6.2, M_W0 = 2 * M_P + M_E;
-const M_ENDS = { A: 664, B: 720, C: 740, D: 740 };
+const M_HAND = 120, M_FLY = 400, M_SEAM = 540, M_WH = 324, M_HEAD = 104, M_P = 6.8, M_E = 6.2, M_W0 = 2 * M_P + M_E;
+// E flies a touch quicker so its knitting still ends near 0.7 s; F's level rises over FILL.
+const M_FLY_E = 370, M_KNIT = 80, M_FILL0 = 190, M_FILL = 450;
+const M_ENDS = { A: 664, E: 708, F: 700 };
 const M_CLOSE_SWAP = 160, M_CLOSE = 440;
 const M_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const mS = { slow: 1, rm: false, mode: "A" };
@@ -3045,10 +3048,8 @@ const mRM = () => reduce || mS.rm;
 const mLerp = (a, b, u) => a + (b - a) * u;
 const mEio = (k) => (k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2);
 const mSmooth = (k) => k * k * (3 - 2 * k);
-// Out with a little overshoot, landing exactly on 1: the spring's last settle.
-const mBack = (k, s = 1.4) => 1 + (s + 1) * (k - 1) ** 3 + s * (k - 1) ** 2;
-// B and C: the cube lifts to 1.8 x as it turns, so the turn reads at arm's length.
-const mLift = (t) => 1 + 0.8 * mSmooth(clamp((t - M_HAND) / 180));
+// F's fill level in px at time t: rises over FILL, a little past the top so the dithered surface clears it.
+const mLevel = (t) => (M_WH + 10) * mEio(clamp((t - M_FILL0) / M_FILL));
 // Row from the bottom: the cube's bottom layer fills the bottom rows, its top layer the sky.
 const M_ATOMS = [];
 for (let k = 1; k >= -1; k--) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) M_ATOMS.push({ i, j, k, c: i + 1, r: (j + 1) * 3 + (k + 1) });
@@ -3077,11 +3078,11 @@ function mPhone(el) {
   cv.width = PW * dpr; cv.height = PH * dpr;
   const g = cv.getContext("2d");
   const face = document.createElement("canvas");
-  // D's mask: one texel per 4 px pixel of the window, and the window masked by it.
+  // E's and F's mask: one texel per 4 px pixel of the window, and the window's face masked by it.
   const mask = document.createElement("canvas"), MW = 296 / 4, MH = M_WH / 4;
   mask.width = MW; mask.height = MH;
   const mg = mask.getContext("2d"), mImg = mg.createImageData(MW, MH), dith = document.createElement("canvas"), dg = dith.getContext("2d");
-  let vt = 0, t0 = 0, ev = [], state = "closed", typing = null, C, Wn, col, parts = [];
+  let vt = 0, t0 = 0, ev = [], state = "closed", typing = null, C, Wn, col, parts = [], knit;
   const L = headLar($(".lh-cv", win));
   L.on = false; L.clock = () => vt / 1000;
   const at = (ms, f) => ev.push({ t: vt + ms, f });
@@ -3103,14 +3104,27 @@ function mPhone(el) {
     f.fillStyle = "rgb(255 236 214 / 0.2)"; f.fillRect(0, 0, Wn.w, 1);
     f.fillStyle = col.a;
     for (let x = 0; x < Wn.w; x += 6) { f.fillRect(x + 3, M_HEAD - 6, 3, 3); f.fillRect(x, M_HEAD - 3, 3, 3); }
-    // D's pixels, the same every time so the scrubber holds still: the first 90 resolve the sky.
+    // E: which texels sit on a seam, and when each may knit (its row's atoms have landed).
+    const cw = (Wn.w - 4) / 3, ch = (Wn.h - 16) / 9;
+    knit = new Float32Array(MW * MH).fill(-1);
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+      const x0 = x * 4, y0 = y * 4, yc = y0 + 2;
+      const onCol = [cw, 2 * cw + 2].some((sx) => x0 < sx + 2 && x0 + 4 > sx);
+      const onRow = Array.from({ length: 8 }, (_, r) => Wn.h - (r + 1) * (ch + 2)).some((sy) => y0 < sy + 2 && y0 + 4 > sy);
+      if (!onCol && !onRow) continue;
+      const r = Math.min(8, Math.floor((Wn.h - yc + 2) / (ch + 2)));
+      knit[y * MW + x] = M_HAND + r * 14 + 12 + 0.97 * M_FLY_E + (yc < M_HEAD ? 20 : 0);
+    }
+    // F's pixels, the same every time so the scrubber holds still: they leave the cube's face in
+    // Bayer order and fall into the glass where its surface will be when they land.
     let s = 7;
     const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
-    parts = Array.from({ length: 220 }, (_, i) => {
-      const sky = i < 90, sx = C.cx + (R() - 0.5) * M_W0, sy = C.cy + (R() - 0.5) * M_W0;
-      const tx = Wn.x + R() * (Wn.w - 4), ty = sky ? Wn.y + R() * (M_HEAD - 10) : Wn.y + M_HEAD + R() * (Wn.h - M_HEAD - 4);
-      const dx = tx - sx, dy = ty - sy, len = Math.hypot(dx, dy) || 1, bend = 30 + R() * 70;
-      return { sx, sy, tx, ty, px: (sx + tx) / 2 + (dy / len) * bend, py: (sy + ty) / 2 - (dx / len) * bend, l: M_HAND + 30 + (sky ? (i / 90) * 150 : 90 + ((i - 90) / 130) * 220), c: sky ? [r[3], r[4], "#fff6dc", r[2]][i % 4] : [col.a, col.b, col.gold, col.tone][i % 4] };
+    parts = Array.from({ length: 110 }, (_, i) => {
+      const n = i % 25, sx = C.cx - 10 + (n % 5) * 4 + 2, sy = C.cy - 10 + Math.floor(n / 5) * 4 + 2;
+      // A narrow stream up the glass's right side; every pixel lands by ~640, before the hand-off.
+      const l = M_HAND + 20 + (i / 110) * 260 + R() * 20, tx = Wn.x + Wn.w - 34 - R() * 50;
+      const ty = Math.max(Wn.y + 4, Wn.y + Wn.h - mLevel(l + 220) + 2 + R() * 8);
+      return { sx, sy, tx, ty, px: sx - 30 - R() * 20, py: Math.max(Wn.y + 10, Math.min(sy, ty) - 24 - R() * 20), l, c: ty - Wn.y < M_HEAD ? [r[3], r[4], r[2]][i % 3] : [col.a, col.b, col.gold, col.tone][i % 4] };
     });
   }
 
@@ -3135,124 +3149,98 @@ function mPhone(el) {
     g.clearRect(Wn.x, Wn.y, Wn.w, Wn.h);
   }
   const whole = () => g.drawImage(face, Wn.x, Wn.y, Wn.w, Wn.h);
-  // A plain rect of cube cells: tone, hairlines between cells, darkened by shade.
-  function cells(X, Y, w, h, nx, ny, shade = 0, a = 1) {
-    if (w < 0.5 || h < 0.5) return;
-    g.globalAlpha = a;
-    g.fillStyle = col.tone; g.fillRect(X, Y, w, h);
-    g.strokeStyle = col.hair; g.lineWidth = 1;
-    g.beginPath();
-    for (let n = 1; n < nx; n++) { const x = Math.round(X + (w * n) / nx) + 0.5; g.moveTo(x, Y); g.lineTo(x, Y + h); }
-    for (let n = 1; n < ny; n++) { const y = Math.round(Y + (h * n) / ny) + 0.5; g.moveTo(X, y); g.lineTo(X + w, y); }
-    g.stroke(); g.strokeRect(X + 0.5, Y + 0.5, w - 1, h - 1);
-    if (shade > 0) { g.fillStyle = `rgb(0 0 0 / ${shade})`; g.fillRect(X, Y, w, h); }
-    g.globalAlpha = 1;
+  // ------------------------------------------------------------- the openings
+  // The pour shared by A and E: 27 atoms fly upward, bottom rows first, into a 3 x 9 tiling with s px
+  // seams, each a 2.5D tile carrying its own slice of the window's face. E trails dive pixels.
+  function pour(t, s, fly, trail) {
+    const cw = (Wn.w - 2 * s) / 3, ch = (Wn.h - 8 * s) / 9;
+    const at = (a, u, tx, ty) => {
+      const sx = C.cx + a.i * M_P, sy = C.cy - a.j * M_P, ex = tx + cw / 2, ey = ty + ch / 2;
+      const dx = ex - sx, dy = ey - sy, len = Math.hypot(dx, dy) || 1, arc = Math.sin(Math.PI * u) * 6;
+      return [mLerp(sx, ex, u) - (dy / len) * arc, mLerp(sy, ey, u) + (dx / len) * arc, mLerp(M_E, cw, u), mLerp(M_E, ch, u)];
+    };
+    for (const a of M_ATOMS) {
+      const t1 = t - M_HAND - a.r * 14 - a.c * 6, u = mEio(clamp(t1 / fly));
+      const tx = Wn.x + a.c * (cw + s), ty = Wn.y + Wn.h - (a.r + 1) * ch - a.r * s;
+      // The trail: where it was 18, 36 ... ms ago, a few 4 px pixels each, older ones thinner,
+      // thinning in Bayer order so it frays into the dive's dither and is gone in ~110 ms.
+      if (trail && u > 0 && u < 1) {
+        g.fillStyle = a.r >= 6 ? col.r[1] : col.a;
+        for (let n = 1; n <= 5; n++) {
+          const un = mEio(clamp((t1 - n * 18) / fly));
+          if (un <= 0 || un >= 1) continue;
+          const [x, y, w, h] = at(a, un, tx, ty), age = (n * 18) / 110;
+          for (let q = 0; q < 4; q++) {
+            if (M_BAYER[(n * 4 + q + a.c * 5 + a.r * 3) % 16] / 16 < age) continue;
+            const ox = ((q % 2) - 0.5) * w * 0.5, oy = (Math.floor(q / 2) - 0.5) * h * 0.5;
+            g.fillRect(Math.round((x + ox) / 2) * 2 - 2, Math.round((y + oy) / 2) * 2 - 2, 4, 4);
+          }
+        }
+      }
+      const [x, y, w, h] = at(a, u, tx, ty), X = x - w / 2, Y = y - h / 2;
+      bevel(X, Y, w, h, 3 * Math.sin(Math.PI * u));
+      g.fillStyle = col.tone; g.fillRect(X, Y, w, h);
+      const f = mSmooth(clamp((u - 0.1) / 0.7));
+      if (f > 0) { g.globalAlpha = f; g.drawImage(face, (tx - Wn.x) * dpr, (ty - Wn.y) * dpr, cw * dpr, ch * dpr, X, Y, w, h); g.globalAlpha = 1; }
+      if (u < 1) { g.globalAlpha = 1 - u; g.strokeStyle = col.hair; g.lineWidth = 1; g.strokeRect(X + 0.5, Y + 0.5, w - 1, h - 1); g.globalAlpha = 1; }
+    }
   }
-  // The window's own face, region src (window coords), drawn into a rect.
-  const slice = (s, X, Y, w, h) => g.drawImage(face, (s.x - Wn.x) * dpr, (s.y - Wn.y) * dpr, s.w * dpr, s.h * dpr, X, Y, w, h);
+  // The window's face through the 4 px mask (alpha from `on(i, x, y)`), scaled up without smoothing.
+  function masked(on) {
+    const d = mImg.data;
+    for (let y = 0, i = 0; y < MH; y++) for (let x = 0; x < MW; x++, i++) d[i * 4 + 3] = on(i, x, y) ? 255 : 0;
+    mg.putImageData(mImg, 0, 0);
+    dg.globalCompositeOperation = "copy"; dg.drawImage(face, 0, 0);
+    dg.globalCompositeOperation = "destination-in"; dg.imageSmoothingEnabled = false; dg.drawImage(mask, 0, 0, MW, MH, 0, 0, dith.width, dith.height);
+    g.drawImage(dith, Wn.x, Wn.y, Wn.w, Wn.h);
+  }
+  const bayer = (x, y) => (M_BAYER[(y % 4) * 4 + (x % 4)] + 0.5) / 16;
 
-  // ------------------------------------------------------------- the four openings
   const POSE = {
-    // A, Pour: 27 atoms pour upward, bottom rows first, into a 3 x 9 tiling; seams close.
+    // A, Pour: the seams close as the last atoms land.
     A(t) {
-      const k = mEio(clamp((t - M_SEAM) / (M_ENDS.A - 4 - M_SEAM))), s = 2 * (1 - k);
-      const cw = (Wn.w - 2 * s) / 3, ch = (Wn.h - 8 * s) / 9;
+      const k = mEio(clamp((t - M_SEAM) / (M_ENDS.A - 4 - M_SEAM)));
       ring(k);
       if (k >= 1) return whole();
-      for (const a of M_ATOMS) {
-        const u = mEio(clamp((t - M_HAND - a.r * 14 - a.c * 6) / M_FLY));
-        const tx = Wn.x + a.c * (cw + s), ty = Wn.y + Wn.h - (a.r + 1) * ch - a.r * s;
-        const sx = C.cx + a.i * M_P, sy = C.cy - a.j * M_P, ex = tx + cw / 2, ey = ty + ch / 2;
-        const dx = ex - sx, dy = ey - sy, len = Math.hypot(dx, dy) || 1, arc = Math.sin(Math.PI * u) * 6;
-        const x = mLerp(sx, ex, u) - (dy / len) * arc, y = mLerp(sy, ey, u) + (dx / len) * arc;
-        const w = mLerp(M_E, cw, u), h = mLerp(M_E, ch, u), X = x - w / 2, Y = y - h / 2;
-        bevel(X, Y, w, h, 3 * Math.sin(Math.PI * u));
-        g.fillStyle = col.tone; g.fillRect(X, Y, w, h);
-        // Each atom carries its own slice of the window's face, so the tiles add up to the window.
-        const f = mSmooth(clamp((u - 0.1) / 0.7));
-        if (f > 0) { g.globalAlpha = f; g.drawImage(face, (tx - Wn.x) * dpr, (ty - Wn.y) * dpr, cw * dpr, ch * dpr, X, Y, w, h); g.globalAlpha = 1; }
-        if (u < 1) { g.globalAlpha = 1 - u; g.strokeStyle = col.hair; g.lineWidth = 1; g.strokeRect(X + 0.5, Y + 0.5, w - 1, h - 1); g.globalAlpha = 1; }
-      }
+      pour(t, 2 * (1 - k), M_FLY, false);
     },
 
-    // B, Layers: the top layer twists a quarter-turn; then the three layers slide apart and stretch
-    // into the sky, the chat and the input: width first, height 90 ms later with a small overshoot.
-    B(t) {
-      const th = (Math.PI / 2) * mBack(clamp((t - 130) / 200), 1.3);
-      const uw = mEio(clamp((t - 290) / 280)), uh = mBack(clamp((t - 380) / 300), 1.1), k = mEio(clamp((t - 630) / 86));
+    // E, Dither pour: the seams stay; once a row has landed its seams knit shut in Bayer order,
+    // the window's own face filling them pixel by pixel. The sky's seams knit last.
+    E(t) {
+      const k = mEio(clamp((t - (M_ENDS.E - 100)) / 96));
       ring(k);
       if (k >= 1) return whole();
-      const T = [{ x: Wn.x, y: Wn.y, w: Wn.w, h: M_HEAD }, { x: Wn.x, y: Wn.y + M_HEAD, w: Wn.w, h: Wn.h - M_HEAD - M_DOCK }, { x: Wn.x, y: Wn.y + Wn.h - M_DOCK, w: Wn.w, h: M_DOCK }];
-      const spread = 9 * Math.sin(Math.PI * clamp(uh)) * (1 - k), q = mLift(t), W0 = M_W0 * q;
-      T.forEach((tg, n) => {
-        const w = mLerp(W0, tg.w, uw), h = Math.max(1, mLerp(M_E * q, tg.h, uh) - 2 * (1 - k));
-        const X = mLerp(C.cx - W0 / 2, tg.x, uw), cy = mLerp(C.cy - (1 - n) * M_P * q, tg.y + tg.h / 2, uh) + (n - 1) * spread, Y = cy - h / 2;
-        const f = mSmooth(clamp((uw - 0.15) / 0.6));
-        bevel(X, Y, w, h, 3 * Math.sin(Math.PI * uw) * (1 - k));
-        if (n === 0 && uw < 1) {
-          // The twist: the face going round shrinks as cos, the one coming round grows as sin.
-          const fw = w * Math.abs(Math.cos(th)), sw = w * Math.abs(Math.sin(th)), x0 = X + (w - fw - sw) / 2;
-          cells(x0, Y, fw, h, 3, 1, 0.34 * (1 - Math.abs(Math.cos(th))));
-          cells(x0 + fw, Y, sw, h, 3, 1, 0.34 * (1 - Math.abs(Math.sin(th))));
-        } else cells(X, Y, w, h, 3, 1);
-        // Contents swap mid-way: the band shows its slice of the window as it grows.
-        if (f > 0) { g.globalAlpha = f; slice(tg, X, Y, w, h); g.globalAlpha = 1; }
-      });
+      pour(t, 2, M_FLY_E, true);
+      masked((i, x, y) => knit[i] >= 0 && bayer(x, y) < (t - knit[i]) / M_KNIT);
     },
 
-    // C, Turn: a quarter-turn with a little overshoot brings the window round on the cube's side;
-    // that face then grows out from the chip's corner, width first, then height, while the cube sinks.
-    C(t) {
-      const th = (Math.PI / 2) * mBack(clamp((t - 130) / 260), 1.6);
-      const uw = mEio(clamp((t - 380) / 300)), uh = mBack(clamp((t - 450) / 290), 1.1), k = mEio(clamp((t - 650) / 86));
+    // F, Liquid fill: the cube's face melts into pixels in Bayer order; they arc out of the chip and
+    // fall into the window, which fills from the bottom like a glass: a dithered surface with a wave
+    // that settles flat as the level reaches the top, so the sky fills last.
+    F(t) {
+      const k = mEio(clamp((t - (M_ENDS.F - 96)) / 92));
       ring(k);
       if (k >= 1) return whole();
-      const W0 = M_W0 * mLift(t), fw = W0 * Math.abs(Math.cos(th)), sw = W0 * Math.abs(Math.sin(th)), x0 = C.cx - (fw + sw) / 2, y0 = C.cy - W0 / 2;
-      // The cube behind, sinking and fading as its face leaves it.
-      if (uw < 1) {
-        const sc = 1 - 0.4 * uw, w = fw * sc, h = W0 * sc;
-        cells(C.cx - (fw + sw) / 2 * sc, C.cy - h / 2, w, h, 3, 3, 0.34 * (1 - Math.abs(Math.cos(th))), 1 - uw);
-        if (uw > 0) cells(C.cx - W0 / 2 * sc, C.cy - h / 2, W0 * sc, h, 3, 3, 0.2, 1 - uw);
+      // What is left of the cube's face: 5 x 5 pixels, leaving in Bayer order.
+      const gone = clamp((t - 130) / 210);
+      g.fillStyle = col.tone;
+      for (let n = 0; n < 25; n++) if ((M_BAYER[n % 16] + (n >> 4) * 0.5 + 0.5) / 16 >= gone) g.fillRect(C.cx - 10 + (n % 5) * 4, C.cy - 10 + Math.floor(n / 5) * 4, 4, 4);
+      const lv = mLevel(t), p = clamp(lv / Wn.h), amp = 9 * (1 - p) ** 0.7, ph = t / 90;
+      const surfAt = (xc) => Wn.h - lv + amp * Math.sin(xc / 26 + ph) - amp * 0.8 * (xc / Wn.w);
+      if (lv > 0) masked((i, x, y) => bayer(x, y) < clamp(0.5 + (y * 4 + 2 - surfAt(x * 4 + 2)) / 10));
+      // The surface: a line of faint gold pixels on the 4 px grid, so the level reads on dark glass.
+      if (lv > 0 && amp > 0.3) {
+        g.globalAlpha = 0.5 * clamp(amp / 3); g.fillStyle = col.gold;
+        for (let x = 0; x < MW; x++) { const y = Math.round(surfAt(x * 4 + 2) / 4) * 4; if (y >= 0 && y < Wn.h) g.fillRect(Wn.x + x * 4, Wn.y + y, 4, 2); }
+        g.globalAlpha = 1;
       }
-      // The window's face, small on the cube's side, then grown out of it.
-      const right = mLerp(x0 + fw + sw, Wn.x + Wn.w, uw), w = mLerp(sw, Wn.w, uw), bottom = mLerp(y0 + W0, Wn.y + Wn.h, uh), h = mLerp(W0, Wn.h, uh);
-      const X = right - w, Y = bottom - h;
-      bevel(X, Y, w, h, 3 * Math.sin(Math.PI * uw) * (1 - k));
-      if (w > 0.5) {
-        g.drawImage(face, X, Y, w, h);
-        const shade = 0.34 * (1 - Math.abs(Math.sin(th)));
-        if (shade > 0.01) { g.fillStyle = `rgb(0 0 0 / ${shade})`; g.fillRect(X, Y, w, h); }
-        if (uw < 1) { g.globalAlpha = 1 - uw; g.strokeStyle = col.hair; g.lineWidth = 1; g.strokeRect(X + 0.5, Y + 0.5, w - 1, h - 1); g.globalAlpha = 1; }
-      }
-    },
-
-    // D, Dither: the cube's cells go in Bayer order as its pixels lift off and stream up on curves;
-    // the window resolves in reverse Bayer order where they land, the sky first, then the glass.
-    D(t) {
-      const k = mEio(clamp((t - 650) / 86));
-      ring(k);
-      if (k >= 1) return whole();
-      const gone = clamp((t - 150) / 220);
-      for (let n = 0; n < 9; n++) {
-        if (gone > M_BAYER[n] / 9 + 0.04) continue;
-        const i = (n % 3) - 1, j = 1 - Math.floor(n / 3);
-        cells(C.cx + i * M_P - M_E / 2, C.cy - j * M_P - M_E / 2, M_E, M_E, 1, 1);
-      }
-      const ps = clamp((t - 300) / 260), pb = clamp((t - 380) / 300), d = mImg.data;
-      for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-        const b = (M_BAYER[(y % 4) * 4 + (x % 4)] + 0.5) / 16;
-        d[(y * MW + x) * 4 + 3] = b < (y * 4 < M_HEAD ? ps : pb) ? 255 : 0;
-      }
-      mg.putImageData(mImg, 0, 0);
-      dg.globalCompositeOperation = "copy"; dg.drawImage(face, 0, 0);
-      dg.globalCompositeOperation = "destination-in"; dg.imageSmoothingEnabled = false; dg.drawImage(mask, 0, 0, MW, MH, 0, 0, dith.width, dith.height);
-      g.drawImage(dith, Wn.x, Wn.y, Wn.w, Wn.h);
-      for (const p of parts) {
-        const u = clamp((t - p.l) / 320);
+      for (const q of parts) {
+        const u = clamp((t - q.l) / 220);
         if (u <= 0 || u >= 1) continue;
-        const e = mEio(u), a = 1 - e, x = a * a * p.sx + 2 * a * e * p.px + e * e * p.tx, y = a * a * p.sy + 2 * a * e * p.py + e * e * p.ty;
-        g.globalAlpha = u < 0.8 ? 1 : (1 - u) / 0.2;
-        g.fillStyle = p.c; g.fillRect(Math.round(x / 2) * 2, Math.round(y / 2) * 2, 4, 4);
+        const e = mEio(u), a = 1 - e, x = a * a * q.sx + 2 * a * e * q.px + e * e * q.tx, y = a * a * q.sy + 2 * a * e * q.py + e * e * q.ty;
+        g.globalAlpha = u < 0.85 ? 1 : (1 - u) / 0.15;
+        g.fillStyle = q.c; g.fillRect(Math.round(x / 2) * 2 - 2, Math.round(y / 2) * 2 - 2, 4, 4);
       }
       g.globalAlpha = 1;
     },
