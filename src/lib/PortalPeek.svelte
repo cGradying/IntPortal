@@ -36,6 +36,9 @@
     l: Math.max(0, box.x + inset - L),
   });
   const p = $derived(PAGES[page]);
+  // The finger that opened the view lifts over it: that click is not a turn.
+  const born = performance.now();
+  const next = () => performance.now() - born > 400 && onnext();
   // A week of sample blocks: column, start row, length, tone.
   const WEEK = [
     [0, 0, 3, 1], [0, 5, 2, 2], [1, 2, 3, 3], [2, 0, 3, 1], [2, 5, 2, 2],
@@ -55,7 +58,7 @@
   style:--cl="{clip.l}px"
   style:--accent={accent}
   aria-label="{p.title}, a sample of what IntPortal shows. Tap for the next one."
-  onclick={onnext}
+  onclick={next}
 >
   <span class="glass">
     <span class="top">
@@ -93,6 +96,7 @@
         {/if}
       </span>
     {/key}
+    <span class="say"><b>LAR</b> {p.lar}</span>
     <span class="dots" aria-hidden="true">
       {#each PAGES as _, i (i)}<i class:on={i === page}></i>{/each}
       <small>{page + 1 < PAGES.length ? "Tap for next" : "Tap to close"}</small>
@@ -126,7 +130,7 @@
   }
   .glass {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
     gap: 10px;
     height: 100%;
     padding: 14px 16px 12px;
@@ -212,7 +216,7 @@
   .week {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
-    grid-template-rows: 16px repeat(7, 13px);
+    grid-template-rows: 16px repeat(7, 10px);
     gap: 3px;
   }
   .day {
@@ -256,6 +260,16 @@
     from {
       opacity: 0;
     }
+  }
+  .say {
+    font: 400 min(0.8rem, 22px) / 1.35 var(--font-ui);
+    color: var(--cream);
+  }
+  .say b {
+    margin-right: 4px;
+    font: 500 min(0.7rem, 19px) var(--font-pixel);
+    letter-spacing: 0.06em;
+    color: var(--portal-gold);
   }
   .dots {
     display: flex;

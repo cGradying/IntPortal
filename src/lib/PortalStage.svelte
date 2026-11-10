@@ -10,7 +10,7 @@
   import LarFlight, { type Context } from "./lar/LarFlight.svelte";
   import PortalHub from "./PortalHub.svelte";
   import PortalPeek from "./PortalPeek.svelte";
-  import { PAGES, PAGE_MS, isTap, nextPage } from "./peek";
+  import { PAGE_MS, isTap, nextPage } from "./peek";
   import type { Portal } from "./api";
   import { buzz } from "./haptics";
   import { release, settle, step, type Motion } from "./carousel";
@@ -285,7 +285,6 @@
     const p = peek;
     if (p === null) return;
     untrack(() => {
-      flight?.speak(PAGES[p].lar);
       if (!peeked) {
         peeked = true;
         try {
@@ -372,8 +371,6 @@
     height: 100%;
     min-height: 0;
     pointer-events: none;
-    /* LAR flies over the peek, so he can name what it shows. */
-    z-index: 3;
     transition: opacity 0.4s var(--ease);
   }
   canvas {

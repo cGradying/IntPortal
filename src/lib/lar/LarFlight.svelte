@@ -90,13 +90,8 @@
     return { w: width, h: height, portal: rects.portal, keepOut: rects.others, r: R };
   }
 
-  /** He says this line now, for the peek through the portal (spec 010 C37). */
-  export function speak(text: string) {
-    say(undefined, true, text);
-  }
-
-  function say(topic?: Topic, announce = false, said?: string) {
-    const text = said ?? pick({ hour: new Date().getHours(), portal, typing: ctx === "typing" }, recent, rand, topic);
+  function say(topic?: Topic, announce = false) {
+    const text = pick({ hour: new Date().getHours(), portal, typing: ctx === "typing" }, recent, rand, topic);
     if (!text) return;
     recent = remember(recent, text);
     clearTimeout(leaveTimer);

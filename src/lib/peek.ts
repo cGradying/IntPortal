@@ -12,7 +12,7 @@ export const PAGES: { id: PeekPage; title: string; lar: string }[] = [
 ];
 
 /** Each page stays this long before the next one turns. */
-export const PAGE_MS = 3600;
+export const PAGE_MS = 4500;
 
 /** The page after `page`, or null once the last one has been seen (the peek closes). */
 export const nextPage = (page: number): number | null => (page + 1 < PAGES.length ? page + 1 : null);
