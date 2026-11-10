@@ -11,7 +11,7 @@
   import { tidy, type Draft } from "./assis/cards";
   import { closable } from "./back";
   import type { NoteView } from "./editor/cm";
-  import { addEntry, applyTemplate, block, cardLines, entryHeading, setLines, TEMPLATES, toggleCheck, words, wrap, type CardLine, type Edit, type Inline, type LineKind, type Template } from "./editor/md";
+  import { addEntry, applyTemplate, autosaves, block, cardLines, entryHeading, mergeExternal, onClose, setLines, TEMPLATES, toggleCheck, words, wrap, type CardLine, type Edit, type Inline, type LineKind, type Template } from "./editor/md";
   import { readLook, writeLook, type PageLook } from "./editor/page";
   import { buzz } from "./haptics";
   import PixelIcon, { type SpriteName } from "./PixelIcon.svelte";
@@ -47,7 +47,7 @@
   async function save() {
     clearTimeout(timer);
     // Blank text is never saved: select-all and retype loses nothing (C17a).
-    if (!text.trim()) return;
+    if (!autosaves(text)) return;
     const body = text;
     try {
       await api.setNote(key, body, named ? name.trim() || null : title);
@@ -69,7 +69,7 @@
   function typed() {
     saved = false;
     clearTimeout(timer);
-    if (text.trim()) timer = setTimeout(save, 600);
+    if (autosaves(text)) timer = setTimeout(save, 600);
   }
 
   // LAR's text added to this note while it is open shows here, and the next save keeps it (C12a).
@@ -77,7 +77,7 @@
     const ext = item?.text;
     if (ext === undefined || ext === lastSaved) return;
     untrack(() => {
-      const merged = ext.startsWith(lastSaved) ? text + ext.slice(lastSaved.length) : saved ? ext : text;
+      const merged = mergeExternal(text, lastSaved, ext, !saved);
       lastSaved = ext;
       if (merged === text) return;
       text = merged;
@@ -89,9 +89,9 @@
   async function done() {
     clearTimeout(timer);
     // Closing on blank text deletes the note (C17a).
-    if (!text.trim()) {
-      if (item) await api.setNote(key, "", null).then(refreshNotes).catch((e) => (problem = String(e)));
-    } else if (!saved) await save();
+    const act = onClose(text, !!item, saved);
+    if (act === "delete") await api.setNote(key, "", null).then(refreshNotes).catch((e) => (problem = String(e)));
+    else if (act === "save") await save();
     if (problem) return;
     indexNotes();
     app.editing = null;

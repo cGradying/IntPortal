@@ -111,7 +111,7 @@ export function addEntry(text: string, heading: string): Edit {
 
 /** Tick or untick the checklist item on the line that starts at `at` (C12). */
 export function toggleCheck(text: string, at: number): string {
-  const m = /^- \[([ xX])\] /.exec(text.slice(at, at + 6));
+  const m = /^- \[([ xX])\]( |\n|$)/.exec(text.slice(at, at + 6));
   if (!m) return text;
   return text.slice(0, at + 3) + (m[1] === " " ? "x" : " ") + text.slice(at + 4);
 }
@@ -135,3 +135,21 @@ export function cardLines(text: string): CardLine[] {
       return m ? { text: l, front: m[1].trim(), back: m[2].trim(), chosen: true } : { text: l, front: l, back: "", chosen: false };
     });
 }
+
+/**
+ * LAR added to this note while it is open (C12a): the store now holds `ext`, the editor last saved `base`
+ * and shows `local`. His addition goes after what is on screen, so neither side's words are lost.
+ */
+export function mergeExternal(local: string, base: string, ext: string, dirty: boolean): string {
+  if (ext.startsWith(base)) return local + ext.slice(base.length);
+  return dirty ? local : ext;
+}
+
+/** What closing the editor does (C17a): blank text deletes a stored note, and is never saved. */
+export function onClose(text: string, stored: boolean, saved: boolean): "delete" | "save" | "none" {
+  if (!text.trim()) return stored ? "delete" : "none";
+  return saved ? "none" : "save";
+}
+
+/** Autosave never writes blank text (C17a). */
+export const autosaves = (text: string) => !!text.trim();

@@ -105,7 +105,7 @@ function build(view: EditorView, tick: (at: number) => void): DecorationSet {
           const line = doc.lineAt(n.from);
           // The "- " before the box goes too, so the box sits where the bullet was.
           const start = doc.sliceString(line.from, n.from).endsWith("- ") ? n.from - 2 : n.from;
-          marks.push(Decoration.replace({ widget: new Box(on, line.from, tick) }).range(start, Math.min(n.to + 1, line.to)));
+          marks.push(Decoration.replace({ widget: new Box(on, start, tick) }).range(start, Math.min(n.to + 1, line.to)));
           // A mark may not be empty: an item with no words yet has nothing to strike.
           if (on && n.to + 1 < line.to) marks.push(Decoration.mark({ class: "cm-done" }).range(n.to + 1, line.to));
         } else if (name === "ListMark") {
@@ -120,6 +120,13 @@ function build(view: EditorView, tick: (at: number) => void): DecorationSet {
         }
       },
     });
+    // An item with no words yet ("- [ ]", no space after) isn't a task to the parser: still a box.
+    for (let p = from; p <= to; ) {
+      const l = doc.lineAt(p);
+      const m = /^(\s*)- \[([ xX])\]$/.exec(l.text);
+      if (m) marks.push(Decoration.replace({ widget: new Box(m[2] !== " ", l.from + m[1].length, tick) }).range(l.from + m[1].length, l.to));
+      p = l.to + 1;
+    }
     // ==highlight== is not CommonMark: found by hand.
     const text = doc.sliceString(from, to);
     for (const m of text.matchAll(/==([^=\n]+)==/g)) {

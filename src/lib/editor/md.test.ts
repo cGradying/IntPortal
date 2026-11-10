@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addEntry, applyTemplate, block, cardLines, entryHeading, setLines, toggleCheck, words, wrap } from "./md";
+import { addEntry, applyTemplate, autosaves, block, cardLines, entryHeading, mergeExternal, onClose, setLines, toggleCheck, words, wrap } from "./md";
 import { tidy } from "../assis/cards";
 
 describe("inline marks", () => {
@@ -62,6 +62,7 @@ describe("checklists", () => {
     expect(toggleCheck(t, 0)).toBe("- [x] a\n- [x] b");
     expect(toggleCheck(t, 8)).toBe("- [ ] a\n- [ ] b");
     expect(toggleCheck("plain", 0)).toBe("plain");
+    expect(toggleCheck("a\n  - [x]", 4)).toBe("a\n  - [ ]");
   });
 });
 
@@ -79,5 +80,30 @@ describe("make cards", () => {
   });
   it("c20_duplicates_dropped", () => {
     expect(tidy([{ front: "Stack", back: "LIFO" }, { front: "queue", back: "FIFO" }], ["stack"])).toEqual([{ front: "queue", back: "FIFO" }]);
+  });
+});
+
+describe("saving", () => {
+  it("c10_markdown_round_trip", () => {
+    let e = { text: "Stack\nQueue", from: 0, to: 11 };
+    e = setLines(e.text, e.from, e.to, "check");
+    e = wrap(e.text, 6, 11, "mark");
+    expect(e.text).toBe("- [ ] ==Stack==\n- [ ] Queue");
+    e = wrap(e.text, e.from, e.to, "mark");
+    expect(setLines(e.text, 0, e.text.length, "check").text).toBe("Stack\nQueue");
+  });
+  it("c12a_lar_text_survives_autosave", () => {
+    expect(mergeExternal("my words, typing", "my words", "my words\n\nLAR's summary", true)).toBe("my words, typing\n\nLAR's summary");
+    expect(mergeExternal("same", "same", "rewritten elsewhere", false)).toBe("rewritten elsewhere");
+    expect(mergeExternal("unsaved", "old", "rewritten elsewhere", true)).toBe("unsaved");
+  });
+  it("c17a_blank_never_autosaves", () => {
+    expect(autosaves("  \n ")).toBe(false);
+    expect(autosaves("x")).toBe(true);
+  });
+  it("c17a_blank_on_close_deletes", () => {
+    expect(onClose(" ", true, false)).toBe("delete");
+    expect(onClose("", false, true)).toBe("none");
+    expect(onClose("text", true, false)).toBe("save");
   });
 });
