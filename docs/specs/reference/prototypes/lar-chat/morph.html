@@ -1,0 +1,281 @@
+<style>
+/* Opening: the cube changes its atom form. The WebGL chip hands its 27 cells to 27 DOM atoms at the
+   same view; they turn to face you, lay flat into a 3 x 9 wall and grow into the window, whose seams
+   then melt into one glass face. B sends them to the window's edge instead and fills inward. */
+.m-phone {
+  --sl: 1;
+  --g-a: color-mix(in srgb, var(--card), var(--ink) 8%);
+  --g-b: color-mix(in srgb, var(--card), var(--ground) 45%);
+  --g-rim: color-mix(in srgb, var(--gold) 42%, transparent);
+  --g-hi: rgb(168 134 210 / 0.42); --g-lo: rgb(0 0 0 / 0.5); --g-sheen: rgb(255 236 214 / 0.07);
+  --a-top: color-mix(in srgb, var(--card), var(--ink) 20%);
+  --a-side: color-mix(in srgb, var(--card), var(--ink) 10%);
+  --a-hair: color-mix(in srgb, var(--card), var(--ink) 30%);
+}
+.m-phone.m-day { --g-hi: rgb(255 255 255 / 0.95); --g-lo: rgb(90 40 50 / 0.16); --g-sheen: rgb(255 255 255 / 0.7); --a-top: var(--card); --a-side: color-mix(in srgb, var(--card), var(--ink) 7%); --a-hair: color-mix(in srgb, var(--card), var(--ink) 24%); }
+.m-gl {
+  background:
+    linear-gradient(to bottom, var(--g-hi) 0 1px, transparent 1px),
+    linear-gradient(to right, var(--g-hi) 0 1px, transparent 1px),
+    linear-gradient(to top, var(--g-lo) 0 2px, transparent 2px),
+    linear-gradient(to left, var(--g-rim) 0 1px, var(--g-lo) 1px 2px, transparent 2px),
+    radial-gradient(80% 70% at 28% 18%, var(--g-sheen), transparent 72%),
+    linear-gradient(155deg, var(--g-a), var(--g-b));
+}
+.m-phone .crystal { transition: scale 0.16s var(--spring), opacity calc(0.12s * var(--sl)) linear; }
+.m-phone .crystal.m-gone { opacity: 0; pointer-events: none; }
+.m-scrim { position: absolute; inset: 0; z-index: 45; background: rgb(6 3 8 / 0.32); opacity: 0; pointer-events: none; transition: opacity calc(0.36s * var(--sl)) var(--ease); }
+.m-phone.m-open .m-scrim { opacity: 1; pointer-events: auto; }
+
+/* The atoms: one orthographic 3D group at the chip's centre; each atom a true box of --w x --h x --d,
+   so its faces keep 1 px edges at any size. */
+.m-atoms { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 52; transform-style: preserve-3d; pointer-events: none; }
+.m-atoms[hidden] { display: none; }
+.m-a { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; }
+.m-a b { position: absolute; left: calc(var(--w) / -2); top: calc(var(--h) / -2); width: var(--w); height: var(--h); backface-visibility: hidden; box-shadow: inset 0 0 0 0.5px var(--a-hair); }
+.m-a .f { transform: translateZ(calc(var(--d) / 2)); }
+.m-a .k { transform: rotateY(180deg) translateZ(calc(var(--d) / 2)); background: var(--a-side); }
+.m-a .r, .m-a .l { left: calc(var(--d) / -2); width: var(--d); background: var(--a-side); }
+.m-a .r { transform: rotateY(90deg) translateZ(calc(var(--w) / 2)); }
+.m-a .l { transform: rotateY(-90deg) translateZ(calc(var(--w) / 2)); }
+.m-a .t, .m-a .d { top: calc(var(--d) / -2); height: var(--d); background: var(--a-side); }
+.m-a .t { transform: rotateX(90deg) translateZ(calc(var(--h) / 2)); background: var(--a-top); }
+.m-a .d { transform: rotateX(-90deg) translateZ(calc(var(--h) / 2)); }
+/* A lit atom holds a datum, as in the crystal. */
+.m-a.lit .f { background: linear-gradient(var(--gold), var(--gold)) center / 22% 22% no-repeat, linear-gradient(155deg, var(--g-a), var(--g-b)); }
+
+/* B fills the glass inward from the frame the atoms made. */
+.m-fill { position: absolute; z-index: 49; pointer-events: none; opacity: 0; }
+
+/* The window. Its contents keep their final layout; they arrive once the glass is whole. */
+.m-phone .m-win { position: absolute; z-index: 50; display: flex; flex-direction: column; overflow: hidden; opacity: 0; pointer-events: none; box-shadow: 0 0 0 1px var(--g-rim), 0 12px 26px -10px rgb(0 0 0 / 0.55); }
+.m-phone.m-open .m-win { pointer-events: auto; }
+.m-rm .m-win { transition: opacity calc(0.2s * var(--sl)) linear; }
+.m-rm.m-open .m-win { opacity: 1; }
+.m-win > * { opacity: 0; transition: opacity calc(0.16s * var(--sl)) linear, translate calc(0.16s * var(--sl)) var(--ease); }
+.m-win.m-in > * { opacity: 1; translate: 0 0; transition: opacity calc(0.3s * var(--sl)) linear, translate calc(0.42s * var(--sl)) var(--ease); }
+.m-win:not(.m-in) .m-head { translate: 0 -6px; }
+.m-win:not(.m-in) .m-dock { translate: 0 12px; }
+.m-win.m-in .m-dock { transition-delay: calc(0.08s * var(--sl)); }
+
+/* Header: LAR on his perch, his name and what he is doing, then the two buttons. */
+.m-head { position: relative; flex: none; display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 4px 0 8px; }
+.m-perch { position: relative; flex: none; width: 56px; height: 56px; overflow: hidden; background: radial-gradient(60% 60% at 50% 70%, color-mix(in srgb, var(--gold) 16%, transparent), transparent); }
+.m-perch canvas { position: absolute; left: -5px; top: -3px; image-rendering: pixelated; transform: scale(0.62); transform-origin: 0 0; }
+.m-who { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.m-tag { font: 600 13px var(--f-pixel); letter-spacing: 0.08em; color: var(--gold); }
+.m-st { font: 400 12px var(--f-ui); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-phone .m-ib { flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; background: none; color: var(--ink-2); }
+.m-phone .m-ib:hover { color: var(--ink); }
+.m-phone .m-ib[hidden] { display: none; }
+
+.m-log { position: relative; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.m-in { display: grid; gap: 10px; align-content: start; padding: 4px 12px 10px; }
+.m-lar { justify-self: start; max-width: 92%; padding: 10px 12px; background: #1d1222; color: #f4ecd8; box-shadow: inset 0 2px 0 color-mix(in srgb, #e8b04a 45%, #3a2446), inset 0 -2px 0 #060307; clip-path: polygon(0 6px,3px 6px,3px 3px,6px 3px,6px 0,calc(100% - 6px) 0,calc(100% - 6px) 3px,calc(100% - 3px) 3px,calc(100% - 3px) 6px,100% 6px,100% calc(100% - 6px),calc(100% - 3px) calc(100% - 6px),calc(100% - 3px) calc(100% - 3px),calc(100% - 6px) calc(100% - 3px),calc(100% - 6px) 100%,6px 100%,6px calc(100% - 3px),3px calc(100% - 3px),3px calc(100% - 6px),0 calc(100% - 6px)); font: 400 14px/1.4 var(--f-ui); }
+.m-lar p { margin: 0; }
+.m-rest { visibility: hidden; }
+.m-caret { display: inline-block; width: 2px; height: 1em; margin: 0 1px -0.15em; background: #e8b04a; }
+.m-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 0 12px; }
+.m-phone .m-chip { flex: none; height: 36px; padding: 0 12px; white-space: nowrap; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--card) 70%, transparent); box-shadow: inset 0 0 0 1px var(--edge-2); color: var(--ink); font: 400 13px var(--f-ui); animation: mUp calc(0.3s * var(--sl)) calc(var(--i, 0) * 60ms * var(--sl)) var(--ease) both; }
+.m-dock { flex: none; display: flex; gap: 6px; padding: 4px 8px 8px; }
+.m-well { flex: 1; min-width: 0; height: 44px; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); font: 400 16px var(--f-ui); color: var(--ink-3); }
+.m-phone .m-send { flex: none; width: 56px; height: 44px; border: 0; background: var(--sunk); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--edge-2); font: 600 14px var(--f-ui); clip-path: var(--n3); }
+@keyframes mUp { from { opacity: 0; transform: translateY(8px); } }
+</style>
+
+<section class="row" id="morph">
+  <div class="q"><h2>Opening: the cube changes its atom form</h2><p>Tap the cube. Its 27 atoms turn to face you, lay themselves flat into a wall, and the wall grows into the chat; the seams melt into one pane of glass, then LAR comes out of his fire on his perch in the header. Closing plays it back into the cube. B is the other way I tried, for comparison.</p></div>
+  <div class="panel m-panel">
+    <h3>Try it on both</h3>
+    <div class="pbtns"><button class="pbtn" type="button" data-m="open">Open</button><button class="pbtn" type="button" data-m="close">Close</button><button class="pbtn" type="button" data-ms="slow" aria-pressed="false">Slow motion</button><button class="pbtn" type="button" data-ms="rm" aria-pressed="false">Reduce Motion</button><div class="seg0" role="group" aria-label="Room"><button type="button" data-mr="night" aria-pressed="true">Night</button><button type="button" data-mr="day" aria-pressed="false">Day</button></div></div>
+    <p>Slow motion runs everything at a quarter speed. With Reduce Motion the window cross-fades and no atoms move.</p>
+  </div>
+  <div class="wide">
+    <div class="opt"><div class="phone" id="mPhA"></div><div class="name"><b>A: Atoms lay flat (decided)</b><span>Turn to face you, flatten into a 3 × 9 wall, grow into the window bottom row first, seams melt. About 0.8 s open, 0.45 s close.</span></div></div>
+    <div class="opt"><div class="phone" id="mPhB"></div><div class="name"><b>B: Atoms become the frame</b><span>They fly out to the window's edge and the glass fills in from them. Shown only to compare.</span></div></div>
+  </div>
+  <div class="picks" style="max-width:340px"><button class="pick" data-row="morph" data-v="Looks right">Looks right</button><button class="pick" data-row="morph" data-v="Needs work">Needs work</button></div>
+</section>
+
+<script>
+const M_TODAY = `<h3 class="ttl">Today</h3><div class="card"><p class="lb">Due this week</p><p style="margin:6px 0 0;font-weight:600">Lab 4: Interfaces</p><p class="fine">COMP 20083 · Wednesday, 11:59 PM</p></div><div class="card" style="display:grid;gap:4px"><p class="lb">Up next</p><b style="font:800 17px var(--f-ui);color:var(--gold)">COMP 20083</b><p class="fine">Object-Oriented Programming, 10:30 AM</p></div><div class="card"><p class="lb">This term</p><div style="margin-top:6px">${pn("1.28")}</div></div>`;
+const M_HELLO = "Hi! I'm LAR. Ask me what's due, your classes, or your grades.";
+const M_STARTERS = ["What's due this week?", "Anong klase ko ngayon?", "Remind me bukas ng umaga"];
+/* Virtual ms. The window, its glass whole at M_END; LAR spawns at M_LAR; closing reverses in M_CLOSE. */
+const M_END = 820, M_IN = 760, M_LAR = 780, M_CLOSE = 450, M_FOLD = 300, M_WH = 300;
+/* The atoms' pitch and edge at the chip, matched to the WebGL cube's rest view. */
+const M_P = 7.2, M_E = 6.6;
+const mS = { slow: 1, rm: false };
+const mRM = () => reduce || mS.rm;
+const mLerp = (a, b, u) => a + (b - a) * u;
+// Front layer is k = -1 (towards you). Laid flat it is the bottom three rows; the layers behind go above it.
+const M_CELLS = [];
+for (let k = -1; k <= 1; k++) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) M_CELLS.push({ i, j, k, c: i + 1, r: (k + 1) * 3 + (1 - j), lit: (((i + 2) * 7 + (j + 2) * 13 + (k + 2) * 29) % 27) / 27 < 0.3 });
+
+function mPhone(el, kind) {
+  el.classList.add("m-phone");
+  shell(el, NIGHT, "today").innerHTML = M_TODAY;
+  const cr = mountCrystal(el, { mode: "cube" });
+  el.insertAdjacentHTML("beforeend", `<div class="m-scrim"></div><div class="m-fill"></div>
+    <div class="m-win m-gl" role="dialog" aria-label="Ask LAR">
+      <div class="m-head"><div class="m-perch" aria-hidden="true"><canvas></canvas></div><div class="m-who"><span class="m-tag">LAR</span><span class="m-st" aria-live="polite">Waking up</span></div><button class="m-ib" type="button" aria-label="New chat" hidden>${pi("note2", 18)}</button><button class="m-ib m-x" type="button" aria-label="Close">${pi("close", 18)}</button></div>
+      <div class="m-log"><div class="m-in"></div></div>
+      <div class="m-dock"><div class="m-well">Ask LAR…</div><button class="m-send" type="button" disabled>Send</button></div>
+    </div>
+    <div class="m-atoms" hidden>${M_CELLS.map((c) => `<i class="m-a${c.lit ? " lit" : ""}"><b class="f m-gl"></b><b class="k"></b><b class="r"></b><b class="l"></b><b class="t"></b><b class="d"></b></i>`).join("")}</div>`);
+  const win = $(".m-win", el), fill = $(".m-fill", el), atoms = $(".m-atoms", el), aEls = $$(".m-a", atoms), inn = $(".m-in", win), st = $(".m-st", win), cv = $(".m-perch canvas", win);
+  cv.width = LW; cv.height = LH;
+  const rig = LarKit.rig("idle");
+  let state = "closed", vt = 0, t0 = 0, ev = [], lar = { on: false, fold: null }, typing = null;
+  const at = (ms, f) => ev.push({ t: vt + ms, f });
+  const chip = () => ({ x: cr.el.offsetLeft, y: cr.el.offsetTop, w: cr.el.offsetWidth, h: cr.el.offsetHeight });
+  const box = (e, r) => Object.assign(e.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" });
+  let C, Wn;
+  function geometry() {
+    C = chip();
+    Wn = { x: 12, y: C.y + C.h - M_WH, w: 296, h: M_WH };
+    box(win, Wn); box(fill, Wn);
+    atoms.style.left = C.x + C.w / 2 + "px"; atoms.style.top = C.y + C.h / 2 + "px";
+    // B: 27 slots round the window's edge, handed out by angle so the atoms' paths do not cross.
+    const per = 2 * (Wn.w + Wn.h), slots = [];
+    for (let n = 0; n < 27; n++) {
+      let d = ((n + 0.5) / 27) * per, x, y;
+      if (d < Wn.w) (x = d), (y = 0); else if ((d -= Wn.w) < Wn.h) (x = Wn.w), (y = d); else if ((d -= Wn.h) < Wn.w) (x = Wn.w - d), (y = Wn.h); else (x = 0), (y = Wn.h - (d - Wn.w));
+      slots.push({ x: Wn.x + 5 + x * ((Wn.w - 10) / Wn.w), y: Wn.y + 5 + y * ((Wn.h - 10) / Wn.h) });
+    }
+    const mx = Wn.x + Wn.w / 2, my = Wn.y + Wn.h / 2, ang = (x, y) => Math.atan2(y - my, x - mx);
+    slots.sort((a, b) => ang(a.x, a.y) - ang(b.x, b.y));
+    const cx = C.x + C.w / 2, cy = C.y + C.h / 2;
+    const order = M_CELLS.map((c, n) => n).sort((a, b) => ang(cx + M_CELLS[a].i * 9, cy + M_CELLS[a].j * 9 - M_CELLS[a].k * 4) - ang(cx + M_CELLS[b].i * 9, cy + M_CELLS[b].j * 9 - M_CELLS[b].k * 4));
+    order.forEach((n, o) => { M_CELLS[n]["slot" + kind] = { x: slots[o].x - cx, y: slots[o].y - cy, o }; });
+  }
+
+  /* The morph at virtual time t (0 = the cube, M_END = the window whole). Played backwards to close. */
+  function pose(t) {
+    const turn = ease(clamp(t / 200)), sp = 1 + 0.32 * turn;
+    atoms.style.transform = `rotateX(${(-35.26 * (1 - turn)).toFixed(3)}deg) rotateY(${(45 * (1 - turn)).toFixed(3)}deg)`;
+    const cw = (Wn.w - 4) / 3, ch = (Wn.h - 16) / 9, cx = C.x + C.w / 2, cy = C.y + C.h / 2;
+    M_CELLS.forEach((a, n) => {
+      let x = a.i * M_P * sp, y = a.j * M_P * sp, z = -a.k * M_P * sp, sx = M_E, sy = M_E, sz = M_E;
+      if (kind === 1) {
+        // Lay flat: the layers behind slide up over the front one into a 3 x 9 wall, front first.
+        const u2 = ease(clamp((t - 200 - (a.k + 1) * 40) / 140));
+        x = mLerp(x, (a.c - 1) * M_P, u2); y = mLerp(y, M_P - a.r * M_P, u2); z = mLerp(z, 0, u2);
+        // Grow: each atom becomes a cell of the window, bottom row first.
+        const u3 = ease(clamp((t - 380 - a.r * 14) / 208));
+        x = mLerp(x, Wn.x + a.c * (cw + 2) + cw / 2 - cx, u3); y = mLerp(y, Wn.y + Wn.h - a.r * (ch + 2) - ch / 2 - cy, u3);
+        sx = mLerp(M_E, cw, u3); sy = mLerp(M_E, ch, u3); sz = mLerp(M_E, 3, u3);
+      } else {
+        // To the frame: each atom flies to its slot on the window's edge.
+        const s = a.slot2, u = ease(clamp((t - 200 - s.o * 6) / 244));
+        x = mLerp(x, s.x, u); y = mLerp(y, s.y, u); z = mLerp(z, 0, u); sx = sy = mLerp(M_E, 14, u); sz = mLerp(M_E, 4, u);
+      }
+      // A datum shows only while it is a cube; a cell of the window holds none.
+      aEls[n].classList.toggle("lit", a.lit && t < 380);
+      const e = aEls[n].style;
+      e.setProperty("--w", sx.toFixed(2) + "px"); e.setProperty("--h", sy.toFixed(2) + "px"); e.setProperty("--d", sz.toFixed(2) + "px");
+      e.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, ${z.toFixed(2)}px)`;
+    });
+    // The seams melt (A) or the atoms sink into the rim (B) as the whole pane takes over.
+    const from = kind === 1 ? 640 : 700, glass = clamp((t - from) / 90), melt = clamp((t - from - 60) / (M_END - from - 60));
+    atoms.style.opacity = String(1 - melt);
+    win.style.opacity = String(glass);
+    if (kind === 2) {
+      const f = ease(clamp((t - 560) / 200));
+      fill.style.opacity = String(f > 0 ? 1 - glass : 0);
+      fill.style.boxShadow = `inset 0 0 0 ${(f * Wn.h * 0.5).toFixed(1)}px var(--g-a), 0 0 0 1px var(--g-rim)`;
+    }
+  }
+
+  function hello() {
+    inn.innerHTML = `<div class="m-lar"><p><span class="m-ty"></span><i class="m-caret"></i><span class="m-rest">${esc(M_HELLO)}</span></p></div>`;
+    typing = vt;
+  }
+  function chipsIn() { inn.insertAdjacentHTML("beforeend", `<div class="m-chips">${M_STARTERS.map((s, i) => `<button class="m-chip" type="button" style="--i:${i}">${esc(s)}</button>`).join("")}</div>`); }
+
+  function open() {
+    if (state !== "closed") return;
+    geometry(); ev = []; inn.innerHTML = ""; st.textContent = "Waking up";
+    el.classList.add("m-open"); cr.el.classList.add("m-gone");
+    if (mRM()) {
+      el.classList.add("m-rm"); win.style.opacity = ""; win.classList.add("m-in");
+      lar = { on: true, fold: null }; rig.set("idle", vt / 1000); st.textContent = "On this phone";
+      hello(); typing = -1e9; chipsIn(); state = "open"; return;
+    }
+    el.classList.remove("m-rm");
+    state = "opening"; t0 = vt; pose(0); atoms.hidden = false;
+    at(M_IN, () => win.classList.add("m-in"));
+    at(M_LAR, () => { lar = { on: true, fold: null }; rig.start("spawn", vt / 1000); });
+    at(M_LAR + 1100, () => { rig.set("happy", vt / 1000); st.textContent = "On this phone"; hello(); });
+    at(M_LAR + 2600, () => rig.set("idle", vt / 1000));
+  }
+  function close() {
+    if (state === "closed" || state === "closing") return;
+    ev = []; typing = null; st.textContent = "See you";
+    if (mRM() || el.classList.contains("m-rm")) {
+      el.classList.add("m-rm"); el.classList.remove("m-open"); cr.el.classList.remove("m-gone"); win.classList.remove("m-in");
+      lar.on = false; state = "closed"; return;
+    }
+    state = "closing"; t0 = vt;
+    if (lar.on) lar.fold = vt;
+    win.classList.remove("m-in");
+    el.classList.remove("m-open");
+    // The chip fades back in under the cube of atoms, then they go: no gap at the handoff.
+    at(M_FOLD / 2 + M_CLOSE, () => { cr.el.classList.remove("m-gone"); win.style.opacity = "0"; fill.style.opacity = "0"; lar.on = false; });
+    at(M_FOLD / 2 + M_CLOSE + 130, () => { atoms.hidden = true; state = "closed"; });
+  }
+
+  function frame(dv) {
+    vt += dv;
+    const due = ev.filter((e) => e.t <= vt); ev = ev.filter((e) => e.t > vt); due.forEach((e) => e.f());
+    if (state === "opening") { const t = vt - t0; pose(Math.min(t, M_END)); if (t >= M_END) { atoms.hidden = true; state = "open"; } }
+    else if (state === "closing") { const u = vt - t0 - M_FOLD / 2; if (u > 0) { atoms.hidden = false; pose(M_END * (1 - clamp(u / M_CLOSE))); } }
+    if (typing !== null) {
+      const n = Math.min(M_HELLO.length, Math.floor((vt - typing) / 22)), ty = $(".m-ty", inn);
+      if (ty && ty.textContent.length !== n) { ty.textContent = M_HELLO.slice(0, n); $(".m-rest", inn).textContent = M_HELLO.slice(n); }
+      if (n >= M_HELLO.length) { typing = null; $(".m-caret", inn)?.remove(); if (state === "opening" || state === "open") at(140, chipsIn); }
+    }
+    const g = cv.getContext("2d");
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, LW, LH);
+    if (!lar.on) return;
+    let o = {};
+    // Folding back is his spawn run in reverse: he coarsens into blocks and the fire takes him.
+    if (lar.fold !== null) { const k = clamp((vt - lar.fold) / M_FOLD); if (k >= 1) { lar.on = false; return; } o = { k: 1 - k }; }
+    g.imageSmoothingEnabled = false; g.save(); g.translate(-LBOX.x0 * 2, -LBOX.y0 * 2); g.scale(2, 2);
+    try { LarKit.drawLar(g, rig.at(vt / 1000, o, mRM()), larTheme(null), mRM() ? 0 : vt / 1000, { shadow: false, cube: false }); } catch { /* the sketch can do without him */ }
+    g.restore();
+  }
+
+  geometry();
+  cr.el.addEventListener("click", open);
+  $(".m-scrim", el).addEventListener("click", close);
+  $(".m-x", win).addEventListener("click", close);
+  return {
+    open, close, frame,
+    // For checking frames by hand: the morph frozen at t.
+    peek(t) { geometry(); el.classList.add("m-open"); cr.el.classList.add("m-gone"); atoms.hidden = t >= M_END; pose(t); },
+    sl(f) { el.style.setProperty("--sl", f); },
+    room(day) { dress(el, day ? DAY : NIGHT); el.classList.toggle("m-day", day); cr.look(LOOKS[day ? 1 : 0]); },
+  };
+}
+
+const mPhones = [mPhone($("#mPhA"), 1), mPhone($("#mPhB"), 2)];
+let mLast = performance.now();
+(function mLoop(now) {
+  const dt = Math.min(50, now - mLast); mLast = now;
+  for (const p of mPhones) p.frame(dt / mS.slow);
+  requestAnimationFrame(mLoop);
+})(mLast);
+$("#morph .m-panel").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-m]");
+  if (b) mPhones.forEach((p) => p[b.dataset.m]());
+  const s = e.target.closest("[data-ms]");
+  if (s) {
+    const on = s.getAttribute("aria-pressed") !== "true"; s.setAttribute("aria-pressed", String(on));
+    if (s.dataset.ms === "slow") { mS.slow = on ? 4 : 1; mPhones.forEach((p) => p.sl(mS.slow)); } else mS.rm = on;
+  }
+  const r = e.target.closest("[data-mr]");
+  if (r) { $$("[data-mr]").forEach((x) => x.setAttribute("aria-pressed", String(x === r))); mPhones.forEach((p) => p.room(r.dataset.mr === "day")); }
+});
+window.__morph = { phones: mPhones, s: mS };
+</script>
