@@ -89,8 +89,9 @@ export function runPour(o: PourOpts): Promise<void> {
   const tok = tokensOf(o.tokens);
   const { faces, hair } = readTones();
   const tone = faces[2]; // the face it turned to show, as the WebGL cube draws it
-  const face = drawFace(plan, tok, dpr);
-  if (!face) return Promise.resolve(); // no offscreen context: the window just shows, as with no main one
+  const drawn = drawFace(plan, tok, dpr);
+  if (!drawn) return Promise.resolve(); // no offscreen context: the window just shows, as with no main one
+  const face: HTMLCanvasElement = drawn;
   const { win } = plan;
   const opening = o.mode === "open";
   const total = opening ? OPEN_MS : CLOSE_MS;
