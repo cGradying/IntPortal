@@ -361,8 +361,8 @@ svg.pi { display: block; flex: none; }
    pools of light and a few pixel stars, split from the chat by a dithered pixel edge. Everything
    LAR fills its height, his feet on that edge; his name, status and the two buttons are centred
    on his body, so all of it reads as one line. The buttons are one pair: 36 px pixel-cut keys,
-   both icons on the same 7 x 7 pixel grid. With the keyboard up or the chat scrolled it folds to
-   64 px and LAR shrinks with it, still standing on the edge.
+   both icons on the same 7 x 7 pixel grid. It is one fixed size: it never folds, with the keyboard
+   up or a long chat, and LAR stays the same size.
    His art is 71 x 60 px inside a 106 x 100 canvas, from (16, 19); the numbers below place it. */
 .lh { --lh-h: 104px; position: relative; flex: none; height: var(--lh-h); display: flex; align-items: center; gap: 6px; padding: 4px 10px 0 0; isolation: isolate; color: #fff6dc; transition: height 0.34s var(--ease), padding 0.34s var(--ease); }
 .lh-sky { position: absolute; inset: 0; z-index: -1; overflow: hidden;
@@ -402,11 +402,6 @@ svg.pi { display: block; flex: none; }
 .phone .lh-ib:active { translate: 0 1px; box-shadow: inset 0 2px 0 rgb(0 0 0 / 0.32); }
 .lh-ib[hidden] { display: none; }
 .lh-ib svg { display: block; filter: drop-shadow(0 1px 0 rgb(6 3 7 / 0.5)); }
-.lh.lh-small { --lh-h: 64px; padding: 0 10px 6px 0; }
-.lh-small .lh-perch { width: 64px; margin: 0 0 -6px; }
-.lh-small .lh-cv { scale: 0.78; left: -8px; top: -9px; }
-.lh-small .lh-who { gap: 3px; }
-.lh-small .lh-tag { font-size: 14px; }
 @keyframes lhDrift { to { background-position: 100% 60%, 0% 100%, 30% 80%, 0 0; } }
 @keyframes lhTw { from { opacity: 0.25; } }
 @keyframes lhBlink { 50% { opacity: 0.2; } }
@@ -636,12 +631,12 @@ svg.pi { display: block; flex: none; }
   <div class="panel c-panel">
     <h3>Try it on both</h3>
     <div class="pbtns"><button class="pbtn" type="button" data-c="due">Ask what's due</button><button class="pbtn" type="button" data-c="notes">Ask about a note</button><button class="pbtn" type="button" data-c="miss">Ask what isn't in notes</button><button class="pbtn" type="button" data-c="thx">Thank LAR</button><button class="pbtn" type="button" data-c="reset">New chat</button><div class="seg0" role="group" aria-label="Room"><button type="button" data-cr="night" aria-pressed="true">Night</button><button type="button" data-cr="day" aria-pressed="false">Day</button></div></div>
-    <p>Left: keyboard down, the full sky. Right: keyboard up, the sky folds to a slim band. Tap a suggestion, a found note, or the folded line.</p>
+    <p>Left: keyboard down. Right: keyboard up. The header is one size in both, and stays that size however long the chat gets. Tap a suggestion, a found note, or the folded line.</p>
     <div class="picks"><button class="pick" data-row="chat" data-v="Looks right">Looks right</button><button class="pick" data-row="chat" data-v="Needs work">Needs work</button></div>
   </div>
   <div class="wide">
-    <div class="opt"><div class="phone" id="cPh1"></div><div class="name"><b>Keyboard down</b><span>The sky header, 96 pt. The window grows up from the cube's corner with the chat.</span></div></div>
-    <div class="opt"><div class="phone" id="cPh2"></div><div class="name"><b>Keyboard up</b><span>The sky folds to 56 pt. The window rests on the keyboard.</span></div></div>
+    <div class="opt"><div class="phone" id="cPh1"></div><div class="name"><b>Keyboard down</b><span>The sky header, 104 pt. The window grows up from the cube's corner with the chat.</span></div></div>
+    <div class="opt"><div class="phone" id="cPh2"></div><div class="name"><b>Keyboard up</b><span>The same header, LAR the same size. The window rests on the keyboard.</span></div></div>
   </div>
 </section>
 </div>
@@ -3429,9 +3424,8 @@ function cPhone(el, keys) {
     const h = clamp(need, 220, keys ? bottom - top : 440);
     Object.assign(win.style, { top: bottom - h + "px", height: h + "px" });
   }
-  const small = () => hd.classList.toggle("lh-small", keys || log.scrollTop > 24);
-  log.addEventListener("scroll", small, { passive: true });
-  small();
+
+
   const toEnd = () => log.scrollTo({ top: log.scrollHeight, behavior: reduce ? "auto" : "smooth" });
   const add = (html) => { inn.insertAdjacentHTML("beforeend", html); layout(); toEnd(); wait(380).then(toEnd); return inn.lastElementChild; };
   const suggest = (list) => { sug.innerHTML = list.map((s, i) => `<button class="c-chip" type="button" style="--i:${i}" data-ask="${esc(s.q)}">${esc(s.q)}${s.why ? `<span class="c-why">${esc(s.why)}</span>` : ""}</button>`).join(""); sug.scrollLeft = 0; layout(); };
@@ -3494,7 +3488,7 @@ function cPhone(el, keys) {
     if (T.src) wait(160).then(() => hit($(`.view [data-src="${T.src}"]`, el)));
   }
 
-  function reset() { timers.forEach(clearTimeout); timers = []; busy = false; L.rig.set("idle", tnow()); hello(); layout(); log.scrollTop = 0; small(); }
+  function reset() { timers.forEach(clearTimeout); timers = []; busy = false; L.rig.set("idle", tnow()); hello(); layout(); log.scrollTop = 0; }
   win.addEventListener("click", (e) => { const b = e.target.closest("[data-ask]"); if (!b) return; const k = Object.keys(C_TURNS).find((k) => C_TURNS[k].q === b.dataset.ask); ask(k || b.dataset.ask); });
   newBtn.addEventListener("click", reset);
   const shut = () => { el.classList.remove("c-open"); cr.el.style.opacity = ""; };

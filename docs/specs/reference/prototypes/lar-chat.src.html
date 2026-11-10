@@ -361,8 +361,8 @@ svg.pi { display: block; flex: none; }
    pools of light and a few pixel stars, split from the chat by a dithered pixel edge. Everything
    LAR fills its height, his feet on that edge; his name, status and the two buttons are centred
    on his body, so all of it reads as one line. The buttons are one pair: 36 px pixel-cut keys,
-   both icons on the same 7 x 7 pixel grid. With the keyboard up or the chat scrolled it folds to
-   64 px and LAR shrinks with it, still standing on the edge.
+   both icons on the same 7 x 7 pixel grid. It is one fixed size: it never folds, with the keyboard
+   up or a long chat, and LAR stays the same size.
    His art is 71 x 60 px inside a 106 x 100 canvas, from (16, 19); the numbers below place it. */
 .lh { --lh-h: 104px; position: relative; flex: none; height: var(--lh-h); display: flex; align-items: center; gap: 6px; padding: 4px 10px 0 0; isolation: isolate; color: #fff6dc; transition: height 0.34s var(--ease), padding 0.34s var(--ease); }
 .lh-sky { position: absolute; inset: 0; z-index: -1; overflow: hidden;
@@ -402,11 +402,6 @@ svg.pi { display: block; flex: none; }
 .phone .lh-ib:active { translate: 0 1px; box-shadow: inset 0 2px 0 rgb(0 0 0 / 0.32); }
 .lh-ib[hidden] { display: none; }
 .lh-ib svg { display: block; filter: drop-shadow(0 1px 0 rgb(6 3 7 / 0.5)); }
-.lh.lh-small { --lh-h: 64px; padding: 0 10px 6px 0; }
-.lh-small .lh-perch { width: 64px; margin: 0 0 -6px; }
-.lh-small .lh-cv { scale: 0.78; left: -8px; top: -9px; }
-.lh-small .lh-who { gap: 3px; }
-.lh-small .lh-tag { font-size: 14px; }
 @keyframes lhDrift { to { background-position: 100% 60%, 0% 100%, 30% 80%, 0 0; } }
 @keyframes lhTw { from { opacity: 0.25; } }
 @keyframes lhBlink { 50% { opacity: 0.2; } }

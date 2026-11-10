@@ -120,12 +120,12 @@
   <div class="panel c-panel">
     <h3>Try it on both</h3>
     <div class="pbtns"><button class="pbtn" type="button" data-c="due">Ask what's due</button><button class="pbtn" type="button" data-c="notes">Ask about a note</button><button class="pbtn" type="button" data-c="miss">Ask what isn't in notes</button><button class="pbtn" type="button" data-c="thx">Thank LAR</button><button class="pbtn" type="button" data-c="reset">New chat</button><div class="seg0" role="group" aria-label="Room"><button type="button" data-cr="night" aria-pressed="true">Night</button><button type="button" data-cr="day" aria-pressed="false">Day</button></div></div>
-    <p>Left: keyboard down, the full sky. Right: keyboard up, the sky folds to a slim band. Tap a suggestion, a found note, or the folded line.</p>
+    <p>Left: keyboard down. Right: keyboard up. The header is one size in both, and stays that size however long the chat gets. Tap a suggestion, a found note, or the folded line.</p>
     <div class="picks"><button class="pick" data-row="chat" data-v="Looks right">Looks right</button><button class="pick" data-row="chat" data-v="Needs work">Needs work</button></div>
   </div>
   <div class="wide">
-    <div class="opt"><div class="phone" id="cPh1"></div><div class="name"><b>Keyboard down</b><span>The sky header, 96 pt. The window grows up from the cube's corner with the chat.</span></div></div>
-    <div class="opt"><div class="phone" id="cPh2"></div><div class="name"><b>Keyboard up</b><span>The sky folds to 56 pt. The window rests on the keyboard.</span></div></div>
+    <div class="opt"><div class="phone" id="cPh1"></div><div class="name"><b>Keyboard down</b><span>The sky header, 104 pt. The window grows up from the cube's corner with the chat.</span></div></div>
+    <div class="opt"><div class="phone" id="cPh2"></div><div class="name"><b>Keyboard up</b><span>The same header, LAR the same size. The window rests on the keyboard.</span></div></div>
   </div>
 </section>
 
@@ -196,9 +196,8 @@ function cPhone(el, keys) {
     const h = clamp(need, 220, keys ? bottom - top : 440);
     Object.assign(win.style, { top: bottom - h + "px", height: h + "px" });
   }
-  const small = () => hd.classList.toggle("lh-small", keys || log.scrollTop > 24);
-  log.addEventListener("scroll", small, { passive: true });
-  small();
+
+
   const toEnd = () => log.scrollTo({ top: log.scrollHeight, behavior: reduce ? "auto" : "smooth" });
   const add = (html) => { inn.insertAdjacentHTML("beforeend", html); layout(); toEnd(); wait(380).then(toEnd); return inn.lastElementChild; };
   const suggest = (list) => { sug.innerHTML = list.map((s, i) => `<button class="c-chip" type="button" style="--i:${i}" data-ask="${esc(s.q)}">${esc(s.q)}${s.why ? `<span class="c-why">${esc(s.why)}</span>` : ""}</button>`).join(""); sug.scrollLeft = 0; layout(); };
@@ -261,7 +260,7 @@ function cPhone(el, keys) {
     if (T.src) wait(160).then(() => hit($(`.view [data-src="${T.src}"]`, el)));
   }
 
-  function reset() { timers.forEach(clearTimeout); timers = []; busy = false; L.rig.set("idle", tnow()); hello(); layout(); log.scrollTop = 0; small(); }
+  function reset() { timers.forEach(clearTimeout); timers = []; busy = false; L.rig.set("idle", tnow()); hello(); layout(); log.scrollTop = 0; }
   win.addEventListener("click", (e) => { const b = e.target.closest("[data-ask]"); if (!b) return; const k = Object.keys(C_TURNS).find((k) => C_TURNS[k].q === b.dataset.ask); ask(k || b.dataset.ask); });
   newBtn.addEventListener("click", reset);
   const shut = () => { el.classList.remove("c-open"); cr.el.style.opacity = ""; };

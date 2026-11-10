@@ -275,3 +275,4 @@ Decided:
 
 Checkpoints:
 - 2026-11-10: decisions written; round-four page built (chat row by me, opening row by a fork).
+- 2026-11-10: picks after four passes: opening A, Pour; the sky header at one fixed size (104 pt, LAR at 1.4x, never folds); the step trace in pixels. Spec 048 written; 010 C18b, 020, 046 C1d, C1d2, C1d3 point to it. Next: `core/ask-steps` (the step event and intent), then `ui/lar-chat-r4`.
