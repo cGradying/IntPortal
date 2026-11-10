@@ -358,9 +358,11 @@ svg.pi { display: block; flex: none; }
 
 /* ---------------- shared: LAR's header ----------------
    The sky stage from the old sheet, inside the glass: a solid band in the portal's ramp with slow
-   pools of light and a few pixel stars, split from the chat by a dithered pixel edge. LAR stands on
-   that edge. With the keyboard up or the chat scrolled it folds to 56 px and LAR shrinks with it. */
-.lh { position: relative; flex: none; height: 96px; display: flex; align-items: flex-end; gap: 6px; padding: 0 4px 0 2px; isolation: isolate; color: #fff6dc; transition: height 0.34s var(--ease); }
+   pools of light and a few pixel stars, split from the chat by a dithered pixel edge. Everything
+   stands on that edge, the horizon: LAR's feet, his name and status, and the two buttons, on one
+   line. The buttons are one pair: 36 px pixel-cut keys, both icons on the same 7 x 7 pixel grid.
+   With the keyboard up or the chat scrolled it folds to 64 px and LAR shrinks with it. */
+.lh { --lh-h: 104px; --lh-base: 14px; position: relative; flex: none; height: var(--lh-h); display: flex; align-items: flex-end; gap: 4px; padding: 0 10px var(--lh-base) 4px; isolation: isolate; color: #fff6dc; transition: height 0.34s var(--ease), padding 0.34s var(--ease); }
 .lh-sky { position: absolute; inset: 0; z-index: -1; overflow: hidden;
   background:
     radial-gradient(42% 70% at 18% 100%, color-mix(in srgb, var(--r3) 70%, transparent), transparent 70%),
@@ -371,33 +373,42 @@ svg.pi { display: block; flex: none; }
   background-position: 0% 100%, 100% 0%, 50% 100%, 0 0;
   box-shadow: inset 0 1px 0 rgb(255 236 214 / 0.2);
   animation: lhDrift 16s ease-in-out infinite alternate; }
-/* Pixel stars, each its own twinkle, on whole pixels. */
 .lh-sky i { position: absolute; width: 2px; height: 2px; background: #fff6dc; animation: lhTw 2.6s steps(3, jump-none) infinite alternate; }
-.lh-sky i:nth-child(1) { left: 34%; top: 16px; } .lh-sky i:nth-child(2) { left: 52%; top: 30px; opacity: 0.6; animation-delay: -0.8s; }
-.lh-sky i:nth-child(3) { left: 66%; top: 12px; animation-delay: -1.6s; } .lh-sky i:nth-child(4) { left: 78%; top: 44px; opacity: 0.5; animation-delay: -0.4s; }
-.lh-sky i:nth-child(5) { left: 92%; top: 26px; opacity: 0.7; animation-delay: -2s; } .lh-sky i:nth-child(6) { left: 44%; top: 52px; opacity: 0.4; animation-delay: -1.2s; }
-/* The split: a 2-row dither from the sky into the glass, then a hairline of the glass's lit edge. */
+.lh-sky i:nth-child(1) { left: 38%; top: 14px; } .lh-sky i:nth-child(2) { left: 54%; top: 30px; opacity: 0.6; animation-delay: -0.8s; }
+.lh-sky i:nth-child(3) { left: 66%; top: 10px; animation-delay: -1.6s; } .lh-sky i:nth-child(4) { left: 74%; top: 38px; opacity: 0.5; animation-delay: -0.4s; }
+.lh-sky i:nth-child(5) { left: 47%; top: 22px; opacity: 0.7; animation-delay: -2s; } .lh-sky i:nth-child(6) { left: 61%; top: 44px; opacity: 0.4; animation-delay: -1.2s; }
+/* The split: a 2-row dither from the sky into the glass. */
 .lh-sky::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
   background: conic-gradient(var(--g-a) 25%, transparent 0 50%, var(--g-a) 0 75%, transparent 0) 0 0 / 6px 6px; }
-.lh-perch { position: relative; flex: none; width: 76px; height: 100%; overflow: hidden; transition: width 0.34s var(--ease); }
-.lh-cv { position: absolute; left: 50%; bottom: 0; translate: -50% 0; image-rendering: pixelated; transform-origin: 50% 100%; scale: 0.8; margin-bottom: -10px; transition: scale 0.34s var(--ease); }
-.lh-who { flex: 1; min-width: 0; display: grid; gap: 3px; padding-bottom: 16px; transition: padding 0.34s var(--ease); }
-.lh-tag { font: 600 13px var(--f-pixel); letter-spacing: 0.1em; color: var(--r4); text-shadow: 0 1px 0 rgb(6 3 7 / 0.7); }
-.lh-st { display: flex; align-items: center; gap: 5px; min-height: 16px; font: 500 12.5px var(--f-ui); color: rgb(255 246 220 / 0.86); text-shadow: 0 1px 0 rgb(6 3 7 / 0.6); white-space: nowrap; overflow: hidden; }
+/* LAR at full size, his feet on the horizon. */
+.lh-perch { position: relative; flex: none; align-self: stretch; width: 88px; margin-bottom: calc(-1 * var(--lh-base)); overflow: hidden; transition: width 0.34s var(--ease); }
+.lh-cv { position: absolute; left: 50%; bottom: 0; translate: -50% 0; image-rendering: pixelated; transform-origin: 50% 100%; scale: 1; margin-bottom: -14px; transition: scale 0.34s var(--ease), margin 0.34s var(--ease); }
+.lh-who { flex: 1; min-width: 0; display: grid; gap: 4px; align-content: end; }
+.lh-tag { font: 600 16px/1 var(--f-pixel); letter-spacing: 0.12em; color: #fff6dc; text-shadow: 0 2px 0 rgb(6 3 7 / 0.55); }
+.lh-st { display: flex; align-items: center; gap: 6px; height: 16px; font: 500 12.5px/1 var(--f-ui); color: rgb(255 246 220 / 0.82); text-shadow: 0 1px 0 rgb(6 3 7 / 0.6); white-space: nowrap; overflow: hidden; }
+/* The live pixel: gold and still at rest, blinking while he works. */
+.lh-st::before { content: ""; flex: none; width: 6px; height: 6px; background: var(--r4); box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.5), inset -2px 0 0 rgb(0 0 0 / 0.25); }
+.lh-st:has(i)::before { animation: lhBlink 0.8s steps(1, end) infinite; }
 .lh-st i { flex: none; width: 3px; height: 3px; background: currentColor; animation: lhBlink 1s steps(2, jump-none) infinite; }
 .lh-st i:nth-of-type(2) { animation-delay: 0.2s; } .lh-st i:nth-of-type(3) { animation-delay: 0.4s; }
-.lh-btns { position: absolute; top: 4px; right: 4px; display: flex; }
-.phone .lh-ib { display: grid; place-items: center; width: 44px; height: 44px; border: 0; background: none; color: rgb(255 246 220 / 0.82); filter: drop-shadow(0 1px 0 rgb(6 3 7 / 0.6)); transition: color 0.16s var(--ease); }
-.phone .lh-ib:hover { color: #fff6dc; }
+.lh-btns { flex: none; display: flex; gap: 6px; }
+.phone .lh-ib { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 0; padding: 0; color: #fff6dc;
+  background: rgb(6 3 8 / 0.34); clip-path: var(--n3);
+  box-shadow: inset 0 1px 0 rgb(255 246 220 / 0.16), inset 0 -2px 0 rgb(0 0 0 / 0.32);
+  transition: background 0.16s var(--ease), translate 0.1s var(--ease); }
+.phone .lh-ib:hover { background: rgb(6 3 8 / 0.5); }
+.phone .lh-ib:active { translate: 0 1px; box-shadow: inset 0 2px 0 rgb(0 0 0 / 0.32); }
 .lh-ib[hidden] { display: none; }
-.lh.lh-small { height: 56px; }
-.lh-small .lh-perch { width: 56px; }
-.lh-small .lh-cv { scale: 0.5; margin-bottom: -5px; }
-.lh-small .lh-who { padding-bottom: 12px; grid-auto-flow: column; justify-content: start; align-items: baseline; gap: 8px; padding-right: 90px; }
+.lh-ib svg { display: block; filter: drop-shadow(0 1px 0 rgb(6 3 7 / 0.5)); }
+.lh.lh-small { --lh-h: 64px; --lh-base: 12px; }
+.lh-small .lh-perch { width: 60px; }
+.lh-small .lh-cv { scale: 0.6; margin-bottom: -9px; }
+.lh-small .lh-who { gap: 3px; }
+.lh-small .lh-tag { font-size: 14px; }
 @keyframes lhDrift { to { background-position: 100% 60%, 0% 100%, 30% 80%, 0 0; } }
 @keyframes lhTw { from { opacity: 0.25; } }
 @keyframes lhBlink { 50% { opacity: 0.2; } }
-@media (prefers-reduced-motion: reduce) { .lh-sky, .lh-sky i, .lh-st i { animation: none; } .lh, .lh-perch, .lh-cv, .lh-who { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .lh-sky, .lh-sky i, .lh-st i, .lh-st::before { animation: none; } .lh, .lh-perch, .lh-cv { transition: none; } }
 /*ROWCSS*/
 </style>
 
@@ -1388,8 +1399,11 @@ $("#copy").addEventListener("click", () => {
 });
 
 /* ---------------- shared: LAR's header ---------------- */
-const LH_NEW = `<svg width="18" height="18" viewBox="0 0 9 9" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M4 1h1v3h3v1H5v3H4V5H1V4h3z"/></svg>`;
-const larHeader = () => `<div class="lh"><div class="lh-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="lh-perch" aria-hidden="true"><canvas class="lh-cv"></canvas></div><div class="lh-who"><span class="lh-tag">LAR</span><span class="lh-st" aria-live="polite">On this phone</span></div><div class="lh-btns"><button class="lh-ib lh-new" type="button" aria-label="New chat" hidden>${LH_NEW}</button><button class="lh-ib lh-x" type="button" aria-label="Close">${pi("close", 18)}</button></div></div>`;
+/* The header's two icons, on one 7 x 7 pixel grid at 2 px a pixel, so they sit together. */
+const lhIcon = (d, label) => `<svg width="14" height="14" viewBox="0 0 7 7" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="${d}"/></svg>`;
+const LH_NEW = lhIcon("M3 0h1v3h3v1H4v3H3V4H0V3h3z");
+const LH_X = lhIcon("M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z");
+const larHeader = () => `<div class="lh"><div class="lh-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="lh-perch" aria-hidden="true"><canvas class="lh-cv"></canvas></div><div class="lh-who"><span class="lh-tag">LAR</span><span class="lh-st" aria-live="polite">On this phone</span></div><div class="lh-btns"><button class="lh-ib lh-new" type="button" aria-label="New chat" hidden>${LH_NEW}</button><button class="lh-ib lh-x" type="button" aria-label="Close">${LH_X}</button></div></div>`;
 /** The sky takes the room's portal ramp. */
 const skyRamp = (el, ramp = PUP_RAMP) => ramp.forEach((c, i) => el.style.setProperty(`--r${i}`, c));
 /* LAR in the header, the app's rig and art without his old pixel cube. `on` false draws nothing;
