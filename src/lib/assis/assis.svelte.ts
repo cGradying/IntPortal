@@ -299,7 +299,8 @@ export async function ask(text: string) {
   const onText = new Channel<string>();
   onText.onmessage = (words) => (reply.text += words);
   const onStep = new Channel<Step>();
-  onStep.onmessage = (s) => (reply.steps ??= []).push(s);
+  // A new array each time: pushing into the one just assigned would miss the state proxy and lose the first step.
+  onStep.onmessage = (s) => (reply.steps = [...(reply.steps ?? []), s]);
   try {
     const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[]; intent: Intent }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText, onStep });
     reply.text = r.reply;

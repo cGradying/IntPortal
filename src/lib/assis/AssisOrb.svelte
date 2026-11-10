@@ -109,6 +109,8 @@
     if (menuOpen) return closable(() => (menuOpen = false));
   });
   $effect(() => crystal?.hide(chip.at === "hidden"));
+  // The first beat of the pour into LAR's window: the cube turns to face the student (048 C1).
+  $effect(() => crystal?.face(chip.face));
 
   // Thinking maps something (C1b3). Finishing grows roots behind the cards (C1b4).
   let wasThinking = false;

@@ -304,6 +304,8 @@ export interface Crystal {
   pulse(): void;
   wake(): void;
   menu(open: boolean): void;
+  /** Turns the cube to face the student (spec 048 C1), the first beat of opening LAR's window; false turns it back. */
+  face(on: boolean): void;
   hide(hidden: boolean): void;
   look(ramp: string[]): void;
   dispose(): void;
@@ -342,7 +344,7 @@ export function mountCrystal(cv: HTMLCanvasElement, opts: { mode: CrystalMode; s
   gl.uniform1f(U.uCell, (res / size) * 1.5);
   gl.uniform1f(U.uPx, (6.4 / size) * 0.36);
 
-  const s = { mode: opts.mode, m: opts.mode === "plus" ? 1 : 0, v: 0, yaw: YAW, pitch: PITCH, roll: 0, rollT: 0, think: false, th: 0, spread: 0, sv: 0, stone: 0, moved: performance.now(), hidden: false, lastYaw: YAW };
+  const s = { mode: opts.mode, m: opts.mode === "plus" ? 1 : 0, v: 0, yaw: YAW, pitch: PITCH, roll: 0, rollT: 0, think: false, th: 0, spread: 0, sv: 0, stone: 0, moved: performance.now(), hidden: false, lastYaw: YAW, face: false };
   let gold = { lin: [1, 1, 1], srgb: [1, 1, 1] };
   const applyTones = () => {
     const vars = getComputedStyle(document.documentElement);
@@ -374,7 +376,7 @@ export function mountCrystal(cv: HTMLCanvasElement, opts: { mode: CrystalMode; s
     }
   };
   const foldLeft = () => Math.abs((s.mode === "plus" ? 1 : 0) - s.m);
-  const moving = () => Math.abs(s.v) > 0.01 || foldLeft() > 0.004 || Math.abs(s.spread) > 0.003 || Math.abs(s.roll - s.rollT) > 0.004;
+  const moving = () => s.face || Math.abs(s.v) > 0.01 || foldLeft() > 0.004 || Math.abs(s.spread) > 0.003 || Math.abs(s.roll - s.rollT) > 0.004;
 
   let raf = 0;
   let last = 0;
@@ -438,7 +440,14 @@ export function mountCrystal(cv: HTMLCanvasElement, opts: { mode: CrystalMode; s
       lit[i] += (lt - lit[i]) * (1 - Math.exp(-dt * 9));
       L[i] = lit[i];
     });
-    if (s.mode === "plus") {
+    if (s.face) {
+      // Facing the student: the nearest flat face, square on, in about 150 ms (spec 048 C1).
+      const f = 1 - Math.exp(-dt * 24);
+      const q = Math.PI / 2;
+      s.yaw += (Math.round(s.yaw / q) * q - s.yaw) * f;
+      s.pitch += (0 - s.pitch) * f;
+      s.roll += (0 - s.roll) * f;
+    } else if (s.mode === "plus") {
       if (s.think) {
         s.yaw += dt * 0.42;
         s.pitch += (0.5 - s.pitch) * (1 - Math.exp(-dt * 5));
@@ -523,6 +532,11 @@ export function mountCrystal(cv: HTMLCanvasElement, opts: { mode: CrystalMode; s
     wake,
     menu(open) {
       s.rollT = open ? Math.PI / 4 : 0;
+      wake();
+    },
+    face(on) {
+      s.face = on;
+      if (on) s.rollT = 0;
       wake();
     },
     hide(hidden) {

@@ -1,6 +1,7 @@
 // What "Apply" does with a proposal from LAR. Pure, so it is tested without a
 // phone. LAR never writes: the sheet shows a card and the student confirms.
-import type { Card, Deck, NoteItem } from "../api";
+import type { Card, DeadlineEntry, Deck, NoteItem, Today } from "../api";
+import { entryLabel } from "../deadlines";
 
 export type Proposal =
   | { kind: "add_note"; subject: string | null; text: string }
@@ -22,15 +23,90 @@ export function replaced(text: string, start: number, end: number, add: string):
   return text.slice(0, start) + add + text.slice(end);
 }
 
-/** What the chat suggests first: about the open note when there is one. */
-export function starters(noteOpen: boolean): { label: string; fill: boolean }[] {
-  const base = [
+/**
+ * A suggestion over the chat's input (spec 048 C16). `fill` puts it in the field for the student to finish;
+ * `open` is a source key (a note, `card:<deck>`, `plan:<subject>`) to open instead of asking; `why` is the
+ * short gold reason it is offered.
+ */
+export interface Suggestion {
+  label: string;
+  fill: boolean;
+  why?: string;
+  open?: string;
+}
+
+/** What the chat knows of the student's day, for the first suggestions. Any part may be missing. */
+export interface Day {
+  now: Date;
+  /** The nearest due, from the one deadline list. */
+  due?: DeadlineEntry | null;
+  /** The note opened last. */
+  note?: Pick<NoteItem, "key" | "title"> | null;
+  next?: Today["next"];
+}
+
+const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
+const hhmm = (min: number) => `${Math.floor(min / 60) % 12 || 12}:${String(min % 60).padStart(2, "0")}`;
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * What the chat suggests first (spec 048 C17): about the open note when there is one; else from the day,
+ * each with its reason and skipped when its data is missing, topped up from the plain ones. At most four.
+ */
+export function starters(noteOpen: boolean, day?: Day): Suggestion[] {
+  const base: Suggestion[] = [
     { label: "Ano ang due ko?", fill: false },
     { label: "Anong klase ko ngayon?", fill: false },
     { label: "Remind me bukas ng umaga", fill: true },
     { label: "Add a note: bring calculator", fill: true },
   ];
-  return noteOpen ? [{ label: "Summarize this note", fill: false }, { label: "What should I review from this note?", fill: false }, ...base.slice(0, 2)] : base;
+  if (noteOpen) return [{ label: "Summarize this note", fill: false }, { label: "What should I review from this note?", fill: false }, ...base.slice(0, 2)];
+  if (!day) return base;
+  const out: Suggestion[] = [];
+  if (day.due) out.push({ label: "What's due this week?", fill: false, why: `${cut(day.due.title, 14)} ${entryLabel(day.due, day.now)}` });
+  if (day.note?.title) out.push({ label: `Explain ${cut(day.note.title, 28)} simply`, fill: false, why: "last note" });
+  if (day.next && !day.next.is_now && day.next.minutes_away < 24 * 60) out.push({ label: "Anong klase ko ngayon?", fill: false, why: hhmm(day.next.session.start) });
+  out.push(base[2]);
+  for (const b of base) if (out.length < 4 && !out.some((o) => o.label === b.label || (b === base[0] && day.due))) out.push(b);
+  return out.slice(0, 4);
+}
+
+/** A source key's kind, as `sources.ts` reads it. */
+const kindOf = (key: string) => (key.startsWith("card:") ? "deck" : key.startsWith("plan:") ? "subject" : "note");
+
+/**
+ * What a search found, by kind (spec 048 C12): "2 notes", "1 note and 1 deck", "2 notes, 1 deck and 1 subject".
+ * The found step reads "Found " + this, the folded trace "Looked at " + this.
+ */
+export function foundLine(sources: { key: string }[]): string {
+  const parts = (["note", "deck", "subject"] as const)
+    .map((k) => [k, sources.filter((s) => kindOf(s.key) === k).length] as const)
+    .filter(([, n]) => n)
+    .map(([k, n]) => `${n} ${k}${n === 1 ? "" : "s"}`);
+  return parts.length < 2 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+/**
+ * The follow-ups after an answer in this session (spec 048 C18), by its intent and sources, with no model
+ * call. Anything else gets the day's suggestions again.
+ */
+export function followUps(turn: { intent?: string; sources?: { key: string; title: string }[] }, day?: Day): Suggestion[] {
+  const src = turn.sources?.[0];
+  if (turn.intent === "due" && day?.due) {
+    const at = "at" in day.due.due ? new Date(day.due.due.at * 1000) : new Date(`${day.due.due.day}T12:00`);
+    const before = DAYS[(at.getDay() + 6) % 7];
+    const out: Suggestion[] = [{ label: `Remind me ${before} night`, fill: true }];
+    if (day.due.subject) out.push({ label: `Open ${day.due.subject}`, fill: false, open: `plan:${day.due.subject}` });
+    return out;
+  }
+  if (turn.intent === "classes") {
+    const out: Suggestion[] = [{ label: "What's due this week?", fill: false }];
+    const code = day?.next?.session.subject_code;
+    if (code) out.push({ label: `Open ${code}`, fill: false, open: `plan:${code}` });
+    return out;
+  }
+  if (turn.intent === "ask" && src) return [{ label: `Make 5 cards from ${cut(src.title, 24)}`, fill: false }, { label: `Open ${cut(src.title, 24)}`, fill: false, open: src.key }];
+  return starters(false, day);
 }
 
 /** The student's own note on a deck's subject, to ground "Why?" in what they wrote. */

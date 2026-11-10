@@ -71,7 +71,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 - **C18.** After an answer in this session, the follow-ups come from its intent and sources, by rule, with no model call:
   - Due: "Remind me *day before* night" (fills the field), "Open *title*".
   - Classes: "What's due this week?", "Open *subject*".
-  - An open answer with sources: "Make 5 cards from this", "Open *first source*".
+  - An open answer with sources: "Make 5 cards from *first source*", "Open *first source*". (Named, not "from this": the card intent needs a topic.)
   - Anything else: the day's suggestions again.
 
 **The glass**
