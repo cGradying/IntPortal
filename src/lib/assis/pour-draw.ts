@@ -49,13 +49,14 @@ function tokensOf(el: HTMLElement) {
   return t;
 }
 
-/** The window's face once, offscreen: the glass, the sky band over it, its lit top and its dithered edge. */
-function drawFace(plan: Plan, t: ReturnType<typeof tokensOf>, dpr: number) {
+/** The window's face once, offscreen: the glass, the sky band over it, its lit top and its dithered edge. Null without a 2D context. */
+function drawFace(plan: Plan, t: ReturnType<typeof tokensOf>, dpr: number): HTMLCanvasElement | null {
   const { win, headerH } = plan;
   const face = document.createElement("canvas");
   face.width = Math.ceil(win.w * dpr);
   face.height = Math.ceil(win.h * dpr);
-  const f = face.getContext("2d")!;
+  const f = face.getContext("2d");
+  if (!f) return null;
   f.setTransform(dpr, 0, 0, dpr, 0, 0);
   linear(f, { x: 0, y: 0, w: win.w, h: win.h }, 165, [[0, t.a], [1, t.b]]);
   linear(f, { x: 0, y: 0, w: win.w, h: headerH }, 172, [[0, t.r0], [0.72, t.r1], [1, t.r0]]);
@@ -89,6 +90,7 @@ export function runPour(o: PourOpts): Promise<void> {
   const { faces, hair } = readTones();
   const tone = faces[2]; // the face it turned to show, as the WebGL cube draws it
   const face = drawFace(plan, tok, dpr);
+  if (!face) return Promise.resolve(); // no offscreen context: the window just shows, as with no main one
   const { win } = plan;
   const opening = o.mode === "open";
   const total = opening ? OPEN_MS : CLOSE_MS;
