@@ -74,9 +74,9 @@ describe("words", () => {
 
 describe("make cards", () => {
   it("c18_term_lines_start_chosen", () => {
-    const l = cardLines("### Terms\n- Stack - last in, first out\nA plain sentence.\n\nQueue – first in, first out");
-    expect(l.map((x) => x.chosen)).toEqual([false, true, false, true]);
-    expect(l[1]).toMatchObject({ front: "Stack", back: "last in, first out" });
+    const l = cardLines("### Terms\n- **Stack** - last in, ==first out==\nA plain sentence.\n- [x]\n\nQueue – first in, first out");
+    expect(l.map((x) => x.chosen)).toEqual([true, false, true]);
+    expect(l[0]).toMatchObject({ front: "Stack", back: "last in, first out" });
   });
   it("c20_duplicates_dropped", () => {
     expect(tidy([{ front: "Stack", back: "LIFO" }, { front: "queue", back: "FIFO" }], ["stack"])).toEqual([{ front: "queue", back: "FIFO" }]);

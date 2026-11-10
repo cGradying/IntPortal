@@ -126,10 +126,13 @@ export interface CardLine {
   chosen: boolean;
 }
 export function cardLines(text: string): CardLine[] {
+  // Headings name sections; they aren't cards. Inline marks go, so a card reads as written.
+  const plain = (l: string) => l.replace(/(\*\*|__|==|~~|`)/g, "").replace(/(^|\s)_(\S[^_]*)_(?=\s|$)/g, "$1$2");
   return text
     .split("\n")
-    .map((l) => l.replace(/^(#{1,6} |- \[[ xX]\] |[-*+] |\d+[.)] |> )/, "").trim())
-    .filter((l) => l && !/^(```|---)/.test(l))
+    .filter((l) => !/^\s*#{1,6}\s/.test(l))
+    .map((l) => plain(l.replace(/^\s*(- \[[ xX]\]|[-*+]|\d+[.)]|>)(\s|$)/, "")).trim())
+    .filter((l) => l && !/^(```|---|\[[ xX]\])$/.test(l))
     .map((l) => {
       const m = /^(.+?)\s+[-–—]\s+(.+)$/.exec(l);
       return m ? { text: l, front: m[1].trim(), back: m[2].trim(), chosen: true } : { text: l, front: l, back: "", chosen: false };
