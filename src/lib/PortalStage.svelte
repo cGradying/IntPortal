@@ -165,6 +165,7 @@
     document.addEventListener("visibilitychange", visibility);
     return () => {
       ro.disconnect();
+      clearTimeout(opening);
       cancelAnimationFrame(pending);
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", visibility);
@@ -271,11 +272,18 @@
     const { pitch } = tiles.metrics();
     tiles.poke((px - x) / pitch, (py - y) / pitch, now());
     buzz.select();
-    if (peek === null) {
+    if (peek !== null) return turn();
+    // The ring runs through the frame first, then the view opens out of the mouth.
+    clearTimeout(opening);
+    opening = setTimeout(() => {
+      if (leaving || still) return;
       peekAt = { box: { x: x / dpr, y: y / dpr, w: w / dpr, h: h / dpr }, room: { w: cb.width, h: cb.height }, inset: (2 * pitch) / dpr };
       peek = 0;
-    } else turn();
+    }, reduce ? 0 : RING_MS);
   }
+  /** How long the ring runs before the view opens. */
+  const RING_MS = 380;
+  let opening: ReturnType<typeof setTimeout> | undefined;
   function turn() {
     peek = peek === null ? null : nextPage(peek);
   }
