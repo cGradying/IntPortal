@@ -1,5 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
-import { appended, describe, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters } from "./apply";
+import type { DeadlineEntry, Today } from "../api";
+import { entryLabel } from "../deadlines";
+import { appended, describe, followUps, foundLine, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters } from "./apply";
 
 suite("applying a proposal", () => {
   it("puts a class note on the class and anything else on one note a day", () => {
@@ -51,6 +53,45 @@ suite("Ask AI in a note", () => {
     expect(starters(true)[0].label).toBe("Summarize this note");
     expect(starters(false)[0].label).toBe("Ano ang due ko?");
     expect(starters(true).every((s) => s.label.length > 0)).toBe(true);
+  });
+});
+
+suite("spec 048: the chat's suggestions and the found line", () => {
+  const now = new Date("2026-11-09T09:40:00");
+  const lab: DeadlineEntry = { id: "1", source: "syllabus", subject: "COMP 20083", course: null, title: "Lab 4: Interfaces", kind: "project", due: { day: "2026-11-11" }, overdue: false, url: null };
+  const next = { session: { subject_code: "COMP 20083", description: "OOP", faculty: "x", day: "Monday", start: 630, end: 810, occurrence: 0 }, date: "2026-11-09", is_now: false, minutes_away: 50 } as Today["next"];
+
+  it("c17: starts from the day, each with its reason, and the reminder that fills the field", () => {
+    const s = starters(false, { now, due: lab, note: { key: "note:a", title: "OOP Interfaces" }, next });
+    expect(s.map((x) => [x.label, x.why, x.fill])).toEqual([
+      ["What's due this week?", `Lab 4: Interf… ${entryLabel(lab, now)}`, false],
+      ["Explain OOP Interfaces simply", "last note", false],
+      ["Anong klase ko ngayon?", "10:30", false],
+      ["Remind me bukas ng umaga", undefined, true],
+    ]);
+  });
+
+  it("c17: skips what it does not know, and tops up from the plain ones", () => {
+    const s = starters(false, { now });
+    expect(s).toHaveLength(4);
+    expect(s.map((x) => x.label)).toEqual(["Remind me bukas ng umaga", "Ano ang due ko?", "Anong klase ko ngayon?", "Add a note: bring calculator"]);
+    expect(s.every((x) => !x.why)).toBe(true);
+  });
+
+  it("c18: a due answer offers the reminder the night before and the subject; an open answer, cards and the note", () => {
+    expect(followUps({ intent: "due" }, { now, due: lab })).toEqual([{ label: "Remind me Tuesday night", fill: true }, { label: "Open COMP 20083", fill: false, open: "plan:COMP 20083" }]);
+    expect(followUps({ intent: "ask", sources: [{ key: "note:a", title: "OOP Interfaces" }] })).toEqual([{ label: "Make 5 cards from OOP Interfaces", fill: false }, { label: "Open OOP Interfaces", fill: false, open: "note:a" }]);
+    expect(followUps({ intent: "classes" }, { now, next }).map((x) => x.label)).toEqual(["What's due this week?", "Open COMP 20083"]);
+    expect(followUps({ intent: "grades" }, { now }).map((x) => x.label)).toEqual(starters(false, { now }).map((x) => x.label));
+    expect(followUps({}, undefined)).toEqual(starters(false));
+  });
+
+  it("c12: names what a search found by kind", () => {
+    expect(foundLine([{ key: "note:a" }, { key: "class:MATH 101" }])).toBe("2 notes");
+    expect(foundLine([{ key: "note:a" }, { key: "card:7" }])).toBe("1 note and 1 deck");
+    expect(foundLine([{ key: "note:a" }, { key: "note:b" }, { key: "card:7" }, { key: "plan:COMP 20083" }])).toBe("2 notes, 1 deck and 1 subject");
+    expect(foundLine([{ key: "card:1" }, { key: "card:2" }])).toBe("2 decks");
+    expect(foundLine([])).toBe("");
   });
 });
 
