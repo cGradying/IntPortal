@@ -12,6 +12,7 @@
   import { app, deleteTheme, saveTheme, setRoom } from "./state.svelte";
   import { NIGHT, PATTERNS, PRESETS, hsl, hueOf, isDark, larLook, look, patternCss, roles, roll, seed, type Theme } from "./theme";
   import { decodeTheme, encodeTheme, scanQr } from "./themeCode";
+  import { cameraProblem } from "./camera";
   import Lar from "./lar/Lar.svelte";
   import { SIS, THEMES } from "./lar/sprite";
   import PixelIcon from "./PixelIcon.svelte";
@@ -164,10 +165,17 @@
   }
   async function scan() {
     try {
-      const text = await scanQr?.();
+      const text = await scanQr();
       if (text) tryCode(text);
-    } catch {
-      addMsg = "The camera is off for IntPortal. Turn it on in the phone's Settings, or paste the code.";
+      else if (text === "") addMsg = "No code in that photo. Fill the frame with the QR and try again, or paste the code.";
+    } catch (e) {
+      const why = cameraProblem(e);
+      addMsg =
+        why === "camera_denied"
+          ? "The camera is off for IntPortal. Turn it on in the phone's Settings, or paste the code."
+          : why === "no_camera"
+            ? "This phone has no camera. Paste the code instead."
+            : "Couldn't read that photo. Try again, or paste the code.";
     }
   }
   function notNow() {
@@ -376,7 +384,7 @@
             <button class="ghost" onclick={() => (sheet = null)}>Close</button>
             <button class="primary" onclick={() => tryCode(pasted)}>Add</button>
           </div>
-          {#if scanQr}<button class="ghost" onclick={scan}>Take a photo of a QR</button>{/if}
+          <button class="ghost" onclick={scan}>Take a photo of a QR</button>
         {/if}
       </div>
     {/if}

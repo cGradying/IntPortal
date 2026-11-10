@@ -1,6 +1,7 @@
 // Share codes (spec 047 C16, C17): `IPT1.` plus base64url of
 // [version 2, flags, flags2, hue2, lar, accent rgb, ground rgb, card rgb, ink rgb, name length, name utf-8, checksum].
 // A code holds only a look and a name: nothing that runs or links. Decoding is strict.
+import { capture } from "./camera";
 import { hex, toHex } from "./rooms";
 import { AURA, CARDS, CORNERS, PATTERNS, TITLES, hueOf, type Theme } from "./theme";
 
@@ -66,9 +67,10 @@ export function decodeTheme(code: string): Theme | null {
 }
 
 /**
- * Reads a share code from one photo of its QR (C18). Null until the camera plugin (#219) lands:
- * then it is `plugin:camera|capture` with `{ source: "camera", read: { qr: true } }`, keeping nothing.
- * Until then paste works alone, and the maker hides the photo button.
+ * Reads a share code from one photo of its QR (C18), keeping nothing: the photo is gone once read.
+ * Null when the student cancels; "" when the photo holds no QR.
  */
-// ponytail: stub until #219 merges; wire the camera call here and the button appears.
-export const scanQr = null as null | (() => Promise<string | null>);
+export async function scanQr(): Promise<string | null> {
+  const got = await capture({ source: "camera", read: { qr: true } });
+  return got.cancelled ? null : (got.qr?.[0] ?? "");
+}
