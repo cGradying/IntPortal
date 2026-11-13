@@ -46,27 +46,40 @@
     mw.scrollTop = (month - 1) * ROW;
     dw.scrollTop = (day - 1) * ROW;
     yw.scrollTop = years.indexOf(year) * ROW;
+    doneBtn.focus();
   });
 
+  let doneBtn: HTMLButtonElement;
+  /** Turn a wheel to row `i`; its scroll handler picks the value and ticks. */
+  const go = (el: HTMLDivElement, i: number) => el.scrollTo({ top: i * ROW, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  /** Arrow keys, Page keys, Home and End turn a wheel (and VoiceOver's increment and decrement, which send arrows). */
+  function key(e: KeyboardEvent, el: HTMLDivElement, n: number, at: number) {
+    const to = { ArrowUp: at - 1, ArrowDown: at + 1, PageUp: at - 5, PageDown: at + 5, Home: 0, End: n - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    go(el, Math.max(0, Math.min(n - 1, to)));
+  }
   const iso = $derived(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
 </script>
 
+<svelte:window onkeydown={(e) => e.key === "Escape" && onclose()} />
 <button class="scrim" aria-label="Close" onclick={onclose}></button>
-<div class="sheet" role="dialog" aria-label="Birthdate">
+<div class="sheet" role="dialog" aria-modal="true" aria-label="Birthdate">
   <header>
     <b>Birthdate</b>
-    <button class="done" onclick={() => ondone(iso)}>Done</button>
+    <button class="done" bind:this={doneBtn} onclick={() => ondone(iso)}>Done</button>
   </header>
   <div class="wheels">
     <i class="band" aria-hidden="true"></i>
-    <div class="wheel" bind:this={mw} onscroll={onMonth} role="listbox" aria-label="Month" tabindex="0">
-      {#each MONTHS as m, i (m)}<div class="row" role="option" aria-selected={month === i + 1}>{m}</div>{/each}
+    <!-- Each wheel is a slider: swipe it, tap a row, or use the arrow keys; VoiceOver swipes up and down. -->
+    <div class="wheel" bind:this={mw} onscroll={onMonth} role="slider" aria-label="Month" aria-valuemin={1} aria-valuemax={12} aria-valuenow={month} aria-valuetext={MONTHS[month - 1]} tabindex="0" onkeydown={(e) => key(e, mw, 12, month - 1)}>
+      {#each MONTHS as m, i (m)}<div class="row" class:on={month === i + 1} aria-hidden="true" onclick={() => go(mw, i)}>{m}</div>{/each}
     </div>
-    <div class="wheel narrow" bind:this={dw} onscroll={onDay} role="listbox" aria-label="Day" tabindex="0">
-      {#each Array.from({ length: days }, (_, i) => i + 1) as d (d)}<div class="row" role="option" aria-selected={day === d}>{d}</div>{/each}
+    <div class="wheel narrow" bind:this={dw} onscroll={onDay} role="slider" aria-label="Day" aria-valuemin={1} aria-valuemax={days} aria-valuenow={day} tabindex="0" onkeydown={(e) => key(e, dw, days, day - 1)}>
+      {#each Array.from({ length: days }, (_, i) => i + 1) as d (d)}<div class="row" class:on={day === d} aria-hidden="true" onclick={() => go(dw, d - 1)}>{d}</div>{/each}
     </div>
-    <div class="wheel narrow" bind:this={yw} onscroll={onYear} role="listbox" aria-label="Year" tabindex="0">
-      {#each years as y (y)}<div class="row" role="option" aria-selected={year === y}>{y}</div>{/each}
+    <div class="wheel narrow" bind:this={yw} onscroll={onYear} role="slider" aria-label="Year" aria-valuemin={years.at(-1)} aria-valuemax={years[0]} aria-valuenow={year} tabindex="0" onkeydown={(e) => key(e, yw, years.length, years.indexOf(year))}>
+      {#each years as y, i (y)}<div class="row" class:on={year === y} aria-hidden="true" onclick={() => go(yw, i)}>{y}</div>{/each}
     </div>
   </div>
 </div>
@@ -143,6 +156,10 @@
     padding: 80px 0;
     mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
     outline: none;
+    border-radius: 10px;
+  }
+  .wheel:focus-visible {
+    box-shadow: inset 0 0 0 1.5px var(--portal-gold);
   }
   .wheel::-webkit-scrollbar {
     display: none;
@@ -156,7 +173,7 @@
     color: rgb(244 236 216 / 0.55);
     font-variant-numeric: tabular-nums;
   }
-  .row[aria-selected="true"] {
+  .row.on {
     color: var(--white);
     font-weight: 600;
   }

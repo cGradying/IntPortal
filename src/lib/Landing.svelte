@@ -13,6 +13,7 @@
   import { DOWN, FALLBACK_SIS, REJECTED, maskStudentNumber, portalCopy, triesLine, validate } from "./portals";
   import { FALLBACK } from "./errors";
   import DateWheels from "./DateWheels.svelte";
+  import { closable } from "./back";
   import { portalApiFor } from "./portalApi";
   import { buzz } from "./haptics";
   import { landingAt, restAt } from "./landing";
@@ -36,6 +37,21 @@
   // The birthdate wheels' sheet (011 C1), and an SIS that didn't answer (C9).
   let wheels = $state(false);
   let down = $state(false);
+  // Android's back closes the wheels, never the app under them.
+  $effect(() => {
+    if (wheels) return closable(() => (wheels = false));
+  });
+  /** The student number as typed, masked; the caret stays put unless the mask moved text (C4). */
+  function typedStudno(el: HTMLInputElement) {
+    const masked = maskStudentNumber(el.value);
+    if (masked !== el.value) {
+      const back = el.value.length - (el.selectionStart ?? el.value.length);
+      el.value = masked;
+      const at = Math.max(0, masked.length - back);
+      el.setSelectionRange(at, at);
+    }
+    studno = masked;
+  }
   // The password hides again whenever the app leaves the screen (C5).
   onMount(() => {
     const hide = () => document.hidden && (showPw = false);
@@ -104,10 +120,13 @@
   });
 
   const values = $derived({ student_number: studno, birthdate: birthday, password });
+  const why = $derived(validate(portal, values));
+  const started = $derived(!!(studno || birthday || password));
   const bad = (field: PortalField) => tried && !!validate({ ...portal, fields: [field] }, values);
 
   async function submit(e?: Event) {
     e?.preventDefault();
+    if (busy || locked) return;
     down = false;
     error = validate(portal, values);
     tried = !!error;
@@ -123,7 +142,8 @@
       // No host answered: the down state, with Try again; it spends no try (C9).
       down = /^couldn't reach the SIS/i.test(String((err as { message?: string })?.message ?? err)) || said === "Can't reach the SIS right now.";
       // A rejection in words we can't read gets ours (C8).
-      error = down ? DOWN : said === FALLBACK ? REJECTED : said;
+      // Mabini has no birthdate, so its line doesn't ask for one.
+      error = down ? DOWN : said === FALLBACK ? (portal.fields.includes("birthdate") ? REJECTED : REJECTED.replace(", birthdate and", " and")) : said;
       buzz.fail();
     } finally {
       busy = false;
@@ -202,7 +222,7 @@
             </div>
           {:else}
           <div class="field" class:filled={!!studno} class:bad={bad("student_number")}>
-            <input id="f-studno" value={studno} oninput={(e) => (studno = e.currentTarget.value = maskStudentNumber(e.currentTarget.value))} maxlength="15" placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" aria-invalid={bad("student_number")} />
+            <input id="f-studno" value={studno} oninput={(e) => typedStudno(e.currentTarget)} placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" aria-invalid={bad("student_number")} />
             <label for="f-studno">Student number</label>
           </div>
           {#if campus.kind === "known"}<small class="campus">{campus.campus.name} · campus found</small>
@@ -219,7 +239,9 @@
             <label for="f-password">Password</label>
             <button type="button" class="eye" aria-label="Show password" aria-pressed={showPw} onclick={() => (showPw = !showPw)}>{showPw ? "Hide" : "Show"}</button>
           </div>
-          <button class="go" disabled={busy || locked || !!validate(portal, values)}>{busy ? "Signing in…" : "Sign in"}</button>
+          <button class="go" disabled={busy || locked || !!why} aria-describedby={why && started ? "f-why" : undefined}>{busy ? "Signing in…" : "Sign in"}</button>
+          <!-- Why Sign in is still off, once something is typed (C7). -->
+          {#if why && started && !error}<p class="why" id="f-why">{why}</p>{/if}
           {#if triesText}<p class="tries" class:out={locked} aria-live="polite">{triesText}</p>{/if}
           {#if error}<p class="error" class:down role="alert">{error}</p>{/if}
           {#if down}<button type="button" class="retry" onclick={() => submit()}>Try again</button>{/if}
@@ -552,6 +574,12 @@
     box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.16);
     color: var(--parch);
     font: 600 max(16px, min(0.941rem, 29px)) var(--font-ui);
+  }
+  .why {
+    margin: 0;
+    font: 400 min(0.765rem, 23px) var(--font-ui);
+    color: rgb(244 236 216 / 0.6);
+    text-align: center;
   }
   .error.down {
     color: var(--parch);
