@@ -58,6 +58,12 @@ pub fn markdown(notes: &[Note]) -> String {
     notes.iter().filter(|n| !n.text.trim().is_empty()).map(|n| format!("# {}\n\n{}\n", heading(n), n.text.trim_end())).collect::<Vec<_>>().join("\n")
 }
 
+/// The subject codes whose class note has words in it. Photos alone don't
+/// count: the after-class prompt asks for text (046 C17d).
+pub fn class_codes_with_text(notes: &[Note]) -> Vec<String> {
+    notes.iter().filter(|n| !n.text.trim().is_empty()).filter_map(|n| n.key.strip_prefix("class:").map(String::from)).collect()
+}
+
 /// Pinned notes first; each group keeps the order it came in.
 pub fn pinned_first(notes: &mut [Note]) {
     notes.sort_by_key(|n| !n.pinned);

@@ -12,6 +12,7 @@ thiserror = "2"
 reqwest = { version = "0.12", default-features = false, features = ["cookies", "rustls-tls"] }
 rusqlite = { version = "0.32", features = ["bundled-sqlcipher"] }
 serde_json = "1"
+zip = { version = "9.5.1", default-features = false, features = ["deflate"] }
 
 # SQLCipher's crypto: CommonCrypto on Apple; Android has no system OpenSSL
 # for apps, so it's built in.

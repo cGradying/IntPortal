@@ -1,7 +1,7 @@
 <script lang="ts">
   // The student's notes: new, search, export. On Study and on You (spec 040 C14).
   import { api } from "./api";
-  import { noPhotosInShare, previewOf } from "./photos";
+  import { photosInShare, previewOf } from "./photos";
   import { shareFile } from "./share";
   import { app, openNote } from "./state.svelte";
 
@@ -19,8 +19,10 @@
   async function exportAll() {
     notesNote = "";
     try {
-      await shareFile("IntPortal notes.md", "text/markdown", await api.notesMarkdown(null));
-      if (app.notes.some((n) => n.photos)) notesNote = noPhotosInShare;
+      if (app.notes.some((n) => n.photos)) {
+        await shareFile("IntPortal notes.zip", "application/zip", await api.notesZip(null));
+        notesNote = photosInShare;
+      } else await shareFile("IntPortal notes.md", "text/markdown", await api.notesMarkdown(null));
     } catch (e) {
       notesNote = String(e);
     }

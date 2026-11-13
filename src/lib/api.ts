@@ -440,8 +440,11 @@ export const api = {
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
   deleteNote: (key: string) => invoke<void>("delete_note", { key }),
   photoDir: () => invoke<string>("photo_dir"),
-  addPhoto: (key: string, path: string, width: number, height: number, title: string | null) =>
-    invoke<NotePhoto>("add_photo", { key, path, width, height, title }),
+  addPhoto: (key: string, path: string, width: number, height: number, title: string | null, subject: string | null) =>
+    invoke<NotePhoto>("add_photo", { key, path, width, height, title, subject }),
+  photoThumb: (id: number) => invoke<ArrayBuffer>("photo_thumb", { id }),
+  setPhotoThumb: (id: number, thumb: number[]) => invoke<void>("set_photo_thumb", { id, thumb }),
+  notesZip: (key: string | null) => invoke<ArrayBuffer>("notes_zip", { key }),
   notePhotos: (key: string) => invoke<NotePhoto[]>("note_photos", { key }),
   photoBytes: (id: number) => invoke<ArrayBuffer>("photo_bytes", { id }),
   deletePhoto: (id: number) => invoke<void>("delete_photo", { id }),

@@ -30,5 +30,19 @@ export function photoProblem(kind: "camera_denied" | "no_camera" | "no_space" | 
 
 export const tooMany = `A note holds up to ${MAX_PHOTOS} photos. Remove one to add another.`;
 
-/** What Share and Export say when the text goes without photos (C17). */
-export const noPhotosInShare = "Photos aren't included. Share and Export carry text only.";
+/** What Share and Export say when a note has photos (C17). */
+export const photosInShare = "Photos go with it, in a .zip with the text.";
+
+/** A ~256 px JPEG of `jpeg` for the strip, made in the webview, as bytes for `setPhotoThumb`. */
+export async function thumbOf(jpeg: ArrayBuffer, side = 256): Promise<number[]> {
+  const bmp = await createImageBitmap(new Blob([jpeg], { type: "image/jpeg" }));
+  const k = Math.min(1, side / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(bmp.width * k));
+  c.height = Math.max(1, Math.round(bmp.height * k));
+  c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close();
+  const blob = await new Promise<Blob | null>((ok) => c.toBlob(ok, "image/jpeg", 0.8));
+  if (!blob) throw new Error("no thumbnail");
+  return Array.from(new Uint8Array(await blob.arrayBuffer()));
+}

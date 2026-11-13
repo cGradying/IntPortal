@@ -7,7 +7,7 @@
   import { onMount, untrack } from "svelte";
   import { api, isoDate, type Deck, type NotePhoto } from "./api";
   import { cameraProblem, capture } from "./camera";
-  import { MAX_PHOTOS, noPhotosInShare, photoProblem, tooMany } from "./photos";
+  import { MAX_PHOTOS, thumbOf, photosInShare, photoProblem, tooMany } from "./photos";
   import { appended, replaced } from "./assis/apply";
   import { assis, indexNotes, installed, noteAi, stop, type NoteMode } from "./assis/assis.svelte";
   import { tidy, type Draft } from "./assis/cards";
@@ -47,51 +47,80 @@
   // ------------------------------------------------------------ photos (C15–C17d)
 
   let photos = $state<NotePhoto[]>([]);
-  /** Object URLs of the photos shown, by id. */
+  /** False until the list has loaded; until then the store's count on the note stands in (C17c). */
+  let loaded = $state(false);
+  const held = $derived(loaded ? photos.length : (item?.photos ?? 0));
+  /** Object URLs of the strip's thumbnails, by id. */
   let urls = $state<Record<number, string>>({});
   let viewing = $state<number | null>(null);
+  /** The full photo being viewed, loaded when it opens. */
+  let full = $state<string | null>(null);
   let removing = $state<number | null>(null);
   let adding = $state(false);
+  let gone = false;
 
   async function show(p: NotePhoto) {
     try {
-      urls[p.id] = URL.createObjectURL(new Blob([await api.photoBytes(p.id)], { type: "image/jpeg" }));
+      const u = URL.createObjectURL(new Blob([await api.photoThumb(p.id)], { type: "image/jpeg" }));
+      if (gone) URL.revokeObjectURL(u);
+      else urls[p.id] = u;
     } catch {
       // The strip keeps an empty square.
     }
   }
 
+  $effect(() => {
+    const id = viewing;
+    if (id === null) return;
+    let url: string | null = null;
+    let stale = false;
+    api.photoBytes(id).then((b) => {
+      const u = URL.createObjectURL(new Blob([b], { type: "image/jpeg" }));
+      if (stale || gone) URL.revokeObjectURL(u);
+      else full = url = u;
+    }).catch((e) => ((problem = String(e)), (viewing = null)));
+    return () => {
+      stale = true;
+      if (url) URL.revokeObjectURL(url);
+      full = null;
+    };
+  });
+
   async function addPhoto(source: "camera" | "library") {
     sheet = null;
     if (photos.length >= MAX_PHOTOS) return void (problem = tooMany);
     adding = true;
+    let p: NotePhoto;
     try {
       const c = await capture({ source, saveTo: await api.photoDir() });
       if (c.cancelled || !c.path) return;
-      // The first photo on a note with no row creates it, with the held name (C17c).
-      const p = await api.addPhoto(key, c.path, c.width ?? 0, c.height ?? 0, named ? name.trim() || null : title);
-      photos = [...photos, p];
-      void show(p);
-      const filed = app.editing?.subject;
-      if (filed && app.editing) {
-        await api.setNoteSubject(key, filed);
-        app.editing.subject = undefined;
-      }
-      problem = "";
-      await refreshNotes();
+      // One transaction: the first photo creates the row with the held name and subject (C17c).
+      p = await api.addPhoto(key, c.path, c.width ?? 0, c.height ?? 0, named ? name.trim() || null : title, app.editing?.subject ?? null);
     } catch (e) {
       // The note is untouched (C17b).
       problem = String(e).includes("up to 20") ? tooMany : photoProblem(cameraProblem(e));
+      return;
     } finally {
       adding = false;
     }
+    photos = [...photos, p];
+    problem = "";
+    if (app.editing) app.editing.subject = undefined;
+    // A thumbnail is only for the strip: without one the strip shows the photo itself.
+    try {
+      await api.setPhotoThumb(p.id, await thumbOf(await api.photoBytes(p.id)));
+    } catch {
+      // Fine.
+    }
+    void show(p);
+    await refreshNotes();
   }
 
   async function removePhoto(id: number) {
     try {
       await api.deletePhoto(id);
       photos = photos.filter((p) => p.id !== id);
-      URL.revokeObjectURL(urls[id]);
+      if (urls[id]) URL.revokeObjectURL(urls[id]);
       delete urls[id];
       viewing = removing = null;
       await refreshNotes();
@@ -100,13 +129,15 @@
     }
   }
 
+  const focusIt = (node: HTMLElement) => node.focus();
+
   let hold: ReturnType<typeof setTimeout> | undefined;
-  let held = false;
+  let pressed = false;
   const press = (id: number) => {
-    held = false;
-    hold = setTimeout(() => ((held = true), (removing = id)), 550);
+    pressed = false;
+    hold = setTimeout(() => ((pressed = true), (removing = id)), 550);
   };
-  const open = (id: number) => (held ? (held = false) : (viewing = id));
+  const open = (id: number) => (pressed ? (pressed = false) : (viewing = id));
 
   // ------------------------------------------------------------ saving
 
@@ -114,7 +145,7 @@
   async function save(): Promise<boolean> {
     clearTimeout(timer);
     // Blank text is never saved: select-all and retype loses nothing (C17a).
-    if (!autosaves(text, photos.length)) return true;
+    if (!autosaves(text, held)) return true;
     const body = text;
     try {
       await api.setNote(key, body, named ? name.trim() || null : title);
@@ -138,7 +169,7 @@
   function typed() {
     saved = false;
     clearTimeout(timer);
-    if (autosaves(text, photos.length)) timer = setTimeout(save, 600);
+    if (autosaves(text, held)) timer = setTimeout(save, 600);
   }
 
   // LAR's text added to this note while it is open shows here, and the next save keeps it (C12a).
@@ -158,12 +189,24 @@
   async function done() {
     clearTimeout(timer);
     // Closing on blank text deletes the note (C17a).
-    const act = onClose(text, !!item, saved, photos.length);
-    const ok = act === "delete" ? await remove(false) : act === "save" ? await save() : true;
+    const act = onClose(text, !!item, saved, held);
+    const ok = act === "delete" ? await dropBlank() : act === "save" ? await save() : true;
     // Only a failed save or delete keeps the page open; a tool's message never does.
     if (!ok) return;
     indexNotes();
     app.editing = null;
+  }
+
+  /** Closing on blank text: the core decides, and keeps a note that has photos (C17c). */
+  async function dropBlank(): Promise<boolean> {
+    try {
+      await api.setNote(key, "", null);
+      await refreshNotes();
+      return true;
+    } catch (e) {
+      problem = String(e);
+      return false;
+    }
   }
 
   async function remove(close = true): Promise<boolean> {
@@ -182,8 +225,12 @@
   async function share() {
     if (!saved) await save();
     try {
-      const md = await api.notesMarkdown(key);
-      if (md) await shareFile(`${(named ? name.trim() : heading) || "Note"}.md`, "text/markdown", md);
+      const label = (named ? name.trim() : heading) || "Note";
+      if (photos.length) await shareFile(`${label}.zip`, "application/zip", await api.notesZip(key));
+      else {
+        const md = await api.notesMarkdown(key);
+        if (md) await shareFile(`${label}.md`, "text/markdown", md);
+      }
     } catch (e) {
       problem = String(e);
     }
@@ -196,8 +243,12 @@
     api.notePhotos(key).then((list) => {
       if (dead) return;
       photos = list;
+      loaded = true;
       list.forEach((p) => void show(p));
-    }).catch(() => {});
+    }).catch((e) => {
+      if (!dead) problem = `Photos couldn't load. ${photoProblem("other")}`;
+      console.warn(e);
+    });
     // The editor loads with the first note opened, not with the app (C9: its size is in the PR).
     import("./editor/cm").then(({ mountNote }) => {
       if (dead) return;
@@ -229,6 +280,7 @@
     });
     return () => {
       dead = true;
+      gone = true;
       // Closed without Done (sign-out): nothing more is written (C17a).
       clearTimeout(timer);
       Object.values(urls).forEach((u) => URL.revokeObjectURL(u));
@@ -485,25 +537,25 @@
   <footer>
     {#if photos.length || adding}
       <ul class="strip" aria-label="Photos">
-        {#each photos as p (p.id)}
+        {#each photos as p, i (p.id)}
           <li>
-            <button aria-label="Open photo" onclick={() => open(p.id)} onpointerdown={() => press(p.id)} onpointerup={() => clearTimeout(hold)} onpointerleave={() => clearTimeout(hold)} oncontextmenu={(e) => e.preventDefault()}>
+            <button aria-label="Photo {i + 1} of {photos.length}" disabled={!urls[p.id]} onclick={() => open(p.id)} onpointerdown={() => press(p.id)} onpointerup={() => clearTimeout(hold)} onpointerleave={() => clearTimeout(hold)} oncontextmenu={(e) => e.preventDefault()}>
               {#if urls[p.id]}<img src={urls[p.id]} alt="" />{/if}
             </button>
           </li>
         {/each}
-        {#if adding}<li class="wait" aria-label="Adding a photo"></li>{/if}
+        {#if adding}<li class="wait" role="status" aria-label="Adding a photo"></li>{/if}
       </ul>
     {/if}
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
     {#if look.count}<p class="count">{count} {count === 1 ? "word" : "words"}</p>{/if}
   </footer>
 
-  {#if viewing !== null && urls[viewing]}
+  {#if viewing !== null && full}
     <div class="viewer" role="dialog" aria-label="Photo">
-      <img src={urls[viewing]} alt="" />
+      <img src={full} alt="Photo {photos.findIndex((p) => p.id === viewing) + 1} of {photos.length}" />
       <div class="vbar">
-        <button onclick={() => (viewing = null)}>Close</button>
+        <button use:focusIt onclick={() => (viewing = null)}>Close</button>
         <button class="danger" onclick={() => (removing = viewing)}>Remove</button>
       </div>
     </div>
@@ -561,13 +613,13 @@
           <button onclick={pin} disabled={!text.trim()}><PixelIcon name="pinn" size={18} />{item?.pinned ? "Unpin" : "Pin to the top"}</button>
           {#if named}<button onclick={() => (sheet = "move")} disabled={!text.trim()}><PixelIcon name="move" size={18} />Move to a subject<span class="val">{subjectOf ?? "General"}</span></button>{/if}
           <button onclick={() => (sheet = "find")}><PixelIcon name="find" size={18} />Find in note</button>
-          <button onclick={share} disabled={!text.trim()}><PixelIcon name="share" size={18} />Share<span class="val">{count} {count === 1 ? "word" : "words"}</span></button>
-          {#if photos.length}<p class="fine">{noPhotosInShare}</p>{/if}
+          <button onclick={share} disabled={!text.trim() && !photos.length}><PixelIcon name="share" size={18} />Share<span class="val">{count} {count === 1 ? "word" : "words"}</span></button>
+          {#if photos.length}<p class="fine">{photosInShare}</p>{/if}
           {#if item}<button class="danger" onclick={() => (confirming = true)}><PixelIcon name="trash" size={18} accent="var(--bad)" />Delete</button>{/if}
         </div>
         {#if confirming}
           <div class="confirm" role="alertdialog" aria-label="Delete this note?">
-            <p>Delete this note{photos.length ? ` and its ${photos.length} ${photos.length === 1 ? "photo" : "photos"}` : ""}? This can't be undone.</p>
+            <p>Delete this note{held ? ` and its ${held} ${held === 1 ? "photo" : "photos"}` : ""}? This can't be undone.</p>
             <button class="danger" onclick={() => remove()}>Delete</button>
             <button onclick={() => (confirming = false)}>Cancel</button>
           </div>

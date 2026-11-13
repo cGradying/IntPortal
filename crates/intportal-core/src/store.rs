@@ -86,6 +86,13 @@ pub struct Store {
 /// A note holds at most this many photos (046 C15a).
 pub const MAX_PHOTOS: i64 = 20;
 
+/// A photo on its way in.
+pub struct NewPhoto<'a> {
+    pub w: u32,
+    pub h: u32,
+    pub bytes: &'a [u8],
+}
+
 /// One photo's row, without its bytes.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Photo {
@@ -202,7 +209,7 @@ impl Store {
              CREATE TABLE IF NOT EXISTS decks (id TEXT PRIMARY KEY, json TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS chunks (note_key TEXT NOT NULL, n INTEGER NOT NULL, text TEXT NOT NULL, vec BLOB NOT NULL, note_updated INTEGER NOT NULL, model TEXT NOT NULL, PRIMARY KEY (note_key, n));
              CREATE TABLE IF NOT EXISTS turns (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, ask INTEGER NOT NULL);
-             CREATE TABLE IF NOT EXISTS photos (id INTEGER PRIMARY KEY AUTOINCREMENT, note_key TEXT NOT NULL, w INTEGER NOT NULL, h INTEGER NOT NULL, created INTEGER NOT NULL, bytes BLOB NOT NULL);
+             CREATE TABLE IF NOT EXISTS photos (id INTEGER PRIMARY KEY AUTOINCREMENT, note_key TEXT NOT NULL, w INTEGER NOT NULL, h INTEGER NOT NULL, created INTEGER NOT NULL, bytes BLOB NOT NULL, thumb BLOB);
              CREATE INDEX IF NOT EXISTS photos_note ON photos (note_key);",
         )?;
         add_note_columns(&db)?;
@@ -294,10 +301,10 @@ impl Store {
         Ok(())
     }
 
-    /// Adds a photo (a JPEG, `w` x `h`). A note with no row gets one, with no
-    /// text and `title`, in the same transaction (C17c); either way it moves up
-    /// its subject (C15a). The 21st photo is refused.
-    pub fn add_photo(&self, key: &str, w: u32, h: u32, bytes: &[u8], title: Option<&str>, now: i64) -> Result<Photo, StoreError> {
+    /// Adds a photo. A note with no row gets one, with no text and `title`, in
+    /// the same transaction (C17c), and `subject` files a freeform note (the
+    /// held one); either way it moves up its subject (C15a). The 21st photo is refused.
+    pub fn add_photo(&self, key: &str, photo: &NewPhoto, title: Option<&str>, subject: Option<&str>, now: i64) -> Result<Photo, StoreError> {
         let tx = self.db.unchecked_transaction()?;
         let have: i64 = tx.query_row("SELECT COUNT(*) FROM photos WHERE note_key = ?1", [key], |r| r.get(0))?;
         if have >= MAX_PHOTOS {
@@ -308,10 +315,24 @@ impl Store {
              ON CONFLICT(key) DO UPDATE SET title = COALESCE(excluded.title, notes.title), updated = excluded.updated",
             params![key, title, now],
         )?;
-        tx.execute("INSERT INTO photos (note_key, w, h, created, bytes) VALUES (?1, ?2, ?3, ?4, ?5)", params![key, w, h, now, bytes])?;
+        if let (true, Some(code)) = (key.starts_with("note:"), subject.map(str::trim).filter(|s| !s.is_empty())) {
+            tx.execute("UPDATE notes SET subject = ?2 WHERE key = ?1", params![key, code])?;
+        }
+        tx.execute("INSERT INTO photos (note_key, w, h, created, bytes) VALUES (?1, ?2, ?3, ?4, ?5)", params![key, photo.w, photo.h, now, photo.bytes])?;
         let id = tx.last_insert_rowid();
         tx.commit()?;
-        Ok(Photo { id, w, h, created: now })
+        Ok(Photo { id, w: photo.w, h: photo.h, created: now })
+    }
+
+    /// Keeps a small copy for the strip, so it never loads full photos.
+    pub fn set_photo_thumb(&self, id: i64, thumb: &[u8]) -> Result<(), StoreError> {
+        self.db.execute("UPDATE photos SET thumb = ?2 WHERE id = ?1", params![id, thumb])?;
+        Ok(())
+    }
+
+    /// The strip's copy, or the photo itself when it has none yet.
+    pub fn photo_thumb(&self, id: i64) -> Result<Vec<u8>, StoreError> {
+        Ok(self.db.query_row("SELECT COALESCE(thumb, bytes) FROM photos WHERE id = ?1", [id], |r| r.get(0))?)
     }
 
     /// A note's photos, oldest first. Never reads the bytes.
@@ -325,11 +346,44 @@ impl Store {
         Ok(self.db.query_row("SELECT bytes FROM photos WHERE id = ?1", [id], |r| r.get(0))?)
     }
 
-    /// Removes one photo. The note stays, even if this was its only content;
-    /// closing the editor on blank text deletes it then.
+    /// Removes one photo. A note left with no photos and no text goes too, with
+    /// its chunks, in the same transaction.
     pub fn delete_photo(&self, id: i64) -> Result<(), StoreError> {
-        self.db.execute("DELETE FROM photos WHERE id = ?1", [id])?;
+        let tx = self.db.unchecked_transaction()?;
+        let key: Option<String> = tx.query_row("SELECT note_key FROM photos WHERE id = ?1", [id], |r| r.get(0)).optional()?;
+        tx.execute("DELETE FROM photos WHERE id = ?1", [id])?;
+        if let Some(key) = key {
+            tx.execute(
+                "DELETE FROM notes WHERE key = ?1 AND TRIM(text) = '' AND NOT EXISTS (SELECT 1 FROM photos WHERE note_key = ?1)",
+                [&key],
+            )?;
+            tx.execute("DELETE FROM chunks WHERE note_key = ?1 AND NOT EXISTS (SELECT 1 FROM notes WHERE key = ?1)", [&key])?;
+        }
+        tx.commit()?;
         Ok(())
+    }
+
+    /// The note (if any) and its photos as a `.zip`: `notes.md`, and each
+    /// photo under `photos/` named for its note (046 C17). `key` empty: every note.
+    pub fn export_zip(&self, key: Option<&str>) -> Result<Vec<u8>, StoreError> {
+        use std::io::Write;
+        let mut list = self.notes()?;
+        if let Some(k) = key {
+            list.retain(|n| n.key == k);
+        }
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let opts = zip::write::SimpleFileOptions::default();
+        let zerr = |e: zip::result::ZipError| StoreError::Io(std::io::Error::other(e));
+        zip.start_file("notes.md", opts).map_err(zerr)?;
+        zip.write_all(crate::notes::markdown(&list).as_bytes())?;
+        for n in &list {
+            let name: String = crate::notes::heading(n).chars().map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '_' }).collect();
+            for (i, p) in self.photos(&n.key)?.iter().enumerate() {
+                zip.start_file(format!("photos/{} {}.jpg", name.trim(), i + 1), opts).map_err(zerr)?;
+                zip.write_all(&self.photo_bytes(p.id)?)?;
+            }
+        }
+        Ok(zip.finish().map_err(zerr)?.into_inner())
     }
 
     /// Pins or unpins a note. Not an edit: `updated` stays, so the note neither
@@ -356,14 +410,21 @@ impl Store {
 
     /// Replaces a note's chunks with `chunks` (text and unit vector each).
     pub fn replace_chunks(&self, note_key: &str, note_updated: i64, model: &str, chunks: &[(String, Vec<f32>)]) -> Result<(), StoreError> {
-        self.db.execute("DELETE FROM chunks WHERE note_key = ?1", [note_key])?;
-        for (n, (text, vec)) in chunks.iter().enumerate() {
-            let blob: Vec<u8> = vec.iter().flat_map(|f| f.to_le_bytes()).collect();
-            self.db.execute(
-                "INSERT INTO chunks (note_key, n, text, vec, note_updated, model) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![note_key, n as i64, text, blob, note_updated, model],
-            )?;
+        let tx = self.db.unchecked_transaction()?;
+        tx.execute("DELETE FROM chunks WHERE note_key = ?1", [note_key])?;
+        // A note edited or emptied while it was embedded keeps no chunks of its old words.
+        let current = !crate::notes::is_known_key(note_key)
+            || tx.query_row("SELECT EXISTS (SELECT 1 FROM notes WHERE key = ?1 AND updated = ?2)", params![note_key, note_updated], |r| r.get::<_, bool>(0))?;
+        if current {
+            for (n, (text, vec)) in chunks.iter().enumerate() {
+                let blob: Vec<u8> = vec.iter().flat_map(|f| f.to_le_bytes()).collect();
+                tx.execute(
+                    "INSERT INTO chunks (note_key, n, text, vec, note_updated, model) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![note_key, n as i64, text, blob, note_updated, model],
+                )?;
+            }
         }
+        tx.commit()?;
         Ok(())
     }
 
@@ -514,7 +575,9 @@ impl Store {
 
     /// Erase everything on the device, the student's own work included.
     pub fn wipe(&self) -> Result<(), StoreError> {
-        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns; DELETE FROM photos;")?;
+        let tx = self.db.unchecked_transaction()?;
+        tx.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns; DELETE FROM photos;")?;
+        tx.commit()?;
         // Deleting doesn't shrink the file; erasing everything does (046 Data).
         self.db.execute_batch("VACUUM")?;
         Ok(())
@@ -925,13 +988,13 @@ mod tests {
     fn c15a_21st_photo_refused() {
         let store = Store::in_memory().unwrap();
         for n in 0..20 {
-            store.add_photo("note:a", 10, 10, &[n], None, 100 + i64::from(n)).unwrap();
+            store.add_photo("note:a", &NewPhoto { w: 10, h: 10, bytes: &[n] }, None, None, 100 + i64::from(n)).unwrap();
         }
-        assert!(matches!(store.add_photo("note:a", 10, 10, &[1], None, 200), Err(StoreError::TooManyPhotos)));
+        assert!(matches!(store.add_photo("note:a", &NewPhoto { w: 10, h: 10, bytes: &[1] }, None, None, 200), Err(StoreError::TooManyPhotos)));
         assert_eq!(store.photos("note:a").unwrap().len(), 20);
-        store.add_photo("note:b", 10, 10, &[1], None, 200).unwrap();
+        store.add_photo("note:b", &NewPhoto { w: 10, h: 10, bytes: &[1] }, None, None, 200).unwrap();
         store.set_note("note:c", "x", None, 150).unwrap();
-        store.add_photo("note:c", 10, 10, &[1], None, 300).unwrap();
+        store.add_photo("note:c", &NewPhoto { w: 10, h: 10, bytes: &[1] }, None, None, 300).unwrap();
         assert_eq!(store.notes().unwrap()[0].key, "note:c", "adding moves the note up");
     }
 
@@ -940,8 +1003,8 @@ mod tests {
         let store = Store::in_memory().unwrap();
         store.set_note("note:a", "words", None, 100).unwrap();
         store.replace_chunks("note:a", 100, "m", &[("words".into(), vec![1.0])]).unwrap();
-        let p = store.add_photo("note:a", 4, 3, &[1, 2, 3], None, 110).unwrap();
-        store.add_photo("note:b", 4, 3, &[9], None, 110).unwrap();
+        let p = store.add_photo("note:a", &NewPhoto { w: 4, h: 3, bytes: &[1, 2, 3] }, None, None, 110).unwrap();
+        store.add_photo("note:b", &NewPhoto { w: 4, h: 3, bytes: &[9] }, None, None, 110).unwrap();
         assert_eq!(store.photo_bytes(p.id).unwrap(), [1, 2, 3]);
         store.forget_sis().unwrap();
         assert_eq!(store.photos("note:a").unwrap().len(), 1, "sign-out keeps photos");
@@ -956,7 +1019,7 @@ mod tests {
     fn c17c_kept_row_drops_its_chunks() {
         let store = Store::in_memory().unwrap();
         store.set_note("note:a", "secret words", None, 100).unwrap();
-        store.add_photo("note:a", 4, 3, &[1], None, 110).unwrap();
+        store.add_photo("note:a", &NewPhoto { w: 4, h: 3, bytes: &[1] }, None, None, 110).unwrap();
         store.replace_chunks("note:a", 110, "m", &[("secret words".into(), vec![1.0])]).unwrap();
         store.set_note("note:a", " ", None, 200).unwrap();
         assert!(store.chunks("m").unwrap().is_empty(), "LAR can't cite erased words");
@@ -967,7 +1030,7 @@ mod tests {
     fn c17c_blank_keeps_a_note_with_photos() {
         let store = Store::in_memory().unwrap();
         store.set_note("note:a", "words", Some("Name"), 100).unwrap();
-        let p = store.add_photo("note:a", 4, 3, &[1], None, 110).unwrap();
+        let p = store.add_photo("note:a", &NewPhoto { w: 4, h: 3, bytes: &[1] }, None, None, 110).unwrap();
         store.set_note("note:a", "", None, 200).unwrap();
         let n = &store.notes().unwrap()[0];
         assert_eq!((n.text.as_str(), n.photos, n.title.as_deref()), ("", 1, Some("Name")));
@@ -979,17 +1042,41 @@ mod tests {
     #[test]
     fn c17c_first_photo_creates_the_row() {
         let store = Store::in_memory().unwrap();
-        store.add_photo("note:new", 4, 3, &[1], Some("Trip"), 100).unwrap();
+        store.add_photo("note:new", &NewPhoto { w: 4, h: 3, bytes: &[1] }, Some("Trip"), None, 100).unwrap();
         let n = &store.notes().unwrap()[0];
         assert_eq!((n.key.as_str(), n.text.as_str(), n.title.as_deref(), n.photos, n.updated), ("note:new", "", Some("Trip"), 1, 100));
         assert!(crate::notes::markdown(&store.notes().unwrap()).is_empty(), "export skips the empty section");
     }
 
     #[test]
-    fn c17d_after_class_needs_text_in_the_store() {
+    fn c17d_after_class_needs_text() {
         let store = Store::in_memory().unwrap();
-        store.add_photo("class:MATH 1", 4, 3, &[1], None, 100).unwrap();
-        let noted: Vec<_> = store.notes().unwrap().into_iter().filter(|n| !n.text.trim().is_empty()).collect();
-        assert!(noted.is_empty());
+        store.add_photo("class:MATH 1", &NewPhoto { w: 4, h: 3, bytes: &[1] }, None, None, 100).unwrap();
+        assert!(crate::notes::class_codes_with_text(&store.notes().unwrap()).is_empty());
+        store.set_note("class:MATH 2", "Quiz", None, 100).unwrap();
+        assert_eq!(crate::notes::class_codes_with_text(&store.notes().unwrap()), ["MATH 2"]);
+    }
+
+    #[test]
+    fn photos_zip_and_thumbs_and_last_photo_cleanup() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "words", Some("Trip"), 100).unwrap();
+        let p = store.add_photo("note:a", &NewPhoto { w: 4, h: 3, bytes: &[1, 2] }, None, Some("MATH 1"), 110).unwrap();
+        assert_eq!(store.notes().unwrap()[0].subject.as_deref(), Some("MATH 1"));
+        assert_eq!(store.photo_thumb(p.id).unwrap(), [1, 2], "no thumb yet: the photo itself");
+        store.set_photo_thumb(p.id, &[7]).unwrap();
+        assert_eq!(store.photo_thumb(p.id).unwrap(), [7]);
+        let mut z = zip::ZipArchive::new(std::io::Cursor::new(store.export_zip(Some("note:a")).unwrap())).unwrap();
+        let names: Vec<_> = (0..z.len()).map(|i| z.name_for_index(i).unwrap().unwrap().to_string()).collect();
+        assert!(names.contains(&"notes.md".to_string()) && names.contains(&"photos/Trip 1.jpg".to_string()), "{names:?}");
+        let mut md = String::new();
+        std::io::Read::read_to_string(&mut z.by_name("notes.md").unwrap(), &mut md).unwrap();
+        assert!(md.contains("words"));
+        // A stale embed can't write erased words back.
+        store.set_note("note:a", "", None, 200).unwrap();
+        store.replace_chunks("note:a", 110, "m", &[("words".into(), vec![1.0])]).unwrap();
+        assert!(store.chunks("m").unwrap().is_empty());
+        store.delete_photo(p.id).unwrap();
+        assert!(store.notes().unwrap().is_empty(), "no text, no photos: the row goes");
     }
 }

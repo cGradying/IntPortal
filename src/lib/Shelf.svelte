@@ -11,7 +11,7 @@
   // The notebook shelf (spec 046 C1 to C7): a notebook per subject, its window lit with one pixel
   // per note and one gold pixel per card due. Pull one out to see its notes below; decks live on Cards.
   import { api, type NoteItem } from "./api";
-  import { noPhotosInShare, previewOf } from "./photos";
+  import { photosInShare, previewOf } from "./photos";
   import { assis } from "./assis/assis.svelte";
   import { closable } from "./back";
   import { buzz } from "./haptics";
@@ -88,8 +88,10 @@
   async function exportAll() {
     exportNote = "";
     try {
-      await shareFile("IntPortal notes.md", "text/markdown", await api.notesMarkdown(null));
-      if (app.notes.some((n) => n.photos)) exportNote = noPhotosInShare;
+      if (app.notes.some((n) => n.photos)) {
+        await shareFile("IntPortal notes.zip", "application/zip", await api.notesZip(null));
+        exportNote = photosInShare;
+      } else await shareFile("IntPortal notes.md", "text/markdown", await api.notesMarkdown(null));
     } catch (e) {
       exportNote = String(e);
     }
