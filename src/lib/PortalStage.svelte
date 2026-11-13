@@ -407,8 +407,8 @@
     opacity: 0.35;
   }
   .arrow {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border: 0;
     background: transparent;
     -webkit-appearance: none;

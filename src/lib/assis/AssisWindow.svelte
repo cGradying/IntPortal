@@ -686,7 +686,7 @@
   .key {
     display: grid;
     place-items: center;
-    width: 42px;
+    width: 44px;
     height: 44px;
     padding: 0;
     border: 0;
@@ -696,8 +696,8 @@
   .cap {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     background: rgb(6 3 8 / 0.34);
     clip-path: var(--cut);
     box-shadow:

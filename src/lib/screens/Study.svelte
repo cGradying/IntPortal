@@ -663,7 +663,7 @@
     color: var(--ink);
   }
   .ghost.sm {
-    height: 40px;
+    height: 44px;
     padding: 0 12px;
   }
   .problem {

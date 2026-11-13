@@ -175,7 +175,7 @@
     color: var(--ink-3);
   }
   .ghost {
-    height: 40px;
+    height: 44px;
     padding: 0 14px;
     border: 0;
     border-radius: 10px;

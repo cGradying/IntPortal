@@ -423,7 +423,7 @@
   }
   .ghost {
     flex: none;
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 14px;
     border: 0;
     border-radius: 10px;

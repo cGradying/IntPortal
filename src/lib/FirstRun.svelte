@@ -118,7 +118,7 @@
     color: var(--on-gold);
   }
   .link {
-    height: 36px;
+    height: 44px;
     background: none;
     color: var(--ink-2);
   }

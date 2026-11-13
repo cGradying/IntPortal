@@ -7,8 +7,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Follow-up: these files belong to other open PRs (2026-11-14); fix their targets when those merge.
-const SKIP = /^(ClassSheet|NoteEditor|Schedule|Today|You|Landing|DueCard|WeekGrid)\.svelte$/;
-const BUTTONY = /(^|[\s,>.])(button|\.(back|x|chip|close|tap|btn|tab|swatch|term)s?)\b|\[role="?(button|tab)"?\]/;
+const SKIP = /^(ClassSheet|NoteEditor|Schedule|Today|DueCard|WeekGrid)\.svelte$/;
+const BUTTONY = /(^|[\s,>.])(button|\.(back|x|chip|close|tap|btn|tab|swatch|term|ghost|link|sm|cap|search|key|arrow)s?)\b|\[role="?(button|tab)"?\]/;
 
 function* walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -25,10 +25,16 @@ export function scan(root = fileURLToPath(new URL("../src", import.meta.url))) {
     const style = readFileSync(f, "utf8").split("<style")[1];
     if (!style) continue;
     for (const m of style.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-      const [, sel, body] = m;
+      const [, raw, body] = m;
+      const sel = raw.replace(/\/\*[\s\S]*?\*\//g, "");
       if (!BUTTONY.test(sel.trim().split(/[\s>]+/).pop())) continue;
-      for (const d of body.matchAll(/(?:^|;|\s)(height|min-height|width|min-width):\s*(\d+)px/g)) {
-        if (+d[2] < 44) hits.push(`${f.replace(root + "/", "")}: ${sel.trim().replace(/\s+/g, " ")} { ${d[1]}: ${d[2]}px }`);
+      // px and rem sizes; a var() or calc() size is flagged for a person to read.
+      for (const d of body.matchAll(/(?:^|;|\s)(height|min-height|width|min-width):\s*([^;]+)/g)) {
+        const v = d[2].trim();
+        const px = /^(\d+(?:\.\d+)?)px$/.exec(v);
+        const rem = /^(\d+(?:\.\d+)?)rem$/.exec(v);
+        const size = px ? +px[1] : rem ? +rem[1] * 17 : /var\(|calc\(/.test(v) ? NaN : 99;
+        if (size < 44 || Number.isNaN(size)) hits.push(`${f.replace(root + "/", "")}: ${sel.trim().replace(/\s+/g, " ")} { ${d[1]}: ${v} }`);
       }
     }
   }

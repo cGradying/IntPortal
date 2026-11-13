@@ -855,7 +855,7 @@
   }
   .sm {
     justify-self: start;
-    min-height: 40px;
+    min-height: 44px;
     font-size: min(0.765rem, 22px);
   }
   .big {

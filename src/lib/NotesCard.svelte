@@ -83,7 +83,7 @@
     gap: 8px;
   }
   .search {
-    height: 40px;
+    height: 44px;
     padding: 0 12px;
     border: 0;
     border-radius: 10px;

@@ -72,10 +72,12 @@ describe("the environment (spec 045)", () => {
   });
   for (const [id, t] of Object.entries(THEMES)) {
     for (const room of ["night", "day"] as const) {
-      it(`c4_accent_contrast: ${id} reads in ${room}`, () => {
+      it(`c4_accent_contrast_on_every_room: ${id} reads in ${room}, on both card stops`, () => {
         const r = schoolRoles(t, room);
-        const card = room === "night" ? "#170b1a" : "#ffffff";
-        expect(contrast(r["--gold"], card)).toBeGreaterThanOrEqual(4.5);
+        // The .card gradient runs from --card-2 to --card.
+        for (const card of room === "night" ? ["#170b1a", "#1d1022"] : ["#ffffff", "#f8f6f3"]) {
+          expect(contrast(r["--gold"], card), card).toBeGreaterThanOrEqual(4.5);
+        }
         expect(contrast(r["--on-gold"], r["--gold"])).toBeGreaterThanOrEqual(3);
       });
     }

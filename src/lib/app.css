@@ -357,11 +357,11 @@ input[type="checkbox"]:checked::after {
     transition-duration: 0.01ms !important;
     transition-delay: 0s !important;
   }
-  /* A press is only a colour change (C21): no squash. */
-  :is(button, [role="button"], a, .tap):active {
+  /* A press is only a colour change (C21): no squash, no nudge. */
+  :is(button, [role="button"], a, .tap):not(:disabled):active {
     scale: none !important;
-  }
-  button:not(:disabled):active {
+    transform: none !important;
+    translate: none !important;
     filter: brightness(0.88);
   }
 }

@@ -127,14 +127,15 @@
   async function ownPortal() {
     const list = await api.portals().catch(() => []);
     const id = app.sisConnected ? "sis" : "mabini";
-    const own = list.find((p) => p.id === id) ?? FALLBACK_SIS;
-    setSchool(own.theme);
-    return own;
+    const found = list.find((p) => p.id === id);
+    if (found) setSchool(found.theme); // only a real match changes the school
+    return found ?? FALLBACK_SIS;
   }
 
   // Step through, on a first sign-in (C27). Today mounts now, under the landing,
   // so the work is done at the tap and not in the middle of the dive.
   function diveIn(start: DiveStart) {
+    setSchool(start.portal.theme); // a first sign-in sets the school (spec 045 C4), dive or not
     if (app.dive === "off") {
       greet = true;
       if (signedIn) syncNow();
@@ -193,6 +194,7 @@
     if (app.sisConnected || app.mabiniConnected) {
       const snap = await api.snapshot().catch(() => null);
       if (snap) await adopt(snap);
+      void ownPortal(); // the school that is left
       return;
     }
     app.snapshot = null;
@@ -211,6 +213,7 @@
     signedIn = false;
     inside = false;
     dived = false;
+    setSchool(FALLBACK_SIS.theme);
   }
 </script>
 

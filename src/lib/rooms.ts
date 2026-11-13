@@ -117,8 +117,11 @@ const PUP: SchoolTheme = { ramp: ["#3b1220", "#7a1c2c", "#b5412a", "#e08a35", "#
  */
 export function schoolRoles(t: SchoolTheme, room: "night" | "day"): Record<string, string> {
   const night = room === "night";
-  const card = night ? "#170b1a" : "#ffffff";
-  const gold = night ? push(t.accent, card, 4.5, "#ffffff") : push(t.ramp[2], card, 4.5, "#000000");
+  // Cards are a gradient from --card-2 to --card, so the accent has to read on both stops.
+  const stops = night ? ["#170b1a", "#1d1022"] : ["#ffffff", "#f8f6f3"];
+  const toward = night ? "#ffffff" : "#000000";
+  const fit = (c: string) => stops.reduce((acc, bg) => push(acc, bg, 4.5, toward), c);
+  const gold = fit(night ? t.accent : t.ramp[2]);
   const alpha = (h: string, a: number) => `${h}${Math.round(a * 255).toString(16).padStart(2, "0")}`;
   return {
     "--gold": gold,
