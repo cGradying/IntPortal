@@ -68,6 +68,7 @@ targets:
         NSSupportsLiveActivities: true
         NSFaceIDUsageDescription: IntPortal uses Face ID to keep your notes, grades and schedule private when the app lock is on.
         NSCalendarsFullAccessUsageDescription: IntPortal keeps your classes in an IntPortal calendar and counts your own events as busy time when it suggests study breaks.
+        NSCameraUsageDescription: IntPortal uses the camera only when you tap it, to read a deadline or a theme code from a photo, or to add a photo. Nothing is sent anywhere.
         NSCalendarsUsageDescription: IntPortal keeps your classes in an IntPortal calendar and counts your own events as busy time when it suggests study breaks.
     entitlements:
       path: intportal_iOS/intportal_iOS.entitlements

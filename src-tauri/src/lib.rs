@@ -1185,7 +1185,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init());
     #[cfg(mobile)]
-    let builder = builder.plugin(tauri_plugin_haptics::init()).plugin(tauri_plugin_biometric::init()).plugin(tauri_plugin_glance::init()).plugin(tauri_plugin_calendar::init());
+    let builder = builder.plugin(tauri_plugin_haptics::init()).plugin(tauri_plugin_biometric::init()).plugin(tauri_plugin_glance::init()).plugin(tauri_plugin_calendar::init()).plugin(tauri_plugin_camera::init());
     builder
         .manage(ai::AiState::default())
         .setup(|app| {

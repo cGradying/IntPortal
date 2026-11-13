@@ -1,0 +1,3 @@
+[default]
+description = "Lets the app take or pick one photo and read it on the phone."
+permissions = ["allow-capture"]
