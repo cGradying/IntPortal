@@ -361,7 +361,7 @@
     box-shadow:
       inset 0 2px 0 var(--slab-edge),
       inset 0 -2px 0 var(--void-ink);
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     line-height: 1.35;
     color: var(--parch);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
@@ -372,7 +372,7 @@
     transform-origin: 100% 100%;
   }
   .bubble.leaving .pop {
-    animation: leave 0.16s var(--ease) both;
+    animation: leave var(--t-quick) var(--ease) both;
   }
   /* The not-yet-typed rest keeps its room, so the bubble never changes size. */
   .rest {

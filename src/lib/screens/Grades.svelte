@@ -279,7 +279,7 @@
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.647rem, 36px);
+    font-size: var(--text-display);
     font-weight: var(--title-weight);
     letter-spacing: var(--title-track);
   }
@@ -315,11 +315,11 @@
     transform: rotate(-5deg);
   }
   .pb.fresh {
-    animation: thunk 0.55s var(--ease) both 0.3s;
+    animation: thunk var(--t-hero) var(--ease) both 0.3s;
   }
   .sub {
     margin: 6px 0 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .trend {
@@ -334,14 +334,15 @@
   }
   .terms button {
     flex: none;
-    padding: 7px 12px;
+    min-height: 44px;
+    padding: 0 14px;
     border: 0;
     border-radius: 16px;
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-2);
     font-weight: 600;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
   }
   .terms button.on {
     background: var(--gold);
@@ -401,7 +402,7 @@
     color: var(--ink-3);
   }
   .inputs input {
-    height: 40px;
+    height: 44px;
     min-width: 0;
     padding: 0 10px;
     border: 0;
@@ -410,10 +411,10 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(0.941rem, 29px));
+    font-size: max(16px, var(--text-body));
   }
   .inputs button {
-    height: 40px;
+    height: 44px;
     padding: 0 14px;
     border: 0;
     border-radius: 10px;
@@ -498,7 +499,7 @@
     75% { translate: 1px 0; }
   }
   .stamp.fresh {
-    animation: thunk 0.55s var(--ease) both;
+    animation: thunk var(--t-hero) var(--ease) both;
   }
   @keyframes thunk {
     0% { transform: rotate(-12deg) scale(2.2); opacity: 0; }
@@ -514,7 +515,7 @@
     padding: 4px 10px;
     border-radius: 10px;
     background: var(--sunk);
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     font-weight: 600;
     color: var(--ink-2);
   }

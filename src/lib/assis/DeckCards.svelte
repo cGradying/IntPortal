@@ -186,7 +186,7 @@
   .pick small {
     font-family: var(--font-body, inherit);
     font-weight: 400;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
     overflow: hidden;
     white-space: nowrap;
@@ -217,7 +217,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(0.941rem, 29px));
+    font-size: max(16px, var(--text-body));
   }
   .x {
     width: 44px;
@@ -228,7 +228,7 @@
   }
   .fine {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
   .working {
@@ -260,7 +260,7 @@
   }
   .problem {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--bad);
   }
 </style>
