@@ -77,3 +77,33 @@ export const FALLBACK_SIS: Portal = {
   limits: { attempts: 3, window_secs: 900 },
   keychain_service: "ph.intportal.app",
 };
+
+/** The student number as it is typed or pasted, shaped as `YYYY-NNNNN-CC-N` (011 C4). */
+export function maskStudentNumber(raw: string): string {
+  const s = raw.toUpperCase().replace(/[^0-9A-Z]/g, "");
+  const parts: string[] = [];
+  let i = 0;
+  const take = (n: number, ok: RegExp) => {
+    let out = "";
+    while (out.length < n && i < s.length && ok.test(s[i])) out += s[i++];
+    return out;
+  };
+  for (const [n, ok] of [[4, /\d/], [5, /\d/], [2, /[A-Z]/], [1, /\d/]] as const) {
+    const p = take(n, ok);
+    if (!p) break;
+    parts.push(p);
+    if (p.length < n) break;
+  }
+  return parts.join("-");
+}
+
+/** Years the birthdate wheel offers, newest first: 14 to 70 years ago (011 C2). */
+export const birthYears = (now: Date) => Array.from({ length: 57 }, (_, k) => now.getFullYear() - 14 - k);
+
+/** Days in a month (1–12) of a year: the day wheel never offers more (011 C3). */
+export const daysIn = (month: number, year: number) => new Date(year, month, 0).getDate();
+
+/** The SIS turned a login down: its own words, or ours when it gave none (011 C8). */
+export const REJECTED = "Sign-in didn't go through. Check your student number, birthdate and password.";
+/** No SIS host answered (011 C9). */
+export const DOWN = "SIS is down right now. Your data is safe. Try again in a bit.";
