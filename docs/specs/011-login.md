@@ -1,6 +1,6 @@
 # 011 Login
 
-**Status:** building (2026-11-14). C1–C9 and C11–C17 are built; C10 needs the core's `sign_in` to keep the login and return an empty snapshot on `NoSchedule` (core-owned).
+**Status:** shipped (2026-11-14). Every criterion is built.
 
 ## What changes for the student
 
@@ -44,7 +44,7 @@ Typography is a new pair from OFL fonts: Geist for the interface and Pixelify Sa
 - **C9.** When no SIS host answers, the form shows an "SIS is down" state with a Try again button. This is not counted as a rejected login.
   *Built 2026-11-14:* an unreachable SIS shows the Down line with Try again; the core's guard spends no try on it (`c128_3_page_down_spends_no_try`).
 - **C10.** A signed-in account whose schedule is empty on every probed host shows "Signed in, but your schedule isn't up yet" and still lets the student in.
-  *Built 2026-11-14:* not yet: `sign_in` in `src-tauri/src/lib.rs` returns `NoSchedule` as an error. Needs the core to save the login and adopt an empty snapshot.
+  *Built 2026-11-14:* the guard returns the open session with no rows for a tap, so `sign_in` keeps the login and saves an empty schedule; the landing says "Signed in, but your schedule isn't up yet." under Step through. A background sync still refuses an empty schedule (`NoSchedule`), so it never wipes a schedule the phone already has.
 
 **Lockout guard** (core; the UI only shows its result)
 
@@ -118,6 +118,7 @@ LAR's lines follow the stage ([010](010-landing.md) C19).
 | C1–C5 | vitest `portals.test.ts`: `c2_years_run_14_to_70_years_back`, `c3_the_day_wheel_fits_the_month`, `c4_student_number_is_masked_as_typed_and_pasted`; simulator: the wheels, Done, the mask |
 | C6, C17 | vitest on the tries view; screenshot |
 | C7–C10 | screenshot with a fake core |
+| C10 | `cargo test`: `c10_empty_schedule_lets_a_tap_in_and_is_not_retried_on_another_host`, `c10_a_sync_never_adopts_an_empty_schedule` |
 | C11–C15 | `cargo test -p intportal-core` in `sis/` with a fake client: counts POSTs per scenario |
 | C12 | `cargo test`: three rejects within 15 minutes block the fourth; the window slides |
 | C16 | `cargo test -p intportal`: `sync` after a reject performs zero POSTs |

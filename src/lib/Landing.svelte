@@ -189,6 +189,8 @@
       {#if rest === "hub"}
         <button class="step" onclick={step}>Step through</button>
         <p class="hint">{app.sisConnected ? `PUP SIS · via ${(app.snapshot?.host ?? "sis8").split(".")[0]}` : copy.hint}</p>
+        <!-- 011 C10: signed in, but the SIS has no schedule for this term yet; the student still goes in. -->
+        {#if app.sisConnected && app.snapshot && !app.snapshot.sessions.length && !returning}<p class="hint empty">Signed in, but your schedule isn't up yet.</p>{/if}
       {:else}
         <!-- The card keeps the tallest height it has had, so swiping between portals never resizes the portal above it. -->
         <form class="card" style:--portal-accent={portal.theme.accent} style:min-height="{cardMin}px" bind:offsetHeight={cardH} onsubmit={submit} onfocusin={() => (typing = true)} onfocusout={() => (typing = false)}>
@@ -574,6 +576,12 @@
     font-size: min(0.706rem, 22px);
     letter-spacing: 0.08em;
     color: rgb(244 236 216 / 0.5);
+  }
+  .hint.empty {
+    font: 400 min(0.82rem, 22px) / 1.35 var(--font-ui);
+    letter-spacing: 0;
+    color: rgb(244 236 216 / 0.72);
+    text-align: center;
   }
   .demo {
     border: 0;
