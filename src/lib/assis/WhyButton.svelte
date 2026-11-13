@@ -73,7 +73,7 @@
   }
   .problem {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--bad);
   }
 </style>

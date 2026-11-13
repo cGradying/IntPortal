@@ -96,7 +96,7 @@
   }
   .text p:last-child {
     margin: 0;
-    font-size: min(0.941rem, 29px);
+    font-size: var(--text-body);
     line-height: 1.5;
     color: var(--ink-2);
   }
@@ -120,7 +120,7 @@
     border-radius: 12px;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.941rem, 29px);
+    font-size: var(--text-body);
   }
   .primary {
     background: var(--gold);
@@ -149,7 +149,7 @@
     color: var(--ink-2);
   }
   .link {
-    height: 36px;
+    height: 44px;
     background: none;
     color: var(--ink-2);
   }

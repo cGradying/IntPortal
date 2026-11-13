@@ -42,6 +42,7 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
   - Online, vacant and moved classes carry a small stamp as the block's first line: `ONLINE` in the online ink, `VACANT` in the vacant ink, and `MOVED` in the in-person ink with a dashed outline.
   - Vacant blocks also get a 45° hatch. Colour is never the only signal.
 - **C5. The stamp thunk.** A stamp that is new since the last visit lands with the `thunk` (0.55 s, eased) plus a 2 px shake of its block, once. Stamps the student has already seen just sit there.
+  *Built 2026-11-14:* the block of a new stamp jolts 2 px, once, as the stamp lands (`.jolt`); off under Reduce Motion.
 - **C6. Moved shows both places.** A moved class shows on its new day and time. In week view, a dashed ghost of the block stays at the old slot for that week.
 
 **Time**
@@ -62,7 +63,9 @@ The week and day views look like IntPortal's own calendar, not a generic one. Cl
 - **C9a. Day swipe.**
   - In day view, a horizontal drag moves the list with the finger. Past 60 px or a quick flick, it springs to the next or previous day, using the spring in `carousel.ts`. Otherwise it springs back.
   - The day strip's selection slides with it.
+  *Built 2026-11-14:* the day list and the day strip's gold selection follow the finger and settle on the spring from `carousel.ts` (a frame loop in `Schedule.svelte`).
 - **C10. Week swipe.** In week view, a horizontal swipe changes the week with the same spring, and the header names the week (`This week`, `Next week`, or the date range).
+  *Built 2026-11-14:* a change of week, by swipe or the arrows, slides in on the same spring; the header reads `This week · Oct 27 – Nov 2` (`weekRange`). An empty week shows LAR with "No classes this week. Pahinga muna." above the grid, which keeps the hatched own events. Vitest `c2_block_lines`, `c13_open_day_and_let_go`, `c10_week_range`.
 - **C11. The four-week month (picked).** Beside the screen title sits a 7 × 4 pixel month: one 5 px square per day for the next four weeks, gold when something is due, red when overdue, with today outlined and the current week lighter. Each day header in the week also carries a 4 px pin when something is due that day.
 - **C13. Open a day.**
   - Tapping a day's column or header in week view opens it: its column eases to 5.5 times the others' width over 0.36 s, and its blocks add the code, the time, larger text and the free gaps. The other days keep their blocks as colour only, with a white pixel where a block has a stamp.

@@ -89,7 +89,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(0.941rem, 29px));
+    font-size: max(16px, var(--text-body));
   }
   input:focus {
     outline: none;

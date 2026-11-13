@@ -82,7 +82,7 @@
   }
   .grade.pending {
     font-weight: 400;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
 </style>

@@ -1,5 +1,5 @@
 // What the week and day views show (spec 044), apart from drawing it. Pure.
-import { isoDate, span, type ClassSession, type DeadlineEntry, type Mark, type Meeting } from "./api";
+import { clock, isoDate, span, type ClassSession, type DeadlineEntry, type Mark, type Meeting } from "./api";
 import { WEEKDAYS } from "./api";
 import { contrast } from "./rooms";
 
@@ -97,4 +97,29 @@ export function pin(deadlines: DeadlineEntry[], date: string): "over" | "due" | 
 /** The stamps not yet seen on this phone land with a thunk once (C5). */
 export function freshStamps(ids: string[], seen: Set<string>): string[] {
   return ids.filter((id) => !seen.has(id));
+}
+
+/** What a block says (C2): the title always (up to four lines); the code and time/faculty line only in the open day. */
+export function blockLines(s: Pick<ClassSession, "subject_code" | "description" | "start" | "end" | "faculty">, open: boolean) {
+  return {
+    title: s.description || s.subject_code,
+    code: open ? s.subject_code : null,
+    meta: open ? `${clock(s.start)}–${clock(s.end)}${s.faculty ? ` · ${s.faculty}` : ""}` : null,
+    maxLines: 4,
+  };
+}
+
+/** C13: tapping a day opens it; tapping the open day again closes it. */
+export const toggleOpen = (open: number, tapped: number) => (open === tapped ? -1 : tapped);
+
+/** C13: a drag of more than 10 px lets the open day go back to even. */
+export const dragLetsGo = (dx: number, dy: number) => Math.hypot(dx, dy) > 10;
+
+/** C10: "Oct 27 – Nov 2", or "Nov 3 – 9" inside one month. */
+export function weekRange(monday: Date): string {
+  const end = new Date(monday);
+  end.setDate(monday.getDate() + 6);
+  const md = (d: Date, year = false) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(year && { year: "numeric" }) });
+  if (monday.getFullYear() !== end.getFullYear()) return `${md(monday, true)} – ${md(end, true)}`;
+  return monday.getMonth() === end.getMonth() ? `${md(monday)} – ${end.getDate()}` : `${md(monday)} – ${md(end)}`;
 }

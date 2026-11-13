@@ -105,7 +105,7 @@
   h1 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: min(1.647rem, 36px);
+    font-size: var(--text-display);
   }
   header button {
     padding: 8px 14px;
@@ -166,7 +166,7 @@
     background: var(--island);
     color: #f1f1f3;
     font-family: var(--font-display);
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     font-weight: 600;
   }
   .glances {
@@ -195,7 +195,7 @@
     transform: rotate(-4deg);
   }
   .stamp.fresh {
-    animation: thunk 0.55s var(--ease) infinite alternate;
+    animation: thunk var(--t-hero) var(--ease) infinite alternate;
   }
   .stamp.fail {
     color: var(--bad);
@@ -212,7 +212,7 @@
     padding: 4px 10px;
     border-radius: 10px;
     background: var(--sunk);
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     font-weight: 600;
     color: var(--ink-2);
   }

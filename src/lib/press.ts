@@ -39,11 +39,13 @@ export function longpress(node: HTMLElement, onLong: () => void) {
   const up = () => {
     if (p.up()) node.addEventListener("click", (e) => (e.stopImmediatePropagation(), e.preventDefault()), { capture: true, once: true });
   };
+  // A cancelled touch (a scroll took it) makes no click, so there is nothing to swallow.
+  const cancel = () => void p.up();
   const menu = (e: Event) => e.preventDefault();
   node.addEventListener("pointerdown", down);
   node.addEventListener("pointermove", move);
   node.addEventListener("pointerup", up);
-  node.addEventListener("pointercancel", up);
+  node.addEventListener("pointercancel", cancel);
   node.addEventListener("contextmenu", menu);
   return {
     update(next: () => void) {
@@ -54,7 +56,7 @@ export function longpress(node: HTMLElement, onLong: () => void) {
       node.removeEventListener("pointerdown", down);
       node.removeEventListener("pointermove", move);
       node.removeEventListener("pointerup", up);
-      node.removeEventListener("pointercancel", up);
+      node.removeEventListener("pointercancel", cancel);
       node.removeEventListener("contextmenu", menu);
     },
   };

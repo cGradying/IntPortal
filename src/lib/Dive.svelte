@@ -136,15 +136,15 @@
     padding: 5px 8px;
     white-space: nowrap;
     pointer-events: none;
-    color: #f4ecd8;
-    background: #170b1a;
-    box-shadow: inset 0 2px 0 #3a2446;
+    color: var(--parch);
+    background: var(--void-3);
+    box-shadow: inset 0 2px 0 var(--slab-edge);
     font: 500 min(0.765rem, 22px) var(--font-ui);
     transition: opacity 0.12s linear;
   }
   .says b {
     margin-right: 5px;
-    color: #f5b227;
+    color: var(--portal-gold);
     font: 700 min(0.706rem, 20px) var(--font-pixel);
     letter-spacing: 0.06em;
   }
