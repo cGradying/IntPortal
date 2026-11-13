@@ -497,7 +497,7 @@
     color: var(--on-gold);
     font-family: var(--font-display);
     font-weight: 700;
-    animation: thunk 0.2s var(--ease) both;
+    animation: thunk var(--t-quick) var(--ease) both;
   }
   .week {
     justify-self: start;
