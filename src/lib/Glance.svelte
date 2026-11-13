@@ -37,8 +37,8 @@
           <Jeepney mode={view.trip} />
         {:else}
           <svg class="glyph" class:churn={view.tone === "live"} viewBox="0 0 7 9" shape-rendering="crispEdges" aria-hidden="true">
-            <path d="M0 0h7v9H0z" fill="#34203f" />
-            <path d="M1 1h5v7H1z" fill="#170b1a" />
+            <path d="M0 0h7v9H0z" style="fill: var(--glyph-edge)" />
+            <path d="M1 1h5v7H1z" style="fill: var(--void-3)" />
             <path class="swirl a" d="M2 2h3v1H2zM1 4h2v1H1zM4 5h2v1H4zM2 6h3v1H2z" />
             <path class="swirl b" d="M3 3h2v1H3zM2 5h2v1H2zM4 2h1v2H4z" />
           </svg>
@@ -192,7 +192,7 @@
     justify-content: space-between;
     align-items: center;
     gap: 14px;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: #a9a9b1;
   }
   .sync {

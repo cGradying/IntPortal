@@ -161,7 +161,7 @@
     gap: 12px;
   }
   .back {
-    height: 32px;
+    height: 44px;
     padding: 0;
     background: none;
     color: var(--gold);
@@ -223,7 +223,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(0.941rem, 29px));
+    font-size: max(16px, var(--text-body));
   }
   textarea {
     height: 120px;
@@ -251,7 +251,7 @@
     min-width: 0;
   }
   .cards small {
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .cards em {
@@ -261,7 +261,8 @@
     color: var(--ink-3);
   }
   .x {
-    width: 36px;
+    width: 44px;
+    min-height: 44px;
     padding: 0;
     background: none;
     color: var(--ink-3);
@@ -269,12 +270,12 @@
   }
   .fine {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
   .problem {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--bad);
   }
 </style>

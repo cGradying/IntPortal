@@ -30,12 +30,12 @@
   }
   .why {
     margin: 2px 0 10px;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
     overflow-wrap: anywhere;
   }
   button {
-    height: 36px;
+    height: 44px;
     padding: 0 14px;
     border: 0;
     border-radius: 10px;
@@ -43,6 +43,6 @@
     color: var(--on-gold);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
   }
 </style>

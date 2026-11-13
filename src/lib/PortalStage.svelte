@@ -407,8 +407,8 @@
     opacity: 0.35;
   }
   .arrow {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border: 0;
     background: transparent;
     -webkit-appearance: none;
@@ -435,7 +435,7 @@
     background: rgb(244 236 216 / 0.06);
     box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.12);
     color: rgb(244 236 216 / 0.6);
-    font: 400 min(0.765rem, 23px) var(--font-ui);
+    font: 400 var(--text-caption) var(--font-ui);
     text-align: left;
     animation: fade 0.35s var(--ease);
   }
@@ -454,7 +454,7 @@
     white-space: nowrap;
   }
   .caption small {
-    font: 500 min(0.647rem, 20px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     color: rgb(244 236 216 / 0.75);
     white-space: nowrap;

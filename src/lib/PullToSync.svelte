@@ -102,7 +102,7 @@
     gap: 10px;
     overflow: hidden;
     padding-bottom: 8px;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     font-weight: 600;
     color: var(--ink-3);
     transition: height var(--t-flow) var(--ease);

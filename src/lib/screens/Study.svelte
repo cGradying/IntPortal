@@ -266,7 +266,7 @@
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.647rem, 36px);
+    font-size: var(--text-display);
     font-weight: var(--title-weight);
     letter-spacing: var(--title-track);
   }
@@ -301,7 +301,7 @@
     text-align: left;
     color: var(--ink);
     font: inherit;
-    transition: scale 0.16s var(--ease);
+    transition: scale var(--t-quick) var(--ease);
   }
   .tile:active {
     scale: 0.98;
@@ -320,7 +320,7 @@
     color: var(--ink-3);
   }
   .tm {
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     line-height: 1.3;
     color: var(--ink-2);
   }
@@ -502,7 +502,7 @@
     grid-template-columns: 12px minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 8px;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
   }
   .dn {
     overflow: hidden;
@@ -544,13 +544,13 @@
     color: var(--ink);
   }
   .st .num span {
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     line-height: 1;
     color: var(--ink-2);
   }
   .start {
     min-height: 52px;
-    font-size: min(0.941rem, 29px);
+    font-size: var(--text-body);
   }
 
   /* Cards */
@@ -589,7 +589,7 @@
     color: var(--ink);
     text-align: left;
     font: inherit;
-    transition: scale 0.16s var(--ease);
+    transition: scale var(--t-quick) var(--ease);
   }
   .rowb:active {
     scale: 0.98;
@@ -606,11 +606,11 @@
   .fine {
     display: block;
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .val {
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
     white-space: nowrap;
   }
@@ -635,7 +635,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(0.941rem, 29px));
+    font-size: max(16px, var(--text-body));
   }
   .row {
     display: flex;
@@ -663,12 +663,12 @@
     color: var(--ink);
   }
   .ghost.sm {
-    height: 40px;
+    height: 44px;
     padding: 0 12px;
   }
   .problem {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--bad);
   }
 </style>
