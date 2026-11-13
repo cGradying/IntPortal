@@ -57,7 +57,7 @@
 {#snippet mini(p: Portal)}
   <!-- A tiny portal: an obsidian ring round the school's ramp, darkest at the top. -->
   <svg class="mini" viewBox="0 0 5 7" aria-hidden="true" shape-rendering="crispEdges">
-    <rect width="5" height="7" fill="#2f2939" />
+    <rect width="5" height="7" style="fill: var(--obsidian)" />
     {#each p.theme.ramp.slice(1) as c, i (i)}<rect x="1" y={1 + i * 1.25} width="3" height="1.25" fill={c} />{/each}
     <rect x="2" y="0" width="1" height="1" fill={p.theme.accent} />
   </svg>
@@ -65,7 +65,7 @@
 
 <div class="scrim" role="presentation" onclick={onclose}></div>
 <div class="frame" style:top="{vv.top}px" style:height="{vv.h}px">
-  <div class="sheet" role="dialog" aria-label="Choose your school" style:--accent={current?.theme.accent ?? "#f5b227"}>
+  <div class="sheet" role="dialog" aria-label="Choose your school" style:--accent={current?.theme.accent ?? "var(--portal-gold)"}>
     <header>
       <h2>Choose your school</h2>
       <button class="close" onclick={onclose}>Done</button>
@@ -174,7 +174,7 @@
   }
   h2 {
     margin: 0;
-    font: 700 min(1.059rem, 32px) / 1.2 var(--font-display);
+    font: 700 var(--text-headline) / 1.2 var(--font-display);
     letter-spacing: -0.01em;
   }
   .close {
@@ -185,7 +185,7 @@
     border: 0;
     background: none;
     color: var(--portal-gold);
-    font: 600 min(0.941rem, 29px) var(--font-ui);
+    font: 600 var(--text-body) var(--font-ui);
   }
   .search {
     display: flex;
@@ -197,7 +197,7 @@
     background: var(--void);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
     color: rgb(244 236 216 / 0.55);
-    transition: box-shadow 0.16s var(--ease);
+    transition: box-shadow var(--t-quick) var(--ease);
   }
   .search:focus-within {
     box-shadow: inset 0 0 0 1.5px var(--accent);
@@ -215,7 +215,7 @@
     border: 0;
     background: none;
     color: var(--white);
-    font: 400 max(16px, min(0.941rem, 29px)) var(--font-ui);
+    font: 400 max(16px, var(--text-body)) var(--font-ui);
     caret-color: var(--portal-gold);
     outline: none;
     -webkit-appearance: none;
@@ -233,7 +233,7 @@
     border: 0;
     background: none;
     color: rgb(244 236 216 / 0.7);
-    font: 600 min(0.765rem, 23px) var(--font-ui);
+    font: 600 var(--text-caption) var(--font-ui);
   }
   .body {
     position: relative;
@@ -283,7 +283,7 @@
     background: none;
     color: inherit;
     text-align: left;
-    transition: background 0.16s var(--ease);
+    transition: background var(--t-quick) var(--ease);
   }
   .row:active {
     background: rgb(255 255 255 / 0.05);
@@ -308,20 +308,20 @@
   }
   .names b {
     font-weight: 600;
-    font-size: min(0.941rem, 29px);
+    font-size: var(--text-body);
     color: var(--white);
   }
   .row.on b {
     color: var(--c);
   }
   .names span {
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     line-height: 1.3;
     color: rgb(244 236 216 / 0.6);
   }
   .chip {
     padding: 3px 6px 2px;
-    font: 500 min(0.647rem, 20px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     color: rgb(244 236 216 / 0.55);
     box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.18);
@@ -340,7 +340,7 @@
   }
   .count {
     margin-top: 8px;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     text-align: center;
   }
   .rail {

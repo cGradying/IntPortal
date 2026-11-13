@@ -116,3 +116,9 @@ The app never shows something it doesn't know: no "Nothing scheduled" while it i
 
 - C12: a tap on a class opens the class sheet on both Today and Schedule. One more tap to the syllabus from Today is accepted; the Due card (041) covers deadlines (user left it to the Head, 2026-11-03).
 - C14: Notes lives on the Study tab, not a sixth tab.
+
+## Built 2026-11-14 (C7, target sizes)
+
+Fixed to at least 44 pt: the deck back button and card × (`DeckPage`), the Study back button, Grades term chips and goal inputs, `AddDeadline` title field and segmented buttons, and the buttons in `ErrorCard`, `NeedSis`, `SubjectPage` and `ThemeMaker`, and the Assis suggestion chips.
+
+Check: `node scripts/tap-targets.mjs` lists CSS rules on buttons that set a height, min-height or width under 44 px (also run in vitest as `040_c7_no_button_rule_under_44px`). It is a heuristic: a hit area can come from padding or a parent, so it flags and a person reads. It skips files owned by other open PRs. Still open there: `ClassSheet`, `NoteEditor` (selection bar, segmented buttons), `Today` (offline button, coach ×), `Schedule` (segmented buttons), `You` (swatch). The VoiceOver pass stays manual in the simulator.

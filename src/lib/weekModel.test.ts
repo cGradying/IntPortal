@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClassSession, DeadlineEntry, Meeting } from "./api";
-import { columns, freshStamps, gapText, gaps, month, movedFrom, onColor, phaseOf, pin, stampOf } from "./weekModel";
+import { blockLines, dragLetsGo, toggleOpen, weekRange, columns, freshStamps, gapText, gaps, month, movedFrom, onColor, phaseOf, pin, stampOf } from "./weekModel";
 import { contrast } from "./rooms";
 
 const s = (subject_code: string, day: ClassSession["day"], start: number, end: number, occurrence = 0): ClassSession => ({ subject_code, description: "", faculty: "", day, start, end, occurrence });
@@ -75,5 +75,31 @@ describe("the four-week month (044 C11)", () => {
     expect(pin([dl("2026-11-03", true)], "2026-11-03")).toBe("over");
     expect(pin([dl("2026-11-12")], "2026-11-12")).toBe("due");
     expect(pin([], "2026-11-12")).toBeNull();
+  });
+});
+
+describe("blocks and open days (044 C2, C10, C13)", () => {
+  const cls = { subject_code: "COMP 20073", description: "Object-Oriented Prog.", faculty: "Cruz", start: 540, end: 630 };
+  it("c2_block_lines: even week is the title only, up to four lines; an open day adds code and one time line", () => {
+    expect(blockLines(cls, false)).toEqual({ title: "Object-Oriented Prog.", code: null, meta: null, maxLines: 4 });
+    const open = blockLines(cls, true);
+    expect(open.code).toBe("COMP 20073");
+    expect(open.meta).toContain("Cruz");
+    expect(open.meta).not.toContain("\n");
+  });
+  it("c2_block_lines: falls back to the code when there is no title", () => {
+    expect(blockLines({ ...cls, description: "" }, false).title).toBe("COMP 20073");
+  });
+  it("c13_open_day_and_let_go: a tap opens, a second tap closes, a 10 px drag lets go", () => {
+    expect(toggleOpen(-1, 2)).toBe(2);
+    expect(toggleOpen(2, 2)).toBe(-1);
+    expect(toggleOpen(2, 3)).toBe(3);
+    expect(dragLetsGo(6, 6)).toBe(false);
+    expect(dragLetsGo(11, 0)).toBe(true);
+  });
+  it("c10_week_range reads like Oct 27 - Nov 2", () => {
+    expect(weekRange(new Date(2026, 9, 26))).toBe("Oct 26 – Nov 1");
+    expect(weekRange(new Date(2026, 10, 9))).toBe("Nov 9 – 15");
+    expect(weekRange(new Date(2026, 11, 28))).toBe("Dec 28, 2026 – Jan 3, 2027");
   });
 });

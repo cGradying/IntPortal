@@ -215,7 +215,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(0.941rem, 29px));
+    font-size: max(16px, var(--text-body));
   }
   .spines {
     display: flex;
@@ -235,7 +235,7 @@
     align-self: center;
     writing-mode: vertical-rl;
     rotate: 180deg;
-    font: 500 min(0.647rem, 20px) var(--font-label);
+    font: 500 var(--text-label) var(--font-label);
     letter-spacing: var(--label-track);
     text-transform: uppercase;
     color: var(--ink-3);
@@ -337,7 +337,7 @@
   }
   .fine {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .pad {
@@ -372,7 +372,7 @@
     text-align: left;
     -webkit-touch-callout: none;
     user-select: none;
-    transition: scale 0.16s var(--ease);
+    transition: scale var(--t-quick) var(--ease);
   }
   .rowb:active {
     scale: 0.98;
@@ -388,7 +388,7 @@
   .tx small {
     display: block;
     overflow: hidden;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -401,7 +401,7 @@
     color: var(--gold);
   }
   .val {
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
     white-space: nowrap;
   }
@@ -427,7 +427,7 @@
   }
   .ghost {
     flex: none;
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 14px;
     border: 0;
     border-radius: 10px;

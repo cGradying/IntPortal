@@ -450,7 +450,7 @@
     gap: 6px;
   }
   .back {
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 12px;
     border: 0;
     border-radius: 10px;
@@ -475,7 +475,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   .pvtabs button {
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 10px;
     border: 0;
     background: color-mix(in srgb, var(--card) 80%, transparent);
@@ -749,7 +749,7 @@
     border-radius: 12px;
   }
   .seg button {
-    min-height: 42px;
+    min-height: 44px;
     border: 0;
     background: none;
     border-radius: 9px;
@@ -855,7 +855,7 @@
   }
   .sm {
     justify-self: start;
-    min-height: 40px;
+    min-height: 44px;
     font-size: min(0.765rem, 22px);
   }
   .big {
@@ -973,7 +973,7 @@
     box-shadow: inset 0 0 0 3px currentColor;
     background: var(--card);
     rotate: -7deg;
-    animation: thunk 0.36s var(--ease) both;
+    animation: thunk var(--t-flow) var(--ease) both;
     pointer-events: none;
   }
   .sr {

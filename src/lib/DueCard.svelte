@@ -7,7 +7,7 @@
   import { buzz } from "./haptics";
   import { openLink } from "./openLink";
   import { adopt, app, mabiniSyncNow, openSubject } from "./state.svelte";
-  import { tick } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import { flip } from "svelte/animate";
   import { crossfade, slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
@@ -16,6 +16,8 @@
   import { barSegments, comboText, FLOW_MS, nextRun, tierOf, type Run } from "./doneRun";
   import { fieldPulse, sinkTiles } from "./fieldPulse";
   import { sfx } from "./sound";
+  import { longpress } from "./press";
+  import { addDone, loadDone, pruneWeek, removeDone, saveDone, UNDO_MS } from "./doneWeek";
 
   const MAX = 5;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -36,6 +38,38 @@
   let marking = $state<Record<string, { tier: string; combo: string; lifted: boolean }>>({});
   let run: Run | null = null;
   let cleared = $state(false);
+  // Spec 041 C6: finished this week (kept across launches), and which are still inside the 5 s Undo.
+  let week = $state(loadDone(Date.now()));
+  let undoing = $state<string[]>([]);
+  let showWeek = $state(false);
+  const keep = (next: typeof week) => saveDone((week = next));
+  // The Undo timers, by id: cleared on Undo and before a re-arm.
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  const arm = (id: string) => {
+    clearTimeout(timers.get(id));
+    timers.set(id, setTimeout(() => (timers.delete(id), (undoing = undoing.filter((x) => x !== id))), UNDO_MS));
+  };
+  onDestroy(() => timers.forEach(clearTimeout));
+  // The row whose long press offered Done.
+  let offered = $state<string | null>(null);
+  let offerTimer: ReturnType<typeof setTimeout> | undefined;
+  function offer(id: string) {
+    buzz.pull();
+    offered = id;
+    clearTimeout(offerTimer);
+    offerTimer = setTimeout(() => (offered = null), 4000);
+  }
+  onDestroy(() => clearTimeout(offerTimer));
+  // What rests under "Done this week" must still be Done in the core; drop what was un-done elsewhere.
+  // Fresh ones (inside the Undo window) are exempt: the core hasn't answered yet.
+  $effect(() => {
+    const done = app.snapshot?.done;
+    if (!done) return;
+    const gone = week.filter((x) => !undoing.includes(x.entry.id) && !done.includes(x.entry.id));
+    if (gone.length) keep(week.filter((x) => !gone.includes(x)));
+  });
+  const quick = $derived(week.filter((x) => undoing.includes(x.entry.id)));
+  const resting = $derived(week.filter((x) => !undoing.includes(x.entry.id)));
 
   const [send, receive] = crossfade({ duration: reduce ? 0 : 480, easing: cubicOut, fallback: () => ({ duration: 0 }) });
 
@@ -93,6 +127,9 @@
   async function settle(d: DeadlineEntry) {
     list = list.filter((x) => x.id !== d.id);
     finished = [d, ...finished];
+    keep(addDone(pruneWeek(week, Date.now()), d, Date.now()));
+    undoing = [...undoing, d.id];
+    arm(d.id);
     delete marking[d.id];
     setTimeout(() => sfx.land(), reduce ? 0 : LAND_MS);
     if (!list.length) setTimeout(allClear, reduce ? 0 : LAND_MS + 60);
@@ -102,6 +139,9 @@
       // Not saved: put it back rather than show a done that isn't.
       buzz.fail();
       finished = finished.filter((x) => x.id !== d.id);
+      keep(removeDone(week, d.id));
+      clearTimeout(timers.get(d.id));
+      undoing = undoing.filter((x) => x !== d.id);
       list = [d, ...list];
     }
   }
@@ -116,10 +156,20 @@
   }
 
   async function undo(d: DeadlineEntry) {
+    // The core first: a failed Undo leaves the item where it was.
+    try {
+      await adopt(await api.setDone(d.id, false));
+    } catch {
+      buzz.fail();
+      return;
+    }
+    clearTimeout(timers.get(d.id));
+    timers.delete(d.id);
     finished = finished.filter((x) => x.id !== d.id);
+    keep(removeDone(week, d.id));
+    undoing = undoing.filter((x) => x !== d.id);
     cleared = false;
     buzz.tick();
-    await adopt(await api.setDone(d.id, false));
   }
 </script>
 
@@ -148,12 +198,16 @@
         {@const word = entryLabel(d, now)}
         {@const mark = marking[d.id]}
         <li animate:flip={flow()} in:slide={flow()} out:slide={flow()} data-due-row={d.id}>
-          <div class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
+          <!-- A long press offers Done (C8); the Done button beside it is the accessible way, with its own label. -->
+          <div use:longpress={() => offer(d.id)} class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
           <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={(e) => done(d, e.currentTarget)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
           <button class="row" onclick={() => open(d)} aria-label="{d.title}, {d.subject ?? d.course ?? 'no subject'}, due {word}">
             <span class="when" class:late={word === "Overdue"}>{word}</span>
             <span class="what"><strong>{d.title}</strong><small>{d.subject ?? d.course ?? "Your own"}</small></span>
           </button>
+          {#if offered === d.id && !mark}
+            <button class="offer" onclick={(e) => { offered = null; const b = e.currentTarget.closest("li")?.querySelector<HTMLElement>(".check"); if (b) done(d, b); }}>Mark done</button>
+          {/if}
           {#if mark?.combo}<span class="combo" aria-hidden="true">{mark.combo}</span>{/if}
           {#if mark}<span class="stamp" aria-hidden="true">DONE</span>{/if}
           </div>
@@ -171,10 +225,9 @@
     <p class="none">Nothing due that we know of yet.</p>
   {/if}
 
-  {#if finished.length}
-    <p class="label group" transition:slide={flow()}>Done</p>
+  {#if quick.length}
     <ul>
-      {#each finished as d (d.id)}
+      {#each quick as { entry: d } (d.id)}
         <li animate:flip={flow()} in:slide={flow()} out:slide={flow()}>
           <div class="ri finished" in:receive={{ key: d.id }} out:send={{ key: d.id }}>
           <button class="link" onclick={() => undo(d)} aria-label="Undo {d.title}">Undo</button>
@@ -184,6 +237,20 @@
         </li>
       {/each}
     </ul>
+  {/if}
+
+  {#if resting.length}
+    <button class="week" aria-expanded={showWeek} onclick={() => (showWeek = !showWeek)}>Done this week · {resting.length}</button>
+    {#if showWeek}
+      <ul transition:slide={flow()}>
+        {#each resting as { entry: d } (d.id)}
+          <li class="past">
+            <span class="what"><s>{d.title}</s><small>{d.subject ?? d.course ?? "Your own"}</small></span>
+            <button class="link" onclick={() => undo(d)} aria-label="Un-mark {d.title}">Undo</button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   {/if}
 </section>
 
@@ -417,8 +484,36 @@
     0%, 50% { background: var(--ink); }
     25%, 75%, 100% { background: var(--gold); }
   }
-  .group {
-    margin: 6px 0 0;
+  .offer {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    translate: 0 -50%;
+    z-index: 2;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    background: var(--gold);
+    color: var(--on-gold);
+    font-family: var(--font-display);
+    font-weight: 700;
+    animation: thunk var(--t-quick) var(--ease) both;
+  }
+  .week {
+    justify-self: start;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink-3);
+    font-size: min(0.706rem, 22px);
+  }
+  .past {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 44px;
   }
   .finished {
     min-height: 44px;

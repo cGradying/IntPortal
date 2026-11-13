@@ -43,6 +43,7 @@ Every deadline the student has is in one list, wherever it came from: the syllab
 
   Done hides the deadline from Today, reminders, the calendar and LAR at their next refresh.
 - **C6.** Done shows an **Undo** for 5 seconds. Under Today's card, a "Done this week" row lists the done ones and can un-mark each. An eMabini Done stays until the student undoes it, even if eMabini still lists the work.
+  *Built 2026-11-14:* Done shows Undo for 5 seconds (`UNDO_MS`), then the item rests in a quiet "Done this week" row on the card, where Undo un-marks it. The list is kept on the phone for 7 days (`src/lib/doneWeek.ts`), so it survives leaving Today. Vitest `c6_*` in `doneWeek.test.ts`.
 
 **Today**
 
@@ -51,6 +52,7 @@ Every deadline the student has is in one list, wherever it came from: the syllab
   - Each row shows the day word, the title, and the subject or course.
   - There is an **All deadlines** link.
 - **C8.** Tapping a syllabus deadline opens its subject on the Outline; tapping an own deadline edits it (C14). Tapping an eMabini one opens it in eMabini. A long press offers Done.
+  *Built 2026-11-14:* a long press on a row marks it Done (`longpress` from `press.ts`, with the same sequence as the button). The Done button stays, labelled "Mark <title> done", which is the VoiceOver action; there is no separate custom-action rotor entry.
 - **C9.** The card tells three states apart, and never says "nothing due" without data:
   - **Nothing due:** LAR "Walang due this week. Ayos!" This shows only when every connected source has synced within the last 24 hours.
   - **Not synced:** "eMabini hasn't synced yet", with a **Sync** button. This shows when eMabini is connected but has no `last_synced`, and the rest of the list still shows.

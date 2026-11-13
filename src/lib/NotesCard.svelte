@@ -87,7 +87,7 @@
     gap: 8px;
   }
   .search {
-    height: 40px;
+    height: 44px;
     padding: 0 12px;
     border: 0;
     border-radius: 10px;
@@ -95,7 +95,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: min(0.941rem, 29px);
+    font-size: var(--text-body);
   }
   .notes {
     list-style: none;
@@ -117,7 +117,7 @@
   .notes span {
     font-family: var(--font-body, inherit);
     font-weight: 400;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
     white-space: nowrap;
     overflow: hidden;

@@ -202,7 +202,7 @@
   h2 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.294rem, 29px);
+    font-size: var(--text-title);
   }
   .desc {
     margin: 2px 0 0;
@@ -210,7 +210,7 @@
     color: var(--ink-2);
   }
   button {
-    height: 40px;
+    height: 44px;
     padding: 0 14px;
     border: 0;
     border-radius: 10px;
@@ -235,7 +235,7 @@
     gap: 6px;
   }
   .tabs button {
-    height: 34px;
+    height: 44px;
     border-radius: 17px;
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
@@ -269,7 +269,7 @@
   }
   .fine {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
   .warn {
@@ -294,7 +294,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(0.941rem, 29px));
+    font-size: max(16px, var(--text-body));
   }
   textarea {
     height: 160px;
@@ -332,11 +332,11 @@
     width: 80px;
   }
   .x {
-    width: 40px;
+    width: 44px;
     padding: 0;
     background: none;
     color: var(--ink-3);
-    font-size: min(1.294rem, 29px);
+    font-size: var(--text-title);
   }
   .row {
     display: flex;
@@ -374,7 +374,7 @@
     flex: none;
     padding: 2px 6px;
     font-family: var(--font-pixel);
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     text-transform: uppercase;
     box-shadow: inset 0 0 0 1px var(--edge-2);
     color: var(--ink-2);
@@ -394,7 +394,7 @@
   }
   .problem {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--bad);
   }
   li.here {

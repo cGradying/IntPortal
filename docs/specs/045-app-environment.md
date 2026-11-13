@@ -170,3 +170,20 @@ See C13–C21. Under Reduce Motion: no sway, shake, count-up, confetti or drifti
 ## Open questions
 
 None. The orb's artistic redesign (C7) and the other schools' art (C4a) come later.
+
+## Built 2026-11-14
+
+Branch `ui/environment-tokens`. Tests are in `src/lib/rooms.test.ts` and `src/lib/tokens.test.ts`.
+
+- **C1** built. `Dive`, `Glance` and `PortalHub` read the void tokens (new `--glyph-edge` and `--obsidian` for two glyph greys). `c1_no_void_hex_outside_app_css` now scans every `.svelte` file's style and markup, with the pixel-art files as the only exceptions.
+- **C3** built. `watchVisible()` in `rooms.ts` sets `data-hidden` on the root while the app is backgrounded, and the pools pause (`c3_ground_pauses_when_backgrounded`).
+- **C4** built. `applyRoom` takes the student's school (`setSchool`, fed from the core's portal list in `+page.svelte`) instead of PUP. Contrast is tested for all six portal themes in both rooms (`c4_accent_contrast`, 4.5:1 for the accent on cards).
+- **C8, C11** built. `--text-display`, `-title`, `-headline`, `-body`, `-label`, `-caption`, `-numeral` in `app.css`, with the sizes the app already used; every exact match in the components now reads the token. Sizes that sit between the roles (0.824, 0.706, 0.882 rem and a few one-offs) are left as they are, because snapping them changes size. That needs a design call.
+- **C17** built. The Study session no longer fires Confetti at 80% or more, and LAR stays idle. Grades (a new grade) is the one remaining use.
+- **C20** partly built. `--ease-spring`, `--t-quick`, `--t-move` and `--t-hero` exist, and every literal that equals a token uses it. `c20_no_raw_durations` fails on a token-sized literal in any component, and caps the off-scale literals (0.2 s, 0.3 s, 0.4 s ...) at today's count so it can only fall. Files owned by open PRs still carry token-sized literals: `Landing`, `NoteEditor`, `ClassSheet`, `DueCard`, `WeekGrid`, `Today`, `Schedule`, `You`.
+- **C21** built. Under Reduce Motion a press has no scale and darkens instead.
+- **C7, C9, C10, C12-C19, C22-C28** were not touched by this change.
+
+**Follow-ups:** the frozen files above (duration tokens, 44 pt targets in `NoteEditor`, `Today`, `Schedule`, `You`, `ClassSheet`); snapping the off-scale durations and sizes; the `cargo test` for C4 (`c4_accent_contrast_on_every_room`) is covered here by the vitest only.
+
+**Status stays "ready to build"**: C20's off-scale literals and C8's between-role sizes are not finished.

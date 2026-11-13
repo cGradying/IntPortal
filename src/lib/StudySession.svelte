@@ -8,12 +8,11 @@
   // multiple-choice answers rate themselves: right is Good, wrong is Again.
   import { closable } from "./back";
   import WhyButton from "./assis/WhyButton.svelte";
-  import Confetti from "./Confetti.svelte";
   import Lar from "./lar/Lar.svelte";
   import { api, isoDate, type Card, type Deck, type Rating } from "./api";
   import { buzz } from "./haptics";
 
-  let { decks, mode, onclose, title }: { decks: Deck[]; mode: Mode; onclose: () => void; title?: string } = $props();
+  let { decks, mode, onclose, title, limit = 0 }: { decks: Deck[]; mode: Mode; onclose: () => void; title?: string; limit?: number } = $props();
   $effect(() => closable(() => onclose()));
 
   const now = Math.floor(Date.now() / 1000);
@@ -24,7 +23,7 @@
   const dueCards: Entry[] = decks.flatMap((deck) => deck.cards.filter((c) => c.memory.due <= now).map((card) => ({ deck, card })));
   const practice = dueCards.length === 0;
   // svelte-ignore state_referenced_locally
-  const queue: Entry[] = mixed ? dueCards.sort((a, b) => a.card.memory.due - b.card.memory.due) : shuffle(practice ? decks[0].cards.map((card) => ({ deck: decks[0], card })) : dueCards);
+  const queue: Entry[] = (mixed ? dueCards.sort((a, b) => a.card.memory.due - b.card.memory.due) : shuffle(practice ? decks[0].cards.map((card) => ({ deck: decks[0], card })) : dueCards)).slice(0, limit || undefined);
   // svelte-ignore state_referenced_locally
   const name = title ?? decks[0]?.name ?? "";
 
@@ -40,8 +39,7 @@
   const card = $derived(queue[index]?.card as Card);
   const deck = $derived(queue[index]?.deck ?? decks[0]);
   const finished = $derived(index >= queue.length);
-  // Four in five remembered is worth a cheer.
-  const great = $derived(queue.length > 0 && right / queue.length >= 0.8);
+  // Finishing a pass does not celebrate (spec 045 C17): only a first sign-in, a done and a new grade do.
 
   function shuffle<T>(xs: T[]): T[] {
     const a = [...xs];
@@ -100,8 +98,7 @@
 
   {#if finished}
     <section class="card notch face">
-      {#if great}<Confetti />{/if}
-      <div class="lar"><Lar size={4} state={great ? "happy" : "idle"} /></div>
+      <div class="lar"><Lar size={4} state="idle" /></div>
       <p class="label">Done</p>
       <h2>{right} of {queue.length} remembered</h2>
       <p class="fine">{practice ? "Practice round: the schedule is unchanged." : "FSRS has scheduled each card for when you're about to forget it."}</p>
@@ -164,7 +161,7 @@
     align-items: center;
   }
   .back {
-    height: 32px;
+    height: 44px;
     padding: 0;
     border: 0;
     background: none;
@@ -211,11 +208,11 @@
     margin: 8px 0 0;
     padding-top: 12px;
     border-top: 1px solid var(--edge);
-    font-size: min(1.059rem, 32px);
+    font-size: var(--text-headline);
   }
   .fine {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
   button {
@@ -284,7 +281,7 @@
   }
   .problem {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--bad);
   }
 </style>

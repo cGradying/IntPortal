@@ -522,7 +522,7 @@
     outline: 0;
     resize: none;
     background: none;
-    font: max(16px, min(0.941rem, 29px)) / 1.375 var(--font-ui);
+    font: max(16px, var(--text-body)) / 1.375 var(--font-ui);
     color: var(--ink);
     caret-color: var(--gold);
     scrollbar-width: none;
@@ -555,7 +555,7 @@
     min-height: 36px;
     padding: 0 11px;
     white-space: nowrap;
-    font: 600 min(0.765rem, 23px) var(--font-ui);
+    font: 600 var(--text-caption) var(--font-ui);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge-2);
     clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px));
@@ -648,7 +648,7 @@
     background: linear-gradient(var(--edge-2) 50%, transparent 0) right top / 2px 6px repeat-y, var(--gold-soft);
   }
   .stub span {
-    font: 500 min(0.647rem, 20px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     color: var(--gold);
   }
@@ -677,7 +677,7 @@
   }
   .tt {
     width: 100%;
-    min-height: 28px;
+    min-height: 44px;
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -697,7 +697,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
     white-space: nowrap;
     overflow: hidden;
@@ -726,7 +726,7 @@
   .lab {
     flex: none;
     width: max(52px, 4.7em);
-    font: 500 min(0.647rem, 20px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--ink-2);
@@ -760,12 +760,12 @@
     border-radius: 10px;
   }
   .seg button {
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 4px;
     border: 0;
     border-radius: 8px;
     background: none;
-    font: 600 min(0.765rem, 23px) var(--font-ui);
+    font: 600 var(--text-caption) var(--font-ui);
     color: var(--ink-2);
     transition: background 0.2s var(--ease), color 0.2s var(--ease);
   }
@@ -801,7 +801,7 @@
     background: var(--gold);
     color: var(--on-gold);
     box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.22);
-    transition: background 0.24s var(--ease), color 0.24s var(--ease), box-shadow 0.24s var(--ease), scale 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: background 0.24s var(--ease), color 0.24s var(--ease), box-shadow 0.24s var(--ease), scale var(--t-quick) var(--ease-spring);
   }
   .go[aria-disabled="true"] {
     background: var(--sunk);

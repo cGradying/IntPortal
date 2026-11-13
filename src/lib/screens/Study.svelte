@@ -16,6 +16,8 @@
   import { buzz } from "../haptics";
   import { resource } from "../load.svelte";
   import { app, openNote } from "../state.svelte";
+  import { dueDecks } from "../planning";
+  import { friendly } from "../errors";
   import { assis } from "../assis/assis.svelte";
 
   const study = resource(() => api.study(isoDate(new Date())));
@@ -57,6 +59,22 @@
   });
   // Spec 040 C9: every due card across decks in one session.
   let reviewing = $state<Deck[] | null>(null);
+  let reviewLimit = $state(0);
+  let notice = $state("");
+  // A review asked for from elsewhere (LAR's plan, a notification): start it here.
+  $effect(() => {
+    const ask = app.review;
+    if (!ask) return;
+    app.review = null;
+    notice = "";
+    api.study(isoDate(new Date()))
+      .then((o) => Promise.all(dueDecks(o.decks, ask.subject).map((d) => api.deck(d.id))))
+      .then((ds) => {
+        if (ds.length) [reviewing, reviewLimit] = [ds, ask.limit];
+        else notice = "Nothing due right now.";
+      })
+      .catch((e) => (notice = friendly(e)));
+  });
   // The notebook pulled out on the shelf; a new note from the + is filed there (046 C2).
   let shelfAt = $state(GENERAL);
   async function reviewAll() {
@@ -103,7 +121,7 @@
 {/snippet}
 
 {#if reviewing}
-  <StudySession decks={reviewing} mode="flash" title="All due" onclose={() => { reviewing = null; study.reload(); }} />
+  <StudySession decks={reviewing} mode="flash" title="All due" limit={reviewLimit} onclose={() => { reviewing = null; study.reload(); }} />
 {:else if app.deck}
   {#key app.deck}<DeckPage id={app.deck} onclose={() => { app.deck = null; study.reload(); }} />{/key}
 {:else}
@@ -111,6 +129,7 @@
     <div class="screen" style:--from="{from}px">
       {#if part === "home"}
         <h1>Study</h1>
+        {#if notice}<p class="notice" role="status">{notice}</p>{/if}
         {#if study.current.state === "failed"}<ErrorCard error={study.current.error} onretry={study.reload} />{/if}
 
         <button class="card notch tile" onclick={() => go("review")}>
@@ -266,7 +285,7 @@
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.647rem, 36px);
+    font-size: var(--text-display);
     font-weight: var(--title-weight);
     letter-spacing: var(--title-track);
   }
@@ -301,7 +320,7 @@
     text-align: left;
     color: var(--ink);
     font: inherit;
-    transition: scale 0.16s var(--ease);
+    transition: scale var(--t-quick) var(--ease);
   }
   .tile:active {
     scale: 0.98;
@@ -320,7 +339,7 @@
     color: var(--ink-3);
   }
   .tm {
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     line-height: 1.3;
     color: var(--ink-2);
   }
@@ -502,7 +521,7 @@
     grid-template-columns: 12px minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 8px;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
   }
   .dn {
     overflow: hidden;
@@ -544,13 +563,13 @@
     color: var(--ink);
   }
   .st .num span {
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     line-height: 1;
     color: var(--ink-2);
   }
   .start {
     min-height: 52px;
-    font-size: min(0.941rem, 29px);
+    font-size: var(--text-body);
   }
 
   /* Cards */
@@ -589,7 +608,7 @@
     color: var(--ink);
     text-align: left;
     font: inherit;
-    transition: scale 0.16s var(--ease);
+    transition: scale var(--t-quick) var(--ease);
   }
   .rowb:active {
     scale: 0.98;
@@ -606,11 +625,11 @@
   .fine {
     display: block;
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .val {
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
     white-space: nowrap;
   }
@@ -635,7 +654,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(0.941rem, 29px));
+    font-size: max(16px, var(--text-body));
   }
   .row {
     display: flex;
@@ -663,12 +682,17 @@
     color: var(--ink);
   }
   .ghost.sm {
-    height: 40px;
+    height: 44px;
     padding: 0 12px;
+  }
+  .notice {
+    margin: 0;
+    font-size: min(0.765rem, 23px);
+    color: var(--ink-2);
   }
   .problem {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--bad);
   }
 </style>

@@ -48,13 +48,13 @@
     color: var(--on-gold);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.941rem, 29px);
+    font-size: var(--text-body);
   }
   .fine {
     max-width: 280px;
     margin: 0;
     text-align: center;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
 </style>
