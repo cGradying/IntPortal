@@ -13,7 +13,7 @@ use intportal_core::notes::{self, Note};
 use intportal_core::schedule;
 use intportal_core::sis::{self, sign_in_guarded, Credentials, Ledger, SisClient};
 use intportal_core::backup::{self, Backup};
-use intportal_core::store::{self, account_file, Snapshot, Store};
+use intportal_core::store::{self, account_file, NewPhoto, Photo, Snapshot, Store};
 use intportal_core::study::{self, Card, Deck, Memory, Rating, Stats};
 use intportal_core::syllabus::{self, Component, Item, Plan, Tally};
 use intportal_core::today::{self, Agenda, Busy, Date, Glance, Mark, Meeting, Moment, Reminder, Slot, Upcoming};
@@ -633,7 +633,12 @@ async fn backup_make(state: tauri::State<'_, AppState>, themes: Vec<serde_json::
     getrandom::fill(&mut salt).map_err(|_| "Couldn't make the backup.")?;
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
     let b = Backup::make(&state.store.lock().unwrap(), &who, salt, themes, now).map_err(|_| "Couldn't make the backup.")?;
-    serde_json::to_string(&b).map_err(|_| "Couldn't make the backup.".to_string())
+    let text = serde_json::to_string(&b).map_err(|_| "Couldn't make the backup.")?;
+    // A file restore would refuse isn't made (C9): say why instead.
+    if text.len() > backup::MAX_BYTES {
+        return Err(format!("Your photos make this backup too big to restore here; it's {} MB. Remove some photos and try again.", text.len().div_ceil(1024 * 1024)));
+    }
+    Ok(text)
 }
 
 /// Reads a backup and says what it holds; refuses a damaged, newer or other student's file (C10).
@@ -665,7 +670,9 @@ fn space_used(state: tauri::State<'_, AppState>) -> Res<store::Space> {
 /// Everything on this phone, the student's own notes and decks included.
 #[tauri::command]
 fn erase_everything(state: tauri::State<'_, AppState>) -> Res<()> {
-    state.store.lock().unwrap().wipe().map_err(err)
+    state.store.lock().unwrap().wipe().map_err(err)?;
+    let _ = std::fs::remove_dir_all(state.dir.join(PHOTO_TMP));
+    Ok(())
 }
 
 fn edit(state: &AppState, change: impl FnOnce(&mut Snapshot)) -> Res<Snapshot> {
@@ -738,6 +745,90 @@ fn set_note(state: tauri::State<'_, AppState>, key: String, text: String, title:
     }
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
     state.store.lock().unwrap().set_note(&key, &text, title.as_deref(), now).map_err(err)
+}
+
+/// Runs `f` on the blocking pool: photo work waits on the store and the disk, and a sync command would freeze the UI.
+async fn blocking<T: Send + 'static>(app: tauri::AppHandle, f: impl FnOnce(&AppState) -> Res<T> + Send + 'static) -> Res<T> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        f(&state)
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Deletes a note with its photos and AI chunks, in one transaction (046 C17).
+#[tauri::command]
+async fn delete_note(app: tauri::AppHandle, key: String) -> Res<()> {
+    blocking(app, move |state| state.store.lock().unwrap().delete_note(&key).map_err(err)).await
+}
+
+const PHOTO_TMP: &str = "photo-tmp";
+
+/// Where the camera plugin may leave a photo for `add_photo` to take in.
+#[tauri::command]
+async fn photo_dir(app: tauri::AppHandle) -> Res<String> {
+    blocking(app, |state| {
+        let dir = state.dir.join(PHOTO_TMP);
+        std::fs::create_dir_all(&dir).map_err(err)?;
+        Ok(dir.to_string_lossy().into_owned())
+    })
+    .await
+}
+
+/// Takes the photo the plugin saved at `path` into the note's rows and deletes the file, even when it is refused.
+/// A note with no row gets one, filed under `subject` (046 C17c).
+#[tauri::command]
+async fn add_photo(app: tauri::AppHandle, key: String, path: String, width: u32, height: u32, title: Option<String>, subject: Option<String>) -> Res<Photo> {
+    blocking(app, move |state| {
+        let file = std::fs::canonicalize(&path).map_err(err)?;
+        if !file.starts_with(std::fs::canonicalize(state.dir.join(PHOTO_TMP)).map_err(err)?) {
+            return Err("That photo isn't where it should be.".to_string());
+        }
+        let bytes = std::fs::read(&file);
+        let _ = std::fs::remove_file(&file);
+        if !notes::is_known_key(&key) {
+            return Err("Unknown note".into());
+        }
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+        let photo = state.store.lock().unwrap().add_photo(&key, &NewPhoto { w: width, h: height, bytes: &bytes.map_err(err)? }, title.as_deref(), subject.as_deref(), now).map_err(err);
+        photo
+    })
+    .await
+}
+
+/// A note's photos, without their bytes.
+#[tauri::command]
+async fn note_photos(app: tauri::AppHandle, key: String) -> Res<Vec<Photo>> {
+    blocking(app, move |state| state.store.lock().unwrap().photos(&key).map_err(err)).await
+}
+
+/// One photo's JPEG, as raw bytes.
+#[tauri::command]
+async fn photo_bytes(app: tauri::AppHandle, id: i64) -> Res<tauri::ipc::Response> {
+    blocking(app, move |state| state.store.lock().unwrap().photo_bytes(id).map(tauri::ipc::Response::new).map_err(err)).await
+}
+
+/// The strip's small copy of a photo, as raw bytes.
+#[tauri::command]
+async fn photo_thumb(app: tauri::AppHandle, id: i64) -> Res<tauri::ipc::Response> {
+    blocking(app, move |state| state.store.lock().unwrap().photo_thumb(id).map(tauri::ipc::Response::new).map_err(err)).await
+}
+
+#[tauri::command]
+async fn set_photo_thumb(app: tauri::AppHandle, id: i64, thumb: Vec<u8>) -> Res<()> {
+    blocking(app, move |state| state.store.lock().unwrap().set_photo_thumb(id, &thumb).map_err(err)).await
+}
+
+#[tauri::command]
+async fn delete_photo(app: tauri::AppHandle, id: i64) -> Res<()> {
+    blocking(app, move |state| state.store.lock().unwrap().delete_photo(id).map_err(err)).await
+}
+
+/// A note, or every note, as a `.zip` of its Markdown and photos (046 C17).
+#[tauri::command]
+async fn notes_zip(app: tauri::AppHandle, key: Option<String>) -> Res<tauri::ipc::Response> {
+    blocking(app, move |state| state.store.lock().unwrap().export_zip(key.as_deref()).map(tauri::ipc::Response::new).map_err(err)).await
 }
 
 /// Pinning isn't an edit: the note keeps its place and its AI chunks.
@@ -1128,7 +1219,7 @@ fn reminders(state: tauri::State<'_, AppState>, now: Moment, lead: u16, days: u1
         rest.extend(study::study_reminders(&decks, now, minute, i64::from(days), prefs.utc_offset).into_iter().map(|r| (nudge::Kind::Study, r)));
     }
     if prefs.after_class.unwrap_or(true) {
-        let noted: Vec<String> = store.notes().map_err(err)?.into_iter().filter(|n| !n.text.trim().is_empty()).filter_map(|n| n.key.strip_prefix("class:").map(String::from)).collect();
+        let noted = notes::class_codes_with_text(&store.notes().map_err(err)?);
         rest.extend(nudge::after_class(&snap.sessions, &snap.marks, &noted, now, i64::from(days)).into_iter().map(|r| (nudge::Kind::AfterClass, r)));
     }
     out.extend(nudge::budget(rest, nudge::PER_DAY));
@@ -1242,6 +1333,8 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
+            // A photo the plugin saved but nobody took in (046 Data).
+            let _ = std::fs::remove_dir_all(dir.join(PHOTO_TMP));
             let store = match std::fs::read_to_string(dir.join(CURRENT)) {
                 Ok(name) if name.starts_with("account-") => open_store(&dir, name.trim())?,
                 _ => Store::in_memory().map_err(err)?,
@@ -1263,7 +1356,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, backup_make, backup_preview, backup_restore, space_used, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, set_note_pin, set_note_subject, entry_date, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
+            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, backup_make, backup_preview, backup_restore, space_used, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, delete_note, photo_dir, add_photo, note_photos, photo_bytes, photo_thumb, set_photo_thumb, notes_zip, delete_photo, set_note_pin, set_note_subject, entry_date, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
             ai::ai_models, ai::ai_small_ram, ai::ai_download, ai::ai_delete, ai::ai_load, ai::ai_unload, ai::ai_index, ai::ai_cancel, ai::ai_ask, ai::ai_history, ai::ai_clear_history, ai::ai_note, ai::ai_why, ai::ai_cards, ai::ai_pdf_text, ai::ai_outline_text, ai::ai_guide
         ])
         .run(tauri::generate_context!())

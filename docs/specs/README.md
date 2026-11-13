@@ -38,7 +38,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [042-lar-plans-the-day](042-lar-plans-the-day.md) | approved | Gap plan on Today, warm-up and after-class nudges, grade risk, Sunday brief, 3-a-day budget |
 | [044-pixel-week](044-pixel-week.md) | approved | Week and Day, tap to open a day, details first, stamps, now-line |
 | [045-app-environment](045-app-environment.md) | approved | One night, gradient ground, Pixel-bridged type, the done run, moving around |
-| [046-study-and-notes](046-study-and-notes.md) | building | Notes sorted by subject, formatting, templates, photos, note to cards, a Done you can find |
+| [046-study-and-notes](046-study-and-notes.md) | shipped | Notes sorted by subject, formatting, templates, photos, note to cards, a Done you can find |
 | [047-you-and-themes](047-you-and-themes.md) | approved | You on one screen, search, new settings, backup, custom themes shared by code and QR |
 | [048-lar-chat](048-lar-chat.md) | approved | LAR's chat, round four: the cube pours into it, the sky header, his real steps as a pixel trace, suggestions that follow the day |
 

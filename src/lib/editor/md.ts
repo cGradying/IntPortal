@@ -149,11 +149,11 @@ export function mergeExternal(local: string, base: string, ext: string, dirty: b
   return dirty ? local : ext;
 }
 
-/** What closing the editor does (C17a): blank text deletes a stored note, and is never saved. */
-export function onClose(text: string, stored: boolean, saved: boolean): "delete" | "save" | "none" {
-  if (!text.trim()) return stored ? "delete" : "none";
+/** What closing the editor does (C17a): blank text deletes a stored note unless it holds photos (C17c), and is never saved. */
+export function onClose(text: string, stored: boolean, saved: boolean, photos = 0): "delete" | "save" | "none" {
+  if (!text.trim()) return photos > 0 ? (saved ? "none" : "save") : stored ? "delete" : "none";
   return saved ? "none" : "save";
 }
 
-/** Autosave never writes blank text (C17a). */
-export const autosaves = (text: string) => !!text.trim();
+/** Autosave never writes blank text (C17a), unless photos hold the note and the core must drop the erased words (C17c). */
+export const autosaves = (text: string, photos = 0) => !!text.trim() || photos > 0;

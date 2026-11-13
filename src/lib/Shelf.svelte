@@ -11,6 +11,7 @@
   // The notebook shelf (spec 046 C1 to C7): a notebook per subject, its window lit with one pixel
   // per note and one gold pixel per card due. Pull one out to see its notes below; decks live on Cards.
   import { api, type NoteItem } from "./api";
+  import { photosInShare, previewOf } from "./photos";
   import { assis } from "./assis/assis.svelte";
   import { closable } from "./back";
   import { buzz } from "./haptics";
@@ -81,13 +82,16 @@
   }
   const pin = (n: NoteItem) => run(() => api.setNotePin(n.key, !n.pinned));
   const move = (n: NoteItem, code: string) => run(() => api.setNoteSubject(n.key, code || null));
-  const remove = (n: NoteItem) => run(() => api.setNote(n.key, "", null));
+  const remove = (n: NoteItem) => run(() => api.deleteNote(n.key));
 
   let exportNote = $state("");
   async function exportAll() {
     exportNote = "";
     try {
-      await shareFile("IntPortal notes.md", "text/markdown", await api.notesMarkdown(null));
+      if (app.notes.some((n) => n.photos)) {
+        await shareFile("IntPortal notes.zip", "application/zip", await api.notesZip(null));
+        exportNote = photosInShare;
+      } else await shareFile("IntPortal notes.md", "text/markdown", await api.notesMarkdown(null));
     } catch (e) {
       exportNote = String(e);
     }
@@ -111,7 +115,7 @@
     <button class="rowb" data-source={n.key} onclick={() => !held && openNote(n.key, heading(n), n.title)} onpointerdown={() => hold(n)} onpointerup={release} onpointerleave={release} oncontextmenu={(e) => e.preventDefault()}>
       <span class="tx">
         <strong>{#if n.pinned}<span class="pinned">Pinned</span>{/if}{heading(n)}</strong>
-        <small>{edited(n.updated)} · {n.preview || "Empty"}</small>
+        <small>{edited(n.updated)} · {previewOf(n) || "Empty"}</small>
       </span>
     </button>
     <button class="more" aria-label="More for {heading(n)}" onclick={() => act(n)}><i></i><i></i><i></i></button>
