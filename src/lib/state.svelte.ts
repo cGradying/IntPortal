@@ -37,6 +37,8 @@ export const app = $state({
   /** The portal turned the saved login down (spec 040 C5); only a new password clears it. */
   sisRejected: false,
   mabiniRejected: false,
+  /** A You page to open when the tab shows (set by "Update password"). */
+  openYou: "",
   mabiniConnected: false,
   /** What the last eMabini sync kept; null while not connected. */
   mabini: null as MabiniData | null,
@@ -174,6 +176,10 @@ export async function openFromNotification(open: string | null | undefined) {
     const code = rest[0];
     const deck = (await api.study(isoDate(new Date())).catch(() => null))?.decks.find((d) => d.subject === code && d.due > 0);
     if (deck) return openDeck(deck.id);
+  }
+  if (what === "subject" && rest[0]) {
+    const desc = app.snapshot?.sessions.find((s) => s.subject_code === rest[0])?.description ?? "";
+    return openSubject(rest[0], desc, "outline", rest[1]);
   }
   if (what === "note" && rest[0] === "class") {
     const code = rest.slice(1).join(":");

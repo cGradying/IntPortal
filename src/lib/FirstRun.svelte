@@ -9,6 +9,8 @@
 
   let { ondone }: { ondone: () => void } = $props();
   let step = $state(0);
+  /** Spec 020 C9: Light is preselected; skipping is the same as Light. */
+  let pick = $state<"light" | "ai">("light");
 
   const todo = $derived([chatModel(), embedModel()].filter((m): m is NonNullable<typeof m> => !!m && !m.installed));
   const size = $derived(mb(todo.reduce((n, m) => n + m.bytes, 0)));
@@ -17,7 +19,7 @@
     { title: "Meet LAR.", body: "I'm LAR, the Lakbay-Aral Robot, here to study with you. Your schedule, grades, notes and study cards are in one place, and I'll count down to your next class." },
     { title: "Everything stays on this phone.", body: "Your login sits in the phone's keychain. IntPortal only talks to PUP SIS, and your notes and decks never leave the device." },
     ...(chatModel()
-      ? [{ title: "Light, or with AI?", ai: true, body: `Light is the app with no AI and nothing extra to download. With AI, LAR answers questions about your classes and notes and can summarize a note, all on this phone. It is a one-time download of ${size}: ${downloadSizes(todo)}. It works offline, and you can remove it any time on You.` }]
+      ? [{ title: "Light or With AI?", ai: true, body: `You can add AI later on You. A one-time download of ${size}: ${downloadSizes(todo)}. It works offline.` }]
       : []),
     { title: "Want a heads-up before class?", body: "A nudge 10 minutes before each class, and the evening before quizzes and exams. You can change or turn these off on You." },
   ] as { title: string; body: string; ai?: boolean }[]);
@@ -47,8 +49,15 @@
   </div>
   <div class="dots" aria-hidden="true">{#each steps as _, i (i)}<i class:on={i === step}></i>{/each}</div>
   {#if steps[step].ai}
-    <button class="primary" onclick={() => { buzz.tick(); install(); step++; }}>With AI · {size}</button>
-    <button class="link" onclick={() => { buzz.select(); step++; }}>Light, no AI</button>
+    <div class="pick" role="radiogroup" aria-label="Light or With AI">
+      <button role="radio" aria-checked={pick === "light"} class:on={pick === "light"} onclick={() => { buzz.select(); pick = "light"; }}>
+        <b>Light</b><small>No AI. Nothing downloaded.</small>
+      </button>
+      <button role="radio" aria-checked={pick === "ai"} class:on={pick === "ai"} onclick={() => { buzz.select(); pick = "ai"; }}>
+        <b>With AI · {size}</b><small>Ask LAR about your classes and notes. One-time download, works offline. Use Wi-Fi.</small>
+      </button>
+    </div>
+    <button class="primary" onclick={() => { if (pick === "ai") { buzz.tick(); install(); } else buzz.select(); step++; }}>Continue</button>
   {:else if step < steps.length - 1}
     <button class="primary" onclick={() => { buzz.select(); step++; }}>Next</button>
     <button class="link" onclick={ondone}>Skip</button>
@@ -116,6 +125,28 @@
   .primary {
     background: var(--gold);
     color: var(--on-gold);
+  }
+  .pick {
+    display: grid;
+    gap: 8px;
+  }
+  .pick button {
+    height: auto;
+    padding: 12px 14px;
+    display: grid;
+    gap: 2px;
+    text-align: left;
+    background: var(--sunk);
+    color: var(--ink);
+    border: 2px solid var(--edge);
+  }
+  .pick button.on {
+    border-color: var(--gold);
+  }
+  .pick small {
+    font-family: inherit;
+    font-weight: 400;
+    color: var(--ink-2);
   }
   .link {
     height: 36px;

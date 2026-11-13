@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { friendly } from "./errors";
+  import { FALLBACK, friendly } from "./errors";
   // Connect one portal from inside the app: the fields it asks for, its tries
   // line, its own words. Same rules as the landing card, in the app's look.
   import { onMount } from "svelte";
@@ -7,7 +7,7 @@
   import { refreshLogins } from "./state.svelte";
   import { buzz } from "./haptics";
   import { portalApiFor } from "./portalApi";
-  import { portalCopy, triesLine, validate } from "./portals";
+  import { REJECTED, portalCopy, triesLine, validate } from "./portals";
 
   // `prefill`: start from the saved student number, to fix a rejected login (spec 040 C5).
   let { portal, prefill = false }: { portal: Portal; prefill?: boolean } = $props();
@@ -39,7 +39,9 @@
       buzz.done();
       refreshLogins();
     } catch (err) {
-      error = friendly(err);
+      // A rejection in the portal's own words gets ours.
+      const said = friendly(err);
+      error = said === FALLBACK ? (portal.fields.includes("birthdate") ? REJECTED : REJECTED.replace(", birthdate and", " and")) : said;
       buzz.fail();
     } finally {
       busy = false;

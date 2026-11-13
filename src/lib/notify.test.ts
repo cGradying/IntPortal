@@ -46,6 +46,11 @@ describe("spec 042 C7, C9: a tapped notification opens what it is about", () => 
     expect(app.editing).toEqual({ key: "class:COMP 20073", heading: "COMP 20073", title: "Data Structures", entry: true });
   });
 
+  it("c11_deadline_reminder_opens_the_subject_outline", async () => {
+    await openFromNotification("subject:COMP 20073:5");
+    expect(app.subject).toMatchObject({ code: "COMP 20073", tab: "outline", item: "5" });
+  });
+
   it("anything else, or a deck that is gone, lands on Today", async () => {
     await openFromNotification(undefined);
     expect(app.tab).toBe("today");

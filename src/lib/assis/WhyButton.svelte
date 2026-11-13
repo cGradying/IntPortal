@@ -2,6 +2,7 @@
   // After a wrong answer: LAR says why the right one is right and gives one
   // way to remember it. Only there once IntAssis has been added.
   import { buzz } from "../haptics";
+  import { friendly } from "../errors";
   import { assis, explain, installed } from "./assis.svelte";
 
   let { front, back, typed, subject }: { front: string; back: string; typed: string; subject: string | null } = $props();
@@ -14,7 +15,7 @@
     try {
       said = await explain(front, back, typed, subject);
     } catch (e) {
-      problem = typeof e === "string" ? e : (e as Error).message;
+      problem = friendly(e);
     }
   }
 </script>

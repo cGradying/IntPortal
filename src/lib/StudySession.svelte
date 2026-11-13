@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import { friendly } from "./errors";
   // One pass through due cards: one deck's (every card when none is due, as
   // practice), or every deck's at once, oldest due first (spec 040 C9). Flashcards take the student's own rating; typed and
   // multiple-choice answers rate themselves: right is Good, wrong is Again.
@@ -12,19 +13,19 @@
   import Lar from "./lar/Lar.svelte";
   import { api, isoDate, type Card, type Deck, type Rating } from "./api";
   import { buzz } from "./haptics";
+  import { dueQueue, type Entry } from "./dueQueue";
 
-  let { decks, mode, onclose, title }: { decks: Deck[]; mode: Mode; onclose: () => void; title?: string } = $props();
+  let { decks, mode, onclose, title, all = false }: { decks: Deck[]; mode: Mode; onclose: () => void; title?: string; all?: boolean } = $props();
   $effect(() => closable(() => onclose()));
 
   const now = Math.floor(Date.now() / 1000);
   // svelte-ignore state_referenced_locally
-  const mixed = decks.length > 1;
-  type Entry = { deck: Deck; card: Card };
+  const mixed = all || decks.length > 1;
   // svelte-ignore state_referenced_locally
-  const dueCards: Entry[] = decks.flatMap((deck) => deck.cards.filter((c) => c.memory.due <= now).map((card) => ({ deck, card })));
+  const dueCards: Entry[] = dueQueue(decks, now);
   const practice = dueCards.length === 0;
   // svelte-ignore state_referenced_locally
-  const queue: Entry[] = mixed ? dueCards.sort((a, b) => a.card.memory.due - b.card.memory.due) : shuffle(practice ? decks[0].cards.map((card) => ({ deck: decks[0], card })) : dueCards);
+  const queue: Entry[] = mixed ? dueCards : shuffle(practice ? decks[0].cards.map((card) => ({ deck: decks[0], card })) : dueCards);
   // svelte-ignore state_referenced_locally
   const name = title ?? decks[0]?.name ?? "";
 
@@ -74,7 +75,7 @@
       picked = null;
       problem = "";
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
     }
   }
 

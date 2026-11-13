@@ -165,7 +165,7 @@
     {/if}
   {:else if cleared}
     <p class="none clear" in:slide={flow()}><span class="hop"><Lar size={2} state="happy" gesture="thumbs" cube={false} /></span> All clear for this week.</p>
-  {:else if knowsNothingDue(app.snapshot?.last_synced, mabini, app.mabini?.last_synced, now) && !finished.length}
+  {:else if knowsNothingDue(app.sisConnected, app.snapshot?.last_synced, mabini, app.mabini?.last_synced, now) && !finished.length}
     <p class="none"><b>LAR</b> Walang due this week. Ayos!</p>
   {:else if !finished.length}
     <p class="none">Nothing due that we know of yet.</p>

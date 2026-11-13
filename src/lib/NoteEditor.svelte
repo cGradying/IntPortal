@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { friendly } from "./errors";
   // A full-screen page for one note (spec 046 C9–C14, C17a, C18–C20). The text is
   // plain Markdown, shown formatted as it is typed (CodeMirror 6, `editor/cm.ts`);
   // every edit is a pure function in `editor/md.ts`. The crystal's + opens the
@@ -78,7 +79,7 @@
       const u = URL.createObjectURL(new Blob([b], { type: "image/jpeg" }));
       if (stale || gone) URL.revokeObjectURL(u);
       else full = url = u;
-    }).catch((e) => ((problem = String(e)), (viewing = null)));
+    }).catch((e) => ((problem = friendly(e)), (viewing = null)));
     return () => {
       stale = true;
       if (url) URL.revokeObjectURL(url);
@@ -125,7 +126,7 @@
       viewing = removing = null;
       await refreshNotes();
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
     }
   }
 
@@ -161,7 +162,7 @@
       refreshNotes();
       return true;
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
       return false;
     }
   }
@@ -204,7 +205,7 @@
       await refreshNotes();
       return true;
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
       return false;
     }
   }
@@ -217,7 +218,7 @@
       if (close) app.editing = null;
       return true;
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
       return false;
     }
   }
@@ -232,7 +233,7 @@
         if (md) await shareFile(`${label}.md`, "text/markdown", md);
       }
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
     }
   }
 
@@ -386,13 +387,13 @@
 
   async function pin() {
     if (!saved || !item) await save();
-    await api.setNotePin(key, !item?.pinned).catch((e) => (problem = String(e)));
+    await api.setNotePin(key, !item?.pinned).catch((e) => (problem = friendly(e)));
     await refreshNotes();
     sheet = null;
   }
   async function move(code: string | null) {
     if (!saved || !item) await save();
-    await api.setNoteSubject(key, code).catch((e) => (problem = String(e)));
+    await api.setNoteSubject(key, code).catch((e) => (problem = friendly(e)));
     await refreshNotes();
     sheet = null;
   }
@@ -496,7 +497,7 @@
       cardsMsg = `Saved ${fresh.length} ${fresh.length === 1 ? "card" : "cards"} to ${deck.name}.`;
       drafts = null;
     } catch (e) {
-      cardsMsg = String(e);
+      cardsMsg = friendly(e);
     }
   }
 
@@ -646,6 +647,7 @@
           <button onclick={() => ask("explain")} disabled={working}>Explain</button>
           <button onclick={startCards}>Make cards</button>
         </div>
+        <button onclick={() => ((assis.open = true), (sheet = null))}>Chat</button>
         <form class="row" onsubmit={(e) => (e.preventDefault(), ask("ask"))}>
           <input bind:value={question} placeholder="Ask about this note…" aria-label="Ask about this note" enterkeyhint="send" autocomplete="off" />
           <button class="go" type="submit" disabled={working || !question.trim()}>Ask</button>

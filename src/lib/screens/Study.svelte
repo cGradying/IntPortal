@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { friendly } from "../errors";
   import PixelNum from "../PixelNum.svelte";
   import { counted } from "../count.svelte";
   // Study opens on a home of part tiles (spec 046 C1): Review, Notes, Cards and Done,
@@ -85,7 +86,7 @@
       study.reload();
       app.deck = deck.id;
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
     }
   }
 </script>
@@ -103,7 +104,7 @@
 {/snippet}
 
 {#if reviewing}
-  <StudySession decks={reviewing} mode="flash" title="All due" onclose={() => { reviewing = null; study.reload(); }} />
+  <StudySession decks={reviewing} mode="flash" title="All due" all onclose={() => { reviewing = null; study.reload(); }} />
 {:else if app.deck}
   {#key app.deck}<DeckPage id={app.deck} onclose={() => { app.deck = null; study.reload(); }} />{/key}
 {:else}

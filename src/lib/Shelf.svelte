@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+  import { friendly } from "./errors";
   // The notebook shelf (spec 046 C1 to C7): a notebook per subject, its window lit with one pixel
   // per note and one gold pixel per card due. Pull one out to see its notes below; decks live on Cards.
   import { api, type NoteItem } from "./api";
@@ -77,7 +78,7 @@
       await refreshNotes();
       acting = null;
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
     }
   }
   const pin = (n: NoteItem) => run(() => api.setNotePin(n.key, !n.pinned));
@@ -93,7 +94,7 @@
         exportNote = photosInShare;
       } else await shareFile("IntPortal notes.md", "text/markdown", await api.notesMarkdown(null));
     } catch (e) {
-      exportNote = String(e);
+      exportNote = friendly(e);
     }
   }
 

@@ -68,6 +68,26 @@
     };
   });
 
+  // In the note editor the + floats above the keyboard (046 C11): the keyboard's height is what
+  // the visual viewport has lost at the bottom.
+  let kb = $state(0);
+  $effect(() => {
+    const vv = window.visualViewport;
+    if (!app.editing || !vv) return;
+    const measure = () => {
+      const lost = window.innerHeight - vv.height - vv.offsetTop;
+      kb = lost > 80 ? Math.round(lost) : 0;
+    };
+    measure();
+    vv.addEventListener("resize", measure);
+    vv.addEventListener("scroll", measure);
+    return () => {
+      vv.removeEventListener("resize", measure);
+      vv.removeEventListener("scroll", measure);
+      kb = 0;
+    };
+  });
+
   // A change of room or theme repaints the rest state, whichever renderer is showing.
   $effect(() => {
     const watch = new MutationObserver(() => {
@@ -153,6 +173,7 @@
     class:away={chip.at !== "here"}
     class:tucked
     class:over={!!app.editing}
+    style:--kb="{app.editing ? kb : 0}px"
     aria-label={mode === "plus" ? "Add" : "Ask LAR"}
     aria-expanded={mode === "plus" ? menuOpen : undefined}
     onclick={press}
@@ -199,7 +220,7 @@
   /* Over the note editor, where there is no tab bar (046 C11). */
   .orb.over {
     z-index: 56;
-    bottom: calc(var(--safe-bottom) + 16px);
+    bottom: calc(var(--safe-bottom) + 16px + var(--kb, 0px));
   }
 
   .orb > * {
@@ -305,7 +326,7 @@
   :global([data-glance="dock"]) .menu {
     bottom: calc(var(--safe-bottom) + 198px);
   }
-  :global(html[data-keyboard="open"]) .orb {
+  :global(html[data-keyboard="open"]) .orb:not(.over) {
     display: none;
   }
   @media (prefers-reduced-motion: reduce) {

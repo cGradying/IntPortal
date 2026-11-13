@@ -136,14 +136,14 @@
     <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? previewOf(dayNote) || "Today's note" : "+ Note for today"}</button>
   </header>
 
-  {#if app.sisRejected}
+  {#if app.sisRejected || app.mabiniRejected}
     <section class="offline card notch" role="status">
-      <p><strong>The SIS turned your login down.</strong> Changed your password?</p>
-      <button onclick={() => (app.tab = "you")}>Update password</button>
+      <p><strong>{app.sisRejected ? "The SIS turned your login down." : "eMabini turned your login down."}</strong>{app.sisRejected ? " Changed your password?" : ""}</p>
+      <button onclick={() => ((app.openYou = "accounts"), (app.tab = "you"))}>Update password</button>
     </section>
   {:else if app.sync === "failed"}
     <section class="offline card notch" role="status">
-      <p><strong>{app.syncError ?? "Can't reach the SIS right now."}</strong> Showing what was saved {ago(app.snapshot?.last_synced)}.</p>
+      <p><strong>{app.syncError ?? "Can't reach the SIS right now. Showing what was saved."}</strong> Last synced {ago(app.snapshot?.last_synced)}.</p>
       <button onclick={syncNow}>Try again</button>
     </section>
   {/if}
@@ -226,7 +226,9 @@
       {/if}
     </div>
 
-    {#if items.length === 0}
+    {#if !t && app.snapshot}
+      <Skeleton rows={3} height={56} />
+    {:else if items.length === 0}
       <div class="empty card notch">
         <Scene name="hammock" label="A hammock between two palm trees" />
         <p>No classes today. Rest up.</p>

@@ -189,6 +189,17 @@ pub fn deadlines(snap: &Snapshot, mabini: &MabiniData, now: Moment, utc_offset: 
     out
 }
 
+impl Deadline {
+    /// Where tapping its reminder lands (040 C11): its subject, on the outline item for a syllabus one.
+    fn open_target(&self) -> Option<String> {
+        let code = self.subject.as_deref()?;
+        match (self.source, self.id.rsplit(':').next()) {
+            (Source::Syllabus, Some(item)) => Some(format!("subject:{code}:{item}")),
+            _ => Some(format!("subject:{code}")),
+        }
+    }
+}
+
 /// Heads-ups for the next `days` days: the evening before each deadline at
 /// `minute`, and 8 AM on the day for one due at noon or later (C19).
 pub fn reminders(list: &[Deadline], now: Moment, minute: u16, utc_offset: i32, days: i64) -> Vec<Reminder> {
@@ -210,11 +221,11 @@ pub fn reminders(list: &[Deadline], now: Moment, minute: u16, utc_offset: i32, d
                 Kind::Exam => "Exam",
                 _ => "Due",
             };
-            out.push(Reminder { id: reminder_id(&format!("due:{}", d.id)), date: eve, minute, title: format!("{what} tomorrow"), body: body.clone(), open: None });
+            out.push(Reminder { id: reminder_id(&format!("due:{}", d.id)), date: eve, minute, title: format!("{what} tomorrow"), body: body.clone(), open: d.open_target() });
         }
         if let Some(m) = at.filter(|m| *m >= 12 * 60) {
             if later(date, 8 * 60) {
-                out.push(Reminder { id: reminder_id(&format!("due-day:{}", d.id)), date, minute: 8 * 60, title: format!("Due today at {}", clock(m)), body, open: None });
+                out.push(Reminder { id: reminder_id(&format!("due-day:{}", d.id)), date, minute: 8 * 60, title: format!("Due today at {}", clock(m)), body, open: d.open_target() });
             }
         }
     }
@@ -428,6 +439,15 @@ mod tests {
         let board = "Reminders:\nQuiz 3 - Nov 10\nLab report due 11/14\nbring calculator";
         let got: Vec<(String, Option<Date>)> = parse_own(board, TUE, &[]).into_iter().map(|d| (d.title, d.date)).collect();
         assert_eq!(got, [("Quiz 3".to_string(), Some(Date::new(2026, 11, 10))), ("Lab report".to_string(), Some(Date::new(2026, 11, 14)))]);
+    }
+
+    #[test]
+    fn c11_reminders_open_the_subject() {
+        let (snap, mabini) = world();
+        let list = deadlines(&snap, &mabini, NOON, PH, 7);
+        let opens: Vec<Option<String>> = reminders(&list, NOON, 19 * 60, PH, 7).into_iter().map(|r| r.open).collect();
+        assert!(opens.iter().any(|o| o.as_deref().is_some_and(|o| o.starts_with("subject:COMP 20073:"))), "{opens:?}");
+        assert!(opens.contains(&None), "an own deadline with no subject opens Today");
     }
 
     #[test]

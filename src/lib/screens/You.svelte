@@ -49,6 +49,12 @@
     scrollTo(0, 0);
   }
   $effect(() => {
+    if (app.openYou) {
+      page = app.openYou as PageId;
+      app.openYou = "";
+    }
+  });
+  $effect(() => {
     if (page) return closable(home);
   });
 
@@ -145,7 +151,7 @@
       const done = await shareFile("IntPortal classes.ics", "text/calendar", ics);
       if (done === "shared") exportNote = "Sent. Open it in Calendar to add your classes.";
     } catch (e) {
-      exportNote = String(e);
+      exportNote = friendly(e);
     }
   }
 
