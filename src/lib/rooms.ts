@@ -133,9 +133,26 @@ export function schoolRoles(t: SchoolTheme, room: "night" | "day"): Record<strin
 
 const dark = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
 let following = false;
+let school: SchoolTheme = PUP;
+let shown: [string, Theme | null | undefined] = ["night", null];
+
+/** The student's school (spec 045 C4): its ramp and accent set the accent and the ground's pools. */
+export function setSchool(t: SchoolTheme) {
+  if (t.accent === school.accent && t.ramp.join() === school.ramp.join()) return;
+  school = t;
+  if (typeof document !== "undefined") applyRoom(...shown);
+}
 
 /** "system" follows the phone: Night when it's dark, Day when it's light. A saved theme (spec 047 C15) comes with its id. */
+/** A backgrounded app stops the ground (spec 045 C3); the CSS reads `data-hidden`. */
+export function watchVisible() {
+  const sync = () => document.documentElement.toggleAttribute("data-hidden", document.hidden);
+  document.addEventListener("visibilitychange", sync);
+  sync();
+}
+
 export function applyRoom(id: string, theme?: Theme | null) {
+  shown = [id, theme];
   const root = document.documentElement;
   for (const k of [...root.style]) if (k.startsWith("--") || k === "color-scheme") root.style.removeProperty(k);
   delete root.dataset.corners;
@@ -159,8 +176,7 @@ export function applyRoom(id: string, theme?: Theme | null) {
   const palette = PALETTES[id];
   root.dataset.room = palette ? "derived" : id;
   if (palette) for (const [k, v] of Object.entries(derive(palette))) root.style.setProperty(k, v);
-  // ponytail: PUP only for now (045 C4a); take the active portal's theme when other schools open.
   // A room the student picked for its own colours keeps them, with pools in its accent.
-  const school = id === "night" || id === "day" ? schoolRoles(PUP, id) : palette ? { "--aura-a": `${derive(palette)["--gold"]}40`, "--aura-b": `${derive(palette)["--gold"]}1f`, "--aura-c": `${derive(palette)["--gold"]}14` } : schoolRoles(PUP, "night");
-  for (const [k, v] of Object.entries(school)) root.style.setProperty(k, v);
+  const pools = id === "night" || id === "day" ? schoolRoles(school, id) : palette ? { "--aura-a": `${derive(palette)["--gold"]}40`, "--aura-b": `${derive(palette)["--gold"]}1f`, "--aura-c": `${derive(palette)["--gold"]}14` } : schoolRoles(school, "night");
+  for (const [k, v] of Object.entries(pools)) root.style.setProperty(k, v);
 }

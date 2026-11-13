@@ -703,7 +703,7 @@
     box-shadow:
       inset 0 1px 0 rgb(255 246 220 / 0.16),
       inset 0 -2px 0 rgb(0 0 0 / 0.32);
-    transition: background 0.16s var(--ease);
+    transition: background var(--t-quick) var(--ease);
   }
   .cap svg {
     filter: drop-shadow(0 1px 0 rgb(6 3 7 / 0.5));
@@ -812,7 +812,7 @@
     font: 400 min(0.794rem, 24px) / 1.3 var(--font-ui);
     text-align: left;
     overflow-wrap: anywhere;
-    transition: background 0.16s var(--ease);
+    transition: background var(--t-quick) var(--ease);
     animation: send 0.3s calc(var(--i, 0) * 60ms) var(--ease) both;
   }
   .chip:active {
@@ -845,7 +845,7 @@
   }
   .what {
     margin: 0;
-    font-size: min(0.941rem, 29px);
+    font-size: var(--text-body);
     line-height: 1.35;
     overflow-wrap: anywhere;
   }
@@ -908,7 +908,7 @@
     background: var(--void);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
     color: var(--white);
-    font: 400 max(16px, min(0.941rem, 29px)) var(--font-ui);
+    font: 400 max(16px, var(--text-body)) var(--font-ui);
     caret-color: var(--portal-gold);
     outline: none;
   }
@@ -926,7 +926,7 @@
   .ok,
   .fine {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: rgb(255 246 220 / 0.55);
   }
   .ok {
@@ -935,7 +935,7 @@
   }
   .problem {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--rose);
   }
 
@@ -961,7 +961,7 @@
   .sug .chip {
     flex: none;
     white-space: nowrap;
-    min-height: 36px;
+    min-height: 44px;
   }
   .why {
     margin-left: 6px;
@@ -1154,7 +1154,7 @@
     border-radius: 10px;
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge-2);
-    transition: box-shadow 0.16s var(--ease);
+    transition: box-shadow var(--t-quick) var(--ease);
   }
   .well:focus-within {
     box-shadow: inset 0 0 0 1.5px var(--gold);
@@ -1166,7 +1166,7 @@
     border: 0;
     background: none;
     color: var(--ink);
-    font: 400 max(16px, min(0.941rem, 29px)) var(--font-ui);
+    font: 400 max(16px, var(--text-body)) var(--font-ui);
     caret-color: var(--gold);
     outline: none;
     -webkit-appearance: none;

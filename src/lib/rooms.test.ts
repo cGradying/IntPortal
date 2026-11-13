@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PALETTES, contrast, derive, schoolRoles } from "./rooms";
 import { THEMES } from "./lar/sprite";
 // @ts-expect-error type error without @types/node package
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const css = readFileSync(new URL("./app.css", import.meta.url), "utf8");
 
@@ -43,10 +43,19 @@ describe("app.css", () => {
 
 describe("the environment (spec 045)", () => {
   const svelte = (f: string): string => readFileSync(new URL(f, import.meta.url), "utf8");
-  it("c1_no_void_hex_outside_app_css: the void's world reads tokens", () => {
-    for (const f of ["./Landing.svelte", "./PortalHub.svelte", "./assis/AssisWindow.svelte", "./lar/LarFlight.svelte", "./Glance.svelte"]) {
-      const style = svelte(f).split("<style")[1];
-      expect(style, f).not.toMatch(/#(0b0710|140c16|170b1a|060607|060307|f5b227|f4ecd8)\b/i);
+  it("c1_no_void_hex_outside_app_css: every .svelte file's style and markup reads tokens", () => {
+    // The pixel-art palettes are the spec's exceptions (CampusStrip, Scene, Jeepney).
+    const art = /(CampusStrip|Scene|Jeepney)\.svelte$/;
+    const void_ = /#(0b0710|140c16|170b1a|1c1220|060307|060607|3a2446|34203f|2f2939|f4ecd8|fff6dc|f5b227|ffc94a|b87a10|1b1406)\b/i;
+    const walk = (d: URL): URL[] =>
+      readdirSync(d, { withFileTypes: true }).flatMap((e: { name: string; isDirectory(): boolean }) =>
+        e.isDirectory() ? walk(new URL(`${e.name}/`, d)) : e.name.endsWith(".svelte") ? [new URL(e.name, d)] : []);
+    const all = walk(new URL("./", import.meta.url));
+    expect(all.length).toBeGreaterThan(40);
+    for (const f of all) {
+      if (art.test(f.href)) continue;
+      // Markup and style; a script may carry a last-resort fallback.
+      expect(readFileSync(f, "utf8").replace(/<script[\s\S]*?<\/script>/g, ""), f.href).not.toMatch(void_);
     }
   });
   it("c2_night_is_the_void: the Night room's ground is the landing's", () => {

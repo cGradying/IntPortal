@@ -6,6 +6,7 @@
   import Greeting from "$lib/Greeting.svelte";
   import { DIVE_WAIT_MS, type DiveStart } from "$lib/dive";
   import { FALLBACK_SIS } from "$lib/portals";
+  import { setSchool, watchVisible } from "$lib/rooms";
   import Glance from "$lib/Glance.svelte";
   import TabBar from "$lib/TabBar.svelte";
   import Today from "$lib/screens/Today.svelte";
@@ -76,6 +77,7 @@
     }
     setRoom(app.room);
     setTextStyle(app.textStyle);
+    watchVisible();
     applyLook();
     watchLock();
     // The keyboard covers the bottom; the tab bar and dock step aside while
@@ -95,6 +97,7 @@
     if (keepDemo) await snapshot;
     await refreshLogins();
     signedIn = app.sisConnected || app.mabiniConnected;
+    if (signedIn) void ownPortal();
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Signed in: the dive is the loading screen, and the snapshot loads while it runs (spec 010 C26).
     greet = signedIn;
@@ -124,7 +127,9 @@
   async function ownPortal() {
     const list = await api.portals().catch(() => []);
     const id = app.sisConnected ? "sis" : "mabini";
-    return list.find((p) => p.id === id) ?? FALLBACK_SIS;
+    const own = list.find((p) => p.id === id) ?? FALLBACK_SIS;
+    setSchool(own.theme);
+    return own;
   }
 
   // Step through, on a first sign-in (C27). Today mounts now, under the landing,

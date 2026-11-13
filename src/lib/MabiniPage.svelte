@@ -97,7 +97,7 @@
   h2 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.294rem, 29px);
+    font-size: var(--text-title);
   }
   .body {
     display: grid;
@@ -135,7 +135,7 @@
     flex: none;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--gold);
   }
   .when.late {
@@ -171,7 +171,7 @@
   }
   .grade.pending {
     font-weight: 400;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
   .ghost {
