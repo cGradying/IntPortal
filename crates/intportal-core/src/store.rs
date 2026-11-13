@@ -83,6 +83,18 @@ pub struct Store {
     db: Connection,
 }
 
+/// A note holds at most this many photos (046 C15a).
+pub const MAX_PHOTOS: i64 = 20;
+
+/// One photo's row, without its bytes.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct Photo {
+    pub id: i64,
+    pub w: u32,
+    pub h: u32,
+    pub created: i64,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
     #[error(transparent)]
@@ -98,6 +110,8 @@ pub enum StoreError {
     NoSuchNote,
     #[error("Only a freeform note can change subject.")]
     SubjectIsFixed,
+    #[error("A note holds up to 20 photos.")]
+    TooManyPhotos,
 }
 
 /// `CREATE TABLE IF NOT EXISTS` leaves a store's existing table alone, so
@@ -187,7 +201,9 @@ impl Store {
              CREATE TABLE IF NOT EXISTS notes (key TEXT PRIMARY KEY, text TEXT NOT NULL, title TEXT, updated INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS decks (id TEXT PRIMARY KEY, json TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS chunks (note_key TEXT NOT NULL, n INTEGER NOT NULL, text TEXT NOT NULL, vec BLOB NOT NULL, note_updated INTEGER NOT NULL, model TEXT NOT NULL, PRIMARY KEY (note_key, n));
-             CREATE TABLE IF NOT EXISTS turns (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, ask INTEGER NOT NULL);",
+             CREATE TABLE IF NOT EXISTS turns (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, ask INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS photos (id INTEGER PRIMARY KEY AUTOINCREMENT, note_key TEXT NOT NULL, w INTEGER NOT NULL, h INTEGER NOT NULL, created INTEGER NOT NULL, bytes BLOB NOT NULL);
+             CREATE INDEX IF NOT EXISTS photos_note ON photos (note_key);",
         )?;
         add_note_columns(&db)?;
         Ok(Store { db })
@@ -239,17 +255,25 @@ impl Store {
 
     /// Every note, the latest edit first.
     pub fn notes(&self) -> Result<Vec<Note>, StoreError> {
-        let mut q = self.db.prepare("SELECT key, text, title, updated, subject, pinned FROM notes ORDER BY updated DESC, key")?;
-        let rows = q.query_map([], |r| Ok(Note { key: r.get(0)?, text: r.get(1)?, title: r.get(2)?, updated: r.get(3)?, subject: r.get(4)?, pinned: r.get(5)? }))?;
+        let mut q = self.db.prepare("SELECT key, text, title, updated, subject, pinned, (SELECT COUNT(*) FROM photos WHERE note_key = key) FROM notes ORDER BY updated DESC, key")?;
+        let rows = q.query_map([], |r| Ok(Note { key: r.get(0)?, text: r.get(1)?, title: r.get(2)?, updated: r.get(3)?, subject: r.get(4)?, pinned: r.get(5)?, photos: r.get(6)? }))?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
     /// Saves one note. Blank text deletes it, so an emptied note doesn't
-    /// linger in the list. `title` empty keeps the one already stored.
+    /// linger in the list, unless it has photos: then the row stays with no
+    /// text and no AI chunks (046 C17c). `title` empty keeps the one already stored.
     pub fn set_note(&self, key: &str, text: &str, title: Option<&str>, now: i64) -> Result<(), StoreError> {
         if text.trim().is_empty() {
-            self.db.execute("DELETE FROM notes WHERE key = ?1", [key])?;
-            self.db.execute("DELETE FROM chunks WHERE note_key = ?1", [key])?;
+            let tx = self.db.unchecked_transaction()?;
+            let photos: i64 = tx.query_row("SELECT COUNT(*) FROM photos WHERE note_key = ?1", [key], |r| r.get(0))?;
+            if photos > 0 {
+                tx.execute("UPDATE notes SET text = '', updated = ?2 WHERE key = ?1", params![key, now])?;
+            } else {
+                tx.execute("DELETE FROM notes WHERE key = ?1", [key])?;
+            }
+            tx.execute("DELETE FROM chunks WHERE note_key = ?1", [key])?;
+            tx.commit()?;
         } else {
             self.db.execute(
                 "INSERT INTO notes (key, text, title, updated) VALUES (?1, ?2, ?3, ?4)
@@ -257,6 +281,54 @@ impl Store {
                 params![key, text, title, now],
             )?;
         }
+        Ok(())
+    }
+
+    /// Deletes a note with its chunks and photos, in one transaction (046 C17).
+    pub fn delete_note(&self, key: &str) -> Result<(), StoreError> {
+        let tx = self.db.unchecked_transaction()?;
+        for table in ["notes WHERE key", "chunks WHERE note_key", "photos WHERE note_key"] {
+            tx.execute(&format!("DELETE FROM {table} = ?1"), [key])?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Adds a photo (a JPEG, `w` x `h`). A note with no row gets one, with no
+    /// text and `title`, in the same transaction (C17c); either way it moves up
+    /// its subject (C15a). The 21st photo is refused.
+    pub fn add_photo(&self, key: &str, w: u32, h: u32, bytes: &[u8], title: Option<&str>, now: i64) -> Result<Photo, StoreError> {
+        let tx = self.db.unchecked_transaction()?;
+        let have: i64 = tx.query_row("SELECT COUNT(*) FROM photos WHERE note_key = ?1", [key], |r| r.get(0))?;
+        if have >= MAX_PHOTOS {
+            return Err(StoreError::TooManyPhotos);
+        }
+        tx.execute(
+            "INSERT INTO notes (key, text, title, updated) VALUES (?1, '', ?2, ?3)
+             ON CONFLICT(key) DO UPDATE SET title = COALESCE(excluded.title, notes.title), updated = excluded.updated",
+            params![key, title, now],
+        )?;
+        tx.execute("INSERT INTO photos (note_key, w, h, created, bytes) VALUES (?1, ?2, ?3, ?4, ?5)", params![key, w, h, now, bytes])?;
+        let id = tx.last_insert_rowid();
+        tx.commit()?;
+        Ok(Photo { id, w, h, created: now })
+    }
+
+    /// A note's photos, oldest first. Never reads the bytes.
+    pub fn photos(&self, key: &str) -> Result<Vec<Photo>, StoreError> {
+        let mut q = self.db.prepare("SELECT id, w, h, created FROM photos WHERE note_key = ?1 ORDER BY id")?;
+        let rows = q.query_map([key], |r| Ok(Photo { id: r.get(0)?, w: r.get(1)?, h: r.get(2)?, created: r.get(3)? }))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn photo_bytes(&self, id: i64) -> Result<Vec<u8>, StoreError> {
+        Ok(self.db.query_row("SELECT bytes FROM photos WHERE id = ?1", [id], |r| r.get(0))?)
+    }
+
+    /// Removes one photo. The note stays, even if this was its only content;
+    /// closing the editor on blank text deletes it then.
+    pub fn delete_photo(&self, id: i64) -> Result<(), StoreError> {
+        self.db.execute("DELETE FROM photos WHERE id = ?1", [id])?;
         Ok(())
     }
 
@@ -312,6 +384,7 @@ impl Store {
         let mut out: Vec<Source> = self
             .notes()?
             .into_iter()
+            .filter(|n| !n.text.trim().is_empty())
             .map(|n| Source { title: crate::notes::heading(&n), key: n.key, text: n.text, stamp: n.updated })
             .collect();
         for d in self.decks()? {
@@ -441,7 +514,9 @@ impl Store {
 
     /// Erase everything on the device, the student's own work included.
     pub fn wipe(&self) -> Result<(), StoreError> {
-        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns;")?;
+        self.db.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns; DELETE FROM photos;")?;
+        // Deleting doesn't shrink the file; erasing everything does (046 Data).
+        self.db.execute_batch("VACUUM")?;
         Ok(())
     }
 }
@@ -845,5 +920,76 @@ mod tests {
         store.add_turn("me", "x", 1, false).unwrap();
         store.wipe().unwrap();
         assert!(store.turns(5).unwrap().is_empty());
+    }
+    #[test]
+    fn c15a_21st_photo_refused() {
+        let store = Store::in_memory().unwrap();
+        for n in 0..20 {
+            store.add_photo("note:a", 10, 10, &[n], None, 100 + i64::from(n)).unwrap();
+        }
+        assert!(matches!(store.add_photo("note:a", 10, 10, &[1], None, 200), Err(StoreError::TooManyPhotos)));
+        assert_eq!(store.photos("note:a").unwrap().len(), 20);
+        store.add_photo("note:b", 10, 10, &[1], None, 200).unwrap();
+        store.set_note("note:c", "x", None, 150).unwrap();
+        store.add_photo("note:c", 10, 10, &[1], None, 300).unwrap();
+        assert_eq!(store.notes().unwrap()[0].key, "note:c", "adding moves the note up");
+    }
+
+    #[test]
+    fn c17_note_delete_removes_photos() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "words", None, 100).unwrap();
+        store.replace_chunks("note:a", 100, "m", &[("words".into(), vec![1.0])]).unwrap();
+        let p = store.add_photo("note:a", 4, 3, &[1, 2, 3], None, 110).unwrap();
+        store.add_photo("note:b", 4, 3, &[9], None, 110).unwrap();
+        assert_eq!(store.photo_bytes(p.id).unwrap(), [1, 2, 3]);
+        store.forget_sis().unwrap();
+        assert_eq!(store.photos("note:a").unwrap().len(), 1, "sign-out keeps photos");
+        store.delete_note("note:a").unwrap();
+        assert!(store.photos("note:a").unwrap().is_empty() && store.chunks("m").unwrap().is_empty());
+        assert_eq!(store.photos("note:b").unwrap().len(), 1, "another note's photos stay");
+        store.wipe().unwrap();
+        assert!(store.photos("note:b").unwrap().is_empty(), "Erase everything removes them");
+    }
+
+    #[test]
+    fn c17c_kept_row_drops_its_chunks() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "secret words", None, 100).unwrap();
+        store.add_photo("note:a", 4, 3, &[1], None, 110).unwrap();
+        store.replace_chunks("note:a", 110, "m", &[("secret words".into(), vec![1.0])]).unwrap();
+        store.set_note("note:a", " ", None, 200).unwrap();
+        assert!(store.chunks("m").unwrap().is_empty(), "LAR can't cite erased words");
+        assert!(store.sources().unwrap().is_empty(), "nothing to read");
+    }
+
+    #[test]
+    fn c17c_blank_keeps_a_note_with_photos() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "words", Some("Name"), 100).unwrap();
+        let p = store.add_photo("note:a", 4, 3, &[1], None, 110).unwrap();
+        store.set_note("note:a", "", None, 200).unwrap();
+        let n = &store.notes().unwrap()[0];
+        assert_eq!((n.text.as_str(), n.photos, n.title.as_deref()), ("", 1, Some("Name")));
+        store.delete_photo(p.id).unwrap();
+        store.set_note("note:a", "", None, 300).unwrap();
+        assert!(store.notes().unwrap().is_empty(), "no photos left, blank deletes");
+    }
+
+    #[test]
+    fn c17c_first_photo_creates_the_row() {
+        let store = Store::in_memory().unwrap();
+        store.add_photo("note:new", 4, 3, &[1], Some("Trip"), 100).unwrap();
+        let n = &store.notes().unwrap()[0];
+        assert_eq!((n.key.as_str(), n.text.as_str(), n.title.as_deref(), n.photos, n.updated), ("note:new", "", Some("Trip"), 1, 100));
+        assert!(crate::notes::markdown(&store.notes().unwrap()).is_empty(), "export skips the empty section");
+    }
+
+    #[test]
+    fn c17d_after_class_needs_text_in_the_store() {
+        let store = Store::in_memory().unwrap();
+        store.add_photo("class:MATH 1", 4, 3, &[1], None, 100).unwrap();
+        let noted: Vec<_> = store.notes().unwrap().into_iter().filter(|n| !n.text.trim().is_empty()).collect();
+        assert!(noted.is_empty());
     }
 }

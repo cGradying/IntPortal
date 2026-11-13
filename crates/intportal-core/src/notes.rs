@@ -21,6 +21,9 @@ pub struct Note {
     pub subject: Option<String>,
     #[serde(default)]
     pub pinned: bool,
+    /// How many photos it holds. A note may hold only photos (046 C17c).
+    #[serde(default)]
+    pub photos: u32,
 }
 
 pub fn class_key(subject_code: &str) -> String {
@@ -52,7 +55,7 @@ pub fn heading(note: &Note) -> String {
 
 /// Notes as one Markdown document, each under its heading, in the order given.
 pub fn markdown(notes: &[Note]) -> String {
-    notes.iter().map(|n| format!("# {}\n\n{}\n", heading(n), n.text.trim_end())).collect::<Vec<_>>().join("\n")
+    notes.iter().filter(|n| !n.text.trim().is_empty()).map(|n| format!("# {}\n\n{}\n", heading(n), n.text.trim_end())).collect::<Vec<_>>().join("\n")
 }
 
 /// Pinned notes first; each group keeps the order it came in.
@@ -115,7 +118,7 @@ mod tests {
     }
 
     fn note(key: &str, title: Option<&str>, text: &str) -> Note {
-        Note { key: key.into(), text: text.into(), title: title.map(Into::into), updated: 0, subject: None, pinned: false }
+        Note { key: key.into(), text: text.into(), title: title.map(Into::into), updated: 0, subject: None, pinned: false, photos: 0 }
     }
 
     #[test]

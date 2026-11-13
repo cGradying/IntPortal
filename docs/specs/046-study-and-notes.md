@@ -1,6 +1,6 @@
 # 046 Study and notes
 
-**Status:** building (2026-11-11). Everything but the Photos phase (C15–C17d) is built; photos wait on the camera plugin (#254). Approved 2026-11-05: the user took the recommendations, photos are rows in the store, and notes on You are a short row.
+**Status:** shipped (2026-11-14). Every criterion is built; the camera and library paths (C15, C17b) still wait for a check on the simulator and a real phone. Approved 2026-11-05: the user took the recommendations, photos are rows in the store, and notes on You are a short row.
 
 ## What changes for the student
 
@@ -78,14 +78,21 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 
 **Photos**
 - **C15.** A note can hold photos from the camera or the library, shown in a strip below the text, each at most 1600 px on its long side. A photo has no position in the text, so it can't sit between two paragraphs.
+  *Built 2026-11-14:* Photo in the tool sheet offers Camera or Library (`capture` with `saveTo` the app's `photo-tmp` folder); the plugin already writes at most 1600 px on the long side on both platforms, so no plugin change. `add_photo` takes the file into the `photos` table (bytes in the row) and deletes it. A strip of 64 px thumbnails sits under the text; a tap opens it full screen, and a long press or the viewer's Remove asks first.
 - **C16.** Photos are kept apart from the note's text, so they never reach AI chunks or prompts. The app never sends them anywhere; the student can share or export them. They are rows in the store (the user, 2026-11-05), and no copy may claim more than that: they are encrypted and go wherever the store goes (on iOS the store isn't excluded from device or iCloud backups, so they're in those, encrypted, and count toward the student's iCloud space; Android has `allowBackup="false"`).
+  *Built 2026-11-14:* `photos` is its own table, read by `note_photos` (no bytes) and `photo_bytes` (one at a time, raw bytes). Nothing in `sources()`, chunks or prompts reads it; a note with no text is not a source.
 - **C17.** Deleting a note or erasing everything deletes its photos in one transaction. Sign-out keeps them, like notes. Share and Export carry them as a zip when a note has photos, and say so. That comes from the note's photo count, because nothing in the text marks them.
+  *Built 2026-11-14:* `delete_note` removes the note, chunks and photos in one transaction; `wipe` clears `photos`, then VACUUMs; `forget_sis` leaves them. Share and Export stay text only (not a zip, by decision on 2026-11-14), and say "Photos aren't included" when a note, or any note, has photos.
 - **C17a.** Autosave doesn't save while the text is blank. Closing the editor with blank text deletes the note, so select-all and retype loses nothing, and if the app is killed mid-edit the old text comes back. A pin or subject goes with a deleted note. Sign-out closes the editor without saving, and the old text survives.
   *Built 2026-11-11:* `autosaves` and `onClose` in `md.ts`. Sign-out already closes the editor without saving.
 - **C15a.** A note holds at most 20 photos, and adding a 21st says so. Adding a photo moves the note up its subject, like any edit.
+  *Built 2026-11-14:* `add_photo` counts inside its transaction and returns `TooManyPhotos` ("A note holds up to 20 photos.") on the 21st; the sheet also refuses before opening the camera. Adding sets `updated`, so the note moves up. Test `c15a_21st_photo_refused`.
 - **C17c.** *Photos phase.* A note can hold only photos, with no text. Adding a photo to a note with no row creates the row in the same transaction, with empty text and the held name and subject. A note with photos isn't deleted by blank text, from autosave or on close: the core checks this in one transaction, and its row stays, with the text and its AI chunks removed in the same call, so LAR can't cite erased words. Everything that reads a row as "has notes" counts this note as having notes only because of its photos, and the export skips its empty section. Delete asks first and removes the photos, in one transaction with the note, so a crash can't leave it half deleted.
+  *Built 2026-11-14:* `add_photo` creates the row (empty text, held name) in its transaction, and the editor files the held subject after. `set_note` with blank text keeps a note that has photos, clears its text and drops its chunks in one transaction; `autosaves` and `onClose` take the photo count. Delete is `delete_note`, which asks first and names the photo count. Tests `c17c_first_photo_creates_the_row`, `c17c_blank_keeps_a_note_with_photos`, `c17c_kept_row_drops_its_chunks`.
 - **C17d.** *Photos phase.* A note with photos and no text shows "3 photos" in lists. The Schedule dot and the class sheet count photos as notes. The after-class prompt (042 C8, C9) still needs text. Ask AI and Make cards on a note with no text say there's nothing to read, without calling the model.
+  *Built 2026-11-14:* `Note.photos` carries the count; lists use `previewOf` ("3 photos"). The class sheet's "Class notes" counts the photo-only row; the Schedule grid has no notes dot to change. The after-class prompt already filters on text and still does. Ask LAR and Make cards on blank text answer "nothing in this note" before any model call. Tests `c17d_photo_only_preview`, `c17d_after_class_needs_text`.
 - **C17b.** When a photo can't be taken or saved, one line says so and how to fix it (`cameraProblem()`), and the note is untouched.
+  *Built 2026-11-14:* `photoProblem(cameraProblem(e))` gives one line each for denied, no camera, no space and other; the note is untouched. Not yet checked on a real camera.
 
 **Note to cards**
 - **C18.** Make cards marks lines to choose from. Lines written `term - meaning` start chosen. No AI model is needed.

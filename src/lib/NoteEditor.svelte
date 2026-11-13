@@ -5,7 +5,9 @@
   // tools, Aa the page's look, the dots this note's options. It saves while you
   // type, never blank text, and again on Done.
   import { onMount, untrack } from "svelte";
-  import { api, isoDate, type Deck } from "./api";
+  import { api, isoDate, type Deck, type NotePhoto } from "./api";
+  import { cameraProblem, capture } from "./camera";
+  import { MAX_PHOTOS, noPhotosInShare, photoProblem, tooMany } from "./photos";
   import { appended, replaced } from "./assis/apply";
   import { assis, indexNotes, installed, noteAi, stop, type NoteMode } from "./assis/assis.svelte";
   import { tidy, type Draft } from "./assis/cards";
@@ -38,9 +40,73 @@
   let focused = $state(false);
   let can = $state({ undo: false, redo: false });
   let look = $state<PageLook>(readLook());
-  type Sheet = "tools" | "page" | "note" | "templates" | "ai" | "move" | "find" | "cards";
+  type Sheet = "tools" | "photo" | "page" | "note" | "templates" | "ai" | "move" | "find" | "cards";
   let sheet = $state<Sheet | null>(null);
   let confirming = $state(false);
+
+  // ------------------------------------------------------------ photos (C15–C17d)
+
+  let photos = $state<NotePhoto[]>([]);
+  /** Object URLs of the photos shown, by id. */
+  let urls = $state<Record<number, string>>({});
+  let viewing = $state<number | null>(null);
+  let removing = $state<number | null>(null);
+  let adding = $state(false);
+
+  async function show(p: NotePhoto) {
+    try {
+      urls[p.id] = URL.createObjectURL(new Blob([await api.photoBytes(p.id)], { type: "image/jpeg" }));
+    } catch {
+      // The strip keeps an empty square.
+    }
+  }
+
+  async function addPhoto(source: "camera" | "library") {
+    sheet = null;
+    if (photos.length >= MAX_PHOTOS) return void (problem = tooMany);
+    adding = true;
+    try {
+      const c = await capture({ source, saveTo: await api.photoDir() });
+      if (c.cancelled || !c.path) return;
+      // The first photo on a note with no row creates it, with the held name (C17c).
+      const p = await api.addPhoto(key, c.path, c.width ?? 0, c.height ?? 0, named ? name.trim() || null : title);
+      photos = [...photos, p];
+      void show(p);
+      const filed = app.editing?.subject;
+      if (filed && app.editing) {
+        await api.setNoteSubject(key, filed);
+        app.editing.subject = undefined;
+      }
+      problem = "";
+      await refreshNotes();
+    } catch (e) {
+      // The note is untouched (C17b).
+      problem = String(e).includes("up to 20") ? tooMany : photoProblem(cameraProblem(e));
+    } finally {
+      adding = false;
+    }
+  }
+
+  async function removePhoto(id: number) {
+    try {
+      await api.deletePhoto(id);
+      photos = photos.filter((p) => p.id !== id);
+      URL.revokeObjectURL(urls[id]);
+      delete urls[id];
+      viewing = removing = null;
+      await refreshNotes();
+    } catch (e) {
+      problem = String(e);
+    }
+  }
+
+  let hold: ReturnType<typeof setTimeout> | undefined;
+  let held = false;
+  const press = (id: number) => {
+    held = false;
+    hold = setTimeout(() => ((held = true), (removing = id)), 550);
+  };
+  const open = (id: number) => (held ? (held = false) : (viewing = id));
 
   // ------------------------------------------------------------ saving
 
@@ -48,7 +114,7 @@
   async function save(): Promise<boolean> {
     clearTimeout(timer);
     // Blank text is never saved: select-all and retype loses nothing (C17a).
-    if (!autosaves(text)) return true;
+    if (!autosaves(text, photos.length)) return true;
     const body = text;
     try {
       await api.setNote(key, body, named ? name.trim() || null : title);
@@ -72,7 +138,7 @@
   function typed() {
     saved = false;
     clearTimeout(timer);
-    if (autosaves(text)) timer = setTimeout(save, 600);
+    if (autosaves(text, photos.length)) timer = setTimeout(save, 600);
   }
 
   // LAR's text added to this note while it is open shows here, and the next save keeps it (C12a).
@@ -92,7 +158,7 @@
   async function done() {
     clearTimeout(timer);
     // Closing on blank text deletes the note (C17a).
-    const act = onClose(text, !!item, saved);
+    const act = onClose(text, !!item, saved, photos.length);
     const ok = act === "delete" ? await remove(false) : act === "save" ? await save() : true;
     // Only a failed save or delete keeps the page open; a tool's message never does.
     if (!ok) return;
@@ -103,7 +169,7 @@
   async function remove(close = true): Promise<boolean> {
     clearTimeout(timer);
     try {
-      await api.setNote(key, "", null);
+      await api.deleteNote(key);
       await refreshNotes();
       if (close) app.editing = null;
       return true;
@@ -127,6 +193,11 @@
 
   onMount(() => {
     let dead = false;
+    api.notePhotos(key).then((list) => {
+      if (dead) return;
+      photos = list;
+      list.forEach((p) => void show(p));
+    }).catch(() => {});
     // The editor loads with the first note opened, not with the app (C9: its size is in the PR).
     import("./editor/cm").then(({ mountNote }) => {
       if (dead) return;
@@ -160,6 +231,7 @@
       dead = true;
       // Closed without Done (sign-out): nothing more is written (C17a).
       clearTimeout(timer);
+      Object.values(urls).forEach((u) => URL.revokeObjectURL(u));
       nv?.destroy();
       nv = null;
     };
@@ -170,7 +242,7 @@
     assis.plus = () => (sheet = sheet === "tools" ? null : "tools");
     return () => (assis.plus = null);
   });
-  $effect(() => closable(() => (sheet ? (sheet = null) : void done())));
+  $effect(() => closable(() => (removing !== null ? (removing = null) : viewing !== null ? (viewing = null) : sheet ? (sheet = null) : void done())));
 
   // Keep the screen awake while writing, if asked (C11a).
   $effect(() => {
@@ -250,6 +322,7 @@
     if (c === "h" || c === "bullet" || c === "number" || c === "check" || c === "quote") return line(c);
     if (c === "code" || c === "divider") return run(block(text, sel[1], c));
     if (c === "date") return void entryNow();
+    if (c === "photo") return void (sheet = "photo");
     if (c === "tmpl") return void (sheet = "templates");
     if (c === "cards") return startCards();
   }
@@ -410,9 +483,41 @@
 
   <div class="page" data-size={look.size} data-font={look.font} data-spacing={look.spacing} data-paper={look.paper} bind:this={host}></div>
   <footer>
+    {#if photos.length || adding}
+      <ul class="strip" aria-label="Photos">
+        {#each photos as p (p.id)}
+          <li>
+            <button aria-label="Open photo" onclick={() => open(p.id)} onpointerdown={() => press(p.id)} onpointerup={() => clearTimeout(hold)} onpointerleave={() => clearTimeout(hold)} oncontextmenu={(e) => e.preventDefault()}>
+              {#if urls[p.id]}<img src={urls[p.id]} alt="" />{/if}
+            </button>
+          </li>
+        {/each}
+        {#if adding}<li class="wait" aria-label="Adding a photo"></li>{/if}
+      </ul>
+    {/if}
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
     {#if look.count}<p class="count">{count} {count === 1 ? "word" : "words"}</p>{/if}
   </footer>
+
+  {#if viewing !== null && urls[viewing]}
+    <div class="viewer" role="dialog" aria-label="Photo">
+      <img src={urls[viewing]} alt="" />
+      <div class="vbar">
+        <button onclick={() => (viewing = null)}>Close</button>
+        <button class="danger" onclick={() => (removing = viewing)}>Remove</button>
+      </div>
+    </div>
+  {/if}
+  {#if removing !== null}
+    <button class="scrim top" aria-label="Cancel" onclick={() => (removing = null)}></button>
+    <div class="sheet card notch top" role="alertdialog" aria-label="Remove this photo?">
+      <p>Remove this photo? This can't be undone.</p>
+      <div class="two">
+        <button class="danger" onclick={() => removePhoto(removing!)}>Remove</button>
+        <button onclick={() => (removing = null)}>Cancel</button>
+      </div>
+    </div>
+  {/if}
 
   {#if sheet}
     <button class="scrim" aria-label="Close" onclick={() => (sheet = null)}></button>
@@ -422,9 +527,16 @@
         <div class="tools">
           {#if installed()}<button onclick={() => (sheet = "ai")}><PixelIcon name="ai" size={22} /><span>Ask LAR</span></button>{/if}
           {#each TOOLS as [c, label, icon] (c)}
-            <button onclick={() => tool(c)} disabled={c === "photo"}><PixelIcon name={icon} size={22} /><span>{label}</span>{#if c === "photo"}<em>Soon</em>{/if}</button>
+            <button onclick={() => tool(c)}><PixelIcon name={icon} size={22} /><span>{label}</span></button>
           {/each}
         </div>
+      {:else if sheet === "photo"}
+        <h4>Add a photo</h4>
+        <div class="two">
+          <button onclick={() => addPhoto("camera")}>Camera</button>
+          <button onclick={() => addPhoto("library")}>Library</button>
+        </div>
+        <p class="fine">{photos.length} of {MAX_PHOTOS} photos. Photos stay on this phone, in your notes, and aren't read by LAR.</p>
       {:else if sheet === "templates"}
         <h4>Start from</h4>
         <div class="tgrid">
@@ -450,11 +562,12 @@
           {#if named}<button onclick={() => (sheet = "move")} disabled={!text.trim()}><PixelIcon name="move" size={18} />Move to a subject<span class="val">{subjectOf ?? "General"}</span></button>{/if}
           <button onclick={() => (sheet = "find")}><PixelIcon name="find" size={18} />Find in note</button>
           <button onclick={share} disabled={!text.trim()}><PixelIcon name="share" size={18} />Share<span class="val">{count} {count === 1 ? "word" : "words"}</span></button>
+          {#if photos.length}<p class="fine">{noPhotosInShare}</p>{/if}
           {#if item}<button class="danger" onclick={() => (confirming = true)}><PixelIcon name="trash" size={18} accent="var(--bad)" />Delete</button>{/if}
         </div>
         {#if confirming}
           <div class="confirm" role="alertdialog" aria-label="Delete this note?">
-            <p>Delete this note? This can't be undone.</p>
+            <p>Delete this note{photos.length ? ` and its ${photos.length} ${photos.length === 1 ? "photo" : "photos"}` : ""}? This can't be undone.</p>
             <button class="danger" onclick={() => remove()}>Delete</button>
             <button onclick={() => (confirming = false)}>Cancel</button>
           </div>
@@ -545,6 +658,59 @@
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     padding: calc(var(--safe-top) + 8px) var(--gutter) calc(var(--safe-bottom) + 8px);
     background: var(--ground);
+  }
+  .strip {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 8px;
+    padding: 0;
+    list-style: none;
+    overflow-x: auto;
+  }
+  .strip li {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--card, rgba(128, 128, 128, 0.2));
+  }
+  .strip button {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .strip img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    background: #000;
+    padding: var(--safe-top) 0 calc(var(--safe-bottom) + 8px);
+  }
+  .viewer img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    min-height: 0;
+  }
+  .vbar {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px var(--gutter);
+  }
+  .scrim.top,
+  .sheet.top {
+    z-index: 80;
   }
   header {
     display: flex;
@@ -845,14 +1011,6 @@
   }
   .tools button:disabled {
     opacity: 0.45;
-  }
-  .tools em {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    font: 500 9px var(--font-pixel);
-    font-style: normal;
-    color: var(--ink-3);
   }
   .tgrid {
     display: grid;

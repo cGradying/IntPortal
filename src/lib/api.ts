@@ -45,6 +45,15 @@ export interface NoteItem {
   subject: string | null;
   pinned: boolean;
   preview: string;
+  /** How many photos it holds; the bytes are read one at a time (046 C15). */
+  photos?: number;
+}
+
+export interface NotePhoto {
+  id: number;
+  w: number;
+  h: number;
+  created: number;
 }
 
 export type Nudge =
@@ -429,6 +438,13 @@ export const api = {
   distractors: (cards: Card[], index: number, seed: number) => invoke<string[]>("distractors", { cards, index, seed }),
   exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until, utcOffset: -new Date().getTimezoneOffset() }),
   setNote: (key: string, text: string, title: string | null) => invoke<void>("set_note", { key, text, title }),
+  deleteNote: (key: string) => invoke<void>("delete_note", { key }),
+  photoDir: () => invoke<string>("photo_dir"),
+  addPhoto: (key: string, path: string, width: number, height: number, title: string | null) =>
+    invoke<NotePhoto>("add_photo", { key, path, width, height, title }),
+  notePhotos: (key: string) => invoke<NotePhoto[]>("note_photos", { key }),
+  photoBytes: (id: number) => invoke<ArrayBuffer>("photo_bytes", { id }),
+  deletePhoto: (id: number) => invoke<void>("delete_photo", { id }),
   setNotePin: (key: string, pinned: boolean) => invoke<void>("set_note_pin", { key, pinned }),
   setNoteSubject: (key: string, subject: string | null) => invoke<void>("set_note_subject", { key, subject }),
   entryDate: (code: string, today: string) => invoke<string>("entry_date", { code, today }),

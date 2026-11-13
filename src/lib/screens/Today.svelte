@@ -21,6 +21,7 @@
   import DueCard from "../DueCard.svelte";
   import { FLOW_MS } from "../doneRun";
   import Skeleton from "../Skeleton.svelte";
+  import { previewOf } from "../photos";
   import { app, openFromNotification, openNote, openSubject, syncNow } from "../state.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Lar from "../lar/Lar.svelte";
@@ -132,7 +133,7 @@
     <!-- The greeting moved to the launch hello (spec 010 C35); the date is the title. -->
     <h1>{dateLine}</h1>
     <Synced />
-    <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? dayNote.preview || "Today's note" : "+ Note for today"}</button>
+    <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? previewOf(dayNote) || "Today's note" : "+ Note for today"}</button>
   </header>
 
   {#if app.sisRejected}
