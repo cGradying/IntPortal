@@ -2058,6 +2058,7 @@ dependencies = [
 name = "intportal-core"
 version = "0.1.8"
 dependencies = [
+ "base64 0.22.1",
  "regex",
  "reqwest 0.12.28",
  "rpassword",
@@ -2065,6 +2066,7 @@ dependencies = [
  "scraper",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.21",
  "tokio",
  "zip",

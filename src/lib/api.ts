@@ -56,6 +56,26 @@ export interface NotePhoto {
   created: number;
 }
 
+/** What a backup file holds (spec 047 C10). */
+export interface BackupPreview {
+  made: number;
+  notes: number;
+  decks: number;
+  cards: number;
+  syllabus_pages: number;
+  own_deadlines: number;
+  themes: number;
+  photos: number;
+}
+
+/** Bytes by kind (spec 047 C11). The AI model's size is on its own card. */
+export interface Space {
+  notes: number;
+  photos: number;
+  decks: number;
+  other: number;
+}
+
 export type Nudge =
   | { kind: "deadline"; subject: string; topic: string; more: number; overdue: boolean; url: string | null }
   | { kind: "keep_streak"; streak: number; cards: number }
@@ -416,6 +436,10 @@ export const api = {
   setGoals: (goals: Goals) => invoke<Snapshot>("set_goals", { goals }),
   standing: () => invoke<Standing>("standing"),
   notes: () => invoke<NoteItem[]>("notes"),
+  backupMake: (themes: unknown[]) => invoke<string>("backup_make", { themes }),
+  backupPreview: (text: string) => invoke<BackupPreview>("backup_preview", { text }),
+  backupRestore: (text: string) => invoke<unknown[]>("backup_restore", { text }),
+  spaceUsed: () => invoke<Space>("space_used"),
   notesMarkdown: (key: string | null) => invoke<string>("notes_markdown", { key }),
   parseOutline: (text: string, today: string) => invoke<SyllabusItem[]>("parse_outline", { text, today }),
   setPlan: (subjectCode: string, plan: Plan) => invoke<Snapshot>("set_plan", { subjectCode, plan }),
