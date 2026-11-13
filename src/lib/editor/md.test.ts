@@ -109,3 +109,13 @@ describe("saving", () => {
     expect(onClose("text", true, false)).toBe("save");
   });
 });
+
+describe("photos phase", () => {
+  it("c17c_blank_text_keeps_a_note_with_photos", () => {
+    expect(autosaves("", 2)).toBe(true);
+    expect(autosaves(" ", 0)).toBe(false);
+    expect(onClose(" ", true, false, 2)).toBe("save");
+    expect(onClose(" ", true, true, 2)).toBe("none");
+    expect(onClose(" ", true, false, 0)).toBe("delete");
+  });
+});

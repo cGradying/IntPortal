@@ -103,9 +103,21 @@ pub struct Backup {
     /// The webview's saved themes (`[{id, code}]`), handed in by the UI.
     #[serde(default)]
     pub themes: Vec<serde_json::Value>,
-    /// Note photos. Empty until photos are stored; restore ignores it for now.
+    /// Note photos, each with the note it belongs to (spec 046 C16).
     #[serde(default)]
-    pub photos: Vec<serde_json::Value>,
+    pub photos: Vec<BackupPhoto>,
+}
+
+/// One photo in the file: the JPEG (and its strip copy) as base64.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BackupPhoto {
+    pub note_key: String,
+    pub w: u32,
+    pub h: u32,
+    pub created: i64,
+    pub data: String,
+    #[serde(default)]
+    pub thumb: Option<String>,
 }
 
 /// What a restore would bring, for the student to read before agreeing.
@@ -155,7 +167,7 @@ impl Backup {
             done,
             study_stats: store.study_stats()?,
             themes,
-            photos: vec![],
+            photos: store.backup_photos()?,
         })
     }
 
@@ -314,6 +326,30 @@ mod tests {
         let b = Backup::parse(&file(&filled())).unwrap();
         assert_eq!(b.check(Some("2023-00124-MN-0")), Err(BackupError::OtherStudent));
         assert_eq!(b.check(None), Err(BackupError::SignedOut));
+    }
+
+    #[test]
+    fn photos_survive_a_backup_round_trip_and_a_refused_restore_leaves_them() {
+        let s = filled();
+        s.set_note("note:a", "words", None, 400).unwrap();
+        let p = s.add_photo("note:a", &crate::store::NewPhoto { w: 4, h: 3, bytes: &[1, 2, 3] }, None, None, 500).unwrap();
+        s.set_photo_thumb(p.id, &[9]).unwrap();
+        let b = Backup::parse(&file(&s)).unwrap();
+        assert_eq!(b.photos.len(), s.photos("note:a").unwrap().len());
+        assert_eq!(b.preview().photos, b.photos.len());
+        let fresh = Store::in_memory().unwrap();
+        fresh.restore(&b).unwrap();
+        let got = fresh.photos("note:a").unwrap();
+        assert_eq!(got.len(), b.photos.len());
+        assert_eq!(fresh.photo_bytes(got.last().unwrap().id).unwrap(), [1, 2, 3]);
+        assert_eq!(fresh.photo_thumb(got.last().unwrap().id).unwrap(), [9]);
+        // A photo the file can't decode refuses the whole restore: nothing changes.
+        let mut bad = b.clone();
+        bad.photos[0].data = "!!!".into();
+        let before = (fresh.photos("note:a").unwrap(), fresh.notes().unwrap());
+        assert!(fresh.restore(&bad).is_err());
+        assert_eq!((fresh.photos("note:a").unwrap(), fresh.notes().unwrap()), before);
+        assert!(fresh.space().unwrap().photos >= 3);
     }
 
     #[test]
