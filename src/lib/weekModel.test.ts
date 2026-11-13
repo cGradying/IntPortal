@@ -100,5 +100,6 @@ describe("blocks and open days (044 C2, C10, C13)", () => {
   it("c10_week_range reads like Oct 27 - Nov 2", () => {
     expect(weekRange(new Date(2026, 9, 26))).toBe("Oct 26 – Nov 1");
     expect(weekRange(new Date(2026, 10, 9))).toBe("Nov 9 – 15");
+    expect(weekRange(new Date(2026, 11, 28))).toBe("Dec 28, 2026 – Jan 3, 2027");
   });
 });

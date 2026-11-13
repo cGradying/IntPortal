@@ -7,7 +7,7 @@
   import { buzz } from "./haptics";
   import { openLink } from "./openLink";
   import { adopt, app, mabiniSyncNow, openSubject } from "./state.svelte";
-  import { tick } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import { flip } from "svelte/animate";
   import { crossfade, slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
@@ -43,6 +43,31 @@
   let undoing = $state<string[]>([]);
   let showWeek = $state(false);
   const keep = (next: typeof week) => saveDone((week = next));
+  // The Undo timers, by id: cleared on Undo and before a re-arm.
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  const arm = (id: string) => {
+    clearTimeout(timers.get(id));
+    timers.set(id, setTimeout(() => (timers.delete(id), (undoing = undoing.filter((x) => x !== id))), UNDO_MS));
+  };
+  onDestroy(() => timers.forEach(clearTimeout));
+  // The row whose long press offered Done.
+  let offered = $state<string | null>(null);
+  let offerTimer: ReturnType<typeof setTimeout> | undefined;
+  function offer(id: string) {
+    buzz.pull();
+    offered = id;
+    clearTimeout(offerTimer);
+    offerTimer = setTimeout(() => (offered = null), 4000);
+  }
+  onDestroy(() => clearTimeout(offerTimer));
+  // What rests under "Done this week" must still be Done in the core; drop what was un-done elsewhere.
+  // Fresh ones (inside the Undo window) are exempt: the core hasn't answered yet.
+  $effect(() => {
+    const done = app.snapshot?.done;
+    if (!done) return;
+    const gone = week.filter((x) => !undoing.includes(x.entry.id) && !done.includes(x.entry.id));
+    if (gone.length) keep(week.filter((x) => !gone.includes(x)));
+  });
   const quick = $derived(week.filter((x) => undoing.includes(x.entry.id)));
   const resting = $derived(week.filter((x) => !undoing.includes(x.entry.id)));
 
@@ -104,7 +129,7 @@
     finished = [d, ...finished];
     keep(addDone(pruneWeek(week, Date.now()), d, Date.now()));
     undoing = [...undoing, d.id];
-    setTimeout(() => (undoing = undoing.filter((x) => x !== d.id)), UNDO_MS);
+    arm(d.id);
     delete marking[d.id];
     setTimeout(() => sfx.land(), reduce ? 0 : LAND_MS);
     if (!list.length) setTimeout(allClear, reduce ? 0 : LAND_MS + 60);
@@ -115,6 +140,8 @@
       buzz.fail();
       finished = finished.filter((x) => x.id !== d.id);
       keep(removeDone(week, d.id));
+      clearTimeout(timers.get(d.id));
+      undoing = undoing.filter((x) => x !== d.id);
       list = [d, ...list];
     }
   }
@@ -129,12 +156,20 @@
   }
 
   async function undo(d: DeadlineEntry) {
+    // The core first: a failed Undo leaves the item where it was.
+    try {
+      await adopt(await api.setDone(d.id, false));
+    } catch {
+      buzz.fail();
+      return;
+    }
+    clearTimeout(timers.get(d.id));
+    timers.delete(d.id);
     finished = finished.filter((x) => x.id !== d.id);
     keep(removeDone(week, d.id));
     undoing = undoing.filter((x) => x !== d.id);
     cleared = false;
     buzz.tick();
-    await adopt(await api.setDone(d.id, false));
   }
 </script>
 
@@ -163,13 +198,16 @@
         {@const word = entryLabel(d, now)}
         {@const mark = marking[d.id]}
         <li animate:flip={flow()} in:slide={flow()} out:slide={flow()} data-due-row={d.id}>
-          <!-- Long press marks it done (C8); the Done button beside it is the accessible way, with its own label. -->
-          <div use:longpress={() => { const b = card.querySelector<HTMLElement>(`[data-due-row="${CSS.escape(d.id)}"] .check`); if (b) done(d, b); }} class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
+          <!-- A long press offers Done (C8); the Done button beside it is the accessible way, with its own label. -->
+          <div use:longpress={() => offer(d.id)} class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
           <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={(e) => done(d, e.currentTarget)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
           <button class="row" onclick={() => open(d)} aria-label="{d.title}, {d.subject ?? d.course ?? 'no subject'}, due {word}">
             <span class="when" class:late={word === "Overdue"}>{word}</span>
             <span class="what"><strong>{d.title}</strong><small>{d.subject ?? d.course ?? "Your own"}</small></span>
           </button>
+          {#if offered === d.id && !mark}
+            <button class="offer" onclick={(e) => { offered = null; const b = e.currentTarget.closest("li")?.querySelector<HTMLElement>(".check"); if (b) done(d, b); }}>Mark done</button>
+          {/if}
           {#if mark?.combo}<span class="combo" aria-hidden="true">{mark.combo}</span>{/if}
           {#if mark}<span class="stamp" aria-hidden="true">DONE</span>{/if}
           </div>
@@ -445,6 +483,21 @@
   @keyframes flash {
     0%, 50% { background: var(--ink); }
     25%, 75%, 100% { background: var(--gold); }
+  }
+  .offer {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    translate: 0 -50%;
+    z-index: 2;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    background: var(--gold);
+    color: var(--on-gold);
+    font-family: var(--font-display);
+    font-weight: 700;
+    animation: thunk 0.2s var(--ease) both;
   }
   .week {
     justify-self: start;

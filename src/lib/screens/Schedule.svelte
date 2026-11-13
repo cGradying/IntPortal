@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import Synced from "../Synced.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Scene from "../Scene.svelte";
@@ -60,6 +61,7 @@
       .catch(() => (spans = []));
   });
 
+  const shown = $derived(meetings.filter((m) => !(hideVacant && m.mark === "vacant")));
   const list = $derived(meetings.filter((m) => m.session.day === day && !(hideVacant && m.mark === "vacant")));
 
   // The clock, for what's finished and what's in progress (spec 044 C7, C9).
@@ -126,18 +128,23 @@
   let weekM: Motion = { pos: 0, vel: 0 };
   let raf = 0;
   let last = 0;
+  // While a finger is down the day springs hold still; the week's keeps running.
+  let dragging = false;
   const near = (m: Motion, to: number, tol: number) => Math.abs(m.pos - to) < tol && Math.abs(m.vel) < tol * 10;
   function frame(t: number) {
     const dt = Math.min(0.05, (t - last) / 1000);
     last = t;
-    selM = step(selM, dayIdx, dt);
-    listM = step(listM, 0, dt);
+    if (!dragging) {
+      selM = step(selM, dayIdx, dt);
+      listM = step(listM, 0, dt);
+      if (settle(selM, dayIdx)) selM = { pos: dayIdx, vel: 0 };
+      if (near(listM, 0, 0.5)) listM = { pos: 0, vel: 0 };
+    }
     weekM = step(weekM, 0, dt);
-    if (settle(selM, dayIdx)) selM = { pos: dayIdx, vel: 0 };
-    if (near(listM, 0, 0.5)) listM = { pos: 0, vel: 0 };
     if (near(weekM, 0, 0.5)) weekM = { pos: 0, vel: 0 };
     [sel, listX, weekX] = [selM.pos, listM.pos, weekM.pos];
-    raf = selM.pos === dayIdx && !listM.pos && !weekM.pos ? 0 : requestAnimationFrame(frame);
+    // A finished loop clears its id, so glide() can start the next one.
+    raf = dragging || selM.pos !== dayIdx || listM.pos || weekM.pos ? requestAnimationFrame(frame) : 0;
   }
   function glide() {
     if (still) {
@@ -153,8 +160,8 @@
   $effect(() => {
     void day;
     glide();
-    return () => cancelAnimationFrame(raf);
   });
+  onDestroy(() => cancelAnimationFrame(raf));
   function swipeStart(e: TouchEvent) {
     swipeFrom = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), sideways: null };
   }
@@ -164,8 +171,7 @@
     const dy = e.touches[0].clientY - swipeFrom.y;
     swipeFrom.sideways ??= Math.hypot(dx, dy) > 8 ? Math.abs(dx) > Math.abs(dy) : null;
     if (!swipeFrom.sideways) return;
-    cancelAnimationFrame(raf);
-    raf = 0;
+    dragging = true;
     listM = { pos: dx, vel: 0 };
     selM = { pos: Math.max(0, Math.min(WEEKDAYS.length - 1, dayIdx - dx / swipeEl.offsetWidth)), vel: 0 };
     [listX, sel] = [listM.pos, selM.pos];
@@ -176,6 +182,7 @@
     const dx = e.changedTouches[0].clientX - x;
     const dy = e.changedTouches[0].clientY - y;
     swipeFrom = null;
+    dragging = false;
     const flick = Math.abs(dx) / Math.max(1, performance.now() - t) > 0.5;
     const i = dayIdx + (dx < 0 ? 1 : -1);
     const go = sideways !== false && (Math.abs(dx) >= 60 || flick) && Math.abs(dx) > Math.abs(dy) && i >= 0 && i < WEEKDAYS.length;
@@ -252,11 +259,11 @@
   {:else if week.current.state === "failed"}
     <ErrorCard error={week.current.error} onretry={week.reload} />
   {:else if view === "week"}
-    {#if meetings.length === 0}
+    {#if shown.length === 0}
       <div class="none card notch"><Lar size={2} cube={false} state="idle" /><p>No classes this week. Pahinga muna.</p></div>
     {/if}
     <div class="weekslide" style:transform={weekX ? `translateX(${weekX}px)` : null}>
-    <WeekGrid meetings={meetings.filter((m) => !(hideVacant && m.mark === "vacant"))} {colors} todayIdx={offset === 0 ? todayIdx : -1} {spans} onpick={pick} onswipe={changeWeek} dates={dateKeys} {deadlines} />
+    <WeekGrid meetings={shown} {colors} todayIdx={offset === 0 ? todayIdx : -1} {spans} onpick={pick} onswipe={changeWeek} dates={dateKeys} {deadlines} />
     </div>
     <label class="toggle"><input type="checkbox" checked={hideVacant} onchange={toggleVacant} /> Hide vacant classes</label>
   {:else}

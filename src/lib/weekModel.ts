@@ -119,6 +119,7 @@ export const dragLetsGo = (dx: number, dy: number) => Math.hypot(dx, dy) > 10;
 export function weekRange(monday: Date): string {
   const end = new Date(monday);
   end.setDate(monday.getDate() + 6);
-  const md = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const md = (d: Date, year = false) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(year && { year: "numeric" }) });
+  if (monday.getFullYear() !== end.getFullYear()) return `${md(monday, true)} – ${md(end, true)}`;
   return monday.getMonth() === end.getMonth() ? `${md(monday)} – ${end.getDate()}` : `${md(monday)} – ${md(end)}`;
 }

@@ -331,7 +331,7 @@
   }
   /* C5: the block gives a 2 px shake as its stamp lands. Not drawn under Reduce Motion (jolt is off). */
   .block.jolt {
-    animation: jolt 0.3s ease-out both 0.62s;
+    animation: jolt 0.3s ease-out both 0.75s;
   }
   @keyframes jolt {
     25% { translate: 2px 0; }

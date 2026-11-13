@@ -56,6 +56,7 @@ describe("spec 042 C7, C9: a tapped notification opens what it is about", () => 
     expect(app.tab).toBe("today");
     app.tab = "schedule";
     await openFromNotification("study:GEED 10053:5");
-    expect([app.tab, app.deck]).toEqual(["today", null]);
+    // Study is asked to review it and tells the student nothing is due.
+    expect([app.tab, app.deck, app.review]).toEqual(["study", null, { subject: "GEED 10053", limit: 5 }]);
   });
 });

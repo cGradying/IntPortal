@@ -19,7 +19,9 @@ describe("spec 042 plan helpers", () => {
     expect(anyReminderOn(off)).toBe(false);
     expect(anyReminderOn({ ...off, brief: true })).toBe(true);
     expect(anyReminderOn({ ...off, afterClass: true })).toBe(true);
-    expect(anyReminderOn({ ...off, warmUp: true })).toBe(true);
+    // c16: the warm-up only rides class reminders, so with those off it is silence.
+    expect(anyReminderOn({ ...off, warmUp: true })).toBe(false);
+    expect(anyReminderOn({ ...off, lead: 10, warmUp: true })).toBe(true);
     expect(anyReminderOn({ ...off, lead: 10 })).toBe(true);
   });
 });
