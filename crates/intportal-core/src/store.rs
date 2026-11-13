@@ -2,6 +2,7 @@
 //! encrypted with SQLCipher under a key the shell keeps in the keychain.
 //! One JSON value per key: the data is small and read whole.
 
+use crate::backup::Backup;
 use crate::grades::{GradeReport, Goals};
 use crate::model::ClassSession;
 use crate::notes::Note;
@@ -46,12 +47,27 @@ pub struct Snapshot {
 /// the first one's notes. The name hides the number (FNV-1a), it doesn't
 /// protect it; the store's own encryption does that.
 pub fn account_file(student_number: &str) -> String {
+    format!("account-{}.sqlite", student_hash(student_number))
+}
+
+/// The same hash on its own, what a backup file carries to say whose it is.
+pub fn student_hash(student_number: &str) -> String {
     let key: String = student_number.chars().filter(|c| c.is_ascii_alphanumeric()).map(|c| c.to_ascii_uppercase()).collect();
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in key.bytes() {
         h = (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3);
     }
-    format!("account-{h:016x}.sqlite")
+    format!("{h:016x}")
+}
+
+/// Bytes by kind, for Backup and data. The AI model's file isn't here: it has its own card.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
+pub struct Space {
+    pub notes: u64,
+    pub photos: u64,
+    pub decks: u64,
+    /// Schedule, grades, syllabus pages, search index, chat and the rest.
+    pub other: u64,
 }
 
 /// One message of the LAR chat.
@@ -437,6 +453,48 @@ impl Store {
     pub fn clear_turns(&self) -> Result<(), StoreError> {
         self.db.execute("DELETE FROM turns", [])?;
         Ok(())
+    }
+
+    /// Replaces what a backup carries with the file's, all or nothing (spec 047 C10).
+    /// SIS data, eMabini data, logins and chat stay as they are. AI chunks go,
+    /// because the notes they came from just changed; search re-reads them.
+    pub fn restore(&self, b: &Backup) -> Result<(), StoreError> {
+        let tx = self.db.unchecked_transaction()?;
+        tx.execute_batch("DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks;")?;
+        for n in &b.notes {
+            tx.execute(
+                "INSERT INTO notes (key, text, title, updated, subject, pinned) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![n.key, n.text, n.title, n.updated, n.subject, n.pinned],
+            )?;
+        }
+        for d in &b.decks {
+            tx.execute("INSERT INTO decks (id, json) VALUES (?1, ?2)", params![d.id, serde_json::to_string(d)?])?;
+        }
+        let kv: [(&str, String); 7] = [
+            ("marks", serde_json::to_string(&b.marks)?),
+            ("colors", serde_json::to_string(&b.colors)?),
+            ("goals", serde_json::to_string(&b.goals)?),
+            ("syllabus", serde_json::to_string(&b.syllabus)?),
+            ("own_deadlines", serde_json::to_string(&b.own_deadlines)?),
+            ("done", serde_json::to_string(&b.done)?),
+            ("study_stats", serde_json::to_string(&b.study_stats)?),
+        ];
+        for (k, json) in kv {
+            tx.execute("INSERT INTO kv (key, json) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET json = excluded.json", params![k, json])?;
+        }
+        Ok(tx.commit()?)
+    }
+
+    /// Bytes the student's own things take, for Backup and data (C11).
+    pub fn space(&self) -> Result<Space, StoreError> {
+        let sum = |sql: &str| -> Result<u64, StoreError> { Ok(self.db.query_row(sql, [], |r| r.get::<_, i64>(0))?.max(0) as u64) };
+        let notes = sum("SELECT COALESCE(SUM(length(CAST(text AS BLOB)) + length(CAST(COALESCE(title, '') AS BLOB))), 0) FROM notes")?;
+        let decks = sum("SELECT COALESCE(SUM(length(CAST(json AS BLOB))), 0) FROM decks")?;
+        let other = sum("SELECT COALESCE(SUM(length(CAST(json AS BLOB))), 0) FROM kv")?
+            + sum("SELECT COALESCE(SUM(length(CAST(text AS BLOB)) + length(vec)), 0) FROM chunks")?
+            + sum("SELECT COALESCE(SUM(length(CAST(text AS BLOB))), 0) FROM turns")?;
+        // ponytail: no photos table yet, so 0; sum its blobs here when note photos land.
+        Ok(Space { notes, photos: 0, decks, other })
     }
 
     /// Erase everything on the device, the student's own work included.

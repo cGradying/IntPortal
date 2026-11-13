@@ -384,6 +384,24 @@ export function deleteTheme(id: string) {
   if (app.room === `theme:${id}`) setRoom("night");
 }
 
+/** The saved themes as stored (`[{id, code}]`), for a backup. */
+export function themesForBackup(): unknown[] {
+  try {
+    const list: unknown = JSON.parse(read("themes") ?? "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Puts a backup's themes in place. Each goes through the same strict check as a pasted code. */
+export function restoreThemes(list: unknown[]) {
+  write("themes", JSON.stringify(list));
+  app.themes = loadThemes();
+  writeThemes();
+  if (app.room.startsWith("theme:") && !themeOf(app.room)) setRoom("night");
+}
+
 /** Erase everything takes the themes too. */
 export function forgetThemes() {
   app.themes = [];
