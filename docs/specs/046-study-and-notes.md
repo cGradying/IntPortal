@@ -1,6 +1,6 @@
 # 046 Study and notes
 
-**Status:** approved (2026-11-05). The user took the recommendations: photos are rows in the store, and notes on You are a short row.
+**Status:** building (2026-11-11). Everything but the Photos phase (C15–C17d) is built; photos wait on the camera plugin (#254). Approved 2026-11-05: the user took the recommendations, photos are rows in the store, and notes on You are a short row.
 
 ## What changes for the student
 
@@ -54,22 +54,34 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 
 **Writing**
 - **C9.** The note shows formatted as it is typed: headings, bold, highlight, bullets, checklists. A line's Markdown marks appear only while the cursor is on it. The build PR states CodeMirror 6's measured bundle size.
+  *Built 2026-11-11:* CodeMirror 6 (`src/lib/editor/cm.ts`) with the Lezer Markdown parser and GitHub's extensions, not `lang-markdown`, which would bring HTML, CSS and JS parsers. Headings, bold, italic, strike, inline code, quotes, code blocks, dividers, bullets (a gold dot) and checklists show formatted; a line's marks show only while the cursor is on it. It loads with the first note opened: 98.7 kB gzipped (306.8 kB minified) in its own chunk; the app's first load grows 6 kB.
 - **C10.** The saved text is plain Markdown, with `==text==` for highlight and `- [ ]` for checklists, so Share, Export and the AI index keep working.
+  *Built 2026-11-11:* every edit is a pure function on the Markdown in `src/lib/editor/md.ts`; the store still holds plain text.
 - **C11.** One floating crystal +, the same as on Study, opens a sheet of Ask LAR first, shown only when `installed()`, then 15 tools: heading, bold, italic, highlight, strike, bullets, numbers, checklist, quote, code, divider, date entry, photo, template, make cards. Selecting text shows a small bar of bold, italic, highlight and strike.
+  *Built 2026-11-11:* the crystal is the +: the editor mounts inside the tab shell's stacking context, the crystal sits above it at the bottom right, and its press opens the editor's sheet (`assis.plus`). The sheet has Ask LAR first (only with a model), then the 15 tools. Photo shows "Soon" until the Photos phase (C15). Selecting text shows bold, italic, highlight and strike at the top right.
 - **C11a.** Page settings (Aa): text size, font (Phone, Classic, Mono), line spacing, paper (plain, lines, dots, grid), what a new note starts as, word count, keep the screen awake while writing. They apply to every note, and they change how the page looks, never its Markdown.
+  *Built 2026-11-11:* kept on the phone as `notePage`. Keep awake uses the Wake Lock API where the webview has it, and asks again each time the app comes back on screen.
 - **C11b.** This note (the dots): pin, move to a subject, find in note, share with its word count, delete with its confirm. Undo and redo sit in the top bar.
+  *Built 2026-11-11:* pin, move (freeform notes only: class notes are filed by their class), find (Next jumps to the next match, wrapping), share with its word count, delete with its confirm. Undo and redo are CodeMirror's history.
 - **C11c.** Tool icons are the hand-placed 12 by 12 set on the picks page: chunky stems and one gold accent. Only the crystal is 3D.
+  *Built 2026-11-11:* the 20 missing tool icons were copied from the picks page into `PixelIcon`.
 - **C12.** Ticking a checklist box saves at once, without opening the keyboard. A tick is an edit: the note moves to the top of its subject and is re-read for AI on the next index.
+  *Built 2026-11-11:* a box is a real button that never takes focus; the tick is saved at once.
 - **C12a.** When LAR adds to a note that is open in the editor, his text appears in it. The editor's next save never overwrites it.
+  *Built 2026-11-11:* `mergeExternal`: LAR's addition goes after what is on screen, and the next save keeps both.
 - **C13.** A new note offers Blank, Lecture, Cornell, Exam reviewer and Dated log. A template on a note with text adds below it and never replaces it.
+  *Built 2026-11-11:* a new note opens on Start from, unless Aa says Blank or Last used. Dated log starts with today's entry.
 - **C14.** Add entry (030 C11–C14): Dated log and class notes add a dated heading with one tap and put the cursor on the line after it. The date is today when the class meets today, otherwise its next meeting, skipping vacant weeks and following moved meetings, and a class with no future meeting uses today. The heading reads `### Mon, Oct 20` in the phone's locale. If the note already ends with that date's heading, the cursor moves there and nothing is added. The date comes from the core, tested. The editor only inserts the heading.
+  *Built 2026-11-11:* the Date entry tool. For a class note the date comes from the core's `entry_date`; for any other note it is today. If the last dated heading is already that day's, written under or not, the cursor goes to the end and nothing is added.
 - **C14a.** The after-class prompt's tap opens the class note on that meeting's dated entry, finishing what 042 C8 and C9 left waiting on Add entry.
+  *Built 2026-11-11:* the after-class tap opens the class note with `entry`, which adds or finds that day's heading.
 
 **Photos**
 - **C15.** A note can hold photos from the camera or the library, shown in a strip below the text, each at most 1600 px on its long side. A photo has no position in the text, so it can't sit between two paragraphs.
 - **C16.** Photos are kept apart from the note's text, so they never reach AI chunks or prompts. The app never sends them anywhere; the student can share or export them. They are rows in the store (the user, 2026-11-05), and no copy may claim more than that: they are encrypted and go wherever the store goes (on iOS the store isn't excluded from device or iCloud backups, so they're in those, encrypted, and count toward the student's iCloud space; Android has `allowBackup="false"`).
 - **C17.** Deleting a note or erasing everything deletes its photos in one transaction. Sign-out keeps them, like notes. Share and Export carry them as a zip when a note has photos, and say so. That comes from the note's photo count, because nothing in the text marks them.
 - **C17a.** Autosave doesn't save while the text is blank. Closing the editor with blank text deletes the note, so select-all and retype loses nothing, and if the app is killed mid-edit the old text comes back. A pin or subject goes with a deleted note. Sign-out closes the editor without saving, and the old text survives.
+  *Built 2026-11-11:* `autosaves` and `onClose` in `md.ts`. Sign-out already closes the editor without saving.
 - **C15a.** A note holds at most 20 photos, and adding a 21st says so. Adding a photo moves the note up its subject, like any edit.
 - **C17c.** *Photos phase.* A note can hold only photos, with no text. Adding a photo to a note with no row creates the row in the same transaction, with empty text and the held name and subject. A note with photos isn't deleted by blank text, from autosave or on close: the core checks this in one transaction, and its row stays, with the text and its AI chunks removed in the same call, so LAR can't cite erased words. Everything that reads a row as "has notes" counts this note as having notes only because of its photos, and the export skips its empty section. Delete asks first and removes the photos, in one transaction with the note, so a crash can't leave it half deleted.
 - **C17d.** *Photos phase.* A note with photos and no text shows "3 photos" in lists. The Schedule dot and the class sheet count photos as notes. The after-class prompt (042 C8, C9) still needs text. Ask AI and Make cards on a note with no text say there's nothing to read, without calling the model.
@@ -77,8 +89,10 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 
 **Note to cards**
 - **C18.** Make cards marks lines to choose from. Lines written `term - meaning` start chosen. No AI model is needed.
+  *Built 2026-11-11:* Make cards (a tool, and in Ask LAR) lists the note's lines with boxes; `term - meaning` lines (also with – or —) start ticked, split into front and back.
 - **C19.** A review step shows each card's front and back, editable, and which deck they go to: the subject's deck, or a new one named after the subject.
 - **C20.** Nothing is saved until Save cards. Fronts the deck already has are dropped, using `tidy` in `assis/cards.ts`.
+  *Built 2026-11-11:* the subject's deck if it has one, else a new deck named after the note, made once: a second Save adds to it. Save waits until the decks have loaded. `tidy` drops fronts the deck already has.
 - **C21.** With a model installed (`installed()`), Ask AI cards (`DeckCards`) still works and goes through the same review.
 
 **A Done you can find**
@@ -132,7 +146,8 @@ Every tool and row has a 44 pt target and a name. Checklist boxes are real contr
 | C1d3 | `vitest`: `c1d3_the_same_seed_grows_the_same_neuron`, `c1d3_dendrites_stay_inside_the_glass_and_grow_from_him`, `c1d3_the_axon_reaches_every_source` and siblings in `neuron.test.ts`; simulator for the flight and the fire |
 | C6 | `vitest`: `c6_search_across_subjects` |
 | C1 | `vitest`: `c1_cards_group_decks_by_subject_in_shelf_order`, `c1_deck_bar_is_a_pixel_per_3_cards_gold_for_due`, `c1_done_bars_are_the_last_seven_days_ending_today`; `cargo test`: `week_counts_each_local_day_with_gaps_as_zero`; screenshot, real phone for the tiles and the slide |
-| C10 | `vitest`: `c10_markdown_round_trip` |
+| C10 | `vitest`: `c10_markdown_round_trip` (`editor/md.test.ts`) |
+| C11, C12 | `vitest`: `c11_wraps_and_unwraps_a_selection`, `c11_turns_lines_into_a_list_and_back`, `c11_a_code_block_puts_the_cursor_inside`, `c12_a_tick_flips_only_that_box`; simulator for the formatting and ticks |
 | C13, C14 | `vitest`: `c13_template_never_replaces`, `c14_entry_not_repeated`, `c14_heading_in_the_phones_locale`; `cargo`: `c14_entry_date_skips_vacant_follows_moved`, `c14_no_future_meeting_uses_today` |
 | C14a | `vitest`: `c14a_after_class_opens_the_entry` |
 | C12a | `vitest`: `c12a_lar_text_survives_autosave` |
@@ -144,6 +159,7 @@ Every tool and row has a 44 pt target and a name. Checklist boxes are real contr
 | C16, C17 | `cargo`: `c17_note_delete_removes_photos`, per-student store |
 | C18–C20 | `vitest`: `c18_term_lines_start_chosen`, `c20_duplicates_dropped` |
 | C9, C11, C12, C15, C22 | screenshot, real phone |
+| C11a | real phone: keep awake holds while writing, and again after leaving the app and coming back |
 
 ## Open questions
 

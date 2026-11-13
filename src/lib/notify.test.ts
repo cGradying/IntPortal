@@ -41,9 +41,9 @@ describe("spec 042 C7, C9: a tapped notification opens what it is about", () => 
     expect([app.tab, app.deck]).toEqual(["study", "d1"]);
   });
 
-  it("a note after class opens the class note", async () => {
+  it("c14a_after_class_opens_the_entry", async () => {
     await openFromNotification("note:class:COMP 20073");
-    expect(app.editing).toEqual({ key: "class:COMP 20073", heading: "COMP 20073", title: "Data Structures" });
+    expect(app.editing).toEqual({ key: "class:COMP 20073", heading: "COMP 20073", title: "Data Structures", entry: true });
   });
 
   it("anything else, or a deck that is gone, lands on Today", async () => {
