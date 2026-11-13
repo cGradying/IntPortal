@@ -2,12 +2,13 @@
   // You (spec 047 C1–C11): eight quick switches and search on top, then short
   // rows in four groups. Each row opens its own page, closed by a large Back.
   import { askForCalendar } from "../devcal";
-  import { app, forgetThemes, mabiniSyncNow, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
-  import { api, isoDate, type Portal } from "../api";
+  import { adopt, app, forgetThemes, mabiniSyncNow, restoreThemes, themesForBackup, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
+  import { api, isoDate, type BackupPreview, type Portal, type Space } from "../api";
   import { onMount } from "svelte";
   import PortalConnect from "../PortalConnect.svelte";
   import NotesCard from "../NotesCard.svelte";
   import { shareFile } from "../share";
+  import { friendly } from "../errors";
   import { buzz, haptics, setHaptics } from "../haptics";
   import { sfx, setSound, sound } from "../sound";
   import { lock, setLock, unlockWith } from "../lock.svelte";
@@ -54,6 +55,57 @@
   // The last day of classes: remembered, or about a semester from now.
   let lastDay = $state(remembered("lastDay") ?? isoDate(new Date(Date.now() + 17 * 7 * 86_400_000)));
   let exportNote = $state("");
+
+  // Backup and data (spec 047 C9–C11).
+  let space = $state<Space | null>(null);
+  let backupNote = $state("");
+  let backupBad = $state(false);
+  let picked = $state<{ text: string; preview: BackupPreview } | null>(null);
+  let sure = $state(false);
+  const MAX_BACKUP = 25 * 1024 * 1024;
+  const say = (note: string, bad = false) => ((backupNote = note), (backupBad = bad));
+  const size = (n: number) => (n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 ** 2).toFixed(1)} MB`);
+  $effect(() => {
+    if (page === "backup") api.spaceUsed().then((s) => (space = s), () => (space = null));
+  });
+  async function backUp() {
+    say("");
+    try {
+      const text = await api.backupMake(themesForBackup());
+      const name = `intportal-backup-${isoDate(new Date())}.json`;
+      say((await shareFile(name, "application/json", text)) === "shared" ? "Backup saved." : "");
+    } catch (e) {
+      say(friendly(e), true);
+    }
+  }
+  async function pickBackup(e: Event & { currentTarget: HTMLInputElement }) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = "";
+    picked = null;
+    sure = false;
+    if (!file) return;
+    if (file.size > MAX_BACKUP) return say("That file is too big to be an IntPortal backup.", true);
+    try {
+      const text = await file.text();
+      picked = { text, preview: await api.backupPreview(text) };
+      say("");
+    } catch (err) {
+      say(friendly(err), true);
+    }
+  }
+  async function restore() {
+    if (!picked) return;
+    try {
+      restoreThemes(await api.backupRestore(picked.text));
+      await adopt(await api.snapshot());
+      picked = null;
+      sure = false;
+      say("Restored.");
+      api.spaceUsed().then((s) => (space = s), () => {});
+    } catch (err) {
+      say(friendly(err), true);
+    }
+  }
 
   function remembered(key: string): string | null {
     try {
@@ -377,14 +429,41 @@
         <NotesCard />
       {:else if page === "backup"}
         <section class="card notch block">
-          <p class="label">Coming in the next update</p>
+          <p class="label">Back up</p>
           <p class="fine">One file with your notes, photos, decks, syllabus pages, goals, marks, your own deadlines and Done marks, subject colours, your study streak and themes, to move to a new phone. Your logins are never in it.</p>
-          <p class="fine">The file won't be locked with a password, so anyone who gets it can read your notes. IntPortal will say so before saving it.</p>
-          <p class="fine">Restoring shows what's in the file and asks before it replaces anything. A damaged file, or one from another student, changes nothing.</p>
-          <p class="fine">The space your notes, photos and decks take will show here too.</p>
+          <p class="fine bad">The file has no password. Anyone who gets it can read your notes. Keep it somewhere private.</p>
+          <button class="primary" onclick={backUp}>Back up</button>
         </section>
-        <p class="fine">For now, Notes can export every note as text.</p>
-        <button class="ghost" onclick={() => go("notes")}>Open Notes</button>
+        <section class="card notch block">
+          <p class="label">Restore</p>
+          <p class="fine">Pick a backup of your own. You'll see what's in it before anything changes. On a new phone, sign in first.</p>
+          <input type="file" accept="application/json,.json" aria-label="Choose a backup file" onchange={pickBackup} />
+          {#if picked}
+            {@const p = picked.preview}
+            <p class="fine">Made {new Date(p.made * 1000).toLocaleDateString()}: {p.notes} notes, {p.decks} decks ({p.cards} cards), {p.syllabus_pages} syllabus pages, {p.own_deadlines} of your own deadlines, {p.themes} themes{p.photos ? `, ${p.photos} photos` : ""}.</p>
+            <p class="fine">Restoring replaces the notes, decks, syllabus pages, goals, marks, your own deadlines and Done marks, colours, streak and saved themes on this phone with these.</p>
+            {#if sure}
+              <p class="fine bad">Replace your notes, decks, marks, Done marks and saved themes with this backup? This can't be undone.</p>
+              <button class="danger" onclick={restore}>Replace</button>
+              <button class="ghost" onclick={() => (sure = false)}>Cancel</button>
+            {:else}
+              <button class="danger" onclick={() => (sure = true)}>Replace with this backup</button>
+              <button class="ghost" onclick={() => (picked = null)}>Cancel</button>
+            {/if}
+          {/if}
+        </section>
+        {#if backupNote}<p class="fine" class:bad={backupBad} role="status">{backupNote}</p>{/if}
+        <section class="card notch block">
+          <p class="label">Space used</p>
+          {#if space}
+            {#each [["Notes", space.notes], ["Photos", space.photos], ["Decks", space.decks], ["The rest", space.other]] as [name, n] (name)}
+              <p class="fine">{name}: {size(n as number)}</p>
+            {/each}
+            <p class="fine">LAR's model is not counted here; it has its own card.</p>
+          {:else}
+            <p class="fine">Couldn't read the sizes.</p>
+          {/if}
+        </section>
       {:else if page === "privacy"}
         <div class="card notch list pad">
           <label class="sw"><span>Lock with {unlockWith}</span><input type="checkbox" checked={lock.enabled} onchange={(e) => { const box = e.currentTarget; buzz.tick(); setLock(box.checked).then(() => (box.checked = lock.enabled)); }} /></label>

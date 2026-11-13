@@ -384,6 +384,30 @@ export function deleteTheme(id: string) {
   if (app.room === `theme:${id}`) setRoom("night");
 }
 
+/** The saved themes as stored (`[{id, code}]`), for a backup. */
+export function themesForBackup(): unknown[] {
+  try {
+    const list: unknown = JSON.parse(read("themes") ?? "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Adds a backup's themes to the phone's: the file's win on the same id, the phone's others stay.
+ *  Each goes through the same strict check as a pasted code. */
+export function restoreThemes(list: unknown[]) {
+  const incoming = list.flatMap((x) => {
+    const t = x as { id?: unknown; code?: unknown };
+    const theme = typeof t?.id === "string" && typeof t?.code === "string" ? decodeTheme(t.code) : null;
+    return theme ? [{ id: t.id as string, theme }] : [];
+  });
+  const ids = new Set(incoming.map((s) => s.id));
+  app.themes = [...app.themes.filter((s) => !ids.has(s.id)), ...incoming];
+  writeThemes();
+  if (app.room.startsWith("theme:") && !themeOf(app.room)) setRoom("night");
+}
+
 /** Erase everything takes the themes too. */
 export function forgetThemes() {
   app.themes = [];
