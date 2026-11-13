@@ -12,7 +12,8 @@ use intportal_core::model::{ClassSession, Weekday};
 use intportal_core::notes::{self, Note};
 use intportal_core::schedule;
 use intportal_core::sis::{self, sign_in_guarded, Credentials, Ledger, SisClient};
-use intportal_core::store::{account_file, Snapshot, Store};
+use intportal_core::backup::{self, Backup};
+use intportal_core::store::{self, account_file, Snapshot, Store};
 use intportal_core::study::{self, Card, Deck, Memory, Rating, Stats};
 use intportal_core::syllabus::{self, Component, Item, Plan, Tally};
 use intportal_core::today::{self, Agenda, Busy, Date, Glance, Mark, Meeting, Moment, Reminder, Slot, Upcoming};
@@ -609,6 +610,56 @@ fn open_account(state: &AppState, student_number: &str) -> Res<()> {
     }
     *state.store.lock().unwrap() = open_store(&state.dir, &name)?;
     std::fs::write(state.dir.join(CURRENT), &name).map_err(err)
+}
+
+/// The student number whose store is open: the signed-in number whose file is
+/// the one `current-account` names. Not just "whoever is signed in", since
+/// signing out of the SIS with eMabini still in leaves the SIS student's store open.
+fn open_student(state: &AppState) -> Option<String> {
+    let open = std::fs::read_to_string(state.dir.join(CURRENT)).ok()?;
+    [vault::load().map(|l| l.student_number), mabini_vault::load().map(|l| l.student_number)]
+        .into_iter()
+        .flatten()
+        .find(|n| account_file(n) == open.trim())
+}
+
+/// The backup file's text (spec 047 C9). `themes` is the webview's saved themes.
+/// Holds the sync lock, so a refresh can't save over a backup being read.
+#[tauri::command]
+async fn backup_make(state: tauri::State<'_, AppState>, themes: Vec<serde_json::Value>) -> Res<String> {
+    let _sync = state.client.lock().await;
+    let who = open_student(&state).ok_or("Sign in first, then back up.")?;
+    let mut salt = [0u8; 16];
+    getrandom::fill(&mut salt).map_err(|_| "Couldn't make the backup.")?;
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+    let b = Backup::make(&state.store.lock().unwrap(), &who, salt, themes, now).map_err(|_| "Couldn't make the backup.")?;
+    serde_json::to_string(&b).map_err(|_| "Couldn't make the backup.".to_string())
+}
+
+/// Reads a backup and says what it holds; refuses a damaged, newer or other student's file (C10).
+#[tauri::command]
+fn backup_preview(state: tauri::State<'_, AppState>, text: String) -> Res<backup::Preview> {
+    let b = Backup::parse(&text).map_err(err)?;
+    b.check(open_student(&state).as_deref()).map_err(err)?;
+    Ok(b.preview())
+}
+
+/// Replaces the student's notes, decks and the rest with the file's, or changes nothing.
+/// Returns the file's themes for the webview to save. Holds the sync lock (a refresh
+/// saves a whole snapshot and would revert it) and the AI index lock.
+#[tauri::command]
+async fn backup_restore(state: tauri::State<'_, AppState>, ai: tauri::State<'_, ai::AiState>, text: String) -> Res<Vec<serde_json::Value>> {
+    let _sync = state.client.lock().await;
+    let b = Backup::parse(&text).map_err(err)?;
+    b.check(open_student(&state).as_deref()).map_err(err)?;
+    ai::while_idle(&ai, || state.store.lock().unwrap().restore(&b).map_err(|_| "Couldn't restore that backup, so nothing changed.".to_string()))??;
+    Ok(b.themes)
+}
+
+/// Bytes taken by notes, photos, decks and the rest (C11).
+#[tauri::command]
+fn space_used(state: tauri::State<'_, AppState>) -> Res<store::Space> {
+    state.store.lock().unwrap().space().map_err(err)
 }
 
 /// Everything on this phone, the student's own notes and decks included.
@@ -1212,7 +1263,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, set_note_pin, set_note_subject, entry_date, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
+            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, backup_make, backup_preview, backup_restore, space_used, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, set_note_pin, set_note_subject, entry_date, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
             ai::ai_models, ai::ai_small_ram, ai::ai_download, ai::ai_delete, ai::ai_load, ai::ai_unload, ai::ai_index, ai::ai_cancel, ai::ai_ask, ai::ai_history, ai::ai_clear_history, ai::ai_note, ai::ai_why, ai::ai_cards, ai::ai_pdf_text, ai::ai_outline_text, ai::ai_guide
         ])
         .run(tauri::generate_context!())
