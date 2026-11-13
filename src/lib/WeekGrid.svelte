@@ -6,7 +6,7 @@
   import { clock, subjectColor, WEEKDAYS, type ClassSession, type DeadlineEntry, type Meeting } from "./api";
   import type { Span } from "./dayrows";
   import { buzz } from "./haptics";
-  import { columns, gaps, movedFrom, onColor, phaseOf, pin, stampOf } from "./weekModel";
+  import { blockLines, columns, dragLetsGo, gaps, movedFrom, onColor, phaseOf, pin, stampOf, toggleOpen } from "./weekModel";
   import { span as spanText } from "./api";
   import { app } from "./state.svelte";
 
@@ -66,7 +66,7 @@
     moved = false;
   }
   function move(e: PointerEvent) {
-    if (!start || moved || Math.hypot(e.clientX - start.x, e.clientY - start.y) < 10) return;
+    if (!start || moved || !dragLetsGo(e.clientX - start.x, e.clientY - start.y)) return;
     moved = true;
     open = -1;
   }
@@ -82,7 +82,7 @@
   function tapDay(i: number) {
     if (moved) return;
     buzz.select();
-    open = open === i ? -1 : i;
+    open = toggleOpen(open, i);
   }
   // In the open day a class opens its sheet; elsewhere the tap opens the day (C13).
   function tapBlock(e: Event, m: Meeting, i: number) {
@@ -150,9 +150,12 @@
             {@const stamp = stampOf(m.mark, m.moved)}
             {@const phase = phaseOf(m.session, index === todayIdx, nowMin)}
             {@const h = y(m.session.end) - y(m.session.start) - 2}
+            {@const lines = blockLines(m.session, index === open)}
+            {@const thunk = !!stamp && !reduce && !seen.has(stampId(m))}
             <button
               class="block {phase}"
               class:short={h < 64}
+              class:jolt={thunk}
               data-mark={m.mark}
               style:top="{y(m.session.start)}px"
               style:height="{Math.max(18, h)}px"
@@ -161,10 +164,10 @@
               onclick={(e) => tapBlock(e, m, index)}
               aria-label="{m.session.subject_code}, {m.session.description}, {clock(m.session.start)} to {clock(m.session.end)}{m.session.faculty ? `, ${m.session.faculty}` : ''}{stamp ? `, ${stamp.text.toLowerCase()}` : ''}"
             >
-              {#if stamp}<span class="stamp {stamp.kind}" class:fresh={!reduce && !seen.has(stampId(m))}>{stamp.text}</span>{/if}
-              <small class="code">{m.session.subject_code}</small>
-              <strong>{m.session.description || m.session.subject_code}</strong>
-              <small class="meta"><span>{clock(m.session.start)}–{clock(m.session.end)}</span>{#if m.session.faculty}<span class="who">{m.session.faculty}</span>{/if}</small>
+              {#if stamp}<span class="stamp {stamp.kind}" class:fresh={thunk}>{stamp.text}</span>{/if}
+              {#if lines.code}<small class="code">{lines.code}</small>{/if}
+              <strong>{lines.title}</strong>
+              {#if lines.meta}<small class="meta"><span>{lines.meta}</span></small>{/if}
             </button>
           {/each}
         </div>
@@ -326,6 +329,15 @@
     outline: 1px dashed var(--stamp-moved);
     outline-offset: -1px;
   }
+  /* C5: the block gives a 2 px shake as its stamp lands. Not drawn under Reduce Motion (jolt is off). */
+  .block.jolt {
+    animation: jolt 0.3s ease-out both 0.62s;
+  }
+  @keyframes jolt {
+    25% { translate: 2px 0; }
+    50% { translate: -2px 0; }
+    75% { translate: 1px 0; }
+  }
   .stamp.fresh {
     animation: thunk 0.55s var(--ease) both 0.2s;
   }
@@ -373,7 +385,7 @@
     right: 4px;
     top: 4px;
   }
-  .who {
+  .meta span {
     overflow: hidden;
     text-overflow: ellipsis;
   }

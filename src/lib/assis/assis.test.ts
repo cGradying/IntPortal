@@ -794,9 +794,15 @@ describe("LAR reminders and the weekly reschedule", () => {
   it("keeps LAR's reminder even when class reminders are off", async () => {
     assis.chat = [{ from: "lar", text: "Sure.", proposal: { kind: "set_reminder", date: "2099-01-06", text: "Bring ID" }, state: "pending" }];
     await apply(0);
-    Object.assign(app, { reminderLead: 0 });
+    Object.assign(app, { reminderLead: 0, warmUp: false, afterClass: false, brief: false });
     await scheduleReminders();
     expect(queue).toHaveLength(1);
+  });
+
+  it("c16_brief_and_after_class_still_schedule_with_class_deadline_and_study_off", async () => {
+    Object.assign(app, { reminderLead: 0, warmUp: false, afterClass: true, brief: true });
+    await scheduleReminders();
+    expect(queue.map((q) => q.id)).toContain(7);
   });
 });
 

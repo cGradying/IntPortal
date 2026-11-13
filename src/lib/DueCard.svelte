@@ -16,6 +16,8 @@
   import { barSegments, comboText, FLOW_MS, nextRun, tierOf, type Run } from "./doneRun";
   import { fieldPulse, sinkTiles } from "./fieldPulse";
   import { sfx } from "./sound";
+  import { longpress } from "./press";
+  import { addDone, loadDone, pruneWeek, removeDone, saveDone, UNDO_MS } from "./doneWeek";
 
   const MAX = 5;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -36,6 +38,13 @@
   let marking = $state<Record<string, { tier: string; combo: string; lifted: boolean }>>({});
   let run: Run | null = null;
   let cleared = $state(false);
+  // Spec 041 C6: finished this week (kept across launches), and which are still inside the 5 s Undo.
+  let week = $state(loadDone(Date.now()));
+  let undoing = $state<string[]>([]);
+  let showWeek = $state(false);
+  const keep = (next: typeof week) => saveDone((week = next));
+  const quick = $derived(week.filter((x) => undoing.includes(x.entry.id)));
+  const resting = $derived(week.filter((x) => !undoing.includes(x.entry.id)));
 
   const [send, receive] = crossfade({ duration: reduce ? 0 : 480, easing: cubicOut, fallback: () => ({ duration: 0 }) });
 
@@ -93,6 +102,9 @@
   async function settle(d: DeadlineEntry) {
     list = list.filter((x) => x.id !== d.id);
     finished = [d, ...finished];
+    keep(addDone(pruneWeek(week, Date.now()), d, Date.now()));
+    undoing = [...undoing, d.id];
+    setTimeout(() => (undoing = undoing.filter((x) => x !== d.id)), UNDO_MS);
     delete marking[d.id];
     setTimeout(() => sfx.land(), reduce ? 0 : LAND_MS);
     if (!list.length) setTimeout(allClear, reduce ? 0 : LAND_MS + 60);
@@ -102,6 +114,7 @@
       // Not saved: put it back rather than show a done that isn't.
       buzz.fail();
       finished = finished.filter((x) => x.id !== d.id);
+      keep(removeDone(week, d.id));
       list = [d, ...list];
     }
   }
@@ -117,6 +130,8 @@
 
   async function undo(d: DeadlineEntry) {
     finished = finished.filter((x) => x.id !== d.id);
+    keep(removeDone(week, d.id));
+    undoing = undoing.filter((x) => x !== d.id);
     cleared = false;
     buzz.tick();
     await adopt(await api.setDone(d.id, false));
@@ -148,7 +163,8 @@
         {@const word = entryLabel(d, now)}
         {@const mark = marking[d.id]}
         <li animate:flip={flow()} in:slide={flow()} out:slide={flow()} data-due-row={d.id}>
-          <div class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
+          <!-- Long press marks it done (C8); the Done button beside it is the accessible way, with its own label. -->
+          <div use:longpress={() => { const b = card.querySelector<HTMLElement>(`[data-due-row="${CSS.escape(d.id)}"] .check`); if (b) done(d, b); }} class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
           <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={(e) => done(d, e.currentTarget)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
           <button class="row" onclick={() => open(d)} aria-label="{d.title}, {d.subject ?? d.course ?? 'no subject'}, due {word}">
             <span class="when" class:late={word === "Overdue"}>{word}</span>
@@ -171,10 +187,9 @@
     <p class="none">Nothing due that we know of yet.</p>
   {/if}
 
-  {#if finished.length}
-    <p class="label group" transition:slide={flow()}>Done</p>
+  {#if quick.length}
     <ul>
-      {#each finished as d (d.id)}
+      {#each quick as { entry: d } (d.id)}
         <li animate:flip={flow()} in:slide={flow()} out:slide={flow()}>
           <div class="ri finished" in:receive={{ key: d.id }} out:send={{ key: d.id }}>
           <button class="link" onclick={() => undo(d)} aria-label="Undo {d.title}">Undo</button>
@@ -184,6 +199,20 @@
         </li>
       {/each}
     </ul>
+  {/if}
+
+  {#if resting.length}
+    <button class="week" aria-expanded={showWeek} onclick={() => (showWeek = !showWeek)}>Done this week · {resting.length}</button>
+    {#if showWeek}
+      <ul transition:slide={flow()}>
+        {#each resting as { entry: d } (d.id)}
+          <li class="past">
+            <span class="what"><s>{d.title}</s><small>{d.subject ?? d.course ?? "Your own"}</small></span>
+            <button class="link" onclick={() => undo(d)} aria-label="Un-mark {d.title}">Undo</button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   {/if}
 </section>
 
@@ -417,8 +446,21 @@
     0%, 50% { background: var(--ink); }
     25%, 75%, 100% { background: var(--gold); }
   }
-  .group {
-    margin: 6px 0 0;
+  .week {
+    justify-self: start;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink-3);
+    font-size: min(0.706rem, 22px);
+  }
+  .past {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 44px;
   }
   .finished {
     min-height: 44px;

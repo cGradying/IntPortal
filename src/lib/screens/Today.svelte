@@ -21,7 +21,7 @@
   import DueCard from "../DueCard.svelte";
   import { FLOW_MS } from "../doneRun";
   import Skeleton from "../Skeleton.svelte";
-  import { app, openFromNotification, openNote, openSubject, syncNow } from "../state.svelte";
+  import { app, openFromNotification, openNote, openSubject, startReview, syncNow } from "../state.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Lar from "../lar/Lar.svelte";
   import { ago } from "../glance";
@@ -96,7 +96,7 @@
     if (n.step?.url) return openLink(n.step.url);
     if (n.step?.subject) return openSubject(n.step.subject, describe(n.step.subject), "outline", n.step.id.startsWith("syl:") ? n.step.id.split(":").pop() : undefined);
     if (n.subject) openFromNotification(`study:${n.subject}:${n.cards}`);
-    else app.tab = "study";
+    else startReview(null);
   }
   const describe = (code: string) => app.snapshot?.sessions.find((x) => x.subject_code === code)?.description ?? "";
   const dayNote = $derived(app.notes.find((n) => n.key === dayKey));

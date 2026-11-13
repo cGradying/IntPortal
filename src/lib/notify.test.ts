@@ -36,8 +36,13 @@ describe("spec 042 C7, C9: a tapped notification opens what it is about", () => 
     });
   });
 
-  it("a warm-up opens that subject's deck with cards due", async () => {
+  it("c7_warm_up_starts_a_five_card_session_on_that_subjects_due_deck", async () => {
     await openFromNotification("study:COMP 20073:5");
+    expect([app.tab, app.deck, app.review]).toEqual(["study", null, { subject: "COMP 20073", limit: 5 }]);
+  });
+
+  it("a study link without a count opens the deck page", async () => {
+    await openFromNotification("study:COMP 20073");
     expect([app.tab, app.deck]).toEqual(["study", "d1"]);
   });
 
