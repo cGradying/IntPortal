@@ -5,6 +5,7 @@
   import { closable } from "./back";
   import { buzz } from "./haptics";
   import { app, adopt, openNote, openSubject } from "./state.svelte";
+  import { openLink } from "./openLink";
   import { api, clock, isoDate, WEEKDAYS, type Mark, type Meeting, type Snapshot, type Weekday } from "./api";
 
   let { meeting, onclose, from }: { meeting: Meeting; onclose: () => void; from?: DOMRect } = $props();
@@ -33,6 +34,23 @@
   let problem = $state("");
   const s = $derived(meeting.session);
   const colors = $derived(app.snapshot?.colors ?? {});
+  const info = $derived(app.snapshot?.class_info?.[s.subject_code]);
+  // The student's link and description, edited on this sheet (spec 030 C3, C5).
+  let link = $state("");
+  let about = $state("");
+  $effect(() => {
+    link = info?.link ?? "";
+    about = info?.about ?? "";
+  });
+  async function saveInfo(l = link) {
+    try {
+      await adopt(await api.setClassInfo(s.subject_code, l || null, about || null));
+      buzz.tick();
+      problem = "";
+    } catch (e) {
+      problem = String(e);
+    }
+  }
   const swatches = [1, 2, 3, 4, 5, 6].map((n) => `var(--s${n})`);
   // "This week" means the week of this meeting, keyed by its Monday.
   const monday = $derived.by(() => {
@@ -111,6 +129,17 @@
       <button onclick={() => (moving = { day: s.day, start: hhmm(s.start), end: hhmm(s.end) })}>Change its time</button>
       <button disabled={!meeting.moved} onclick={unmove}>Back to SIS time</button>
     </div>
+    <p class="label">Your description</p>
+    <textarea rows="2" bind:value={about} onblur={() => saveInfo()} aria-label="Your description"></textarea>
+    {#if s.description}<p class="sis">{s.description}</p>{/if}
+    <p class="label">Meeting link</p>
+    <input type="url" class="field" bind:value={link} onblur={() => saveInfo()} placeholder="https://meet.google.com/…" aria-label="Meeting link" />
+    {#if info?.link}
+      <div class="opts two">
+        <button class="note" aria-label="Join {s.subject_code} class" onclick={() => { buzz.tick(); openLink(info!.link!); }}>Join class</button>
+        <button onclick={() => { link = ""; saveInfo(""); }}>Clear link</button>
+      </div>
+    {/if}
     <p class="label">Colour</p>
     <div class="swatches">
       {#each swatches as c (c)}
@@ -140,6 +169,8 @@
     display: grid;
     gap: 10px;
     padding: 18px 16px;
+    max-height: calc(100dvh - var(--safe-bottom) - 40px);
+    overflow-y: auto;
     background: var(--card-2);
     animation: rise 0.35s var(--ease) both;
   }
@@ -220,6 +251,24 @@
   }
   .auto.on {
     box-shadow: inset 0 0 0 2px var(--ink);
+  }
+  textarea,
+  .field {
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink);
+    font: inherit;
+    resize: none;
+  }
+  .sis {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: min(0.765rem, 23px);
   }
   .link {
     justify-self: start;

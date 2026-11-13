@@ -32,7 +32,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [011-login](011-login.md) | shipped | The sign-in form, errors and the lockout guard |
 | [012-portals](012-portals.md) | draft | The portal model: SIS now, Mabini next |
 | [020-ai](020-ai.md) | building | LAR that streams, remembers, cites notes; Ask AI in a note |
-| [030-from-the-mac-app](030-from-the-mac-app.md) | approved | The Mac app's features mapped to the phone; wave 1: join links, deadlines in the calendar, dated note entries |
+| [030-from-the-mac-app](030-from-the-mac-app.md) | wave 1 built | The Mac app's features mapped to the phone; wave 1: join links, deadlines in the calendar, dated note entries |
 | [040-trust-and-speed](040-trust-and-speed.md) | approved | Honest loading and errors, fixable logins, review all due, consistent taps, week navigation |
 | [041-one-deadline-list](041-one-deadline-list.md) | approved | Syllabus, eMabini and own deadlines in one list: Today, reminders, LAR, calendar; add by typing or photo |
 | [042-lar-plans-the-day](042-lar-plans-the-day.md) | approved | Gap plan on Today, warm-up and after-class nudges, grade risk, Sunday brief, 3-a-day budget |

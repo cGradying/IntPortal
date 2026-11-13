@@ -8,7 +8,7 @@ use crate::model::ClassSession;
 use crate::notes::Note;
 use crate::study::{Deck, Stats};
 use crate::syllabus::Plan;
-use crate::today::Marks;
+use crate::today::{ClassInfo, Marks};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use rusqlite::{params, Connection, ErrorCode, OptionalExtension};
 use serde::de::DeserializeOwned;
@@ -31,6 +31,9 @@ pub struct Snapshot {
     /// Subject code to its syllabus plan.
     #[serde(default)]
     pub syllabus: BTreeMap<String, Plan>,
+    /// What the student wrote about a class, by subject code (spec 030 C1).
+    #[serde(default)]
+    pub class_info: BTreeMap<String, ClassInfo>,
     /// The host that last proved good, tried first next time.
     pub host: Option<String>,
     /// RFC 3339, written by the shell.
@@ -255,6 +258,7 @@ impl Store {
             marks: self.get("marks")?.unwrap_or_default(),
             colors: self.get("colors")?.unwrap_or_default(),
             goals: self.get("goals")?.unwrap_or_default(),
+            class_info: self.get("class_info")?.unwrap_or_default(),
             syllabus: self.get("syllabus")?.unwrap_or_default(),
             host: self.get::<Option<_>>("host")?.flatten(),
             last_synced: self.get::<Option<_>>("last_synced")?.flatten(),
@@ -270,6 +274,7 @@ impl Store {
         self.put("marks", &s.marks)?;
         self.put("colors", &s.colors)?;
         self.put("goals", &s.goals)?;
+        self.put("class_info", &s.class_info)?;
         self.put("syllabus", &s.syllabus)?;
         self.put("host", &s.host)?;
         self.put("own_deadlines", &s.own_deadlines)?;
@@ -642,10 +647,11 @@ impl Store {
             .unwrap_or_default();
         done.retain(|id| !id.starts_with("own:"));
         done.extend(b.done.iter().filter(|id| id.starts_with("own:")).cloned());
-        let kv: [(&str, String); 7] = [
+        let kv: [(&str, String); 8] = [
             ("marks", serde_json::to_string(&b.marks)?),
             ("colors", serde_json::to_string(&b.colors)?),
             ("goals", serde_json::to_string(&b.goals)?),
+            ("class_info", serde_json::to_string(&b.class_info)?),
             ("syllabus", serde_json::to_string(&b.syllabus)?),
             ("own_deadlines", serde_json::to_string(&b.own_deadlines)?),
             ("done", serde_json::to_string(&done)?),
@@ -697,6 +703,25 @@ mod tests {
         assert_eq!(store.mabini().unwrap(), data, "signing out of the SIS leaves eMabini alone");
         store.forget_mabini().unwrap();
         assert_eq!(store.mabini().unwrap(), crate::mabini::MabiniData::default());
+    }
+
+    #[test]
+    fn c1_class_info_survives_sync() {
+        let store = Store::in_memory().unwrap();
+        let mut snap = Snapshot::default();
+        snap.class_info.insert("COMP 20073".into(), ClassInfo { link: Some("https://meet.google.com/x".into()), about: Some("Room B".into()) });
+        store.save(&snap).unwrap();
+        // A sync rewrites sessions and grades on the loaded snapshot.
+        let mut synced = store.load().unwrap();
+        synced.sessions.clear();
+        synced.last_synced = Some("2".into());
+        store.save(&synced).unwrap();
+        assert_eq!(store.load().unwrap().class_info, snap.class_info);
+        // Sign-out forgets SIS data only; Erase everything removes it.
+        store.forget_sis().unwrap();
+        assert_eq!(store.load().unwrap().class_info, snap.class_info);
+        store.wipe().unwrap();
+        assert!(store.load().unwrap().class_info.is_empty());
     }
 
     #[test]
