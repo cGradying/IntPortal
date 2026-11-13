@@ -182,7 +182,8 @@ impl ClassInfo {
         let link = keep(link);
         if let Some(l) = &link {
             let host = l.strip_prefix("https://").map(|r| r.split(['/', '?', '#']).next().unwrap_or(""));
-            if host.is_none_or(str::is_empty) || l.chars().any(char::is_whitespace) {
+            // Printable ASCII only (no spaces, zero-width or lookalike characters), no `user@host` or backslash tricks.
+            if host.is_none_or(str::is_empty) || l.bytes().any(|b| !b.is_ascii_graphic() || b == b'@' || b == b'\\') {
                 return Err(BAD_LINK);
             }
         }
@@ -196,8 +197,8 @@ impl ClassInfo {
 
 /// The link Up next offers as Join (C4): the next class is marked online for
 /// that meeting, has a link, and starts within 15 minutes or is in session.
-pub fn join_link(up: &Upcoming, marks: &Marks, info: &std::collections::BTreeMap<String, ClassInfo>) -> Option<String> {
-    if !(up.is_now || up.minutes_away <= 15) || marks.get(&up.session, up.date) != Mark::Online {
+pub fn join_link(up: &Upcoming, info: &std::collections::BTreeMap<String, ClassInfo>) -> Option<String> {
+    if !(up.is_now || up.minutes_away <= 15) || up.mark != Mark::Online {
         return None;
     }
     info.get(&up.session.subject_code)?.link.clone()
@@ -427,6 +428,8 @@ pub struct Upcoming {
     pub is_now: bool,
     /// Whole minutes until it starts; 0 once it has.
     pub minutes_away: i64,
+    /// How this meeting is marked (looked up before any move, so moved classes keep it).
+    pub mark: Mark,
 }
 
 /// The next meeting that hasn't finished, looking through next week so
@@ -440,7 +443,7 @@ pub fn next_class(sessions: &[ClassSession], marks: &Marks, now: Moment) -> Opti
         .min_by_key(|m| (m.start_abs(), m.session.start))
         .map(|m| {
             let start = m.start_abs();
-            Upcoming { is_now: start <= now_abs, minutes_away: (start - now_abs).max(0), date: m.date, session: m.session }
+            Upcoming { is_now: start <= now_abs, minutes_away: (start - now_abs).max(0), date: m.date, mark: m.mark, session: m.session }
         })
 }
 
@@ -594,15 +597,15 @@ mod tests {
         [("MATH 1".to_string(), ClassInfo { link: Some(link.into()), about: None })].into()
     }
 
-    fn up(minutes_away: i64, is_now: bool) -> Upcoming {
-        Upcoming { session: s("MATH 1", Monday, 480, 570), date: Date::new(2026, 8, 3), is_now, minutes_away }
+    fn up(minutes_away: i64, is_now: bool, mark: Mark) -> Upcoming {
+        Upcoming { session: s("MATH 1", Monday, 480, 570), date: Date::new(2026, 8, 3), is_now, minutes_away, mark }
     }
 
     #[test]
     fn c2_link_must_be_https() {
         let ok = |l: &str| ClassInfo::clean(Some(l.into()), None);
         assert_eq!(ok("  https://meet.google.com/abc-defg  ").unwrap().link.as_deref(), Some("https://meet.google.com/abc-defg"));
-        for bad in ["http://meet.google.com/x", "meet.google.com/x", "javascript:alert(1)", "https://", "https:///x", "https://a b.com", "ftp://x.com"] {
+        for bad in ["http://meet.google.com/x", "meet.google.com/x", "javascript:alert(1)", "https://", "https:///x", "https://a b.com", "ftp://x.com", "https://meet.google.com@evil.example/", "https://evil.example\\@meet.google.com/", "https://meet.google.com\\x", "https://meet.google.com/\u{200b}x", "https://meet.google.com/\0", "https://m\u{435}et.google.com/"] {
             assert_eq!(ok(bad), Err(BAD_LINK), "{bad}");
         }
         // C5: blank clears.
@@ -612,22 +615,28 @@ mod tests {
 
     #[test]
     fn c4_join_shows_within_15_minutes() {
-        let mut marks = Marks::default();
-        let online = || {
-            let mut m = Marks::default();
-            m.mode.set(&s("MATH 1", Monday, 480, 570).id(), None, Some(Mark::Online));
-            m
-        };
         let l = info("https://zoom.us/j/1");
-        assert_eq!(join_link(&up(15, false), &online(), &l).as_deref(), Some("https://zoom.us/j/1"));
-        assert_eq!(join_link(&up(0, true), &online(), &l).as_deref(), Some("https://zoom.us/j/1"), "in session");
-        assert_eq!(join_link(&up(16, false), &online(), &l), None, "too early");
+        let join = |m, n, mark| join_link(&up(m, n, mark), &l).is_some();
+        assert!(join(15, false, Mark::Online));
+        assert!(join(0, true, Mark::Online), "in session");
+        assert!(!join(16, false, Mark::Online), "too early");
+        assert!(!join(5, false, Mark::InPerson), "in person: sheet only");
+        assert!(!join(5, false, Mark::Vacant));
         let about_only = [("MATH 1".to_string(), ClassInfo { link: None, about: Some("Room".into()) })].into();
-        assert_eq!(join_link(&up(5, false), &online(), &about_only), None, "no link, no join");
-        assert_eq!(join_link(&up(5, false), &marks, &l), None, "in person: sheet only");
-        marks.mode.set(&s("MATH 1", Monday, 480, 570).id(), None, Some(Mark::Vacant));
-        assert_eq!(join_link(&up(5, false), &marks, &l), None);
-        assert_eq!(join_link(&up(5, false), &online(), &Default::default()), None);
+        assert_eq!(join_link(&up(5, false, Mark::Online), &about_only), None, "no link, no join");
+        assert_eq!(join_link(&up(5, false, Mark::Online), &Default::default()), None);
+    }
+
+    #[test]
+    fn c4_a_moved_online_class_keeps_join() {
+        let sessions = [s("MATH 1", Monday, 480, 570)];
+        let mut marks = Marks::default();
+        marks.mode.set(&sessions[0].id(), None, Some(Mark::Online));
+        marks.moved.set(&sessions[0].id(), None, Some(Slot { day: Tuesday, start: 600, end: 690 }));
+        let now = Moment { date: Date::new(2026, 8, 4), minute: 590 };
+        let next = next_class(&sessions, &marks, now).unwrap();
+        assert_eq!(next.mark, Mark::Online);
+        assert_eq!(join_link(&next, &info("https://zoom.us/j/1")).as_deref(), Some("https://zoom.us/j/1"));
     }
 
     #[test]

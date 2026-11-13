@@ -26,6 +26,7 @@
   function close() {
     if (closing) return;
     closing = true;
+    if (dirty()) void saveInfo();
     if (!sheet || !from || reduce) return onclose();
     sheet.animate([{ transform: "none", transformOrigin: "0 0", opacity: 1 }, { transform: blockTransform(sheet, from), transformOrigin: "0 0", opacity: 0.2 }], { duration: 300, easing: "cubic-bezier(0.5, 0, 0.75, 0)", fill: "forwards" }).onfinish = () => onclose();
   }
@@ -36,19 +37,31 @@
   const colors = $derived(app.snapshot?.colors ?? {});
   const info = $derived(app.snapshot?.class_info?.[s.subject_code]);
   // The student's link and description, edited on this sheet (spec 030 C3, C5).
+  // Seeded once per subject, so a snapshot refresh never overwrites typing.
   let link = $state("");
   let about = $state("");
+  let seeded = "";
   $effect(() => {
+    if (seeded === s.subject_code) return;
+    seeded = s.subject_code;
     link = info?.link ?? "";
     about = info?.about ?? "";
   });
+  let linkProblem = $state("");
+  const dirty = () => link.trim() !== (info?.link ?? "") || about.trim() !== (info?.about ?? "");
+  /** A refused link doesn't stop the description from saving; the stored link stays. */
   async function saveInfo(l = link) {
+    linkProblem = "";
     try {
       await adopt(await api.setClassInfo(s.subject_code, l || null, about || null));
       buzz.tick();
-      problem = "";
     } catch (e) {
-      problem = String(e);
+      linkProblem = String(e);
+      try {
+        await adopt(await api.setClassInfo(s.subject_code, info?.link ?? null, about || null));
+      } catch {
+        // The description stays on screen; the next blur tries again.
+      }
     }
   }
   const swatches = [1, 2, 3, 4, 5, 6].map((n) => `var(--s${n})`);
@@ -133,11 +146,12 @@
     <textarea rows="2" bind:value={about} onblur={() => saveInfo()} aria-label="Your description"></textarea>
     {#if s.description}<p class="sis">{s.description}</p>{/if}
     <p class="label">Meeting link</p>
-    <input type="url" class="field" bind:value={link} onblur={() => saveInfo()} placeholder="https://meet.google.com/…" aria-label="Meeting link" />
+    <input type="url" class="field" bind:value={link} onblur={() => saveInfo()} placeholder="https://meet.google.com/…" aria-label="Meeting link" aria-invalid={!!linkProblem} />
+    {#if linkProblem}<p class="problem" role="alert">{linkProblem}</p>{/if}
     {#if info?.link}
       <div class="opts two">
-        <button class="note" aria-label="Join {s.subject_code} class" onclick={() => { buzz.tick(); openLink(info!.link!); }}>Join class</button>
-        <button onclick={() => { link = ""; saveInfo(""); }}>Clear link</button>
+        <button class="note" aria-label="Join {s.subject_code} class" onclick={() => { buzz.tick(); openLink(info!.link!, true); }}>Join class</button>
+        <button onclick={() => { link = ""; void saveInfo(""); }}>Clear link</button>
       </div>
     {/if}
     <p class="label">Colour</p>

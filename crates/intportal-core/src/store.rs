@@ -647,16 +647,29 @@ impl Store {
             .unwrap_or_default();
         done.retain(|id| !id.starts_with("own:"));
         done.extend(b.done.iter().filter(|id| id.starts_with("own:")).cloned());
-        let kv: [(&str, String); 8] = [
+        // Links are checked again here: a hand-edited file must not smuggle one in.
+        let class_info = b
+            .class_info
+            .as_ref()
+            .map(|m| {
+                m.iter()
+                    .map(|(k, i)| ClassInfo::clean(i.link.clone(), i.about.clone()).map(|i| (k.clone(), i)).map_err(|e| StoreError::Io(std::io::Error::other(e))))
+                    .filter(|r| r.as_ref().map_or(true, |(_, i)| !i.is_empty()))
+                    .collect::<Result<BTreeMap<_, _>, _>>()
+            })
+            .transpose()?;
+        let mut kv: Vec<(&str, String)> = vec![
             ("marks", serde_json::to_string(&b.marks)?),
             ("colors", serde_json::to_string(&b.colors)?),
             ("goals", serde_json::to_string(&b.goals)?),
-            ("class_info", serde_json::to_string(&b.class_info)?),
             ("syllabus", serde_json::to_string(&b.syllabus)?),
             ("own_deadlines", serde_json::to_string(&b.own_deadlines)?),
             ("done", serde_json::to_string(&done)?),
             ("study_stats", serde_json::to_string(&b.study_stats)?),
         ];
+        if let Some(c) = class_info {
+            kv.push(("class_info", serde_json::to_string(&c)?));
+        }
         for (k, json) in kv {
             tx.execute("INSERT INTO kv (key, json) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET json = excluded.json", params![k, json])?;
         }

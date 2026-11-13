@@ -98,8 +98,9 @@ pub struct Backup {
     pub marks: Marks,
     pub colors: BTreeMap<String, String>,
     /// Links and descriptions by subject code (spec 030 C1).
+    /// `None` in a file from before spec 030: restore then leaves the phone's alone.
     #[serde(default)]
-    pub class_info: BTreeMap<String, ClassInfo>,
+    pub class_info: Option<BTreeMap<String, ClassInfo>>,
     pub own_deadlines: Vec<OwnDeadline>,
     pub done: BTreeSet<String>,
     pub study_stats: Stats,
@@ -166,7 +167,7 @@ impl Backup {
             goals,
             marks,
             colors,
-            class_info,
+            class_info: Some(class_info),
             own_deadlines,
             done,
             study_stats: store.study_stats()?,
@@ -292,6 +293,28 @@ mod tests {
         assert_eq!(y.host, None, "SIS data isn't restored");
         assert_eq!(b.preview().notes, 1);
         assert_eq!(b.preview().themes, 1);
+    }
+
+    #[test]
+    fn c10_old_backup_keeps_the_phones_class_info() {
+        let mut v: serde_json::Value = serde_json::from_str(&file(&filled())).unwrap();
+        v.as_object_mut().unwrap().remove("class_info");
+        let old = Backup::parse(&v.to_string()).unwrap();
+        assert_eq!(old.class_info, None);
+        let phone = filled();
+        phone.restore(&old).unwrap();
+        assert_eq!(phone.load().unwrap().class_info.len(), 1);
+    }
+
+    #[test]
+    fn c10_bad_class_link_in_a_backup_changes_nothing() {
+        let s = filled();
+        let before = s.load().unwrap();
+        let mut b = Backup::parse(&file(&s)).unwrap();
+        b.class_info.as_mut().unwrap().insert("B".into(), ClassInfo { link: Some("http://x.example".into()), about: None });
+        b.colors.clear();
+        assert!(s.restore(&b).is_err());
+        assert_eq!(before, s.load().unwrap());
     }
 
     #[test]

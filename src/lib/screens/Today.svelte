@@ -171,7 +171,7 @@
               <h2 style:color={subjectColor(next.session.subject_code, colors)}>{next.session.subject_code}</h2>
               <p class="desc">{next.session.description}</p>
               <p class="meta">{clock(next.session.start)}–{clock(next.session.end)}{next.session.faculty ? ` · ${next.session.faculty}` : ""}</p>
-              {#if t?.join}<button class="join" aria-label="Join {next.session.subject_code} class" onclick={() => { buzz.tick(); openLink(t!.join!); }}>Join</button>{/if}
+              {#if t?.join}<button class="join" aria-label="Join {next.session.subject_code} class" onclick={() => { buzz.tick(); openLink(t!.join!, true); }}>Join</button>{/if}
             </div>
             <div class="count" use:tick={`${hero.big} ${hero.unit}`}>
               <span class="big"><PixelNum text={hero.big} size={5} /></span>

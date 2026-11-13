@@ -715,7 +715,9 @@ fn set_color(state: tauri::State<'_, AppState>, subject_code: String, color: Opt
 /// A class's meeting link and description (030 C1, C2, C5). Blank clears; a
 /// link that isn't https is refused and nothing is saved.
 #[tauri::command]
-fn set_class_info(state: tauri::State<'_, AppState>, subject_code: String, link: Option<String>, about: Option<String>) -> Res<Snapshot> {
+async fn set_class_info(state: tauri::State<'_, AppState>, subject_code: String, link: Option<String>, about: Option<String>) -> Res<Snapshot> {
+    // Held so a sync's refresh can't write back the snapshot it loaded before this save.
+    let _sync = state.client.lock().await;
     let info = today::ClassInfo::clean(link, about)?;
     edit(&state, |s| {
         if info.is_empty() {
@@ -1169,7 +1171,7 @@ fn today(state: tauri::State<'_, AppState>, now: Moment, sync_trouble: Option<St
     Ok(Today {
         agenda,
         countdown: next.as_ref().map(|n| n.countdown(now)),
-        join: next.as_ref().and_then(|n| today::join_link(n, &snap.marks, &snap.class_info)),
+        join: next.as_ref().and_then(|n| today::join_link(n, &snap.class_info)),
         next,
         glance_line: glance.line(),
         glance,
