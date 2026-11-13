@@ -51,7 +51,7 @@ pub fn account_file(student_number: &str) -> String {
 }
 
 /// The same hash on its own, what a backup file carries to say whose it is.
-pub fn student_hash(student_number: &str) -> String {
+fn student_hash(student_number: &str) -> String {
     let key: String = student_number.chars().filter(|c| c.is_ascii_alphanumeric()).map(|c| c.to_ascii_uppercase()).collect();
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in key.bytes() {
@@ -470,13 +470,22 @@ impl Store {
         for d in &b.decks {
             tx.execute("INSERT INTO decks (id, json) VALUES (?1, ?2)", params![d.id, serde_json::to_string(d)?])?;
         }
+        // eMabini's Done marks (`mab:`) belong to this phone's sync; only own ones come from the file.
+        let mut done: std::collections::BTreeSet<String> = tx
+            .query_row("SELECT json FROM kv WHERE key = 'done'", [], |r| r.get::<_, String>(0))
+            .optional()?
+            .map(|j| serde_json::from_str(&j))
+            .transpose()?
+            .unwrap_or_default();
+        done.retain(|id| !id.starts_with("own:"));
+        done.extend(b.done.iter().filter(|id| id.starts_with("own:")).cloned());
         let kv: [(&str, String); 7] = [
             ("marks", serde_json::to_string(&b.marks)?),
             ("colors", serde_json::to_string(&b.colors)?),
             ("goals", serde_json::to_string(&b.goals)?),
             ("syllabus", serde_json::to_string(&b.syllabus)?),
             ("own_deadlines", serde_json::to_string(&b.own_deadlines)?),
-            ("done", serde_json::to_string(&b.done)?),
+            ("done", serde_json::to_string(&done)?),
             ("study_stats", serde_json::to_string(&b.study_stats)?),
         ];
         for (k, json) in kv {

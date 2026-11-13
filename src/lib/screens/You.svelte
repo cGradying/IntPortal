@@ -61,6 +61,8 @@
   let backupNote = $state("");
   let backupBad = $state(false);
   let picked = $state<{ text: string; preview: BackupPreview } | null>(null);
+  let sure = $state(false);
+  const MAX_BACKUP = 25 * 1024 * 1024;
   const say = (note: string, bad = false) => ((backupNote = note), (backupBad = bad));
   const size = (n: number) => (n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 ** 2).toFixed(1)} MB`);
   $effect(() => {
@@ -80,7 +82,9 @@
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = "";
     picked = null;
+    sure = false;
     if (!file) return;
+    if (file.size > MAX_BACKUP) return say("That file is too big to be an IntPortal backup.", true);
     try {
       const text = await file.text();
       picked = { text, preview: await api.backupPreview(text) };
@@ -95,6 +99,7 @@
       restoreThemes(await api.backupRestore(picked.text));
       await adopt(await api.snapshot());
       picked = null;
+      sure = false;
       say("Restored.");
       api.spaceUsed().then((s) => (space = s), () => {});
     } catch (err) {
@@ -436,9 +441,15 @@
           {#if picked}
             {@const p = picked.preview}
             <p class="fine">Made {new Date(p.made * 1000).toLocaleDateString()}: {p.notes} notes, {p.decks} decks ({p.cards} cards), {p.syllabus_pages} syllabus pages, {p.own_deadlines} of your own deadlines, {p.themes} themes{p.photos ? `, ${p.photos} photos` : ""}.</p>
-            <p class="fine">Restoring replaces the notes, decks, syllabus pages, goals, marks, deadlines, colours and streak on this phone with these.</p>
-            <button class="danger" onclick={restore}>Replace with this backup</button>
-            <button class="ghost" onclick={() => (picked = null)}>Cancel</button>
+            <p class="fine">Restoring replaces the notes, decks, syllabus pages, goals, marks, your own deadlines and Done marks, colours, streak and saved themes on this phone with these.</p>
+            {#if sure}
+              <p class="fine bad">Replace your notes, decks, marks, Done marks and saved themes with this backup? This can't be undone.</p>
+              <button class="danger" onclick={restore}>Replace</button>
+              <button class="ghost" onclick={() => (sure = false)}>Cancel</button>
+            {:else}
+              <button class="danger" onclick={() => (sure = true)}>Replace with this backup</button>
+              <button class="ghost" onclick={() => (picked = null)}>Cancel</button>
+            {/if}
           {/if}
         </section>
         {#if backupNote}<p class="fine" class:bad={backupBad} role="status">{backupNote}</p>{/if}

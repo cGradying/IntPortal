@@ -612,35 +612,47 @@ fn open_account(state: &AppState, student_number: &str) -> Res<()> {
     std::fs::write(state.dir.join(CURRENT), &name).map_err(err)
 }
 
-/// The student number signed in to the SIS, else to eMabini: whose store is open.
-fn signed_in_student() -> Option<String> {
-    vault::load().map(|l| l.student_number).or_else(|| mabini_vault::load().map(|l| l.student_number))
+/// The student number whose store is open: the signed-in number whose file is
+/// the one `current-account` names. Not just "whoever is signed in", since
+/// signing out of the SIS with eMabini still in leaves the SIS student's store open.
+fn open_student(state: &AppState) -> Option<String> {
+    let open = std::fs::read_to_string(state.dir.join(CURRENT)).ok()?;
+    [vault::load().map(|l| l.student_number), mabini_vault::load().map(|l| l.student_number)]
+        .into_iter()
+        .flatten()
+        .find(|n| account_file(n) == open.trim())
 }
 
 /// The backup file's text (spec 047 C9). `themes` is the webview's saved themes.
+/// Holds the sync lock, so a refresh can't save over a backup being read.
 #[tauri::command]
-fn backup_make(state: tauri::State<'_, AppState>, themes: Vec<serde_json::Value>) -> Res<String> {
-    let who = signed_in_student().ok_or("Sign in first, then back up.")?;
+async fn backup_make(state: tauri::State<'_, AppState>, themes: Vec<serde_json::Value>) -> Res<String> {
+    let _sync = state.client.lock().await;
+    let who = open_student(&state).ok_or("Sign in first, then back up.")?;
+    let mut salt = [0u8; 16];
+    getrandom::fill(&mut salt).map_err(|_| "Couldn't make the backup.")?;
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
-    let b = Backup::make(&state.store.lock().unwrap(), &who, themes, now).map_err(err)?;
-    serde_json::to_string(&b).map_err(err)
+    let b = Backup::make(&state.store.lock().unwrap(), &who, salt, themes, now).map_err(|_| "Couldn't make the backup.")?;
+    serde_json::to_string(&b).map_err(|_| "Couldn't make the backup.".to_string())
 }
 
 /// Reads a backup and says what it holds; refuses a damaged, newer or other student's file (C10).
 #[tauri::command]
-fn backup_preview(text: String) -> Res<backup::Preview> {
+fn backup_preview(state: tauri::State<'_, AppState>, text: String) -> Res<backup::Preview> {
     let b = Backup::parse(&text).map_err(err)?;
-    b.check(signed_in_student().as_deref()).map_err(err)?;
+    b.check(open_student(&state).as_deref()).map_err(err)?;
     Ok(b.preview())
 }
 
 /// Replaces the student's notes, decks and the rest with the file's, or changes nothing.
-/// Returns the file's themes for the webview to save.
+/// Returns the file's themes for the webview to save. Holds the sync lock (a refresh
+/// saves a whole snapshot and would revert it) and the AI index lock.
 #[tauri::command]
-fn backup_restore(state: tauri::State<'_, AppState>, text: String) -> Res<Vec<serde_json::Value>> {
+async fn backup_restore(state: tauri::State<'_, AppState>, ai: tauri::State<'_, ai::AiState>, text: String) -> Res<Vec<serde_json::Value>> {
+    let _sync = state.client.lock().await;
     let b = Backup::parse(&text).map_err(err)?;
-    b.check(signed_in_student().as_deref()).map_err(err)?;
-    state.store.lock().unwrap().restore(&b).map_err(err)?;
+    b.check(open_student(&state).as_deref()).map_err(err)?;
+    ai::while_idle(&ai, || state.store.lock().unwrap().restore(&b).map_err(|_| "Couldn't restore that backup, so nothing changed.".to_string()))??;
     Ok(b.themes)
 }
 

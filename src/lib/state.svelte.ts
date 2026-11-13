@@ -394,10 +394,16 @@ export function themesForBackup(): unknown[] {
   }
 }
 
-/** Puts a backup's themes in place. Each goes through the same strict check as a pasted code. */
+/** Adds a backup's themes to the phone's: the file's win on the same id, the phone's others stay.
+ *  Each goes through the same strict check as a pasted code. */
 export function restoreThemes(list: unknown[]) {
-  write("themes", JSON.stringify(list));
-  app.themes = loadThemes();
+  const incoming = list.flatMap((x) => {
+    const t = x as { id?: unknown; code?: unknown };
+    const theme = typeof t?.id === "string" && typeof t?.code === "string" ? decodeTheme(t.code) : null;
+    return theme ? [{ id: t.id as string, theme }] : [];
+  });
+  const ids = new Set(incoming.map((s) => s.id));
+  app.themes = [...app.themes.filter((s) => !ids.has(s.id)), ...incoming];
   writeThemes();
   if (app.room.startsWith("theme:") && !themeOf(app.room)) setRoom("night");
 }
