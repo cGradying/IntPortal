@@ -521,6 +521,13 @@ fn open_note(state: &AppState, key: &str) -> Option<String> {
     Some(format!("{}: {}", notes::heading(&n), n.text.chars().take(2500).collect::<String>()))
 }
 
+/// Runs `f` while no search index is being built, or says so. Restore uses it so
+/// `index()` can't write chunks for notes that restore just replaced.
+pub fn while_idle<T>(ai: &AiState, f: impl FnOnce() -> T) -> Res<T> {
+    let _slot = ai.embedder.try_lock().map_err(|_| "IntAssis is busy, try again in a moment.".to_string())?;
+    Ok(f())
+}
+
 /// After a note is saved: embed what changed, so the next question finds it.
 #[tauri::command]
 pub async fn ai_index(app: tauri::AppHandle, ai: tauri::State<'_, AiState>) -> Res<()> {

@@ -1,6 +1,6 @@
 # 011 Login
 
-**Status:** draft
+**Status:** shipped (2026-11-14). Every criterion is built.
 
 ## What changes for the student
 
@@ -24,18 +24,27 @@ Typography is a new pair from OFL fonts: Geist for the interface and Pixelify Sa
 **Form**
 
 - **C1.** The birthdate is three wheels (month, day, year) with stepped snapping and one haptic tick per step.
+  *Built 2026-11-14:* `DateWheels.svelte`: tapping Birthdate opens a sheet of three scroll-snap wheels under a gold band, one `select` tick per row, Done fills the field.
 - **C2.** The year wheel offers a plausible range (the current year minus 14 down to minus 70).
+  *Built 2026-11-14:* `birthYears` in `portals.ts`.
 - **C3.** The day wheel never offers a day the chosen month and year do not have.
+  *Built 2026-11-14:* `daysIn`; a shorter month pulls the day back to its last.
 - **C4.** The student number is masked as `YYYY-NNNNN-CC-N` while typing. Pasting an unmasked number formats it.
+  *Built 2026-11-14:* `maskStudentNumber`, on every input and paste.
 - **C5.** The password field has a show/hide toggle; it defaults to hidden and returns to hidden when the app backgrounds.
+  *Built 2026-11-14:* the password hides on `visibilitychange` when the page goes hidden.
 - **C6.** A line under the form says `N tries left` once the student has used any attempt in the current window.
 - **C7.** Sign in is disabled until all fields are valid and while a request is running.
+  *Built 2026-11-14:* Sign in is disabled while `validate` finds a problem, while busy, and while locked.
 
 **States**
 
 - **C8.** A rejected login shows the SIS's own message, or the fallback "Sign-in didn't go through. Check your student number, birthdate and password."
+  *Built 2026-11-14:* a rejection in words the app can't read gets the fallback.
 - **C9.** When no SIS host answers, the form shows an "SIS is down" state with a Try again button. This is not counted as a rejected login.
+  *Built 2026-11-14:* an unreachable SIS shows the Down line with Try again; the core's guard spends no try on it (`c128_3_page_down_spends_no_try`).
 - **C10.** A signed-in account whose schedule is empty on every probed host shows "Signed in, but your schedule isn't up yet" and still lets the student in.
+  *Built 2026-11-14:* the guard returns the open session with no rows for a tap, so `sign_in` keeps the login and saves an empty schedule; the landing says "Signed in, but your schedule isn't up yet." under Step through. A background sync still refuses an empty schedule (`NoSchedule`), so it never wipes a schedule the phone already has.
 
 **Lockout guard** (core; the UI only shows its result)
 
@@ -106,9 +115,10 @@ LAR's lines follow the stage ([010](010-landing.md) C19).
 
 | Criterion | Check |
 |---|---|
-| C1–C5 | vitest on the wheel and mask logic; screenshots |
+| C1–C5 | vitest `portals.test.ts`: `c2_years_run_14_to_70_years_back`, `c3_the_day_wheel_fits_the_month`, `c4_student_number_is_masked_as_typed_and_pasted`; simulator: the wheels, Done, the mask |
 | C6, C17 | vitest on the tries view; screenshot |
 | C7–C10 | screenshot with a fake core |
+| C10 | `cargo test`: `c10_empty_schedule_lets_a_tap_in_and_is_not_retried_on_another_host`, `c10_a_sync_never_adopts_an_empty_schedule` |
 | C11–C15 | `cargo test -p intportal-core` in `sis/` with a fake client: counts POSTs per scenario |
 | C12 | `cargo test`: three rejects within 15 minutes block the fourth; the window slides |
 | C16 | `cargo test -p intportal`: `sync` after a reject performs zero POSTs |
