@@ -131,8 +131,10 @@ pub async fn sign_in_guarded<C: Sis>(
     let signed_in = client.sign_in(c).await;
     ledger.record(&signed_in);
     signed_in?;
+    // Signed in with no schedule (011 C10, C15): a tap keeps this one session and lets the
+    // student in; a background sync refuses it, so it never wipes the schedule it has.
     match client.schedule().await? {
-        rows if rows.is_empty() => Err(Error::NoSchedule),
+        rows if rows.is_empty() && auto => Err(Error::NoSchedule),
         rows => Ok((client, rows)),
     }
 }
@@ -216,9 +218,17 @@ mod tests {
     }
 
     #[test]
-    fn empty_schedule_is_not_retried_on_another_host() {
+    fn c10_empty_schedule_lets_a_tap_in_and_is_not_retried_on_another_host() {
         let mut l = Ledger::default();
         let (r, log) = run(&[], false, false, 0, &mut l, 1000, false);
+        assert_eq!(r, Ok(0), "a tap gets the open session, with no rows");
+        assert_eq!(log.posts.len(), 1);
+    }
+
+    #[test]
+    fn c10_a_sync_never_adopts_an_empty_schedule() {
+        let mut l = Ledger::default();
+        let (r, log) = run(&[], false, false, 0, &mut l, 1000, true);
         assert_eq!(r, Err(Error::NoSchedule));
         assert_eq!(log.posts.len(), 1);
     }
