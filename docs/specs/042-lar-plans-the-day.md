@@ -38,12 +38,14 @@ LAR turns the day's free time into one concrete plan: "Free 1–3 PM: start Lab 
   - no deadline: "Free 1–3 PM: 12 cards fit. Kaya mo 'yan.";
   - no cards: "Free 1–3 PM: start Lab 4 (due tonight)."
 - **C4.** Tapping the plan starts it. A deadline opens the way 041 C8 does (its outline, or eMabini). With cards only, it starts a review of those cards (040 C9's session, filtered to that subject).
+  *Built 2026-11-14:* with cards only (no subject), Start calls `startReview(null)`, which opens Study and starts the all-due session. `dueDecks` in `planning.ts`; vitest `c4_*`.
 - **C5.** The plan outranks the coach's existing Deadline and UseTheGap nudges while its gap is ahead. With no gap, or nothing to do, the existing nudges apply unchanged. Dismissing it hides it for the rest of that gap.
 
 **Warm-up before class**
 
 - **C6.** A class reminder for a subject whose deck has cards due adds a line: "COMP 20073 in 15 min · Review 5 cards?" It is still one notification and doesn't count against the cap.
 - **C7.** Tapping that reminder opens a 5-card review of that subject's due cards. Tapping a plain class reminder opens Today, as now.
+  *Built 2026-11-14:* `study:<code>:5` calls `startReview(code, 5)`; Study starts a session on that subject's due decks, capped at 5 cards (`StudySession` `limit`). `study:<code>` with no count still opens the deck page. Vitest `c7_*` in `notify.test.ts`.
 
 **Note after class**
 
@@ -71,6 +73,7 @@ LAR turns the day's free time into one concrete plan: "Free 1–3 PM: start Lab 
   - **The ranking when over:** deadline (evening-before and 8 AM), then the Sunday brief, then the study day, then note after class. The lower ones are dropped for that day.
 - **C15.** Nothing from the budget fires between 10 PM and 7 AM. A heads-up that falls in that window moves to 7 AM the same morning if it is still ahead of what it's about; otherwise it is dropped.
 - **C16.** You has one switch per type:
+  *Built 2026-11-14:* `scheduleReminders` returns early only when every switch is off, extras included (`anyReminderOn`), so the Sunday brief and the after-class note still schedule with class, deadline and study off. Vitest `c16_*`.
   - Deadline heads-ups (existing)
   - Study days (existing)
   - Warm-up in class reminders (new, on)

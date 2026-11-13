@@ -16,6 +16,8 @@
   import { buzz } from "../haptics";
   import { resource } from "../load.svelte";
   import { app, openNote } from "../state.svelte";
+  import { dueDecks } from "../planning";
+  import { friendly } from "../errors";
   import { assis } from "../assis/assis.svelte";
 
   const study = resource(() => api.study(isoDate(new Date())));
@@ -57,6 +59,22 @@
   });
   // Spec 040 C9: every due card across decks in one session.
   let reviewing = $state<Deck[] | null>(null);
+  let reviewLimit = $state(0);
+  let notice = $state("");
+  // A review asked for from elsewhere (LAR's plan, a notification): start it here.
+  $effect(() => {
+    const ask = app.review;
+    if (!ask) return;
+    app.review = null;
+    notice = "";
+    api.study(isoDate(new Date()))
+      .then((o) => Promise.all(dueDecks(o.decks, ask.subject).map((d) => api.deck(d.id))))
+      .then((ds) => {
+        if (ds.length) [reviewing, reviewLimit] = [ds, ask.limit];
+        else notice = "Nothing due right now.";
+      })
+      .catch((e) => (notice = friendly(e)));
+  });
   // The notebook pulled out on the shelf; a new note from the + is filed there (046 C2).
   let shelfAt = $state(GENERAL);
   async function reviewAll() {
@@ -103,7 +121,7 @@
 {/snippet}
 
 {#if reviewing}
-  <StudySession decks={reviewing} mode="flash" title="All due" onclose={() => { reviewing = null; study.reload(); }} />
+  <StudySession decks={reviewing} mode="flash" title="All due" limit={reviewLimit} onclose={() => { reviewing = null; study.reload(); }} />
 {:else if app.deck}
   {#key app.deck}<DeckPage id={app.deck} onclose={() => { app.deck = null; study.reload(); }} />{/key}
 {:else}
@@ -111,6 +129,7 @@
     <div class="screen" style:--from="{from}px">
       {#if part === "home"}
         <h1>Study</h1>
+        {#if notice}<p class="notice" role="status">{notice}</p>{/if}
         {#if study.current.state === "failed"}<ErrorCard error={study.current.error} onretry={study.reload} />{/if}
 
         <button class="card notch tile" onclick={() => go("review")}>
@@ -665,6 +684,11 @@
   .ghost.sm {
     height: 44px;
     padding: 0 12px;
+  }
+  .notice {
+    margin: 0;
+    font-size: min(0.765rem, 23px);
+    color: var(--ink-2);
   }
   .problem {
     margin: 0;

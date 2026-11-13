@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import Synced from "../Synced.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Scene from "../Scene.svelte";
@@ -11,7 +12,9 @@
   import { buzz } from "../haptics";
   import { app } from "../state.svelte";
   import { api, clock, isoDate, moment, span, subjectColor, WEEKDAYS, type DeadlineEntry, type Meeting, type Weekday } from "../api";
-  import { gapText, gaps, month, movedFrom, phaseOf, pin, stampOf } from "../weekModel";
+  import { gapText, gaps, month, movedFrom, phaseOf, pin, stampOf, weekRange } from "../weekModel";
+  import { settle, step, type Motion } from "../carousel";
+  import Lar from "../lar/Lar.svelte";
 
   const todayIdx = (new Date().getDay() + 6) % 7;
   let day = $state<Weekday>(WEEKDAYS[todayIdx]);
@@ -36,9 +39,9 @@
       return d;
     }),
   );
-  const weekLabel = $derived(
-    offset === 0 ? "This week" : offset === 1 ? "Next week" : offset === -1 ? "Last week" : `Week of ${monday.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
-  );
+  // C10: the header names the week, with its date range.
+  const weekName = $derived(offset === 0 ? "This week" : offset === 1 ? "Next week" : offset === -1 ? "Last week" : "");
+  const range = $derived(weekRange(monday));
 
   // The core applies marks and moves; re-read whenever the snapshot changes.
   const week = resource(() => api.week(isoDate(monday)));
@@ -58,6 +61,7 @@
       .catch(() => (spans = []));
   });
 
+  const shown = $derived(meetings.filter((m) => !(hideVacant && m.mark === "vacant")));
   const list = $derived(meetings.filter((m) => m.session.day === day && !(hideVacant && m.mark === "vacant")));
 
   // The clock, for what's finished and what's in progress (spec 044 C7, C9).
@@ -108,11 +112,56 @@
   }
 
   // The list follows the finger across days. Past 60 px or a quick flick it springs
-  // on to the next day; otherwise it springs back (spec 044 C9a).
-  const SPRING = "cubic-bezier(0.34, 1.3, 0.64, 1)";
+  // on to the next day; otherwise it springs back (spec 044 C9a). The day strip's
+  // selection slides with it, and a change of week rides the same spring (C10), the
+  // one from carousel.ts.
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let swipeEl = $state<HTMLElement>();
   let swipeFrom: { x: number; y: number; t: number; sideways: boolean | null } | null = null;
+  const dayIdx = $derived(WEEKDAYS.indexOf(day));
+  // Fractional strip position, and the sideways offsets of the day list and the week, in px.
+  let sel = $state(todayIdx);
+  let listX = $state(0);
+  let weekX = $state(0);
+  let selM: Motion = { pos: todayIdx, vel: 0 };
+  let listM: Motion = { pos: 0, vel: 0 };
+  let weekM: Motion = { pos: 0, vel: 0 };
+  let raf = 0;
+  let last = 0;
+  // While a finger is down the day springs hold still; the week's keeps running.
+  let dragging = false;
+  const near = (m: Motion, to: number, tol: number) => Math.abs(m.pos - to) < tol && Math.abs(m.vel) < tol * 10;
+  function frame(t: number) {
+    const dt = Math.min(0.05, (t - last) / 1000);
+    last = t;
+    if (!dragging) {
+      selM = step(selM, dayIdx, dt);
+      listM = step(listM, 0, dt);
+      if (settle(selM, dayIdx)) selM = { pos: dayIdx, vel: 0 };
+      if (near(listM, 0, 0.5)) listM = { pos: 0, vel: 0 };
+    }
+    weekM = step(weekM, 0, dt);
+    if (near(weekM, 0, 0.5)) weekM = { pos: 0, vel: 0 };
+    [sel, listX, weekX] = [selM.pos, listM.pos, weekM.pos];
+    // A finished loop clears its id, so glide() can start the next one.
+    raf = dragging || selM.pos !== dayIdx || listM.pos || weekM.pos ? requestAnimationFrame(frame) : 0;
+  }
+  function glide() {
+    if (still) {
+      selM = { pos: dayIdx, vel: 0 };
+      [listM, weekM] = [{ pos: 0, vel: 0 }, { pos: 0, vel: 0 }];
+      [sel, listX, weekX] = [dayIdx, 0, 0];
+      return;
+    }
+    if (raf) return;
+    last = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+  $effect(() => {
+    void day;
+    glide();
+  });
+  onDestroy(() => cancelAnimationFrame(raf));
   function swipeStart(e: TouchEvent) {
     swipeFrom = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), sideways: null };
   }
@@ -121,7 +170,11 @@
     const dx = e.touches[0].clientX - swipeFrom.x;
     const dy = e.touches[0].clientY - swipeFrom.y;
     swipeFrom.sideways ??= Math.hypot(dx, dy) > 8 ? Math.abs(dx) > Math.abs(dy) : null;
-    if (swipeFrom.sideways) swipeEl.style.transform = `translateX(${dx}px)`;
+    if (!swipeFrom.sideways) return;
+    dragging = true;
+    listM = { pos: dx, vel: 0 };
+    selM = { pos: Math.max(0, Math.min(WEEKDAYS.length - 1, dayIdx - dx / swipeEl.offsetWidth)), vel: 0 };
+    [listX, sel] = [listM.pos, selM.pos];
   }
   function swipeEnd(e: TouchEvent) {
     if (!swipeFrom) return;
@@ -129,23 +182,29 @@
     const dx = e.changedTouches[0].clientX - x;
     const dy = e.changedTouches[0].clientY - y;
     swipeFrom = null;
-    const el = swipeEl;
+    dragging = false;
     const flick = Math.abs(dx) / Math.max(1, performance.now() - t) > 0.5;
-    const i = WEEKDAYS.indexOf(day) + (dx < 0 ? 1 : -1);
+    const i = dayIdx + (dx < 0 ? 1 : -1);
     const go = sideways !== false && (Math.abs(dx) >= 60 || flick) && Math.abs(dx) > Math.abs(dy) && i >= 0 && i < WEEKDAYS.length;
-    if (el) el.style.transform = "";
+    // The new day arrives from the side the finger pulled toward; a short drag springs back.
+    listM = { pos: still || !dx ? 0 : go ? -Math.sign(dx) * Math.min(swipeEl?.offsetWidth ?? 120, 120) : dx, vel: 0 };
+    listX = listM.pos;
     if (go) {
       day = WEEKDAYS[i];
       buzz.select();
     }
-    if (!el || still || !dx) return;
-    const from = go ? -Math.sign(dx) * Math.min(el.offsetWidth, 120) : dx;
-    el.animate([{ transform: `translateX(${from}px)` }, { transform: "translateX(0)" }], { duration: 320, easing: SPRING });
+    glide();
   }
-  function changeWeek(dir: -1 | 1) {
-    offset += dir;
+  /** Moves to a week, which slides in from the side it lies on. */
+  function goWeek(to: number) {
+    if (to === offset) return;
+    weekM = { pos: still ? 0 : Math.sign(to - offset) * 120, vel: 0 };
+    weekX = weekM.pos;
+    offset = to;
     buzz.select();
+    glide();
   }
+  const changeWeek = (dir: -1 | 1) => goWeek(offset + dir);
 
   function setView(v: "day" | "week") {
     if (view !== v) buzz.select();
@@ -175,10 +234,10 @@
 <div class="screen">
   <header>
     <div class="weeks">
-      <button class="nav" onclick={() => offset--} aria-label="Previous week">‹</button>
-      <p class="label">{weekLabel}</p>
-      <button class="nav" onclick={() => offset++} aria-label="Next week">›</button>
-      {#if offset !== 0}<button class="nav this" onclick={() => (offset = 0)}>This week</button>{/if}
+      <button class="nav" onclick={() => goWeek(offset - 1)} aria-label="Previous week">‹</button>
+      <p class="label">{#if weekName}{weekName} · {/if}{range}</p>
+      <button class="nav" onclick={() => goWeek(offset + 1)} aria-label="Next week">›</button>
+      {#if offset !== 0}<button class="nav this" onclick={() => goWeek(0)}>This week</button>{/if}
     </div>
     <div class="title">
       <h1>Schedule</h1>
@@ -200,10 +259,16 @@
   {:else if week.current.state === "failed"}
     <ErrorCard error={week.current.error} onretry={week.reload} />
   {:else if view === "week"}
-    <WeekGrid meetings={meetings.filter((m) => !(hideVacant && m.mark === "vacant"))} {colors} todayIdx={offset === 0 ? todayIdx : -1} {spans} onpick={pick} onswipe={changeWeek} dates={dateKeys} {deadlines} />
+    {#if shown.length === 0}
+      <div class="none card notch"><Lar size={2} cube={false} state="idle" /><p>No classes this week. Pahinga muna.</p></div>
+    {/if}
+    <div class="weekslide" style:transform={weekX ? `translateX(${weekX}px)` : null}>
+    <WeekGrid meetings={shown} {colors} todayIdx={offset === 0 ? todayIdx : -1} {spans} onpick={pick} onswipe={changeWeek} dates={dateKeys} {deadlines} />
+    </div>
     <label class="toggle"><input type="checkbox" checked={hideVacant} onchange={toggleVacant} /> Hide vacant classes</label>
   {:else}
-  <div class="days" role="tablist">
+  <div class="days" role="tablist" style:--p={sel}>
+    <i class="pill" aria-hidden="true"></i>
     {#each WEEKDAYS as d, i (d)}
       <button role="tab" class:on={day === d} class:today={offset === 0 && i === todayIdx} aria-selected={day === d} onclick={() => (day = d)}>
         <span>{d.slice(0, 3)}</span>
@@ -215,7 +280,7 @@
 
   <label class="toggle"><input type="checkbox" checked={hideVacant} onchange={toggleVacant} /> Hide vacant classes</label>
 
-  <div class="swipe" bind:this={swipeEl} ontouchstart={swipeStart} ontouchmove={swipeMove} ontouchend={swipeEnd} role="presentation">
+  <div class="swipe" style:transform={listX ? `translateX(${listX}px)` : null} bind:this={swipeEl} ontouchstart={swipeStart} ontouchmove={swipeMove} ontouchend={swipeEnd} role="presentation">
   {#if list.length === 0 && !dayRows.length}
     <div class="empty card notch">
       <Scene name="hammock" label="A hammock between two palm trees" />
@@ -270,11 +335,34 @@
     letter-spacing: var(--title-track);
   }
   .days {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 6px;
   }
+  /* The selection: one gold tile that slides between days with the spring (C9a). */
+  .pill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc((100% - 36px) / 7);
+    border-radius: 12px;
+    background: var(--gold);
+    transform: translateX(calc(var(--p) * (100% + 6px)));
+    pointer-events: none;
+  }
+  .none {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .none p {
+    margin: 0;
+    color: var(--ink-2);
+  }
   .days button {
+    position: relative;
     display: grid;
     justify-items: center;
     gap: 2px;
@@ -312,7 +400,8 @@
     color: var(--gold);
   }
   .days button.on {
-    background: var(--gold);
+    background: none;
+    box-shadow: none;
     color: var(--on-gold);
   }
   .days button.on strong {

@@ -11,6 +11,7 @@ import { buzz } from "./haptics";
 import { friendly } from "./errors";
 import { larReminderIds } from "./assis/apply";
 import { oneOf, parseCards, type Cards } from "./you";
+import { anyReminderOn, dueDecks } from "./planning";
 
 export type Tab = "today" | "schedule" | "grades" | "study" | "you";
 export type SyncState = "idle" | "syncing" | "ok" | "failed";
@@ -28,6 +29,8 @@ export const app = $state({
   dive: oneOf(read("dive"), ["full", "short", "off"]),
   effects: oneOf(read("effects"), ["full", "calm", "off"]),
   ground: read("ground") !== "still",
+  /** Spec 042 C4, C7: a review waiting for Study to start it; `limit` caps the cards. */
+  review: null as null | { subject: string | null; limit: number },
   sync: "idle" as SyncState,
   syncError: null as string | null,
   /** Bumps on every successful sync, so moments can react to it. */
@@ -102,7 +105,10 @@ function write(key: string, value: string) {
  *  64 pending, so a week is the horizon; each launch and sync renews it.
  *  Only `ask` (the first-run step, or the student's tap) shows the system
  *  permission prompt, so it never appears out of nowhere at launch. */
+// A newer call supersedes an older one still waiting on the device, so two never interleave their notifies.
+let generation = 0;
 export async function scheduleReminders(ask = false) {
+  const mine = ++generation;
   try {
     // Not cancelAll(): on iOS it sends no id list and the plugin refuses to decode it.
     const queued = await pending();
@@ -111,13 +117,14 @@ export async function scheduleReminders(ask = false) {
     if (stale.length) await cancel(stale.map((n) => n.id));
     app.queued = { count: 0, next: null, error: "" };
     const on = (m: number) => (m >= 0 ? m : null);
-    if (!app.snapshot || (app.reminderLead <= 0 && app.deadlineAt < 0 && app.studyAt < 0)) return;
+    if (!app.snapshot || !anyReminderOn({ lead: app.reminderLead, deadlineAt: app.deadlineAt, studyAt: app.studyAt, warmUp: app.warmUp, afterClass: app.afterClass, brief: app.brief })) return;
     let allowed = await isPermissionGranted();
     if (!allowed && ask) allowed = (await requestPermission()) === "granted";
     app.notifications = allowed;
     if (!allowed) return;
     const prefs = { deadlines: on(app.deadlineAt), study: on(app.studyAt), utc_offset: -new Date().getTimezoneOffset(), warm_up: app.warmUp, after_class: app.afterClass, brief: app.brief };
-    const list = (await api.reminders(moment(), app.reminderLead, 7, prefs)).slice(0, 60);
+    const list = (await api.reminders(moment(), app.reminderLead, 7, prefs)).slice(0, Math.max(0, 64 - lar.size));
+    if (mine !== generation) return;
     const when = (r: { date: string; minute: number }) => {
       const [y, m, d] = r.date.split("-").map(Number);
       return new Date(y, m - 1, d, Math.floor(r.minute / 60), r.minute % 60);
@@ -128,6 +135,7 @@ export async function scheduleReminders(ask = false) {
     let ok = 0;
     let lastError = "";
     for (const r of list) {
+      if (mine !== generation) return;
       try {
         // Awaited notify, not sendNotification(): that one drops its promise, so failures go unseen.
         await invoke("plugin:notification|notify", { options: { id: r.id, title: r.title, body: r.body, schedule: Schedule.at(asLocalDigits(when(r))), extra: { open: r.open } } });
@@ -172,8 +180,12 @@ export async function openFromNotification(open: string | null | undefined) {
   const [what, ...rest] = (open ?? "").split(":");
   if (what === "study") {
     const code = rest[0];
-    const deck = (await api.study(isoDate(new Date())).catch(() => null))?.decks.find((d) => d.subject === code && d.due > 0);
-    if (deck) return openDeck(deck.id);
+    // study:<code>:5 is a 5-card session on that deck. Study looks the deck up, and says so
+    // when nothing is due or the lookup fails. Without a count, the deck page.
+    const limit = Number(rest[1]);
+    if (limit > 0) return startReview(code, limit);
+    const deck = dueDecks((await api.study(isoDate(new Date())).catch(() => null))?.decks ?? [], code)[0];
+    return deck ? openDeck(deck.id) : startReview(code, 0);
   }
   if (what === "note" && rest[0] === "class") {
     const code = rest.slice(1).join(":");
@@ -229,6 +241,13 @@ export async function refreshNotes() {
 /** `tab` and `item` open a deadline on its outline (spec 040 C11). */
 export function openSubject(code: string, description: string, tab?: "grading" | "outline", item?: string) {
   app.subject = { code, description, tab, item };
+}
+
+/** Starts a review of the due cards on the Study tab: one subject's, or all (spec 042 C4, C7). */
+export function startReview(subject: string | null, limit = 0) {
+  app.tab = "study";
+  app.deck = null;
+  app.review = { subject, limit };
 }
 
 /** Shows a deck on the Study tab. */

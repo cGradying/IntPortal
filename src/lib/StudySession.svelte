@@ -12,7 +12,7 @@
   import { api, isoDate, type Card, type Deck, type Rating } from "./api";
   import { buzz } from "./haptics";
 
-  let { decks, mode, onclose, title }: { decks: Deck[]; mode: Mode; onclose: () => void; title?: string } = $props();
+  let { decks, mode, onclose, title, limit = 0 }: { decks: Deck[]; mode: Mode; onclose: () => void; title?: string; limit?: number } = $props();
   $effect(() => closable(() => onclose()));
 
   const now = Math.floor(Date.now() / 1000);
@@ -23,7 +23,7 @@
   const dueCards: Entry[] = decks.flatMap((deck) => deck.cards.filter((c) => c.memory.due <= now).map((card) => ({ deck, card })));
   const practice = dueCards.length === 0;
   // svelte-ignore state_referenced_locally
-  const queue: Entry[] = mixed ? dueCards.sort((a, b) => a.card.memory.due - b.card.memory.due) : shuffle(practice ? decks[0].cards.map((card) => ({ deck: decks[0], card })) : dueCards);
+  const queue: Entry[] = (mixed ? dueCards.sort((a, b) => a.card.memory.due - b.card.memory.due) : shuffle(practice ? decks[0].cards.map((card) => ({ deck: decks[0], card })) : dueCards)).slice(0, limit || undefined);
   // svelte-ignore state_referenced_locally
   const name = title ?? decks[0]?.name ?? "";
 
