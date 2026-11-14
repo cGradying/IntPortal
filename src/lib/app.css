@@ -242,6 +242,17 @@ button:not(:disabled):active {
 :root[data-hidden] .dots::after {
   animation-play-state: paused;
 }
+/* Hidden, or behind LAR's window (#189): nothing animates where nobody is looking. quiet.ts stops the canvases. */
+:root[data-hidden] *,
+:root[data-hidden] *::before,
+:root[data-hidden] *::after,
+:root[data-behind] .shell *,
+:root[data-behind] .shell *::before,
+:root[data-behind] .shell *::after,
+:root[data-behind] .shell::before,
+:root[data-behind] .shell::after {
+  animation-play-state: paused !important;
+}
 @keyframes aura1 {
   from { transform: translate(-9%, -7%) rotate(-8deg); }
   to { transform: translate(10%, 9%) rotate(10deg); }

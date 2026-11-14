@@ -82,6 +82,15 @@ pub struct Turn {
     pub text: String,
     pub at: i64,
     pub ask: bool,
+    /// What LAR's answer drew on, shown as chips under it (spec 020 C2).
+    pub sources: Vec<TurnSource>,
+}
+
+/// A note, deck (`card:<id>`) or syllabus (`plan:<code>`) an answer drew on.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TurnSource {
+    pub key: String,
+    pub title: String,
 }
 
 /// Something the AI can search: a note, a deck's cards or a subject's syllabus.
@@ -159,6 +168,11 @@ fn add_note_columns(db: &Connection) -> rusqlite::Result<()> {
         if !have.iter().any(|h| h == name) {
             db.execute_batch(&format!("ALTER TABLE notes ADD COLUMN {column};"))?;
         }
+    }
+    // A chat from before chips were kept has no sources column.
+    let turns: Vec<String> = db.prepare("PRAGMA table_info(turns)")?.query_map([], |r| r.get(1))?.collect::<Result<_, _>>()?;
+    if !turns.iter().any(|h| h == "sources") {
+        db.execute_batch("ALTER TABLE turns ADD COLUMN sources TEXT;")?;
     }
     Ok(())
 }
@@ -610,16 +624,21 @@ impl Store {
 
     /// Adds one chat message. `role` is "me" or "lar"; `ask` marks a message the
     /// model answered, the only ones it is shown again. Keeps the last 60.
-    pub fn add_turn(&self, role: &str, text: &str, at: i64, ask: bool) -> Result<(), StoreError> {
-        self.db.execute("INSERT INTO turns (role, text, at, ask) VALUES (?1, ?2, ?3, ?4)", params![role, text, at, ask])?;
+    pub fn add_turn(&self, role: &str, text: &str, at: i64, ask: bool, sources: &[TurnSource]) -> Result<(), StoreError> {
+        let sources = if sources.is_empty() { None } else { Some(serde_json::to_string(sources)?) };
+        self.db.execute("INSERT INTO turns (role, text, at, ask, sources) VALUES (?1, ?2, ?3, ?4, ?5)", params![role, text, at, ask, sources])?;
         self.db.execute("DELETE FROM turns WHERE id <= (SELECT MAX(id) FROM turns) - 60", [])?;
         Ok(())
     }
 
     /// The last `limit` messages, oldest first.
     pub fn turns(&self, limit: usize) -> Result<Vec<Turn>, StoreError> {
-        let mut q = self.db.prepare("SELECT role, text, at, ask FROM turns ORDER BY id DESC LIMIT ?1")?;
-        let rows = q.query_map([limit as i64], |r| Ok(Turn { role: r.get(0)?, text: r.get(1)?, at: r.get(2)?, ask: r.get(3)? }))?;
+        let mut q = self.db.prepare("SELECT role, text, at, ask, sources FROM turns ORDER BY id DESC LIMIT ?1")?;
+        let rows = q.query_map([limit as i64], |r| {
+            // A row whose sources can't be read keeps its words and loses its chips.
+            let sources = r.get::<_, Option<String>>(4)?.and_then(|j| serde_json::from_str(&j).ok()).unwrap_or_default();
+            Ok(Turn { role: r.get(0)?, text: r.get(1)?, at: r.get(2)?, ask: r.get(3)?, sources })
+        })?;
         let mut v = rows.collect::<Result<Vec<_>, _>>()?;
         v.reverse();
         Ok(v)
@@ -753,6 +772,28 @@ mod tests {
             last_synced: Some("1794600000".into()),
             ..Snapshot::default()
         }
+    }
+
+    #[test]
+    fn c2_a_reply_keeps_its_sources_and_an_old_chat_opens_without_them() {
+        let path = std::env::temp_dir().join(format!("intportal-turns-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        // A chat saved before chips were kept: the turns table has no sources column.
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch(
+                "CREATE TABLE turns (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, ask INTEGER NOT NULL);
+                 INSERT INTO turns (role, text, at, ask) VALUES ('lar', 'An old answer', 1, 1);",
+            )
+            .unwrap();
+        let store = Store::open_plain(&path).unwrap();
+        let from = vec![TurnSource { key: "note:trees".into(), title: "Trees".into() }];
+        store.add_turn("me", "What is a heap?", 2, true, &[]).unwrap();
+        store.add_turn("lar", "A heap is a tree.", 2, true, &from).unwrap();
+        let turns = store.turns(40).unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(turns.iter().map(|t| t.sources.clone()).collect::<Vec<_>>(), [vec![], vec![], from]);
+        assert_eq!(turns[0].text, "An old answer");
     }
 
     #[test]
@@ -1227,7 +1268,7 @@ mod tests {
     fn the_chat_keeps_sixty_turns_and_goes_with_sign_out_and_wipe() {
         let store = Store::in_memory().unwrap();
         for i in 0..70 {
-            store.add_turn(if i % 2 == 0 { "me" } else { "lar" }, &format!("t{i}"), i, i > 60).unwrap();
+            store.add_turn(if i % 2 == 0 { "me" } else { "lar" }, &format!("t{i}"), i, i > 60, &[]).unwrap();
         }
         let all = store.turns(100).unwrap();
         assert_eq!((all.len(), all[0].text.as_str(), all[59].text.as_str()), (60, "t10", "t69"));
@@ -1235,7 +1276,7 @@ mod tests {
         assert!(store.turns(1).unwrap()[0].ask);
         store.forget_sis().unwrap();
         assert!(store.turns(5).unwrap().is_empty(), "LAR may have quoted grades");
-        store.add_turn("me", "x", 1, false).unwrap();
+        store.add_turn("me", "x", 1, false, &[]).unwrap();
         store.wipe().unwrap();
         assert!(store.turns(5).unwrap().is_empty());
     }

@@ -20,6 +20,7 @@
   // Pass `t` to drive him from a timeline; without it he keeps his own
   // clock. Reduce Motion holds him in a still pose.
   import { onMount } from "svelte";
+  import { animate } from "../quiet";
   import { BOX, H, W, drawLar, hands, rig, type Gesture, type Mood, type State } from "./sprite";
 
   let {
@@ -64,14 +65,8 @@
 
   onMount(() => {
     if (driven !== undefined || reduce) return;
-    let raf = 0;
     const start = performance.now();
-    const frame = (now: number) => {
-      own = (now - start) / 1000;
-      raf = requestAnimationFrame(frame);
-    };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return animate((now) => (own = (now - start) / 1000), () => canvas);
   });
 
   // Starts idle, so a first state of error or spawn plays its entrance.

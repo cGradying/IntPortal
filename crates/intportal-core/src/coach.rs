@@ -30,6 +30,8 @@ pub struct Signals {
     pub plan_step: Option<PlanStep>,
     /// Flashcards due per subject code.
     pub cards_by_subject: BTreeMap<String, usize>,
+    /// The soonest deadline after tomorrow that the Due card shows (#244): with one, it isn't a rest day.
+    pub later: Option<PlanStep>,
 }
 
 /// The deadline a plan starts with.
@@ -53,6 +55,8 @@ pub enum Nudge {
     CardsDue { cards: usize },
     Target { needed: f64, target: f64 },
     DayOff,
+    /// Nothing due by tomorrow, but the week has something (#244).
+    Later { topic: String, subject: Option<String>, when: String, url: Option<String> },
     /// One gap, one plan (spec 042 C2): the deadline first, then cards that fit.
     Plan { from: u16, to: u16, step: Option<PlanStep>, subject: Option<String>, cards: usize },
 }
@@ -61,9 +65,9 @@ impl Nudge {
     /// Friendly, clear first, a little Taglish.
     pub fn line(&self) -> String {
         match self {
-            Nudge::Deadline { subject, topic, overdue: true, .. } => format!("{topic} ({subject}) is past due. If it's done, mark it done."),
-            Nudge::Deadline { subject, topic, more: 0, .. } => format!("{topic} ({subject}) is due by tomorrow. Kaya mo 'yan."),
-            Nudge::Deadline { subject, topic, more, .. } => format!("{topic} ({subject}) and {more} more due by tomorrow. One at a time."),
+            Nudge::Deadline { subject, topic, overdue: true, .. } => format!("{} is past due. If it's done, mark it done.", named(topic, subject)),
+            Nudge::Deadline { subject, topic, more: 0, .. } => format!("{} is due by tomorrow. Kaya mo 'yan.", named(topic, subject)),
+            Nudge::Deadline { subject, topic, more, .. } => format!("{} and {more} more due by tomorrow. One at a time.", named(topic, subject)),
             Nudge::KeepStreak { streak, cards } => format!("{streak}-day streak. {cards} {} keep it alive today.", if *cards == 1 { "card" } else { "cards" }),
             Nudge::UseTheGap { minutes, cards } => {
                 format!("{} free before your next class: enough for {cards} {}.", span(*minutes), if *cards == 1 { "card" } else { "cards" })
@@ -71,6 +75,8 @@ impl Nudge {
             Nudge::CardsDue { cards } => format!("{cards} {} due. About {} minutes.", if *cards == 1 { "card" } else { "cards" }, (cards / 4).max(1)),
             Nudge::Target { needed, target } => format!("For a {target:.2} this term, aim for {needed:.2} or better on what's left."),
             Nudge::DayOff => "Nothing due. Rest up, Isko.".into(),
+            Nudge::Later { topic, subject: Some(subject), when, .. } => format!("Nothing due by tomorrow. Next: {topic} ({subject}), {when}."),
+            Nudge::Later { topic, when, .. } => format!("Nothing due by tomorrow. Next: {topic}, {when}."),
             Nudge::Plan { from, to, step, subject, cards } => {
                 let free = format!("Free {}–{}", clock(*from), clock(*to));
                 let letters: String = subject.as_deref().map(|c| c.chars().take_while(|ch| ch.is_alphabetic()).collect::<String>() + " ").unwrap_or_default();
@@ -92,9 +98,15 @@ impl Nudge {
             Nudge::CardsDue { .. } => "cards".into(),
             Nudge::Target { target, .. } => format!("target:{target:.2}"),
             Nudge::DayOff => "rest".into(),
+            Nudge::Later { topic, .. } => format!("later:{topic}"),
             Nudge::Plan { from, .. } => format!("plan:{from}"),
         }
     }
+}
+
+/// A deadline by its title, with its subject when it has one. A student's own deadline may have none.
+fn named(topic: &str, subject: &str) -> String {
+    if subject.is_empty() { topic.to_string() } else { format!("{topic} ({subject})") }
 }
 
 fn span(m: u16) -> String {
@@ -127,7 +139,10 @@ pub fn pick(s: &Signals, dismissed: &[String]) -> Option<Nudge> {
         (s.free_minutes >= 30 && s.cards_due > 0 && s.classes_left > 0).then(|| Nudge::UseTheGap { minutes: s.free_minutes, cards: cards_fit(s.free_minutes) }),
         (s.cards_due > 0).then_some(Nudge::CardsDue { cards: s.cards_due }),
         s.needed_average.map(|(needed, target)| Nudge::Target { needed, target }),
-        (s.due_soon.is_empty() && s.cards_due == 0 && s.classes_left == 0).then_some(Nudge::DayOff),
+        (s.due_soon.is_empty() && s.cards_due == 0 && s.classes_left == 0).then(|| match &s.later {
+            Some(p) => Nudge::Later { topic: p.title.clone(), subject: p.subject.clone(), when: p.when.clone(), url: p.url.clone() },
+            None => Nudge::DayOff,
+        }),
     ];
     candidates.into_iter().flatten().find(|n| !dismissed.contains(&n.key()))
 }
@@ -231,5 +246,23 @@ mod tests {
         s.gap = Some(Gap { from: 780, to: 800, minutes: 20 });
         s.due_soon = vec![due("COMP 20073", "Lab 4", false)];
         assert!(matches!(pick(&s, &[]), Some(Nudge::Deadline { .. })));
+    }
+
+    #[test]
+    fn a_deadline_with_no_subject_is_named_without_empty_brackets() {
+        let own = |more, overdue| Nudge::Deadline { subject: String::new(), topic: "Quiz COMP".into(), more, overdue, url: None };
+        assert_eq!(own(0, true).line(), "Quiz COMP is past due. If it's done, mark it done.");
+        assert_eq!(own(0, false).line(), "Quiz COMP is due by tomorrow. Kaya mo 'yan.");
+        assert_eq!(own(2, false).line(), "Quiz COMP and 2 more due by tomorrow. One at a time.");
+    }
+
+    #[test]
+    fn c244_a_later_deadline_is_not_a_rest_day() {
+        let s = Signals { later: Some(step(Some("COMP 20073"))), ..Default::default() };
+        let n = pick(&s, &[]).unwrap();
+        assert_eq!(n.line(), "Nothing due by tomorrow. Next: Lab 4 (COMP 20073), due tonight.");
+        assert_ne!(n, Nudge::DayOff, "the Due card lists it, so LAR can't say nothing is due");
+        let own = Signals { later: Some(PlanStep { subject: None, ..step(None) }), ..Default::default() };
+        assert_eq!(pick(&own, &[]).unwrap().line(), "Nothing due by tomorrow. Next: Lab 4, due tonight.");
     }
 }

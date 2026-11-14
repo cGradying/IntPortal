@@ -876,3 +876,13 @@ describe("saying honestly what a download is", () => {
     expect(downloadSizes([])).toBe("");
   });
 });
+
+describe("history (#180)", () => {
+  it("a saved answer comes back with the chips it had; my own lines never carry any", async () => {
+    const { fromTurn } = await import("./assis.svelte");
+    const trees = [{ key: "note:trees", title: "Trees" }];
+    expect(fromTurn({ role: "lar", text: "A heap is a tree.", sources: trees })).toEqual({ from: "lar", text: "A heap is a tree.", sources: trees });
+    expect(fromTurn({ role: "lar", text: "Hi.", sources: [] })).toEqual({ from: "lar", text: "Hi.", sources: undefined });
+    expect(fromTurn({ role: "me", text: "What is a heap?", sources: trees })).toEqual({ from: "me", text: "What is a heap?" });
+  });
+});

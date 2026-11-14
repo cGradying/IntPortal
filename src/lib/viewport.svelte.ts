@@ -28,3 +28,34 @@ export function visualViewport() {
     },
   };
 }
+
+/** The keyboard is up when the viewport has lost more than 120 px of the tallest it has been.
+ *  The yardstick is the tallest height seen, not `innerHeight`: Android shrinks the whole window. */
+export const keyboardUp = (height: number, tallest: number) => height < tallest - 120;
+
+/** A focus hides the bars at once only when a finger just put it there. A focus from code waits
+ *  for the viewport to shrink, because iOS raises no keyboard for it (#253). */
+export const focusOpens = (sinceTouchMs: number) => sinceTouchMs < 700;
+
+/** Sets `data-keyboard="open"` on the root while the keyboard is up, so the tab bar and the
+ *  dock step aside instead of riding up on top of it. */
+export function watchKeyboard() {
+  const root = document.documentElement;
+  const v = window.visualViewport;
+  const height = () => v?.height ?? innerHeight;
+  const field = (el: EventTarget | null) => !!(el as HTMLElement | null)?.matches?.("input:not([type=checkbox]):not([type=radio]), textarea, select");
+  let tallest = height();
+  let width = innerWidth;
+  let touched = -Infinity;
+  const set = (open: boolean) => (open ? (root.dataset.keyboard = "open") : delete root.dataset.keyboard);
+  const sync = () => {
+    // A turned phone starts over: its old height is no yardstick.
+    if (innerWidth !== width) ((width = innerWidth), (tallest = 0));
+    tallest = Math.max(tallest, height());
+    set(keyboardUp(height(), tallest));
+  };
+  addEventListener("pointerdown", () => (touched = performance.now()), true);
+  addEventListener("focusin", (e) => field(e.target) && focusOpens(performance.now() - touched) && set(true));
+  addEventListener("focusout", () => setTimeout(() => !field(document.activeElement) && sync(), 50));
+  v?.addEventListener("resize", sync);
+}

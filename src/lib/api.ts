@@ -83,7 +83,8 @@ export type Nudge =
   | { kind: "cards_due"; cards: number }
   | { kind: "target"; needed: number; target: number }
   | { kind: "day_off" }
-  | { kind: "plan"; from: number; to: number; step: PlanStep | null; subject: string | null; cards: number };
+  | { kind: "plan"; from: number; to: number; step: PlanStep | null; subject: string | null; cards: number }
+  | { kind: "later"; topic: string; subject: string | null; when: string; url: string | null };
 
 export interface PlanStep {
   id: string;
