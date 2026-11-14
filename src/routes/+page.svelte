@@ -22,6 +22,7 @@
   import AssisOrb from "$lib/assis/AssisOrb.svelte";
   import AssisWindow from "$lib/assis/AssisWindow.svelte";
   import { assis, watchAssis } from "$lib/assis/assis.svelte";
+  import { setCovered } from "$lib/quiet";
   import PullToSync from "$lib/PullToSync.svelte";
   import LockScreen from "$lib/LockScreen.svelte";
   import { lock, watchLock } from "$lib/lock.svelte";
@@ -210,6 +211,13 @@
     dived = false;
     setSchool(FALLBACK_SIS.theme);
   }
+  // LAR's window covers the screen: what is behind it holds still (#189). It waits out the
+  // opening dither, which starts from the chip in the shell.
+  $effect(() => {
+    if (!assis.open) return;
+    const t = setTimeout(() => setCovered(true), 600);
+    return () => (clearTimeout(t), setCovered(false));
+  });
 </script>
 
 {#if lock.enabled && (lock.locked || lock.hidden)}<LockScreen />{/if}

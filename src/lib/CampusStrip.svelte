@@ -4,6 +4,7 @@
   // next class is a lit window in the main building, and a jeepney passes now
   // and then. Drawn at a stepped 12 fps: pixel art's own cadence, and cheap.
   import { onMount } from "svelte";
+  import { animate } from "./quiet";
   import { JEEP, JEEP_COLORS as JEEPC } from "./sprites";
 
   let { litKey = "", hour = $bindable<number | null>(null) }: { litKey?: string; hour?: number | null } = $props();
@@ -219,19 +220,22 @@
   onMount(() => {
     const g = cv.getContext("2d")!;
     g.imageSmoothingEnabled = false;
-    let raf = 0;
     let last = 0;
-    const loop = (ms: number) => {
-      if (ms - last >= 83 || reduce) {
-        draw(g, ms);
-        last = ms;
-      }
-      if (!reduce) raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
+    // Twelve frames a second is the art's own rate. Reduce Motion: one still frame, redrawn each minute.
+    draw(g, performance.now());
+    const stop = reduce
+      ? () => {}
+      : animate(
+          (ms) => {
+            if (ms - last < 83) return;
+            draw(g, ms);
+            last = ms;
+          },
+          () => cv,
+        );
     const redraw = setInterval(() => reduce && draw(g, performance.now()), 60_000);
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       clearInterval(redraw);
     };
   });
