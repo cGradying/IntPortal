@@ -140,7 +140,7 @@
     } catch (err) {
       const said = friendly(err);
       // No host answered: the down state, with Try again; it spends no try (C9).
-      down = /^couldn't reach the SIS/i.test(String((err as { message?: string })?.message ?? err)) || said === "Can't reach the SIS right now.";
+      down = /^couldn't reach the SIS/i.test(String((err as { message?: string })?.message ?? err)) || said.startsWith("Can't reach the SIS");
       // A rejection in words we can't read gets ours (C8).
       // Mabini has no birthdate, so its line doesn't ask for one.
       error = down ? DOWN : said === FALLBACK ? (portal.fields.includes("birthdate") ? REJECTED : REJECTED.replace(", birthdate and", " and")) : said;

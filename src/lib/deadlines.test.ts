@@ -73,7 +73,7 @@ describe("spec 041 C7: entryLabel", () => {
   });
 });
 
-describe("spec 041 C9: the card never says nothing is due without data", () => {
+describe("c9_three_states: spec 041 C9 / 040 C3, the card never says nothing is due without data", () => {
   const now = new Date(2026, 10, 3, 12);
   const sec = (h: number) => new Date(2026, 10, 3, h).getTime() / 1000;
   it("names eMabini's state", () => {
@@ -82,11 +82,16 @@ describe("spec 041 C9: the card never says nothing is due without data", () => {
     expect(mabiniState(true, sec(9), "down")).toBe("failed");
     expect(mabiniState(true, sec(9), null)).toBe("ok");
   });
-  it("knows nothing is due only with fresh syncs", () => {
-    expect(knowsNothingDue(String(sec(9)), "ok", sec(9), now)).toBe(true);
-    expect(knowsNothingDue(String(sec(9)), "never", null, now)).toBe(false);
-    expect(knowsNothingDue(String(sec(9)), "failed", sec(9), now)).toBe(false);
-    expect(knowsNothingDue(String(sec(9) - 2 * 86_400), "off", null, now)).toBe(false);
-    expect(knowsNothingDue(null, "off", null, now)).toBe(true);
+  it("c9_three_states: nothing due only with a connected, fresh source", () => {
+    const old = String(sec(9) - 2 * 86_400);
+    expect(knowsNothingDue(true, String(sec(9)), "ok", sec(9), now)).toBe(true);
+    expect(knowsNothingDue(true, String(sec(9)), "off", null, now)).toBe(true);
+    expect(knowsNothingDue(false, null, "ok", sec(9), now)).toBe(true);
+    expect(knowsNothingDue(true, String(sec(9)), "never", null, now)).toBe(false);
+    expect(knowsNothingDue(true, String(sec(9)), "failed", sec(9), now)).toBe(false);
+    expect(knowsNothingDue(true, old, "off", null, now)).toBe(false);
+    expect(knowsNothingDue(true, null, "off", null, now)).toBe(false);
+    expect(knowsNothingDue(true, null, "ok", sec(9), now)).toBe(false);
+    expect(knowsNothingDue(false, null, "off", null, now)).toBe(false);
   });
 });

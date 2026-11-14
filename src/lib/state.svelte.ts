@@ -9,6 +9,7 @@ import type { Theme } from "./theme";
 import { decodeTheme, encodeTheme } from "./themeCode";
 import { buzz } from "./haptics";
 import { friendly } from "./errors";
+import { openLink } from "./openLink";
 import { larReminderIds } from "./assis/apply";
 import { oneOf, parseCards, type Cards } from "./you";
 import { anyReminderOn, dueDecks } from "./planning";
@@ -40,6 +41,8 @@ export const app = $state({
   /** The portal turned the saved login down (spec 040 C5); only a new password clears it. */
   sisRejected: false,
   mabiniRejected: false,
+  /** A You page to open when the tab shows (set by "Update password"). */
+  openYou: "",
   mabiniConnected: false,
   /** What the last eMabini sync kept; null while not connected. */
   mabini: null as MabiniData | null,
@@ -177,6 +180,8 @@ export function listenForTaps() {
 
 /** Where a tapped notification goes (spec 042 C7, C9): a subject's cards, a class note, or Today. */
 export async function openFromNotification(open: string | null | undefined) {
+  // An eMabini deadline opens in eMabini, like its row in the Due card (041 C8).
+  if (open?.startsWith("url:")) return void openLink(open.slice(4));
   const [what, ...rest] = (open ?? "").split(":");
   if (what === "study") {
     const code = rest[0];
@@ -186,6 +191,10 @@ export async function openFromNotification(open: string | null | undefined) {
     if (limit > 0) return startReview(code, limit);
     const deck = dueDecks((await api.study(isoDate(new Date())).catch(() => null))?.decks ?? [], code)[0];
     return deck ? openDeck(deck.id) : startReview(code, 0);
+  }
+  if (what === "subject" && rest[0]) {
+    const desc = app.snapshot?.sessions.find((s) => s.subject_code === rest[0])?.description ?? "";
+    return openSubject(rest[0], desc, "outline", rest[1]);
   }
   if (what === "note" && rest[0] === "class") {
     const code = rest.slice(1).join(":");

@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { friendly } from "./errors";
   // One subject's syllabus: its grading system with the running arithmetic,
   // and its outline of topics, quizzes, exams and projects.
   import { api, isoDate, riskLine, type Component, type ItemKind, type Plan, type SyllabusItem, type Tally } from "./api";
   import { closable } from "./back";
+  import { leave } from "./leave";
   import { adopt, app, openNote } from "./state.svelte";
 
   let { code, description, tab: start, item }: { code: string; description: string; tab?: "grading" | "outline"; item?: string } = $props();
@@ -29,27 +31,25 @@
     dirty = true;
   }
 
-  async function save() {
+  // One save at a time: Done and back can fire together.
+  let pending: Promise<boolean> | null = null;
+  const save = () => (pending ??= write().finally(() => (pending = null)));
+  async function write(): Promise<boolean> {
     try {
       await adopt(await api.setPlan(code, $state.snapshot(plan) as Plan));
       dirty = false;
       problem = "";
+      return true;
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
+      return false;
     }
   }
 
-  async function close() {
-    if (dirty) await save();
-    if (!problem) app.subject = null;
-  }
+  // Spec 040 C1 (#158): every way out saves unsaved edits first.
+  const close = () => leave(dirty, save, () => (app.subject = null));
   $effect(() => closable(close));
-
-  // Spec 040 C1 (#158): the Notes tab leaves through close(), so unsaved edits are saved first.
-  async function openNotes() {
-    await close();
-    if (!app.subject) openNote(`class:${code}`, code, description);
-  }
+  const openNotes = () => leave(dirty, save, () => ((app.subject = null), openNote(`class:${code}`, code, description)));
 
   const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
