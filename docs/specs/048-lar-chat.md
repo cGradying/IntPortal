@@ -1,6 +1,6 @@
 # 048 LAR's chat, round four
 
-**Status:** approved (2026-11-10). The owner left the design calls to the round-four page, then picked from it: opening A, Pour; the sky header at one fixed size with LAR the same size throughout; LAR's steps as a pixel trace. Mockup: `reference/prototypes/lar-chat.src.html` (rows `morph`, `chat`), live at https://claude.ai/artifact/NFGHK9EaGWYGcUim2PuyCU.
+**Status:** shipped (2026-11-14, #248–#251). Approved 2026-11-10. The owner left the design calls to the round-four page, then picked from it: opening A, Pour; the sky header at one fixed size with LAR the same size throughout; LAR's steps as a pixel trace. Mockup: `reference/prototypes/lar-chat.src.html` (rows `morph`, `chat`), live at https://claude.ai/artifact/NFGHK9EaGWYGcUim2PuyCU.
 
 ## What changes for the student
 

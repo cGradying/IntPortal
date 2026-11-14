@@ -30,7 +30,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [000-sis-data-map](000-sis-data-map.md) | draft | What the app reads from the SIS, and where it lands |
 | [010-landing](010-landing.md) | shipped | The tile portal, its states, the carousel, the dive, touch and the peek |
 | [011-login](011-login.md) | shipped | The sign-in form, errors and the lockout guard |
-| [012-portals](012-portals.md) | draft | The portal model: SIS now, Mabini next |
+| [012-portals](012-portals.md) | shipped | The portal model: SIS now, Mabini next |
 | [020-ai](020-ai.md) | building | LAR that streams, remembers, cites notes; Ask AI in a note |
 | [030-from-the-mac-app](030-from-the-mac-app.md) | wave 1 built | The Mac app's features mapped to the phone; wave 1: join links, deadlines in the calendar, dated note entries |
 | [040-trust-and-speed](040-trust-and-speed.md) | approved | Honest loading and errors, fixable logins, review all due, consistent taps, week navigation |
@@ -40,7 +40,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [045-app-environment](045-app-environment.md) | approved | One night, gradient ground, Pixel-bridged type, the done run, moving around |
 | [046-study-and-notes](046-study-and-notes.md) | shipped | Notes sorted by subject, formatting, templates, photos, note to cards, a Done you can find |
 | [047-you-and-themes](047-you-and-themes.md) | approved | You on one screen, search, new settings, backup, custom themes shared by code and QR |
-| [048-lar-chat](048-lar-chat.md) | approved | LAR's chat, round four: the cube pours into it, the sky header, his real steps as a pixel trace, suggestions that follow the day |
+| [048-lar-chat](048-lar-chat.md) | shipped | LAR's chat, round four: the cube pours into it, the sky header, his real steps as a pixel trace, suggestions that follow the day |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md) and [ADR 0005](../adr/0005-portals-are-first-class.md).
 
