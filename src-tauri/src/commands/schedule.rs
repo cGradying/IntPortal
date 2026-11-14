@@ -1,14 +1,14 @@
 use crate::*;
 
 /// `week` set: this week only. `mark` empty: clear it.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_mark(state: tauri::State<'_, AppState>, session_id: String, week: Option<Date>, mark: Option<Mark>) -> Res<Snapshot> {
     edit(&state, |s| s.marks.mode.set(&session_id, week, mark))
 }
 
 /// Moves a class to another day or time, for `week` only or the whole term.
 /// `slot` empty: back to the SIS time.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_move(state: tauri::State<'_, AppState>, session_id: String, week: Option<Date>, slot: Option<Slot>) -> Res<Snapshot> {
     if slot.is_some_and(|s| s.end <= s.start || s.end > 24 * 60) {
         return Err("A class has to end after it starts, before midnight.".into());
@@ -17,7 +17,7 @@ pub fn set_move(state: tauri::State<'_, AppState>, session_id: String, week: Opt
 }
 
 /// A subject's colour; empty goes back to the automatic one.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_color(state: tauri::State<'_, AppState>, subject_code: String, color: Option<String>) -> Res<Snapshot> {
     edit(&state, |s| match color {
         Some(c) => {
@@ -46,7 +46,7 @@ pub async fn set_class_info(state: tauri::State<'_, AppState>, subject_code: Str
 }
 
 /// The term's classes as an `.ics` file, from this week through `until`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn export_ics(state: tauri::State<'_, AppState>, from: Date, until: Date, utc_offset: Option<i32>) -> Res<String> {
     if until < from {
         return Err("The last day of classes has to be after today.".into());
@@ -58,7 +58,7 @@ pub fn export_ics(state: tauri::State<'_, AppState>, from: Date, until: Date, ut
 }
 
 /// Every meeting in the week holding `on`, after marks and moves.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn week(state: tauri::State<'_, AppState>, on: Date) -> Res<Vec<Meeting>> {
     let snap = snapshot_of(&state)?;
     Ok(today::week(&snap.sessions, &snap.marks, on))
@@ -75,7 +75,7 @@ pub struct Today {
     glance_line: String,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn today(state: tauri::State<'_, AppState>, now: Moment, sync_trouble: Option<String>, busy: Option<Vec<Busy>>) -> Res<Today> {
     let snap = snapshot_of(&state)?;
     let next = today::next_class(&snap.sessions, &snap.marks, now);
@@ -94,7 +94,7 @@ pub fn today(state: tauri::State<'_, AppState>, now: Moment, sync_trouble: Optio
 
 /// The classes from `from` through `days` days on, as events for the
 /// phone's IntPortal calendar.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn class_events(state: tauri::State<'_, AppState>, from: Date, days: i64, utc_offset: Option<i32>) -> Res<Vec<calendar::ClassEvent>> {
     let snap = snapshot_of(&state)?;
     let mut out = calendar::class_events(&snap.sessions, &snap.marks, from, days);

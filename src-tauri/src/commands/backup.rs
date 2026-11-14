@@ -19,7 +19,7 @@ pub async fn backup_make(state: tauri::State<'_, AppState>, themes: Vec<serde_js
 }
 
 /// Reads a backup and says what it holds; refuses a damaged, newer or other student's file (C10).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn backup_preview(state: tauri::State<'_, AppState>, text: String) -> Res<backup::Preview> {
     let b = Backup::parse(&text).map_err(err)?;
     b.check(open_student(&state).as_deref()).map_err(err)?;
@@ -39,13 +39,13 @@ pub async fn backup_restore(state: tauri::State<'_, AppState>, ai: tauri::State<
 }
 
 /// Bytes taken by notes, photos, decks and the rest (C11).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn space_used(state: tauri::State<'_, AppState>) -> Res<store::Space> {
     state.store.lock().unwrap().space().map_err(err)
 }
 
 /// Everything on this phone, the student's own notes and decks included.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn erase_everything(state: tauri::State<'_, AppState>) -> Res<()> {
     state.store.lock().unwrap().wipe().map_err(err)?;
     let _ = std::fs::remove_dir_all(state.dir.join(PHOTO_TMP));

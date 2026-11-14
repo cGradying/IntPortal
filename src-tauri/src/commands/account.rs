@@ -1,11 +1,11 @@
 use crate::*;
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn portals() -> Vec<intportal_core::portal::Portal> {
     intportal_core::portal::ALL.clone()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn snapshot(state: tauri::State<'_, AppState>) -> Res<Snapshot> {
     snapshot_of(&state)
 }
@@ -45,7 +45,7 @@ pub async fn tries_left(state: tauri::State<'_, AppState>) -> Res<Tries> {
 
 /// The saved student number, to fill a sign-in form after a rejection
 /// (spec 040 C5). Never the password.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn login_hint(portal: String) -> Option<String> {
     match portal.as_str() {
         "sis" => vault::load().map(|l| l.student_number),
@@ -54,7 +54,7 @@ pub fn login_hint(portal: String) -> Option<String> {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn has_login() -> bool {
     (cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed)) || vault::load().is_some()
 }
@@ -124,7 +124,7 @@ pub async fn sign_out(state: tauri::State<'_, AppState>) -> Res<()> {
 }
 
 /// The campus a student number belongs to, as the student types it.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn campus(student_number: String) -> campus::Resolution {
     campus::resolve(&student_number)
 }

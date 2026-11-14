@@ -20,7 +20,7 @@ pub struct StudyOverview {
 }
 
 /// Every deck with its due count, and the streak as of `today`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn study(state: tauri::State<'_, AppState>, today: Date) -> Res<StudyOverview> {
     let store = state.store.lock().unwrap();
     let now = unix_now();
@@ -35,13 +35,13 @@ pub fn study(state: tauri::State<'_, AppState>, today: Date) -> Res<StudyOvervie
     Ok(StudyOverview { due: decks.iter().map(|d| d.due).sum(), decks, streak: study::current_streak(&stats, today), reviews_today, week: study::week(&stats, today) })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn deck(state: tauri::State<'_, AppState>, id: String) -> Res<Deck> {
     state.store.lock().unwrap().deck(&id).map_err(err)?.ok_or_else(|| "That deck is gone.".to_string())
 }
 
 /// Creates or replaces a deck; new cards (empty id) are numbered and due now.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn save_deck(state: tauri::State<'_, AppState>, mut deck: Deck) -> Res<Deck> {
     if deck.name.trim().is_empty() {
         return Err("Give the deck a name.".into());
@@ -52,13 +52,13 @@ pub fn save_deck(state: tauri::State<'_, AppState>, mut deck: Deck) -> Res<Deck>
     Ok(deck)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_deck(state: tauri::State<'_, AppState>, id: String) -> Res<()> {
     state.store.lock().unwrap().delete_deck(&id).map_err(err)
 }
 
 /// Pasted "front - back" lines as unsaved cards, for review before adding.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn parse_cards(text: String) -> Vec<Card> {
     study::parse_cards(&text)
         .into_iter()
@@ -73,7 +73,7 @@ pub struct Reviewed {
 }
 
 /// Rates one card, reschedules it and counts the review toward the streak.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn review_card(state: tauri::State<'_, AppState>, deck_id: String, card_id: String, rating: Rating, today: Date) -> Res<Reviewed> {
     let store = state.store.lock().unwrap();
     let mut deck = store.deck(&deck_id).map_err(err)?.ok_or("That deck is gone.")?;
@@ -85,12 +85,12 @@ pub fn review_card(state: tauri::State<'_, AppState>, deck_id: String, card_id: 
     Ok(Reviewed { deck, stats })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn check_answer(card: Card, typed: String) -> bool {
     study::is_correct(&typed, &card)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn distractors(cards: Vec<Card>, index: usize, seed: usize) -> Res<Vec<String>> {
     if index >= cards.len() {
         return Err("No such card.".into());

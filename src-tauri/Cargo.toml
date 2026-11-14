@@ -1,8 +1,8 @@
 [package]
 name = "intportal"
 version.workspace = true
-description = "A Tauri App"
-authors = ["you"]
+description = "IntPortal: a PUP student's schedule, grades, deadlines, notes and study cards on the phone"
+authors = ["cGradying"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
