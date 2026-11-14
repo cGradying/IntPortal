@@ -357,12 +357,9 @@ impl From<Proposal> for ProposalDto {
     }
 }
 
-/// A note, deck (`card:<id>`) or syllabus (`plan:<code>`) an answer drew on. The chat shows it as a chip.
-#[derive(Serialize, Clone, Debug, PartialEq)]
-pub struct Source {
-    key: String,
-    title: String,
-}
+/// A note, deck (`card:<id>`) or syllabus (`plan:<code>`) an answer drew on. The chat shows it as a chip,
+/// and the store keeps it with the turn so the chip is still there after a restart.
+pub use intportal_core::store::TurnSource as Source;
 
 #[derive(Serialize)]
 pub struct Ask {
@@ -542,7 +539,14 @@ fn now_unix() -> i64 {
 /// The chat so far, oldest first, for the sheet to show after a restart.
 #[tauri::command]
 pub async fn ai_history(state: tauri::State<'_, AppState>) -> Res<Vec<Turn>> {
-    store(&state)?.turns(40).map_err(err)
+    let kept = store(&state)?;
+    let mut turns = kept.turns(40).map_err(err)?;
+    // A chip opens what it names, so one whose note or deck is gone since is dropped.
+    if turns.iter().any(|t| !t.sources.is_empty()) {
+        let here: std::collections::HashSet<String> = kept.sources().map_err(err)?.into_iter().map(|s| s.key).collect();
+        turns.iter_mut().for_each(|t| t.sources.retain(|s| here.contains(&s.key)));
+    }
+    Ok(turns)
 }
 
 /// "New chat".
@@ -610,7 +614,7 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
     let at = now_unix();
     if let Ok(store) = store(&state) {
         // Only the model's own open answers are history for the next question; a guard reply or a rule answer is not.
-        let _ = store.add_turn("me", &message, at, a.asked_model).and_then(|()| store.add_turn("lar", &a.reply, at, a.asked_model));
+        let _ = store.add_turn("me", &message, at, a.asked_model, &[]).and_then(|()| store.add_turn("lar", &a.reply, at, a.asked_model, &a.sources));
     }
     Ok(a)
 }
@@ -819,7 +823,7 @@ mod tests {
     #[test]
     fn one_lost_turn_does_not_misalign_the_pairs_after_it() {
         use intportal_core::store::Turn;
-        let t = |role: &str, text: &str, ask: bool| Turn { role: role.into(), text: text.into(), at: 0, ask };
+        let t = |role: &str, text: &str, ask: bool| Turn { role: role.into(), text: text.into(), at: 0, ask, sources: vec![] };
         let turns = [
             t("lar", "orphan answer", true), // the window started mid-pair
             t("me", "q1", true),

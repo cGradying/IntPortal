@@ -229,11 +229,15 @@ export function indexNotes() {
 }
 
 /** The chat is kept on the phone, so it is still there after the app was closed. */
+/** A saved turn as a chat message; LAR's answers keep the chips they had (spec 020 C2, #180). */
+export const fromTurn = (t: { role: string; text: string; sources?: Source[] }): Msg =>
+  t.role === "me" ? { from: "me", text: t.text } : { from: "lar", text: t.text, sources: t.sources?.length ? t.sources : undefined };
+
 async function loadHistory() {
   if (assis.chat.length) return;
   try {
-    const turns = await invoke<{ role: string; text: string }[]>("ai_history");
-    if (!assis.chat.length) assis.chat = turns.map((t) => ({ from: t.role === "me" ? "me" : "lar", text: t.text }));
+    const turns = await invoke<{ role: string; text: string; sources?: Source[] }[]>("ai_history");
+    if (!assis.chat.length) assis.chat = turns.map(fromTurn);
   } catch {
     // An empty chat is fine.
   }
