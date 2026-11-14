@@ -19,6 +19,9 @@ What changed in each release, newest first. A release PR adds its section; `scri
 - Look: one night, your school's accent across the app, a living ground, pixel numerals, the done run, 44 pt tap targets, motion tokens (#213–#218, #260)
 - Plain words for errors everywhere; honest loading and "Showing what was saved" (#209, #262)
 - The Isko mascot is retired; LAR is the only character (#233)
+- IntAssis on phones with 6.5 GB of RAM or less keeps one model loaded at a time, says "Still waking up. This phone is slow." after 15 s and stops after 150 s with a low-memory note (#190)
+- Mabini: sign-in and sync fixes (#193)
+- LAR's hands glide into gestures; no cream flash on launch (#170, #171)
 
 Known gaps:
 
