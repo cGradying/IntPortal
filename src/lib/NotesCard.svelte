@@ -67,7 +67,7 @@
   .row button {
     min-height: 44px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge-2);
     color: var(--ink);
@@ -91,7 +91,7 @@
     height: 44px;
     padding: 0 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);

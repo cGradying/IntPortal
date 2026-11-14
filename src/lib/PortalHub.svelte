@@ -139,7 +139,7 @@
     inset: 0;
     z-index: 60;
     background: rgb(0 0 0 / 0.55);
-    animation: fade 0.2s both;
+    animation: fade var(--t-quick) both;
   }
   .frame {
     position: fixed;
@@ -165,7 +165,7 @@
     font-family: var(--font-ui);
     box-shadow: inset 0 1px 0 rgb(245 178 39 / 0.16);
     clip-path: polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% 100%, 0 100%);
-    animation: rise 0.42s var(--ease) both;
+    animation: rise var(--t-flow) var(--ease) both;
   }
   header {
     display: flex;
@@ -193,7 +193,7 @@
     gap: 10px;
     height: 46px;
     padding: 0 6px 0 14px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--void);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
     color: rgb(244 236 216 / 0.55);
@@ -215,7 +215,7 @@
     border: 0;
     background: none;
     color: var(--white);
-    font: 400 max(16px, var(--text-body)) var(--font-ui);
+    font: 400 var(--text-input) var(--font-ui);
     caret-color: var(--portal-gold);
     outline: none;
     -webkit-appearance: none;
@@ -261,7 +261,7 @@
     margin: 0;
     padding: 6px 0;
     background: var(--void-2);
-    font: 500 min(0.706rem, 22px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.08em;
     color: rgb(244 236 216 / 0.6);
   }
@@ -279,7 +279,7 @@
     gap: 12px;
     padding: 8px 10px 8px 6px;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: none;
     color: inherit;
     text-align: left;
@@ -334,7 +334,7 @@
   .none,
   .count {
     margin: 16px 4px;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     line-height: 1.4;
     color: rgb(244 236 216 / 0.6);
   }
@@ -357,7 +357,7 @@
     display: grid;
     place-items: center;
     flex: 0 1 20px;
-    font: 700 min(0.588rem, 16px) var(--font-pixel);
+    font: 700 var(--text-micro) var(--font-pixel);
     color: var(--portal-gold);
   }
   @keyframes fade {
@@ -374,7 +374,7 @@
   @media (prefers-reduced-motion: reduce) {
     .scrim,
     .sheet {
-      animation: fade 0.2s both;
+      animation: fade var(--t-quick) both;
     }
   }
 </style>

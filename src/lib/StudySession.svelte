@@ -169,7 +169,7 @@
     color: var(--gold);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
   }
   .bar {
     height: 6px;
@@ -179,7 +179,7 @@
     display: block;
     height: 100%;
     background: var(--gold);
-    transition: width 0.3s var(--ease);
+    transition: width var(--t-move) var(--ease);
   }
   .lar {
     justify-self: center;
@@ -203,7 +203,7 @@
   h2 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: min(1.412rem, 31px);
+    font-size: var(--text-title);
   }
   .answer {
     margin: 8px 0 0;
@@ -220,13 +220,13 @@
     min-height: 48px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
   }
   button:disabled {
     opacity: 0.4;
@@ -248,12 +248,12 @@
     height: 48px;
     padding: 0 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(1rem, 31px));
+    font-size: var(--text-input);
   }
   .verdict {
     margin: 0;

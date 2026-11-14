@@ -100,7 +100,7 @@
     max-width: 480px;
     min-height: 48px;
     padding: 8px 14px 8px 12px;
-    border-radius: 24px;
+    border-radius: var(--radius-lg);
     background: var(--island);
     box-shadow:
       0 10px 28px rgba(0, 0, 0, 0.35),
@@ -142,7 +142,7 @@
     flex: 1;
     min-width: 0;
     font-family: var(--font-display);
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
@@ -157,7 +157,7 @@
     gap: 6px;
     flex: none;
     font-family: var(--font-display);
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: var(--portal-gold);
@@ -178,7 +178,7 @@
     display: grid;
     gap: 12px;
     margin-top: 10px;
-    animation: fade 0.3s var(--ease) 0.08s backwards;
+    animation: fade var(--t-move) var(--ease) var(--t-quick) backwards;
   }
   .more {
     padding-top: 10px;
@@ -198,12 +198,12 @@
   .sync {
     flex: none;
     padding: 7px 14px;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: var(--portal-gold);
     color: var(--on-portal-gold);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
   }
   @media (prefers-reduced-motion: reduce) {
     .glance,

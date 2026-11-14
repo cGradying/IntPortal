@@ -288,7 +288,7 @@
   h1 {
     margin: 0;
     font-family: var(--font-wordmark);
-    font-size: min(1.529rem, 34px);
+    font-size: var(--text-display);
     font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--portal-gold);
@@ -299,7 +299,7 @@
   .pitch {
     margin: 4px auto 0;
     max-width: 30ch;
-    font: 400 min(0.82rem, 22px) / 1.35 var(--font-ui);
+    font: 400 var(--text-sub) / 1.35 var(--font-ui);
     color: rgb(244 236 216 / 0.66);
     text-wrap: balance;
   }
@@ -307,7 +307,7 @@
     display: grid;
     min-height: 0;
     transform: translateY(var(--drop)) scale(1.3);
-    transition: transform 0.7s var(--ease);
+    transition: transform var(--t-hero) var(--ease);
   }
   .lift.up {
     transform: none;
@@ -355,10 +355,10 @@
      inside it floating up once there is something to say. */
   .field {
     position: relative;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--void);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
-    transition: box-shadow 0.16s var(--ease);
+    transition: box-shadow var(--t-quick) var(--ease);
   }
   .field:focus-within {
     box-shadow: inset 0 0 0 1.5px var(--portal-accent, var(--portal-gold));
@@ -373,11 +373,11 @@
     height: 54px;
     padding: 20px 14px 4px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: transparent;
     box-shadow: none;
     color: var(--white);
-    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
+    font: 400 var(--text-input) / 1.25 var(--font-ui);
     caret-color: var(--portal-gold);
     outline: none;
     -webkit-appearance: none;
@@ -390,7 +390,7 @@
     position: absolute;
     left: 14px;
     top: 17px;
-    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
+    font: 400 var(--text-input) / 1.25 var(--font-ui);
     color: rgb(244 236 216 / 0.55);
     transform-origin: 0 0;
     pointer-events: none;
@@ -415,7 +415,7 @@
   input::placeholder {
     color: rgb(255 255 255 / 0.4);
     opacity: 0;
-    transition: opacity 0.16s var(--ease);
+    transition: opacity var(--t-quick) var(--ease);
   }
   input:focus::placeholder {
     opacity: 1;
@@ -434,10 +434,10 @@
     height: 54px;
     padding: 20px 14px 4px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--white);
-    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
+    font: 400 var(--text-input) / 1.25 var(--font-ui);
     text-align: left;
   }
   .pick:focus-visible {
@@ -451,7 +451,7 @@
     left: 14px;
     bottom: 11px;
     display: none;
-    font: 400 max(16px, min(0.941rem, 29px)) / 1.25 var(--font-ui);
+    font: 400 var(--text-input) / 1.25 var(--font-ui);
     color: rgb(255 255 255 / 0.4);
     pointer-events: none;
   }
@@ -467,10 +467,10 @@
     height: 44px;
     padding: 0 12px;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: none;
     color: rgb(244 236 216 / 0.7);
-    font: 600 min(0.824rem, 25px) var(--font-ui);
+    font: 600 var(--text-sub) var(--font-ui);
   }
   .eye:focus-visible {
     outline: 2px solid var(--portal-accent, var(--portal-gold));
@@ -479,7 +479,7 @@
   .swap {
     display: grid;
     gap: 10px;
-    animation: swap 0.32s var(--ease);
+    animation: swap var(--t-move) var(--ease);
   }
   @keyframes swap {
     from {
@@ -499,20 +499,20 @@
   }
   .soon b {
     font-family: var(--font-display);
-    font-size: min(0.941rem, 29px);
+    font-size: var(--text-body);
     color: var(--cream);
   }
   .soon p {
     margin: 0;
     font-family: var(--font-ui);
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     text-wrap: balance;
   }
   .tries {
     margin: 0;
     text-align: center;
     font-family: var(--font-pixel);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--portal-accent, var(--portal-gold));
   }
   .tries.out {
@@ -523,7 +523,7 @@
   }
   .campus {
     font-family: var(--font-pixel);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--portal-gold);
   }
   .campus.dim {
@@ -537,7 +537,7 @@
     color: var(--on-portal-gold);
     font-family: var(--font-ui);
     font-weight: 600;
-    font-size: min(0.941rem, 29px);
+    font-size: var(--text-body);
     letter-spacing: 0.01em;
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
     box-shadow: inset 0 -3px 0 var(--portal-gold-shade);
@@ -569,15 +569,15 @@
   .retry {
     min-height: 44px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: rgb(244 236 216 / 0.08);
     box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.16);
     color: var(--parch);
-    font: 600 max(16px, min(0.941rem, 29px)) var(--font-ui);
+    font: 600 var(--text-input) var(--font-ui);
   }
   .why {
     margin: 0;
-    font: 400 min(0.765rem, 23px) var(--font-ui);
+    font: 400 var(--text-caption) var(--font-ui);
     color: rgb(244 236 216 / 0.6);
     text-align: center;
   }
@@ -587,13 +587,13 @@
   .error {
     margin: 0;
     font-family: var(--font-ui);
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--rose);
   }
   .fine {
     margin: 0;
     font-family: var(--font-ui);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     text-align: center;
     text-wrap: balance;
     color: rgb(244 236 216 / 0.5);
@@ -601,12 +601,12 @@
   .hint {
     margin: 0;
     font-family: var(--font-pixel);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     letter-spacing: 0.08em;
     color: rgb(244 236 216 / 0.5);
   }
   .hint.empty {
-    font: 400 min(0.82rem, 22px) / 1.35 var(--font-ui);
+    font: 400 var(--text-sub) / 1.35 var(--font-ui);
     letter-spacing: 0;
     color: rgb(244 236 216 / 0.72);
     text-align: center;
@@ -616,7 +616,7 @@
     font-family: var(--font-ui);
     background: none;
     color: rgb(245 178 39 / 0.85);
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     text-decoration: underline;
     text-underline-offset: 3px;
   }

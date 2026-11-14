@@ -19,7 +19,7 @@
     height: 44px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--gold);
     color: var(--on-gold);
     font-family: var(--font-display);

@@ -156,8 +156,8 @@
     {/if}
     <p class="label">Colour</p>
     <div class="swatches">
-      {#each swatches as c (c)}
-        <button class="swatch" class:on={colors[s.subject_code] === c} style:background={c} aria-label="Colour {c.slice(8, 10)}" onclick={() => color(c)}></button>
+      {#each swatches as c, i (c)}
+        <button class="swatch" class:on={colors[s.subject_code] === c} style:background-color={c} aria-label="Colour {i + 1}" aria-pressed={colors[s.subject_code] === c} onclick={() => color(c)}></button>
       {/each}
       <button class="auto" class:on={!colors[s.subject_code]} onclick={() => color(null)}>Auto</button>
     </div>
@@ -171,7 +171,7 @@
     inset: 0;
     z-index: 40;
     background: rgba(0, 0, 0, 0.45);
-    animation: fade 0.2s both;
+    animation: fade var(--t-quick) both;
   }
   .sheet {
     --step: 4px;
@@ -186,7 +186,7 @@
     max-height: calc(100dvh - var(--safe-bottom) - 40px);
     overflow-y: auto;
     background: var(--card-2);
-    animation: rise 0.35s var(--ease) both;
+    animation: rise var(--t-flow) var(--ease) both;
   }
   .sheet.grown {
     animation: none;
@@ -194,7 +194,7 @@
   .sheet h2 {
     margin: 0 0 4px;
     font-family: var(--font-display);
-    font-size: min(1.059rem, 32px);
+    font-size: var(--text-headline);
   }
   .opts {
     display: grid;
@@ -204,7 +204,7 @@
   .opts button {
     height: 44px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     font-weight: 600;
@@ -212,7 +212,7 @@
   .opts .note {
     height: 44px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--gold);
     color: var(--on-gold);
     font-weight: 700;
@@ -234,7 +234,7 @@
     min-width: 0;
     padding: 0 8px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
@@ -245,20 +245,23 @@
     gap: 8px;
     align-items: center;
   }
+  /* A 36 px disc inside a 44 px target: the clear border is the finger's margin. */
   .swatch {
-    width: 36px;
-    height: 36px;
-    border: 0;
+    width: 44px;
+    height: 44px;
+    border: 4px solid transparent;
     border-radius: 50%;
+    background-clip: padding-box;
   }
   .swatch.on {
-    box-shadow: 0 0 0 2px var(--card-2), 0 0 0 4px var(--ink);
+    outline: 2px solid var(--ink);
+    outline-offset: -2px;
   }
   .auto {
     height: 36px;
     padding: 0 12px;
     border: 0;
-    border-radius: 18px;
+    border-radius: var(--radius-lg);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     font-weight: 600;
@@ -272,7 +275,7 @@
     min-height: 44px;
     padding: 10px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
@@ -282,7 +285,7 @@
   .sis {
     margin: 0;
     color: var(--ink-2);
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
   }
   .link {
     justify-self: start;
@@ -294,7 +297,7 @@
   }
   .problem {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--bad, #e0685a);
   }
 </style>

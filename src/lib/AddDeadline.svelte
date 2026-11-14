@@ -417,8 +417,8 @@
     inset: 0;
     z-index: 60;
     background: rgb(5 2 8 / 0.5);
-    animation: dim 0.3s var(--ease) backwards;
-    transition: opacity 0.3s var(--ease);
+    animation: dim var(--t-move) var(--ease) backwards;
+    transition: opacity var(--t-move) var(--ease);
   }
   .scrim.leaving {
     opacity: 0;
@@ -507,8 +507,8 @@
     padding: 4px 4px 4px 12px;
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
-    border-radius: 10px;
-    transition: box-shadow 0.2s var(--ease);
+    border-radius: var(--radius);
+    transition: box-shadow var(--t-quick) var(--ease);
   }
   .field:focus-within {
     box-shadow: inset 0 0 0 1.5px var(--gold);
@@ -522,7 +522,7 @@
     outline: 0;
     resize: none;
     background: none;
-    font: max(16px, var(--text-body)) / 1.375 var(--font-ui);
+    font: var(--text-input) / 1.375 var(--font-ui);
     color: var(--ink);
     caret-color: var(--gold);
     scrollbar-width: none;
@@ -559,7 +559,7 @@
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge-2);
     clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px));
-    transition: background 0.2s var(--ease), color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+    transition: background var(--t-quick) var(--ease), color var(--t-quick) var(--ease), box-shadow var(--t-quick) var(--ease);
   }
   .chip[aria-pressed="true"] .face {
     background: var(--gold);
@@ -626,7 +626,7 @@
     min-height: 64px;
     background: color-mix(in srgb, var(--gold) 6%, var(--sunk));
     box-shadow: inset 0 0 0 1px var(--edge-2);
-    transition: box-shadow 0.2s var(--ease), opacity 0.2s var(--ease);
+    transition: box-shadow var(--t-quick) var(--ease), opacity var(--t-quick) var(--ease);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, var(--a) 0, var(--a) 4px, var(--b) 4px, var(--b) 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, var(--b) 100%, var(--b) calc(100% - 4px), var(--a) calc(100% - 4px), var(--a) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
   }
   .tk.on {
@@ -656,7 +656,7 @@
     color: var(--ink-2);
   }
   .stub b {
-    font: 800 min(1.412rem, 34px) / 1 var(--font-ui);
+    font: 800 var(--text-title) / 1 var(--font-ui);
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
   }
@@ -683,7 +683,7 @@
     border-radius: 0;
     outline: 0;
     background: none;
-    font: 700 max(16px, min(1rem, 30px)) / 1.2 var(--font-ui);
+    font: 700 var(--text-input) / 1.2 var(--font-ui);
     color: var(--ink);
     caret-color: var(--gold);
   }
@@ -721,7 +721,7 @@
     align-items: center;
     gap: 8px;
     min-width: 0;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
   }
   .lab {
     flex: none;
@@ -757,17 +757,17 @@
     padding: 2px;
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
-    border-radius: 10px;
+    border-radius: var(--radius);
   }
   .seg button {
     min-height: 44px;
     padding: 0 4px;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: none;
     font: 600 var(--text-caption) var(--font-ui);
     color: var(--ink-2);
-    transition: background 0.2s var(--ease), color 0.2s var(--ease);
+    transition: background var(--t-quick) var(--ease), color var(--t-quick) var(--ease);
   }
   .seg button[aria-pressed="true"] {
     background: var(--gold);
@@ -777,7 +777,7 @@
   .problem {
     flex: none;
     margin: 8px 10px 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--bad);
   }
   .bar {
@@ -791,17 +791,17 @@
   .del {
     min-height: 46px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     font-family: var(--font-ui);
     font-weight: 700;
   }
   .go {
     flex: 1;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     background: var(--gold);
     color: var(--on-gold);
     box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.22);
-    transition: background 0.24s var(--ease), color 0.24s var(--ease), box-shadow 0.24s var(--ease), scale var(--t-quick) var(--ease-spring);
+    transition: background var(--t-move) var(--ease), color var(--t-move) var(--ease), box-shadow var(--t-move) var(--ease), scale var(--t-quick) var(--ease-spring);
   }
   .go[aria-disabled="true"] {
     background: var(--sunk);
@@ -811,7 +811,7 @@
   .del {
     flex: none;
     padding: 0 14px;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     background: none;
     box-shadow: inset 0 0 0 1px var(--edge-2);
     color: var(--bad);

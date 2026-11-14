@@ -74,7 +74,7 @@
     display: flex;
     justify-content: space-between;
     gap: 12px;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     color: var(--ink-2);
   }
   .line strong {
@@ -99,12 +99,12 @@
     min-width: 0;
     padding: 10px 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, var(--text-body));
+    font-size: var(--text-input);
     resize: none;
   }
   .bar {
@@ -116,15 +116,15 @@
     display: block;
     height: 100%;
     background: var(--gold);
-    transition: width 0.4s linear;
+    transition: width var(--t-flow) linear;
   }
   button {
     height: 44px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   .primary {
     background: var(--gold);

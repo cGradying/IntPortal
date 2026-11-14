@@ -366,7 +366,7 @@
     color: var(--parch);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
     transform-origin: 0 100%;
-    animation: grow 0.24s var(--ease) both;
+    animation: grow var(--t-move) var(--ease) both;
   }
   .bubble:global([data-side="left"]) .pop {
     transform-origin: 100% 100%;

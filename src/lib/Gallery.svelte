@@ -110,7 +110,7 @@
   header button {
     padding: 8px 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--gold);
     color: var(--on-gold);
     font-weight: 700;
@@ -140,7 +140,7 @@
   }
   figcaption {
     padding: 6px 8px;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-2);
   }
   .scene {
@@ -162,7 +162,7 @@
     display: inline-flex;
     align-items: center;
     padding: 8px 14px;
-    border-radius: 19px;
+    border-radius: var(--radius-lg);
     background: var(--island);
     color: #f1f1f3;
     font-family: var(--font-display);
@@ -189,7 +189,7 @@
     font-family: var(--font-display);
     font-variant-numeric: tabular-nums;
     font-weight: 800;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     color: var(--good);
     box-shadow: inset 0 0 0 2px currentColor;
     transform: rotate(-4deg);
@@ -210,7 +210,7 @@
   }
   .pending {
     padding: 4px 10px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     font-size: var(--text-caption);
     font-weight: 600;
