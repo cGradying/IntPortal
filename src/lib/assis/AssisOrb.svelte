@@ -1,18 +1,31 @@
 <script lang="ts">
-  // The chip (spec 046 C1b to C1d2): one floating button. A flat 3x3 grid of pixel squares on most
-  // tabs, once IntAssis has been added; its four corners dither out into a + on Study. At rest it is
-  // flat, in the room's own tokens, and draws nothing. Opening the chat grows it into LAR's window
-  // (AssisWindow): the chip fades into it, sleeps while the window is open, and fades back in at its
-  // spot as the window folds into it (`chip.at`).
+  // The crystal (spec 046 C1b to C1d2): one floating button. A cube of data on most tabs, once
+  // IntAssis has been added; it folds into a + on Study. At rest it is flat, in the room's own
+  // tokens, and draws nothing. Opening the chat grows it into LAR's window (AssisWindow): the chip
+  // rides the growing glass and fades into it, sleeps while the window is open, and fades back in at
+  // its spot as the window folds into it (`chip.at`).
+  import { invoke } from "@tauri-apps/api/core";
+  import { untrack } from "svelte";
   import { closable } from "../back";
   import { buzz } from "../haptics";
+  import { api } from "../api";
   import { rootPull } from "../fieldPulse";
+  import { FALLBACK_SIS } from "../portals";
   import { app } from "../state.svelte";
   import { assis, installed, open } from "./assis.svelte";
   import { chip } from "./AssisWindow.svelte";
-  import { PX, crystalMode, drawChip, readTones } from "./crystal";
+  import { crystalMode, mountCrystal, readTones, restCube, useGlass, type Crystal } from "./crystal";
 
+  const SIZE = 48;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const webgl2 = "WebGL2RenderingContext" in window;
+  /** False until the dive is over: compiling the shader on the main thread would hitch it. */
+  let { settled = true }: { settled?: boolean } = $props();
+
+  // The app's own tier, the one the AI keys on. Still image until it answers, and if it can't.
+  let smallRam = $state(true);
+  invoke<boolean>("ai_small_ram").then((small) => (smallRam = small)).catch(() => {});
+  const glass = $derived(useGlass(reduce, smallRam, webgl2));
 
   const mode = $derived(crystalMode(app.tab, installed(), !!app.editing));
   const thinking = $derived(assis.busy === "thinking" || assis.busy === "waking" || assis.busy === "cards");
@@ -20,79 +33,38 @@
 
   let canvas = $state<HTMLCanvasElement>();
   let button = $state<HTMLButtonElement>();
+  let crystal = $state<Crystal | null>(null);
   let menuOpen = $state(false);
-  let tones = readTones();
+  let remount = $state(0);
+  let tones = $state(readTones());
+  const faces = $derived(restCube(tones));
+  let ramp = FALLBACK_SIS.theme.ramp;
 
-  // One stepped clock (about 12 fps) drives the dither swap and the thinking sweep. It only runs
-  // while something moves, never while the page is hidden, and not at all under Reduce Motion.
-  const moveMs = (() => {
-    const v = getComputedStyle(document.documentElement).getPropertyValue("--t-move").trim();
-    const n = parseFloat(v);
-    return n > 0 ? (v.endsWith("ms") ? n : n * 1000) : 400;
-  })();
-  const fold = 1 / Math.max(1, Math.ceil(moveMs / 80));
-  let p = 1;
-  let alive = true;
-  let step = 0;
-  let pulseLeft = 0;
-  let timer: ReturnType<typeof setInterval> | undefined;
-  const paint = () => {
-    const ctx = canvas?.getContext("2d");
-    if (!ctx) return;
-    const px = Math.round(48 * (devicePixelRatio || 1));
-    if (canvas!.width !== px) canvas!.width = canvas!.height = px;
-    drawChip(ctx, tones, p, step, menuOpen, px / PX);
-  };
-  const stop = () => {
-    clearInterval(timer);
-    timer = undefined;
-  };
-  const tick = () => {
-    if (!canvas) return stop();
-    const goal = mode === "plus" ? 0 : 1;
-    p = Math.abs(goal - p) < fold * 0.99 ? goal : p + Math.sign(goal - p) * fold;
-    pulseLeft = Math.max(0, pulseLeft - 1);
-    const sweeping = thinking || pulseLeft > 0;
-    step = sweeping ? step + 1 : 0;
-    paint();
-    if (p === goal && !sweeping) stop();
-  };
-  const wake = () => {
-    if (!alive) return;
-    if (reduce || document.hidden) {
-      p = mode === "plus" ? 0 : 1;
-      step = 0;
-      return paint();
+  api.portals().then((list) => {
+    const own = list.find((p) => p.id === (app.sisConnected ? "sis" : "mabini"));
+    if (own) {
+      ramp = own.theme.ramp;
+      crystal?.look(ramp);
     }
-    timer ??= setInterval(tick, 80);
-  };
-  $effect(() => {
-    void [canvas, mode, thinking, menuOpen];
-    wake();
-  });
-  $effect(() => {
-    const seen = () => (document.hidden ? stop() : wake());
-    document.addEventListener("visibilitychange", seen);
-    return () => {
-      alive = false;
-      document.removeEventListener("visibilitychange", seen);
-      stop();
-    };
-  });
+  }).catch(() => {});
 
   // It tucks aside while the page scrolls, and comes back when you stop (spec 045 C23).
   let tucked = $state(false);
   $effect(() => {
-    let tuck: ReturnType<typeof setTimeout>;
+    let timer: ReturnType<typeof setTimeout>;
+    const tapped = () => crystal?.wake();
     const scrolled = () => {
       tucked = true;
-      clearTimeout(tuck);
-      tuck = setTimeout(() => (tucked = false), 650);
+      crystal?.wake();
+      clearTimeout(timer);
+      timer = setTimeout(() => (tucked = false), 650);
     };
     addEventListener("scroll", scrolled, { passive: true });
+    addEventListener("pointerdown", tapped, { passive: true });
     return () => {
-      clearTimeout(tuck);
+      clearTimeout(timer);
       removeEventListener("scroll", scrolled);
+      removeEventListener("pointerdown", tapped);
     };
   });
 
@@ -116,39 +88,62 @@
     };
   });
 
-  // A change of room or theme repaints the rest state.
+  // A change of room or theme repaints the rest state, whichever renderer is showing.
   $effect(() => {
     const watch = new MutationObserver(() => {
       tones = readTones();
-      paint();
+      crystal?.wake();
     });
     watch.observe(document.documentElement, { attributes: true, attributeFilter: ["data-room", "data-theme", "style"] });
     return () => watch.disconnect();
   });
 
+  // The shader compiles after the page has painted. The still image shows until it's ready,
+  // and stays when glass can't start.
+  $effect(() => {
+    const cv = canvas;
+    void remount;
+    if (!cv || !glass || !settled) return;
+    const timer = setTimeout(() => {
+      crystal = mountCrystal(cv, { mode: untrack(() => mode) ?? "cube", size: SIZE, ramp, onlost: () => (crystal = null) });
+    }, 400);
+    // A context lost in the background comes back here, so the student keeps the glass.
+    const restored = () => remount++;
+    cv.addEventListener("webglcontextrestored", restored);
+    return () => {
+      clearTimeout(timer);
+      cv.removeEventListener("webglcontextrestored", restored);
+      untrack(() => crystal)?.dispose();
+      crystal = null;
+    };
+  });
+
   $effect(() => {
     void app.tab;
+    if (mode) crystal?.set(mode);
     menuOpen = false;
   });
+  $effect(() => crystal?.menu(menuOpen));
   // Android's back closes the menu, not the tab.
   $effect(() => {
     if (menuOpen) return closable(() => (menuOpen = false));
   });
+  $effect(() => crystal?.hide(chip.at === "hidden"));
+  // The first beat of the pour into LAR's window: the cube turns to face the student (048 C1).
+  $effect(() => crystal?.face(chip.face));
 
-  // Finishing grows roots behind the cards (C1b4).
+  // Thinking maps something (C1b3). Finishing grows roots behind the cards (C1b4).
   let wasThinking = false;
   $effect(() => {
     const now = thinking;
-    if (wasThinking && !now && !assis.open && button)
-      rootPull(button.getBoundingClientRect(), () => {
-        pulseLeft = 12;
-        wake();
-      });
+    crystal?.think(now);
+    if (wasThinking && !now && crystal && !assis.open && button) rootPull(button.getBoundingClientRect(), () => crystal?.pulse());
     wasThinking = now;
   });
 
   function press() {
     buzz.tick();
+    crystal?.pulse();
     if (mode === "plus" && assis.plus) assis.plus();
     else if (mode === "plus") menuOpen = !menuOpen;
     else open();
@@ -173,6 +168,7 @@
     bind:this={button}
     class="orb card notch"
     class:open={menuOpen}
+    class:sweep={thinking && !crystal && !assis.open}
     data-orb
     class:away={chip.at !== "here"}
     class:tucked
@@ -182,7 +178,22 @@
     aria-expanded={mode === "plus" ? menuOpen : undefined}
     onclick={press}
   >
-    <canvas bind:this={canvas} width={PX * 2} height={PX * 2} aria-hidden="true"></canvas>
+    {#if !crystal}
+      <svg viewBox="-3.25 -3.25 6.5 6.5" aria-hidden="true">
+        {#if mode === "plus"}
+          <g fill={tones.gold}>
+            <rect x="-1.77" y="-0.57" width="3.54" height="1.14" />
+            <rect x="-0.57" y="-1.77" width="1.14" height="3.54" />
+          </g>
+        {:else}
+          {#each faces as f, i (i)}
+            <polygon points={f.points} fill={f.fill} stroke={tones.hair} stroke-width="0.07" />
+            {#if f.dot}<polygon points={f.dot} fill={tones.gold} />{/if}
+          {/each}
+        {/if}
+      </svg>
+    {/if}
+    {#if glass}<canvas bind:this={canvas} class:live={!!crystal} aria-hidden="true"></canvas>{/if}
   </button>
 {/if}
 
@@ -218,7 +229,10 @@
     height: 100%;
   }
   .orb canvas {
-    image-rendering: pixelated;
+    opacity: 0;
+  }
+  .orb canvas.live {
+    opacity: 1;
   }
   .orb.tucked {
     translate: 22px 0;
@@ -238,6 +252,23 @@
   .orb:focus-visible {
     outline: 2px solid var(--gold);
     outline-offset: -2px;
+  }
+  /* Phones without the glass: a cheap band across the still image while LAR thinks (C1d2). */
+  .orb.sweep::after {
+    content: "";
+    grid-area: 1 / 1;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(100deg, transparent 35%, var(--gold-soft) 50%, transparent 65%);
+    animation: sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes sweep {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
   }
   .scrim {
     position: fixed;
@@ -299,6 +330,9 @@
     display: none;
   }
   @media (prefers-reduced-motion: reduce) {
+    .orb.sweep::after {
+      animation: none;
+    }
     .scrim,
     .menu {
       animation: none;
