@@ -1,6 +1,6 @@
 # 045 App environment
 
-**Status:** ready to build. Every pick is settled (mockup rounds one to six).
+**Status:** building. Left: off-scale literals (C20) and between-role sizes (C8), closing in 0.2.0. Every pick is settled (mockup rounds one to six).
 
 ## What changes for the student
 
