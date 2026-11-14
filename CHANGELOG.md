@@ -2,6 +2,33 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## 0.1.9 (2026-11-14)
+
+- Landing: tap the portal to peek at what the app keeps (Today, Schedule, Grades, Study, sample data); a ring runs through its tiles; carry LAR around; a one-line pitch; the portal lifts as the form rises (#252)
+- Launch: the signed-in dive takes 1.8 s instead of 0.6 s, then the day says hello and Today rises; Short and Off are in You (#235, #252)
+- Sign-in: birthdate wheels, a masked student number, Sign in only when the form is valid, plain rejected and SIS-down states with Try again; a sign-in with no schedule yet still lets you in (#256)
+- Deadlines: one Due card for SIS, eMabini and your own; Done with a 5-second Undo and a "Done this week" row; long-press offers Done; type or scan a deadline from a photo (#202, #208, #238, #254, #259)
+- Deadlines in the phone calendar and as .ics; reminders open the subject's outline (#204, #262)
+- LAR plans the day: free stretches, warm-ups, after-class notes, grade risk, a Sunday brief, at most 3 nudges a day (#206, #259)
+- Schedule: the pixel week, a readable Day view, tap to open a day, a week range header and a springy swipe (#217, #259)
+- Study: part tiles (Review, Notes, Cards, Done), notebooks per subject, review all due across decks (#232, #237, #210)
+- Notes: a formatted Markdown editor with 15 tools, page look (size, font, spacing, paper), templates, dated entries, checklists that tick without the keyboard, Make cards; photos in notes, shared as a zip with the note (#255, #258)
+- Class links: add a meeting link and your own description to a class; Join shows on Up next 15 minutes before an online class (#261)
+- LAR's chat: the crystal pours into a window with the sky header and a trace of LAR's real steps; suggestions follow the day (#246, #250, #251)
+- You: quick switches and search, grouped settings, a theme maker with share codes and QR, backup and restore (no password, never your logins), space used (#243, #247, #257)
+- Look: one night, your school's accent across the app, a living ground, pixel numerals, the done run, 44 pt tap targets, motion tokens (#213–#218, #260)
+- Plain words for errors everywhere; honest loading and "Showing what was saved" (#209, #262)
+- The Isko mascot is retired; LAR is the only character (#233)
+- IntAssis on phones with 6.5 GB of RAM or less keeps one model loaded at a time, says "Still waking up. This phone is slow." after 15 s and stops after 150 s with a low-memory note (#190)
+- Mabini: sign-in and sync fixes (#193)
+- LAR's hands glide into gestures; no cream flash on launch (#170, #171)
+
+Known gaps:
+
+- Not yet run on a real phone: the camera scan, note photos, keep-screen-awake and the backup share sheet
+- The pour opening at 60 fps on a real iPhone and a low-end Android check are still open release gates
+- Spec 045's text roles and motion tokens are partly applied (#260 lists the files left)
+
 ## 0.1.8 (2026-10-26)
 
 - ai: Qwen3 1.7B is the default chat model; existing Gemma installs get an Update IntAssis button (1.1 GB chat model + 310 MB note search, use Wi-Fi) (#174)

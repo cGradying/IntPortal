@@ -1,6 +1,6 @@
 # 012 Portals
 
-**Status:** draft
+**Status:** shipped (2026-11-14). The portal model, SIS and Mabini, is built.
 
 ## What changes for the student
 
@@ -59,7 +59,7 @@ pub struct Portal {
 
 Shipped in [intportal-app#97](https://github.com/cGradying/intportal-app/pull/97): `portal.rs` with `SIS`, `MABINI` and `get(id)`.
 
-The SIS client in `crates/intportal-core/src/sis/` becomes the SIS portal's implementation. Store namespacing extends `account_file` in `store.rs` so a portal id is part of the file key.
+The SIS client in `crates/intportal-core/src/sis/` becomes the SIS portal's implementation. Store namespacing uses the store key as the namespace, so a portal id is part of each saved key.
 
 ## Errors
 
