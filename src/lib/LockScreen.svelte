@@ -32,7 +32,7 @@
   .wordmark {
     margin: 0;
     font-family: var(--font-display);
-    font-size: min(1.412rem, 31px);
+    font-size: var(--text-title);
     font-weight: 800;
     color: var(--ink);
   }
@@ -43,7 +43,7 @@
     height: 48px;
     padding: 0 28px;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--gold);
     color: var(--on-gold);
     font-family: var(--font-display);

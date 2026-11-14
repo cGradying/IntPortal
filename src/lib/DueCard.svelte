@@ -300,7 +300,7 @@
     flex: none;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--gold);
   }
   .when.late {
@@ -316,7 +316,7 @@
     text-overflow: ellipsis;
   }
   small {
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-3);
   }
   /* The box: empty, then filled in three steps. */
@@ -330,7 +330,7 @@
     padding: 0;
     background: none;
     box-shadow: none;
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     line-height: 1;
     color: var(--ink-2);
   }
@@ -346,7 +346,7 @@
   .check.on i {
     background: var(--gold);
     box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.25);
-    animation: fill 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    animation: fill var(--t-move) cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   }
   .check.on i::after {
     content: "";
@@ -375,22 +375,22 @@
     height: 2px;
     background: var(--ink-2);
     transform-origin: left;
-    animation: strike 0.2s var(--ease) 0.06s backwards;
+    animation: strike var(--t-quick) var(--ease) var(--t-quick) backwards;
   }
   @keyframes strike {
     from { transform: scaleX(0); }
   }
   .ri.nudge {
-    animation: nudge 0.42s var(--ease) both;
+    animation: nudge var(--t-flow) var(--ease) both;
   }
   .ri.shake {
-    animation: shake 0.36s ease-out both 0.2s;
+    animation: shake var(--t-flow) ease-out both var(--t-quick);
   }
   .ri.hard {
-    animation: hard 0.42s ease-out both 0.2s;
+    animation: hard var(--t-flow) ease-out both var(--t-quick);
   }
   .ri {
-    transition: scale 0.2s var(--ease);
+    transition: scale var(--t-quick) var(--ease);
   }
   .ri.lift {
     z-index: 3;
@@ -418,13 +418,13 @@
     translate: 0 -50%;
     rotate: -7deg;
     padding: 1px 6px;
-    font: 700 min(0.706rem, 22px) var(--font-pixel);
+    font: 700 var(--text-label) var(--font-pixel);
     letter-spacing: 0.08em;
     color: var(--good);
     background: var(--card);
     box-shadow: inset 0 0 0 2px var(--good);
     pointer-events: none;
-    animation: thunk 0.36s cubic-bezier(0.22, 1, 0.36, 1) both 0.2s;
+    animation: thunk var(--t-flow) cubic-bezier(0.22, 1, 0.36, 1) both var(--t-quick);
   }
   .stamp.set {
     position: static;
@@ -441,10 +441,10 @@
     position: absolute;
     right: 60px;
     top: 50%;
-    font: 700 min(0.765rem, 23px) var(--font-pixel);
+    font: 700 var(--text-caption) var(--font-pixel);
     color: var(--gold);
     pointer-events: none;
-    animation: combo 0.8s ease-out both 0.08s;
+    animation: combo var(--t-hero) ease-out both var(--t-quick);
   }
   @keyframes combo {
     0% { opacity: 0; translate: 0 -40%; }
@@ -467,14 +467,14 @@
   .prog i.on {
     background: var(--gold);
     box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.22);
-    animation: seg 0.3s var(--ease) backwards;
+    animation: seg var(--t-move) var(--ease) backwards;
   }
   .prog.cleared i {
-    animation: flash 0.6s ease-in-out both;
+    animation: flash var(--t-hero) ease-in-out both;
   }
   .prog span {
     margin-left: 4px;
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     color: var(--ink-2);
   }
   @keyframes seg {
@@ -506,7 +506,7 @@
     border: 0;
     background: none;
     color: var(--ink-3);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
   }
   .past {
     display: flex;
@@ -535,7 +535,7 @@
   }
   .hop {
     display: inline-block;
-    animation: hop 0.5s var(--ease) both;
+    animation: hop var(--t-hero) var(--ease) both;
   }
   @keyframes hop {
     40% { translate: 0 -8px; }
@@ -546,7 +546,7 @@
     min-width: 44px;
     min-height: 44px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-2);
@@ -560,18 +560,18 @@
   .all {
     height: 44px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
   }
   .state,
   .none {
     margin: 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
   }
   .none b {

@@ -330,7 +330,7 @@
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.647rem, 36px);
+    font-size: var(--text-display);
     font-weight: var(--title-weight);
     letter-spacing: var(--title-track);
   }
@@ -347,7 +347,7 @@
     bottom: 0;
     left: 0;
     width: calc((100% - 36px) / 7);
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--gold);
     transform: translateX(calc(var(--p) * (100% + 6px)));
     pointer-events: none;
@@ -368,19 +368,19 @@
     gap: 2px;
     padding: 8px 0 6px;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-2);
   }
   .days span {
     font-family: var(--font-label);
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     font-weight: 600;
     text-transform: uppercase;
   }
   .days strong {
-    font-size: min(1rem, 31px);
+    font-size: var(--text-headline);
     color: var(--ink);
   }
   .days i {
@@ -464,7 +464,7 @@
     place-items: center;
     min-height: 26px;
     border: 1px dashed var(--edge-2);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     font-weight: 600;
     color: var(--ink-2);
   }
@@ -476,7 +476,7 @@
     padding: 6px 12px;
     outline: 1px dashed var(--c);
     outline-offset: -1px;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-2);
   }
   .stampy {
@@ -484,7 +484,7 @@
     align-self: flex-start;
     padding: 2px 4px;
     rotate: -6deg;
-    font: 700 min(0.588rem, 18px) / 1.2 var(--font-pixel);
+    font: 700 var(--text-micro) / 1.2 var(--font-pixel);
     letter-spacing: 0.04em;
     background: var(--stamp-paper);
   }
@@ -515,7 +515,7 @@
   }
   .mm span {
     font-family: var(--font-label, var(--font-pixel));
-    font-size: min(0.53rem, 16px);
+    font-size: var(--text-micro);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -551,18 +551,18 @@
     display: grid;
     width: 64px;
     flex: none;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     font-weight: 700;
   }
   .time small {
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     font-weight: 500;
     color: var(--ink-3);
   }
   .stripe {
     width: 3px;
     align-self: stretch;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--c);
   }
   .what {
@@ -572,15 +572,15 @@
   }
   .what strong {
     font-family: var(--font-display);
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
   }
   .what span {
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
   }
   .what em {
     font-style: normal;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-3);
   }
   .empty {
@@ -592,7 +592,7 @@
   .empty p {
     margin: 0;
     color: var(--ink-2);
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   .dot {
     width: 8px;
@@ -609,14 +609,14 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     padding: 3px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
   }
   .seg button {
-    height: 34px;
+    height: 44px;
     border: 0;
-    border-radius: 9px;
+    border-radius: var(--radius);
     background: none;
     color: var(--ink-2);
     font-family: var(--font-display);
@@ -630,7 +630,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
   }
   @keyframes rise {
@@ -651,11 +651,11 @@
     border: 0;
     background: none;
     color: var(--ink-2);
-    font-size: 1.1rem;
+    font-size: var(--text-headline);
   }
   .nav.this {
     margin-left: auto;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     font-weight: 700;
     color: var(--gold);
   }

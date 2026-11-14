@@ -22,7 +22,7 @@
   }
   p {
     margin: 0;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     line-height: 1.4;
     color: var(--ink-2);
   }

@@ -40,7 +40,7 @@
   }
 </script>
 
-<div class="first" role="dialog" aria-label="Welcome">
+<div class="first ground" role="dialog" aria-label="Welcome">
   <div class="art"><Lar size={4} state="happy" /></div>
   <div class="card notch text">
     <p class="label">{step + 1} of {steps.length}</p>
@@ -76,7 +76,6 @@
     align-content: end;
     gap: 14px;
     padding: calc(var(--safe-top) + 24px) var(--gutter) calc(var(--safe-bottom) + 24px);
-    background: var(--ground);
   }
   .art {
     display: flex;
@@ -92,7 +91,7 @@
   h1 {
     margin: 4px 0 8px;
     font-family: var(--font-display);
-    font-size: min(1.412rem, 31px);
+    font-size: var(--text-title);
   }
   .text p:last-child {
     margin: 0;
@@ -117,7 +116,7 @@
   button {
     height: 52px;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--radius);
     font-family: var(--font-display);
     font-weight: 700;
     font-size: var(--text-body);

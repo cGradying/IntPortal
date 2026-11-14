@@ -294,7 +294,7 @@
   }
   .value {
     margin: 2px 0 0;
-    font-size: min(2.824rem, 62px);
+    font-size: var(--text-numeral);
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.03em;
@@ -306,7 +306,7 @@
     padding: 3px 7px;
     vertical-align: middle;
     font-family: var(--font-pixel);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -315,7 +315,7 @@
     transform: rotate(-5deg);
   }
   .pb.fresh {
-    animation: thunk var(--t-hero) var(--ease) both 0.3s;
+    animation: thunk var(--t-hero) var(--ease) both var(--t-move);
   }
   .sub {
     margin: 6px 0 0;
@@ -337,7 +337,7 @@
     min-height: 44px;
     padding: 0 14px;
     border: 0;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-2);
@@ -361,11 +361,11 @@
   }
   .big {
     margin: 2px 0 0;
-    font-size: min(1.529rem, 34px);
+    font-size: var(--text-display);
     font-weight: 800;
   }
   .big small {
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     color: var(--ink-3);
   }
   .bar {
@@ -380,7 +380,7 @@
   }
   .reach {
     margin: 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
   }
   .reach[data-kind="out_of_reach"] strong {
@@ -398,7 +398,7 @@
   .inputs label {
     display: grid;
     gap: 4px;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-3);
   }
   .inputs input {
@@ -406,25 +406,25 @@
     min-width: 0;
     padding: 0 10px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, var(--text-body));
+    font-size: var(--text-input);
   }
   .inputs button {
     height: 44px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--gold);
     color: var(--on-gold);
     font-weight: 700;
   }
   .note {
     margin: -4px 2px 0;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-3);
   }
   ol {
@@ -439,14 +439,14 @@
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
   }
   .stripe {
     width: 3px;
     align-self: stretch;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--c);
   }
   .what {
@@ -456,17 +456,17 @@
   }
   .what strong {
     font-family: var(--font-display);
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
   }
   .what span {
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .units {
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-3);
   }
   .stamp {
@@ -478,7 +478,7 @@
     font-family: var(--font-display);
     font-variant-numeric: tabular-nums;
     font-weight: 800;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     color: var(--good);
     box-shadow: inset 0 0 0 2px currentColor;
     transform: rotate(-4deg);
@@ -491,7 +491,7 @@
   }
   /* The card takes a little of the stamp's weight (spec 045 C15). */
   .row:has(.stamp.fresh) {
-    animation: stamp-shake 0.3s ease-in-out 0.2s;
+    animation: stamp-shake var(--t-move) ease-in-out var(--t-quick);
   }
   @keyframes stamp-shake {
     25% { translate: 2px 0; }
@@ -508,12 +508,12 @@
   }
   .what .risk {
     color: var(--ink-2);
-    font-size: 0.8rem;
+    font-size: var(--text-sub);
   }
   .pending {
     flex: none;
     padding: 4px 10px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     font-size: var(--text-caption);
     font-weight: 600;
@@ -529,7 +529,7 @@
   }
   .empty p {
     margin: 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
   }
   .empty strong {
@@ -539,11 +539,11 @@
     justify-self: center;
     padding: 10px 18px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--gold);
     color: var(--on-gold);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
 </style>

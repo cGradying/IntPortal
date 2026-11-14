@@ -133,15 +133,25 @@
   --t-move: 0.32s;
   --t-flow: 0.36s;
   --t-hero: 0.55s;
-  /* The seven text roles (spec 045 C8, C11): the sizes the app already used, now named.
-     Faces: display, title, headline, body, caption and numeral read in --font-ui; label is pixel. */
+  /* The text roles (spec 045 C8, C11): the sizes the app already used, now named.
+     Faces: display, title, headline, body, sub, caption and numeral read in --font-ui; label is pixel. */
   --text-display: min(1.647rem, 36px);
   --text-title: min(1.294rem, 29px);
   --text-headline: min(1.059rem, 32px);
   --text-body: min(0.941rem, 29px);
-  --text-label: min(0.647rem, 20px);
+  --text-sub: min(0.824rem, 25px);
   --text-caption: min(0.765rem, 23px);
+  --text-label: min(0.706rem, 22px);
   --text-numeral: min(2.353rem, 52px);
+  /* Two more, for what the seven did not cover: marks beside pixel art (a rail letter, a stamp),
+     and text typed into a field, which stays at 16 px or more so iOS does not zoom the page. */
+  --text-micro: min(0.588rem, 18px);
+  --text-input: var(--text-input);
+  /* Corners. The stepped notch (.notch) is for cards and the primary button; everything else that
+     is rounded takes one of these three. */
+  --radius-sm: 3px;
+  --radius: 10px;
+  --radius-lg: 16px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -301,7 +311,10 @@ input[type="checkbox"]:checked::after {
   from { scale: 0.6; }
 }
 
-.dots {
+/* `.ground` is the same dotted ground for a page that covers the shell (the note editor, a
+   subject, first run), so no screen falls back to a flat one. The drifting pools stay with `.dots`. */
+.dots,
+.ground {
   background-color: var(--ground);
   /* A theme's ground pattern (047 C12) replaces the dots; `look()` in theme.ts draws it. */
   background-image: var(--pattern, radial-gradient(var(--dot) 1px, transparent 1.2px));

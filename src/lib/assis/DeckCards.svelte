@@ -138,10 +138,10 @@
     height: 44px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   button:disabled {
     opacity: 0.4;
@@ -197,7 +197,7 @@
     align-items: center;
     gap: 4px;
     padding: 8px 4px 8px 8px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
   }
@@ -212,19 +212,19 @@
     height: 44px;
     padding: 0 10px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, var(--text-body));
+    font-size: var(--text-input);
   }
   .x {
     width: 44px;
     padding: 0;
     background: none;
     color: var(--ink-3);
-    font-size: min(1.176rem, 26px);
+    font-size: var(--text-headline);
   }
   .fine {
     margin: 0;
@@ -236,7 +236,7 @@
     align-items: center;
     gap: 10px;
     margin: 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   .working i {
     width: 14px;

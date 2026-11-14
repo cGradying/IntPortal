@@ -211,12 +211,12 @@
     min-width: 0;
     padding: 0 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, var(--text-body));
+    font-size: var(--text-input);
   }
   .spines {
     display: flex;
@@ -269,10 +269,10 @@
     translate: 0 -14px;
   }
   .spine b {
-    font: 800 min(0.824rem, 25px) / 1.05 var(--font-ui);
+    font: 800 var(--text-sub) / 1.05 var(--font-ui);
   }
   .spine small {
-    font: 600 min(0.706rem, 22px) / 1.05 var(--font-ui);
+    font: 600 var(--text-label) / 1.05 var(--font-ui);
     font-variant-numeric: tabular-nums;
   }
   .well {
@@ -305,7 +305,7 @@
     animation: none;
   }
   .well u.tw {
-    animation: twinkle 0.6s ease-in-out;
+    animation: twinkle var(--t-hero) ease-in-out;
   }
   @keyframes beat {
     50% {
@@ -396,7 +396,7 @@
   }
   .pinned {
     margin-right: 6px;
-    font: 500 min(0.588rem, 18px) var(--font-label);
+    font: 500 var(--text-micro) var(--font-label);
     letter-spacing: var(--label-track);
     text-transform: uppercase;
     color: var(--gold);
@@ -431,7 +431,7 @@
     min-height: 44px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge-2);
     color: var(--ink);
@@ -467,13 +467,13 @@
     overflow-y: auto;
     padding: 16px;
     background: var(--card-2);
-    animation: rise 0.3s var(--ease) both;
+    animation: rise var(--t-move) var(--ease) both;
   }
   .opt {
     min-height: 48px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);

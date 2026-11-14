@@ -15,7 +15,7 @@
   }
   i {
     display: block;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: linear-gradient(90deg, var(--sunk) 0 40%, var(--edge) 50%, var(--sunk) 60% 100%) 0 0 / 300% 100%;
     animation: shimmer 1.4s steps(8) infinite;
   }

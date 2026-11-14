@@ -41,12 +41,12 @@
     min-height: 44px;
     padding: 0 16px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   .why:disabled {
     opacity: 0.6;
@@ -61,12 +61,12 @@
   }
   .lar p {
     margin: 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     line-height: 1.4;
   }
   .tag {
     font-family: var(--font-pixel);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     letter-spacing: 0.08em;
     color: var(--gold);
   }

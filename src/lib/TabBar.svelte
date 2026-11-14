@@ -31,7 +31,7 @@
     width: calc((100% - 16px) / 5);
     height: 44px;
     pointer-events: none;
-    transition: translate 0.24s var(--ease);
+    transition: translate var(--t-move) var(--ease);
   }
   .sel::before {
     content: "";
@@ -66,11 +66,11 @@
     border: 0;
     background: none;
     color: var(--ink-3);
-    transition: color 0.2s;
+    transition: color var(--t-quick);
   }
   button span {
     font-family: var(--font-label);
-    font-size: min(0.647rem, 13px); /* five labels share the width */
+    font-size: var(--text-label); /* five labels share the width */
     font-weight: 600;
   }
   button.on {

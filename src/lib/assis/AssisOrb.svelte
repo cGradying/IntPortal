@@ -280,7 +280,7 @@
     border: 0;
     border-radius: 0;
     background: rgb(0 0 0 / 0.45);
-    animation: fadein 0.2s var(--ease) both;
+    animation: fadein var(--t-quick) var(--ease) both;
   }
   .menu {
     position: fixed;
@@ -292,7 +292,7 @@
     padding: 4px 0;
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge-2);
-    animation: rise 0.3s var(--ease) both;
+    animation: rise var(--t-move) var(--ease) both;
   }
   .menu button {
     min-height: 48px;

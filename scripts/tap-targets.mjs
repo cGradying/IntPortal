@@ -6,8 +6,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Follow-up: these files belong to other open PRs (2026-11-14); fix their targets when those merge.
-const SKIP = /^(ClassSheet|NoteEditor|Schedule|Today|DueCard|WeekGrid)\.svelte$/;
+// No file is skipped. A rule that is truly fine (its hit area comes from a parent) goes on the allowlist below.
+const SKIP = /^$/;
 const BUTTONY = /(^|[\s,>.])(button|\.(back|x|chip|close|tap|btn|tab|swatch|term|ghost|link|sm|cap|search|key|arrow)s?)\b|\[role="?(button|tab)"?\]/;
 
 function* walk(dir) {

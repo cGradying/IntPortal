@@ -59,7 +59,7 @@
     flex: 1;
   }
   small {
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-3);
   }
   .bar {

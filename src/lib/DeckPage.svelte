@@ -166,21 +166,21 @@
     padding: 0;
     background: none;
     color: var(--gold);
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
   }
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.529rem, 34px);
+    font-size: var(--text-display);
   }
   button {
     height: 44px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   button:disabled {
     opacity: 0.4;
@@ -219,12 +219,12 @@
     height: 44px;
     padding: 0 10px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, var(--text-body));
+    font-size: var(--text-input);
   }
   textarea {
     height: 120px;
@@ -242,7 +242,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 4px 8px 12px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
   }
@@ -258,7 +258,7 @@
   .cards em {
     flex: none;
     font-style: normal;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-3);
   }
   .x {
@@ -267,7 +267,7 @@
     padding: 0;
     background: none;
     color: var(--ink-3);
-    font-size: min(1.176rem, 26px);
+    font-size: var(--text-headline);
   }
   .fine {
     margin: 0;

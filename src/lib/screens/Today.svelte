@@ -300,24 +300,24 @@
     align-content: start;
   }
   .reality small {
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--ink-3);
   }
   .reality strong {
-    font-size: min(1.176rem, 26px);
+    font-size: var(--text-headline);
     font-weight: 800;
   }
   .reality strong i {
     font-style: normal;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
   .reality em {
     font-style: normal;
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     color: var(--bad);
   }
   .reality em.ok {
@@ -345,7 +345,7 @@
   .offline p {
     flex: 1;
     margin: 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
   }
   .offline strong {
@@ -353,10 +353,10 @@
   }
   .offline button {
     flex: none;
-    height: 36px;
+    height: 44px;
     padding: 0 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--gold);
     color: var(--on-gold);
     font-family: var(--font-display);
@@ -382,17 +382,17 @@
     text-align: left;
   }
   .coach .line {
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     line-height: 1.35;
   }
   .coach .x {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     flex: none;
     border: 0;
     background: none;
     color: var(--ink-3);
-    font-size: min(1.176rem, 26px);
+    font-size: var(--text-headline);
   }
   .screen > header {
     min-width: 0;
@@ -402,11 +402,11 @@
     max-width: 100%;
     padding: 6px 12px;
     border: 0;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-2);
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     text-align: left;
     white-space: nowrap;
     overflow: hidden;
@@ -422,7 +422,7 @@
   }
   /* After the launch hello, Today rises one block at a time (spec 010 C35). */
   :global(html[data-entering]) .screen > :global(*) {
-    animation: rise 0.45s var(--ease) backwards;
+    animation: rise var(--t-flow) var(--ease) backwards;
     animation-delay: calc(120ms + var(--n, 6) * 60ms);
   }
   .screen > :global(:nth-child(1)) { --n: 0; }
@@ -441,7 +441,7 @@
   header h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.4rem, 32px);
+    font-size: var(--text-title);
     font-weight: var(--title-weight);
     letter-spacing: var(--title-track);
   }
@@ -463,7 +463,7 @@
   .who h2 {
     margin: 4px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.412rem, 31px);
+    font-size: var(--text-title);
     font-weight: 800;
     letter-spacing: -0.01em;
     color: var(--gold);
@@ -473,7 +473,7 @@
     margin-top: 8px;
     padding: 0 20px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--gold);
     color: var(--on-gold);
     font-weight: 700;
@@ -481,7 +481,7 @@
   .desc {
     margin: 2px 0 0;
     color: var(--ink);
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
@@ -491,7 +491,7 @@
   }
   .meta {
     margin: 4px 0 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .count {
@@ -500,14 +500,14 @@
     flex: none;
   }
   .big {
-    font-size: min(2.353rem, 52px);
+    font-size: var(--text-numeral);
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.03em;
   }
   .unit {
     margin-top: 4px;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-2);
   }
   .bar {
@@ -518,7 +518,7 @@
     display: block;
     height: 100%;
     background: repeating-linear-gradient(90deg, var(--gold) 0 6px, color-mix(in srgb, var(--gold) 70%, transparent) 6px 8px);
-    transition: width 1s linear;
+    transition: width var(--t-hero) linear;
   }
   .day {
     display: grid;
@@ -542,7 +542,7 @@
   .busy .time {
     display: grid;
     min-width: 64px;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     font-weight: 600;
   }
   .busy .time small {
@@ -557,7 +557,7 @@
   }
   .free {
     margin: 0;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     font-weight: 600;
     color: var(--gold);
   }
@@ -580,7 +580,7 @@
     text-align: left;
     -webkit-touch-callout: none;
     user-select: none;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
   }
@@ -594,18 +594,18 @@
     display: grid;
     width: 64px;
     flex: none;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     font-weight: 700;
   }
   .time small {
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     font-weight: 500;
     color: var(--ink-3);
   }
   .stripe {
     width: 3px;
     align-self: stretch;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--c);
   }
   .what {
@@ -615,10 +615,10 @@
   }
   .what strong {
     font-family: var(--font-display);
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
   }
   .what span {
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
     white-space: nowrap;
     overflow: hidden;
@@ -629,7 +629,7 @@
     flex: none;
     padding: 3px 8px;
     font-family: var(--font-pixel);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -646,11 +646,11 @@
     align-items: center;
     height: 30px;
     padding: 0 14px 0 84px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background-image: radial-gradient(color-mix(in srgb, var(--gold) 35%, transparent) 1px, transparent 1.2px);
     background-size: 5px 5px;
     color: var(--gold);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     font-weight: 600;
   }
   .gap.past {
@@ -666,7 +666,7 @@
   .empty p,
   .tomorrow {
     margin: 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
   }
   .tomorrow strong {

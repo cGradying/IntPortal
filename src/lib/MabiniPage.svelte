@@ -21,7 +21,7 @@
   });
 </script>
 
-<div class="page" role="dialog" aria-label="eMabini">
+<div class="page ground" role="dialog" aria-label="eMabini">
   <header>
     <div>
       <p class="label">eMabini</p>
@@ -89,7 +89,6 @@
     grid-template-rows: auto 1fr;
     gap: 12px;
     padding: calc(var(--safe-top) + 12px) var(--gutter) 0;
-    background: var(--ground);
   }
   header {
     display: flex;
@@ -151,7 +150,7 @@
     flex: 1;
   }
   small {
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-3);
   }
   .bar {
@@ -181,13 +180,13 @@
     height: 44px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   .ghost:disabled {
     opacity: 0.4;
@@ -197,7 +196,7 @@
   }
   .fine {
     margin: 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
   }
   .bad {
