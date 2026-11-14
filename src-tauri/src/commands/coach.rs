@@ -21,12 +21,19 @@ pub fn coach(state: tauri::State<'_, AppState>, now: Moment, dismissed: Vec<Stri
     let agenda = today::agenda(&snap.sessions, &snap.marks, now);
     let busy = busy.unwrap_or_default();
     let needed = snap.goals.target_gpa.zip(snap.grades.as_ref()).and_then(|(t, g)| grades::needed_average(&g.subjects, t).filter(|n| (1.0..5.0).contains(n)).map(|n| (n, t)));
-    // Overdue through three days on (spec 042 C2); the first two days are the deadline nudge's.
-    let soon = deadline::deadlines(&snap, &mabini, now, offset, 4);
-    let plan_step = soon.first().map(|d| PlanStep { id: d.id.clone(), title: d.title.clone(), when: deadline::when_word(d, now, offset), subject: d.subject.clone(), url: d.url.clone() });
-    let tomorrow = now.date.add_days(1);
+    // The Due card's window (041 C7): overdue, then the next seven days. The plan looks three days on
+    // (spec 042 C2), the deadline nudge two, and anything later keeps it from being a rest day (#244).
+    let week = deadline::deadlines(&snap, &mabini, now, offset, 8);
+    let day_of = |d: &deadline::Deadline| match d.due {
+        deadline::Due::Day(day) => day,
+        deadline::Due::At(u) => deadline::local_parts(u, offset).0,
+    };
+    let within = |d: &deadline::Deadline, days: i64| d.overdue || day_of(d) < now.date.add_days(days);
+    let step = |d: &deadline::Deadline, subject: Option<String>| PlanStep { id: d.id.clone(), title: d.title.clone(), when: deadline::when_word(d, now, offset), subject, url: d.url.clone() };
+    let plan_step = week.iter().find(|d| within(d, 4)).map(|d| step(d, d.subject.clone()));
+    let later = week.iter().find(|d| !within(d, 2)).map(|d| step(d, Some(d.label().to_string()).filter(|l| !l.is_empty())));
     let signals = Signals {
-        due_soon: soon.iter().filter(|d| d.overdue || matches!(d.due, deadline::Due::Day(day) if day <= tomorrow) || matches!(d.due, deadline::Due::At(u) if deadline::local_parts(u, offset).0 <= tomorrow)).cloned().collect(),
+        due_soon: week.iter().filter(|d| within(d, 2)).cloned().collect(),
         cards_due: decks.iter().map(|d| d.due(unix)).sum(),
         study_streak: study::current_streak(&stats, now.date),
         studied_today: stats.last_day == Some(now.date),
@@ -36,6 +43,7 @@ pub fn coach(state: tauri::State<'_, AppState>, now: Moment, dismissed: Vec<Stri
         gap: today::gaps(&agenda.items, now, &busy).into_iter().find(|g| g.minutes >= 30),
         plan_step,
         cards_by_subject: cards_by_subject(&decks, unix).into_iter().collect(),
+        later,
     };
     Ok(coach::pick(&signals, &dismissed).map(|n| CoachLine { line: n.line(), key: n.key(), nudge: n }))
 }
