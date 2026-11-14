@@ -149,9 +149,8 @@ Every tool and row has a 44 pt target and a name. Checklist boxes are real contr
 | Criterion | Test |
 |---|---|
 | C2, C3, C4, C7 | `vitest`: `c4_subject_shelves_sort_pinned_then_newest` and siblings; `cargo`: note round trip with subject and pinned |
-| C1b2, C1c, C1d, C1d2 | `vitest`: `c1b2_settles_and_wakes`, `c1c_no_cube_until_installed`, `c1d2_low_ram_never_starts_webgl`, `c1d2_a_still_neuron_never_starts_a_frame_loop`; real phone for the look |
+| C1b2, C1c, C1d, C1d2 | `vitest`: `c1b2_settles_and_wakes`, `c1c_no_cube_until_installed`, `c1d2_low_ram_never_starts_webgl`; real phone for the look |
 | C1b | `vitest`: `c1b_page_padding_clears_the_chip` |
-| C1d3 | `vitest`: `c1d3_the_same_seed_grows_the_same_neuron`, `c1d3_dendrites_stay_inside_the_glass_and_grow_from_him`, `c1d3_the_axon_reaches_every_source` and siblings in `neuron.test.ts`; simulator for the flight and the fire |
 | C6 | `vitest`: `c6_search_across_subjects` |
 | C1 | `vitest`: `c1_cards_group_decks_by_subject_in_shelf_order`, `c1_deck_bar_is_a_pixel_per_3_cards_gold_for_due`, `c1_done_bars_are_the_last_seven_days_ending_today`; `cargo test`: `week_counts_each_local_day_with_gaps_as_zero`; screenshot, real phone for the tiles and the slide |
 | C10 | `vitest`: `c10_markdown_round_trip` (`editor/md.test.ts`) |

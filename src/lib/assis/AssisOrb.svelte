@@ -100,10 +100,15 @@
 
   // The shader compiles after the page has painted. The still image shows until it's ready,
   // and stays when glass can't start.
+  // Latched: a later dive (settled false again) must not dispose a live context (it stays lost).
+  let started = $state(false);
+  $effect(() => {
+    if (settled) started = true;
+  });
   $effect(() => {
     const cv = canvas;
     void remount;
-    if (!cv || !glass || !settled) return;
+    if (!cv || !glass || !started) return;
     const timer = setTimeout(() => {
       crystal = mountCrystal(cv, { mode: untrack(() => mode) ?? "cube", size: SIZE, ramp, onlost: () => (crystal = null) });
     }, 400);
