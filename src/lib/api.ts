@@ -241,6 +241,7 @@ export interface Snapshot {
   history: GradeReport[];
   marks: Layers<Mark> & { moved: Layers<Slot> };
   colors: Record<string, string>;
+  class_info: Record<string, ClassInfo>;
   goals: Goals;
   syllabus: Record<string, Plan>;
   host: string | null;
@@ -304,6 +305,12 @@ export interface ClassEvent {
 
 export type Phase = "past" | "in_session" | "upcoming";
 
+/** What the student wrote about a class (spec 030). */
+export interface ClassInfo {
+  link: string | null;
+  about: string | null;
+}
+
 export interface Today {
   agenda: {
     items: (Meeting & { phase: Phase })[];
@@ -311,6 +318,8 @@ export interface Today {
     free_minutes_left: number;
   };
   next: { session: ClassSession; date: string; is_now: boolean; minutes_away: number } | null;
+  /** Meeting link for Join, within 15 minutes of an online class (030 C4). */
+  join: string | null;
   countdown: string | null;
   glance: Glance;
   glance_line: string;
@@ -431,6 +440,7 @@ export const api = {
     invoke<Snapshot>("set_mark", { sessionId, week, mark }),
   setMove: (sessionId: string, week: string | null, slot: Slot | null) =>
     invoke<Snapshot>("set_move", { sessionId, week, slot }),
+  setClassInfo: (subjectCode: string, link: string | null, about: string | null) => invoke<Snapshot>("set_class_info", { subjectCode, link, about }),
   setColor: (subjectCode: string, color: string | null) => invoke<Snapshot>("set_color", { subjectCode, color }),
   week: (on: string) => invoke<Meeting[]>("week", { on }),
   setGoals: (goals: Goals) => invoke<Snapshot>("set_goals", { goals }),

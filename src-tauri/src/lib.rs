@@ -712,6 +712,22 @@ fn set_color(state: tauri::State<'_, AppState>, subject_code: String, color: Opt
     })
 }
 
+/// A class's meeting link and description (030 C1, C2, C5). Blank clears; a
+/// link that isn't https is refused and nothing is saved.
+#[tauri::command]
+async fn set_class_info(state: tauri::State<'_, AppState>, subject_code: String, link: Option<String>, about: Option<String>) -> Res<Snapshot> {
+    // Held so a sync's refresh can't write back the snapshot it loaded before this save.
+    let _sync = state.client.lock().await;
+    let info = today::ClassInfo::clean(link, about)?;
+    edit(&state, |s| {
+        if info.is_empty() {
+            s.class_info.remove(&subject_code);
+        } else {
+            s.class_info.insert(subject_code, info);
+        }
+    })
+}
+
 #[derive(Serialize)]
 struct NoteItem {
     #[serde(flatten)]
@@ -1138,6 +1154,8 @@ fn week(state: tauri::State<'_, AppState>, on: Date) -> Res<Vec<Meeting>> {
 struct Today {
     agenda: Agenda,
     next: Option<Upcoming>,
+    /// The meeting link for Join on Up next (030 C4).
+    join: Option<String>,
     countdown: Option<String>,
     glance: Glance,
     glance_line: String,
@@ -1153,6 +1171,7 @@ fn today(state: tauri::State<'_, AppState>, now: Moment, sync_trouble: Option<St
     Ok(Today {
         agenda,
         countdown: next.as_ref().map(|n| n.countdown(now)),
+        join: next.as_ref().and_then(|n| today::join_link(n, &snap.class_info)),
         next,
         glance_line: glance.line(),
         glance,
@@ -1356,7 +1375,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, backup_make, backup_preview, backup_restore, space_used, set_mark, set_move, set_color, week, set_goals, standing, notes, set_note, delete_note, photo_dir, add_photo, note_photos, photo_bytes, photo_thumb, set_photo_thumb, notes_zip, delete_photo, set_note_pin, set_note_subject, entry_date, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
+            snapshot, has_login, portals, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, backup_make, backup_preview, backup_restore, space_used, set_mark, set_move, set_color, set_class_info, week, set_goals, standing, notes, set_note, delete_note, photo_dir, add_photo, note_photos, photo_bytes, photo_thumb, set_photo_thumb, notes_zip, delete_photo, set_note_pin, set_note_subject, entry_date, notes_markdown, export_ics, parse_outline, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
             ai::ai_models, ai::ai_small_ram, ai::ai_download, ai::ai_delete, ai::ai_load, ai::ai_unload, ai::ai_index, ai::ai_cancel, ai::ai_ask, ai::ai_history, ai::ai_clear_history, ai::ai_note, ai::ai_why, ai::ai_cards, ai::ai_pdf_text, ai::ai_outline_text, ai::ai_guide
         ])
         .run(tauri::generate_context!())

@@ -8,7 +8,7 @@ use crate::notes::Note;
 use crate::store::{Snapshot, Store, StoreError};
 use crate::study::{Deck, Stats};
 use crate::syllabus::Plan;
-use crate::today::Marks;
+use crate::today::{ClassInfo, Marks};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -97,6 +97,10 @@ pub struct Backup {
     pub goals: Goals,
     pub marks: Marks,
     pub colors: BTreeMap<String, String>,
+    /// Links and descriptions by subject code (spec 030 C1).
+    /// `None` in a file from before spec 030: restore then leaves the phone's alone.
+    #[serde(default)]
+    pub class_info: Option<BTreeMap<String, ClassInfo>>,
     pub own_deadlines: Vec<OwnDeadline>,
     pub done: BTreeSet<String>,
     pub study_stats: Stats,
@@ -151,7 +155,7 @@ impl Backup {
     /// Builds the file from the store. `student` is the signed-in student number
     /// and `salt` is 16 random bytes, new for every file.
     pub fn make(store: &Store, student: &str, salt: [u8; 16], themes: Vec<serde_json::Value>, now: i64) -> Result<Backup, StoreError> {
-        let Snapshot { marks, colors, goals, syllabus, own_deadlines, done, .. } = store.load()?;
+        let Snapshot { marks, colors, class_info, goals, syllabus, own_deadlines, done, .. } = store.load()?;
         Ok(Backup {
             app: APP.into(),
             version: VERSION,
@@ -163,6 +167,7 @@ impl Backup {
             goals,
             marks,
             colors,
+            class_info: Some(class_info),
             own_deadlines,
             done,
             study_stats: store.study_stats()?,
@@ -227,6 +232,7 @@ mod tests {
         snap.done.insert("mab:7".into());
         snap.colors.insert("A".into(), "#3b82f6".into());
         snap.goals.target_gpa = Some(1.5);
+        snap.class_info.insert("A".into(), ClassInfo { link: Some("https://zoom.us/j/1".into()), about: Some("Room B".into()) });
         snap.marks.mode.set("A-1-0-60", None, Some(Mark::Online));
         snap.syllabus.insert("A".into(), Plan { target: Some(90.0), ..Default::default() });
         snap.host = Some("sis8.pup.edu.ph".into());
@@ -251,7 +257,7 @@ mod tests {
         let text = file(&s);
         let v: serde_json::Value = serde_json::from_str(&text).unwrap();
         let keys: Vec<&str> = v.as_object().unwrap().keys().map(String::as_str).collect();
-        let allowed = ["app", "colors", "decks", "done", "goals", "made", "marks", "notes", "own_deadlines", "photos", "student", "study_stats", "syllabus", "themes", "version"];
+        let allowed = ["app", "class_info", "colors", "decks", "done", "goals", "made", "marks", "notes", "own_deadlines", "photos", "student", "study_stats", "syllabus", "themes", "version"];
         assert_eq!(keys, allowed, "a new field in the file has to be added here on purpose");
         for secret in [ME, "password", "birth", "token", "keychain", "sis8.pup.edu.ph", "last_synced", "sessions", "grades", "mabini"] {
             assert!(!text.to_lowercase().contains(&secret.to_lowercase()), "backup mentions {secret}");
@@ -279,13 +285,36 @@ mod tests {
         fresh.save(&theirs).unwrap();
         fresh.restore(&b).unwrap();
         let (x, y) = (a.load().unwrap(), fresh.load().unwrap());
-        assert_eq!((&x.marks, &x.colors, &x.goals, &x.syllabus, &x.own_deadlines), (&y.marks, &y.colors, &y.goals, &y.syllabus, &y.own_deadlines));
+        assert_eq!((&x.marks, &x.colors, &x.class_info, &x.goals, &x.syllabus, &x.own_deadlines), (&y.marks, &y.colors, &y.class_info, &y.goals, &y.syllabus, &y.own_deadlines));
         let done: Vec<&str> = y.done.iter().map(String::as_str).collect();
         assert_eq!(done, ["mab:9", "own:own1"], "eMabini Done marks stay, own ones come from the file");
         assert_eq!((a.notes().unwrap(), a.decks().unwrap(), a.study_stats().unwrap()), (fresh.notes().unwrap(), fresh.decks().unwrap(), fresh.study_stats().unwrap()));
+        assert_eq!(y.class_info.len(), 1, "030 C1 info comes back");
         assert_eq!(y.host, None, "SIS data isn't restored");
         assert_eq!(b.preview().notes, 1);
         assert_eq!(b.preview().themes, 1);
+    }
+
+    #[test]
+    fn c10_old_backup_keeps_the_phones_class_info() {
+        let mut v: serde_json::Value = serde_json::from_str(&file(&filled())).unwrap();
+        v.as_object_mut().unwrap().remove("class_info");
+        let old = Backup::parse(&v.to_string()).unwrap();
+        assert_eq!(old.class_info, None);
+        let phone = filled();
+        phone.restore(&old).unwrap();
+        assert_eq!(phone.load().unwrap().class_info.len(), 1);
+    }
+
+    #[test]
+    fn c10_bad_class_link_in_a_backup_changes_nothing() {
+        let s = filled();
+        let before = s.load().unwrap();
+        let mut b = Backup::parse(&file(&s)).unwrap();
+        b.class_info.as_mut().unwrap().insert("B".into(), ClassInfo { link: Some("http://x.example".into()), about: None });
+        b.colors.clear();
+        assert!(s.restore(&b).is_err());
+        assert_eq!(before, s.load().unwrap());
     }
 
     #[test]

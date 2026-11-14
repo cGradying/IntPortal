@@ -1,8 +1,8 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-/** Opens a web page outside the app. Only http(s) links, only on a tap. */
-export async function openLink(url: string): Promise<void> {
-  if (!/^https?:\/\//i.test(url)) return;
+/** Opens a web page outside the app. Only http(s) links, only on a tap; `httpsOnly` for a link the student typed (class meetings). */
+export async function openLink(url: string, httpsOnly = false): Promise<void> {
+  if (!(httpsOnly ? /^https:\/\//i : /^https?:\/\//i).test(url)) return;
   try {
     await openUrl(url);
   } catch {

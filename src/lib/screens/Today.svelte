@@ -171,6 +171,7 @@
               <h2 style:color={subjectColor(next.session.subject_code, colors)}>{next.session.subject_code}</h2>
               <p class="desc">{next.session.description}</p>
               <p class="meta">{clock(next.session.start)}–{clock(next.session.end)}{next.session.faculty ? ` · ${next.session.faculty}` : ""}</p>
+              {#if t?.join}<button class="join" aria-label="Join {next.session.subject_code} class" onclick={() => { buzz.tick(); openLink(t!.join!, true); }}>Join</button>{/if}
             </div>
             <div class="count" use:tick={`${hero.big} ${hero.unit}`}>
               <span class="big"><PixelNum text={hero.big} size={5} /></span>
@@ -462,6 +463,16 @@
     font-weight: 800;
     letter-spacing: -0.01em;
     color: var(--gold);
+  }
+  .join {
+    min-height: 44px;
+    margin-top: 8px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--gold);
+    color: var(--on-gold);
+    font-weight: 700;
   }
   .desc {
     margin: 2px 0 0;
