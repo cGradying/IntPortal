@@ -96,8 +96,9 @@ typography:
     letterSpacing: "0.08em"
 rounded:
   pixel: "0px"
+  sm: "3px"
   control: "10px"
-  row: "12px"
+  lg: "16px"
 spacing:
   art-pixel: "3px"
   notch-step: "3px"
@@ -240,16 +241,21 @@ A room is one block of roles on `:root[data-room]`; components read roles, never
 ### The scale
 The root is the iPhone's body text size (`font: -apple-system-body`, 17 px at the default; Android keeps 17 px). Every size is written `min(<rem>, <px cap>)`, where the rem is the design size divided by 17 and the cap stops growth at about 1.3 times for headings and about 1.8 times for body and labels.
 
-- **Numeral** (800, 48 px at default, cap 62 px, line-height 1, -0.03em, tabular): the GPA figure on Grades.
-- **Display** (700, 26 px, cap 34 px, -0.01em): the landing wordmark, "Student" in gold and "IntPortal" in Parchment.
-- **Headline** (700, 28 px, cap 36 px, -0.02em): each tab's screen title.
-- **Title** (700, 22 px, cap 29 px): page and sheet headings (subject page, note editor); 24 px (cap 31 px) for first-run and study cards; 18 px (cap 32 px) for sheet headings.
-- **Body** (400, 16 px, cap 29 px, line-height 1.4): the default body size.
-- **Body small** (400, 14 px, cap 25 px): LAR's line, errors, descriptions. 15 px (cap 27 px) for list rows and buttons.
-- **Fine** (400, 13 px, cap 23 px): the most used secondary size: meta lines, privacy notes, small buttons.
-- **Label** (Montserrat 600, 11 px, cap 20 px, 0.08em, uppercase, ink-3): field names and metadata. The landing form's floating labels are the exception: regular, 12 px, sentence case.
-- **Pixel** (Pixelify 500, 12 px, cap 22 px, 0.04em to 0.08em): LAR's tag, stone labels, hints.
-- **Input** (16 px floor, then the body size): every text field, so iOS never zooms on focus. The landing's sign-in form sets its fields, floating labels, Show toggle, Sign in button, errors and fine print in the system UI face (`--font-ui`) at regular and semibold weights; Montserrat stays on the wordmark and Pixelify on the tries and campus lines.
+The app has nine text roles, and a component's style uses one of them, never a literal size. `scripts/style-lint.mjs` fails CI on a literal.
+
+| Role | Token | At the default | For |
+|---|---|---|---|
+| Numeral | `--text-numeral` | 40 px, cap 52 | Hero numbers beside the pixel numerals: GPA, counts |
+| Display | `--text-display` | 28 px, cap 36 | Each tab's title, the hello |
+| Title | `--text-title` | 22 px, cap 29 | Page and sheet headings, the landing wordmark |
+| Headline | `--text-headline` | 18 px, cap 32 | Card headings, a row's main line when it leads |
+| Body | `--text-body` | 16 px, cap 29 | Sentences, list rows, buttons |
+| Sub | `--text-sub` | 14 px, cap 25 | LAR's line, descriptions, errors, secondary rows |
+| Caption | `--text-caption` | 13 px, cap 23 | Meta lines, privacy notes |
+| Label | `--text-label` | 12 px, cap 22 | Pixel labels, chips, day names, field names |
+| Micro | `--text-micro` | 10 px, cap 18 | Marks beside pixel art only: a rail letter, a stamp |
+
+`--text-input` is the body size with a 16 px floor, for anything typed into, so iOS never zooms on focus. A size relative to its parent (`em`) is allowed inside a note's own text, where headings scale with the student's chosen size.
 
 ### Named Rules
 **The Capped Growth Rule.** Every font size is `min(rem, px)`. A new size divides the design px by 17 for the rem and sets the cap near 1.3 times (headings) or 1.8 times (body, labels). The tab bar is the one tighter cap (13 px), because five labels share the width.
@@ -285,6 +291,8 @@ Pixel surfaces use bevels instead of shadows: a lit top edge and a dark bottom e
 **The Shadow on the Parent Rule.** A clip-path cuts its own box-shadow off. Stepped shapes get their shadow as a `drop-shadow` filter on an unclipped wrapper.
 
 ## Shapes
+
+**Three radii, and the notch.** The stepped notch (`.notch`) is for cards and the primary button. Everything else that is rounded takes `--radius-sm` (3 px: tags, small marks), `--radius` (10 px: fields, chips, controls, rows) or `--radius-lg` (16 px: sheets, bubbles, large surfaces). Circles are `50%`. The lint fails any other value.
 
 Two corner languages, by register. Pixel surfaces (cards, sheets, the problem card, the landing's slabs, fields and buttons) have stepped corners cut with clip-path, two steps deep: 3 px steps by default and 4 px on cards and sheets, so they read clean at arm's length and pixel up close. The landing's fields are the exception: rounded at 10 px like app controls, because they borrow the phone's login pattern; the card and buttons around them stay stepped. Inside the app, controls (buttons, inputs, selects, list rows, skeleton bars) use soft radii: 10 px for controls and 12 px for rows and segmented controls. Round shapes appear only for LAR's ground shadow and status dots.
 
@@ -341,6 +349,10 @@ The Lakbay-Aral Robot, 26 by 23 art pixels: a pebble lit from the top left in fo
 - **Speech:** LAR talks through a 3 px stepped obsidian slab, his name in gold Pixelify, his line in light Taglish ("Hi, I'm LAR...", "Ayos! Your schedule and grades are in.", "Welcome back, iskolar. Tara?").
 
 ### Motion
+**Four durations, two eases.** Interface motion takes `--t-quick` (0.16 s: presses, colour), `--t-move` (0.32 s: things that travel a little), `--t-flow` (0.36 s: layout that opens or closes) or `--t-hero` (0.55 s: a sheet, a page, an arrival), with `--ease` or `--ease-spring`. The lint fails a literal duration of a second or less. Two things are outside the rule: a loop that never ends (the ground's drift, a live dot), and `steps()` art.
+
+**Nothing moves unseen.** While the app is hidden or LAR's window covers the screen, CSS animations behind it pause and canvases stop asking for frames (`src/lib/quiet.ts`).
+
 **The Smooth Travel Rule.** Anything that travels, scales or changes the page's layout is eased, never stepped, and layout changes open and close over about 0.36 s so nothing jumps. `steps()` is only for frames of art that stay in place: LAR's sprite, the tab hop, skeleton shimmer. Stamps, presses, the tab highlight and the countdown are eased too (the user, 2026-11-05). This replaces the older "stepped for pixel things" habit (round two, 2026-11-05).
 
 Interface motion uses one ease, `cubic-bezier(0.22, 1, 0.36, 1)`: the landing dock rises 40 px over 0.7 s, sheets rise over 0.35 s, the wordmark fades in over 0.6 s, and leaving drops dock and wordmark 16 px over 0.25 s ease-in. Pixel motion uses `steps()`: the tab hop, skeleton shimmer (1.4 s, 8 steps), the campus strip.
@@ -365,6 +377,9 @@ Eight verbs, all silent when haptics are off in You or there is no engine, and t
 ## Do's and Don'ts
 
 ### Do:
+- **Do** put every screen on the one ground. The shell uses `.dots`; a page that covers the shell uses `.ground`. No screen stands on a flat colour.
+- **Do** keep to three materials: obsidian for frames and chrome, parchment and ink for words, gold for the one action on a screen. A school's accent tints its portal, its plaque and its chips only.
+- **Do** make every control 44 pt or more. `scripts/tap-targets.mjs` skips no file.
 - **Do** read colour roles (`var(--gold)`, `var(--card)`, `var(--ink-3)`) on every app screen so all rooms work.
 - **Do** size every art element on the 3 px art pixel, with `image-rendering: pixelated` or `shape-rendering: crispEdges`.
 - **Do** write every font size as `min(<px / 17>rem, <cap>px)`, capping headings near 1.3 times and body near 1.8 times.

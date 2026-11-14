@@ -1,6 +1,6 @@
 # 040 Trust and speed
 
-**Status:** building. Left: 44 pt targets in six files (C7), closing in 0.2.0.
+**Status:** shipped (0.2.0). The tap-target lint skips no file.
 
 ## What changes for the student
 
