@@ -27,7 +27,7 @@
 
   type Rect = { x: number; y: number; w: number; h: number };
   import { invoke } from "@tauri-apps/api/core";
-  import { runDither } from "./dither-draw";
+  import { cancelDither, runDither } from "./dither-draw";
   import { apply, ask, assis, confirmCards, discardCards, dismiss, newChat, stop } from "./assis.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
@@ -174,11 +174,12 @@
           phase = "spawn";
           win.focus({ preventScroll: true });
           later(SPAWN_SECS * 1000, greet);
-        }),
+        }).finally(() => (dithering = false)),
       );
     }
     return () => {
       timers.forEach(clearTimeout);
+      cancelDither();
       watch.disconnect();
       chip.at = "here";
       const o = orb();
@@ -217,11 +218,15 @@
       const from = box;
       home = chipRect();
       dithering = true;
-      runDither({ canvas: pc, chip: home, win: from, tokens: win, headerH: top.offsetHeight, mode: "close" }).then(() => {
-        open = false;
-        chip.at = "here"; // as the last cells go
-        done();
-      });
+      runDither({ canvas: pc, chip: home, win: from, tokens: win, headerH: top.offsetHeight, mode: "close", onLast: () => (chip.at = "here") }) // as the last cells go
+        .then(() => {
+          open = false;
+          done();
+        })
+        .finally(() => {
+          dithering = false;
+          chip.at = "here";
+        });
     });
   }
 
@@ -501,8 +506,8 @@
     opacity: 0;
     /* It grows up with the chat. Opacity is instant: the dither covers the swap, so there is no cross-fade. */
     transition:
-      top 0.36s var(--ease),
-      height 0.36s var(--ease);
+      top var(--t-flow) var(--ease),
+      height var(--t-flow) var(--ease);
   }
   .win.open {
     opacity: 1;
@@ -516,7 +521,7 @@
     transition: none;
   }
   .win.reduce {
-    transition: opacity 0.2s linear;
+    transition: opacity var(--t-quick) linear;
   }
   .win.day {
     --g-hi: rgb(255 255 255 / 0.95);

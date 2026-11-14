@@ -4,7 +4,7 @@
 
 ## What changes for the student
 
-Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The chat has a clear header again: a sky band with LAR standing on it, his name, what he is doing, New chat and Close. While he works, the student sees what he really did (read the timetable, searched the notes and what he found, wrote), folded into one line once he answers. Suggestions sit in one row over the input and follow the day and each answer.
+Tapping the crystal dithers LAR's chat open out of it, a pixel wave. The chat has a clear header again: a sky band with LAR standing on it, his name, what he is doing, New chat and Close. While he works, the student sees what he really did (read the timetable, searched the notes and what he found, wrote), folded into one line once he answers. Suggestions sit in one row over the input and follow the day and each answer.
 
 ## Direction and references
 
@@ -103,7 +103,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 
 ## Motion and Reduce Motion
 
-- Opening is about 664 ms and closing about 740 ms (fold included). Only the canvas and transforms move: no width, height or position is laid out per frame. The target is 60 fps, measured on the iPhone 18 Pro simulator and a real phone. The tick haptic fires as the window lands.
+- Opening is 420 ms; closing is a 300 ms fold plus 320 ms of dither. Only the canvas and transforms move: no width, height or position is laid out per frame. The target is 60 fps, measured on the iPhone 18 Pro simulator and a real phone. The tick haptic fires as the window lands.
 - The sky moves only on the compositor: the pools' layer by `transform`, the stars and the live pixel by `opacity`. It stops when the window is closed or the app is hidden, and on the low-RAM tier while the model wakes or thinks (C8). The mockup animates `background-position` for convenience; the app does not.
 - Reduce Motion: a 200 ms cross-fade, with no turn, no atoms, no sky drift, no twinkle, no packets. The trace appears without growing, and the source corners show without fading.
 - Low-RAM phones dither too: one 2D canvas for 0.42 s.

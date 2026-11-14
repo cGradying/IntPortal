@@ -16,6 +16,8 @@ export interface DitherOpts {
   headerH?: number;
   /** 1 is real time; 4 for checking by eye. */
   slow?: number;
+  /** Closing: called on the last painted step, as the final cells go (the chip reappears). */
+  onLast?: () => void;
   /** Reduce Motion: no dither; resolves at once and the caller cross-fades. */
   reduce?: boolean;
 }
@@ -74,16 +76,28 @@ function drawFace(win: Rect, headerH: number, t: ReturnType<typeof tokensOf>, dp
   return face;
 }
 
+/** The run in flight: a new run, or `cancelDither()`, stops it, and its promise never resolves. */
+let stop: (() => void) | null = null;
+export function cancelDither() {
+  stop?.();
+}
+
 /**
  * Runs the dither. Opening: the promise resolves on the frame the cells form the whole window, and the
  * canvas is cleared on the next frame, so show the real window as soon as it resolves. Closing: hide the
- * real window and call it; it resolves on the last frame, the canvas cleared. Backgrounded, it finishes
- * at once.
+ * real window and call it; `onLast` fires on the last painted step and it resolves with the canvas
+ * cleared. A new run or `cancelDither()` supersedes a run in flight. Hidden (before or during), it
+ * finishes at once.
  */
 export function runDither(o: DitherOpts): Promise<void> {
+  cancelDither();
   const { canvas } = o;
   const g = canvas.getContext("2d");
-  if (o.reduce || !g || document.hidden) return Promise.resolve();
+  const opening = o.mode === "open";
+  if (o.reduce || !g || document.hidden) {
+    if (!opening) o.onLast?.();
+    return Promise.resolve();
+  }
   const dpr = Math.min(devicePixelRatio || 1, 3);
   canvas.width = Math.round(innerWidth * dpr);
   canvas.height = Math.round(innerHeight * dpr);
@@ -93,7 +107,6 @@ export function runDither(o: DitherOpts): Promise<void> {
   const snap = (v: number) => Math.round(v * dpr) / dpr;
   const area = { x: snap(win.x - PAD), y: snap(win.y - PAD), w: win.w + 2 * PAD, h: win.h + 2 * PAD };
   const cells = gridOf(area, o.chip, CELL);
-  const opening = o.mode === "open";
   const total = opening ? OPEN_MS : CLOSE_MS;
   const slow = o.slow ?? 1;
 
@@ -118,24 +131,44 @@ export function runDither(o: DitherOpts): Promise<void> {
 
   return new Promise((resolve) => {
     const t0 = performance.now();
-    const step = (now: number) => {
-      const t = (now - t0) / slow;
-      if (t >= total) {
-        if (opening) {
-          // The cells are the whole window this frame; the real one takes over, then the canvas goes.
-          paint(1);
-          resolve();
-          requestAnimationFrame(clear);
-        } else {
-          clear();
-          resolve();
-        }
-        return;
+    let raf = 0;
+    let live = true;
+    const end = () => {
+      live = false;
+      cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", onHide);
+      if (stop === cancel) stop = null;
+    };
+    const cancel = () => {
+      end();
+      clear();
+    };
+    const finish = () => {
+      end();
+      if (opening) {
+        // The cells are the whole window this frame; the real one takes over, then the canvas goes.
+        paint(1);
+        resolve();
+        requestAnimationFrame(clear);
+      } else {
+        o.onLast?.();
+        clear();
+        resolve();
       }
-      paint(progressAt(t, opening));
-      requestAnimationFrame(step);
+    };
+    const onHide = () => document.hidden && finish();
+    document.addEventListener("visibilitychange", onHide);
+    stop = cancel;
+    const step = (now: number) => {
+      if (!live) return;
+      const t = (now - t0) / slow;
+      if (t >= total) return finish();
+      const p = progressAt(t, opening);
+      if (!opening && p <= 0) return finish();
+      paint(p);
+      raf = requestAnimationFrame(step);
     };
     paint(progressAt(0, opening));
-    requestAnimationFrame(step);
+    raf = requestAnimationFrame(step);
   });
 }
