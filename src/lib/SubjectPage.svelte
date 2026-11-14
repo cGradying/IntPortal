@@ -90,7 +90,7 @@
   const shortDate = (d: string) => new Date(`${d}T00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 </script>
 
-<div class="page" role="dialog" aria-label="{code} syllabus">
+<div class="page ground" role="dialog" aria-label="{code} syllabus">
   <header>
     <div>
       <p class="label">{dirty ? "Not saved yet" : "Saved on this phone"}</p>
@@ -191,7 +191,6 @@
     grid-template-rows: auto auto 1fr;
     gap: 12px;
     padding: calc(var(--safe-top) + 12px) var(--gutter) 0;
-    background: var(--ground);
   }
   header {
     display: flex;
@@ -206,17 +205,17 @@
   }
   .desc {
     margin: 2px 0 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
   }
   button {
     height: 44px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   button:disabled {
     opacity: 0.4;
@@ -236,7 +235,7 @@
   }
   .tabs button {
     height: 44px;
-    border-radius: 17px;
+    border-radius: var(--radius-lg);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-2);
@@ -258,7 +257,7 @@
   }
   .sum p {
     margin: 0;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
   }
   .need {
     margin-top: 6px !important;
@@ -289,12 +288,12 @@
     height: 40px;
     padding: 0 10px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, var(--text-body));
+    font-size: var(--text-input);
   }
   textarea {
     height: 160px;
@@ -305,7 +304,7 @@
     display: grid;
     gap: 6px;
     padding: 10px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
   }
@@ -319,14 +318,14 @@
   .target {
     display: grid;
     gap: 2px;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-3);
   }
   .target {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   .target input {
     width: 80px;
@@ -355,10 +354,10 @@
     align-items: center;
     gap: 8px;
     padding: 8px 4px 8px 10px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   .items li.done .topic {
     text-decoration: line-through;
@@ -389,7 +388,7 @@
   }
   .when {
     flex: none;
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     color: var(--ink-3);
   }
   .problem {

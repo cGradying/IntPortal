@@ -631,7 +631,7 @@
     gap: 4px;
   }
   .tag {
-    font: 600 16px/1 var(--font-pixel);
+    font: 600 var(--text-body) / 1 var(--font-pixel);
     letter-spacing: 0.12em;
     color: var(--cream);
     text-shadow: 0 2px 0 rgb(6 3 7 / 0.55);
@@ -642,7 +642,7 @@
     gap: 6px;
     min-width: 0;
     height: 16px;
-    font: 500 min(0.735rem, 22px) / 1 var(--font-ui);
+    font: 500 var(--text-caption) / 1 var(--font-ui);
     color: rgb(255 246 220 / 0.82);
     text-shadow: 0 1px 0 rgb(6 3 7 / 0.6);
     white-space: nowrap;
@@ -743,11 +743,11 @@
       inset 0 -2px 0 var(--void-ink);
     clip-path: var(--slab);
     transform-origin: 0 0;
-    animation: pop 0.28s var(--ease) both;
+    animation: pop var(--t-move) var(--ease) both;
   }
   .lar p {
     margin: 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     line-height: 1.4;
     white-space: pre-line;
     overflow-wrap: anywhere;
@@ -788,13 +788,13 @@
     max-width: 82%;
     margin: 0;
     padding: 9px 13px;
-    border-radius: 16px 16px 4px 16px;
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
     background: color-mix(in srgb, var(--ink) 8%, transparent);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 13%, transparent);
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     line-height: 1.35;
     overflow-wrap: anywhere;
-    animation: send 0.28s var(--ease) both;
+    animation: send var(--t-move) var(--ease) both;
   }
   .chips {
     display: flex;
@@ -806,21 +806,21 @@
     max-width: 100%;
     padding: 6px 12px;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--card) 70%, transparent);
     box-shadow: inset 0 0 0 1px var(--edge-2);
     color: var(--ink);
-    font: 400 min(0.794rem, 24px) / 1.3 var(--font-ui);
+    font: 400 var(--text-sub) / 1.3 var(--font-ui);
     text-align: left;
     overflow-wrap: anywhere;
     transition: background var(--t-quick) var(--ease);
-    animation: send 0.3s calc(var(--i, 0) * 60ms) var(--ease) both;
+    animation: send var(--t-move) calc(var(--i, 0) * 60ms) var(--ease) both;
   }
   .chip:active {
     background: color-mix(in srgb, var(--gold) 20%, var(--card));
   }
   .from .chip {
-    font-size: min(0.735rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .offer {
@@ -833,14 +833,14 @@
     color: var(--parch);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
     clip-path: var(--slab);
-    animation: pop 0.28s var(--ease) both;
+    animation: pop var(--t-move) var(--ease) both;
   }
   .offer.done {
     opacity: 0.7;
   }
   .label {
     margin: 0;
-    font: 500 min(0.706rem, 22px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.08em;
     color: var(--accent);
   }
@@ -862,7 +862,7 @@
     border: 0;
     background: linear-gradient(180deg, var(--portal-gold-hi), var(--portal-gold) 60%);
     color: var(--on-portal-gold);
-    font: 600 min(0.824rem, 25px) var(--font-ui);
+    font: 600 var(--text-sub) var(--font-ui);
     box-shadow: inset 0 -3px 0 var(--portal-gold-shade);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
   }
@@ -873,11 +873,11 @@
   .no {
     height: 44px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: rgb(255 246 220 / 0.06);
     box-shadow: inset 0 0 0 1px rgb(255 246 220 / 0.14);
     color: var(--parch);
-    font: 600 min(0.824rem, 25px) var(--font-ui);
+    font: 600 var(--text-sub) var(--font-ui);
   }
   button:disabled {
     opacity: 0.45;
@@ -905,11 +905,11 @@
     height: 44px;
     padding: 0 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--void);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
     color: var(--white);
-    font: 400 max(16px, var(--text-body)) var(--font-ui);
+    font: 400 var(--text-input) var(--font-ui);
     caret-color: var(--portal-gold);
     outline: none;
   }
@@ -922,7 +922,7 @@
     border: 0;
     background: none;
     color: rgb(255 246 220 / 0.55);
-    font-size: min(1.176rem, 26px);
+    font-size: var(--text-headline);
   }
   .ok,
   .fine {
@@ -966,7 +966,7 @@
   }
   .why {
     margin-left: 6px;
-    font-size: min(0.676rem, 20px);
+    font-size: var(--text-label);
     color: var(--gold);
   }
 
@@ -983,10 +983,10 @@
     grid-template-columns: 14px 1fr;
     column-gap: 9px;
     padding-bottom: 10px;
-    font-size: min(0.735rem, 22px);
+    font-size: var(--text-caption);
     line-height: 1.4;
     color: var(--ink-2);
-    animation: send 0.22s var(--ease) both;
+    animation: send var(--t-move) var(--ease) both;
   }
   .step:last-child {
     padding-bottom: 2px;
@@ -1079,13 +1079,13 @@
       inset 0 0 0 1px var(--edge-2);
     clip-path: var(--cut);
     color: var(--ink);
-    font: 500 min(0.706rem, 21px) var(--font-ui);
+    font: 500 var(--text-label) var(--font-ui);
   }
   .quote {
     margin: 0;
     padding-left: 8px;
     box-shadow: inset 2px 0 0 color-mix(in srgb, var(--gold) 55%, transparent);
-    font-size: min(0.735rem, 22px);
+    font-size: var(--text-caption);
     font-style: italic;
     line-height: 1.4;
     color: var(--ink-2);
@@ -1107,13 +1107,13 @@
     border: 0;
     background: none;
     color: var(--ink-2);
-    font: 400 min(0.735rem, 22px) var(--font-ui);
+    font: 400 var(--text-caption) var(--font-ui);
   }
   .sum .node {
     margin: 0 0 0 2px;
   }
   .chev {
-    transition: rotate 0.2s var(--ease);
+    transition: rotate var(--t-quick) var(--ease);
   }
   .sum[aria-expanded="true"] .chev {
     rotate: 90deg;
@@ -1152,7 +1152,7 @@
     display: flex;
     align-items: center;
     padding: 0 12px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge-2);
     transition: box-shadow var(--t-quick) var(--ease);
@@ -1167,7 +1167,7 @@
     border: 0;
     background: none;
     color: var(--ink);
-    font: 400 max(16px, var(--text-body)) var(--font-ui);
+    font: 400 var(--text-input) var(--font-ui);
     caret-color: var(--gold);
     outline: none;
     -webkit-appearance: none;
@@ -1184,7 +1184,7 @@
     border: 0;
     background: var(--gold);
     color: var(--on-gold);
-    font: 600 min(0.824rem, 25px) var(--font-ui);
+    font: 600 var(--text-sub) var(--font-ui);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
     box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.24);
     transition:

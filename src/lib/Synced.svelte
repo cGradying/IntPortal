@@ -19,7 +19,7 @@
     border: 0;
     background: none;
     color: var(--ink-3);
-    font-size: min(0.706rem, 22px);
+    font-size: var(--text-label);
     text-align: left;
   }
 </style>

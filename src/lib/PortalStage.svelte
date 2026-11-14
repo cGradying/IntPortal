@@ -367,11 +367,11 @@
   .hint {
     align-self: end;
     margin: 0 0 2px;
-    font: 500 min(0.7rem, 20px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     color: rgb(244 236 216 / 0.55);
     pointer-events: none;
-    animation: fade 0.6s var(--ease) 1.2s both;
+    animation: fade var(--t-hero) var(--ease) 1.2s both;
   }
   .sky {
     position: relative;
@@ -379,7 +379,7 @@
     height: 100%;
     min-height: 0;
     pointer-events: none;
-    transition: opacity 0.4s var(--ease);
+    transition: opacity var(--t-flow) var(--ease);
   }
   canvas {
     display: block;
@@ -401,7 +401,7 @@
     align-items: center;
     gap: 6px;
     margin-top: 4px;
-    transition: opacity 0.3s var(--ease);
+    transition: opacity var(--t-move) var(--ease);
   }
   .picker.off {
     opacity: 0.35;
@@ -414,7 +414,7 @@
     -webkit-appearance: none;
     appearance: none;
     color: rgb(244 236 216 / 0.7);
-    font: 600 22px/1 var(--font-display);
+    font: 600 var(--text-title) / 1 var(--font-display);
   }
   .arrow:disabled {
     opacity: 0.25;
@@ -431,13 +431,13 @@
     gap: 8px;
     padding: 0 12px 0 14px;
     border: 0;
-    border-radius: 22px;
+    border-radius: var(--radius-lg);
     background: rgb(244 236 216 / 0.06);
     box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.12);
     color: rgb(244 236 216 / 0.6);
     font: 400 var(--text-caption) var(--font-ui);
     text-align: left;
-    animation: fade 0.35s var(--ease);
+    animation: fade var(--t-flow) var(--ease);
   }
   .caption:active {
     background: rgb(244 236 216 / 0.1);
@@ -446,7 +446,7 @@
     opacity: 1;
   }
   .caption b {
-    font: 700 min(0.824rem, 25px) var(--font-display);
+    font: 700 var(--text-sub) var(--font-display);
   }
   .caption span {
     overflow: hidden;

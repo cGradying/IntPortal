@@ -279,7 +279,7 @@
   /* Reduce Motion clamps every animation; parts still cross-fade, in place. */
   @media (prefers-reduced-motion: reduce) {
     .screen.screen {
-      animation: part-fade 0.2s var(--ease) backwards !important;
+      animation: part-fade var(--t-quick) var(--ease) backwards !important;
     }
   }
   h1 {
@@ -298,7 +298,7 @@
     color: var(--gold);
     font-family: inherit;
     font-weight: 600;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
   }
   .head {
     display: flex;
@@ -333,7 +333,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font: 600 min(0.882rem, 27px) / 1.2 var(--font-ui);
+    font: 600 var(--text-body) / 1.2 var(--font-ui);
   }
   .chev {
     color: var(--ink-3);
@@ -356,7 +356,7 @@
     color: var(--ink);
   }
   .big > span {
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     line-height: 1;
     color: var(--ink-2);
   }
@@ -499,7 +499,7 @@
     height: 94px;
   }
   .bars small {
-    font: 500 11px var(--font-pixel, monospace);
+    font: 500 var(--text-label) var(--font-pixel, monospace);
     color: var(--ink-3);
   }
   .bars .t small {
@@ -583,7 +583,7 @@
     align-items: center;
     gap: 8px;
     padding: 12px 14px 0;
-    font: 500 min(0.706rem, 22px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     color: var(--ink-2);
   }
@@ -649,12 +649,12 @@
     min-width: 0;
     padding: 0 10px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, var(--text-body));
+    font-size: var(--text-input);
   }
   .row {
     display: flex;
@@ -664,10 +664,10 @@
     height: 44px;
     padding: 0 16px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   button:disabled {
     opacity: 0.4;
@@ -687,7 +687,7 @@
   }
   .notice {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .problem {

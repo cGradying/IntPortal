@@ -189,7 +189,7 @@
   .body {
     display: grid;
     gap: 2px;
-    transition: grid-template-columns 0.36s var(--ease);
+    transition: grid-template-columns var(--t-flow) var(--ease);
   }
   .body {
     position: relative;
@@ -205,7 +205,7 @@
     background: none;
     color: var(--ink-3);
     font-family: var(--font-label, var(--font-pixel));
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -236,7 +236,7 @@
     right: 3px;
     transform: translateY(-50%);
     font-family: var(--font-ui);
-    font-size: min(0.588rem, 18px);
+    font-size: var(--text-micro);
     font-weight: 600;
     color: var(--ink-3);
   }
@@ -271,7 +271,7 @@
   }
   .block strong {
     font-family: var(--font-display);
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.12;
@@ -289,7 +289,7 @@
   .meta {
     display: none;
     font-family: var(--font-ui);
-    font-size: min(0.588rem, 18px);
+    font-size: var(--text-micro);
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
@@ -312,7 +312,7 @@
     align-self: flex-start;
     padding: 1px 2px;
     rotate: -6deg;
-    font: 700 min(0.47rem, 14px) / 1.2 var(--font-pixel);
+    font: 700 var(--text-micro) / 1.2 var(--font-pixel);
     letter-spacing: 0.04em;
     background: var(--stamp-paper);
   }
@@ -341,7 +341,7 @@
     75% { translate: 1px 0; }
   }
   .stamp.fresh {
-    animation: thunk 0.55s var(--ease) both 0.2s;
+    animation: thunk var(--t-hero) var(--ease) both var(--t-quick);
   }
   @keyframes thunk {
     0% { scale: 2.2; opacity: 0; }
@@ -351,11 +351,11 @@
   }
   /* A day is open: it shows everything, and the rest keep only their colour. */
   .block > * {
-    transition: opacity 0.18s 0.2s;
+    transition: opacity var(--t-quick) var(--t-quick);
   }
   .opened .col:not(.open) .block > * {
     opacity: 0;
-    transition: opacity 0.1s;
+    transition: opacity var(--t-quick);
   }
   .opened .col:not(.open) .stamp {
     visibility: hidden;
@@ -364,7 +364,7 @@
     padding: 4px 6px;
   }
   .col.open .block strong {
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     letter-spacing: -0.01em;
     -webkit-line-clamp: 2;
     line-clamp: 2;
@@ -400,16 +400,16 @@
     border: 1px dashed var(--edge-2);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.1s;
+    transition: opacity var(--t-quick);
   }
   .col.open .free {
     opacity: 1;
-    transition: opacity 0.2s 0.22s;
+    transition: opacity var(--t-quick) var(--t-move);
   }
   .free b {
     padding: 1px 4px;
     font-family: var(--font-ui);
-    font-size: min(0.588rem, 18px);
+    font-size: var(--text-micro);
     font-weight: 600;
     white-space: nowrap;
     color: var(--ink-2);
@@ -424,7 +424,7 @@
     background: repeating-linear-gradient(135deg, var(--card) 0 4px, var(--sunk) 4px 6px);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-3);
-    font-size: min(0.529rem, 16px);
+    font-size: var(--text-micro);
     line-height: 1.15;
     pointer-events: none;
   }
@@ -437,7 +437,7 @@
     outline: 1px dashed var(--c);
     outline-offset: -1px;
     font-family: var(--font-ui);
-    font-size: min(0.588rem, 18px);
+    font-size: var(--text-micro);
     font-weight: 600;
     color: var(--ink-2);
     pointer-events: none;
@@ -452,7 +452,7 @@
     height: 2px;
     background: var(--gold);
     pointer-events: none;
-    transition: transform 1s linear;
+    transition: transform var(--t-hero) linear;
   }
   .now b {
     position: absolute;
@@ -461,7 +461,7 @@
     translate: 0 -50%;
     padding: 2px;
     font-family: var(--font-ui);
-    font-size: min(0.529rem, 16px);
+    font-size: var(--text-micro);
     font-weight: 700;
     line-height: 1;
     white-space: nowrap;
