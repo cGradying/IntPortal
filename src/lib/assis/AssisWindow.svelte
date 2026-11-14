@@ -3,7 +3,7 @@
    * Where the crystal chip is while LAR's window is about (046 C1d): `here` on the page; `hidden`
    * asleep, drawing nothing, while the window is open.
    */
-  export const chip = $state({ at: "here" as "here" | "gone" | "hidden" });
+  export const chip = $state({ at: "here" as "here" | "hidden" });
 </script>
 
 <script lang="ts">
