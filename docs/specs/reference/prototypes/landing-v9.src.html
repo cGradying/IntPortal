@@ -1,0 +1,475 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IntPortal Landing v9</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Pixelify+Sans:wght@500;600&display=swap">
+<style>
+/* Layout: two phones side by side (the landing, the portal wall) over the app's own night ground; notes underneath.
+   One committed dark world, the app's: obsidian, parchment, one gold. */
+:root {
+  color-scheme: dark;
+  --ground: #0b0710;
+  --void-2: #140c16;
+  --void-3: #170b1a;
+  --lift: #1c1220;
+  --edge: rgb(244 236 216 / 0.1);
+  --edge-2: rgb(244 236 216 / 0.2);
+  --parch: #f4ecd8;
+  --parch-2: rgb(244 236 216 / 0.74);
+  --parch-3: rgb(244 236 216 / 0.56);
+  --gold: #f5b227;
+  --gold-shade: #b87a10;
+  --on-gold: #1b1406;
+  --good: #58c792;
+  --bad: #f07a6e;
+  --dot: rgb(232 176 74 / 0.13);
+  --accent: #e8b04a;
+  --font-ui: -apple-system, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-pixel: "Pixelify Sans", ui-monospace, monospace;
+  --font-mark: "Montserrat", system-ui, sans-serif;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --notch: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px));
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--ground);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+  color: var(--parch);
+  font: 400 15px/1.5 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--gold); color: var(--on-gold); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 28px;
+}
+.page > header h1 { margin: 0; font: 700 clamp(1.5rem, 4vw, 2.1rem)/1.15 var(--font-mark); letter-spacing: -0.02em; text-wrap: balance; }
+.page > header h1 b { color: var(--gold); font-weight: 700; }
+.page > header p { margin: 8px 0 0; max-width: 62ch; color: var(--parch-2); }
+.states { display: flex; flex-wrap: wrap; gap: 8px; }
+.states button {
+  min-height: 44px; padding: 0 14px; border: 1px solid var(--edge-2); border-radius: 10px; background: var(--void-2);
+  font-weight: 600; transition: background 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+.states button[aria-pressed="true"] { border-color: var(--gold); background: var(--lift); color: var(--gold); }
+.phones { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; align-items: flex-start; }
+figure { margin: 0; display: grid; gap: 10px; justify-items: center; }
+figcaption { font: 500 12px var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: var(--parch-3); }
+.bezel { width: calc(375px * var(--k, 1)); height: calc(812px * var(--k, 1)); }
+.screen {
+  position: relative; width: 375px; height: 812px; overflow: hidden; transform: scale(var(--k, 1)); transform-origin: 0 0;
+  border-radius: 44px; background: var(--ground); box-shadow: 0 0 0 1px var(--edge-2), 0 24px 60px -20px rgb(0 0 0 / 0.8);
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; padding: 54px 16px 22px; gap: 10px;
+}
+/* The living ground: the app's two drifting pools, in the selected portal's colours. */
+.aura { position: absolute; inset: -20%; pointer-events: none; opacity: 0.9;
+  background: radial-gradient(34% 24% at 34% 34%, color-mix(in srgb, var(--pool, #7a1c2c) 46%, transparent), transparent 72%),
+              radial-gradient(30% 20% at 68% 64%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 72%);
+  animation: drift 26s ease-in-out infinite alternate; }
+@keyframes drift { to { transform: translate(4%, -3%) scale(1.06); } }
+canvas.field { position: absolute; inset: 0; width: 375px; height: 812px; touch-action: pan-y; }
+.brand, .stage, .plaque, .card, .hubdock { position: relative; }
+.brand { text-align: center; pointer-events: none; }
+.brand h2 { margin: 0; font: 700 22px/1.1 var(--font-mark); letter-spacing: -0.01em; color: var(--gold); }
+.brand h2 span { color: #fff6dc; }
+.brand p { margin: 4px 0 0; font-size: 13px; line-height: 1.35; color: var(--parch-2); text-wrap: balance; }
+.stage { min-height: 0; }
+canvas.lar { position: absolute; pointer-events: none; image-rendering: pixelated; }
+.bubble {
+  position: absolute; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; max-width: 226px; transition: opacity 0.32s var(--ease);
+  background: color-mix(in srgb, var(--void-3) 92%, transparent); border: 1px solid var(--edge); border-radius: 10px;
+  font-size: 13px; line-height: 1.3; color: var(--parch);
+}
+.bubble.quiet { opacity: 0; pointer-events: none; }
+.bubble b { font: 600 11px var(--font-pixel); letter-spacing: 0.08em; color: var(--accent); margin-right: 6px; }
+.bubble button { flex: none; min-height: 44px; min-width: 56px; padding: 0 12px; border: 1px solid var(--edge-2); border-radius: 10px; background: transparent; font: 600 12px var(--font-pixel); letter-spacing: 0.06em; }
+.bubble button:active { background: var(--lift); }
+/* The plaque: the school on the portal, and the way to every other school. */
+.plaque { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 8px; }
+.plate {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px 6px 8px; text-align: left;
+  background: color-mix(in srgb, var(--void-2) 88%, transparent); border: 1px solid var(--edge); border-radius: 10px;
+}
+.plate .mini { width: 20px; height: 28px; }
+.plate .open { width: 14px; height: 8px; color: var(--parch-3); }
+.plate strong { display: block; font: 600 14px/1.2 var(--font-ui); color: var(--accent); }
+.plate span.school { display: block; font-size: 12px; line-height: 1.25; color: var(--parch-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 0; border-radius: 10px; background: rgb(244 236 216 / 0.07); font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--parch-2); }
+.plaque .chip { min-height: 48px; padding: 0 12px; border: 1px solid var(--edge); background: color-mix(in srgb, var(--void-2) 88%, transparent); font-size: 13px; }
+.chip i { width: 6px; height: 6px; background: var(--parch-3); }
+.chip.up i { background: var(--good); animation: live 2.4s steps(2) infinite; }
+.chip.down { color: var(--bad); } .chip.down i { background: var(--bad); }
+@keyframes live { 50% { opacity: 0.35; } }
+/* The card. */
+.card { display: grid; gap: 10px; padding: 14px; background: color-mix(in srgb, var(--void-2) 94%, transparent); clip-path: var(--notch); }
+.card::before { content: ""; position: absolute; inset: 0; clip-path: var(--notch); box-shadow: inset 0 0 0 1px var(--edge); pointer-events: none; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field { position: relative; }
+.field input, .field button.pick {
+  width: 100%; height: 54px; padding: 20px 12px 6px; border: 1px solid var(--edge-2); border-radius: 10px; background: rgb(11 7 16 / 0.6);
+  font: 400 16px var(--font-ui); color: var(--parch); text-align: left;
+}
+.field input::placeholder { color: transparent; }
+.field input:focus, .field button.pick:focus-visible { outline: none; border-color: var(--accent); }
+.field label { position: absolute; left: 13px; top: 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--parch-3); pointer-events: none; }
+.field .eye { position: absolute; right: 2px; top: 5px; height: 44px; padding: 0 10px; border: 0; background: none; font-size: 12px; font-weight: 600; color: var(--parch-2); }
+.acts { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 10px; }
+.go { height: 50px; border: 0; background: var(--gold); color: var(--on-gold); font: 700 16px var(--font-ui); clip-path: var(--notch); box-shadow: inset 0 -4px 0 var(--gold-shade); }
+.go:disabled { opacity: 0.6; }
+.ghost { height: 50px; border: 1px solid var(--edge-2); border-radius: 10px; background: transparent; font-weight: 600; font-size: 14px; }
+.fine { margin: 0; font-size: 12px; line-height: 1.4; color: var(--parch-3); text-align: center; }
+.fine a { color: var(--parch-2); text-underline-offset: 3px; }
+.msg { margin: 0; font-size: 13px; line-height: 1.35; color: var(--bad); }
+.soon b { display: block; font-size: 15px; } .soon p { margin: 4px 0 0; font-size: 13px; color: var(--parch-2); }
+.hubdock { display: grid; gap: 8px; }
+.hubdock .go { width: 100%; }
+/* The peek. */
+.peek { position: absolute; display: grid; align-content: start; gap: 6px; padding: 10px; background: var(--ground); border: 1px solid var(--accent); overflow: hidden;
+  animation: open 0.36s var(--ease) both; }
+@keyframes open { from { clip-path: inset(50% 50% 50% 50%); } to { clip-path: inset(0); } }
+.peek h3 { margin: 0; font: 600 11px var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.peek p { margin: 0; font-size: 12px; line-height: 1.3; }
+.peek p small { display: block; color: var(--parch-3); font-size: 11px; }
+.peek .pg { position: absolute; left: 0; right: 0; bottom: 6px; display: flex; gap: 4px; justify-content: center; }
+.peek .pg i { width: 5px; height: 5px; background: var(--edge-2); } .peek .pg i.on { background: var(--accent); }
+/* The portal wall. */
+.wall { position: absolute; inset: 44px 0 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; padding: 16px 16px 0; background: var(--void-2); border-radius: 18px 18px 0 0; box-shadow: 0 0 0 1px var(--edge); }
+.wall header { display: flex; align-items: center; justify-content: space-between; }
+.wall h3 { margin: 0; font: 600 18px var(--font-ui); }
+.wall header button { min-height: 44px; padding: 0 6px; border: 0; background: none; font-weight: 600; color: var(--gold); }
+.search { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid var(--edge-2); border-radius: 10px; background: rgb(11 7 16 / 0.6); color: var(--parch-3); font-size: 15px; }
+.search svg { width: 12px; height: 12px; flex: none; }
+.wall .body { display: grid; grid-template-columns: minmax(0, 1fr) 16px; gap: 6px; min-height: 0; }
+.wall .list { overflow: hidden; display: grid; align-content: start; gap: 14px; }
+.wall h4 { margin: 0 0 6px; font: 500 11px var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: var(--parch-3); }
+.ready { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ready button { display: grid; gap: 8px; justify-items: start; padding: 10px; text-align: left; border: 1px solid var(--edge); border-radius: 10px; background: var(--ground); }
+.ready button.on { border-color: var(--c); }
+.ready canvas { width: 100%; aspect-ratio: 5 / 4; image-rendering: pixelated; }
+.ready strong { font-size: 14px; color: var(--c); } .ready span { font-size: 12px; line-height: 1.25; color: var(--parch-2); }
+.rows { margin: 0; padding: 0; list-style: none; display: grid; }
+.rows li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 48px; border-top: 1px solid var(--edge); }
+.rows .mini { width: 15px; height: 21px; }
+.rows b { display: block; font-size: 14px; font-weight: 600; } .rows span.s { display: block; font-size: 12px; color: var(--parch-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail { display: grid; align-content: space-evenly; justify-items: center; font: 500 9px var(--font-pixel); color: var(--parch-3); }
+/* Notes under the phones. */
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; }
+.notes h2 { margin: 0 0 8px; font: 700 1.05rem var(--font-mark); }
+.notes ol, .notes ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; color: var(--parch-2); max-width: 62ch; }
+.notes li strong { color: var(--parch); }
+@media (prefers-reduced-motion: reduce) { .aura, .chip.up i, .peek { animation: none; } }
+</style>
+
+<main class="page">
+  <header>
+    <h1><b>Student</b> IntPortal · landing v9</h1>
+    <p>The portal is the dot grid, lit. Same tiles, same renderer (<code>crates/intportal-tiles</code>, embedded here as WebAssembly), now standing on the app's own night ground. Tap the portal, the plaque and the buttons; the states below switch the stage.</p>
+  </header>
+
+  <div class="states" role="group" aria-label="Stage">
+    <button data-state="rest" aria-pressed="true">Rest</button>
+    <button data-state="connecting" aria-pressed="false">Signing in</button>
+    <button data-state="open" aria-pressed="false">Signed in</button>
+    <button data-state="down" aria-pressed="false">SIS not answering</button>
+    <button data-state="soon" aria-pressed="false">A school that opens soon</button>
+  </div>
+
+  <div class="phones">
+    <figure>
+      <div class="bezel"><div class="screen" id="landing">
+        <div class="aura"></div>
+        <canvas class="field" id="field" width="375" height="812"></canvas>
+        <div class="brand">
+          <h2>Student <span>IntPortal</span></h2>
+          <p id="pitch">Your schedule, grades and deadlines. Works offline.</p>
+        </div>
+        <div class="stage" id="stage">
+          <canvas class="lar" id="lar"></canvas>
+          <div class="bubble" id="bubble"><span><b>LAR</b><span id="line">Silipin mo muna ang loob.</span></span><button id="peekBtn">Peek</button></div>
+        </div>
+        <div class="plaque" role="group" aria-label="Choose a portal">
+          <button class="plate" id="plate" aria-label="Choose your school">
+            <svg class="mini" id="plateMini" viewBox="0 0 5 7" shape-rendering="crispEdges" aria-hidden="true"></svg>
+            <span><strong id="pName">PUP SIS</strong><span class="school" id="pSchool">Polytechnic University of the Philippines</span></span>
+            <svg class="open" viewBox="0 0 7 4" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 2h1v1H4zM5 1h1v1H5zM6 0h1v1H6z" fill="currentColor"/></svg>
+          </button>
+          <button class="chip up" id="chip" aria-live="polite"><i></i><span id="chipText">SIS is up</span></button>
+        </div>
+        <form class="card" id="card" onsubmit="return false">
+          <div class="field"><input id="f-studno" value="2026-00000-MN-0" readonly autocomplete="off"><label for="f-studno">Student number</label></div>
+          <div class="row2">
+            <div class="field"><button type="button" class="pick" id="f-birth">Nov 14, 2006</button><label for="f-birth">Birthdate</label></div>
+            <div class="field"><input id="f-pass" type="password" value="samplesample" readonly autocomplete="off"><label for="f-pass">Password</label><button type="button" class="eye">Show</button></div>
+          </div>
+          <p class="msg" id="msg" hidden></p>
+          <div class="acts"><button class="go" id="go">Sign in</button><button type="button" class="ghost" id="demo">Look around</button></div>
+          <p class="fine">Your login stays on this phone. <a href="#kept">How</a> · <a href="#forgot">Forgot password?</a></p>
+        </form>
+      </div></div>
+      <figcaption>The landing · 375 × 812</figcaption>
+    </figure>
+
+    <figure>
+      <div class="bezel"><div class="screen" id="wallScreen" style="display:block;padding:0">
+        <div class="aura"></div>
+        <div class="wall" role="dialog" aria-label="Choose your school">
+          <header><h3>Choose your school</h3><button>Done</button></header>
+          <div class="search"><svg viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 1h4v1H3zM2 2h1v1H2zM7 2h1v1H7zM1 3h1v4H1zM8 3h1v4H8zM2 7h1v1H2zM7 7h1v1H7zM3 8h4v1H3zM8 8h1v1H8zM9 9h1v1H9zM10 10h1v1h-1z" fill="currentColor"/></svg>Search 108 schools</div>
+          <div class="body">
+            <div class="list">
+              <section><h4>Ready now</h4><div class="ready" id="ready"></div></section>
+              <section><h4>Near you · NCR</h4><ul class="rows" id="near"></ul></section>
+              <section><h4>A</h4><ul class="rows" id="az"></ul></section>
+            </div>
+            <div class="rail" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>I</span><span>K</span><span>M</span><span>N</span><span>P</span><span>Q</span><span>R</span><span>S</span><span>T</span><span>U</span><span>W</span></div>
+          </div>
+        </div>
+      </div></div>
+      <figcaption>The portal wall · opens from the plaque</figcaption>
+    </figure>
+  </div>
+
+  <section class="notes">
+    <div>
+      <h2>What changed from the shipped landing</h2>
+      <ul>
+        <li><strong>One ground.</strong> The landing stands on the app's night ground. Its dots sit on the portal's tile pitch, so the dive starts and ends in the same world.</li>
+        <li><strong>The portal lights the ground.</strong> Dots near the frame grow and take the portal's colour, falling off over four tiles. Flat squares, no blur, no bevel.</li>
+        <li><strong>A floor without a floor.</strong> The frame and mouth mirror below in tiles that fade over four rows.</li>
+        <li><strong>LAR has a place.</strong> He stands at the portal's right foot. His line sits beside him and never covers a tile.</li>
+        <li><strong>The card is shorter.</strong> Birthdate and password share a row, which gives the portal about 64 pt more.</li>
+        <li><strong>The plaque</strong> replaces "1 of 108" and the arrow glyphs. It names the school and says whether its portal is answering.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>What a student can do before signing in</h2>
+      <ul>
+        <li><strong>Peek</strong> inside: Today, Schedule, Grades and Study on sample data.</li>
+        <li><strong>Look around</strong> the whole app on sample data, in release builds too.</li>
+        <li><strong>See if SIS is up</strong>, and tap the chip to check again.</li>
+        <li><strong>Choose a school</strong> from the wall, or swipe the orbit.</li>
+        <li><strong>Touch the portal</strong>: a ring runs out from the finger.</li>
+        <li><strong>Read how the login is kept</strong>, or open the SIS password reset.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<script>
+/*SPRITE*/
+const WASM = "/*WASM*/";
+const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const DPR = Math.min(3, Math.max(2, devicePixelRatio || 1));
+const SW = 375, SH = 812;
+// The portals on the orbit, as crates/intportal-core/src/portal.rs has them: cols, rows, corner, motif.
+const PORTALS = [
+  { id: "sis", name: "PUP SIS", school: "Polytechnic University of the Philippines", ready: true, shape: [6, 8, 0, 0], pitch: "Your schedule, grades and deadlines. Works offline." },
+  { id: "mabini", name: "PUP eMabini", school: "PUP Open University System", ready: true, shape: [7, 7, 1, 1], pitch: "Your eMabini courses and deadlines. Works offline." },
+  { id: "up", name: "UP", school: "University of the Philippines", ready: false, shape: [6, 9, 2, 2] },
+  { id: "tup", name: "TUP", school: "Technological University of the Philippines", ready: false, shape: [8, 7, 0, 3] },
+  { id: "pnu", name: "PNU", school: "Philippine Normal University", ready: false, shape: [5, 9, 0, 4] },
+  { id: "bulsu", name: "BulSU", school: "Bulacan State University", ready: false, shape: [7, 8, 1, 5] },
+];
+const $ = (id) => document.getElementById(id);
+const rgb = (c) => parseInt(c.slice(1), 16);
+const hex = (n) => "#" + n.toString(16).padStart(6, "0");
+const mixHex = (a, b, k) => { const A = rgb(a), B = rgb(b), m = (s) => Math.round(((A >> s) & 255) + (((B >> s) & 255) - ((A >> s) & 255)) * k); return `rgb(${m(16)} ${m(8)} ${m(0)})`; };
+const mini = (th) => `<rect width="5" height="7" fill="#170b1a"/>${th.ramp.slice(1).map((c, i) => `<rect x="1" y="${1 + i * 1.25}" width="3" height="1.25" fill="${c}"/>`).join("")}<rect x="2" y="0" width="1" height="1" fill="${th.accent}"/>`;
+
+// Fit each phone to the page.
+function fit() { const k = Math.min(1, (document.documentElement.clientWidth - 32) / SW); document.querySelectorAll(".bezel").forEach((b) => b.style.setProperty("--k", k)); }
+addEventListener("resize", fit); fit();
+
+let stage = "rest", sisUp = true, index = 0, pos = 0, vel = 0, openedAt = 0, peek = null, x = null, prev = 0;
+const field = $("field"), fx = field.getContext("2d");
+field.width = SW * DPR; field.height = SH * DPR;
+const larC = $("lar"), lx = larC.getContext("2d"), larRig = rig("idle");
+const BW = BOX.x1 - BOX.x0, BH = BOX.y1 - BOX.y0, LS = 3;
+larC.width = BW * LS * DPR; larC.height = BH * LS * DPR; larC.style.width = BW * LS + "px"; larC.style.height = BH * LS + "px";
+let box = { x: 0, y: 0, w: 0, h: 0 }, portalH = 0;
+
+let vox = 0, voy = 0;
+const BAND = 82;
+function measure() {
+  const st = $("stage"), scr = $("landing").getBoundingClientRect(), r = st.getBoundingClientRect(), k = scr.width / SW;
+  box = { x: (r.left - scr.left) / k, y: (r.top - scr.top) / k, w: r.width / k, h: r.height / k };
+  if (!x) return;
+  // Sixteen tile rows for the portal, and a band under it for the reflection, LAR and his line.
+  // The scene is given a taller canvas than the stage, so the tile pitch follows the height and the
+  // orbit's neighbours stay close enough to show at the screen's edges.
+  const w = Math.round(box.w * DPR), h = Math.round((box.h - BAND) * DPR), want = Math.floor(h / 16.4);
+  x.resize(w, h);
+  x.resize(w, Math.round((h * want) / (x.metrics() >>> 16)));
+  const p = new Int32Array(x.memory.buffer, x.portal_rect(index, index), 4);
+  vox = Math.round(box.x * DPR); voy = Math.round(box.y * DPR + (h - p[3]) / 2 - p[1]);
+}
+
+function apply() {
+  const p = PORTALS[index], th = THEMES[p.id], scr = $("landing");
+  scr.style.setProperty("--accent", th.accent); scr.style.setProperty("--pool", th.ramp[1]);
+  $("pName").textContent = p.name; $("pSchool").textContent = p.school; $("plateMini").innerHTML = mini(th);
+  $("pitch").textContent = p.ready ? p.pitch : `${p.school} is next. For now, IntPortal works with PUP.`;
+  const chip = $("chip"), up = p.ready && sisUp;
+  chip.className = "chip " + (!p.ready ? "" : up ? "up" : "down");
+  $("chipText").textContent = !p.ready ? "Opens soon" : up ? (p.id === "sis" ? "SIS is up" : "eMabini is up") : "Not answering";
+  const card = $("card");
+  if (stage === "open") {
+    card.outerHTML = `<div class="hubdock" id="card"><button class="go" id="step">Step through</button><p class="fine">PUP SIS · via sis8</p></div>`;
+  } else if (card.classList.contains("hubdock")) location.reload();
+  const msg = $("msg"); if (!msg) return void say();
+  msg.hidden = !(p.ready && !sisUp);
+  msg.textContent = "SIS isn't answering right now. Your saved schedule and grades still open.";
+  $("go").textContent = stage === "connecting" ? "Signing in…" : "Sign in"; $("go").disabled = stage === "connecting" || !p.ready;
+  card.querySelectorAll(".field, .row2").forEach((el) => (el.hidden = !p.ready));
+  let soon = card.querySelector(".soon");
+  if (!p.ready && !soon) { soon = document.createElement("div"); soon.className = "soon"; card.prepend(soon); }
+  if (soon) { soon.hidden = p.ready; soon.innerHTML = `<b>${p.school}</b><p>Its portal opens soon. For now, SIS and eMabini work.</p>`; }
+  say();
+}
+function say() {
+  const p = PORTALS[index];
+  $("line").textContent = stage === "connecting" ? "Kumakatok na ako sa SIS…" : stage === "open" ? "Bukas na. Tara, pasok!" : !p.ready ? `Wala pang pinto ang ${p.name}. Malapit na.` : !sisUp ? "Tulog ang SIS. Nandito pa rin ang naka-save mo." : "Silipin mo muna ang loob.";
+  $("peekBtn").hidden = stage !== "rest" || !p.ready;
+  clearTimeout(hush); $("bubble").classList.remove("quiet");
+  larRig.set(stage === "connecting" ? "think" : stage === "open" ? "happy" : !sisUp ? "sleep" : "idle", clock());
+}
+const t0 = performance.now(), clock = () => (performance.now() - t0) / 1000;
+
+document.querySelector(".states").addEventListener("click", (e) => {
+  const s = e.target.dataset?.state; if (!s) return;
+  document.querySelectorAll(".states button").forEach((b) => b.setAttribute("aria-pressed", b === e.target));
+  sisUp = s !== "down"; closePeek();
+  if (s === "soon") { stage = "rest"; go(5); return apply(); }
+  if (PORTALS[index].ready === false) go(0);
+  stage = s === "down" ? "rest" : s; if (s === "open") openedAt = clock();
+  apply();
+});
+function go(i) { index = Math.max(0, Math.min(PORTALS.length - 1, i)); closePeek(); apply(); }
+$("chip").addEventListener("click", () => { if (!PORTALS[index].ready) return; $("chipText").textContent = "Checking…"; setTimeout(apply, 700); });
+$("plate").onclick = () => $("wallScreen").scrollIntoView({ behavior: REDUCE ? "auto" : "smooth", block: "center" });
+$("demo").onclick = () => document.querySelector('[data-state="open"]').click();
+
+// Swipe the orbit.
+let drag = null;
+field.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, pos, moved: false }; field.setPointerCapture(e.pointerId); });
+field.addEventListener("pointermove", (e) => { if (!drag || stage !== "rest") return; const d = (e.clientX - drag.x) / 170; if (Math.abs(d) > 0.04) drag.moved = true; pos = Math.max(-0.3, Math.min(PORTALS.length - 0.7, drag.pos - d)); });
+field.addEventListener("pointerup", (e) => { if (!drag) return; const d = drag; drag = null; if (d.moved) return go(Math.round(pos)); tap(e); });
+
+// A tap on the portal rings it and opens the peek.
+const PAGES = [
+  ["Today", "COMP 20083 · 10:30", "in 42 min, S502", "Quiz, Friday", "COMP 20083"],
+  ["Schedule", "Mon · 3 classes", "7:30 to 4:30", "Wed · online", "COMP 20133"],
+  ["Grades", "GWA 1.62", "5 of 7 posted", "COMP 20083 · 1.50", "posted today"],
+  ["Study", "12 cards due", "COMP 20083 deck", "3-day streak", "last note: Trees"],
+];
+function rect() { const p = new Int32Array(x.memory.buffer, x.portal_rect(pos, index), 4); return [(p[0] + vox) / DPR, (p[1] + voy) / DPR, p[2] / DPR, p[3] / DPR]; }
+function tap(e) {
+  if (!x || stage !== "rest" || !PORTALS[index].ready) return;
+  const scr = $("landing").getBoundingClientRect(), k = scr.width / SW, px = (e.clientX - scr.left) / k, py = (e.clientY - scr.top) / k, [rx, ry, rw, rh] = rect();
+  if (px < rx || px > rx + rw || py < ry || py > ry + rh) return closePeek();
+  const pitch = (x.metrics() >>> 16) / DPR;
+  x.poke((px - rx) / pitch, (py - ry) / pitch, clock());
+  setTimeout(() => openPeek(peek === null ? 0 : peek + 1), REDUCE ? 0 : 380);
+}
+$("peekBtn").onclick = () => { const [rx, ry, rw, rh] = rect(), pitch = (x.metrics() >>> 16) / DPR; x.poke(rw / pitch / 2, rh / pitch / 2, clock()); setTimeout(() => openPeek(0), REDUCE ? 0 : 380); };
+let hush = 0;
+function closePeek() { if (peek !== null) { clearTimeout(hush); hush = setTimeout(() => $("bubble").classList.add("quiet"), 2600); } peek = null; document.querySelector(".peek")?.remove(); }
+function openPeek(i) {
+  closePeek(); clearTimeout(hush); $("bubble").classList.remove("quiet"); if (i >= PAGES.length) { peek = 0; return closePeek(); } peek = i;
+  const [rx, ry, rw, rh] = rect(), pitch = (x.metrics() >>> 16) / DPR, g = PAGES[i], el = document.createElement("div");
+  el.className = "peek"; el.style.cssText = `left:${rx + 2 * pitch}px;top:${ry + 2 * pitch}px;width:${rw - 4 * pitch}px;height:${rh - 4 * pitch}px`;
+  el.innerHTML = `<h3>${g[0]}</h3><p>${g[1]}<small>${g[2]}</small></p><p>${g[3]}<small>${g[4]}</small></p><div class="pg">${PAGES.map((_, j) => `<i class="${j === i ? "on" : ""}"></i>`).join("")}</div>`;
+  el.onclick = () => openPeek(i + 1); $("landing").append(el);
+  $("line").textContent = ["Today: next class mo at ang mga due, isang tingin lang.", "Buong linggo mo, kahit walang signal sa jeep.", "Lalabas dito ang grades mo pag nag-post na si Prof.", "Notes at flashcards, para ready ka sa exam."][i];
+}
+
+function frame() {
+  requestAnimationFrame(frame);
+  if (!x) return;
+  const t = REDUCE ? 2 : clock();
+  // The orbit eases to the chosen portal.
+  if (!drag) { const d = index - pos; vel = d * 6; pos = Math.abs(d) < 0.002 ? index : pos + d * 0.14; } else vel = 0;
+  const n = x.frame(t, prev, { rest: 0, connecting: 1, open: 2 }[stage], openedAt, REDUCE ? 3 : 1, pos, vel);
+  prev = t;
+  const a = new Int32Array(x.memory.buffer, x.tiles(), n * 4);
+  const m = x.metrics(), pitch = m >>> 16, tile = m & 0xffff, ox = vox, oy = voy;
+  const r = new Int32Array(x.memory.buffer, x.portal_rect(pos, index), 4), rx = r[0] + ox, ry = r[1] + oy, rw = r[2], rh = r[3];
+  const th = THEMES[PORTALS[index].id], lit = PORTALS[index].ready && (sisUp || stage !== "rest");
+  fx.clearRect(0, 0, field.width, field.height);
+  // The unlit grid: one dot per tile position across the screen. Near the portal a dot grows and takes its colour.
+  const dot = Math.max(2, Math.round(pitch * 0.1)), reach = 4 * pitch, phX = ((rx % pitch) + pitch) % pitch, phY = ((ry % pitch) + pitch) % pitch;
+  const breathe = 0.82 + 0.18 * Math.sin(t * 1.1), power = stage === "open" ? 1.25 : stage === "connecting" ? 0.9 + 0.3 * Math.sin(t * 6) : lit ? 1 : 0.25;
+  for (let gy = phY - pitch; gy < field.height; gy += pitch) {
+    for (let gx = phX - pitch; gx < field.width; gx += pitch) {
+      const cx = gx + tile / 2, cy = gy + tile / 2;
+      const dx = Math.max(rx - cx, 0, cx - (rx + rw)), dy = Math.max(ry - cy, 0, cy - (ry + rh)), d = Math.hypot(dx, dy);
+      if (d === 0) continue;
+      const k = d < reach ? Math.pow(1 - d / reach, 2) * breathe * power : 0;
+      const s = Math.round(dot + (tile * 0.42 - dot) * Math.pow(k, 1.6));
+      fx.globalAlpha = 0.13 + 0.45 * k;
+      fx.fillStyle = k > 0.01 ? mixHex("#e8b04a", th.ramp[2], Math.min(1, k * 2)) : "#e8b04a";
+      fx.fillRect(Math.round(cx - s / 2), Math.round(cy - s / 2), s, s);
+    }
+  }
+  // The reflection: the selected portal's tiles mirrored below, fading over four rows.
+  const foot = ry + rh, gap = pitch - tile;
+  for (let i = 0; i < a.length; i += 4) {
+    const tx = a[i] + ox, ty = a[i + 1] + oy, s = a[i + 2];
+    if (s === tile && tx >= rx && tx < rx + rw && ty >= ry && ty < foot) {
+      const row = Math.round((foot - (ty + s)) / pitch);
+      if (row < 4) { fx.globalAlpha = 0.42 * Math.pow(1 - row / 4, 1.5) * (lit ? 1 : 0.5); fx.fillStyle = hex(a[i + 3]); fx.fillRect(tx, foot + gap + row * pitch, s, s); }
+    }
+  }
+  fx.globalAlpha = 1;
+  for (let i = 0; i < a.length; i += 4) { fx.fillStyle = hex(a[i + 3]); fx.fillRect(a[i] + ox, a[i + 1] + oy, a[i + 2], a[i + 2]); }
+  // LAR at the portal's right foot; his line in the band under it.
+  // LAR stands in the band under the portal's right foot; his line opens beside him.
+  const k = LS * DPR, cssFoot = foot / DPR, lxp = SW - 16 - 15 - 26 * LS, lyp = cssFoot + 8;
+  larC.style.left = lxp + BOX.x0 * LS - box.x + "px"; larC.style.top = lyp + BOX.y0 * LS - box.y + "px";
+  lx.setTransform(1, 0, 0, 1, 0, 0); lx.clearRect(0, 0, larC.width, larC.height); lx.setTransform(k, 0, 0, k, -BOX.x0 * k, -BOX.y0 * k);
+  drawLar(lx, larRig.at(t, {}, REDUCE), th, t, { shadow: false });
+  const b = $("bubble"); b.style.left = "0px"; b.style.top = cssFoot + 14 - box.y + "px";
+}
+
+WebAssembly.instantiate(Uint8Array.from(atob(WASM), (c) => c.charCodeAt(0)), {}).then(({ instance }) => {
+  x = instance.exports;
+  const ptr = x.portals_buf(PORTALS.length), buf = new Uint32Array(x.memory.buffer, ptr, PORTALS.length * 10);
+  PORTALS.forEach((p, i) => buf.set([...p.shape, ...THEMES[p.id].ramp.map(rgb), rgb(THEMES[p.id].accent)], i * 10));
+  x.load(); measure(); apply(); frame();
+});
+addEventListener("resize", measure);
+
+// The wall.
+const SWIRL = 5;
+$("ready").innerHTML = PORTALS.slice(0, 2).map((p, i) => `<button class="${i === 0 ? "on" : ""}" style="--c:${THEMES[p.id].accent}"><canvas width="120" height="96" data-p="${p.id}"></canvas><span><strong>${p.name}</strong><br><span>${p.school}</span></span><span class="chip up"><i></i>${i === 0 ? "SIS is up" : "eMabini is up"}</span></button>`).join("");
+const row = (name, school, c) => `<li><svg class="mini" viewBox="0 0 5 7" shape-rendering="crispEdges" aria-hidden="true">${mini({ ramp: ["#000", mixHex(c, "#000000", 0.6), mixHex(c, "#000000", 0.3), c, mixHex(c, "#ffffff", 0.5)], accent: c })}</svg><span><b>${name}</b><span class="s">${school}</span></span><span class="chip">Soon</span></li>`;
+$("near").innerHTML = [["TUP", "Technological University of the Philippines", "#ff6b5f"], ["PNU", "Philippine Normal University", "#c8b6ff"], ["EARIST", "Eulogio \"Amang\" Rodriguez Institute of Science and Technology", "#c62828"], ["RTU", "Rizal Technological University", "#1e88e5"]].map((r) => row(...r)).join("");
+$("az").innerHTML = [["ASCOT", "Aurora State College of Technology", "#f57f17"], ["ASIST", "Abra State Institute of Sciences and Technology", "#00897b"], ["ASC", "Apayao State College", "#f9a825"]].map((r) => row(...r)).join("");
+// A small live portal on each ready card: an obsidian ring round the school's own motif colours.
+function miniPortals() {
+  requestAnimationFrame(miniPortals);
+  const t = REDUCE ? 2 : clock();
+  document.querySelectorAll("#ready canvas").forEach((c) => {
+    const g = c.getContext("2d"), th = THEMES[c.dataset.p], P = 8, T = 6, cols = 9, rows = 11, ox = (c.width - cols * P) / 2, oy = (c.height - rows * P) / 2;
+    g.clearRect(0, 0, c.width, c.height);
+    for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+      const edge = r < 2 || r > rows - 3 || q < 2 || q > cols - 3;
+      if (edge) g.fillStyle = ["#1a1622", "#241f2e", "#2f2939"][(q * 7 + r * 3) % 3];
+      else { const v = 0.5 + 0.5 * Math.sin(q * 1.1 + r * 0.8 + t * (c.dataset.p === "sis" ? 1.6 : -1.2)); if (v < 0.35) continue; g.fillStyle = th.ramp[Math.min(4, 1 + Math.floor(v * 4))]; }
+      g.fillRect(ox + q * P, oy + r * P, T, T);
+    }
+  });
+}
+miniPortals();
+</script>

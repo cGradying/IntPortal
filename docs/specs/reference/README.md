@@ -10,7 +10,7 @@
 
 ## Mockup index
 
-Every mockup a spec was decided from is kept in `prototypes/`. Open the `.html` file in a browser. A `.src.html` file and a folder of the same name are that page's sources; the `build-*.mjs` script beside them inlines the app's own sprite code and writes the `.html`.
+Every mockup a spec was decided from is kept in `prototypes/`. Open the `.html` file in a browser. A `.src.html` file and a folder of the same name are that page's sources; the `build-*.mjs` script beside them inlines the app's own sprite code (and, for `landing-v9`, the tile renderer) and writes the `.html`.
 
 | Mockup | Date | What it decided | Specs |
 |---|---|---|---|
@@ -21,6 +21,7 @@ Every mockup a spec was decided from is kept in `prototypes/`. Open the `.html` 
 | `study-you.html` | 2026-11-05 | Study tiles, the note editor, You on one screen, the theme maker | 046, 047 |
 | `lar-window.html` | 2026-11-09 | Round three: the launch hello, LAR's window, the deadline adder, Study tiles | 010 C35, 041 C10, 046 |
 | `lar-chat.html` | 2026-11-10 | Round four: LAR's chat, the sky header, the step trace | 048 |
+| `landing-v9.html` | 2026-11-14 | The landing on the app's night ground: the lit grid, the reflection, the plaque, the portal wall, what a student can do before signing in | 010, 011 |
 
 A mockup that no spec cites and a newer one replaces is deleted, not kept beside it. Drafts and previews stay out of git.
 
