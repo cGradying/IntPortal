@@ -11,6 +11,7 @@
     "haptics:default",
     "biometric:default",
     "glance:default",
-    "calendar:default"
+    "calendar:default",
+    "foundation:default"
   ]
 }

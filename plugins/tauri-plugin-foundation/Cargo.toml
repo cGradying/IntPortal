@@ -1,0 +1,13 @@
+[package]
+name = "tauri-plugin-foundation"
+version.workspace = true
+edition = "2021"
+publish = false
+description = "Spike: Apple Foundation Models (iOS 26+) as an optional chat provider."
+links = "tauri-plugin-foundation"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = "2"

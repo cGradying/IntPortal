@@ -45,3 +45,4 @@ tauri-plugin-biometric = "2"
 tauri-plugin-haptics = "2"
 tauri-plugin-glance = { path = "../plugins/tauri-plugin-glance" }
 tauri-plugin-calendar = { path = "../plugins/tauri-plugin-calendar" }
+tauri-plugin-foundation = { path = "../plugins/tauri-plugin-foundation" }
