@@ -1,6 +1,6 @@
 # 047 You and themes
 
-**Status:** approved (2026-11-05). The user took the recommendations: the dive keeps Off, and backup has no password, with a clear warning.
+**Status:** shipped (2026-11-14, release 0.1.9). Approved 2026-11-05. The user took the recommendations: the dive keeps Off, and backup has no password, with a clear warning.
 
 ## What changes for the student
 

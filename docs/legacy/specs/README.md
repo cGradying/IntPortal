@@ -89,3 +89,5 @@ Core APIs the views call. Core changes are out of scope unless listed here.
 
 ## Out of scope
 ```
+
+The review screenshots and the video these files cite live in the macOS app repository (cGradying/IntPortal, `docs/specs/reference/`). They were removed here on 2026-11-14 to keep this repository small.

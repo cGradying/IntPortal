@@ -8,6 +8,22 @@
 
 - `prototypes/lar-sheet.html`: LAR's sprite sheet. Every state at 2, 4 and 8 times, the fire spawn and every state in each university's colours, a loop through the state changes, LAR flying by a tile portal, and each portal's palette. Its script is the app's own `src/lib/lar/sprite.ts`, inlined by `node docs/specs/reference/prototypes/build-lar-sheet.mjs` from `lar-sheet.src.html`; rebuild it after changing the sprite.
 
+## Mockup index
+
+Every mockup a spec was decided from is kept in `prototypes/`. Open the `.html` file in a browser. A `.src.html` file and a folder of the same name are that page's sources; the `build-*.mjs` script beside them inlines the app's own sprite code and writes the `.html`.
+
+| Mockup | Date | What it decided | Specs |
+|---|---|---|---|
+| `portal-v8.html` | 2026-10-11 | The tile portal: flat tiles with gaps, the two-way build, the stage reactions | 010, 011 |
+| `reference-sheet.html` | 2026-10-15 | The look in one sheet: six rules, colour, type, the tile, the pixel art library | 010, 011, 012, 044, 045 |
+| `lar-sheet.html` | 2026-10-15 | LAR's sprite: every state, the fire spawn, each school's colours | 010 C18 |
+| `mockups.html` | 2026-11-05 | Look rounds one to seven: the dive, the night ground, Pixel-bridged type, Week and Day, the done run | 010 C26 on, 040, 044, 045 |
+| `study-you.html` | 2026-11-05 | Study tiles, the note editor, You on one screen, the theme maker | 046, 047 |
+| `lar-window.html` | 2026-11-09 | Round three: the launch hello, LAR's window, the deadline adder, Study tiles | 010 C35, 041 C10, 046 |
+| `lar-chat.html` | 2026-11-10 | Round four: LAR's chat, the sky header, the step trace | 048 |
+
+A mockup that no spec cites and a newer one replaces is deleted, not kept beside it. Drafts and previews stay out of git.
+
 ## Local only (`private/`, ignored by git)
 
 `private/` holds things that must not be committed:

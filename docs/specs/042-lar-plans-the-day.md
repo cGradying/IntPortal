@@ -1,6 +1,6 @@
 # 042 LAR plans the day
 
-**Status:** approved (2026-11-03)
+**Status:** shipped (2026-11-14, release 0.1.9)
 
 ## What changes for the student
 

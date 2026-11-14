@@ -1,6 +1,6 @@
 # 040 Trust and speed
 
-**Status:** approved (2026-11-03)
+**Status:** building. Left: 44 pt targets in six files (C7), closing in 0.2.0.
 
 ## What changes for the student
 

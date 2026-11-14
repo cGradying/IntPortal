@@ -1,6 +1,6 @@
 # 044 Pixel week
 
-**Status:** ready to build. Picked in round seven of the mockups: Week and Day kept, tap to open a day, and readable details.
+**Status:** shipped (2026-11-14, release 0.1.9). Picked in round seven of the mockups: Week and Day kept, tap to open a day, and readable details.
 
 ## What changes for the student
 
