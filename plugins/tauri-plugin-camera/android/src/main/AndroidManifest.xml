@@ -3,7 +3,7 @@
     <!-- No CAMERA permission: the phone's own camera app takes the photo. Declaring it would make that intent need a grant. -->
     <application>
         <provider
-            android:name="androidx.core.content.FileProvider"
+            android:name="ph.intportal.camera.CameraFileProvider"
             android:authorities="${applicationId}.camera.files"
             android:exported="false"
             android:grantUriPermissions="true">
