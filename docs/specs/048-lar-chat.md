@@ -22,14 +22,14 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 
 ## Behaviour
 
-**Opening and closing: Pour**
+**Opening and closing: Dither**
 
-- **C1.** Tapping the chip turns its cube to face the student (WebGL, about 150 ms, with a dip to 0.94 scale and back). At 120 ms one 2D canvas over the page takes over: the 27 atoms start as the face's 3×3 grid, centred on the chip, with the 18 behind stacked under the 9 in front, and the chip fades out over 60 ms.
-- **C2.** Each atom flies to its cell of a 3-column, 9-row tiling of the window, for 400 ms on an ease-in-out curve, starting 14 ms later per row from the bottom and 6 ms later per column, on a slight arc (up to 6 pt). The atoms pour upward as one wave with nothing stopping on the way. While flying, each is a 2.5D pixel tile: a lit top band and a shaded side whose depth peaks mid-flight and is 0 on landing.
-- **C3.** Each tile shows its own slice of the window's face, drawn once in window coordinates, so the landed tiles form the window exactly. Tiles in the header's height (C7) take the sky; the rest take the glass. From 540 to 660 ms the 2 pt seams close, and the gold rim and the 2 pt extrusion come in. At about 664 ms the real window replaces the canvas in one frame, with no cross-fade.
+- **C1.** Tapping the chip starts a Bayer dither: the chip hides and one 2D canvas over the page paints the window's face (C3) through a grid of square 6 pt cells on the device-pixel grid, crisp, no smoothing. A cell is shown when its 4×4 Bayer threshold is below the reveal minus its scaled distance from the chip's centre, so the window materialises out of the chip as a pixel wave. It runs 420 ms, eased and in steps. (3D pour replaced by a pixel dither at the owner's request, 2026-11-14.)
+- **C2.** The cells nearest the chip show first and the farthest last; at reveal 0 nothing shows, at 1 every cell does. There is no cube turn and no flying tile.
+- **C3.** The face is drawn once offscreen in window coordinates: the glass, the sky band of the header's height (C7) over it, the lit top, the dithered edge, the gold rim and the 2 pt extrusion. The last frame is the window exactly, and the real window replaces the canvas in one frame, with no cross-fade.
 - **C4.** After the swap, the sky's light and stars come up, LAR spawns on the horizon, his hello types in, and the suggestions appear.
 - **C5.** The window lands at its measured first-open height (header, hello, suggestions and dock), not a fixed one. After that it grows with the chat, as it does now.
-- **C6.** Closing: LAR folds into his fire (0.3 s). The window swaps back to tiles, and the pour plays backwards in 440 ms, top rows first. The chip reappears under the atoms as they land, then the cube turns back to its three-quarter view.
+- **C6.** Closing: LAR folds into his fire (0.3 s). The window swaps to the canvas and the dither plays backwards in 320 ms, outer cells first, into the chip, which reappears as the last cells go. Reduce Motion cross-fades; a backgrounded app finishes at once.
 
 **The header**
 
@@ -92,21 +92,21 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 - `src-tauri/src/ai.rs` `ai_ask` gains `on_step: Channel<Step>`. It sends `{ step: "read" }` before the facts, `{ step: "search" }` before recall, then `{ step: "found", found: Source[], quote: string }`, `{ step: "nothing" }` or `{ step: "search_off" }`, and `{ step: "write" }` when the model's first words arrive. `Ask` gains `intent: "ask" | "note" | "remind" | "cards" | "due" | "classes" | "grades"`, from `intent::resolve`. The quote is the first recalled line, trimmed to 140 characters.
 - `src/lib/assis/assis.svelte.ts`: each LAR turn in `assis.chat` gains `steps: Step[]` and `intent`. The wake step comes from the app's own load (`busy === "waking"`). Steps and intent are session-only: the `turns` table (`store.rs`) is unchanged, so a turn restored from history shows its answer with no trace (history keeps only the text today), and the suggestions fall back to the day's (C17).
 - `src/lib/assis/apply.ts`: `starters(day)` and `followUps(turn)`, both pure and tested.
-- `src/lib/assis/pour.ts` (new): the pour's geometry and timing, pure; the canvas drawing lives in `AssisWindow.svelte`. The crystal gains `face(on)` in `crystal.ts`.
+- `src/lib/assis/dither.ts` (was `pour.ts`): the dither grid, timing and mask, pure; `dither-draw.ts` paints it. `chip.face` is gone (no cube turn).
 - `src/lib/assis/neuron.ts` and its tests are removed.
 
 ## Errors
 
 - Search fails: the step ends "Note search is off" and the answer comes from the schedule.
 - The model fails or is stopped: the running step stops blinking, and the existing friendly error or "Okay, stopped." follows. The trace still folds.
-- No WebGL (046 C1d2): no turn; the pour starts from the still image's place with a 60 ms cross-fade.
+- No WebGL (046 C1d2): the dither is 2D and runs the same.
 
 ## Motion and Reduce Motion
 
 - Opening is about 664 ms and closing about 740 ms (fold included). Only the canvas and transforms move: no width, height or position is laid out per frame. The target is 60 fps, measured on the iPhone 18 Pro simulator and a real phone. The tick haptic fires as the window lands.
 - The sky moves only on the compositor: the pools' layer by `transform`, the stars and the live pixel by `opacity`. It stops when the window is closed or the app is hidden, and on the low-RAM tier while the model wakes or thinks (C8). The mockup animates `background-position` for convenience; the app does not.
 - Reduce Motion: a 200 ms cross-fade, with no turn, no atoms, no sky drift, no twinkle, no packets. The trace appears without growing, and the source corners show without fading.
-- Low-RAM phones pour too: it is 27 rectangles on a 2D canvas for 0.66 s.
+- Low-RAM phones dither too: one 2D canvas for 0.42 s.
 
 ## Accessibility
 
@@ -124,7 +124,7 @@ Tapping the crystal pours its cube up into LAR's chat in one smooth wave. The ch
 
 | Criterion | Check |
 |---|---|
-| C1–C6 | `vitest pour` (timing, order, cell geometry, the reverse); simulator recording, frames at 120, 400, 664 ms and close; frame times during open |
+| C1–C6 | `vitest dither` (grid, empty at 0 and whole at 1, nearest first, the reverse); simulator recording, frames at 100, 200, 420 ms and close; frame times during open |
 | C7–C11 | Simulator screenshots in Night and Day, keyboard down and up, in a long chat: the header keeps one height, and LAR's Z, antenna and wave are whole |
 | C12–C15 | `cargo test` for `ai_ask` step order (read, search, found/nothing/off, write) with a stub model; `vitest apply` for `foundLine` (notes only, mixed kinds, singulars); `vitest assis` for steps on a live turn and none on a restored one; screenshots of each trace |
 | C8 | Screenshot of the sky; on a small-RAM simulator run, the sky still while waking and thinking; the release gate's real-phone 60 fps includes the sky |

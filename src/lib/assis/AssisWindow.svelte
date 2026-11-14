@@ -1,15 +1,14 @@
 <script lang="ts" module>
   /**
    * Where the crystal chip is while LAR's window is about (046 C1d): `here` on the page; `hidden`
-   * asleep, drawing nothing, while the window is open. `face`: the cube turns to face the student,
-   * the first beat of the pour (048 C1).
+   * asleep, drawing nothing, while the window is open.
    */
-  export const chip = $state({ at: "here" as "here" | "gone" | "hidden", face: false });
+  export const chip = $state({ at: "here" as "here" | "gone" | "hidden" });
 </script>
 
 <script lang="ts">
   // LAR's window. The chat box is the crystal itself (round three C2), and round four (spec 048) sets
-  // the rest: the cube pours up into it, a sky header of one fixed size with LAR standing on its
+  // the rest: it dithers open out of the chip, a sky header of one fixed size with LAR standing on its
   // dithered edge, his real steps as a pixel trace that folds once he answers, sources lit in pixel
   // corners, and one row of suggestions over the input. Reduce Motion cross-fades.
   // Ported from reference/prototypes/lar-chat/.
@@ -28,7 +27,7 @@
 
   type Rect = { x: number; y: number; w: number; h: number };
   import { invoke } from "@tauri-apps/api/core";
-  import { runPour } from "./pour-draw";
+  import { runDither } from "./dither-draw";
   import { apply, ask, assis, confirmCards, discardCards, dismiss, newChat, stop } from "./assis.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
@@ -117,8 +116,8 @@
   }
 
   let open = $state(false);
-  /** The pour is drawing the window: the real one is hidden until the swap frame. */
-  let pouring = $state(false);
+  /** The dither is drawing the window: the real one is hidden until the swap frame. */
+  let dithering = $state(false);
   let pc: HTMLCanvasElement;
   let need = $state(0);
   let home = $state<Rect>(chipRect());
@@ -160,18 +159,17 @@
       chip.at = "hidden";
       win.focus({ preventScroll: true });
     } else {
-      // The window takes its open box hidden, so the pour lands exactly on it (048 C1–C5).
-      pouring = true;
+      // The window takes its open box hidden, so the dither lands exactly on it (048 C1–C5).
+      dithering = true;
       open = true;
-      chip.face = true;
+      chip.at = "hidden";
       tick().then(() => {
         measure();
         return tick();
       }).then(() =>
-        runPour({ canvas: pc, chip: home, win: box, tokens: win, headerH: top.offsetHeight, mode: "open", chipEl: orb() ?? undefined }).then(() => {
-          pouring = false; // the swap frame: the real window, no cross-fade
+        runDither({ canvas: pc, chip: home, win: box, tokens: win, headerH: top.offsetHeight, mode: "open" }).then(() => {
+          dithering = false; // the swap frame: the real window, no cross-fade
           if (leaving) return;
-          chip.at = "hidden";
           buzz.tick();
           phase = "spawn";
           win.focus({ preventScroll: true });
@@ -183,7 +181,6 @@
       timers.forEach(clearTimeout);
       watch.disconnect();
       chip.at = "here";
-      chip.face = false;
       const o = orb();
       if (o) o.style.opacity = "";
     };
@@ -204,7 +201,7 @@
       later(200, done);
       return;
     }
-    // He folds back into his fire, then the glass folds into the chip.
+    // He folds back into his fire, then the window dithers away into the chip.
     const folds = phase === "here";
     if (folds) {
       const t0 = performance.now();
@@ -215,15 +212,14 @@
       fold = 1;
       requestAnimationFrame(step);
     }
-    // Then the window turns back into tiles and pours down into the chip, top rows first (048 C6).
+    // Then the dither plays backwards into the chip, outer cells first (048 C6).
     later(folds ? 300 : 0, () => {
       const from = box;
       home = chipRect();
-      pouring = true;
-      chip.at = "here";
-      runPour({ canvas: pc, chip: home, win: from, tokens: win, headerH: top.offsetHeight, mode: "close", chipEl: orb() ?? undefined }).then(() => {
+      dithering = true;
+      runDither({ canvas: pc, chip: home, win: from, tokens: win, headerH: top.offsetHeight, mode: "close" }).then(() => {
         open = false;
-        chip.face = false;
+        chip.at = "here"; // as the last cells go
         done();
       });
     });
@@ -314,13 +310,13 @@
 <svelte:window onkeydown={(e) => e.key === "Escape" && close()} />
 
 <div class="scrim" class:on={open} bind:this={scrim} role="presentation" onclick={close}></div>
-<canvas class="pour" bind:this={pc} aria-hidden="true"></canvas>
+<canvas class="dither" bind:this={pc} aria-hidden="true"></canvas>
 <div
   class="win"
   class:open
   class:day
   class:reduce
-  class:pouring
+  class:dithering
   bind:this={win}
   role="dialog"
   tabindex="-1"
@@ -478,7 +474,7 @@
   .scrim.on {
     opacity: 1;
   }
-  .pour {
+  .dither {
     position: fixed;
     inset: 0;
     width: 100%;
@@ -503,7 +499,7 @@
     color: var(--ink);
     font-family: var(--font-ui);
     opacity: 0;
-    /* It grows up with the chat. Opacity is instant: the pour covers the swap, so there is no cross-fade. */
+    /* It grows up with the chat. Opacity is instant: the dither covers the swap, so there is no cross-fade. */
     transition:
       top 0.36s var(--ease),
       height 0.36s var(--ease);
@@ -514,8 +510,8 @@
   .win:focus {
     outline: none;
   }
-  /* Hidden under the pour, and laid out once: no eased top or height while it draws (048 Motion). */
-  .win.pouring {
+  /* Hidden under the dither, and laid out once: no eased top or height while it draws (048 Motion). */
+  .win.dithering {
     opacity: 0;
     transition: none;
   }
