@@ -47,7 +47,7 @@ pub(crate) fn demo_mabini(now: i64) -> MabiniData {
 
 /// Review builds only: a fake week and term so every screen can be seen
 /// without an SIS account.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn demo(state: tauri::State<'_, AppState>, today: Date) -> Res<Snapshot> {
     if !cfg!(debug_assertions) {
         return Err("demo is only in review builds".into());

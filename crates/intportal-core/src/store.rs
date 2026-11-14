@@ -13,6 +13,7 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use rusqlite::{params, Connection, ErrorCode, OptionalExtension};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -99,8 +100,15 @@ fn stamp_of(text: &str) -> i64 {
     text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3)) as i64
 }
 
+const UPSERT: &str = "INSERT INTO kv (key, json) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET json = excluded.json";
+
 pub struct Store {
     db: Connection,
+    /// The snapshot as last read or saved. Every command asks for it, so reading twelve rows and
+    /// parsing them each time was most of a command's cost. Anything that writes those rows
+    /// outside `save` must call `forget`.
+    // ponytail: `load` hands out a clone; share it behind an `Arc` if a profile ever shows the copy.
+    cache: RefCell<Option<Snapshot>>,
 }
 
 /// A note holds at most this many photos (046 C15a).
@@ -233,7 +241,7 @@ impl Store {
              CREATE INDEX IF NOT EXISTS photos_note ON photos (note_key);",
         )?;
         add_note_columns(&db)?;
-        Ok(Store { db })
+        Ok(Store { db, cache: RefCell::new(None) })
     }
 
     fn get<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>, StoreError> {
@@ -243,15 +251,15 @@ impl Store {
     }
 
     fn put<T: Serialize>(&self, key: &str, value: &T) -> Result<(), StoreError> {
-        self.db.execute(
-            "INSERT INTO kv (key, json) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET json = excluded.json",
-            params![key, serde_json::to_string(value)?],
-        )?;
+        self.db.execute(UPSERT, params![key, serde_json::to_string(value)?])?;
         Ok(())
     }
 
     pub fn load(&self) -> Result<Snapshot, StoreError> {
-        Ok(Snapshot {
+        if let Some(snap) = &*self.cache.borrow() {
+            return Ok(snap.clone());
+        }
+        let snap = Snapshot {
             sessions: self.get("sessions")?.unwrap_or_default(),
             grades: self.get::<Option<_>>("grades")?.flatten(),
             history: self.get("history")?.unwrap_or_default(),
@@ -264,22 +272,31 @@ impl Store {
             last_synced: self.get::<Option<_>>("last_synced")?.flatten(),
             own_deadlines: self.get("own_deadlines")?.unwrap_or_default(),
             done: self.get("done")?.unwrap_or_default(),
-        })
+        };
+        *self.cache.borrow_mut() = Some(snap.clone());
+        Ok(snap)
     }
 
+    /// Writes the parts of `s` that differ from what is stored, all or nothing.
     pub fn save(&self, s: &Snapshot) -> Result<(), StoreError> {
-        self.put("sessions", &s.sessions)?;
-        self.put("grades", &s.grades)?;
-        self.put("history", &s.history)?;
-        self.put("marks", &s.marks)?;
-        self.put("colors", &s.colors)?;
-        self.put("goals", &s.goals)?;
-        self.put("class_info", &s.class_info)?;
-        self.put("syllabus", &s.syllabus)?;
-        self.put("host", &s.host)?;
-        self.put("own_deadlines", &s.own_deadlines)?;
-        self.put("done", &s.done)?;
-        self.put("last_synced", &s.last_synced)
+        let old = self.load()?;
+        let tx = self.db.unchecked_transaction()?;
+        macro_rules! put_changed {
+            ($($field:ident),*) => {$(
+                if s.$field != old.$field {
+                    tx.execute(UPSERT, params![stringify!($field), serde_json::to_string(&s.$field)?])?;
+                }
+            )*};
+        }
+        put_changed!(sessions, grades, history, marks, colors, goals, class_info, syllabus, host, last_synced, own_deadlines, done);
+        tx.commit()?;
+        *self.cache.borrow_mut() = Some(s.clone());
+        Ok(())
+    }
+
+    /// Drops the remembered snapshot, after its rows were written some other way.
+    fn forget(&self) {
+        *self.cache.borrow_mut() = None;
     }
 
     /// Every note, the latest edit first.
@@ -586,6 +603,7 @@ impl Store {
 
     pub fn forget_sis(&self) -> Result<(), StoreError> {
         self.db.execute("DELETE FROM kv WHERE key IN ('sessions', 'grades', 'history', 'host', 'last_synced')", [])?;
+        self.forget();
         // What LAR said may quote those grades and classes.
         self.clear_turns()
     }
@@ -671,9 +689,11 @@ impl Store {
             kv.push(("class_info", serde_json::to_string(&c)?));
         }
         for (k, json) in kv {
-            tx.execute("INSERT INTO kv (key, json) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET json = excluded.json", params![k, json])?;
+            tx.execute(UPSERT, params![k, json])?;
         }
-        Ok(tx.commit()?)
+        tx.commit()?;
+        self.forget();
+        Ok(())
     }
 
     /// Bytes the student's own things take, for Backup and data (C11).
@@ -693,6 +713,7 @@ impl Store {
         let tx = self.db.unchecked_transaction()?;
         tx.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns; DELETE FROM photos;")?;
         tx.commit()?;
+        self.forget();
         // Deleting doesn't shrink the file; erasing everything does (046 Data).
         self.db.execute_batch("VACUUM")?;
         Ok(())
@@ -704,6 +725,106 @@ mod tests {
     use super::*;
     use crate::model::Weekday;
     use crate::today::{Date, Mark, Marks, Slot};
+
+    /// A student a few terms in: a week of classes, eight past terms, colours and own deadlines.
+    fn seasoned() -> Snapshot {
+        let term = |n: usize| GradeReport {
+            subjects: vec![],
+            summary: (0..30).map(|i| (format!("Row {i} of term {n}"), "Regular, good standing, 1.75".to_string())).collect(),
+            school_year: Some(format!("20{}-20{}", 20 + n, 21 + n)),
+            semester: Some("First".into()),
+        };
+        Snapshot {
+            sessions: (0..14u16)
+                .map(|i| ClassSession {
+                    subject_code: format!("COMP 2008{}", i % 7),
+                    description: "Data Structures and Algorithms".into(),
+                    faculty: "Dela Cruz, Juan".into(),
+                    day: Weekday::Monday,
+                    start: 450 + i * 90,
+                    end: 540 + i * 90,
+                    occurrence: 0,
+                })
+                .collect(),
+            grades: Some(term(9)),
+            history: (0..8).map(term).collect(),
+            colors: (0..7).map(|i| (format!("COMP 2008{i}"), "#e0697e".to_string())).collect(),
+            host: Some("sis8.pup.edu.ph".into()),
+            last_synced: Some("1794600000".into()),
+            ..Snapshot::default()
+        }
+    }
+
+    #[test]
+    fn save_writes_only_the_keys_that_changed() {
+        let store = Store::in_memory().unwrap();
+        let mut snap = seasoned();
+        store.save(&snap).unwrap();
+        let before = store.db.total_changes();
+        snap.done.insert("own:1".into());
+        store.save(&snap).unwrap();
+        assert_eq!(store.db.total_changes() - before, 1, "ticking one deadline writes one row, not the whole student");
+        assert_eq!(store.load().unwrap(), snap);
+    }
+
+    #[test]
+    fn what_is_saved_is_on_disk_not_only_in_memory() {
+        let path = std::env::temp_dir().join(format!("intportal-store-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let mut snap = seasoned();
+        {
+            let store = Store::open_plain(&path).unwrap();
+            store.save(&snap).unwrap();
+            snap.colors.insert("COMP 20083".into(), "#5fbf9c".into());
+            store.save(&snap).unwrap();
+        }
+        let reopened = Store::open_plain(&path).unwrap().load().unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(reopened, snap);
+    }
+
+    #[test]
+    fn load_is_never_stale_after_sign_out_restore_or_wipe() {
+        let store = Store::in_memory().unwrap();
+        let snap = seasoned();
+        store.save(&snap).unwrap();
+        assert_eq!(store.load().unwrap(), snap);
+
+        store.forget_sis().unwrap();
+        let out = store.load().unwrap();
+        assert!(out.sessions.is_empty() && out.grades.is_none() && out.host.is_none(), "signing out drops the SIS data");
+        assert_eq!(out.colors, snap.colors, "and keeps the student's own");
+
+        let mut file = Backup::make(&store, "2024-00001-MN-0", [7; 16], vec![], 0).unwrap();
+        file.colors = BTreeMap::from([("COMP 20083".to_string(), "#7ea3e0".to_string())]);
+        store.restore(&file).unwrap();
+        assert_eq!(store.load().unwrap().colors, file.colors, "a restore shows at once");
+
+        store.wipe().unwrap();
+        assert_eq!(store.load().unwrap(), Snapshot::default());
+    }
+
+    /// Run with `cargo test -p intportal-core --release bench_ -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn bench_load_and_one_edit() {
+        let store = Store::in_memory().unwrap();
+        let mut snap = seasoned();
+        store.save(&snap).unwrap();
+        let t = std::time::Instant::now();
+        for _ in 0..2000 {
+            std::hint::black_box(store.load().unwrap());
+        }
+        let load = t.elapsed().as_secs_f64() * 1e6 / 2000.0;
+        let t = std::time::Instant::now();
+        for i in 0..500 {
+            snap = store.load().unwrap();
+            snap.done.insert(format!("own:{i}"));
+            store.save(&snap).unwrap();
+        }
+        let edit = t.elapsed().as_secs_f64() * 1e6 / 500.0;
+        println!("load: {load:.1} us   one edit (load, change, save): {edit:.1} us");
+    }
 
     #[test]
     fn mabini_data_is_kept_apart_from_the_sis_data() {

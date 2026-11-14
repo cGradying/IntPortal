@@ -34,4 +34,18 @@ describe("spec 040 C4: friendly", () => {
     ];
     for (const t of sentences) expect(friendly(t)).toBe(t);
   });
+  it("every error sentence in the Rust sources has copy, so none reaches a student as the fallback", () => {
+    // Read from the sources, so a new Err("…") or #[error("…")] without copy fails here, not in review.
+    const sources = import.meta.glob(["/src-tauri/src/**/*.rs", "/crates/*/src/**/*.rs"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+    const said = new Set<string>();
+    for (const [file, text] of Object.entries(sources)) {
+      const re = file.startsWith("/src-tauri") ? /(?:Err\(|ok_or\(|ok_or_else\(\|\| |map_err\(\|_\| )"([^"]{6,})"/g : /#\[error\("([^"]*)"/g;
+      for (const m of text.matchAll(re)) said.add(m[1]);
+    }
+    // Meant for a developer: these never follow from anything a student does.
+    const INTERNAL = ["{0}", "embedding failed", "the reply has no JSON object", "the reply is not the expected JSON", "demo is only in review builds"];
+    const missing = [...said].filter((s) => !INTERNAL.some((i) => s.startsWith(i))).filter((s) => friendly(s.replace(/\{\w*\}/g, "1794600000")) === FALLBACK);
+    expect(said.size).toBeGreaterThan(30);
+    expect(missing).toEqual([]);
+  });
 });

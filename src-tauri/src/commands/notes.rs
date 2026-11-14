@@ -8,7 +8,7 @@ pub struct NoteItem {
 }
 
 /// Every note, pinned ones first, then the latest edit first, with a one-line preview.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn notes(state: tauri::State<'_, AppState>) -> Res<Vec<NoteItem>> {
     let mut list = state.store.lock().unwrap().notes().map_err(err)?;
     notes::pinned_first(&mut list);
@@ -16,7 +16,7 @@ pub fn notes(state: tauri::State<'_, AppState>) -> Res<Vec<NoteItem>> {
 }
 
 /// Notes as Markdown: one note by `key`, or every note when it's empty.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn notes_markdown(state: tauri::State<'_, AppState>, key: Option<String>) -> Res<String> {
     let mut list = state.store.lock().unwrap().notes().map_err(err)?;
     if let Some(k) = key {
@@ -26,7 +26,7 @@ pub fn notes_markdown(state: tauri::State<'_, AppState>, key: Option<String>) ->
 }
 
 /// Saves as the student types; blank text deletes the note.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_note(state: tauri::State<'_, AppState>, key: String, text: String, title: Option<String>) -> Res<()> {
     if !notes::is_known_key(&key) {
         return Err("Unknown note".into());
@@ -108,19 +108,19 @@ pub async fn notes_zip(app: tauri::AppHandle, key: Option<String>) -> Res<tauri:
 }
 
 /// Pinning isn't an edit: the note keeps its place and its AI chunks.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_note_pin(state: tauri::State<'_, AppState>, key: String, pinned: bool) -> Res<()> {
     state.store.lock().unwrap().set_note_pin(&key, pinned).map_err(err)
 }
 
 /// Files a freeform note under a subject, or none. Not an edit, like a pin.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_note_subject(state: tauri::State<'_, AppState>, key: String, subject: Option<String>) -> Res<()> {
     state.store.lock().unwrap().set_note_subject(&key, subject.as_deref()).map_err(err)
 }
 
 /// The date a new entry in a class note belongs to (spec 046 C14).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn entry_date(state: tauri::State<'_, AppState>, code: String, today: Date) -> Res<Date> {
     let snap = snapshot_of(&state)?;
     Ok(today::entry_date(&snap.sessions, &snap.marks, &code, today))

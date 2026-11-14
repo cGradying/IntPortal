@@ -9,7 +9,7 @@ pub struct CoachLine {
 
 /// Today's one nudge, from deadlines, flashcards, free time and the target
 /// GPA. `dismissed` holds the keys waved off today.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn coach(state: tauri::State<'_, AppState>, now: Moment, dismissed: Vec<String>, busy: Option<Vec<Busy>>, utc_offset: Option<i32>) -> Res<Option<CoachLine>> {
     let store = state.store.lock().unwrap();
     let snap = store.load().map_err(err)?;
@@ -52,7 +52,7 @@ pub(crate) fn cards_by_subject(decks: &[Deck], unix: i64) -> std::collections::H
 }
 
 /// The target GPA and the program's units; either can be empty.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_goals(state: tauri::State<'_, AppState>, goals: Goals) -> Res<Snapshot> {
     if goals.target_gpa.is_some_and(|g| !(1.0..=5.0).contains(&g)) {
         return Err("A target GPA runs from 1.00 to 5.00.".into());
@@ -64,7 +64,7 @@ pub fn set_goals(state: tauri::State<'_, AppState>, goals: Goals) -> Res<Snapsho
 }
 
 /// GPA, cumulative GPA, units, past terms and the target's reach.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn standing(state: tauri::State<'_, AppState>) -> Res<Standing> {
     let snap = snapshot_of(&state)?;
     Ok(grades::standing(snap.grades.as_ref(), &snap.history, snap.goals))
@@ -86,7 +86,7 @@ pub struct ReminderPrefs {
 /// The next `days` of reminders, soonest first: classes (with a warm-up line
 /// when cards are due), then everything else through the daily budget
 /// (spec 042 C14, C15): deadlines, the Sunday brief, study days, notes after class.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn reminders(state: tauri::State<'_, AppState>, now: Moment, lead: u16, days: u16, prefs: Option<ReminderPrefs>) -> Res<Vec<Reminder>> {
     let store = state.store.lock().unwrap();
     let snap = store.load().map_err(err)?;

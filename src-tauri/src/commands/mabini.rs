@@ -65,12 +65,12 @@ pub async fn mabini_sync(state: tauri::State<'_, AppState>) -> Res<MabiniData> {
 }
 
 /// What the last eMabini sync kept, without touching the network.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn mabini_data(state: tauri::State<'_, AppState>) -> Res<MabiniData> {
     state.store.lock().unwrap().mabini().map_err(err)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn has_mabini_login() -> bool {
     (cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed)) || mabini_vault::load().is_some()
 }
