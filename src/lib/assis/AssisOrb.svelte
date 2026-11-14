@@ -25,21 +25,32 @@
 
   // One stepped clock (about 12 fps) drives the dither swap and the thinking sweep. It only runs
   // while something moves, never while the page is hidden, and not at all under Reduce Motion.
+  const moveMs = (() => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue("--t-move").trim();
+    const n = parseFloat(v);
+    return n > 0 ? (v.endsWith("ms") ? n : n * 1000) : 400;
+  })();
+  const fold = 1 / Math.max(1, Math.ceil(moveMs / 80));
   let p = 1;
+  let alive = true;
   let step = 0;
   let pulseLeft = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
   const paint = () => {
     const ctx = canvas?.getContext("2d");
-    if (ctx) drawChip(ctx, tones, p, step);
+    if (!ctx) return;
+    const px = Math.round(48 * (devicePixelRatio || 1));
+    if (canvas!.width !== px) canvas!.width = canvas!.height = px;
+    drawChip(ctx, tones, p, step, menuOpen, px / PX);
   };
   const stop = () => {
     clearInterval(timer);
     timer = undefined;
   };
   const tick = () => {
+    if (!canvas) return stop();
     const goal = mode === "plus" ? 0 : 1;
-    p = Math.abs(goal - p) < 0.2 ? goal : p + Math.sign(goal - p) * 0.2;
+    p = Math.abs(goal - p) < fold * 0.99 ? goal : p + Math.sign(goal - p) * fold;
     pulseLeft = Math.max(0, pulseLeft - 1);
     const sweeping = thinking || pulseLeft > 0;
     step = sweeping ? step + 1 : 0;
@@ -47,6 +58,7 @@
     if (p === goal && !sweeping) stop();
   };
   const wake = () => {
+    if (!alive) return;
     if (reduce || document.hidden) {
       p = mode === "plus" ? 0 : 1;
       step = 0;
@@ -55,13 +67,14 @@
     timer ??= setInterval(tick, 80);
   };
   $effect(() => {
-    void [canvas, mode, thinking];
+    void [canvas, mode, thinking, menuOpen];
     wake();
   });
   $effect(() => {
     const seen = () => (document.hidden ? stop() : wake());
     document.addEventListener("visibilitychange", seen);
     return () => {
+      alive = false;
       document.removeEventListener("visibilitychange", seen);
       stop();
     };
@@ -169,7 +182,7 @@
     aria-expanded={mode === "plus" ? menuOpen : undefined}
     onclick={press}
   >
-    <canvas bind:this={canvas} width={PX} height={PX} aria-hidden="true"></canvas>
+    <canvas bind:this={canvas} width={PX * 2} height={PX * 2} aria-hidden="true"></canvas>
   </button>
 {/if}
 
@@ -206,10 +219,6 @@
   }
   .orb canvas {
     image-rendering: pixelated;
-    transition: rotate var(--t-move) var(--ease-spring);
-  }
-  .orb.open canvas {
-    rotate: 45deg;
   }
   .orb.tucked {
     translate: 22px 0;

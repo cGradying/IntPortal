@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import page from "../../routes/+page.svelte?raw";
 import orb from "./AssisOrb.svelte?raw";
-import { crystalMode, dithered, restTones } from "./crystal";
+import { crystalMode, dithered, drawChip, restTones } from "./crystal";
 
 describe("the crystal (046 C1b to C1d2)", () => {
   it("c1c_no_cube_until_installed", () => {
@@ -23,6 +23,18 @@ describe("the crystal (046 C1b to C1d2)", () => {
     const t = restTones(0x170b1a, 0xf4ecd8, 0xf5b227);
     expect(t.gold).toBe("#f5b227");
     expect(new Set(t.faces).size).toBe(3);
+  });
+
+  it("c1b3_the_sweep_shows_in_plus_mode_and_the_menu_is_an_x", () => {
+    const t = restTones(0x170b1a, 0xf4ecd8, 0xf5b227);
+    const run = (step: number, open = false) => {
+      const log: string[] = [];
+      const ctx = { fillStyle: "", clearRect() {}, fillRect(x: number, y: number) { log.push(`${x},${y},${this.fillStyle}`); } };
+      drawChip(ctx as unknown as CanvasRenderingContext2D, t, 0, step, open);
+      return log.join("|");
+    };
+    expect(run(5)).not.toBe(run(0));
+    expect(run(0, true)).not.toBe(run(0));
   });
 
   it("c1d_no_webgl_left", () => {

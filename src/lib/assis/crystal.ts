@@ -24,22 +24,30 @@ export const dithered = (x: number, y: number, p: number) => BAYER[(y & 3) * 4 +
 
 /**
  * Draws the chip. `p` is the cube-ness: 1 is the grid with its corners, 0 is the + (corners gone,
- * cross gold). `step` > 0 runs the thinking sweep: a band of the matrix that advances with it.
+ * cross gold). `step` > 0 runs the thinking sweep: a band of the matrix that advances with it, gold
+ * on the grid and card-toned on the gold cross. `open` is the menu's close mark, a pixel X.
+ * `k` is device pixels per chip pixel; edges are rounded so every square stays crisp at any DPR.
  */
-export function drawChip(ctx: CanvasRenderingContext2D, t: RestTones, p: number, step = 0) {
-  ctx.clearRect(0, 0, PX, PX);
+export function drawChip(ctx: CanvasRenderingContext2D, t: RestTones, p: number, step = 0, open = false, k = 1) {
+  ctx.clearRect(0, 0, PX * k, PX * k);
+  const rect = (x: number, y: number) => {
+    const [l, tp] = [Math.round(x * k), Math.round(y * k)];
+    ctx.fillRect(l, tp, Math.round((x + 1) * k) - l, Math.round((y + 1) * k) - tp);
+  };
   for (let n = 0; n < 9; n++) {
     const [cx, cy] = [n % 3, (n / 3) | 0];
     const corner = cx !== 1 && cy !== 1;
+    if (open && corner === (n === 4)) continue; // X: the corners and the centre
     const [x0, y0] = [EDGE + cx * (CELL + GAP), EDGE + cy * (CELL + GAP)];
     for (let y = y0; y < y0 + CELL; y++)
       for (let x = x0; x < x0 + CELL; x++) {
         const whole = dithered(x, y, p);
-        if (corner && !whole) continue;
-        const dot = DOTS.includes(n) && whole && x >= x0 + 2 && x < x0 + 4 && y >= y0 + 2 && y < y0 + 4;
+        if (corner && !whole && !open) continue;
+        const dot = !open && DOTS.includes(n) && whole && x >= x0 + 2 && x < x0 + 4 && y >= y0 + 2 && y < y0 + 4;
         const swept = step > 0 && (BAYER[(y & 3) * 4 + (x & 3)] + step) % 16 < 3;
-        ctx.fillStyle = dot || swept || (!corner && !whole) ? t.gold : t.faces[1];
-        ctx.fillRect(x, y, 1, 1);
+        const base = open || (!corner && !whole) ? t.gold : t.faces[1];
+        ctx.fillStyle = dot ? t.gold : swept ? (base === t.gold ? t.faces[1] : t.gold) : base;
+        rect(x, y);
       }
   }
 }
