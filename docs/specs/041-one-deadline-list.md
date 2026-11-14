@@ -54,6 +54,7 @@ Every deadline the student has is in one list, wherever it came from: the syllab
 - **C8.** Tapping a syllabus deadline opens its subject on the Outline; tapping an own deadline edits it (C14). Tapping an eMabini one opens it in eMabini. A long press offers Done.
   *Built 2026-11-14:* a long press on a row marks it Done (`longpress` from `press.ts`, with the same sequence as the button). The Done button stays, labelled "Mark <title> done", which is the VoiceOver action; there is no separate custom-action rotor entry.
 - **C9.** The card tells three states apart, and never says "nothing due" without data:
+  *Built 2026-11-14:* `MabiniPage` and the Due card share `knowsNothingDue`, which also needs a connected source; vitest `c9_three_states`.
   - **Nothing due:** LAR "Walang due this week. Ayos!" This shows only when every connected source has synced within the last 24 hours.
   - **Not synced:** "eMabini hasn't synced yet", with a **Sync** button. This shows when eMabini is connected but has no `last_synced`, and the rest of the list still shows.
   - **Sync failed:** "Couldn't reach eMabini. Showing what we had at <time>." This shows when the last eMabini sync errored, and the rest of the list still shows.

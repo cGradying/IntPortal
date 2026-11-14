@@ -103,7 +103,7 @@
       study.reload();
       app.deck = deck.id;
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
     }
   }
 </script>
@@ -121,7 +121,7 @@
 {/snippet}
 
 {#if reviewing}
-  <StudySession decks={reviewing} mode="flash" title="All due" limit={reviewLimit} onclose={() => { reviewing = null; study.reload(); }} />
+  <StudySession decks={reviewing} mode="flash" title="All due" all limit={reviewLimit} onclose={() => { reviewing = null; study.reload(); }} />
 {:else if app.deck}
   {#key app.deck}<DeckPage id={app.deck} onclose={() => { app.deck = null; study.reload(); }} />{/key}
 {:else}

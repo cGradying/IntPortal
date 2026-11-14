@@ -39,7 +39,7 @@ pub enum Error {
     #[error("signed in, but no SIS server had your schedule")]
     NoSchedule,
     /// The 3-per-15-minutes limit is used up. `retry_at` is epoch seconds.
-    #[error("too many sign-in tries; try again later")]
+    #[error("too many sign-in tries; try again at {retry_at}")]
     TooManyTries { retry_at: u64 },
     #[error("refusing to talk to {0}: not a PUP SIS host")]
     UntrustedHost(String),

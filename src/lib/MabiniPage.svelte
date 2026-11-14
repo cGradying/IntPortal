@@ -2,7 +2,7 @@
   // eMabini in full: deadlines, then courses with progress and grade.
   import type { Course } from "./api";
   import { closable } from "./back";
-  import { dueLabel, splitDeadlines, subjectOf, titleOf } from "./deadlines";
+  import { dueLabel, knowsNothingDue, mabiniState, splitDeadlines, subjectOf, titleOf } from "./deadlines";
   import { openLink } from "./openLink";
   import { app, mabiniSyncNow } from "./state.svelte";
 
@@ -45,7 +45,10 @@
           {/each}
         </ul>
       {:else}
-        <p class="fine">Nothing due. Walang due, ayos!</p>
+        {@const st = mabiniState(app.mabiniConnected, data?.last_synced, app.mabiniError)}
+        <p class="fine">
+          {#if knowsNothingDue(false, null, st, data?.last_synced, now)}Nothing due. Walang due, ayos!{:else if st === "failed"}Couldn't reach eMabini.{:else}Nothing due that we know of yet.{/if}
+        </p>
       {/if}
     </section>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { friendly } from "./errors";
   // One deck: its cards, adding them one by one or pasted, and the way into
   // a study session in one of three modes.
   import { closable } from "./back";
@@ -39,7 +40,7 @@
       problem = "";
       buzz.tick();
     } catch (e) {
-      problem = String(e);
+      problem = friendly(e);
     }
   }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { friendly } from "./errors";
   // The student's notes: new, search, export. On Study and on You (spec 040 C14).
   import { api } from "./api";
   import { photosInShare, previewOf } from "./photos";
@@ -24,7 +25,7 @@
         notesNote = photosInShare;
       } else await shareFile("IntPortal notes.md", "text/markdown", await api.notesMarkdown(null));
     } catch (e) {
-      notesNote = String(e);
+      notesNote = friendly(e);
     }
   }
 

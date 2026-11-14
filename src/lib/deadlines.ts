@@ -55,10 +55,11 @@ export function mabiniState(connected: boolean, lastSynced: number | null | unde
 
 const DAY_MS = 86_400_000;
 
-/** "Nothing due" is only said when every connected source synced in the last day (C9). */
-export function knowsNothingDue(sisSynced: string | null | undefined, mabini: MabiniState, mabiniSynced: number | null | undefined, now: Date): boolean {
+/** "Nothing due" is only said when at least one source is connected and every connected one synced in the last day (C9, 040 C3). */
+export function knowsNothingDue(sisConnected: boolean, sisSynced: string | null | undefined, mabini: MabiniState, mabiniSynced: number | null | undefined, now: Date): boolean {
   const fresh = (ms: number) => now.getTime() - ms < DAY_MS;
-  const sisOk = !sisSynced || fresh(Number(sisSynced) * 1000 || Date.parse(sisSynced));
+  const sisMs = sisSynced ? Number(sisSynced) * 1000 || Date.parse(sisSynced) : NaN;
+  const sisOk = !sisConnected || fresh(sisMs);
   const mabiniOk = mabini === "off" || (mabini === "ok" && !!mabiniSynced && fresh(mabiniSynced * 1000));
-  return sisOk && mabiniOk;
+  return (sisConnected || mabini !== "off") && sisOk && mabiniOk;
 }

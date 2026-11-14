@@ -26,10 +26,15 @@ The app never shows something it doesn't know: no "Nothing scheduled" while it i
 **Trust**
 
 - **C1.** Leaving a subject page by any route (Done, the Notes tab, Android back, opening a note) saves unsaved grading, target and outline edits first. (#158)
+  *Built 2026-11-14:* `leave()` in `leave.ts`: Done, back and the Notes tab save first; vitest `c1_notes_tab_saves_first`.
 - **C2.** While Today's data is loading (`app.today` is null), Today shows skeleton rows in the hero and the agenda. "Nothing scheduled" appears only when today's data has loaded and has no classes.
+  *Built 2026-11-14:* Today's agenda shows `Skeleton` while `app.today` is null.
 - **C3.** No card says "nothing due" without data. "Never synced", "sync failed" and "nothing due" are different states (#159; 041 C9 takes this over for the Due card).
+  *Built 2026-11-14:* `knowsNothingDue` needs a connected source and a sync in the last day from each; `MabiniPage` uses it; vitest `c9_three_states`.
 - **C4.** Every error the core returns is shown in plain copy from one map (`src/lib/errors.ts`), never as raw core text. An error the map doesn't know shows "Something went wrong. Try again in a bit." and logs the raw text to the console only.
+  *Built 2026-11-14:* `errors.ts` has the spec copy (time in the too-many-tries line, from the core's message); only the app's listed sentences pass through; raw `String(e)` sites route through `friendly()`, except `ClassSheet` (other PR); vitest `c4_friendly_maps_known_errors_and_falls_back`.
 - **C5.** When the SIS rejects the saved login, Today and You offer **Update password**. It opens the sign-in form pre-filled with the student number and an empty password. A new password clears the rejection and syncs once. The same applies to eMabini (#160, #130).
+  *Built 2026-11-14:* Today offers Update password for eMabini too; it opens You on the Accounts page, with `PortalConnect` prefilled.
 - **C6.** The header of each tab (Today, Schedule, Grades) shows "Synced <ago>" from the last SIS sync, on every phone, not only on phones without a Dynamic Island. Tapping it syncs.
 - **C7.** Every tappable control is at least 44 by 44 pt and has a label that reads correctly with VoiceOver (#66). This includes the deck back button, the card ×, LAR sheet header buttons, colour swatches and term chips.
 - **C8.** Notes can be deleted from the note editor (**Delete note**, with a confirm). Deleting removes the note from the AI index too.
@@ -38,7 +43,9 @@ The app never shows something it doesn't know: no "Nothing scheduled" while it i
 
 - **C9.** On Study, **Due now** is a button. It starts one session with every due card across all decks, oldest due first. With nothing due it is disabled and reads "Nothing due".
 - **C10.** A study session started from Due now shows each card's deck name above the card.
+  *Built 2026-11-14:* `StudySession` takes `all`, so one due deck still shows its label and goes oldest first (`dueQueue.ts`); vitest `c9_due_cards_across_decks_oldest_first`.
 - **C11.** Opening a subject from a deadline (Today's Due card, LAR's deadline nudge, a deadline reminder) opens it on the Outline tab, scrolled to that item.
+  *Built 2026-11-14:* Deadline reminders open `subject:<code>[:<item>]`, routed in `openFromNotification`; `cargo test c11_reminders_open_the_subject`, vitest `c11_deadline_reminder_opens_the_subject_outline`.
 - **C12.** Tapping a class does the same thing on Today and Schedule: it opens the class sheet. The sheet's **Syllabus & grading** row opens the subject. A long press stays a shortcut to the class sheet on Today.
 - **C13.** Schedule can move to the previous and next week (arrows, and a swipe on the week header). **This week** returns. Marks and moves for that week show as they apply.
 - **C14.** Freeform notes and note search are reachable from the Study tab (**Notes**), not only at the bottom of You.
