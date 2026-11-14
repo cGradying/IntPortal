@@ -1,6 +1,6 @@
 # 030 From the Mac app
 
-**Status:** approved (2026-11-05)
+**Status:** approved (2026-11-05); wave 1 built (2026-11-14)
 
 ## What changes for the student
 
@@ -92,6 +92,7 @@ The Mac app's features and where each stands on the phone, from the Head's inven
 - **C3.** The class sheet shows the student's description above the SIS one, and a **Join class** button when a link is set. Join opens the link in the phone's browser.
 - **C4.** Up next on Today shows **Join** when the next class is marked online for that meeting, has a link, and starts within 15 minutes or is in session.
 - **C5.** Clearing the link or the description removes it; the sheet goes back to the SIS description alone.
+  - *Built 2026-11-14:* `ClassInfo` and `join_link` live in `today.rs`; `Snapshot.class_info` is its own `kv` row, so sync and sign-out (`forget_sis`) never touch it and `wipe` removes it. `set_class_info(subject_code, link, about)` trims, treats blank as none, drops an empty entry, and refuses a link that is not `https://host…` (no spaces) with the C2 copy. The class sheet saves on blur (so a refused link shows the copy and nothing is saved), shows Join and Clear link when a link is set, and lists the SIS description under the student's own. Today's `join` field comes from the core: online for that meeting, a link, and 15 minutes or less away or in session; Up next shows a Join button. Keyed by subject code only. Backup carries `class_info` (047 C9). No sheet view-model vitest: the sheet holds no logic beyond calling `set_class_info`; the simulator check below covers it.
 
 **Deadlines in the calendar (Mac #45)**
 
@@ -135,9 +136,9 @@ No new motion. Join uses the existing button press and haptic.
 
 | Criterion | Check |
 |---|---|
-| C1 | `cargo test -p intportal-core c1_class_info_survives_sync` |
-| C2 | `cargo test -p intportal` or core `c2_link_must_be_https` |
-| C3, C5 | vitest on the sheet's view model; screenshot on the iPhone 18 Pro |
-| C4 | `cargo test c4_join_shows_within_15_minutes` (if computed in the core) or vitest; screenshot |
+| C1 | `cargo test -p intportal-core c1_class_info_survives_sync` (`store.rs`); backup round trip in `c10_round_trip` |
+| C2 | `cargo test -p intportal-core c2_link_must_be_https` (`today.rs`) |
+| C3, C5 | `c2_link_must_be_https` covers blank-clears; screenshot on the iPhone 18 Pro |
+| C4 | `cargo test -p intportal-core c4_join_shows_within_15_minutes` (`today.rs`); screenshot |
 
 A class marked in person that has a link shows Join on its sheet only, not on Today (the user, 2026-11-05).
