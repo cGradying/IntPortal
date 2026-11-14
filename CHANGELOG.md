@@ -2,6 +2,17 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## 0.1.10 (2026-11-14)
+
+- LAR's chat button is a flat pixel chip: a 3x3 grid in the room's tones with a gold dot on each part that holds data. On Study and in the note editor its corners dither away into a gold +, and an open menu shows a pixel X. While LAR thinks, a pixel dither runs across it (#271)
+- The chat opens as a pixel dither that grows out of the chip in 0.42 s, and closes back into it; the 3D crystal and its pour are gone (#272)
+- Android: the release build merges the camera's file sharing with the app's (#264)
+
+Known gaps:
+
+- Not yet run on a real phone: the camera scan, note photos, keep-screen-awake and the backup share sheet
+- The dither opening has not been timed on a low-end Android phone
+
 ## 0.1.9 (2026-11-14)
 
 - Landing: tap the portal to peek at what the app keeps (Today, Schedule, Grades, Study, sample data); a ring runs through its tiles; carry LAR around; a one-line pitch; the portal lifts as the form rises (#252)
