@@ -310,7 +310,7 @@
     padding-bottom: calc(var(--safe-bottom) + 198px);
   }
   .page.slides {
-    animation: in 0.22s var(--ease) backwards;
+    animation: in var(--t-move) var(--ease) backwards;
   }
   .needs {
     display: grid;

@@ -78,7 +78,7 @@
     translate: -50% 0;
     rotate: -4deg;
     padding: 2px 8px;
-    font: 700 min(0.706rem, 22px) var(--font-pixel);
+    font: 700 var(--text-label) var(--font-pixel);
     letter-spacing: 0.08em;
     color: var(--good);
     background: var(--ground);

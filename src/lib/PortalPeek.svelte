@@ -146,12 +146,12 @@
     justify-content: space-between;
   }
   .top b {
-    font: 700 min(1.06rem, 26px) var(--font-display);
+    font: 700 var(--text-headline) var(--font-display);
     color: var(--cream);
   }
   .top small,
   .dots small {
-    font: 500 min(0.65rem, 18px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     color: rgb(244 236 216 / 0.6);
     text-transform: uppercase;
@@ -162,7 +162,7 @@
     gap: 6px;
     min-height: 0;
     overflow: hidden;
-    animation: turn 0.3s var(--ease) both;
+    animation: turn var(--t-move) var(--ease) both;
   }
   @keyframes turn {
     from {
@@ -171,18 +171,18 @@
     }
   }
   .lab {
-    font: 500 min(0.7rem, 19px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--accent);
   }
   .big {
-    font: 700 min(1.5rem, 34px) / 1.05 var(--font-display);
+    font: 700 var(--text-display) / 1.05 var(--font-display);
     color: var(--cream);
     font-variant-numeric: tabular-nums;
   }
   .sub {
-    font: 400 min(0.8rem, 22px) / 1.35 var(--font-ui);
+    font: 400 var(--text-sub) / 1.35 var(--font-ui);
     color: rgb(244 236 216 / 0.72);
   }
   .row {
@@ -191,9 +191,9 @@
     gap: 8px;
     min-height: 30px;
     padding: 0 10px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: rgb(244 236 216 / 0.05);
-    font: 600 min(0.8rem, 22px) var(--font-ui);
+    font: 600 var(--text-sub) var(--font-ui);
     color: var(--cream);
   }
   .row em {
@@ -221,11 +221,11 @@
   }
   .day {
     text-align: center;
-    font: 500 min(0.62rem, 18px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     color: rgb(244 236 216 / 0.6);
   }
   .blk {
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
   .t1 {
     background: color-mix(in srgb, var(--accent) 85%, transparent);
@@ -243,16 +243,16 @@
     display: grid;
     gap: 6px;
     padding: 12px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: rgb(244 236 216 / 0.07);
     box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.12);
   }
   .q {
-    font: 500 min(0.85rem, 23px) / 1.3 var(--font-ui);
+    font: 500 var(--text-sub) / 1.3 var(--font-ui);
     color: rgb(244 236 216 / 0.8);
   }
   .a {
-    font: 700 min(1.2rem, 30px) var(--font-display);
+    font: 700 var(--text-headline) var(--font-display);
     color: var(--cream);
     animation: reveal 0.3s steps(3, end) 1.2s both;
   }
@@ -262,12 +262,12 @@
     }
   }
   .say {
-    font: 400 min(0.8rem, 22px) / 1.35 var(--font-ui);
+    font: 400 var(--text-sub) / 1.35 var(--font-ui);
     color: var(--cream);
   }
   .say b {
     margin-right: 4px;
-    font: 500 min(0.7rem, 19px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     color: var(--portal-gold);
   }

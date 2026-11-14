@@ -505,7 +505,7 @@
   const PAPER: [PageLook["paper"], string][] = [["plain", "Plain"], ["lines", "Lines"], ["dots", "Dots"], ["grid", "Grid"]];
 </script>
 
-<div class="editor" role="dialog" aria-label="Note: {heading}">
+<div class="editor ground" role="dialog" aria-label="Note: {heading}">
   <header>
     <button class="done" onclick={done}>Done</button>
     <span class="state">{!text.trim() ? "" : saved ? "Saved on this phone" : "Saving…"}</span>
@@ -711,7 +711,6 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     padding: calc(var(--safe-top) + 8px) var(--gutter) calc(var(--safe-bottom) + 8px);
-    background: var(--ground);
   }
   .strip {
     display: flex;
@@ -725,7 +724,7 @@
     flex: none;
     width: 64px;
     height: 64px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     overflow: hidden;
     background: var(--card, rgba(128, 128, 128, 0.2));
   }
@@ -776,7 +775,7 @@
     height: 40px;
     padding: 0 16px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--gold);
     color: var(--on-gold);
     font-family: var(--font-display);
@@ -785,7 +784,7 @@
   .state {
     flex: 1;
     min-width: 0;
-    font-size: min(0.71rem, 21px);
+    font-size: var(--text-label);
     color: var(--ink-3);
     white-space: nowrap;
     overflow: hidden;
@@ -801,7 +800,7 @@
     display: grid;
     place-items: center;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--ink);
   }
@@ -817,7 +816,7 @@
     padding: 8px 0 6px;
   }
   .title small {
-    font: 500 min(0.7rem, 20px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     color: var(--ink-3);
   }
@@ -825,7 +824,7 @@
   .name {
     margin: 0;
     font-family: var(--font-display);
-    font-size: min(1.294rem, 29px);
+    font-size: var(--text-title);
     font-weight: 700;
     color: var(--ink);
   }
@@ -843,17 +842,17 @@
     display: flex;
     gap: 2px;
     padding: 4px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge-2), 0 8px 20px rgb(0 0 0 / 0.3);
   }
   .selbar button {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: grid;
     place-items: center;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--ink);
   }
@@ -862,7 +861,7 @@
   .page {
     min-height: 0;
     overflow: hidden;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
     --fs: max(16px, min(0.941rem, 29px));
@@ -960,7 +959,7 @@
   }
   .page :global(.cm-hl) {
     background: color-mix(in srgb, var(--gold) 30%, transparent);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
   .page :global(.cm-icode),
   .page :global(.cm-codeblock) {
@@ -985,7 +984,7 @@
     margin: 0 0.4em -0.15em 0;
     padding: 0;
     border: 0;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     background: transparent;
     box-shadow: inset 0 0 0 2px var(--ink-3);
     vertical-align: baseline;
@@ -1004,13 +1003,13 @@
   }
   .count {
     margin: 0;
-    font: 500 min(0.65rem, 18px) var(--font-pixel);
+    font: 500 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
     color: var(--ink-3);
   }
   .problem {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--bad);
   }
 
@@ -1033,7 +1032,7 @@
     max-height: 70vh;
     overflow-y: auto;
     padding: 14px;
-    animation: rise 0.3s var(--ease) both;
+    animation: rise var(--t-move) var(--ease) both;
   }
   @keyframes rise {
     from {
@@ -1043,7 +1042,7 @@
   }
   h4 {
     margin: 0;
-    font: 800 min(1.06rem, 26px) / 1.1 var(--font-display);
+    font: 800 var(--text-headline) / 1.1 var(--font-display);
     color: var(--ink);
   }
   .tools {
@@ -1058,10 +1057,10 @@
     gap: 6px;
     padding: 10px 2px 8px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     color: var(--ink);
-    font-size: min(0.68rem, 20px);
+    font-size: var(--text-label);
   }
   .tools button:disabled {
     opacity: 0.45;
@@ -1077,7 +1076,7 @@
     min-height: 64px;
     padding: 10px 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
@@ -1087,20 +1086,20 @@
     font-family: var(--font-display);
   }
   .tgrid small {
-    font-size: min(0.72rem, 21px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
   .seg {
     display: flex;
     padding: 3px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--sunk);
   }
   .seg button {
     flex: 1;
-    min-height: 40px;
+    min-height: 44px;
     border: 0;
-    border-radius: 9px;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--ink-2);
     font-weight: 600;
@@ -1112,7 +1111,7 @@
   }
   .lab {
     margin: 4px 0 -4px;
-    font-size: min(0.72rem, 21px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
   .sw {
@@ -1141,7 +1140,7 @@
     border: 0;
     background: transparent;
     color: var(--ink);
-    font-size: min(0.94rem, 28px);
+    font-size: var(--text-body);
     text-align: left;
   }
   .menu button + button {
@@ -1174,7 +1173,7 @@
     min-height: 44px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
@@ -1200,12 +1199,12 @@
     height: 44px;
     padding: 0 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(0.941rem, 29px));
+    font-size: var(--text-input);
   }
   .result {
     display: grid;
@@ -1220,7 +1219,7 @@
   }
   .fine {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
   .lines {

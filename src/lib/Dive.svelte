@@ -139,13 +139,13 @@
     color: var(--parch);
     background: var(--void-3);
     box-shadow: inset 0 2px 0 var(--slab-edge);
-    font: 500 min(0.765rem, 22px) var(--font-ui);
-    transition: opacity 0.12s linear;
+    font: 500 var(--text-caption) var(--font-ui);
+    transition: opacity var(--t-quick) linear;
   }
   .says b {
     margin-right: 5px;
     color: var(--portal-gold);
-    font: 700 min(0.706rem, 20px) var(--font-pixel);
+    font: 700 var(--text-label) var(--font-pixel);
     letter-spacing: 0.06em;
   }
 </style>

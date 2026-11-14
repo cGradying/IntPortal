@@ -553,13 +553,13 @@
   h1 {
     margin: 2px 0 0;
     font-family: var(--font-display);
-    font-size: min(1.647rem, 36px);
+    font-size: var(--text-display);
     font-weight: var(--title-weight);
     letter-spacing: var(--title-track);
   }
   .about {
     margin: 8px 0 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
     text-align: center;
     text-wrap: balance;
@@ -584,7 +584,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-3);
     font-family: var(--font-body);
-    font-size: min(0.647rem, 20px);
+    font-size: var(--text-label);
     font-weight: 600;
     line-height: 1.05;
     transition:
@@ -609,7 +609,7 @@
     align-items: center;
     gap: 8px;
     padding: 0 12px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink-3);
@@ -622,7 +622,7 @@
     outline: 0;
     color: var(--ink);
     font: inherit;
-    font-size: 16px;
+    font-size: var(--text-input);
   }
 
   .group {
@@ -658,7 +658,7 @@
     text-align: left;
     color: var(--ink);
     font-family: var(--font-body);
-    transition: scale 0.16s var(--ease);
+    transition: scale var(--t-quick) var(--ease);
   }
   .yrow:active {
     scale: 0.98;
@@ -676,18 +676,18 @@
   .tx strong {
     display: block;
     font-weight: 600;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     line-height: 1.25;
   }
   .tx small {
     display: block;
     font-weight: 400;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .val {
     font-weight: 400;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
     white-space: nowrap;
   }
@@ -712,7 +712,7 @@
 
   /* A page slides in with the shared ease; Reduce Motion skips to rest. */
   .ypage {
-    animation: pin 0.26s var(--ease) backwards;
+    animation: pin var(--t-move) var(--ease) backwards;
   }
   @keyframes pin {
     from {
@@ -732,7 +732,7 @@
     border-radius: 0;
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge-2);
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
   }
   .yback :global(svg) {
     rotate: 180deg;
@@ -751,16 +751,16 @@
     grid-auto-columns: 1fr;
     gap: 2px;
     padding: 3px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
   }
   .seg button {
     height: 44px;
-    border-radius: 9px;
+    border-radius: var(--radius);
     background: none;
     color: var(--ink-2);
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     transition:
       background-color 0.16s var(--ease),
       color 0.16s var(--ease);
@@ -801,7 +801,7 @@
     height: 44px;
     display: grid;
     place-items: center;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
   }
@@ -812,19 +812,19 @@
   .date {
     display: grid;
     gap: 4px;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--ink-3);
   }
   .date input {
     height: 44px;
     padding: 0 10px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: max(16px, min(0.941rem, 29px));
+    font-size: var(--text-input);
   }
   .block {
     --step: 4px;
@@ -838,7 +838,7 @@
   .line {
     display: flex;
     justify-content: space-between;
-    font-size: min(0.882rem, 27px);
+    font-size: var(--text-body);
     color: var(--ink-2);
   }
   .line strong {
@@ -848,10 +848,10 @@
   button {
     height: 44px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink);
   }
   .primary {
@@ -904,7 +904,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     font-family: var(--font-body);
     font-weight: 600;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     line-height: 1.2;
     text-align: left;
   }
@@ -921,7 +921,7 @@
   }
   .queued {
     margin: 0;
-    font-size: min(0.765rem, 23px);
+    font-size: var(--text-caption);
     color: var(--gold);
   }
   .queued strong {
@@ -929,7 +929,7 @@
   }
   .fine {
     margin: 0;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink-2);
   }
   .fine.bad {

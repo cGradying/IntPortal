@@ -79,14 +79,14 @@
   }
   .l1 {
     font-family: var(--font-display);
-    font-size: min(2.2rem, 44px);
+    font-size: var(--text-numeral);
     line-height: 1.04;
     font-weight: var(--title-weight);
     letter-spacing: var(--title-track);
     color: var(--ink);
   }
   .l2 {
-    font-size: min(1.15rem, 26px);
+    font-size: var(--text-headline);
     line-height: 1.3;
     font-weight: 500;
     color: var(--ink-2);
@@ -109,7 +109,7 @@
   .reduce .w {
     translate: 0 0;
     filter: none;
-    transition: opacity 0.4s linear;
+    transition: opacity var(--t-flow) linear;
   }
   .reduce .hello {
     transition: none;

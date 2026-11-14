@@ -453,12 +453,12 @@
     min-height: 44px;
     padding: 0 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--card) 85%, transparent);
     box-shadow: inset 0 0 0 1px var(--edge);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
     color: var(--ink);
   }
   .pvtabs {
@@ -480,7 +480,7 @@
     border: 0;
     background: color-mix(in srgb, var(--card) 80%, transparent);
     box-shadow: inset 0 0 0 1px var(--edge);
-    font: 500 min(0.706rem, 20px) var(--font-label);
+    font: 500 var(--text-label) var(--font-label);
     letter-spacing: var(--label-track);
     color: var(--ink-2);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
@@ -501,12 +501,12 @@
     align-items: end;
   }
   .hero b {
-    font: var(--title-weight) min(0.941rem, 21px) / 1.1 var(--font-display);
+    font: var(--title-weight) var(--text-body) / 1.1 var(--font-display);
     letter-spacing: var(--title-track);
     color: var(--gold);
   }
   .hero span {
-    font-size: min(0.765rem, 20px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .hero .t {
@@ -523,7 +523,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: min(0.765rem, 20px);
+    font-size: var(--text-caption);
   }
   .r em {
     font-style: normal;
@@ -585,7 +585,7 @@
     justify-items: center;
   }
   .spine b {
-    font-size: 12px;
+    font-size: var(--text-label);
   }
   .pips {
     display: flex;
@@ -602,12 +602,12 @@
     padding: 7px 12px;
   }
   .note b {
-    font: var(--title-weight) min(0.824rem, 21px) / 1.2 var(--font-display);
+    font: var(--title-weight) var(--text-sub) / 1.2 var(--font-display);
     letter-spacing: var(--title-track);
   }
   .note p {
     margin: 0;
-    font-size: min(0.706rem, 20px);
+    font-size: var(--text-label);
     color: var(--ink-2);
   }
   canvas.dive {
@@ -638,7 +638,7 @@
     display: grid;
   }
   .dice .spin {
-    animation: rolld 0.5s var(--ease);
+    animation: rolld var(--t-hero) var(--ease);
   }
   @keyframes rolld {
     to {
@@ -687,7 +687,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: min(0.765rem, 22px);
+    font-size: var(--text-caption);
     font-weight: 600;
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
@@ -746,14 +746,14 @@
     padding: 3px;
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
-    border-radius: 12px;
+    border-radius: var(--radius);
   }
   .seg button {
     min-height: 44px;
     border: 0;
     background: none;
-    border-radius: 9px;
-    font-size: min(0.765rem, 22px);
+    border-radius: var(--radius);
+    font-size: var(--text-caption);
     font-weight: 600;
     color: var(--ink-2);
     padding: 0 4px;
@@ -773,7 +773,7 @@
     border: 0;
     background-color: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
-    font-size: min(0.647rem, 18px);
+    font-size: var(--text-label);
     font-weight: 600;
     color: var(--ink-3);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
@@ -790,7 +790,7 @@
     display: grid;
     gap: 4px;
     justify-items: center;
-    font-size: min(0.706rem, 20px);
+    font-size: var(--text-label);
     color: var(--ink-2);
   }
   .tune input {
@@ -805,11 +805,11 @@
     width: 100%;
     padding: 0 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
-    font: 16px var(--font-body);
+    font: var(--text-input) var(--font-body);
     outline: 0;
   }
   .nm {
@@ -818,7 +818,7 @@
   textarea {
     min-height: 88px;
     padding: 10px 12px;
-    font: 14px/1.4 ui-monospace, monospace;
+    font: var(--text-input) / 1.4 ui-monospace, monospace;
     resize: none;
   }
   .nm:focus-visible,
@@ -831,14 +831,14 @@
     min-height: 44px;
     padding: 0 14px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: min(0.824rem, 25px);
+    font-size: var(--text-sub);
   }
   .primary {
     background: var(--gold);
@@ -856,7 +856,7 @@
   .sm {
     justify-self: start;
     min-height: 44px;
-    font-size: min(0.765rem, 22px);
+    font-size: var(--text-caption);
   }
   .big {
     min-height: 50px;
@@ -868,7 +868,7 @@
   }
   .fine {
     margin: 0;
-    font-size: min(0.765rem, 22px);
+    font-size: var(--text-caption);
     color: var(--ink-2);
   }
   .center {
@@ -886,7 +886,7 @@
     min-height: 56px;
     border: 0;
     background: none;
-    font-size: min(0.765rem, 22px);
+    font-size: var(--text-caption);
     font-weight: 600;
     color: var(--ink-3);
   }
@@ -902,7 +902,7 @@
     z-index: 9;
     border: 0;
     background: rgb(0 0 0 / 0.45);
-    animation: fadein 0.2s both;
+    animation: fadein var(--t-quick) both;
   }
   .sheet {
     --s: 4px;
@@ -918,11 +918,11 @@
     gap: 10px;
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge-2);
-    animation: sheetin 0.35s var(--ease) both;
+    animation: sheetin var(--t-flow) var(--ease) both;
   }
   .sheet h4 {
     margin: 0;
-    font: var(--title-weight) min(1.059rem, 24px) / 1.1 var(--font-display);
+    font: var(--title-weight) var(--text-headline) / 1.1 var(--font-display);
     letter-spacing: var(--title-track);
     overflow-wrap: anywhere;
   }
@@ -939,7 +939,7 @@
   }
   .tcard h5 {
     margin: 0;
-    font: var(--title-weight) min(1.059rem, 24px) / 1.1 var(--font-display);
+    font: var(--title-weight) var(--text-headline) / 1.1 var(--font-display);
     letter-spacing: var(--title-track);
     text-align: center;
     overflow-wrap: anywhere;
@@ -955,7 +955,7 @@
     padding: 8px;
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
-    font: 12px/1.35 ui-monospace, monospace;
+    font: var(--text-label) / 1.35 ui-monospace, monospace;
     word-break: break-all;
     user-select: text;
     -webkit-user-select: text;
@@ -967,7 +967,7 @@
     z-index: 20;
     translate: -50% -50%;
     padding: 8px 14px;
-    font: 700 24px var(--font-pixel);
+    font: 700 var(--text-title) var(--font-pixel);
     letter-spacing: 0.06em;
     color: var(--gold);
     box-shadow: inset 0 0 0 3px currentColor;

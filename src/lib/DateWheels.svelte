@@ -103,7 +103,7 @@
     box-shadow: inset 0 1px 0 rgb(245 178 39 / 0.16);
     clip-path: polygon(0 8px, 8px 8px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px, 100% 100%, 0 100%);
     color: var(--parch);
-    animation: rise 0.3s var(--ease) both;
+    animation: rise var(--t-move) var(--ease) both;
   }
   @keyframes rise {
     from {
@@ -118,16 +118,16 @@
     margin-bottom: 8px;
   }
   header b {
-    font: 700 min(1rem, 26px) var(--font-display);
+    font: 700 var(--text-headline) var(--font-display);
   }
   .done {
     min-height: 44px;
     padding: 0 18px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--portal-gold);
     color: #2a1700;
-    font: 600 max(16px, min(0.941rem, 29px)) var(--font-ui);
+    font: 600 var(--text-input) var(--font-ui);
   }
   /* Five rows show; the middle one is the pick, under a gold band. */
   .wheels {
@@ -143,7 +143,7 @@
     right: 0;
     top: 80px;
     height: 40px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: rgb(245 178 39 / 0.12);
     box-shadow: inset 0 0 0 1px rgb(245 178 39 / 0.35);
     pointer-events: none;
@@ -156,7 +156,7 @@
     padding: 80px 0;
     mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
     outline: none;
-    border-radius: 10px;
+    border-radius: var(--radius);
   }
   .wheel:focus-visible {
     box-shadow: inset 0 0 0 1.5px var(--portal-gold);
@@ -169,7 +169,7 @@
     display: grid;
     place-items: center;
     scroll-snap-align: center;
-    font: 400 max(17px, min(1rem, 30px)) var(--font-ui);
+    font: 400 var(--text-input) var(--font-ui);
     color: rgb(244 236 216 / 0.55);
     font-variant-numeric: tabular-nums;
   }
