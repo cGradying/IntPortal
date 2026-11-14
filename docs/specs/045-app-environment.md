@@ -1,6 +1,6 @@
 # 045 App environment
 
-**Status:** building. Left: off-scale literals (C20) and between-role sizes (C8), closing in 0.2.0. Every pick is settled (mockup rounds one to six).
+**Status:** shipped (0.2.0). Every size, duration and radius comes from a token, and `scripts/style-lint.mjs` holds it. Every pick is settled (mockup rounds one to six).
 
 ## What changes for the student
 
@@ -186,4 +186,4 @@ Branch `ui/environment-tokens`. Tests are in `src/lib/rooms.test.ts` and `src/li
 
 **Follow-ups:** the frozen files above (duration tokens, 44 pt targets in `NoteEditor`, `Today`, `Schedule`, `You`, `ClassSheet`); snapping the off-scale durations and sizes; the `cargo test` for C4 (`c4_accent_contrast_on_every_room`) is covered here by the vitest only.
 
-**Status stays "ready to build"**: C20's off-scale literals and C8's between-role sizes are not finished.
+**Closed in 0.2.0**: C20's off-scale literals and C8's between-role sizes are done. Two roles were added for what the seven did not cover (sub, micro) and `--text-input` for fields; the label role is 12 px, the size most labels already were.
