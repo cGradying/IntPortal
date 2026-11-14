@@ -7,6 +7,7 @@
   import { DIVE_WAIT_MS, type DiveStart } from "$lib/dive";
   import { FALLBACK_SIS } from "$lib/portals";
   import { setSchool, watchVisible } from "$lib/rooms";
+  import { watchKeyboard } from "$lib/viewport.svelte";
   import Glance from "$lib/Glance.svelte";
   import TabBar from "$lib/TabBar.svelte";
   import Today from "$lib/screens/Today.svelte";
@@ -80,13 +81,7 @@
     watchVisible();
     applyLook();
     watchLock();
-    // The keyboard covers the bottom; the tab bar and dock step aside while
-    // a text field has focus, so they don't ride up on top of it.
-    const typing = (e: Event) => (e.target as HTMLElement).matches?.("input:not([type=checkbox]):not([type=radio]), textarea, select");
-    addEventListener("focusin", (e) => typing(e) && (document.documentElement.dataset.keyboard = "open"));
-    addEventListener("focusout", () => setTimeout(() => {
-      if (!document.activeElement?.matches("input, textarea, select")) delete document.documentElement.dataset.keyboard;
-    }, 50));
+    watchKeyboard();
     watchDynamicIsland((has) => (island = has));
     watchBars();
     watchAssis();
