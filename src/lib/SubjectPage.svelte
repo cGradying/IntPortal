@@ -31,7 +31,10 @@
     dirty = true;
   }
 
-  async function save(): Promise<boolean> {
+  // One save at a time: Done and back can fire together.
+  let pending: Promise<boolean> | null = null;
+  const save = () => (pending ??= write().finally(() => (pending = null)));
+  async function write(): Promise<boolean> {
     try {
       await adopt(await api.setPlan(code, $state.snapshot(plan) as Plan));
       dirty = false;

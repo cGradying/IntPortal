@@ -41,7 +41,7 @@
     } catch (err) {
       // A rejection in the portal's own words gets ours.
       const said = friendly(err);
-      error = said === FALLBACK ? (portal.fields.includes("birthdate") ? REJECTED : REJECTED.replace(", birthdate and", " and")) : said;
+      error = said.startsWith("Can't reach the SIS") ? "Can't reach the SIS right now." : said === FALLBACK ? (portal.fields.includes("birthdate") ? REJECTED : REJECTED.replace(", birthdate and", " and")) : said;
       buzz.fail();
     } finally {
       busy = false;

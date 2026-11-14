@@ -190,8 +190,12 @@ pub fn deadlines(snap: &Snapshot, mabini: &MabiniData, now: Moment, utc_offset: 
 }
 
 impl Deadline {
-    /// Where tapping its reminder lands (040 C11): its subject, on the outline item for a syllabus one.
+    /// Where tapping its reminder lands, as its Due row does (041 C8): an eMabini deadline opens in
+    /// eMabini; else its subject (040 C11), on the outline item for a syllabus one.
     fn open_target(&self) -> Option<String> {
+        if let Some(url) = &self.url {
+            return Some(format!("url:{url}"));
+        }
         let code = self.subject.as_deref()?;
         match (self.source, self.id.rsplit(':').next()) {
             (Source::Syllabus, Some(item)) => Some(format!("subject:{code}:{item}")),
@@ -443,11 +447,13 @@ mod tests {
 
     #[test]
     fn c11_reminders_open_the_subject() {
-        let (snap, mabini) = world();
+        let (snap, mut mabini) = world();
+        mabini.deadlines.push(mab(9, "Problem set is due", "COMP20073_First Sem 2627_BSIT 1-A", at(TUE.add_days(2), 15 * 60)));
         let list = deadlines(&snap, &mabini, NOON, PH, 7);
         let opens: Vec<Option<String>> = reminders(&list, NOON, 19 * 60, PH, 7).into_iter().map(|r| r.open).collect();
         assert!(opens.iter().any(|o| o.as_deref().is_some_and(|o| o.starts_with("subject:COMP 20073:"))), "{opens:?}");
         assert!(opens.contains(&None), "an own deadline with no subject opens Today");
+        assert!(opens.iter().any(|o| o.as_deref().is_some_and(|o| o.starts_with("url:"))), "eMabini opens eMabini: {opens:?}");
     }
 
     #[test]

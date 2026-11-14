@@ -15,7 +15,9 @@
     try {
       said = await explain(front, back, typed, subject);
     } catch (e) {
-      problem = friendly(e);
+      // IntAssis words its own errors as sentences (wake, memory, download); anything else is mapped.
+      const said = typeof e === "string" ? e : ((e as Error)?.message ?? "");
+      problem = /[.?]$/.test(said.trim()) ? said : friendly(e);
     }
   }
 </script>

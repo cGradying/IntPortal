@@ -10,7 +10,7 @@
   import { cameraProblem, capture } from "./camera";
   import { MAX_PHOTOS, thumbOf, photosInShare, photoProblem, tooMany } from "./photos";
   import { appended, replaced } from "./assis/apply";
-  import { assis, indexNotes, installed, noteAi, stop, type NoteMode } from "./assis/assis.svelte";
+  import { assis, indexNotes, installed, noteAi, open as openLar, stop, type NoteMode } from "./assis/assis.svelte";
   import { tidy, type Draft } from "./assis/cards";
   import { closable } from "./back";
   import type { NoteView } from "./editor/cm";
@@ -647,7 +647,7 @@
           <button onclick={() => ask("explain")} disabled={working}>Explain</button>
           <button onclick={startCards}>Make cards</button>
         </div>
-        <button onclick={() => ((assis.open = true), (sheet = null))}>Chat</button>
+        <button onclick={() => ((sheet = null), openLar())}>Chat</button>
         <form class="row" onsubmit={(e) => (e.preventDefault(), ask("ask"))}>
           <input bind:value={question} placeholder="Ask about this note…" aria-label="Ask about this note" enterkeyhint="send" autocomplete="off" />
           <button class="go" type="submit" disabled={working || !question.trim()}>Ask</button>

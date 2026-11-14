@@ -9,6 +9,7 @@ import type { Theme } from "./theme";
 import { decodeTheme, encodeTheme } from "./themeCode";
 import { buzz } from "./haptics";
 import { friendly } from "./errors";
+import { openLink } from "./openLink";
 import { larReminderIds } from "./assis/apply";
 import { oneOf, parseCards, type Cards } from "./you";
 import { anyReminderOn, dueDecks } from "./planning";
@@ -179,6 +180,8 @@ export function listenForTaps() {
 
 /** Where a tapped notification goes (spec 042 C7, C9): a subject's cards, a class note, or Today. */
 export async function openFromNotification(open: string | null | undefined) {
+  // An eMabini deadline opens in eMabini, like its row in the Due card (041 C8).
+  if (open?.startsWith("url:")) return void openLink(open.slice(4));
   const [what, ...rest] = (open ?? "").split(":");
   if (what === "study") {
     const code = rest[0];

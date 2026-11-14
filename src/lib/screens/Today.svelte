@@ -141,7 +141,8 @@
       <p><strong>{app.sisRejected ? "The SIS turned your login down." : "eMabini turned your login down."}</strong>{app.sisRejected ? " Changed your password?" : ""}</p>
       <button onclick={() => ((app.openYou = "accounts"), (app.tab = "you"))}>Update password</button>
     </section>
-  {:else if app.sync === "failed"}
+  {/if}
+  {#if app.sync === "failed"}
     <section class="offline card notch" role="status">
       <p><strong>{app.syncError ?? "Can't reach the SIS right now. Showing what was saved."}</strong> Last synced {ago(app.snapshot?.last_synced)}.</p>
       <button onclick={syncNow}>Try again</button>
@@ -227,7 +228,7 @@
       {/if}
     </div>
 
-    {#if !t && app.snapshot}
+    {#if !t}
       <Skeleton rows={3} height={56} />
     {:else if items.length === 0}
       <div class="empty card notch">
