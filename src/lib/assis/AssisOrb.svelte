@@ -1,9 +1,9 @@
 <script lang="ts">
   // The crystal (spec 046 C1b to C1d2): one floating button. A cube of data on most tabs, once
   // IntAssis has been added; it folds into a + on Study. At rest it is flat, in the room's own
-  // tokens, and draws nothing. Opening the chat grows it into LAR's window (AssisWindow): the chip
-  // rides the growing glass and fades into it, sleeps while the window is open, and fades back in at
-  // its spot as the window folds into it (`chip.at`).
+  // tokens, and draws nothing. Opening the chat dithers LAR's window out of it (AssisWindow, spec 048
+  // C1–C6): the chip hides as the dither starts, sleeps while the window is open, and comes back as
+  // the window dithers back into it (`chip.at`).
   import { invoke } from "@tauri-apps/api/core";
   import { untrack } from "svelte";
   import { closable } from "../back";
@@ -129,8 +129,6 @@
     if (menuOpen) return closable(() => (menuOpen = false));
   });
   $effect(() => crystal?.hide(chip.at === "hidden"));
-  // The first beat of the pour into LAR's window: the cube turns to face the student (048 C1).
-  $effect(() => crystal?.face(chip.face));
 
   // Thinking maps something (C1b3). Finishing grows roots behind the cards (C1b4).
   let wasThinking = false;
