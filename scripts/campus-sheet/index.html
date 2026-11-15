@@ -1,0 +1,12 @@
+<!doctype html>
+<!-- Dev only: every campus scene at four hours, for scripts/campus-sheet.mjs. -->
+<meta charset="utf-8" />
+<title>Campus scenes</title>
+<style>
+  body { margin: 0; padding: 16px; background: #0b0710; color: #f4ecd8; font: 13px/1.3 ui-sans-serif, system-ui; }
+  .row { display: grid; grid-template-columns: 120px repeat(4, 384px); gap: 8px; align-items: center; margin-bottom: 8px; }
+  img { width: 384px; height: 160px; image-rendering: pixelated; display: block; }
+  .head { color: #b9b0a0; }
+</style>
+<div id="sheet"></div>
+<script type="module" src="./sheet.ts"></script>
