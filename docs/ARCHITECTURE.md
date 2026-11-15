@@ -8,7 +8,7 @@ How IntPortal is put together, where each thing lives, and what must stay true. 
  Svelte UI            src/                    screens, components, app state
      |  invoke("command")        invoke("plugin:<name>|<command>")
      v                                    v
- Tauri shell          src-tauri/src/lib.rs     Local plugins   plugins/
+ Tauri shell          src-tauri/src/           Local plugins   plugins/
    AppState, commands, keychain,               glance: widget, Live Activity / Live Update
    store opening, demo                         calendar: EventKit / CalendarContract
      |  plain Rust calls                       (Swift and Kotlin halves)
@@ -42,14 +42,14 @@ Each layer only calls the one below it. The core has no UI and no platform APIs,
 
 ## The shell
 
-`src-tauri/src/lib.rs` holds `AppState` (the open `Store`, the data folder, the signed-in `SisClient` and `MabiniClient`, and one guard `Ledger` per portal) and 43 commands; the 16 AI commands are in `src-tauri/src/ai.rs`. All are registered in `run()` with `generate_handler!`. It also holds:
+`src-tauri/src/lib.rs` holds `AppState` (the open `Store`, the data folder, the signed-in `SisClient` and `MabiniClient`, and one guard `Ledger` per portal) and `run()`, which registers every command with `generate_handler!`. The commands live in `src-tauri/src/commands/`, one file per area (account, schedule, deadlines, notes, study, coach, backup, mabini), and the AI commands in `src-tauri/src/ai.rs`. Commands that touch the store run off the main thread (`#[tauri::command(async)]`). The store keeps the last snapshot it read or saved, so a read costs no query and a save writes only the parts that changed, in one transaction. Beside them:
 
-- `keychain`, the platform keychain (Keychain Services on Apple, a Keystore-sealed value on Android through `Secrets.kt`);
-- `vault`, the saved logins, one keychain service per portal (`Portal.keychain_service`);
+- `keychain.rs`, the platform keychain (Keychain Services on Apple, a Keystore-sealed value on Android through `Secrets.kt`);
+- `vault.rs` and `mabini_vault.rs`, the saved logins, one keychain service per portal (`Portal.keychain_service`);
 - the guard ledgers, saved as `login-guard.json` (SIS) and `mabini-guard.json` in the app's data folder, outside any student's store, so a restart doesn't reset the count;
-- `dbkey`, one random 32-byte key per store file, kept in the keychain;
+- `dbkey.rs`, one random 32-byte key per store file, kept in the keychain;
 - `open_store`, which opens a student's store with its key. A store the key can't open is renamed `.locked-<time>` and a fresh one starts, so the app never bricks;
-- `DEMO`, the flag behind **Look around with demo data**.
+- `demo.rs`, the sample student behind **Look around first**.
 
 Every command returns `Result<T, String>` today.
 
@@ -59,7 +59,7 @@ Every command returns `Result<T, String>` today.
 - `src/lib/state.svelte.ts` is the one shared store, `app`. Screens read it; only this file writes it.
 - `src/lib/api.ts` wraps each command in a typed function. Its types are written by hand to match the Rust structs.
 - `src/lib/screens/` holds Today, Schedule, Grades, Study and You. Sheets and pages that open over them (`ClassSheet`, `SubjectPage`, `DeckPage`, `NoteEditor`) live in `src/lib/`.
-- The landing is `Landing.svelte` and `PortalStage.svelte`. `landing.ts` is its clock as a pure function of time. The tile portal is `crates/intportal-tiles`: a pure scene (`scene.rs`, tested with `cargo test`) and plain WebAssembly exports, built to `static/tiles.wasm` by `scripts/tiles.sh` and drawn by `tiles.ts` (spec 010, ADR 0004). The portal's colours come from the registry (spec 012).
+- The landing is `Landing.svelte` and `PortalStage.svelte`. `landing.ts` is its clock as a pure function of time. The tile portal is `crates/intportal-tiles`: a pure scene (`scene.rs`, tested with `cargo test`) and plain WebAssembly exports, built to `static/tiles.wasm` by `scripts/tiles.sh` and drawn by `tiles.ts` (spec 010, ADR 0004). The portal's colours come from the registry (spec 012). The welcome's tour is data in `welcome/tour.ts`, drawn by `WelcomeTour.svelte`; each tap drives the stage (`peekTo`, `say`, `openWall`). The portal wall is `PortalHub.svelte`, with its sections from `hub.ts`.
 - `src/lib/lar/` is LAR: pure sprite grids and the component.
 
 ## Main flows
@@ -97,7 +97,7 @@ IntAssis runs a small model through llama.cpp, on the phone, only after the stud
 |---|---|---|
 | What SIS pages are read, or how | `crates/intportal-core/src/sis/` | Core |
 | A rule about classes, grades, study, reminders, the coach | the matching core module, test first | Core |
-| A new command or its arguments | `src-tauri/src/lib.rs`, then `src/lib/api.ts` | Core, then UI |
+| A new command or its arguments | `src-tauri/src/commands/`, registered in `lib.rs`, then `src/lib/api.ts` (`scripts/commands-check.mjs` fails CI when they drift) | Core, then UI |
 | What a screen shows | `src/lib/screens/` and its components | UI |
 | Shared app state or a flow across screens | `src/lib/state.svelte.ts` | UI |
 | IntAssis prompts, schemas, RAG, model download | `crates/intportal-ai/`, `crates/intportal-llm/`, `src-tauri/src/ai.rs`, `src/lib/assis/` | AI |
@@ -116,7 +116,7 @@ IntAssis runs a small model through llama.cpp, on the phone, only after the stud
 - **Portals don't share state.** A Mabini failure never fails an SIS sync, and the reverse.
 - **Each student's store is SQLCipher-encrypted** with its own key in the keychain. A store that won't open is set aside, never deleted.
 - **The core stays pure.** No platform APIs in `intportal-core`; anything that needs the phone goes in the shell or a plugin.
-- **LAR speaks; Isko never does.** Copy follows `PRODUCT.md` and `DESIGN.md`.
+- **LAR speaks.** He is the only character. Copy follows `PRODUCT.md` and `DESIGN.md`.
 - **Reduce Motion is honoured** everywhere, including the landing.
 - **Anything that opens over the page registers its close with `closable()`**, so Android's back gesture closes it and not the app.
 
@@ -149,16 +149,15 @@ Desktop `cargo` builds compile neither the Swift nor the Kotlin. Only `scripts/s
 - [0001](adr/0001-tauri-rust-svelte.md) Tauri, Rust and Svelte.
 - [0002](adr/0002-device-only-data.md) Student data stays on the device.
 - [0003](adr/0003-on-device-ai-llama-cpp.md) On-device AI runs llama.cpp in Rust; local only.
-- [0004](adr/0004-landing-renders-in-rust-wasm-tiles.md) The landing renders in Rust/WASM tiles (planned).
+- [0004](adr/0004-landing-renders-in-rust-wasm-tiles.md) The landing renders in Rust/WASM tiles.
 - [0005](adr/0005-portals-are-first-class.md) Portals are first-class: SIS and Mabini (eMabini) are ready.
 
 ## Known debts
 
 These feed the first sprint in `docs/TEAM.md`.
 
-- `src-tauri/src/lib.rs` is about 1,070 lines and mixes commands, keychain, store opening and both portals' sign-in (#60).
-- `src/lib/api.ts` types are hand-written copies of the Rust structs and can drift.
-- Commands return strings for errors, so the UI can't tell offline, a failed sign-in and a locked store apart.
+- `src/lib/api.ts` types are hand-written copies of the Rust structs and can drift. `commands-check.mjs` catches a missing or extra command, not a changed field (#61).
+- Commands return strings for errors; `errors.ts` maps each sentence to plain words and `errors.test.ts` fails when a Rust sentence has no copy (#62).
 - The SIS parsers have no fixtures from real pages, so a change on PUP's side shows up only on a phone.
 - `Today.svelte`, `Grades.svelte` and `You.svelte` are 450 to 650 lines each.
 - Screens are checked only by hand on the simulator.
