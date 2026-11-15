@@ -94,6 +94,12 @@ describe("spec 045 tokens", () => {
     expect(files.find((f) => f.name === "lib/StudySession.svelte")!.src).not.toContain("Confetti");
   });
 
+  // Component tests aren't set up in this repo, so the Done and Due rules are guarded on the source.
+  it("c18_due_card_has_no_lar_and_no_burst_or_hop", () => {
+    const src = files.find((f) => f.name === "lib/DueCard.svelte")!.src;
+    for (const banned of ["lar/Lar", "<Lar", "burst", "fieldPulse", "sinkTiles", "hop", "combo"]) expect(src).not.toContain(banned);
+  });
+
   it("040_c7_no_button_rule_under_44px", () => {
     expect(scan()).toEqual([]);
   });

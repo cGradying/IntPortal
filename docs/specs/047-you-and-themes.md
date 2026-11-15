@@ -39,7 +39,7 @@ Every setting on You today, reachable within two taps:
 **New settings**
 - **C5.** App opens on: Today, Schedule or Study. The dive still lands on the chosen tab.
   *Built 2026-11-09:* stored on the phone (`opensOn`); Android's back still goes to Today.
-- **C6.** Today's cards: show or hide and reorder Up next, Due, LAR's plan, This term and Your events. A student can hide Due (the user's call, 2026-11-05, against the Head's recommendation). Hiding it only removes the card: reminders and nudges keep working. *Reorder is buttons, no drag, so it works with VoiceOver.*
+- **C6.** Today's cards: show or hide and reorder Up next, Due, LAR's plan, This term and Your events. A student can hide Due (the user's call, 2026-11-05, against the Head's recommendation). Hiding it only removes the card: reminders and nudges keep working. *Reorder is buttons, no drag, so it works with VoiceOver.* Two groups (2026-11-15): **Top** (Up next, Due) sits above the day list; **Below your classes** (LAR's plan, This term) sits after it. Reorder stays inside a group.
   *Built 2026-11-09:* Your events are rows inside Today's list, not a card, so they hide but don't move; hiding them keeps their time counted in the free stretches and LAR's plan. The four cards move with up and down buttons. Stored as `todayCards`.
 - **C7.** Lists: Comfy or Compact. Compact keeps every target at least 44 pt.
   *Built 2026-11-09:* Compact shortens You's rows and switches and Today's class rows, all still at least 44 pt.

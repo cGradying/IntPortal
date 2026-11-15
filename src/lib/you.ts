@@ -79,6 +79,11 @@ export function rowProblem(
 export type CardId = "next" | "due" | "coach" | "term" | "events";
 export const CARD_NAMES: Record<CardId, string> = { next: "Up next", due: "Due", coach: "LAR's plan", term: "This term", events: "Your events" };
 export const MOVABLE: CardId[] = ["next", "due", "coach", "term"];
+/** Two groups: the top ones sit above the day list, the others below it. A stored flat order still
+ *  parses; each group just takes its cards in that order. */
+export const TOP: CardId[] = ["next", "due"];
+export const BELOW: CardId[] = ["coach", "term"];
+export const inGroup = (order: CardId[], group: CardId[]) => order.filter((c) => group.includes(c));
 export interface Cards {
   order: CardId[];
   hidden: CardId[];
@@ -104,6 +109,13 @@ export function moveCard(order: CardId[], i: number, by: -1 | 1): CardId[] {
   const next = [...order];
   [next[i], next[j]] = [next[j], next[i]];
   return next;
+}
+
+/** Moves a card one place within its own group; the other group's cards keep their slots. */
+export function moveWithin(order: CardId[], id: CardId, by: -1 | 1): CardId[] {
+  const g = inGroup(order, TOP.includes(id) ? TOP : BELOW);
+  const other = g[g.indexOf(id) + by];
+  return other ? order.map((c) => (c === id ? other : c === other ? id : c)) : order;
 }
 
 export function toggleCard(c: Cards, id: CardId): Cards {
