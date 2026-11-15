@@ -332,8 +332,12 @@
     }, reduce ? 0 : RING_MS);
   }
   /** The Peek button: the same ring and view as a tap in the middle of the mouth. */
-  function peekFromButton() {
+  const peekFromButton = () => peekTo(0);
+
+  /** The peek opened on `page` (an index into PAGES), ringing like the Peek button; already open, it just turns there. The welcome's tour drives this (010 C45). */
+  export function peekTo(page: number) {
     if (!tiles || !canvas || leaving) return;
+    if (peek !== null) return void (peek = page);
     const dpr = Math.min(devicePixelRatio, 3);
     const cb = canvas.getBoundingClientRect();
     const [x, y, w, h] = tiles.rect(motion.pos);
@@ -344,8 +348,18 @@
     opening = setTimeout(() => {
       if (leaving || still) return;
       peekAt = { box: { x: x / dpr, y: y / dpr, w: w / dpr, h: h / dpr }, room: { w: cb.width, h: cb.height }, inset: (2 * pitch) / dpr };
-      peek = 0;
+      peek = page;
     }, reduce ? 0 : RING_MS);
+  }
+
+  /** LAR says this line now (010 C45). */
+  export const say = (line: string) => flight?.sayLine(line);
+
+  /** The wall opened as the plaque opens it, dithering out of `from`; the plaque is hidden while `quiet` (010 C45). */
+  export function openWall(from?: DOMRect) {
+    if (locked || portals.length < 2) return;
+    hubFrom = from;
+    hub = true;
   }
   /** How long the ring runs before the view opens. */
   const RING_MS = 380;
@@ -416,7 +430,7 @@
   </div>
   <!-- The plaque names the school and opens the wall (C13a). -->
   {#key current.id}
-    <button class="plate" class:off={locked} aria-label="{current.name}, {current.school}. Choose your school" disabled={locked || portals.length < 2} onclick={(e) => ((hubFrom = e.currentTarget.getBoundingClientRect()), (hub = true))}>
+    <button class="plate" class:off={locked} aria-label="{current.name}, {current.school}. Choose your school" disabled={locked || portals.length < 2} onclick={(e) => openWall(e.currentTarget.getBoundingClientRect())}>
       <span class="mini"><MiniPortal portal={current} /></span>
       <span class="names">
         <b style:color={current.theme.accent}>{current.name}</b>

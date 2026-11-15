@@ -18,7 +18,9 @@
   import { portalApiFor } from "./portalApi";
   import { buzz } from "./haptics";
   import { landingAt, restAt } from "./landing";
-  import { adopt, app, refreshLogins, syncNow } from "./state.svelte";
+  import { adopt, app, refreshLogins, setRoom, syncNow } from "./state.svelte";
+  import WelcomeTour from "./welcome/WelcomeTour.svelte";
+  import { TOUR, type Act } from "./welcome/tour";
   import { stageFor } from "./tiles";
   import type { DiveStart } from "./dive";
 
@@ -44,6 +46,21 @@
       localStorage.setItem(WELCOMED, "1");
     } catch {
       // Private mode: the welcome shows again next launch.
+    }
+  }
+  // A dark look the student picked (here or in You) colours the landing's ground and dots too;
+  // a light one leaves the landing on the night ground, which the portal needs (010 C45).
+  const DARK = new Set(TOUR.flatMap((s) => s.items).flatMap((i) => (i.act.kind === "room" ? [i.act.room] : [])));
+  const worn = $derived(DARK.has(app.room));
+  /** A tour item, done on the stage itself: the portal peeks, LAR talks, the room changes (010 C45). */
+  function act(a: Act, from: DOMRect) {
+    buzz.select();
+    if (a.kind === "peek") stageEl?.peekTo(a.page);
+    else if (a.kind === "say") stageEl?.say(a.line);
+    else if (a.kind === "school") stageEl?.openWall(from);
+    else {
+      setRoom(a.room);
+      stageEl?.say("Ayan, bagay. Ganyan na ang kulay ng app mo, kahit mag-sign in ka na.");
     }
   }
   function begin() {
@@ -215,7 +232,7 @@
   }
 </script>
 
-<section class="landing dots" class:leaving>
+<section class="landing dots" class:leaving class:worn>
   <header class="brand" class:on={resting}>
     <h1>Student <span>IntPortal</span></h1>
     {#if !ready}<p class="pitch">{portal.school} is next. For now, IntPortal works with PUP.</p>{/if}
@@ -247,14 +264,10 @@
         <!-- 011 C10: signed in, but the SIS has no schedule for this term yet; the student still goes in. -->
         {#if app.sisConnected && app.snapshot && !app.snapshot.sessions.length && !returning}<p class="hint empty">Signed in, but your schedule isn't up yet.</p>{/if}
       {:else if welcome}
-        <!-- What the app is, in one line and three facts, before any form (010 C42). -->
+        <!-- What the app is in one line, then a tour the student can poke at, before any form (010 C42, C45). -->
         <div class="welcome">
           <h2>Your PUP schedule, grades and deadlines, on your phone.</h2>
-          <ul>
-            <li>Works offline after one sign-in</li>
-            <li>Your login stays on this phone</li>
-            <li>LAR helps you study and plan</li>
-          </ul>
+          <WelcomeTour room={app.room === "system" ? "night" : app.room} onact={act} />
           {#if error}<p class="error" role="alert">{error}</p>{/if}
           <button type="button" class="go" onclick={begin}>Sign in with SIS</button>
           <button type="button" class="link soft" onclick={demo}>Look around first</button>
@@ -341,10 +354,17 @@
     color: var(--parch);
     /* The app's own ground. Its dots are squares on the portal's tile pitch, placed by PortalStage,
        so the portal is this grid lit up (spec 010 C3). Before the scene loads they sit at 14 px. */
-    background-color: var(--void);
-    background-image: conic-gradient(from 270deg at var(--grid-dot, 1.5px) var(--grid-dot, 1.5px), rgb(232 176 74 / 0.13) 90deg, transparent 0);
+    --land: var(--void);
+    --land-dot: rgb(232 176 74 / 0.13);
+    background-color: var(--land);
+    background-image: conic-gradient(from 270deg at var(--grid-dot, 1.5px) var(--grid-dot, 1.5px), var(--land-dot) 90deg, transparent 0);
+    transition: background-color var(--t-flow) var(--ease);
     background-size: var(--grid-pitch, 14px) var(--grid-pitch, 14px);
     background-position: var(--grid-x, 0) var(--grid-y, 0);
+  }
+  .landing.worn {
+    --land: var(--ground);
+    --land-dot: color-mix(in srgb, var(--gold) 16%, transparent);
   }
   /* The app's drifting pools, held still and dim here: on the landing the portal is the light. */
   .landing.dots::before,
@@ -723,28 +743,6 @@
     letter-spacing: -0.02em;
     color: var(--cream);
     text-wrap: balance;
-  }
-  .welcome ul {
-    display: grid;
-    gap: 8px;
-    margin: 0 0 6px;
-    padding: 0;
-    list-style: none;
-  }
-  .welcome li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font: 400 var(--text-body) / 1.35 var(--font-ui);
-    color: rgb(244 236 216 / 0.8);
-  }
-  /* One lit tile per fact, the portal's own pixel. */
-  .welcome li::before {
-    content: "";
-    flex: none;
-    width: 6px;
-    height: 6px;
-    background: var(--portal-gold);
   }
   .link.soft {
     justify-self: center;
