@@ -19,7 +19,7 @@
   import ModelCard from "../assis/ModelCard.svelte";
   import { chatModel, installed as aiOn } from "../assis/assis.svelte";
   import PixelIcon, { type SpriteName } from "../PixelIcon.svelte";
-  import { CARD_NAMES, GROUPS, MOVABLE, moveCard, rowProblem, searchSettings, toggleCard, type PageId } from "../you";
+  import { BELOW, CARD_NAMES, GROUPS, TOP, inGroup, moveWithin, type CardId, rowProblem, searchSettings, toggleCard, type PageId } from "../you";
 
   let { onsignout, ongallery }: { onsignout: () => void; ongallery?: () => void } = $props();
   let confirming = $state<null | "out" | "erase">(null);
@@ -161,7 +161,7 @@
   // C1: the eight quick switches. A lit one is gold on its icon and edge.
   const QUICK: { label: string; icon: SpriteName; on: () => boolean; set: (on: boolean) => void }[] = [
     { label: "Haptics", icon: "buzz", on: () => hapticsOn, set: (on) => { setHaptics((hapticsOn = on)); buzz.tick(); } },
-    { label: "Sounds", icon: "sound", on: () => soundOn, set: (on) => { setSound((soundOn = on)); if (on) sfx.done(0); } },
+    { label: "Sounds", icon: "sound", on: () => soundOn, set: (on) => { setSound((soundOn = on)); if (on) sfx.done(); } },
     { label: "Lock", icon: "lock", on: () => lock.enabled, set: (on) => setLock(on) },
     { label: "Ground", icon: "wave", on: () => app.ground, set: (on) => setLook("ground", on) },
     { label: "Classes", icon: "bell", on: () => app.reminderLead > 0, set: (on) => { if (!on) keep("lastLead", String(app.reminderLead)); setReminderLead(on ? lastOr("lastLead", 10) : 0); } },
@@ -370,14 +370,17 @@
         <div class="field">
           <p class="label">Today's cards</p>
           <div class="card notch list pad">
-            {#each app.cards.order as id, i (id)}
-              {@const on = !app.cards.hidden.includes(id)}
-              <div class="reorder" class:off={!on}>
-                <input type="checkbox" checked={on} aria-label="Show {CARD_NAMES[id]}" onchange={() => { buzz.tick(); setLook("cards", toggleCard(app.cards, id)); }} />
-                <span>{CARD_NAMES[id]}</span>
-                <button disabled={i === 0} aria-label="Move {CARD_NAMES[id]} up" onclick={() => { buzz.select(); setLook("cards", { ...app.cards, order: moveCard(app.cards.order, i, -1) }); }}><PixelIcon name="up" size={14} /></button>
-                <button disabled={i === MOVABLE.length - 1} aria-label="Move {CARD_NAMES[id]} down" onclick={() => { buzz.select(); setLook("cards", { ...app.cards, order: moveCard(app.cards.order, i, 1) }); }}><PixelIcon name="down" size={14} /></button>
-              </div>
+            {#each [["Top", TOP], ["Below your classes", BELOW]] as [name, group] (name)}
+              <p class="fine group">{name}</p>
+              {#each inGroup(app.cards.order, group as CardId[]) as id, i (id)}
+                {@const on = !app.cards.hidden.includes(id)}
+                <div class="reorder" class:off={!on}>
+                  <input type="checkbox" checked={on} aria-label="Show {CARD_NAMES[id]}" onchange={() => { buzz.tick(); setLook("cards", toggleCard(app.cards, id)); }} />
+                  <span>{CARD_NAMES[id]}</span>
+                  <button disabled={i === 0} aria-label="Move {CARD_NAMES[id]} up" onclick={() => { buzz.select(); setLook("cards", { ...app.cards, order: moveWithin(app.cards.order, id, -1) }); }}><PixelIcon name="up" size={14} /></button>
+                  <button disabled={i === 1} aria-label="Move {CARD_NAMES[id]} down" onclick={() => { buzz.select(); setLook("cards", { ...app.cards, order: moveWithin(app.cards.order, id, 1) }); }}><PixelIcon name="down" size={14} /></button>
+                </div>
+              {/each}
             {/each}
             <div class="reorder" class:off={app.cards.hidden.includes("events")}>
               <input type="checkbox" checked={!app.cards.hidden.includes("events")} aria-label="Show Your events" onchange={() => { buzz.tick(); setLook("cards", toggleCard(app.cards, "events")); }} />
@@ -392,7 +395,7 @@
         <div class="card notch list pad">
           {@render sw("Moving ground", app.ground, (on) => setLook("ground", on))}
           {@render sw("Haptics", hapticsOn, (on) => setHaptics((hapticsOn = on)))}
-          {@render sw("Sounds", soundOn, (on) => { setSound((soundOn = on)); if (on) sfx.done(0); })}
+          {@render sw("Sounds", soundOn, (on) => { setSound((soundOn = on)); if (on) sfx.done(); })}
         </div>
         <p class="fine">Haptics are small taps you feel when you mark a class, pull to sync, finish a deck or unlock. Sounds are little pixel blips, off by default.</p>
         <p class="fine">If Reduce Motion is on in your phone's settings, it wins over all of these.</p>
@@ -931,6 +934,12 @@
     margin: 0;
     font-size: var(--text-sub);
     color: var(--ink-2);
+  }
+  .fine.group {
+    padding: 8px 0 0;
+    font-size: var(--text-label);
+    font-weight: 700;
+    color: var(--ink-3);
   }
   .fine.bad {
     color: var(--bad);
