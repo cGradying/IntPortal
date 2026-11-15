@@ -682,7 +682,8 @@ fn stars(pos: f32, inp: &Input, base: &Layout, keep: [i32; 4], w: u32, h: u32, o
         let layer = (i % 3 + 1) as f32;
         let x = (hash(i, 1) * wf - pos * wf * DRIFT * layer).rem_euclid(wf);
         let y = hash(i, 2) * hf;
-        let tw = if inp.reduce { 0.5 } else { 0.5 + 0.5 * (inp.t * (0.8 + hash(i, 3)) + hash(i, 4) * TAU).sin() };
+        // Each star keeps its own brightness: at rest nothing on the ground moves but the mouth.
+        let tw = 0.5 + 0.5 * (hash(i, 4) * TAU).sin();
         let lit = (0.1 + 0.1 * tw + 0.45 * boost * layer / 3.0) * smooth(x.min(wf - x) / edge);
         // The tail's length in segments, continuous in the speed.
         let len = (vel.abs() * layer * wf * 0.018).min(wf * 0.12) / step as f32;
@@ -764,7 +765,7 @@ fn ground(s: &Scene, lay: &Layout, base: &Layout, tiles: std::ops::Range<usize>,
             Stage::Connecting if !inp.reduce => 0.9 + 0.3 * (inp.t * 6.0).sin(),
             _ => 1.0,
         };
-    let breathe = if inp.reduce { 1.0 } else { 0.82 + 0.18 * (inp.t * 1.1).sin() };
+
     let (bp, bt, dot) = (base.pitch, base.tile, dot_size(base.pitch));
     // The fixed grid: where this shape's tiles stand when the portal rests at the front.
     let (gx, gy) = (grid_origin(w as i32, s.gc, base), grid_origin(h as i32, s.gr, base) - (AIR.2 - AIR.1) * bp / 2);
@@ -780,7 +781,7 @@ fn ground(s: &Scene, lay: &Layout, base: &Layout, tiles: std::ops::Range<usize>,
             if dx == 0.0 && cy > top && cy < bottom + MIRROR_ROWS as f32 * p as f32 {
                 continue;
             }
-            let k = (glow((dx * dx + dy * dy).sqrt() / bp as f32) * power * breathe).clamp(0.0, 1.0);
+            let k = (glow((dx * dx + dy * dy).sqrt() / bp as f32) * power).clamp(0.0, 1.0);
             if k < 0.02 {
                 continue;
             }
@@ -1057,6 +1058,17 @@ mod tests {
         let nearest = mirrored.iter().filter(|t| t.y < y + rh + pitch).map(alpha).max().unwrap();
         let furthest = mirrored.iter().filter(|t| t.y >= y + rh + 3 * pitch).map(alpha).max().unwrap();
         assert!(nearest > furthest && furthest > 0, "the mirror fades with each row");
+    }
+
+    #[test]
+    fn at_rest_the_ground_and_the_stars_hold_still() {
+        let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
+        let ground = |t: f32| {
+            let mut out = Vec::new();
+            carousel(&scenes, 1.0, &at(t, Stage::Rest), 1110, 1100, &mut out);
+            out.into_iter().filter(|t| [GLOW, STAR].contains(&t.c)).map(|t| (t.x, t.y, t.size, t.rgb)).collect::<Vec<_>>()
+        };
+        assert_eq!(ground(FORM + 3.0), ground(FORM + 4.3), "only the mouth moves at rest");
     }
 
     #[test]
