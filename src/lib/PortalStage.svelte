@@ -48,7 +48,7 @@
     showLar: boolean;
     /** The welcome: just the portal and LAR, nothing to pick or check yet (010 C42). */
     quiet?: boolean;
-    /** The intro: the row under the portal keeps one height on every page, so the portal never resizes (049 C3). */
+    /** The intro: the plaque and the peek lie over the stage's foot, so the portal never resizes (049 C3). */
     steady?: boolean;
     leaving?: boolean;
     /** What the student is doing, for LAR. */
@@ -70,6 +70,7 @@
   }
 
   let canvas: HTMLCanvasElement;
+  let under = $state<HTMLElement>();
   let flight = $state<LarFlight>();
   let tiles: Awaited<ReturnType<typeof loadTiles>> | null = null;
   let start = performance.now();
@@ -136,7 +137,10 @@
     };
     const sel = Math.round(motion.pos);
     // A neighbour round the back of the orbit has no box.
-    return { portal: css(sel), others: [sel - 1, sel + 1].filter((p) => p >= 0 && p < portals.length).map(css).filter((r) => r.w > 0) };
+    const others = [sel - 1, sel + 1].filter((p) => p >= 0 && p < portals.length).map(css).filter((r) => r.w > 0);
+    // In the intro the plaque and the peek lie over the stage's foot: solid to him too (049 C3).
+    if (steady && !quiet && under) others.push({ x: under.offsetLeft, y: under.offsetTop, w: under.offsetWidth, h: under.offsetHeight });
+    return { portal: css(sel), others };
   }
 
   function draw(t: number) {
@@ -430,6 +434,7 @@
   <!-- One quiet row of things to do before signing in: peek inside (C37) and whether the portal answers (C40).
        Once the student has peeked, the peek steps back and stays for a screen reader. -->
   <!-- Quiet (the intro), these keep their room, so the portal is the same size on every page (049 C3). -->
+  <div class="under" bind:this={under}>
   <div class="quick" class:off={locked} class:quiet inert={quiet}>
     {#if showLar && !locked && current.status === "ready" && peek === null}
       <button class="peek" class:known={peeked} onclick={peekFromButton}>
@@ -457,6 +462,7 @@
       {/if}
     </button>
   {/key}
+  </div>
 </div>
 {#if hub}
   <PortalHub {portals} {index} from={hubFrom} onpick={go} onclose={() => (hub = false)} />
@@ -523,8 +529,25 @@
   .quiet {
     visibility: hidden;
   }
+  /* The rows under the portal, in their own rows; in the intro they lie over the stage's foot
+     instead, so the portal takes the whole height and is the same size on every page (049 C3). */
+  .under {
+    display: contents;
+  }
+  .steady {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  /* A tap on the portal still opens the peek; there is no room for its row under the frame here. */
   .steady .quick {
-    min-height: 44px;
+    display: none;
+  }
+  .steady .under {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    justify-items: center;
   }
   /* No boxes: the plaque, the peek and the chip are words on the ground, each a full 44 pt target. */
   .plate,
