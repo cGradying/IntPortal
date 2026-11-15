@@ -11,10 +11,25 @@ const pw = await import(process.env.PLAYWRIGHT ?? "playwright-core");
 const server = await createServer({ configFile: false, root: process.cwd(), logLevel: "error", server: { port: 5199, strictPort: false } });
 await server.listen();
 const url = `http://localhost:${server.config.server.port}/scripts/campus-sheet/index.html`;
-const browser = await pw.chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+// The contact sheet renders on SwiftShader so it is the same on every machine; --perf uses the
+// machine's GPU through the installed Chrome when CHROME points at it.
+const gpu = process.argv.includes("--perf") && process.env.CHROME;
+const browser = await pw.chromium.launch(gpu ? { executablePath: process.env.CHROME, args: ["--headless=new", "--enable-gpu", "--ignore-gpu-blocklist"] } : { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 
 try {
   if (process.argv.includes("--perf")) {
+    let i0 = 0;
+    const rendererName = async () => {
+      const page = await browser.newPage();
+      await page.goto(url);
+      const name = await page.evaluate(() => {
+        const gl = document.createElement("canvas").getContext("webgl2");
+        const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+        return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl?.getParameter(gl.RENDERER) ?? "none";
+      });
+      await page.close();
+      return name;
+    };
     for (const force of ["webgl2", "webgl"]) {
       const runs = [];
       for (let i = 0; i < 5; i++) {
@@ -27,6 +42,7 @@ try {
         await page.close();
       }
       const med = (k) => runs.map((r) => r[k]).sort((a, b) => a - b)[2].toFixed(1);
+      if (!i0++) console.log(`renderer: ${await rendererName()}`);
       console.log(`${runs[0].mode}: build ${med("buildMs")} ms, compile + first frame ${med("firstFrameMs")} ms (median of 5, 4x CPU throttle)`);
     }
   } else {
