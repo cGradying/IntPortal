@@ -8,6 +8,7 @@
   import ErrorCard from "../ErrorCard.svelte";
   import Scene from "../Scene.svelte";
   import Skeleton from "../Skeleton.svelte";
+  import { plot, spoken, type TermPoint } from "../gpaTrend";
   import { resource } from "../load.svelte";
   import { app, adopt, openSubject } from "../state.svelte";
   import { buzz } from "../haptics";
@@ -55,10 +56,12 @@
 
   // Every term with a GPA, oldest first, the current one last.
   const trend = $derived.by(() => {
-    const pts = (standing?.past ?? []).map((p) => ({ label: short(p), v: p.gpa }));
-    if (standing?.term_gpa != null) pts.push({ label: "Now", v: standing.term_gpa });
+    const pts: TermPoint[] = (standing?.past ?? []).map((p) => ({ label: short(p), term: `${p.semester ?? ""} ${p.school_year ?? ""}`.trim(), v: p.gpa }));
+    if (standing?.term_gpa != null) pts.push({ label: "Now", term: "this term", v: standing.term_gpa });
     return pts;
   });
+  // Every posted subject passed, in the term on screen (#266).
+  const allPassed = $derived(viewing ? !!standing?.past.find((p) => termKey(p) === viewing)?.all_passed : !!standing?.all_passed);
 
   function short(r: { school_year: string | null; semester: string | null }) {
     const s = (r.semester ?? "").toLowerCase();
@@ -147,14 +150,8 @@
     }
   }
 
-  // Trend points in a 100x40 box, lower grades (better) drawn higher.
-  const points = $derived.by(() => {
-    if (trend.length < 2) return [];
-    const vs = trend.map((p) => p.v);
-    const lo = Math.min(...vs) - 0.1, hi = Math.max(...vs) + 0.1;
-    return trend.map((p, i) => ({ ...p, x: Math.round((i / (trend.length - 1)) * 92) + 4, y: Math.round(((p.v - lo) / (hi - lo)) * 30) + 5 }));
-  });
-  const path = $derived(points.map((p, i) => `${i ? "L" : "M"}${p.x} ${p.y}`).join(" "));
+  const chart = $derived(trend.length >= 2 ? plot(trend) : null);
+  const path = $derived(chart?.points.map((p, i) => `${i ? "L" : "M"}${p.x} ${p.y}`).join(" ") ?? "");
 </script>
 
 <div class="screen">
@@ -180,15 +177,25 @@
       <p class="value num"><PixelNum text={heroGpa === null ? "—" : heroGpa.toFixed(2)} size={6} />{#if best}<span class="pb" class:fresh={celebrate}>Personal best</span>{/if}</p>
       <p class="sub">
         {#if shownGpa === null}No grades posted yet{:else}{posted.length} of {subjects.length} posted · {units} units{/if}
+        {#if allPassed}<span class="passed">All passed</span>{/if}
       </p>
     </div>
-    {#if path}
-      <svg class="trend" viewBox="0 0 100 40" preserveAspectRatio="none" aria-label="GPA across terms">
-        <path d={path} fill="none" stroke="var(--gold)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="miter" />
-        {#each points as p, i (i)}
-          <rect x={p.x - 2} y={p.y - 2} width="4" height="4" fill={i === points.length - 1 ? "var(--gold)" : "var(--card)"} stroke="var(--gold)" stroke-width="1" vector-effect="non-scaling-stroke"><title>{p.label}: {p.v.toFixed(2)}</title></rect>
-        {/each}
-      </svg>
+    {#if chart}
+      {@const first = chart.points[0]}
+      {@const last = chart.points[chart.points.length - 1]}
+      <div class="trend" role="img" aria-label={spoken(trend)}>
+        <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+          {#each chart.guides as g (g.v)}
+            <line x1="0" x2="100" y1={g.y} y2={g.y} stroke="var(--edge)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
+          {/each}
+          <path d={path} fill="none" stroke="var(--gold)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="miter" />
+          {#each chart.points as p, i (i)}
+            <rect x={p.x - 2} y={p.y - 2} width="4" height="4" fill={i === chart.points.length - 1 ? "var(--gold)" : "var(--card)"} stroke="var(--gold)" stroke-width="1" vector-effect="non-scaling-stroke" />
+          {/each}
+        </svg>
+        <span class="end num" style:left="{first.x}%" style:top="{(first.y / 40) * 100}%" class:below={first.y < 20}>{first.v.toFixed(2)}</span>
+        <span class="end num last" style:left="{last.x}%" style:top="{(last.y / 40) * 100}%" class:below={last.y < 20}>{last.v.toFixed(2)}</span>
+      </div>
     {/if}
   </section>
   <p class="note">Lower is better on PUP's 1.00–5.00 scale. Weighted by units; INC and DRP don't count.</p>
@@ -323,9 +330,47 @@
     color: var(--ink-2);
   }
   .trend {
+    position: relative;
     width: 44%;
     height: 64px;
     flex: none;
+  }
+  .trend svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  /* The first and last values, beside their points and inside the plot. */
+  .end {
+    position: absolute;
+    translate: 0 calc(-100% - 4px);
+    font-size: var(--text-micro);
+    font-weight: 700;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .end.below {
+    translate: 0 4px;
+  }
+  .end.last {
+    translate: -100% calc(-100% - 4px);
+    color: var(--gold);
+  }
+  .end.last.below {
+    translate: -100% 4px;
+  }
+  .passed {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--good) 18%, transparent);
+    color: var(--good);
+    font-size: var(--text-label);
+    font-weight: 700;
+    white-space: nowrap;
   }
   .terms {
     display: flex;

@@ -87,6 +87,12 @@ pub fn review(m: &Memory, rating: Rating, now: i64) -> Memory {
     }
 }
 
+/// Seconds from `now` to the next review for Again, Hard, Good and Easy: the hint under
+/// each rating button (#268). Display only; `review` still does the scheduling.
+pub fn preview(m: &Memory, now: i64) -> [i64; 4] {
+    [Rating::Again, Rating::Hard, Rating::Good, Rating::Easy].map(|r| review(m, r, now).due - now)
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Card {
     pub id: String,
@@ -257,6 +263,16 @@ mod tests {
 
     fn days(m: &Memory, from: i64) -> f64 {
         (m.due - from) as f64 / DAY as f64
+    }
+
+    #[test]
+    fn the_preview_matches_what_each_rating_would_schedule() {
+        assert_eq!(preview(&Memory::new(T0), T0), [600, DAY, 3 * DAY, 16 * DAY]);
+        let seen = review(&Memory::new(T0), Rating::Good, T0);
+        let later = seen.due;
+        let p = preview(&seen, later);
+        assert_eq!(p[2], review(&seen, Rating::Good, later).due - later);
+        assert!(p[0] < p[1] && p[1] < p[2] && p[2] < p[3], "{p:?}");
     }
 
     #[test]

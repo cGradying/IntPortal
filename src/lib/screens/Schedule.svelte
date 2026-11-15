@@ -242,7 +242,7 @@
     <div class="title">
       <h1>Schedule</h1>
       <div class="mm" role="img" aria-label="Deadlines over the next four weeks: {cells.filter((c) => c.due).length} days with something due, {cells.filter((c) => c.over).length} overdue">
-        <span>Due · 4 wk</span>
+        <span>Due, next 4 weeks</span>
         <div>{#each cells as c (c.date)}<i class:due={c.due} class:over={c.over} class:today={c.today} class:wk={c.thisWeek}></i>{/each}</div>
       </div>
     </div>
@@ -383,17 +383,18 @@
     font-size: var(--text-headline);
     color: var(--ink);
   }
-  .days i {
+  /* The dots under each date; the selection pill is an <i> too, so they're scoped to the button. */
+  .days button i {
     width: 4px;
     height: 4px;
   }
-  .days i.has {
+  .days button i.has {
     background: var(--ink-3);
   }
-  .days i.due {
+  .days button i.due {
     background: var(--gold);
   }
-  .days i.over {
+  .days button i.over {
     background: var(--bad);
   }
   .days button.today strong {

@@ -508,7 +508,7 @@
 <div class="editor ground" role="dialog" aria-label="Note: {heading}">
   <header>
     <button class="done" onclick={done}>Done</button>
-    <span class="state">{!text.trim() ? "" : saved ? "Saved on this phone" : "Saving…"}</span>
+    <span class="state">{!text.trim() ? "" : saved ? "Saved" : "Saving…"}</span>
     <div class="icons">
       <button class="ic" aria-label="Undo" disabled={!can.undo} onclick={() => nv?.undo()}><PixelIcon name="undo" size={22} /></button>
       <button class="ic" aria-label="Redo" disabled={!can.redo} onclick={() => nv?.redo()}><PixelIcon name="redo" size={22} /></button>
