@@ -1,14 +1,11 @@
 // Which scene a key names, and the loaders. Each scene is its own chunk, so a
 // student downloads and parses only their own campus.
+import { CAMPUSES } from "../../profile";
 import type { SceneDef } from "../paint";
 import type { SchoolLook } from "./school";
 
 /** PUP's campuses, named exactly as `crates/intportal-core/src/campus.rs` names them. */
-export const PUP_CAMPUSES = [
-  "Sta. Mesa", "San Juan", "Parañaque", "Taguig", "Quezon City", "Caloocan", "Mariveles", "Pulilan", "Sta. Maria",
-  "Cabiao", "Maragondon", "Alfonso", "Biñan", "Calauan", "San Pedro", "Sta. Rosa", "Sto. Tomas", "Talisay", "Mulanay",
-  "Lopez", "Unisan", "Ragay", "Bansud", "Sablayan", "Leyte",
-] as const;
+export const PUP_CAMPUSES = CAMPUSES;
 
 export const DEFAULT_SCENE = "Sta. Mesa";
 
