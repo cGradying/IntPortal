@@ -30,7 +30,7 @@ Shipped in `crates/intportal-tiles` (the scene and the dive), `Landing.svelte`, 
 
 - **C1.** The frame is 24 blocks, 6 wide by 8 tall, one block thick, like a Nether portal. In tetromino terms: I, L and J pieces.
 - **C2.** Each block is 2 × 2 tiles, giving a 12 × 16 tile grid. At 1× a tile is 11 px on a 14 px pitch.
-- **C3.** Tiles are flat squares with gaps, in four obsidian tones. The inner edge is one tone darker. No texture, grain, glyphs or shaders. *Amended 2026-11-15:* the void is the app's own night ground with an unlit grid of square dots on the portal's tile pitch, so the page's dots and the frame's tiles share centres. Within four tiles of the frame the dots grow and take a tone from the school's ramp, falling off with distance. The frame's last four rows are mirrored under its foot in tiles that fade out row by row. Ground tiles (the glow, the mirror and the stars) fade by transparency, never toward black, so none of them reads as a dark square on the lit ground.
+- **C3.** Tiles are flat squares with gaps, in four obsidian tones. The inner edge is one tone darker. No texture, grain, glyphs or shaders. *Amended 2026-11-15, then again the same day (the owner disliked the graphic ground):* behind the portal there is only the night ground (or a dark look's ground, C45) and the stars. No dot grid, no lit dots round the frame, no reflection under its foot, no colour pools. Stars fade by transparency, never toward black.
 
 **Spawn**
 
@@ -135,7 +135,7 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
   - **What it does:** Reminders, Deadlines, Works offline, Stays on your phone, LAR's nudges. A tap makes LAR say what it is, in his bubble, read out by VoiceOver.
   - **Make it yours:** six dark looks (Night, Maroon Night, Astra Moon, Tokyo Night, Dracula, Nord) and Your school. A look is worn at once by the whole page and kept for the app (You › Theme), and LAR says so. Your school opens the portal wall. Light looks stay in You, since a light ground washes the portal out.
   The tabs are a tab list: arrow keys move between them, the panel keeps one height so nothing above it jumps, and Reduce Motion drops the slide and the fade. The copy lives in `src/lib/welcome/tour.ts`. The three facts of C42 moved into "What it does".
-- **C43. One thing moves at rest.** On the landing only the portal's mouth moves once the frame stands. The stars keep their own brightness and brighten and streak only while the orbit turns. The lit dots do not pulse. The app's colour pools stand still at 40 % here, so the portal is the light. LAR keeps his flight (C18).
+- **C43. One thing moves at rest.** On the landing only the portal's mouth moves once the frame stands. The stars keep their own brightness and brighten and streak only while the orbit turns. There are no lit dots and no colour pools here, so the portal is the light. LAR keeps his flight (C18).
 - **C44. The form step carries the form.** Under the portal: "Peek inside" (until the first peek) and the school plaque, both as words on the ground, not boxes. Then the student number, birthdate and password, one gold Sign in, and the fine print (011 C18).
 
 **Motion budget and renderer**
@@ -199,13 +199,13 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 | C36 | `cargo test`: `c36_a_touch_rings_out_from_the_finger_and_fades`; vitest `peek.test.ts`: `c36_a_tap_is_short_and_still_a_swipe_is_not`; recording: the ring, LAR carried and dropped |
 | C37 | vitest `peek.test.ts`: `c37_the_peek_shows_today_schedule_grades_study_then_closes`; recording: the view opens out of the mouth, turns, closes on a tap outside |
 | C38 | screenshot at 375 by 667 and 440 by 956 |
-| C3 (2026-11-15) | `cargo test -p intportal-tiles`: `c3_the_portal_lights_the_ground_near_it_and_no_further`, `c3_the_frame_is_mirrored_under_its_foot_for_four_fading_rows`, `c3_ground_dots_share_the_tiles_grid_and_grow_toward_the_frame`, `c3_the_pages_dots_line_up_with_the_portals_tiles`, `c3_the_ground_fades_by_transparency_not_toward_black`; vitest `tiles.test.ts` (alpha in `hex`) |
+| C3 (2026-11-15) | `cargo test -p intportal-tiles`: `c3_the_ground_is_night_and_stars_only` (every tile is a portal's or a star; nothing under the foot); vitest `tiles.test.ts` (alpha in `hex`) |
 | C13a (2026-11-15) | vitest `hub.test.ts`: Open now first, region without repeats; screenshot of the wall |
 | C39 | screenshot of the release APK in demo mode; review: no `debug_assertions` gate on `DEMO` |
 | C40 | vitest `portals.test.ts`: `statusChip`; `cargo test -p intportal` builds `portal_status` |
 | C41 | vitest `lar/wander.test.ts`: `placeBubble` sweep over the stage |
 | C42, C44 | screenshot of both steps at 390 by 844 and 375 by 667 |
-| C43 | `cargo test -p intportal-tiles`: `at_rest_the_ground_and_the_stars_hold_still` |
+| C43 | `cargo test -p intportal-tiles`: `at_rest_the_stars_hold_still` |
 | C45 | vitest `welcome/tour.test.ts` (stops, peek pages, dark looks only, LAR's lines); screenshot of each stop and of a look applied |
 | C16 | recording: the portal builds in the middle and lifts as the form rises |
 | C22–C23 | measured fps on the 17e, reported in the PR |
