@@ -29,6 +29,7 @@
     returning,
     still = false,
     showLar,
+    quiet = false,
     leaving = false,
     ctx,
   }: {
@@ -43,6 +44,8 @@
     /** A field has focus: hold the layout still (C17). */
     still?: boolean;
     showLar: boolean;
+    /** The welcome: just the portal and LAR, nothing to pick or check yet (010 C42). */
+    quiet?: boolean;
     leaving?: boolean;
     /** What the student is doing, for LAR. */
     ctx: Context;
@@ -396,6 +399,7 @@
   <div class="sky"><LarFlight bind:this={flight} getRects={portalRects} show={showLar} {ctx} portal={larPortal} /></div>
   <!-- One quiet row of things to do before signing in: peek inside (C37) and whether the portal answers (C40).
        Once the student has peeked, the peek steps back and stays for a screen reader. -->
+  {#if !quiet}
   <div class="quick" class:off={locked}>
     {#if showLar && !locked && current.status === "ready" && peek === null}
       <button class="peek" class:known={peeked} onclick={peekFromButton}>
@@ -403,9 +407,12 @@
         Peek inside
       </button>
     {/if}
-    <button class="chip {chip.tone}" aria-live="polite" aria-label="{chip.text}. Check again" disabled={current.status !== "ready" || chip.tone === "wait"} onclick={() => check(current.id, 3000)}>
-      <i aria-hidden="true"></i>{chip.text}
-    </button>
+    <!-- Said only when it matters: a portal that isn't answering (C40). A tap asks again. -->
+    {#if chip.tone === "down"}
+      <button class="chip down" aria-live="polite" aria-label="{chip.text}. Check again" onclick={() => check(current.id, 3000)}>
+        <i aria-hidden="true"></i>{chip.text}
+      </button>
+    {/if}
   </div>
   <!-- The plaque names the school and opens the wall (C13a). -->
   {#key current.id}
@@ -420,6 +427,7 @@
       {/if}
     </button>
   {/key}
+  {/if}
 </div>
 {#if hub}
   <PortalHub {portals} {index} from={hubFrom} onpick={go} onclose={() => (hub = false)} />
@@ -474,7 +482,7 @@
   .quick {
     position: relative;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     gap: 8px;
     width: 100%;
     margin-top: 6px;
@@ -483,14 +491,14 @@
   .off {
     opacity: 0.5;
   }
+  /* No boxes: the plaque, the peek and the chip are words on the ground, each a full 44 pt target. */
   .plate,
   .peek,
   .chip {
     min-height: 44px;
     border: 0;
     border-radius: var(--radius);
-    background: rgb(20 12 22 / 0.86);
-    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.12);
+    background: none;
     font-family: var(--font-ui);
   }
   .peek {
@@ -535,7 +543,7 @@
   .plate:active,
   .peek:active,
   .chip:active {
-    background: rgb(28 18 32 / 0.94);
+    background: rgb(244 236 216 / 0.06);
   }
   .plate:disabled {
     opacity: 1;
@@ -568,35 +576,22 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    margin-left: auto;
     padding: 0 14px;
     color: rgb(244 236 216 / 0.82);
     font-size: var(--text-caption);
     font-weight: 600;
     white-space: nowrap;
   }
-  .chip:disabled {
-    opacity: 1;
-  }
   .chip i {
     width: 6px;
     height: 6px;
     background: rgb(244 236 216 / 0.5);
-  }
-  .chip.up i {
-    background: var(--good);
-    animation: live 2.4s steps(2) infinite;
   }
   .chip.down {
     color: var(--rose);
   }
   .chip.down i {
     background: var(--rose);
-  }
-  @keyframes live {
-    50% {
-      opacity: 0.35;
-    }
   }
   @keyframes fade {
     from {

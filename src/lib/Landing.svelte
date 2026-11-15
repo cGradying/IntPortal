@@ -28,6 +28,33 @@
   const returning = untrack(() => signedIn);
   // Where the portal opens: the sign-in card, or straight to Step through.
   let rest = $state<"signin" | "hub">(returning ? "hub" : "signin");
+  // A student new to the app first reads what it is, then asks for the form (010 C42).
+  // Once they have, or have looked around, they go straight to the form next time.
+  const WELCOMED = "intportal.welcomed";
+  const seen = (() => {
+    try {
+      return localStorage.getItem(WELCOMED) === "1";
+    } catch {
+      return false;
+    }
+  })();
+  let welcome = $state(!returning && !seen);
+  function welcomed() {
+    try {
+      localStorage.setItem(WELCOMED, "1");
+    } catch {
+      // Private mode: the welcome shows again next launch.
+    }
+  }
+  function begin() {
+    welcome = false;
+    welcomed();
+    buzz.tick();
+  }
+  // Back from the form goes back to the welcome it came from.
+  $effect(() => {
+    if (!welcome && !seen && rest === "signin" && !busy) return closable(() => (welcome = true));
+  });
   let busy = $state(false);
   let error = $state("");
   let typing = $state(false);
@@ -165,6 +192,7 @@
       // The demo is SIS data, so the carousel shows SIS whatever was picked.
       portalId = "sis";
       rest = "hub";
+      welcomed();
       buzz.done();
       try {
         localStorage.setItem("demo", "1");
@@ -190,7 +218,7 @@
 <section class="landing dots" class:leaving>
   <header class="brand" class:on={resting}>
     <h1>Student <span>IntPortal</span></h1>
-    <p class="pitch" class:sell={ready}>{ready ? copy.pitch : `${portal.school} is next. For now, IntPortal works with PUP.`}</p>
+    {#if !ready}<p class="pitch">{portal.school} is next. For now, IntPortal works with PUP.</p>{/if}
   </header>
 
   <!-- C16: while the frame builds, the portal stands larger in the middle of the screen; it lifts into its place as the form rises. -->
@@ -207,16 +235,30 @@
     showLar={resting}
     {leaving}
     {ctx}
+    quiet={welcome}
   />
   </div>
 
   <!-- In the layout from the start, so the portal's room never jumps when it shows. -->
-  <div class="dock" class:on={resting} class:hub={rest === "hub"} inert={!resting}>
+  <div class="dock" class:on={resting} class:hub={rest === "hub"} class:bare={welcome && rest !== "hub"} inert={!resting}>
       {#if rest === "hub"}
         <button class="step" onclick={step}>Step through</button>
         <p class="hint">{app.sisConnected ? `PUP SIS · via ${(app.snapshot?.host ?? "sis8").split(".")[0]}` : copy.hint}</p>
         <!-- 011 C10: signed in, but the SIS has no schedule for this term yet; the student still goes in. -->
         {#if app.sisConnected && app.snapshot && !app.snapshot.sessions.length && !returning}<p class="hint empty">Signed in, but your schedule isn't up yet.</p>{/if}
+      {:else if welcome}
+        <!-- What the app is, in one line and three facts, before any form (010 C42). -->
+        <div class="welcome">
+          <h2>Your PUP schedule, grades and deadlines, on your phone.</h2>
+          <ul>
+            <li>Works offline after one sign-in</li>
+            <li>Your login stays on this phone</li>
+            <li>LAR helps you study and plan</li>
+          </ul>
+          {#if error}<p class="error" role="alert">{error}</p>{/if}
+          <button type="button" class="go" onclick={begin}>Sign in with SIS</button>
+          <button type="button" class="link soft" onclick={demo}>Look around first</button>
+        </div>
       {:else}
         <!-- The card keeps the tallest height it has had, so swiping between portals never resizes the portal above it. -->
         <form class="card" style:--portal-accent={portal.theme.accent} style:min-height="{cardMin}px" bind:offsetHeight={cardH} onsubmit={submit} onfocusin={() => (typing = true)} onfocusout={() => (typing = false)}>
@@ -249,11 +291,7 @@
               <button type="button" class="eye" aria-label="Show password" aria-pressed={showPw} onclick={() => (showPw = !showPw)}>{showPw ? "Hide" : "Show"}</button>
             </div>
           </div>
-          <div class="acts">
-            <button class="go" disabled={busy || locked || !!why} aria-describedby={why && started ? "f-why" : undefined}>{busy ? "Signing in…" : "Sign in"}</button>
-            <!-- The whole app on sample data, for anyone without a login yet (010 C39). -->
-            <button type="button" class="ghost" disabled={busy} onclick={demo}>Look around</button>
-          </div>
+          <button class="go" disabled={busy || locked || !!why} aria-describedby={why && started ? "f-why" : undefined}>{busy ? "Signing in…" : "Sign in"}</button>
           <!-- Why Sign in is still off, once something is typed (C7). -->
           {#if why && started && !error}<p class="why" id="f-why">{why}</p>{/if}
           {#if triesText}<p class="tries" class:out={locked} aria-live="polite">{triesText}</p>{/if}
@@ -308,6 +346,12 @@
     background-size: var(--grid-pitch, 14px) var(--grid-pitch, 14px);
     background-position: var(--grid-x, 0) var(--grid-y, 0);
   }
+  /* The app's drifting pools, held still and dim here: on the landing the portal is the light. */
+  .landing.dots::before,
+  .landing.dots::after {
+    animation: none;
+    opacity: calc(var(--aura-o, 1) * 0.4);
+  }
   .brand {
     text-align: center;
     pointer-events: none;
@@ -337,13 +381,6 @@
     font: 400 var(--text-sub) / 1.35 var(--font-ui);
     color: rgb(244 236 216 / 0.78);
     text-wrap: balance;
-  }
-  /* A short phone (SE, mini) gives the portal the pitch line's room; a school that isn't
-     ready keeps its line, since it says why the form is missing. */
-  @media (max-height: 700px) {
-    .pitch.sell {
-      display: none;
-    }
   }
   .lift {
     display: grid;
@@ -379,6 +416,10 @@
   .dock.on {
     opacity: 1;
     transform: none;
+  }
+  /* Text straight on the ground casts no shadow. */
+  .dock.bare {
+    filter: none;
   }
   .dock.hub {
     justify-items: center;
@@ -669,11 +710,49 @@
   .pair.solo {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* One gold on the screen: Sign in. Look around is a ghost beside it. */
-  .acts {
+  /* The welcome: no card, the page's own ground under one headline, three facts and one gold. */
+  .welcome {
     display: grid;
-    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    gap: 14px;
+    padding: 4px 4px 0;
+    animation: swap var(--t-flow) var(--ease);
+  }
+  .welcome h2 {
+    margin: 0;
+    font: 700 var(--text-title) / 1.2 var(--font-display);
+    letter-spacing: -0.02em;
+    color: var(--cream);
+    text-wrap: balance;
+  }
+  .welcome ul {
+    display: grid;
+    gap: 8px;
+    margin: 0 0 6px;
+    padding: 0;
+    list-style: none;
+  }
+  .welcome li {
+    display: flex;
+    align-items: center;
     gap: 10px;
+    font: 400 var(--text-body) / 1.35 var(--font-ui);
+    color: rgb(244 236 216 / 0.8);
+  }
+  /* One lit tile per fact, the portal's own pixel. */
+  .welcome li::before {
+    content: "";
+    flex: none;
+    width: 6px;
+    height: 6px;
+    background: var(--portal-gold);
+  }
+  .link.soft {
+    justify-self: center;
+    margin: -6px 0 0;
+    padding: 0 12px;
+    font: 600 var(--text-sub) var(--font-ui);
+    color: rgb(244 236 216 / 0.78);
+    text-decoration: none;
   }
   .ghost {
     min-height: 50px;
@@ -747,7 +826,8 @@
     color: rgb(244 236 216 / 0.72);
   }
   @media (prefers-reduced-motion: reduce) {
-    .swap {
+    .swap,
+    .welcome {
       animation: none;
     }
     .field,

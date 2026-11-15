@@ -75,8 +75,9 @@ export const portalCopy = (id: string): PortalCopy => COPY[id] ?? COPY.sis;
 export function statusChip(portal: Portal, status: PortalStatus | null): { text: string; tone: "up" | "down" | "wait" | "soon" } {
   if (portal.status !== "ready") return { text: "Opens soon", tone: "soon" };
   if (!status) return { text: "Checking…", tone: "wait" };
-  if (!status.up) return { text: "Not answering", tone: "down" };
-  return { text: `${portalCopy(portal.id).system.replace(/^PUP /, "")} is up`, tone: "up" };
+  const name = portalCopy(portal.id).system.replace(/^PUP /, "");
+  if (!status.up) return { text: `${name} isn't answering`, tone: "down" };
+  return { text: `${name} is up`, tone: "up" };
 }
 
 /** Drawn until the core's list arrives, so the form is never empty. */
