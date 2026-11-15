@@ -17,6 +17,7 @@
   import { hold, pause, pick, remember, type Topic } from "./lines";
   import { SPAWN_SECS, W, drawLar, rig, type State } from "./sprite";
   import { create, landing, placeBubble, rng, tick, type Context, type Lar, type Rect, type World } from "./wander";
+  import { getName } from "../profile";
 
   let {
     getRects,
@@ -93,7 +94,7 @@
   }
 
   function say(topic?: Topic, announce = false) {
-    const text = pick({ hour: new Date().getHours(), portal, typing: ctx === "typing" }, recent, rand, topic);
+    const text = pick({ hour: new Date().getHours(), portal, typing: ctx === "typing", you: getName() }, recent, rand, topic);
     if (text) speak(text, announce);
   }
 
@@ -102,6 +103,34 @@
     if (bornAt === null || held) return;
     speak(text, true);
     if (reduce) settle().then(frame);
+  }
+
+  /** A hop and a wave, as when he is tapped (spec 049 C8). */
+  export function cheer() {
+    tappedAt = now();
+    if (reduce) settle().then(frame);
+  }
+
+  /**
+   * He flies to a spot beside or under the portal and waits there a while (spec 049 C6): the
+   * wander code's own drift, so he glides there and never jumps. Before he is out, nothing.
+   */
+  export function visit(spot: "left" | "right" | "below") {
+    const w = world();
+    if (!me || !w) return;
+    const p = w.portal;
+    const side = (dir: number) => p.x + p.w / 2 + dir * (p.w / 2 + w.r + 14);
+    const [tx, ty] = spot === "below" ? [landing(w).x, landing(w).y] : [side(spot === "left" ? -1 : 1), p.y + p.h * 0.45];
+    me.mode = "drift";
+    me.tx = Math.max(w.r, Math.min(w.w - w.r, tx));
+    me.ty = Math.max(w.r, Math.min(w.h - w.r, ty));
+    me.until = me.t + 5;
+    // Reduce Motion: no flight, he is simply there.
+    if (reduce) {
+      me.x = me.tx;
+      me.y = me.ty;
+      settle().then(frame);
+    }
   }
 
   function speak(text: string, announce: boolean) {

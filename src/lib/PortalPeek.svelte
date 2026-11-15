@@ -2,6 +2,9 @@
   // The view through the portal (spec 010 C37): it opens out of the mouth in
   // pixel steps and shows what the app keeps, page by page, with sample data.
   // A tap turns the page; the last page, a tap outside or a field closes it.
+  // The intro hands it a `view` instead (spec 049 C9): its own live content, which holds until the
+  // intro closes it, so there is nothing to tap through.
+  import type { Snippet } from "svelte";
   import { PAGES } from "./peek";
 
   type Box = { x: number; y: number; w: number; h: number };
@@ -12,6 +15,7 @@
     page,
     accent,
     onnext,
+    view,
   }: {
     /** The portal's frame, in CSS px of the stage. */
     box: Box;
@@ -22,6 +26,7 @@
     page: number;
     accent: string;
     onnext: () => void;
+    view?: Snippet;
   } = $props();
 
   const W = $derived(Math.min(room.w - 16, 340));
@@ -46,6 +51,22 @@
   ];
 </script>
 
+{#if view}
+  <div
+    class="peek"
+    style:left="{L}px"
+    style:top="{T}px"
+    style:width="{W}px"
+    style:height="{H}px"
+    style:--ct="{clip.t}px"
+    style:--cr="{clip.r}px"
+    style:--cb="{clip.b}px"
+    style:--cl="{clip.l}px"
+    style:--accent={accent}
+  >
+    <span class="glass held">{@render view()}</span>
+  </div>
+{:else}
 <button
   class="peek"
   style:left="{L}px"
@@ -103,6 +124,7 @@
     </span>
   </span>
 </button>
+{/if}
 
 <style>
   /* The view opens out of the mouth in six pixel steps, like the tiles. */
@@ -139,6 +161,10 @@
       var(--void-2);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
+  }
+  .glass.held {
+    grid-template-rows: none;
+    align-content: center;
   }
   .top {
     display: flex;

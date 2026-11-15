@@ -125,20 +125,6 @@ mod wasm {
         WORLD.with(|w| w.borrow().events)
     }
 
-    /// The ground's grid for portal `p`, in device px: `[x, y, pitch, dot]` (scene::grid).
-    #[no_mangle]
-    pub extern "C" fn ground_grid(p: u32) -> *const i32 {
-        thread_local! { static G: RefCell<[i32; 4]> = const { RefCell::new([0; 4]) }; }
-        let g = WORLD.with(|w| {
-            let w = w.borrow();
-            crate::scene::grid(&w.scenes, p as usize, w.size.0, w.size.1)
-        });
-        G.with(|cell| {
-            *cell.borrow_mut() = g;
-            cell.as_ptr() as *const i32
-        })
-    }
-
     /// The landing's portal pitch and tile in device px at the current size, as `pitch << 16 | tile`.
     #[no_mangle]
     pub extern "C" fn metrics() -> u32 {
