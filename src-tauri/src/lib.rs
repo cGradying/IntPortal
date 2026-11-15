@@ -32,8 +32,9 @@ mod demo;
 use commands::{account::*, backup::*, coach::*, deadlines::*, mabini::*, notes::*, schedule::*, study::*};
 use demo::*;
 
-/// Set by `demo`: sync then plays a short fake trip instead of calling the
-/// SIS, so review builds can show the sync moment without an account.
+/// Set by `demo` (Look around first, in every build): the demo counts as
+/// signed in, and sync plays a short fake trip instead of calling the SIS.
+/// A real sign-in or sign-out clears it.
 static DEMO: AtomicBool = AtomicBool::new(false);
 
 struct AppState {

@@ -98,12 +98,14 @@ pub fn login_hint(portal: String) -> Option<String> {
 
 #[tauri::command(async)]
 pub fn has_login() -> bool {
-    (cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed)) || vault::load().is_some()
+    DEMO.load(Ordering::Relaxed) || vault::load().is_some()
 }
 
 #[tauri::command]
 pub async fn sign_in(state: tauri::State<'_, AppState>, login: Login) -> Res<Snapshot> {
     let (client, rows) = guarded_sign_in(&state, &login, None, false).await?;
+    // A real account ends Look around, so sync goes to the SIS again.
+    DEMO.store(false, Ordering::Relaxed);
     open_account(&state, &login.student_number)?;
     vault::save(&login)?;
     let snap = refresh(&state, &client, Some(rows)).await?;
@@ -115,7 +117,7 @@ pub async fn sign_in(state: tauri::State<'_, AppState>, login: Login) -> Res<Sna
 /// missing or expired.
 #[tauri::command]
 pub async fn sync(state: tauri::State<'_, AppState>) -> Res<Snapshot> {
-    if cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed) {
+    if DEMO.load(Ordering::Relaxed) {
         tokio::time::sleep(std::time::Duration::from_millis(2200)).await;
         let mut snap = snapshot_of(&state)?;
         snap.last_synced = Some(now_secs());

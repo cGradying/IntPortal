@@ -315,6 +315,9 @@
             <button type="button" class="link" aria-haspopup="dialog" onclick={() => (kept = true)}>How</button>
             <span aria-hidden="true">·</span>
             <button type="button" class="link" onclick={() => openLink(copy.reset, true)}>Forgot password?</button>
+            <!-- The way into the demo once the welcome is behind you; iOS has no Back to reach it (010 C39). -->
+            <span aria-hidden="true">·</span>
+            <button type="button" class="link" onclick={demo} disabled={busy}>Look around</button>
           </p>
           {/if}
           </div>{/key}
