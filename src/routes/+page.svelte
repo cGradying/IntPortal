@@ -69,6 +69,15 @@
   // the app; inside, the dock would only crowd the screen.
   let island = $state(false);
 
+  // WKWebView ignores user-scalable=no for pinch; its gesture events can be cancelled.
+  onMount(() => {
+    const stop = (e: Event) => e.preventDefault();
+    for (const t of ["gesturestart", "gesturechange"]) document.addEventListener(t, stop, { passive: false });
+    return () => {
+      for (const t of ["gesturestart", "gesturechange"]) document.removeEventListener(t, stop);
+    };
+  });
+
   onMount(async () => {
     listenForTaps();
     if (__REVIEW__) {

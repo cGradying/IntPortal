@@ -200,9 +200,16 @@ body {
   font-size: var(--text-body);
 }
 
+/* iOS zooms the page on focusing a field set under 16 px; --text-input is never below it.
+   touch-action: manipulation drops the double-tap zoom. */
+html {
+  touch-action: manipulation;
+}
+
 input,
 select,
 textarea {
+  font-size: var(--text-input);
   user-select: text;
   -webkit-user-select: text;
 }
