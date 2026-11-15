@@ -63,6 +63,8 @@ export interface Scene {
   portal: { id: string; name: string; school: string; ready: boolean };
   /** The student has a field focused: LAR stays quiet. */
   typing: boolean;
+  /** What the student asked to be called (spec 049): it stands in for "iskolar". */
+  you?: string;
 }
 
 /** How many recent lines he avoids repeating. */
@@ -89,7 +91,10 @@ export function pick(scene: Scene, recent: string[], rand: Rand, topic?: Topic, 
   return fill(from[Math.floor(rand() * from.length)].text, scene);
 }
 
-const fill = (text: string, s: Scene) => text.replace("{school}", s.portal.school).replace("{name}", s.portal.name);
+const fill = (text: string, s: Scene) => {
+  const out = text.replace("{school}", s.portal.school).replace("{name}", s.portal.name);
+  return s.you ? out.replace(/\biskolar\b/g, s.you) : out;
+};
 
 /** Remember a line, keeping only the last few. */
 export const remember = (recent: string[], line: string) => [...recent, line].slice(-MEMORY);
