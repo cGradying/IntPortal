@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { create, rng, tick, turnOf, type Context, type Lar, type Mode, type World } from "./wander";
+import { create, inside, placeBubble, rng, tick, turnOf, type Context, type Lar, type Mode, type World } from "./wander";
 
 // A phone's landing stage: the portal up top, the card along the bottom.
 const WORLD: World = {
@@ -118,5 +118,36 @@ describe("wander", () => {
     expect(turnOf(l)).toBe(1);
     l.vx = -60;
     expect(turnOf(l)).toBeLessThan(0);
+  });
+});
+
+describe("placeBubble", () => {
+  // A 358 x 384 stage with the frame in the middle, the room LAR has on a 390 pt phone.
+  const world: World = { w: 358, h: 384, portal: { x: 85, y: 42, w: 189, h: 253 }, keepOut: [], r: 20 };
+  const size = { w: 222, h: 50 };
+  const overlaps = (s: { x: number; y: number }, r: { x: number; y: number; w: number; h: number }) =>
+    s.x < r.x + r.w && s.x + size.w > r.x && s.y < r.y + r.h && s.y + size.h > r.y;
+
+  it("never covers a frame tile, wherever he flies, and covers him only right under the frame", () => {
+    const f = world.portal;
+    for (let x = 20; x <= 338; x += 6) {
+      for (let y = 20; y <= 364; y += 6) {
+        // The frame is solid: he is never inside it.
+        if (inside(world.portal, x, y, world.r)) continue;
+        const s = placeBubble(world, { x, y }, size);
+        expect(overlaps(s, world.portal), `LAR at ${x},${y}`).toBe(false);
+        // Under the frame's middle there is no room beside him, and the frame is above: only there.
+        if (overlaps(s, { x: x - 14, y: y - 14, w: 28, h: 28 })) expect(x > f.x && x < f.x + f.w && y > f.y + f.h, `LAR at ${x},${y}`).toBe(true);
+      }
+    }
+  });
+
+  it("sits just under the frame when LAR hovers beside it", () => {
+    expect(placeBubble(world, { x: 42, y: 184 }, size)).toEqual({ k: 9, x: 58, y: 301 });
+  });
+
+  it("keeps the spot it had while that spot is still clear", () => {
+    const first = placeBubble(world, { x: 60, y: 348 }, size);
+    expect(placeBubble(world, { x: 64, y: 348 }, size, first.k).k).toBe(first.k);
   });
 });

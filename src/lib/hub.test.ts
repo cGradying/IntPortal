@@ -38,6 +38,19 @@ describe("sections", () => {
   it("is one list of results while searching", () => {
     expect(sections(all, "bul", ["sis"], "NCR")).toEqual([{ title: "Results", items: search(all, "bul") }]);
   });
+  it("puts the portals that open now first, as their own section, and still lists them A–Z", () => {
+    const mixed = all.map((x) => ({ ...x, status: x.id === "sis" ? "ready" : "soon" }) as Portal);
+    const s = sections(mixed, "", ["bulsu"], "Central Luzon");
+    expect(s[0]).toMatchObject({ title: "Open now" });
+    expect(s[0].items.map((x) => x.id)).toEqual(["sis"]);
+    expect(s[1]).toMatchObject({ title: "Recent" });
+    expect(sections(mixed, "", [], "NCR")[1].items.map((x) => x.id)).toEqual(["up"]);
+    expect(s.slice(3).flatMap((x) => x.items).length).toBe(all.length);
+  });
+  it("has no Open now section while searching, or when every school opens", () => {
+    const ready = all.map((x) => ({ ...x, status: "ready" }) as Portal);
+    expect(sections(ready, "", [])[0].letter).toBe("B");
+  });
   it("skips recent ids the core no longer lists", () => {
     expect(sections(all, "", ["gone"])[0].letter).toBe("B");
   });

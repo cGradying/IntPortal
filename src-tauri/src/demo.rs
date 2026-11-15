@@ -49,9 +49,6 @@ pub(crate) fn demo_mabini(now: i64) -> MabiniData {
 /// without an SIS account.
 #[tauri::command(async)]
 pub fn demo(state: tauri::State<'_, AppState>, today: Date) -> Res<Snapshot> {
-    if !cfg!(debug_assertions) {
-        return Err("demo is only in review builds".into());
-    }
     DEMO.store(true, Ordering::Relaxed);
     open_account(&state, "demo")?;
     let s = |code: &str, desc: &str, day: Weekday, start: u16, end: u16| ClassSession {

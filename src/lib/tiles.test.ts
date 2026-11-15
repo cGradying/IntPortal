@@ -32,6 +32,10 @@ describe("hex", () => {
     expect(hex(0x1a1622)).toBe("#1a1622");
     expect(hex(0x060607)).toBe("#060607");
   });
+  it("adds the opacity a faded ground tile carries in its top byte, read from a signed Int32Array", () => {
+    expect(hex(0x80123456 | 0)).toBe("#12345680");
+    expect(hex(0x01ece7dc)).toBe("#ece7dc01");
+  });
 });
 
 describe("packPortal", () => {

@@ -10,6 +10,9 @@
   import LarFlight, { type Context } from "./lar/LarFlight.svelte";
   import PortalHub from "./PortalHub.svelte";
   import PortalPeek from "./PortalPeek.svelte";
+  import MiniPortal from "./MiniPortal.svelte";
+  import { api, type PortalStatus } from "./api";
+  import { statusChip } from "./portals";
   import { PAGE_MS, isTap, nextPage } from "./peek";
   import type { Portal } from "./api";
   import { buzz } from "./haptics";
@@ -71,6 +74,8 @@
   let drag: { x: number; pos: number; t: number; lastX: number; lastT: number } | null = null;
   let moving = $state(false);
   let hub = $state(false);
+  /** Where the plaque was when it opened the wall, so the wall dithers out of it. */
+  let hubFrom = $state<DOMRect>();
 
   // The peek through the portal (C36–C37): which page is open, and where the portal was when it opened.
   let peek = $state<number | null>(null);
@@ -83,8 +88,29 @@
     // Then the hint shows until the first peek this launch.
   }
 
+  // Whether each portal is answering (C40): asked when it comes to the front, and again on a tap.
+  let statuses = $state<Record<string, PortalStatus | null>>({});
+  let asked: Record<string, number> = {};
+  function check(id: string, wait = 0) {
+    if (performance.now() - (asked[id] ?? -Infinity) < wait) return;
+    asked[id] = performance.now();
+    statuses[id] = null;
+    api
+      .portalStatus(id)
+      .catch(() => ({ up: false, host: null }))
+      .then((st) => {
+        statuses[id] = st;
+      });
+  }
+  $effect(() => {
+    const p = portals[index];
+    // A minute is fresh enough when a portal comes round again.
+    if (p?.status === "ready") untrack(() => check(p.id, 60_000));
+  });
+
   const now = () => (performance.now() - start) / 1000;
   const current = $derived(portals[index] ?? portals[0]);
+  const chip = $derived(statusChip(current, statuses[current.id] ?? null));
   const larPortal = $derived({ id: current.id, name: current.name, school: current.school, ready: current.status === "ready", ramp: current.theme.ramp, accent: current.theme.accent });
 
   // The selected portal's frame in CSS px, and the neighbours peeking in, for
@@ -129,12 +155,33 @@
 
   function fit() {
     if (still) return;
-    const { width, height } = canvas.getBoundingClientRect();
+    // Layout size, not the on-screen box: the intro's lift scales the stage up, and a buffer
+    // sized to that would put LAR's frame box and the page's dots off by the same factor.
+    const [width, height] = [canvas.clientWidth, canvas.clientHeight];
     const dpr = Math.min(devicePixelRatio, 3);
     canvas.width = Math.max(1, Math.round(width * dpr));
     canvas.height = Math.max(1, Math.round(height * dpr));
     tiles?.resize(canvas.width, canvas.height);
+    ground();
     draw(now());
+  }
+
+  /** The page's grid of dots takes its pitch and place from the scene, so dots and tiles share centres (C3). */
+  function ground() {
+    const page = canvas?.closest<HTMLElement>(".landing");
+    if (!tiles || !page) return;
+    const dpr = Math.min(devicePixelRatio, 3);
+    const g = tiles.grid(Math.round(motion.pos));
+    // Where the canvas lies on the page, without the lift's transform.
+    let [x, y] = [0, 0];
+    for (let el: HTMLElement | null = canvas; el && el !== page; el = el.offsetParent as HTMLElement | null) {
+      x += el.offsetLeft;
+      y += el.offsetTop;
+    }
+    page.style.setProperty("--grid-x", `${x + g.x / dpr}px`);
+    page.style.setProperty("--grid-y", `${y + g.y / dpr}px`);
+    page.style.setProperty("--grid-pitch", `${g.pitch / dpr}px`);
+    page.style.setProperty("--grid-dot", `${g.dot / dpr}px`);
   }
 
   // Rendering stops while the app is in the background (C23).
@@ -281,6 +328,22 @@
       peek = 0;
     }, reduce ? 0 : RING_MS);
   }
+  /** The Peek button: the same ring and view as a tap in the middle of the mouth. */
+  function peekFromButton() {
+    if (!tiles || !canvas || leaving) return;
+    const dpr = Math.min(devicePixelRatio, 3);
+    const cb = canvas.getBoundingClientRect();
+    const [x, y, w, h] = tiles.rect(motion.pos);
+    const { pitch } = tiles.metrics();
+    tiles.poke(w / pitch / 2, h / pitch / 2, now());
+    buzz.select();
+    clearTimeout(opening);
+    opening = setTimeout(() => {
+      if (leaving || still) return;
+      peekAt = { box: { x: x / dpr, y: y / dpr, w: w / dpr, h: h / dpr }, room: { w: cb.width, h: cb.height }, inset: (2 * pitch) / dpr };
+      peek = 0;
+    }, reduce ? 0 : RING_MS);
+  }
   /** How long the ring runs before the view opens. */
   const RING_MS = 380;
   let opening: ReturnType<typeof setTimeout> | undefined;
@@ -326,52 +389,63 @@
     onpointerup={up}
     onpointercancel={cancel}
   ></canvas>
+  <p class="sr">{current.name} portal, {current.status === "ready" ? "open" : "opens soon"}.</p>
   {#if peek !== null}
     <PortalPeek box={peekAt.box} room={peekAt.room} inset={peekAt.inset} page={peek} accent={current.theme.accent} onnext={turn} />
-  {:else if !peeked && showLar && !locked}
-    <p class="hint" aria-hidden="true">Tap the portal to peek inside</p>
   {/if}
   <div class="sky"><LarFlight bind:this={flight} getRects={portalRects} show={showLar} {ctx} portal={larPortal} /></div>
-  {#if portals.length > 1}
-    <div class="picker" class:off={locked} role="group" aria-label="Choose a portal">
-      <button class="arrow" aria-label="Previous portal" disabled={locked || index === 0} onclick={() => go(index - 1)}>‹</button>
-      {#key current.id}
-        <button class="caption" aria-live="polite" aria-label="{current.name}, {current.school}. Choose your school" disabled={locked} onclick={() => (hub = true)}>
-          <b style:color={current.theme.accent}>{current.name}</b>
-          <span>{current.school}</span>
-          <small>{current.status === "ready" ? `${index + 1} of ${portals.length}` : "Opens soon"}</small>
-        </button>
-      {/key}
-      <button class="arrow" aria-label="Next portal" disabled={locked || index === portals.length - 1} onclick={() => go(index + 1)}>›</button>
-    </div>
-  {/if}
+  <!-- One quiet row of things to do before signing in: peek inside (C37) and whether the portal answers (C40).
+       Once the student has peeked, the peek steps back and stays for a screen reader. -->
+  <div class="quick" class:off={locked}>
+    {#if showLar && !locked && current.status === "ready" && peek === null}
+      <button class="peek" class:known={peeked} onclick={peekFromButton}>
+        <svg viewBox="0 0 7 5" aria-hidden="true" shape-rendering="crispEdges"><path d="M2 0h3v1H2zM1 1h1v1H1zM5 1h1v1H5zM0 2h1v1H0zM3 2h1v1H3zM6 2h1v1H6zM1 3h1v1H1zM5 3h1v1H5zM2 4h3v1H2z" fill="currentColor" /></svg>
+        Peek inside
+      </button>
+    {/if}
+    <button class="chip {chip.tone}" aria-live="polite" aria-label="{chip.text}. Check again" disabled={current.status !== "ready" || chip.tone === "wait"} onclick={() => check(current.id, 3000)}>
+      <i aria-hidden="true"></i>{chip.text}
+    </button>
+  </div>
+  <!-- The plaque names the school and opens the wall (C13a). -->
+  {#key current.id}
+    <button class="plate" class:off={locked} aria-label="{current.name}, {current.school}. Choose your school" disabled={locked || portals.length < 2} onclick={(e) => ((hubFrom = e.currentTarget.getBoundingClientRect()), (hub = true))}>
+      <span class="mini"><MiniPortal portal={current} /></span>
+      <span class="names">
+        <b style:color={current.theme.accent}>{current.name}</b>
+        <span>{current.school}</span>
+      </span>
+      {#if portals.length > 1 && !locked}
+        <svg class="opens" viewBox="0 0 7 4" aria-hidden="true" shape-rendering="crispEdges"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 2h1v1H4zM5 1h1v1H5zM6 0h1v1H6z" fill="currentColor" /></svg>
+      {/if}
+    </button>
+  {/key}
 </div>
 {#if hub}
-  <PortalHub {portals} {index} onpick={go} onclose={() => (hub = false)} />
+  <PortalHub {portals} {index} from={hubFrom} onpick={go} onclose={() => (hub = false)} />
 {/if}
 
 <style>
   .stage {
     position: relative;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto auto;
     justify-items: center;
     min-height: 0;
   }
-  /* LAR's sky, the peek and its hint share the portal's cell, over it. */
-  canvas,
-  .sky,
-  .hint {
-    grid-area: 1 / 1;
+  /* Spoken, not shown: the canvas itself is hidden from VoiceOver. */
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
-  .hint {
-    align-self: end;
-    margin: 0 0 2px;
-    font: 500 var(--text-label) var(--font-pixel);
-    letter-spacing: 0.06em;
-    color: rgb(244 236 216 / 0.55);
-    pointer-events: none;
-    animation: fade var(--t-hero) var(--ease) 1.2s both;
+  /* LAR's sky shares the portal's cell, over it. */
+  canvas,
+  .sky {
+    grid-area: 1 / 1;
   }
   .sky {
     position: relative;
@@ -393,82 +467,136 @@
     opacity: 0;
     transition: none;
   }
-  .leaving .picker {
+  .leaving .quick,
+  .leaving .plate {
     opacity: 0;
   }
-  .picker {
+  .quick {
+    position: relative;
     display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    margin-top: 6px;
     transition: opacity var(--t-move) var(--ease);
   }
-  .picker.off {
-    opacity: 0.35;
+  .off {
+    opacity: 0.5;
   }
-  .arrow {
-    width: 44px;
-    height: 44px;
-    border: 0;
-    background: transparent;
-    -webkit-appearance: none;
-    appearance: none;
-    color: rgb(244 236 216 / 0.7);
-    font: 600 var(--text-title) / 1 var(--font-display);
-  }
-  .arrow:disabled {
-    opacity: 0.25;
-  }
-  /* The school's name opens the hub: a quiet pill, the short name in the portal's accent. */
-  .caption {
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: min(76vw, 340px);
+  .plate,
+  .peek,
+  .chip {
     min-height: 44px;
+    border: 0;
+    border-radius: var(--radius);
+    background: rgb(20 12 22 / 0.86);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.12);
+    font-family: var(--font-ui);
+  }
+  .peek {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px 0 12px;
+    color: var(--parch);
+    font: 600 var(--text-label) var(--font-pixel);
+    letter-spacing: 0.06em;
+    animation: fade var(--t-hero) var(--ease) 1.2s both;
+  }
+  .peek svg {
+    width: 14px;
+    height: 10px;
+    color: var(--gold);
+  }
+  /* Peeked before: out of sight, still there for a screen reader and a keyboard. */
+  .peek.known:not(:focus-visible) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .plate {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 8px;
-    padding: 0 12px 0 14px;
-    border: 0;
-    border-radius: var(--radius-lg);
-    background: rgb(244 236 216 / 0.06);
-    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.12);
-    color: rgb(244 236 216 / 0.6);
-    font: 400 var(--text-caption) var(--font-ui);
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    margin-top: 8px;
+    padding: 6px 14px 6px 10px;
+    color: rgb(244 236 216 / 0.74);
     text-align: left;
+    transition: opacity var(--t-move) var(--ease);
     animation: fade var(--t-flow) var(--ease);
   }
-  .caption:active {
-    background: rgb(244 236 216 / 0.1);
+  .plate:active,
+  .peek:active,
+  .chip:active {
+    background: rgb(28 18 32 / 0.94);
   }
-  .caption:disabled {
+  .plate:disabled {
     opacity: 1;
   }
-  .caption b {
-    font: 700 var(--text-sub) var(--font-display);
+  .plate.off {
+    opacity: 0.5;
   }
-  .caption span {
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .mini {
+    width: 20px;
+    height: 28px;
+  }
+  .names {
+    display: grid;
+    min-width: 0;
+  }
+  .names b {
+    font: 600 var(--text-sub) / 1.2 var(--font-ui);
+  }
+  .names span {
+    font-size: var(--text-label);
+    line-height: 1.3;
+    text-wrap: balance;
+  }
+  .opens {
+    width: 14px;
+    height: 8px;
+    color: rgb(244 236 216 / 0.6);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: auto;
+    padding: 0 14px;
+    color: rgb(244 236 216 / 0.82);
+    font-size: var(--text-caption);
+    font-weight: 600;
     white-space: nowrap;
   }
-  .caption small {
-    font: 500 var(--text-label) var(--font-pixel);
-    letter-spacing: 0.06em;
-    color: rgb(244 236 216 / 0.75);
-    white-space: nowrap;
+  .chip:disabled {
+    opacity: 1;
   }
-  /* A chevron says it opens. */
-  .caption small::after {
-    content: "";
-    display: inline-block;
-    width: 5px;
-    height: 5px;
-    margin-left: 6px;
-    border-right: 1.5px solid currentColor;
-    border-bottom: 1.5px solid currentColor;
-    transform: translateY(-2px) rotate(45deg);
+  .chip i {
+    width: 6px;
+    height: 6px;
+    background: rgb(244 236 216 / 0.5);
+  }
+  .chip.up i {
+    background: var(--good);
+    animation: live 2.4s steps(2) infinite;
+  }
+  .chip.down {
+    color: var(--rose);
+  }
+  .chip.down i {
+    background: var(--rose);
+  }
+  @keyframes live {
+    50% {
+      opacity: 0.35;
+    }
   }
   @keyframes fade {
     from {
@@ -476,12 +604,35 @@
       transform: translateY(4px);
     }
   }
+  /* A short phone: the plaque keeps to one line, and the portal gets the room. */
+  @media (max-height: 700px) {
+    .quick {
+      margin-top: 2px;
+    }
+    .plate {
+      min-height: 44px;
+      margin-top: 6px;
+    }
+    .names {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .names span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     .sky,
-    .picker {
+    .quick,
+    .plate {
       transition: none;
     }
-    .caption {
+    .plate,
+    .peek,
+    .chip i {
       animation: none;
     }
   }

@@ -14,6 +14,7 @@
   import { FALLBACK } from "./errors";
   import DateWheels from "./DateWheels.svelte";
   import { closable } from "./back";
+  import { openLink } from "./openLink";
   import { portalApiFor } from "./portalApi";
   import { buzz } from "./haptics";
   import { landingAt, restAt } from "./landing";
@@ -37,9 +38,14 @@
   // The birthdate wheels' sheet (011 C1), and an SIS that didn't answer (C9).
   let wheels = $state(false);
   let down = $state(false);
-  // Android's back closes the wheels, never the app under them.
+  // How the login is kept, on a small sheet the fine print opens (011 C11).
+  let kept = $state(false);
+  // Android's back closes the wheels and the sheet, never the app under them.
   $effect(() => {
     if (wheels) return closable(() => (wheels = false));
+  });
+  $effect(() => {
+    if (kept) return closable(() => (kept = false));
   });
   /** The student number as typed, masked; the caret stays put unless the mask moved text (C4). */
   function typedStudno(el: HTMLInputElement) {
@@ -181,10 +187,10 @@
   }
 </script>
 
-<section class="landing" class:leaving>
+<section class="landing dots" class:leaving>
   <header class="brand" class:on={resting}>
     <h1>Student <span>IntPortal</span></h1>
-    <p class="pitch">{ready ? copy.pitch : `${portal.school} is next. For now, IntPortal works with PUP.`}</p>
+    <p class="pitch" class:sell={ready}>{ready ? copy.pitch : `${portal.school} is next. For now, IntPortal works with PUP.`}</p>
   </header>
 
   <!-- C16: while the frame builds, the portal stands larger in the middle of the screen; it lifts into its place as the form rises. -->
@@ -220,6 +226,7 @@
               <b>{portal.school}</b>
               <p>Its portal opens soon. IntPortal will connect here once it's ready; for now, SIS and Mabini work.</p>
             </div>
+            <button type="button" class="ghost" onclick={demo}>Look around</button>
           {:else}
           <div class="field" class:filled={!!studno} class:bad={bad("student_number")}>
             <input id="f-studno" value={studno} oninput={(e) => typedStudno(e.currentTarget)} placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" aria-invalid={bad("student_number")} />
@@ -227,28 +234,37 @@
           </div>
           {#if campus.kind === "known"}<small class="campus">{campus.campus.name} · campus found</small>
           {:else if campus.kind === "unknown_code"}<small class="campus dim">{campus.code} · campus not confirmed yet, sign-in still works</small>{/if}
-          {#if portal.fields.includes("birthdate")}
-            <div class="field date" class:empty={!birthday} class:bad={bad("birthdate")}>
-              <button type="button" id="f-birthday" class="pick" aria-haspopup="dialog" onclick={() => (wheels = true)}>{birthday ? new Date(birthday + "T00:00").toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) : ""}</button>
-              <label for="f-birthday">Birthdate</label>
-              {#if !birthday}<i aria-hidden="true">mm / dd / yyyy</i>{/if}
+          <!-- Birthdate and password share a row, so the portal above keeps its height (011 C1). -->
+          <div class="pair" class:solo={!portal.fields.includes("birthdate")}>
+            {#if portal.fields.includes("birthdate")}
+              <div class="field date" class:empty={!birthday} class:bad={bad("birthdate")}>
+                <button type="button" id="f-birthday" class="pick" aria-haspopup="dialog" onclick={() => (wheels = true)}>{birthday ? new Date(birthday + "T00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : ""}</button>
+                <label for="f-birthday">Birthdate</label>
+                {#if !birthday}<i aria-hidden="true">mm / dd / yyyy</i>{/if}
+              </div>
+            {/if}
+            <div class="field" class:filled={!!password} class:bad={bad("password")}>
+              <input id="f-password" type={showPw ? "text" : "password"} bind:value={password} autocomplete="current-password" aria-invalid={bad("password")} />
+              <label for="f-password">Password</label>
+              <button type="button" class="eye" aria-label="Show password" aria-pressed={showPw} onclick={() => (showPw = !showPw)}>{showPw ? "Hide" : "Show"}</button>
             </div>
-          {/if}
-          <div class="field" class:filled={!!password} class:bad={bad("password")}>
-            <input id="f-password" type={showPw ? "text" : "password"} bind:value={password} autocomplete="current-password" aria-invalid={bad("password")} />
-            <label for="f-password">Password</label>
-            <button type="button" class="eye" aria-label="Show password" aria-pressed={showPw} onclick={() => (showPw = !showPw)}>{showPw ? "Hide" : "Show"}</button>
           </div>
-          <button class="go" disabled={busy || locked || !!why} aria-describedby={why && started ? "f-why" : undefined}>{busy ? "Signing in…" : "Sign in"}</button>
+          <div class="acts">
+            <button class="go" disabled={busy || locked || !!why} aria-describedby={why && started ? "f-why" : undefined}>{busy ? "Signing in…" : "Sign in"}</button>
+            <!-- The whole app on sample data, for anyone without a login yet (010 C39). -->
+            <button type="button" class="ghost" disabled={busy} onclick={demo}>Look around</button>
+          </div>
           <!-- Why Sign in is still off, once something is typed (C7). -->
           {#if why && started && !error}<p class="why" id="f-why">{why}</p>{/if}
           {#if triesText}<p class="tries" class:out={locked} aria-live="polite">{triesText}</p>{/if}
           {#if error}<p class="error" class:down role="alert">{error}</p>{/if}
           {#if down}<button type="button" class="retry" onclick={() => submit()}>Try again</button>{/if}
-          <p class="fine">{copy.keychainNote}</p>
-          {/if}
-          {#if __REVIEW__}
-            <button type="button" class="demo" onclick={demo}>Look around with demo data</button>
+          <p class="fine">
+            Your login stays on this phone.
+            <button type="button" class="link" aria-haspopup="dialog" onclick={() => (kept = true)}>How</button>
+            <span aria-hidden="true">·</span>
+            <button type="button" class="link" onclick={() => openLink(copy.reset, true)}>Forgot password?</button>
+          </p>
           {/if}
           </div>{/key}
         </form>
@@ -256,6 +272,21 @@
   </div>
   {#if wheels}
     <DateWheels value={birthday} onclose={() => (wheels = false)} ondone={(iso) => ((birthday = iso), (wheels = false), buzz.tick())} />
+  {/if}
+  {#if kept}
+    <div class="scrim" role="presentation" onclick={() => (kept = false)}></div>
+    <div class="kept" role="dialog" aria-modal="true" aria-labelledby="kept-title">
+      <h2 id="kept-title">How your login is kept</h2>
+      <dl>
+        <dt>It stays on this phone.</dt>
+        <dd>Your login is saved in the phone's keychain, where the phone keeps its own passwords.</dd>
+        <dt>It goes to {copy.system} and nowhere else.</dt>
+        <dd>IntPortal signs in for you, the way you would in a browser. There is no IntPortal account and no IntPortal server.</dd>
+        <dt>After that, it works offline.</dt>
+        <dd>Your schedule, grades and notes are kept on the phone, so they open without signal.</dd>
+      </dl>
+      <button class="ghost" onclick={() => (kept = false)}>Done</button>
+    </div>
   {/if}
 </section>
 
@@ -270,7 +301,12 @@
     gap: 8px;
     padding: calc(var(--safe-top) + 10px) var(--gutter) calc(var(--safe-bottom) + 12px);
     color: var(--parch);
-    background: var(--void);
+    /* The app's own ground. Its dots are squares on the portal's tile pitch, placed by PortalStage,
+       so the portal is this grid lit up (spec 010 C3). Before the scene loads they sit at 14 px. */
+    background-color: var(--void);
+    background-image: conic-gradient(from 270deg at var(--grid-dot, 1.5px) var(--grid-dot, 1.5px), rgb(232 176 74 / 0.13) 90deg, transparent 0);
+    background-size: var(--grid-pitch, 14px) var(--grid-pitch, 14px);
+    background-position: var(--grid-x, 0) var(--grid-y, 0);
   }
   .brand {
     text-align: center;
@@ -298,10 +334,16 @@
   }
   .pitch {
     margin: 4px auto 0;
-    max-width: 30ch;
     font: 400 var(--text-sub) / 1.35 var(--font-ui);
-    color: rgb(244 236 216 / 0.66);
+    color: rgb(244 236 216 / 0.78);
     text-wrap: balance;
+  }
+  /* A short phone (SE, mini) gives the portal the pitch line's room; a school that isn't
+     ready keeps its line, since it says why the form is missing. */
+  @media (max-height: 700px) {
+    .pitch.sell {
+      display: none;
+    }
   }
   .lift {
     display: grid;
@@ -313,8 +355,15 @@
     transform: none;
   }
   /* The school's name comes with the form, not before. */
-  .lift:not(.up) :global(.picker) {
+  .lift:not(.up) :global(.quick),
+  .lift:not(.up) :global(.plate) {
     opacity: 0;
+    transition: none;
+  }
+  /* ... and only once the lift has put them in their place, so they never cross the form. */
+  .lift.up :global(.quick),
+  .lift.up :global(.plate) {
+    transition: opacity var(--t-move) var(--ease) var(--t-hero);
   }
   .dock {
     display: grid;
@@ -549,9 +598,10 @@
       inset 0 0 0 3px var(--cream),
       inset 0 -3px 0 var(--portal-gold-shade);
   }
-  .demo:focus-visible {
+  .ghost:focus-visible,
+  .link:focus-visible {
     outline: 2px solid var(--portal-gold);
-    outline-offset: 3px;
+    outline-offset: 2px;
   }
   .go:active,
   .step:active {
@@ -611,14 +661,90 @@
     color: rgb(244 236 216 / 0.72);
     text-align: center;
   }
-  .demo {
+  .pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+  .pair.solo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* One gold on the screen: Sign in. Look around is a ghost beside it. */
+  .acts {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+  .ghost {
+    min-height: 50px;
+    padding: 0 12px;
     border: 0;
-    font-family: var(--font-ui);
+    border-radius: var(--radius);
+    background: rgb(244 236 216 / 0.06);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.2);
+    color: var(--parch);
+    font: 600 var(--text-sub) var(--font-ui);
+  }
+  .ghost:disabled {
+    opacity: 0.5;
+  }
+  .link {
+    /* The words are small; the target is not. */
+    min-height: 44px;
+    margin: -14px 0;
+    padding: 0 4px;
+    border: 0;
     background: none;
-    color: rgb(245 178 39 / 0.85);
-    font-size: var(--text-caption);
+    color: rgb(244 236 216 / 0.82);
+    font: inherit;
     text-decoration: underline;
     text-underline-offset: 3px;
+  }
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgb(5 2 8 / 0.6);
+  }
+  .kept {
+    position: fixed;
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: calc(var(--safe-bottom) + 12px);
+    z-index: 61;
+    display: grid;
+    gap: 14px;
+    padding: 18px 16px 14px;
+    border-radius: var(--radius-lg);
+    background: var(--void-2);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.14), 0 -12px 40px rgb(0 0 0 / 0.5);
+    font-family: var(--font-ui);
+    animation: rise var(--t-flow) var(--ease) backwards;
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+  }
+  .kept h2 {
+    margin: 0;
+    font: 700 var(--text-headline) var(--font-ui);
+    color: var(--cream);
+  }
+  .kept dl {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+  }
+  .kept dt {
+    font: 600 var(--text-sub) var(--font-ui);
+    color: var(--parch);
+  }
+  .kept dd {
+    margin: 0 0 10px;
+    font: 400 var(--text-sub) / 1.4 var(--font-ui);
+    color: rgb(244 236 216 / 0.72);
   }
   @media (prefers-reduced-motion: reduce) {
     .swap {
