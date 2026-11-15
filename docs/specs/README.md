@@ -41,6 +41,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [046-study-and-notes](046-study-and-notes.md) | shipped | Notes sorted by subject, formatting, templates, photos, note to cards, a Done you can find |
 | [047-you-and-themes](047-you-and-themes.md) | shipped | You on one screen, search, new settings, backup, custom themes shared by code and QR |
 | [048-lar-chat](048-lar-chat.md) | shipped | LAR's chat, round four: the cube pours into it, the sky header, his real steps as a pixel trace, suggestions that follow the day |
+| [049-intro](049-intro.md) | building | The intro before sign-in: one feature a page, name, campus, look and reminders |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md) and [ADR 0005](../adr/0005-portals-are-first-class.md).
 

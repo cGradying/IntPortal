@@ -56,4 +56,10 @@ describe("LAR's lines", () => {
     expect(hold("Uy!")).toBeGreaterThan(2.5);
     expect(hold("x".repeat(60))).toBeGreaterThan(hold("x".repeat(20)));
   });
+
+  it("calls the student by the name they gave, iskolar without one (spec 049 C8)", () => {
+    const greet = (you?: string) => pick({ ...sis, hour: 20, you }, [], rng(4), "greet", LINES.filter((l) => l.text.includes("iskolar") && l.topic === "greet"));
+    expect(greet()).toBe("Gabi na, iskolar. Bukas ulit ang laban.");
+    expect(greet("Jan")).toBe("Gabi na, Jan. Bukas ulit ang laban.");
+  });
 });
