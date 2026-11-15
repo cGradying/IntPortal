@@ -123,7 +123,7 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 
 **Things to do before signing in** (added 2026-11-15, the owner's ask that the landing have functions a student can use)
 
-- **C39. Look around.** "Look around first" sits under the welcome's Sign in (C42) and, for a portal that is not ready, in place of the form. It opens the whole app on sample data, in release builds too, with no login.
+- **C39. Look around.** "Look around first" sits under the welcome's Sign in (C42) and, for a portal that is not ready, in place of the form. Once the welcome is behind the student, a "Look around" link sits in the form's fine print, since iOS has no Back to reach the welcome. It opens the whole app on sample data, in release builds too, with no login: the shell counts the demo as signed in in every build, and a real sign-in ends it.
 - **C40. Is the portal up?** Said only when it matters: under the portal, beside "Peek inside", the line "SIS isn't answering" (or "eMabini isn't answering") shows when the portal does not answer, and nothing shows while it does. It asks the `portal_status` command, which loads the portal's sign-in page and nothing more: no credentials, every SIS host tried at once with a 6 s limit each. The answer is kept a minute; a tap asks again. It talks only to the school's own servers.
 - **C41. LAR's words never cover the frame.** His bubble goes beside him, above, level or below, else just under or over the frame: the first spot clear of every frame tile and of him. It keeps its spot while that stays clear. Right under the frame's middle, where nothing else fits, it may cover him but never the frame. When the portal at the front changes, he drops what he was saying.
 
@@ -201,7 +201,7 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 | C38 | screenshot at 375 by 667 and 440 by 956 |
 | C3 (2026-11-15) | `cargo test -p intportal-tiles`: `c3_the_portal_lights_the_ground_near_it_and_no_further`, `c3_the_frame_is_mirrored_under_its_foot_for_four_fading_rows`, `c3_ground_dots_share_the_tiles_grid_and_grow_toward_the_frame`, `c3_the_pages_dots_line_up_with_the_portals_tiles`, `c3_the_ground_fades_by_transparency_not_toward_black`; vitest `tiles.test.ts` (alpha in `hex`) |
 | C13a (2026-11-15) | vitest `hub.test.ts`: Open now first, region without repeats; screenshot of the wall |
-| C39 | screenshot; review: `demo()` has no debug gate |
+| C39 | screenshot of the release APK in demo mode; review: no `debug_assertions` gate on `DEMO` |
 | C40 | vitest `portals.test.ts`: `statusChip`; `cargo test -p intportal` builds `portal_status` |
 | C41 | vitest `lar/wander.test.ts`: `placeBubble` sweep over the stage |
 | C42, C44 | screenshot of both steps at 390 by 844 and 375 by 667 |

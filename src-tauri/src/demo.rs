@@ -1,6 +1,6 @@
 use crate::*;
 
-/// Made-up eMabini data for review builds, so Mabini screens can be shown
+/// Made-up eMabini data for Look around first, so Mabini screens can be shown
 /// without anyone's account.
 pub(crate) fn demo_mabini(now: i64) -> MabiniData {
     use intportal_core::mabini::parse::{Course, CourseGrade, Deadline};
@@ -45,8 +45,8 @@ pub(crate) fn demo_mabini(now: i64) -> MabiniData {
     }
 }
 
-/// Review builds only: a fake week and term so every screen can be seen
-/// without an SIS account.
+/// Look around first, in every build: a fake week and term so every screen
+/// can be seen without an SIS account.
 #[tauri::command(async)]
 pub fn demo(state: tauri::State<'_, AppState>, today: Date) -> Res<Snapshot> {
     DEMO.store(true, Ordering::Relaxed);

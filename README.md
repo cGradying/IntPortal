@@ -22,8 +22,9 @@ Every feature, tab by tab, is in [docs/FEATURES.md](docs/FEATURES.md); what chan
   <img src="docs/images/ios-grades.png" width="180" alt="Grades on iPhone: the term GPA, a personal best and the trend across terms">
 </p>
 <p>
-  <img src="docs/images/android-today.png" width="180" alt="Today on Android">
-  <img src="docs/images/android-week.png" width="180" alt="The week on Android">
+  <img src="docs/images/android-landing.png" width="180" alt="The welcome on Android">
+  <img src="docs/images/android-today.png" width="180" alt="Today on Android in the light theme, with the Due card">
+  <img src="docs/images/android-week.png" width="180" alt="The week on Android, with the time line">
   <img src="docs/images/android-live-update.png" width="180" alt="The next class as a Live Update on Android">
 </p>
 
