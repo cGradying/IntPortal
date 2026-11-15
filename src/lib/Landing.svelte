@@ -449,6 +449,7 @@
     {leaving}
     {ctx}
     quiet={!signin}
+    steady={intro && rest !== "hub"}
     mouth={!signin && resting && here.acts.includes("mouth") ? todayView : undefined}
   />
   </div>
@@ -493,10 +494,10 @@
                     </button>
                   {/if}
                 {:else if p.id === "today"}
-                  <label class="clock" for="f-clock"><span>Drag the time</span><b>{clock(clockAt)}</b></label>
+                  <label class="clock" for="f-clock"><span>Sample time</span><b>{clock(clockAt)}</b></label>
                   <input id="f-clock" class="slider" type="range" min={CLOCK.from} max={CLOCK.to} step="60" value={clockAt} aria-valuetext={clock(clockAt)}
                     style:--a="{span(CLASS.start)}%" style:--b="{span(CLASS.end)}%" oninput={(e) => (clockAt = +e.currentTarget.value)} />
-                  <span class="scale" aria-hidden="true"><span>6:45</span><span>class</span><span>9:15</span></span>
+                  <span class="scale" aria-hidden="true"><span>{clock(CLOCK.from)}</span><span>Class</span><span>{clock(CLOCK.to)}</span></span>
                 {:else if p.id === "deadlines"}
                   {#if due !== "gone"}
                     <div class="due" class:done={due === "done"} out:fold>
@@ -511,6 +512,7 @@
                   <div class="gpa" role="img" aria-label="Sample: {spoken(TERMS)}">
                     <span class="gpa-num"><PixelNum text={TERMS.at(-1)!.v.toFixed(2)} size={3} /><small>GPA, up from {TERMS.at(-2)!.v.toFixed(2)}</small></span>
                     <svg class="trend" viewBox="0 0 100 40" aria-hidden="true">
+                      {#each trend.guides as g (g.v)}<line class="guide" x1="0" x2="100" y1={g.y} y2={g.y} />{/each}
                       <polyline pathLength="1" points={trend.points.map((q) => `${q.x},${q.y}`).join(" ")} />
                       {#each trend.points as q, k (k)}<rect x={q.x - 2} y={q.y - 2} width="4" height="4" style:animation-delay="{0.5 + k * 0.12}s" />{/each}
                     </svg>
@@ -534,11 +536,12 @@
                     <span>No signal</span>
                     <span class="switch" aria-hidden="true"><i></i></span>
                   </button>
-                  <ul class="kept-rows">
+                  <ul class="kept-rows" aria-label={offline ? "Still open, from this phone" : "Up to date"}>
                     {#each ["Schedule", "Grades", "Notes"] as w (w)}
-                      <li><i class="tick" aria-hidden="true"></i>{w}<em>{offline ? "On this phone" : "Up to date"}</em></li>
+                      <li><i class="tick" aria-hidden="true"></i>{w}</li>
                     {/each}
                   </ul>
+                  <p class="aside" aria-live="polite">{offline ? "Still open, from this phone." : "Up to date."}</p>
                 {:else if p.id === "look"}
                   <div class="looks">
                     {#each LOOKS as l (l.room)}
@@ -549,7 +552,7 @@
                     {/each}
                   </div>
                 {:else if p.id === "reminders"}
-                  {@render notification("rest")}
+                  {#if !reminded}{@render notification("rest")}{/if}
                   {#if reminded === "on"}
                     <p class="okay">{app.notifications === false ? "Your phone said no. You can allow them later in Settings." : "Reminders are on. They start after you sign in."}</p>
                   {:else if !reminded}
@@ -887,6 +890,10 @@
   .card {
     align-content: center;
   }
+  /* In the intro's cell the card keeps its own height, at the bottom, so the portal above stays put. */
+  .card.page {
+    align-self: end;
+  }
   .soon {
     display: grid;
     gap: 6px;
@@ -1104,9 +1111,10 @@
   .page.on {
     visibility: visible;
   }
+  /* Content sits together just over Next; the room a shorter page leaves goes to the portal side. */
   section.page {
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    align-content: end;
     gap: 10px;
     padding: 2px 2px 0;
   }
@@ -1167,6 +1175,7 @@
     display: grid;
     align-content: start;
     gap: 8px;
+    margin-bottom: 6px;
     min-width: 0;
   }
   .aside {
@@ -1280,8 +1289,9 @@
     display: flex;
     justify-content: space-between;
     margin-top: -6px;
-    font: 500 var(--text-label) var(--font-pixel);
-    color: rgb(244 236 216 / 0.45);
+    font: 400 var(--text-caption) var(--font-ui);
+    font-variant-numeric: tabular-nums;
+    color: rgb(244 236 216 / 0.5);
   }
   .scale span:nth-child(2) {
     color: var(--portal-accent);
@@ -1491,7 +1501,7 @@
   .trend {
     flex: 1;
     min-width: 0;
-    height: 48px;
+    height: 40px;
   }
   .trend polyline {
     fill: none;
@@ -1510,6 +1520,11 @@
       stroke-dashoffset: 0;
     }
   }
+  .trend .guide {
+    stroke: rgb(244 236 216 / 0.12);
+    stroke-width: 0.5;
+    stroke-dasharray: 1 2;
+  }
   .trend rect {
     fill: var(--cream);
     opacity: 0;
@@ -1524,7 +1539,7 @@
   }
   .flash {
     position: relative;
-    height: 68px;
+    height: 56px;
     padding: 0;
     border: 0;
     background: none;
@@ -1671,6 +1686,7 @@
   }
   .kept-rows {
     display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     margin: 0;
     padding: 0;
@@ -1679,18 +1695,13 @@
   .kept-rows li {
     display: flex;
     align-items: center;
-    gap: 10px;
-    min-height: 38px;
-    padding: 0 12px;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 10px;
     border-radius: var(--radius);
     background: rgb(244 236 216 / 0.04);
     font: 600 var(--text-sub) var(--font-ui);
     color: var(--cream);
-  }
-  .kept-rows em {
-    margin-left: auto;
-    font: 400 var(--text-caption) var(--font-ui);
-    color: rgb(244 236 216 / 0.55);
   }
   .tick {
     width: 12px;
