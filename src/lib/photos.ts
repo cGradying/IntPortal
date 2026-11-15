@@ -1,5 +1,6 @@
 // What photos change in note lists (spec 046 C15a, C17b, C17d). Pure.
 import type { NoteItem } from "./api";
+import type { CameraProblem } from "./camera";
 
 export const MAX_PHOTOS = 20;
 
@@ -15,7 +16,7 @@ export const hasText = (n: Pick<NoteItem, "text">) => !!n.text.trim();
 export const hasNotes = (n: Pick<NoteItem, "text" | "photos">) => hasText(n) || !!n.photos;
 
 /** The one line when a photo can't be taken or saved (C17b). */
-export function photoProblem(kind: "camera_denied" | "no_camera" | "no_space" | "other"): string {
+export function photoProblem(kind: CameraProblem): string {
   switch (kind) {
     case "camera_denied":
       return "IntPortal can't use the camera. Turn it on in Settings, or add a photo from your library.";

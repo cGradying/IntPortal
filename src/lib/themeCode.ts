@@ -70,7 +70,7 @@ export function decodeTheme(code: string): Theme | null {
  * Reads a share code from one photo of its QR (C18), keeping nothing: the photo is gone once read.
  * Null when the student cancels; "" when the photo holds no QR.
  */
-export async function scanQr(): Promise<string | null> {
-  const got = await capture({ source: "camera", read: { qr: true } });
+export async function scanQr(downloading?: () => void): Promise<string | null> {
+  const got = await capture({ source: "camera", read: { qr: true } }, downloading);
   return got.cancelled ? null : (got.qr?.[0] ?? "");
 }

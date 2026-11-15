@@ -12,7 +12,7 @@
   import { app, deleteTheme, saveTheme, setRoom } from "./state.svelte";
   import { NIGHT, PATTERNS, PRESETS, hsl, hueOf, isDark, larLook, look, patternCss, roles, roll, seed, type Theme } from "./theme";
   import { decodeTheme, encodeTheme, scanQr } from "./themeCode";
-  import { cameraProblem } from "./camera";
+  import { cameraProblem, noScanner, scannerDownloading } from "./camera";
   import Lar from "./lar/Lar.svelte";
   import { SIS, THEMES } from "./lar/sprite";
   import PixelIcon from "./PixelIcon.svelte";
@@ -165,7 +165,8 @@
   }
   async function scan() {
     try {
-      const text = await scanQr();
+      const text = await scanQr(() => (addMsg = scannerDownloading));
+      if (addMsg === scannerDownloading) addMsg = "";
       if (text) tryCode(text);
       else if (text === "") addMsg = "No code in that photo. Fill the frame with the QR and try again, or paste the code.";
     } catch (e) {
@@ -175,7 +176,9 @@
           ? "The camera is off for IntPortal. Turn it on in the phone's Settings, or paste the code."
           : why === "no_camera"
             ? "This phone has no camera. Paste the code instead."
-            : "Couldn't read that photo. Try again, or paste the code.";
+            : why === "no_scanner"
+              ? noScanner
+              : "Couldn't read that photo. Try again, or paste the code.";
     }
   }
   function notNow() {
