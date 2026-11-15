@@ -280,6 +280,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
+    font-size: var(--text-input);
     resize: none;
   }
   .sis {

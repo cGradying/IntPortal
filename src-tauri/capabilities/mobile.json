@@ -8,7 +8,10 @@
     "main"
   ],
   "permissions": [
-    "haptics:default",
+    "haptics:allow-impact-feedback",
+    "haptics:allow-notification-feedback",
+    "haptics:allow-selection-feedback",
+    "haptics:allow-vibrate",
     "biometric:default",
     "glance:default",
     "calendar:default",
