@@ -94,7 +94,17 @@
 
   function say(topic?: Topic, announce = false) {
     const text = pick({ hour: new Date().getHours(), portal, typing: ctx === "typing" }, recent, rand, topic);
-    if (!text) return;
+    if (text) speak(text, announce);
+  }
+
+  /** LAR says exactly this line now, out loud to VoiceOver; the welcome's tour drives it (010 C45). */
+  export function sayLine(text: string) {
+    if (bornAt === null || held) return;
+    speak(text, true);
+    if (reduce) settle().then(frame);
+  }
+
+  function speak(text: string, announce: boolean) {
     recent = remember(recent, text);
     clearTimeout(leaveTimer);
     line = shown = text;
