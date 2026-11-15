@@ -85,6 +85,12 @@ pub fn review_card(state: tauri::State<'_, AppState>, deck_id: String, card_id: 
     Ok(Reviewed { deck, stats })
 }
 
+/// Seconds until the next review for each rating, Again to Easy (#268).
+#[tauri::command]
+pub fn review_preview(memory: Memory) -> [i64; 4] {
+    study::preview(&memory, unix_now())
+}
+
 #[tauri::command(async)]
 pub fn check_answer(card: Card, typed: String) -> bool {
     study::is_correct(&typed, &card)

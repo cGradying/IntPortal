@@ -202,8 +202,7 @@
           <div use:longpress={() => offer(d.id)} class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
           <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={(e) => done(d, e.currentTarget)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
           <button class="row" onclick={() => open(d)} aria-label="{d.title}, {d.subject ?? d.course ?? 'no subject'}, due {word}">
-            <span class="when" class:late={word === "Overdue"}>{word}</span>
-            <span class="what"><strong>{d.title}</strong><small>{d.subject ?? d.course ?? "Your own"}</small></span>
+            <span class="what"><strong>{d.title}</strong><small><b class="when" class:late={word === "Overdue"}>{word}</b> · {d.subject ?? d.course ?? "Your own"}</small></span>
           </button>
           {#if offered === d.id && !mark}
             <button class="offer" onclick={(e) => { offered = null; const b = e.currentTarget.closest("li")?.querySelector<HTMLElement>(".check"); if (b) done(d, b); }}>Mark done</button>
@@ -296,11 +295,7 @@
     text-align: left;
   }
   .when {
-    width: 72px;
-    flex: none;
-    font-family: var(--font-display);
     font-weight: 700;
-    font-size: var(--text-caption);
     color: var(--gold);
   }
   .when.late {
@@ -316,20 +311,20 @@
     text-overflow: ellipsis;
   }
   small {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     font-size: var(--text-label);
     color: var(--ink-3);
   }
   /* The box: empty, then filled in three steps. */
-  /* On the left, clear of the floating cube, and it says what it does (#220). */
+  /* On the left, clear of the floating cube, and it says what it does (#220): one 44 pt chip, box and word side by side. */
   .check {
     flex: none;
-    display: grid;
-    place-items: center;
-    align-content: center;
-    gap: 2px;
-    padding: 0;
-    background: none;
-    box-shadow: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px 0 8px;
     font-size: var(--text-label);
     line-height: 1;
     color: var(--ink-2);
@@ -552,10 +547,6 @@
     color: var(--ink-2);
     font-family: var(--font-display);
     font-weight: 700;
-  }
-  .check {
-    background: none;
-    box-shadow: none;
   }
   .all {
     height: 44px;

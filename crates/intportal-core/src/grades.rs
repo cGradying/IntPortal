@@ -91,11 +91,20 @@ impl GradeReport {
         year * 10 + rank
     }
 
+    /// Every subject is posted with a passing grade (1.00 to 3.00). A blank, INC or
+    /// DRP subject means it isn't known yet, so it's false (#266).
+    pub fn all_passed(&self) -> bool {
+        !self.subjects.is_empty() && self.subjects.iter().all(|s| s.numeric().is_some_and(|g| g <= PASSING))
+    }
+
     /// Posted units only, so unposted, INC and DRP don't inflate it.
     pub fn completed_units(&self) -> f64 {
         self.subjects.iter().filter(|s| s.is_posted()).map(|s| s.units).sum()
     }
 }
+
+/// The lowest passing grade on PUP's scale; 4.00 is conditional and 5.00 fails.
+pub const PASSING: f64 = 3.0;
 
 /// Rows with no subject code are spacers or totals lines and are skipped.
 pub fn parse(rows: &[GradeRow]) -> Vec<SubjectGrade> {
@@ -176,6 +185,8 @@ pub struct TermGpa {
     pub semester: Option<String>,
     pub gpa: f64,
     pub units: f64,
+    #[serde(default)]
+    pub all_passed: bool,
 }
 
 /// The Grades screen's numbers, all from here so the UI never re-does the math.
@@ -192,6 +203,9 @@ pub struct Standing {
     pub personal_best: bool,
     pub reach: Option<Reach>,
     pub goals: Goals,
+    /// The current term's subjects are all posted and passed.
+    #[serde(default)]
+    pub all_passed: bool,
 }
 
 /// The term picker lists the current term too; it is the same term when it
@@ -213,7 +227,7 @@ pub fn standing(current: Option<&GradeReport>, history: &[GradeReport], goals: G
     let past: Vec<TermGpa> = past
         .into_iter()
         .filter_map(|r| {
-            Some(TermGpa { gpa: r.gpa()?, units: r.completed_units(), school_year: r.school_year.clone(), semester: r.semester.clone() })
+            Some(TermGpa { gpa: r.gpa()?, units: r.completed_units(), school_year: r.school_year.clone(), semester: r.semester.clone(), all_passed: r.all_passed() })
         })
         .collect();
     let personal_best = term_gpa.is_some_and(|g| !past.is_empty() && past.iter().all(|p| g < p.gpa));
@@ -231,6 +245,7 @@ pub fn standing(current: Option<&GradeReport>, history: &[GradeReport], goals: G
         personal_best,
         reach,
         goals,
+        all_passed: current.is_some_and(GradeReport::all_passed),
     }
 }
 
@@ -354,5 +369,19 @@ mod tests {
     fn no_personal_best_without_past_terms() {
         let c = term("", "", &[row("A", "3", "1.00")]);
         assert!(!standing(Some(&c), &[], Goals::default()).personal_best);
+    }
+
+    #[test]
+    fn all_passed_needs_every_subject_posted_and_passing() {
+        let passed = |grades: &[&str]| term("", "", &grades.iter().enumerate().map(|(i, g)| row(&format!("S{i}"), "3", g)).collect::<Vec<_>>()).all_passed();
+        assert!(passed(&["1.00", "2.25", "3.00"]));
+        assert!(!passed(&["1.00", "4.00"]), "4.00 is conditional");
+        assert!(!passed(&["1.00", "5.00"]));
+        assert!(!passed(&["1.00", ""]), "a pending subject hides it");
+        assert!(!passed(&["1.00", "INC"]));
+        assert!(!passed(&["DRP"]));
+        assert!(!passed(&[]));
+        let c = term("", "", &[row("A", "3", "1.50")]);
+        assert!(standing(Some(&c), &[], Goals::default()).all_passed);
     }
 }
