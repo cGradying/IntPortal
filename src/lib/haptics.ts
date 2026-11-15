@@ -25,12 +25,19 @@ export function setHaptics(on: boolean) {
 // Two buzzes closer than this blur into one mushy one; keep the first.
 const GAP_MS = 35;
 let last = -Infinity;
+let warned = false;
 
 const send = (fire: () => Promise<unknown>) => () => {
   const now = Date.now();
   if (!haptics.on || Math.abs(now - last) < GAP_MS) return;
   last = now;
-  fire().catch(() => {});
+  fire().catch((e) => {
+    // Silent for students; in dev, say so once (a refused call looks like "no haptics").
+    if (import.meta.env.DEV && !warned) {
+      warned = true;
+      console.warn("haptics call rejected:", e);
+    }
+  });
 };
 
 export const buzz = {
