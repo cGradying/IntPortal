@@ -30,6 +30,7 @@
     still = false,
     showLar,
     quiet = false,
+    steady = false,
     leaving = false,
     ctx,
     mouth,
@@ -47,6 +48,8 @@
     showLar: boolean;
     /** The welcome: just the portal and LAR, nothing to pick or check yet (010 C42). */
     quiet?: boolean;
+    /** The intro: the row under the portal keeps one height on every page, so the portal never resizes (049 C3). */
+    steady?: boolean;
     leaving?: boolean;
     /** What the student is doing, for LAR. */
     ctx: Context;
@@ -410,7 +413,7 @@
 
 </script>
 
-<div class="stage" class:leaving>
+<div class="stage" class:leaving class:steady>
   <canvas
     bind:this={canvas}
     aria-hidden="true"
@@ -426,8 +429,8 @@
   <div class="sky"><LarFlight bind:this={flight} getRects={portalRects} show={showLar} {ctx} portal={larPortal} /></div>
   <!-- One quiet row of things to do before signing in: peek inside (C37) and whether the portal answers (C40).
        Once the student has peeked, the peek steps back and stays for a screen reader. -->
-  {#if !quiet}
-  <div class="quick" class:off={locked}>
+  <!-- Quiet (the intro), these keep their room, so the portal is the same size on every page (049 C3). -->
+  <div class="quick" class:off={locked} class:quiet inert={quiet}>
     {#if showLar && !locked && current.status === "ready" && peek === null}
       <button class="peek" class:known={peeked} onclick={peekFromButton}>
         <svg viewBox="0 0 7 5" aria-hidden="true" shape-rendering="crispEdges"><path d="M2 0h3v1H2zM1 1h1v1H1zM5 1h1v1H5zM0 2h1v1H0zM3 2h1v1H3zM6 2h1v1H6zM1 3h1v1H1zM5 3h1v1H5zM2 4h3v1H2z" fill="currentColor" /></svg>
@@ -443,7 +446,7 @@
   </div>
   <!-- The plaque names the school and opens the wall (C13a). -->
   {#key current.id}
-    <button class="plate" class:off={locked} aria-label="{current.name}, {current.school}. Choose your school" disabled={locked || portals.length < 2} onclick={(e) => openWall(e.currentTarget.getBoundingClientRect())}>
+    <button class="plate" class:off={locked} class:quiet inert={quiet} aria-label="{current.name}, {current.school}. Choose your school" disabled={locked || portals.length < 2} onclick={(e) => openWall(e.currentTarget.getBoundingClientRect())}>
       <span class="mini"><MiniPortal portal={current} /></span>
       <span class="names">
         <b style:color={current.theme.accent}>{current.name}</b>
@@ -454,7 +457,6 @@
       {/if}
     </button>
   {/key}
-  {/if}
 </div>
 {#if hub}
   <PortalHub {portals} {index} from={hubFrom} onpick={go} onclose={() => (hub = false)} />
@@ -517,6 +519,12 @@
   }
   .off {
     opacity: 0.5;
+  }
+  .quiet {
+    visibility: hidden;
+  }
+  .steady .quick {
+    min-height: 44px;
   }
   /* No boxes: the plaque, the peek and the chip are words on the ground, each a full 44 pt target. */
   .plate,
