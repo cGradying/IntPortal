@@ -1,24 +1,25 @@
 # IntPortal
 
-[![Version](https://img.shields.io/badge/version-0.1.4-c8102e)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.0-c8102e)](CHANGELOG.md)
 [![CI](https://github.com/cGradying/intportal-app/actions/workflows/ci.yml/badge.svg)](https://github.com/cGradying/intportal-app/actions/workflows/ci.yml)
 [![iOS build](https://github.com/cGradying/intportal-app/actions/workflows/ios.yml/badge.svg)](https://github.com/cGradying/intportal-app/actions/workflows/ios.yml)
+[![Android build](https://github.com/cGradying/intportal-app/actions/workflows/android.yml/badge.svg)](https://github.com/cGradying/intportal-app/actions/workflows/android.yml)
 ![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android-555)
 [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-555)](LICENSE)
 
-An unofficial student app for PUP, built for phones. It signs in to PUP's systems with your own account (the SIS for classes and grades, eMabini for courses and deadlines), keeps the data on the phone, and adds study tools and an on-device assistant around it. The look is a calm, clean interface with crafted pixel-art moments. LAR, the Lakbay-Aral Robot, does the talking. Isko is you.
+An unofficial student app for PUP, built for phones. It signs in to PUP's systems with your own account (the SIS for classes and grades, eMabini for courses and deadlines), keeps the data on the phone, and adds study tools and an on-device assistant around it. The look is a calm, clean interface on a dotted night ground, with crafted pixel-art moments. LAR, the Lakbay-Aral Robot, does the talking.
 
 It is a from-scratch rebuild of the macOS app, [cGradying/IntPortal](https://github.com/cGradying/IntPortal), which is now in maintenance. The old app's docs live in `docs/legacy/`; [docs/specs/](docs/specs/README.md) tracks what moves over.
 
-IntPortal is not made by or affiliated with PUP. Only your own account is supported, on the SIS and on eMabini, which is what PUP's terms allow. There are no store releases yet: build it yourself with the steps below.
+IntPortal is not made by or affiliated with PUP. Only your own account is supported, on the SIS and on eMabini, which is what PUP's terms allow. There are no store releases yet. Android builds are on the [releases page](https://github.com/cGradying/intportal-app/releases) as pre-releases; for iOS, build it yourself with the steps below.
 
 Every feature, tab by tab, is in [docs/FEATURES.md](docs/FEATURES.md); what changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 <p>
-  <img src="docs/images/ios-landing.png" width="180" alt="The landing with the SIS and Mabini portals on iPhone">
-  <img src="docs/images/ios-today.png" width="180" alt="Today with Up next and eMabini deadlines on iPhone">
-  <img src="docs/images/ios-schedule.png" width="180" alt="The week schedule on iPhone">
-  <img src="docs/images/ios-grades.png" width="180" alt="Grades with the GPA trend on iPhone">
+  <img src="docs/images/ios-landing.png" width="180" alt="The welcome on iPhone: the PUP portal, a tour of what is inside, and Sign in with SIS">
+  <img src="docs/images/ios-today.png" width="180" alt="Today on iPhone: the class in session and the deadlines with their Done buttons">
+  <img src="docs/images/ios-schedule.png" width="180" alt="The day schedule on iPhone, with free time between classes">
+  <img src="docs/images/ios-grades.png" width="180" alt="Grades on iPhone: the term GPA, a personal best and the trend across terms">
 </p>
 <p>
   <img src="docs/images/android-today.png" width="180" alt="Today on Android">
@@ -28,12 +29,13 @@ Every feature, tab by tab, is in [docs/FEATURES.md](docs/FEATURES.md); what chan
 
 ## What it does
 
-- **Portals.** Pick SIS or Mabini (PUP's eMabini learning system) on the landing. Each has its own login, limits and colours; you can use one or both.
-- **Today.** Up next with a countdown, today's classes with the free time between them, your GPA at a glance, deadlines due soon, and one nudge from LAR.
+- **A welcome you can touch.** Before any form, the landing shows what the app holds: open the portal's peek on Today, Schedule, Grades or Study, have LAR explain what the app does, and try six looks that stay after you sign in. **Look around first** opens the whole app on sample data, with no PUP account.
+- **Portals.** SIS and Mabini (PUP's eMabini learning system) work now. Each has its own login, limits and colours; you can use one or both. The portal wall lists every PUP school, and a status chip says whether the SIS is answering without sending your login.
+- **Today.** Up next with a countdown, today's classes with the free time between them, your GPA at a glance, one Due card for SIS, eMabini and your own deadlines (Done with Undo), and one nudge from LAR.
 - **Schedule.** Day and week views. Long-press a class to mark it vacant or online, move it for a week, colour it, or add a note.
-- **Grades.** Every term with a real GPA, goals, and what you need on the rest to reach a target.
-- **Study.** Flashcard decks scheduled by FSRS, with three ways to study and a daily streak.
-- **Syllabus and notes.** Paste a course outline to track quizzes and exams, and keep notes per class or per day.
+- **Grades.** Every term with a real GPA, a trend across terms, an All passed pill, goals, and what you need on the rest to reach a target.
+- **Study.** Flashcard decks scheduled by FSRS, with three ways to study, each rating showing when the card comes back, a recap after each round, review across every deck, and a daily streak.
+- **Syllabus and notes.** Paste a course outline to track quizzes and exams. Notes are formatted Markdown with templates, checklists, photos and notebooks per subject, kept per class or per day.
 - **Mabini.** Your eMabini courses, the deadlines from every course on Today, and course grades next to the SIS ones.
 - **IntAssis (optional).** LAR answers questions about your classes, grades, deadlines and notes with a small model that runs on the phone, and says which notes an answer came from. Ask AI inside a note summarizes, tidies or explains it; it can also make flashcards from a note and explain a wrong answer. You download the model only if you choose "With AI" at first run. Nothing it suggests changes until you confirm.
 - **Reminders.** Before each class, the evening before deadlines, and on study days.
@@ -55,12 +57,12 @@ Every feature, tab by tab, is in [docs/FEATURES.md](docs/FEATURES.md); what chan
 crates/intportal-core/   Rust core and its tests
 crates/intportal-ai/     IntAssis logic, tested with a fake model
 crates/intportal-llm/    llama.cpp, model download, memory gate
-src-tauri/               Tauri shell: commands, keychain, store opening
+src-tauri/               Tauri shell: commands (src-tauri/src/commands), keychain, store opening
 src-tauri/gen/apple/     Xcode project, generated from project.yml by XcodeGen
 src-tauri/gen/android/   Gradle project, from tauri android init (see docs/android.md)
 plugins/                 Local Tauri plugins with Swift and Kotlin sources
 src/                     Svelte interface (screens in src/lib/screens)
-scripts/                 sim.sh, phone.sh, emu.sh, worktree.sh, version.sh, disk.sh, clean.sh, tiles.sh
+scripts/                 sim.sh, phone.sh, emu.sh, worktree.sh, version.sh, disk.sh, clean.sh, tiles.sh, and the three CI checks
 spikes/                  Throwaway experiments (SIS over HTTP, llama.cpp)
 docs/ARCHITECTURE.md     Layers, flows, owners and invariants: start here
 docs/TEAM.md             Roles, the issue-to-merge loop, kickoff prompts
@@ -77,7 +79,7 @@ CHANGELOG.md             What changed in each version
 ## Requirements
 
 - macOS with Xcode and the iOS simulator runtime that matches it (`xcodebuild -downloadPlatform iOS`)
-- Rust (stable) with the iOS targets: `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`
+- Rust (stable) with the iOS and WebAssembly targets: `rustup target add aarch64-apple-ios aarch64-apple-ios-sim wasm32-unknown-unknown`
 - Node 22 and pnpm
 - XcodeGen (`brew install xcodegen`)
 - For Android: Android Studio with SDK 36, NDK r28 or newer and an emulator, JDK 17 (`brew install openjdk@17`), and `rustup target add aarch64-linux-android`
@@ -96,9 +98,12 @@ pnpm install
 pnpm check
 pnpm test
 cargo test -p intportal-core
+node scripts/commands-check.mjs
+node scripts/style-lint.mjs
+node scripts/tap-targets.mjs
 ```
 
-CI runs the same on every pull request, plus clippy. Each push to `main` also builds the iOS simulator app.
+CI runs the same on every pull request, plus clippy. `commands-check` keeps the commands the shell registers and the ones the interface calls in step; `style-lint` holds type sizes, durations and corners to the tokens in `DESIGN.md`; `tap-targets` holds every button to 44 pt. Each push to `main` also builds the iOS simulator app, and each `android-v*` tag builds the Android release APK.
 
 ### iOS simulator
 
@@ -106,7 +111,7 @@ CI runs the same on every pull request, plus clippy. Each push to `main` also bu
 scripts/sim.sh "iPhone 17 Pro Max"
 ```
 
-The argument is a simulator name or id; with none, the booted simulator is used. The script builds the debug app, installs it and launches it. Tap **Look around with demo data** to skip sign-in, then **Step through**.
+The argument is a simulator name or id; with none, the booted simulator is used. The script builds the debug app, installs it and launches it. Tap **Look around first** to skip sign-in, then **Step through**.
 
 `pnpm tauri ios dev` can pick a real device with the same model name, which then needs signing, so prefer `scripts/sim.sh`.
 
@@ -130,7 +135,7 @@ A free Apple account works, with two limits. The app stops opening after 7 days,
 scripts/emu.sh
 ```
 
-With an emulator running (or a phone on USB), the script builds the arm64 debug APK, installs it and launches it. Tap the portal, then **Look around with demo data**, then **Step through**. Where each Android piece lives, what to check after a change and the problems already solved are in [docs/android.md](docs/android.md).
+With an emulator running (or a phone on USB), the script builds the arm64 debug APK, installs it and launches it. Tap **Look around first**, then **Step through**. Where each Android piece lives, what to check after a change and the problems already solved are in [docs/android.md](docs/android.md).
 
 ### Changing native settings
 
