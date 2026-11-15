@@ -16,7 +16,7 @@
   import { buzz } from "../haptics";
   import { hold, pause, pick, remember, type Topic } from "./lines";
   import { SPAWN_SECS, W, drawLar, rig, type State } from "./sprite";
-  import { create, landing, rng, tick, type Context, type Lar, type Rect, type World } from "./wander";
+  import { create, landing, placeBubble, rng, tick, type Context, type Lar, type Rect, type World } from "./wander";
 
   let {
     getRects,
@@ -52,6 +52,8 @@
 
   let canvas: HTMLCanvasElement;
   let bubble: HTMLDivElement;
+  /** Which of the bubble's spots it last took. */
+  let spotK = -1;
   let tap: HTMLButtonElement;
   const rand = rng(Math.floor(Math.random() * 1e9));
   const look = rig("idle");
@@ -190,12 +192,10 @@
     // Svelte has to render a fresh line before it can be measured.
     flushSync();
     if (bubble && shown) {
-      const right = x < w.w / 2;
-      const bw = bubble.offsetWidth;
-      const bx = right ? Math.min(w.w - bw - 4, x + R * 0.8) : Math.max(4, x - R * 0.8 - bw);
-      const by = Math.max(4, y - R - bubble.offsetHeight + 4);
-      bubble.style.transform = `translate(${bx}px, ${by}px)`;
-      bubble.dataset.side = right ? "right" : "left";
+      const pick = placeBubble(w, { x, y }, { w: bubble.offsetWidth, h: bubble.offsetHeight }, spotK);
+      spotK = pick.k;
+      bubble.style.transform = `translate(${pick.x}px, ${pick.y}px)`;
+      bubble.dataset.side = pick.x >= x ? "right" : "left";
       bubble.dataset.placed = "";
     }
   }
@@ -222,6 +222,16 @@
       ro.disconnect();
       document.removeEventListener("visibilitychange", visibility);
     };
+  });
+
+  // A new portal at the front: whatever he was saying was about the last one.
+  let saidFor = "";
+  $effect(() => {
+    const id = portal.id;
+    untrack(() => {
+      if (saidFor && saidFor !== id) hide();
+      saidFor = id;
+    });
   });
 
   // Out he comes once the landing rests.

@@ -28,14 +28,17 @@ export function search(portals: Portal[], q: string): Portal[] {
   return hits.sort((a, b) => lead(a) - lead(b));
 }
 
-/** The hub's lists: search results, or recent, the region, then A–Z by school. */
+/** The hub's lists: search results, or the portals that open now, recent, the region, then A–Z by school. */
 export function sections(portals: Portal[], q: string, recent: string[], region?: string): Section[] {
   if (q.trim()) return [{ title: "Results", items: search(portals, q) }];
   const byId = new Map(portals.map((p) => [p.id, p]));
   const out: Section[] = [];
+  const open = portals.filter((p) => p.status === "ready");
+  if (open.length && open.length < portals.length) out.push({ title: "Open now", items: open });
   const mine = recent.map((id) => byId.get(id)).filter((p): p is Portal => !!p);
   if (mine.length) out.push({ title: "Recent", items: mine });
-  const near = region ? portals.filter((p) => p.region === region && !recent.includes(p.id)) : [];
+  const shown = new Set([...recent, ...(out[0]?.title === "Open now" ? out[0].items.map((p) => p.id) : [])]);
+  const near = region ? portals.filter((p) => p.region === region && !shown.has(p.id)) : [];
   if (near.length) out.push({ title: region!, items: near });
   const sorted = [...portals].sort((a, b) => a.school.localeCompare(b.school));
   for (const p of sorted) {

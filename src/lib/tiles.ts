@@ -27,7 +27,12 @@ export function fpsFor(t: number, stage: Stage, openedAt: number | null, moving 
   return 30;
 }
 
-export const hex = (rgb: number) => "#" + rgb.toString(16).padStart(6, "0");
+/** A packed tile colour, `0xAARRGGBB` with 0 in the top byte for opaque, as a CSS colour. */
+export const hex = (v: number) => {
+  const a = v >>> 24;
+  const rgb = "#" + (v & 0xffffff).toString(16).padStart(6, "0");
+  return a ? rgb + a.toString(16).padStart(2, "0") : rgb;
+};
 
 /** One portal as the scene reads it. */
 export function packPortal(p: Portal): number[] {
@@ -46,6 +51,7 @@ interface Exports {
   gap(): number;
   portal_rect(pos: number, p: number): number;
   metrics(): number;
+  ground_grid(p: number): number;
   poke(c: number, r: number, t: number): void;
 }
 
@@ -74,6 +80,11 @@ export async function loadTiles(url = "/tiles.wasm") {
       const m = x.metrics();
       return { pitch: m >>> 16, tile: m & 0xffff };
     },
+    /** The ground's grid for portal `p`, in device px: where a dot's cell starts, the pitch and an unlit dot's side. */
+    grid(p: number) {
+      const g = new Int32Array(x.memory.buffer, x.ground_grid(p), 4);
+      return { x: g[0], y: g[1], pitch: g[2], dot: g[3] };
+    },
     /** Device px between neighbouring portals in the last frame. */
     gap: () => x.gap(),
     /** Portal `p`'s frame box in device px, [x, y, w, h], at carousel position `pos` (default: the selected one). */
@@ -93,8 +104,8 @@ export async function loadTiles(url = "/tiles.wasm") {
     draw(ctx: CanvasRenderingContext2D, f: Frame): number {
       const n = x.frame(f.t, f.prev, STAGES[f.stage], f.openedAt, (f.returning ? 1 : 0) | (f.reduce ? 2 : 0), f.pos, f.vel);
       const a = new Int32Array(x.memory.buffer, x.tiles(), n * 4);
-      ctx.fillStyle = VOID;
-      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      // No fill: the page's ground and its grid of dots show through, so the portal stands on them.
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       for (let i = 0; i < a.length; i += 4) {
         ctx.fillStyle = hex(a[i + 3]);
         ctx.fillRect(a[i], a[i + 1], a[i + 2], a[i + 2]);

@@ -413,6 +413,13 @@ export interface Tries {
   rejected: boolean;
 }
 
+/** Whether a portal answered a plain request just now (spec 010 C40). */
+export interface PortalStatus {
+  up: boolean;
+  /** The SIS host that answered. */
+  host: string | null;
+}
+
 export type PortalField = "student_number" | "birthdate" | "password";
 
 export interface Portal {
@@ -491,6 +498,7 @@ export const api = {
   reminders: (now: Moment, lead: number, days: number, prefs: { deadlines: number | null; study: number | null; utc_offset: number; warm_up: boolean; after_class: boolean; brief: boolean }) =>
     invoke<Reminder[]>("reminders", { now, lead, days, prefs }),
   portals: () => invoke<Portal[]>("portals"),
+  portalStatus: (portal: string) => invoke<PortalStatus>("portal_status", { portal }),
   triesLeft: () => invoke<Tries>("tries_left"),
   mabiniSignIn: (login: MabiniLogin) => invoke<MabiniData>("mabini_sign_in", { login }),
   mabiniSync: () => invoke<MabiniData>("mabini_sync"),

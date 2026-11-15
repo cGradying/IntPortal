@@ -3,15 +3,59 @@
   // sheet over the landing. Search by short name, school or region; the
   // student's recent picks and their region come first, then A–Z with a rail
   // to jump. Picking one turns the orbit to it.
-  import { tick } from "svelte";
+  import { onMount, tick } from "svelte";
   import type { Portal } from "./api";
+  import { flatFace, runDither } from "./assis/dither-draw";
+  import MiniPortal from "./MiniPortal.svelte";
   import { closable } from "./back";
   import { buzz } from "./haptics";
   import { loadRecent, remember, saveRecent, sections } from "./hub";
   import { visualViewport } from "./viewport.svelte";
 
-  let { portals, index, onpick, onclose }: { portals: Portal[]; index: number; onpick: (i: number) => void; onclose: () => void } = $props();
-  $effect(() => closable(() => onclose()));
+  let {
+    portals,
+    index,
+    from,
+    onpick,
+    onclose,
+  }: {
+    portals: Portal[];
+    index: number;
+    /** The plaque it opens from: the wall dithers out of it and back into it, like LAR's chat (spec 048). */
+    from?: DOMRect;
+    onpick: (i: number) => void;
+    onclose: () => void;
+  } = $props();
+  $effect(() => closable(() => close()));
+
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let sheet: HTMLElement;
+  let pc: HTMLCanvasElement;
+  /** The cells are drawing the wall: the real sheet waits, hidden, for the swap frame. */
+  let dithering = $state(!reduce);
+  let closing = false;
+  const face = () => flatFace(getComputedStyle(sheet).backgroundColor, "rgb(245 178 39 / 0.3)");
+  const box = () => {
+    const r = sheet.getBoundingClientRect();
+    return { x: r.left, y: r.top, w: r.width, h: r.height };
+  };
+  const chip = () => (from ? { x: from.left, y: from.top, w: from.width, h: from.height } : { x: innerWidth / 2 - 22, y: innerHeight - 66, w: 44, h: 44 });
+
+  onMount(() => {
+    if (reduce) return;
+    tick()
+      .then(() => runDither({ canvas: pc, chip: chip(), win: box(), face: face(), mode: "open" }))
+      .finally(() => (dithering = false));
+  });
+
+  function close() {
+    if (closing) return;
+    closing = true;
+    if (reduce) return onclose();
+    const win = box();
+    dithering = true;
+    runDither({ canvas: pc, chip: chip(), win, face: face(), mode: "close" }).finally(onclose);
+  }
 
   const vv = visualViewport();
   let q = $state("");
@@ -27,7 +71,7 @@
     recent = remember(recent, p.id);
     saveRecent(recent);
     onpick(portals.indexOf(p));
-    onclose();
+    close();
   }
 
   // The rail follows the finger, like the phone's own contact list.
@@ -54,21 +98,13 @@
   let field: HTMLInputElement;
 </script>
 
-{#snippet mini(p: Portal)}
-  <!-- A tiny portal: an obsidian ring round the school's ramp, darkest at the top. -->
-  <svg class="mini" viewBox="0 0 5 7" aria-hidden="true" shape-rendering="crispEdges">
-    <rect width="5" height="7" style="fill: var(--obsidian)" />
-    {#each p.theme.ramp.slice(1) as c, i (i)}<rect x="1" y={1 + i * 1.25} width="3" height="1.25" fill={c} />{/each}
-    <rect x="2" y="0" width="1" height="1" fill={p.theme.accent} />
-  </svg>
-{/snippet}
-
-<div class="scrim" role="presentation" onclick={onclose}></div>
+<div class="scrim" role="presentation" onclick={close}></div>
+<canvas class="dither" bind:this={pc} aria-hidden="true"></canvas>
 <div class="frame" style:top="{vv.top}px" style:height="{vv.h}px">
-  <div class="sheet" role="dialog" aria-label="Choose your school" style:--accent={current?.theme.accent ?? "var(--portal-gold)"}>
+  <div class="sheet" class:dithering bind:this={sheet} role="dialog" aria-label="Choose your school" style:--accent={current?.theme.accent ?? "var(--portal-gold)"}>
     <header>
       <h2>Choose your school</h2>
-      <button class="close" onclick={onclose}>Done</button>
+      <button class="close" onclick={close}>Done</button>
     </header>
 
     <label class="search">
@@ -94,20 +130,35 @@
         {#each list as s (s.title)}
           <section data-section={s.letter ?? s.title}>
             <h3>{s.title}</h3>
-            <ul>
-              {#each s.items as p (p.id)}
-                <li>
-                  <button class="row" class:on={p === current} aria-current={p === current} onclick={() => pick(p)} style:--c={p.theme.accent}>
-                    {@render mini(p)}
-                    <span class="names">
+            {#if s.title === "Open now"}
+              <!-- The portals that work today, as large cards: the reason to be here (C13a). -->
+              <ul class="open">
+                {#each s.items as p (p.id)}
+                  <li>
+                    <button class="card" class:on={p === current} aria-current={p === current} onclick={() => pick(p)} style:--c={p.theme.accent}>
+                      <span class="big"><MiniPortal portal={p} /></span>
                       <b>{p.name}</b>
                       <span>{p.school}</span>
-                    </span>
-                    {#if p.status === "ready"}<span class="chip ready">Ready</span>{:else}<span class="chip">Soon</span>{/if}
-                  </button>
-                </li>
-              {/each}
-            </ul>
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <ul>
+                {#each s.items as p (p.id)}
+                  <li>
+                    <button class="row" class:on={p === current} aria-current={p === current} onclick={() => pick(p)} style:--c={p.theme.accent}>
+                      <span class="mini"><MiniPortal portal={p} /></span>
+                      <span class="names">
+                        <b>{p.name}</b>
+                        <span>{p.school}</span>
+                      </span>
+                      {#if p.status === "ready"}<span class="chip ready">Ready</span>{:else}<span class="chip">Soon</span>{/if}
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
           </section>
         {/each}
         {#if q.trim() && !list[0]?.items.length}
@@ -299,7 +350,65 @@
   .mini {
     width: 20px;
     height: 28px;
-    image-rendering: pixelated;
+  }
+  .open {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    padding-top: 2px;
+  }
+  .card {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    justify-items: start;
+    align-content: start;
+    gap: 2px;
+    padding: 14px 14px 12px;
+    border: 0;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--c) 7%, var(--void));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 28%, transparent);
+    color: inherit;
+    text-align: left;
+    transition: background var(--t-quick) var(--ease);
+  }
+  .card:active {
+    background: color-mix(in srgb, var(--c) 14%, var(--void));
+  }
+  .card.on {
+    box-shadow: inset 0 0 0 1.5px var(--c);
+  }
+  .card:focus-visible {
+    outline: 2px solid var(--c);
+    outline-offset: 2px;
+  }
+  .big {
+    width: 30px;
+    height: 42px;
+    margin-bottom: 10px;
+  }
+  .card b {
+    font: 700 var(--text-body) / 1.2 var(--font-ui);
+    color: var(--c);
+  }
+  .card > span:last-child {
+    font-size: var(--text-caption);
+    line-height: 1.3;
+    color: rgb(244 236 216 / 0.66);
+  }
+  /* The dither draws the wall in and out; the real sheet waits for the swap frame (spec 048). */
+  .dither {
+    position: fixed;
+    inset: 0;
+    z-index: 62;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .sheet.dithering {
+    visibility: hidden;
+    animation: none;
   }
   .names {
     display: grid;

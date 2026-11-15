@@ -1,7 +1,7 @@
 // What the landing and the You screen need to treat each portal alike: which
 // fields it asks for, whether they are filled in, what to say. Pure, so
 // components never branch on a portal id.
-import type { Portal, Tries } from "./api";
+import type { Portal, PortalStatus, Tries } from "./api";
 
 export interface FormValues {
   student_number: string;
@@ -44,6 +44,10 @@ export interface PortalCopy {
   hint: string;
   /** One line under the wordmark: what IntPortal does with this portal (spec 010 C38). */
   pitch: string;
+  /** The system's short name, as in "IntPortal only talks to …". */
+  system: string;
+  /** Where a student resets a forgotten password: the portal's own page (011 C12). */
+  reset: string;
 }
 
 const COPY: Record<string, PortalCopy> = {
@@ -51,17 +55,29 @@ const COPY: Record<string, PortalCopy> = {
     lar: "Hi, I'm LAR. Sign in with your SIS login and I'll bring everything over.",
     keychainNote: "Your login stays in this phone's keychain. IntPortal only talks to PUP SIS.",
     hint: "PUP SIS",
-    pitch: "Your SIS schedule, grades and deadlines on your phone. Works offline.",
+    pitch: "Your schedule, grades and deadlines. Works offline.",
+    system: "PUP SIS",
+    reset: "https://sis8.pup.edu.ph/student/",
   },
   mabini: {
     lar: "Hi, I'm LAR. Sign in to eMabini and I'll bring your courses and deadlines.",
     keychainNote: "Your login stays in this phone's keychain. IntPortal only talks to PUP eMabini.",
     hint: "PUP eMabini",
-    pitch: "Your eMabini courses and deadlines, next to your classes. Works offline.",
+    pitch: "Your eMabini courses and deadlines. Works offline.",
+    system: "PUP eMabini",
+    reset: "https://emabini.pup.edu.ph/login/forgot_password.php",
   },
 };
 
 export const portalCopy = (id: string): PortalCopy => COPY[id] ?? COPY.sis;
+
+/** What the plaque's chip says about a portal: `status` is the last check, null while one is out (010 C40). */
+export function statusChip(portal: Portal, status: PortalStatus | null): { text: string; tone: "up" | "down" | "wait" | "soon" } {
+  if (portal.status !== "ready") return { text: "Opens soon", tone: "soon" };
+  if (!status) return { text: "Checking…", tone: "wait" };
+  if (!status.up) return { text: "Not answering", tone: "down" };
+  return { text: `${portalCopy(portal.id).system.replace(/^PUP /, "")} is up`, tone: "up" };
+}
 
 /** Drawn until the core's list arrives, so the form is never empty. */
 export const FALLBACK_SIS: Portal = {
