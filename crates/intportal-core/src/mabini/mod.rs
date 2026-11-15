@@ -40,6 +40,8 @@ pub struct LoginPage {
 impl LoginPage {
     pub async fn fetch() -> Result<Self, Error> {
         let http = reqwest::Client::builder()
+            .connect_timeout(host::CONNECT_TIMEOUT)
+            .timeout(host::REQUEST_TIMEOUT)
             .cookie_store(true)
             .redirect(Policy::custom(|a| if host::is_trusted(a.url()) && a.previous().len() < 10 { a.follow() } else { a.stop() }))
             .build()?;

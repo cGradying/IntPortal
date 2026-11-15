@@ -22,7 +22,7 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 
 ## Behaviour
 
-Shipped in `crates/intportal-tiles` (the scene and the dive), `Landing.svelte`, `PortalStage.svelte`, `PortalPeek.svelte`, `Dive.svelte`, `Greeting.svelte` and `lar/LarFlight.svelte`: C1–C19, C22–C38.
+Shipped in `crates/intportal-tiles` (the scene and the dive), `Landing.svelte`, `PortalStage.svelte`, `PortalPeek.svelte`, `Dive.svelte`, `Greeting.svelte`, `PortalHub.svelte`, `MiniPortal.svelte` and `lar/LarFlight.svelte`: C1–C19, C22–C41.
 
 **Fit.** The portal takes whatever height the form leaves and picks the largest whole-pixel tile pitch that fits the 12 × 16 grid with a tile of margin, so it stays crisp and centred on every phone's aspect ratio.
 
@@ -30,7 +30,7 @@ Shipped in `crates/intportal-tiles` (the scene and the dive), `Landing.svelte`, 
 
 - **C1.** The frame is 24 blocks, 6 wide by 8 tall, one block thick, like a Nether portal. In tetromino terms: I, L and J pieces.
 - **C2.** Each block is 2 × 2 tiles, giving a 12 × 16 tile grid. At 1× a tile is 11 px on a 14 px pitch.
-- **C3.** Tiles are flat squares with gaps on a black void, in four obsidian tones. The inner edge is one tone darker. No texture, grain, glyphs, floor or shaders.
+- **C3.** Tiles are flat squares with gaps, in four obsidian tones. The inner edge is one tone darker. No texture, grain, glyphs or shaders. *Amended 2026-11-15:* the void is the app's own night ground with an unlit grid of square dots on the portal's tile pitch, so the page's dots and the frame's tiles share centres. Within four tiles of the frame the dots grow and take a tone from the school's ramp, falling off with distance. The frame's last four rows are mirrored under its foot in tiles that fade out row by row. Ground tiles (the glow, the mirror and the stars) fade by transparency, never toward black, so none of them reads as a dark square on the lit ground.
 
 **Spawn**
 
@@ -53,7 +53,7 @@ Shipped in `crates/intportal-tiles` (the scene and the dive), `Landing.svelte`, 
 **Portals carousel**
 
 - **C13.** The portals ride an orbit like planets round a sun: the selected one faces you, centred and full size; its neighbours sit well out to the sides, smaller, higher and dimmer, and portals further round are behind, out of sight. Changing portal turns the whole orbit (about 0.7 s on a soft spring), while a faint starfield behind drifts with parallax and each star trails a tail on the side the orbit came from, brighter at the head and fading to the void, that grows and shrinks smoothly with the turning speed and retracts as the spring settles; stars fade out before they wrap the screen edge, and at rest they only twinkle (Reduce Motion: still, no tails). Swipe to turn it, with a rubber band at the ends; letting go springs to the nearest portal, and a flick moves one portal. Labelled arrows do the same without a swipe. Each snap ticks a `select` haptic. It supports N portals: only the few in view are drawn.
-- **C13a. The hub.** The caption under the portal names the school and opens the hub, a sheet listing every school the core knows (about 100: PUP's portals, then the state universities and colleges in `crates/intportal-core/src/schools.rs`, each derived from one base colour). Search matches the short name, the school and the region, ignoring case, spaces and accents. Without a search it shows the student's recent picks (five, kept on the phone), then their region, then A–Z by school with a letter rail to jump. Each row has a tiny portal in the school's ramp, its short name, its full name and Ready or Soon. Picking a school closes the hub and turns the orbit to it; a pick more than three portals away warps to three short and springs the rest, streaking the stars.
+- **C13a. The hub (the portal wall).** *Amended 2026-11-15:* the plaque under the portal (the school's mini portal, its short name in the accent, its full name, a chevron) opens the wall, which dithers out of the plaque and back into it like LAR's chat (spec 048), and "1 of 108" is gone. Without a search the wall starts with **Open now**: the portals that work today as large cards. The region below leaves those out; A–Z keeps them. Originally: the caption under the portal names the school and opens the hub, a sheet listing every school the core knows (about 100: PUP's portals, then the state universities and colleges in `crates/intportal-core/src/schools.rs`, each derived from one base colour). Search matches the short name, the school and the region, ignoring case, spaces and accents. Without a search it shows the student's recent picks (five, kept on the phone), then their region, then A–Z by school with a letter rail to jump. Each row has a tiny portal in the school's ramp, its short name, its full name and Ready or Soon. Picking a school closes the hub and turns the orbit to it; a pick more than three portals away warps to three short and springs the rest, streaking the stars.
 - **C14.** A portal that is not ready shows "Opens soon" and the school's name in place of the form, and cannot be stepped into. The card keeps its height so the portal above never jumps.
 - **C15.** SIS and Mabini are ready; the state-university placeholders show "Opens soon" ([012](012-portals.md) C2, C12). The carousel is locked while signing in and once signed in.
 
@@ -117,9 +117,15 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 - **C37. Peek through the portal.**
   - After the ring has run 0.38 s, a view opens out of the portal's mouth in six pixel steps, larger than the portal, and shows what is on the other side, with sample data marked "Sample": Today (the next class and a due), Schedule (a week of blocks), Grades (this term's average and three subjects) and Study (a flashcard and cards due). LAR names each page in a line inside the view.
   - Each page holds 4.5 s, then turns; a tap on the view turns it at once; the last page closes it. A tap on the void round the portal, a focused field, a swipe to another portal or Step through closes it too.
-  - Until the student's first peek, "Tap the portal to peek inside" shows under the portal, in Pixelify; it is remembered on the phone.
+  - Until the student's first peek, a "Peek inside" button with a pixel eye sits under the portal (*amended 2026-11-15*, was a hint line); once they have peeked it leaves the screen and stays for VoiceOver and the keyboard. It is remembered on the phone.
   - The view is one button: VoiceOver reads the page's name and "Tap for the next one".
-- **C38. A one-line pitch.** Under the wordmark, one line in the system face says what IntPortal does with the selected portal: "Your SIS schedule, grades and deadlines on your phone. Works offline." (SIS), "Your eMabini courses and deadlines, next to your classes. Works offline." (Mabini), and "{school} is next. For now, IntPortal works with PUP." for a portal that is not ready.
+- **C38. A one-line pitch.** Under the wordmark, one line in the system face says what IntPortal does with the selected portal: "Your schedule, grades and deadlines. Works offline." (SIS), "Your eMabini courses and deadlines. Works offline." (Mabini), and "{school} is next. For now, IntPortal works with PUP." for a portal that is not ready. *Amended 2026-11-15:* shorter, so it is one line on a 375 pt phone; on a phone under 700 pt tall the ready portals' line gives its room to the portal, and a not-ready portal keeps its line.
+
+**Things to do before signing in** (added 2026-11-15, the owner's ask that the landing have functions a student can use)
+
+- **C39. Look around.** "Look around" sits beside Sign in and, for a portal that is not ready, in place of the form. It opens the whole app on sample data, in release builds too, with no login.
+- **C40. Is the portal up?** A chip beside "Peek inside" says "SIS is up" (or "eMabini is up"), "Checking…", "Not answering" or, for a portal that is not ready, "Opens soon". It asks the `portal_status` command, which loads the portal's sign-in page and nothing more: no credentials, every SIS host tried at once with a 6 s limit each. The answer is kept a minute; a tap asks again. It talks only to the school's own servers.
+- **C41. LAR's words never cover the frame.** His bubble goes beside him, above, level or below, else just under or over the frame: the first spot clear of every frame tile and of him. It keeps its spot while that stays clear. Right under the frame's middle, where nothing else fits, it may cover him but never the frame. When the portal at the front changes, he drops what he was saying.
 
 **Motion budget and renderer**
 
@@ -181,7 +187,12 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 | C35 | vitest `greeting.test.ts`; screen recording: dive, hello, Today rising, no pops; a tap skips |
 | C36 | `cargo test`: `c36_a_touch_rings_out_from_the_finger_and_fades`; vitest `peek.test.ts`: `c36_a_tap_is_short_and_still_a_swipe_is_not`; recording: the ring, LAR carried and dropped |
 | C37 | vitest `peek.test.ts`: `c37_the_peek_shows_today_schedule_grades_study_then_closes`; recording: the view opens out of the mouth, turns, closes on a tap outside |
-| C38 | screenshot |
+| C38 | screenshot at 375 by 667 and 440 by 956 |
+| C3 (2026-11-15) | `cargo test -p intportal-tiles`: `c3_the_portal_lights_the_ground_near_it_and_no_further`, `c3_the_frame_is_mirrored_under_its_foot_for_four_fading_rows`, `c3_ground_dots_share_the_tiles_grid_and_grow_toward_the_frame`, `c3_the_pages_dots_line_up_with_the_portals_tiles`, `c3_the_ground_fades_by_transparency_not_toward_black`; vitest `tiles.test.ts` (alpha in `hex`) |
+| C13a (2026-11-15) | vitest `hub.test.ts`: Open now first, region without repeats; screenshot of the wall |
+| C39 | screenshot; review: `demo()` has no debug gate |
+| C40 | vitest `portals.test.ts`: `statusChip`; `cargo test -p intportal` builds `portal_status` |
+| C41 | vitest `lar/wander.test.ts`: `placeBubble` sweep over the stage |
 | C16 | recording: the portal builds in the middle and lifts as the form rises |
 | C22–C23 | measured fps on the 17e, reported in the PR |
 | C24 | review: no three.js in `package.json`; bundle size reported |

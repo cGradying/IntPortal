@@ -9,6 +9,11 @@ static CANDIDATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^sis\d+\.pup\.
 
 pub const DEFAULT_ORDER: [&str; 3] = ["sis8.pup.edu.ph", "sis1.pup.edu.ph", "sis2.pup.edu.ph"];
 
+/// How long a portal gets to accept a connection, and to answer one request in full. The SIS is
+/// slow and often down; without these a sync waits on a dead host for as long as the phone allows.
+pub const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+pub const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// Exactly `sisN.pup.edu.ph`, so neither `www.pup.edu.ph` nor a lookalike
 /// such as `sis8.pup.edu.ph.evil.com` passes.
 pub fn is_candidate(host: &str) -> bool {

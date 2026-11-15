@@ -56,6 +56,11 @@ Typography is a new pair from OFL fonts: Geist for the interface and Pixelify Sa
 - **C16.** After a rejected password, nothing signs in again automatically (sync, launch, the minute ticker) until the student edits the login.
 - **C17.** When the limit is reached the form is disabled and shows when sign-in unlocks, for example "Too many tries. You can try again at 3:42 PM."
 
+**Help beside the form** (added 2026-11-15)
+
+- **C18.** Under Sign in, one line: "Your login stays on this phone." with two links. "How" opens a short sheet: the login sits in the phone's keychain, the app talks only to the school's own servers, and everything works offline. "Forgot password?" opens the portal's own reset page in the browser (SIS: `https://sis8.pup.edu.ph/student/`, eMabini: its forgot-password page).
+- **C19.** Birthdate and password share one row; the birthdate shows short ("Nov 14, 2006") so it fits half the width. Every field's text is at least 16 px, so iOS never zooms the page on focus (`--text-input`).
+
 ## Copy
 
 | Where | Text |
@@ -122,6 +127,8 @@ LAR's lines follow the stage ([010](010-landing.md) C19).
 | C11–C15 | `cargo test -p intportal-core` in `sis/` with a fake client: counts POSTs per scenario |
 | C12 | `cargo test`: three rejects within 15 minutes block the fourth; the window slides |
 | C16 | `cargo test -p intportal`: `sync` after a reject performs zero POSTs |
+| C18 | vitest `portals.test.ts` (reset links); screenshot of the sheet |
+| C19 | vitest `tokens.test.ts`: no token defined in terms of itself; `--text-input` is at least 16 px |
 
 ## Open questions
 

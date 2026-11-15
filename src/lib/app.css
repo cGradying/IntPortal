@@ -146,7 +146,7 @@
   /* Two more, for what the seven did not cover: marks beside pixel art (a rail letter, a stamp),
      and text typed into a field, which stays at 16 px or more so iOS does not zoom the page. */
   --text-micro: min(0.588rem, 18px);
-  --text-input: var(--text-input);
+  --text-input: max(16px, var(--text-body));
   /* Corners. The stepped notch (.notch) is for cards and the primary button; everything else that
      is rounded takes one of these three. */
   --radius-sm: 3px;

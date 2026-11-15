@@ -11,7 +11,9 @@ export interface DitherOpts {
   chip: Rect;
   win: Rect;
   /** The window's element: its `--r0`, `--r1`, `--g-a`, `--g-b`, `--g-rim` and `--g-ext` colour the face. */
-  tokens: HTMLElement;
+  tokens?: HTMLElement;
+  /** What the cells reveal instead of LAR's window, PAD points larger on every side (see `flatFace`). */
+  face?: (win: Rect, dpr: number) => HTMLCanvasElement | null;
   mode: "open" | "close";
   headerH?: number;
   /** 1 is real time; 4 for checking by eye. */
@@ -76,6 +78,23 @@ function drawFace(win: Rect, headerH: number, t: ReturnType<typeof tokensOf>, dp
   return face;
 }
 
+/** A plain sheet's face: one fill with a lit top edge, for anything else that dithers open (spec 010 C13a). */
+export function flatFace(fill: string, edge: string) {
+  return (win: Rect, dpr: number): HTMLCanvasElement | null => {
+    const face = document.createElement("canvas");
+    face.width = Math.ceil((win.w + 2 * PAD) * dpr);
+    face.height = Math.ceil((win.h + 2 * PAD) * dpr);
+    const f = face.getContext("2d");
+    if (!f) return null;
+    f.setTransform(dpr, 0, 0, dpr, PAD * dpr, PAD * dpr);
+    f.fillStyle = fill;
+    f.fillRect(0, 0, win.w, win.h);
+    f.fillStyle = edge;
+    f.fillRect(0, 0, win.w, 1);
+    return face;
+  };
+}
+
 /** The run in flight: a new run, or `cancelDither()`, stops it, and its promise never resolves. */
 let stop: (() => void) | null = null;
 export function cancelDither() {
@@ -102,7 +121,7 @@ export function runDither(o: DitherOpts): Promise<void> {
   canvas.width = Math.round(innerWidth * dpr);
   canvas.height = Math.round(innerHeight * dpr);
   const { win } = o;
-  const face = drawFace(win, o.headerH ?? 104, tokensOf(o.tokens), dpr);
+  const face = o.face ? o.face(win, dpr) : o.tokens ? drawFace(win, o.headerH ?? 104, tokensOf(o.tokens), dpr) : null;
   if (!face) return Promise.resolve(); // no offscreen context: the window just shows
   const snap = (v: number) => Math.round(v * dpr) / dpr;
   const area = { x: snap(win.x - PAD), y: snap(win.y - PAD), w: win.w + 2 * PAD, h: win.h + 2 * PAD };
