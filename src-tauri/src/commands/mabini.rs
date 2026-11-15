@@ -33,6 +33,7 @@ pub(crate) fn mabini_account<'a>(sis_number: Option<&str>, typed: &'a str) -> Re
 pub async fn mabini_sign_in(state: tauri::State<'_, AppState>, login: MabiniLogin) -> Res<MabiniData> {
     let open = mabini_account(vault::load().as_ref().map(|l| l.student_number.as_str()), &login.student_number)?;
     let client = guarded_mabini_sign_in(&state, &login, false).await?;
+    DEMO.store(false, Ordering::Relaxed);
     if let Some(n) = open {
         open_account(&state, n)?;
     }
@@ -46,7 +47,7 @@ pub async fn mabini_sign_in(state: tauri::State<'_, AppState>, login: MabiniLogi
 /// the session expired, and never after a rejection.
 #[tauri::command]
 pub async fn mabini_sync(state: tauri::State<'_, AppState>) -> Res<MabiniData> {
-    if cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed) {
+    if DEMO.load(Ordering::Relaxed) {
         tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
         return state.store.lock().unwrap().mabini().map_err(err);
     }
@@ -72,7 +73,7 @@ pub fn mabini_data(state: tauri::State<'_, AppState>) -> Res<MabiniData> {
 
 #[tauri::command(async)]
 pub fn has_mabini_login() -> bool {
-    (cfg!(debug_assertions) && DEMO.load(Ordering::Relaxed)) || mabini_vault::load().is_some()
+    DEMO.load(Ordering::Relaxed) || mabini_vault::load().is_some()
 }
 
 #[tauri::command]
