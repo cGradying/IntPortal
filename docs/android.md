@@ -67,7 +67,7 @@ path that's known good.
 scripts/emu.sh --release
 ```
 
-This builds the signed release for arm64 and 32-bit arm phones and puts two files in `dist/` (gitignored):
+This builds the signed release for arm64 phones (a 32-bit-only phone can't install it) and puts two files in `dist/` (gitignored):
 
 - `IntPortal-<version>.apk` to install directly. This is what goes on the beta.
 - `IntPortal-<version>.aab`, the bundle for Google Play.
