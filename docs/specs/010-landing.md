@@ -129,12 +129,13 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 
 **The welcome** (added 2026-11-15, the owner: "the login page is too heavy and too many things happening"; "the landing page for new user on what is the app about")
 
-- **C42. A new student reads what the app is before any form.** The first time, under the wordmark and the portal: "Your PUP schedule, grades and deadlines, on your phone.", then three facts, each marked with one lit tile: "Works offline after one sign-in", "Your login stays on this phone", "LAR helps you study and plan". One gold button, "Sign in with SIS", and the text link "Look around first". No card, no plaque, no peek and no status: just the portal and LAR. "Sign in with SIS" brings the form in place of the welcome; Back returns to it. Once the student has asked for the form or looked around, later launches open on the form (kept on the phone).
+- **C42. A new student reads what the app is before any form.** The first time, under the wordmark and the portal: "Your PUP schedule, grades and deadlines, on your phone.", then three facts, each marked with one lit tile: "Works offline after one sign-in", "Your login stays on this phone", "LAR helps you study and plan". One gold button, "Sign in with SIS", and the text link "Look around first". No card, no plaque, no peek and no status: just the portal and LAR. "Sign in with SIS" brings the form in place of the welcome; Back returns to it. Once the student has asked for the form or looked around, later launches open on the form (kept on the phone). *Amended 2026-11-15 (spec 049):* replaced by the intro, nine pages a new student pages through before the form; the facts and the one gold now live on its pages, and "Look around first" in the form's fine print.
 - **C45. The welcome is a tour the student can touch** (added 2026-11-15, the owner: "an interactive landing page, explaining what is inside, what the app does and how the app can personalize it"). Under the headline, three tabs, each with one line on what to tap and a row of chips; tapping a chip does the thing on the stage, not in a sheet:
   - **Inside:** Today, Schedule, Grades, Study. A tap opens the portal's peek (C37) on that page, with sample data.
   - **What it does:** Reminders, Deadlines, Works offline, Stays on your phone, LAR's nudges. A tap makes LAR say what it is, in his bubble, read out by VoiceOver.
   - **Make it yours:** six dark looks (Night, Maroon Night, Astra Moon, Tokyo Night, Dracula, Nord) and Your school. A look is worn at once by the whole page and kept for the app (You › Theme), and LAR says so. Your school opens the portal wall. Light looks stay in You, since a light ground washes the portal out.
   The tabs are a tab list: arrow keys move between them, the panel keeps one height so nothing above it jumps, and Reduce Motion drops the slide and the fade. The copy lives in `src/lib/welcome/tour.ts`. The three facts of C42 moved into "What it does".
+  *Amended 2026-11-15 (spec 049):* the tour is replaced by the intro. Its peek, LAR's lines, the six dark looks worn live and the portal wall all stay, now one feature per page; `welcome/tour.ts` and `WelcomeTour.svelte` are gone.
 - **C43. One thing moves at rest.** On the landing only the portal's mouth moves once the frame stands. The stars keep their own brightness and brighten and streak only while the orbit turns. There are no lit dots and no colour pools here, so the portal is the light. LAR keeps his flight (C18).
 - **C44. The form step carries the form.** Under the portal: "Peek inside" (until the first peek) and the school plaque, both as words on the ground, not boxes. Then the student number, birthdate and password, one gold Sign in, and the fine print (011 C18).
 
@@ -204,9 +205,9 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 | C39 | screenshot of the release APK in demo mode; review: no `debug_assertions` gate on `DEMO` |
 | C40 | vitest `portals.test.ts`: `statusChip`; `cargo test -p intportal` builds `portal_status` |
 | C41 | vitest `lar/wander.test.ts`: `placeBubble` sweep over the stage |
-| C42, C44 | screenshot of both steps at 390 by 844 and 375 by 667 |
+| C42, C44 | C42 replaced by spec 049; C44: screenshot of the form step at 390 by 844 and 375 by 667 |
 | C43 | `cargo test -p intportal-tiles`: `at_rest_the_stars_hold_still` |
-| C45 | vitest `welcome/tour.test.ts` (stops, peek pages, dark looks only, LAR's lines); screenshot of each stop and of a look applied |
+| C45 | replaced by spec 049: vitest `welcome/intro.test.ts` |
 | C16 | recording: the portal builds in the middle and lifts as the form rises |
 | C22–C23 | measured fps on the 17e, reported in the PR |
 | C24 | review: no three.js in `package.json`; bundle size reported |
