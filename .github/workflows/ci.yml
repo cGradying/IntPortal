@@ -48,4 +48,6 @@ jobs:
       # The shell embeds the web build, so it needs build/ to exist.
       - run: mkdir -p build
       - run: cargo test -p intportal-core -p intportal -p intportal-tiles -p s0-sis-http
+      # The test build generates the ACL manifest this compares capabilities against.
+      - run: node scripts/commands-check.mjs
       - run: cargo clippy -p intportal-core -p intportal -p intportal-tiles -p s0-sis-http --all-targets -- -D warnings

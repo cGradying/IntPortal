@@ -96,7 +96,7 @@
     box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--ink);
     font: inherit;
-    font-size: var(--text-body);
+    font-size: var(--text-input);
   }
   .notes {
     list-style: none;
