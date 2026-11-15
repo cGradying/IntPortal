@@ -2,6 +2,27 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## 0.2.0 (2026-11-15)
+
+- Welcome: a new student sees what the app is before any form. Under the portal, three tabs to touch: Inside opens the peek on Today, Schedule, Grades or Study; What it does has LAR explain reminders, deadlines, offline use, privacy and his nudges; Make it yours re-tints the landing in six dark looks and keeps the pick for the app (#282, #283)
+- Landing: one world with the app. The night ground and its dot grid, a portal lit from inside that stands on its own reflection, still stars, and only the portal moving at rest. Peek, an "SIS is up" check that sends no login, Look around (in release builds too), how your login is kept, and Forgot password, all before signing in (#281, #282)
+- Choosing a school: a plaque with the school's mini portal opens the portal wall, with Open now (SIS, eMabini) first, then recent, your region and A to Z (#281)
+- Today: Done is one 44 pt chip beside each deadline, and the title gets the row's width (#284)
+- Schedule: the gold tile under the chosen day shows again; "Due, next 4 weeks" says what the little map is (#284)
+- Grades: the GPA trend has guides at 1.00, 1.50 and 2.00, its first and last values and a spoken summary; an "All passed" pill when every subject passed (#284)
+- Study: each rating shows when the card comes back (10m, 1d, 3d…), and the end of a round shows your score and each card's next review (#284)
+- LAR no longer says "Nothing due" while the Due card lists something; source chips in his chat survive a restart; the tab bar stays put when a field is focused from code; nothing animates behind his window or while the app is hidden (#279)
+- Faster: a screen reads the student once instead of twelve rows, one tick writes one row instead of twelve, and no command runs on the main thread (load 374 µs to 24 µs, one edit 501 µs to 142 µs, in memory) (#278)
+- One art style: every type size, duration and corner from a token, 44 pt tap targets everywhere, and the same dotted ground under every screen (#280)
+- The 3D crystal is back as LAR's chat chip; the chat still opens with the pixel dither (#274)
+- Release: a privacy manifest for iOS, a content security policy, and an Android release build in CI
+
+Known gaps:
+
+- Not yet run on a real phone: the camera scan, note photos, keep-screen-awake, the backup share sheet, and the frame rate of the landing and the dither opening
+- A low-end Android check of the crystal and the dither (#231), and all-day deadlines in Android's calendar (#205)
+- No store builds yet: TestFlight and Play testing need store accounts (#26)
+
 ## 0.1.10 (2026-11-14)
 
 - LAR's chat button is a flat pixel chip: a 3x3 grid in the room's tones with a gold dot on each part that holds data. On Study and in the note editor its corners dither away into a gold +, and an open menu shows a pixel X. While LAR thinks, a pixel dither runs across it (#271)

@@ -23,7 +23,7 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-notification = "2"
-intportal-core = { version = "0.1.0", path = "../crates/intportal-core" }
+intportal-core = { path = "../crates/intportal-core" }
 tokio = { version = "1", features = ["sync", "time", "rt"] }
 # The backup file's salt (047 C10), and the keychain's on Apple and Android.
 getrandom = "0.3"
