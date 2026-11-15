@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Build the app and install it on your own iPhone over USB or Wi-Fi, then open it.
-# Usage: APPLE_DEVELOPMENT_TEAM=<team> scripts/phone.sh [--release] [--app-group]
-#   --release    the release configuration (what a store build is), not debug
+# Usage: APPLE_DEVELOPMENT_TEAM=<team> scripts/phone.sh [--debug] [--app-group]
+#   The release configuration by default, what a store build is: a debug
+#   build is about 6x bigger (137 MB vs 21 MB) and slower, so it misleads.
+#   --debug      the debug configuration, for Safari's Web Inspector
 #   DEVICE   the phone's name or id (default: cgradying)
 #   --app-group  only with a paid Apple Developer account: lets the
 #                home-screen widget read the next class.
@@ -16,11 +18,11 @@ apple=src-tauri/gen/apple
 generated=("$apple/intportal.xcodeproj" "$apple"/*/*.entitlements "$apple"/*/Info.plist)
 if git diff --quiet -- "${generated[@]}"; then trap 'git checkout -q -- "${generated[@]}"' EXIT; fi
 
-mode=--debug
+mode=
 for a in "$@"; do
   case "$a" in
     --app-group) export INTPORTAL_APP_GROUP=true ;;
-    --release) mode= ;;
+    --debug) mode=--debug ;;
   esac
 done
 (cd "$apple" && xcodegen generate --quiet)
