@@ -202,6 +202,7 @@ export interface TermGpa {
   semester: string | null;
   gpa: number;
   units: number;
+  all_passed: boolean;
 }
 
 export interface Standing {
@@ -212,6 +213,7 @@ export interface Standing {
   personal_best: boolean;
   reach: Reach | null;
   goals: Goals;
+  all_passed: boolean;
 }
 
 /** Term-wide values, and single-week overrides keyed by that week's Monday. */
@@ -476,6 +478,8 @@ export const api = {
   parseCards: (text: string) => invoke<Card[]>("parse_cards", { text }),
   reviewCard: (deckId: string, cardId: string, rating: Rating, today: string) =>
     invoke<{ deck: Deck }>("review_card", { deckId, cardId, rating, today }),
+  /** Seconds until the next review for Again, Hard, Good and Easy. */
+  reviewPreview: (memory: Memory) => invoke<[number, number, number, number]>("review_preview", { memory }),
   checkAnswer: (card: Card, typed: string) => invoke<boolean>("check_answer", { card, typed }),
   distractors: (cards: Card[], index: number, seed: number) => invoke<string[]>("distractors", { cards, index, seed }),
   exportIcs: (from: string, until: string) => invoke<string>("export_ics", { from, until, utcOffset: -new Date().getTimezoneOffset() }),

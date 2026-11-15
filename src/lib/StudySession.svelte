@@ -13,6 +13,7 @@
   import { api, isoDate, type Card, type Deck, type Rating } from "./api";
   import { buzz } from "./haptics";
   import { dueQueue, type Entry } from "./dueQueue";
+  import { dueIn, interval } from "./interval";
 
   let { decks, mode, onclose, title, all = false, limit = 0 }: { decks: Deck[]; mode: Mode; onclose: () => void; title?: string; all?: boolean; limit?: number } = $props();
   $effect(() => closable(() => onclose()));
@@ -36,6 +37,11 @@
   let picked = $state<string | null>(null);
   let right = $state(0);
   let problem = $state("");
+  // What each rating would schedule, shown under its button (#268), and what each card got.
+  let hints = $state<string[] | null>(null);
+  let log = $state<{ id: string; front: string; rating: Rating; due: number | null }[]>([]);
+  const RATES: [Rating, string][] = [["again", "Again"], ["hard", "Hard"], ["good", "Good"], ["easy", "Easy"]];
+  const word = (r: Rating) => RATES.find(([k]) => k === r)![1];
 
   const card = $derived(queue[index]?.card as Card);
   const deck = $derived(queue[index]?.deck ?? decks[0]);
@@ -52,6 +58,13 @@
   }
 
   $effect(() => {
+    hints = null;
+    if (mode !== "flash" || practice || finished) return;
+    const c = card;
+    api.reviewPreview(c.memory).then((ss) => { if (card === c) hints = ss.map(interval); }, () => {});
+  });
+
+  $effect(() => {
     if (mode !== "choice" || finished) return;
     const { deck: d, card: c } = queue[index];
     const at = d.cards.findIndex((x) => x.id === c.id);
@@ -62,7 +75,8 @@
     try {
       // Practice (nothing was due) leaves the schedule alone: reviewing a
       // card early would push it out before it's been forgotten.
-      if (!practice) await api.reviewCard(deck.id, card.id, r, isoDate(new Date()));
+      const due = practice ? null : ((await api.reviewCard(deck.id, card.id, r, isoDate(new Date()))).deck.cards.find((c) => c.id === card.id)?.memory.due ?? null);
+      log.push({ id: `${deck.id}/${card.id}`, front: card.front, rating: r, due });
       if (r !== "again") right++;
       buzz.tick();
       if (index + 1 >= queue.length) buzz.done();
@@ -102,7 +116,15 @@
       <div class="lar"><Lar size={4} state="idle" /></div>
       <p class="label">Done</p>
       <h2>{right} of {queue.length} remembered</h2>
+      {#if queue.length}<p class="score num">{Math.round((right / queue.length) * 100)}% right</p>{/if}
       <p class="fine">{practice ? "Practice round: the schedule is unchanged." : "FSRS has scheduled each card for when you're about to forget it."}</p>
+      {#if log.length}
+        <ul class="recap">
+          {#each log as l (l.id)}
+            <li><span>{l.front}</span><small class:again={l.rating === "again"}>{word(l.rating)}{l.due !== null ? `, ${dueIn(l.due - now)}` : ""}</small></li>
+          {/each}
+        </ul>
+      {/if}
       <button class="primary" onclick={onclose}>{mixed ? "Back to Study" : "Back to the deck"}</button>
     </section>
   {:else if mode === "flash"}
@@ -113,10 +135,9 @@
     </button>
     {#if shown}
       <div class="rates">
-        <button class="again" onclick={() => rate("again")}>Again</button>
-        <button onclick={() => rate("hard")}>Hard</button>
-        <button onclick={() => rate("good")}>Good</button>
-        <button onclick={() => rate("easy")}>Easy</button>
+        {#each RATES as [r, label], i (r)}
+          <button class:again={r === "again"} onclick={() => rate(r)} aria-label={hints ? `${label}, next in ${hints[i]}` : label}>{label}<small aria-hidden="true">{hints?.[i] ?? ""}</small></button>
+        {/each}
       </div>
     {/if}
   {:else if mode === "type"}
@@ -242,6 +263,51 @@
     gap: 6px;
   }
   .rates .again {
+    color: var(--bad);
+  }
+  .rates button {
+    display: grid;
+    place-content: center;
+    gap: 2px;
+  }
+  /* The interval under each rating; the line is kept even while it loads, so nothing jumps. */
+  .rates small {
+    min-height: 1lh;
+    font-size: var(--text-label);
+    font-weight: 600;
+    color: var(--ink-3);
+  }
+  .score {
+    margin: 0;
+    font-weight: 700;
+    color: var(--gold);
+  }
+  .recap {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+    text-align: left;
+  }
+  .recap li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .recap span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .recap small {
+    flex: none;
+    font-size: var(--text-caption);
+    color: var(--ink-2);
+  }
+  .recap small.again {
     color: var(--bad);
   }
   input {
