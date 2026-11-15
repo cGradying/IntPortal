@@ -128,6 +128,15 @@ describe("placeBubble", () => {
   const overlaps = (s: { x: number; y: number }, r: { x: number; y: number; w: number; h: number }) =>
     s.x < r.x + r.w && s.x + size.w > r.x && s.y < r.y + r.h && s.y + size.h > r.y;
 
+  it("steers clear of a keep-out, such as the intro's plaque, when a clear spot exists (spec 049 C3)", () => {
+    const small = { w: 100, h: 40 };
+    const w0: World = { w: 400, h: 400, portal: { x: 150, y: 20, w: 100, h: 150 }, keepOut: [], r: 20 };
+    const plate = { x: 60, y: 190, w: 140, h: 50 };
+    const hit = (s: { x: number; y: number }) => s.x < plate.x + plate.w && s.x + small.w > plate.x && s.y < plate.y + plate.h && s.y + small.h > plate.y;
+    expect(hit(placeBubble(w0, { x: 60, y: 250 }, small)), "without it, the first spot is on the plaque").toBe(true);
+    expect(hit(placeBubble({ ...w0, keepOut: [plate] }, { x: 60, y: 250 }, small))).toBe(false);
+  });
+
   it("never covers a frame tile, wherever he flies, and covers him only right under the frame", () => {
     const f = world.portal;
     for (let x = 20; x <= 338; x += 6) {

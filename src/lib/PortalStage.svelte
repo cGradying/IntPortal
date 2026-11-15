@@ -6,7 +6,7 @@
   // school; each has its own frame, motif and colours, and they ride an
   // orbit that turns between them. LAR flies round it (LarFlight), never
   // through a portal's blocks.
-  import { onMount, untrack } from "svelte";
+  import { onMount, untrack, type Snippet } from "svelte";
   import LarFlight, { type Context } from "./lar/LarFlight.svelte";
   import PortalHub from "./PortalHub.svelte";
   import PortalPeek from "./PortalPeek.svelte";
@@ -30,8 +30,10 @@
     still = false,
     showLar,
     quiet = false,
+    steady = false,
     leaving = false,
     ctx,
+    mouth,
   }: {
     portals: Portal[];
     /** The selected portal. */
@@ -46,9 +48,13 @@
     showLar: boolean;
     /** The welcome: just the portal and LAR, nothing to pick or check yet (010 C42). */
     quiet?: boolean;
+    /** The intro: the plaque and the peek lie over the stage's foot, so the portal never resizes (049 C3). */
+    steady?: boolean;
     leaving?: boolean;
     /** What the student is doing, for LAR. */
     ctx: Context;
+    /** The intro's live view (spec 049 C9): while set, the peek opens onto it and holds; unset, it closes. */
+    mouth?: Snippet;
   } = $props();
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -64,6 +70,7 @@
   }
 
   let canvas: HTMLCanvasElement;
+  let under = $state<HTMLElement>();
   let flight = $state<LarFlight>();
   let tiles: Awaited<ReturnType<typeof loadTiles>> | null = null;
   let start = performance.now();
@@ -82,6 +89,8 @@
 
   // The peek through the portal (C36–C37): which page is open, and where the portal was when it opened.
   let peek = $state<number | null>(null);
+  /** The peek shows the intro's own view: it never turns or closes on its own. */
+  let held = $state(false);
   let peekAt = $state({ box: { x: 0, y: 0, w: 0, h: 0 }, room: { w: 0, h: 0 }, inset: 0 });
   let press: { x: number; y: number; t: number } | null = null;
   let peeked = $state(false);
@@ -128,7 +137,10 @@
     };
     const sel = Math.round(motion.pos);
     // A neighbour round the back of the orbit has no box.
-    return { portal: css(sel), others: [sel - 1, sel + 1].filter((p) => p >= 0 && p < portals.length).map(css).filter((r) => r.w > 0) };
+    const others = [sel - 1, sel + 1].filter((p) => p >= 0 && p < portals.length).map(css).filter((r) => r.w > 0);
+    // In the intro the plaque and the peek lie over the stage's foot: solid to him too (049 C3).
+    if (steady && !quiet && under) others.push({ x: under.offsetLeft, y: under.offsetTop, w: under.offsetWidth, h: under.offsetHeight });
+    return { portal: css(sel), others };
   }
 
   function draw(t: number) {
@@ -159,32 +171,13 @@
   function fit() {
     if (still) return;
     // Layout size, not the on-screen box: the intro's lift scales the stage up, and a buffer
-    // sized to that would put LAR's frame box and the page's dots off by the same factor.
+    // sized to that would put LAR's frame box off by the same factor.
     const [width, height] = [canvas.clientWidth, canvas.clientHeight];
     const dpr = Math.min(devicePixelRatio, 3);
     canvas.width = Math.max(1, Math.round(width * dpr));
     canvas.height = Math.max(1, Math.round(height * dpr));
     tiles?.resize(canvas.width, canvas.height);
-    ground();
     draw(now());
-  }
-
-  /** The page's grid of dots takes its pitch and place from the scene, so dots and tiles share centres (C3). */
-  function ground() {
-    const page = canvas?.closest<HTMLElement>(".landing");
-    if (!tiles || !page) return;
-    const dpr = Math.min(devicePixelRatio, 3);
-    const g = tiles.grid(Math.round(motion.pos));
-    // Where the canvas lies on the page, without the lift's transform.
-    let [x, y] = [0, 0];
-    for (let el: HTMLElement | null = canvas; el && el !== page; el = el.offsetParent as HTMLElement | null) {
-      x += el.offsetLeft;
-      y += el.offsetTop;
-    }
-    page.style.setProperty("--grid-x", `${x + g.x / dpr}px`);
-    page.style.setProperty("--grid-y", `${y + g.y / dpr}px`);
-    page.style.setProperty("--grid-pitch", `${g.pitch / dpr}px`);
-    page.style.setProperty("--grid-dot", `${g.dot / dpr}px`);
   }
 
   // Rendering stops while the app is in the background (C23).
@@ -316,12 +309,13 @@
     const py = (e.clientY - cb.top) * dpr;
     const [x, y, w, h] = tiles.rect(motion.pos);
     if (px < x || px > x + w || py < y || py > y + h) {
-      peek = null;
+      if (!held) peek = null;
       return;
     }
     const { pitch } = tiles.metrics();
     tiles.poke((px - x) / pitch, (py - y) / pitch, now());
     buzz.select();
+    if (held) return;
     if (peek !== null) return turn();
     // The ring runs through the frame first, then the view opens out of the mouth.
     clearTimeout(opening);
@@ -354,6 +348,32 @@
 
   /** LAR says this line now (010 C45). */
   export const say = (line: string) => flight?.sayLine(line);
+  /** LAR hops and waves (spec 049 C8). */
+  export const cheer = () => flight?.cheer();
+  /** LAR flies to wait beside or under the portal (spec 049 C6). */
+  export const visit = (spot: "left" | "right" | "below") => flight?.visit(spot);
+  /** The portal rings out from its centre, as a tap there does: the intro's page turn (spec 049 C6). */
+  export function ring() {
+    if (!tiles || leaving) return;
+    const [, , w, h] = tiles.rect(motion.pos);
+    const { pitch } = tiles.metrics();
+    tiles.poke(w / pitch / 2, h / pitch / 2, now());
+  }
+
+  // The intro's view: opened out of the mouth like a peek, held while it is set (spec 049 C9).
+  $effect(() => {
+    const on = !!mouth;
+    untrack(() => {
+      if (on && !held) {
+        held = true;
+        peekTo(0);
+      } else if (!on && held) {
+        held = false;
+        clearTimeout(opening);
+        peek = null;
+      }
+    });
+  });
 
   /** The wall opened as the plaque opens it, dithering out of `from`; the plaque is hidden while `quiet` (010 C45). */
   export function openWall(from?: DOMRect) {
@@ -371,7 +391,7 @@
   // Each page: LAR names it, and it turns on its own after a while; the last one closes.
   $effect(() => {
     const p = peek;
-    if (p === null) return;
+    if (p === null || held) return;
     untrack(() => {
       if (!peeked) {
         peeked = true;
@@ -392,12 +412,12 @@
   });
   $effect(() => {
     void index;
-    untrack(() => (peek = null));
+    untrack(() => !held && (peek = null));
   });
 
 </script>
 
-<div class="stage" class:leaving>
+<div class="stage" class:leaving class:steady>
   <canvas
     bind:this={canvas}
     aria-hidden="true"
@@ -408,13 +428,14 @@
   ></canvas>
   <p class="sr">{current.name} portal, {current.status === "ready" ? "open" : "opens soon"}.</p>
   {#if peek !== null}
-    <PortalPeek box={peekAt.box} room={peekAt.room} inset={peekAt.inset} page={peek} accent={current.theme.accent} onnext={turn} />
+    <PortalPeek box={peekAt.box} room={peekAt.room} inset={peekAt.inset} page={peek} accent={current.theme.accent} onnext={turn} view={held ? mouth : undefined} />
   {/if}
   <div class="sky"><LarFlight bind:this={flight} getRects={portalRects} show={showLar} {ctx} portal={larPortal} /></div>
   <!-- One quiet row of things to do before signing in: peek inside (C37) and whether the portal answers (C40).
        Once the student has peeked, the peek steps back and stays for a screen reader. -->
-  {#if !quiet}
-  <div class="quick" class:off={locked}>
+  <!-- Quiet (the intro), these keep their room, so the portal is the same size on every page (049 C3). -->
+  <div class="under" bind:this={under}>
+  <div class="quick" class:off={locked} class:quiet inert={quiet}>
     {#if showLar && !locked && current.status === "ready" && peek === null}
       <button class="peek" class:known={peeked} onclick={peekFromButton}>
         <svg viewBox="0 0 7 5" aria-hidden="true" shape-rendering="crispEdges"><path d="M2 0h3v1H2zM1 1h1v1H1zM5 1h1v1H5zM0 2h1v1H0zM3 2h1v1H3zM6 2h1v1H6zM1 3h1v1H1zM5 3h1v1H5zM2 4h3v1H2z" fill="currentColor" /></svg>
@@ -430,7 +451,7 @@
   </div>
   <!-- The plaque names the school and opens the wall (C13a). -->
   {#key current.id}
-    <button class="plate" class:off={locked} aria-label="{current.name}, {current.school}. Choose your school" disabled={locked || portals.length < 2} onclick={(e) => openWall(e.currentTarget.getBoundingClientRect())}>
+    <button class="plate" class:off={locked} class:quiet inert={quiet} aria-label="{current.name}, {current.school}. Choose your school" disabled={locked || portals.length < 2} onclick={(e) => openWall(e.currentTarget.getBoundingClientRect())}>
       <span class="mini"><MiniPortal portal={current} /></span>
       <span class="names">
         <b style:color={current.theme.accent}>{current.name}</b>
@@ -441,7 +462,7 @@
       {/if}
     </button>
   {/key}
-  {/if}
+  </div>
 </div>
 {#if hub}
   <PortalHub {portals} {index} from={hubFrom} onpick={go} onclose={() => (hub = false)} />
@@ -504,6 +525,29 @@
   }
   .off {
     opacity: 0.5;
+  }
+  .quiet {
+    visibility: hidden;
+  }
+  /* The rows under the portal, in their own rows; in the intro they lie over the stage's foot
+     instead, so the portal takes the whole height and is the same size on every page (049 C3). */
+  .under {
+    display: contents;
+  }
+  .steady {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  /* A tap on the portal still opens the peek; there is no room for its row under the frame here. */
+  .steady .quick {
+    display: none;
+  }
+  .steady .under {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    justify-items: center;
   }
   /* No boxes: the plaque, the peek and the chip are words on the ground, each a full 44 pt target. */
   .plate,

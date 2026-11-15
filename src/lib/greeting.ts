@@ -1,8 +1,10 @@
 // The launch hello (spec 010 C35): what it says and how long it takes.
 
-export function greeting(now: Date): string {
+/** "Good morning", or "Good morning, Jan" with the name the intro asked for (spec 049 C8). */
+export function greeting(now: Date, name = ""): string {
   const h = now.getHours();
-  return h < 5 ? "Up late" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  const part = h < 5 ? "Up late" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  return name ? `${part}, ${name}` : part;
 }
 
 export function dateLine(now: Date): string {
