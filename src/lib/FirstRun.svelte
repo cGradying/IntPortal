@@ -1,70 +1,42 @@
 <script lang="ts">
-  // Three short screens the first time someone gets in: what IntPortal does,
-  // where their data lives, and reminders (the only place that asks the
-  // phone for notification permission unprompted).
+  // The one question left after sign-in (spec 049 C16): Light or With AI. Who LAR is, where the
+  // data lives and reminders moved into the intro before sign-in, so on a build without AI this
+  // never shows (+page checks `showFirstRun`).
   import { buzz } from "./haptics";
   import Lar from "./lar/Lar.svelte";
   import { chatModel, downloadSizes, embedModel, install, mb } from "./assis/assis.svelte";
-  import { app, scheduleReminders } from "./state.svelte";
 
   let { ondone }: { ondone: () => void } = $props();
-  let step = $state(0);
   /** Spec 020 C9: Light is preselected; skipping is the same as Light. */
   let pick = $state<"light" | "ai">("light");
 
   const todo = $derived([chatModel(), embedModel()].filter((m): m is NonNullable<typeof m> => !!m && !m.installed));
   const size = $derived(mb(todo.reduce((n, m) => n + m.bytes, 0)));
-  // The AI choice only shows on builds that have it.
-  const steps = $derived([
-    { title: "Meet LAR.", body: "I'm LAR, the Lakbay-Aral Robot, here to study with you. Your schedule, grades, notes and study cards are in one place, and I'll count down to your next class." },
-    { title: "Everything stays on this phone.", body: "Your login sits in the phone's keychain. IntPortal only talks to PUP SIS, and your notes and decks never leave the device." },
-    ...(chatModel()
-      ? [{ title: "Light or With AI?", ai: true, body: `You can add AI later on You. A one-time download of ${size}: ${downloadSizes(todo)}. It works offline.` }]
-      : []),
-    { title: "Want a heads-up before class?", body: "A nudge 10 minutes before each class, and the evening before quizzes and exams. You can change or turn these off on You." },
-  ] as { title: string; body: string; ai?: boolean }[]);
 
-  async function allow() {
-    await scheduleReminders(true);
-    ondone();
-  }
-
-  function skipReminders() {
-    app.reminderLead = 0;
-    try {
-      localStorage.setItem("reminderLead", "0");
-    } catch {
-      // Asked again next time.
-    }
+  function go() {
+    if (pick === "ai") {
+      buzz.tick();
+      install();
+    } else buzz.select();
     ondone();
   }
 </script>
 
-<div class="first ground" role="dialog" aria-label="Welcome">
+<div class="first ground" role="dialog" aria-labelledby="first-title">
   <div class="art"><Lar size={4} state="happy" /></div>
   <div class="card notch text">
-    <p class="label">{step + 1} of {steps.length}</p>
-    <h1>{steps[step].title}</h1>
-    <p>{steps[step].body}</p>
+    <h1 id="first-title">Light or With AI?</h1>
+    <p>You can add AI later on You. A one-time download of {size}: {downloadSizes(todo)}. It works offline.</p>
   </div>
-  <div class="dots" aria-hidden="true">{#each steps as _, i (i)}<i class:on={i === step}></i>{/each}</div>
-  {#if steps[step].ai}
-    <div class="pick" role="radiogroup" aria-label="Light or With AI">
-      <button role="radio" aria-checked={pick === "light"} class:on={pick === "light"} onclick={() => { buzz.select(); pick = "light"; }}>
-        <b>Light</b><small>No AI. Nothing downloaded.</small>
-      </button>
-      <button role="radio" aria-checked={pick === "ai"} class:on={pick === "ai"} onclick={() => { buzz.select(); pick = "ai"; }}>
-        <b>With AI · {size}</b><small>Ask LAR about your classes and notes. One-time download, works offline. Use Wi-Fi.</small>
-      </button>
-    </div>
-    <button class="primary" onclick={() => { if (pick === "ai") { buzz.tick(); install(); } else buzz.select(); step++; }}>Continue</button>
-  {:else if step < steps.length - 1}
-    <button class="primary" onclick={() => { buzz.select(); step++; }}>Next</button>
-    <button class="link" onclick={ondone}>Skip</button>
-  {:else}
-    <button class="primary" onclick={allow}>Turn on reminders</button>
-    <button class="link" onclick={skipReminders}>Not now</button>
-  {/if}
+  <div class="pick" role="radiogroup" aria-label="Light or With AI">
+    <button role="radio" aria-checked={pick === "light"} class:on={pick === "light"} onclick={() => { buzz.select(); pick = "light"; }}>
+      <b>Light</b><small>No AI. Nothing downloaded.</small>
+    </button>
+    <button role="radio" aria-checked={pick === "ai"} class:on={pick === "ai"} onclick={() => { buzz.select(); pick = "ai"; }}>
+      <b>With AI · {size}</b><small>Ask LAR about your classes and notes. One-time download, works offline. Use Wi-Fi.</small>
+    </button>
+  </div>
+  <button class="primary" onclick={go}>Continue</button>
 </div>
 
 <style>
@@ -81,7 +53,6 @@
     display: flex;
     align-items: end;
     justify-content: center;
-    gap: 18px;
     padding-bottom: 8px;
   }
   .text {
@@ -89,29 +60,15 @@
     padding: 20px;
   }
   h1 {
-    margin: 4px 0 8px;
+    margin: 0 0 8px;
     font-family: var(--font-display);
     font-size: var(--text-title);
   }
-  .text p:last-child {
+  .text p {
     margin: 0;
     font-size: var(--text-body);
     line-height: 1.5;
     color: var(--ink-2);
-  }
-  .dots {
-    display: flex;
-    justify-content: center;
-    gap: 6px;
-  }
-  .dots i {
-    width: 6px;
-    height: 6px;
-    background: var(--edge-2);
-  }
-  .dots i.on {
-    width: 18px;
-    background: var(--gold);
   }
   button {
     height: 52px;
@@ -131,6 +88,7 @@
   }
   .pick button {
     height: auto;
+    min-height: 52px;
     padding: 12px 14px;
     display: grid;
     gap: 2px;
@@ -145,11 +103,6 @@
   .pick small {
     font-family: inherit;
     font-weight: 400;
-    color: var(--ink-2);
-  }
-  .link {
-    height: 44px;
-    background: none;
     color: var(--ink-2);
   }
 </style>

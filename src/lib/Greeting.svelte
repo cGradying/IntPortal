@@ -2,13 +2,14 @@
   // Spec 010 C35: after the dive lands, the day says hello, slowly, then
   // Today rises under it. A tap skips the wait; it never cuts loading short.
   import { HELLO_CAP_MS, dateLine, greeting, helloTimes } from "./greeting";
+  import { getName } from "./profile";
 
   // `ready` is Today's data, not just Today mounted: the hello must not lift onto a skeleton.
   let { start, ready, ondone }: { start: boolean; ready: boolean; ondone: () => void } = $props();
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const now = new Date();
-  const lines = [`${greeting(now)}.`, `Today is ${dateLine(now)}.`];
+  const lines = [`${greeting(now, getName())}.`, `Today is ${dateLine(now)}.`];
   const T = helloTimes(reduce);
 
   let shown = $state(false);

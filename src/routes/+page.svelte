@@ -21,7 +21,8 @@
   import FirstRun from "$lib/FirstRun.svelte";
   import AssisOrb from "$lib/assis/AssisOrb.svelte";
   import AssisWindow from "$lib/assis/AssisWindow.svelte";
-  import { assis, watchAssis } from "$lib/assis/assis.svelte";
+  import { assis, chatModel, watchAssis } from "$lib/assis/assis.svelte";
+  import { showFirstRun } from "$lib/welcome/intro";
   import { setCovered } from "$lib/quiet";
   import PullToSync from "$lib/PullToSync.svelte";
   import LockScreen from "$lib/LockScreen.svelte";
@@ -261,7 +262,7 @@
   </div>
   <!-- Without a dive, the void lifts off the room instead of cutting to it. -->
   {#if !dived}<div class="veil" class:lifted aria-hidden="true"></div>{/if}
-  {#if !welcomed}<FirstRun ondone={welcomeDone} />{/if}
+  {#if showFirstRun(welcomed, chatModel())}<FirstRun ondone={welcomeDone} />{/if}
   {#if app.subject}
     {#key app.subject.code}<SubjectPage {...app.subject} />{/key}
   {/if}
