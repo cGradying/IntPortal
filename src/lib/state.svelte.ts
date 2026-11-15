@@ -154,6 +154,17 @@ export async function scheduleReminders(ask = false) {
   }
 }
 
+/** The intro's Allow reminders (spec 049 C14): asks the phone now, before there is a schedule to
+ *  queue, then queues as usual; once signed in, every sync fills the week in. */
+export async function allowReminders() {
+  try {
+    app.notifications = (await isPermissionGranted()) || (await requestPermission()) === "granted";
+  } catch {
+    // No notification engine here (a browser): the sample still shows.
+  }
+  await scheduleReminders(true);
+}
+
 export function setReminderLead(minutes: number) {
   app.reminderLead = minutes;
   write("reminderLead", String(minutes));

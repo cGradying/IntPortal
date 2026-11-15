@@ -51,7 +51,6 @@ interface Exports {
   gap(): number;
   portal_rect(pos: number, p: number): number;
   metrics(): number;
-  ground_grid(p: number): number;
   poke(c: number, r: number, t: number): void;
 }
 
@@ -81,11 +80,6 @@ export async function loadTiles(url = "/tiles.wasm") {
       const m = x.metrics();
       return { pitch: m >>> 16, tile: m & 0xffff };
     },
-    /** The ground's grid for portal `p`, in device px: where a dot's cell starts, the pitch and an unlit dot's side. */
-    grid(p: number) {
-      const g = new Int32Array(x.memory.buffer, x.ground_grid(p), 4);
-      return { x: g[0], y: g[1], pitch: g[2], dot: g[3] };
-    },
     /** Device px between neighbouring portals in the last frame. */
     gap: () => x.gap(),
     /** Portal `p`'s frame box in device px, [x, y, w, h], at carousel position `pos` (default: the selected one). */
@@ -105,7 +99,7 @@ export async function loadTiles(url = "/tiles.wasm") {
     draw(ctx: CanvasRenderingContext2D, f: Frame): number {
       const n = x.frame(f.t, f.prev, STAGES[f.stage], f.openedAt, (f.returning ? 1 : 0) | (f.reduce ? 2 : 0), f.pos, f.vel);
       const a = new Int32Array(x.memory.buffer, x.tiles(), n * 4);
-      // No fill: the page's ground and its grid of dots show through, so the portal stands on them.
+      // No fill: the page's night ground shows through, so the portal stands on it.
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       for (let i = 0; i < a.length; i += 4) {
         ctx.fillStyle = hex(a[i + 3]);
