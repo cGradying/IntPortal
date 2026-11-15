@@ -81,11 +81,9 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
 
   Nothing else celebrates.
 - **C18. Done (picked in round four).**
-  - **The sequence, about 1.1 s:** the box fills, a line strikes through the title, sparks pop, the dot grid ripples from the box, and a `DONE` stamp lands, all eased (round two, 2026-11-05). At 0.5 s the row lifts and a few tiles fall from it onto the dot grid. At 0.7 s it glides into Done. The row, the progress bar, the Done heading and LAR's card open and close over 0.36 s, so nothing jumps. The Done control is on the left of the row with the word under it, clear of the floating cube.
-  - **The bar:** with more than one item, a bar of up to eight segments above the rows fills one segment per done.
-  - **A run builds:** a done within 4 s of the last climbs the pentatonic scale. The first nudges, the second and third shake and show `×2`, `×3`, and from the fourth on they shake harder with a high sparkle.
-  - **All clear:** the bar flashes, LAR hops with a thumbs up, confetti bursts three times, and a rising run plays.
-  - **Then still.** Nothing loops.
+  - **The sequence, "Stamp, alone" (owner pick, 2026-11-15):** the box fills, a line strikes through the title and a `DONE` stamp lands. After about 0.7 s the row folds away (its height collapses over 0.36 s) and rests under the card in the quick-Undo list, with the 5 s Undo and the "Done this week" persistence unchanged. One `buzz.done()` and one done sound; the landing click plays as it rests. Nothing else moves: no sparks, no ripple through the dot grid, no falling tiles, no lift, no combo text, no tiers. The Done control is on the left of the row with the word under it, clear of the floating cube.
+  - **The bar:** with more than one item, a bar of up to eight segments above the rows fills one segment per done. It does not flash.
+  - **All clear:** the card says "All clear this week." with a small green pixel check. No LAR, no hop, no burst.
   - **Limits:** no streak guilt, no loss framing, no hidden suspense and no random rewards. Only the detune is random.
 - **C19. Sound.**
   - A tiny pixel sound kit (press tick, stamp, done, celebrate, LAR blip), under 40 KB in all.

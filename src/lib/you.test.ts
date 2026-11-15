@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GROUPS, SETTINGS, moveCard, oneOf, parseCards, rowProblem, searchSettings, toggleCard } from "./you";
+import { GROUPS, SETTINGS, moveCard, moveWithin, inGroup, TOP, BELOW, oneOf, parseCards, rowProblem, searchSettings, toggleCard } from "./you";
 
 const ok = { sisRejected: false, mabiniRejected: false, mabiniError: null, notifications: true, remindersOn: true, queuedError: "", lockError: "" };
 const names = (q: string) => searchSettings(q).map((s) => s.name);
@@ -58,5 +58,20 @@ describe("you", () => {
     expect(oneOf("study", ["today", "schedule", "study"])).toBe("study");
     expect(oneOf("grades", ["today", "schedule", "study"])).toBe("today");
     expect(oneOf(null, ["full", "short", "off"])).toBe("full");
+  });
+});
+
+describe("Today's card groups", () => {
+  it("top_and_below_take_a_stored_flat_order_in_that_order", () => {
+    const o = parseCards('{"order":["term","due","coach","next"]}').order;
+    expect(inGroup(o, TOP)).toEqual(["due", "next"]);
+    expect(inGroup(o, BELOW)).toEqual(["term", "coach"]);
+  });
+  it("moves_stay_inside_their_group", () => {
+    const o = parseCards(null).order;
+    expect(inGroup(moveWithin(o, "due", -1), TOP)).toEqual(["due", "next"]);
+    expect(moveWithin(o, "next", -1)).toEqual(o);
+    expect(inGroup(moveWithin(o, "term", -1), BELOW)).toEqual(["term", "coach"]);
+    expect(moveWithin(o, "term", 1)).toEqual(o);
   });
 });

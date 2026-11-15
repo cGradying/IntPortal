@@ -85,15 +85,14 @@ export const sfx = {
     if (a) click(a, a.currentTime);
   },
   /** A deadline done: the pluck, a fifth above for the strike, a thump under the stamp. */
-  done(step: number) {
+  done() {
     const a = audio();
     if (!a) return;
     const t = a.currentTime;
-    const f = noteHz(step);
+    const f = noteHz(0);
     pluck(a, f, t, 0.22);
     pluck(a, f * 2, t, 0.12, "sine", 0.025);
     pluck(a, f * 1.5, t + 0.07, 0.2, "triangle", 0.05);
-    if (step >= 3) pluck(a, f * 2, t + 0.14, 0.18, "square", 0.012);
     thump(a, t + 0.24);
   },
   /** A card landing in Done. */
@@ -102,14 +101,5 @@ export const sfx = {
     if (!a) return;
     click(a, a.currentTime, 1400, 0.14);
     pluck(a, 196, a.currentTime, 0.09, "triangle", 0.03);
-  },
-  /** The list cleared: a rising run. */
-  clear() {
-    const a = audio();
-    if (!a) return;
-    const t = a.currentTime + 0.05;
-    [0, 4, 7, 12, 16, 19].forEach((n, i) => pluck(a, noteHz(0) * 2 ** (n / 12), t + i * 0.06, 0.32, "triangle", 0.06));
-    pluck(a, noteHz(0) * 2, t + 0.36, 0.7, "sine", 0.03);
-    thump(a, t + 0.36);
   },
 };

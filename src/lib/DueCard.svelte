@@ -9,22 +9,17 @@
   import { adopt, app, mabiniSyncNow, openSubject } from "./state.svelte";
   import { onDestroy, tick } from "svelte";
   import { flip } from "svelte/animate";
-  import { crossfade, slide } from "svelte/transition";
+  import { slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
-  import Lar from "./lar/Lar.svelte";
-  import { burst } from "./burst";
-  import { barSegments, comboText, FLOW_MS, nextRun, tierOf, type Run } from "./doneRun";
-  import { fieldPulse, sinkTiles } from "./fieldPulse";
+  import { barSegments, FLOW_MS } from "./doneRun";
   import { sfx } from "./sound";
   import { longpress } from "./press";
   import { addDone, loadDone, pruneWeek, removeDone, saveDone, UNDO_MS } from "./doneWeek";
 
   const MAX = 5;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  /** The stamp lands, the card lifts, then it drops into Done. */
-  const LIFT_MS = 500;
-  const MOVE_MS = 700;
-  const LAND_MS = 420;
+  /** The box fills, the title strikes and the stamp lands; then the row folds away into Done. */
+  const FOLD_MS = 700;
   let list = $state<DeadlineEntry[]>([]);
   // The first load is already there when you arrive: rows open only for what changes after it.
   let loaded = false;
@@ -35,8 +30,9 @@
   // Marked done since this card opened: they stay here, with Undo, until it closes.
   let finished = $state<DeadlineEntry[]>([]);
   // Rows mid-way through the done sequence, by id.
-  let marking = $state<Record<string, { tier: string; combo: string; lifted: boolean }>>({});
-  let run: Run | null = null;
+  let marking = $state<Record<string, true>>({});
+  // Pressed look for Add, by pointer events: iOS WebKit can leave :active stuck on a button that a sheet opens over.
+  let pressing = $state(false);
   let cleared = $state(false);
   // Spec 041 C6: finished this week (kept across launches), and which are still inside the 5 s Undo.
   let week = $state(loadDone(Date.now()));
@@ -71,8 +67,6 @@
   const quick = $derived(week.filter((x) => undoing.includes(x.entry.id)));
   const resting = $derived(week.filter((x) => !undoing.includes(x.entry.id)));
 
-  const [send, receive] = crossfade({ duration: reduce ? 0 : 480, easing: cubicOut, fallback: () => ({ duration: 0 }) });
-
   $effect(() => {
     void app.snapshot;
     void app.mabini;
@@ -96,32 +90,14 @@
     else if (d.subject) openSubject(d.subject, describe(d.subject));
   }
 
-  function centre(el: Element) {
-    const b = el.getBoundingClientRect();
-    return [b.left + b.width / 2, b.top + b.height / 2] as const;
-  }
-
-  // The done sequence (spec 045 C18): the box fills, the title strikes, sparks and a ripple through
-  // the field, the stamp lands, the row lifts, sheds tiles into the dot grid and glides into Done.
-  // Then everything is still.
-  function done(d: DeadlineEntry, box: HTMLElement) {
+  // The done sequence (spec 045 C18): the box fills, the title strikes, the stamp lands. After a
+  // beat the row folds away and rests under the card with Undo. Then everything is still.
+  function done(d: DeadlineEntry) {
     if (marking[d.id]) return;
-    run = nextRun(run, performance.now());
-    const { step } = run;
-    marking[d.id] = { tier: tierOf(step), combo: comboText(step), lifted: false };
+    marking[d.id] = true;
     buzz.done();
-    sfx.done(step);
-    const [x, y] = centre(box);
-    const c = Math.min(step, 4);
-    burst(x, y, 8 + 4 * c, 1 + 0.15 * c);
-    fieldPulse(x, y, 0.45 + 0.15 * c);
-    setTimeout(() => buzz.pull(), 240);
-    const row = box.closest("li");
-    setTimeout(() => {
-      if (marking[d.id]) marking[d.id].lifted = true;
-      if (row) sinkTiles(row.getBoundingClientRect(), 10 + 2 * c);
-    }, reduce ? 0 : LIFT_MS);
-    setTimeout(() => settle(d), reduce ? 0 : MOVE_MS);
+    sfx.done();
+    setTimeout(() => settle(d), reduce ? 0 : FOLD_MS);
   }
 
   async function settle(d: DeadlineEntry) {
@@ -131,8 +107,8 @@
     undoing = [...undoing, d.id];
     arm(d.id);
     delete marking[d.id];
-    setTimeout(() => sfx.land(), reduce ? 0 : LAND_MS);
-    if (!list.length) setTimeout(allClear, reduce ? 0 : LAND_MS + 60);
+    sfx.land();
+    if (!list.length) cleared = true;
     try {
       await adopt(await api.setDone(d.id, true));
     } catch {
@@ -144,15 +120,6 @@
       undoing = undoing.filter((x) => x !== d.id);
       list = [d, ...list];
     }
-  }
-
-  function allClear() {
-    cleared = true;
-    sfx.clear();
-    buzz.done();
-    const [x, y] = centre(card);
-    fieldPulse(x, y, 1.5);
-    if (!reduce) [0, 150, 300].forEach((ms) => setTimeout(() => burst(x, y, 16, 1.7), ms));
   }
 
   async function undo(d: DeadlineEntry) {
@@ -176,11 +143,20 @@
 <section class="due card notch" aria-label="Due" bind:this={card} data-due-card>
   <div class="head">
     <p class="label">Due</p>
-    <button class="add" data-due-add onclick={() => (adding = {})}>Add</button>
+    <button
+      class="add"
+      class:pressed={pressing}
+      data-due-add
+      onpointerdown={() => (pressing = true)}
+      onpointerup={() => (pressing = false)}
+      onpointercancel={() => (pressing = false)}
+      onpointerleave={() => (pressing = false)}
+      onclick={(e) => { pressing = false; e.currentTarget.blur(); adding = {}; }}
+    ><i aria-hidden="true"></i>Add</button>
   </div>
 
   {#if finished.length && segments > 1}
-    <div class="prog" class:cleared role="img" transition:slide={flow()} aria-label="{finished.length} of {segments} done">
+    <div class="prog" role="img" transition:slide={flow()} aria-label="{finished.length} of {segments} done">
       {#each { length: segments } as _, i (i)}<i class:on={i < finished.length}></i>{/each}
       <span class="num">{finished.length} of {segments}</span>
     </div>
@@ -199,15 +175,14 @@
         {@const mark = marking[d.id]}
         <li animate:flip={flow()} in:slide={flow()} out:slide={flow()} data-due-row={d.id}>
           <!-- A long press offers Done (C8); the Done button beside it is the accessible way, with its own label. -->
-          <div use:longpress={() => offer(d.id)} class="ri {mark?.tier ?? ''}" class:fresh={!!mark} class:lift={mark?.lifted} out:send={{ key: d.id }} in:receive={{ key: d.id }}>
-          <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={(e) => done(d, e.currentTarget)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
+          <div use:longpress={() => offer(d.id)} class="ri" class:fresh={!!mark}>
+          <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={() => done(d)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
           <button class="row" onclick={() => open(d)} aria-label="{d.title}, {d.subject ?? d.course ?? 'no subject'}, due {word}">
             <span class="what"><strong>{d.title}</strong><small><b class="when" class:late={word === "Overdue"}>{word}</b> · {d.subject ?? d.course ?? "Your own"}</small></span>
           </button>
           {#if offered === d.id && !mark}
-            <button class="offer" onclick={(e) => { offered = null; const b = e.currentTarget.closest("li")?.querySelector<HTMLElement>(".check"); if (b) done(d, b); }}>Mark done</button>
+            <button class="offer" onclick={() => { offered = null; done(d); }}>Mark done</button>
           {/if}
-          {#if mark?.combo}<span class="combo" aria-hidden="true">{mark.combo}</span>{/if}
           {#if mark}<span class="stamp" aria-hidden="true">DONE</span>{/if}
           </div>
         </li>
@@ -217,7 +192,7 @@
       <button class="all" onclick={() => (all = !all)}>{all ? "Show less" : "All deadlines"}</button>
     {/if}
   {:else if cleared}
-    <p class="none clear" in:slide={flow()}><span class="hop"><Lar size={2} state="happy" gesture="thumbs" cube={false} /></span> All clear for this week.</p>
+    <p class="none clear" in:slide={flow()}><i class="tick" aria-hidden="true"></i>All clear this week.</p>
   {:else if knowsNothingDue(app.sisConnected, app.snapshot?.last_synced, mabini, app.mabini?.last_synced, now) && !finished.length}
     <p class="none"><b>LAR</b> Walang due this week. Ayos!</p>
   {:else if !finished.length}
@@ -228,7 +203,7 @@
     <ul>
       {#each quick as { entry: d } (d.id)}
         <li animate:flip={flow()} in:slide={flow()} out:slide={flow()}>
-          <div class="ri finished" in:receive={{ key: d.id }} out:send={{ key: d.id }}>
+          <div class="ri finished">
           <button class="link" onclick={() => undo(d)} aria-label="Undo {d.title}">Undo</button>
           <span class="what"><s>{d.title}</s><small>{d.subject ?? d.course ?? "Your own"}</small></span>
           <span class="stamp set" aria-hidden="true">DONE</span>
@@ -375,36 +350,8 @@
   @keyframes strike {
     from { transform: scaleX(0); }
   }
-  .ri.nudge {
-    animation: nudge var(--t-flow) var(--ease) both;
-  }
-  .ri.shake {
-    animation: shake var(--t-flow) ease-out both var(--t-quick);
-  }
-  .ri.hard {
-    animation: hard var(--t-flow) ease-out both var(--t-quick);
-  }
-  .ri {
-    transition: scale var(--t-quick) var(--ease);
-  }
-  .ri.lift {
-    z-index: 3;
-    scale: 1.02;
-  }
-  @keyframes nudge {
-    35% { translate: 6px 0; }
-  }
-  @keyframes shake {
-    20% { translate: 4px 0; }
-    40% { translate: -3px 0; }
-    60% { translate: 2px 0; }
-    80% { translate: -1px 0; }
-  }
-  @keyframes hard {
-    15% { translate: 6px -1px; rotate: 0.8deg; }
-    35% { translate: -5px 0; rotate: -0.8deg; }
-    55% { translate: 3px 0; rotate: 0.4deg; }
-    75% { translate: -2px 0; }
+  .ri.fresh {
+    pointer-events: none;
   }
   .stamp {
     position: absolute;
@@ -432,21 +379,6 @@
     60% { scale: 0.97; opacity: 1; }
     100% { scale: 1; opacity: 1; }
   }
-  .combo {
-    position: absolute;
-    right: 60px;
-    top: 50%;
-    font: 700 var(--text-caption) var(--font-pixel);
-    color: var(--gold);
-    pointer-events: none;
-    animation: combo var(--t-hero) ease-out both var(--t-quick);
-  }
-  @keyframes combo {
-    0% { opacity: 0; translate: 0 -40%; }
-    25% { opacity: 1; translate: 0 -130%; }
-    75% { opacity: 1; translate: 0 -170%; }
-    100% { opacity: 0; translate: 0 -190%; }
-  }
   .prog {
     display: flex;
     align-items: center;
@@ -464,9 +396,6 @@
     box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.22);
     animation: seg var(--t-move) var(--ease) backwards;
   }
-  .prog.cleared i {
-    animation: flash var(--t-hero) ease-in-out both;
-  }
   .prog span {
     margin-left: 4px;
     font-size: var(--text-label);
@@ -474,10 +403,6 @@
   }
   @keyframes seg {
     from { scale: 1 2.6; }
-  }
-  @keyframes flash {
-    0%, 50% { background: var(--ink); }
-    25%, 75%, 100% { background: var(--gold); }
   }
   .offer {
     position: absolute;
@@ -528,16 +453,42 @@
     align-items: center;
     gap: 10px;
   }
-  .hop {
-    display: inline-block;
-    animation: hop var(--t-hero) var(--ease) both;
+  .tick {
+    flex: none;
+    width: 12px;
+    height: 9px;
+    background: var(--good);
+    clip-path: polygon(0 50%, 25% 50%, 25% 75%, 37.5% 75%, 37.5% 50%, 62.5% 50%, 62.5% 25%, 75% 25%, 75% 0, 100% 0, 100% 25%, 87.5% 25%, 87.5% 50%, 75% 50%, 75% 75%, 62.5% 75%, 62.5% 100%, 25% 100%, 25% 75%, 0 75%);
   }
-  @keyframes hop {
-    40% { translate: 0 -8px; }
-    70% { translate: 0 -2px; }
-  }
-  .check,
+  /* A gold text button: a small pixel plus, then the word. No box; pressed is opacity only. */
   .add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 0 0 12px;
+    border: 0;
+    background: none;
+    color: var(--gold);
+    font-family: var(--font-display);
+    font-weight: 700;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .add i {
+    width: 10px;
+    height: 10px;
+    background: currentColor;
+    clip-path: polygon(35% 0, 65% 0, 65% 35%, 100% 35%, 100% 65%, 65% 65%, 65% 100%, 35% 100%, 35% 65%, 0 65%, 0 35%, 35% 35%);
+  }
+  /* Never the global squash: pressed is the only state, and it ends with the pointer. */
+  .add:not(:disabled):active {
+    scale: none;
+  }
+  .add.pressed {
+    opacity: 0.6;
+  }
+  .check {
     min-width: 44px;
     min-height: 44px;
     border: 0;

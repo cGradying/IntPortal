@@ -176,9 +176,10 @@ pub fn parse_own(text: &str, today: Date, subjects: &[(String, String)]) -> Draf
 
 ## Motion and Reduce Motion
 
-- Done slides the row out (160 ms). It fades instead under Reduce Motion.
+- Done (spec 045 C18, "Stamp, alone"): the box fills, the title strikes, the stamp lands, then after about 0.7 s the row folds away and appears under the card with Undo. No sparks or ripple. Under Reduce Motion it moves at once.
 - The adder grows out of Add (or the row it edits) and shrinks back into the Due card (or that row) on save, over about 0.4 s with the shared ease; a swipe down drops it off the screen; its height eases as tickets come and go. Reduce Motion: a cross-fade.
 - Done and Save play the "success" haptic.
+- Add is a gold text button with a small pixel plus (no box); pressed is opacity only, cleared by pointer events so it can never stay stuck after the sheet opens.
 
 ## Accessibility
 
