@@ -255,3 +255,35 @@ export function tick(l: Lar, world: World, ctx: Context, dt: number, rand: Rand)
 
 /** Which way he faces, -1 to 1, from how he is moving. */
 export const turnOf = (l: Lar) => Math.max(-1, Math.min(1, l.vx / SPEED));
+
+export interface Spot {
+  /** Which candidate it is, so the caller can ask for the same one next frame. */
+  k: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * Where LAR's speech bubble goes: beside him (the roomier side first), above, level
+ * or below him; failing those, just under or over the frame. The first spot that
+ * covers neither a frame tile nor LAR wins (else the first that spares the frame), and `kept` keeps winning while it still
+ * qualifies, so the bubble doesn't hop from frame to frame.
+ */
+export function placeBubble(world: World, lar: { x: number; y: number }, size: { w: number; h: number }, kept = -1): Spot {
+  const { x, y } = lar;
+  const R = world.r;
+  const f = world.portal;
+  const clampX = (v: number) => Math.max(4, Math.min(world.w - size.w - 4, v));
+  const clampY = (v: number) => Math.max(4, Math.min(world.h - size.h - 4, v));
+  const sides = [x + R * 0.8, x - R * 0.8 - size.w, x - size.w / 2];
+  const tops = [y - R - size.h + 4, y - size.h / 2, y + R * 0.9, f.y + f.h + 6, f.y - size.h - 6];
+  const me = { x: x - R * 0.7, y: y - R * 0.7, w: R * 1.4, h: R * 1.4 };
+  const hits = (r: Rect, s: Spot) => s.x < r.x + r.w && s.x + size.w > r.x && s.y < r.y + r.h && s.y + size.h > r.y;
+  const clear = (s: Spot) => !hits(f, s) && !hits(me, s);
+  const all = Array.from({ length: 15 }, (_, k) => ({ k, x: clampX(sides[k % 3]), y: clampY(tops[Math.floor(k / 3)]) }));
+  // Right and left trade places when he is on the right half.
+  const swap = [1, 0, 2];
+  const order = x < world.w / 2 ? all : all.map((_, i) => all[i - (i % 3) + swap[i % 3]]);
+  // Where nothing is clear, the frame still wins over LAR: he can stand behind his own words.
+  return kept >= 0 && clear(all[kept]) ? all[kept] : (order.find(clear) ?? order.find((s) => !hits(f, s)) ?? order[0]);
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Portal } from "./api";
-import { birthYears, daysIn, fieldValues, maskStudentNumber, portalCopy, triesLine, validate } from "./portals";
+import { birthYears, daysIn, fieldValues, maskStudentNumber, portalCopy, statusChip, triesLine, validate } from "./portals";
 
 const sis = { id: "sis", fields: ["student_number", "birthdate", "password"], limits: { attempts: 3, window_secs: 900 } } as unknown as Portal;
 const mabini = { id: "mabini", fields: ["student_number", "password"], limits: { attempts: 3, window_secs: 900 } } as unknown as Portal;
@@ -38,6 +38,10 @@ describe("triesLine", () => {
 });
 
 describe("portalCopy", () => {
+  it("011 C18: Forgot password opens the portal's own https reset page", () => {
+    expect(portalCopy("sis").reset).toBe("https://sis8.pup.edu.ph/student/");
+    expect(portalCopy("mabini").reset).toBe("https://emabini.pup.edu.ph/login/forgot_password.php");
+  });
   it("speaks per portal, falling back to SIS wording", () => {
     expect(portalCopy("mabini").keychainNote).toMatch(/eMabini/);
     expect(portalCopy("sis").keychainNote).toMatch(/PUP SIS/);
@@ -62,5 +66,21 @@ describe("011 form", () => {
     expect(daysIn(2, 2024)).toBe(29);
     expect(daysIn(2, 2026)).toBe(28);
     expect(daysIn(4, 2026)).toBe(30);
+  });
+});
+
+describe("the status chip on the plaque (010 C40)", () => {
+  const ready = { id: "sis", status: "ready" } as Portal;
+  const unbuilt = { id: "tup", status: "opens_soon" } as Portal;
+  it("says a portal that isn't built opens soon, whatever the check said", () => {
+    expect(statusChip(unbuilt, { up: true, host: null })).toEqual({ text: "Opens soon", tone: "soon" });
+  });
+  it("says it is checking until an answer comes", () => {
+    expect(statusChip(ready, null)).toEqual({ text: "Checking…", tone: "wait" });
+  });
+  it("names the system that answered, or says plainly that it didn't", () => {
+    expect(statusChip(ready, { up: true, host: "sis8.pup.edu.ph" })).toEqual({ text: "SIS is up", tone: "up" });
+    expect(statusChip({ id: "mabini", status: "ready" } as Portal, { up: true, host: null })).toEqual({ text: "eMabini is up", tone: "up" });
+    expect(statusChip(ready, { up: false, host: null })).toEqual({ text: "Not answering", tone: "down" });
   });
 });

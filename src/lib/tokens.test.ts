@@ -20,6 +20,15 @@ const files = svelteFiles().map((p) => ({ name: p.slice(root.length), src: readF
 const style = (src: string) => src.split("<style")[1] ?? "";
 
 describe("spec 045 tokens", () => {
+  it("no token is defined in terms of itself (a cycle makes every use of it invalid)", () => {
+    const loops = [...css.matchAll(/(--[\w-]+):([^;]*);/g)].filter(([, name, value]) => value.includes(`var(${name})`)).map(([, name]) => name);
+    expect(loops).toEqual([]);
+  });
+
+  it("text typed into a field is never under 16 px, so iOS does not zoom the page", () => {
+    expect(css).toMatch(/--text-input: max\(16px, [^;]+\);/);
+  });
+
   it("c3_css_pauses_the_ground_when_data_hidden (rule is present)", () => {
     expect(css).toMatch(/:root\[data-hidden\] \.dots::before,\s*:root\[data-hidden\] \.dots::after \{\s*animation-play-state: paused;/);
   });

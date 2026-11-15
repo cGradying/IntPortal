@@ -10,6 +10,48 @@ pub fn snapshot(state: tauri::State<'_, AppState>) -> Res<Snapshot> {
     snapshot_of(&state)
 }
 
+/// Whether a portal is answering right now, for the landing's status chip (spec 010 C40).
+#[derive(Serialize)]
+pub struct PortalStatus {
+    pub up: bool,
+    /// The SIS host that answered, e.g. `sis8.pup.edu.ph`.
+    pub host: Option<String>,
+}
+
+/// Asks a portal for its sign-in page and says whether it came. No credentials are sent, so the
+/// student can ask as often as they like. The SIS hosts are tried together and the first to
+/// answer wins; none answering within six seconds is "not answering".
+#[tauri::command]
+pub async fn portal_status(state: tauri::State<'_, AppState>, portal: String) -> Res<PortalStatus> {
+    const WAIT: std::time::Duration = std::time::Duration::from_secs(6);
+    match portal.as_str() {
+        "sis" => {
+            let remembered = snapshot_of(&state).ok().and_then(|s| s.host);
+            let (tx, mut rx) = tokio::sync::mpsc::channel(4);
+            for host in sis::host::candidates(remembered.as_deref()) {
+                let tx = tx.clone();
+                tauri::async_runtime::spawn(async move {
+                    let up = match SisClient::new(&host) {
+                        Ok(client) => matches!(tokio::time::timeout(WAIT, client.probe()).await, Ok(Ok(()))),
+                        Err(_) => false,
+                    };
+                    let _ = tx.send(up.then_some(host)).await;
+                });
+            }
+            drop(tx);
+            while let Some(answer) = rx.recv().await {
+                if answer.is_some() {
+                    return Ok(PortalStatus { up: true, host: answer });
+                }
+            }
+            Ok(PortalStatus { up: false, host: None })
+        }
+        "mabini" => Ok(PortalStatus { up: matches!(tokio::time::timeout(WAIT, LoginPage::fetch()).await, Ok(Ok(_))), host: None }),
+        // A portal that isn't built yet has nothing to ask.
+        _ => Ok(PortalStatus { up: false, host: None }),
+    }
+}
+
 /// Every sign-in goes through here: one credential POST, a live host picked
 /// by GET first, at most 3 tries per 15 minutes, and no automatic try after
 /// a rejection (`auto`). The count is saved even when the sign-in fails.
