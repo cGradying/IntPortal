@@ -389,6 +389,7 @@
     onpointerup={up}
     onpointercancel={cancel}
   ></canvas>
+  <p class="sr">{current.name} portal, {current.status === "ready" ? "open" : "opens soon"}.</p>
   {#if peek !== null}
     <PortalPeek box={peekAt.box} room={peekAt.room} inset={peekAt.inset} page={peek} accent={current.theme.accent} onnext={turn} />
   {/if}
@@ -431,6 +432,15 @@
     grid-template-rows: minmax(0, 1fr) auto auto;
     justify-items: center;
     min-height: 0;
+  }
+  /* Spoken, not shown: the canvas itself is hidden from VoiceOver. */
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
   /* LAR's sky shares the portal's cell, over it. */
   canvas,
