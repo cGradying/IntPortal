@@ -6,7 +6,7 @@
   // school; each has its own frame, motif and colours, and they ride an
   // orbit that turns between them. LAR flies round it (LarFlight), never
   // through a portal's blocks.
-  import { onMount, untrack } from "svelte";
+  import { onMount, untrack, type Snippet } from "svelte";
   import LarFlight, { type Context } from "./lar/LarFlight.svelte";
   import PortalHub from "./PortalHub.svelte";
   import PortalPeek from "./PortalPeek.svelte";
@@ -32,6 +32,7 @@
     quiet = false,
     leaving = false,
     ctx,
+    mouth,
   }: {
     portals: Portal[];
     /** The selected portal. */
@@ -49,6 +50,8 @@
     leaving?: boolean;
     /** What the student is doing, for LAR. */
     ctx: Context;
+    /** The intro's live view (spec 049 C9): while set, the peek opens onto it and holds; unset, it closes. */
+    mouth?: Snippet;
   } = $props();
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -82,6 +85,8 @@
 
   // The peek through the portal (C36–C37): which page is open, and where the portal was when it opened.
   let peek = $state<number | null>(null);
+  /** The peek shows the intro's own view: it never turns or closes on its own. */
+  let held = $state(false);
   let peekAt = $state({ box: { x: 0, y: 0, w: 0, h: 0 }, room: { w: 0, h: 0 }, inset: 0 });
   let press: { x: number; y: number; t: number } | null = null;
   let peeked = $state(false);
@@ -297,12 +302,13 @@
     const py = (e.clientY - cb.top) * dpr;
     const [x, y, w, h] = tiles.rect(motion.pos);
     if (px < x || px > x + w || py < y || py > y + h) {
-      peek = null;
+      if (!held) peek = null;
       return;
     }
     const { pitch } = tiles.metrics();
     tiles.poke((px - x) / pitch, (py - y) / pitch, now());
     buzz.select();
+    if (held) return;
     if (peek !== null) return turn();
     // The ring runs through the frame first, then the view opens out of the mouth.
     clearTimeout(opening);
@@ -335,6 +341,32 @@
 
   /** LAR says this line now (010 C45). */
   export const say = (line: string) => flight?.sayLine(line);
+  /** LAR hops and waves (spec 049 C8). */
+  export const cheer = () => flight?.cheer();
+  /** LAR flies to wait beside or under the portal (spec 049 C6). */
+  export const visit = (spot: "left" | "right" | "below") => flight?.visit(spot);
+  /** The portal rings out from its centre, as a tap there does: the intro's page turn (spec 049 C6). */
+  export function ring() {
+    if (!tiles || leaving) return;
+    const [, , w, h] = tiles.rect(motion.pos);
+    const { pitch } = tiles.metrics();
+    tiles.poke(w / pitch / 2, h / pitch / 2, now());
+  }
+
+  // The intro's view: opened out of the mouth like a peek, held while it is set (spec 049 C9).
+  $effect(() => {
+    const on = !!mouth;
+    untrack(() => {
+      if (on && !held) {
+        held = true;
+        peekTo(0);
+      } else if (!on && held) {
+        held = false;
+        clearTimeout(opening);
+        peek = null;
+      }
+    });
+  });
 
   /** The wall opened as the plaque opens it, dithering out of `from`; the plaque is hidden while `quiet` (010 C45). */
   export function openWall(from?: DOMRect) {
@@ -352,7 +384,7 @@
   // Each page: LAR names it, and it turns on its own after a while; the last one closes.
   $effect(() => {
     const p = peek;
-    if (p === null) return;
+    if (p === null || held) return;
     untrack(() => {
       if (!peeked) {
         peeked = true;
@@ -373,7 +405,7 @@
   });
   $effect(() => {
     void index;
-    untrack(() => (peek = null));
+    untrack(() => !held && (peek = null));
   });
 
 </script>
@@ -389,7 +421,7 @@
   ></canvas>
   <p class="sr">{current.name} portal, {current.status === "ready" ? "open" : "opens soon"}.</p>
   {#if peek !== null}
-    <PortalPeek box={peekAt.box} room={peekAt.room} inset={peekAt.inset} page={peek} accent={current.theme.accent} onnext={turn} />
+    <PortalPeek box={peekAt.box} room={peekAt.room} inset={peekAt.inset} page={peek} accent={current.theme.accent} onnext={turn} view={held ? mouth : undefined} />
   {/if}
   <div class="sky"><LarFlight bind:this={flight} getRects={portalRects} show={showLar} {ctx} portal={larPortal} /></div>
   <!-- One quiet row of things to do before signing in: peek inside (C37) and whether the portal answers (C40).

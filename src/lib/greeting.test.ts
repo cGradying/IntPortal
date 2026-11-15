@@ -11,6 +11,11 @@ describe("the launch hello (spec 010 C35)", () => {
     expect(greeting(at(20))).toBe("Good evening");
   });
 
+  it("049_c8_says_the_name_when_there_is_one", () => {
+    expect(greeting(at(9), "Jan")).toBe("Good morning, Jan");
+    expect(greeting(at(9), "")).toBe("Good morning");
+  });
+
   it("c35_lines_arrive_in_order_then_hold", () => {
     expect(helloTimes(false)).toEqual({ in: [0, 450], hold: 1500, out: 500 });
   });
