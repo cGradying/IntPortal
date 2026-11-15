@@ -81,6 +81,6 @@ describe("the status chip on the plaque (010 C40)", () => {
   it("names the system that answered, or says plainly that it didn't", () => {
     expect(statusChip(ready, { up: true, host: "sis8.pup.edu.ph" })).toEqual({ text: "SIS is up", tone: "up" });
     expect(statusChip({ id: "mabini", status: "ready" } as Portal, { up: true, host: null })).toEqual({ text: "eMabini is up", tone: "up" });
-    expect(statusChip(ready, { up: false, host: null })).toEqual({ text: "Not answering", tone: "down" });
+    expect(statusChip(ready, { up: false, host: null })).toEqual({ text: "SIS isn't answering", tone: "down" });
   });
 });

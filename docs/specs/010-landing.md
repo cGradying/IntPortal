@@ -22,7 +22,7 @@ Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal
 
 ## Behaviour
 
-Shipped in `crates/intportal-tiles` (the scene and the dive), `Landing.svelte`, `PortalStage.svelte`, `PortalPeek.svelte`, `Dive.svelte`, `Greeting.svelte`, `PortalHub.svelte`, `MiniPortal.svelte` and `lar/LarFlight.svelte`: C1–C19, C22–C41.
+Shipped in `crates/intportal-tiles` (the scene and the dive), `Landing.svelte`, `PortalStage.svelte`, `PortalPeek.svelte`, `Dive.svelte`, `Greeting.svelte`, `PortalHub.svelte`, `MiniPortal.svelte` and `lar/LarFlight.svelte`: C1–C19, C22–C44.
 
 **Fit.** The portal takes whatever height the form leaves and picks the largest whole-pixel tile pitch that fits the 12 × 16 grid with a tile of margin, so it stays crisp and centred on every phone's aspect ratio.
 
@@ -119,13 +119,19 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
   - Each page holds 4.5 s, then turns; a tap on the view turns it at once; the last page closes it. A tap on the void round the portal, a focused field, a swipe to another portal or Step through closes it too.
   - Until the student's first peek, a "Peek inside" button with a pixel eye sits under the portal (*amended 2026-11-15*, was a hint line); once they have peeked it leaves the screen and stays for VoiceOver and the keyboard. It is remembered on the phone.
   - The view is one button: VoiceOver reads the page's name and "Tap for the next one".
-- **C38. A one-line pitch.** Under the wordmark, one line in the system face says what IntPortal does with the selected portal: "Your schedule, grades and deadlines. Works offline." (SIS), "Your eMabini courses and deadlines. Works offline." (Mabini), and "{school} is next. For now, IntPortal works with PUP." for a portal that is not ready. *Amended 2026-11-15:* shorter, so it is one line on a 375 pt phone; on a phone under 700 pt tall the ready portals' line gives its room to the portal, and a not-ready portal keeps its line.
+- **C38. A one-line pitch.** Under the wordmark, one line in the system face says what IntPortal does with the selected portal: "Your schedule, grades and deadlines. Works offline." (SIS), "Your eMabini courses and deadlines. Works offline." (Mabini), and "{school} is next. For now, IntPortal works with PUP." for a portal that is not ready. *Amended 2026-11-15 (second pass):* the line shows only for a portal that is not ready. For the ready portals the welcome (C42) says what the app does.
 
 **Things to do before signing in** (added 2026-11-15, the owner's ask that the landing have functions a student can use)
 
-- **C39. Look around.** "Look around" sits beside Sign in and, for a portal that is not ready, in place of the form. It opens the whole app on sample data, in release builds too, with no login.
-- **C40. Is the portal up?** A chip beside "Peek inside" says "SIS is up" (or "eMabini is up"), "Checking…", "Not answering" or, for a portal that is not ready, "Opens soon". It asks the `portal_status` command, which loads the portal's sign-in page and nothing more: no credentials, every SIS host tried at once with a 6 s limit each. The answer is kept a minute; a tap asks again. It talks only to the school's own servers.
+- **C39. Look around.** "Look around first" sits under the welcome's Sign in (C42) and, for a portal that is not ready, in place of the form. It opens the whole app on sample data, in release builds too, with no login.
+- **C40. Is the portal up?** Said only when it matters: under the portal, beside "Peek inside", the line "SIS isn't answering" (or "eMabini isn't answering") shows when the portal does not answer, and nothing shows while it does. It asks the `portal_status` command, which loads the portal's sign-in page and nothing more: no credentials, every SIS host tried at once with a 6 s limit each. The answer is kept a minute; a tap asks again. It talks only to the school's own servers.
 - **C41. LAR's words never cover the frame.** His bubble goes beside him, above, level or below, else just under or over the frame: the first spot clear of every frame tile and of him. It keeps its spot while that stays clear. Right under the frame's middle, where nothing else fits, it may cover him but never the frame. When the portal at the front changes, he drops what he was saying.
+
+**The welcome** (added 2026-11-15, the owner: "the login page is too heavy and too many things happening"; "the landing page for new user on what is the app about")
+
+- **C42. A new student reads what the app is before any form.** The first time, under the wordmark and the portal: "Your PUP schedule, grades and deadlines, on your phone.", then three facts, each marked with one lit tile: "Works offline after one sign-in", "Your login stays on this phone", "LAR helps you study and plan". One gold button, "Sign in with SIS", and the text link "Look around first". No card, no plaque, no peek and no status: just the portal and LAR. "Sign in with SIS" brings the form in place of the welcome; Back returns to it. Once the student has asked for the form or looked around, later launches open on the form (kept on the phone).
+- **C43. One thing moves at rest.** On the landing only the portal's mouth moves once the frame stands. The stars keep their own brightness and brighten and streak only while the orbit turns. The lit dots do not pulse. The app's colour pools stand still at 40 % here, so the portal is the light. LAR keeps his flight (C18).
+- **C44. The form step carries the form.** Under the portal: "Peek inside" (until the first peek) and the school plaque, both as words on the ground, not boxes. Then the student number, birthdate and password, one gold Sign in, and the fine print (011 C18).
 
 **Motion budget and renderer**
 
@@ -193,6 +199,8 @@ Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is 
 | C39 | screenshot; review: `demo()` has no debug gate |
 | C40 | vitest `portals.test.ts`: `statusChip`; `cargo test -p intportal` builds `portal_status` |
 | C41 | vitest `lar/wander.test.ts`: `placeBubble` sweep over the stage |
+| C42, C44 | screenshot of both steps at 390 by 844 and 375 by 667 |
+| C43 | `cargo test -p intportal-tiles`: `at_rest_the_ground_and_the_stars_hold_still` |
 | C16 | recording: the portal builds in the middle and lifts as the form rises |
 | C22–C23 | measured fps on the 17e, reported in the PR |
 | C24 | review: no three.js in `package.json`; bundle size reported |
