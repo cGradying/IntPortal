@@ -145,8 +145,8 @@ export function build(def: SceneDef): Built {
       const str = s.toUpperCase();
       if (!inside("text", x, str.includes("Ñ") ? y - 2 : y, textWidth(str), str.includes("Ñ") ? 7 : 5)) return 0;
       [...str].forEach((ch, n) => {
-        // Ñ is an N with its tilde riding above the line.
-        if (ch === "Ñ") for (const [dx, dy] of [[0, -1], [1, -2], [2, -1]]) put(x + n * 4 + dx, y + dy, i, ROLE.solid);
+        // Ñ is an N with its tilde, a bar one pixel above the letter.
+        if (ch === "Ñ") for (const [dx, dy] of [[0, -2], [1, -2], [2, -2]]) put(x + n * 4 + dx, y + dy, i, ROLE.solid);
         const g = GLYPHS[ch === "Ñ" ? "N" : ch];
         if (!g) return void errors.push(`no glyph for ${ch}`);
         for (let b = 0; b < 15; b++) if (g[b] === "1") put(x + n * 4 + (b % 3), y + Math.floor(b / 3), i, ROLE.solid);

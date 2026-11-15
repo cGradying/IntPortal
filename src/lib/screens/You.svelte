@@ -19,6 +19,10 @@
   import ModelCard from "../assis/ModelCard.svelte";
   import { chatModel, installed as aiOn } from "../assis/assis.svelte";
   import PixelIcon, { type SpriteName } from "../PixelIcon.svelte";
+  import CampusStrip from "../CampusStrip.svelte";
+  import { campus, sceneKey, setCampus } from "../campus/choice.svelte";
+  import { CAMPUSES } from "../profile";
+  import { search } from "../hub";
   import { BELOW, CARD_NAMES, GROUPS, TOP, inGroup, moveWithin, type CardId, rowProblem, searchSettings, toggleCard, type PageId } from "../you";
 
   let { onsignout, ongallery }: { onsignout: () => void; ongallery?: () => void } = $props();
@@ -186,7 +190,7 @@
     }),
   ]);
 
-  const ICON: Record<PageId, SpriteName> = { accounts: "you", theme: "mark", layout: "bullet", motion: "wave", reminders: "bell", calendar: "date", assis: "ai", notes: "note2", backup: "disk", privacy: "lock" };
+  const ICON: Record<PageId, SpriteName> = { accounts: "you", campus: "today", theme: "mark", layout: "bullet", motion: "wave", reminders: "bell", calendar: "date", assis: "ai", notes: "note2", backup: "disk", privacy: "lock" };
   const TAB_NAME = { today: "Today", schedule: "Schedule", study: "Study" };
   const LEVEL = { full: "Full", short: "Short", calm: "Calm", off: "Off" };
 
@@ -195,6 +199,7 @@
     const connected = Number(app.sisConnected) + Number(app.mabiniConnected);
     return {
       accounts: connected ? `${connected} connected` : "Not connected",
+      campus: campusName(sceneKey()),
       theme: rooms.find((r) => r.id === app.room)?.name ?? "",
       layout: `Opens on ${TAB_NAME[app.opensOn]}`,
       motion: `Dive ${LEVEL[app.dive]}`,
@@ -229,6 +234,15 @@
     api.portals().then((p) => (portals = p)).catch(() => {});
   });
   const portalOf = (id: string) => portals.find((p) => p.id === id);
+
+  // Campus (the In session art): PUP's campuses, or another school in the hub.
+  let schoolQuery = $state("");
+  const otherSchools = $derived(portals.filter((p) => p.id !== "sis" && p.id !== "mabini"));
+  const campusName = (key: string) => (key.startsWith("school:") ? (portalOf(key.slice(7))?.name ?? "Another school") : key);
+  function pickCampus(key: string) {
+    buzz.select();
+    setCampus(key);
+  }
   const mabiniSynced = $derived.by(() => {
     const s = app.mabini?.last_synced;
     return s ? new Date(s * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "Never";
@@ -344,6 +358,34 @@
           <div class="row">
             {#if app.sisConnected}<button class="ghost" onclick={() => (confirming = "out")}>Sign out of SIS</button>{/if}
             {#if app.mabiniConnected}<button class="ghost" onclick={mabiniOut}>Sign out of eMabini</button>{/if}
+          </div>
+        {/if}
+      {:else if page === "campus"}
+        <section class="card notch strip"><CampusStrip /></section>
+        {#if campus.resolved}
+          <p class="fine">Your student number puts you at {campus.resolved}, so Today draws it.</p>
+        {:else}
+          <p class="fine">Today's In session card draws your campus at the real hour.</p>
+          <div class="field">
+            <p class="label">PUP campuses</p>
+            <div class="rooms" role="radiogroup" aria-label="PUP campuses">
+              {#each CAMPUSES as c (c)}
+                <button class="notch" role="radio" class:on={sceneKey() === c} aria-checked={sceneKey() === c} onclick={() => pickCampus(c)}>{c}</button>
+              {/each}
+            </div>
+          </div>
+          <div class="field">
+            <label class="label" for="campus-find">Another school</label>
+            <input id="campus-find" type="search" placeholder="Find your school" bind:value={schoolQuery} />
+            {#if schoolQuery.trim()}
+              <div class="rooms" role="radiogroup" aria-label="Other schools">
+                {#each search(otherSchools, schoolQuery).slice(0, 8) as s (s.id)}
+                  <button class="notch" role="radio" class:on={sceneKey() === `school:${s.id}`} aria-checked={sceneKey() === `school:${s.id}`} onclick={() => pickCampus(`school:${s.id}`)}>{s.name}</button>
+                {:else}
+                  <p class="fine">No school by that name in the hub yet.</p>
+                {/each}
+              </div>
+            {/if}
           </div>
         {/if}
       {:else if page === "theme"}
@@ -910,6 +952,10 @@
     font-size: var(--text-caption);
     line-height: 1.2;
     text-align: left;
+  }
+  .strip {
+    overflow: hidden;
+    padding: 0;
   }
   .rooms button.on {
     box-shadow: inset 0 0 0 2px var(--gold);
