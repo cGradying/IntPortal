@@ -159,32 +159,13 @@
   function fit() {
     if (still) return;
     // Layout size, not the on-screen box: the intro's lift scales the stage up, and a buffer
-    // sized to that would put LAR's frame box and the page's dots off by the same factor.
+    // sized to that would put LAR's frame box off by the same factor.
     const [width, height] = [canvas.clientWidth, canvas.clientHeight];
     const dpr = Math.min(devicePixelRatio, 3);
     canvas.width = Math.max(1, Math.round(width * dpr));
     canvas.height = Math.max(1, Math.round(height * dpr));
     tiles?.resize(canvas.width, canvas.height);
-    ground();
     draw(now());
-  }
-
-  /** The page's grid of dots takes its pitch and place from the scene, so dots and tiles share centres (C3). */
-  function ground() {
-    const page = canvas?.closest<HTMLElement>(".landing");
-    if (!tiles || !page) return;
-    const dpr = Math.min(devicePixelRatio, 3);
-    const g = tiles.grid(Math.round(motion.pos));
-    // Where the canvas lies on the page, without the lift's transform.
-    let [x, y] = [0, 0];
-    for (let el: HTMLElement | null = canvas; el && el !== page; el = el.offsetParent as HTMLElement | null) {
-      x += el.offsetLeft;
-      y += el.offsetTop;
-    }
-    page.style.setProperty("--grid-x", `${x + g.x / dpr}px`);
-    page.style.setProperty("--grid-y", `${y + g.y / dpr}px`);
-    page.style.setProperty("--grid-pitch", `${g.pitch / dpr}px`);
-    page.style.setProperty("--grid-dot", `${g.dot / dpr}px`);
   }
 
   // Rendering stops while the app is in the background (C23).

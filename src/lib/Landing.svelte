@@ -232,7 +232,7 @@
   }
 </script>
 
-<section class="landing dots" class:leaving class:worn>
+<section class="landing" class:leaving class:worn>
   <header class="brand" class:on={resting}>
     <h1>Student <span>IntPortal</span></h1>
     {#if !ready}<p class="pitch">{portal.school} is next. For now, IntPortal works with PUP.</p>{/if}
@@ -355,25 +355,13 @@
     gap: 8px;
     padding: calc(var(--safe-top) + 10px) var(--gutter) calc(var(--safe-bottom) + 12px);
     color: var(--parch);
-    /* The app's own ground. Its dots are squares on the portal's tile pitch, placed by PortalStage,
-       so the portal is this grid lit up (spec 010 C3). Before the scene loads they sit at 14 px. */
+    /* Night and the portal's stars, nothing else: no dots, no pools, no reflection (spec 010 C3). */
     --land: var(--void);
-    --land-dot: rgb(232 176 74 / 0.13);
     background-color: var(--land);
-    background-image: conic-gradient(from 270deg at var(--grid-dot, 1.5px) var(--grid-dot, 1.5px), var(--land-dot) 90deg, transparent 0);
     transition: background-color var(--t-flow) var(--ease);
-    background-size: var(--grid-pitch, 14px) var(--grid-pitch, 14px);
-    background-position: var(--grid-x, 0) var(--grid-y, 0);
   }
   .landing.worn {
     --land: var(--ground);
-    --land-dot: color-mix(in srgb, var(--gold) 16%, transparent);
-  }
-  /* The app's drifting pools, held still and dim here: on the landing the portal is the light. */
-  .landing.dots::before,
-  .landing.dots::after {
-    animation: none;
-    opacity: calc(var(--aura-o, 1) * 0.4);
   }
   .brand {
     text-align: center;

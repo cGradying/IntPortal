@@ -14,41 +14,8 @@ pub const TONES: [u32; 4] = [0x1a1622, 0x241f2e, 0x2f2939, 0x3c3548];
 /// The light core a tile shows on its first frame.
 pub const CORE: u32 = 0xece7dc;
 pub const VOID: u32 = 0x0b0710;
-/// A dot of the unlit grid: the app's gold dot at its 13 percent, on the void.
-pub const DOT: u32 = 0x281d18;
-/// The colour a ground dot starts from before the portal tints it.
-const DOT_GOLD: u32 = 0xe8b04a;
-/// Marks on a tile's `c`: a star, a ground dot the portal lights, a mirrored tile.
+/// Marks on a tile's `c`: a star of the field behind the orbit.
 pub const STAR: i32 = -1;
-pub const GLOW: i32 = -2;
-pub const MIRROR: i32 = -3;
-/// How far the portal's light reaches across the ground, in tiles, and how many rows it mirrors.
-const GLOW_REACH: f32 = 4.0;
-const MIRROR_ROWS: i32 = 4;
-
-/// How strongly the portal lights a ground dot `d` tiles from its frame, 0 to 1 (spec 010 C3).
-pub fn glow(d: f32) -> f32 {
-    if d <= 0.0 || d >= GLOW_REACH {
-        0.0
-    } else {
-        (1.0 - d / GLOW_REACH).powi(2)
-    }
-}
-
-/// How much of its colour a tile keeps when mirrored `row` rows under the foot; row 0 is nearest.
-pub fn mirror(row: i32) -> f32 {
-    if (0..MIRROR_ROWS).contains(&row) {
-        0.42 * (1.0 - row as f32 / MIRROR_ROWS as f32).powf(1.5)
-    } else {
-        0.0
-    }
-}
-
-/// The side of an unlit ground dot at this pitch, in device px. The CSS grid round the canvas
-/// draws the same dot, so the two meet without a seam.
-pub fn dot_size(pitch: i32) -> i32 {
-    ((pitch as f32 * 0.1).round() as i32).max(1)
-}
 
 /// Each tile's spawn: it grows from a small light core with a little
 /// overshoot, flashes the accent, and eases into its tone over this long.
@@ -720,95 +687,14 @@ pub fn carousel(scenes: &[Scene], pos: f32, inp: &Input, w: u32, h: u32, out: &m
     // Furthest first, so the nearer portals pass in front.
     order.sort_by(|a, b| (b.0 as f32 - pos).abs().total_cmp(&(a.0 as f32 - pos).abs()));
     let mut events = 0;
-    let mut front = None;
     for (p, lay, dim) in order {
         let mine = if p == sel { *inp } else { Input { stage: Stage::Rest, poke: NO_POKE, ..*inp } };
-        let from = out.len();
         let ev = scenes[p].frame(&mine, &lay, dim, out);
         if p == sel {
             events = ev;
-            front = Some((lay, from..out.len()));
         }
-    }
-    if let Some((lay, tiles)) = front {
-        ground(&scenes[sel], &lay, &base, tiles, inp, w, h, out);
     }
     events
-}
-
-/// The ground under the selected portal (spec 010 C3): its last rows mirrored below in fading
-/// tiles, and the grid's dots near its frame grown and tinted by its ramp. Flat squares only.
-/// The dots sit on one fixed grid, the one the resting portal's tiles are on, so the CSS dots
-/// round the canvas line up with them and a turning orbit never drags the grid along.
-#[allow(clippy::too_many_arguments)]
-fn ground(s: &Scene, lay: &Layout, base: &Layout, tiles: std::ops::Range<usize>, inp: &Input, w: u32, h: u32, out: &mut Vec<Tile>) {
-    let (p, gap) = (lay.pitch, lay.pitch - lay.tile);
-    let foot = lay.oy + s.gr * p;
-    for i in tiles {
-        let t = out[i];
-        let k = mirror(s.gr - 1 - t.r);
-        if k > 0.0 && t.r >= 0 {
-            let y = foot + (s.gr - 1 - t.r) * p + (t.y - (lay.oy + t.r * p));
-            if y + t.size <= h as i32 {
-                out.push(Tile { c: MIRROR, r: t.r, x: t.x, y, size: t.size, rgb: fade(t.rgb, k), frame: false });
-            }
-        }
-    }
-    // A front portal smaller than full size is on its way round the orbit; its light goes with it.
-    let near = (lay.pitch as f32 / base.pitch as f32).clamp(0.0, 1.0).powi(3);
-    // The light comes up once the frame stands and has settled into its place over the form (C16).
-    let risen = if inp.returning || inp.reduce { 1.0 } else { smooth((inp.t - FORM - 0.5) / 0.5) };
-    let power = near
-        * risen
-        * match inp.stage {
-            Stage::Open => 1.25,
-            Stage::Connecting if !inp.reduce => 0.9 + 0.3 * (inp.t * 6.0).sin(),
-            _ => 1.0,
-        };
-
-    let (bp, bt, dot) = (base.pitch, base.tile, dot_size(base.pitch));
-    // The fixed grid: where this shape's tiles stand when the portal rests at the front.
-    let (gx, gy) = (grid_origin(w as i32, s.gc, base), grid_origin(h as i32, s.gr, base) - (AIR.2 - AIR.1) * bp / 2);
-    let (left, top, right, bottom) = (lay.ox as f32, lay.oy as f32, (lay.ox + (s.gc - 1) * p + lay.tile) as f32, (foot - gap) as f32);
-    let reach = GLOW_REACH * bp as f32;
-    let (c0, c1) = (((left - reach - gx as f32) / bp as f32).floor() as i32, ((right + reach - gx as f32) / bp as f32).ceil() as i32);
-    let (r0, r1) = (((top - reach - gy as f32) / bp as f32).floor() as i32, ((bottom + reach - gy as f32) / bp as f32).ceil() as i32);
-    for r in r0..=r1 {
-        for c in c0..=c1 {
-            let (cx, cy) = ((gx + c * bp) as f32 + bt as f32 / 2.0, (gy + r * bp) as f32 + bt as f32 / 2.0);
-            let (dx, dy) = ((left - cx).max(cx - right).max(0.0), (top - cy).max(cy - bottom).max(0.0));
-            // Straight under the foot the mirror stands; dots there would sit in its tiles.
-            if dx == 0.0 && cy > top && cy < bottom + MIRROR_ROWS as f32 * p as f32 {
-                continue;
-            }
-            let k = (glow((dx * dx + dy * dy).sqrt() / bp as f32) * power).clamp(0.0, 1.0);
-            if k < 0.02 {
-                continue;
-            }
-            let size = dot + ((bt as f32 * 0.42 - dot as f32) * k.powf(1.6)).round().max(0.0) as i32;
-            let (x, y) = ((cx - size as f32 / 2.0).round() as i32, (cy - size as f32 / 2.0).round() as i32);
-            if x < 0 || y < 0 || x + size > w as i32 || y + size > h as i32 {
-                continue;
-            }
-            let lit = mix(DOT_GOLD, s.look.theme.ramp[2], (k * 2.0).min(1.0));
-            out.push(Tile { c: GLOW, r: -1, x, y, size, rgb: fade(lit, 0.13 + 0.45 * k), frame: false });
-        }
-    }
-}
-
-/// The ground's grid for portal `p`'s shape, in device px: where a dot's cell starts along x and y,
-/// the pitch, and the side of an unlit dot. The page round the canvas draws its dots from this.
-pub fn grid(scenes: &[Scene], p: usize, w: u32, h: u32) -> [i32; 4] {
-    let base = shared(scenes, w, h);
-    let Some(s) = scenes.get(p) else { return [0, 0, base.pitch, dot_size(base.pitch)] };
-    let dot = dot_size(base.pitch);
-    let cell = |origin: i32| (origin + (base.tile - dot) / 2).rem_euclid(base.pitch);
-    [cell(grid_origin(w as i32, s.gc, &base)), cell(grid_origin(h as i32, s.gr, &base) - (AIR.2 - AIR.1) * base.pitch / 2), base.pitch, dot]
-}
-
-/// Where a `g`-tile grid starts along an axis of `len` device px when centred, as `planet` does.
-fn grid_origin(len: i32, g: i32, base: &Layout) -> i32 {
-    (len as f32 / 2.0 - ((g - 1) * base.pitch + base.tile) as f32 / 2.0).round() as i32
 }
 
 #[cfg(test)]
@@ -1031,98 +917,33 @@ mod tests {
     }
 
     #[test]
-    fn c3_the_portal_lights_the_ground_near_it_and_no_further() {
-        assert_eq!(glow(0.0), 0.0, "a dot under a tile is the tile's");
-        assert!(glow(1.0) > glow(2.0) && glow(2.0) > glow(3.5) && glow(3.5) > 0.0, "the light falls off with distance");
-        assert_eq!(glow(4.0), 0.0);
-        assert_eq!(glow(9.0), 0.0);
-    }
-
-    #[test]
-    fn c3_the_frame_is_mirrored_under_its_foot_for_four_fading_rows() {
-        assert_eq!(mirror(0), 0.42);
-        assert!(mirror(1) < mirror(0) && mirror(3) < mirror(1) && mirror(3) > 0.0);
-        assert_eq!(mirror(4), 0.0);
-        assert_eq!(mirror(-1), 0.0);
-        let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
-        let (w, h) = (1110, 1100);
-        let mut out = Vec::new();
-        carousel(&scenes, 0.0, &at(FORM + 2.0, Stage::Rest), w, h, &mut out);
-        let [x, y, rw, rh] = rect(&scenes, 0.0, 0, w, h);
-        let pitch = shared(&scenes, w, h).pitch;
-        let mirrored: Vec<&Tile> = out.iter().filter(|t| t.c == MIRROR).collect();
-        let last_rows = out.iter().filter(|t| t.c >= 0 && t.r >= scenes[0].gr - 4 && t.x >= x && t.x < x + rw && t.y < y + rh).count();
-        assert_eq!(mirrored.len(), last_rows, "one mirrored tile for each tile of the last four rows");
-        assert!(mirrored.iter().all(|t| t.y >= y + rh && t.y < y + rh + 4 * pitch + pitch && t.x >= x && t.x < x + rw), "all of it under the foot, inside the frame's width");
-        let alpha = |t: &&Tile| t.rgb >> 24;
-        let nearest = mirrored.iter().filter(|t| t.y < y + rh + pitch).map(alpha).max().unwrap();
-        let furthest = mirrored.iter().filter(|t| t.y >= y + rh + 3 * pitch).map(alpha).max().unwrap();
-        assert!(nearest > furthest && furthest > 0, "the mirror fades with each row");
-    }
-
-    #[test]
-    fn at_rest_the_ground_and_the_stars_hold_still() {
+    fn at_rest_the_stars_hold_still() {
         let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
         let ground = |t: f32| {
             let mut out = Vec::new();
             carousel(&scenes, 1.0, &at(t, Stage::Rest), 1110, 1100, &mut out);
-            out.into_iter().filter(|t| [GLOW, STAR].contains(&t.c)).map(|t| (t.x, t.y, t.size, t.rgb)).collect::<Vec<_>>()
+            out.into_iter().filter(|t| t.c == STAR).map(|t| (t.x, t.y, t.size, t.rgb)).collect::<Vec<_>>()
         };
         assert_eq!(ground(FORM + 3.0), ground(FORM + 4.3), "only the mouth moves at rest");
     }
 
     #[test]
-    fn c3_the_ground_fades_by_transparency_not_toward_black() {
-        // The page's ground is not black (a gradient lit by the school's colour), so a
-        // tile faded toward the void would show as a dark square on it.
+    fn c3_the_ground_is_night_and_stars_only() {
+        // No lit dots and no reflection: past the portals' own tiles, only stars are drawn.
         assert_eq!(fade(0x123456, 1.0), 0x123456, "opaque keeps the plain colour");
         assert_eq!(fade(0x123456, 0.5), 0x80_123456);
         assert_eq!(fade(0x123456, 0.0001) >> 24, 1, "faint is never read as opaque");
         let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
-        let mut out = Vec::new();
-        carousel(&scenes, 0.0, &at(FORM + 2.0, Stage::Rest), 1110, 1100, &mut out);
-        let ground: Vec<&Tile> = out.iter().filter(|t| [MIRROR, GLOW, STAR].contains(&t.c)).collect();
-        assert!(!ground.is_empty());
-        assert!(ground.iter().all(|t| t.rgb >> 24 > 0), "every ground tile carries its own alpha");
-        let frame: std::collections::HashSet<u32> = out.iter().filter(|t| t.c >= 0).map(|t| t.rgb).collect();
-        assert!(out.iter().filter(|t| t.c == MIRROR).all(|t| frame.contains(&(t.rgb & 0xff_ffff))), "a reflection is its tile's own colour");
-    }
-
-    #[test]
-    fn c3_ground_dots_share_the_tiles_grid_and_grow_toward_the_frame() {
-        let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
         let (w, h) = (1110, 1100);
-        let base = shared(&scenes, w, h);
-        let mut out = Vec::new();
-        carousel(&scenes, 0.0, &Input { reduce: true, ..at(FORM + 2.0, Stage::Rest) }, w, h, &mut out);
-        let [x, y, rw, rh] = rect(&scenes, 0.0, 0, w, h);
-        let dots: Vec<&Tile> = out.iter().filter(|t| t.c == GLOW).collect();
-        assert!(dots.len() > 40, "the frame has lit dots all round it, got {}", dots.len());
-        // A dot's centre is a tile's centre moved by whole pitches.
-        let centre = |v: i32, size: i32| 2 * v + size;
-        let (tx, ty) = (centre(x, base.tile), centre(y, base.tile));
-        assert!(dots.iter().all(|d| (centre(d.x, d.size) - tx).rem_euclid(2 * base.pitch) <= 1 && (centre(d.y, d.size) - ty).rem_euclid(2 * base.pitch) <= 1), "dots and tiles share centres");
-        assert!(dots.iter().all(|d| d.x + d.size <= x || d.x >= x + rw || d.y + d.size <= y || d.y >= y + rh), "no dot under the frame");
-        let beside = |n: i32| dots.iter().filter(|d| d.x + d.size <= x && d.x >= x - n * base.pitch && d.x < x - (n - 1) * base.pitch).map(|d| d.size).max().unwrap_or(0);
-        assert!(beside(1) > beside(3) && beside(3) >= dot_size(base.pitch), "a dot next to the frame is bigger than one three tiles out");
-        assert!(dots.iter().all(|d| d.size < base.tile), "a lit dot never reaches a tile's size");
-    }
-
-    #[test]
-    fn c3_the_pages_dots_line_up_with_the_portals_tiles() {
-        let scenes: Vec<Scene> = SHAPES.iter().zip(MOTIFS).map(|(&shape, motif)| Scene::new(5, Look { shape, motif, ..SIS })).collect();
-        for (w, h) in [(1110, 1100), (1029, 1035), (750, 690)] {
-            let base = shared(&scenes, w, h);
-            for p in 0..scenes.len() {
-                let [gx, gy, pitch, dot] = grid(&scenes, p, w, h);
-                let [x, y, _, _] = rect(&scenes, p as f32, p, w, h);
-                assert_eq!((pitch, dot), (base.pitch, dot_size(base.pitch)));
-                assert!(gx >= 0 && gx < pitch && gy >= 0 && gy < pitch, "the first cell starts inside one pitch");
-                // A dot's centre and a tile's centre differ by whole pitches (to within the rounding of a half pixel).
-                let off = |cell: i32, tile_at: i32| ((2 * cell + dot) - (2 * tile_at + base.tile)).rem_euclid(2 * pitch);
-                assert!(off(gx, x) <= 1 || off(gx, x) >= 2 * pitch - 1, "x: portal {p} at {w}x{h}");
-                assert!(off(gy, y) <= 1 || off(gy, y) >= 2 * pitch - 1, "y: portal {p} at {w}x{h}");
-            }
+        for t in [FORM + 2.0, FORM + 6.0] {
+            let mut out = Vec::new();
+            carousel(&scenes, 0.0, &at(t, Stage::Open), w, h, &mut out);
+            assert!(out.iter().all(|t| t.c >= 0 || t.c == STAR), "a tile is a portal's or a star");
+            let stars: Vec<&Tile> = out.iter().filter(|t| t.c == STAR).collect();
+            assert!(!stars.is_empty());
+            assert!(stars.iter().all(|t| t.rgb >> 24 > 0), "a star carries its own alpha");
+            let [x, y, rw, rh] = rect(&scenes, 0.0, 0, w, h);
+            assert!(!out.iter().any(|t| t.c >= 0 && t.y >= y + rh && t.x >= x && t.x < x + rw), "nothing of the portal under its foot");
         }
     }
 
