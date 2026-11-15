@@ -52,8 +52,8 @@ bool cloud(vec2 p, float cx, float cy, float cw, float th, float light, inout ve
   vec2 q = p - vec2(x, cy);
   bool body = (q.y >= 0.0 && q.y < 2.0 && q.x >= 2.0 && q.x < cw - 2.0) || (q.y >= 2.0 && q.y < 4.0 && q.x >= 0.0 && q.x < cw);
   bool belly = q.y == 4.0 && q.x >= 1.0 && q.x < cw - 1.0;
-  // Solid by day; dawn and dusk thin them out, one dither step at a time.
-  if ((body || belly) && th < light * 1.25 - 0.25) {
+  // Solid by day; dawn and dusk thin them out, one dither step at a time, then they are gone.
+  if ((body || belly) && th < (light - 0.45) * 2.0) {
     vec3 c = belly ? vec3(0.874, 0.91, 0.949) : vec3(1.0);
     col = mix(c, vec3(0.7, 0.72, 0.76), u_haze);
     return true;

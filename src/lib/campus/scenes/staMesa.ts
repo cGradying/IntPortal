@@ -81,12 +81,12 @@ const scene: SceneDef = {
     tree(p, 182, GROUND, 9, 11);
 
     // The Mabini Obelisk: a white shaft, the gold star at its head, on a round planted island.
-    p.rect("obelisk", 65, 20, 4, GROUND - 23);
-    p.rect("obeliskSh", 68, 20, 1, GROUND - 23);
-    p.rect("obelisk", 66, 18, 2, 2);
-    p.rect("star", 66, 14, 2, 1);
-    p.rect("star", 65, 15, 4, 2);
-    p.rect("star", 66, 17, 2, 1);
+    p.rect("obelisk", 65, 24, 4, GROUND - 27);
+    p.rect("obeliskSh", 68, 24, 1, GROUND - 27);
+    p.rect("obelisk", 66, 22, 2, 2);
+    p.rect("star", 66, 18, 2, 1);
+    p.rect("star", 65, 19, 4, 2);
+    p.rect("star", 66, 21, 2, 1);
     p.rect("grass", 57, GROUND - 3, 20, 3);
     p.rect("leaf", 58, GROUND - 4, 5, 1);
     p.rect("leaf", 71, GROUND - 4, 5, 1);
