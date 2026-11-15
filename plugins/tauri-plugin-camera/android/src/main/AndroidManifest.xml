@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- No CAMERA permission: the phone's own camera app takes the photo. Declaring it would make that intent need a grant. -->
     <application>
+        <!-- Play installs the scanner's models with the app; read() covers a sideloaded install. -->
+        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr,barcode" />
         <provider
             android:name="ph.intportal.camera.CameraFileProvider"
             android:authorities="${applicationId}.camera.files"

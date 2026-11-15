@@ -19,6 +19,11 @@ import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import com.google.android.gms.common.api.OptionalModuleApi
+import com.google.android.gms.common.moduleinstall.InstallStatusListener
+import com.google.android.gms.common.moduleinstall.ModuleInstall
+import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
+import com.google.android.gms.common.moduleinstall.ModuleInstallStatusUpdate.InstallState
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -30,6 +35,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.math.max
 
 @InvokeArg
@@ -44,6 +51,9 @@ class CaptureArgs {
     var read: ReadArgs? = null
     var saveTo: String? = null
 }
+
+/** The scanner's models aren't on the phone and couldn't be downloaded. */
+private class NoScanner : Exception()
 
 /** Longest side of a kept photo, in pixels. */
 private const val MAX_SIDE = 1600
@@ -102,6 +112,8 @@ class CameraPlugin(private val activity: Activity) : Plugin(activity) {
                 read(uri, args.read, out)
                 args.saveTo?.let { save(uri, it, out) }
                 invoke.resolve(out)
+            } catch (_: NoScanner) {
+                invoke.reject("no_scanner")
             } catch (e: IOException) {
                 invoke.reject(if (e.message?.contains("ENOSPC") == true) "no_space" else "save_failed")
             } catch (_: Exception) {
@@ -116,17 +128,54 @@ class CameraPlugin(private val activity: Activity) : Plugin(activity) {
         val what = wanted ?: return
         if (!what.text && !what.qr) return
         val image = InputImage.fromFilePath(activity, uri)
-        if (what.text) {
-            val client = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            out.put("text", Tasks.await(client.process(image)).text)
-            client.close()
+        val text = if (what.text) TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) else null
+        val qr = if (what.qr) BarcodeScanning.getClient(BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()) else null
+        try {
+            downloaded(listOfNotNull(text, qr))
+            text?.let { out.put("text", Tasks.await(it.process(image)).text) }
+            qr?.let { c ->
+                val found = JSArray()
+                Tasks.await(c.process(image)).mapNotNull { it.rawValue }.forEach { found.put(it) }
+                out.put("qr", found)
+            }
+        } finally {
+            text?.close()
+            qr?.close()
         }
-        if (what.qr) {
-            val client = BarcodeScanning.getClient(BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build())
-            val found = JSArray()
-            Tasks.await(client.process(image)).mapNotNull { it.rawValue }.forEach { found.put(it) }
-            out.put("qr", found)
-            client.close()
+    }
+
+    /**
+     * Waits for Play services to have the scanner's models, downloading them
+     * the first time (Play normally installs them with the app). The web view
+     * hears a `scanner` event so it can say "Downloading the scanner…".
+     */
+    private fun downloaded(apis: List<OptionalModuleApi>) {
+        val installer = ModuleInstall.getClient(activity)
+        try {
+            if (Tasks.await(installer.areModulesAvailable(*apis.toTypedArray())).areModulesAvailable()) return
+        } catch (_: Exception) {
+            throw NoScanner() // no Play services on this phone
+        }
+        trigger("scanner", JSObject().put("state", "downloading"))
+        val done = CountDownLatch(1)
+        var ok = false
+        val listener = InstallStatusListener { u ->
+            when (u.installState) {
+                InstallState.STATE_COMPLETED -> { ok = true; done.countDown() }
+                InstallState.STATE_FAILED, InstallState.STATE_CANCELED -> done.countDown()
+                else -> {}
+            }
+        }
+        val request = ModuleInstallRequest.newBuilder().apply { apis.forEach { addApi(it) } }.setListener(listener).build()
+        try {
+            if (Tasks.await(installer.installModules(request)).areModulesAlreadyInstalled()) return
+            if (!done.await(3, TimeUnit.MINUTES) || !ok) throw NoScanner()
+        } catch (e: NoScanner) {
+            throw e
+        } catch (_: Exception) {
+            throw NoScanner()
+        } finally {
+            installer.unregisterListener(listener)
         }
     }
 
