@@ -49,7 +49,7 @@ export const PAGES: IntroPage[] = [
   { id: "offline", title: "Works with no signal", line: "Your login stays in the phone's keychain. No IntPortal server: the app talks only to PUP SIS.", lar: "Kahit sa jeep, walang problema.", spot: "left", acts: ["say"] },
   { id: "look", title: "Make it yours", line: "Pick a look. The whole app wears it.", lar: "Ano'ng bagay sa'yo?", spot: "right", acts: ["room", "say"] },
   { id: "reminders", title: "A heads-up before class?", line: "A nudge 10 minutes before each class, and the evening before a deadline. Change it any time on You.", lar: "Ako na ang bahala sa paalala.", spot: "below", acts: ["remind"] },
-  { id: "signin", title: "Sign in", line: "", lar: "Tara, {you}. Sign in na.", spot: "below", acts: ["demo"] },
+  { id: "signin", title: "Sign in", line: "", lar: "Tara, {you}. Sign in na.", spot: "left", acts: ["demo"] },
 ];
 
 export const SIGNIN = PAGES.findIndex((p) => p.id === "signin");

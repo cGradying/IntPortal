@@ -266,7 +266,7 @@ export interface Spot {
 /**
  * Where LAR's speech bubble goes: beside him (the roomier side first), above, level
  * or below him; failing those, just under or over the frame. The first spot that
- * covers neither a frame tile nor LAR wins (else the first that spares the frame), and `kept` keeps winning while it still
+ * covers no frame tile, no keep-out (a neighbour, the intro's plaque) and not LAR wins (else the first that spares the frame), and `kept` keeps winning while it still
  * qualifies, so the bubble doesn't hop from frame to frame.
  */
 export function placeBubble(world: World, lar: { x: number; y: number }, size: { w: number; h: number }, kept = -1): Spot {
@@ -279,7 +279,7 @@ export function placeBubble(world: World, lar: { x: number; y: number }, size: {
   const tops = [y - R - size.h + 4, y - size.h / 2, y + R * 0.9, f.y + f.h + 6, f.y - size.h - 6];
   const me = { x: x - R * 0.7, y: y - R * 0.7, w: R * 1.4, h: R * 1.4 };
   const hits = (r: Rect, s: Spot) => s.x < r.x + r.w && s.x + size.w > r.x && s.y < r.y + r.h && s.y + size.h > r.y;
-  const clear = (s: Spot) => !hits(f, s) && !hits(me, s);
+  const clear = (s: Spot) => !hits(f, s) && !hits(me, s) && !world.keepOut.some((k) => hits(k, s));
   const all = Array.from({ length: 15 }, (_, k) => ({ k, x: clampX(sides[k % 3]), y: clampY(tops[Math.floor(k / 3)]) }));
   // Right and left trade places when he is on the right half.
   const swap = [1, 0, 2];

@@ -22,7 +22,7 @@ The owner, on a static storyboard (2026-11-15): "work more on it, make it more i
 
 - **C1. Nine pages, in order.** Hello, Your school, Today, Deadlines, Grades and Study, Offline and private, Your look, Reminders, Sign in. The data lives in `src/lib/welcome/intro.ts`.
 - **C2. Getting around.** Every page but the last has a gold Next (Reminders: Allow reminders until answered). Back sits at the top left on every page after the first, Skip to sign in at the top right on every page before the last. Nine short pixel bars between them show where the student is (gold for here, brighter for done). A long, flat horizontal swipe on the page turns it; a swipe on the campus row or the clock slider stays theirs. Android's Back turns back one page; a sheet over the form closes first.
-- **C3. Nothing jumps.** Every page shares one cell, so the tallest sets the dock's height, and the row under the portal keeps its height through the intro: the portal is the same size on all nine pages, sign-in included. A page's content sits together just above Next.
+- **C3. Nothing jumps, nothing wasted.** Every page shares one cell at the bottom, so the tallest copy block sets the dock's height, and the copy and Next stay in thumb reach. The stage takes everything above it: the portal grows as large as that allows and is the same size on all nine pages, sign-in included. The plaque does not take room in the intro; on the sign-in page it lies over the stage's foot, and LAR and his bubble keep clear of it. On a page shorter than the tallest, the stage glides down by half the room it leaves (`--t-hero`), so the portal and LAR sit centred between the top row and the copy, with the gap even above and below.
 - **C4. What is kept.** `src/lib/profile.ts` keeps the name under `intportal.name` (one-spaced, trimmed, at most 20 characters, empty removes it) and the campus under `intportal.campus`: a campus `name` exactly as in `crates/intportal-core/src/campus.rs`, or `school:<portal id>` for another school. Storage that throws is ignored. Other parts read these keys directly.
 - **C5. The campuses.** The 25 PUP campuses are a TS list mirrored from `campus.rs`, in its order; a test fails if they drift.
 - **C6. One motion per page turn.** The portal rings out from its centre, LAR flies to the page's spot (beside or under the portal, never on it) on his own wander code and says the page's line, and the copy rises in from the side it came from, title then line then the demo then Next, a beat apart. The page that leaves slips out the other way in 0.16 s. LAR never re-spawns and nothing that has arrived rises again.
@@ -34,7 +34,7 @@ The owner, on a static storyboard (2026-11-15): "work more on it, make it more i
 - **C12. Offline and private.** A No signal switch: the signal bars drop out one by one, and Schedule, Grades and Notes stay lit with a check, "Still open, from this phone." One sentence on the keychain and no server.
 - **C13. Your look.** The six dark looks; a tap wears it on the whole landing at once, keeps it for the app, and LAR says so.
 - **C14. Reminders.** A sample nudge sits in the page. Allow reminders asks the phone (`allowReminders` in `state.svelte.ts`, then `scheduleReminders(true)`), and the sample slides down from the top as the phone would show it, with the student's name, then slides away. Not now sets the reminder lead to 0, as FirstRun did, and turns the page.
-- **C15. Sign in.** The form as before (011), with the school plaque and Peek inside back under the portal and "Look around first" in its fine print.
+- **C15. Sign in.** The form as before (011), with the school plaque back under the portal and "Look around first" in its fine print. Inside the intro the Peek inside row is left out (there is no room for it under a portal this size); a tap on the portal still opens the peek. A returning student's form step keeps the row (010 C44).
 - **C16. After sign-in.** FirstRun keeps only the AI choice, and never shows on a build without AI (`chatModel()` empty). Who LAR is, where the data lives and reminders moved into the intro.
 - **C17. Who sees it.** A student who is signed in, or who has reached the form or looked around once (`intportal.welcomed`), skips the intro and opens on the form or Step through, as before.
 
@@ -85,7 +85,7 @@ The campus's own colours (W4's campus work reads `intportal.campus`); a light lo
 | C1, C2, C6, C7, C8, C9, C11, C13, C16 | vitest `welcome/intro.test.ts` |
 | C4, C5 | vitest `profile.test.ts` (keys, cleaning, throwing storage, parity with `campus.rs`) |
 | C8 | vitest `lar/lines.test.ts` (name for iskolar), `greeting.test.ts` |
-| C3 | browser at 390 by 844 and 375 by 667: the canvas is the same height on all nine pages |
+| C3 | browser at 375 by 667, 390 by 844 and 440 by 956: the canvas is the same height on all nine pages (296, 473, 585 pt); vitest `lar/wander.test.ts` (the bubble keeps off a keep-out) |
 | C6, C9, C10, C12, C14 | recording on the phone |
 | C17 | review: `intro` is `!returning && !seen` in `Landing.svelte` |
 

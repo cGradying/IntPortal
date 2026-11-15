@@ -207,6 +207,24 @@
     next();
   }
 
+  // The portal sits centred between the top row and this page's copy (049 C3): the stage moves down
+  // by half the room a shorter page leaves, eased, and never changes size.
+  let shift = $state(0);
+  $effect(() => {
+    void page;
+    const el = pagesEl;
+    if (!el || !intro || rest === "hub") return void (shift = 0);
+    const measure = () => {
+      const on = el.querySelector<HTMLElement>(":scope > .page.on");
+      const top = on?.tagName === "FORM" ? on : (on?.firstElementChild as HTMLElement | null);
+      shift = top ? Math.round(top.offsetTop / 2) : 0;
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+
   // A horizontal swipe on the page turns it; a control that drags sideways keeps its own swipe.
   let pagesEl = $state<HTMLElement>();
   $effect(() => {
@@ -435,7 +453,7 @@
   {/if}
 
   <!-- C16: while the frame builds, the portal stands larger in the middle of the screen; it lifts into its place as the form rises. -->
-  <div class="lift" class:up={resting} style:--drop="{Math.round(cardMin / 2)}px">
+  <div class="lift" class:up={resting} style:--drop="{Math.round(cardMin / 2)}px" style:--shift="{shift}px">
   <PortalStage
     bind:this={stageEl}
     {portals}
@@ -552,7 +570,8 @@
                     {/each}
                   </div>
                 {:else if p.id === "reminders"}
-                  {#if !reminded}{@render notification("rest")}{/if}
+                  <!-- Once answered the sample steps back but keeps its room, so the portal above stays put. -->
+                  <div class:spent={!!reminded}>{@render notification("rest")}</div>
                   {#if reminded === "on"}
                     <p class="okay">{app.notifications === false ? "Your phone said no. You can allow them later in Settings." : "Reminders are on. They start after you sign in."}</p>
                   {:else if !reminded}
@@ -699,7 +718,7 @@
     transition: transform var(--t-hero) var(--ease);
   }
   .lift.up {
-    transform: none;
+    transform: translateY(var(--shift, 0px));
   }
   /* The school's name comes with the form, not before. */
   .lift:not(.up) :global(.quick),
@@ -1099,6 +1118,7 @@
 
   /* Every page in one cell: the tallest sets the height, so the portal above never moves (C3). */
   .pages {
+    position: relative;
     display: grid;
     min-width: 0;
     touch-action: pan-y;
@@ -1733,6 +1753,9 @@
     background: var(--void-lift);
     box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.12);
     font-family: var(--font-ui);
+  }
+  .spent {
+    visibility: hidden;
   }
   .note-slot {
     position: fixed;
