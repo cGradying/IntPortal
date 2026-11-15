@@ -18,9 +18,15 @@
   import { portalApiFor } from "./portalApi";
   import { buzz } from "./haptics";
   import { landingAt, restAt } from "./landing";
-  import { adopt, app, refreshLogins, setRoom, syncNow } from "./state.svelte";
-  import WelcomeTour from "./welcome/WelcomeTour.svelte";
-  import { TOUR, type Act } from "./welcome/tour";
+  import { adopt, allowReminders, app, refreshLogins, setRoom, syncNow } from "./state.svelte";
+  import MiniPortal from "./MiniPortal.svelte";
+  import PixelNum from "./PixelNum.svelte";
+  import { fade, fly, slide } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
+  import { CAMPUSES, MAX_NAME, getCampus, getName, setCampus, setName } from "./profile";
+  import { CLASS, CLOCK, LOOKS, PAGES, RATINGS, SIGNIN, TERMS, campusLine, clock, countdown, fillName, helloLine, step as stepPage, swipe, todayAt } from "./welcome/intro";
+  import { plot, spoken } from "./gpaTrend";
+  import { dueIn } from "./interval";
   import { stageFor } from "./tiles";
   import type { DiveStart } from "./dive";
 
@@ -30,8 +36,8 @@
   const returning = untrack(() => signedIn);
   // Where the portal opens: the sign-in card, or straight to Step through.
   let rest = $state<"signin" | "hub">(returning ? "hub" : "signin");
-  // A student new to the app first reads what it is, then asks for the form (010 C42).
-  // Once they have, or have looked around, they go straight to the form next time.
+  // A student new to the app pages through the intro, one feature a page, then signs in (spec 049).
+  // Once they have reached the form or looked around, later launches open on the form (kept on the phone).
   const WELCOMED = "intportal.welcomed";
   const seen = (() => {
     try {
@@ -40,37 +46,186 @@
       return false;
     }
   })();
-  let welcome = $state(!returning && !seen);
+  const intro = !returning && !seen;
   function welcomed() {
     try {
       localStorage.setItem(WELCOMED, "1");
     } catch {
-      // Private mode: the welcome shows again next launch.
+      // Private mode: the intro shows again next launch.
     }
   }
-  // A dark look the student picked (here or in You) colours the landing's ground and dots too;
-  // a light one leaves the landing on the night ground, which the portal needs (010 C45).
-  const DARK = new Set(TOUR.flatMap((s) => s.items).flatMap((i) => (i.act.kind === "room" ? [i.act.room] : [])));
-  const worn = $derived(DARK.has(app.room));
-  /** A tour item, done on the stage itself: the portal peeks, LAR talks, the room changes (010 C45). */
-  function act(a: Act, from: DOMRect) {
+  let page = $state(0);
+  /** Which way the last turn went: 1 forward, -1 back. */
+  let dir = $state(1);
+  /** The page that is leaving, for its short exit. */
+  let gone = $state(-1);
+  let goneTimer: ReturnType<typeof setTimeout> | undefined;
+  const here = $derived(PAGES[page]);
+  /** The form is on screen: no intro, or its last page. */
+  const signin = $derived(!intro || page === SIGNIN);
+  function turn(to: number) {
+    if (to === page || to < 0 || to > SIGNIN) return;
+    dir = to > page ? 1 : -1;
+    gone = page;
+    clearTimeout(goneTimer);
+    goneTimer = setTimeout(() => (gone = -1), 200);
+    page = to;
     buzz.select();
-    if (a.kind === "peek") stageEl?.peekTo(a.page);
-    else if (a.kind === "say") stageEl?.say(a.line);
-    else if (a.kind === "school") stageEl?.openWall(from);
-    else {
-      setRoom(a.room);
-      stageEl?.say("Ayan, bagay. Ganyan na ang kulay ng app mo, kahit mag-sign in ka na.");
+    if (to === SIGNIN) welcomed();
+  }
+  const next = () => turn(stepPage(page, 1));
+  const back = () => turn(stepPage(page, -1));
+  // A dark look the student picked (here or in You) colours the landing's ground too;
+  // a light one leaves the landing on the night ground, which the portal needs (010 C45).
+  const DARK = new Set(LOOKS.map((l) => l.room));
+  const worn = $derived(DARK.has(app.room));
+
+  // Each page arrives on the stage as one motion: the portal rings out from its centre, LAR flies
+  // to the page's spot and says its line, and the copy rises in from the side it came from (049 C6).
+  $effect(() => {
+    const p = PAGES[page];
+    if (!intro || !resting) return;
+    untrack(() => {
+      stageEl?.ring();
+      stageEl?.visit(p.spot);
+      if (p.lar) stageEl?.say(fillName(p.lar, name));
+    });
+  });
+  // Android's back turns back a page (049 C2); a sheet over the form closes first.
+  $effect(() => {
+    if (intro && page > 0 && rest === "signin" && !busy) return closable(back);
+  });
+
+  // Hello (049 C8): what to call them. LAR answers once the typing pauses.
+  let name = $state(getName());
+  let naming = $state(false);
+  let nameTimer: ReturnType<typeof setTimeout> | undefined;
+  function typedName(v: string) {
+    name = v.slice(0, MAX_NAME);
+    setName(name);
+    clearTimeout(nameTimer);
+    const line = helloLine(name);
+    if (line) nameTimer = setTimeout(() => (stageEl?.say(line), stageEl?.cheer()), 450);
+  }
+
+  // Your school (049 C5): a PUP campus, or another school from the portal wall.
+  let school = $state(getCampus());
+  function pickCampus(c: string) {
+    school = c;
+    setCampus(c);
+    portalId = "sis";
+    buzz.select();
+    stageEl?.ring();
+    stageEl?.say(campusLine(c));
+    stageEl?.cheer();
+  }
+  function pickPortal(i: number) {
+    portalId = portals[i].id;
+    error = "";
+    if (intro && here.id === "school" && portalId !== "sis") {
+      school = `school:${portalId}`;
+      setCampus(school);
+      stageEl?.say(`${portals[i].name}! Sige, doon tayo.`);
     }
   }
-  function begin() {
-    welcome = false;
-    welcomed();
+
+  // Today (049 C9): a sample clock the student drags; it ticks on by itself while the page is up.
+  let clockAt = $state(CLOCK.start);
+  const live = $derived(todayAt(clockAt));
+  const through = $derived(Math.round(((clockAt - CLASS.start) / (CLASS.end - CLASS.start)) * 100));
+  $effect(() => {
+    if (!intro || here.id !== "today") return;
+    const id = setInterval(() => !document.hidden && (clockAt = Math.min(CLOCK.to, clockAt + 1)), 1000);
+    return () => clearInterval(id);
+  });
+  let lastPhase = todayAt(CLOCK.start).phase;
+  $effect(() => {
+    const ph = live.phase;
+    if (ph !== lastPhase) untrack(() => buzz.tick());
+    lastPhase = ph;
+  });
+  const span = (at: number) => ((at - CLOCK.from) / (CLOCK.to - CLOCK.from)) * 100;
+
+  // Deadlines (049 C10): the app's Done on one sample row, then the row folds away.
+  let due = $state<"open" | "done" | "gone">("open");
+  function tickDue() {
+    if (due !== "open") return;
+    due = "done";
+    buzz.done();
+    stageEl?.say("Ayos! Tapos na 'yan.");
+    setTimeout(() => (due = "gone"), reduce ? 500 : 1300);
+  }
+  const fold = (node: Element) => (reduce ? fade(node, { duration: 160 }) : slide(node, { duration: 360 }));
+
+  // Grades and Study (049 C11).
+  const trend = plot(TERMS);
+  let flipped = $state(false);
+  let rated = $state<(typeof RATINGS)[number] | null>(null);
+  function flip() {
+    flipped = !flipped;
+    rated = null;
+    buzz.select();
+  }
+  function rate(r: (typeof RATINGS)[number]) {
+    rated = r;
     buzz.tick();
   }
-  // Back from the form goes back to the welcome it came from.
+
+  // Offline and private (049 C12).
+  let offline = $state(false);
+  function toggleSignal() {
+    offline = !offline;
+    buzz.select();
+    if (offline) stageEl?.say("Walang signal? Bukas pa rin lahat.");
+  }
+
+  // Your look (049 C13): worn at once by the whole landing, and kept for the app.
+  function wear(room: string) {
+    buzz.select();
+    setRoom(room);
+    stageEl?.say("Ayan, bagay. Ganyan na ang kulay ng app mo, kahit mag-sign in ka na.");
+  }
+
+  // Reminders (049 C14): the phone is asked, and a sample slides down from the top.
+  let reminded = $state<"on" | "off" | null>(null);
+  let notice = $state(false);
+  async function allow() {
+    reminded = "on";
+    notice = true;
+    buzz.done();
+    setTimeout(() => (notice = false), 4200);
+    await allowReminders();
+  }
+  function notNow() {
+    reminded = "off";
+    app.reminderLead = 0;
+    try {
+      localStorage.setItem("reminderLead", "0");
+    } catch {
+      // Asked again on You.
+    }
+    next();
+  }
+
+  // A horizontal swipe on the page turns it; a control that drags sideways keeps its own swipe.
+  let pagesEl = $state<HTMLElement>();
   $effect(() => {
-    if (!welcome && !seen && rest === "signin" && !busy) return closable(() => (welcome = true));
+    const el = pagesEl;
+    if (!el || !intro) return;
+    let from: { x: number; y: number } | null = null;
+    const down = (e: PointerEvent) => {
+      from = (e.target as Element).closest("input, .scroll") ? null : { x: e.clientX, y: e.clientY };
+    };
+    const up = (e: PointerEvent) => {
+      if (!from) return;
+      const d = swipe(e.clientX - from.x, e.clientY - from.y);
+      from = null;
+      if (d === 1 && page < SIGNIN) next();
+      else if (d === -1) back();
+    };
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointerup", up);
+    return () => (el.removeEventListener("pointerdown", down), el.removeEventListener("pointerup", up));
   });
   let busy = $state(false);
   let error = $state("");
@@ -132,6 +287,8 @@
   const portal = $derived(portals.find((p) => p.id === portalId) ?? portals[0]);
   const copy = $derived(portalCopy(portal.id));
   const ready = $derived(portal.status === "ready");
+  const otherSchool = $derived(school?.startsWith("school:") ? portals.find((p) => `school:${p.id}` === school) : undefined);
+
   let tries = $state<Tries | null>(null);
   const triesText = $derived(tries ? triesLine(tries, portal, Date.now() / 1000) : "");
   const locked = $derived(!!tries && tries.left <= 0);
@@ -232,11 +389,50 @@
   }
 </script>
 
+{#snippet notification(at: "top" | "rest")}
+  <!-- A sample of the nudge, as the phone would show it (049 C14). -->
+  <div class="note {at}" aria-hidden={at === "rest"}>
+    <span class="note-icon"><MiniPortal portal={portal} /></span>
+    <span class="note-text">
+      <span class="note-head"><b>IntPortal</b><small>now</small></span>
+      <span class="note-title">{CLASS.code} in 10 minutes</span>
+      <span class="note-body">{CLASS.room}, {CLASS.title}. Tara na{name ? `, ${name}` : ""}!</span>
+    </span>
+  </div>
+{/snippet}
+
+{#snippet todayView()}
+  <!-- Inside the portal's mouth (049 C9): the sample class, counting down as the student drags the clock. -->
+  <span class="tv" data-phase={live.phase} aria-live="polite">
+    {#key live.phase}<span class="tv-lab">{live.label}</span>{/key}
+    <span class="tv-code">{CLASS.code}</span>
+    <span class="tv-sub">{CLASS.title} · {CLASS.room} · 7:30 to 9:00 AM</span>
+    <span class="tv-left">
+      <small>{live.sub}</small>
+      {#if live.phase !== "over"}<b><PixelNum text={countdown(live.left)} size={4} /></b>{/if}
+    </span>
+    <span class="tv-bar" aria-hidden="true"><i style:width="{Math.max(0, Math.min(100, through))}%"></i></span>
+  </span>
+{/snippet}
+
 <section class="landing" class:leaving class:worn>
-  <header class="brand" class:on={resting}>
-    <h1>Student <span>IntPortal</span></h1>
-    {#if !ready}<p class="pitch">{portal.school} is next. For now, IntPortal works with PUP.</p>{/if}
-  </header>
+  {#if intro && rest !== "hub"}
+    <!-- The intro's top row: Back, nine pixel bars, Skip (049 C2). -->
+    <header class="bar" class:on={resting}>
+      <button type="button" class="back" class:hide={page === 0} aria-label="Back" tabindex={page === 0 ? -1 : 0} onclick={back}>
+        <svg viewBox="0 0 4 7" aria-hidden="true" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h1v1H2zM1 2h1v1H1zM0 3h1v1H0zM1 4h1v1H1zM2 5h1v1H2zM3 6h1v1H3z" fill="currentColor" /></svg>
+      </button>
+      <div class="steps" role="img" aria-label="Step {page + 1} of {PAGES.length}: {here.title}">
+        {#each PAGES as p, i (p.id)}<i class:past={i < page} class:on={i === page}></i>{/each}
+      </div>
+      <button type="button" class="skip" class:hide={page === SIGNIN} tabindex={page === SIGNIN ? -1 : 0} onclick={() => turn(SIGNIN)}>Skip to sign in</button>
+    </header>
+  {:else}
+    <header class="brand" class:on={resting}>
+      <h1>Student <span>IntPortal</span></h1>
+      {#if !ready}<p class="pitch">{portal.school} is next. For now, IntPortal works with PUP.</p>{/if}
+    </header>
+  {/if}
 
   <!-- C16: while the frame builds, the portal stands larger in the middle of the screen; it lifts into its place as the form rises. -->
   <div class="lift" class:up={resting} style:--drop="{Math.round(cardMin / 2)}px">
@@ -244,37 +440,133 @@
     bind:this={stageEl}
     {portals}
     index={Math.max(0, portals.indexOf(portal))}
-    onselect={(i) => ((portalId = portals[i].id), (error = ""))}
-    locked={busy || rest === "hub"}
+    onselect={pickPortal}
+    locked={busy || rest === "hub" || (!signin && here.id !== "school")}
     {stage}
     {returning}
-    still={typing}
+    still={typing || naming}
     showLar={resting}
     {leaving}
     {ctx}
-    quiet={welcome}
+    quiet={!signin}
+    mouth={!signin && resting && here.acts.includes("mouth") ? todayView : undefined}
   />
   </div>
 
   <!-- In the layout from the start, so the portal's room never jumps when it shows. -->
-  <div class="dock" class:on={resting} class:hub={rest === "hub"} class:bare={welcome && rest !== "hub"} inert={!resting}>
+  <div class="dock" class:on={resting} class:hub={rest === "hub"} class:bare={!signin && rest !== "hub"} inert={!resting}>
       {#if rest === "hub"}
         <button class="step" onclick={step}>Step through</button>
         <p class="hint">{app.sisConnected ? `PUP SIS · via ${(app.snapshot?.host ?? "sis8").split(".")[0]}` : copy.hint}</p>
         <!-- 011 C10: signed in, but the SIS has no schedule for this term yet; the student still goes in. -->
         {#if app.sisConnected && app.snapshot && !app.snapshot.sessions.length && !returning}<p class="hint empty">Signed in, but your schedule isn't up yet.</p>{/if}
-      {:else if welcome}
-        <!-- What the app is in one line, then a tour the student can poke at, before any form (010 C42, C45). -->
-        <div class="welcome">
-          <h2>Your PUP schedule, grades and deadlines, on your phone.</h2>
-          <WelcomeTour room={app.room === "system" ? "night" : app.room} onact={act} />
-          {#if error}<p class="error" role="alert">{error}</p>{/if}
-          <button type="button" class="go" onclick={begin}>Sign in with SIS</button>
-          <button type="button" class="link soft" onclick={demo}>Look around first</button>
-        </div>
       {:else}
+      <!-- Every page shares one cell, so the tallest sets the height and turning a page never moves the portal (049 C3). -->
+      <div class="pages" bind:this={pagesEl} style:--dir={dir} style:--portal-accent={portal.theme.accent}>
+        {#if intro}
+          {#each PAGES.slice(0, SIGNIN) as p, i (p.id)}
+            <section class="page" class:on={i === page} class:off={i === gone} inert={i !== page} aria-labelledby="intro-{p.id}">
+              {#if p.id === "hello"}
+                <h2 class="mark" id="intro-hello">Student <span>IntPortal</span></h2>
+              {:else}
+                <h2 id="intro-{p.id}">{p.title}</h2>
+              {/if}
+              <p class="lede">{p.line}</p>
+              <div class="demo">
+                {#if p.id === "hello"}
+                  <div class="field" class:filled={!!name}>
+                    <input id="f-name" value={name} maxlength={MAX_NAME} autocomplete="given-name" autocapitalize="words" enterkeyhint="next" spellcheck="false"
+                      oninput={(e) => typedName(e.currentTarget.value)} onfocus={() => (naming = true)} onblur={() => (naming = false)}
+                      onkeydown={(e) => e.key === "Enter" && (e.currentTarget.blur(), next())} />
+                    <label for="f-name">What should I call you?</label>
+                  </div>
+                  <small class="aside">Optional. It stays on this phone.</small>
+                {:else if p.id === "school"}
+                  <div class="campuses scroll" role="radiogroup" aria-label="PUP campus">
+                    {#each CAMPUSES as c (c)}
+                      <button type="button" class="chip" role="radio" aria-checked={school === c} class:picked={school === c} onclick={() => pickCampus(c)}>{c}</button>
+                    {/each}
+                  </div>
+                  {#if portals.length > 1}
+                    <button type="button" class="chip other" class:picked={!!otherSchool} aria-pressed={!!otherSchool} onclick={(e) => stageEl?.openWall(e.currentTarget.getBoundingClientRect())}>
+                      <span class="glyph"><MiniPortal portal={otherSchool ?? portals[1]} /></span>{otherSchool ? otherSchool.name : "Another school"}
+                    </button>
+                  {/if}
+                {:else if p.id === "today"}
+                  <label class="clock" for="f-clock"><span>Drag the time</span><b>{clock(clockAt)}</b></label>
+                  <input id="f-clock" class="slider" type="range" min={CLOCK.from} max={CLOCK.to} step="60" value={clockAt} aria-valuetext={clock(clockAt)}
+                    style:--a="{span(CLASS.start)}%" style:--b="{span(CLASS.end)}%" oninput={(e) => (clockAt = +e.currentTarget.value)} />
+                  <span class="scale" aria-hidden="true"><span>6:45</span><span>class</span><span>9:15</span></span>
+                {:else if p.id === "deadlines"}
+                  {#if due !== "gone"}
+                    <div class="due" class:done={due === "done"} out:fold>
+                      <button type="button" class="check" class:on={due === "done"} aria-label="Mark Lab report 3 done" onclick={tickDue}><i></i></button>
+                      <span class="what"><strong>Lab report 3</strong><small><b>Tomorrow</b> · {CLASS.code}</small></span>
+                      {#if due === "done"}<span class="stamp" aria-hidden="true">DONE</span>{/if}
+                    </div>
+                  {:else}
+                    <p class="clear" in:fade={{ duration: 200 }}>All clear. <button type="button" class="link" onclick={() => (due = "open")}>Put it back</button></p>
+                  {/if}
+                {:else if p.id === "study"}
+                  <div class="gpa" role="img" aria-label="Sample: {spoken(TERMS)}">
+                    <span class="gpa-num"><PixelNum text={TERMS.at(-1)!.v.toFixed(2)} size={3} /><small>GPA, up from {TERMS.at(-2)!.v.toFixed(2)}</small></span>
+                    <svg class="trend" viewBox="0 0 100 40" aria-hidden="true">
+                      <polyline pathLength="1" points={trend.points.map((q) => `${q.x},${q.y}`).join(" ")} />
+                      {#each trend.points as q, k (k)}<rect x={q.x - 2} y={q.y - 2} width="4" height="4" style:animation-delay="{0.5 + k * 0.12}s" />{/each}
+                    </svg>
+                  </div>
+                  <button type="button" class="flash" class:flipped aria-pressed={flipped} aria-label={flipped ? "Answer: O(log n). Tap to turn back." : "Binary search runs in what time? Tap to see the answer."} onclick={flip}>
+                    <span class="face ask" aria-hidden="true">Binary search runs in…</span>
+                    <span class="face ans" aria-hidden="true">O(log n)</span>
+                  </button>
+                  <div class="rate" aria-live="polite">
+                    {#if rated}
+                      <p class="back-in">Comes back {dueIn(rated.secs)}.</p>
+                    {:else if flipped}
+                      {#each RATINGS as r (r.id)}<button type="button" class="rate-b" onclick={() => rate(r)}>{r.label}<small>{r.short}</small></button>{/each}
+                    {:else}
+                      <p class="aside">Tap the card to see the answer.</p>
+                    {/if}
+                  </div>
+                {:else if p.id === "offline"}
+                  <button type="button" class="signal" role="switch" aria-checked={offline} onclick={toggleSignal}>
+                    <span class="bars" class:out={offline} aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                    <span>No signal</span>
+                    <span class="switch" aria-hidden="true"><i></i></span>
+                  </button>
+                  <ul class="kept-rows">
+                    {#each ["Schedule", "Grades", "Notes"] as w (w)}
+                      <li><i class="tick" aria-hidden="true"></i>{w}<em>{offline ? "On this phone" : "Up to date"}</em></li>
+                    {/each}
+                  </ul>
+                {:else if p.id === "look"}
+                  <div class="looks">
+                    {#each LOOKS as l (l.room)}
+                      <button type="button" class="chip" class:picked={app.room === l.room} aria-pressed={app.room === l.room} onclick={() => wear(l.room)}>
+                        <svg class="tones" viewBox="0 0 24 14" aria-hidden="true" shape-rendering="crispEdges">{#each l.swatch as c, j (j)}<rect x={j * 8} width="8" height="14" fill={c} />{/each}</svg>
+                        {l.name}
+                      </button>
+                    {/each}
+                  </div>
+                {:else if p.id === "reminders"}
+                  {@render notification("rest")}
+                  {#if reminded === "on"}
+                    <p class="okay">{app.notifications === false ? "Your phone said no. You can allow them later in Settings." : "Reminders are on. They start after you sign in."}</p>
+                  {:else if !reminded}
+                    <button type="button" class="link soft" onclick={notNow}>Not now</button>
+                  {/if}
+                {/if}
+              </div>
+              {#if p.id === "reminders" && !reminded}
+                <button type="button" class="go" onclick={allow}>Allow reminders</button>
+              {:else}
+                <button type="button" class="go" onclick={next}>Next</button>
+              {/if}
+            </section>
+          {/each}
+        {/if}
         <!-- The card keeps the tallest height it has had, so swiping between portals never resizes the portal above it. -->
-        <form class="card" style:--portal-accent={portal.theme.accent} style:min-height="{cardMin}px" bind:offsetHeight={cardH} onsubmit={submit} onfocusin={() => (typing = true)} onfocusout={() => (typing = false)}>
+        <form class="card page" class:on={signin} class:off={gone === SIGNIN} inert={!signin} style:--portal-accent={portal.theme.accent} style:min-height="{cardMin}px" bind:offsetHeight={cardH} onsubmit={submit} onfocusin={() => (typing = true)} onfocusout={() => (typing = false)}>
           {#key portal.id}<div class="swap">
           {#if !ready}
             <div class="soon">
@@ -317,13 +609,17 @@
             <button type="button" class="link" onclick={() => openLink(copy.reset, true)}>Forgot password?</button>
             <!-- The way into the demo once the welcome is behind you; iOS has no Back to reach it (010 C39). -->
             <span aria-hidden="true">·</span>
-            <button type="button" class="link" onclick={demo} disabled={busy}>Look around</button>
+            <button type="button" class="link" onclick={demo} disabled={busy}>{intro ? "Look around first" : "Look around"}</button>
           </p>
           {/if}
           </div>{/key}
         </form>
+      </div>
       {/if}
   </div>
+  {#if notice}
+    <div class="note-slot" transition:fly={{ y: reduce ? 0 : -120, duration: reduce ? 160 : 550, easing: cubicOut }}>{@render notification("top")}</div>
+  {/if}
   {#if wheels}
     <DateWheels value={birthday} onclose={() => (wheels = false)} ondone={(iso) => ((birthday = iso), (wheels = false), buzz.tick())} />
   {/if}
@@ -721,19 +1017,755 @@
   .pair.solo {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* The welcome: no card, the page's own ground under one headline, three facts and one gold. */
-  .welcome {
+  /* The intro (spec 049). Its top row: Back, nine pixel bars, Skip. */
+  .bar {
     display: grid;
-    gap: 14px;
-    padding: 4px 4px 0;
-    animation: swap var(--t-flow) var(--ease);
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    min-height: 44px;
+    opacity: 0;
+    transition: opacity var(--t-hero) var(--ease);
   }
-  .welcome h2 {
+  .bar.on {
+    opacity: 1;
+  }
+  .hide {
+    visibility: hidden;
+  }
+  .back {
+    justify-self: start;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin-left: -10px;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: rgb(244 236 216 / 0.8);
+  }
+  .back svg {
+    width: 8px;
+    height: 14px;
+  }
+  .steps {
+    display: flex;
+    gap: 4px;
+  }
+  .steps i {
+    width: 10px;
+    height: 4px;
+    background: rgb(244 236 216 / 0.16);
+    transition:
+      width var(--t-move) var(--ease),
+      background-color var(--t-move) var(--ease);
+  }
+  .steps i.past {
+    background: rgb(244 236 216 / 0.5);
+  }
+  .steps i.on {
+    width: 18px;
+    background: var(--portal-gold);
+  }
+  .skip {
+    justify-self: end;
+    min-height: 44px;
+    margin-right: -6px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: rgb(244 236 216 / 0.72);
+    font: 600 var(--text-caption) var(--font-ui);
+  }
+  .back:focus-visible,
+  .skip:focus-visible,
+  .chip:focus-visible,
+  .check:focus-visible,
+  .flash:focus-visible,
+  .rate-b:focus-visible,
+  .signal:focus-visible,
+  .slider:focus-visible {
+    outline: 2px solid var(--portal-gold);
+    outline-offset: 2px;
+  }
+
+  /* Every page in one cell: the tallest sets the height, so the portal above never moves (C3). */
+  .pages {
+    display: grid;
+    min-width: 0;
+    touch-action: pan-y;
+  }
+  .page {
+    grid-area: 1 / 1;
+    min-width: 0;
+    visibility: hidden;
+  }
+  .page.on {
+    visibility: visible;
+  }
+  section.page {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 2px 2px 0;
+  }
+  /* One motion per turn: the copy rises in from the side it came from, a beat apart (C6). */
+  .page.on > * {
+    animation: arrive var(--t-hero) var(--ease) backwards;
+  }
+  .page.on > :nth-child(2) {
+    animation-delay: 40ms;
+  }
+  .page.on > :nth-child(3) {
+    animation-delay: 80ms;
+  }
+  .page.on > :nth-child(4) {
+    animation-delay: 120ms;
+  }
+  @keyframes arrive {
+    from {
+      opacity: 0;
+      translate: calc(var(--dir, 1) * 28px) 6px;
+    }
+  }
+  .page.off {
+    visibility: visible;
+    pointer-events: none;
+    animation: depart var(--t-quick) ease-in both;
+  }
+  @keyframes depart {
+    to {
+      opacity: 0;
+      translate: calc(var(--dir, 1) * -20px) 0;
+    }
+  }
+  section.page h2 {
     margin: 0;
-    font: 700 var(--text-title) / 1.2 var(--font-display);
-    letter-spacing: -0.02em;
+    font: var(--title-weight, 800) var(--text-title) / 1.15 var(--font-display);
+    letter-spacing: var(--title-track, -0.02em);
     color: var(--cream);
     text-wrap: balance;
+  }
+  section.page h2.mark {
+    font-family: var(--font-wordmark);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--portal-gold);
+  }
+  .mark span {
+    color: var(--cream);
+  }
+  .lede {
+    margin: 0;
+    max-width: 34em;
+    font: 400 var(--text-sub) / 1.4 var(--font-ui);
+    color: rgb(244 236 216 / 0.74);
+    text-wrap: pretty;
+  }
+  .demo {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    min-width: 0;
+  }
+  .aside {
+    margin: 0;
+    font: 400 var(--text-caption) var(--font-ui);
+    color: rgb(244 236 216 / 0.55);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--radius);
+    background: rgb(244 236 216 / 0.06);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.16);
+    font: 600 var(--text-sub) var(--font-ui);
+    color: var(--parch);
+    white-space: nowrap;
+    transition: box-shadow var(--t-quick) var(--ease);
+  }
+  .chip:active {
+    background: rgb(244 236 216 / 0.12);
+  }
+  /* Gold says "you are here": the picked campus, the worn look. */
+  .chip.picked {
+    box-shadow: inset 0 0 0 1.5px var(--portal-gold);
+    color: var(--cream);
+  }
+  /* Two rows of campuses that scroll sideways; the far edge fades to say there is more. */
+  .campuses {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(2, auto);
+    justify-content: start;
+    gap: 8px;
+    padding: 2px;
+    margin: -2px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+  .campuses::-webkit-scrollbar {
+    display: none;
+  }
+  .campuses .chip {
+    scroll-snap-align: start;
+  }
+  .chip.other {
+    justify-self: start;
+  }
+  .glyph {
+    width: 10px;
+    height: 14px;
+  }
+
+  /* Today: a clock to drag, the class's own stretch lit on its track. */
+  .clock {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font: 400 var(--text-caption) var(--font-ui);
+    color: rgb(244 236 216 / 0.6);
+  }
+  .clock b {
+    font: 600 var(--text-body) var(--font-ui);
+    font-variant-numeric: tabular-nums;
+    color: var(--cream);
+  }
+  .slider {
+    width: 100%;
+    height: 44px;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    touch-action: none;
+  }
+  .slider::-webkit-slider-runnable-track {
+    height: 6px;
+    background: linear-gradient(to right, rgb(244 236 216 / 0.16) var(--a), var(--portal-accent) var(--a) var(--b), rgb(244 236 216 / 0.16) var(--b));
+  }
+  .slider::-moz-range-track {
+    height: 6px;
+    background: linear-gradient(to right, rgb(244 236 216 / 0.16) var(--a), var(--portal-accent) var(--a) var(--b), rgb(244 236 216 / 0.16) var(--b));
+  }
+  .slider::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+    margin-top: -8px;
+    border: 0;
+    background: var(--cream);
+    box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.25);
+    clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 0;
+    background: var(--cream);
+  }
+  .scale {
+    display: flex;
+    justify-content: space-between;
+    margin-top: -6px;
+    font: 500 var(--text-label) var(--font-pixel);
+    color: rgb(244 236 216 / 0.45);
+  }
+  .scale span:nth-child(2) {
+    color: var(--portal-accent);
+  }
+  /* The view in the portal's mouth. */
+  .tv {
+    display: grid;
+    gap: 6px;
+  }
+  .tv-lab {
+    justify-self: start;
+    font: 500 var(--text-label) var(--font-pixel);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    animation: tvpop var(--t-move) var(--ease) backwards;
+  }
+  .tv[data-phase="now"] .tv-lab {
+    color: var(--portal-gold);
+  }
+  @keyframes tvpop {
+    from {
+      opacity: 0;
+      scale: 0.7;
+    }
+  }
+  .tv-code {
+    font: 700 var(--text-headline) var(--font-display);
+    color: var(--cream);
+  }
+  .tv-sub {
+    font: 400 var(--text-caption) / 1.35 var(--font-ui);
+    color: rgb(244 236 216 / 0.7);
+  }
+  .tv-left {
+    display: grid;
+    gap: 4px;
+    margin-top: 6px;
+    color: var(--cream);
+  }
+  .tv-left small {
+    font: 400 var(--text-caption) var(--font-ui);
+    color: rgb(244 236 216 / 0.6);
+  }
+  .tv-bar {
+    height: 4px;
+    margin-top: 6px;
+    background: rgb(244 236 216 / 0.12);
+  }
+  .tv-bar i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width var(--t-move) var(--ease);
+  }
+
+  /* Deadlines: the app's own Done (DueCard), on one sample row. */
+  .due {
+    position: relative;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: center;
+    min-height: 58px;
+    padding-right: 12px;
+    border-radius: var(--radius);
+    background: rgb(244 236 216 / 0.05);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.12);
+  }
+  .check {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin-left: 4px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+  }
+  .check i {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    background: var(--void);
+    box-shadow: inset 0 0 0 2px rgb(244 236 216 / 0.55);
+    clip-path: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+  }
+  .check.on i {
+    background: var(--portal-gold);
+    box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.25);
+    animation: fill var(--t-move) var(--ease-spring) backwards;
+  }
+  .check.on i::after {
+    content: "";
+    width: 12px;
+    height: 9px;
+    background: var(--on-portal-gold);
+    clip-path: polygon(0 50%, 25% 50%, 25% 75%, 37.5% 75%, 37.5% 50%, 62.5% 50%, 62.5% 25%, 75% 25%, 75% 0, 100% 0, 100% 25%, 87.5% 25%, 87.5% 50%, 75% 50%, 75% 75%, 62.5% 75%, 62.5% 100%, 25% 100%, 25% 75%, 0 75%);
+  }
+  @keyframes fill {
+    from {
+      scale: 0.6;
+    }
+  }
+  .what {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    padding-left: 6px;
+  }
+  .what strong {
+    position: relative;
+    justify-self: start;
+    font: 600 var(--text-body) var(--font-ui);
+    color: var(--cream);
+    transition: color var(--t-quick) var(--ease);
+  }
+  .what small {
+    font: 400 var(--text-caption) var(--font-ui);
+    color: rgb(244 236 216 / 0.6);
+  }
+  .what small b {
+    font-weight: 600;
+    color: var(--portal-accent);
+  }
+  .due.done .what strong {
+    color: rgb(244 236 216 / 0.55);
+  }
+  .due.done .what strong::after {
+    content: "";
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    top: 52%;
+    height: 2px;
+    background: rgb(244 236 216 / 0.55);
+    transform-origin: left;
+    animation: strike var(--t-quick) var(--ease) backwards;
+    animation-delay: 160ms;
+  }
+  @keyframes strike {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  .stamp {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    translate: 0 -50%;
+    rotate: -7deg;
+    padding: 1px 6px;
+    font: 700 var(--text-label) var(--font-pixel);
+    letter-spacing: 0.08em;
+    color: var(--good);
+    background: var(--void-2);
+    box-shadow: inset 0 0 0 2px var(--good);
+    pointer-events: none;
+    animation: thunk var(--t-flow) var(--ease) both;
+    animation-delay: 160ms;
+  }
+  @keyframes thunk {
+    0% {
+      scale: 1.9;
+      opacity: 0;
+    }
+    60% {
+      scale: 0.97;
+      opacity: 1;
+    }
+    100% {
+      scale: 1;
+      opacity: 1;
+    }
+  }
+  .clear {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 58px;
+    margin: 0;
+    font: 600 var(--text-sub) var(--font-ui);
+    color: rgb(244 236 216 / 0.8);
+  }
+  .clear .link {
+    margin: 0;
+    font-weight: 400;
+  }
+
+  /* Grades and Study. */
+  .gpa {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: var(--cream);
+  }
+  .gpa-num {
+    display: grid;
+    gap: 4px;
+  }
+  .gpa-num small {
+    font: 400 var(--text-caption) var(--font-ui);
+    color: rgb(244 236 216 / 0.6);
+    white-space: nowrap;
+  }
+  .trend {
+    flex: 1;
+    min-width: 0;
+    height: 48px;
+  }
+  .trend polyline {
+    fill: none;
+    stroke: var(--portal-accent);
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  .page.on .trend polyline {
+    animation: draw calc(var(--t-hero) * 2) var(--ease) forwards;
+    animation-delay: 200ms;
+  }
+  @keyframes draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  .trend rect {
+    fill: var(--cream);
+    opacity: 0;
+  }
+  .page.on .trend rect {
+    animation: dot var(--t-move) var(--ease) forwards;
+  }
+  @keyframes dot {
+    to {
+      opacity: 1;
+    }
+  }
+  .flash {
+    position: relative;
+    height: 68px;
+    padding: 0;
+    border: 0;
+    background: none;
+    perspective: 600px;
+  }
+  .face {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 0 14px;
+    border-radius: var(--radius);
+    background: rgb(244 236 216 / 0.07);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.14);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transition: transform var(--t-flow) var(--ease);
+  }
+  .ask {
+    font: 500 var(--text-body) var(--font-ui);
+    color: rgb(244 236 216 / 0.88);
+  }
+  .ans {
+    transform: rotateY(180deg);
+  }
+  .flash .ans {
+    font: 700 var(--text-headline) var(--font-display);
+    color: var(--cream);
+  }
+  .flipped .ask {
+    transform: rotateY(-180deg);
+  }
+  .flipped .ans {
+    transform: rotateY(0);
+  }
+  .rate {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+  }
+  .rate-b {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    border: 0;
+    border-radius: var(--radius);
+    background: rgb(244 236 216 / 0.06);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.16);
+    color: var(--parch);
+    font: 600 var(--text-sub) var(--font-ui);
+    animation: arrive var(--t-move) var(--ease) backwards;
+  }
+  .rate-b small {
+    font: 500 var(--text-label) var(--font-pixel);
+    color: var(--portal-accent);
+  }
+  .back-in,
+  .okay {
+    margin: 0;
+    font: 600 var(--text-sub) var(--font-ui);
+    color: var(--cream);
+  }
+
+  /* Offline: the signal drops out, the rows stay lit. */
+  .signal {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 52px;
+    padding: 0 12px 0 14px;
+    border: 0;
+    border-radius: var(--radius);
+    background: rgb(244 236 216 / 0.06);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.16);
+    color: var(--parch);
+    font: 600 var(--text-body) var(--font-ui);
+  }
+  .bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    width: 18px;
+    height: 14px;
+  }
+  .bars i {
+    width: 3px;
+    background: var(--cream);
+    transition:
+      translate var(--t-move) var(--ease),
+      opacity var(--t-move) var(--ease);
+  }
+  .bars i:nth-child(1) {
+    height: 4px;
+  }
+  .bars i:nth-child(2) {
+    height: 7px;
+    transition-delay: 40ms;
+  }
+  .bars i:nth-child(3) {
+    height: 10px;
+    transition-delay: 80ms;
+  }
+  .bars i:nth-child(4) {
+    height: 14px;
+    transition-delay: 120ms;
+  }
+  .bars.out i {
+    translate: 0 8px;
+    opacity: 0;
+  }
+  .bars.out i:nth-child(1) {
+    opacity: 0.35;
+    translate: 0;
+  }
+  .switch {
+    position: relative;
+    margin-left: auto;
+    width: 44px;
+    height: 26px;
+    border-radius: var(--radius);
+    background: rgb(244 236 216 / 0.16);
+    transition: background-color var(--t-quick) var(--ease);
+  }
+  .switch i {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius-sm);
+    background: var(--cream);
+    transition: translate var(--t-move) var(--ease-spring);
+  }
+  [aria-checked="true"] .switch {
+    background: var(--cream);
+  }
+  [aria-checked="true"] .switch i {
+    translate: 18px 0;
+    background: var(--void);
+  }
+  .kept-rows {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .kept-rows li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: var(--radius);
+    background: rgb(244 236 216 / 0.04);
+    font: 600 var(--text-sub) var(--font-ui);
+    color: var(--cream);
+  }
+  .kept-rows em {
+    margin-left: auto;
+    font: 400 var(--text-caption) var(--font-ui);
+    color: rgb(244 236 216 / 0.55);
+  }
+  .tick {
+    width: 12px;
+    height: 9px;
+    background: var(--good);
+    clip-path: polygon(0 50%, 25% 50%, 25% 75%, 37.5% 75%, 37.5% 50%, 62.5% 50%, 62.5% 25%, 75% 25%, 75% 0, 100% 0, 100% 25%, 87.5% 25%, 87.5% 50%, 75% 50%, 75% 75%, 62.5% 75%, 62.5% 100%, 25% 100%, 25% 75%, 0 75%);
+  }
+
+  /* Your look. */
+  .looks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tones {
+    display: block;
+    width: 24px;
+    height: 14px;
+    box-shadow: 0 0 0 1px rgb(244 236 216 / 0.25);
+  }
+
+  /* Reminders: the sample nudge, at rest in the page and sliding down from the top. */
+  .note {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-lg);
+    background: var(--void-lift);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.12);
+    font-family: var(--font-ui);
+  }
+  .note-slot {
+    position: fixed;
+    top: calc(var(--safe-top) + 8px);
+    left: var(--gutter);
+    right: var(--gutter);
+    z-index: 62;
+    filter: drop-shadow(0 10px 30px rgb(0 0 0 / 0.5));
+  }
+  .note-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    background: var(--void);
+  }
+  .note-icon :global(svg) {
+    width: 15px;
+    height: 21px;
+  }
+  .note-text {
+    display: grid;
+    min-width: 0;
+  }
+  .note-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font: 600 var(--text-caption) var(--font-ui);
+    color: rgb(244 236 216 / 0.7);
+  }
+  .note-head small {
+    margin-left: auto;
+    font-weight: 400;
+    color: rgb(244 236 216 / 0.5);
+  }
+  .note-title {
+    font: 600 var(--text-sub) var(--font-ui);
+    color: var(--cream);
+  }
+  .note-body {
+    font: 400 var(--text-sub) / 1.35 var(--font-ui);
+    color: rgb(244 236 216 / 0.78);
   }
   .link.soft {
     justify-self: center;
@@ -815,9 +1847,12 @@
     color: rgb(244 236 216 / 0.72);
   }
   @media (prefers-reduced-motion: reduce) {
-    .swap,
-    .welcome {
+    .swap {
       animation: none;
+    }
+    /* Reduce Motion: no slide; the page that leaves is simply gone (C17). */
+    .page.off {
+      visibility: hidden;
     }
     .field,
     .field label,

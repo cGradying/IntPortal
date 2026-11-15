@@ -1,3 +1,4 @@
+// @ts-expect-error type error without @types/node package
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
 import { CAMPUSES, CAMPUS_KEY, NAME_KEY, cleanName, getCampus, getName, setCampus, setName } from "./profile";
