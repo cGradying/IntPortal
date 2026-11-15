@@ -69,8 +69,9 @@ export interface Frame {
 }
 
 export async function loadTiles(url = "/tiles.wasm") {
-  const bytes = await (await fetch(url)).arrayBuffer();
-  const x = (await WebAssembly.instantiate(bytes, {})).instance.exports as unknown as Exports;
+  // Compiles while the bytes arrive; a server without the wasm MIME type gets the buffered path.
+  const made = await WebAssembly.instantiateStreaming(fetch(url), {}).catch(async () => WebAssembly.instantiate(await (await fetch(url)).arrayBuffer(), {}));
+  const x = made.instance.exports as unknown as Exports;
   return {
     resize: (w: number, h: number) => x.resize(w, h),
     /** A touch on the selected portal at tile `c`, `r` of its grid, at `t` on the landing's clock (C36). */
