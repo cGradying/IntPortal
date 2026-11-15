@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick as settled } from "svelte";
-  import { slide } from "svelte/transition";
+  import { fade, slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   // The Up next count drops in when its value changes, never on first paint (spec 045 C24).
   function tick(el: HTMLElement, value: string) {
@@ -31,7 +31,7 @@
   import { buzz } from "../haptics";
   import { dateLine as longDate } from "../greeting";
   import { dayRows } from "../dayrows";
-  import type { CardId } from "../you";
+  import { BELOW, inGroup, TOP, type CardId } from "../you";
   import { api, clock, isoDate, moment, span, subjectColor, type Meeting, type Nudge, type Standing } from "../api";
 
   // Re-read the clock whenever the minute ticker refreshes today.
@@ -57,6 +57,19 @@
   let nudge = $state<{ nudge: Nudge; line: string; key: string } | null>(null);
   // Already there when you arrive: LAR's card opens only for a nudge that changes after that.
   let coachLoaded = false;
+  // The card opens once, on its first appearance. After that it only closes on dismiss;
+  // a changed nudge swaps its line in place, and a vanished one closes with no motion.
+  let coachShown = $state(false);
+  let coachSilent = false;
+  const showNudge = (n: typeof nudge) => {
+    nudge = n;
+    if (n) coachShown = true;
+    else if (coachShown) {
+      coachSilent = true;
+      coachShown = false;
+      settled().then(() => (coachSilent = false));
+    }
+  };
   const dismissKey = () => `coach-dismissed-${isoDate(new Date())}`;
   const dismissed = (): string[] => {
     try {
@@ -69,7 +82,7 @@
     void app.snapshot;
     void app.today;
     api.coach(moment(), dismissed(), app.busy)
-      .then((n) => (nudge = n))
+      .then(showNudge)
       .catch(() => {})
       .finally(() => settled().then(() => (coachLoaded = true)));
   });
@@ -81,6 +94,8 @@
     } catch {
       // It comes back next launch; harmless.
     }
+    // Closed by the student: the slide plays, then a later nudge may open it again, silently.
+    coachShown = false;
     api.coach(moment(), [...dismissed(), nudge.key], app.busy).then((n) => (nudge = n));
   }
   function act() {
@@ -126,7 +141,7 @@
   const rows = $derived(dayRows(items, app.busy, isoDate(now), now.getHours() * 60 + now.getMinutes()).filter((r) => r.kind !== "busy" || !app.cards.hidden.includes("events")));
   // LAR's card leaves and arrives by closing and opening, so the page under it never jumps.
   const quiet = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const coachFlow = () => ({ duration: quiet || !coachLoaded ? 0 : FLOW_MS, easing: cubicOut });
+  const coachFlow = () => ({ duration: quiet || !coachLoaded || coachSilent ? 0 : FLOW_MS, easing: cubicOut });
 </script>
 
 <div class="screen">
@@ -134,7 +149,6 @@
     <!-- The greeting moved to the launch hello (spec 010 C35); the date is the title. -->
     <h1>{dateLine}</h1>
     <Synced />
-    <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? previewOf(dayNote) || "Today's note" : "+ Note for today"}</button>
   </header>
 
   {#if app.sisRejected || app.mabiniRejected}
@@ -153,12 +167,12 @@
   <!-- Today's cards in the student's order (spec 047 C6), rendered in that order so VoiceOver and focus follow it. -->
   {#snippet card(id: CardId)}
     {#if id === "coach"}
-      {#if nudge}
+      {#if coachShown && nudge}
         <section class="coach card notch" data-kind={nudge.nudge.kind} transition:slide={coachFlow()}>
           <Lar size={2} cube={false} state={now.getHours() >= 23 || now.getHours() < 5 ? "sleep" : "idle"} />
           <button class="say" onclick={act}>
             <span class="label">LAR</span>
-            <span class="line">{nudge.line}</span>
+            {#key nudge.line}<span class="line" in:fade={{ duration: quiet ? 0 : 160 }}>{nudge.line}</span>{/key}
           </button>
           <button class="x" aria-label="Dismiss for today" onclick={dismiss}>×</button>
         </section>
@@ -219,7 +233,7 @@
       {/if}
     {/if}
   {/snippet}
-  {#each app.cards.order.filter((id) => !app.cards.hidden.includes(id)) as id (id)}{@render card(id)}{/each}
+  {#each inGroup(app.cards.order, TOP).filter((id) => !app.cards.hidden.includes(id)) as id (id)}{@render card(id)}{/each}
 
   <section class="day">
     <div class="head">
@@ -227,6 +241,7 @@
       {#if t && t.agenda.free_minutes_left > 0}
         <p class="free num">{span(t.agenda.free_minutes_left)} free ahead</p>
       {/if}
+      <button class="daynote" onclick={() => openNote(dayKey, dateLine)}>{dayNote ? previewOf(dayNote) || "Today's note" : "+ Note for today"}</button>
     </div>
 
     {#if !t}
@@ -277,6 +292,8 @@
       <p class="tomorrow">Tomorrow starts with <strong>{f.subject_code}</strong> at {clock(f.start)}</p>
     {/if}
   </section>
+
+  {#each inGroup(app.cards.order, BELOW).filter((id) => !app.cards.hidden.includes(id)) as id (id)}{@render card(id)}{/each}
 </div>
 
 {#if held}<ClassSheet meeting={held} onclose={() => (held = null)} />{/if}
@@ -397,17 +414,17 @@
   .screen > header {
     min-width: 0;
   }
+  /* A quiet text button at the right of the day list's head; the 44 pt target is vertical padding. */
   .daynote {
-    margin-top: 8px;
-    max-width: 100%;
-    padding: 6px 12px;
+    flex: 0 1 auto;
+    min-width: 0;
+    min-height: 44px;
+    margin: -12px 0 -12px auto;
+    padding: 0 0 0 12px;
     border: 0;
-    border-radius: var(--radius-lg);
-    background: var(--card);
-    box-shadow: inset 0 0 0 1px var(--edge);
-    color: var(--ink-2);
+    background: none;
+    color: var(--ink-3);
     font-size: var(--text-caption);
-    text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -526,8 +543,8 @@
   }
   .head {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
+    gap: 12px;
+    align-items: center;
   }
   /* The student's own events: hatched, quieter than classes. */
   .busy {
