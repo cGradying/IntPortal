@@ -1,6 +1,6 @@
 # 050 Release 0.4: finish the app
 
-**Status:** building
+**Status:** shipped. C1 to C19 are on main; C4, C7 and C8 were already true.
 
 ## What changes for the student
 
