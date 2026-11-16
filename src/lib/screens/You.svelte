@@ -11,6 +11,7 @@
   import { shareFile } from "../share";
   import { friendly } from "../errors";
   import { buzz, haptics, setHaptics } from "../haptics";
+  import { openLink } from "../openLink";
   import { sfx, setSound, sound } from "../sound";
   import { lock, setLock, unlockWith } from "../lock.svelte";
   import { HAND_TUNED, PALETTES, derive } from "../rooms";
@@ -592,7 +593,17 @@
     {#if __REVIEW__ && ongallery}
       <button class="ghost" onclick={ongallery}>Open the design gallery</button>
     {/if}
-    <p class="about">LAR is the Lakbay-Aral Robot who came through the portal to study with you.</p>
+    <div class="about">
+      <p>LAR is the Lakbay-Aral Robot who came through the portal to study with you.</p>
+      <p>IntPortal {__APP_VERSION__} · An unofficial student app, not made by or affiliated with PUP.</p>
+      <p class="links">
+        <button class="link" onclick={() => openLink("https://github.com/cGradying/intportal-app/blob/main/PRIVACY.md", true)}>Privacy</button>
+        <span aria-hidden="true">·</span>
+        <button class="link" onclick={() => openLink("https://github.com/cGradying/intportal-app/releases", true)}>Updates</button>
+        <span aria-hidden="true">·</span>
+        <button class="link" onclick={() => openLink("https://github.com/cGradying/intportal-app/issues", true)}>Report a problem</button>
+      </p>
+    </div>
   </div>
 {/if}
 
@@ -614,11 +625,32 @@
     letter-spacing: var(--title-track);
   }
   .about {
+    display: grid;
+    gap: 4px;
     margin: 8px 0 0;
     font-size: var(--text-caption);
     color: var(--ink-3);
     text-align: center;
     text-wrap: balance;
+  }
+  .about p {
+    margin: 0;
+  }
+  .about .links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+  }
+  .about .link {
+    min-height: 44px;
+    padding: 0 6px;
+    border: 0;
+    background: none;
+    color: var(--ink-2);
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   /* C1: quick switches, a lit one gold on its icon and edge, not a gold block. */
