@@ -4,7 +4,8 @@
   import { askForCalendar } from "../devcal";
   import { adopt, app, forgetThemes, mabiniSyncNow, restoreThemes, themesForBackup, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
   import { api, isoDate, type BackupPreview, type Portal, type Space } from "../api";
-  import { onMount } from "svelte";
+  import { onMount, tick as settled } from "svelte";
+  import { still } from "../swap";
   import PortalConnect from "../PortalConnect.svelte";
   import NotesCard from "../NotesCard.svelte";
   import { shareFile } from "../share";
@@ -130,6 +131,16 @@
     } catch {
       // Asked again next time.
     }
+  }
+
+  /** The room changes by a cross-fade of the whole app, not a snap; where the phone can't, it snaps. */
+  function crossfade(change: () => void) {
+    const vt = (document as Document & { startViewTransition?: (cb: () => Promise<void>) => unknown }).startViewTransition;
+    if (!vt || still()) return change();
+    vt.call(document, async () => {
+      change();
+      await settled();
+    });
   }
 
   let calendarNote = $state("");
@@ -392,7 +403,7 @@
         <button class="primary" onclick={openMaker}>Make a theme</button>
         <div class="rooms">
           {#each rooms as r (r.id)}
-            <button class="notch" class:on={app.room === r.id} aria-pressed={app.room === r.id} onclick={() => { buzz.select(); setRoom(r.id); }}>
+            <button class="notch" class:on={app.room === r.id} aria-pressed={app.room === r.id} onclick={() => { buzz.select(); crossfade(() => setRoom(r.id)); }}>
               <span class="swatch">{#each r.swatch as c, i (i)}<i style:background={c}></i>{/each}</span>
               <span>{r.name}</span>
             </button>
@@ -959,6 +970,11 @@
   }
   .rooms button.on {
     box-shadow: inset 0 0 0 2px var(--gold);
+  }
+  /* The room cross-fade runs over --t-flow instead of the browser's quarter second. */
+  :global(::view-transition-group(root)) {
+    animation-duration: var(--t-flow);
+    animation-timing-function: var(--ease);
   }
   .swatch {
     display: flex;
