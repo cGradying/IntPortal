@@ -349,6 +349,8 @@ The Lakbay-Aral Robot, 26 by 23 art pixels: a pebble lit from the top left in fo
 - **Speech:** LAR talks through a 3 px stepped obsidian slab, his name in gold Pixelify, his line in light Taglish ("Hi, I'm LAR...", "Ayos! Your schedule and grades are in.", "Welcome back, iskolar. Tara?").
 
 ### Motion
+**The shell speaks one vocabulary** (`src/lib/motion.ts`, spec 045 C30–C36). A tab change is a shared axis: the old page slides 12 px and fades while the next arrives from the other side, ordered by tab. Sheets rise from the bottom with a hair of overshoot, leave faster, and are dragged down by a grab bar. A press squashes to 0.97 and never sticks. Pull resists. Everything is transform and opacity; leaving is quicker than arriving; under Reduce Motion the travel goes and a short fade stays.
+
 **Four durations, two eases.** Interface motion takes `--t-quick` (0.16 s: presses, colour), `--t-move` (0.32 s: things that travel a little), `--t-flow` (0.36 s: layout that opens or closes) or `--t-hero` (0.55 s: a sheet, a page, an arrival), with `--ease` or `--ease-spring`. The lint fails a literal duration of a second or less. Two things are outside the rule: a loop that never ends (the ground's drift, a live dot), and `steps()` art.
 
 **Nothing moves unseen.** While the app is hidden or LAR's window covers the screen, CSS animations behind it pause and canvases stop asking for frames (`src/lib/quiet.ts`).

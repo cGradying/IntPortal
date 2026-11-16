@@ -5,7 +5,7 @@
   import { adopt, app, forgetThemes, mabiniSyncNow, restoreThemes, themesForBackup, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
   import { api, isoDate, type BackupPreview, type Portal, type Space } from "../api";
   import { onMount, tick as settled } from "svelte";
-  import { still } from "../swap";
+  import { reduced as still } from "../motion";
   import PortalConnect from "../PortalConnect.svelte";
   import NotesCard from "../NotesCard.svelte";
   import { shareFile } from "../share";

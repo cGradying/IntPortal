@@ -165,7 +165,7 @@
   --t-move: 0.32s;
   --t-flow: 0.36s;
   --t-hero: 0.55s;
-  /* Leaving is quicker than arriving; sheets get a hair of overshoot, never a bounce (spec 045 C29). */
+  /* Leaving is quicker than arriving; sheets get a hair of overshoot, never a bounce (spec 045 C36). */
   --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
   --ease-sheet: cubic-bezier(0.32, 1.2, 0.5, 1);
   --t-exit: 0.2s;
@@ -258,7 +258,7 @@ button {
 
 /* Every press squashes a little and springs back (spec 045 C13). The pressed look is
    [data-press], set by watchPress() in press.ts, because iOS WebKit can leave :active stuck
-   on a button that opens a sheet over itself (spec 045 C32). */
+   on a button that opens a sheet over itself (spec 045 C34). */
 button {
   transition: scale var(--t-quick) var(--ease-spring);
 }
@@ -266,7 +266,7 @@ button:not(:disabled)[data-press] {
   scale: 0.97;
 }
 
-/* The grab bar a bottom sheet gets from motion.ts `dismiss` (spec 045 C30). */
+/* The grab bar a bottom sheet gets from motion.ts `dismiss` (spec 045 C32). */
 .grip {
   position: absolute;
   z-index: 2;
@@ -286,6 +286,11 @@ button:not(:disabled)[data-press] {
   height: 3px;
   background: currentColor;
   opacity: 0.22;
+}
+
+/* The hello's rise on Today is for the first entry after a sign-in only (spec 010 C35); +page sets data-first. */
+html[data-entering]:not([data-first]) main .screen > * {
+  animation: none !important;
 }
 
 /* An error or a note that arrives mid-page fades in place and never moves what is around it. */

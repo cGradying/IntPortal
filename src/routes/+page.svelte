@@ -189,6 +189,20 @@
     inside = true;
   }
 
+  // The hello's rise on Today plays on the first entry after a sign-in, never on later launches
+  // (nothing re-rises). app.css only lets it through while html[data-first] is set.
+  $effect(() => {
+    if (!inside) return;
+    try {
+      if (localStorage.getItem("entered") !== "1") {
+        localStorage.setItem("entered", "1");
+        document.documentElement.dataset.first = "";
+      }
+    } catch {
+      // Storage off: no rise, which is the quiet choice.
+    }
+  });
+
   // The veil lifts once Today has painted under it: mounting the app can
   // take longer than the fade, which would otherwise finish unseen. Today
   // itself doesn't move (spec 010 C30).
@@ -216,6 +230,8 @@
     app.subject = null;
     app.tab = "today";
     try {
+      localStorage.removeItem("entered");
+      delete document.documentElement.dataset.first;
       localStorage.removeItem("demo");
     } catch {
       // Review builds only; harmless.

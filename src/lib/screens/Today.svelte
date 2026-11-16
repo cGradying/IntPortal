@@ -2,7 +2,7 @@
   import { tick as settled } from "svelte";
   import { fade, slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
-  import { still } from "../swap";
+  import { reduced as still } from "../motion";
   // The Now row gets one gold sweep the moment its class begins, never on first paint.
   function sweep(el: HTMLElement, phase: string) {
     let last = phase;

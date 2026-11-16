@@ -1,7 +1,7 @@
 <script lang="ts">
   import { flip } from "svelte/animate";
   import { fade } from "svelte/transition";
-  import { flow } from "./swap";
+  import { flow } from "./motion";
 
   // eMabini in full: deadlines, then courses with progress and grade.
   import type { Course } from "./api";
