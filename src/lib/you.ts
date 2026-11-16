@@ -1,11 +1,11 @@
 // Spec 047 C1–C8: You's rows, its search and the app-side choices behind
 // Layout and Motion. Pure, so the matching and the card moves are tested.
 
-export type PageId = "accounts" | "theme" | "layout" | "motion" | "reminders" | "calendar" | "assis" | "notes" | "backup" | "privacy";
+export type PageId = "accounts" | "campus" | "theme" | "layout" | "motion" | "reminders" | "calendar" | "assis" | "notes" | "backup" | "privacy";
 
 /** C1: the rows, grouped. */
 export const GROUPS: [string, [PageId, string][]][] = [
-  ["Account", [["accounts", "Accounts"]]],
+  ["Account", [["accounts", "Accounts"], ["campus", "Campus"]]],
   ["Look", [["theme", "Theme"], ["layout", "Layout"], ["motion", "Motion and effects"]]],
   ["Alerts", [["reminders", "Reminders"], ["calendar", "Calendar"]]],
   ["Data", [["assis", "IntAssis"], ["notes", "Notes"], ["backup", "Backup and data"], ["privacy", "Privacy"]]],
@@ -16,6 +16,7 @@ export const GROUPS: [string, [PageId, string][]][] = [
 export const SETTINGS: { name: string; page: PageId; words: string }[] = [
   { name: "SIS", page: "accounts", words: "sync login password account portal sis schedule grades i-sync" },
   { name: "eMabini", page: "accounts", words: "mabini courses lms sync login password account" },
+  { name: "Campus", page: "campus", words: "campus school branch paaralan eskwelahan sta mesa today art scene" },
   { name: "Sign out", page: "accounts", words: "logout log out sign out mag-logout labas umalis" },
   { name: "Rooms", page: "theme", words: "theme colour color kulay room dark light madilim maliwanag tema itsura look" },
   { name: "Make a theme", page: "theme", words: "theme custom share code qr gawa tema kulay" },
