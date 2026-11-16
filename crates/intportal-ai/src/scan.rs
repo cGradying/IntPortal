@@ -1,4 +1,4 @@
-//! The model's pass over text read from a photo (spec 020 C15, spec 041 C19).
+//! The model's pass over text read from a photo (spec 020 C16, spec 041 C25).
 //! It runs on text `intportal_core::scan::clean` already tidied, fixes the OCR's
 //! wrong letters and breaks, and is never trusted: an answer that changes a
 //! number, code, date or month, or that is much shorter or longer, is thrown
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn c15_a_fixed_word_is_taken() {
+    fn c16_a_fixed_word_is_taken() {
         let input = "Subrnit the reflecti0n paper by Nov 20 at 11:59 PM for COMP 20073.";
         let want = "Submit the reflection paper by Nov 20 at 11:59 PM for COMP 20073.";
         // The model also fixed the letter-for-digit "0" in a word: that changes a digit, so it is refused.
@@ -99,7 +99,7 @@ mod tests {
     }
 
     #[test]
-    fn c15_a_changed_number_code_date_or_month_is_refused() {
+    fn c16_a_changed_number_code_date_or_month_is_refused() {
         let input = "Quiz 2 on Nov 20 at 11:59 PM, room S512, COMP 20073.";
         for bad in ["Quiz 2 on Nov 21 at 11:59 PM, room S512, COMP 20073.", "Quiz 2 on Nov 20 at 11:59 PM, room S521, COMP 20073.", "Quiz 2 on Dec 20 at 11:59 PM, room S512, COMP 20073.", "Quiz 2 on Nov 20 at 11:59 PM, room S512, COMP 20073 and 2.", "Quiz 2 on Nov 20 at 11:59 PM, room S512."] {
             assert!(!accepts(input, bad), "{bad}");
@@ -108,7 +108,7 @@ mod tests {
     }
 
     #[test]
-    fn c15_a_much_shorter_or_longer_answer_is_refused() {
+    fn c16_a_much_shorter_or_longer_answer_is_refused() {
         let input = "Bring your ballpen and ID to the exam room on time, please.";
         assert!(!accepts(input, "Bring your ballpen."));
         assert!(!accepts(input, &format!("{input} Also, remember to review the chapters and sleep early the night before.")));
@@ -117,7 +117,7 @@ mod tests {
     }
 
     #[test]
-    fn c15_a_reply_that_is_not_json_or_an_error_leaves_the_text() {
+    fn c16_a_reply_that_is_not_json_or_an_error_leaves_the_text() {
         let input = "Magdala ng ballpen at ID bukas.";
         let mut m = FakeLlm::new(&["Sure! Here is the text."]);
         assert_eq!(tidy(&mut m, Template::ChatMl, input, NOW), input);
@@ -126,7 +126,7 @@ mod tests {
     }
 
     #[test]
-    fn c15_long_text_goes_in_pieces_and_a_bad_piece_keeps_its_own_text() {
+    fn c16_long_text_goes_in_pieces_and_a_bad_piece_keeps_its_own_text() {
         let a = format!("Frist paragraph. {}", "word ".repeat(150));
         let b = format!("Second paragraph. {}", "term ".repeat(150));
         let (a, b) = (a.trim().to_string(), b.trim().to_string());
@@ -138,7 +138,7 @@ mod tests {
     }
 
     #[test]
-    fn c15_a_text_too_long_or_a_spent_budget_never_reaches_the_model() {
+    fn c16_a_text_too_long_or_a_spent_budget_never_reaches_the_model() {
         let mut m = FakeLlm::new(&[&json("x")]);
         let long = "a ".repeat(MAX_SCAN);
         assert_eq!(tidy(&mut m, Template::ChatMl, &long, NOW), long.trim());

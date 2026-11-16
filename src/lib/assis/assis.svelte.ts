@@ -348,7 +348,7 @@ export async function explain(front: string, back: string, typed: string, subjec
 }
 
 /**
- * Spec 041 C19: the model's tidy of a scan's text, or null when IntAssis isn't on, is busy, fails or
+ * Spec 041 C25: the model's tidy of a scan's text, or null when IntAssis isn't on, is busy, fails or
  * changes nothing. Never throws and never says why: the scan already has its deterministic text.
  */
 export async function tidyScan(text: string): Promise<string | null> {

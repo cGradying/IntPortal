@@ -1,4 +1,4 @@
-//! Text read from a photo (spec 041 C19): the phone's OCR gives broken line
+//! Text read from a photo (spec 041 C25): the phone's OCR gives broken line
 //! wraps, split words, stray marks and page furniture. `clean` fixes only that,
 //! the same way every time, and never rewrites a word, number, code or date.
 //! `S512`, `COMP 20073` and `11:59 PM` come out exactly as they went in.
@@ -167,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn c19_wrapped_sentences_become_one_line() {
+    fn c25_wrapped_sentences_become_one_line() {
         same(
             "Submit your reflection paper on the\nreading assignment through the class\nportal before the discussion starts.",
             "Submit your reflection paper on the reading assignment through the class portal before the discussion starts.",
@@ -175,7 +175,7 @@ mod tests {
     }
 
     #[test]
-    fn c19_a_word_split_by_the_wrap_is_whole_again() {
+    fn c25_a_word_split_by_the_wrap_is_whole_again() {
         same(
             "Please bring your informa-\ntion sheet and the signed per-\nmission slip.",
             "Please bring your information sheet and the signed permission slip.",
@@ -183,7 +183,7 @@ mod tests {
     }
 
     #[test]
-    fn c19_a_code_split_at_its_hyphen_keeps_the_hyphen() {
+    fn c25_a_code_split_at_its_hyphen_keeps_the_hyphen() {
         same(
             "Room: CCIS-\n402 for COMP-\n20073",
             "Room: CCIS-402 for COMP-20073",
@@ -193,20 +193,20 @@ mod tests {
     }
 
     #[test]
-    fn c19_dates_times_and_codes_are_never_touched() {
+    fn c25_dates_times_and_codes_are_never_touched() {
         let s = "COMP 20073 Midterm Exam - Nov 20, 2026 at 11:59 PM\nS512 Lab Report due 11/25 by 5:00 PM\nIT 3O1 stays as it is";
         same(s, s);
     }
 
     #[test]
-    fn c19_dated_lines_stay_on_their_own_lines() {
+    fn c25_dated_lines_stay_on_their_own_lines() {
         // Long, full-width lines of a list must not run together: each is a deadline (C17).
         let s = "Quiz 2 on Chapters 1 to 3 in the lecture hall - Nov 20\nProject proposal submission through the portal - Dec 1\nFinal exam for the whole semester at the gym - Dec 15";
         same(s, s);
     }
 
     #[test]
-    fn c19_blank_lines_and_list_items_survive() {
+    fn c25_blank_lines_and_list_items_survive() {
         same(
             "Requirements:\n\n•  Valid ID\n•  Printed form\n   that is signed\n2)  Fee of 50 pesos\n\n\n\nBring them on Monday.",
             "Requirements:\n\n- Valid ID\n- Printed form that is signed\n2) Fee of 50 pesos\n\nBring them on Monday.",
@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn c19_spaces_stray_marks_and_quotes_are_normalised() {
+    fn c25_spaces_stray_marks_and_quotes_are_normalised() {
         same(
             "The  teacher  said  “bring   your book” , then  left .\n|  ~~ \n_____\nIt’s fine.",
             "The teacher said \"bring your book\", then left.\nIt's fine.",
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn c19_page_numbers_and_repeated_headers_go() {
+    fn c25_page_numbers_and_repeated_headers_go() {
         let raw = "Polytechnic University\nCOMP 20073 Syllabus\n\nWeek 1: Intro to trees.\nPage 1 of 3\n\nPolytechnic University\nCOMP 20073 Syllabus\n\nWeek 2: Heaps.\n- 2 -\nPolytechnic University\nCOMP 20073 Syllabus\nWeek 3: Graphs.\n3";
         same(
             raw,
@@ -231,7 +231,7 @@ mod tests {
     }
 
     #[test]
-    fn c19_a_number_inside_the_text_is_not_a_page_number() {
+    fn c25_a_number_inside_the_text_is_not_a_page_number() {
         same(
             "Passing score:\n75\nExtra credit: 5",
             "Passing score:\n75\nExtra credit: 5",
@@ -239,13 +239,13 @@ mod tests {
     }
 
     #[test]
-    fn c19_filipino_and_taglish_pass_through() {
+    fn c25_filipino_and_taglish_pass_through() {
         let s = "Magdala ng ballpen at ID bukas.\nHuwag kalimutan ang requirements para sa quiz sa Biyernes.";
         same(s, s);
     }
 
     #[test]
-    fn c19_empty_and_noise_give_nothing() {
+    fn c25_empty_and_noise_give_nothing() {
         assert_eq!(clean(""), "");
         assert_eq!(clean("  \n | \n ___ \n"), "");
     }
