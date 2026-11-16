@@ -2,7 +2,7 @@
   // You (spec 047 C1–C11): eight quick switches and search on top, then short
   // rows in four groups. Each row opens its own page, closed by a large Back.
   import { askForCalendar } from "../devcal";
-  import { adopt, app, forgetThemes, mabiniSyncNow, restoreThemes, themesForBackup, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
+  import { adopt, app, forgetThemes, mabiniSyncNow, restoreThemes, themesForBackup, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setGlanceOutside, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
   import { api, isoDate, type BackupPreview, type Portal, type Space } from "../api";
   import { onMount, tick as settled } from "svelte";
   import { reduced as still } from "../motion";
@@ -204,6 +204,11 @@
 
   const ICON: Record<PageId, SpriteName> = { accounts: "you", campus: "today", theme: "mark", layout: "bullet", motion: "wave", reminders: "bell", calendar: "date", assis: "ai", notes: "note2", backup: "disk", privacy: "lock" };
   const TAB_NAME = { today: "Today", schedule: "Schedule", study: "Study" };
+  const GLANCE_NOTE = {
+    always: "The countdown to your next class stays on the Lock Screen and in the Dynamic Island (the status bar on Android), even while the app is open.",
+    away: "The countdown shows once you leave the app and goes away when you open it. It appears from an hour before class.",
+    off: "No countdown outside the app. The home-screen widget still shows your next class.",
+  };
   const LEVEL = { full: "Full", short: "Short", calm: "Calm", off: "Off" };
 
   /** What each row shows on its right. */
@@ -465,6 +470,8 @@
           {@render sw("Sunday brief", app.brief, (on) => setExtra("brief", on))}
         </div>
         <p class="fine">At most 3 a day besides class reminders, none from 10 PM to 7 AM.</p>
+        {@render seg("Class card outside the app", [["always", "Always"], ["away", "When I leave"], ["off", "Off"]], app.glanceOutside, setGlanceOutside)}
+        <p class="fine">{GLANCE_NOTE[app.glanceOutside]}</p>
         {#if app.notifications === false}
           <p class="fine">Notifications are off for IntPortal, so none of these can reach you.</p>
           <button class="primary" onclick={() => scheduleReminders(true)}>Turn on notifications</button>

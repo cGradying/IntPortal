@@ -13,13 +13,15 @@ export interface GlanceView {
   line: string;
   /** A few characters after it: the countdown. */
   short: string;
+  /** Nothing to count down to or fix; the dock stays out of the way. */
+  idle?: boolean;
 }
 
 export function glanceView(g: Glance | undefined, line: string | undefined, syncing: boolean, arrived: boolean, failed: boolean): GlanceView {
   if (syncing) return { trip: "drive", tone: "calm", line: "On the way to SIS…", short: "" };
   if (arrived) return { trip: "arrived", tone: "calm", line: "Synced · everything's fresh", short: "" };
   const view: GlanceView = { trip: failed ? "stalled" : null, tone: "calm", line: line ?? "IntPortal", short: "" };
-  if (!g) return view;
+  if (!g) return { ...view, idle: !failed };
   switch (g.kind) {
     case "in_session":
       return { ...view, tone: "live", short: g.until };
@@ -28,9 +30,9 @@ export function glanceView(g: Glance | undefined, line: string | undefined, sync
     case "sync_trouble":
       return { ...view, tone: "trouble", short: "Retry" };
     case "thinking":
-      return { ...view, short: "…" };
+      return { ...view, short: "…", idle: true };
     case "day_done":
-      return { ...view };
+      return { ...view, idle: !failed };
   }
 }
 

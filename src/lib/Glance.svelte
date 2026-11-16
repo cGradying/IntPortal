@@ -29,6 +29,7 @@
   );
 </script>
 
+{#if !view.idle || open || preview}
 <div class="wrap" class:preview>
   <button class="glance" class:open data-tone={view.tone} onclick={() => (open = !open)} aria-expanded={open} aria-label={view.line}>
     <span class="row">
@@ -69,6 +70,7 @@
     {/if}
   </button>
 </div>
+{/if}
 
 <style>
   .wrap {

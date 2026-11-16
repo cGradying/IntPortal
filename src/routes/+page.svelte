@@ -37,7 +37,7 @@
   import { watchDynamicIsland } from "$lib/glance";
   import { watchBars } from "$lib/bars";
   import { watchBack } from "$lib/back";
-  import { app, adopt, applyLook, listenForTaps, refreshLogins, setRoom, setTextStyle, startClock, syncNow } from "$lib/state.svelte";
+  import { app, adopt, applyLook, listenForTaps, refreshLogins, setRoom, setTextStyle, startClock, syncNow, watchGlance } from "$lib/state.svelte";
 
   let ready = $state(false);
   let signedIn = $state(false);
@@ -95,6 +95,7 @@
     watchVisible();
     applyLook();
     watchLock();
+    watchGlance();
     watchKeyboard();
     watchDynamicIsland((has) => (island = has));
     watchBars();
