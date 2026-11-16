@@ -141,14 +141,14 @@
   {:else if mode === "flash"}
     <div class="stage">
       {#key index}
-        <div class="slot" in:enter out:leave>
+        <div class="slot card notch" in:enter out:leave>
           <button class="flipper" class:shown onclick={() => { if (!shown) buzz.tick(); shown = true; }}>
-            <span class="side card notch face" aria-hidden={shown}>
+            <span class="side face" aria-hidden={shown}>
               <span class="label">{mixed ? deck.name : "Term"}</span>
               <h2>{card.front}</h2>
               <span class="fine">Tap to show the meaning</span>
             </span>
-            <span class="side back card notch face" aria-hidden={!shown}>
+            <span class="side back face" aria-hidden={!shown}>
               <span class="label">{mixed ? deck.name : "Term"}</span>
               <h2>{card.front}</h2>
               <span class="answer">{card.back}</span>
@@ -245,6 +245,7 @@
   }
   .slot {
     grid-area: 1 / 1;
+    --step: 4px;
     perspective: 900px;
   }
   /* The flip: a real turn about the vertical axis, with a small overshoot. */

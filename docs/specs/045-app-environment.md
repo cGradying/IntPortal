@@ -99,6 +99,14 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
 - **C26. Things grow from where they live.** A class's sheet grows out of its block and shrinks back into it (0.38 s in, 0.3 s out). The chat comes from the cube ([010](010-landing.md) C18b).
 - **C27. Grades.** On first open, the GPA counts from the last seen value and the stamps thunk one by one.
 - **C28. Ripples are rare.** The dot grid ripples only when something lands: the dive's end, a sync, a done.
+- **C29. Each screen's one moment, then still** (2026-11-16). Nothing re-rises on a visit: first paint shows content in place, and motion plays only for what changes after it.
+  - Today: the In session countdown steps into its new value (pixel roll, 3 steps, 0.27 s) only when it changes; the progress bar glides by transform; a change of Up next or In session fades the hero's text in place over 0.22 s; a class row that becomes Now gets one gold sweep (0.7 s); the standing card fades in when it arrives.
+  - Schedule: a tapped day slides its list in from the side the day lies on and the gold tile glides with it; Day and Week fade in over 0.32 s from a hair smaller; none of it on first paint.
+  - Grades: the trend draws left to right (0.7 s) the first time a set of term GPAs is seen on this device, not on later visits; a term switch slides the GPA and the list from the side that term lies on; All passed pops once per term.
+  - Study: a flashcard flips about its vertical axis in perspective with a small overshoot (0.55 s); the next card slides in from the right as the rated one leaves left, and Again sends it back under (down and smaller); the recap rows list in one at a time (45 ms apart, at most 8 steps); a deck, a session or a syllabus page slides in once when opened.
+  - You: choosing a room cross-fades the whole app over `--t-flow`, or snaps where the phone has no view transitions.
+  - Lists that gain, lose or reorder rows (notes, deadlines, outline, cards, the shelf) ease with `flip` and a fade; Due's fold shuts as it fades. Done keeps its pick: box fills, title strikes, stamp lands, row folds away.
+  - Reduce Motion: slides, rolls, flips and sweeps do nothing; state changes in place.
 
 **Motion tokens**
 
