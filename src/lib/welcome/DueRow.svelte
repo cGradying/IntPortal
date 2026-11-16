@@ -3,20 +3,20 @@
   // title is struck, the DONE stamp lands; then the row folds away and All clear offers it back.
   import { fade, slide } from "svelte/transition";
   import { buzz } from "../haptics";
+  import { reduced, tokens } from "../motion";
   import { CLASS } from "./intro";
 
   let { onreact }: { onreact?: () => void } = $props();
 
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let due = $state<"open" | "done" | "gone">("open");
   function tick() {
     if (due !== "open") return;
     due = "done";
     buzz.done();
     onreact?.();
-    setTimeout(() => (due = "gone"), reduce ? 500 : 1300);
+    setTimeout(() => (due = "gone"), reduced() ? 500 : 1300);
   }
-  const fold = (node: Element) => (reduce ? fade(node, { duration: 160 }) : slide(node, { duration: 360 }));
+  const fold = (node: Element) => (reduced() ? fade(node, { duration: tokens().quick }) : slide(node, { duration: tokens().flow, easing: tokens().ease }));
 </script>
 
 <div class="slot">
@@ -27,7 +27,7 @@
       {#if due === "done"}<span class="stamp" aria-hidden="true">DONE</span>{/if}
     </div>
   {:else}
-    <p class="clear" in:fade={{ duration: 200 }}>All clear. <button type="button" class="link" onclick={() => (due = "open")}>Put it back</button></p>
+    <p class="clear" in:fade={{ duration: tokens().exit }}>All clear. <button type="button" class="link" onclick={() => (due = "open")}>Put it back</button></p>
   {/if}
 </div>
 
