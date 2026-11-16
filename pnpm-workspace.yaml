@@ -1,3 +1,6 @@
+packages:
+  - "."
+  - site
 minimumReleaseAgeExclude:
   - '@tauri-apps/api@2.12.0'
 # Xcode's "Build Rust Code" phase runs pnpm with its own environment and no
