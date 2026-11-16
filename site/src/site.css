@@ -1,0 +1,141 @@
+/* The website on the app's own tokens (src/lib/app.css, imported first). The
+   app's page rules are for a phone app; a web page scrolls, selects and zooms. */
+html,
+body {
+  height: auto;
+  min-height: 100%;
+  user-select: text;
+  -webkit-user-select: text;
+  overscroll-behavior: auto;
+  touch-action: auto;
+}
+html {
+  font: 17px/1.5 "Source Sans 3 Variable", system-ui, sans-serif;
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
+  background: var(--void);
+  color-scheme: dark;
+}
+body {
+  --site-ink: var(--parch);
+  --site-ink-2: rgba(244, 236, 216, 0.72);
+  --site-ink-3: rgba(244, 236, 216, 0.56);
+  --site-line: rgba(244, 236, 216, 0.1);
+  --site-display: "Montserrat Variable", system-ui, sans-serif;
+  --site-body: "Source Sans 3 Variable", system-ui, sans-serif;
+  --site-max: 1180px;
+  --site-gutter: clamp(16px, 4vw, 40px);
+  font-family: var(--site-body);
+  font-size: 1rem;
+  color: var(--site-ink);
+  background: var(--void);
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+::selection {
+  background: var(--gold);
+  color: var(--on-gold, #1b1406);
+}
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+a {
+  color: inherit;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(245, 178, 39, 0.6);
+}
+a:hover {
+  text-decoration-color: var(--gold);
+}
+h1,
+h2,
+h3 {
+  font-family: var(--site-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  text-wrap: balance;
+  margin: 0;
+}
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+.wrap {
+  width: min(var(--site-max), 100% - 2 * var(--site-gutter));
+  margin-inline: auto;
+}
+.pixel {
+  font-family: var(--font-pixel);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+/* The one gold action, as in the app: gold, burnt ink, a 3 px pressed edge. */
+.gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 24px;
+  border-radius: var(--radius);
+  background: var(--gold);
+  color: #1b1406;
+  font-family: var(--site-display);
+  font-weight: 700;
+  font-size: 1.06rem;
+  text-decoration: none;
+  box-shadow: inset 0 -3px 0 #b87a10, 0 8px 24px -10px rgba(245, 178, 39, 0.55);
+  transition: transform var(--t-quick) var(--ease), box-shadow var(--t-quick) var(--ease);
+}
+.gold:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 -3px 0 #b87a10, 0 12px 28px -10px rgba(245, 178, 39, 0.7);
+}
+.gold:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 -1px 0 #b87a10;
+}
+.gold:focus-visible {
+  outline-color: #fff6dc;
+}
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: var(--radius);
+  color: var(--site-ink);
+  font-family: var(--site-display);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: inset 0 0 0 1px var(--site-line);
+  transition: background var(--t-quick) var(--ease);
+}
+.ghost:hover {
+  background: rgba(244, 236, 216, 0.06);
+}
+.fine {
+  font-size: 0.88rem;
+  color: var(--site-ink-3);
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

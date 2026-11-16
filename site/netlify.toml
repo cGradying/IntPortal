@@ -1,0 +1,4 @@
+# Netlify: set the base directory to site/ in the project settings.
+[build]
+  command = "pnpm build && node scripts/check-build.mjs"
+  publish = "build"
