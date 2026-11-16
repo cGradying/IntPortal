@@ -6,6 +6,7 @@ describe("cameraProblem", () => {
     expect(cameraProblem({ message: "camera_denied" })).toBe("camera_denied");
     expect(cameraProblem("no_camera")).toBe("no_camera");
     expect(cameraProblem({ message: "no_space" })).toBe("no_space");
+    expect(cameraProblem({ message: "no_scanner" })).toBe("no_scanner");
   });
   it("anything else is other", () => {
     expect(cameraProblem(new Error("boom"))).toBe("other");
