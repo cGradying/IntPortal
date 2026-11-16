@@ -12,6 +12,7 @@ pub mod model;
 pub mod notes;
 pub mod nudge;
 pub mod portal;
+pub mod scan;
 pub mod schedule;
 pub mod schools;
 pub mod sis;
