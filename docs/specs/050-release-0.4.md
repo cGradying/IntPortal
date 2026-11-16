@@ -51,7 +51,7 @@ The open issues that are still wanted for a public release: #129, #130, #131, #2
 
 - **C15.** "Updates" in You opens the website's download page (the site's address lives in one constant). Until the site is live it opens the GitHub releases page.
 - **C16.** Each release carries a version-less `IntPortal.apk` next to `IntPortal-<version>.apk`, so `releases/latest/download/IntPortal.apk` always gets the newest.
-- **C17.** CI builds an unsigned iPhone app (`IntPortal-<version>-unsigned.ipa`) on a tag, for sideloading with AltStore or SideStore.
+- **C17.** An unsigned iPhone app (`IntPortal-<version>-unsigned.ipa`) is built by `scripts/ipa.sh`, locally or by running the iOS workflow by hand, for sideloading with AltStore or SideStore.
 - **C18.** `docs/RELEASING.md` holds the release checklist: checks, version, changelog, the signed Android build, the IPA, the draft, the owner's "publish".
 - **C19.** `docs/specs/013-mabini.md` says what eMabini does on main, and 000, 020 and 030 carry an honest status, criterion by criterion.
 
@@ -98,7 +98,7 @@ The forecast is read out as one sentence (Copy). Mastery is text, not colour alo
 | C11, C12 | `vitest shelf`, `vitest thisWeek`, screenshot |
 | C13, C14 | `cargo test -p intportal-core c13_guess_subject_from_letters`, `vitest addDue` |
 | C15 | `vitest links` |
-| C16, C17 | the workflow run on a tag |
+| C16, C17 | `scripts/release.sh` and `scripts/ipa.sh` (the IPA was built and packaged on this Mac: 7.3 MB, unsigned); the iOS workflow's manual run |
 | C18, C19 | review |
 
 ## Open questions
