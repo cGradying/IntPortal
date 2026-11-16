@@ -61,3 +61,37 @@ export function longpress(node: HTMLElement, onLong: () => void) {
     },
   };
 }
+
+const PRESSABLE = 'button, [role="button"], a, .tap';
+
+/**
+ * Sets `data-press` on the control under a finger and takes it off the moment the finger lifts,
+ * moves off, is taken by a scroll, or the app is hidden. app.css reads `[data-press]` instead of
+ * `:active`, which iOS WebKit can leave stuck on a button that opens a sheet over itself.
+ */
+export function watchPress(): () => void {
+  let on: Element | null = null;
+  let guard: ReturnType<typeof setTimeout> | undefined;
+  const clear = () => {
+    clearTimeout(guard);
+    on?.removeAttribute("data-press");
+    on = null;
+  };
+  const down = (e: PointerEvent) => {
+    clear();
+    on = (e.target as Element | null)?.closest?.(PRESSABLE) ?? null;
+    on?.setAttribute("data-press", "");
+    // A press that never ends (a lost pointerup) cannot outlast a long press.
+    guard = setTimeout(clear, 2000);
+  };
+  const opts = { capture: true, passive: true } as const;
+  addEventListener("pointerdown", down, opts);
+  for (const t of ["pointerup", "pointercancel", "scroll", "blur", "pointerleave"]) addEventListener(t, clear, opts);
+  document.addEventListener("visibilitychange", clear);
+  return () => {
+    clear();
+    removeEventListener("pointerdown", down, opts);
+    for (const t of ["pointerup", "pointercancel", "scroll", "blur", "pointerleave"]) removeEventListener(t, clear, opts);
+    document.removeEventListener("visibilitychange", clear);
+  };
+}

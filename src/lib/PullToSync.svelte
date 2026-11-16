@@ -8,12 +8,12 @@
   import { app, syncNow } from "./state.svelte";
   import { slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
-  import { FLOW_MS } from "./doneRun";
+  import { rubber, tokens } from "./motion";
 
   const PULL = 72;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   // The strip opens and closes so the page never jumps (#224). Under a finger it follows the finger.
-  const flow = () => ({ duration: reduce || pull > 0 ? 0 : FLOW_MS, easing: cubicOut });
+  const flow = () => ({ duration: reduce || pull > 0 ? 0 : tokens().flow, easing: cubicOut });
   let start: number | null = null;
   let pull = $state(0);
   let armed = false;
@@ -42,7 +42,8 @@
 
   function move(e: TouchEvent) {
     if (start === null) return;
-    pull = Math.max(0, Math.min(PULL * 1.5, (e.touches[0].clientY - start) * 0.5));
+    // The strip gives less the further it is pulled, so it never hits a wall; about 150 px of finger arms it.
+    pull = rubber(e.touches[0].clientY - start, PULL * 2);
     if (armed !== pull >= PULL) buzz.pull();
     armed = pull >= PULL;
   }
@@ -105,7 +106,7 @@
     font-size: var(--text-caption);
     font-weight: 600;
     color: var(--ink-3);
-    transition: height var(--t-flow) var(--ease);
+    transition: height var(--t-flow) var(--ease-sheet);
   }
   .pull.held {
     transition: none;

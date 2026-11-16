@@ -165,6 +165,11 @@
   --t-move: 0.32s;
   --t-flow: 0.36s;
   --t-hero: 0.55s;
+  /* Leaving is quicker than arriving; sheets get a hair of overshoot, never a bounce (spec 045 C29). */
+  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
+  --ease-sheet: cubic-bezier(0.32, 1.35, 0.5, 1);
+  --t-exit: 0.2s;
+  --shift: 12px; /* how far a page slides when the tab changes */
   /* The text roles (spec 045 C8, C11): the sizes the app already used, now named.
      Faces: display, title, headline, body, sub, caption and numeral read in --font-ui; label is pixel. */
   --text-display: min(1.647rem, 36px);
@@ -251,12 +256,41 @@ button {
   color: inherit;
 }
 
-/* Every press squashes a little and springs back (spec 045 C13). */
+/* Every press squashes a little and springs back (spec 045 C13). The pressed look is
+   [data-press], set by watchPress() in press.ts, because iOS WebKit can leave :active stuck
+   on a button that opens a sheet over itself (spec 045 C32). */
 button {
   transition: scale var(--t-quick) var(--ease-spring);
 }
-button:not(:disabled):active {
+button:not(:disabled)[data-press] {
   scale: 0.97;
+}
+
+/* The grab bar a bottom sheet gets from motion.ts `dismiss` (spec 045 C30). */
+.grip {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 50%;
+  width: 96px;
+  height: 28px;
+  translate: -50% 0;
+  touch-action: none;
+}
+.grip::after {
+  content: "";
+  position: absolute;
+  left: 32px;
+  top: 8px;
+  width: 32px;
+  height: 3px;
+  background: currentColor;
+  opacity: 0.22;
+}
+
+/* An error or a note that arrives mid-page fades in place and never moves what is around it. */
+@keyframes soft-in {
+  from { opacity: 0; }
 }
 
 /* The legacy dot grid, fixed behind everything. */
@@ -421,7 +455,7 @@ input[type="checkbox"]:checked::after {
     transition-delay: 0s !important;
   }
   /* A press is only a colour change (C21): no squash, no nudge. */
-  :is(button, [role="button"], a, .tap):not(:disabled):active {
+  :is(button, [role="button"], a, .tap):not(:disabled):is(:active, [data-press]) {
     scale: none !important;
     transform: none !important;
     translate: none !important;
