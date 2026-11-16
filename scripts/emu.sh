@@ -28,6 +28,8 @@ if [ "${1:-}" = "--release" ]; then
   cp "$outputs/bundle/universalRelease/app-universal-release.aab" "dist/IntPortal-$version.aab"
   apk="dist/IntPortal-$version.apk"
   ls -lh dist/IntPortal-"$version".*
+  # scripts/release.sh only wants the files.
+  [ "${INSTALL:-1}" = 0 ] && exit 0
 else
   pnpm tauri android build --debug --target aarch64 --apk >"$log" 2>&1 || { grep -E "^e: |error" "$log" | head -20; exit 1; }
   apk="$outputs/apk/universal/debug/app-universal-debug.apk"
