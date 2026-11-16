@@ -9,7 +9,9 @@ const files = [];
 const walk = (d) => readdirSync(d).forEach((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : files.push(join(d, f))));
 walk(fileURLToPath(new URL("../build", import.meta.url)));
 const bad = new Map();
-for (const f of files.filter((f) => /\.(html|js|css|json)$/.test(f))) {
+// build/app is the app itself (spec 052): its code names the PUP hosts the phone app
+// talks to, but the browser demo sends nothing (052 C7).
+for (const f of files.filter((f) => /\.(html|js|css|json)$/.test(f) && !/[\\/]build[\\/]app[\\/]/.test(f))) {
   for (const m of readFileSync(f, "utf8").matchAll(/https?:\/\/([a-z0-9.-]+\.[a-z]{2,})/gi)) {
     if (!ALLOW.has(m[1].toLowerCase())) bad.set(m[1], f);
   }

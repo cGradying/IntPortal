@@ -1,5 +1,6 @@
 // The dive (spec 010 C26–C30). The scene is Rust (crates/intportal-tiles/src/dive.rs);
 // this loads it, hands it the room's colours and draws what it returns.
+import { base } from "$app/paths";
 import type { Portal } from "./api";
 import { packPortal } from "./tiles";
 import type { Theme } from "./lar/sprite";
@@ -67,7 +68,7 @@ export interface DiveInfo {
   done: boolean;
 }
 
-export async function loadDive(url = "/tiles.wasm") {
+export async function loadDive(url = `${base}/tiles.wasm`) {
   const bytes = await (await fetch(url)).arrayBuffer();
   const x = (await WebAssembly.instantiate(bytes, {})).instance.exports as unknown as Exports;
   return {

@@ -102,7 +102,8 @@
     watchAssis();
     watchBack(() => app.tab !== "today" && ((app.tab = "today"), true));
     // Review builds keep demo mode across launches, so a signed-in launch can be seen without a real login.
-    const keepDemo = __REVIEW__ && remembered("demo") === "1";
+    // The browser demo (spec 052) is always the demo account.
+    const keepDemo = __WEB__ || (__REVIEW__ && remembered("demo") === "1");
     const snapshot = (keepDemo ? api.demo(isoDate(new Date())) : api.snapshot()).catch(() => null);
     if (keepDemo) await snapshot;
     await refreshLogins();

@@ -1,0 +1,21 @@
+[package]
+name = "intportal-web"
+version.workspace = true
+edition = "2021"
+publish = false
+
+# Look around in any browser (spec 052): the app's commands, answered in
+# WebAssembly from an in-memory demo account with the core's own functions.
+# Plain exports and JSON strings, like intportal-tiles, so no bindgen tooling.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+intportal-core = { path = "../intportal-core", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# scraper's hashing asks getrandom for a seed; in the browser demo a fixed
+# generator is enough (see `seed` in lib.rs).
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = "0.3"

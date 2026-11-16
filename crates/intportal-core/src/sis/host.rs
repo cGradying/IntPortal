@@ -21,6 +21,7 @@ pub fn is_candidate(host: &str) -> bool {
 }
 
 /// The credential gate: only https `pup.edu.ph` or its subdomains.
+#[cfg(feature = "net")]
 pub fn is_trusted(url: &reqwest::Url) -> bool {
     url.scheme() == "https" && url.host_str().is_some_and(|h| h == "pup.edu.ph" || h.ends_with(".pup.edu.ph"))
 }

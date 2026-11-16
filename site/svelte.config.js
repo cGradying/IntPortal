@@ -7,6 +7,12 @@ export default {
   kit: {
     adapter: adapter({ pages: "build", assets: "build", fallback: "404.html", strict: true }),
     alias: { $app_lib: "../src/lib" },
-    prerender: { handleHttpError: "fail", handleMissingId: "fail" },
+    prerender: {
+      // /app is the browser demo, a folder of plain files (spec 052), not a page of this site.
+      handleHttpError: ({ path, message }) => {
+        if (!path.startsWith("/app")) throw new Error(message);
+      },
+      handleMissingId: "fail",
+    },
   },
 };
