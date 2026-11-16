@@ -24,6 +24,11 @@
   // The first load is already there when you arrive: rows open only for what changes after it.
   let loaded = false;
   const flow = () => ({ duration: reduce || !loaded ? 0 : FLOW_MS, easing: cubicOut });
+  // The done row folds shut as it fades, so its text never sits on a closing gap.
+  const fold = (node: HTMLElement) => {
+    const h = node.offsetHeight;
+    return { duration: reduce || !loaded ? 0 : FLOW_MS, easing: cubicOut, css: (t: number) => `overflow:hidden;height:${t * h}px;opacity:${Math.min(1, t * 1.5)}` };
+  };
   let card: HTMLElement;
   let all = $state(false);
   let adding = $state<null | { own?: DeadlineEntry }>(null);
@@ -173,7 +178,7 @@
       {#each rows as d (d.id)}
         {@const word = entryLabel(d, now)}
         {@const mark = marking[d.id]}
-        <li animate:flip={flow()} in:slide={flow()} out:slide={flow()} data-due-row={d.id}>
+        <li animate:flip={flow()} in:slide={flow()} out:fold data-due-row={d.id}>
           <!-- A long press offers Done (C8); the Done button beside it is the accessible way, with its own label. -->
           <div use:longpress={() => offer(d.id)} class="ri" class:fresh={!!mark}>
           <button class="check" class:on={!!mark} onpointerdown={() => sfx.press()} onclick={() => done(d)} aria-label="Mark {d.title} done"><i></i><span aria-hidden="true">Done</span></button>
