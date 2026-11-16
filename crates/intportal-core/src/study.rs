@@ -129,6 +129,29 @@ impl Deck {
     }
 }
 
+/// The share of cards known well: at least 2 reviews and a stability of at
+/// least 7 days (050 C9). A deck with no cards reads 0.
+pub fn mastery(cards: &[Card]) -> f64 {
+    if cards.is_empty() {
+        return 0.0;
+    }
+    let known = cards.iter().filter(|c| c.memory.reps >= 2 && c.memory.stability >= 7.0).count();
+    known as f64 / cards.len() as f64
+}
+
+/// Cards due on each of the next seven local days, today first; overdue
+/// cards count toward today (050 C10). `utc_offset` in minutes east of UTC.
+pub fn forecast_7(cards: &[Card], today: Date, utc_offset: i32) -> [u32; 7] {
+    let end_of = |d: i64| (today.add_days(d + 1).days() * 1440 - i64::from(utc_offset)) * 60;
+    let mut out = [0; 7];
+    for c in cards {
+        if let Some(d) = (0..7).find(|&d| c.memory.due < end_of(d)) {
+            out[d as usize] += 1;
+        }
+    }
+    out
+}
+
 /// The streak counts calendar days with at least one review.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Stats {
@@ -395,4 +418,32 @@ mod tests {
         assert_eq!(distractors(&cards, 0, 3, 0), ["2", "3"]);
         assert_eq!(distractors(&cards, 4, 2, 0), ["1", "2"]);
     }
+
+    fn card_at(due: i64, reps: u32, stability: f64) -> Card {
+        Card { id: String::new(), front: String::new(), back: String::new(), accepted: vec![], memory: Memory { due, reps, stability, ..Memory::new(0) } }
+    }
+
+    #[test]
+    fn c9_mastery_counts_cards_known_for_a_week() {
+        assert_eq!(mastery(&[]), 0.0);
+        let cards = [card_at(0, 2, 7.0), card_at(0, 1, 30.0), card_at(0, 5, 6.9), card_at(0, 3, 12.0)];
+        assert_eq!(mastery(&cards), 0.5);
+    }
+
+    #[test]
+    fn c10_forecast_puts_overdue_on_today_and_ignores_later() {
+        let today = Date { y: 2026, m: 11, d: 17 };
+        let manila = 8 * 60;
+        let midnight = |d: i64| (today.add_days(d).days() * 1440 - i64::from(manila)) * 60;
+        let cards = [
+            card_at(midnight(-3), 2, 1.0),
+            card_at(midnight(0) + 3600, 2, 1.0),
+            card_at(midnight(1) - 1, 2, 1.0),
+            card_at(midnight(1), 2, 1.0),
+            card_at(midnight(6) + 5, 2, 1.0),
+            card_at(midnight(7), 2, 1.0),
+        ];
+        assert_eq!(forecast_7(&cards, today, manila), [3, 1, 0, 0, 0, 0, 1]);
+    }
 }
+

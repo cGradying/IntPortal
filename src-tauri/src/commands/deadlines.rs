@@ -93,5 +93,5 @@ pub fn parse_own(state: tauri::State<'_, AppState>, text: String, today: Date) -
     let mut subjects: Vec<(String, String)> = snap.sessions.iter().map(|s| (s.subject_code.clone(), s.description.clone())).collect();
     subjects.sort();
     subjects.dedup();
-    Ok(deadline::parse_own(&text, today, &subjects))
+    Ok(deadline::parse_own(&text, today, &subjects).into_iter().map(|d| deadline::guess_subject(d, &snap.sessions)).collect())
 }

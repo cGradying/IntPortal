@@ -5,11 +5,8 @@ use crate::*;
 /// even when the sign-in fails.
 pub(crate) async fn guarded_mabini_sign_in(state: &AppState, login: &MabiniLogin, auto: bool) -> Res<MabiniClient> {
     let mut ledger = state.mabini_ledger.lock().await;
-    let r = sis::post_once(&mut ledger, unix_now() as u64, auto, LoginPage::fetch(), |page| page.sign_in(&login.student_number, &login.password)).await;
-    if let Ok(json) = serde_json::to_string(&*ledger) {
-        let _ = std::fs::write(state.dir.join(MABINI_GUARD_FILE), json);
-    }
-    r.map_err(err)
+    let save = |l: &Ledger| save_ledger(&state.dir, MABINI_GUARD_FILE, l);
+    sis::post_once(&mut ledger, unix_now() as u64, auto, save, LoginPage::fetch(), |page| page.sign_in(&login.student_number, &login.password)).await.map_err(err)
 }
 
 pub(crate) async fn mabini_refresh(state: &AppState, client: &MabiniClient) -> Res<MabiniData> {

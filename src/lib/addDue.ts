@@ -4,18 +4,26 @@
 // what is missing. Days are ISO dates ("2026-11-13") in local time.
 import { isoDate, WEEKDAYS, type ClassSession, type DeadlineDraft, type ItemKind } from "./api";
 
-export type Ticket = DeadlineDraft & { keep: boolean };
+export type Ticket = DeadlineDraft & { keep: boolean; key: string };
 export type Fix = Partial<DeadlineDraft>;
+
+/** Where a ticket's fixes are kept: "only" for a lone ticket (and an edit),
+ *  else its own line, so editing one line of a pasted list can't move a fix
+ *  onto another ticket (050 C14). */
+export const ticketKey = (p: DeadlineDraft, count: number, i: number) => (count < 2 ? "only" : `${i}:${p.line ?? ""}`);
 
 /** Only these three: an own deadline is never a lecture. */
 export const KINDS: [ItemKind, string][] = [["quiz", "Quiz"], ["exam", "Exam"], ["project", "Project"]];
 export const kindName = (k: ItemKind) => KINDS.find(([x]) => x === k)?.[1] ?? "Project";
 
-/** The core's drafts with the student's fixes laid over them by position, and
- *  the ones the student unticked. A fix outlives a re-read of the text. A lone
- *  ticket has no keep toggle, so it is always kept. */
-export function tickets(parsed: DeadlineDraft[], fixes: Fix[], dropped: boolean[]): Ticket[] {
-  return parsed.map((p, i) => ({ ...p, ...fixes[i], keep: parsed.length < 2 || !dropped[i] }));
+/** The core's drafts with the student's fixes laid over them by line, and
+ *  the ones the student unticked. A fix outlives a re-read of the text as long
+ *  as its line is unchanged. A lone ticket has no keep toggle, so it is always kept. */
+export function tickets(parsed: DeadlineDraft[], fixes: Record<string, Fix>, dropped: Record<string, boolean>): Ticket[] {
+  return parsed.map((p, i) => {
+    const key = ticketKey(p, parsed.length, i);
+    return { ...p, ...fixes[key], keep: parsed.length < 2 || !dropped[key], key };
+  });
 }
 
 const day = (iso: string, plus = 0) => {
@@ -88,22 +96,3 @@ export function verdict(ts: Ticket[], edit: boolean): Verdict {
   return { ok: true, label: edit ? "Save" : kept > 1 ? `Add ${kept}` : "Add" };
 }
 
-/** "quiz COMP fri" names a subject only by its letters, and two subjects can
- *  share them. The core leaves such a draft with no subject; here the letters
- *  pick the one that meets on the draft's day (or the only one), and leave the
- *  title. With no clear match the draft is left as the core read it. */
-export function guessSubject(d: DeadlineDraft, sessions: ClassSession[]): DeadlineDraft {
-  if (d.subject) return d;
-  const codes = [...new Set(sessions.map((s) => s.subject_code))];
-  for (const word of d.title.split(/\s+/)) {
-    if (!/^[A-Za-z]{3,5}$/.test(word)) continue;
-    const prefix = word.toUpperCase();
-    const hits = codes.filter((c) => c.toUpperCase().split(/\s+/)[0] === prefix);
-    const onDay = d.date ? hits.filter((c) => meets(sessions, c, d.date!)) : [];
-    const code = hits.length === 1 ? hits[0] : onDay.length === 1 ? onDay[0] : null;
-    if (!code) continue;
-    const title = d.title.split(/\s+/).filter((w) => w !== word).join(" ").trim();
-    return { ...d, subject: code, title: title || d.title };
-  }
-  return d;
-}

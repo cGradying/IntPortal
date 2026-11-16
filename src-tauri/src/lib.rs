@@ -147,8 +147,24 @@ async fn refresh(state: &AppState, client: &SisClient, rows: Option<Vec<schedule
     Ok(snap)
 }
 
-fn load_ledger(dir: &std::path::Path, file: &str) -> Ledger {
-    std::fs::read_to_string(dir.join(file)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+/// A portal's sign-in count from the phone. A file that exists but can't be
+/// read fails closed (050 C2).
+fn load_ledger(dir: &std::path::Path, file: &str, portal: &intportal_core::portal::Portal) -> Ledger {
+    let saved = match std::fs::read_to_string(dir.join(file)) {
+        Ok(s) => Some(s),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(_) => Some(String::new()),
+    };
+    Ledger::load(saved.as_deref(), unix_now() as u64, portal)
+}
+
+/// Writes the count beside the stores: a temporary file, then a rename, so a
+/// crash never leaves half a file (050 C3).
+fn save_ledger(dir: &std::path::Path, file: &str, ledger: &Ledger) -> Result<(), String> {
+    let json = serde_json::to_string(ledger).map_err(|e| e.to_string())?;
+    let tmp = dir.join(format!("{file}.tmp"));
+    std::fs::write(&tmp, json).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, dir.join(file)).map_err(|e| e.to_string())
 }
 
 mod mabini_vault;
@@ -250,8 +266,8 @@ pub fn run() {
                 Ok(name) if name.starts_with("account-") => open_store(&dir, name.trim())?,
                 _ => Store::in_memory().map_err(err)?,
             };
-            app.manage(AppState { store: Mutex::new(store), dir: dir.clone(), client: tokio::sync::Mutex::new(None), ledger: tokio::sync::Mutex::new(load_ledger(&dir, GUARD_FILE)),
-                mabini_ledger: tokio::sync::Mutex::new(load_ledger(&dir, MABINI_GUARD_FILE)),
+            app.manage(AppState { store: Mutex::new(store), dir: dir.clone(), client: tokio::sync::Mutex::new(None), ledger: tokio::sync::Mutex::new(load_ledger(&dir, GUARD_FILE, &intportal_core::portal::SIS)),
+                mabini_ledger: tokio::sync::Mutex::new(load_ledger(&dir, MABINI_GUARD_FILE, &intportal_core::portal::MABINI)),
                 mabini: tokio::sync::Mutex::new(None),
             });
             // Signed in before stores were per student: move them over now.

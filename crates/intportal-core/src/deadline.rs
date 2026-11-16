@@ -72,6 +72,9 @@ pub struct Draft {
     pub subject: Option<String>,
     pub kind: Kind,
     pub date: Option<Date>,
+    /// The text it was read from, so a student's fixes stay with their own line (050 C14).
+    #[serde(default)]
+    pub line: String,
 }
 
 /// The local day and minute of an epoch second; `utc_offset` is local minus UTC in minutes.
@@ -291,7 +294,7 @@ fn draft(line: &str, today: Date, subjects: &[(String, String)]) -> Draft {
         }
         .into();
     }
-    Draft { title, subject, kind, date: found.map(|(d, _)| d) }
+    Draft { title, subject, kind, date: found.map(|(d, _)| d), line: line.into() }
 }
 
 /// The quick add (C11, C13, C17): one draft for the text, or one per line when
@@ -309,6 +312,39 @@ pub fn parse_own(text: &str, today: Date, subjects: &[(String, String)]) -> Vec<
     } else {
         vec![draft(&all, today, subjects)]
     }
+}
+
+/// Letters like COMP in a draft with no subject pick the subject whose code
+/// starts with them: the only one, or else the only one that meets on the
+/// draft's day. The letters leave the title (050 C13, from the app's due adder).
+pub fn guess_subject(mut d: Draft, sessions: &[ClassSession]) -> Draft {
+    if d.subject.is_some() {
+        return d;
+    }
+    let mut codes: Vec<&str> = sessions.iter().map(|s| s.subject_code.as_str()).collect();
+    codes.sort_unstable();
+    codes.dedup();
+    let words: Vec<&str> = d.title.split_whitespace().collect();
+    for &w in &words {
+        if !(3..=5).contains(&w.len()) || !w.chars().all(|c| c.is_ascii_alphabetic()) {
+            continue;
+        }
+        let prefix = w.to_ascii_uppercase();
+        let hits: Vec<&str> = codes.iter().copied().filter(|c| c.split_whitespace().next().is_some_and(|p| p.eq_ignore_ascii_case(&prefix))).collect();
+        let meets = |code: &str| d.date.is_some_and(|date| sessions.iter().any(|s| s.subject_code == code && s.day == date.weekday()));
+        let on_day: Vec<&str> = hits.iter().copied().filter(|c| meets(c)).collect();
+        let code = match (hits.as_slice(), on_day.as_slice()) {
+            ([one], _) | (_, [one]) => *one,
+            _ => continue,
+        };
+        let title = words.iter().copied().filter(|x| *x != w).collect::<Vec<_>>().join(" ");
+        if !title.is_empty() {
+            d.title = title;
+        }
+        d.subject = Some(code.to_string());
+        return d;
+    }
+    d
 }
 
 #[cfg(test)]
@@ -424,9 +460,9 @@ mod tests {
     fn c11_parse_own() {
         let subjects = vec![("COMP 20073".to_string(), "Data Structures".to_string()), ("CS 201".to_string(), "Programming".to_string())];
         let one = |t: &str| parse_own(t, TUE, &subjects).remove(0);
-        assert_eq!(one("quiz COMP fri"), Draft { title: "Quiz".into(), subject: Some("COMP 20073".into()), kind: Kind::Quiz, date: Some(Date::new(2026, 11, 6)) });
-        assert_eq!(one("Exam sa Lunes CS 201"), Draft { title: "Exam".into(), subject: Some("CS 201".into()), kind: Kind::Exam, date: Some(Date::new(2026, 11, 9)) });
-        assert_eq!(one("report on 11/24"), Draft { title: "Report".into(), subject: None, kind: Kind::Project, date: Some(Date::new(2026, 11, 24)) });
+        assert_eq!(one("quiz COMP fri"), Draft { title: "Quiz".into(), subject: Some("COMP 20073".into()), kind: Kind::Quiz, date: Some(Date::new(2026, 11, 6)), line: "quiz COMP fri".into() });
+        assert_eq!(one("Exam sa Lunes CS 201"), Draft { title: "Exam".into(), subject: Some("CS 201".into()), kind: Kind::Exam, date: Some(Date::new(2026, 11, 9)), line: "Exam sa Lunes CS 201".into() });
+        assert_eq!(one("report on 11/24"), Draft { title: "Report".into(), subject: None, kind: Kind::Project, date: Some(Date::new(2026, 11, 24)), line: "report on 11/24".into() });
         let gc = one("Guys! May quiz tayo sa COMP 20073 on Friday about linked lists");
         assert_eq!((gc.title.as_str(), gc.kind, gc.date), ("Guys! May quiz tayo about linked lists", Kind::Quiz, Some(Date::new(2026, 11, 6))));
     }
@@ -473,4 +509,29 @@ mod tests {
         let want: Vec<(String, u16, String, String)> = want.iter().map(|(d, m, t, b)| (d.to_string(), *m, t.to_string(), b.to_string())).collect();
         assert_eq!(got, want, "tonight's essay is past its evening-before and its 8 AM; the 9 AM quiz gets no 8 AM");
     }
+
+    fn draft_of(title: &str, date: Option<Date>) -> Draft {
+        Draft { title: title.into(), subject: None, kind: Kind::Quiz, date, line: title.into() }
+    }
+
+    fn meeting(code: &str, day: crate::model::Weekday) -> ClassSession {
+        ClassSession { subject_code: code.into(), description: String::new(), faculty: String::new(), day, start: 480, end: 570, occurrence: 0 }
+    }
+
+    #[test]
+    fn c13_guess_subject_from_letters() {
+        use crate::model::Weekday::*;
+        let fri = Date { y: 2026, m: 11, d: 13 };
+        let wed = Date { y: 2026, m: 11, d: 11 };
+        let one = [meeting("COMP 20073", Tuesday), meeting("COMP 20073", Friday), meeting("MATH 20133", Monday)];
+        let two = [one.as_slice(), &[meeting("COMP 20083", Monday)]].concat();
+        let got = guess_subject(draft_of("Quiz COMP", Some(fri)), &two);
+        assert_eq!((got.title.as_str(), got.subject.as_deref()), ("Quiz", Some("COMP 20073")), "the COMP that meets that day");
+        let got = guess_subject(draft_of("math quiz", Some(fri)), &one);
+        assert_eq!((got.title.as_str(), got.subject.as_deref()), ("quiz", Some("MATH 20133")), "the only MATH");
+        assert_eq!(guess_subject(draft_of("Quiz COMP", Some(wed)), &two).subject, None, "neither meets on Wednesday");
+        let found = Draft { subject: Some("COMP 20073".into()), ..draft_of("math quiz", Some(fri)) };
+        assert_eq!(guess_subject(found, &one).subject.as_deref(), Some("COMP 20073"), "never replaces a found subject");
+    }
 }
+

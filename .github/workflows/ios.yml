@@ -4,6 +4,7 @@ on:
     branches: [main]
   pull_request:
     paths: [".github/workflows/ios.yml"]
+  workflow_dispatch:
 
 concurrency:
   group: ios-${{ github.ref }}
@@ -39,3 +40,27 @@ jobs:
       - run: pnpm tauri ios build --target aarch64-sim --debug
       - name: App size
         run: du -sh src-tauri/gen/apple/build/arm64-sim/IntPortal.app
+
+  # The unsigned app for sideloading (spec 050 C17), as an artifact; a release
+  # gets it from scripts/release.sh.
+  unsigned-ipa:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: brew install xcodegen
+      - run: scripts/ipa.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: intportal-unsigned-ipa
+          path: dist/IntPortal-*-unsigned.ipa

@@ -5,7 +5,7 @@
   // each opening its own page with "‹ Study" as the way back.
   import DeckPage from "../DeckPage.svelte";
   import Shelf, { colorOf } from "../Shelf.svelte";
-  import { CARDS_PER_PX, deckBar, deckGroups, GENERAL, pixels, shelves, weekBars } from "../shelf";
+  import { CARDS_PER_PX, deckBar, deckGroups, forecastBars, forecastLabel, GENERAL, known, pixels, shelves, weekBars } from "../shelf";
   import StudySession from "../StudySession.svelte";
   import ErrorCard from "../ErrorCard.svelte";
   import Flame from "../Flame.svelte";
@@ -245,7 +245,12 @@
                 {#each g.decks as d (d.id)}
                   <li>
                     <button class="rowb" onclick={() => (app.deck = d.id)}>
-                      <span class="tx"><strong>{d.name}</strong><small>{plural(d.cards, "card")}</small></span>
+                      <span class="tx"><strong>{d.name}</strong><small>{plural(d.cards, "card")}{#if d.cards} · {known(d.mastery)}{/if}</small></span>
+                      {#if d.cards}
+                        <span class="fc" role="img" aria-label={forecastLabel(d.forecast, new Date())}>
+                          {#each forecastBars(d.forecast) as h, i (i)}<i class:z={!h} style:height="{h || 1}px"></i>{/each}
+                        </span>
+                      {/if}
                       {#if d.due}<span class="val due">{d.due} due</span>{:else}<span class="val">Caught up</span>{/if}
                     </button>
                   </li>
@@ -632,6 +637,20 @@
     margin: 0;
     font-size: var(--text-caption);
     color: var(--ink-2);
+  }
+  .fc {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 12px;
+    flex: none;
+  }
+  .fc i {
+    width: 4px;
+    background: var(--gold);
+  }
+  .fc i.z {
+    background: color-mix(in srgb, var(--ink) 22%, transparent);
   }
   .val {
     font-size: var(--text-caption);

@@ -5,7 +5,7 @@
   import { api, moment, type DeadlineEntry } from "./api";
   import { entryLabel, knowsNothingDue, mabiniState } from "./deadlines";
   import { buzz } from "./haptics";
-  import { openLink } from "./openLink";
+  import { openPortalLink } from "./openLink";
   import { adopt, app, mabiniSyncNow, openSubject } from "./state.svelte";
   import { onDestroy, tick } from "svelte";
   import { flip } from "svelte/animate";
@@ -90,7 +90,7 @@
 
   function open(d: DeadlineEntry) {
     if (d.source === "own") adding = { own: d };
-    else if (d.url) openLink(d.url);
+    else if (d.url) openPortalLink(d.url);
     else if (d.source === "syllabus" && d.subject) openSubject(d.subject, describe(d.subject), "outline", d.id.split(":").pop());
     else if (d.subject) openSubject(d.subject, describe(d.subject));
   }
