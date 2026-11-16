@@ -5,7 +5,7 @@
 <p align="center">
   <a href="CHANGELOG.md"><img alt="Version" src="https://img.shields.io/badge/version-0.3.0-c8102e"></a>
   <a href="https://github.com/cGradying/intportal-app/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/cGradying/intportal-app/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android-555">
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Mac%20%7C%20Windows%20%7C%20Linux%20%7C%20Web-555">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-555"></a>
 </p>
 
@@ -43,9 +43,13 @@ Every feature is listed in [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Get it
 
-**Android.** Open the [latest release](https://github.com/cGradying/intportal-app/releases/latest), download `IntPortal-<version>.apk`, open it, and allow the install when Android asks. It needs Android 7 or newer on a 64-bit phone. Updates install over the old version and keep your data.
+**Android.** Download `IntPortal.apk` from the [latest release](https://github.com/cGradying/intportal-app/releases/latest), open it, and allow the install when Android asks. It needs Android 7 or newer on a 64-bit phone. Updates install over the old version and keep your data.
 
-**iPhone.** There is no App Store build yet. You can build it yourself with Xcode: see [docs/BUILDING.md](docs/BUILDING.md).
+**iPhone.** There is no App Store build yet. Either sideload `IntPortal-unsigned.ipa` from the release with AltStore or SideStore, which sign it with your own Apple ID, or build it with Xcode: see [docs/BUILDING.md](docs/BUILDING.md).
+
+**Mac, Windows and Linux.** The release has `IntPortal-mac.dmg` (Apple Silicon), `IntPortal-windows.msi`, and `IntPortal-linux.AppImage` or `.deb`. They aren't signed, so the first launch asks once. The website's install help says how to get past that.
+
+**Any browser.** Try the whole app on sample data at `/try` on the website, with nothing to install.
 
 **Look around first.** Tap it on the sign-in page to try the whole app on sample data, with no PUP account.
 
@@ -55,11 +59,14 @@ Everything stays on your phone. There is no IntPortal account, server, analytics
 
 ## Built with
 
-Rust for the logic (`crates/`), Svelte 5 for the screens (`src/`), and Tauri 2 to put them on iOS and Android (`src-tauri/`). How the pieces fit is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Rust for the logic (`crates/`), Svelte 5 for the screens (`src/`), and Tauri 2 to put them on phones and computers (`src-tauri/`). The same core runs in the browser as WebAssembly (`crates/intportal-web`). How the pieces fit is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+This repository also holds the website (`site/`) and the reel (`reel/`).
 
 ## More
 
-- [Building and running it](docs/BUILDING.md)
+- [Building and running it](docs/BUILDING.md), [releasing it](docs/RELEASING.md)
+- [The website](site/README.md) and [the reel](reel/README.md)
 - [Architecture](docs/ARCHITECTURE.md) and [terms used in the app](CONTEXT.md)
 - [Specs](docs/specs/README.md), [decisions](docs/adr/), [changelog](CHANGELOG.md)
 - Found a problem? [Open an issue](https://github.com/cGradying/intportal-app/issues).
