@@ -7,6 +7,16 @@ What changed in each release, newest first. A release PR adds its section; `scri
 - Class card outside the app: You › Reminders has a new "Class card outside the app" setting: Always, When I leave (the default), or Off. In the default the Lock Screen and Dynamic Island card (the status-bar chip on Android) goes away when you open IntPortal and comes back when you leave it
 - The status dock above the tab bar no longer sits over your lists when there is nothing to count down to
 - README and architecture doc rewritten for 0.3.0, with new screenshots
+- On every computer: IntPortal for Mac (Apple Silicon), Windows and Linux, the same app in a phone-sized window, with the login in the system's keychain and the data encrypted on that computer (#306)
+- In any browser: Look around runs on the website at /try, the real app on demo data, with the Rust core compiled to WebAssembly. Nothing is sent or kept (#305)
+- The website: downloads for every device, install help, privacy and questions, ready to put on any static host (#304)
+- The reel: 46 seconds of the real app, in 9:16 and 16:9 (#308)
+- iPhone: an unsigned build for AltStore or SideStore comes with each release (#303)
+- Sign-in can't be fooled into a lockout: the guard takes its limits from the portal, a broken count file means no tries for 15 minutes instead of a fresh count, and each try is saved before any password is sent (#303)
+- Decks say how much you know ("62% known") and what's due over the next seven days (#303)
+- A syllabus marks the rows dated this week (#303)
+- Links from eMabini open only on PUP's own sites (#303)
+- The quick add's subject guess (COMP picks the class that meets that day) moved into the core, and a fix stays with its own line when you edit a pasted list (#303)
 
 ## 0.3.0 (2026-11-17)
 
