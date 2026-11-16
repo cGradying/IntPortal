@@ -103,6 +103,7 @@ Every deadline the student has is in one list, wherever it came from: the syllab
 - **C22.** Done, deleted and undated deadlines leave the calendar at the next refresh. A refresh never duplicates an event, because each event is keyed by the deadline id (C2).
 - **C23.** Deadline events follow the existing calendar setting. With it off, neither classes nor deadlines are written.
 - **C24.** **Add classes to calendar** (the `.ics` share) includes the same deadlines: all-day ones as `DTSTART;VALUE=DATE`, timed ones as a UTC `DTSTART` and `DTEND`.
+- **C25.** What a scan reads is tidied on the phone before it fills the field, always, with or without AI: lines the page wrapped are joined, words split across lines are whole again, double spaces, stray marks and lone page numbers or repeated headers are dropped, bullets and quotes are made plain. Real paragraph breaks and list items stay, lines that carry a date stay on their own lines (C17 needs them), and a number, code, date or time is never changed (`COMP 20073`, `S512`, `11:59 PM`). With IntAssis on, the field then shows "LAR is tidying…" and the model's version replaces the text, with a small "Tidied by LAR · Show original" under the field; one tap puts the earlier text back, and the same place reads "Original · Show tidied" to go forward. Typing in the field ends it. If the model is off, busy, slow or its answer fails the checks in spec 020 C16, the field keeps the tidied text and says nothing about AI. The button is 44 pt high.
 
 ## Copy
 
@@ -211,6 +212,7 @@ pub fn parse_own(text: &str, today: Date, subjects: &[(String, String)]) -> Draf
 | C10, C12, C14 | simulator pass: grow from Add, live parse, paste, chips, swipe and back to close, edit and delete from a row, large text, Reduce Motion |
 | C15–C18 | simulator (iOS) and emulator (Android) run with a photo of a printed sheet; screenshot of the permission copy |
 | C17 | `cargo test c17_many_dated_lines` |
+| C25 | `cargo test -p intportal-core c25_`; `vitest tidying a scan`; simulator run with a photo of a wrapped handout, AI off then on |
 | C19 | `cargo test c19_reminders_all_sources` (evening before; 8 AM same day for timed afternoon deadlines) |
 | C20 | `cargo test -p intportal c20_facts_include_mabini_and_own`; `coach` test with a Mabini deadline |
 | C21, C22 | `cargo test c21_deadline_events_all_day_and_timed`, `c22_done_leaves_calendar` |

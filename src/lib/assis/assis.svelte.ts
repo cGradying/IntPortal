@@ -347,6 +347,29 @@ export async function explain(front: string, back: string, typed: string, subjec
   }
 }
 
+/**
+ * Spec 041 C25: the model's tidy of a scan's text, or null when IntAssis isn't on, is busy, fails or
+ * changes nothing. Never throws and never says why: the scan already has its deterministic text.
+ */
+export async function tidyScan(text: string): Promise<string | null> {
+  if (!installed() || assis.busy) return null;
+  try {
+    if (!(await wake())) {
+      assis.error = "";
+      return null;
+    }
+    assis.busy = "thinking";
+    try {
+      const out = (await invoke<string>("clean_scan_ai", { text })).trim();
+      return out && out !== text.trim() ? out : null;
+    } finally {
+      assis.busy = "";
+    }
+  } catch {
+    return null;
+  }
+}
+
 /** A PDF's text, read on the phone. The bytes go as the raw request body (see `ai_pdf_text`). */
 export const pdfText = (bytes: Uint8Array) => invoke<string>("ai_pdf_text", bytes);
 
