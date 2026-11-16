@@ -1,81 +1,200 @@
-// The intro (spec 049): a new student pages through the app one feature at a time before the
-// sign-in form, and each page does its thing on the stage. Pure data and small pure helpers, so
-// the order, the copy and the sample maths are testable; Landing draws it and wires each act.
+// The talk (spec 049): before the portal, a new student has a short conversation with LAR. This
+// file is the whole conversation as data: what LAR says at each step, what the student can answer,
+// what each answer makes LAR say and do, and where it leads. `play` turns the answers given so far
+// into the thread on screen, so Back is just one answer fewer. Talk.svelte draws it.
 import { HAND_TUNED, PALETTES } from "../rooms";
-import { cleanName } from "../profile";
+import { cleanFocus, cleanName, type Focus } from "../profile";
 import { interval } from "../interval";
 import type { TermPoint } from "../gpaTrend";
 
-export type PageId = "hello" | "school" | "today" | "deadlines" | "study" | "offline" | "look" | "reminders" | "signin";
+export type StepId = "name" | "campus" | "focus" | "today" | "deadlines" | "grades" | "study" | "offline" | "look" | "reminders" | "privacy" | "how" | "bye";
 
-/** What a page does on the stage (049 C7): Landing runs these. */
+/** A demo the student can touch, shown in the thread under LAR's line. */
+export type Card = "today" | "deadlines" | "grades" | "study" | "offline" | "nudge";
+
+/** How the student answers: reply chips, or the step's own control. */
+export type Ask = "chips" | "name" | "campus" | "focus" | "look";
+
+/** What an answer does besides being said. Talk runs these. */
 export type Act =
-  /** LAR answers in his bubble. */
-  | "say"
   /** LAR hops and waves. */
   | "cheer"
-  /** The portal rings out from its centre. */
-  | "ring"
-  /** The portal wall opens to pick another school. */
+  /** LAR thinks it over. */
+  | "think"
+  /** The portal wall opens once the student is at the portal, to pick another school. */
   | "wall"
-  /** The portal's mouth opens onto this page's live view and stays open while the page does. */
-  | "mouth"
-  /** The whole landing wears a look. */
-  | "room"
   /** The phone is asked for notifications. */
   | "remind"
-  /** The app opens on sample data. */
-  | "demo";
+  /** Reminders stay off. */
+  | "quiet";
 
-/** Where LAR waits while the page is up: beside the portal, or under it. */
-export type Spot = "left" | "right" | "below";
-
-export interface IntroPage {
-  id: PageId;
-  title: string;
-  line: string;
-  /** What LAR says as the page arrives; {you} is the student's name, or "iskolar". */
-  lar: string;
-  spot: Spot;
-  acts: Act[];
+export interface Reply {
+  id: string;
+  /** The chip's words; a step with its own control (a name, a campus) says the answer itself. */
+  label: string;
+  /** The one gold action of the step. */
+  gold?: boolean;
+  /** What LAR answers. {you} is the student's name, {campus} their campus. */
+  says: string[];
+  act?: Act;
+  /** The step this answer leads to, when it leaves the usual order. */
+  to?: StepId;
 }
 
-export const PAGES: IntroPage[] = [
-  { id: "hello", title: "Student IntPortal", line: "Your PUP schedule, grades and deadlines, on your phone.", lar: "", spot: "below", acts: ["say", "cheer"] },
-  { id: "school", title: "Where do you study?", line: "Pick your campus, so LAR knows your school.", lar: "Saan ka, {you}? Pili ka lang.", spot: "right", acts: ["ring", "wall", "say"] },
-  { id: "today", title: "Your next class, counting down", line: "Drag the clock and watch Up next turn into In session.", lar: "Silipin mo sa portal.", spot: "below", acts: ["mouth"] },
-  { id: "deadlines", title: "Tick it off", line: "Every due date in one list, with a heads-up before it.", lar: "Subukan mo, i-tick mo.", spot: "left", acts: ["say"] },
-  { id: "study", title: "Grades and study", line: "GPA by term, and cards that come back on time.", lar: "Tap the card, {you}.", spot: "right", acts: ["say"] },
-  { id: "offline", title: "Works with no signal", line: "Your login stays in the phone's keychain. No IntPortal server: the app talks only to PUP SIS.", lar: "Kahit sa jeep, walang problema.", spot: "left", acts: ["say"] },
-  { id: "look", title: "Make it yours", line: "Pick a look. The whole app wears it.", lar: "Ano'ng bagay sa'yo?", spot: "right", acts: ["room", "say"] },
-  { id: "reminders", title: "A heads-up before class?", line: "A nudge 10 minutes before each class, and the evening before a deadline. Change it any time on You.", lar: "Ako na ang bahala sa paalala.", spot: "below", acts: ["remind"] },
-  { id: "signin", title: "Sign in", line: "", lar: "Tara, {you}. Sign in na.", spot: "left", acts: ["demo"] },
-];
-
-export const SIGNIN = PAGES.findIndex((p) => p.id === "signin");
-
-/** The page after or before `i`, held inside the intro. */
-export const step = (i: number, by: 1 | -1) => Math.max(0, Math.min(PAGES.length - 1, i + by));
-
-/** A horizontal swipe on the page: 1 forward, -1 back, 0 not a swipe. */
-export function swipe(dx: number, dy: number): 1 | -1 | 0 {
-  if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5) return 0;
-  return dx < 0 ? 1 : -1;
+export interface Step {
+  id: StepId;
+  /** What LAR says as the step opens. */
+  lar: string[];
+  card?: Card;
+  ask: Ask;
+  replies: Reply[];
 }
 
-/** A line with the student's name in it, or "iskolar" without one. */
-export const fillName = (line: string, name: string) => line.replaceAll("{you}", cleanName(name) || "iskolar");
+const next = (label: string): Reply[] => [{ id: "next", label, gold: true, says: [] }];
 
-/** What LAR types as the student types their name. */
-export const helloLine = (name: string) => {
-  const n = cleanName(name);
-  return n ? `Hi, ${n}! Ako si LAR.` : "";
+export const STEPS: Record<StepId, Step> = {
+  name: {
+    id: "name",
+    lar: ["Uy! Ako si LAR, galing sa kabilang side ng portal.", "Bago tayo pumasok: what should I call you?"],
+    ask: "name",
+    replies: [
+      { id: "named", label: "Send", gold: true, says: ["Hi, {you}! Tanda ko na 'yan."], act: "cheer" },
+      { id: "skip", label: "Iskolar na lang", says: ["Sige, iskolar na lang muna."] },
+    ],
+  },
+  campus: {
+    id: "campus",
+    lar: ["Saan ka nag-aaral, {you}?"],
+    ask: "campus",
+    replies: [
+      { id: "pup", label: "", says: ["PUP {campus}! Kilala ko 'yan."], act: "cheer" },
+      { id: "other", label: "Another school", says: ["Sige! Pipili tayo sa portal wall pagdating doon."], act: "wall" },
+    ],
+  },
+  focus: {
+    id: "focus",
+    lar: ["Ano'ng pinaka-kailangan mo araw-araw? Pili ka, kahit ilan."],
+    ask: "focus",
+    replies: [
+      { id: "picked", label: "'Yan na", gold: true, says: ["Sige, 'yan ang uunahin ko."], act: "cheer" },
+      { id: "all", label: "Lahat", gold: true, says: ["Lahat? Sige, isa-isahin natin."], act: "cheer" },
+    ],
+  },
+  today: { id: "today", lar: ["Ganito ko ipapakita ang next class mo. I-drag mo ang oras."], card: "today", ask: "chips", replies: next("Ayos") },
+  deadlines: { id: "deadlines", lar: ["Lahat ng due mo, isang listahan. Subukan mo, i-tick mo."], card: "deadlines", ask: "chips", replies: next("Tapos!") },
+  grades: { id: "grades", lar: ["GPA mo kada term, isang linya. Sample lang 'to, ha."], card: "grades", ask: "chips", replies: next("Nice") },
+  study: { id: "study", lar: ["May flashcards din. I-tap mo ang card, tapos i-rate mo."], card: "study", ask: "chips", replies: next("Gets") },
+  offline: { id: "offline", lar: ["Walang signal sa jeep? I-on mo 'to, tingnan mo."], card: "offline", ask: "chips", replies: next("Solid") },
+  look: {
+    id: "look",
+    lar: ["Ano'ng bagay sa'yo, {you}? Isuot mo."],
+    ask: "look",
+    replies: [{ id: "worn", label: "Ito na", gold: true, says: ["Ayan, bagay. Ganyan na ang kulay ng app mo."], act: "cheer" }],
+  },
+  reminders: {
+    id: "reminders",
+    lar: ["Paalalahanan kita 10 minutes bago bawat klase, at gabi bago ang deadline?"],
+    card: "nudge",
+    ask: "chips",
+    replies: [
+      { id: "later", label: "Not now", says: ["Sige. Nasa You tab lang 'yan pag gusto mo na."], act: "quiet" },
+      { id: "allow", label: "Allow reminders", gold: true, says: ["Ayos! Magsisimula 'yan pag naka-sign in ka na."], act: "remind" },
+    ],
+  },
+  privacy: {
+    id: "privacy",
+    lar: ["Last na. Ang login mo, sa phone mo lang: nasa keychain, at PUP SIS lang ang kinakausap ko."],
+    ask: "chips",
+    replies: [
+      { id: "how", label: "Paano?", says: [], act: "think", to: "how" },
+      { id: "ok", label: "Got it", gold: true, says: [] },
+    ],
+  },
+  how: {
+    id: "how",
+    lar: ["Ako ang nagsa-sign in para sa'yo, gaya ng sa browser. Walang IntPortal account, walang server.", "Pagkatapos, offline na: nasa phone na ang schedule, grades at notes mo."],
+    ask: "chips",
+    replies: [{ id: "ok", label: "Got it", gold: true, says: [], to: "bye" }],
+  },
+  bye: { id: "bye", lar: ["Tara, {you}, pasok na tayo!"], ask: "chips", replies: [] },
 };
 
-/** What LAR says when a campus is picked. */
-export const campusLine = (campus: string) => `PUP ${campus}! Kilala ko 'yan.`;
+/** What the student can care about most, and the demo that shows it. */
+export const FOCUS: { id: Focus; label: string; step: StepId }[] = [
+  { id: "classes", label: "Classes", step: "today" },
+  { id: "deadlines", label: "Deadlines", step: "deadlines" },
+  { id: "grades", label: "Grades", step: "grades" },
+  { id: "study", label: "Studying", step: "study" },
+];
 
-// Today (049 C9): one sample class, and a clock the student drags.
+/** The steps in order: the demos the student picked come first, as they picked them. */
+export function route(focus: readonly string[] = []): StepId[] {
+  const picks = cleanFocus(focus);
+  const demos = [...picks, ...FOCUS.map((f) => f.id).filter((f) => !picks.includes(f))].map((f) => FOCUS.find((x) => x.id === f)!.step);
+  return ["name", "campus", "focus", ...demos, "offline", "look", "reminders", "privacy", "bye"];
+}
+
+/** One answer: which reply, and what it carried (the name, the campus, the picks comma-joined, the look's name). */
+export interface Answer {
+  reply: string;
+  value?: string;
+}
+
+export type Item = { who: "lar"; text: string } | { who: "you"; text: string } | { who: "card"; card: Card; step: StepId };
+
+export interface Thread {
+  items: Item[];
+  /** The step waiting for an answer. */
+  step: Step;
+  /** LAR has said his last line: time to go in. */
+  done: boolean;
+  /** The act of the newest answer. */
+  act?: Act;
+  name: string;
+  campus: string;
+  focus: Focus[];
+  /** The student's school is not PUP: the wall opens at the portal. */
+  wall: boolean;
+}
+
+/** A line with the student's name (or "iskolar") and campus in it. */
+export const fill = (line: string, name: string, campus = "") => line.replaceAll("{you}", cleanName(name) || "iskolar").replaceAll("{campus}", campus);
+
+/** What the student's own bubble says for an answer. */
+function said(step: Step, reply: Reply, a: Answer): string {
+  if (step.ask === "focus" && reply.id === "picked") return cleanFocus((a.value ?? "").split(",")).map((f) => FOCUS.find((x) => x.id === f)!.label).join(", ");
+  if (reply.id === "named" || reply.id === "pup" || reply.id === "worn") return a.value || reply.label;
+  return reply.label;
+}
+
+/** The conversation after `answers`: every bubble so far, and the step now asking. An answer that fits no reply ends the list there. */
+export function play(answers: readonly Answer[]): Thread {
+  const t: Thread = { items: [], step: STEPS.name, done: false, name: "", campus: "", focus: [], wall: false };
+  const open = (s: Step) => {
+    for (const text of s.lar) t.items.push({ who: "lar", text: fill(text, t.name, t.campus) });
+    if (s.card) t.items.push({ who: "card", card: s.card, step: s.id });
+  };
+  open(t.step);
+  for (const a of answers) {
+    const step = t.step;
+    const reply = step.replies.find((r) => r.id === a.reply);
+    if (!reply) break;
+    if (reply.id === "named") t.name = cleanName(a.value ?? "");
+    if (reply.id === "pup") t.campus = a.value ?? "";
+    if (step.id === "campus") t.wall = reply.id === "other";
+    if (reply.id === "picked") t.focus = cleanFocus((a.value ?? "").split(","));
+    t.items.push({ who: "you", text: said(step, reply, a) });
+    for (const text of reply.says) t.items.push({ who: "lar", text: fill(text, t.name, t.campus) });
+    t.act = reply.act;
+    const order = route(t.focus);
+    t.step = STEPS[reply.to ?? order[order.indexOf(step.id) + 1] ?? "bye"];
+    open(t.step);
+  }
+  t.done = t.step.id === "bye";
+  return t;
+}
+
+// Today: one sample class, and a clock the student drags.
 export const CLASS = { code: "COMP 20073", title: "Data Structures", room: "S512", start: 7.5 * 3600, end: 9 * 3600 };
 /** The slider's ends and where it starts, in seconds after midnight. */
 export const CLOCK = { from: 6.75 * 3600, to: 9.25 * 3600, start: 7.25 * 3600 };
@@ -104,7 +223,7 @@ export function todayAt(at: number): { phase: Phase; label: string; left: number
   return { phase: "over", label: "Done", left: 0, sub: "Free until 10:30 AM" };
 }
 
-// Grades and Study (049 C11).
+// Grades and Study.
 export const TERMS: TermPoint[] = [
   { label: "1st 24", term: "1st Semester 2024-2025", v: 1.75 },
   { label: "2nd 24", term: "2nd Semester 2024-2025", v: 1.62 },
@@ -126,6 +245,8 @@ export const LOOKS: { room: string; name: string; swatch: [string, string, strin
     return { room: id, name: p.name, swatch: [p.canvasBottom, p.panel, p.accent] as [string, string, string] };
   }),
 ];
+/** A look the landing and the talk can wear on their ground. */
+export const isDarkLook = (room: string) => LOOKS.some((l) => l.room === room);
 
 /** FirstRun after sign-in (049 C16): only the AI choice is left, so it shows only on a build that has AI. */
 export const showFirstRun = (welcomed: boolean, ai: unknown) => !welcomed && !!ai;

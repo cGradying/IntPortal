@@ -1,7 +1,7 @@
 // @ts-expect-error type error without @types/node package
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
-import { CAMPUSES, CAMPUS_KEY, NAME_KEY, cleanName, getCampus, getName, setCampus, setName } from "./profile";
+import { CAMPUSES, CAMPUS_KEY, FOCUS_KEY, NAME_KEY, cleanName, getCampus, getFocus, getName, setCampus, setFocus, setName } from "./profile";
 
 const data = new Map<string, string>();
 beforeEach(() => {
@@ -34,11 +34,23 @@ describe("the student's profile (spec 049 C4)", () => {
     expect([NAME_KEY, CAMPUS_KEY]).toEqual(["intportal.name", "intportal.campus"]);
   });
 
+  it("c4_keeps_what_they_care_about_in_the_order_picked", () => {
+    expect(getFocus()).toEqual([]);
+    setFocus(["study", "classes", "study", "nope"]);
+    expect(data.get(FOCUS_KEY)).toBe("study,classes");
+    expect(getFocus()).toEqual(["study", "classes"]);
+    setFocus([]);
+    expect(data.has(FOCUS_KEY)).toBe(false);
+    expect(FOCUS_KEY).toBe("intportal.focus");
+  });
+
   it("c4_survives_storage_that_throws", () => {
     Object.assign(globalThis, { localStorage: { getItem: () => { throw new Error("off"); }, setItem: () => { throw new Error("off"); }, removeItem: () => { throw new Error("off"); } } });
     expect(() => setName("Jan")).not.toThrow();
     expect(getName()).toBe("");
     expect(getCampus()).toBeNull();
+    expect(() => setFocus(["grades"])).not.toThrow();
+    expect(getFocus()).toEqual([]);
   });
 
   it("c5_lists_every_campus_exactly_as_campus_rs_names_it", () => {
