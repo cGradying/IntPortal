@@ -410,7 +410,7 @@
     from { opacity: 0; translate: 28px 0; }
   }
   li.now {
-    box-shadow: inset 3px 0 0 var(--gold);
+    background: var(--gold-soft);
   }
   .tw {
     color: var(--gold);
