@@ -1,6 +1,6 @@
 # 052 Try it in the browser
 
-**Status:** building
+**Status:** shipped at /try on the website.
 
 ## What changes for the student
 

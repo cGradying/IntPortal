@@ -1,6 +1,6 @@
 # 053 Desktop: Mac, Windows and Linux
 
-**Status:** building
+**Status:** shipped. CI builds all three; the Mac build was launched on the owner's Mac. Running the Windows and Linux builds on real computers is still to do.
 
 ## What changes for the student
 
