@@ -10,7 +10,7 @@ version=$(node -p 'require("./src-tauri/tauri.conf.json").version')
 tag="android-v$version"
 git diff --quiet || { echo "Commit first: the release is built from a clean tree." >&2; exit 1; }
 
-scripts/emu.sh --release >/dev/null || { echo "Android build failed; see /tmp/intportal-emu-build.log" >&2; exit 1; }
+INSTALL=0 scripts/emu.sh --release >/dev/null || { echo "Android build failed; see /tmp/intportal-emu-build.log" >&2; exit 1; }
 cp "dist/IntPortal-$version.apk" dist/IntPortal.apk
 scripts/ipa.sh
 
