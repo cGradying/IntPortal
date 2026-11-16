@@ -1,6 +1,6 @@
 # 053 Desktop: Mac, Windows and Linux
 
-**Status:** approved (planned by the Head on the owner's request of 2026-11-17)
+**Status:** building
 
 ## What changes for the student
 
@@ -17,13 +17,13 @@ Tauri builds the same Rust and Svelte for desktop. The phone layout stays: the w
 
 ## Behaviour
 
-- **C1.** `src-tauri/src/main.rs` starts the app on desktop without adding `rlib` to the library's crate types.
+- **C1.** `src-tauri/src/main.rs` starts the app on desktop without adding `rlib` to the library's crate types: it compiles `lib.rs` as its own source with `include!`.
 - **C2.** The login is kept in the macOS Keychain, the Windows Credential Manager, or the Linux Secret Service. If Linux has no Secret Service, signing in says so and nothing is written in plain text.
 - **C3.** The student's store is encrypted with SQLCipher on every desktop, as on the phone.
 - **C4.** The window opens at 430 × 900, keeps a minimum of 360 × 640, and remembers nothing else.
 - **C5.** On desktop, You hides the settings that need a phone (Face ID, the class card outside the app, calendar sync, haptics) instead of showing ones that do nothing.
-- **C6.** CI builds, on a tag: `IntPortal-<version>-mac.dmg` (Apple Silicon and Intel), `IntPortal-<version>-windows.msi`, `IntPortal-<version>-linux.AppImage` and `.deb`, plus version-less copies for the website's links. They are unsigned; the website's install help says how to open them.
-- **C7.** IntAssis works on desktop with the same opt-in download.
+- **C6.** CI builds, on a tag or by hand: `IntPortal-<version>-mac.dmg` (Apple Silicon; Intel Macs later), `IntPortal-<version>-windows.msi`, `IntPortal-<version>-linux.AppImage` and `.deb`, plus version-less copies for the website's links. They are unsigned; the website's install help says how to open them.
+- **C7.** IntAssis works on the Mac with the same opt-in download. On Windows and Linux it says it isn't available yet: llama.cpp is built only where it has been tested, and those two get the core's stub.
 
 ## Copy
 

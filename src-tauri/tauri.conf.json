@@ -13,9 +13,12 @@
     "windows": [
       {
         "title": "IntPortal",
-        "width": 800,
-        "height": 600,
-        "backgroundColor": "#0b0710"
+        "width": 430,
+        "height": 900,
+        "backgroundColor": "#0b0710",
+        "minWidth": 360,
+        "minHeight": 640,
+        "resizable": true
       }
     ],
     "security": {
@@ -34,6 +37,12 @@
     ],
     "iOS": {
       "minimumSystemVersion": "16.0"
+    },
+    "shortDescription": "Your PUP schedule, grades and deadlines",
+    "category": "Education",
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": "-"
     }
   }
 }

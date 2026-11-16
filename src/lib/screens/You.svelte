@@ -3,6 +3,7 @@
   // rows in four groups. Each row opens its own page, closed by a large Back.
   import { askForCalendar } from "../devcal";
   import { ISSUES, PRIVACY, UPDATES } from "../links";
+  import { PHONE } from "../platform";
   import { adopt, app, forgetThemes, mabiniSyncNow, restoreThemes, themesForBackup, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setGlanceOutside, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
   import { api, isoDate, type BackupPreview, type Portal, type Space } from "../api";
   import { onMount, tick as settled } from "svelte";
@@ -176,7 +177,7 @@
   const lastOr = (key: string, fallback: number) => Number(remembered(key) ?? fallback);
 
   // C1: the eight quick switches. A lit one is gold on its icon and edge.
-  const QUICK: { label: string; icon: SpriteName; on: () => boolean; set: (on: boolean) => void }[] = [
+  const ALL_QUICK: { label: string; icon: SpriteName; on: () => boolean; set: (on: boolean) => void }[] = [
     { label: "Haptics", icon: "buzz", on: () => hapticsOn, set: (on) => { setHaptics((hapticsOn = on)); buzz.tick(); } },
     { label: "Sounds", icon: "sound", on: () => soundOn, set: (on) => { setSound((soundOn = on)); if (on) sfx.done(); } },
     { label: "Lock", icon: "lock", on: () => lock.enabled, set: (on) => setLock(on) },
@@ -186,6 +187,8 @@
     { label: "Study", icon: "bell", on: () => app.studyAt >= 0, set: (on) => { if (!on) keep("lastStudyAt", String(app.studyAt)); setStudyAt(on ? lastOr("lastStudyAt", 19 * 60) : -1); } },
     { label: "Calendar", icon: "date", on: () => app.calendarClasses, set: (on) => toggleCalendar("calendarClasses", on) },
   ];
+  // On a desktop or in the browser demo, the switches that need a phone are left out (053 C5).
+  const QUICK = ALL_QUICK.filter((q) => PHONE || !["Haptics", "Lock", "Calendar"].includes(q.label));
   function flip(q: (typeof QUICK)[number]) {
     if (q.label !== "Haptics") buzz.tick();
     q.set(!q.on());
@@ -454,10 +457,10 @@
         {@render seg("Done effects", [["full", "Full"], ["calm", "Calm"], ["off", "Off"]], app.effects, (v) => setLook("effects", v))}
         <div class="card notch list pad">
           {@render sw("Moving ground", app.ground, (on) => setLook("ground", on))}
-          {@render sw("Haptics", hapticsOn, (on) => setHaptics((hapticsOn = on)))}
+          {#if PHONE}{@render sw("Haptics", hapticsOn, (on) => setHaptics((hapticsOn = on)))}{/if}
           {@render sw("Sounds", soundOn, (on) => { setSound((soundOn = on)); if (on) sfx.done(); })}
         </div>
-        <p class="fine">Haptics are small taps you feel when you mark a class, pull to sync, finish a deck or unlock. Sounds are little pixel blips, off by default.</p>
+        <p class="fine" hidden={!PHONE}>Haptics are small taps you feel when you mark a class, pull to sync, finish a deck or unlock. Sounds are little pixel blips, off by default.</p>
         <p class="fine">If Reduce Motion is on in your phone's settings, it wins over all of these.</p>
       {:else if page === "reminders"}
         {@render seg("Before each class, minutes", [[0, "Off"], [5, "5"], [10, "10"], [15, "15"], [30, "30"]], app.reminderLead, setReminderLead)}
@@ -471,8 +474,10 @@
           {@render sw("Sunday brief", app.brief, (on) => setExtra("brief", on))}
         </div>
         <p class="fine">At most 3 a day besides class reminders, none from 10 PM to 7 AM.</p>
-        {@render seg("Class card outside the app", [["always", "Always"], ["away", "When I leave"], ["off", "Off"]], app.glanceOutside, setGlanceOutside)}
-        <p class="fine">{GLANCE_NOTE[app.glanceOutside]}</p>
+        {#if PHONE}
+          {@render seg("Class card outside the app", [["always", "Always"], ["away", "When I leave"], ["off", "Off"]], app.glanceOutside, setGlanceOutside)}
+          <p class="fine">{GLANCE_NOTE[app.glanceOutside]}</p>
+        {/if}
         {#if app.notifications === false}
           <p class="fine">Notifications are off for IntPortal, so none of these can reach you.</p>
           <button class="primary" onclick={() => scheduleReminders(true)}>Turn on notifications</button>
@@ -484,8 +489,8 @@
         {/if}
       {:else if page === "calendar"}
         <div class="card notch list pad">
-          <label class="sw"><span>Keep classes in my calendar</span><input type="checkbox" checked={app.calendarClasses} onchange={(e) => toggleCalendar("calendarClasses", e.currentTarget.checked, e.currentTarget)} /></label>
-          <label class="sw"><span>Show my own events</span><input type="checkbox" checked={app.calendarEvents} onchange={(e) => toggleCalendar("calendarEvents", e.currentTarget.checked, e.currentTarget)} /></label>
+          <label class="sw" hidden={!PHONE}><span>Keep classes in my calendar</span><input type="checkbox" checked={app.calendarClasses} onchange={(e) => toggleCalendar("calendarClasses", e.currentTarget.checked, e.currentTarget)} /></label>
+          <label class="sw" hidden={!PHONE}><span>Show my own events</span><input type="checkbox" checked={app.calendarEvents} onchange={(e) => toggleCalendar("calendarEvents", e.currentTarget.checked, e.currentTarget)} /></label>
         </div>
         {#if calendarNote}<p class="fine" role="status">{calendarNote}</p>{/if}
         <p class="fine">An IntPortal calendar on this phone holds the next eight weeks of classes. Vacant weeks drop out and moved weeks move. Your other calendars are never touched.</p>
@@ -537,7 +542,7 @@
         </section>
       {:else if page === "privacy"}
         <div class="card notch list pad">
-          <label class="sw"><span>Lock with {unlockWith}</span><input type="checkbox" checked={lock.enabled} onchange={(e) => { const box = e.currentTarget; buzz.tick(); setLock(box.checked).then(() => (box.checked = lock.enabled)); }} /></label>
+          <label class="sw" hidden={!PHONE}><span>Lock with {unlockWith}</span><input type="checkbox" checked={lock.enabled} onchange={(e) => { const box = e.currentTarget; buzz.tick(); setLock(box.checked).then(() => (box.checked = lock.enabled)); }} /></label>
         </div>
         <p class="fine">Asks when IntPortal opens or comes back after a minute away, and hides the screen in the app switcher.</p>
         {#if lock.error}<p class="fine bad">{lock.error}</p>{/if}
