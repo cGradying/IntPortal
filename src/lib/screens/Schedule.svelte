@@ -14,7 +14,7 @@
   import { api, clock, isoDate, moment, span, subjectColor, WEEKDAYS, type DeadlineEntry, type Meeting, type Weekday } from "../api";
   import { gapText, gaps, month, movedFrom, phaseOf, pin, stampOf, weekRange } from "../weekModel";
   import { settle, step, type Motion } from "../carousel";
-  import { direction } from "../swap";
+  import { direction } from "../motion";
   import Lar from "../lar/Lar.svelte";
 
   const todayIdx = (new Date().getDay() + 6) % 7;

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { flip } from "svelte/animate";
   import { fade } from "svelte/transition";
-  import { flow } from "./swap";
+  import { flow } from "./motion";
 
   import { friendly } from "./errors";
   // The student's notes: new, search, export. On Study and on You (spec 040 C14).

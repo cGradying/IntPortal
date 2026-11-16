@@ -4,6 +4,7 @@
   // per row; the day wheel only offers the days that month has.
   import { onMount, tick as settle } from "svelte";
   import { buzz } from "./haptics";
+  import { dismiss, scrim, sheet as rises } from "./motion";
   import { birthYears, daysIn } from "./portals";
 
   let { value, ondone, onclose }: { value: string; ondone: (iso: string) => void; onclose: () => void } = $props();
@@ -63,8 +64,8 @@
 </script>
 
 <svelte:window onkeydown={(e) => e.key === "Escape" && onclose()} />
-<button class="scrim" aria-label="Close" onclick={onclose}></button>
-<div class="sheet" role="dialog" aria-modal="true" aria-label="Birthdate">
+<button class="scrim" aria-label="Close" onclick={onclose} in:scrim|global out:scrim|global></button>
+<div class="sheet" use:dismiss={onclose} in:rises|global out:rises|global role="dialog" aria-modal="true" aria-label="Birthdate">
   <header>
     <b>Birthdate</b>
     <button class="done" bind:this={doneBtn} onclick={() => ondone(iso)}>Done</button>
@@ -103,13 +104,6 @@
     box-shadow: inset 0 1px 0 rgb(245 178 39 / 0.16);
     clip-path: polygon(0 8px, 8px 8px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px, 100% 100%, 0 100%);
     color: var(--parch);
-    animation: rise var(--t-move) var(--ease) both;
-  }
-  @keyframes rise {
-    from {
-      translate: 0 40px;
-      opacity: 0;
-    }
   }
   header {
     display: flex;
@@ -176,10 +170,5 @@
   .row.on {
     color: var(--white);
     font-weight: 600;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .sheet {
-      animation: none;
-    }
   }
 </style>

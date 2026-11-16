@@ -8,6 +8,7 @@
   import qrcode from "qrcode-generator";
   import { closable } from "./back";
   import { buzz } from "./haptics";
+  import { dismiss, overlay, scrim, sheet as rises } from "./motion";
   import { contrast } from "./rooms";
   import { app, deleteTheme, saveTheme, setRoom } from "./state.svelte";
   import { NIGHT, PATTERNS, PRESETS, hsl, hueOf, isDark, larLook, look, patternCss, roles, roll, seed, type Theme } from "./theme";
@@ -243,7 +244,7 @@
   </div>
 {/snippet}
 
-<div class="tm" role="dialog" aria-label="Make a theme" style={css} data-corners={view.corners} data-cards={view.cards}>
+<div class="tm" in:overlay|global out:overlay|global role="dialog" aria-label="Make a theme" style={css} data-corners={view.corners} data-cards={view.cards}>
   <div class="prev" class:still={view.aura === "off"}>
     {#if pv === "Dive"}<canvas class="dive" bind:this={cv} width="40" height="33" aria-label="The dive in this theme"></canvas>{/if}
     <div class="top">
@@ -354,9 +355,9 @@
   </div>
 
   {#if sheet}
-    <button class="scrim" aria-label="Close" onclick={() => (incoming ? notNow() : (sheet = null))}></button>
+    <button class="scrim" aria-label="Close" onclick={() => (incoming ? notNow() : (sheet = null))} in:scrim|global out:scrim|global></button>
     {#if sheet === "share"}
-      <div class="sheet notch" role="dialog" aria-label="Share this theme">
+      <div class="sheet notch" use:dismiss={() => (sheet = null)} in:rises|global out:rises|global role="dialog" aria-label="Share this theme">
         <div class="tcard notch">
           <h5>{t.name || "My theme"}</h5>
           <div class="qrbox">
@@ -371,7 +372,7 @@
         </div>
       </div>
     {:else}
-      <div class="sheet notch" role="dialog" aria-label="Add a theme">
+      <div class="sheet notch" use:dismiss={() => (incoming ? notNow() : (sheet = null))} in:rises|global out:rises|global role="dialog" aria-label="Add a theme">
         {#if incoming}
           <h4>{incoming.name}</h4>
           <p class="fine">This is how it looks. A code holds only colours, choices and a name.</p>
@@ -905,7 +906,6 @@
     z-index: 9;
     border: 0;
     background: rgb(0 0 0 / 0.45);
-    animation: fadein var(--t-quick) both;
   }
   .sheet {
     --s: 4px;
@@ -921,7 +921,6 @@
     gap: 10px;
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge-2);
-    animation: sheetin var(--t-flow) var(--ease) both;
   }
   .sheet h4 {
     margin: 0;
@@ -994,16 +993,6 @@
     60% {
       scale: 0.97;
       opacity: 1;
-    }
-  }
-  @keyframes sheetin {
-    from {
-      translate: 0 36px;
-    }
-  }
-  @keyframes fadein {
-    from {
-      opacity: 0;
     }
   }
 </style>
