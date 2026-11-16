@@ -2,6 +2,7 @@
 // built to static/tiles.wasm by scripts/tiles.sh. This file only loads it,
 // hands it the canvas size and every portal's look, and fills the tiles it
 // returns. Sign-in never depends on it: if it fails to load, the form works.
+import { base } from "$app/paths";
 import type { Portal } from "./api";
 import { FORM } from "./landing";
 
@@ -67,7 +68,7 @@ export interface Frame {
   vel: number;
 }
 
-export async function loadTiles(url = "/tiles.wasm") {
+export async function loadTiles(url = `${base}/tiles.wasm`) {
   // Compiles while the bytes arrive; a server without the wasm MIME type gets the buffered path.
   const made = await WebAssembly.instantiateStreaming(fetch(url), {}).catch(async () => WebAssembly.instantiate(await (await fetch(url)).arrayBuffer(), {}));
   const x = made.instance.exports as unknown as Exports;

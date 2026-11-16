@@ -9,6 +9,7 @@ pub mod parse;
 
 use crate::sis::{host, Error};
 use parse::{Course, CourseGrade, Deadline};
+#[cfg(feature = "net")]
 use reqwest::redirect::Policy;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -23,20 +24,24 @@ pub struct MabiniData {
     pub last_synced: Option<u64>,
 }
 
+#[cfg(feature = "net")]
 const BASE: &str = "https://emabini.pup.edu.ph";
 
 /// One signed-in eMabini session. The cookie jar plus the session key.
+#[cfg(feature = "net")]
 pub struct MabiniClient {
     http: reqwest::Client,
     sesskey: String,
 }
 
 /// eMabini's login form, fetched with a GET that sends no credentials.
+#[cfg(feature = "net")]
 pub struct LoginPage {
     http: reqwest::Client,
     token: String,
 }
 
+#[cfg(feature = "net")]
 impl LoginPage {
     pub async fn fetch() -> Result<Self, Error> {
         let http = reqwest::Client::builder()
@@ -75,6 +80,7 @@ impl LoginPage {
     }
 }
 
+#[cfg(feature = "net")]
 impl MabiniClient {
     async fn call(&self, method: &str, args: Value) -> Result<Value, Error> {
         let url = format!("{BASE}/lib/ajax/service.php?sesskey={}&info={method}", self.sesskey);

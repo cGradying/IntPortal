@@ -31,7 +31,7 @@ const OWN = [
   "I couldn't find new cards in that", "I couldn't wake up. Try again.", "I couldn't make cards for that. Try a note's own text instead.", "This phone can't share files from IntPortal yet.",
   "The photo couldn't be added.", "IntPortal can't use the camera.", "This phone has no camera.", "There isn't room on this phone for the photo.", "A note holds up to 20 photos. Remove one",
   // the SIS and eMabini pages
-  "The SIS turned your login down.", "eMabini turned your login down.", "This portal turned your login down.", "Sign-in didn't go through.", "Couldn't save the sign-in count.",
+  "That works in the app.", "The SIS turned your login down.", "eMabini turned your login down.", "This portal turned your login down.", "Sign-in didn't go through.", "Couldn't save the sign-in count.",
 ];
 
 export const FALLBACK = "Something went wrong. Try again in a bit.";

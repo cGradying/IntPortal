@@ -5,7 +5,9 @@
 use crate::deadline::OwnDeadline;
 use crate::grades::Goals;
 use crate::notes::Note;
-use crate::store::{Snapshot, Store, StoreError};
+use crate::store::Snapshot;
+#[cfg(feature = "store")]
+use crate::store::{Store, StoreError};
 use crate::study::{Deck, Stats};
 use crate::syllabus::Plan;
 use crate::today::{ClassInfo, Marks};
@@ -152,6 +154,7 @@ pub enum BackupError {
 }
 
 impl Backup {
+    #[cfg(feature = "store")]
     /// Builds the file from the store. `student` is the signed-in student number
     /// and `salt` is 16 random bytes, new for every file.
     pub fn make(store: &Store, student: &str, salt: [u8; 16], themes: Vec<serde_json::Value>, now: i64) -> Result<Backup, StoreError> {
