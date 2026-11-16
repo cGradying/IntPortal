@@ -1,6 +1,6 @@
 # 049 Intro: a talk with LAR
 
-**Status:** building
+**Status:** shipped (0.3.0, #295). Every criterion is built; the feel on a real iPhone is the owner's to confirm.
 
 ## What changes for the student
 
