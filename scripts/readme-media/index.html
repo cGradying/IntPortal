@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- Dev only: the README banner and the campus GIF frames, for scripts/readme-media.mjs. -->
+<meta charset="utf-8" />
+<title>README media</title>
+<style>
+  body { margin: 0; background: #0b0710; }
+  #banner { position: relative; width: 1600px; height: 500px; overflow: hidden; background: #0b0710; }
+  #banner canvas { position: absolute; right: 0; bottom: 0; width: 1250px; height: 521px; image-rendering: pixelated; }
+  #banner .shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(11, 7, 16, 1) 0%, rgba(11, 7, 16, 0.96) 30%, rgba(11, 7, 16, 0.55) 46%, rgba(11, 7, 16, 0) 60%), linear-gradient(0deg, rgba(8, 5, 14, 0.55), rgba(8, 5, 14, 0) 30%); }
+  #banner .copy { position: absolute; left: 72px; top: 96px; width: 760px; color: #fff6e0; font-family: "Montserrat Variable", system-ui, sans-serif; }
+  #banner .kicker { font: 600 22px/1 "Source Sans 3 Variable", system-ui, sans-serif; letter-spacing: 0.22em; text-transform: uppercase; color: #f5b324; }
+  #banner h1 { margin: 18px 0 14px; font-weight: 800; font-size: 118px; line-height: 0.95; letter-spacing: -0.02em; }
+  #banner h1 b { color: #f5b324; font-weight: 800; }
+  #banner p { margin: 0; font: 500 30px/1.35 "Source Sans 3 Variable", system-ui, sans-serif; color: #ece0c8; max-width: 600px; }
+  #banner .chips { margin-top: 26px; display: flex; gap: 12px; font: 700 20px/1 "Source Sans 3 Variable", system-ui, sans-serif; }
+  #banner .chips span { padding: 10px 16px; border: 2px solid #f5b324; color: #f5b324; background: rgba(8, 5, 14, 0.6); }
+</style>
+<div id="banner">
+  <canvas id="scene"></canvas>
+  <div class="shade"></div>
+  <div class="copy">
+    <div class="kicker">An unofficial student app for PUP</div>
+    <h1>Int<b>Portal</b></h1>
+    <p>Classes, grades and deadlines on your phone. Offline and private, with a small robot named LAR.</p>
+    <div class="chips"><span>Rust core</span><span>Svelte 5</span><span>Tauri 2</span><span>On-device AI</span></div>
+  </div>
+</div>
+<script type="module" src="./media.ts"></script>
