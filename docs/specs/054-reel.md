@@ -1,6 +1,6 @@
 # 054 The reel
 
-**Status:** approved (planned by the Head on the owner's request of 2026-11-17)
+**Status:** shipped (46 s; 8.3 MB at 9:16, 7.3 MB at 16:9; −14.1 LUFS, −1.5 dBFS peak)
 
 ## What changes for the student
 

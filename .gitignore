@@ -38,3 +38,7 @@ site/build/
 site/.svelte-kit/
 # Built by scripts/web.sh from crates/intportal-web
 static/intportal_web.wasm
+
+# The reel's footage and renders (published with the site, not committed twice)
+reel/footage/
+reel/out/
