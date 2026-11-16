@@ -6,8 +6,6 @@
   // (profile.ts) and runs each answer's act. When LAR says "pasok na tayo" he goes back into his
   // fire and Landing builds the portal where he stood.
   import { onMount, tick } from "svelte";
-  import { fly } from "svelte/transition";
-  import { cubicOut } from "svelte/easing";
   import Lar from "../lar/Lar.svelte";
   import MiniPortal from "../MiniPortal.svelte";
   import ClockCard from "./ClockCard.svelte";
@@ -19,6 +17,7 @@
   import type { Portal } from "../api";
   import type { Gesture, State } from "../lar/sprite";
   import { animate } from "../quiet";
+  import { reduced, rise, tokens } from "../motion";
   import { closable } from "../back";
   import { buzz } from "../haptics";
   import { allowReminders, app, setRoom } from "../state.svelte";
@@ -27,7 +26,7 @@
 
   let { portal, portals, onend }: { portal: Portal; portals: Portal[]; /** The talk is over: on to the portal, and to its wall for another school. */ onend: (o: { wall: boolean }) => void } = $props();
 
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduce = reduced();
   /** Seconds: LAR's own arrival, a slab's grow, the beat between two lines; then characters a second. */
   const HELLO = 0.9;
   const GROW = 0.2;
@@ -102,7 +101,7 @@
     const drop = pad - h;
     pad = h;
     // A shorter reply set lets the thread down: it eases there instead of dropping.
-    if (drop > 0 && !reduce) lines?.animate([{ transform: `translateY(${-drop}px)` }, { transform: "none" }], { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+    if (drop > 0 && !reduce) lines?.animate([{ transform: `translateY(${-drop}px)` }, { transform: "none" }], { duration: tokens().move, easing: tokens().easeCss });
   });
   $effect(() => {
     void [shown, begun, pad];
@@ -234,7 +233,7 @@
             <span class="slab" aria-hidden="true">{#if i < shown}{item.text}{:else}{item.text.slice(0, typed)}<i class="caret"></i><span class="rest">{item.text.slice(typed)}</span>{/if}</span>
           </p>
         {:else if item.who === "you"}
-          <p class="msg you"><span class="sr">You: </span><span class="mine">{item.text}</span></p>
+          <p class="msg you" in:rise={{ y: 18 }}><span class="sr">You: </span><span class="mine">{item.text}</span></p>
         {:else}
           <div class="msg demo" inert={item.step !== now.step.id || leaving}>
             {#if item.card === "today"}<ClockCard live={item.step === now.step.id && !leaving} onreact={react} />
@@ -254,7 +253,7 @@
 
   {#if ready && !now.done && !leaving}
     {#key now.step.id}
-      <div bind:this={dock} bind:clientHeight={dockH} class="dock" role="group" aria-label="Your reply" tabindex="-1">
+      <div bind:this={dock} bind:clientHeight={dockH} class="dock" role="group" aria-label="Your reply" tabindex="-1" in:rise|global={{ y: 16 }}>
         {#if now.step.ask === "name"}
           <form class="row" onsubmit={sendName}>
             <input class="field" bind:value={draft} maxlength={MAX_NAME} placeholder="Your name" aria-label="Your name" autocomplete="given-name" autocapitalize="words" enterkeyhint="send" spellcheck="false" />
@@ -298,7 +297,7 @@
   {/if}
 
   {#if notice}
-    <div class="note-slot" transition:fly={{ y: reduce ? 0 : -120, duration: reduce ? 160 : 550, easing: cubicOut }}><Nudge {portal} name={now.name} /></div>
+    <div class="note-slot" transition:rise|global={{ y: -120 }}><Nudge {portal} name={now.name} /></div>
   {/if}
 </section>
 
@@ -514,7 +513,6 @@
   .you {
     justify-self: end;
     max-width: 80%;
-    animation: rise var(--t-move) var(--ease) both;
   }
   .mine {
     display: block;
@@ -523,12 +521,6 @@
     background: rgb(244 236 216 / 0.12);
     font: 500 var(--text-body) / 1.4 var(--font-ui);
     color: var(--cream);
-  }
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(18px);
-    }
   }
   .sr {
     position: absolute;
@@ -560,7 +552,6 @@
     margin: 0 auto;
     padding: 0 var(--gutter) calc(var(--safe-bottom) + 12px);
     outline: none;
-    animation: rise var(--t-flow) var(--ease) both;
   }
   .row {
     display: flex;
@@ -592,7 +583,7 @@
     white-space: nowrap;
     transition: box-shadow var(--t-quick) var(--ease);
   }
-  .chip:active {
+  .chip:global([data-press]) {
     background: var(--void-3);
   }
   /* Gold says "this one": a picked focus, the worn look. */
@@ -676,9 +667,8 @@
       inset 0 0 0 3px var(--cream),
       inset 0 -3px 0 var(--portal-gold-shade);
   }
-  .go:active {
+  .go:global([data-press]) {
     box-shadow: inset 0 3px 0 var(--portal-gold-shade);
-    transform: translateY(1px);
   }
   .go:disabled {
     opacity: 0.45;
@@ -692,18 +682,17 @@
     filter: drop-shadow(0 10px 30px rgb(0 0 0 / 0.5));
   }
 
-  /* The handoff: the talk fades, and LAR alone goes back into his fire. */
+  /* The handoff: the talk leaves quicker than it came, and LAR alone goes back into his fire. */
   .leaving .bar,
   .leaving .tag,
   .leaving .thread,
   .leaving .sky {
     opacity: 0;
+    transition: opacity var(--t-exit) var(--ease-in);
   }
   @media (prefers-reduced-motion: reduce) {
     .slab,
-    .demo,
-    .you,
-    .dock {
+    .demo {
       animation: none;
     }
     .sky i.tw {
