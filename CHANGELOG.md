@@ -2,6 +2,25 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## 0.2.1 (2026-11-16)
+
+From the owner's phone QA of 0.2.0.
+
+- Intro: a new student pages through nine pages before the form, one feature each, every page something to touch. LAR asks what to call you and answers by name; pick your campus; drag a clock and watch Up next turn into In session; tick a deadline; flip a study card; flip "No signal" and see your data stay; wear a look; allow reminders with a sample notification; then sign in or look around (#289)
+- Landing: only the night and the stars behind the portal; the dot grid, the lit ground and the reflection are gone (#289)
+- In session: a pixel scene of your own campus, drawn by a shader, for all 25 PUP campuses and other schools in the portal wall. Sta. Mesa has the Pylon, the Mabini Obelisk, the Main Building and the lagoon; the sky follows the hour and the window of your next class is lit. Change it in You › Campus (#290)
+- Today: only In session and Due at the top; LAR's nudge and This term moved below your classes, and the note for today sits in the day list's head (#288)
+- Due: Done is the box, a struck title and the DONE stamp, then the row folds away with Undo; the sparks, ripple, combo and bursts are gone. Add is a gold "+ Add" that no longer stays squashed after the sheet opens over it. LAR no longer pops up when you tick a deadline or clear them all (#288)
+- Haptics work: the app now asks the phone for each kind of vibration it uses; before, every one was refused in silence. A CI check catches a capability that grants nothing (#287)
+- Pinch and double-tap zoom are off, and a text field no longer zooms the page when focused (#287)
+- Smaller: Android APK 69.7 MB to 22.3 MB and Play bundle 37.3 MB to 13.2 MB; iPhone release 18 MB installed (7.7 MB download). Link-time optimisation now actually runs, Android ships arm64 only, and Android's scanner downloads its models on first use. `scripts/phone.sh` builds release by default (#291)
+
+Known gaps:
+
+- Not yet felt on a phone: the haptics fix, the shader scene's battery cost, the intro's page motion at 60 fps
+- Android without Google Play services can't download the scanner; typing and pasting still work
+- No store builds yet (#26)
+
 ## 0.2.0 (2026-11-15)
 
 - Welcome: a new student sees what the app is before any form. Under the portal, three tabs to touch: Inside opens the peek on Today, Schedule, Grades or Study; What it does has LAR explain reminders, deadlines, offline use, privacy and his nudges; Make it yours re-tints the landing in six dark looks and keeps the pick for the app (#282, #283)
