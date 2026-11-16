@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { flip } from "svelte/animate";
+  import { fade } from "svelte/transition";
+  import { flow } from "./swap";
+
   import { friendly } from "./errors";
   // One deck: its cards, adding them one by one or pasted, and the way into
   // a study session in one of three modes.
@@ -136,7 +140,7 @@
 
     <ul class="cards">
       {#each deck?.cards ?? [] as c (c.id)}
-        <li>
+        <li animate:flip={flow()} in:fade={flow()} out:fade={flow()}>
           <span><strong>{c.front}</strong><small>{c.back}</small></span>
           <em>{whenDue(c)}</em>
           <button class="x" aria-label="Remove {c.front}" onclick={() => remove(c)}>×</button>
@@ -160,6 +164,10 @@
   .screen {
     display: grid;
     gap: 12px;
+    animation: enter var(--t-flow) var(--ease) backwards;
+  }
+  @keyframes enter {
+    from { opacity: 0; translate: 28px 0; }
   }
   .back {
     height: 44px;

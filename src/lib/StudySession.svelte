@@ -14,6 +14,8 @@
   import { buzz } from "./haptics";
   import { dueQueue, type Entry } from "./dueQueue";
   import { dueIn, interval } from "./interval";
+  import { cubicOut } from "svelte/easing";
+  import { still } from "./swap";
 
   let { decks, mode, onclose, title, all = false, limit = 0 }: { decks: Deck[]; mode: Mode; onclose: () => void; title?: string; all?: boolean; limit?: number } = $props();
   $effect(() => closable(() => onclose()));
@@ -71,12 +73,21 @@
     api.distractors(d.cards, at, index).then((ds) => (options = shuffle([c.back, ...ds])));
   });
 
+  // The next card slides in from the right as the rated one leaves left; Again goes back under.
+  let again = false;
+  const enter = (_n: Element) => ({ duration: still() ? 160 : 340, easing: cubicOut, css: (t: number, u: number) => (still() ? `opacity:${t}` : `transform:translateX(${u * 44}px);opacity:${t}`) });
+  const leave = (_n: Element) => {
+    const back = again;
+    return { duration: still() ? 120 : 260, easing: cubicOut, css: (t: number, u: number) => (still() ? `opacity:${t}` : back ? `transform:translateY(${u * 14}px) scale(${1 - u * 0.06});opacity:${t}` : `transform:translateX(${-u * 44}px);opacity:${t}`) };
+  };
+
   async function rate(r: Rating) {
     try {
       // Practice (nothing was due) leaves the schedule alone: reviewing a
       // card early would push it out before it's been forgotten.
       const due = practice ? null : ((await api.reviewCard(deck.id, card.id, r, isoDate(new Date()))).deck.cards.find((c) => c.id === card.id)?.memory.due ?? null);
       log.push({ id: `${deck.id}/${card.id}`, front: card.front, rating: r, due });
+      again = r === "again";
       if (r !== "again") right++;
       buzz.tick();
       if (index + 1 >= queue.length) buzz.done();
@@ -120,19 +131,32 @@
       <p class="fine">{practice ? "Practice round: the schedule is unchanged." : "FSRS has scheduled each card for when you're about to forget it."}</p>
       {#if log.length}
         <ul class="recap">
-          {#each log as l (l.id)}
-            <li><span>{l.front}</span><small class:again={l.rating === "again"}>{word(l.rating)}{l.due !== null ? `, ${dueIn(l.due - now)}` : ""}</small></li>
+          {#each log as l, i (l.id)}
+            <li style:--i={Math.min(i, 8)}><span>{l.front}</span><small class:again={l.rating === "again"}>{word(l.rating)}{l.due !== null ? `, ${dueIn(l.due - now)}` : ""}</small></li>
           {/each}
         </ul>
       {/if}
       <button class="primary" onclick={onclose}>{mixed ? "Back to Study" : "Back to the deck"}</button>
     </section>
   {:else if mode === "flash"}
-    <button class="card notch face tap" onclick={() => { if (!shown) buzz.tick(); shown = true; }}>
-      <p class="label">{mixed ? deck.name : "Term"}</p>
-      <h2>{card.front}</h2>
-      {#if shown}<p class="answer">{card.back}</p>{:else}<p class="fine">Tap to show the meaning</p>{/if}
-    </button>
+    <div class="stage">
+      {#key index}
+        <div class="slot" in:enter out:leave>
+          <button class="flipper" class:shown onclick={() => { if (!shown) buzz.tick(); shown = true; }}>
+            <span class="side card notch face" aria-hidden={shown}>
+              <span class="label">{mixed ? deck.name : "Term"}</span>
+              <h2>{card.front}</h2>
+              <span class="fine">Tap to show the meaning</span>
+            </span>
+            <span class="side back card notch face" aria-hidden={!shown}>
+              <span class="label">{mixed ? deck.name : "Term"}</span>
+              <h2>{card.front}</h2>
+              <span class="answer">{card.back}</span>
+            </span>
+          </button>
+        </div>
+      {/key}
+    </div>
     {#if shown}
       <div class="rates">
         {#each RATES as [r, label], i (r)}
@@ -141,11 +165,15 @@
       </div>
     {/if}
   {:else if mode === "type"}
-    <section class="card notch face">
-      <p class="label">{mixed ? deck.name : "Meaning"}</p>
-      <h2>{card.back}</h2>
-      <p class="fine">Type the term.</p>
-    </section>
+    <div class="stage">
+      {#key index}
+        <section class="slot card notch face" in:enter out:leave>
+          <p class="label">{mixed ? deck.name : "Meaning"}</p>
+          <h2>{card.back}</h2>
+          <p class="fine">Type the term.</p>
+        </section>
+      {/key}
+    </div>
     <input bind:value={typed} autocapitalize="off" spellcheck="false" placeholder="Your answer" aria-label="Your answer" onkeydown={(e) => e.key === "Enter" && verdict === null && check()} />
     {#if verdict === null}
       <button class="primary" onclick={check} disabled={!typed.trim()}>Check</button>
@@ -155,10 +183,14 @@
       <button class="primary" onclick={() => rate(verdict ? "good" : "again")}>Next</button>
     {/if}
   {:else}
-    <section class="card notch face">
-      <p class="label">{mixed ? deck.name : "Term"}</p>
-      <h2>{card.front}</h2>
-    </section>
+    <div class="stage">
+      {#key index}
+        <section class="slot card notch face" in:enter out:leave>
+          <p class="label">{mixed ? deck.name : "Term"}</p>
+          <h2>{card.front}</h2>
+        </section>
+      {/key}
+    </div>
     <div class="options">
       {#each options as o (o)}
         <button class:right={picked && o === card.back} class:wrong={picked === o && o !== card.back} onclick={() => choose(o)}>{o}</button>
@@ -176,6 +208,10 @@
   .session {
     display: grid;
     gap: 12px;
+    animation: enter var(--t-flow) var(--ease) backwards;
+  }
+  @keyframes enter {
+    from { opacity: 0; translate: 28px 0; }
   }
   header {
     display: flex;
@@ -202,6 +238,42 @@
     background: var(--gold);
     transition: width var(--t-move) var(--ease);
   }
+  /* Cards share one cell, so the leaving one never pushes the arriving one. */
+  .stage {
+    display: grid;
+    overflow-x: clip;
+  }
+  .slot {
+    grid-area: 1 / 1;
+    perspective: 900px;
+  }
+  /* The flip: a real turn about the vertical axis, with a small overshoot. */
+  .flipper {
+    display: grid;
+    border: 0;
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+    text-align: left;
+    transform-style: preserve-3d;
+    transition:
+      transform var(--t-hero) cubic-bezier(0.34, 1.3, 0.64, 1),
+      scale var(--t-quick) var(--ease-spring);
+  }
+  .flipper.shown {
+    transform: rotateY(180deg);
+  }
+  .side {
+    grid-area: 1 / 1;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+  .side.back {
+    transform: rotateY(180deg);
+  }
   .lar {
     justify-self: center;
   }
@@ -215,11 +287,6 @@
     padding: 20px;
     text-align: left;
     color: var(--ink);
-  }
-  button.face {
-    width: 100%;
-    border: 0;
-    font: inherit;
   }
   h2 {
     margin: 0;
@@ -290,11 +357,16 @@
     gap: 6px;
     text-align: left;
   }
+  /* The recap lists itself once, a row at a time. */
   .recap li {
+    animation: row var(--t-move) var(--ease) calc(var(--t-flow) + var(--i) * 45ms) backwards;
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
+  }
+  @keyframes row {
+    from { opacity: 0; translate: 0 8px; }
   }
   .recap span {
     min-width: 0;

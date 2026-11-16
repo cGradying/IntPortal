@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { flip } from "svelte/animate";
+  import { fade } from "svelte/transition";
+  import { flow } from "./swap";
+
   // eMabini in full: deadlines, then courses with progress and grade.
   import type { Course } from "./api";
   import { closable } from "./back";
@@ -36,7 +40,7 @@
       {#if deadlines.length}
         <ul>
           {#each deadlines as d (d.id)}
-            <li>
+            <li animate:flip={flow()} in:fade={flow()} out:fade={flow()}>
               <button onclick={() => openLink(d.url)}>
                 <span class="when" class:late={dueLabel(d, now) === "Overdue"}>{dueLabel(d, now)}</span>
                 <span class="what"><strong>{titleOf(d.name)}</strong><small>{subjectOf(d.course)}</small></span>
@@ -89,6 +93,7 @@
     grid-template-rows: auto 1fr;
     gap: 12px;
     padding: calc(var(--safe-top) + 12px) var(--gutter) 0;
+    animation: enter var(--t-flow) var(--ease) backwards;
   }
   header {
     display: flex;
@@ -201,5 +206,8 @@
   }
   .bad {
     color: var(--bad);
+  }
+  @keyframes enter {
+    from { opacity: 0; translate: 28px 0; }
   }
 </style>
