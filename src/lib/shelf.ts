@@ -91,3 +91,26 @@ export function weekBars(week: number[], today: Date, max = 12) {
     return { n, day: d.toLocaleDateString("en-US", { weekday: "short" }), px: Math.min(max, Math.ceil(n / CARDS_PER_PX)), today: i === week.length - 1 };
   });
 }
+
+/** A deck's mastery as the row shows it: "62% known" (050 C9). */
+export function known(mastery: number): string {
+  return `${Math.round(mastery * 100)}% known`;
+}
+
+/** The 7-day forecast read out as one sentence; days with nothing due are left out (050 C11). */
+export function forecastLabel(forecast: number[], today: Date): string {
+  const parts = forecast.flatMap((n, i) => {
+    if (!n) return [];
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+    const name = i === 0 ? "today" : i === 1 ? "tomorrow" : day.toLocaleDateString("en-US", { weekday: "long" });
+    return [`${n} ${name}`];
+  });
+  return parts.length ? `Due this week: ${parts.join(", ")}` : "Nothing due this week";
+}
+
+/** Bar heights for the forecast, 0 to 12 px, at least 2 px for a day with anything due. */
+export function forecastBars(forecast: number[]): number[] {
+  const max = Math.max(1, ...forecast);
+  return forecast.map((n) => (n ? Math.max(2, Math.round((n / max) * 12)) : 0));
+}
+

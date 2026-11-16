@@ -7,7 +7,7 @@
   import type { Course } from "./api";
   import { closable } from "./back";
   import { dueLabel, knowsNothingDue, mabiniState, splitDeadlines, subjectOf, titleOf } from "./deadlines";
-  import { openLink } from "./openLink";
+  import { openPortalLink } from "./openLink";
   import { app, mabiniSyncNow } from "./state.svelte";
 
   const close = () => (app.mabiniPage = false);
@@ -41,7 +41,7 @@
         <ul>
           {#each deadlines as d (d.id)}
             <li animate:flip={flow()} in:fade={flow()} out:fade={flow()}>
-              <button onclick={() => openLink(d.url)}>
+              <button onclick={() => openPortalLink(d.url)}>
                 <span class="when" class:late={dueLabel(d, now) === "Overdue"}>{dueLabel(d, now)}</span>
                 <span class="what"><strong>{titleOf(d.name)}</strong><small>{subjectOf(d.course)}</small></span>
               </button>
@@ -63,7 +63,7 @@
           {#each courses as c (c.id)}
             {@const g = gradeOf(c)}
             <li>
-              <button onclick={() => openLink(c.url)}>
+              <button onclick={() => openPortalLink(c.url)}>
                 <span class="what">
                   <strong>{c.subject}</strong>
                   <small>{c.section}</small>

@@ -1,17 +1,13 @@
 //! The login guard. A student was locked out of their SIS account by too
 //! many login requests, so signing in is one credential POST per tap, on a
 //! host a plain GET has shown to be up, at most 3 per 15 minutes, and never
-//! again by itself after a rejected password (spec 011, C11 to C16).
+//! again by itself after a rejected password (spec 011, C11 to C16). The
+//! numbers and the refusal text come from the portal (spec 050 C1, C5).
 
 use super::{host, Credentials, Error};
+use crate::portal::{Limits, Portal, SIS};
 use crate::schedule::ScheduleRow;
 use serde::{Deserialize, Serialize};
-
-// ponytail: same numbers as `portal::Limits` for SIS; read them from there once the registry lands.
-pub const MAX_ATTEMPTS: usize = 3;
-pub const WINDOW_SECS: u64 = 15 * 60;
-
-pub const REJECTED_AGAIN: &str = "The SIS turned your login down. Update your student number, birthdate or password to try again.";
 
 /// What the guard needs from a SIS host; `SisClient` is the real one.
 #[allow(async_fn_in_trait)] // only used with concrete types, so `Send` is checked at the call site
@@ -26,19 +22,68 @@ pub trait Sis {
 /// Sign-in attempts in the last 15 minutes, and whether the SIS turned the
 /// saved login down. Kept on the phone, outside any student's store, so a
 /// restart doesn't reset it.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ledger {
     attempts: Vec<u64>,
     rejected: bool,
+    /// When the saved ledger was found unreadable: no tries for one window
+    /// from then, rather than a fresh count (050 C2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    broken_at: Option<u64>,
+    #[serde(skip, default = "sis_limits")]
+    limits: Limits,
+    #[serde(skip, default = "sis_again")]
+    again: &'static str,
+}
+
+fn sis_limits() -> Limits {
+    SIS.limits
+}
+
+fn sis_again() -> &'static str {
+    SIS.rejected_again
+}
+
+impl Default for Ledger {
+    fn default() -> Self {
+        Ledger::new(&SIS)
+    }
 }
 
 impl Ledger {
+    pub fn new(portal: &Portal) -> Ledger {
+        Ledger { attempts: vec![], rejected: false, broken_at: None, limits: portal.limits, again: portal.rejected_again }
+    }
+
+    /// The ledger saved on the phone, `None` when there is no file yet. A file
+    /// that doesn't parse fails closed: no tries until a window passes.
+    pub fn load(saved: Option<&str>, now: u64, portal: &Portal) -> Ledger {
+        let fresh = Ledger::new(portal);
+        match saved.map(serde_json::from_str::<Ledger>) {
+            None => fresh,
+            Some(Ok(l)) => Ledger { limits: portal.limits, again: portal.rejected_again, ..l },
+            Some(Err(_)) => Ledger { broken_at: Some(now), ..fresh },
+        }
+    }
+
+    fn window(&self) -> u64 {
+        u64::from(self.limits.window_secs)
+    }
+
     fn live(&self, now: u64) -> impl Iterator<Item = &u64> {
-        self.attempts.iter().filter(move |&&a| a + WINDOW_SECS > now)
+        let w = self.window();
+        self.attempts.iter().filter(move |&&a| a + w > now)
+    }
+
+    fn broken_until(&self, now: u64) -> Option<u64> {
+        self.broken_at.map(|b| b + self.window()).filter(|&until| until > now)
     }
 
     pub fn tries_left(&self, now: u64) -> usize {
-        MAX_ATTEMPTS.saturating_sub(self.live(now).count())
+        if self.broken_until(now).is_some() {
+            return 0;
+        }
+        usize::from(self.limits.attempts).saturating_sub(self.live(now).count())
     }
 
     /// When the next try frees up, if none is left now (epoch seconds).
@@ -46,7 +91,8 @@ impl Ledger {
         if self.tries_left(now) > 0 {
             return None;
         }
-        self.live(now).min().map(|a| a + WINDOW_SECS)
+        let oldest = self.live(now).min().map(|a| a + self.window());
+        self.broken_until(now).max(oldest)
     }
 
     /// Whether the SIS turned the saved login down and it hasn't been edited since.
@@ -56,7 +102,7 @@ impl Ledger {
 
     fn precheck(&mut self, auto: bool) -> Result<(), Error> {
         if auto && self.rejected {
-            return Err(Error::Rejected(REJECTED_AGAIN.into()));
+            return Err(Error::Rejected(self.again.into()));
         }
         if !auto {
             self.rejected = false;
@@ -75,27 +121,38 @@ impl Ledger {
         if let Some(retry_at) = self.retry_at(now) {
             return Err(Error::TooManyTries { retry_at });
         }
-        self.attempts.retain(|&a| a + WINDOW_SECS > now);
+        let w = self.window();
+        self.attempts.retain(|&a| a + w > now);
         self.attempts.push(now);
+        self.broken_at = None;
         Ok(())
+    }
+
+    /// Spends a try and keeps it on the phone before any credential is sent:
+    /// a try that can't be saved is not made (050 C3).
+    fn spend_saved(&mut self, now: u64, save: &mut impl FnMut(&Ledger) -> Result<(), String>) -> Result<(), Error> {
+        self.spend(now)?;
+        save(self).map_err(|_| Error::LedgerUnsaved)
     }
 }
 
 /// For a portal with one host (eMabini): `page` is the GET of its login
 /// form, and a try is spent only once it answered, right before the one
-/// credential POST. `auto` as in `sign_in_guarded`.
+/// credential POST. `auto` and `save` as in `sign_in_guarded`.
 pub async fn post_once<P, T, Fut: std::future::Future<Output = Result<T, Error>>>(
     ledger: &mut Ledger,
     now: u64,
     auto: bool,
+    mut save: impl FnMut(&Ledger) -> Result<(), String>,
     page: impl std::future::Future<Output = Result<P, Error>>,
     post: impl FnOnce(P) -> Fut,
 ) -> Result<T, Error> {
     ledger.precheck(auto)?;
     let page = page.await?;
-    ledger.spend(now)?;
+    ledger.spend_saved(now, &mut save)?;
     let r = post(page).await;
     ledger.record(&r);
+    let _ = save(ledger); // the try is already counted; the result's own error matters more
     r
 }
 
@@ -103,8 +160,8 @@ pub async fn post_once<P, T, Fut: std::future::Future<Output = Result<T, Error>>
 ///
 /// `auto` is true for a background sign-in from the saved login (sync); it
 /// refuses to run after a rejection. A tap on Sign in passes false, which
-/// clears that rejection first. The caller saves `ledger` afterwards, win or
-/// lose.
+/// clears that rejection first. `save` writes the ledger to the phone; it runs
+/// once before the POST (no POST if it fails) and once after.
 pub async fn sign_in_guarded<C: Sis>(
     make: impl Fn(&str) -> Result<C, Error>,
     c: &Credentials,
@@ -112,6 +169,7 @@ pub async fn sign_in_guarded<C: Sis>(
     ledger: &mut Ledger,
     now: u64,
     auto: bool,
+    mut save: impl FnMut(&Ledger) -> Result<(), String>,
 ) -> Result<(C, Vec<ScheduleRow>), Error> {
     ledger.precheck(auto)?;
     let mut down = Error::Network("no SIS server answered".into());
@@ -127,9 +185,10 @@ pub async fn sign_in_guarded<C: Sis>(
         }
     }
     let client = live.ok_or(down)?;
-    ledger.spend(now)?;
+    ledger.spend_saved(now, &mut save)?;
     let signed_in = client.sign_in(c).await;
     ledger.record(&signed_in);
+    let _ = save(ledger);
     signed_in?;
     // Signed in with no schedule (011 C10, C15): a tap keeps this one session and lets the
     // student in; a background sync refuses it, so it never wipes the schedule it has.
@@ -190,7 +249,7 @@ mod tests {
         let l = log.clone();
         let down: Vec<String> = down.iter().map(|s| s.to_string()).collect();
         let make = move |h: &str| Ok(Fake { host: h.into(), up: !down.iter().any(|d| d == h), reject, post_fails, rows, log: l.clone() });
-        let r = pollster(sign_in_guarded(make, &creds(), None, ledger, now, auto)).map(|(_, rows)| rows.len());
+        let r = pollster(sign_in_guarded(make, &creds(), None, ledger, now, auto, |_| Ok(()))).map(|(_, rows)| rows.len());
         let log = Rc::try_unwrap(log).ok().unwrap().into_inner();
         (r, log)
     }
@@ -249,7 +308,7 @@ mod tests {
         assert!(matches!(r, Err(Error::Rejected(_))));
         assert!(l.rejected());
         let (r, log) = run(&[], false, false, 3, &mut l, 1100, true);
-        assert_eq!(r, Err(Error::Rejected(REJECTED_AGAIN.into())));
+        assert_eq!(r, Err(Error::Rejected(SIS.rejected_again.into())));
         assert!(log.probes.is_empty() && log.posts.is_empty());
         // The student edits the login and taps Sign in: allowed again.
         let (r, _) = run(&[], false, false, 3, &mut l, 1200, false);
@@ -265,10 +324,10 @@ mod tests {
         }
         assert_eq!(l.tries_left(1200), 0);
         let (r, log) = run(&[], false, false, 3, &mut l, 1300, false);
-        assert_eq!(r, Err(Error::TooManyTries { retry_at: 1000 + WINDOW_SECS }));
+        assert_eq!(r, Err(Error::TooManyTries { retry_at: 1000 + 900 }));
         assert!(log.posts.is_empty());
         // The oldest try ages out of the window.
-        assert_eq!(run(&[], false, false, 3, &mut l, 1000 + WINDOW_SECS, false).0, Ok(3));
+        assert_eq!(run(&[], false, false, 3, &mut l, 1000 + 900, false).0, Ok(3));
     }
 
     #[test]
@@ -286,6 +345,7 @@ mod tests {
             l,
             now,
             auto,
+            |_| Ok(()),
             async move { if page_up { Ok(()) } else { Err(Error::Network("down".into())) } },
             |()| async {
                 *posts.borrow_mut() += 1;
@@ -300,7 +360,7 @@ mod tests {
         let mut l = Ledger::default();
         assert_eq!(once(&mut l, 1000, false, true, Err(Error::Rejected("bad".into()))), (Err(Error::Rejected("bad".into())), 1));
         assert!(l.rejected());
-        assert_eq!(once(&mut l, 1100, true, true, Ok(())), (Err(Error::Rejected(REJECTED_AGAIN.into())), 0));
+        assert_eq!(once(&mut l, 1100, true, true, Ok(())), (Err(Error::Rejected(SIS.rejected_again.into())), 0));
         assert_eq!(l.tries_left(1100), 2, "a refused auto try spends nothing");
         assert_eq!(once(&mut l, 1200, false, true, Ok(())), (Ok(()), 1));
         assert!(!l.rejected(), "the tap cleared it and a success leaves it clear");
@@ -322,5 +382,52 @@ mod tests {
             assert_eq!(once(&mut l, now, false, true, Err(Error::Network("dropped".into()))).1, 1);
         }
         assert_eq!(once(&mut l, 1003, false, true, Ok(())), (Err(Error::TooManyTries { retry_at: 1900 }), 0));
+    }
+
+    #[test]
+    fn c1_the_numbers_come_from_the_portal() {
+        let p = Portal { limits: Limits { attempts: 1, window_secs: 60 }, ..SIS };
+        let mut l = Ledger::new(&p);
+        assert_eq!(l.tries_left(1000), 1);
+        let _ = run(&[], false, true, 3, &mut l, 1000, false);
+        assert_eq!(l.retry_at(1000), Some(1060));
+    }
+
+    #[test]
+    fn c2_a_broken_ledger_fails_closed_for_one_window() {
+        let l = Ledger::load(Some("{not json"), 5000, &SIS);
+        assert_eq!(l.tries_left(5000), 0);
+        assert_eq!(l.retry_at(5000), Some(5900));
+        assert_eq!(l.tries_left(5900), 3, "a full window later it counts again");
+        let saved = serde_json::to_string(&l).unwrap();
+        assert_eq!(Ledger::load(Some(&saved), 5100, &SIS).tries_left(5100), 0, "a restart keeps it closed");
+        assert_eq!(Ledger::load(None, 5000, &SIS).tries_left(5000), 3, "no file yet is a fresh ledger");
+    }
+
+    #[test]
+    fn c3_a_try_that_cant_be_saved_sends_nothing() {
+        let log = Rc::new(RefCell::new(Log::default()));
+        let l2 = log.clone();
+        let make = move |h: &str| Ok(Fake { host: h.into(), up: true, reject: false, post_fails: false, rows: 3, log: l2.clone() });
+        let mut l = Ledger::default();
+        let r = pollster(sign_in_guarded(make, &creds(), None, &mut l, 1000, false, |_| Err("disk full".into())));
+        assert_eq!(r.map(|_| ()), Err(Error::LedgerUnsaved));
+        assert!(log.borrow().posts.is_empty());
+        let mut posts = 0;
+        let r = pollster(post_once(&mut Ledger::default(), 1000, false, |_| Err("disk full".into()), async { Ok(()) }, |()| {
+            posts += 1;
+            async { Ok(()) }
+        }));
+        assert_eq!(r, Err(Error::LedgerUnsaved));
+        assert_eq!(posts, 0);
+    }
+
+    #[test]
+    fn c5_the_refusal_names_the_portal() {
+        let mut l = Ledger::new(&crate::portal::MABINI);
+        let _ = once(&mut l, 1000, false, true, Err(Error::Rejected("bad".into())));
+        let (r, _) = once(&mut l, 1100, true, true, Ok(()));
+        assert_eq!(r, Err(Error::Rejected(crate::portal::MABINI.rejected_again.into())));
+        assert!(!crate::portal::MABINI.rejected_again.contains("birthdate"));
     }
 }

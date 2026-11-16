@@ -24,7 +24,7 @@ async fn main() {
     };
     // A throwaway ledger: this example doesn't share the app's count.
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    let (client, rows) = match sign_in_guarded(SisClient::new, &c, None, &mut Ledger::default(), now, false).await {
+    let (client, rows) = match sign_in_guarded(SisClient::new, &c, None, &mut Ledger::default(), now, false, |_| Ok(())).await {
         Ok(ok) => ok,
         Err(e) => return println!("sign-in failed: {e}"),
     };

@@ -27,8 +27,8 @@ describe("spec 042 C7, C9: a tapped notification opens what it is about", () => 
     app.snapshot = { sessions: [{ subject_code: "COMP 20073", description: "Data Structures" }] } as any;
     backend.study = () => ({
       decks: [
-        { id: "d0", name: "Old", subject: "COMP 20073", cards: 4, due: 0 },
-        { id: "d1", name: "Trees", subject: "COMP 20073", cards: 9, due: 6 },
+        { id: "d0", name: "Old", subject: "COMP 20073", cards: 4, due: 0, mastery: 0, forecast: [0, 0, 0, 0, 0, 0, 0] },
+        { id: "d1", name: "Trees", subject: "COMP 20073", cards: 9, due: 6, mastery: 0, forecast: [6, 0, 0, 0, 0, 0, 0] },
       ],
       due: 6,
       streak: 0,
