@@ -1,5 +1,7 @@
 <script lang="ts">
   import { flip } from "svelte/animate";
+  import { inThisWeek } from "./thisWeek";
+  const today = new Date();
   import { fade } from "svelte/transition";
   import { flow } from "./motion";
 
@@ -171,11 +173,11 @@
         {/if}
         <ul class="items">
           {#each sorted as it (it.id || it.topic)}
-            <li animate:flip={flow()} in:fade={flow()} out:fade={flow()} class:done={it.done} id={it.id ? `item-${it.id}` : undefined} class:here={it.id === item}>
+            <li animate:flip={flow()} in:fade={flow()} out:fade={flow()} class:done={it.done} id={it.id ? `item-${it.id}` : undefined} class:here={it.id === item} class:now={inThisWeek(it.date, today)}>
               <input type="checkbox" checked={it.done} aria-label="Done" onchange={() => { it.done = !it.done; changed(); }} />
               <span class="kind" data-kind={it.kind}>{it.kind}</span>
               <span class="topic">{it.topic}</span>
-              <span class="when">{it.week ? `Wk ${it.week}` : ""} {it.date ? shortDate(it.date) : ""}</span>
+              <span class="when">{#if inThisWeek(it.date, today)}<span class="tw">This week</span>{/if}{it.week ? `Wk ${it.week}` : ""} {it.date ? shortDate(it.date) : ""}</span>
               <button class="x" aria-label="Remove {it.topic}" onclick={() => { plan.items.splice(plan.items.indexOf(it), 1); changed(); }}>×</button>
             </li>
           {/each}
@@ -406,5 +408,12 @@
   }
   @keyframes enter {
     from { opacity: 0; translate: 28px 0; }
+  }
+  li.now {
+    background: var(--gold-soft);
+  }
+  .tw {
+    color: var(--gold);
+    margin-right: 6px;
   }
 </style>

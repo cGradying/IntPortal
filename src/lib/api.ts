@@ -121,7 +121,17 @@ export interface Deck {
 }
 
 export interface StudyOverview {
-  decks: { id: string; name: string; subject: string | null; cards: number; due: number }[];
+  decks: {
+    id: string;
+    name: string;
+    subject: string | null;
+    cards: number;
+    due: number;
+    /** Share of cards known for a week or more, 0 to 1. */
+    mastery: number;
+    /** Cards due on each of the next seven days, today first. */
+    forecast: number[];
+  }[];
   due: number;
   streak: number;
   reviews_today: number;
@@ -280,6 +290,8 @@ export interface DeadlineDraft {
   subject: string | null;
   kind: ItemKind;
   date: string | null;
+  /** The text it was read from; a student's fixes are kept per line. */
+  line?: string;
 }
 
 export interface Moment {
@@ -472,7 +484,7 @@ export const api = {
   saveOwn: (own: OwnDeadline) => invoke<Snapshot>("save_own", { own }),
   deleteOwn: (id: string) => invoke<Snapshot>("delete_own", { id }),
   parseOwn: (text: string, today: string) => invoke<DeadlineDraft[]>("parse_own", { text, today }),
-  study: (today: string) => invoke<StudyOverview>("study", { today }),
+  study: (today: string) => invoke<StudyOverview>("study", { today, utcOffset: -new Date().getTimezoneOffset() }),
   deck: (id: string) => invoke<Deck>("deck", { id }),
   saveDeck: (deck: Deck) => invoke<Deck>("save_deck", { deck }),
   deleteDeck: (id: string) => invoke<void>("delete_deck", { id }),

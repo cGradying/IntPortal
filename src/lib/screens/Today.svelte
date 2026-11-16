@@ -29,7 +29,7 @@
   import Lar from "../lar/Lar.svelte";
   import { ago } from "../glance";
   import { longpress } from "../press";
-  import { openLink } from "../openLink";
+  import { openLink, openPortalLink } from "../openLink";
   import { buzz } from "../haptics";
   import { dateLine as longDate } from "../greeting";
   import { dayRows } from "../dayrows";
@@ -104,15 +104,15 @@
     if (!nudge) return;
     const n = nudge.nudge;
     if (n.kind === "plan") return startPlan(n);
-    if (n.kind === "later") return n.url ? openLink(n.url) : n.subject && openSubject(n.subject, describe(n.subject), "outline");
-    if (n.kind === "deadline" && n.url) openLink(n.url);
+    if (n.kind === "later") return n.url ? openPortalLink(n.url) : n.subject && openSubject(n.subject, describe(n.subject), "outline");
+    if (n.kind === "deadline" && n.url) openPortalLink(n.url);
     else if (n.kind === "deadline") openSubject(n.subject, describe(n.subject), "outline");
     else if (n.kind === "target") app.tab = "grades";
     else if (n.kind !== "day_off") app.tab = "study";
   }
   /** Spec 042 C4: the deadline first (eMabini, or its subject's outline), else the cards. */
   function startPlan(n: Extract<Nudge, { kind: "plan" }>) {
-    if (n.step?.url) return openLink(n.step.url);
+    if (n.step?.url) return openPortalLink(n.step.url);
     if (n.step?.subject) return openSubject(n.step.subject, describe(n.step.subject), "outline", n.step.id.startsWith("syl:") ? n.step.id.split(":").pop() : undefined);
     if (n.subject) openFromNotification(`study:${n.subject}:${n.cards}`);
     else startReview(null);

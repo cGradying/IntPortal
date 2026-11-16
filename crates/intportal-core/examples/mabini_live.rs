@@ -3,7 +3,12 @@
 //! or any course name.
 
 use intportal_core::mabini::LoginPage;
+use intportal_core::portal::MABINI;
+use intportal_core::sis::{post_once, Ledger};
 use std::io::Write;
+
+/// The same 3-per-15-minutes count the app keeps, in a file beside this run.
+const LEDGER: &str = "target/mabini-live-guard.json";
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -12,15 +17,14 @@ async fn main() {
     let mut n = String::new();
     std::io::stdin().read_line(&mut n).unwrap();
     let password = rpassword::prompt_password("Password (hidden): ").unwrap();
-    let signed_in = match LoginPage::fetch().await {
-        Ok(page) => page.sign_in(n.trim(), &password).await,
-        Err(e) => Err(e),
-    };
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+    let mut ledger = Ledger::load(std::fs::read_to_string(LEDGER).ok().as_deref(), now as u64, &MABINI);
+    let save = |l: &Ledger| std::fs::write(LEDGER, serde_json::to_string(l).unwrap()).map_err(|e| e.to_string());
+    let signed_in = post_once(&mut ledger, now as u64, false, save, LoginPage::fetch(), |page| async move { page.sign_in(n.trim(), &password).await }).await;
     let client = match signed_in {
         Ok(c) => c,
         Err(e) => return println!("sign-in failed: {e}"),
     };
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
     match client.courses().await {
         Ok(c) => println!("courses: {}, with a split name: {}", c.len(), c.iter().filter(|c| !c.term.is_empty()).count()),
         Err(e) => println!("courses failed: {e}"),

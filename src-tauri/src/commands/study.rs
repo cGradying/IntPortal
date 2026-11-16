@@ -7,6 +7,10 @@ pub struct DeckSummary {
     subject: Option<String>,
     cards: usize,
     due: usize,
+    /// Share of cards known for a week or more, 0 to 1 (050 C9).
+    mastery: f64,
+    /// Cards due on each of the next seven days, today first (050 C10).
+    forecast: [u32; 7],
 }
 
 #[derive(Serialize)]
@@ -21,14 +25,23 @@ pub struct StudyOverview {
 
 /// Every deck with its due count, and the streak as of `today`.
 #[tauri::command(async)]
-pub fn study(state: tauri::State<'_, AppState>, today: Date) -> Res<StudyOverview> {
+pub fn study(state: tauri::State<'_, AppState>, today: Date, utc_offset: Option<i32>) -> Res<StudyOverview> {
+    let offset = utc_offset.unwrap_or(MANILA_OFFSET);
     let store = state.store.lock().unwrap();
     let now = unix_now();
     let decks: Vec<DeckSummary> = store
         .decks()
         .map_err(err)?
         .into_iter()
-        .map(|d| DeckSummary { due: d.due(now), cards: d.cards.len(), id: d.id, name: d.name, subject: d.subject })
+        .map(|d| DeckSummary {
+            due: d.due(now),
+            cards: d.cards.len(),
+            mastery: study::mastery(&d.cards),
+            forecast: study::forecast_7(&d.cards, today, offset),
+            id: d.id,
+            name: d.name,
+            subject: d.subject,
+        })
         .collect();
     let stats = store.study_stats().map_err(err)?;
     let reviews_today = if stats.last_day == Some(today) { stats.reviews_today } else { 0 };
