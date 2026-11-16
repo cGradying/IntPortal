@@ -28,12 +28,13 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 
 | Spec | Status | Covers |
 |---|---|---|
-| [000-sis-data-map](000-sis-data-map.md) | draft | What the app reads from the SIS, and where it lands |
+| [000-sis-data-map](000-sis-data-map.md) | reference | What the app reads from the SIS, and where it lands |
 | [010-landing](010-landing.md) | shipped | The tile portal, its states, the carousel, the dive, touch and the peek |
 | [011-login](011-login.md) | shipped | The sign-in form, errors and the lockout guard |
 | [012-portals](012-portals.md) | shipped | The portal model: SIS now, Mabini next |
-| [020-ai](020-ai.md) | building | LAR that streams, remembers, cites notes; Ask AI in a note |
-| [030-from-the-mac-app](030-from-the-mac-app.md) | wave 1 built | The Mac app's features mapped to the phone; wave 1: join links, deadlines in the calendar, dated note entries |
+| [013-mabini](013-mabini.md) | shipped | eMabini: sign-in, courses, deadlines and grades, the guard, eMabini alone |
+| [020-ai](020-ai.md) | shipped | LAR that streams, remembers, cites notes; Ask AI in a note |
+| [030-from-the-mac-app](030-from-the-mac-app.md) | shipped (wave 1) | The Mac app's features mapped to the phone; wave 1: join links, deadlines in the calendar, dated note entries |
 | [040-trust-and-speed](040-trust-and-speed.md) | shipped | Honest loading and errors, fixable logins, review all due, consistent taps, week navigation |
 | [041-one-deadline-list](041-one-deadline-list.md) | shipped | Syllabus, eMabini and own deadlines in one list: Today, reminders, LAR, calendar; add by typing or photo |
 | [042-lar-plans-the-day](042-lar-plans-the-day.md) | shipped | Gap plan on Today, warm-up and after-class nudges, grade risk, Sunday brief, 3-a-day budget |
@@ -43,7 +44,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [047-you-and-themes](047-you-and-themes.md) | shipped | You on one screen, search, new settings, backup, custom themes shared by code and QR |
 | [048-lar-chat](048-lar-chat.md) | shipped | LAR's chat, round four: the cube pours into it, the sky header, his real steps as a pixel trace, suggestions that follow the day |
 | [049-intro](049-intro.md) | shipped | A talk with LAR before sign-in: your name, campus and what matters, live cards, a look and reminders |
-| [050-release-0.4](050-release-0.4.md) | building | Finish the app for 0.4: guard hardening, deck mastery and forecast, this week in a syllabus, eMabini fixes, stable release files |
+| [050-release-0.4](050-release-0.4.md) | shipped | Finish the app for 0.4: guard hardening, deck mastery and forecast, this week in a syllabus, eMabini fixes, stable release files |
 | [051-website](051-website.md) | building | The download website: the right file for each device, install help, privacy, questions |
 | [052-try-in-browser](052-try-in-browser.md) | building | Look around in any browser, on the Rust core compiled to WebAssembly |
 | [053-desktop](053-desktop.md) | approved | Mac, Windows and Linux builds of the same app |
