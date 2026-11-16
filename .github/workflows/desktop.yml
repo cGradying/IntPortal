@@ -1,0 +1,80 @@
+name: Desktop
+# IntPortal for Mac, Windows and Linux (spec 053). Unsigned builds; the
+# website's install help says how to open them. Run by hand, or on a release
+# tag; with `release` set, the files are added to that (draft) release.
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Release tag to add the files to (e.g. android-v0.4.0); empty keeps them as artifacts
+        required: false
+  push:
+    tags: ["android-v*"]
+  pull_request:
+    paths: [".github/workflows/desktop.yml", "src-tauri/src/main.rs"]
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_BUILD_BUILD_DIR: ${{ github.workspace }}/target
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: mac
+            bundles: dmg
+          - os: windows-latest
+            name: windows
+            bundles: msi
+          - os: ubuntu-22.04
+            name: linux
+            bundles: appimage,deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux libraries
+        if: matrix.name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libdbus-1-dev
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm tauri build --bundles ${{ matrix.bundles }}
+      - name: Name the files
+        shell: bash
+        run: |
+          v=$(node -p 'require("./src-tauri/tauri.conf.json").version')
+          b=target/release/bundle
+          mkdir -p dist
+          case "${{ matrix.name }}" in
+            mac) f=$(ls $b/dmg/*.dmg); cp "$f" "dist/IntPortal-$v-mac.dmg"; cp "$f" dist/IntPortal-mac.dmg ;;
+            windows) f=$(ls $b/msi/*.msi); cp "$f" "dist/IntPortal-$v-windows.msi"; cp "$f" dist/IntPortal-windows.msi ;;
+            linux)
+              f=$(ls $b/appimage/*.AppImage); cp "$f" "dist/IntPortal-$v-linux.AppImage"; cp "$f" dist/IntPortal-linux.AppImage
+              f=$(ls $b/deb/*.deb); cp "$f" "dist/IntPortal-$v-linux.deb"; cp "$f" dist/IntPortal-linux.deb ;;
+          esac
+          ls -lh dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: intportal-${{ matrix.name }}
+          path: dist/*
+      - name: Add to the release
+        if: inputs.release != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.release }}" dist/* --clobber
+    permissions:
+      contents: write

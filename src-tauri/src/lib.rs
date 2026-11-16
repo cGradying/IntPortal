@@ -1,5 +1,6 @@
-//! The Tauri shell: holds the store and the SIS session, and exposes the core
-//! to the Svelte UI as commands. Logic lives in `intportal-core`.
+// The Tauri shell: holds the store and the SIS session, and exposes the core
+// to the Svelte UI as commands. Logic lives in `intportal-core`. Plain comments,
+// not `//!`: the desktop entry (main.rs) includes this file whole (spec 053).
 
 use intportal_core::calendar;
 use intportal_core::campus;
@@ -89,7 +90,7 @@ mod keychain;
 
 mod vault;
 
-#[cfg(any(target_os = "ios", target_os = "macos", target_os = "android"))]
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "android", target_os = "windows", target_os = "linux"))]
 mod dbkey;
 
 /// Opens one student's store with its key. A store the key can't open is
@@ -97,7 +98,7 @@ mod dbkey;
 /// the SIS data returns on the next sync.
 fn open_store(dir: &std::path::Path, file: &str) -> Res<Store> {
     let path = dir.join(file);
-    #[cfg(any(target_os = "ios", target_os = "macos", target_os = "android"))]
+    #[cfg(any(target_os = "ios", target_os = "macos", target_os = "android", target_os = "windows", target_os = "linux"))]
     {
         let key = dbkey::get_or_create(file)?;
         match Store::open(&path, &key) {
@@ -108,7 +109,7 @@ fn open_store(dir: &std::path::Path, file: &str) -> Res<Store> {
             opened => opened.map_err(err),
         }
     }
-    #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android")))]
+    #[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android", target_os = "windows", target_os = "linux")))]
     {
         Store::open_plain(&path).map_err(err)
     }
