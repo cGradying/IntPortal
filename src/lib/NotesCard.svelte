@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { flip } from "svelte/animate";
+  import { fade } from "svelte/transition";
+  import { flow } from "./swap";
+
   import { friendly } from "./errors";
   // The student's notes: new, search, export. On Study and on You (spec 040 C14).
   import { api } from "./api";
@@ -49,7 +53,7 @@
       <input class="search" type="search" bind:value={query} placeholder="Search notes" aria-label="Search notes" />
       <ul class="notes">
         {#each shown as n (n.key)}
-          <li>
+          <li animate:flip={flow()} in:fade={flow()} out:fade={flow()}>
             <button data-source={n.key} onclick={() => openNote(n.key, noteHeading(n.key, n.title), n.title)}>
               <strong>{noteHeading(n.key, n.title)}</strong>
               <span>{previewOf(n)}</span>
