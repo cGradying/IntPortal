@@ -1,13 +1,14 @@
 //! The platform's keychain: Keychain Services on Apple, values sealed by
-//! an Android Keystore key on Android (`Secrets.kt`). `Ok(None)` only
+//! an Android Keystore key on Android (`Secrets.kt`), the Credential Manager
+//! on Windows and the Secret Service on Linux (spec 053 C2). `Ok(None)` only
 //! when nothing is saved under the name.
 
-#[cfg(any(target_os = "ios", target_os = "macos"))]
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn entry(service: &str, name: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new(service, name).map_err(|e| e.to_string())
 }
 
-#[cfg(any(target_os = "ios", target_os = "macos"))]
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub fn get(service: &str, name: &str) -> Result<Option<String>, String> {
     match entry(service, name)?.get_password() {
         Ok(v) => Ok(Some(v)),
@@ -16,12 +17,12 @@ pub fn get(service: &str, name: &str) -> Result<Option<String>, String> {
     }
 }
 
-#[cfg(any(target_os = "ios", target_os = "macos"))]
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub fn set(service: &str, name: &str, value: &str) -> Result<(), String> {
     entry(service, name)?.set_password(value).map_err(|e| e.to_string())
 }
 
-#[cfg(any(target_os = "ios", target_os = "macos"))]
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub fn delete(service: &str, name: &str) {
     if let Ok(e) = entry(service, name) {
         let _ = e.delete_credential();
@@ -105,14 +106,14 @@ pub fn delete(service: &str, name: &str) {
     let _ = jvm::call("delete", "(Landroid/content/Context;Ljava/lang/String;)V", &[&key(service, name)], |_, _| Ok(()));
 }
 
-// Desktop dev builds keep nothing.
-#[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android")))]
+// Any other system keeps nothing.
+#[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android", target_os = "windows", target_os = "linux")))]
 pub fn get(_: &str, _: &str) -> Result<Option<String>, String> {
     Ok(None)
 }
-#[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android")))]
+#[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android", target_os = "windows", target_os = "linux")))]
 pub fn set(_: &str, _: &str, _: &str) -> Result<(), String> {
     Err("Saving your login isn't supported on this device yet.".into())
 }
-#[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android")))]
+#[cfg(not(any(target_os = "ios", target_os = "macos", target_os = "android", target_os = "windows", target_os = "linux")))]
 pub fn delete(_: &str, _: &str) {}

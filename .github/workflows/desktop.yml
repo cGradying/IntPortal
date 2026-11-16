@@ -1,0 +1,91 @@
+name: Desktop
+# IntPortal for Mac, Windows and Linux (spec 053). Unsigned builds; the
+# website's install help says how to open them. Run by hand, or on a release
+# tag; with `release` set, the files are added to that (draft) release.
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Release tag to add the files to (e.g. android-v0.4.0); empty keeps them as artifacts
+        required: false
+  push:
+    tags: ["android-v*"]
+  pull_request:
+    paths: [".github/workflows/desktop.yml", "src-tauri/src/main.rs"]
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_BUILD_BUILD_DIR: ${{ github.workspace }}/target
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: mac
+            bundles: dmg
+          - os: windows-latest
+            name: windows
+            bundles: msi
+          - os: ubuntu-22.04
+            name: linux
+            bundles: appimage,deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      # llama.cpp comes from a patched git source with deep submodule paths.
+      - name: Long paths on Windows
+        if: matrix.name == 'windows'
+        run: git config --system core.longpaths true
+      - name: Linux libraries
+        if: matrix.name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libdbus-1-dev
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # llama.cpp's Metal code checks the macOS version at run time, which needs
+      # compiler-rt's ___isPlatformVersionAtLeast when the app targets macOS 12.
+      - name: compiler-rt on the Mac
+        if: matrix.name == 'mac'
+        run: echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS=-C link-arg=$(clang --print-resource-dir)/lib/darwin/libclang_rt.osx.a" >> "$GITHUB_ENV"
+      - run: pnpm tauri build --bundles ${{ matrix.bundles }}
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+      - name: Name the files
+        shell: bash
+        run: |
+          v=$(node -p 'require("./src-tauri/tauri.conf.json").version')
+          b=target/release/bundle
+          mkdir -p dist
+          case "${{ matrix.name }}" in
+            mac) f=$(ls $b/dmg/*.dmg); cp "$f" "dist/IntPortal-$v-mac.dmg"; cp "$f" dist/IntPortal-mac.dmg ;;
+            windows) f=$(ls $b/msi/*.msi); cp "$f" "dist/IntPortal-$v-windows.msi"; cp "$f" dist/IntPortal-windows.msi ;;
+            linux)
+              f=$(ls $b/appimage/*.AppImage); cp "$f" "dist/IntPortal-$v-linux.AppImage"; cp "$f" dist/IntPortal-linux.AppImage
+              f=$(ls $b/deb/*.deb); cp "$f" "dist/IntPortal-$v-linux.deb"; cp "$f" dist/IntPortal-linux.deb ;;
+          esac
+          ls -lh dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: intportal-${{ matrix.name }}
+          path: dist/*
+      - name: Add to the release
+        if: inputs.release != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.release }}" dist/* --clobber
+    permissions:
+      contents: write

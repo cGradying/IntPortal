@@ -47,7 +47,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [050-release-0.4](050-release-0.4.md) | shipped | Finish the app for 0.4: guard hardening, deck mastery and forecast, this week in a syllabus, eMabini fixes, stable release files |
 | [051-website](051-website.md) | building | The download website: the right file for each device, install help, privacy, questions |
 | [052-try-in-browser](052-try-in-browser.md) | building | Look around in any browser, on the Rust core compiled to WebAssembly |
-| [053-desktop](053-desktop.md) | approved | Mac, Windows and Linux builds of the same app |
+| [053-desktop](053-desktop.md) | building | Mac, Windows and Linux builds of the same app |
 | [054-reel](054-reel.md) | shipped | A new launch reel made from the app, and its page on the site |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md), [ADR 0005](../adr/0005-portals-are-first-class.md) and [ADR 0006](../adr/0006-one-repo.md).
