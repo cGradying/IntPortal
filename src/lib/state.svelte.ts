@@ -67,6 +67,9 @@ export const app = $state({
   warmUp: read("warmUp") !== "off",
   afterClass: read("afterClass") !== "off",
   brief: read("brief") !== "off",
+  /** The class card on the Lock Screen, Dynamic Island and status bar:
+   *  always, only once you leave the app (the default), or never. */
+  glanceOutside: (["always", "off"].includes(read("glanceOutside") ?? "") ? read("glanceOutside") : "away") as GlanceOutside,
   notes: [] as NoteItem[],
   /** The subject page open, if any. */
   subject: null as null | { code: string; description: string; tab?: "grading" | "outline"; item?: string },
@@ -87,6 +90,8 @@ export const app = $state({
   /** Today's own events, when calendarEvents is on. */
   busy: [] as Busy[],
 });
+
+export type GlanceOutside = "always" | "away" | "off";
 
 function read(key: string): string | null {
   try {
@@ -235,7 +240,20 @@ function pushGlance() {
     end: localMs(n.date, n.session.end),
     online: t.agenda.items.some((i) => i.session.subject_code === n.session.subject_code && i.session.start === n.session.start && i.mark === "online"),
   };
-  invoke("plugin:glance|update", { next, line: t.glance_line }).catch(() => {});
+  const mode = app.glanceOutside;
+  const activity = mode === "always" || (mode === "away" && document.hidden);
+  invoke("plugin:glance|update", { next, line: t.glance_line, activity }).catch(() => {});
+}
+
+export function setGlanceOutside(mode: GlanceOutside) {
+  app.glanceOutside = mode;
+  write("glanceOutside", mode);
+  pushGlance();
+}
+
+// Opening the app takes its card down (in "away"); leaving puts it back.
+export function watchGlance() {
+  document.addEventListener("visibilitychange", pushGlance);
 }
 
 

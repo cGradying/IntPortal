@@ -2,6 +2,12 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## Unreleased
+
+- Class card outside the app: You › Reminders has a new "Class card outside the app" setting: Always, When I leave (the default), or Off. In the default the Lock Screen and Dynamic Island card (the status-bar chip on Android) goes away when you open IntPortal and comes back when you leave it
+- The status dock above the tab bar no longer sits over your lists when there is nothing to count down to
+- README and architecture doc rewritten for 0.3.0, with new screenshots
+
 ## 0.3.0 (2026-11-17)
 
 The first public release on Android.

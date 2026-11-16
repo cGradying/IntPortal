@@ -1,6 +1,6 @@
 # IntPortal
 
-[![Version](https://img.shields.io/badge/version-0.2.0-c8102e)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-c8102e)](CHANGELOG.md)
 [![CI](https://github.com/cGradying/intportal-app/actions/workflows/ci.yml/badge.svg)](https://github.com/cGradying/intportal-app/actions/workflows/ci.yml)
 [![iOS build](https://github.com/cGradying/intportal-app/actions/workflows/ios.yml/badge.svg)](https://github.com/cGradying/intportal-app/actions/workflows/ios.yml)
 [![Android build](https://github.com/cGradying/intportal-app/actions/workflows/android.yml/badge.svg)](https://github.com/cGradying/intportal-app/actions/workflows/android.yml)
@@ -24,31 +24,26 @@ It needs Android 7 or newer on a 64-bit phone. Updates install over the old vers
 Every feature, tab by tab, is in [docs/FEATURES.md](docs/FEATURES.md); what changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 <p>
-  <img src="docs/images/ios-landing.png" width="180" alt="The welcome on iPhone: the PUP portal, a tour of what is inside, and Sign in with SIS">
-  <img src="docs/images/ios-today.png" width="180" alt="Today on iPhone: the class in session and the deadlines with their Done buttons">
-  <img src="docs/images/ios-schedule.png" width="180" alt="The day schedule on iPhone, with free time between classes">
-  <img src="docs/images/ios-grades.png" width="180" alt="Grades on iPhone: the term GPA, a personal best and the trend across terms">
-</p>
-<p>
-  <img src="docs/images/android-landing.png" width="180" alt="The welcome on Android">
-  <img src="docs/images/android-today.png" width="180" alt="Today on Android in the light theme, with the Due card">
-  <img src="docs/images/android-week.png" width="180" alt="The week on Android, with the time line">
-  <img src="docs/images/android-live-update.png" width="180" alt="The next class as a Live Update on Android">
+  <img src="docs/images/talk.png" width="150" alt="LAR asking what to call you, before the sign-in form">
+  <img src="docs/images/landing.png" width="150" alt="The PUP portal on the night ground, and Sign in with SIS">
+  <img src="docs/images/today.png" width="150" alt="Today: the class in session over the campus scene, and the deadlines with their Done buttons">
+  <img src="docs/images/schedule.png" width="150" alt="The day schedule, with free time between classes">
+  <img src="docs/images/grades.png" width="150" alt="Grades: the term GPA and the trend across terms">
 </p>
 
 ## What it does
 
-- **A welcome you can touch.** Before any form, the landing shows what the app holds: open the portal's peek on Today, Schedule, Grades or Study, have LAR explain what the app does, and try six looks that stay after you sign in. **Look around first** opens the whole app on sample data, with no PUP account.
+- **Meet LAR.** Before any form, a new student talks with LAR: your name, your campus, what you need most, then the app shown inside the chat (a class countdown you scrub, a deadline you tick, a card you flip, a "No signal" switch), a look and reminders. The portal opens for sign-in after. **Look around first** opens the whole app on sample data, with no PUP account.
 - **Portals.** SIS and Mabini (PUP's eMabini learning system) work now. Each has its own login, limits and colours; you can use one or both. The portal wall lists every PUP school, and a status chip says whether the SIS is answering without sending your login.
-- **Today.** Up next with a countdown, today's classes with the free time between them, your GPA at a glance, one Due card for SIS, eMabini and your own deadlines (Done with Undo), and one nudge from LAR.
+- **Today.** The class in session drawn as your own campus at the real hour (a shader scene for each PUP campus, and a tinted one for other schools), then Due; then your classes and the free time between them, LAR's nudge and your GPA below. Up next with a countdown, today's classes with the free time between them, your GPA at a glance, one Due card for SIS, eMabini and your own deadlines (Done with Undo), and one nudge from LAR.
 - **Schedule.** Day and week views. Long-press a class to mark it vacant or online, move it for a week, colour it, or add a note.
 - **Grades.** Every term with a real GPA, a trend across terms, an All passed pill, goals, and what you need on the rest to reach a target.
 - **Study.** Flashcard decks scheduled by FSRS, with three ways to study, each rating showing when the card comes back, a recap after each round, review across every deck, and a daily streak.
 - **Syllabus and notes.** Paste a course outline to track quizzes and exams. Notes are formatted Markdown with templates, checklists, photos and notebooks per subject, kept per class or per day.
 - **Mabini.** Your eMabini courses, the deadlines from every course on Today, and course grades next to the SIS ones.
-- **IntAssis (optional).** LAR answers questions about your classes, grades, deadlines and notes with a small model that runs on the phone, and says which notes an answer came from. Ask AI inside a note summarizes, tidies or explains it; it can also make flashcards from a note and explain a wrong answer. You download the model only if you choose "With AI" at first run. Nothing it suggests changes until you confirm.
+- **IntAssis (optional).** LAR answers questions about your classes, grades, deadlines and notes with a small model that runs on the phone, and says which notes an answer came from. Ask AI inside a note summarizes, tidies or explains it; it can also make flashcards from a note and explain a wrong answer. You download the model only if you choose "With AI" at first run. Nothing it suggests changes until you confirm. A photo scanned into a new deadline is tidied on the phone, and by LAR when the AI is on.
 - **Reminders.** Before each class, the evening before deadlines, and on study days.
-- **On the phone itself.** A Live Activity for the next class on Dynamic Island iPhones; on Android, which has no Dynamic Island, a Live Update counting down in the status bar. A home-screen widget on both. An IntPortal calendar in the phone's calendar holds your classes, and your own events show on Today and Schedule as busy time.
+- **On the phone itself.** A Live Activity for the next class on Dynamic Island iPhones; on Android, which has no Dynamic Island, a Live Update counting down in the status bar. You choose whether it shows always, only after you leave the app, or never. A home-screen widget on both. An IntPortal calendar in the phone's calendar holds your classes, and your own events show on Today and Schedule as busy time.
 - **Sign-in guard.** One sign-in per tap, at most three tries in 15 minutes per portal, and no automatic retry after a rejected password, so the app can't get your PUP account locked.
 - **Privacy.** Everything stays on the phone, including the AI. Your SIS login is in the keychain (the Android Keystore on Android). Each student's data is its own SQLCipher-encrypted file, with its key in the keychain. A Face ID or fingerprint app lock is optional.
 
@@ -70,8 +65,8 @@ src-tauri/               Tauri shell: commands (src-tauri/src/commands), keychai
 src-tauri/gen/apple/     Xcode project, generated from project.yml by XcodeGen
 src-tauri/gen/android/   Gradle project, from tauri android init (see docs/android.md)
 plugins/                 Local Tauri plugins with Swift and Kotlin sources
-src/                     Svelte interface (screens in src/lib/screens)
-scripts/                 sim.sh, phone.sh, emu.sh, worktree.sh, version.sh, disk.sh, clean.sh, tiles.sh, and the three CI checks
+src/                     Svelte interface: screens in src/lib/screens, LAR's welcome in src/lib/welcome, campus art in src/lib/campus
+scripts/                 sim.sh, phone.sh, emu.sh, worktree.sh, version.sh, disk.sh, clean.sh, tiles.sh, readme-shots.mjs, campus-sheet.mjs, and the three CI checks
 spikes/                  Throwaway experiments (SIS over HTTP, llama.cpp)
 docs/ARCHITECTURE.md     Layers, flows, owners and invariants: start here
 docs/TEAM.md             Roles, the issue-to-merge loop, kickoff prompts

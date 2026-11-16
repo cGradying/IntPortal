@@ -43,3 +43,12 @@ describe("ago", () => {
     expect(ago(String(now / 1000 - 3 * 3600), now)).toBe("3 h ago");
   });
 });
+
+describe("glanceView idle", () => {
+  it("keeps the dock away when there is nothing to count down to", () => {
+    expect(glanceView({ kind: "day_done" }, "No more classes today", false, false, false).idle).toBe(true);
+    expect(glanceView(undefined, undefined, false, false, false).idle).toBe(true);
+    expect(glanceView({ kind: "next_today", code: "X", when: "in 5m" }, "X · in 5m", false, false, false).idle).toBeUndefined();
+    expect(glanceView({ kind: "day_done" }, "", false, false, true).idle).toBe(false);
+  });
+});
