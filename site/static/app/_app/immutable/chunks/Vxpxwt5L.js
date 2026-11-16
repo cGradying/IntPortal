@@ -1,0 +1,1 @@
+import{c as e,l as t,n,o as r,r as i,t as a}from"./DyRaiwiB.js";var o={id:`taguig`,label:`PUP Taguig`,road:71,palette:{...a,hillFar:{c:`#4c6f6a`,k:.35,far:.6}},draw(a){r(a,`hillFar`,[0,50,50,47,110,50,192,46],58),n(a,4,64,58,4,`flat`),n(a,114,64,72,3,`gable`);for(let[e,n,r]of[[64,7,11],[104,8,12],[184,7,10]])t(a,e,64,n,r);i(a,88,64,`PUP TAGUIG`),e(a)}};export{o as default};
