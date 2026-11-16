@@ -19,6 +19,7 @@ A change that contradicts an approved spec changes the spec first, in the same P
 - `020-029` IntAssis (on-device AI).
 - `030-039` Features from the macOS app, wave by wave.
 - `040-049` everyday UX: deadlines, trust and speed, the day plan.
+- `050-059` the release: finishing the app, the website, the browser demo, desktop, the reel.
 - Later ranges follow the app's areas as they get specs.
 
 Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumbered once approved; a dropped criterion is marked *removed*.
@@ -42,8 +43,15 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [047-you-and-themes](047-you-and-themes.md) | shipped | You on one screen, search, new settings, backup, custom themes shared by code and QR |
 | [048-lar-chat](048-lar-chat.md) | shipped | LAR's chat, round four: the cube pours into it, the sky header, his real steps as a pixel trace, suggestions that follow the day |
 | [049-intro](049-intro.md) | shipped | A talk with LAR before sign-in: your name, campus and what matters, live cards, a look and reminders |
+| [050-release-0.4](050-release-0.4.md) | approved | Finish the app for 0.4: guard hardening, deck mastery and forecast, this week in a syllabus, eMabini fixes, stable release files |
+| [051-website](051-website.md) | approved | The download website: the right file for each device, install help, privacy, questions |
+| [052-try-in-browser](052-try-in-browser.md) | approved | Look around in any browser, on the Rust core compiled to WebAssembly |
+| [053-desktop](053-desktop.md) | approved | Mac, Windows and Linux builds of the same app |
+| [054-reel](054-reel.md) | approved | A new launch reel made from the app, and its page on the site |
 
-Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md) and [ADR 0005](../adr/0005-portals-are-first-class.md).
+Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md), [ADR 0005](../adr/0005-portals-are-first-class.md) and [ADR 0006](../adr/0006-one-repo.md).
+
+The release plan for 0.4, the website and the reel is [PLAN-release-0.4.md](PLAN-release-0.4.md).
 
 ## Reference material
 
