@@ -31,7 +31,17 @@ try {
   await page.evaluate(() => window.banner());
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${out}/banner.png`, clip: { x: 0, y: 0, width: 1600, height: 500 } });
-  console.log("banner");
+  console.log("banner.png");
+
+  // The animated banner: the jeepney crosses while the stars and windows twinkle.
+  const ban = mkdtempSync(join(tmpdir(), "banner-"));
+  const N = 80;
+  for (let i = 0; i < N; i++) {
+    await page.evaluate((ms) => window.banner(ms), Number(process.env.BANNER_FROM ?? 300) + i * 100);
+    writeFileSync(join(ban, `f${String(i).padStart(3, "0")}.png`), await page.screenshot({ clip: { x: 0, y: 0, width: 1600, height: 500 } }));
+  }
+  gif(ban, N, 10, 800, `${out}/banner.gif`);
+  console.log("banner.gif");
 
   // One day: 24 h in 72 frames, the jeepney crossing the street meanwhile.
   const day = mkdtempSync(join(tmpdir(), "day-"));
