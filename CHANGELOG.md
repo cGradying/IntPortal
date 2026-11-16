@@ -2,6 +2,22 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## 0.3.0 (2026-11-17)
+
+The first public release on Android.
+
+- Meet LAR: before the portal, a new student talks with LAR on a page of his own. He asks what to call you, your campus and what you need most, shows how the app works inside the conversation (a class countdown you scrub, a deadline you tick, a study card you flip, a "No signal" switch), lets you pick a look and reminders, then flies back into the portal, which opens for sign-in (#295)
+- Motion: one shared set of animation helpers and timings for the whole app. Tabs slide in the direction you move and keep their scroll; sheets rise with a slight settle and close when you drag their grab bar down; the tab block glides; a pressed button can no longer stay stuck on iOS; pull to sync resists (#294)
+- Each screen's one moment: Today's countdown steps to its new value, the progress bar glides and a class that starts gets one gold sweep; Schedule's day slides in from the side you tapped; Grades draws its trend once per new term data; study cards flip in 3D and the next one slides in; lists move instead of jumping (#293)
+- Scan: a scanned photo's text is tidied on the phone at once (line wraps joined, split words rejoined, page numbers dropped, codes and dates kept exact). With IntAssis on, LAR then fixes the OCR mistakes, "Tidied by LAR · Show original", and his version is refused if it changes any number, code or date (#297)
+- Public: a privacy policy (PRIVACY.md), an Android install guide in the README, and You shows the version, that the app is unofficial, and links to Privacy, Updates and Report a problem (#296)
+
+Known gaps:
+
+- iPhone: no App Store or TestFlight build (needs a paid Apple developer account); build it yourself with the README steps
+- Android without Google Play services can't download the scanner; typing and pasting still work
+- Not yet felt on many phones: motion at 60 fps on low-end Android (#231), all-day deadlines in Android's calendar (#205)
+
 ## 0.2.1 (2026-11-16)
 
 From the owner's phone QA of 0.2.0.
