@@ -47,7 +47,7 @@ describe("motion vocabulary (spec 045 C29-C33)", () => {
       last = y;
     }
     expect(bezier("nonsense")(0.4)).toBe(0.4);
-    const s = bezier("cubic-bezier(0.32, 1.35, 0.5, 1)");
+    const s = bezier("cubic-bezier(0.32, 1.2, 0.5, 1)");
     const peak = Math.max(...Array.from({ length: 100 }, (_, i) => s((i + 1) / 100)));
     expect(peak).toBeGreaterThan(1.01); // a hair of overshoot
     expect(peak).toBeLessThan(1.06); // never a bounce

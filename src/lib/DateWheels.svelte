@@ -64,8 +64,8 @@
 </script>
 
 <svelte:window onkeydown={(e) => e.key === "Escape" && onclose()} />
-<button class="scrim" aria-label="Close" onclick={onclose} transition:scrim|global></button>
-<div class="sheet" use:dismiss={onclose} transition:rises|global role="dialog" aria-modal="true" aria-label="Birthdate">
+<button class="scrim" aria-label="Close" onclick={onclose} in:scrim|global out:scrim|global></button>
+<div class="sheet" use:dismiss={onclose} in:rises|global out:rises|global role="dialog" aria-modal="true" aria-label="Birthdate">
   <header>
     <b>Birthdate</b>
     <button class="done" bind:this={doneBtn} onclick={() => ondone(iso)}>Done</button>

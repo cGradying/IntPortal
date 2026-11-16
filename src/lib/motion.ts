@@ -73,7 +73,7 @@ export function pin(node: HTMLElement) {
 
 /** The third argument Svelte gives a `transition:` function: which way it is playing. */
 type Ctx = { direction: "in" | "out" | "both" };
-const isIn = (c?: Ctx) => c?.direction !== "out";
+const isIn = (c?: Ctx) => c?.direction !== "out"; // `transition:` reports "both", so the sheets use `in:` and `out:`
 
 const cfg = (m: Move, easing: (t: number) => number, fade = true): TransitionConfig => ({
   duration: m.ms,
@@ -85,7 +85,8 @@ const cfg = (m: Move, easing: (t: number) => number, fade = true): TransitionCon
 export function shared(node: HTMLElement, o: { dir: Dir; enter: boolean; off?: boolean }): TransitionConfig {
   const t = tokens();
   if (!o.enter) pin(node);
-  return cfg(pageMove(o.dir, o.enter, o.off ?? reduced(), t), o.enter ? t.ease : t.easeIn);
+  // Both legs decelerate: the old page is mostly gone by the time the new one is clearly there.
+  return { ...cfg(pageMove(o.dir, o.enter, o.off ?? reduced(), t), t.ease), delay: o.enter ? 40 : 0 };
 }
 
 /** A bottom sheet: slides up from below its own height with a hair of overshoot, back down faster. */
@@ -174,7 +175,7 @@ export function dismiss(node: HTMLElement, done: () => void) {
     if (dismissed(dy, v) && reduced()) return void ((node.dataset.gone = "1"), finish());
     const go = dismissed(dy, v);
     const rest = go ? innerHeight - node.getBoundingClientRect().top + 24 : 0;
-    const a = node.animate({ translate: [`0 ${dy}px`, `0 ${rest}px`] }, { duration: go ? t.exit : t.move, easing: go ? "cubic-bezier(0.5, 0, 0.75, 0)" : "cubic-bezier(0.32, 1.35, 0.5, 1)", fill: "forwards" });
+    const a = node.animate({ translate: [`0 ${dy}px`, `0 ${rest}px`] }, { duration: go ? t.exit : t.move, easing: go ? "cubic-bezier(0.5, 0, 0.75, 0)" : "cubic-bezier(0.32, 1.2, 0.5, 1)", fill: "forwards" });
     const end = () => {
       if (dismissed(dy, v)) {
         node.dataset.gone = "1";

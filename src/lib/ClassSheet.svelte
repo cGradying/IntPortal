@@ -108,8 +108,8 @@
 </script>
 
 
-<div class="scrim" role="presentation" onclick={close} transition:scrim|global></div>
-<div class="sheet notch" bind:this={sheet} use:dismiss={dragged} transition:rises|global={{ skip: !!from }} role="dialog" aria-label="Edit {s.subject_code}">
+<div class="scrim" role="presentation" onclick={close} in:scrim|global out:scrim|global></div>
+<div class="sheet notch" bind:this={sheet} use:dismiss={dragged} in:rises|global={{ skip: !!from }} out:rises|global={{ skip: !!from }} role="dialog" aria-label="Edit {s.subject_code}">
   <p class="label data">{s.subject_code} · {s.day.slice(0, 3)} {clock(s.start)}–{clock(s.end)}</p>
   {#if moving}
     <h2>Change its time</h2>
