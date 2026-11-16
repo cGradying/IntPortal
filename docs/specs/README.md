@@ -44,7 +44,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [048-lar-chat](048-lar-chat.md) | shipped | LAR's chat, round four: the cube pours into it, the sky header, his real steps as a pixel trace, suggestions that follow the day |
 | [049-intro](049-intro.md) | shipped | A talk with LAR before sign-in: your name, campus and what matters, live cards, a look and reminders |
 | [050-release-0.4](050-release-0.4.md) | building | Finish the app for 0.4: guard hardening, deck mastery and forecast, this week in a syllabus, eMabini fixes, stable release files |
-| [051-website](051-website.md) | approved | The download website: the right file for each device, install help, privacy, questions |
+| [051-website](051-website.md) | building | The download website: the right file for each device, install help, privacy, questions |
 | [052-try-in-browser](052-try-in-browser.md) | approved | Look around in any browser, on the Rust core compiled to WebAssembly |
 | [053-desktop](053-desktop.md) | approved | Mac, Windows and Linux builds of the same app |
 | [054-reel](054-reel.md) | approved | A new launch reel made from the app, and its page on the site |

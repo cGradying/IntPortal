@@ -10,6 +10,8 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [sveltekit()],
+  // The website (site/) runs its own tests with its own config.
+  test: { include: ["src/**/*.test.ts"] },
   // Review builds (tauri --debug) show the demo-data entry on sign-in.
   define: { __APP_VERSION__: JSON.stringify(version), __REVIEW__: JSON.stringify(process.env.TAURI_ENV_DEBUG === "true" || process.env.NODE_ENV !== "production") },
 
