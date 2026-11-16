@@ -1,0 +1,48 @@
+name: Site
+on:
+  pull_request:
+    paths: ["site/**", "src/lib/**", "PRIVACY.md", "pnpm-lock.yaml", ".github/workflows/site.yml"]
+  push:
+    branches: [main]
+    paths: ["site/**", "src/lib/**", "PRIVACY.md"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Publish to GitHub Pages
+        type: boolean
+        default: false
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: site
+        run: pnpm check && pnpm test && pnpm build && node scripts/check-build.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/build
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - id: pages
+        uses: actions/deploy-pages@v4

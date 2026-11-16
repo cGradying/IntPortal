@@ -1,0 +1,62 @@
+[
+ {
+  "tag_name": "android-v0.2.0-rc.1",
+  "name": "IntPortal for Android 0.2.0 RC 1",
+  "draft": false,
+  "prerelease": true,
+  "published_at": "2026-11-15T08:07:30Z",
+  "html_url": "https://github.com/cGradying/intportal-app/releases/tag/android-v0.2.0-rc.1",
+  "assets": [
+   {
+    "name": "IntPortal-0.2.0.aab",
+    "size": 37281291,
+    "browser_download_url": "https://github.com/cGradying/intportal-app/releases/download/android-v0.2.0-rc.1/IntPortal-0.2.0.aab"
+   },
+   {
+    "name": "IntPortal-0.2.0.apk",
+    "size": 69736008,
+    "browser_download_url": "https://github.com/cGradying/intportal-app/releases/download/android-v0.2.0-rc.1/IntPortal-0.2.0.apk"
+   }
+  ]
+ },
+ {
+  "tag_name": "android-v0.1.9-beta.1",
+  "name": "IntPortal for Android 0.1.9 beta 1",
+  "draft": false,
+  "prerelease": true,
+  "published_at": "2026-11-14T02:28:27Z",
+  "html_url": "https://github.com/cGradying/intportal-app/releases/tag/android-v0.1.9-beta.1",
+  "assets": [
+   {
+    "name": "IntPortal-0.1.9.aab",
+    "size": 37119568,
+    "browser_download_url": "https://github.com/cGradying/intportal-app/releases/download/android-v0.1.9-beta.1/IntPortal-0.1.9.aab"
+   },
+   {
+    "name": "IntPortal-0.1.9.apk",
+    "size": 69227988,
+    "browser_download_url": "https://github.com/cGradying/intportal-app/releases/download/android-v0.1.9-beta.1/IntPortal-0.1.9.apk"
+   }
+  ]
+ },
+ {
+  "tag_name": "android-v0.1.10-beta.1",
+  "name": "IntPortal for Android 0.1.10 beta 1",
+  "draft": false,
+  "prerelease": true,
+  "published_at": "2026-11-14T06:11:40Z",
+  "html_url": "https://github.com/cGradying/intportal-app/releases/tag/android-v0.1.10-beta.1",
+  "assets": [
+   {
+    "name": "IntPortal-0.1.10.aab",
+    "size": 37105815,
+    "browser_download_url": "https://github.com/cGradying/intportal-app/releases/download/android-v0.1.10-beta.1/IntPortal-0.1.10.aab"
+   },
+   {
+    "name": "IntPortal-0.1.10.apk",
+    "size": 69227988,
+    "browser_download_url": "https://github.com/cGradying/intportal-app/releases/download/android-v0.1.10-beta.1/IntPortal-0.1.10.apk"
+   }
+  ]
+ }
+]
