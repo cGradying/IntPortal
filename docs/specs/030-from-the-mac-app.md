@@ -1,6 +1,6 @@
 # 030 From the Mac app
 
-**Status:** approved (2026-11-05); wave 1 built (2026-11-14)
+**Status:** shipped for wave 1 (C1 to C5, 2026-11-14). C6 to C14 moved to 041 and 046. Later waves are listed under Parity and get their own specs.
 
 ## What changes for the student
 
