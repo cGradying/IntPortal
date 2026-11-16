@@ -4,7 +4,7 @@
   // text size, so it stays crisp. Anything without a glyph stays plain text.
   import { drawable, pixels } from "./pixelNum";
 
-  import { still } from "./swap";
+  import { reduced as still } from "./motion";
 
   // `roll`: when the text changes, the new numeral steps down into place, three art pixels
   // at a time. Only for a number that changes now and then (a countdown), never on first

@@ -1,4 +1,4 @@
-// The motion vocabulary (spec 045 C29-C33): a few named moves built on the tokens in app.css.
+// The motion vocabulary (spec 045 C30-C36): a few named moves built on the tokens in app.css.
 // Pages, sheets, scrims and rises are Svelte transitions; `dismiss` is a drag-down action;
 // `rubber` is the pull curve. Every one reads Reduce Motion live and falls back to a fade.
 import type { TransitionConfig } from "svelte/transition";
@@ -34,7 +34,7 @@ export function bezier(css: string, fallback: (t: number) => number = (t) => t):
   };
 }
 
-type Tokens = { quick: number; move: number; flow: number; exit: number; shift: number; ease: (t: number) => number; easeIn: (t: number) => number; easeSheet: (t: number) => number };
+type Tokens = { quick: number; move: number; flow: number; exit: number; shift: number; easeCss: string; ease: (t: number) => number; easeIn: (t: number) => number; easeSheet: (t: number) => number };
 let read: Tokens | undefined;
 /** The tokens from :root, read once. Outside a browser (tests) the defaults in app.css apply. */
 export function tokens(): Tokens {
@@ -46,6 +46,7 @@ export function tokens(): Tokens {
     flow: ms(v("--t-flow"), 360),
     exit: ms(v("--t-exit"), 200),
     shift: parseFloat(v("--shift")) || 12,
+    easeCss: v("--ease").trim() || "cubic-bezier(0.22, 1, 0.36, 1)",
     ease: bezier(v("--ease")),
     easeIn: bezier(v("--ease-in")),
     easeSheet: bezier(v("--ease-sheet")),
@@ -57,11 +58,11 @@ export const reduced = () => typeof matchMedia === "function" && matchMedia("(pr
 
 /** What a move is: how far it travels, how long it takes. Reduce Motion keeps the fade and drops the travel. */
 export type Move = { x: number; y: number; ms: number };
-export const still = (m: Move, quick: number, off: boolean): Move => (off ? { x: 0, y: 0, ms: Math.min(m.ms, quick) } : m);
+export const calm = (m: Move, quick: number, off: boolean): Move => (off ? { x: 0, y: 0, ms: Math.min(m.ms, quick) } : m);
 
 /** A page changing tab: it leaves toward -dir and the next one arrives from +dir. */
 export function pageMove(dir: Dir, enter: boolean, off: boolean, t = tokens()): Move {
-  return still({ x: (enter ? dir : -dir) * t.shift, y: 0, ms: enter ? t.move : t.exit }, t.quick, off);
+  return calm({ x: (enter ? dir : -dir) * t.shift, y: 0, ms: enter ? t.move : t.exit }, t.quick, off);
 }
 
 /** Takes a leaving element out of the flow where it stands, so what replaces it never waits for it. */
@@ -97,7 +98,7 @@ export function sheet(node: HTMLElement, o: { off?: boolean; skip?: boolean } = 
   if (o.skip || node.dataset.gone) return { duration: 0 };
   const off = o.off ?? reduced();
   const y = innerHeight - node.getBoundingClientRect().top;
-  const m = still({ x: 0, y, ms: enter ? t.flow : t.exit }, t.quick, off);
+  const m = calm({ x: 0, y, ms: enter ? t.flow : t.exit }, t.quick, off);
   return { ...cfg(m, enter ? t.easeSheet : t.easeIn, off), duration: m.ms };
 }
 
@@ -111,14 +112,14 @@ export function scrim(_: HTMLElement, o: { skip?: boolean } = {}, c?: Ctx): Tran
 export function overlay(_: HTMLElement, o: { off?: boolean } = {}, c?: Ctx): TransitionConfig {
   const t = tokens();
   const enter = isIn(c);
-  const m = still({ x: 0, y: enter ? 24 : 16, ms: enter ? t.flow : t.exit }, t.quick, o.off ?? reduced());
+  const m = calm({ x: 0, y: enter ? 24 : 16, ms: enter ? t.flow : t.exit }, t.quick, o.off ?? reduced());
   return cfg(m, enter ? t.ease : t.easeIn);
 }
 
 /** Content that arrives once: fades up a little. */
 export function rise(_: HTMLElement, o: { delay?: number; y?: number } = {}): TransitionConfig {
   const t = tokens();
-  const m = still({ x: 0, y: o.y ?? 8, ms: t.move }, t.quick, reduced());
+  const m = calm({ x: 0, y: o.y ?? 8, ms: t.move }, t.quick, reduced());
   return { ...cfg(m, t.ease), delay: o.delay ?? 0 };
 }
 
@@ -199,4 +200,43 @@ export function dismiss(node: HTMLElement, done: () => void) {
       grip.remove();
     },
   };
+}
+
+/** Which side new content arrives from: +1 from the right (going on), -1 from the left. */
+export const direction = (from: number, to: number): -1 | 0 | 1 => Math.sign(to - from) as -1 | 0 | 1;
+
+/** True when `sig` is not what was last played, so a one-time moment should play. */
+export const isNew = (stored: string | null, sig: string) => stored !== sig;
+
+/** Svelte transition and flip params for a list that gains, loses or reorders rows. */
+export const flow = () => ({ duration: reduced() ? 0 : tokens().exit, easing: tokens().ease });
+
+/** `use:slideOnChange={index}`: when the index changes the element slides in from that side. Never on first paint. */
+export function slideOnChange(el: HTMLElement, index: number) {
+  let last = index;
+  return {
+    update(next: number) {
+      const dir = direction(last, next);
+      last = next;
+      if (!dir || reduced()) return;
+      const t = tokens();
+      el.animate([{ translate: `${dir * t.shift * 2}px 0`, opacity: 0 }, { translate: "0 0", opacity: 1 }], { duration: t.move, easing: t.easeCss });
+    },
+  };
+}
+
+/** `use:playOnce={{ key, sig, play }}`: runs `play(el)` when `sig` differs from what this device last saw under `key`. */
+export function playOnce(el: HTMLElement | SVGElement, p: { key: string; sig: string; play: (el: Element) => void }) {
+  const run = (q: typeof p) => {
+    let seen: string | null = null;
+    try {
+      seen = localStorage.getItem(q.key);
+      localStorage.setItem(q.key, q.sig);
+    } catch {
+      // Storage off: it plays each time. Harmless.
+    }
+    if (isNew(seen, q.sig) && !reduced()) q.play(el);
+  };
+  run(p);
+  return { update: run };
 }

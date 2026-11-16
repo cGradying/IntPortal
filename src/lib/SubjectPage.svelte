@@ -1,7 +1,7 @@
 <script lang="ts">
   import { flip } from "svelte/animate";
   import { fade } from "svelte/transition";
-  import { flow } from "./swap";
+  import { flow } from "./motion";
 
   import { friendly } from "./errors";
   // One subject's syllabus: its grading system with the running arithmetic,
