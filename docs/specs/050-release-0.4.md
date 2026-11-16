@@ -1,6 +1,6 @@
 # 050 Release 0.4: finish the app
 
-**Status:** approved (planned by the Head on the owner's request of 2026-11-17)
+**Status:** building
 
 ## What changes for the student
 
@@ -23,24 +23,24 @@ The open issues that are still wanted for a public release: #129, #130, #131, #2
 - **C1.** The guard reads its numbers from the portal (`portal::Portal.limits`). The constants in `sis/guard.rs` are gone.
 - **C2.** A ledger file that can't be read or parsed counts as "no tries left" until a full window passes from the moment it was found broken. It never counts as a fresh ledger.
 - **C3.** The ledger is written atomically (a temporary file, then a rename). A failed write is returned as an error, not dropped.
-- **C4.** The rejected mark clears only when the saved login is edited, not on any manual tap.
+- **C4.** The rejected mark clears only through the sign-in form, which never refills the password, so a cleared mark always means a retyped login. Sync, launch and the minute ticker never clear it. *Already true on main; nothing changed.*
 - **C5.** The rejection text comes from the portal: SIS mentions the birthdate, eMabini does not.
 
 ### eMabini (#130)
 
 - **C6.** A link from portal data (a course, a deadline) opens only if it is https and on `emabini.pup.edu.ph` or a SIS host. A link the student typed keeps the https-only rule.
-- **C7.** A rejected eMabini login can be edited from You, without signing out first.
-- **C8.** Test data uses the placeholder student number pattern `2024-00000-MN-0`.
+- **C7.** A rejected eMabini login can be edited from You, without signing out first. *Already true on main (You › Accounts shows the prefilled eMabini form).*
+- **C8.** Test data uses the placeholder student number pattern `2024-00000-MN-0`. *Already true on main.*
 
 ### Study (#267)
 
 - **C9.** A deck's mastery is the share of its cards with at least 2 reviews and a stability of at least 7 days. A new deck reads 0%.
 - **C10.** A deck's 7-day forecast counts the cards due on each of the next 7 local days; overdue cards count toward today.
-- **C11.** The deck row and the Cards page show mastery as a percentage and the forecast as seven small pixel bars beside the due pixels. Nothing there is removed.
+- **C11.** The deck row in Decks shows mastery as a percentage under the deck's name and the forecast as seven small pixel bars beside the due count. Nothing there is removed.
 
 ### Syllabus (#269, first half)
 
-- **C12.** In a subject's syllabus, the row for the current week is marked with the gold token and has "This week" read out by screen readers.
+- **C12.** In a subject's syllabus, the rows dated in the current Monday-to-Sunday week carry a gold edge and a gold "This week" label. Rows with only a week number aren't marked: the app doesn't know the term's first day.
 
 ### The due adder (#241)
 
@@ -91,14 +91,13 @@ The forecast is read out as one sentence (Copy). Mastery is text, not colour alo
 
 | Criterion | Check |
 |---|---|
-| C1 to C5 | `cargo test -p intportal-core guard` |
+| C1 to C5 | `cargo test -p intportal-core guard` (`c1_`, `c2_`, `c3_`, `c5_`) |
 | C6 | `vitest openLink` |
-| C7 | screenshot on the simulator |
-| C8 | `vitest portals` |
+| C7, C8 | already on main |
 | C9, C10 | `cargo test -p intportal-core study::mastery`, `study::forecast` |
-| C11, C12 | `vitest` on the row helpers, screenshot |
-| C13, C14 | `cargo test -p intportal-core parse_own`, `vitest addDue` |
-| C15 | `vitest` on the link constant |
+| C11, C12 | `vitest shelf`, `vitest thisWeek`, screenshot |
+| C13, C14 | `cargo test -p intportal-core c13_guess_subject_from_letters`, `vitest addDue` |
+| C15 | `vitest links` |
 | C16, C17 | the workflow run on a tag |
 | C18, C19 | review |
 
