@@ -17,6 +17,7 @@ pub mod pdf;
 pub mod persona;
 pub mod prompt;
 pub mod rag;
+pub mod scan;
 pub mod scope;
 pub mod reply;
 pub mod schema;

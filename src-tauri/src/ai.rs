@@ -11,7 +11,7 @@ use intportal_ai::{
     note::{self, Mode},
     outline, pdf,
     prompt::Template,
-    rag, why,
+    rag, scan, why,
 };
 use intportal_core::{
     deadline,
@@ -671,6 +671,14 @@ pub async fn ai_cards(ai: tauri::State<'_, AiState>, text: String, want: usize) 
         Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back }).collect(), stopped: o.stopped })
     })
     .await
+}
+
+/// A scan's text, tidied by the loaded model (spec 041 C19, spec 020 C15). Never fails the scan:
+/// a busy or missing model, a slow phone or a bad answer gives the text back as it came.
+#[tauri::command]
+pub async fn clean_scan_ai(ai: tauri::State<'_, AiState>, text: String) -> Res<String> {
+    let kept = text.clone();
+    Ok(with_model(&ai, move |llm, tpl| Ok(scan::tidy(llm, tpl, &text, std::time::Duration::from_secs(40)))).await.unwrap_or(kept))
 }
 
 /// A PDF's text. The bytes arrive as the raw request body (`invoke(cmd, bytes)`).

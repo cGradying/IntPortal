@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { cancel, isPermissionGranted, pending as devicePending, requestPermission } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
+import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -605,6 +605,34 @@ describe("Why?", () => {
     expect(ran("ai_why")[0][1]).toEqual({ front: "Root?", back: "Top", typed: "bottom", note: "root is min" });
     await explain("Root?", "Top", "bottom", null);
     expect(ran("ai_why")[1][1].note).toBeNull();
+  });
+});
+
+describe("tidying a scan (spec 041 C19)", () => {
+  it("asks the model only when IntAssis is installed, and says nothing when it is not", async () => {
+    backend.clean_scan_ai = () => "Tidy text.";
+    assis.models = [chat({ installed: false })];
+    expect(await tidyScan("Tidy  text.")).toBeNull();
+    expect(ran("clean_scan_ai")).toHaveLength(0);
+    assis.models = [chat()];
+    expect(await tidyScan("Tidy  text.")).toBe("Tidy text.");
+    expect(ran("clean_scan_ai")[0][1]).toEqual({ text: "Tidy  text." });
+    expect(assis.busy).toBe("");
+  });
+
+  it("gives null for no change, a failure, a failed wake, or a busy model, and never throws", async () => {
+    backend.clean_scan_ai = () => "Same.";
+    expect(await tidyScan("Same.")).toBeNull();
+    backend.clean_scan_ai = () => Promise.reject("IntAssis is busy");
+    expect(await tidyScan("x")).toBeNull();
+    expect(assis.busy).toBe("");
+    assis.models = [chat({ loaded: false })];
+    backend.ai_load = () => Promise.reject("no memory");
+    expect(await tidyScan("x")).toBeNull();
+    expect(assis.error).toBe("");
+    assis.models = [chat()];
+    assis.busy = "thinking";
+    expect(await tidyScan("x")).toBeNull();
   });
 });
 
