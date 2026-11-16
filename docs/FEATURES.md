@@ -80,7 +80,7 @@ LAR, the Lakbay-Aral Robot, answers with a small model that runs on your phone. 
 
 - **Class reminders** before each class, at the time you choose.
 - **Deadline reminders** the evening before a syllabus deadline, and **study reminders** on days cards are due.
-- **Next class outside the app.** A Live Activity on the Lock Screen and in the Dynamic Island on iPhone, and a Live Update in the status bar on Android.
+- **Next class outside the app.** A Live Activity on the Lock Screen and in the Dynamic Island on iPhone, and a Live Update in the status bar on Android. In You › Reminders you choose whether it always shows, shows only after you leave the app (the default, so it goes away when you open IntPortal), or never.
 - **Home-screen widget** on both.
 - **Calendar.** An IntPortal calendar in your phone's calendar app holds your classes and stays in sync. **Add classes to calendar** also shares them as an `.ics` file.
 
