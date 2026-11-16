@@ -462,6 +462,7 @@ export const api = {
   spaceUsed: () => invoke<Space>("space_used"),
   notesMarkdown: (key: string | null) => invoke<string>("notes_markdown", { key }),
   parseOutline: (text: string, today: string) => invoke<SyllabusItem[]>("parse_outline", { text, today }),
+  cleanScan: (raw: string) => invoke<string>("clean_scan", { raw }),
   setPlan: (subjectCode: string, plan: Plan) => invoke<Snapshot>("set_plan", { subjectCode, plan }),
   tally: (components: Component[], target: number) => invoke<Tally>("tally", { components, target }),
   coach: (now: Moment, dismissed: string[], busy: Busy[] = []) =>

@@ -6,6 +6,12 @@ pub fn parse_outline(text: String, today: Date) -> Vec<Item> {
     syllabus::parse_outline(&text, today)
 }
 
+/// Text read from a photo with its line wraps, split words and stray marks tidied (spec 041 C25).
+#[tauri::command(async)]
+pub fn clean_scan(raw: String) -> String {
+    intportal_core::scan::clean(&raw)
+}
+
 /// Replaces a subject's plan; an empty plan removes it.
 #[tauri::command(async)]
 pub fn set_plan(state: tauri::State<'_, AppState>, subject_code: String, mut plan: Plan) -> Res<Snapshot> {

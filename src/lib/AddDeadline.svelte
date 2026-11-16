@@ -8,6 +8,7 @@
   import { api, isoDate, subjectColor, type DeadlineDraft, type DeadlineEntry } from "./api";
   import { dayLabel, dayName, guessSubject, KINDS, kindName, meets, stub, tickets, verdict, whenDays, type Fix } from "./addDue";
   import { closable } from "./back";
+  import { tidyScan } from "./assis/assis.svelte";
   import { cameraProblem, capture, noScanner, scannerDownloading } from "./camera";
   import { friendly } from "./errors";
   import { buzz } from "./haptics";
@@ -84,6 +85,36 @@
   // camera (the simulator) picks from the library instead.
   let scanning = $state(false);
   let downloading = $state(false);
+  // Spec 041 C25: the scan fills the field tidied at once; with IntAssis on, LAR tidies it further.
+  // `tidied` holds both texts until the student types; the toggle swaps them.
+  let tidying = $state(false);
+  let tidied = $state<{ before: string; after: string } | null>(null);
+  let shown = $state<"after" | "before">("after");
+  let scans = 0;
+
+  async function fill(next: string) {
+    text = next;
+    await tick();
+    autosize();
+    soon(true);
+  }
+
+  async function tidyMore(clean: string, me: number) {
+    tidying = true;
+    const out = await tidyScan(clean);
+    tidying = false;
+    // The student may have typed, scanned again or closed it meanwhile.
+    if (!out || me !== scans || text !== clean || leaving) return;
+    tidied = { before: clean, after: out };
+    shown = "after";
+    await fill(out);
+  }
+
+  async function swap() {
+    if (!tidied) return;
+    shown = shown === "after" ? "before" : "after";
+    await fill(tidied[shown]);
+  }
   async function scan() {
     problem = "";
     scanning = true;
@@ -94,15 +125,16 @@
         throw e;
       });
       if (r.cancelled) return;
-      if (!r.text?.trim()) {
+      const clean = (await api.cleanScan(r.text ?? "").catch(() => r.text ?? "")).trim();
+      if (!clean) {
         problem = "Couldn't read any text. Try closer, with more light.";
         return;
       }
-      text = r.text;
-      await tick();
-      autosize();
-      soon(true);
+      const me = ++scans;
+      tidied = null;
+      await fill(clean);
       area.blur();
+      void tidyMore(clean, me);
     } catch (e) {
       const why = cameraProblem(e);
       problem =
@@ -310,7 +342,7 @@
           <textarea
             bind:this={area}
             bind:value={text}
-            oninput={() => (autosize(), soon())}
+            oninput={() => (autosize(), soon(), (tidied = null))}
             rows="1"
             enterkeyhint="enter"
             placeholder="quiz COMP fri"
@@ -323,6 +355,12 @@
         </div>
         <button class="x" onclick={close} aria-label="Close"><PixelIcon name="close" size={14} /></button>
       </div>
+
+      {#if tidying}
+        <p class="tidy" role="status">LAR is tidying…</p>
+      {:else if tidied}
+        <button class="tidy" onclick={swap}>{shown === "after" ? "Tidied by LAR · Show original" : "Original · Show tidied"}</button>
+      {/if}
 
       {#if cur}
         <div class="body">
@@ -782,6 +820,22 @@
     color: var(--on-gold);
   }
 
+  .tidy {
+    flex: none;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    margin: 0;
+    padding: 0 10px;
+    border: 0;
+    background: none;
+    text-align: left;
+    font: 600 var(--text-caption) var(--font-ui);
+    color: var(--ink-3);
+  }
+  button.tidy {
+    color: var(--ink-2);
+  }
   .problem {
     flex: none;
     margin: 8px 10px 0;

@@ -11,7 +11,7 @@ use intportal_ai::{
     note::{self, Mode},
     outline, pdf,
     prompt::Template,
-    rag, why,
+    rag, scan, why,
 };
 use intportal_core::{
     deadline,
@@ -673,6 +673,14 @@ pub async fn ai_cards(ai: tauri::State<'_, AiState>, text: String, want: usize) 
     .await
 }
 
+/// A scan's text, tidied by the loaded model (spec 041 C25, spec 020 C16). Never fails the scan:
+/// a busy or missing model, a slow phone or a bad answer gives the text back as it came.
+#[tauri::command]
+pub async fn clean_scan_ai(ai: tauri::State<'_, AiState>, text: String) -> Res<String> {
+    let kept = text.clone();
+    Ok(with_model(&ai, move |llm, tpl| Ok(scan::tidy(llm, tpl, &text, std::time::Duration::from_secs(40)))).await.unwrap_or(kept))
+}
+
 /// A PDF's text. The bytes arrive as the raw request body (`invoke(cmd, bytes)`).
 #[tauri::command]
 pub async fn ai_pdf_text(request: tauri::ipc::Request<'_>) -> Res<String> {
@@ -862,6 +870,19 @@ mod tests {
         left.sort();
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(left, [models::find(models::EMBED).unwrap().file]);
+    }
+
+    /// Needs the real model: `SCAN_MODEL=/path/Qwen3-1.7B-Q4_K_M.gguf cargo test -p intportal real_model_tidies -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn real_model_tidies_a_scan() {
+        let path = std::env::var("SCAN_MODEL").expect("SCAN_MODEL");
+        let mut llm = Llama::load(std::path::Path::new(&path), 4096, Device::Cpu).unwrap();
+        let raw = "ASSIGNMENT  No. 3\nSubrnit your reflectlon paper on the readng\nassign-\nment through the class portal on or\nbefore Nov 20, 2026 at 11:59 PM. Room\nS512 , COMP 20073.\n|\n•  Bring ballpen and ID\n•  Huwag kalimutan ang requirernents\nPage 2 of 3";
+        let clean = intportal_core::scan::clean(raw);
+        let out = scan::tidy(&mut llm, Template::ChatMl, &clean, std::time::Duration::from_secs(120));
+        println!("RAW:\n{raw}\n\nDETERMINISTIC:\n{clean}\n\nMODEL:\n{out}");
+        assert!(scan::accepts(&clean, &out));
     }
 
     #[test]
