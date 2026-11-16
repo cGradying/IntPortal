@@ -40,7 +40,7 @@ The open issues that are still wanted for a public release: #129, #130, #131, #2
 
 ### Syllabus (#269, first half)
 
-- **C12.** In a subject's syllabus, the rows dated in the current Monday-to-Sunday week carry a gold edge and a gold "This week" label. Rows with only a week number aren't marked: the app doesn't know the term's first day.
+- **C12.** In a subject's syllabus, the rows dated in the current Monday-to-Sunday week sit on the Gold Wash (`--gold-soft`) with a gold "This week" label. Rows with only a week number aren't marked: the app doesn't know the term's first day.
 
 ### The due adder (#241)
 
