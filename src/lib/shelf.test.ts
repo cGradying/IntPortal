@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { NoteItem } from "./api";
-import { deckBar, deckGroups, heightOf, MAX_PX, pixels, search, shelves, subjectOf, weekBars } from "./shelf";
+import { deckBar, deckGroups, forecastBars, forecastLabel, heightOf, known, MAX_PX, pixels, search, shelves, subjectOf, weekBars } from "./shelf";
 
 const note = (key: string, updated: number, extra: Partial<NoteItem> = {}): NoteItem => ({ key, text: "", title: null, updated, subject: null, pinned: false, preview: "", ...extra });
-const deck = (id: string, subject: string | null, due = 0) => ({ id, name: id, subject, cards: 10, due });
+const deck = (id: string, subject: string | null, due = 0) => ({ id, name: id, subject, cards: 10, due, mastery: 0, forecast: [due, 0, 0, 0, 0, 0, 0] });
 const subjects: [string, string][] = [["COMP 20083", "OOP"], ["MATH 20133", "Discrete"]];
 
 describe("the notebook shelf (046 C1 to C7)", () => {
@@ -84,3 +84,19 @@ describe("the Done bars (046 C1)", () => {
     expect(bars.map((b) => b.today)).toEqual([false, false, false, false, false, false, true]);
   });
 });
+
+describe("050 deck mastery and forecast", () => {
+  it("c9 reads mastery as a whole percent", () => {
+    expect(known(0)).toBe("0% known");
+    expect(known(0.625)).toBe("63% known");
+  });
+  it("c11 reads the forecast as one sentence without empty days", () => {
+    const tue = new Date(2026, 10, 17);
+    expect(forecastLabel([3, 1, 0, 0, 2, 0, 0], tue)).toBe("Due this week: 3 today, 1 tomorrow, 2 Saturday");
+    expect(forecastLabel([0, 0, 0, 0, 0, 0, 0], tue)).toBe("Nothing due this week");
+  });
+  it("c11 scales bars to the busiest day", () => {
+    expect(forecastBars([6, 3, 0, 1, 0, 0, 0])).toEqual([12, 6, 0, 2, 0, 0, 0]);
+  });
+});
+

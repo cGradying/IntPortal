@@ -62,11 +62,8 @@ pub(crate) async fn guarded_sign_in(
     auto: bool,
 ) -> Res<(SisClient, Vec<schedule::ScheduleRow>)> {
     let mut ledger = state.ledger.lock().await;
-    let r = sign_in_guarded(SisClient::new, &login.into(), remembered, &mut ledger, unix_now() as u64, auto).await;
-    if let Ok(json) = serde_json::to_string(&*ledger) {
-        let _ = std::fs::write(state.dir.join(GUARD_FILE), json);
-    }
-    r.map_err(err)
+    let save = |l: &Ledger| save_ledger(&state.dir, GUARD_FILE, l);
+    sign_in_guarded(SisClient::new, &login.into(), remembered, &mut ledger, unix_now() as u64, auto, save).await.map_err(err)
 }
 
 #[derive(Serialize)]

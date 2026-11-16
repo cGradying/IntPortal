@@ -86,7 +86,6 @@
 		C14D9610AB4CAF4EFC87C166 /* deadlines.rs */ = {isa = PBXFileReference; path = deadlines.rs; sourceTree = "<group>"; };
 		C882EA8EEA5E4B2FB7F01FE8 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		CF69EC33F8806920B70C9141 /* intportal_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = intportal_iOS.entitlements; sourceTree = "<group>"; };
-		D0B1C9A76B1024AB4972F8A1 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
 		D61B8389ECC73491C874791C /* account.rs */ = {isa = PBXFileReference; path = account.rs; sourceTree = "<group>"; };
 		E040048634C428F4750461AC /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		E3A1DC4FC90E0B55FD9A957E /* ai.rs */ = {isa = PBXFileReference; path = ai.rs; sourceTree = "<group>"; };
@@ -237,7 +236,6 @@
 				B9308FE13A4ED74D8EDA1C7E /* keychain.rs */,
 				11B97796E4ACADCDECB371E4 /* lib.rs */,
 				7D267DD40C1B3FC58E7DC985 /* mabini_vault.rs */,
-				D0B1C9A76B1024AB4972F8A1 /* main.rs */,
 				0F42AB9FF66B8BB7EFC95CD5 /* vault.rs */,
 				1C5AF48223476A569EE9B0E4 /* commands */,
 			);
@@ -261,20 +259,6 @@
 				4EA35368E4CB6DB9E932B0CC /* IntPortalWidget.appex */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		"TEMP_6B3AA06D-0C0F-455A-9D2C-9F48003D9465" /* x86_64 */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = x86_64;
-			sourceTree = "<group>";
-		};
-		"TEMP_E0A41CC9-6E69-4972-9CDC-EAD8C8D5A961" /* arm64 */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = arm64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

@@ -9,3 +9,18 @@ export async function openLink(url: string, httpsOnly = false): Promise<void> {
     // No browser to hand it to; nothing to show.
   }
 }
+
+/** A link that came from a portal's data (an eMabini course or deadline, a plan step): https on PUP's own hosts only (050 C6). */
+export function isPortalUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && (u.hostname === "pup.edu.ph" || u.hostname.endsWith(".pup.edu.ph"));
+  } catch {
+    return false;
+  }
+}
+
+/** Opens a link from portal data, or nothing if it points anywhere but PUP. */
+export function openPortalLink(url: string): Promise<void> {
+  return isPortalUrl(url) ? openLink(url, true) : Promise.resolve();
+}

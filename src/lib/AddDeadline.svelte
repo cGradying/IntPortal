@@ -6,7 +6,7 @@
   // back into the Due card. With `own` it edits one, and can delete it.
   import { onMount, tick } from "svelte";
   import { api, isoDate, subjectColor, type DeadlineDraft, type DeadlineEntry } from "./api";
-  import { dayLabel, dayName, guessSubject, KINDS, kindName, meets, stub, tickets, verdict, whenDays, type Fix } from "./addDue";
+  import { dayLabel, dayName, KINDS, kindName, meets, stub, tickets, verdict, whenDays, type Fix } from "./addDue";
   import { closable } from "./back";
   import { tidyScan } from "./assis/assis.svelte";
   import { cameraProblem, capture, noScanner, scannerDownloading } from "./camera";
@@ -31,8 +31,8 @@
   let text = $state(edit?.title ?? "");
   // Editing starts from what is saved; the day, subject and kind hold while the name is retyped.
   let parsed = $state<DeadlineDraft[]>(edit ? [{ title: edit.title, subject: edit.subject, kind: edit.kind, date: ownDay }] : []);
-  let fixes = $state<Fix[]>(edit ? [{ subject: edit.subject, kind: edit.kind, date: ownDay }] : []);
-  let dropped = $state<boolean[]>([]);
+  let fixes = $state<Record<string, Fix>>(edit ? { only: { subject: edit.subject, kind: edit.kind, date: ownDay } } : {});
+  let dropped = $state<Record<string, boolean>>({});
   let sel = $state(0);
   let problem = $state("");
   let leaving = $state(false);
@@ -71,7 +71,7 @@
     const me = ++seq;
     let drafts: DeadlineDraft[] = [];
     try {
-      if (text.trim()) drafts = (await api.parseOwn(text, isoDate(new Date()))).map((d) => guessSubject(d, app.snapshot?.sessions ?? []));
+      if (text.trim()) drafts = (await api.parseOwn(text, isoDate(new Date())));
     } catch (e) {
       if (me === seq) problem = friendly(e);
       return;
@@ -181,7 +181,8 @@
   }
 
   function fix(i: number, f: Fix) {
-    fixes[i] = { ...fixes[i], ...f };
+    const key = ts[i].key;
+    fixes[key] = { ...fixes[key], ...f };
     buzz.select();
   }
 
@@ -276,7 +277,7 @@
       problem = friendly(e);
       buzz.fail();
       // The ones already saved are unticked, so trying again won't add them twice.
-      if (!edit) for (const i of saved) dropped[i] = true;
+      if (!edit) for (const i of saved) dropped[ts[i].key] = true;
       if (snap) await adopt(snap);
       saving = false;
       return;
@@ -378,7 +379,7 @@
                     class="tt"
                     bind:this={titles[k]}
                     value={t.title}
-                    oninput={(e) => (fixes[k] = { ...fixes[k], title: e.currentTarget.value })}
+                    oninput={(e) => (fixes[t.key] = { ...fixes[t.key], title: e.currentTarget.value })}
                     placeholder="Name it"
                     aria-label="Name"
                     enterkeyhint="done"
@@ -389,7 +390,7 @@
                   </small>
                 </div>
                 {#if ts.length > 1}
-                  <label class="keep"><input type="checkbox" bind:this={keeps[k]} checked={t.keep} onchange={() => ((dropped[k] = !dropped[k]), buzz.tick())} aria-label="Add this one" /></label>
+                  <label class="keep"><input type="checkbox" bind:this={keeps[k]} checked={t.keep} onchange={() => ((dropped[t.key] = !dropped[t.key]), buzz.tick())} aria-label="Add this one" /></label>
                 {/if}
               </div>
             {/each}
