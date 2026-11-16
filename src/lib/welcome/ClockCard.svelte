@@ -26,11 +26,11 @@
   });
 </script>
 
-<div class="card">
+<div class="clockcard">
   <div class="tv" data-phase={now.phase} aria-live="polite">
     {#key now.phase}<span class="lab">{now.label}</span>{/key}
     <span class="code">{CLASS.code}</span>
-    <span class="sub">{CLASS.title}, {CLASS.room}, 7:30 to 9:00 AM</span>
+    <span class="sub">{CLASS.title}, {CLASS.room}</span>
     <span class="left">
       <small>{now.sub}</small>
       {#if now.phase !== "over"}<b><PixelNum text={countdown(now.left)} size={3} /></b>{/if}
@@ -43,7 +43,7 @@
 </div>
 
 <style>
-  .card {
+  .clockcard {
     display: grid;
     gap: 6px;
     padding: 12px 12px 4px;

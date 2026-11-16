@@ -183,9 +183,13 @@
     gesture = "idle";
     lar = "spawn";
     const from = performance.now();
+    // `animate` asks for one more frame after a stop from inside its own frame, hence `over`.
+    let over = false;
     const stop = animate((ms) => {
+      if (over) return;
       k = Math.max(0, 1 - (ms - from) / 650);
       if (k > 0) return;
+      over = true;
       stop();
       onend(out);
     }, () => root);
@@ -199,7 +203,7 @@
   // A few still stars on the night ground; every fifth one twinkles.
   let seed = 7;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const STARS = Array.from({ length: 36 }, (_, i) => ({ x: rnd() * 100, y: rnd() ** 1.6 * 100, big: rnd() < 0.3, a: 0.25 + rnd() * 0.5, tw: i % 5 === 0 ? rnd() * 4 : -1 }));
+  const STARS = Array.from({ length: 36 }, (_, i) => ({ x: rnd() * 100, y: rnd() * 100, big: rnd() < 0.3, a: 0.25 + rnd() * 0.5, tw: i % 5 === 0 ? rnd() * 4 : -1 }));
 </script>
 
 <section bind:this={root} class="talk" class:worn class:leaving aria-label="A talk with LAR" style:--portal-accent={portal.theme.accent}>
@@ -232,7 +236,7 @@
         {:else if item.who === "you"}
           <p class="msg you"><span class="sr">You: </span><span class="mine">{item.text}</span></p>
         {:else}
-          <div class="msg card" inert={item.step !== now.step.id || leaving}>
+          <div class="msg demo" inert={item.step !== now.step.id || leaving}>
             {#if item.card === "today"}<ClockCard live={item.step === now.step.id && !leaving} onreact={react} />
             {:else if item.card === "deadlines"}<DueRow onreact={react} />
             {:else if item.card === "grades"}<GpaCard />
@@ -275,7 +279,7 @@
           </div>
           <button type="button" class="go" onclick={() => (picks.length ? answer(opt("picked"), picks.join(",")) : answer(opt("all")))}>{opt(picks.length ? "picked" : "all").label}</button>
         {:else if now.step.ask === "look"}
-          <div class="grid three">
+          <div class="grid two">
             {#each LOOKS as l (l.room)}
               <button type="button" class="chip" class:picked={app.room === l.room} aria-pressed={app.room === l.room} onclick={() => wear(l.room)}>
                 <svg class="tones" viewBox="0 0 24 14" aria-hidden="true" shape-rendering="crispEdges">{#each l.swatch as c, j (j)}<rect x={j * 8} width="8" height="14" fill={c} />{/each}</svg>
@@ -319,10 +323,13 @@
   ::selection {
     background: rgb(245 178 39 / 0.35);
   }
+  /* The stars keep to LAR's sky and thin out before the words. */
   .sky {
     position: absolute;
-    inset: 0;
+    inset: 0 0 auto;
+    height: min(46%, 380px);
     overflow: hidden;
+    mask-image: linear-gradient(to bottom, #000 55%, transparent);
     pointer-events: none;
     transition: opacity var(--t-hero) var(--ease);
   }
@@ -493,13 +500,13 @@
       opacity: 0;
     }
   }
-  .card {
+  .demo {
     width: min(100%, 22rem);
     padding-block: 2px 4px;
     transform-origin: 0 0;
     animation: grow 0.2s steps(4, end) both;
   }
-  .card[inert] {
+  .demo[inert] {
     opacity: 0.6;
     transition: opacity var(--t-flow) var(--ease);
   }
@@ -536,7 +543,7 @@
     font: 400 var(--text-caption) / 1.35 var(--font-ui);
     color: rgb(244 236 216 / 0.6);
   }
-  .card .aside {
+  .demo .aside {
     margin-top: 6px;
   }
 
@@ -568,9 +575,6 @@
   .grid.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .grid.three {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   .chip {
     display: inline-flex;
     align-items: center;
@@ -588,11 +592,6 @@
     white-space: nowrap;
     transition: box-shadow var(--t-quick) var(--ease);
   }
-  .grid.three .chip {
-    padding: 0 8px;
-    gap: 6px;
-    font-size: var(--text-caption);
-  }
   .chip:active {
     background: var(--void-3);
   }
@@ -606,6 +605,7 @@
     display: grid;
     grid-auto-flow: column;
     grid-template-rows: repeat(2, auto);
+    grid-auto-columns: max-content;
     justify-content: start;
     gap: 8px;
     margin-inline: calc(var(--gutter) * -1);
@@ -701,7 +701,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .slab,
-    .card,
+    .demo,
     .you,
     .dock {
       animation: none;

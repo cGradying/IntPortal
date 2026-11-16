@@ -13,7 +13,7 @@
   }
 </script>
 
-<div class="card">
+<div class="offline">
   <button type="button" class="signal" role="switch" aria-checked={offline} onclick={toggle}>
     <span class="bars" class:out={offline} aria-hidden="true"><i></i><i></i><i></i><i></i></span>
     <span>No signal</span>
@@ -28,7 +28,7 @@
 </div>
 
 <style>
-  .card {
+  .offline {
     display: grid;
     gap: 8px;
   }
