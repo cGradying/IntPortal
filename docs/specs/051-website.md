@@ -1,6 +1,6 @@
 # 051 The website
 
-**Status:** building
+**Status:** shipped. It builds and passes its checks; putting it online is the owner's step (site/README.md).
 
 ## What changes for the student
 
