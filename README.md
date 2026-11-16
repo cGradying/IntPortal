@@ -29,6 +29,7 @@ Every feature, tab by tab, is in [docs/FEATURES.md](docs/FEATURES.md); what chan
   <img src="docs/images/today.png" width="150" alt="Today: the class in session over the campus scene, and the deadlines with their Done buttons">
   <img src="docs/images/schedule.png" width="150" alt="The day schedule, with free time between classes">
   <img src="docs/images/grades.png" width="150" alt="Grades: the term GPA and the trend across terms">
+  <img src="docs/images/study.png" width="150" alt="Study: decks and what is due today">
 </p>
 
 ## What it does
