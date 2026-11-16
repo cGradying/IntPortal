@@ -44,10 +44,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       # The shell embeds the web build, so it needs build/ to exist.
       - run: mkdir -p build
-      - run: cargo test -p intportal-core -p intportal -p intportal-tiles -p s0-sis-http
+      - run: cargo test -p intportal-core -p intportal -p intportal-tiles -p intportal-web -p s0-sis-http
+      # The browser demo's core (spec 052) must keep building without SQLCipher or the network.
+      - run: cargo build -p intportal-web --target wasm32-unknown-unknown --release
       # The test build generates the ACL manifest this compares capabilities against.
       - run: node scripts/commands-check.mjs
-      - run: cargo clippy -p intportal-core -p intportal -p intportal-tiles -p s0-sis-http --all-targets -- -D warnings
+      - run: cargo clippy -p intportal-core -p intportal -p intportal-tiles -p intportal-web -p s0-sis-http --all-targets -- -D warnings

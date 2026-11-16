@@ -9,9 +9,9 @@ import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 const config = {
   preprocess: vitePreprocess(),
   kit: {
-    adapter: adapter({
-      fallback: "index.html",
-    }),
+    // The browser demo (spec 052, scripts/web.sh) is built into the website at /app.
+    adapter: adapter(process.env.INTPORTAL_WEB === "1" ? { pages: "site/static/app", assets: "site/static/app", fallback: "index.html" } : { fallback: "index.html" }),
+    paths: { base: process.env.INTPORTAL_WEB === "1" ? "/app" : "" },
   },
 };
 
