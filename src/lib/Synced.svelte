@@ -21,5 +21,6 @@
     color: var(--ink-3);
     font-size: var(--text-label);
     text-align: left;
+    animation: soft-in var(--t-move) var(--ease) backwards;
   }
 </style>

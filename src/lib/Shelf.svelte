@@ -10,7 +10,7 @@
 <script lang="ts">
   import { flip } from "svelte/animate";
   import { fade } from "svelte/transition";
-  import { flow } from "./swap";
+  import { flow } from "./motion";
   import { friendly } from "./errors";
   // The notebook shelf (spec 046 C1 to C7): a notebook per subject, its window lit with one pixel
   // per note and one gold pixel per card due. Pull one out to see its notes below; decks live on Cards.

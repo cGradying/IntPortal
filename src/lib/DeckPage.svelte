@@ -1,7 +1,7 @@
 <script lang="ts">
   import { flip } from "svelte/animate";
   import { fade } from "svelte/transition";
-  import { flow } from "./swap";
+  import { flow } from "./motion";
 
   import { friendly } from "./errors";
   // One deck: its cards, adding them one by one or pasted, and the way into

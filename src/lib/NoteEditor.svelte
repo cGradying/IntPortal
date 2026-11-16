@@ -17,6 +17,7 @@
   import { addEntry, applyTemplate, autosaves, block, cardLines, entryHeading, mergeExternal, onClose, setLines, TEMPLATES, toggleCheck, words, wrap, type CardLine, type Edit, type Inline, type LineKind, type Template } from "./editor/md";
   import { readLook, writeLook, type PageLook } from "./editor/page";
   import { buzz } from "./haptics";
+  import { dismiss, overlay, scrim, sheet as rises } from "./motion";
   import PixelIcon, { type SpriteName } from "./PixelIcon.svelte";
   import { shareFile } from "./share";
   import { app, refreshNotes } from "./state.svelte";
@@ -505,7 +506,7 @@
   const PAPER: [PageLook["paper"], string][] = [["plain", "Plain"], ["lines", "Lines"], ["dots", "Dots"], ["grid", "Grid"]];
 </script>
 
-<div class="editor ground" role="dialog" aria-label="Note: {heading}">
+<div class="editor ground" in:overlay|global out:overlay|global role="dialog" aria-label="Note: {heading}">
   <header>
     <button class="done" onclick={done}>Done</button>
     <span class="state">{!text.trim() ? "" : saved ? "Saved" : "Saving…"}</span>
@@ -573,8 +574,8 @@
   {/if}
 
   {#if sheet}
-    <button class="scrim" aria-label="Close" onclick={() => (sheet = null)}></button>
-    <div class="sheet card notch" role="dialog" aria-label={sheet}>
+    <button class="scrim" aria-label="Close" onclick={() => (sheet = null)} in:scrim|global out:scrim|global></button>
+    <div class="sheet card notch" use:dismiss={() => (sheet = null)} in:rises|global out:rises|global role="dialog" aria-label={sheet}>
       {#if sheet === "tools"}
         <h4>Add to this note</h4>
         <div class="tools">
@@ -1032,13 +1033,6 @@
     max-height: 70vh;
     overflow-y: auto;
     padding: 14px;
-    animation: rise var(--t-move) var(--ease) both;
-  }
-  @keyframes rise {
-    from {
-      opacity: 0;
-      translate: 0 16px;
-    }
   }
   h4 {
     margin: 0;
@@ -1254,10 +1248,5 @@
   }
   .danger {
     color: var(--bad) !important;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .sheet {
-      animation: none;
-    }
   }
 </style>

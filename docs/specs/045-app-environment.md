@@ -108,6 +108,16 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
   - Lists that gain, lose or reorder rows (notes, deadlines, outline, cards, the shelf) ease with `flip` and a fade; Due's fold shuts as it fades. Done keeps its pick: box fills, title strikes, stamp lands, row folds away.
   - Reduce Motion: slides, rolls, flips and sweeps do nothing; state changes in place.
 
+**One motion vocabulary** (2026-11-16, `src/lib/motion.ts`). Every shell move is one of these, built on the tokens below; no component writes its own duration or curve for them.
+
+- **C30. Shared axis for tabs.** Changing tab slides the old page out 12 px (`--shift`) toward the tab it left for while it fades (`--t-exit`), and the next page in from the other side (`--t-move`, 40 ms behind), ordered by tab position. The old page is pinned where it stood, so nothing waits for it or jumps. Each tab comes back at the scroll it was left at. The first paint and a launch show Today in place.
+- **C31. Sheets and overlays.** A bottom sheet (the class sheet, the date wheels, the note and theme-maker sheets) slides up from below the screen over `--t-flow` on `--ease-sheet` (about 2 % overshoot, never a bounce) and leaves faster, over `--t-exit` on `--ease-in`, while its scrim fades. The note editor and theme maker lift 24 px and fade in, and drop 16 px and fade out. A class sheet that grows from its block (C26) keeps that instead.
+- **C32. Drag to dismiss.** A bottom sheet has a grab bar. Dragging it follows the finger one to one, resists upward, and lets go past 80 px or a flick; otherwise it springs back. Android back still closes it (`closable`).
+- **C33. Reduce Motion.** Every helper in `motion.ts` reads the setting live: travel is dropped and a fade of at most `--t-quick` is kept; a dragged sheet leaves without the slide.
+- **C34. Press.** One rule: a button under a finger takes `data-press` (set by `watchPress` in `press.ts`) and squashes to 0.97, or darkens under Reduce Motion (C21). The attribute clears on lift, move away, scroll, blur or after 2 s, so iOS cannot leave a button stuck pressed. The tab icon's pixel hop (`steps`) plays only for a tap, and the pixel block glides under the tab on `--ease-sheet`.
+- **C35. Pull, error, skeleton.** Pull to sync resists (`rubber`: it follows at first and gives less, 144 px of finger arms the 72 px strip) and settles on release. A skeleton fades out in place as its content arrives; an error card and the Synced line fade in without moving what is around them.
+- **C36. One place for the numbers.** `--ease-in`, `--ease-sheet`, `--t-exit` (0.2 s) and `--shift` (12 px) join the tokens; `motion.ts` reads them once. The screens' helpers (`flow`, `direction`, `slideOnChange`, `playOnce`, `isNew`) live there too, and the hello's rise on Today plays only on the first entry after a sign-in.
+
 **Motion tokens**
 
 - **C20.** Motion goes through tokens in `app.css`:
@@ -116,7 +126,10 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
   - `--t-quick` 0.16 s;
   - `--t-move` 0.32 s;
   - `--t-flow` 0.36 s, for layout that opens and closes;
-  - `--t-hero` 0.55 s.
+  - `--t-hero` 0.55 s;
+  - `--t-exit` 0.2 s, for leaving;
+  - `--ease-in` and `--ease-sheet` (a hair of overshoot);
+  - `--shift` 12 px.
 
   No component hardcodes another duration, except the stepped pixel animations.
 - **C21. Reduce Motion.**
@@ -169,6 +182,7 @@ See C13–C21. Under Reduce Motion: no sway, shake, count-up, confetti or drifti
 | C18 | `vitest`: `c18_combo_climbs_within_4s_and_resets`; recording of a five-item run |
 | C3 | `vitest` on the CSS: transform-only keyframes, off under Reduce Motion |
 | C22–C28 | recording in both rooms |
+| C30–C36 | `vitest motion.test.ts` (direction from tab order, reduced fallbacks, rubber, dismissal, bezier); Chromium frame trace at 4x CPU throttle |
 | C19 | `vitest`: off by default; muted under Reduce Motion |
 | C20 | `vitest`: `c20_no_raw_durations` (scan for `s` literals outside tokens and `steps()`) |
 | C21 | `vitest` on the CSS: the reduce rule sets the iteration count |

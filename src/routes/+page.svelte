@@ -25,6 +25,8 @@
   import { showFirstRun } from "$lib/welcome/intro";
   import { setCovered } from "$lib/quiet";
   import PullToSync from "$lib/PullToSync.svelte";
+  import { shared, tabDir, type Dir } from "$lib/motion";
+  import { watchPress } from "$lib/press";
   import LockScreen from "$lib/LockScreen.svelte";
   import { lock, watchLock } from "$lib/lock.svelte";
   import { api, isoDate } from "$lib/api";
@@ -78,6 +80,7 @@
       for (const t of ["gesturestart", "gesturechange"]) document.removeEventListener(t, stop);
     };
   });
+  onMount(watchPress);
 
   onMount(async () => {
     listenForTaps();
@@ -163,27 +166,42 @@
     holdLanding = false;
   }
 
-  // Each tab opens at its top, not wherever the last one was scrolled.
-  $effect(() => {
-    if (app.tab !== firstTab) tabbed = true;
-    // The page slides toward the tab you chose (spec 045 C22).
-    slide = TAB_ORDER.indexOf(app.tab) >= TAB_ORDER.indexOf(lastTab) ? 12 : -12;
-    lastTab = app.tab;
-    gallery = false;
-    window.scrollTo(0, 0);
+  // Each tab comes back to where it was left. The save runs before the page swaps, while the old
+  // tab's scroll is still its own; the new page then slides in toward the tab you chose (spec 045 C22).
+  let from = app.tab;
+  const scrolls: Record<string, number> = {};
+  $effect.pre(() => {
+    if (app.tab !== from) scrolls[from] = scrollY;
   });
-
-  // The page only slides in when the student changes tab: Today is simply
-  // there when they arrive (spec 010 C30).
-  const firstTab = app.tab;
-  let tabbed = $state(false);
-  const TAB_ORDER = ["today", "schedule", "grades", "study", "you"];
-  let lastTab = app.tab;
-  let slide = $state(12);
+  $effect(() => {
+    if (app.tab === from) return;
+    from = app.tab;
+    gallery = false;
+    const y = scrolls[app.tab] ?? 0;
+    scrollTo(0, y);
+    // A page that is still loading is short; try again once it has its height.
+    if (y) requestAnimationFrame(() => requestAnimationFrame(() => scrollTo(0, y)));
+  });
+  // Transitions on a keyed block play on a change, not on arrival: Today is simply there (spec 010 C30).
+  const page = (enter: boolean) => ({ dir: tabDir(from, app.tab) as Dir, enter });
 
   function enter() {
     inside = true;
   }
+
+  // The hello's rise on Today plays on the first entry after a sign-in, never on later launches
+  // (nothing re-rises). app.css only lets it through while html[data-first] is set.
+  $effect(() => {
+    if (!inside) return;
+    try {
+      if (localStorage.getItem("entered") !== "1") {
+        localStorage.setItem("entered", "1");
+        document.documentElement.dataset.first = "";
+      }
+    } catch {
+      // Storage off: no rise, which is the quiet choice.
+    }
+  });
 
   // The veil lifts once Today has painted under it: mounting the app can
   // take longer than the fade, which would otherwise finish unseen. Today
@@ -212,6 +230,8 @@
     app.subject = null;
     app.tab = "today";
     try {
+      localStorage.removeItem("entered");
+      delete document.documentElement.dataset.first;
       localStorage.removeItem("demo");
     } catch {
       // Review builds only; harmless.
@@ -243,7 +263,7 @@
     <main>
       <PullToSync />
       {#key app.tab}
-        <div class="page" class:slides={tabbed} style:--slide="{slide}px">
+        <div class="page" in:shared={page(true)} out:shared={page(false)}>
           {#if app.tab === "today"}<Today />
           {:else if app.tab === "schedule"}{#if app.sisConnected}<Schedule />{:else}<div class="needs"><NeedSis what="your schedule" /></div>{/if}
           {:else if app.tab === "grades"}{#if app.sisConnected}<Grades />{:else}<div class="needs"><NeedSis what="your grades" /><MabiniGrades /></div>{/if}
@@ -319,14 +339,8 @@
   [data-glance="dock"] main {
     padding-bottom: calc(var(--safe-bottom) + 198px);
   }
-  .page.slides {
-    animation: in var(--t-move) var(--ease) backwards;
-  }
   .needs {
     display: grid;
     gap: 14px;
-  }
-  @keyframes in {
-    from { opacity: 0; translate: var(--slide) 0; }
   }
 </style>

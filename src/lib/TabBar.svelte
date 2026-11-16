@@ -3,6 +3,8 @@
   import { buzz } from "./haptics";
   import { app, type Tab } from "./state.svelte";
 
+  // The icon pops only for a tap, not when the bar first appears.
+  let popped = $state<Tab | null>(null);
   const tabs: { id: Tab; label: string; icon: SpriteName }[] = [
     { id: "today", label: "Today", icon: "today" },
     { id: "schedule", label: "Schedule", icon: "schedule" },
@@ -15,8 +17,8 @@
 <nav class="bar">
   <i class="sel" style:translate="{tabs.findIndex((t) => t.id === app.tab) * 100}% 0"></i>
   {#each tabs as t (t.id)}
-    <button class:on={app.tab === t.id} onclick={() => { if (app.tab !== t.id) buzz.select(); app.tab = t.id; }} aria-current={app.tab === t.id ? "page" : undefined}>
-      <PixelIcon name={t.icon} size={22} accent={app.tab === t.id ? "var(--gold)" : "currentColor"} />
+    <button class:on={app.tab === t.id} onclick={() => { if (app.tab !== t.id) (buzz.select(), (popped = t.id)); app.tab = t.id; }} aria-current={app.tab === t.id ? "page" : undefined}>
+      <span class="ico" class:pop={popped === t.id}><PixelIcon name={t.icon} size={22} accent={app.tab === t.id ? "var(--gold)" : "currentColor"} /></span>
       <span>{t.label}</span>
     </button>
   {/each}
@@ -31,7 +33,7 @@
     width: calc((100% - 16px) / 5);
     height: 44px;
     pointer-events: none;
-    transition: translate var(--t-move) var(--ease);
+    transition: translate var(--t-move) var(--ease-sheet);
   }
   .sel::before {
     content: "";
@@ -68,7 +70,7 @@
     color: var(--ink-3);
     transition: color var(--t-quick);
   }
-  button span {
+  button > span:not(.ico) {
     font-family: var(--font-label);
     font-size: var(--text-label); /* five labels share the width */
     font-weight: 600;
@@ -76,11 +78,15 @@
   button.on {
     color: var(--ink);
   }
-  button.on span {
+  button.on > span:not(.ico) {
     color: var(--gold);
   }
-  button.on :global(svg) {
-    animation: hop 0.35s steps(3);
+  .ico {
+    display: grid;
+  }
+  /* Pixel icons move in whole pixel steps. */
+  .ico.pop {
+    animation: hop var(--t-flow) steps(3);
   }
   @keyframes hop {
     40% { transform: translateY(-3px); }

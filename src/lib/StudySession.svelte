@@ -15,7 +15,7 @@
   import { dueQueue, type Entry } from "./dueQueue";
   import { dueIn, interval } from "./interval";
   import { cubicOut } from "svelte/easing";
-  import { still } from "./swap";
+  import { reduced as still } from "./motion";
 
   let { decks, mode, onclose, title, all = false, limit = 0 }: { decks: Deck[]; mode: Mode; onclose: () => void; title?: string; all?: boolean; limit?: number } = $props();
   $effect(() => closable(() => onclose()));

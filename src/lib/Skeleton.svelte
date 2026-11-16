@@ -1,10 +1,11 @@
 <script lang="ts">
   // Grey rows standing in for content that's on its way, with a stepped
   // pixel shimmer; still under Reduce Motion.
+  import { leave } from "./motion";
   let { rows = 3, height = 56 }: { rows?: number; height?: number } = $props();
 </script>
 
-<div class="skeleton" role="status" aria-label="Loading">
+<div class="skeleton" role="status" aria-label="Loading" out:leave|global>
   {#each { length: rows } as _, i (i)}<i style:height="{height}px"></i>{/each}
 </div>
 

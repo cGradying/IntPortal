@@ -12,7 +12,7 @@
   import { resource } from "../load.svelte";
   import { app, adopt, openSubject } from "../state.svelte";
   import { buzz } from "../haptics";
-  import { playOnce, slideOnChange } from "../swap";
+  import { playOnce, slideOnChange } from "../motion";
   import { api, riskLine, subjectColor, type Reach, type SubjectGrade } from "../api";
 
   const loaded = resource(() => api.standing());
