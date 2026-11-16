@@ -18,10 +18,19 @@ debug = "line-tables-only"
 [profile.release]
 codegen-units = 1
 lto = true
-opt-level = 3
+opt-level = "s"
 panic = "abort"
 strip = true
 debug = "line-tables-only"
+
+# The hot paths stay at full speed: SQLCipher (C, built by cc with cargo's
+# opt-level) and the llama.cpp bindings.
+[profile.release.package.libsqlite3-sys]
+opt-level = 3
+[profile.release.package.llama-cpp-sys-2]
+opt-level = 3
+[profile.release.package.llama-cpp-2]
+opt-level = 3
 
 # llama.cpp v0.7.0 for arch `gemma-embedding2` (EmbeddingGemma-2, issue #157).
 # llama-cpp-2 0.1.160 (crates.io, llama.cpp 26394b4e) cannot load it. This is
