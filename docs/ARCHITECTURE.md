@@ -59,7 +59,11 @@ Every command returns `Result<T, String>` today.
 - `src/lib/state.svelte.ts` is the one shared store, `app`. Screens read it; only this file writes it.
 - `src/lib/api.ts` wraps each command in a typed function. Its types are written by hand to match the Rust structs.
 - `src/lib/screens/` holds Today, Schedule, Grades, Study and You. Sheets and pages that open over them (`ClassSheet`, `SubjectPage`, `DeckPage`, `NoteEditor`) live in `src/lib/`.
-- The landing is `Landing.svelte` and `PortalStage.svelte`. `landing.ts` is its clock as a pure function of time. The tile portal is `crates/intportal-tiles`: a pure scene (`scene.rs`, tested with `cargo test`) and plain WebAssembly exports, built to `static/tiles.wasm` by `scripts/tiles.sh` and drawn by `tiles.ts` (spec 010, ADR 0004). The portal's colours come from the registry (spec 012). A new student's intro (spec 049) is nine pages of data in `welcome/intro.ts`, drawn by `Landing.svelte`; each page drives the stage (`ring`, `visit`, `say`, `cheer`, `openWall`, and the held `mouth` view). What the intro learns is kept by `profile.ts`. The portal wall is `PortalHub.svelte`, with its sections from `hub.ts`.
+- The landing is `Landing.svelte` and `PortalStage.svelte`. `landing.ts` is its clock as a pure function of time. The tile portal is `crates/intportal-tiles`: a pure scene (`scene.rs`, tested with `cargo test`) and plain WebAssembly exports, built to `static/tiles.wasm` by `scripts/tiles.sh` and drawn by `tiles.ts` (spec 010, ADR 0004). The portal stands on the night ground with stars and nothing else. Its colours come from the registry (spec 012).
+- A new student first meets LAR in `welcome/Talk.svelte`, a full-screen conversation (spec 049): name, campus, what matters, sample cards, look, reminders and privacy, then a hand-off into the portal. `welcome/intro.ts` is the conversation as data, and `profile.ts` keeps what it learns (`intportal.name`, `.campus`, `.focus`). The portal wall is `PortalHub.svelte`, with its sections from `hub.ts`.
+- The In session art is a fragment shader, not a picture. `src/lib/campus/` draws a 192 by 80 scene (WebGL2, then WebGL1, then Canvas2D) with Bayer dithering and a nearest-neighbour upscale. `sky.ts` is the hour's sky, `scenes/` holds one module per PUP campus plus a shared branch scene and a tinted scene for other schools, each loaded by dynamic `import()` so a student downloads only theirs. `choice.svelte.ts` picks the scene: the campus the student number resolves to, then the one picked in Talk or You, then Sta. Mesa. What each school looks like is recorded in `docs/specs/reference/campus-looks.md`.
+- Motion has one vocabulary, `src/lib/motion.ts`: the transitions (`shared`, `sheet`, `scrim`, `overlay`, `rise`, `leave`, `flow`), `dismiss` for sheets (dragged from the grip bar only), `rubber`, `slideOnChange`, `playOnce`, and `reduced()` for Reduce Motion. `press.ts` sets `[data-press]` for the pressed look. Durations and easings are tokens in `app.css` (spec 045 C29 to C36).
+- The class card outside the app is a student setting (You › Reminders): always, only once the student leaves the app (default), or off. `pushGlance()` in `state.svelte.ts` sends `activity: false` while the app is open in the default mode, which ends the Live Activity or Live Update. Opening the app takes the card down, and leaving puts it back. The dock inside the app (`Glance.svelte`, for phones without a Dynamic Island) stays out of the way when there is nothing to count down to.
 - `src/lib/lar/` is LAR: pure sprite grids and the component.
 
 ## Main flows
@@ -72,13 +76,15 @@ Every command returns `Result<T, String>` today.
 
 **Mabini.** `mabini_sign_in` signs in to eMabini through Mabini's own ledger and keychain entry, then pulls courses, deadlines and grades; `mabini_sync` refreshes them. Today shows the deadlines next to the syllabus ones (`MabiniDue`), and You shows Mabini's account apart from the SIS.
 
-**The minute tick.** `startClock()` runs `refreshToday()` on each minute boundary. It reads the student's own calendar events as busy time when that setting is on, asks `today` for the agenda, and pushes the next class and the glance line to `plugin:glance|update` (widget and Live Activity on iOS, Live Update on Android).
+**The minute tick.** `startClock()` runs `refreshToday()` on each minute boundary. It reads the student's own calendar events as busy time when that setting is on, asks `today` for the agenda, and pushes the next class, the glance line and whether the card should show now to `plugin:glance|update` (widget and Live Activity on iOS, Live Update on Android). Leaving or opening the app pushes again.
 
 **Coach.** Today asks `coach` with the moment, the dismissed nudges and the busy spans. The core picks one nudge and LAR says it.
 
 **Reminders.** `scheduleReminders()` replaces every pending notification with the next week's from `reminders`. iOS keeps at most 64 pending, so the horizon is one week and each launch and sync renews it.
 
 **Device calendar.** `refreshClassCalendar()` rewrites the IntPortal calendar through `plugin:calendar|sync_classes` when the classes, the marks or the day changed. `busyFrom()` reads the student's own events through `plugin:calendar|events`.
+
+**Scan.** Add deadline reads a photo with the phone's own recognizer (ML Kit on Android through Google Play services, Vision on iOS). `clean()` in `intportal-core/src/scan.rs` strips scanner noise without a model. When the AI is installed, `tidy` in `intportal-ai/src/scan.rs` also rewrites it, and the result is kept only if it has the same digits and month names and a similar length; otherwise the plain text stays and "Show original" is always one tap away (specs 041 C25, 020 C16).
 
 **Landing.** `landingAt(t)` returns the whole scene state for a time: pieces dropping, the swirl, LAR, the stones, the card. The components only draw it, which keeps the timeline unit-testable.
 
@@ -129,6 +135,8 @@ Both run the same Rust and the same Svelte. They differ only in the shell and th
 | Keychain | Keychain Services (`keyring`) | Keystore-sealed values (`Secrets.kt`) |
 | Store encryption | SQLCipher on CommonCrypto | SQLCipher on vendored OpenSSL |
 | Next class outside the app | Live Activity, widget (widget needs a paid team for App Groups) | Live Update in the status bar, widget |
+| Scanner | Vision | ML Kit through Google Play services (not bundled, to keep the APK small) |
+| Release build | `scripts/phone.sh`, release by default | `scripts/emu.sh --release`: arm64 only, R8 and resource shrinking, signed APK and AAB |
 | Calendar | EventKit | CalendarContract |
 | Native project | `gen/apple`, generated from `project.yml` | `gen/android`; see `docs/android.md` |
 
@@ -139,10 +147,15 @@ Desktop `cargo` builds compile neither the Swift nor the Kotlin. Only `scripts/s
 | Layer | Tool | Where |
 |---|---|---|
 | Domain logic and parsers | `cargo test -p intportal-core` | `crates/intportal-core` |
-| Pure TypeScript (timeline, layout, formatting) | vitest | `src/lib/*.test.ts` |
+| Pure TypeScript (timeline, layout, formatting, motion, scenes) | vitest | `src/lib/*.test.ts` |
+| Commands, tokens, tap targets, capabilities | `scripts/commands-check.mjs`, `style-lint.mjs`, `tap-targets.mjs` | CI |
 | Types across Svelte | `pnpm check` | `src/` |
 | Shell compiles | `cargo test -p intportal`, clippy | `src-tauri` |
 | Screens, native plugins | simulator and emulator screenshots | by hand, per PR |
+
+## Size
+
+Small and fast is a requirement, not a polish pass (0.2.1 cut the Android APK from 69.7 MB to 22.3 MB and the Play bundle from 37.3 MB to 13.2 MB). The release profile in the root `Cargo.toml` sets `opt-level = "s"` with LTO and one codegen unit, keeping `opt-level = 3` for the three hot crates (SQLite and llama.cpp). `src-tauri` builds `staticlib` and `cdylib` only, because an `rlib` output silently skips LTO. Android builds arm64 only. Everything specific to a school (campus scenes, the portal wall's art) loads on demand, and the AI model downloads only on the student's choice.
 
 ## Decisions
 
@@ -159,8 +172,8 @@ These feed the first sprint in `docs/TEAM.md`.
 - `src/lib/api.ts` types are hand-written copies of the Rust structs and can drift. `commands-check.mjs` catches a missing or extra command, not a changed field (#61).
 - Commands return strings for errors; `errors.ts` maps each sentence to plain words and `errors.test.ts` fails when a Rust sentence has no copy (#62).
 - The SIS parsers have no fixtures from real pages, so a change on PUP's side shows up only on a phone.
-- `Today.svelte`, `Grades.svelte` and `You.svelte` are 450 to 650 lines each.
-- Screens are checked only by hand on the simulator.
+- `You.svelte` (1,048 lines), `Landing.svelte`, `Today.svelte`, `Study.svelte` and `Schedule.svelte` (700 to 800 each) are too big to review in one read (#64).
+- Screens are checked only by hand on the simulator and emulator; the screenshots in the README come from `scripts/readme-shots.mjs` and the emulator.
 
 ## Navigating the code
 

@@ -43,6 +43,8 @@ class NextClass {
 class UpdateArgs {
     var next: NextClass? = null
     var line: String = ""
+    /** False takes the Live Update down; the widget still shows the class. */
+    var activity: Boolean = true
 }
 
 /**
@@ -61,6 +63,7 @@ class GlancePlugin(private val activity: Activity) : Plugin(activity) {
         Glance.prefs(activity).edit().apply {
             clear()
             putString("line", args.line)
+            putBoolean("live", args.activity)
             if (n != null) {
                 putString("code", n.code)
                 putString("title", n.title)
@@ -114,7 +117,7 @@ object Glance {
         val now = System.currentTimeMillis()
         val next = n?.takeIf { it.end > now }
         drawWidgets(context, next, if (n != null && next == null) "Open IntPortal for what's next" else line, now)
-        val live = next?.takeIf { it.start - now <= HOUR }
+        val live = next?.takeIf { it.start - now <= HOUR && prefs(context).getBoolean("live", true) }
         liveUpdate(context, live, now)
         val turn = next?.let { listOf(it.start - HOUR, it.start, it.end).firstOrNull { t -> t > now } }
         val tick = PendingIntent.getBroadcast(

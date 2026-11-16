@@ -29,6 +29,8 @@ struct GlanceFile: Codable {
 class UpdateArgs: Decodable {
   let next: NextClass?
   let line: String
+  /// False takes the Live Activity down; the widget still gets the class.
+  let activity: Bool?
 }
 
 class GlancePlugin: Plugin {
@@ -42,7 +44,7 @@ class GlancePlugin: Plugin {
     }
     WidgetCenter.shared.reloadAllTimelines()
     if #available(iOS 16.2, *) {
-      ClassActivity.sync(args.next)
+      ClassActivity.sync(args.activity == false ? nil : args.next)
     }
     invoke.resolve()
   }

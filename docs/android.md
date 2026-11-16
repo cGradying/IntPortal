@@ -28,6 +28,7 @@ takes Android's own shapes:
 
 - **In the app:** the dock above the tab bar (`Glance.svelte`). `watchDynamicIsland` in `src/lib/glance.ts` always answers no on Android.
 - **Outside the app:** a Live Update. From an hour before class until it ends, an ongoing notification counts down to the start, then to the end. Android 16 promotes it to a chip in the status bar beside the camera (the `android.requestPromotedOngoing` extra); older versions show it as an ongoing notification. Alarms at each turn (an hour before, start, end) keep it right with the app closed.
+- **Setting:** You › Reminders › "Class card outside the app" is Always, When I leave (default) or Off. The web view sends `activity` with each update; `false` makes `Glance.refresh` cancel the notification (the `live` flag in the `glance` prefs), and the app sends it again when it goes to the background.
 - **Home screen:** the "Next class" widget, a copy of the iOS one.
 - **Permission:** the glance asks for notifications once, the first time there is a class within the hour, like iOS asking to allow Live Activities.
 
