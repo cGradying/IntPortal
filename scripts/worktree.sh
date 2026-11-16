@@ -30,7 +30,6 @@ mkdir -p src-tauri/gen/apple/Externals src-tauri/gen/apple/assets
 gen=src-tauri/gen/android/app/src/main/java/ph/intportal/app/generated
 if [ -d "$root/$gen" ]; then mkdir -p "$gen" && cp -n "$root/$gen"/* "$gen"/ 2>/dev/null || true; fi
 pnpm install --frozen-lockfile --silent
-command -v codegraph >/dev/null && codegraph init -y . >/dev/null
 echo "Worktree: $dir"
 echo "Branch:   $branch"
 echo "Simulator: $sim"

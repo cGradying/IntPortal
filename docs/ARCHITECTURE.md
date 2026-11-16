@@ -1,25 +1,24 @@
 # Architecture
 
-How IntPortal is put together, where each thing lives, and what must stay true. Read it with `CONTEXT.md` (the app's terms) and `docs/TEAM.md` (who owns what).
+How IntPortal is put together and what must stay true. Read it with [CONTEXT.md](../CONTEXT.md), which explains the app's terms.
 
 ## Layers
 
 ```
- Svelte UI            src/                    screens, components, app state
-     |  invoke("command")        invoke("plugin:<name>|<command>")
-     v                                    v
- Tauri shell          src-tauri/src/           Local plugins   plugins/
-   AppState, commands, keychain,               glance: widget, Live Activity / Live Update
-   store opening, demo                         calendar: EventKit / CalendarContract
-     |  plain Rust calls                       (Swift and Kotlin halves)
+ Svelte UI           src/                  screens, one shared store
+     |  invoke("command")
      v
- Core                 crates/intportal-core    domain logic, SIS client, SQLCipher store
-     |
-     v
- Device               keychain or Keystore, notifications, biometrics, haptics, calendar
+ Tauri shell         src-tauri/src/        commands, keychain, store opening
+     |  plain Rust calls          \
+     v                             Native plugins   plugins/
+ Core                crates/intportal-core    glance (widget, Live Activity / Update),
+   SIS client, schedule, grades,               calendar, camera
+   study, notes, encrypted store
 ```
 
-Each layer only calls the one below it. The core has no UI and no platform APIs, so all of its logic runs under `cargo test` on any machine. The shell is thin: it turns commands into core calls and owns the few things that need the platform (the keychain, the store's key, the data folder). The UI holds no domain rules; it asks the core and draws the answer.
+Each layer only calls the one below it. The core has no UI and no platform code, so all of its logic is tested with `cargo test` on any machine. The shell is thin: it turns commands into core calls and owns the few things that need the phone. The UI holds no domain rules; it asks the core and draws the answer.
+
+Other crates: `intportal-ai` and `intportal-llm` (the optional on-device assistant, below) and `intportal-tiles` (the landing portal, compiled to a 69 KB WebAssembly file by `scripts/tiles.sh`).
 
 ## The core, module by module
 
@@ -42,76 +41,29 @@ Each layer only calls the one below it. The core has no UI and no platform APIs,
 
 ## The shell
 
-`src-tauri/src/lib.rs` holds `AppState` (the open `Store`, the data folder, the signed-in `SisClient` and `MabiniClient`, and one guard `Ledger` per portal) and `run()`, which registers every command with `generate_handler!`. The commands live in `src-tauri/src/commands/`, one file per area (account, schedule, deadlines, notes, study, coach, backup, mabini), and the AI commands in `src-tauri/src/ai.rs`. Commands that touch the store run off the main thread (`#[tauri::command(async)]`). The store keeps the last snapshot it read or saved, so a read costs no query and a save writes only the parts that changed, in one transaction. Beside them:
-
-- `keychain.rs`, the platform keychain (Keychain Services on Apple, a Keystore-sealed value on Android through `Secrets.kt`);
-- `vault.rs` and `mabini_vault.rs`, the saved logins, one keychain service per portal (`Portal.keychain_service`);
-- the guard ledgers, saved as `login-guard.json` (SIS) and `mabini-guard.json` in the app's data folder, outside any student's store, so a restart doesn't reset the count;
-- `dbkey.rs`, one random 32-byte key per store file, kept in the keychain;
-- `open_store`, which opens a student's store with its key. A store the key can't open is renamed `.locked-<time>` and a fresh one starts, so the app never bricks;
-- `demo.rs`, the sample student behind **Look around first**.
-
-Every command returns `Result<T, String>` today.
+`src-tauri/src/lib.rs` holds the app state (the open store, the signed-in SIS and Mabini clients, one sign-in guard per portal) and registers every command. Commands live in `src-tauri/src/commands/`, one file per area. Beside them are the keychain, the saved logins (one keychain entry per portal), one random database key per store file, and the sample student behind **Look around first**. A store its key can't open is renamed `.locked-<time>` and a fresh one starts, so the app never bricks and never deletes.
 
 ## The interface
 
-- `src/routes/+page.svelte` boots the app: it reads `has_login` and `snapshot`, adopts the snapshot, starts the clock, then shows the landing or the five tabs.
-- `src/lib/state.svelte.ts` is the one shared store, `app`. Screens read it; only this file writes it.
-- `src/lib/api.ts` wraps each command in a typed function. Its types are written by hand to match the Rust structs.
-- `src/lib/screens/` holds Today, Schedule, Grades, Study and You. Sheets and pages that open over them (`ClassSheet`, `SubjectPage`, `DeckPage`, `NoteEditor`) live in `src/lib/`.
-- The landing is `Landing.svelte` and `PortalStage.svelte`. `landing.ts` is its clock as a pure function of time. The tile portal is `crates/intportal-tiles`: a pure scene (`scene.rs`, tested with `cargo test`) and plain WebAssembly exports, built to `static/tiles.wasm` by `scripts/tiles.sh` and drawn by `tiles.ts` (spec 010, ADR 0004). The portal stands on the night ground with stars and nothing else. Its colours come from the registry (spec 012).
-- A new student first meets LAR in `welcome/Talk.svelte`, a full-screen conversation (spec 049): name, campus, what matters, sample cards, look, reminders and privacy, then a hand-off into the portal. `welcome/intro.ts` is the conversation as data, and `profile.ts` keeps what it learns (`intportal.name`, `.campus`, `.focus`). The portal wall is `PortalHub.svelte`, with its sections from `hub.ts`.
-- The In session art is a fragment shader, not a picture. `src/lib/campus/` draws a 192 by 80 scene (WebGL2, then WebGL1, then Canvas2D) with Bayer dithering and a nearest-neighbour upscale. `sky.ts` is the hour's sky, `scenes/` holds one module per PUP campus plus a shared branch scene and a tinted scene for other schools, each loaded by dynamic `import()` so a student downloads only theirs. `choice.svelte.ts` picks the scene: the campus the student number resolves to, then the one picked in Talk or You, then Sta. Mesa. What each school looks like is recorded in `docs/specs/reference/campus-looks.md`.
-- Motion has one vocabulary, `src/lib/motion.ts`: the transitions (`shared`, `sheet`, `scrim`, `overlay`, `rise`, `leave`, `flow`), `dismiss` for sheets (dragged from the grip bar only), `rubber`, `slideOnChange`, `playOnce`, and `reduced()` for Reduce Motion. `press.ts` sets `[data-press]` for the pressed look. Durations and easings are tokens in `app.css` (spec 045 C29 to C36).
-- The class card outside the app is a student setting (You › Reminders): always, only once the student leaves the app (default), or off. `pushGlance()` in `state.svelte.ts` sends `activity: false` while the app is open in the default mode, which ends the Live Activity or Live Update. Opening the app takes the card down, and leaving puts it back. The dock inside the app (`Glance.svelte`, for phones without a Dynamic Island) stays out of the way when there is nothing to count down to.
-- `src/lib/lar/` is LAR: pure sprite grids and the component.
+- `src/routes/+page.svelte` boots the app and shows the landing or the five tabs.
+- `src/lib/state.svelte.ts` is the one shared store. Screens read it; only this file writes it.
+- `src/lib/api.ts` wraps each command in a typed function. `scripts/commands-check.mjs` fails CI when the commands and these wrappers drift apart.
+- `src/lib/screens/` holds Today, Schedule, Grades, Study and You.
+- A new student first meets LAR in `src/lib/welcome/Talk.svelte`, then the landing's portal (`Landing.svelte`).
+- The In session picture is a small shader scene per campus (`src/lib/campus/`), loaded only for the student's campus.
+- All motion comes from one set of helpers and timings in `src/lib/motion.ts`, and Reduce Motion is honoured everywhere.
 
 ## Main flows
 
-**Sign in.** `Landing` sends the login to `sign_in`. The shell signs in with `sign_in_guarded`: plain GETs find a live SIS host, then exactly one credential POST, counted in the ledger. It saves the login to the vault, opens that student's store (`open_account`), pulls the schedule and grades (`refresh`), and returns the `Snapshot`. The UI calls `adopt(snapshot)`.
+- **Sign in.** The shell sends one login request per tap through a guard: at most three tries per 15 minutes per portal, and no automatic retry after a rejected password, so the app can't get a PUP account locked. A good login is saved to the keychain, the student's store opens, and the schedule and grades load.
+- **Sync.** `syncNow()` signs in again from the saved login if the session expired, through the same guard. A failed grades page keeps the last grades.
+- **Every minute.** `refreshToday()` rebuilds Today, then sends the next class to the widget and the class card on the Lock Screen (iOS Live Activity, Android Live Update). The student chooses in You › Reminders whether the card always shows, shows only after leaving the app, or never.
+- **Reminders.** Notifications are replaced with the next week's on each launch and sync.
+- **Scan.** A photo's text is read by the phone's recognizer and cleaned in Rust. With the assistant installed, LAR also tidies it, and his version is kept only if every number, code and date is unchanged.
 
-**Adopt.** `adopt()` in `state.svelte.ts` stores the snapshot, then refreshes notes, Today, the reminders and the phone's IntPortal calendar. Every path that gets a new snapshot (sign-in, sync, an edit, demo) goes through it.
+## The optional assistant
 
-**Sync.** `syncNow()` calls `sync`, which signs in again from the vault when the session expired, through the same guard, and never while the saved login is marked rejected. A failed grades page keeps the last grades; only a signed-out session fails the whole sync.
-
-**Mabini.** `mabini_sign_in` signs in to eMabini through Mabini's own ledger and keychain entry, then pulls courses, deadlines and grades; `mabini_sync` refreshes them. Today shows the deadlines next to the syllabus ones (`MabiniDue`), and You shows Mabini's account apart from the SIS.
-
-**The minute tick.** `startClock()` runs `refreshToday()` on each minute boundary. It reads the student's own calendar events as busy time when that setting is on, asks `today` for the agenda, and pushes the next class, the glance line and whether the card should show now to `plugin:glance|update` (widget and Live Activity on iOS, Live Update on Android). Leaving or opening the app pushes again.
-
-**Coach.** Today asks `coach` with the moment, the dismissed nudges and the busy spans. The core picks one nudge and LAR says it.
-
-**Reminders.** `scheduleReminders()` replaces every pending notification with the next week's from `reminders`. iOS keeps at most 64 pending, so the horizon is one week and each launch and sync renews it.
-
-**Device calendar.** `refreshClassCalendar()` rewrites the IntPortal calendar through `plugin:calendar|sync_classes` when the classes, the marks or the day changed. `busyFrom()` reads the student's own events through `plugin:calendar|events`.
-
-**Scan.** Add deadline reads a photo with the phone's own recognizer (ML Kit on Android through Google Play services, Vision on iOS). `clean()` in `intportal-core/src/scan.rs` strips scanner noise without a model. When the AI is installed, `tidy` in `intportal-ai/src/scan.rs` also rewrites it, and the result is kept only if it has the same digits and month names and a similar length; otherwise the plain text stays and "Show original" is always one tap away (specs 041 C25, 020 C16).
-
-**Landing.** `landingAt(t)` returns the whole scene state for a time: pieces dropping, the swirl, LAR, the stones, the card. The components only draw it, which keeps the timeline unit-testable.
-
-## On-device AI
-
-IntAssis runs a small model through llama.cpp, on the phone, only after the student downloads one ([ADR 0003](adr/0003-on-device-ai-llama-cpp.md)). Two crates keep llama.cpp out of the core and out of Linux CI:
-
-- `crates/intportal-ai` is pure Rust and depends on `intportal-core`. It holds the `Llm` trait, prompt budgets, run-time JSON schemas, reply parsing, RAG and batch generation, and is tested with a `FakeLlm`.
-- `crates/intportal-llm` implements the trait with `llama-cpp-2` on iOS, Android and macOS, plus the model download and the memory gate. On Linux it is a stub that returns an error.
-
-`src-tauri/src/ai.rs` runs inference in `spawn_blocking` and streams an open question's reply (and Ask AI results in a note) through a Tauri `Channel`. The chat model and the small embedding model sit in two slots and share one llama backend; `ai_ask` searches the student's notes with the embedder and shows the model what it found. The chat is kept in the encrypted store (`turns`). AI commands never write: the UI shows confirm cards, and Apply calls the existing commands (`set_note`, `save_deck`, `set_plan`, `set_mark`). Models live in `app_data_dir()/models/`, excluded from backup.
-
-## Where to change things
-
-| To change | Edit | Owner |
-|---|---|---|
-| What SIS pages are read, or how | `crates/intportal-core/src/sis/` | Core |
-| A rule about classes, grades, study, reminders, the coach | the matching core module, test first | Core |
-| A new command or its arguments | `src-tauri/src/commands/`, registered in `lib.rs`, then `src/lib/api.ts` (`scripts/commands-check.mjs` fails CI when they drift) | Core, then UI |
-| What a screen shows | `src/lib/screens/` and its components | UI |
-| Shared app state or a flow across screens | `src/lib/state.svelte.ts` | UI |
-| IntAssis prompts, schemas, RAG, model download | `crates/intportal-ai/`, `crates/intportal-llm/`, `src-tauri/src/ai.rs`, `src/lib/assis/` | AI |
-| The widget, Live Activity, calendar on iOS | `plugins/*/ios/`, `src-tauri/gen/apple/` | Head |
-| The same on Android | `plugins/*/android/`, `src-tauri/gen/android/` | Android |
-| Info.plist keys, entitlements, deployment target | `src-tauri/gen/apple/project.yml` | Head |
-| Build, run and size scripts | `scripts/` | QA/Release |
-| CI | `.github/workflows/` | Head |
+LAR's chat runs a small model with llama.cpp, on the phone, only after the student chooses to download one ([ADR 0003](adr/0003-on-device-ai-llama-cpp.md)). `intportal-ai` is pure Rust (prompts, schemas, search over notes) and is tested with a fake model. `intportal-llm` runs the real model and downloads it. The assistant never changes anything itself: it shows a confirm card, and tapping Apply calls the normal commands. More in [ai.md](ai.md).
 
 ## Invariants
 
@@ -142,20 +94,9 @@ Both run the same Rust and the same Svelte. They differ only in the shell and th
 
 Desktop `cargo` builds compile neither the Swift nor the Kotlin. Only `scripts/sim.sh` and `scripts/emu.sh` prove them.
 
-## Testing layers
-
-| Layer | Tool | Where |
-|---|---|---|
-| Domain logic and parsers | `cargo test -p intportal-core` | `crates/intportal-core` |
-| Pure TypeScript (timeline, layout, formatting, motion, scenes) | vitest | `src/lib/*.test.ts` |
-| Commands, tokens, tap targets, capabilities | `scripts/commands-check.mjs`, `style-lint.mjs`, `tap-targets.mjs` | CI |
-| Types across Svelte | `pnpm check` | `src/` |
-| Shell compiles | `cargo test -p intportal`, clippy | `src-tauri` |
-| Screens, native plugins | simulator and emulator screenshots | by hand, per PR |
-
 ## Size
 
-Small and fast is a requirement, not a polish pass (0.2.1 cut the Android APK from 69.7 MB to 22.3 MB and the Play bundle from 37.3 MB to 13.2 MB). The release profile in the root `Cargo.toml` sets `opt-level = "s"` with LTO and one codegen unit, keeping `opt-level = 3` for the three hot crates (SQLite and llama.cpp). `src-tauri` builds `staticlib` and `cdylib` only, because an `rlib` output silently skips LTO. Android builds arm64 only. Everything specific to a school (campus scenes, the portal wall's art) loads on demand, and the AI model downloads only on the student's choice.
+Small and fast is a requirement. The Android APK is 22.3 MB and the iPhone release 18 MB installed. The release profile in the root `Cargo.toml` turns on link-time optimisation and optimises for size, keeping full speed only for SQLite and llama.cpp. `src-tauri` builds only `staticlib` and `cdylib`, because an `rlib` output makes Cargo skip LTO. Android builds for arm64 only, the text scanner comes from Google Play services, and each campus scene and the AI model download only when needed.
 
 ## Decisions
 
@@ -165,16 +106,9 @@ Small and fast is a requirement, not a polish pass (0.2.1 cut the Android APK fr
 - [0004](adr/0004-landing-renders-in-rust-wasm-tiles.md) The landing renders in Rust/WASM tiles.
 - [0005](adr/0005-portals-are-first-class.md) Portals are first-class: SIS and Mabini (eMabini) are ready.
 
-## Known debts
+## Known gaps
 
-These feed the first sprint in `docs/TEAM.md`.
-
-- `src/lib/api.ts` types are hand-written copies of the Rust structs and can drift. `commands-check.mjs` catches a missing or extra command, not a changed field (#61).
-- Commands return strings for errors; `errors.ts` maps each sentence to plain words and `errors.test.ts` fails when a Rust sentence has no copy (#62).
+- `src/lib/api.ts` types are written by hand to match the Rust structs, so a changed field isn't caught until runtime (#61).
 - The SIS parsers have no fixtures from real pages, so a change on PUP's side shows up only on a phone.
-- `You.svelte` (1,048 lines), `Landing.svelte`, `Today.svelte`, `Study.svelte` and `Schedule.svelte` (700 to 800 each) are too big to review in one read (#64).
-- Screens are checked only by hand on the simulator and emulator; the screenshots in the README come from `scripts/readme-shots.mjs` and the emulator.
-
-## Navigating the code
-
-The repo is indexed with CodeGraph. Run `codegraph init -y` once per worktree (the index is gitignored), then `codegraph explore "<symbols or question>"` to get the source of the relevant symbols and the calls between them. It indexes Rust, TypeScript, Svelte, Swift and Kotlin.
+- `You.svelte` and a few other screens are 700 to 1,000 lines and could be split (#64).
+- Screens are checked by hand on the simulator and emulator.

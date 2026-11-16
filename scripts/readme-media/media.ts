@@ -7,21 +7,19 @@ import { litWindow } from "../../src/lib/campus/sky";
 
 declare global {
   interface Window {
-    banner(): Promise<void>;
+    banner(ms?: number): Promise<void>;
     frames(name: string, shots: { hour: number; ms: number }[]): Promise<string[]>;
   }
 }
 
-async function paint(cv: HTMLCanvasElement, name: string, hour: number, ms: number) {
-  const b = build(await loadScene(name));
-  const s = startStrip(cv, b, { lit: litWindow("COMP 20073", b.windows), hour: () => hour, keep: true });
+let built: ReturnType<typeof build> | null = null;
+window.banner = async (ms = 5000) => {
+  await document.fonts.ready;
+  const cv = document.getElementById("scene") as HTMLCanvasElement;
+  built ??= build(await loadScene("Sta. Mesa"));
+  const s = startStrip(cv, built, { lit: litWindow("COMP 20073", built.windows), hour: () => 19.5, keep: true });
   s.draw(ms);
   s.stop();
-}
-
-window.banner = async () => {
-  await document.fonts.ready;
-  await paint(document.getElementById("scene") as HTMLCanvasElement, "Sta. Mesa", 19.5, 5000);
 };
 
 window.frames = async (name, shots) => {
