@@ -6,7 +6,7 @@ pub fn parse_outline(text: String, today: Date) -> Vec<Item> {
     syllabus::parse_outline(&text, today)
 }
 
-/// Text read from a photo with its line wraps, split words and stray marks tidied (spec 041 C19).
+/// Text read from a photo with its line wraps, split words and stray marks tidied (spec 041 C25).
 #[tauri::command(async)]
 pub fn clean_scan(raw: String) -> String {
     intportal_core::scan::clean(&raw)

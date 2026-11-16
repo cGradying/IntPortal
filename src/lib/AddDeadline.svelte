@@ -85,7 +85,7 @@
   // camera (the simulator) picks from the library instead.
   let scanning = $state(false);
   let downloading = $state(false);
-  // Spec 041 C19: the scan fills the field tidied at once; with IntAssis on, LAR tidies it further.
+  // Spec 041 C25: the scan fills the field tidied at once; with IntAssis on, LAR tidies it further.
   // `tidied` holds both texts until the student types; the toggle swaps them.
   let tidying = $state(false);
   let tidied = $state<{ before: string; after: string } | null>(null);

@@ -608,7 +608,7 @@ describe("Why?", () => {
   });
 });
 
-describe("tidying a scan (spec 041 C19)", () => {
+describe("tidying a scan (spec 041 C25)", () => {
   it("asks the model only when IntAssis is installed, and says nothing when it is not", async () => {
     backend.clean_scan_ai = () => "Tidy text.";
     assis.models = [chat({ installed: false })];
