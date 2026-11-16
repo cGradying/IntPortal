@@ -10,6 +10,7 @@ use crate::study::{Deck, Stats};
 use crate::syllabus::Plan;
 use crate::today::{ClassInfo, Marks};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
+#[cfg(feature = "store")]
 use rusqlite::{params, Connection, ErrorCode, OptionalExtension};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -105,12 +106,15 @@ pub struct Source {
 }
 
 /// FNV-1a, as a change marker for text that has no edit time.
+#[cfg(feature = "store")]
 fn stamp_of(text: &str) -> i64 {
     text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3)) as i64
 }
 
+#[cfg(feature = "store")]
 const UPSERT: &str = "INSERT INTO kv (key, json) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET json = excluded.json";
 
+#[cfg(feature = "store")]
 pub struct Store {
     db: Connection,
     /// The snapshot as last read or saved. Every command asks for it, so reading twelve rows and
@@ -139,6 +143,7 @@ pub struct Photo {
     pub created: i64,
 }
 
+#[cfg(feature = "store")]
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
     #[error(transparent)]
@@ -162,6 +167,7 @@ pub enum StoreError {
 /// columns added later are added here. A blind ALTER fails on the second open,
 /// so each is checked first. A failure is an ordinary error, never `Locked`:
 /// the shell moves a Locked store aside, which would look like a wipe.
+#[cfg(feature = "store")]
 fn add_note_columns(db: &Connection) -> rusqlite::Result<()> {
     let have: Vec<String> = db.prepare("PRAGMA table_info(notes)")?.query_map([], |r| r.get(1))?.collect::<Result<_, _>>()?;
     for (name, column) in [("subject", "subject TEXT"), ("pinned", "pinned INTEGER NOT NULL DEFAULT 0")] {
@@ -178,6 +184,7 @@ fn add_note_columns(db: &Connection) -> rusqlite::Result<()> {
 }
 
 /// Opens with the key and proves it by reading the schema.
+#[cfg(feature = "store")]
 fn keyed(path: &Path, key: &str) -> rusqlite::Result<Connection> {
     let db = Connection::open(path)?;
     db.execute_batch(&format!("PRAGMA key = \"{key}\";"))?;
@@ -185,10 +192,12 @@ fn keyed(path: &Path, key: &str) -> rusqlite::Result<Connection> {
     Ok(db)
 }
 
+#[cfg(feature = "store")]
 fn readable(db: &Connection) -> rusqlite::Result<()> {
     db.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
+#[cfg(feature = "store")]
 fn not_a_database(e: &rusqlite::Error) -> bool {
     matches!(e, rusqlite::Error::SqliteFailure(f, _) if f.code == ErrorCode::NotADatabase)
 }
@@ -196,6 +205,7 @@ fn not_a_database(e: &rusqlite::Error) -> bool {
 /// Rewrites a plain store as an encrypted copy beside it, then swaps the
 /// copy in with one rename. A crash before the rename leaves the plain file
 /// whole, and the next open starts over.
+#[cfg(feature = "store")]
 fn encrypt_in_place(path: &Path, key: &str) -> Result<(), StoreError> {
     let mut enc = path.as_os_str().to_owned();
     enc.push(".enc");
@@ -214,6 +224,7 @@ fn encrypt_in_place(path: &Path, key: &str) -> Result<(), StoreError> {
     Ok(())
 }
 
+#[cfg(feature = "store")]
 impl Store {
     /// Opens this student's store with their 32-byte key. A store from
     /// before encryption is encrypted in place first.
@@ -739,6 +750,7 @@ impl Store {
     }
 }
 
+#[cfg(feature = "store")]
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -36,3 +36,5 @@ static/tiles.wasm
 # The website build
 site/build/
 site/.svelte-kit/
+# Built by scripts/web.sh from crates/intportal-web
+static/intportal_web.wasm

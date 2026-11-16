@@ -8,7 +8,6 @@ use intportal_core::nudge;
 use intportal_core::deadline::{self, Deadline, Draft, OwnDeadline};
 use intportal_core::grades::{self, Goals, GradeReport, Standing};
 use intportal_core::mabini::{LoginPage, MabiniClient, MabiniData};
-use intportal_core::model::{ClassSession, Weekday};
 use intportal_core::notes::{self, Note};
 use intportal_core::schedule;
 use intportal_core::sis::{self, sign_in_guarded, Credentials, Ledger, SisClient};

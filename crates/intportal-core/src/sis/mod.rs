@@ -1,11 +1,13 @@
 //! Talking to PUP's SIS over plain HTTP (spike S0, #4): sign in with a form
 //! POST, then read the server-rendered schedule and grades tables.
 
+#[cfg(feature = "net")]
 mod client;
 pub mod guard;
 pub mod host;
 pub mod scrape;
 
+#[cfg(feature = "net")]
 pub use client::SisClient;
 pub use guard::{post_once, sign_in_guarded, Ledger};
 
@@ -48,6 +50,7 @@ pub enum Error {
     LedgerUnsaved,
 }
 
+#[cfg(feature = "net")]
 impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
         Error::Network(e.without_url().to_string())

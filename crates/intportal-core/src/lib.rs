@@ -1,3 +1,5 @@
+// Without the store and the network (the browser demo), their imports and helpers go unused.
+#![cfg_attr(not(all(feature = "store", feature = "net")), allow(unused_imports, dead_code))]
 //! IntPortal's core: SIS access, parsing and the domain logic every screen
 //! reads. No UI, no platform APIs; the Tauri shell calls into this.
 
@@ -6,6 +8,7 @@ pub mod calendar;
 pub mod campus;
 pub mod coach;
 pub mod deadline;
+pub mod demo;
 pub mod grades;
 pub mod mabini;
 pub mod model;
