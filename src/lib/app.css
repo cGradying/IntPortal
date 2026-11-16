@@ -167,7 +167,7 @@
   --t-hero: 0.55s;
   /* Leaving is quicker than arriving; sheets get a hair of overshoot, never a bounce (spec 045 C29). */
   --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
-  --ease-sheet: cubic-bezier(0.32, 1.35, 0.5, 1);
+  --ease-sheet: cubic-bezier(0.32, 1.2, 0.5, 1);
   --t-exit: 0.2s;
   --shift: 12px; /* how far a page slides when the tab changes */
   /* The text roles (spec 045 C8, C11): the sizes the app already used, now named.
