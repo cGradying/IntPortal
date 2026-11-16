@@ -18,6 +18,7 @@
 <style>
   .problem {
     --step: 4px;
+    animation: soft-in var(--t-move) var(--ease) backwards;
     display: flex;
     align-items: center;
     gap: 14px;

@@ -63,14 +63,14 @@ describe("spec 045 tokens", () => {
   });
 
   it("c20_motion_tokens_exist (css presence)", () => {
-    for (const t of ["--ease-spring", "--t-quick: 0.16s", "--t-move: 0.32s", "--t-flow: 0.36s", "--t-hero: 0.55s"]) expect(css).toContain(t);
+    for (const t of ["--ease-spring", "--t-quick: 0.16s", "--t-move: 0.32s", "--t-flow: 0.36s", "--t-hero: 0.55s", "--t-exit: 0.2s", "--shift: 12px", "--ease-in", "--ease-sheet"]) expect(css).toContain(t);
   });
 
   it("c20_no_raw_durations: components use tokens, stepped pixel animations aside", () => {
     // Files other open PRs own (2026-11-14) still carry token-sized literals; they move to tokens when those merge.
     const owned = /^lib\/(Landing|NoteEditor|ClassSheet|DueCard|WeekGrid)\.svelte$|^lib\/screens\/(Today|Schedule|You)\.svelte$/;
     // Off-scale literals (0.2s, 0.3s, 0.4s, ...) are tuned per component and need a design call to snap; the count can only fall.
-    const offScale = 77; // 76 at the first pass, +1 for DateWheels (0.3 s) from main
+    const offScale = 8; // was 77 as a cap; 8 is what is left after the motion vocabulary
     let off = 0;
     for (const f of files) {
       for (const line of style(f.src).split("\n")) {
@@ -87,7 +87,7 @@ describe("spec 045 tokens", () => {
 
   it("c21_reduce_motion_press_rule_is_colour_only (css presence)", () => {
     const reduce = css.slice(css.indexOf("prefers-reduced-motion: reduce"));
-    expect(reduce).toMatch(/:not\(:disabled\):active \{\s*scale: none !important;\s*transform: none !important;\s*translate: none !important;\s*filter: brightness/);
+    expect(reduce).toMatch(/:not\(:disabled\):is\(:active, \[data-press\]\) \{\s*scale: none !important;\s*transform: none !important;\s*translate: none !important;\s*filter: brightness/);
   });
 
   it("c17_study_session_does_not_celebrate", () => {

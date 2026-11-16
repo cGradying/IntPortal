@@ -3,6 +3,7 @@
   // week, move it, colour it, or open its notes and syllabus. Opened by a
   // tap in Schedule and a long press on Today.
   import { closable } from "./back";
+  import { dismiss, scrim, sheet as rises } from "./motion";
   import { buzz } from "./haptics";
   import { app, adopt, openNote, openSubject } from "./state.svelte";
   import { openLink } from "./openLink";
@@ -23,6 +24,13 @@
     sheet.animate([{ transform: blockTransform(sheet, from), transformOrigin: "0 0", opacity: 0.4 }, { transform: "none", transformOrigin: "0 0", opacity: 1 }], { duration: 380, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
   });
   let closing = false;
+  // Dragged off the screen: no shrink back, the sheet is already gone.
+  function dragged() {
+    if (closing) return;
+    closing = true;
+    if (dirty()) void saveInfo();
+    onclose();
+  }
   function close() {
     if (closing) return;
     closing = true;
@@ -100,8 +108,8 @@
 </script>
 
 
-<div class="scrim" role="presentation" onclick={close}></div>
-<div class="sheet notch" class:grown={!!from} bind:this={sheet} role="dialog" aria-label="Edit {s.subject_code}">
+<div class="scrim" role="presentation" onclick={close} transition:scrim|global></div>
+<div class="sheet notch" bind:this={sheet} use:dismiss={dragged} transition:rises|global={{ skip: !!from }} role="dialog" aria-label="Edit {s.subject_code}">
   <p class="label data">{s.subject_code} · {s.day.slice(0, 3)} {clock(s.start)}–{clock(s.end)}</p>
   {#if moving}
     <h2>Change its time</h2>
@@ -171,7 +179,6 @@
     inset: 0;
     z-index: 40;
     background: rgba(0, 0, 0, 0.45);
-    animation: fade var(--t-quick) both;
   }
   .sheet {
     --step: 4px;
@@ -186,10 +193,6 @@
     max-height: calc(100dvh - var(--safe-bottom) - 40px);
     overflow-y: auto;
     background: var(--card-2);
-    animation: rise var(--t-flow) var(--ease) both;
-  }
-  .sheet.grown {
-    animation: none;
   }
   .sheet h2 {
     margin: 0 0 4px;
