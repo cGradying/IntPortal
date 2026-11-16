@@ -2,6 +2,7 @@
   // You (spec 047 C1–C11): eight quick switches and search on top, then short
   // rows in four groups. Each row opens its own page, closed by a large Back.
   import { askForCalendar } from "../devcal";
+  import { ISSUES, PRIVACY, UPDATES } from "../links";
   import { adopt, app, forgetThemes, mabiniSyncNow, restoreThemes, themesForBackup, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setGlanceOutside, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
   import { api, isoDate, type BackupPreview, type Portal, type Space } from "../api";
   import { onMount, tick as settled } from "svelte";
@@ -604,11 +605,11 @@
       <p>LAR is the Lakbay-Aral Robot who came through the portal to study with you.</p>
       <p>IntPortal {__APP_VERSION__} · An unofficial student app, not made by or affiliated with PUP.</p>
       <p class="links">
-        <button class="link" onclick={() => openLink("https://github.com/cGradying/intportal-app/blob/main/PRIVACY.md", true)}>Privacy</button>
+        <button class="link" onclick={() => openLink(PRIVACY, true)}>Privacy</button>
         <span aria-hidden="true">·</span>
-        <button class="link" onclick={() => openLink("https://github.com/cGradying/intportal-app/releases", true)}>Updates</button>
+        <button class="link" onclick={() => openLink(UPDATES, true)}>Updates</button>
         <span aria-hidden="true">·</span>
-        <button class="link" onclick={() => openLink("https://github.com/cGradying/intportal-app/issues", true)}>Report a problem</button>
+        <button class="link" onclick={() => openLink(ISSUES, true)}>Report a problem</button>
       </p>
     </div>
   </div>

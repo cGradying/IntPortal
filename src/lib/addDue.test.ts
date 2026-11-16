@@ -1,29 +1,36 @@
 import { describe, expect, it } from "vitest";
 import type { ClassSession, DeadlineDraft } from "./api";
-import { dayLabel, dayName, guessSubject, kindName, meets, nextClassDays, stub, tickets, verdict, whenDays, type Ticket } from "./addDue";
+import { dayLabel, dayName, kindName, meets, nextClassDays, stub, tickets, verdict, whenDays, type Ticket } from "./addDue";
 
 const MON = "2026-11-09";
 const at = (subject_code: string, day: ClassSession["day"]): ClassSession => ({ subject_code, description: "", faculty: "", day, start: 480, end: 570, occurrence: 0 });
 const SESSIONS = [at("COMP 20073", "Tuesday"), at("COMP 20073", "Friday"), at("MATH 20133", "Monday")];
 const draft = (over: Partial<DeadlineDraft> = {}): DeadlineDraft => ({ title: "Quiz", subject: "COMP 20073", kind: "quiz", date: "2026-11-13", ...over });
-const ticket = (over: Partial<Ticket> = {}): Ticket => ({ ...draft(), keep: true, ...over });
+const ticket = (over: Partial<Ticket> = {}): Ticket => ({ ...draft(), keep: true, key: "only", ...over });
 
 describe("tickets", () => {
-  it("lays the student's fixes and keep toggles over the core's drafts, by position", () => {
-    const parsed = [draft({ title: "Lab 4", kind: "project", subject: null, date: "2026-11-12" }), draft({ title: "Midterm exam", kind: "exam", subject: null, date: "2026-11-16" })];
-    expect(tickets(parsed, [{}, { subject: "MATH 20133" }], [true])).toEqual([
-      { title: "Lab 4", subject: null, kind: "project", date: "2026-11-12", keep: false },
-      { title: "Midterm exam", subject: "MATH 20133", kind: "exam", date: "2026-11-16", keep: true },
+  const lab = draft({ title: "Lab 4", kind: "project", subject: null, date: "2026-11-12", line: "Lab 4 thu" });
+  const mid = draft({ title: "Midterm exam", kind: "exam", subject: null, date: "2026-11-16", line: "Midterm exam mon" });
+  it("lays the student's fixes and keep toggles over the core's drafts, by line", () => {
+    expect(tickets([lab, mid], { "1:Midterm exam mon": { subject: "MATH 20133" } }, { "0:Lab 4 thu": true })).toEqual([
+      { ...lab, keep: false, key: "0:Lab 4 thu" },
+      { ...mid, subject: "MATH 20133", keep: true, key: "1:Midterm exam mon" },
     ]);
   });
+  it("050 C14 drops a fix when its line changes instead of moving it to another ticket", () => {
+    const fixes = { "1:Midterm exam mon": { subject: "MATH 20133" } };
+    const edited = draft({ ...mid, line: "Midterm exam tue" });
+    expect(tickets([lab, edited], fixes, {}).map((t) => t.subject)).toEqual([null, null]);
+    expect(tickets([mid, lab], fixes, {}).map((t) => t.subject)).toEqual([null, null]);
+  });
   it("keeps a fix when the text is read again", () => {
-    expect(tickets([draft({ date: null })], [{ date: "2026-11-20", title: "Quiz 3" }], [])).toEqual([{ title: "Quiz 3", subject: "COMP 20073", kind: "quiz", date: "2026-11-20", keep: true }]);
+    expect(tickets([draft({ date: null })], { only: { date: "2026-11-20", title: "Quiz 3" } }, {})).toEqual([{ title: "Quiz 3", subject: "COMP 20073", kind: "quiz", date: "2026-11-20", keep: true, key: "only" }]);
   });
   it("keeps a lone ticket, even one unticked when there were two", () => {
-    expect(tickets([draft()], [], [true])[0].keep).toBe(true);
+    expect(tickets([draft()], {}, { only: true })[0].keep).toBe(true);
   });
   it("is empty for no text", () => {
-    expect(tickets([], [{ title: "x" }], [])).toEqual([]);
+    expect(tickets([], { only: { title: "x" } }, {})).toEqual([]);
   });
 });
 
@@ -80,19 +87,3 @@ describe("verdict", () => {
   });
 });
 
-describe("guessSubject", () => {
-  const two = [...SESSIONS, at("COMP 20083", "Monday")];
-  it("picks the COMP that meets on the day when two share the letters", () => {
-    expect(guessSubject(draft({ title: "Quiz COMP", subject: null }), two)).toEqual(draft({ title: "Quiz", subject: "COMP 20073" }));
-  });
-  it("takes the only subject with those letters", () => {
-    expect(guessSubject(draft({ title: "math quiz", subject: null, date: "2026-11-13" }), SESSIONS)).toEqual(draft({ title: "quiz", subject: "MATH 20133" }));
-  });
-  it("leaves it alone when neither or both meet that day", () => {
-    const d = draft({ title: "Quiz COMP", subject: null, date: "2026-11-11" });
-    expect(guessSubject(d, two)).toEqual(d);
-  });
-  it("never replaces a subject the core found", () => {
-    expect(guessSubject(draft({ title: "math quiz" }), SESSIONS).subject).toBe("COMP 20073");
-  });
-});

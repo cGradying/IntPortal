@@ -84,6 +84,10 @@ pub struct Portal {
     pub limits: Limits,
     /// Keychain service for this portal's login; never shared between portals.
     pub keychain_service: &'static str,
+    /// What the guard says when this portal turned the saved login down and
+    /// nothing may try it again until it is edited (050 C5).
+    #[serde(skip)]
+    pub rejected_again: &'static str,
 }
 
 const LIMITS: Limits = Limits { attempts: 3, window_secs: 15 * 60 };
@@ -102,6 +106,7 @@ pub const SIS: Portal = Portal {
     fields: &[Field::StudentNumber, Field::Birthdate, Field::Password],
     limits: LIMITS,
     keychain_service: "ph.intportal.app",
+    rejected_again: "The SIS turned your login down. Update your student number, birthdate or password to try again.",
 };
 
 /// eMabini, the PUP Open University System's Moodle learning portal at
@@ -121,13 +126,14 @@ pub const MABINI: Portal = Portal {
     fields: &[Field::StudentNumber, Field::Password],
     limits: LIMITS,
     keychain_service: "ph.intportal.app.mabini",
+    rejected_again: "eMabini turned your login down. Update your username or password to try again.",
 };
 
 /// A state university listed before its portal is built: a name, a look and
 /// "Opens soon", no sign-in. The palettes are placeholders until the
 /// universities reference (docs/specs/reference) confirms each school's colours.
 const fn soon(id: &'static str, name: &'static str, school: &'static str, region: &'static str, theme: Theme, shape: Shape, motif: Motif) -> Portal {
-    Portal { id, name, school, region, status: Status::OpensSoon, theme, shape, motif, fields: &[], limits: LIMITS, keychain_service: id }
+    Portal { id, name, school, region, status: Status::OpensSoon, theme, shape, motif, fields: &[], limits: LIMITS, keychain_service: id, rejected_again: "This portal turned your login down. Update it to try again." }
 }
 
 pub const UP: Portal = soon(

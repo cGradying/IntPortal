@@ -43,6 +43,9 @@ pub enum Error {
     TooManyTries { retry_at: u64 },
     #[error("refusing to talk to {0}: not a PUP SIS host")]
     UntrustedHost(String),
+    /// The try couldn't be counted on the phone, so no credential was sent (050 C3).
+    #[error("Couldn't save the sign-in count. Try again in a moment.")]
+    LedgerUnsaved,
 }
 
 impl From<reqwest::Error> for Error {
