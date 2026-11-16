@@ -1,6 +1,6 @@
 # 000 SIS data map
 
-**Status:** draft
+**Status:** reference. It records what the SIS and eMabini pages hold and is kept current as the parsers change; it has no criteria to build.
 
 What the app reads from PUP's SIS today, where each field lands, and which screens show it. This is the reference the portal specs ([012](012-portals.md)) and the login spec ([011](011-login.md)) cite. Mabini gets its own section when the user supplies captures.
 
