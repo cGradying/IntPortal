@@ -14,6 +14,7 @@
   import { api, clock, isoDate, moment, span, subjectColor, WEEKDAYS, type DeadlineEntry, type Meeting, type Weekday } from "../api";
   import { gapText, gaps, month, movedFrom, phaseOf, pin, stampOf, weekRange } from "../weekModel";
   import { settle, step, type Motion } from "../carousel";
+  import { direction } from "../motion";
   import Lar from "../lar/Lar.svelte";
 
   const todayIdx = (new Date().getDay() + 6) % 7;
@@ -206,8 +207,21 @@
   }
   const changeWeek = (dir: -1 | 1) => goWeek(offset + dir);
 
+  /** A tapped day slides in from the side it lies on, as a swipe would bring it. */
+  function pickDay(d: Weekday) {
+    const dir = direction(dayIdx, WEEKDAYS.indexOf(d));
+    if (!dir) return;
+    listM = { pos: still ? 0 : dir * 56, vel: 0 };
+    listX = listM.pos;
+    day = d;
+    buzz.select();
+  }
+
+  // The view that just arrived fades in from a hair smaller; the one on first paint stays put.
+  let switched = $state(false);
   function setView(v: "day" | "week") {
     if (view !== v) buzz.select();
+    if (view !== v) switched = true;
     view = v;
     try {
       localStorage.setItem("scheduleView", v);
@@ -262,15 +276,16 @@
     {#if shown.length === 0}
       <div class="none card notch"><Lar size={2} cube={false} state="idle" /><p>No classes this week. Pahinga muna.</p></div>
     {/if}
-    <div class="weekslide" style:transform={weekX ? `translateX(${weekX}px)` : null}>
+    <div class="weekslide" class:arrive={switched} style:transform={weekX ? `translateX(${weekX}px)` : null}>
     <WeekGrid meetings={shown} {colors} todayIdx={offset === 0 ? todayIdx : -1} {spans} onpick={pick} onswipe={changeWeek} dates={dateKeys} {deadlines} />
     </div>
     <label class="toggle"><input type="checkbox" checked={hideVacant} onchange={toggleVacant} /> Hide vacant classes</label>
   {:else}
+  <div class="dayview" class:arrive={switched}>
   <div class="days" role="tablist" style:--p={sel}>
     <i class="pill" aria-hidden="true"></i>
     {#each WEEKDAYS as d, i (d)}
-      <button role="tab" class:on={day === d} class:today={offset === 0 && i === todayIdx} aria-selected={day === d} onclick={() => (day = d)}>
+      <button role="tab" class:on={day === d} class:today={offset === 0 && i === todayIdx} aria-selected={day === d} onclick={() => pickDay(d)}>
         <span>{d.slice(0, 3)}</span>
         <strong class="num">{dates[i].getDate()}</strong>
         <i class:has={busy.has(d)} class:due={pin(deadlines, dateKeys[i]) === "due"} class:over={pin(deadlines, dateKeys[i]) === "over"}></i>
@@ -280,7 +295,7 @@
 
   <label class="toggle"><input type="checkbox" checked={hideVacant} onchange={toggleVacant} /> Hide vacant classes</label>
 
-  <div class="swipe" style:transform={listX ? `translateX(${listX}px)` : null} bind:this={swipeEl} ontouchstart={swipeStart} ontouchmove={swipeMove} ontouchend={swipeEnd} role="presentation">
+  <div class="swipe" style:transform={listX ? `translateX(${listX}px)` : null} style:opacity={listX ? 1 - Math.min(Math.abs(listX), 120) / 240 : null} bind:this={swipeEl} ontouchstart={swipeStart} ontouchmove={swipeMove} ontouchend={swipeEnd} role="presentation">
   {#if list.length === 0 && !dayRows.length}
     <div class="empty card notch">
       <Scene name="hammock" label="A hammock between two palm trees" />
@@ -316,6 +331,7 @@
       {/each}
     </ol>
   {/if}
+  </div>
   </div>
   {/if}
 </div>
@@ -634,11 +650,15 @@
     font-size: var(--text-sub);
     color: var(--ink-2);
   }
-  @keyframes rise {
-    from { transform: translateY(20px); opacity: 0; }
+  .dayview {
+    display: grid;
+    gap: 14px;
   }
-  @keyframes fade {
-    from { opacity: 0; }
+  .arrive {
+    animation: arrive var(--t-move) var(--ease) backwards;
+  }
+  @keyframes arrive {
+    from { opacity: 0; scale: 0.985; }
   }
   .weeks {
     display: flex;

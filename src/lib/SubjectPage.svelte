@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { flip } from "svelte/animate";
+  import { fade } from "svelte/transition";
+  import { flow } from "./motion";
+
   import { friendly } from "./errors";
   // One subject's syllabus: its grading system with the running arithmetic,
   // and its outline of topics, quizzes, exams and projects.
@@ -167,7 +171,7 @@
         {/if}
         <ul class="items">
           {#each sorted as it (it.id || it.topic)}
-            <li class:done={it.done} id={it.id ? `item-${it.id}` : undefined} class:here={it.id === item}>
+            <li animate:flip={flow()} in:fade={flow()} out:fade={flow()} class:done={it.done} id={it.id ? `item-${it.id}` : undefined} class:here={it.id === item}>
               <input type="checkbox" checked={it.done} aria-label="Done" onchange={() => { it.done = !it.done; changed(); }} />
               <span class="kind" data-kind={it.kind}>{it.kind}</span>
               <span class="topic">{it.topic}</span>
@@ -191,6 +195,7 @@
     grid-template-rows: auto auto 1fr;
     gap: 12px;
     padding: calc(var(--safe-top) + 12px) var(--gutter) 0;
+    animation: enter var(--t-flow) var(--ease) backwards;
   }
   header {
     display: flex;
@@ -398,5 +403,8 @@
   }
   li.here {
     box-shadow: inset 3px 0 0 var(--gold);
+  }
+  @keyframes enter {
+    from { opacity: 0; translate: 28px 0; }
   }
 </style>
