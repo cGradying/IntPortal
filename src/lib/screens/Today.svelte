@@ -2,14 +2,16 @@
   import { tick as settled } from "svelte";
   import { fade, slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
-  // The Up next count drops in when its value changes, never on first paint (spec 045 C24).
-  function tick(el: HTMLElement, value: string) {
-    let last = value;
+  import { reduced as still } from "../motion";
+  // The Now row gets one gold sweep the moment its class begins, never on first paint.
+  function sweep(el: HTMLElement, phase: string) {
+    let last = phase;
     return {
       update(next: string) {
-        if (next === last) return;
+        const was = last;
         last = next;
-        if (!matchMedia("(prefers-reduced-motion: reduce)").matches) el.animate([{ translate: "0 -4px", opacity: 0.3 }, { translate: "0 0", opacity: 1 }], { duration: 200, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+        if (next !== "in_session" || was === "in_session" || still()) return;
+        el.querySelector(".sweep")?.animate([{ translate: "-100% 0" }, { translate: "100% 0" }], { duration: 700, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
       },
     };
   }
@@ -182,17 +184,19 @@
         <CampusStrip litKey={next?.session.subject_code ?? ""} />
         <div class="up">
           {#if next && hero}
-            <div class="who">
+            {#key `${next.session.subject_code}${next.is_now}`}
+            <div class="who" in:fade={{ duration: quiet ? 0 : 220 }}>
               <p class="label">{next.is_now ? "In session" : "Up next"}</p>
               <h2 style:color={subjectColor(next.session.subject_code, colors)}>{next.session.subject_code}</h2>
               <p class="desc">{next.session.description}</p>
               <p class="meta">{clock(next.session.start)}–{clock(next.session.end)}{next.session.faculty ? ` · ${next.session.faculty}` : ""}</p>
               {#if t?.join}<button class="join" aria-label="Join {next.session.subject_code} class" onclick={() => { buzz.tick(); openLink(t!.join!, true); }}>Join</button>{/if}
             </div>
-            <div class="count" use:tick={`${hero.big} ${hero.unit}`}>
-              <span class="big"><PixelNum text={hero.big} size={5} /></span>
+            <div class="count" in:fade={{ duration: quiet ? 0 : 220 }}>
+              <span class="big"><PixelNum text={hero.big} size={5} roll /></span>
               <span class="unit">{hero.unit}</span>
             </div>
+            {/key}
           {:else if !t && app.snapshot}
             <!-- Spec 040 C2: still loading is not "nothing scheduled". -->
             <div class="who"><Skeleton rows={2} height={22} /></div>
@@ -205,7 +209,7 @@
           {/if}
         </div>
         {#if next?.is_now}
-          <div class="bar" aria-hidden="true"><span style:width="{progress * 100}%"></span></div>
+          <div class="bar" aria-hidden="true"><span style:translate="{(progress - 1) * 100}% 0"></span></div>
         {/if}
       </section>
 
@@ -214,7 +218,7 @@
       <DueCard />
     {:else if id === "term"}
       {#if standing && (standing.term_gpa !== null || standing.units_done > 0)}
-        <button class="reality card notch" onclick={() => (app.tab = "grades")} aria-label="Where you stand; open Grades">
+        <button class="reality card notch" in:fade={{ duration: quiet ? 0 : 200 }} onclick={() => (app.tab = "grades")} aria-label="Where you stand; open Grades">
           <span>
             <small>This term</small>
             <strong class="num">{standing.term_gpa?.toFixed(2) ?? "—"}</strong>
@@ -270,6 +274,7 @@
               style:--c={subjectColor(s.subject_code, colors)}
               onclick={() => (held = r.i)}
               use:longpress={() => { buzz.press(); held = r.i; }}
+              use:sweep={r.i.phase}
               aria-label="{s.subject_code}, {clock(s.start)}. Opens its class sheet"
             >
               <span class="time num">{clock(s.start)}<small>{clock(s.end)}</small></span>
@@ -278,7 +283,7 @@
                 <strong>{s.subject_code}</strong>
                 <span>{s.description}</span>
               </span>
-              {#if r.i.phase === "in_session"}<span class="now">Now</span>{/if}
+              {#if r.i.phase === "in_session"}<span class="now">Now</span><span class="sweep" aria-hidden="true"></span>{/if}
               {#if r.i.mark === "online"}<span class="tag">Online</span>{/if}
               {#if r.i.moved}<span class="tag">Moved</span>{/if}
             </button></li>
@@ -529,13 +534,14 @@
   }
   .bar {
     height: 4px;
+    overflow: hidden;
     background: var(--sunk);
   }
   .bar span {
     display: block;
     height: 100%;
     background: repeating-linear-gradient(90deg, var(--gold) 0 6px, color-mix(in srgb, var(--gold) 70%, transparent) 6px 8px);
-    transition: width var(--t-hero) linear;
+    transition: translate var(--t-hero) var(--ease);
   }
   .day {
     display: grid;
@@ -600,6 +606,19 @@
     border-radius: var(--radius);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--edge);
+    position: relative;
+    overflow: hidden;
+    transition:
+      opacity var(--t-move) var(--ease),
+      box-shadow var(--t-move) var(--ease);
+  }
+  /* One pass of gold light across the row as it becomes Now. */
+  .sweep {
+    position: absolute;
+    inset: 0;
+    translate: -100% 0;
+    background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--gold) 28%, transparent) 50%, transparent 70%);
+    pointer-events: none;
   }
   .class[data-phase="past"] {
     opacity: 0.5;

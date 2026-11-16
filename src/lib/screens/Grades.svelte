@@ -12,6 +12,7 @@
   import { resource } from "../load.svelte";
   import { app, adopt, openSubject } from "../state.svelte";
   import { buzz } from "../haptics";
+  import { playOnce, slideOnChange } from "../motion";
   import { api, riskLine, subjectColor, type Reach, type SubjectGrade } from "../api";
 
   const loaded = resource(() => api.standing());
@@ -26,6 +27,8 @@
   let viewing = $state<string | null>(null);
   const termKey = (r: { school_year: string | null; semester: string | null }) => `${r.semester ?? ""} ${r.school_year ?? ""}`.trim();
   const pastReport = $derived(viewing ? (app.snapshot?.history ?? []).find((r) => termKey(r) === viewing) ?? null : null);
+  // Terms are tabs left to right, this one first; a switch slides from the side it lies on.
+  const termIdx = $derived(viewing ? 1 + [...(standing?.past ?? [])].reverse().findIndex((p) => termKey(p) === viewing) : 0);
   const report = $derived(pastReport ?? app.snapshot?.grades ?? null);
   const subjects = $derived(report?.subjects ?? []);
   const colors = $derived(app.snapshot?.colors ?? {});
@@ -150,6 +153,10 @@
     }
   }
 
+  // The trend draws left to right once per set of term GPAs, not on every visit.
+  const draw = (el: Element) => el.animate([{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }], { duration: 700, delay: 150, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" });
+  // "All passed" pops the first time a term earns it on this device.
+  const pop = (el: Element) => el.animate([{ scale: 0.6, opacity: 0 }, { scale: 1.08, opacity: 1, offset: 0.6 }, { scale: 1 }], { duration: 360, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" });
   const chart = $derived(trend.length >= 2 ? plot(trend) : null);
   const path = $derived(chart?.points.map((p, i) => `${i ? "L" : "M"}${p.x} ${p.y}`).join(" ") ?? "");
 </script>
@@ -170,21 +177,21 @@
     </div>
   {/if}
 
-  <section class="gpa card notch">
+  <section class="gpa card notch" use:slideOnChange={termIdx}>
     {#if celebrate}<Confetti />{/if}
     <div>
       <p class="label">GPA</p>
       <p class="value num"><PixelNum text={heroGpa === null ? "—" : heroGpa.toFixed(2)} size={6} />{#if best}<span class="pb" class:fresh={celebrate}>Personal best</span>{/if}</p>
       <p class="sub">
         {#if shownGpa === null}No grades posted yet{:else}{posted.length} of {subjects.length} posted · {units} units{/if}
-        {#if allPassed}<span class="passed">All passed</span>{/if}
+        {#if allPassed}<span class="passed" use:playOnce={{ key: `passedPopped-${termKey(report ?? { school_year: null, semester: null })}`, sig: "1", play: pop }}>All passed</span>{/if}
       </p>
     </div>
     {#if chart}
       {@const first = chart.points[0]}
       {@const last = chart.points[chart.points.length - 1]}
       <div class="trend" role="img" aria-label={spoken(trend)}>
-        <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+        <svg use:playOnce={{ key: "trendDrawn", sig: trend.map((p) => p.v.toFixed(2)).join("|"), play: draw }} viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
           {#each chart.guides as g (g.v)}
             <line x1="0" x2="100" y1={g.y} y2={g.y} stroke="var(--edge)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
           {/each}
@@ -240,7 +247,7 @@
     </div>
   {/if}
 
-  <ol>
+  <ol use:slideOnChange={termIdx}>
     {#each subjects as s (s.subject_code + s.section_code + s.occurrence)}
       {@const n = numeric(s)}
       <li class="row" style:--c={subjectColor(s.subject_code, colors)}>

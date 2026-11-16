@@ -8,6 +8,9 @@
 </script>
 
 <script lang="ts">
+  import { flip } from "svelte/animate";
+  import { fade } from "svelte/transition";
+  import { flow } from "./motion";
   import { friendly } from "./errors";
   // The notebook shelf (spec 046 C1 to C7): a notebook per subject, its window lit with one pixel
   // per note and one gold pixel per card due. Pull one out to see its notes below; decks live on Cards.
@@ -112,7 +115,6 @@
 </script>
 
 {#snippet noteRow(n: NoteItem)}
-  <li>
     <button class="rowb" data-source={n.key} onclick={() => !held && openNote(n.key, heading(n), n.title)} onpointerdown={() => hold(n)} onpointerup={release} onpointerleave={release} oncontextmenu={(e) => e.preventDefault()}>
       <span class="tx">
         <strong>{#if n.pinned}<span class="pinned">Pinned</span>{/if}{heading(n)}</strong>
@@ -120,7 +122,6 @@
       </span>
     </button>
     <button class="more" aria-label="More for {heading(n)}" onclick={() => act(n)}><i></i><i></i><i></i></button>
-  </li>
 {/snippet}
 
 {#snippet deckRow(d: ShelfDeck)}
@@ -138,7 +139,7 @@
   <section class="card notch list" aria-label="Search results">
     {#if found.notes.length || found.decks.length}
       <ul>
-        {#each found.notes as n (n.key)}{@render noteRow(n)}{/each}
+        {#each found.notes as n (n.key)}<li animate:flip={flow()} in:fade={flow()} out:fade={flow()}>{@render noteRow(n)}</li>{/each}
         {#each found.decks as d (d.id)}{@render deckRow(d)}{/each}
       </ul>
     {:else}
@@ -170,7 +171,7 @@
     </div>
     {#if open.notes.length}
       <ul>
-        {#each open.notes as n (n.key)}{@render noteRow(n)}{/each}
+        {#each open.notes as n (n.key)}<li animate:flip={flow()} in:fade={flow()} out:fade={flow()}>{@render noteRow(n)}</li>{/each}
       </ul>
     {:else}
       <p class="fine pad">{open.code ? "Nothing here yet. Notes you keep from this class on Schedule land here too." : "Day notes and notes without a subject land here."}</p>

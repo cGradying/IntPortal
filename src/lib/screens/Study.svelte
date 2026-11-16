@@ -34,7 +34,10 @@
   let part = $state<Part>("home");
   // Opening slides in from the right, going back from the left (C1).
   let from = $state(28);
+  // The first part is already there when the tab opens; only a move between parts slides.
+  let moved = $state(false);
   function go(to: Part) {
+    moved = true;
     from = to === "home" ? -28 : 28;
     part = to;
     scrollTo({ top: 0 });
@@ -126,7 +129,7 @@
   {#key app.deck}<DeckPage id={app.deck} onclose={() => { app.deck = null; study.reload(); }} />{/key}
 {:else}
   {#key part}
-    <div class="screen" style:--from="{from}px">
+    <div class="screen" class:moved style:--from="{from}px">
       {#if part === "home"}
         <h1>Study</h1>
         {#if notice}<p class="notice" role="status">{notice}</p>{/if}
@@ -262,7 +265,9 @@
     display: grid;
     gap: 12px;
     grid-template-columns: minmax(0, 1fr);
-    /* Smooth Travel: a part slides in over --t-flow, from the side it lives on. */
+  }
+  /* Smooth Travel: a part slides in over --t-flow, from the side it lives on. */
+  .screen.moved {
     animation: part-in var(--t-flow) var(--ease) backwards;
   }
   @keyframes part-in {
@@ -278,7 +283,7 @@
   }
   /* Reduce Motion clamps every animation; parts still cross-fade, in place. */
   @media (prefers-reduced-motion: reduce) {
-    .screen.screen {
+    .screen.moved.moved {
       animation: part-fade var(--t-quick) var(--ease) backwards !important;
     }
   }
