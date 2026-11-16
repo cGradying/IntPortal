@@ -23,9 +23,9 @@ zip = { version = "9.5.1", default-features = false, features = ["deflate"], opt
 sha2 = "0.10"
 base64 = "0.22"
 
-# SQLCipher's crypto: CommonCrypto on Apple; Android has no system OpenSSL
-# for apps, so it's built in.
-[target.'cfg(target_os = "android")'.dependencies]
+# SQLCipher's crypto: CommonCrypto on Apple; Android, Windows and Linux get a
+# built-in OpenSSL, so the app never depends on the system's.
+[target.'cfg(any(target_os = "android", target_os = "windows", target_os = "linux"))'.dependencies]
 rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"], optional = true }
 
 

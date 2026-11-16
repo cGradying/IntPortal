@@ -11,7 +11,7 @@ edition = "2021"
 name = "intportal_lib"
 # No "rlib": with it cargo skips LTO for the whole lib (only bins, staticlibs
 # and cdylibs can be LTO'd), and none of the release settings below took effect. So
-# there is no desktop bin (src/main.rs) to link it; the app is iOS and Android.
+# the desktop bin (src/main.rs, spec 053) includes lib.rs as source instead of linking it.
 crate-type = ["staticlib", "cdylib"]
 
 [build-dependencies]
@@ -32,6 +32,13 @@ intportal-llm = { path = "../crates/intportal-llm" }
 
 [target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }
+
+# Desktop (spec 053): the Credential Manager and the Secret Service.
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
