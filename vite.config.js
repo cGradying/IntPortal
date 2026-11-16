@@ -2,13 +2,16 @@ import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 // @ts-expect-error type error without @types/node package
 import process from "node:process";
+// @ts-expect-error type error without @types/node package
+import { readFileSync } from "node:fs";
+const version = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version;
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [sveltekit()],
   // Review builds (tauri --debug) show the demo-data entry on sign-in.
-  define: { __REVIEW__: JSON.stringify(process.env.TAURI_ENV_DEBUG === "true" || process.env.NODE_ENV !== "production") },
+  define: { __APP_VERSION__: JSON.stringify(version), __REVIEW__: JSON.stringify(process.env.TAURI_ENV_DEBUG === "true" || process.env.NODE_ENV !== "production") },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

@@ -7,11 +7,19 @@
 ![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android-555)
 [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-555)](LICENSE)
 
-An unofficial student app for PUP, built for phones. It signs in to PUP's systems with your own account (the SIS for classes and grades, eMabini for courses and deadlines), keeps the data on the phone, and adds study tools and an on-device assistant around it. The look is a calm, clean interface on a dotted night ground, with crafted pixel-art moments. LAR, the Lakbay-Aral Robot, does the talking.
+An unofficial student app for PUP, built for phones. It signs in to PUP's systems with your own account (the SIS for classes and grades, eMabini for courses and deadlines), keeps the data on the phone, and adds study tools and an on-device assistant around it. The look is a calm, clean interface on a night ground, with crafted pixel-art moments. LAR, the Lakbay-Aral Robot, does the talking.
 
 It is a from-scratch rebuild of the macOS app, [cGradying/IntPortal](https://github.com/cGradying/IntPortal), which is now in maintenance. The old app's docs live in `docs/legacy/`; [docs/specs/](docs/specs/README.md) tracks what moves over.
 
-IntPortal is not made by or affiliated with PUP. Only your own account is supported, on the SIS and on eMabini, which is what PUP's terms allow. There are no store releases yet. Android builds are on the [releases page](https://github.com/cGradying/intportal-app/releases) as pre-releases; for iOS, build it yourself with the steps below.
+IntPortal is not made by or affiliated with PUP. Only your own account is supported, on the SIS and on eMabini, which is what PUP's terms allow. There are no store releases yet. Android builds are on the [releases page](https://github.com/cGradying/intportal-app/releases) (see [Get it on Android](#get-it-on-android)); for iOS, build it yourself with the steps below. What the app does with your data is in [PRIVACY.md](PRIVACY.md).
+
+## Get it on Android
+
+1. On your Android phone, open the [latest release](https://github.com/cGradying/intportal-app/releases/latest) and download `IntPortal-<version>.apk`.
+2. Open the file. Android asks to allow installs from your browser or Files app: allow it for that app only.
+3. Install, then open IntPortal. LAR says hi, and you sign in with your own SIS account.
+
+It needs Android 7 or newer on a 64-bit phone. Updates install over the old version and keep your data. To check the file, compare its SHA-256 with the one in the release notes. The text scanner downloads through Google Play services the first time you use it; on a phone without Play services, type or paste instead.
 
 Every feature, tab by tab, is in [docs/FEATURES.md](docs/FEATURES.md); what changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
