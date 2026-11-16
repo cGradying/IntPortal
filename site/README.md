@@ -35,6 +35,10 @@ After the site has an address, set `SITE` in `src/lib/links.ts` at the repositor
 
 The download links point at `releases/latest/download/<file>`, so a new release needs no new deploy. The version and sizes are read from GitHub when the site is built, and again in the visitor's browser when GitHub answers. When GitHub doesn't answer at build time, `src/lib/fallback.json` is used.
 
+## The browser demo
+
+`/try` frames the app itself, built for the browser into `static/app` by `scripts/web.sh` at the repository root (spec 052). It needs Rust, so its output is committed and the site still builds with Node alone. Run `scripts/web.sh` before a release, after the app changes.
+
 ## Media
 
 `scripts/media.sh` turns the README's screenshots and GIFs into the WebP stills and MP4 loops in `static/media`. The outputs are committed, so hosts don't need ffmpeg.

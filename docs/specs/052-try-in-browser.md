@@ -1,6 +1,6 @@
 # 052 Try it in the browser
 
-**Status:** approved (planned by the Head on the owner's request of 2026-11-17)
+**Status:** building
 
 ## What changes for the student
 
@@ -61,9 +61,9 @@ As in the app. The frame on wide screens doesn't trap focus.
 |---|---|
 | C1 | `cargo build -p intportal-web --target wasm32-unknown-unknown` in CI |
 | C3, C4 | `cargo test -p intportal-web` calls each command on the demo account |
-| C2, C5, C6 | screenshots of `/try` at 375 and 1440 px in Chrome and WebKit |
-| C7 | a Playwright test that counts requests after load |
-| C8 | the size printed by the build |
+| C2, C5, C6 | `/try` at 375 and 1440 px in the browser pane (Chromium) |
+| C7 | the network log of `/try`: every request is to the site itself |
+| C8 | `intportal_web.wasm` is 1.5 MB, 506 KB gzipped |
 
 ## Open questions
 
