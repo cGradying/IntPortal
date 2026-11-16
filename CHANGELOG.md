@@ -2,7 +2,9 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
-## Unreleased
+## 0.4.0 (2026-11-17)
+
+IntPortal on every platform: phones, computers and the browser, with a website and a reel.
 
 - Class card outside the app: You › Reminders has a new "Class card outside the app" setting: Always, When I leave (the default), or Off. In the default the Lock Screen and Dynamic Island card (the status-bar chip on Android) goes away when you open IntPortal and comes back when you leave it
 - The status dock above the tab bar no longer sits over your lists when there is nothing to count down to
@@ -17,6 +19,12 @@ What changed in each release, newest first. A release PR adds its section; `scri
 - A syllabus marks the rows dated this week (#303)
 - Links from eMabini open only on PUP's own sites (#303)
 - The quick add's subject guess (COMP picks the class that meets that day) moved into the core, and a fix stays with its own line when you edit a pasted list (#303)
+
+Known gaps:
+
+- iPhone: no App Store or TestFlight build (needs a paid Apple developer account); sideload or build it
+- Desktop builds are unsigned; Windows and Linux builds are made by CI and haven't been run on a real Windows or Linux computer yet. IntAssis runs on the Mac only
+- The website is ready but not online; putting it on a host and a domain is the owner's step (site/README.md)
 
 ## 0.3.0 (2026-11-17)
 
