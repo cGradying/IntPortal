@@ -8,7 +8,7 @@ import ts from "typescript";
 const dir = "docs/specs/reference/prototypes/";
 const page = process.argv[2] ?? "lar-window";
 const out = process.argv[3] ?? `${dir}${page}.html`;
-const ROWS = { "lar-window": ["greet", "window", "due", "study", "isko"], "lar-chat": ["morph", "chat"] };
+const ROWS = { "lar-window": ["greet", "window", "due", "study", "isko"], "lar-chat": ["morph", "chat"], quiz: ["deck", "run", "mix"] };
 const js = ts.transpileModule(readFileSync("src/lib/lar/sprite.ts", "utf8"), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
 }).outputText;
