@@ -18,8 +18,7 @@
       <p class="un">Unofficial. Not made by or affiliated with any school.</p>
       <p class="fine">
         An independent student project, free under the
-        <a href="{REPO_URL}/blob/main/LICENSE" rel="noopener">PolyForm Noncommercial</a> licence.{#if release}
-          Version {release.version}.{/if}
+        <a href="{REPO_URL}/blob/main/LICENSE" rel="noopener">PolyForm Noncommercial</a> licence.{#if release}{" "}Version {release.version}.{/if}
       </p>
     </div>
     {#each cols as [title, items] (title)}
