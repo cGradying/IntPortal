@@ -198,6 +198,24 @@ Latency: the new run's median model time per reply was 0.8 s (Gemma) and 1.0 s (
 - **iOS simulator** (`pnpm tauri ios build --target aarch64-sim --debug`, the steps of `scripts/sim.sh`): builds, installs and launches on the iPhone 17 simulator (CFAAFAE1). `llama-cpp-sys-2` 0.1.161 compiled for `aarch64-apple-ios-sim` without errors. The note-search download and a chat on the simulator were not run in this PR.
 - **Android** (`cargo check -p intportal --target aarch64-linux-android`): finished in 2 min 30 s with the NDK 28.2 toolchain (`CC_aarch64_linux_android`, `RANLIB_`, `AR_` and `ANDROID_NDK_ROOT` set as in `scripts/emu.sh`); the build script cross-compiled llama.cpp v0.7.0 for `aarch64-linux-android` and `llama-cpp-2` and `intportal-llm` type-checked. That is a compile check only: nothing was linked, installed or run on the emulator (`scripts/emu.sh`), so Android speed, memory and the loading of EmbeddingGemma-2 there are not verified.
 
+## Qwen3.5 2B as the default chat model (spec 021, issue #315)
+
+The owner chose Qwen3.5 2B on 2026-11-17, with Qwen3 1.7B kept as the other choice; Gemma 3 1B and Qwen3 0.6B are legacy (listed only while installed, deleted when the update lands). The pinned llama.cpp (cb98c63) already has the `qwen35` architecture. Only the text model is downloaded; the vision projector is not.
+
+**Speed** (`cargo run --release -p intportal-llm --example speed -- <gguf> [cpu]`, Mac M-series, a 1,900-character LAR prompt, three runs after a warm-up, 160 tokens at most):
+
+| Model | File | CPU first token | CPU decode | Metal first token | Metal decode |
+|---|---|---|---|---|---|
+| Qwen3.5 2B IQ4_XS | 1.17 GB | **1.84 s** | 13.3 tok/s | 0.46 s | 35.1 tok/s |
+| Qwen3.5 2B Q4_K_M | 1.28 GB | 6.21 s | 14.3 tok/s | 0.49 s | 31.9 tok/s |
+| Qwen3 1.7B Q4_K_M (main before) | 1.11 GB | 5.86 s | 15.3 tok/s | 0.48 s | 34.8 tok/s |
+
+Android runs the model on the CPU, so the first-token column is what a student there waits for: IQ4_XS reads the prompt 3.4 times faster than Q4_K_M. On Metal (iOS) the three are the same.
+
+**Quality** (`suite`, the scope-guard table before the spec 021 answer changes): both quants pass every hard group (injection 6/6, homework 6/6, harm 5/5, own data 15/15, near-miss 12/12, chat 7/7, general 13/13); controls 8/10 for IQ4_XS and 7/10 for Q4_K_M.
+
+**Decision (C12):** IQ4_XS. It is faster on the CPU, 110 MB smaller and no worse in the suite.
+
 ## Qwen3 1.7B as the default chat model (issue #172)
 
 The user decided on 2026-10-25 that Qwen3 1.7B (1.11 GB) is the default chat model and EmbeddingGemma-2 (310 MB) the note-search model: a fresh install downloads 1.42 GB. Gemma 3 1B (0.81 GB) stays in the catalog as the lighter fallback. Spec 020 C4, C14 and C15 say what the student sees; spec 021 (PR #169) is separate and not touched.
