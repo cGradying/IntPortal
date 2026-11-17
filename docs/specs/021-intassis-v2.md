@@ -44,10 +44,10 @@ Adding IntAssis works on any phone that can run it. The download keeps going whe
 ### Models
 
 - **C10. Catalog.** The chat models are Qwen3.5 2B (the default) and Qwen3 1.7B. Gemma 3 1B and Qwen3 0.6B are removed from the catalog. Qwen3.5 2B ships as the quant that wins the benchmark in C12.
-- **C11. A choice.** The IntAssis card shows the two models with size and a one-line note ("Smarter, default" and "A bit smaller and faster"), and the student can switch. A switch downloads the other model and removes the old one when it's done; the old one keeps answering until then.
+- **C11. A choice.** The IntAssis card offers the other model with its size and a one-line note ("Smarter, the default." or "The earlier model, a little smaller."), and the student can switch. A switch downloads the other model and removes the old one when it's done; the old one keeps answering until then.
 - **C12. Benchmark.** Qwen3.5 2B IQ4_XS and Q4_K_M are run through the compact suite and a speed probe (first-token time and tokens per second on CPU, and on Metal where available). The faster one ships unless its suite score is more than 3 points lower. Results go in `docs/ai.md`.
 - **C13. Old installs.** A phone with Gemma 3 1B or Qwen3 0.6B gets "Update IntAssis" to Qwen3.5 2B; the old model keeps answering until the new one has arrived, then it is deleted. A phone with Qwen3 1.7B keeps it with no prompt.
-- **C14. English.** LAR replies in English. Taglish and Filipino messages are still understood (rules, intents, dates). The Filipino examples and prefill are no longer sent.
+- **C14. English.** LAR replies in English. Taglish and Filipino messages are still understood (rules, intents, dates). The Filipino examples and prefill are no longer sent, and a Filipino question carries "Reply in English" for that turn (the model's Filipino facts are worse).
 
 ### Answers
 
@@ -61,14 +61,14 @@ Adding IntAssis works on any phone that can run it. The download keeps going whe
 
 ### Study
 
-- **C22. Topic cards draw on something.** "Make cards on X" searches the student's notes, syllabus and cards for X and gives the model those passages, plus leave to use what it knows. Cards from a note or a PDF still use only that text.
+- **C22. Topic cards draw on something.** "Make cards on X" searches the student's notes, syllabus and cards for X and gives the model those passages, plus leave to use what it knows. Cards from a note or a PDF still use only that text. Cards with no passage behind them say "They're from what I know, not your notes, so check them before you save."
 - **C23. Cards for the game.** Each card is a term or short question on the front (at most 8 words) and its meaning or answer on the back (at most 30 words), so flash, type and choice all work.
 - **C24. Every card is checked.** A card is dropped and asked for again when: its back repeats its front, or contains the front's key term; front or back is blank; it repeats a card already made; the back is a question; or it is over the length limits. A batch where every card fails is retried once with a stricter prompt.
 - **C25. Backs look alike.** Backs in one batch have a similar form (all definitions, or all short answers), so the choice mode's wrong answers, taken from other backs, are plausible.
 
 ### Speed
 
-- **C26. A faster first word.** The model context is created once per load and reused, the fixed part of the prompt is evaluated once and kept, and the prompt drops the Filipino examples. On the Mac CPU probe, the first token on a typical question arrives at least 30% sooner than on main at 1b75456; phone numbers are recorded when the owner runs them.
+- **C26. A faster first word.** On the Mac CPU probe (`examples/speed.rs`), the first token on a typical question arrives at least 30% sooner than on main at 1b75456; phone numbers are recorded when the owner runs them. The quant does most of it: Qwen3.5 2B IQ4_XS reads the prompt in 1.84 s where main's Qwen3 1.7B took 5.86 s, and the prompt drops the Filipino examples. *Amended 2026-11-17:* reusing the context and keeping the fixed prompt evaluated is left for later, because Qwen3.5's linear-attention layers can't trim the cache back to a prefix; it needs state snapshots.
 
 ## Copy
 
@@ -84,11 +84,11 @@ Adding IntAssis works on any phone that can run it. The download keeps going whe
 
 - `crates/intportal-ai/src/models.rs`: `CATALOG` (Qwen3.5 2B, Qwen3 1.7B, EmbeddingGemma-2), `DEFAULT_CHAT = "qwen3.5-2b"`, `LEGACY_CHAT_FILES` for the removed models, a `min_total` RAM figure per chat model.
 - `crates/intportal-llm/src/download.rs`: retries with backoff; typed errors (`Offline`, `NoSpace`, `BadHash`, `Http(u16)`, `Paused`).
-- `src-tauri/src/ai.rs`: a download cancel flag separate from the answer cancel flag; `ai_space(id)` returns `{ need, free }`; `ai_download` reports `{ done, total, file }`.
-- `plugins/tauri-plugin-download`: iOS background `URLSession` (`start`, `status`, `cancel`) and an Android foreground service (`keepAlive(pct, text)`, `release`), plus `space(path)` on both.
+- `src-tauri/src/ai.rs`: a pause flag separate from the answer cancel flag (`ai_pause_download`); `ai_space(ids)` returns `{ need, free }`; `ai_download(ids)` runs the whole install and reports `{ done, total, file, waiting }`; `ai_topic_cards(topic, want)`; `Cards.known`.
+- `plugins/tauri-plugin-download`: iOS background `URLSession` (`start`, `status`, `cancel`) and an Android foreground service (`keepAlive(pct, text)`, `release`), plus `space(path)` on both. Only the app's Rust calls it.
 - `crates/intportal-ai/src/scope.rs`: `Scope::General` and `Scope::Chitchat` go to the model; `Homework` becomes `Tutor` and goes to the model with the tutor rule.
 - `crates/intportal-ai/src/gen.rs`: `cards(llm, tpl, source, want)` for text and `topic_cards(llm, tpl, topic, passages, want)` for a topic; `check(card) -> Result<(), Reject>`.
-- `Ask` gains `known: bool` (answered without notes) and `next: Vec<String>` (follow-up chips).
+- `Ask` gains `known: bool` (answered without notes). The follow-up chips stay in the UI (`followUps` in `apply.ts`, spec 048 C18).
 
 ## Errors
 
