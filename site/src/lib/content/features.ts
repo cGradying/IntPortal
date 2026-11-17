@@ -121,9 +121,9 @@ export const FEATURES: Feature[] = [
   },
   {
     slug: "safe-sign-in",
-    name: "Sign-in that can't lock you out",
+    name: "Sign-in that waits",
     group: "signin",
-    line: "The app never gets your PUP account locked by retrying a wrong password.",
+    line: "Three tries in 15 minutes, then it waits. It never retries a wrong password on its own.",
     body: [
       "Each tap signs in once. After three tries in 15 minutes the app waits and tells you when you can try again, and it never retries a rejected password on its own.",
       "Each try is counted before any password is sent, so even a crash in the middle can't give you extra tries.",
@@ -299,7 +299,7 @@ export const FEATURES: Feature[] = [
     line: "Every term with a units-weighted GPA.",
     body: [
       "Grades shows every term from the SIS with a real units-weighted GPA, this term and overall. Pending, INC and DRP grades don't count toward it.",
-      "Lower is better on PUP's 1.00 to 5.00 scale. A personal best gets a stamp.",
+      "Lower is better on PUP's 1.00 to 5.00 scale. A term better than every one before it gets a Personal best pill and confetti.",
     ],
     steps: ["Open Grades.", "Pick a term at the top.", "Tap a subject to see it."],
     media: { src: "/media/grades.webp", alt: "Grades with this term's GPA, the trend and each subject's grade" },
@@ -499,13 +499,13 @@ export const FEATURES: Feature[] = [
     slug: "add-intassis",
     name: "Add IntAssis",
     group: "lar",
-    line: "A one-time 1.48 GB download that keeps going when you leave the app.",
+    line: "A one-time 1.48 GB download, made to keep going when you leave the app.",
     body: [
       "IntAssis is optional. The first-run choice is Light (no AI, nothing downloaded) or With AI. You can add it later on You, and delete it there too.",
-      "The download is LAR's brain (Qwen3.5 2B, 1.17 GB) and note search (310 MB). It keeps going when you lock the phone or leave the app, and a full screen shows each file, the percent, speed and time left, with Pause and Resume.",
+      "The download is LAR's brain (Qwen3.5 2B, 1.17 GB) and note search (310 MB). It's made to keep going when you lock the phone or leave the app, and a full screen shows each file, the percent, speed and time left, with Pause and Resume. So far that has been tried on the Android emulator and the iPhone simulator, not yet on a real phone.",
       "Before anything downloads, the app checks your free storage and your phone's memory (RAM), and says plainly when either is short. Qwen3 1.7B is there as the other option.",
     ],
-    steps: ["Open You and find IntAssis.", "Tap Add IntAssis, on Wi-Fi.", "Leave the app if you like; it carries on.", "Tap Ask LAR when it's ready."],
+    steps: ["Open You and find IntAssis.", "Tap Add IntAssis, on Wi-Fi.", "Leave the app if you like; it's made to carry on.", "Tap Ask LAR when it's ready."],
     since: "0.1.3",
     spec: SPEC.intassis,
   },
@@ -541,9 +541,9 @@ export const FEATURES: Feature[] = [
     slug: "app-lock",
     name: "App lock",
     group: "you",
-    line: "Face ID or fingerprint before the app opens.",
-    body: ["Turn on App lock and the app asks for Face ID or your fingerprint each time it opens.", "The app switcher shows a cover, not your grades."],
-    steps: ["Open You.", "Turn on App lock.", "Confirm with Face ID or your fingerprint."],
+    line: "Face ID or your screen lock before the app opens.",
+    body: ["Turn on App lock and the app asks for Face ID or your passcode on iPhone, or your fingerprint or screen lock on Android. It locks when the app opens and after it has been away a minute.", "The app switcher shows a cover, not your grades."],
+    steps: ["Open You.", "Turn on App lock.", "Confirm with Face ID, your passcode, your fingerprint or your screen lock."],
     since: "0.1.0",
   },
   {
@@ -552,7 +552,7 @@ export const FEATURES: Feature[] = [
     group: "you",
     line: "No IntPortal server. Your data and logins stay on the phone.",
     body: [
-      "There is no IntPortal server. The app only talks to your school's own portals, and your data stays on the phone.",
+      "There is no IntPortal server. The app talks to your school's portals, and fetches the AI model from huggingface.co only when you choose With AI. Your data stays on the phone.",
       "Your logins are in the phone's keychain (the Keystore on Android), never in the app's files. Each student's data is its own encrypted file with its own key, so two students can share a phone.",
       "Sign out of the SIS or eMabini and your own notes and decks stay. Erase everything removes it all from the phone.",
     ],
@@ -620,7 +620,7 @@ export const FEATURES: Feature[] = [
     line: "Install the APK from the download page.",
     body: [
       "The Android app is one APK from GitHub Releases, about 22 MB. It needs a 64-bit phone.",
-      "Android asks once to allow installs from your browser; then it updates the same way.",
+      "Android asks once to allow installs from your browser or Files app.",
     ],
     steps: ["Open the download page on your phone.", "Tap the Android download.", "Allow the install when asked, then open IntPortal."],
     since: "0.3.0",
@@ -644,7 +644,7 @@ export const FEATURES: Feature[] = [
     line: "The same app on your computer, in a phone-sized window.",
     body: [
       "IntPortal runs on Mac (Apple Silicon), Windows and Linux: the same app in a phone-sized window. Your login goes in the system's keychain and the data is encrypted on that computer.",
-      "The builds are unsigned, so your computer asks once before opening them. IntAssis runs on the Mac only.",
+      "The builds are unsigned, so your computer asks once before opening them. IntAssis runs on the Mac only. The Windows and Linux builds haven't been run on a real Windows or Linux computer yet.",
     ],
     steps: ["Open the download page on your computer.", "Download the file for your system.", "Open it, and allow it once when asked."],
     since: "0.4.0",

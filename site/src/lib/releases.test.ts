@@ -10,8 +10,14 @@ describe("051 C9 every download, listed", () => {
     expect(versionOf("android-v0.3.0")).toBe("0.3.0");
     expect(versionOf("android-v0.2.0-rc.1")).toBe("0.2.0-rc.1");
   });
-  it("takes the newest pre-release from GitHub's real answer when no full release exists", () => {
+  it("takes the newest full release from GitHub's real answer, with every platform", () => {
     const r = pick(recorded as GhRelease[])!;
+    expect(r.version).toBe("0.5.0");
+    expect(r.prerelease).toBe(false);
+    expect(new Set(r.assets.map((a) => a.platform))).toEqual(new Set(["android", "ios", "mac", "windows", "linux"]));
+  });
+  it("takes the newest pre-release when no full release exists", () => {
+    const r = pick((recorded as GhRelease[]).filter((x) => x.prerelease))!;
     expect(r.version).toBe("0.2.0-rc.1");
     expect(r.prerelease).toBe(true);
     expect(r.assets).toEqual([{ platform: "android", file: "IntPortal-0.2.0.apk", size: expect.any(Number), url: expect.stringContaining("/download/android-v0.2.0-rc.1/IntPortal-0.2.0.apk") }]);
