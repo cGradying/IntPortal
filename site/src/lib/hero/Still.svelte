@@ -4,8 +4,8 @@
   import { COLS, RAMP, ROWS, TONES, frameTiles, swirlAt } from "./portal";
 
   const tiles = frameTiles();
-  const MW = 16;
-  const MH = 24;
+  const MW = 24;
+  const MH = 36;
   const mouth: { x: number; y: number; c: string }[] = [];
   for (let y = 0; y < MH; y++)
     for (let x = 0; x < MW; x++) mouth.push({ x, y, c: RAMP[swirlAt(x / (MW - 1), y / (MH - 1), x, y)] });

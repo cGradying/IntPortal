@@ -82,8 +82,8 @@
     <canvas class="scene" bind:this={canvas} class:on={shown} aria-hidden="true"></canvas>
     <div class="box over">
       <div class="lar">
-        <p class="slab"><span class="pixel who">LAR</span> Tara, pasok!</p>
         <Lar size={larSize} gesture="wave" label="LAR, the Lakbay-Aral Robot, waving" />
+        <p class="slab"><span class="pixel who">LAR</span> Tara, pasok!</p>
       </div>
     </div>
     <div class="wrap copy">
@@ -94,9 +94,11 @@
 </section>
 
 <style>
+  /* The hero runs under the translucent header, so the scene fills the screen. */
   .hero {
     position: relative;
     height: max(640px, 100svh);
+    margin-top: -64px;
   }
   /* With the dive, the hero is two screens tall and its stage stays put while
      the first one scrolls by (C6). */
@@ -134,8 +136,8 @@
   .box {
     position: absolute;
     left: 50%;
-    top: max(72px, 9svh);
-    height: min(46svh, 92vw * 4 / 3);
+    top: max(72px, 8svh);
+    height: min(clamp(190px, 100svh - 460px, 46svh), 92vw * 4 / 3);
     aspect-ratio: 12 / 16;
     translate: -50% 0;
   }
@@ -154,9 +156,7 @@
     position: absolute;
     left: 50%;
     bottom: -4%;
-    display: grid;
-    justify-items: center;
-    gap: 4px;
+    display: block;
     translate: calc(-50% + var(--tx) * -10px) calc(var(--ty) * -6px);
     /* LAR steps through first: he shrinks into the mouth as the dive starts. */
     transform: translateY(calc(var(--p) * -160%)) scale(calc(1 - min(1, var(--p) * 2.2) * 0.85));
@@ -164,6 +164,9 @@
     opacity: calc(1 - var(--p) * 3);
   }
   .slab {
+    position: absolute;
+    left: 60%;
+    top: 4%;
     padding: 7px 12px;
     background: var(--void-3);
     box-shadow: inset 0 0 0 3px var(--slab-edge);
@@ -181,13 +184,14 @@
     left: 0;
     right: 0;
     bottom: 0;
-    padding-bottom: max(28px, 5svh);
-    padding-top: 96px;
+    padding-bottom: max(20px, 3svh);
+    padding-top: 72px;
     background: linear-gradient(to top, var(--void) 40%, color-mix(in srgb, var(--void) 80%, transparent) 70%, transparent);
     opacity: calc(1 - var(--p) * 3);
     translate: 0 calc(var(--p) * -40px);
   }
   .hint {
+    display: none;
     margin-top: 22px;
     font-size: 0.82rem;
     color: var(--site-ink-3);
@@ -218,6 +222,9 @@
       justify-content: center;
       padding: 64px 0 0;
       background: none;
+    }
+    .hint {
+      display: block;
     }
     .copy > :global(*) {
       max-width: min(560px, 48%);

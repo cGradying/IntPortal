@@ -2,7 +2,7 @@
 // bold, code and links. Everything is escaped first.
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function inline(s: string): string {
+export function inline(s: string): string {
   return esc(s)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")

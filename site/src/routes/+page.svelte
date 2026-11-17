@@ -43,7 +43,7 @@
     ["Your login stays on your phone.", "It goes into the phone's keychain, the same place your other passwords live."],
     ["Your data is encrypted on the phone.", "Schedule, grades, notes and decks sit in a SQLCipher database. Each student who signs in gets their own."],
     ["There is no IntPortal server.", "No account, no analytics, no ads, no tracking. Nothing to sell, because nothing is collected."],
-    ["It only talks to your school.", "It signs in to your school's portal with your own login, the way your browser would, then works offline."],
+    ["It only talks to your school.", "It signs in to your school's portal with your own login, the way your browser would, then works offline. If you choose With AI, it also downloads the model file once from Hugging Face, sending nothing about you."],
   ];
 
   const shipped = $derived(
@@ -257,9 +257,10 @@
     padding: 0;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-    gap: 1px;
-    background: var(--site-line);
-    box-shadow: 0 0 0 1px var(--site-line);
+    box-shadow: inset 1px 1px 0 var(--site-line);
+  }
+  .groups li {
+    box-shadow: inset -1px -1px 0 var(--site-line);
   }
   .groups a {
     display: grid;
@@ -398,6 +399,22 @@
     font-size: 1.12rem;
     line-height: 1.6;
     color: var(--site-ink-2);
+  }
+  @media (max-width: 899px) {
+    h1 {
+      font-size: clamp(2.9rem, 13vw, 4rem);
+    }
+    .line {
+      margin-top: 12px;
+      font-size: 1.06rem;
+    }
+    .actions {
+      margin-top: 20px;
+      gap: 10px;
+    }
+    .un {
+      margin-top: 14px;
+    }
   }
   @media (max-width: 760px) {
     .feature,
