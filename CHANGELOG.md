@@ -2,6 +2,28 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## 0.5.0 (2026-11-17)
+
+IntAssis, rebuilt: an install that finishes on any phone, a smarter and faster LAR that answers what it knows, and flashcards that work.
+
+- Adding IntAssis keeps going when you lock the phone or leave the app: iOS downloads in the background, Android shows a progress notification. A full install screen shows each file, the percent, speed and time left, with Pause and Resume, and a cut-off download carries on by itself (#317)
+- Before anything downloads, the app checks free storage and says exactly how much to free. The memory check now looks at the phone's RAM size instead of what other apps happen to use, and says "memory (RAM)" instead of sounding like storage (#317)
+- A dropped connection is waited out and resumed instead of failing; each error says what to do (#317)
+- LAR's brain is now Qwen3.5 2B: on Android it starts answering about three times sooner than before. Qwen3 1.7B stays as an option on the IntAssis card. Phones with the old Gemma model keep it until the update arrives (#318)
+- LAR answers school and everyday questions from what it knows, not only from your notes. Your notes come first when they cover the question; otherwise the answer says "From what I know, not your notes. I might get facts wrong, so double-check anything important." (#319)
+- Homework gets a tutor: LAR explains the steps and asks you one to try, but won't write a whole essay to hand in (#319)
+- Talk to LAR like a person: greetings, a bad day or stress get a warm reply that asks about you, not a canned line (#319)
+- LAR replies in English; Taglish and Filipino are still understood (#319)
+- After an answer from what LAR knows: "Explain it simpler" and "Quiz me on it" (#319)
+- Flashcards LAR makes are real cards: a term on the front, its meaning on the back. A card whose answer repeats the question, gives the term away or is a question itself is dropped. Cards on a topic use your notes first; cards with no notes behind them ask you to check them before you save (#320)
+
+Known gaps:
+
+- The background download and first-answer speed are built for iOS and Android but not yet tried on a real phone; the speed numbers are from a Mac
+- A 2B model's own facts are sometimes wrong; that's why answers without your notes carry the disclaimer
+- iPhone: no App Store or TestFlight build (needs a paid Apple developer account); sideload or build it
+- Desktop builds are unsigned; IntAssis runs on the Mac only
+
 ## 0.4.0 (2026-11-17)
 
 IntPortal on every platform: phones, computers and the browser, with a website and a reel.
