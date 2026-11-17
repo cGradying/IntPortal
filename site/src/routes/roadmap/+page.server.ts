@@ -1,6 +1,6 @@
 import { parseChangelog } from "$lib/content/changelog";
 import recorded from "$lib/content/roadmap-fallback.json";
-import { fetchIssues, roadmap, type GhIssue } from "$lib/content/roadmap";
+import { fetchIssues, roadmap, unlisted, type GhIssue } from "$lib/content/roadmap";
 import changelog from "../../../../CHANGELOG.md?raw";
 import specIndex from "../../../../docs/specs/README.md?raw";
 
@@ -9,5 +9,8 @@ import specIndex from "../../../../docs/specs/README.md?raw";
 export async function load() {
   const live = await fetchIssues();
   if (!live) console.warn("GitHub didn't answer; the roadmap uses src/lib/content/roadmap-fallback.json");
-  return { items: roadmap(specIndex, live ?? (recorded as GhIssue[]), parseChangelog(changelog)) };
+  const issues = live ?? (recorded as GhIssue[]);
+  const quiet = unlisted(issues);
+  if (quiet.length) console.warn(`Not on the roadmap until roadmap.ts gives them a line: ${quiet.join("; ")}`);
+  return { items: roadmap(specIndex, issues, parseChangelog(changelog)) };
 }
