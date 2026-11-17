@@ -1,21 +1,102 @@
 //! Resumable, hash-checked model download. Bytes land in `<file>.part`; a
 //! restart continues from its length with an HTTP Range request. Only a file
-//! whose SHA-256 matches the pin is renamed into place.
+//! whose SHA-256 matches the pin is renamed into place. A dropped or stalled
+//! connection is retried with backoff for as long as the caller wants it
+//! (spec 021 C7); each failure is a typed `DlError` with the student's line.
 use intportal_ai::models::Model;
 use sha2::{Digest, Sha256};
 use std::{
+    fmt,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
+    time::Duration,
 };
 
-pub fn download(m: &Model, dir: &Path, on_progress: &mut dyn FnMut(u64, u64) -> bool) -> Result<PathBuf, String> {
-    fetch(m.url, m.file, m.sha256, m.bytes, dir, on_progress)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DlError {
+    /// Pause, Remove or the app asked it to stop; the `.part` stays.
+    Paused,
+    Offline,
+    NoSpace,
+    BadHash,
+    Http(u16),
+    Io(String),
 }
 
-/// `on_progress(done, total)` returns false to pause; the `.part` stays for the next try.
-pub fn fetch(url: &str, file: &str, sha256: &str, bytes: u64, dir: &Path, on_progress: &mut dyn FnMut(u64, u64) -> bool) -> Result<PathBuf, String> {
-    fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+impl fmt::Display for DlError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(match self {
+            DlError::Paused => "paused",
+            DlError::Offline => "No connection. It carries on when you're back online.",
+            DlError::NoSpace => "Storage filled up. Free up some space, then tap Resume.",
+            DlError::BadHash => "The file didn't arrive whole, so it was deleted. Tap Resume to fetch it again.",
+            DlError::Http(_) => "The download server didn't answer. Tap Resume to try again.",
+            DlError::Io(e) => e,
+        })
+    }
+}
+
+impl DlError {
+    /// Worth waiting out: the network or the server may come back.
+    pub fn transient(&self) -> bool {
+        matches!(self, DlError::Offline) || matches!(self, DlError::Http(s) if *s >= 500 || *s == 429)
+    }
+}
+
+/// ENOSPC is 28 on Linux, Android, macOS and iOS.
+fn io(e: std::io::Error) -> DlError {
+    if e.raw_os_error() == Some(28) { DlError::NoSpace } else { DlError::Io(e.to_string()) }
+}
+
+fn net(e: reqwest::Error) -> DlError {
+    match e.status() {
+        Some(s) => DlError::Http(s.as_u16()),
+        None => DlError::Offline,
+    }
+}
+
+pub fn download(m: &Model, dir: &Path, on_progress: &mut dyn FnMut(u64, u64) -> bool, on_wait: &mut dyn FnMut(&DlError) -> bool) -> Result<PathBuf, DlError> {
+    retrying(|p| fetch(m.url, m.file, m.sha256, m.bytes, dir, p), on_progress, on_wait)
+}
+
+/// Backoff between tries: 2 s, 4 s, 8 s … up to 60 s.
+pub fn backoff(attempt: u32) -> Duration {
+    Duration::from_secs((2u64 << attempt.min(5)).min(60))
+}
+
+/// Runs `once` until it ends in something other than a transient error. Before each wait `on_wait`
+/// hears why; it returns false to give up (Pause). Progress resets the backoff.
+pub fn retrying(mut once: impl FnMut(&mut dyn FnMut(u64, u64) -> bool) -> Result<PathBuf, DlError>, on_progress: &mut dyn FnMut(u64, u64) -> bool, on_wait: &mut dyn FnMut(&DlError) -> bool) -> Result<PathBuf, DlError> {
+    let mut attempt = 0;
+    loop {
+        let mut moved = false;
+        let r = once(&mut |d, t| {
+            moved = true;
+            on_progress(d, t)
+        });
+        match r {
+            Err(e) if e.transient() => {
+                if moved {
+                    attempt = 0;
+                }
+                let until = std::time::Instant::now() + backoff(attempt);
+                attempt += 1;
+                while std::time::Instant::now() < until {
+                    if !on_wait(&e) {
+                        return Err(DlError::Paused);
+                    }
+                    std::thread::sleep(Duration::from_millis(250));
+                }
+            }
+            other => return other,
+        }
+    }
+}
+
+/// One try. `on_progress(done, total)` returns false to pause; the `.part` stays for the next try.
+pub fn fetch(url: &str, file: &str, sha256: &str, bytes: u64, dir: &Path, on_progress: &mut dyn FnMut(u64, u64) -> bool) -> Result<PathBuf, DlError> {
+    fs::create_dir_all(dir).map_err(io)?;
     let (done, part) = (dir.join(file), dir.join(format!("{file}.part")));
     if done.metadata().map(|m| m.len() == bytes).unwrap_or(false) {
         return Ok(done);
@@ -26,41 +107,50 @@ pub fn fetch(url: &str, file: &str, sha256: &str, bytes: u64, dir: &Path, on_pro
         have = 0;
     }
     if have < bytes {
-        let mut req = reqwest::blocking::Client::new().get(url);
+        // The blocking client applies the timeout to each read: a stalled one (a network switch, a dead Wi-Fi) errors after 30 s and is retried.
+        let client = reqwest::blocking::Client::builder().connect_timeout(Duration::from_secs(15)).timeout(Duration::from_secs(30)).build().map_err(net)?;
+        let mut req = client.get(url);
         if have > 0 {
             req = req.header("Range", format!("bytes={have}-"));
         }
-        let mut resp = req.send().map_err(|e| e.to_string())?;
-        let status = resp.status().as_u16();
-        let append = match status {
+        let mut resp = req.send().map_err(net)?;
+        let append = match resp.status().as_u16() {
             206 => true,
             200 => false, // the server ignored Range: start over
-            s => return Err(format!("download failed: HTTP {s}")),
+            s => return Err(DlError::Http(s)),
         };
-        let mut out = if append { OpenOptions::new().append(true).open(&part) } else { File::create(&part) }.map_err(|e| e.to_string())?;
+        let mut out = if append { OpenOptions::new().append(true).open(&part) } else { File::create(&part) }.map_err(io)?;
         if !append {
             have = 0;
         }
         let mut buf = vec![0u8; 256 * 1024];
         loop {
-            let n = resp.read(&mut buf).map_err(|e| e.to_string())?;
+            let n = resp.read(&mut buf).map_err(|_| DlError::Offline)?;
             if n == 0 {
                 break;
             }
-            out.write_all(&buf[..n]).map_err(|e| e.to_string())?;
+            out.write_all(&buf[..n]).map_err(io)?;
             have += n as u64;
             if !on_progress(have, bytes) {
-                return Err("paused".into());
+                return Err(DlError::Paused);
             }
         }
-        out.sync_all().map_err(|e| e.to_string())?;
+        out.sync_all().map_err(io)?;
+        if have < bytes {
+            return Err(DlError::Offline); // the server closed early: resume from here
+        }
     }
-    if sha_of(&part)? != sha256 {
-        let _ = fs::remove_file(&part);
-        return Err("the downloaded file failed its check and was deleted; try again".into());
+    finish(&part, &done, sha256)
+}
+
+/// Checks a whole `.part` against the pin and renames it into place; a bad one is deleted.
+pub fn finish(part: &Path, done: &Path, sha256: &str) -> Result<PathBuf, DlError> {
+    if sha_of(part).map_err(DlError::Io)? != sha256 {
+        let _ = fs::remove_file(part);
+        return Err(DlError::BadHash);
     }
-    fs::rename(&part, &done).map_err(|e| e.to_string())?;
-    Ok(done)
+    fs::rename(part, done).map_err(io)?;
+    Ok(done.to_path_buf())
 }
 
 fn sha_of(path: &Path) -> Result<String, String> {
@@ -85,10 +175,16 @@ mod tests {
 
     /// Serves `body` for `n` connections, honouring `Range: bytes=N-`.
     fn serve(body: Vec<u8>, n: usize) -> String {
+        serve_with(body, n, None, 0)
+    }
+
+    /// Like `serve`; `status` answers every request with that code instead, and the first `cut`
+    /// connections send only half of what they promise and hang up.
+    fn serve_with(body: Vec<u8>, n: usize, status: Option<u16>, cut: usize) -> String {
         let l = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/m.gguf", l.local_addr().unwrap());
         std::thread::spawn(move || {
-            for _ in 0..n {
+            for i in 0..n {
                 let (mut s, _) = l.accept().unwrap();
                 let mut start = 0usize;
                 for line in BufReader::new(&s).lines() {
@@ -100,9 +196,14 @@ mod tests {
                         start = r.trim_end_matches('-').parse().unwrap();
                     }
                 }
+                if let Some(code) = status {
+                    let _ = write!(s, "HTTP/1.1 {code} Nope\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                    continue;
+                }
                 let head = if start > 0 { "206 Partial Content" } else { "200 OK" };
                 let _ = write!(s, "HTTP/1.1 {head}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len() - start);
-                let _ = s.write_all(&body[start..]);
+                let rest = &body[start..];
+                let _ = s.write_all(if i < cut { &rest[..rest.len() / 2] } else { rest });
             }
         });
         url
@@ -123,7 +224,7 @@ mod tests {
         let body: Vec<u8> = (0..600_000u32).map(|i| (i % 251) as u8).collect();
         let (url, dir) = (serve(body.clone(), 2), tmp("resume"));
         let r = fetch(&url, "m.gguf", &sha(&body), body.len() as u64, &dir, &mut |done, _| done < 300_000);
-        assert_eq!(r, Err("paused".into()));
+        assert_eq!(r, Err(DlError::Paused));
         let part = fs::metadata(dir.join("m.gguf.part")).unwrap().len();
         assert!(part > 0 && part < body.len() as u64);
         let path = fetch(&url, "m.gguf", &sha(&body), body.len() as u64, &dir, &mut |_, _| true).unwrap();
@@ -136,7 +237,42 @@ mod tests {
         let body = vec![7u8; 1000];
         let (url, dir) = (serve(body.clone(), 1), tmp("badsha"));
         let r = fetch(&url, "m.gguf", &sha(b"something else"), 1000, &dir, &mut |_, _| true);
-        assert!(r.unwrap_err().contains("failed its check"));
+        assert_eq!(r.unwrap_err(), DlError::BadHash);
         assert!(!dir.join("m.gguf.part").exists() && !dir.join("m.gguf").exists());
+    }
+
+    #[test]
+    fn a_connection_that_drops_is_resumed_without_a_tap() {
+        let body: Vec<u8> = (0..400_000u32).map(|i| (i % 241) as u8).collect();
+        let (url, dir) = (serve_with(body.clone(), 2, None, 1), tmp("drop"));
+        let mut waits = 0;
+        let path = retrying(|p| fetch(&url, "m.gguf", &sha(&body), body.len() as u64, &dir, p), &mut |_, _| true, &mut |e| {
+            assert_eq!(*e, DlError::Offline);
+            waits += 1;
+            true
+        })
+        .unwrap();
+        assert_eq!(fs::read(path).unwrap(), body);
+        assert!(waits > 0, "it waited, then resumed");
+    }
+
+    #[test]
+    fn a_missing_file_is_not_retried_and_a_busy_server_is_until_pause() {
+        let (url, dir) = (serve_with(vec![1; 10], 1, Some(404), 0), tmp("404"));
+        let r = retrying(|p| fetch(&url, "m.gguf", "x", 10, &dir, p), &mut |_, _| true, &mut |_| panic!("404 is not worth waiting for"));
+        assert_eq!(r, Err(DlError::Http(404)));
+        let (url, dir) = (serve_with(vec![1; 10], 1, Some(503), 0), tmp("503"));
+        let r = retrying(|p| fetch(&url, "m.gguf", "x", 10, &dir, p), &mut |_, _| true, &mut |e| {
+            assert!(e.transient());
+            false // the student paused while it waited
+        });
+        assert_eq!(r, Err(DlError::Paused));
+    }
+
+    #[test]
+    fn errors_read_as_the_students_lines_and_backoff_caps_at_a_minute() {
+        assert!(DlError::NoSpace.to_string().starts_with("Storage filled up"));
+        assert_eq!(io(std::io::Error::from_raw_os_error(28)), DlError::NoSpace);
+        assert_eq!([0, 1, 2, 9].map(|a| backoff(a).as_secs()), [2, 4, 8, 60]);
     }
 }

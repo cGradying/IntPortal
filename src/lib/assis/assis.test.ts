@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { cancel, isPermissionGranted, pending as devicePending, requestPermission } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
+import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, spaceLine, speedOf, etaLine, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -373,30 +373,46 @@ describe("indexing notes", () => {
 });
 
 describe("installing IntAssis", () => {
+  const fake = (a: any) => {
+    let before = 0;
+    for (const id of a.ids) {
+      const m = disk.find((x) => x.id === id)!;
+      a.onProgress.onmessage({ done: before + m.bytes, total: 1500, file: a.ids.indexOf(id), waiting: null });
+      before += m.bytes;
+      m.installed = true;
+    }
+  };
   beforeEach(() => {
     disk = [chat({ installed: false, loaded: false, bytes: 1000 }), embed({ installed: false, bytes: 500 })];
     assis.models = structuredClone(disk);
-    backend.ai_download = (a) => {
-      a.onProgress.onmessage({ done: 10, total: 10 });
-      disk.find((m) => m.id === a.id)!.installed = true;
-    };
+    backend.ai_space = () => ({ need: 2000, free: 10_000 });
+    backend.ai_download = fake;
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) });
   });
+  afterEach(() => vi.unstubAllGlobals());
 
-  it("downloads the chat model and the search model, one after the other", async () => {
+  it("asks Rust for the whole install in one call, chat model first", async () => {
     await install();
-    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["chat", "embed"]);
+    expect(ran("ai_download").map(([, a]) => a.ids)).toEqual([["chat", "embed"]]);
     expect(assis.models.every((m) => m.installed)).toBe(true);
     expect(assis.busy).toBe("");
     expect(assis.error).toBe("");
+    expect(assis.install.ready).toBe(true);
   });
 
-  it("shows one bar over both: total is the sum, progress carries across models", async () => {
+  it("opens the install view with every file and one bar over all of them", async () => {
     const seen: number[] = [];
     backend.ai_download = (a) => {
+      expect(assis.install.open).toBe(true);
+      expect(assis.install.files.map((m) => m.id)).toEqual(["chat", "embed"]);
       expect(assis.total).toBe(1500);
-      a.onProgress.onmessage({ done: 400, total: 1000 });
+      a.onProgress.onmessage({ done: 400, total: 1500, file: 0, waiting: null });
       seen.push(assis.done);
-      disk.find((m) => m.id === a.id)!.installed = true;
+      a.onProgress.onmessage({ done: 1400, total: 1500, file: 1, waiting: null });
+      seen.push(assis.done);
+      expect(assis.install.file).toBe(1);
+      fake(a);
     };
     const p = install();
     expect(assis.busy).toBe("downloading");
@@ -404,14 +420,38 @@ describe("installing IntAssis", () => {
     expect(seen).toEqual([400, 1400]);
   });
 
+  it("says when it waits out a dropped connection, without moving the bar back", async () => {
+    backend.ai_download = (a) => {
+      a.onProgress.onmessage({ done: 700, total: 1500, file: 0, waiting: null });
+      a.onProgress.onmessage({ done: 0, total: 1500, file: 0, waiting: "No connection. It carries on when you're back online." });
+      expect(assis.install.waiting).toMatch(/No connection/);
+      expect(assis.done).toBe(700);
+      fake(a);
+    };
+    await install();
+  });
+
+  it("does not start when storage is short, and says how much to free (C1)", async () => {
+    backend.ai_space = () => ({ need: 1_900_000_000, free: 1_200_000_000 });
+    await install();
+    expect(ran("ai_download")).toHaveLength(0);
+    expect(assis.error).toBe("IntAssis needs 1.90 GB free. This phone has 1.20 GB. Free up 700 MB and try again.");
+  });
+
+  it("goes ahead when the phone doesn't say how much is free", async () => {
+    backend.ai_space = () => ({ need: 1_900_000_000, free: null });
+    await install();
+    expect(ran("ai_download")).toHaveLength(1);
+  });
+
   it("only fetches what is missing", async () => {
     disk[0].installed = true;
     assis.models = structuredClone(disk);
     await install();
-    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["embed"]);
+    expect(ran("ai_download").map(([, a]) => a.ids)).toEqual([["embed"]]);
   });
 
-  it("does nothing when both are installed, or a download is running", async () => {
+  it("does nothing when both are installed, or something else is running", async () => {
     assis.models = [chat(), embed()];
     await install();
     assis.models = structuredClone(disk);
@@ -420,19 +460,48 @@ describe("installing IntAssis", () => {
     expect(ran("ai_download")).toHaveLength(0);
   });
 
-  it("surfaces a failure and lets the student try again", async () => {
-    backend.ai_download = () => Promise.reject("No connection. Check Wi-Fi and try again.");
+  it("surfaces a failure Rust couldn't wait out, and leaves the restart to the student", async () => {
+    backend.ai_download = () => Promise.reject("Storage filled up. Free up some space, then tap Resume.");
     await install();
-    expect(assis.error).toBe("No connection. Check Wi-Fi and try again.");
+    expect(assis.error).toMatch(/Storage filled up/);
     expect(assis.busy).toBe("");
-    expect(ran("ai_download")).toHaveLength(1); // stops at the first failure
+    expect(localStorage.getItem("intassisInstalling")).toBeNull();
   });
 
-  it("treats Pause as quiet, not as an error", async () => {
+  it("treats Pause as quiet, closes the view, and doesn't carry on by itself", async () => {
     backend.ai_download = () => Promise.reject("paused");
     await install();
     expect(assis.error).toBe("");
-    expect(assis.busy).toBe("");
+    expect(assis.install.open).toBe(false);
+    expect(localStorage.getItem("intassisInstalling")).toBeNull();
+  });
+
+  it("keeps the mark while it runs, so a cut-off install carries on at the next launch", async () => {
+    const d = deferred<void>();
+    backend.ai_download = () => d.promise;
+    const p = install();
+    await settle();
+    expect(localStorage.getItem("intassisInstalling")).toBe("1");
+    d.resolve();
+    await p;
+    expect(localStorage.getItem("intassisInstalling")).toBeNull();
+  });
+});
+
+describe("install lines", () => {
+  it("fits, or names what to free", () => {
+    expect(spaceLine(1000, 5000)).toBe("");
+    expect(spaceLine(1000, null)).toBe("");
+    expect(spaceLine(2_000_000_000, 500_000_000)).toBe("IntAssis needs 2.00 GB free. This phone has 500 MB. Free up 1.50 GB and try again.");
+  });
+
+  it("speed over the window, and a readable time left", () => {
+    expect(speedOf([{ t: 0, done: 0 }, { t: 2000, done: 4_000_000 }])).toBe(2_000_000);
+    expect(speedOf([{ t: 0, done: 0 }])).toBe(0);
+    expect(etaLine(1_000_000, 0)).toBe("");
+    expect(etaLine(30_000_000, 1_000_000)).toBe("less than a minute left");
+    expect(etaLine(600_000_000, 2_000_000)).toBe("about 5 min left");
+    expect(etaLine(8_000_000_000, 1_000_000)).toBe("about 2 h 13 min left");
   });
 });
 
@@ -442,9 +511,9 @@ describe("updating from the old chat model", () => {
     disk = [chat({ installed: false, loaded: false, bytes: 1100 }), gemma({ loaded: true }), embed()];
     assis.models = structuredClone(disk);
     backend.ai_delete = (a) => void (disk.find((m) => m.id === a.id)!.installed = false);
+    backend.ai_space = () => ({ need: 0, free: null });
     backend.ai_download = (a) => {
-      a.onProgress.onmessage({ done: 10, total: 10 });
-      disk.find((m) => m.id === a.id)!.installed = true;
+      for (const id of a.ids) disk.find((m) => m.id === id)!.installed = true;
     };
   });
 
@@ -477,10 +546,10 @@ describe("updating from the old chat model", () => {
     let seenDuring: string[] = [];
     backend.ai_download = (a) => {
       seenDuring = [...seenDuring, ...ran("ai_delete").map(([, x]) => x.id)];
-      disk.find((m) => m.id === a.id)!.installed = true;
+      for (const id of a.ids) disk.find((m) => m.id === id)!.installed = true;
     };
     await install();
-    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["chat"]); // the embedder was already there
+    expect(ran("ai_download").map(([, a]) => a.ids)).toEqual([["chat"]]); // the embedder was already there
     expect(seenDuring).toEqual([]);
     expect(ran("ai_delete").map(([, a]) => a.id)).toEqual(["gemma"]);
     expect(chatModel()?.id).toBe("chat");
@@ -509,7 +578,7 @@ describe("updating from the old chat model", () => {
     disk[2].installed = false;
     assis.models = structuredClone(disk);
     await install();
-    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["chat", "embed"]);
+    expect(ran("ai_download").map(([, a]) => a.ids)).toEqual([["chat", "embed"]]);
     expect(ran("ai_delete").map(([, a]) => a.id)).toEqual(["gemma"]);
   });
 
@@ -517,7 +586,7 @@ describe("updating from the old chat model", () => {
     disk[2].installed = false;
     assis.models = structuredClone(disk);
     await addSearch();
-    expect(ran("ai_download").map(([, a]) => a.id)).toEqual(["embed"]);
+    expect(ran("ai_download").map(([, a]) => a.ids)).toEqual([["embed"]]);
     expect(ran("ai_delete")).toHaveLength(0);
   });
 
