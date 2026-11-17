@@ -8,6 +8,8 @@
 
 - `prototypes/lar-sheet.html`: LAR's sprite sheet. Every state at 2, 4 and 8 times, the fire spawn and every state in each university's colours, a loop through the state changes, LAR flying by a tile portal, and each portal's palette. Its script is the app's own `src/lib/lar/sprite.ts`, inlined by `node docs/specs/reference/prototypes/build-lar-sheet.mjs` from `lar-sheet.src.html`; rebuild it after changing the sprite.
 
+- `intportal-web/`: what is kept from the archived hosted web port: its threat model, draft terms, the commitments a hosted version breaks, its SIS lessons and the features IntPortal doesn't have yet. Read it before anything runs on a server. Spec [056](../056-web-app.md).
+
 ## Mockup index
 
 Every mockup a spec was decided from is kept in `prototypes/`. Open the `.html` file in a browser. A `.src.html` file and a folder of the same name are that page's sources; the `build-*.mjs` script beside them inlines the app's own sprite code (and, for `landing-v9`, the tile renderer) and writes the `.html`.
