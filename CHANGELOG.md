@@ -16,10 +16,12 @@ IntAssis, rebuilt: an install that finishes on any phone, a smarter and faster L
 - LAR replies in English; Taglish and Filipino are still understood (#319)
 - After an answer from what LAR knows: "Explain it simpler" and "Quiz me on it" (#319)
 - Flashcards LAR makes are real cards: a term on the front, its meaning on the back. A card whose answer repeats the question, gives the term away or is a question itself is dropped. Cards on a topic use your notes first; cards with no notes behind them ask you to check them before you save (#320)
+- A phone without the RAM for LAR's brain is told so before anything downloads, instead of after 1.5 GB; when the default model is too big but Qwen3 1.7B fits, that one is offered (#322)
+- Android 15: the keyboard no longer covers the text box you're typing in (sign-in, LAR, every form) (#322)
 
 Known gaps:
 
-- The background download and first-answer speed are built for iOS and Android but not yet tried on a real phone; the speed numbers are from a Mac
+- Tried on the Android emulator: the download keeps going with the screen locked and finishes on its own. Not yet tried on a real phone or the iOS background session; the speed numbers are from a Mac
 - A 2B model's own facts are sometimes wrong; that's why answers without your notes carry the disclaimer
 - iPhone: no App Store or TestFlight build (needs a paid Apple developer account); sideload or build it
 - Desktop builds are unsigned; IntAssis runs on the Mac only
