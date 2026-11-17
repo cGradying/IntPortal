@@ -73,13 +73,13 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
   - The data inside a card never moves on its own.
 - **C14. Count-up.** Hero numbers (GPA, the Study counts, units done) count up from their last seen value when the screen opens. They do not count up from zero on every visit.
 - **C15. Stamps thunk.** Stamps land with the `thunk` (0.55 s, eased, per the Smooth Travel Rule) plus a 2 px shake of the card they land on, once per new grade or status.
-- **C16. Idle sway.** Decorative pieces only (LAR, the cube, scene props). Cards and data never sway.
+- **C16. Idle sway.** Decorative pieces only (LAR, the cube, scene props). Cards and data never sway. *Except the study session's card (spec 055 C8, the owner, 2026-11-17).*
 - **C17. Celebrations.** One kit: tile confetti, LAR's hop and a cube sparkle. It fires only on these three:
   - the first sign-in (the dive's reveal);
   - a deadline marked done;
   - a new grade posting.
 
-  Nothing else celebrates.
+  Nothing else celebrates. *The study session has its own game kit instead (spec 055 C11, the owner, 2026-11-17); it never uses this one.*
 - **C18. Done (picked in round four).**
   - **The sequence, "Stamp, alone" (owner pick, 2026-11-15):** the box fills, a line strikes through the title and a `DONE` stamp lands. After about 0.7 s the row folds away (its height collapses over 0.36 s) and rests under the card in the quick-Undo list, with the 5 s Undo and the "Done this week" persistence unchanged. One `buzz.done()` and one done sound; the landing click plays as it rests. Nothing else moves: no sparks, no ripple through the dot grid, no falling tiles, no lift, no combo text, no tiers. The Done control is on the left of the row with the word under it, clear of the floating cube.
   - **The bar:** with more than one item, a bar of up to eight segments above the rows fills one segment per done. It does not flash.
