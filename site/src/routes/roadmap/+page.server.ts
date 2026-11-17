@@ -1,12 +1,13 @@
-// PLACEHOLDER until #326 lands.
-import type { RoadItem } from "$lib/content/types";
-const S = "https://github.com/cGradying/IntPortal/blob/main/docs/specs/";
-export const load = () => ({
-  items: [
-    { title: "0.4.0", line: "IntPortal on every platform.", lane: "shipped", href: "/changelog#v0.4.0", kind: "release", date: "2026-11-17" },
-    { title: "Website, second edition", line: "This site.", lane: "building", href: S + "057-website-v2.md", kind: "spec" },
-    { title: "IntAssis 2", line: "A better on-device assistant.", lane: "building", href: S + "021-intassis-v2.md", kind: "spec" },
-    { title: "Accessibility pass", line: "Every screen checked.", lane: "next", href: "https://github.com/cGradying/IntPortal/issues/66", kind: "issue" },
-    { title: "The web app", line: "Signed in, in any browser.", lane: "later", href: S + "056-web-app.md", kind: "spec" },
-  ] as RoadItem[],
-});
+import { parseChangelog } from "$lib/content/changelog";
+import recorded from "$lib/content/roadmap-fallback.json";
+import { fetchIssues, roadmap, type GhIssue } from "$lib/content/roadmap";
+import changelog from "../../../../CHANGELOG.md?raw";
+import specIndex from "../../../../docs/specs/README.md?raw";
+
+/** Spec 057 C13. Open issues are asked of GitHub at build time; the recorded list stands in when
+ *  it doesn't answer, as the releases do in +layout.server.ts. */
+export async function load() {
+  const live = await fetchIssues();
+  if (!live) console.warn("GitHub didn't answer; the roadmap uses src/lib/content/roadmap-fallback.json");
+  return { items: roadmap(specIndex, live ?? (recorded as GhIssue[]), parseChangelog(changelog)) };
+}
