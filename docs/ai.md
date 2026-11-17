@@ -200,7 +200,7 @@ Latency: the new run's median model time per reply was 0.8 s (Gemma) and 1.0 s (
 
 ## An open tutor (spec 021 C14–C21)
 
-Since spec 021 only injection, self-harm, cheating and the student's own missing data keep a fixed reply; the rest reach the model with a per-turn rule (`scope::rule`) placed after the student's message. Notes that cover the question win; otherwise the answer is `known` and the chat says "From what I know, not your notes". Replies are English.
+Since spec 021 only injection, self-harm, cheating and the student's own missing data keep a fixed reply; the rest reach the model with a per-turn rule (`scope::rule`) placed after the student's message. Notes that cover the question win; otherwise the answer is `known` and the chat says "From what I know, not your notes. I might get facts wrong, so double-check anything important." Replies are English.
 
 **Suite** (Qwen3.5 2B IQ4_XS, `suite`, language check now "English"): chat 7/7, general 13/13, harm 5/5, homework 6/6, injection 6/6, near-miss 12/12, own data 15/15, controls 8/10; hard groups pass.
 
