@@ -334,7 +334,7 @@ pub fn rule(scope: Scope) -> Option<&'static str> {
         Scope::Chitchat(Chat::Capabilities) => "They ask what you can do. Say it in two or three sentences: answer questions about their classes, deadlines, grades and notes, explain school topics, save notes, set reminders and make flashcards.",
         Scope::Chitchat(Chat::Mood) => "They are telling you how they feel. Be a kind friend first: say you hear them, keep it short and warm, and ask one gentle question about what is weighing on them. No lists.",
         Scope::Chitchat(_) => "They are just talking. Talk back like a friend would: warm, natural, one to three sentences, and ask about them when it fits. Don't list what you can do.",
-        Scope::General => "Their schedule and notes don't cover this. Answer from what you know, accurately and simply, and say if you are not sure.",
+        Scope::General => "This is not about their own data. Answer it from what you know, directly, and don't mention their schedule or notes. Say if you are not sure.",
         _ => return None,
     })
 }
