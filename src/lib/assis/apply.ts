@@ -33,6 +33,19 @@ export interface Suggestion {
   fill: boolean;
   why?: string;
   open?: string;
+  /** What is sent when it differs from the label ("Quiz me on it" asks for cards on the topic). */
+  say?: string;
+}
+
+/** The topic of a question: "what is osmosis?" is about "osmosis". */
+export function topicOf(question: string): string {
+  const t = question
+    .trim()
+    .replace(/[?.!]+$/, "")
+    .replace(/^(can you |could you |please )?(tell me |explain( to me)?|what('s| is| are| was| were)|who('s| is| was)|how (does|do|did|is|are)|why (does|do|is|are)|define|describe)\s+/i, "")
+    .replace(/^(a|an|the)\s+/i, "")
+    .trim();
+  return t.length > 40 ? `${t.slice(0, 40).replace(/\s+\S*$/, "")}` : t;
 }
 
 /** What the chat knows of the student's day, for the first suggestions. Any part may be missing. */
@@ -90,8 +103,12 @@ export function foundLine(sources: { key: string }[]): string {
  * The follow-ups after an answer in this session (spec 048 C18), by its intent and sources, with no model
  * call. Anything else gets the day's suggestions again.
  */
-export function followUps(turn: { intent?: string; sources?: { key: string; title: string }[] }, day?: Day): Suggestion[] {
+export function followUps(turn: { intent?: string; sources?: { key: string; title: string }[]; known?: boolean }, day?: Day, asked?: string): Suggestion[] {
   const src = turn.sources?.[0];
+  // An answer from what LAR knows: go simpler, or turn it into cards (spec 021 C21).
+  if (turn.intent === "ask" && !src && turn.known && asked && topicOf(asked)) {
+    return [{ label: "Explain it simpler", fill: false }, { label: "Quiz me on it", fill: false, say: `Make 5 flashcards on ${topicOf(asked)}` }];
+  }
   if (turn.intent === "due" && day?.due) {
     const at = "at" in day.due.due ? new Date(day.due.due.at * 1000) : new Date(`${day.due.due.day}T12:00`);
     const before = DAYS[(at.getDay() + 6) % 7];
