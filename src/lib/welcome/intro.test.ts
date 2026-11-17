@@ -92,7 +92,7 @@ describe("the talk with LAR (spec 049)", () => {
 
   it("c11_privacy_is_one_exchange_and_paano_adds_one_more", () => {
     const upTo = WHOLE.slice(0, 10);
-    expect(lar(play(upTo).items).at(-1)).toMatch(/keychain.*PUP SIS/);
+    expect(lar(play(upTo).items).at(-1)).toMatch(/keychain.*portal lang ng school mo/);
     const how = play([...upTo, A("how")]);
     expect(how).toMatchObject({ act: "think", step: { id: "how" }, done: false });
     expect(lar(how.items).join(" ")).toMatch(/Walang IntPortal account, walang server/);

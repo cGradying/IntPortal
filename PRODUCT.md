@@ -10,11 +10,11 @@ One custom design language on iPhone and Android, served in a Tauri webview. It 
 
 ## Users
 
-PUP (Polytechnic University of the Philippines) students. They open the app several times a day on their phone, mostly in short glances: what class is next and where, did a grade post, what's due this week. They study on the same phone between classes.
+Students at any school with an online portal, starting with PUP (Polytechnic University of the Philippines). They open the app several times a day on their phone, mostly in short glances: what class is next and where, did a grade post, what's due this week. They study on the same phone between classes.
 
 ## Product Purpose
 
-IntPortal is an unofficial, offline-first companion to PUP SIS. It signs in to SIS for the student, keeps their schedule and grades on the phone, and adds what SIS lacks:
+IntPortal is an unofficial, offline-first companion to a school's portal, starting with PUP SIS and eMabini. It signs in for the student, keeps their schedule and grades on the phone, and adds what SIS lacks:
 - a day and week view with marks (vacant, online, moved);
 - reminders;
 - class and day notes;
@@ -26,7 +26,7 @@ Success means students open it instead of SIS, every day.
 
 ## Positioning
 
-It works offline after one sign-in. Everything stays on the phone, and the app only ever talks to PUP SIS. IntPortal Cloud is planned as an opt-in paid tier: sync, plus a browser view on any laptop.
+It works offline after one sign-in. Everything stays on the phone, and the app only ever talks to the student's own school portals. IntPortal Cloud is planned as an opt-in paid tier: sync, plus a browser view on any laptop.
 
 ## Operating Context
 
@@ -61,7 +61,7 @@ It works offline after one sign-in. Everything stays on the phone, and the app o
 
 1. Clear first, charming second: the pixel world never slows a glance.
 2. The student's data stays on the phone; say so plainly where login happens.
-3. Never imply it's official: no PUP seal or wordmark. Maroon and gold and the plain name "PUP SIS" are fine.
+3. Never imply it's official: no school seal or wordmark. Maroon and gold and the plain name "PUP SIS" are fine.
 4. Every action is two taps or fewer.
 5. Delight is earned by craft: no generic effects, nothing that only decorates.
 

@@ -57,7 +57,7 @@ pub struct Portal {
 }
 ```
 
-Shipped in [intportal-app#97](https://github.com/cGradying/intportal-app/pull/97): `portal.rs` with `SIS`, `MABINI` and `get(id)`.
+Shipped in [intportal-app#97](https://github.com/cGradying/IntPortal/pull/97): `portal.rs` with `SIS`, `MABINI` and `get(id)`.
 
 The SIS client in `crates/intportal-core/src/sis/` becomes the SIS portal's implementation. Store namespacing uses the store key as the namespace, so a portal id is part of each saved key.
 

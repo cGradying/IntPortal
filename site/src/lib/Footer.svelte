@@ -6,7 +6,7 @@
 
 <footer>
   <div class="wrap">
-    <p class="un">Unofficial. Not made by or affiliated with PUP.</p>
+    <p class="un">Unofficial. Not made by or affiliated with any school.</p>
     <p class="fine">
       IntPortal is an independent student project, free under the
       <a href="{REPO_URL}/blob/main/LICENSE" rel="noopener">PolyForm Noncommercial</a> licence.

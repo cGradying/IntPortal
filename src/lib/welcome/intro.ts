@@ -103,7 +103,7 @@ export const STEPS: Record<StepId, Step> = {
   },
   privacy: {
     id: "privacy",
-    lar: ["Last na. Ang login mo, sa phone mo lang: nasa keychain, at PUP SIS lang ang kinakausap ko."],
+    lar: ["Last na. Ang login mo, sa phone mo lang: nasa keychain, at ang portal lang ng school mo ang kinakausap ko."],
     ask: "chips",
     replies: [
       { id: "how", label: "Paano?", says: [], act: "think", to: "how" },

@@ -38,7 +38,7 @@
     "iOS": {
       "minimumSystemVersion": "16.0"
     },
-    "shortDescription": "Your PUP schedule, grades and deadlines",
+    "shortDescription": "Your schedule, grades and deadlines",
     "category": "Education",
     "macOS": {
       "minimumSystemVersion": "12.0",
