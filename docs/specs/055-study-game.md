@@ -64,7 +64,7 @@ Reviewing cards plays like a small card game. The card is dealt from a pile, til
 
 - Deal: `--t-hero` with a spring. Leave: `--t-move`. Flip: `--t-hero` with `--ease-spring`. Shake on a miss: `--t-hero`. Stamp pop: `--t-move`. Score count: eased each frame. Tier shake: trauma squared, decaying in about 0.6 s, only with effects on Full.
 - Haptics: tick on right, press on a tier, fail on a miss, done at the end.
-- You's Motion setting: Calm keeps the motion with fewer bits and no shake. Off, or Reduce Motion: no deal, tilt, sway, shake or bursts; cards fade; the swirl shows one still frame; the score jumps to its value.
+- You › Done effects (`app.effects`): Calm keeps the motion with fewer bits and no shake. Off, or Reduce Motion: no deal, tilt, sway, shake or bursts; cards fade; the swirl shows one still frame; the score jumps to its value.
 
 ## Accessibility
 
