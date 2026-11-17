@@ -6,7 +6,21 @@
 
   let { data } = $props();
   // Items keep the changelog's Markdown; "(#317)" becomes a link to that pull request.
-  const md = (s: string) => inline(s).replace(/#(\d+)\b/g, `<a href="${REPO_URL}/pull/$1" rel="noopener">#$1</a>`);
+  // Only text outside tags and outside existing links gets the PR link, so no href is rewritten.
+  const md = (s: string) => {
+    let inA = false;
+    return inline(s)
+      .split(/(<[^>]+>)/)
+      .map((part) => {
+        if (part.startsWith("<")) {
+          if (/^<a\b/.test(part)) inA = true;
+          else if (part === "</a>") inA = false;
+          return part;
+        }
+        return inA ? part : part.replace(/#(\d+)\b/g, `<a href="${REPO_URL}/pull/$1" rel="noopener">#$1</a>`);
+      })
+      .join("");
+  };
   const day = (d: string) => new Date(d + "T12:00:00+08:00").toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
 </script>
 

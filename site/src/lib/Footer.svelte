@@ -77,7 +77,7 @@
   li a {
     display: inline-flex;
     align-items: center;
-    min-height: 40px;
+    min-height: 44px;
     color: var(--site-ink-2);
     text-decoration: none;
   }
