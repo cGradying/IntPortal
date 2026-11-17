@@ -1,10 +1,10 @@
 name: Site
 on:
   pull_request:
-    paths: ["site/**", "src/lib/**", "PRIVACY.md", "pnpm-lock.yaml", ".github/workflows/site.yml"]
+    paths: ["site/**", "src/lib/**", "PRIVACY.md", "CHANGELOG.md", "docs/specs/README.md", "pnpm-lock.yaml", ".github/workflows/site.yml"]
   push:
     branches: [main]
-    paths: ["site/**", "src/lib/**", "PRIVACY.md"]
+    paths: ["site/**", "src/lib/**", "PRIVACY.md", "CHANGELOG.md", "docs/specs/README.md"]
   workflow_dispatch:
     inputs:
       deploy:
