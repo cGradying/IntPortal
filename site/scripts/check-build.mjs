@@ -16,8 +16,23 @@ for (const f of files.filter((f) => /\.(html|js|css|json)$/.test(f) && !/[\\/]bu
     if (!ALLOW.has(m[1].toLowerCase())) bad.set(m[1], f);
   }
 }
+// 057 C1: Three.js only in the hero's chunk, reached by a dynamic import(): no page's HTML preloads
+// it and no other script imports it statically, so no other page loads it.
+const chunks = files.filter((f) => /[\\/]_app[\\/]immutable[\\/].*\.js$/.test(f));
+const three = chunks.filter((f) => readFileSync(f, "utf8").includes("isWebGLRenderer"));
+for (const t of three) {
+  const name = t.split(/[\\/]/).pop();
+  for (const f of files.filter((f) => f !== t && /\.(html|js)$/.test(f))) {
+    const text = readFileSync(f, "utf8");
+    const named = text.includes(name);
+    if (named && f.endsWith(".html")) bad.set(`three (${name}) preloaded`, f);
+    else if (named && new RegExp(`(?:from|import)\\s*["'][^"']*${name.replace(/\./g, "\\.")}["']`).test(text)) bad.set(`three (${name}) imported statically`, f);
+  }
+}
+if (three.length > 1) bad.set(`three in ${three.length} chunks`, three.join(", "));
+
 if (bad.size) {
-  for (const [host, f] of bad) console.error(`third-party host ${host} in ${f}`);
+  for (const [what, f] of bad) console.error(`${what.includes(" ") ? what : `third-party host ${what}`} in ${f}`);
   process.exit(1);
 }
-console.log(`${files.length} files, no third-party hosts.`);
+console.log(`${files.length} files, no third-party hosts; three in ${three.length ? "the hero's chunk only" : "no chunk yet"}.`);
