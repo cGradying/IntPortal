@@ -134,6 +134,7 @@
 
   // The next card: reset its state, deal it, load its intervals or options, and start the clock when it lands.
   function show() {
+    clearTimeout(timer);
     resetCard();
     deal++;
     const it = queue[pos];
@@ -142,7 +143,9 @@
     if (mode === "flash" && !practice && !it.again) api.reviewPreview(c.memory).then((ss) => { if (card === c) hints = ss.map(interval); }, () => {});
     if (mode === "choice") {
       const at = it.deck.cards.findIndex((x) => x.id === c.id);
-      api.distractors(it.deck.cards, at, pos).then((ds) => { if (card === c) options = shuffle([c.back, ...ds]); }, (e) => (problem = friendly(e)));
+      // If the core can't pick distractors, three other backs from the deck keep the card answerable.
+      const local = () => shuffle(it.deck.cards.filter((x) => x.id !== c.id && x.back !== c.back).map((x) => x.back)).slice(0, 3);
+      api.distractors(it.deck.cards, at, pos).then((ds) => { if (card === c) options = shuffle([c.back, ...ds]); }, () => { if (card === c) options = shuffle([c.back, ...local()]); });
     }
     timer = window.setTimeout(dealt, moving ? hero() : tokens().quick);
   }
@@ -176,10 +179,11 @@
   }
 
   async function answer(kind: Answer, rating: Rating) {
-    if (!item || locked) return;
+    if (!item || locked || !ready) return;
+    clearTimeout(timer);
     locked = true;
     const it = item;
-    const secs = t0 ? (performance.now() - t0) / 1000 : 99;
+    const secs = (performance.now() - t0) / 1000;
     let dueAt: number | null = null;
     try {
       // Practice (nothing was due, or a card coming back) leaves the schedule alone.
@@ -191,6 +195,7 @@
       verdict = null;
       return;
     }
+    if (!alive) return;
     const key = `${it.deck.id}/${it.card.id}`;
     if (!log.some((l) => l.key === key)) log.push({ key, entry: { deck: it.deck, card: it.card }, rating, due: dueAt, missed: kind === "miss" });
     const p = play(run, kind, secs, mode);
@@ -224,7 +229,7 @@
       say(["", "", "Tatlo na!", "Anim na!", "Sampu na!"][m], "happy", 1400);
     } else {
       buzz.tick();
-      sfx.right(run.streak - 1);
+      if (kind === "right") sfx.right(Math.max(0, run.streak - 1));
       say(kind === "hard" ? "Okay, dahan-dahan." : p.quick ? "Bilis mo!" : pickOne(["Tama!", "Galing!", "Sige pa!", "Ayos!"]), "happy", 1000);
     }
     loop();
@@ -232,6 +237,8 @@
   }
 
   function advance() {
+    // Only an answered card moves on, so a double tap on Next can't skip the next one.
+    if (!locked) return;
     clearTimeout(timer);
     pos++;
     if (pos >= queue.length) return finish();
@@ -240,7 +247,7 @@
   }
 
   async function check() {
-    if (!typed.trim() || locked) return;
+    if (!typed.trim() || locked || !ready) return;
     try {
       verdict = await api.checkAnswer(card, typed);
     } catch (e) {
@@ -251,7 +258,7 @@
   }
 
   function choose(o: string) {
-    if (picked || locked) return;
+    if (picked || locked || !ready) return;
     picked = o;
     verdict = o === card.back;
     answer(verdict ? "right" : "miss", verdict ? "good" : "again");
@@ -320,6 +327,8 @@
   let tally = $state(0);
   let raf = 0;
   let prev = 0;
+  let alive = true;
+  let hiddenAt = 0;
   function loop() {
     if (!raf) {
       prev = performance.now();
@@ -371,18 +380,28 @@
     table.still = !moving;
     pops = bursts(fxCv);
     // LAR is already at the table, so his floating crystal steps aside and stops covering Next (C2).
+    const was = chip.at;
     chip.at = "hidden";
-    const wake = () => loop();
+    // The soft clock only counts time the app is on screen.
+    const wake = () => {
+      if (document.hidden) hiddenAt = performance.now();
+      else {
+        if (hiddenAt && t0) t0 += performance.now() - hiddenAt;
+        hiddenAt = 0;
+        loop();
+      }
+    };
     document.addEventListener("visibilitychange", wake);
     begin(firstPass, practice, "Tara, simulan natin!");
     return () => {
+      alive = false;
       document.removeEventListener("visibilitychange", wake);
       cancelAnimationFrame(raf);
       clearTimeout(timer);
       clearTimeout(larTimer);
       pops?.stop();
       table.heat = 0;
-      chip.at = "here";
+      chip.at = was;
     };
   });
 </script>
@@ -427,7 +446,7 @@
       {#key deal}
         <div class="slot" in:dealIn|global out:leave>
           <div class="sway" class:on={moving && !locked} style:--amp="{0.8 + run.heat * 0.5}deg">
-            <div class="tilt" class:shake={missed && moving} style:--rx="{rx}deg" style:--ry="{ry}deg">
+            <div class="tilt" class:shake={missed && fx === "full"} style:--rx="{rx}deg" style:--ry="{ry}deg">
               <div class="cover notch" aria-hidden="true"><canvas use:swirl></canvas></div>
               {#if mode === "flash"}
                 <button class="flipper" class:shown onclick={flip} aria-label={shown ? undefined : `${card.front}. Tap to show the meaning`}>
@@ -471,7 +490,7 @@
     {:else}
       <div class="opts">
         {#each options as o (o)}
-          <button class="tile opt" class:ok={picked !== null && o === card.back} class:no={picked === o && o !== card.back} class:shake={picked === o && o !== card.back && moving} disabled={picked !== null && o !== picked && o !== card.back} onclick={() => choose(o)}>{o}</button>
+          <button class="tile opt" class:ok={picked !== null && o === card.back} class:no={picked === o && o !== card.back} class:shake={picked === o && o !== card.back && fx === "full"} disabled={picked !== null && o !== picked && o !== card.back} onclick={() => choose(o)}>{o}</button>
         {/each}
       </div>
     {/if}
@@ -639,7 +658,8 @@
   .track {
     display: block;
     height: 8px;
-    background: rgb(244 236 216 / 0.14);
+    background: rgb(11 7 16 / 0.8);
+    box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.22);
   }
   .track i {
     display: block;
@@ -716,7 +736,7 @@
     display: grid;
     perspective: 900px;
     overflow-x: clip;
-    padding-bottom: 10px;
+    padding-bottom: 16px;
     touch-action: manipulation;
   }
   .pile,
@@ -726,6 +746,7 @@
   .pile {
     position: relative;
   }
+  /* The pile: two backs squared under the card, each a little narrower, so it reads as a deck. */
   .under {
     --step: 4px;
     isolation: isolate;
@@ -735,12 +756,10 @@
     box-shadow: inset 0 0 0 2px #cca128;
   }
   .b1 {
-    translate: -7px 9px;
-    rotate: -1.5deg;
+    inset: 7px 8px -7px;
   }
   .b2 {
-    translate: -13px 17px;
-    rotate: -3deg;
+    inset: 14px 16px -14px;
     filter: brightness(0.7);
   }
   .slot,
@@ -781,7 +800,9 @@
     isolation: isolate;
     background: #170509;
     box-shadow: inset 0 0 0 2px #cca128;
-    transform: rotateY(180deg);
+    /* Behind the card's own back face, so while the card is face-down (the deal) the swirl
+       covers the answer side instead of fighting it for the same plane. */
+    transform: translateZ(-2px) rotateY(180deg);
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
   }

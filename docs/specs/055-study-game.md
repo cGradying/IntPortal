@@ -30,13 +30,13 @@ Reviewing cards plays like a small card game. The card is dealt from a pile, til
 - **C3. Combo.** x2 at three right in a row, x3 at six, x4 at ten. A right answer scores 10 × the multiplier. Reaching a tier pops the stamp and gives LAR a line.
 - **C4. Hard and Again.** Hard keeps the combo and scores nothing. A miss (Again, a wrong pick, a wrong typed answer) drops the combo and the heat to zero.
 - **C5. A miss comes back.** The card shakes. A flashcard rated Again tucks back under the pile on its own. Typed and choice answers show the right answer, Why?, and Next. The card returns once, three cards later (or last). Its return is practice: only a card's first answer is scheduled.
-- **C6. The soft clock (Heat B).** Each card gets 8 s (14 s to type) from when it lands. Answering right in the first half adds 5 points and heats the table one step (to at most 3). Answering after the clock cools it one step. Running out never counts as a miss.
+- **C6. The soft clock (Heat B).** Each card gets 8 s (14 s to type) from when it lands. Answering right in the first half adds 5 points and heats the table one step (to at most 3). Answering after the clock cools it one step. Running out never counts as a miss. Time with the app in the background does not count.
 - **C7. Heat.** Each heat step speeds the swirl and lifts it a tone, and the card's idle sway grows.
 - **C8. The card (Deck B).** It is dealt face-down from the pile with a small overshoot and turns face-up as it lands. It sways a little at rest and tilts toward the finger, up to 8°. A flashcard flips for real. A right answer sends it off to the right with a pixel burst; a miss tucks it back toward the pile.
 - **C9. The swirl.** One dithered portal swirl (4×4 Bayer, the portal's five-tone ramp) is drawn at low resolution and shared by the score panel, the card's back and the pile. At most 30 frames a second; nothing is drawn while the app is hidden.
 - **C10. Sound.** With sound on (045 C19), each right answer plays a note one semitone higher per answer in a row, a tier plays a short rising run, and a miss is the low thump. No buzzer.
 - **C11. Celebration lives here.** The session has its own kit: the stamp, the bursts, the small shake on a tier, and LAR's lines. It does not use the app's Confetti (045 C17 still holds everywhere else).
-- **C12. Results, step one.** LAR, the deck's name, the points counting up in pixel numerals, then: best combo, accuracy, right first try, and the personal best. "New best" stamps when a real (not practice) run beats an earlier best. The FSRS line from before stays.
+- **C12. Results, step one.** LAR, the deck's name, the points counting up in pixel numerals, then: best combo, accuracy, right first try, and the personal best. Hard counts as remembered in accuracy and first try, as it does for FSRS. "New best" stamps when a real (not practice) run beats an earlier best. The FSRS line from before stays.
 - **C13. Results, step two.** "See the cards" lists every card with its rating and next review, misses first, filtered by All, Missed and Right. A miss has Why? (when IntAssis is installed). "Practice misses (N)" replays only the misses as practice; the other button goes back.
 - **C14. Personal best.** Kept per deck on the phone (`studyBest:<deck id>`, or `all` for the all-due session). Practice never sets it.
 
@@ -56,7 +56,7 @@ Reviewing cards plays like a small card game. The card is dealt from a pile, til
 ## Errors
 
 - A review that fails to save shows the existing friendly line under the card, and the card stays so it can be answered again. Nothing is scored.
-- Choice options or a typed check that fail show the same line.
+- If the core cannot pick choice options, three other meanings from the deck are used. A typed check that fails shows the same line, and the student can check again.
 
 ## Motion and Reduce Motion
 

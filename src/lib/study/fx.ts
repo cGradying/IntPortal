@@ -9,11 +9,8 @@ const RGB = RAMP.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 export const BURST = ["#b5412a", "#e08a35", "#f3cf6a", "#fff6dc", "#e8b04a"];
 
-const W = 64;
-const H = 40;
-let src: HTMLCanvasElement | null = null;
-let img: ImageData | null = null;
-const targets = new Set<HTMLCanvasElement>();
+// Each canvas is painted at its own size (one canvas pixel per 3 CSS px), never stretched.
+const targets = new Map<HTMLCanvasElement, ImageData | null>();
 let raf = 0;
 let last = 0;
 let t = 2.1;
@@ -21,13 +18,16 @@ let t = 2.1;
 /** 0–3, from the soft clock (spec 055 C6). Each step speeds the swirl and lifts it a tone. */
 export const table = { heat: 0, still: false };
 
+/** Canvas pixels per unit of the swirl, the same on every canvas, so a wide strip shows a slice of it instead of a squashed copy. */
+const UNIT = 40;
+
 /** One frame of the swirl: polar bands twisted with time, quantised to the ramp through a 4×4 Bayer. */
 export function paint(px: Uint8ClampedArray, w: number, h: number, time: number, heat: number) {
   const lift = 0.05 * heat;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const dx = (x + 0.5 - w / 2) / h;
-      const dy = (y + 0.5 - h / 2) / h;
+      const dx = (x + 0.5 - w / 2) / UNIT;
+      const dy = (y + 0.5 - h / 2) / UNIT;
       const r = Math.hypot(dx, dy) * 2.4;
       const a = Math.atan2(dy, dx);
       const v = 0.5 + 0.5 * (0.7 * Math.sin(a * 3 + r * 7 - time + 1.2 * Math.sin(r * 4 - time * 0.7)) + 0.3 * Math.sin(a * 5 - r * 11 + time * 1.3));
@@ -43,19 +43,13 @@ export function paint(px: Uint8ClampedArray, w: number, h: number, time: number,
 }
 
 function draw() {
-  if (!src) {
-    src = document.createElement("canvas");
-    src.width = W;
-    src.height = H;
-    img = src.getContext("2d")!.createImageData(W, H);
-  }
-  paint(img!.data, W, H, t, table.heat);
-  src.getContext("2d")!.putImageData(img!, 0, 0);
-  for (const cv of targets) {
+  for (const [cv, had] of targets) {
     const g = cv.getContext("2d");
     if (!g || !cv.isConnected) continue;
-    g.imageSmoothingEnabled = false;
-    g.drawImage(src, 0, 0, W, H, 0, 0, cv.width, cv.height);
+    const img = had && had.width === cv.width && had.height === cv.height ? had : g.createImageData(cv.width, cv.height);
+    targets.set(cv, img);
+    paint(img.data, cv.width, cv.height, t, table.heat);
+    g.putImageData(img, 0, 0);
   }
 }
 
@@ -85,13 +79,22 @@ if (typeof document !== "undefined") document.addEventListener("visibilitychange
 
 /** Svelte action: this canvas shows the swirl, at one canvas pixel per 3 CSS px. */
 export function swirl(cv: HTMLCanvasElement) {
-  const r = cv.getBoundingClientRect();
-  cv.width = Math.max(8, Math.round(r.width / 3));
-  cv.height = Math.max(8, Math.round(r.height / 3));
-  targets.add(cv);
+  // Layout size, not the box on screen: a card mounts mid-deal, scaled and turned.
+  const fit = () => {
+    cv.width = Math.max(8, Math.round(cv.offsetWidth / 3));
+    cv.height = Math.max(8, Math.round(cv.offsetHeight / 3));
+  };
+  fit();
+  const watch = new ResizeObserver(() => {
+    fit();
+    kick();
+  });
+  watch.observe(cv);
+  targets.set(cv, null);
   kick();
   return {
     destroy() {
+      watch.disconnect();
       targets.delete(cv);
       if (!targets.size && raf) {
         cancelAnimationFrame(raf);
