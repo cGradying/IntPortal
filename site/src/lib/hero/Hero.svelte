@@ -29,11 +29,12 @@
 
     let hero: Hero | null = null;
     let gone = false;
+    let stillOnly = false;
     const env = readEnv();
     if (canRun(env)) {
       live = true;
       import("./scene").then(({ start }) => {
-        if (gone) return;
+        if (gone || stillOnly) return;
         try {
           hero = start(canvas, {
           box,
@@ -55,6 +56,7 @@
     const rm = matchMedia("(prefers-reduced-motion: reduce)");
     const still = () => {
       if (!rm.matches) return;
+      stillOnly = true;
       hero?.stop();
       hero = null;
       live = false;
@@ -67,7 +69,10 @@
       if (!live) return;
       const r = section.getBoundingClientRect();
       const run = r.height - innerHeight;
-      p = run > 0 ? Math.min(1, Math.max(0, -r.top / run)) : 0;
+      // The dive runs past the sticky part, so its last phase (the field breaking into
+      // dots) plays while the stage scrolls away and the next section arrives (C6).
+      const span = run + innerHeight * 0.55;
+      p = span > 0 ? Math.min(1, Math.max(0, -r.top / span)) : 0;
       hero?.scroll(p);
     }
     function onPointer(e: PointerEvent) {
@@ -129,8 +134,22 @@
     overflow: hidden;
     background:
       radial-gradient(ellipse 60% 50% at 72% 46%, rgba(148, 28, 48, 0.22), transparent 70%),
-      radial-gradient(rgba(245, 178, 39, 0.07) 1px, transparent 1.5px) 0 0 / 14px 14px,
+      radial-gradient(rgba(245, 178, 39, 0.07) 1px, transparent 1.5px) 0 0 / 15px 15px,
       var(--void);
+  }
+  /* As the stage scrolls away at the end of the dive, its bottom edge melts into
+     the page instead of cutting across it. */
+  .stage::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 55%;
+    z-index: 2;
+    background: linear-gradient(transparent, var(--void) 85%);
+    opacity: calc((var(--p) - 0.5) * 4);
+    pointer-events: none;
   }
   .scene {
     position: absolute;
