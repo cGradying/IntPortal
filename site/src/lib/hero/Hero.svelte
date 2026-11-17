@@ -34,7 +34,8 @@
       live = true;
       import("./scene").then(({ start }) => {
         if (gone) return;
-        hero = start(canvas, {
+        try {
+          hero = start(canvas, {
           box,
           onFirst: () => (shown = true),
           onSlow: () => {
@@ -42,10 +43,25 @@
             live = false;
             p = 0;
           },
-        });
+          });
+        } catch {
+          live = false;
+          return;
+        }
         onScroll();
       }, () => (live = false));
     }
+    // Reduce Motion turned on while the scene runs: stop it and show the still.
+    const rm = matchMedia("(prefers-reduced-motion: reduce)");
+    const still = () => {
+      if (!rm.matches) return;
+      hero?.stop();
+      hero = null;
+      live = false;
+      shown = false;
+      p = tx = ty = 0;
+    };
+    rm.addEventListener("change", still);
 
     function onScroll() {
       if (!live) return;
@@ -55,7 +71,7 @@
       hero?.scroll(p);
     }
     function onPointer(e: PointerEvent) {
-      if (e.pointerType !== "mouse") return;
+      if (e.pointerType !== "mouse" || !live) return;
       const x = (e.clientX / innerWidth) * 2 - 1;
       const y = (e.clientY / innerHeight) * 2 - 1;
       tx = x;
@@ -68,6 +84,7 @@
       gone = true;
       hero?.stop();
       wide.removeEventListener("change", size);
+      rm.removeEventListener("change", still);
       removeEventListener("scroll", onScroll);
       removeEventListener("pointermove", onPointer);
     };

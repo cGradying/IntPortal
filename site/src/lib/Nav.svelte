@@ -35,12 +35,12 @@
   function keys(e: KeyboardEvent) {
     if (!open) return;
     if (e.key === "Escape") return void show(false);
-    if (e.key !== "Tab" || !sheet) return;
-    const f = [...sheet.querySelectorAll<HTMLElement>("a, button")];
-    const first = f[0];
-    const last = f[f.length - 1];
-    if (e.shiftKey && document.activeElement === first) (e.preventDefault(), last.focus());
-    else if (!e.shiftKey && document.activeElement === last) (e.preventDefault(), first.focus());
+    if (e.key !== "Tab" || !sheet || !toggle) return;
+    // The toggle and the sheet's links are the only stops while it is open.
+    const f = [toggle, ...sheet.querySelectorAll<HTMLElement>("a")];
+    const at = f.indexOf(document.activeElement as HTMLElement);
+    e.preventDefault();
+    f[(at + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
   }
   $effect(() => {
     void page.url.pathname;
@@ -70,7 +70,7 @@
     <div class="sheet" id="menu" bind:this={sheet} role="dialog" aria-modal="true" aria-label="Menu">
       <ul>
         {#each [...links, ["/download", "Download"], ...more] as [href, text] (href)}
-          <li><a {href} aria-current={here(href) ? "page" : undefined}>{text}<PixelIcon name="chev" size={12} /></a></li>
+          <li><a {href} aria-current={here(href) ? "page" : undefined} onclick={() => (open = false)}>{text}<PixelIcon name="chev" size={12} /></a></li>
         {/each}
         <li><a href={REPO_URL} rel="noopener">GitHub<PixelIcon name="chev" size={12} /></a></li>
       </ul>
@@ -147,7 +147,7 @@
   .get {
     display: inline-flex;
     align-items: center;
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 16px;
     border-radius: var(--radius);
     background: var(--gold);

@@ -47,7 +47,7 @@ const frag = /* glsl */ `
   const float B[16] = float[16](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.);
   float bayer(vec2 c) { int x = int(mod(c.x, 4.0)); int y = int(mod(c.y, 4.0)); return B[y * 4 + x] / 16.0; }
   void main() {
-    vec2 g = vec2(32.0, 48.0) * mix(1.0, 7.0, uDive * uDive);
+    vec2 g = vec2(32.0, 48.0) * mix(1.0, 7.0, uDive * uDive) * mix(1.0, 3.0, smoothstep(0.7, 1.0, uDive));
     vec2 c = floor(vUv * g);
     vec2 q = (c + 0.5) / g - 0.5;
     q.x *= 8.0 / 12.0;
@@ -67,7 +67,7 @@ const frag = /* glsl */ `
     // Each cell flares gold, then settles to the page's faint dot as it shrinks.
     col = mix(col, uGold, smoothstep(0.0, 0.4, e) * (1.0 - smoothstep(0.5, 1.0, e)));
     col = mix(col, mix(uVoid, uGold, 0.22), smoothstep(0.55, 1.0, e));
-    if (max(f.x, f.y) > 0.5 * (1.0 - e * 0.86)) col = mix(col, uVoid, smoothstep(0.0, 0.15, e));
+    if (max(f.x, f.y) > 0.5 * (1.0 - e * 0.8)) col = mix(col, uVoid, smoothstep(0.0, 0.15, e));
     gl_FragColor = vec4(col, 1.0);
     #include <colorspace_fragment>
   }
@@ -183,7 +183,9 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
     last = now;
     const t = (now - t0) / 1000;
     if (t > 1.5) {
-      slow = dt > 40 ? slow + dt : 0;
+      // A single long stall (sleep, a tab restore) is not slowness: only frames between
+      // 40 and 250 ms count, and any good frame resets the run.
+      slow = dt > 40 && dt < 250 ? slow + dt : dt >= 250 ? slow : 0;
       if (slow > 1000) {
         stop();
         opts.onSlow();
@@ -244,11 +246,21 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
   }
   raf = requestAnimationFrame(frame);
 
+  let stopped = false;
   function stop() {
+    if (stopped) return;
+    stopped = true;
     cancelAnimationFrame(raf);
     ro.disconnect();
     io.disconnect();
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      m.geometry?.dispose();
+      (Array.isArray(m.material) ? m.material : m.material ? [m.material] : []).forEach((x) => x.dispose());
+    });
+    mesh.dispose();
     renderer.dispose();
+    renderer.forceContextLoss();
   }
 
   canvas.addEventListener("webglcontextlost", () => {

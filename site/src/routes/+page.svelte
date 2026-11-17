@@ -202,7 +202,23 @@
     margin-top: clamp(96px, 14vh, 160px);
   }
   .features {
+    position: relative;
     margin-top: clamp(48px, 8vh, 96px);
+  }
+  /* The dive ends in the dot grid; it carries on behind the first section and fades out. */
+  .features::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: 50%;
+    top: calc(-1 * clamp(48px, 8vh, 96px));
+    width: 100vw;
+    height: 110vh;
+    translate: -50% 0;
+    background: radial-gradient(rgba(245, 178, 39, 0.07) 1px, transparent 1.5px) 0 0 / 14px 14px;
+    mask-image: linear-gradient(#000, transparent);
+    -webkit-mask-image: linear-gradient(#000, transparent);
+    pointer-events: none;
   }
   .features .lede {
     margin-bottom: 32px;

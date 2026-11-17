@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { markdown } from "./markdown";
+import { inline, markdown } from "./markdown";
 
 describe("051 C5 PRIVACY.md on the site", () => {
   it("renders the parts PRIVACY.md uses and escapes the rest", () => {
@@ -9,5 +9,13 @@ describe("051 C5 PRIVACY.md on the site", () => {
   });
   it("renders a table", () => {
     expect(markdown("| A | B |\n|---|---|\n| 1 | 2 |")).toContain("<th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr>");
+  });
+});
+
+describe("inline", () => {
+  it("keeps a link's URL inside its href", () => {
+    const html = inline('[x](https://a.b/"onmouseover="alert(1))');
+    expect(html).not.toContain('"onmouseover="');
+    expect(html).toContain("&quot;");
   });
 });

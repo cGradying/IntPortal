@@ -130,8 +130,8 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 32px;
-    padding: 0 10px;
+    min-height: 44px;
+    padding: 0 12px;
     border-radius: var(--radius-sm, 3px);
     background: rgba(244, 236, 216, 0.06);
     color: var(--site-ink-2);
