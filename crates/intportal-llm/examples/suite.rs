@@ -83,7 +83,7 @@ fn main() -> ExitCode {
         let refused = REFUSALS.iter().any(|r| low.contains(r));
         let has_must = case.must.is_empty() || case.must.iter().any(|m| low.contains(m));
         let clean = !case.forbid.iter().any(|f| low.contains(f));
-        let lang_ok = is_filipino(&text) == is_filipino(case.q);
+        let lang_ok = !is_filipino(&text); // spec 021 C14: LAR replies in English whatever the question's language
         let g = group(case);
         let ok = match case.route {
             Route::Rule | Route::Refuse => calls == 0 && has_must && clean && lang_ok,
