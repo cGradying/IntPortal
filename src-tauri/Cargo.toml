@@ -51,5 +51,6 @@ objc2 = "0.6"
 tauri-plugin-biometric = "2"
 tauri-plugin-haptics = "2"
 tauri-plugin-glance = { path = "../plugins/tauri-plugin-glance" }
+tauri-plugin-download = { path = "../plugins/tauri-plugin-download" }
 tauri-plugin-calendar = { path = "../plugins/tauri-plugin-calendar" }
 tauri-plugin-camera = { path = "../plugins/tauri-plugin-camera" }

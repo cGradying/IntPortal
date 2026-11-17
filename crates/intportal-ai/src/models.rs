@@ -132,6 +132,16 @@ pub fn gate(resident: &[&Model], available: Option<u64>) -> Gate {
     }
 }
 
+/// The same question against the phone's total RAM, its class (spec 021 C2): a phone where the models
+/// take over half of all its memory can't run them; over a third is a tight fit.
+pub fn gate_by_total(resident: &[&Model], total: u64) -> Gate {
+    match resident.iter().map(|m| need(m)).sum::<u64>() * 100 / total.max(1) {
+        0..=35 => Gate::Ok,
+        36..=50 => Gate::Warn,
+        _ => Gate::Refuse,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -197,5 +207,15 @@ mod tests {
         assert!(is_small_ram(Some(5_600_000_000))); // a "6 GB" phone
         assert!(!is_small_ram(Some(7_500_000_000))); // an "8 GB" phone
         assert!(!is_small_ram(None)); // iOS and the Mac do not say
+    }
+
+    #[test]
+    fn total_ram_decides_by_phone_class_not_the_moment() {
+        let (qwen, eg2) = (find("qwen3-1.7b").unwrap(), find(EMBED).unwrap());
+        let gb = |g: f64| (g * 1e9) as u64;
+        assert_eq!(gate_by_total(&[qwen, eg2], gb(7.5)), Gate::Ok, "an 8 GB phone holds both");
+        assert_eq!(gate_by_total(&[qwen], gb(5.5)), Gate::Ok, "a 6 GB phone, one at a time");
+        assert_eq!(gate_by_total(&[qwen], gb(3.8)), Gate::Warn, "a 4 GB phone runs it, tightly");
+        assert_eq!(gate_by_total(&[qwen], gb(2.8)), Gate::Refuse, "a 3 GB phone can't");
     }
 }

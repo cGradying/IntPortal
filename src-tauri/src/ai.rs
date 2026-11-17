@@ -42,6 +42,9 @@ pub struct AiState {
     engine: Arc<Mutex<Option<Loaded>>>,
     embedder: Arc<Mutex<Option<Loaded>>>,
     cancel: Arc<AtomicBool>,
+    /// Pause for the install only. LAR going to sleep when the app is hidden sets `cancel`, never
+    /// this: leaving the app must not stop a download (spec 021 C3).
+    pause: Arc<AtomicBool>,
 }
 
 impl AiState {
@@ -68,15 +71,24 @@ pub fn ai_small_ram() -> bool {
     small_ram()
 }
 
-/// Whether the chat model `m` (or, for the embedder, the default chat model beside it) fits in memory
-/// given `available`: a big phone holds both models at once, a small one a single model.
-fn fits(m: &Model, available: Option<u64>) -> Gate {
-    if small_ram() {
-        return models::gate(&[m], available);
-    }
+/// Whether the chat model `m` (or, for the embedder, the default chat model beside it) fits in memory:
+/// a big phone holds both models at once, a small one a single model (spec 021 C2). Android is judged
+/// by its total RAM, its class: the memory free at one moment swings with other apps, and Android ends
+/// background apps to make room, so it refused phones that run IntAssis fine. iOS gives each app a
+/// hard limit, so there the app's own headroom is the right figure.
+fn fits(m: &Model) -> Gate {
     let find = |id| models::find(id).expect("in the catalog");
-    let (chat, embed) = if m.kind == Kind::Embed { (find(models::DEFAULT_CHAT), m) } else { (m, find(models::EMBED)) };
-    models::gate(&[chat, embed], available)
+    let resident: Vec<&Model> = if small_ram() {
+        vec![m]
+    } else if m.kind == Kind::Embed {
+        vec![find(models::DEFAULT_CHAT), m]
+    } else {
+        vec![m, find(models::EMBED)]
+    };
+    match mem::total() {
+        Some(total) => models::gate_by_total(&resident, total),
+        None => models::gate(&resident, mem::available()),
+    }
 }
 
 /// Runs `f` on a thread of its own at low priority, so the model's threads yield to the UI and the
@@ -141,7 +153,6 @@ pub struct ModelInfo {
 pub async fn ai_models(app: tauri::AppHandle, ai: tauri::State<'_, AiState>) -> Res<Vec<ModelInfo>> {
     // async: a sync command runs on the UI thread, and this one stats four files and reads /proc/meminfo.
     let dir = models_dir(&app)?;
-    let available = mem::available();
     let loaded: Vec<String> = [&ai.engine, &ai.embedder].iter().filter_map(|s| s.try_lock().ok().and_then(|e| e.as_ref().map(|l| l.id.clone()))).collect();
     Ok(models::CATALOG
         .iter()
@@ -152,7 +163,7 @@ pub async fn ai_models(app: tauri::AppHandle, ai: tauri::State<'_, AiState>) -> 
             bytes: m.bytes,
             installed: dir.join(m.file).metadata().is_ok_and(|f| f.len() == m.bytes),
             default: m.id == models::DEFAULT_CHAT,
-            fits: match fits(m, available) { Gate::Ok => "ok", Gate::Warn => "warn", Gate::Refuse => "refuse" },
+            fits: match fits(m) { Gate::Ok => "ok", Gate::Warn => "warn", Gate::Refuse => "refuse" },
             loaded: loaded.iter().any(|l| l == m.id),
         })
         .collect())
@@ -160,31 +171,187 @@ pub async fn ai_models(app: tauri::AppHandle, ai: tauri::State<'_, AiState>) -> 
 
 #[derive(Clone, Serialize)]
 pub struct Progress {
+    /// Bytes of the whole install so far, and of all of it.
     done: u64,
     total: u64,
+    /// Which file of the install is coming down (0-based).
+    file: usize,
+    /// Set while it waits out a dropped connection: the line the student reads.
+    waiting: Option<String>,
 }
 
-/// Downloads a model, reporting progress. Cancel with `ai_cancel`; a later call resumes.
+/// Room left over after the models, so the phone isn't left full.
+const HEADROOM: u64 = 500_000_000;
+
+#[derive(Serialize)]
+pub struct Space {
+    /// Bytes still to come for `ids` (what a half download already holds is not counted) plus headroom.
+    need: u64,
+    /// Free storage where the models go; None where the platform doesn't say (then nothing is refused).
+    free: Option<u64>,
+}
+
+/// Free storage against what the install still needs (spec 021 C1). Asked before the download starts.
 #[tauri::command]
-pub async fn ai_download(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: String, on_progress: Channel<Progress>) -> Res<()> {
-    let m = *models::find(&id).ok_or("Unknown model")?;
+pub async fn ai_space(app: tauri::AppHandle, ids: Vec<String>) -> Res<Space> {
     let dir = models_dir(&app)?;
-    let cancel = ai.cancel.clone();
-    cancel.store(false, Ordering::Relaxed);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let need = ids.iter().filter_map(|id| models::find(id)).map(|m| m.bytes.saturating_sub(dir.join(format!("{}.part", m.file)).metadata().map_or(0, |f| f.len()))).sum::<u64>() + HEADROOM;
+    Ok(Space { need, free: free_space(&app, &dir) })
+}
+
+#[cfg(mobile)]
+fn free_space(app: &tauri::AppHandle, dir: &std::path::Path) -> Option<u64> {
+    app.try_state::<tauri_plugin_download::Download<tauri::Wry>>()?.space(&dir.to_string_lossy())
+}
+
+#[cfg(not(mobile))]
+fn free_space(_: &tauri::AppHandle, _: &std::path::Path) -> Option<u64> {
+    None
+}
+
+/// The whole install: every model in `ids`, in order, with one progress stream over all of them. Pause
+/// with `ai_pause_download`; a later call resumes from what arrived. Leaving the app doesn't stop it:
+/// on iOS the system downloads in the background, on Android a foreground service keeps the app alive.
+#[tauri::command]
+pub async fn ai_download(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, ids: Vec<String>, on_progress: Channel<Progress>) -> Res<()> {
+    let todo: Vec<Model> = ids.iter().map(|id| models::find(id).copied().ok_or_else(|| "Unknown model".to_string())).collect::<Res<_>>()?;
+    let dir = models_dir(&app)?;
+    let pause = ai.pause.clone();
+    pause.store(false, Ordering::Relaxed);
+    let total: u64 = todo.iter().map(|m| m.bytes).sum();
     tokio::task::spawn_blocking(move || {
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         backup::exclude(&dir)?;
-        download::download(&m, &dir, &mut |done, total| {
-            let _ = on_progress.send(Progress { done, total });
-            !cancel.load(Ordering::Relaxed)
-        })?;
-        if m.kind == Kind::Embed {
-            remove_legacy(&dir)?; // the old embedder is useless now, and 84 MB is not nothing
-        }
-        Ok(())
+        let keep = Keep::new(&app);
+        let mut before = 0;
+        let out = todo.iter().enumerate().try_for_each(|(file, m)| {
+            let report = |done: u64, waiting: Option<String>| {
+                keep.show(before + done, total);
+                let _ = on_progress.send(Progress { done: before + done, total, file, waiting });
+            };
+            fetch_one(&app, m, &dir, &mut |done, _| {
+                report(done, None);
+                !pause.load(Ordering::Relaxed)
+            }, &mut |e| {
+                report(0, Some(e.to_string()));
+                !pause.load(Ordering::Relaxed)
+            })
+            .map_err(|e| e.to_string())?;
+            before += m.bytes;
+            if m.kind == Kind::Embed {
+                remove_legacy(&dir)?; // the old embedder is useless now, and 84 MB is not nothing
+            }
+            Ok::<(), String>(())
+        });
+        keep.release();
+        out
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Pause: the install stops and keeps what arrived.
+#[tauri::command]
+pub fn ai_pause_download(ai: tauri::State<'_, AiState>) {
+    ai.pause.store(true, Ordering::Relaxed);
+}
+
+/// The Android notification that keeps the install alive in the background; nothing elsewhere.
+struct Keep {
+    #[cfg(target_os = "android")]
+    app: tauri::AppHandle,
+    #[cfg(target_os = "android")]
+    pct: std::cell::Cell<Option<u8>>,
+}
+
+impl Keep {
+    fn new(_app: &tauri::AppHandle) -> Self {
+        Keep {
+            #[cfg(target_os = "android")]
+            app: _app.clone(),
+            #[cfg(target_os = "android")]
+            pct: std::cell::Cell::new(None),
+        }
+    }
+
+    fn show(&self, _done: u64, _total: u64) {
+        #[cfg(target_os = "android")]
+        {
+            let pct = (_done * 100 / _total.max(1)) as u8;
+            if self.pct.replace(Some(pct)) == Some(pct) {
+                return; // one update per percent
+            }
+            if let Some(d) = self.app.try_state::<tauri_plugin_download::Download<tauri::Wry>>() {
+                d.keep_alive(pct, &format!("{pct}% · {} of {}", mb(_done), mb(_total)));
+            }
+        }
+    }
+
+    fn release(&self) {
+        #[cfg(target_os = "android")]
+        if let Some(d) = self.app.try_state::<tauri_plugin_download::Download<tauri::Wry>>() {
+            d.release();
+        }
+    }
+}
+
+#[cfg(target_os = "android")]
+fn mb(b: u64) -> String {
+    if b >= 1_000_000_000 { format!("{:.2} GB", b as f64 / 1e9) } else { format!("{} MB", b / 1_000_000) }
+}
+
+/// One model file. Android and the Mac use the app's own resumable download; iOS hands it to a
+/// background `URLSession` and checks the hash when it lands.
+#[cfg(not(target_os = "ios"))]
+fn fetch_one(_app: &tauri::AppHandle, m: &Model, dir: &std::path::Path, on_progress: &mut dyn FnMut(u64, u64) -> bool, on_wait: &mut dyn FnMut(&download::DlError) -> bool) -> Result<PathBuf, download::DlError> {
+    download::download(m, dir, on_progress, on_wait)
+}
+
+#[cfg(target_os = "ios")]
+fn fetch_one(app: &tauri::AppHandle, m: &Model, dir: &std::path::Path, on_progress: &mut dyn FnMut(u64, u64) -> bool, on_wait: &mut dyn FnMut(&download::DlError) -> bool) -> Result<PathBuf, download::DlError> {
+    use download::DlError;
+    let dl = app.try_state::<tauri_plugin_download::Download<tauri::Wry>>().ok_or(DlError::Io("The downloader isn't ready. Restart the app.".into()))?;
+    let (done, part) = (dir.join(m.file), dir.join(format!("{}.part", m.file)));
+    if done.metadata().is_ok_and(|f| f.len() == m.bytes) {
+        return Ok(done);
+    }
+    let path = part.to_string_lossy().to_string();
+    let whole = || part.metadata().is_ok_and(|f| f.len() == m.bytes);
+    download::retrying(
+        |p| {
+            if dl.status(&path).state != "running" && !whole() {
+                let _ = std::fs::remove_file(&part); // a half file from the old downloader can't be resumed by the system
+                dl.start(m.url, &path).map_err(DlError::Io)?;
+            }
+            loop {
+                let st = dl.status(&path);
+                match st.state.as_str() {
+                    "done" if whole() => return download::finish(&part, &done, m.sha256),
+                    "done" => {
+                        let _ = std::fs::remove_file(&part);
+                        return Err(DlError::BadHash);
+                    }
+                    "failed" => {
+                        return Err(match st.error.as_deref() {
+                            Some("offline") => DlError::Offline,
+                            Some("nospace") => DlError::NoSpace,
+                            Some(e) => e.strip_prefix("http:").and_then(|c| c.parse().ok()).map(DlError::Http).unwrap_or(DlError::Io(e.into())),
+                            None => DlError::Offline,
+                        })
+                    }
+                    "paused" => return Err(DlError::Paused),
+                    _ if !p(st.done, m.bytes) => {
+                        dl.cancel(&path);
+                        return Err(DlError::Paused);
+                    }
+                    _ => std::thread::sleep(std::time::Duration::from_millis(500)),
+                }
+            }
+        },
+        on_progress,
+        on_wait,
+    )
 }
 
 /// The store, or an error for the student when a panic poisoned it.
@@ -238,8 +405,8 @@ pub async fn ai_delete(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id:
 pub async fn ai_load(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: String, fil: Option<bool>) -> Res<()> {
     let fil = fil.unwrap_or(false);
     let m = *models::find(&id).ok_or("Unknown model")?;
-    if fits(&m, mem::available()) == Gate::Refuse {
-        let refusal = if small_ram() { assis::SMALL_PHONE } else { "This model needs more memory than this phone has free. Try a smaller one." };
+    if fits(&m) == Gate::Refuse {
+        let refusal = if small_ram() { assis::SMALL_PHONE } else { "This phone doesn't have enough memory (RAM) for LAR's brain. Storage won't help." };
         return Err(assis::friendly(refusal, fil));
     }
     let path = models_dir(&app)?.join(m.file);

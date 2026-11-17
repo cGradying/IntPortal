@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Keeps the model download alive while the app is in the background (spec 021 C5). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <application>
+        <service android:name="ph.intportal.download.KeepAlive" android:exported="false" android:foregroundServiceType="dataSync" />
+    </application>
+</manifest>
