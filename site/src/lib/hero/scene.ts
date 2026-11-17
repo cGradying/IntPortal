@@ -19,7 +19,10 @@ const FOV = 30;
 const SPAWN = 0.6;
 const POP = 0.1;
 const OPEN = 0.7;
-const VOID = "#060607";
+// The page's own void, and its 26% gold dot blended in sRGB, so the dive ends on
+// exactly the ground the page continues with.
+const VOID = "#0b0710";
+const DOT = "#483416";
 const LIGHT = "#fff6dc";
 const GOLD = "#f5b227";
 
@@ -43,6 +46,7 @@ const frag = /* glsl */ `
   uniform vec3 uRamp[5];
   uniform vec3 uVoid;
   uniform vec3 uGold;
+  uniform vec3 uDot;
   varying vec2 vUv;
   const float B[16] = float[16](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.);
   float bayer(vec2 c) { int x = int(mod(c.x, 4.0)); int y = int(mod(c.y, 4.0)); return B[y * 4 + x] / 16.0; }
@@ -62,14 +66,14 @@ const frag = /* glsl */ `
     int idx = int(clamp(floor(v * 4.6 + d - 0.5), 0.0, 4.0));
     vec3 col = uRamp[idx];
     if (d >= uOpen) col = uVoid;
-    // The end (C6): the field settles on a screen-aligned grid, one 3 px dot every
-    // 15 px like the page's ground, while the swirl dims to the dots' faint gold.
-    float e = smoothstep(0.72, 0.97, uDive);
-    vec2 sp = mod(floor(gl_FragCoord.xy), 5.0);
+    // The end (C6): a dither break. Screen pixels leave the swirl in Bayer order and
+    // land on the page's ground: a 3 px gold dot every 15 px (5 rendered px) on the void.
+    float e = smoothstep(0.62, 0.95, uDive);
+    vec2 px = floor(gl_FragCoord.xy);
+    vec2 sp = mod(px, 5.0);
     float on = step(sp.x, 0.5) * step(sp.y, 0.5);
-    col = mix(col, uGold, smoothstep(0.0, 0.35, e) * (1.0 - smoothstep(0.35, 0.8, e)) * 0.4);
-    col = mix(col, mix(uVoid, uGold, 0.22), smoothstep(0.45, 1.0, e));
-    col = mix(col, uVoid, (1.0 - on) * smoothstep(0.0, 0.55, e));
+    vec3 ground = mix(uVoid, uDot, on);
+    if (bayer(floor(px / 2.0)) < e) col = ground;
     gl_FragColor = vec4(col, 1.0);
     #include <colorspace_fragment>
   }
@@ -128,6 +132,7 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
     uRamp: { value: RAMP.map((h) => new THREE.Color(h)) },
     uVoid: { value: new THREE.Color(VOID) },
     uGold: { value: new THREE.Color(GOLD) },
+    uDot: { value: new THREE.Color(DOT) },
   };
   const mouth = new THREE.Mesh(new THREE.PlaneGeometry(COLS - 4, ROWS - 4), new THREE.ShaderMaterial({ vertexShader: vert, fragmentShader: frag, uniforms }));
   mouth.position.z = -0.3;
