@@ -835,6 +835,8 @@ pub struct Cards {
     cards: Vec<CardDto>,
     /// Why it stopped before `want`, if it did. The cards that arrived are kept.
     stopped: Option<String>,
+    /// Written from what the model knows, with no note behind them: the chat asks the student to check them.
+    known: bool,
 }
 
 /// Flashcards from a note's text or a PDF's text, for the existing deck review.
@@ -842,7 +844,7 @@ pub struct Cards {
 pub async fn ai_cards(ai: tauri::State<'_, AiState>, text: String, want: usize) -> Res<Cards> {
     with_model(&ai, move |llm, tpl| {
         let o = gen::cards(llm, tpl, &text, want.clamp(1, 40));
-        Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back }).collect(), stopped: o.stopped })
+        Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back }).collect(), stopped: o.stopped, known: false })
     })
     .await
 }
@@ -855,8 +857,9 @@ pub async fn ai_topic_cards(app: tauri::AppHandle, ai: tauri::State<'_, AiState>
     let (slot, q, handle) = (ai.embedder.clone(), topic.clone(), app.clone());
     let passages: Vec<String> = background(move || recall(&handle, &slot, &q)).await.ok().and_then(Result::ok).map(|r| r.lines.into_iter().chain(r.near).collect()).unwrap_or_default();
     with_model(&ai, move |llm, tpl| {
+        let known = passages.is_empty();
         let o = gen::topic_cards(llm, tpl, &topic, &passages, want.clamp(1, 40));
-        Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back }).collect(), stopped: o.stopped })
+        Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back }).collect(), stopped: o.stopped, known })
     })
     .await
 }

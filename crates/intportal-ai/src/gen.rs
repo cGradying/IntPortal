@@ -50,7 +50,8 @@ const SYSTEM: &str = "You write study flashcards for a card game. Each card has 
 - back: the meaning of the term or the answer to the question, one plain statement of at most 30 words. Never a question.
 - The back must not repeat the front or use the front's term: \"Osmosis\" gets \"Water moving through a membrane toward the side with more dissolved substance\", not \"Osmosis is osmosis\" and not \"Osmosis is when...\".
 - Write all backs in the same form, so any back could pass for the answer to another card.
-- One fact per card, each card about something different. English. Reply as JSON.";
+- Don't start every front with the topic's name; name the thing itself.
+- One fact per card, each card about something different. Plain text: no LaTeX, no markdown, write math like x^2. English. Reply as JSON.";
 
 /// The example in the prompt, in a subject far from most decks; a card copied from it is dropped.
 const EXAMPLE: [(&str, &str); 2] = [("Igneous rock", "Rock formed when melted rock cools and hardens"), ("What drives plate movement?", "Heat currents in the mantle slowly pushing the crust")];
@@ -82,12 +83,15 @@ pub fn repair(card: &Card) -> Card {
     if is_term(&front) {
         let low = back.to_lowercase();
         let term = front.to_lowercase();
-        let lead = ["a ", "an ", "the ", ""].iter().find_map(|a| low.strip_prefix(&format!("{a}{term}")).map(|rest| back.len() - rest.len()));
-        if let Some(cut) = lead {
-            let rest = back[cut..].trim_start_matches([',', ':', ' ', '-', '\u{2013}', '\u{2014}']);
-            let low_rest = rest.to_lowercase();
-            let rest = ["is when ", "is a ", "is an ", "is the ", "are the ", "refers to ", "means ", "is ", "are "].iter().find(|p| low_rest.starts_with(*p)).map_or(rest, |p| &rest[p.len()..]);
-            let mut c = rest.chars();
+        // Only "Term is …", "Term: …", "A term means …": the term as a whole word, then a link to its meaning.
+        // "The root node of a tree is …" or "The revolution ended …" are left alone (and may fail `check`).
+        const LINKS: [&str; 11] = [": ", " - ", " is when ", " is a ", " is an ", " is the ", " are the ", " refers to ", " means ", " is ", " are "];
+        let cut = ["a ", "an ", "the ", ""].iter().find_map(|a| {
+            let rest = low.strip_prefix(&format!("{a}{term}"))?;
+            LINKS.iter().find(|l| rest.starts_with(*l)).map(|l| back.len() - rest.len() + l.len())
+        });
+        if let Some(cut) = cut {
+            let mut c = back[cut..].trim_start().chars();
             if let Some(first) = c.next() {
                 out = first.to_uppercase().chain(c).collect();
             }
@@ -266,6 +270,10 @@ mod tests {
         assert_eq!(repair(&card("Recursion", "Recursion: a function calling itself")).back, "A function calling itself");
         assert_eq!(repair(&card("What is a heap?", "A heap is a tree.")).back, "A heap is a tree", "a question's back is only trimmed");
         assert_eq!(check(&repair(&card("Osmosis", "Osmosis is water moving through a membrane"))), Ok(()));
+        // Seen on Qwen3.5 2B: the term inside a longer phrase, or as the start of a longer word, is not cut.
+        assert_eq!(repair(&card("Root node", "The root node of a BST is the first node inserted")).back, "The root node of a BST is the first node inserted");
+        assert_eq!(repair(&card("Revolution end", "The revolution ended in 1898")).back, "The revolution ended in 1898");
+        assert_eq!(check(&repair(&card("Root node", "The root node of a BST is the first node inserted"))), Err(Reject::GivesAway));
     }
 
     #[test]

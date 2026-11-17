@@ -814,12 +814,12 @@ describe("applying a proposal", () => {
   });
 
   it("says plainly when fewer cards than asked could be made, and drops the stale leading sentence", async () => {
-    backend.ai_topic_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }, { front: "e", back: "f" }, { front: "g", back: "h" }], stopped: "no new cards" });
+    backend.ai_topic_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }, { front: "e", back: "f" }, { front: "g", back: "h" }], stopped: "no new cards", known: true });
     backend.save_deck = () => undefined;
     pending({ kind: "make_cards", topic: "Trees", count: 8 });
     assis.chat[0].text = "I'll make 8 flashcards on Trees. Confirm to start.";
     await apply(0);
-    expect(assis.chat[0].text).toBe("I could make 4 of 8 from what I know.");
+    expect(assis.chat[0].text).toBe("I could make 4 of 8 on Trees. They're from what I know, not your notes, so check them before you save.");
     await confirmCards(0);
     expect(assis.chat[0].text).toBe("Added 4 cards to Trees.");
   });
