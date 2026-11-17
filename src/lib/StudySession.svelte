@@ -118,6 +118,7 @@
 
   function begin(entries: Entry[], asPractice: boolean, hello: string) {
     clearTimeout(timer);
+    lifted = false;
     practice = asPractice;
     queue = entries.map((e) => ({ ...e, again: false }));
     segs = entries.map(() => "todo");
@@ -181,8 +182,9 @@
       if (answers && panel) {
         const need = answers.getBoundingClientRect().bottom - (floor - 8);
         const room = panel.getBoundingClientRect().top - 8;
-        const by = Math.min(need, room);
-        if (by > 0) window.scrollBy({ top: by, behavior: moving ? "smooth" : "auto" });
+        // A panel above the screen (Practice misses from a scrolled list) comes back down to the top.
+        const by = room < 0 ? room : Math.min(need, room);
+        if (by > 0 || room < 0) window.scrollBy({ top: by });
       }
     }
     ready = true;
