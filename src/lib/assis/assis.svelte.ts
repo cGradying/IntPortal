@@ -45,6 +45,8 @@ export interface Msg {
   proposal?: Proposal;
   /** The notes LAR was shown for this answer; each opens that note. */
   sources?: Source[];
+  /** Answered from what the model knows, not the student's notes (spec 021 C16). */
+  known?: boolean;
   /** pending until the student answers the card. */
   state?: "pending" | "done" | "dismissed";
   problem?: string;
@@ -387,10 +389,11 @@ export async function ask(text: string) {
   // A new array each time: pushing into the one just assigned would miss the state proxy and lose the first step.
   onStep.onmessage = (s) => (reply.steps = [...(reply.steps ?? []), s]);
   try {
-    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[]; intent: Intent }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText, onStep });
+    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[]; intent: Intent; known?: boolean }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText, onStep });
     reply.text = r.reply;
     reply.intent = r.intent;
     reply.sources = r.sources.length ? r.sources : undefined;
+    reply.known = r.known || undefined;
     if (r.proposal) [reply.proposal, reply.state] = [r.proposal, "pending"];
   } catch (e) {
     // Stopping cuts the JSON short, which is not a failure the student needs told about.

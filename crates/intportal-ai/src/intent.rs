@@ -73,6 +73,13 @@ pub fn resolve(msg: &str, note_open: bool) -> Intent {
 }
 
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
+/// The language LAR replies in. English for everyone (spec 021 C14): Taglish and Filipino messages are
+/// still understood (`is_filipino`, the intents and dates read both), but the reply, the fixed lines
+/// and the errors are English. This is the one switch, so Filipino replies can come back in one line.
+pub fn replies_in_filipino(_msg: &str) -> bool {
+    false
+}
+
 pub fn is_filipino(msg: &str) -> bool {
     // "may" is left out on purpose: it is also the English word ("May I see my classes").
     const FIL: &[&str] = &[

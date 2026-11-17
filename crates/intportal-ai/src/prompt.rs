@@ -1,4 +1,5 @@
 /// One block of context. Higher `priority` survives a tight budget.
+#[derive(Clone, Copy)]
 pub struct Section<'a> {
     pub title: &'a str,
     pub body: &'a str,

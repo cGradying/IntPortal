@@ -79,7 +79,7 @@
   );
   const gesture = $derived<Gesture>(waving && mood === "idle" ? "wave" : "idle");
   /** One row over the input: the day's before the first message, then the last answer's (C16–C18). */
-  const suggestions = $derived<Suggestion[]>(assis.busy ? [] : !assis.chat.length ? startersFor(!!app.editing, myDay) : followUps(assis.chat.findLast((m) => m.from === "lar") ?? {}, myDay));
+  const suggestions = $derived<Suggestion[]>(assis.busy ? [] : !assis.chat.length ? startersFor(!!app.editing, myDay) : followUps(assis.chat.findLast((m) => m.from === "lar") ?? {}, myDay, assis.chat.findLast((m) => m.from === "me")?.text));
   const status = $derived(
     assis.busy === "waking" ? (assis.slow ? "Still waking up. This phone is slow." : "Waking up") : assis.busy === "thinking" ? doing(last?.steps ?? [], last?.intent) : assis.busy === "cards" ? "Making cards" : dozing ? "Dozing. Ask me anything." : "On this phone, offline",
   );
@@ -296,10 +296,10 @@
     else prefill(s);
   }
 
-  function prefill(s: { label: string; fill: boolean }) {
+  function prefill(s: { label: string; fill: boolean; say?: string }) {
     // Starters that need the student's own words fill the field; the rest just ask.
     if (s.fill) draft = s.label;
-    else send(s.label);
+    else send(s.say ?? s.label);
   }
 
   /** The window sits above the page, so a source chip closes it and shows the note, deck or subject. */
@@ -394,6 +394,7 @@
                 {/if}
               {/if}
               {#if m.text}<div class="lar"><p>{m.text}</p></div>{/if}
+              {#if m.known}<p class="known"><b>From what I know, not your notes.</b> I might get facts wrong, so double-check anything important.</p>{/if}
               {#if m.sources}
                 <div class="chips from">
                   {#each m.sources as src (src.key)}<button class="chip" onclick={() => show(src.key, src.title)}>From: {src.title}</button>{/each}
@@ -800,6 +801,22 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+  }
+  /* The answer came from LAR alone (spec 021 C16): the tag in the other side's voice (Pixel Voice Rule),
+     the disclaimer in the reading face, since it is a sentence to take in. */
+  .known {
+    justify-self: start;
+    max-width: 92%;
+    margin: -2px 0 0 2px;
+    font-size: var(--text-caption);
+    line-height: 1.4;
+    color: color-mix(in srgb, var(--parch) 60%, transparent);
+  }
+  .known b {
+    display: block;
+    font-family: var(--font-label);
+    font-size: var(--text-label);
+    font-weight: 500;
   }
   .chip {
     min-height: 44px;

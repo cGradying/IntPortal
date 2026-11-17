@@ -543,6 +543,8 @@ pub struct Ask {
     sources: Vec<Source>,
     /// What the rules took the question for; the chat picks its follow-ups by it (spec 048 C18).
     intent: &'static str,
+    /// Answered from what the model knows, not the student's data or notes (spec 021 C16).
+    known: bool,
     #[serde(skip)]
     asked_model: bool,
 }
@@ -774,12 +776,12 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
         let r = background(move || recall(&handle, &slot, &q)).await.ok().and_then(Result::ok);
         sources = searched(r, &mut facts, &mut send);
     }
-    let (asked, fil) = (message.clone(), intent::is_filipino(&message));
+    let (asked, fil) = (message.clone(), intent::replies_in_filipino(&message));
     let a = with_model(&ai, move |llm, tpl| {
         let a = answer_with_steps(llm, tpl, &facts, &history, &asked, &mut |words| drop(on_text.send(words.to_string())), &mut |s| drop(on_step.send(s)))?;
         // A chip only when the answer used the notes it was shown.
         let sources = if a.cited { sources } else { vec![] };
-        Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources, intent, asked_model: a.route == assis::Route::Model })
+        Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources, intent, known: a.known, asked_model: a.route == assis::Route::Model })
     })
     .await
     .map_err(|e| assis::friendly(&e, fil))?;
@@ -796,7 +798,7 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
 #[tauri::command]
 pub async fn ai_note(ai: tauri::State<'_, AiState>, mode: String, text: String, selection: Option<String>, question: Option<String>, on_text: Channel<String>) -> Res<String> {
     let mode = Mode::parse(&mode).ok_or("Unknown action")?;
-    let fil = intent::is_filipino(&text);
+    let fil = intent::replies_in_filipino(&text);
     with_model(&ai, move |llm, tpl| {
         note::run(llm, tpl, mode, &text, selection.as_deref(), question.as_deref(), &mut |words| {
             let _ = on_text.send(words.to_string());
