@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Storage card for LAR's brain. Light is the default: nothing is
   // downloaded unless the student asks, and they can take it off again.
-  import { addSearch, assis, cancelDownload, chatModel, choices, defaultChat, downloadSizes, embedModel, install, installed, larStyle, mb, open, remove, setLarStyle, STYLE_MAX, updatable } from "./assis.svelte";
+  import { addSearch, assis, cancelDownload, chatModel, choices, defaultChat, downloadSizes, embedModel, install, installed, larStyle, mb, open, RAM_LINE, remove, setLarStyle, STYLE_MAX, updatable } from "./assis.svelte";
   import { buzz } from "../haptics";
 
   const m = $derived(chatModel());
@@ -15,7 +15,7 @@
   const update = $derived(updatable() && next ? mb(next.bytes + (e && !e.installed ? e.bytes : 0)) : "");
   const pct = $derived(assis.total ? Math.min(100, Math.round((assis.done / assis.total) * 100)) : 0);
   // The other offered model, to switch to (spec 021 C11); none while a legacy model waits for its update.
-  const other = $derived(update ? undefined : choices().find((c) => c.id !== m?.id));
+  const other = $derived(update ? undefined : choices().find((c) => c.id !== m?.id && c.fits !== "refuse"));
   let confirming = $state(false);
   let style = $state(larStyle());
 </script>
@@ -62,7 +62,7 @@
       <div class="line"><span>Light</span><strong>No AI, nothing downloaded</strong></div>
       <p class="fine">Add IntAssis to ask LAR about your classes, deadlines, grades and notes, to save a note or a reminder by asking, and to make flashcards on a topic. It is a one-time {mb(total)} download: {downloadSizes(todo)}. It works offline after that.</p>
       {#if m.fits === "refuse"}
-        <p class="fine warn">This phone doesn't have enough memory (RAM) for LAR's brain. Storage won't help.</p>
+        <p class="fine warn">{RAM_LINE}</p>
       {:else}
         {#if m.fits === "warn"}<p class="fine warn">It may be a tight fit on this phone; LAR could be slow.</p>{/if}
         <button class="primary" onclick={() => { buzz.tick(); install(); }}>Add IntAssis · {mb(total)}</button>
