@@ -21,6 +21,7 @@
   import FirstRun from "$lib/FirstRun.svelte";
   import AssisOrb from "$lib/assis/AssisOrb.svelte";
   import AssisWindow from "$lib/assis/AssisWindow.svelte";
+  import InstallView from "$lib/assis/InstallView.svelte";
   import { assis, chatModel, watchAssis } from "$lib/assis/assis.svelte";
   import { showFirstRun } from "$lib/welcome/intro";
   import { setCovered } from "$lib/quiet";
@@ -291,6 +292,7 @@
   {#if app.mabiniPage}<MabiniPage />{/if}
   {#if app.themeMaker}<ThemeMaker />{/if}
   {#if assis.open}<AssisWindow onclose={() => (assis.open = false)} />{/if}
+  {#if assis.install.open}<InstallView />{/if}
 {/if}
 
 {#if greet && inside}

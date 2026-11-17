@@ -24,8 +24,11 @@
     {#if assis.busy === "downloading"}
       <div class="line"><span>Downloading IntAssis</span><strong class="num">{pct}%</strong></div>
       <div class="bar" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100"><i style:width="{pct}%"></i></div>
-      <p class="fine">{mb(assis.done)} of {mb(assis.total)}. Keep this open; if it stops, tap again and it carries on.</p>
-      <button class="ghost" onclick={cancelDownload}>Pause</button>
+      <p class="fine">{mb(assis.done)} of {mb(assis.total)}. It keeps going if you leave the app.</p>
+      <div class="row">
+        <button class="ghost" onclick={() => (assis.install.open = true)}>Show</button>
+        <button class="ghost" onclick={cancelDownload}>Pause</button>
+      </div>
     {:else if installed()}
       <div class="line"><span>On · {m.name}</span><strong>{mb(m.bytes + (e?.installed ? e.bytes : 0))} on this phone</strong></div>
       <p class="fine">{searchMissing ? "LAR answers from your schedule and grades." : "LAR answers from your schedule, grades and notes, and can summarize or tidy a note."} It runs on this phone, so it works offline and nothing is sent anywhere.</p>
@@ -53,7 +56,7 @@
       <div class="line"><span>Light</span><strong>No AI, nothing downloaded</strong></div>
       <p class="fine">Add IntAssis to ask LAR about your classes, deadlines, grades and notes, to save a note or a reminder by asking, and to make flashcards on a topic. It is a one-time {mb(total)} download: {downloadSizes(todo)}. It works offline after that.</p>
       {#if m.fits === "refuse"}
-        <p class="fine warn">This phone doesn't have enough free memory for it right now. Close other apps and open this again.</p>
+        <p class="fine warn">This phone doesn't have enough memory (RAM) for LAR's brain. Storage won't help.</p>
       {:else}
         {#if m.fits === "warn"}<p class="fine warn">It may be a tight fit on this phone; LAR could be slow.</p>{/if}
         <button class="primary" onclick={() => { buzz.tick(); install(); }}>Add IntAssis · {mb(total)}</button>
