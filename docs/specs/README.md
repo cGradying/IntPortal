@@ -34,7 +34,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [012-portals](012-portals.md) | shipped | The portal model: SIS now, Mabini next |
 | [013-mabini](013-mabini.md) | shipped | eMabini: sign-in, courses, deadlines and grades, the guard, eMabini alone |
 | [020-ai](020-ai.md) | shipped | LAR that streams, remembers, cites notes; Ask AI in a note |
-| [021-intassis-v2](021-intassis-v2.md) | approved | Background install with an install screen, Qwen3.5 2B, a tutor that answers from what it knows, checked study cards, a faster first word |
+| [021-intassis-v2](021-intassis-v2.md) | shipped | Background install with an install screen, Qwen3.5 2B, a tutor that answers from what it knows, checked study cards, a faster first word |
 | [030-from-the-mac-app](030-from-the-mac-app.md) | shipped (wave 1) | The Mac app's features mapped to the phone; wave 1: join links, deadlines in the calendar, dated note entries |
 | [040-trust-and-speed](040-trust-and-speed.md) | shipped | Honest loading and errors, fixable logins, review all due, consistent taps, week navigation |
 | [041-one-deadline-list](041-one-deadline-list.md) | shipped | Syllabus, eMabini and own deadlines in one list: Today, reminders, LAR, calendar; add by typing or photo |
@@ -52,6 +52,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [054-reel](054-reel.md) | shipped | A new launch reel made from the app, and its page on the site |
 | [055-study-game](055-study-game.md) | shipped | The study session plays like a card game: combo, soft clock, LAR, results |
 | [056-web-app](056-web-app.md) | draft | Future: the same app in any browser, signed in, with data kept in the browser |
+| [057-website-v2](057-website-v2.md) | approved | The website, second edition: a 3D portal hero with the dive, a feature directory, help, changelog, roadmap and About |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md), [ADR 0005](../adr/0005-portals-are-first-class.md) and [ADR 0006](../adr/0006-one-repo.md).
 
