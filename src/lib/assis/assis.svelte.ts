@@ -58,6 +58,8 @@ export const assis = $state({
   busy: "" as "" | "downloading" | "waking" | "thinking" | "cards",
   done: 0,
   total: 0,
+  /** The install view (spec 021 C6): open from Add until done, failed or paused. */
+  install: { open: false, files: [] as ModelInfo[], file: 0, speed: 0, waiting: "", ready: false },
   /** The model is taking long to wake: the sheet says the phone is slow instead of sitting on "Waking up". */
   slow: false,
   error: "",
@@ -105,25 +107,88 @@ export async function refresh() {
   }
 }
 
-/** Downloads `todo` in order with one bar over all of them. True when every file arrived. Resumes if cut off; Pause keeps what arrived. */
+const INSTALLING = "intassisInstalling";
+const flag = (on: boolean) => {
+  try {
+    if (on) localStorage.setItem(INSTALLING, "1");
+    else localStorage.removeItem(INSTALLING);
+  } catch {}
+};
+const flagged = () => {
+  try {
+    return localStorage.getItem(INSTALLING) === "1";
+  } catch {
+    return false;
+  }
+};
+
+/** Free storage against what is left to come (spec 021 C1). The line to show, or "" when it fits or the phone doesn't say. */
+export function spaceLine(need: number, free: number | null): string {
+  if (free === null || free >= need) return "";
+  return `IntAssis needs ${mb(need)} free. This phone has ${mb(free)}. Free up ${mb(need - free)} and try again.`;
+}
+
+/** Bytes per second over a sliding window of about five seconds. */
+export function speedOf(samples: { t: number; done: number }[]): number {
+  if (samples.length < 2) return 0;
+  const a = samples[0], b = samples[samples.length - 1];
+  return b.t > a.t ? ((b.done - a.done) * 1000) / (b.t - a.t) : 0;
+}
+
+/** "about 4 min left", from what is left and the speed. */
+export function etaLine(left: number, speed: number): string {
+  if (speed <= 0) return "";
+  const s = left / speed;
+  if (s < 60) return "less than a minute left";
+  const m = Math.round(s / 60);
+  return m < 60 ? `about ${m} min left` : `about ${Math.floor(m / 60)} h ${m % 60} min left`;
+}
+
+/**
+ * The whole install in one Rust call, one bar over every file. The download goes on when the student
+ * leaves the app (spec 021 C3–C5); a dropped connection is waited out in Rust (C7). True when every file arrived.
+ */
 async function fetchAll(todo: ModelInfo[]): Promise<boolean> {
   if (!todo.length || assis.busy) return false;
   assis.error = "";
   assis.busy = "downloading";
+  const ids = todo.map((m) => m.id);
+  try {
+    const { need, free } = await invoke<{ need: number; free: number | null }>("ai_space", { ids });
+    const short = spaceLine(need, free);
+    if (short) {
+      assis.error = short;
+      assis.busy = "";
+      return false;
+    }
+  } catch {} // an older shell without the check: the download says if storage runs out
   assis.done = 0;
   assis.total = todo.reduce((n, m) => n + m.bytes, 0);
-  let before = 0;
+  assis.install = { open: true, files: todo, file: 0, speed: 0, waiting: "", ready: false };
+  flag(true);
+  const samples: { t: number; done: number }[] = [];
   try {
-    for (const m of todo) {
-      const onProgress = new Channel<{ done: number; total: number }>();
-      onProgress.onmessage = (p) => (assis.done = before + p.done);
-      await invoke("ai_download", { id: m.id, onProgress });
-      before += m.bytes;
-      await refresh();
-    }
+    const onProgress = new Channel<{ done: number; total: number; file: number; waiting: string | null }>();
+    onProgress.onmessage = (p) => {
+      assis.install.waiting = p.waiting ?? "";
+      assis.install.file = p.file;
+      if (p.waiting) return;
+      assis.done = p.done;
+      const t = Date.now();
+      samples.push({ t, done: p.done });
+      while (samples.length > 2 && t - samples[0].t > 5000) samples.shift();
+      assis.install.speed = speedOf(samples);
+    };
+    await invoke("ai_download", { ids, onProgress });
+    flag(false);
+    assis.install.ready = true;
+    await refresh();
     return true;
   } catch (e) {
-    assis.error = say(e) === "paused" ? "" : say(e);
+    const why = say(e);
+    flag(false); // paused, storage full, a bad file, a gone server: the student decides, not a relaunch
+    if (why === "paused") assis.install.open = false;
+    else assis.error = why;
     await refresh();
     return false;
   } finally {
@@ -151,7 +216,14 @@ export async function install() {
 /** Adds only the note search, for a phone whose chat model is already on it. */
 export const addSearch = () => fetchAll([embedModel()].filter((m): m is ModelInfo => !!m && !m.installed));
 
-export const cancelDownload = () => invoke("ai_cancel");
+/** Pause: what arrived stays, and the next Add carries on from it. Nothing restarts it by itself. */
+export function cancelDownload() {
+  flag(false);
+  return invoke("ai_pause_download");
+}
+
+/** Closes the install view; a running download goes on and the IntAssis card shows its bar. */
+export const closeInstall = () => (assis.install.open = false);
 
 export async function remove() {
   try {
@@ -460,9 +532,13 @@ const asLocalDigits = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() 
 
 /** Wire once: let the model go when the app is hidden, and look for it at launch. */
 export function watchAssis() {
-  refresh();
+  // An install the system cut off (the app was ended mid-download) carries on without a tap (spec 021 C7).
+  refresh().then(() => {
+    if (flagged() && !assis.busy) install();
+  });
   document.addEventListener("visibilitychange", () => {
     if (globalThis.document?.hidden) sleep();
+    else if (flagged() && !assis.busy) install();
   });
 }
 
