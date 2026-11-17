@@ -4,7 +4,7 @@ import specIndex from "../../../../docs/specs/README.md?raw";
 import { parseChangelog, releaseId } from "./changelog";
 import { FEATURES, GROUPS } from "./features";
 import recorded from "./roadmap-fallback.json";
-import { roadmap, specRows, type GhIssue } from "./roadmap";
+import { roadmap, specRows, unlisted, type GhIssue } from "./roadmap";
 
 const media = import.meta.glob("/static/media/*", { query: "?url", eager: true });
 const specFiles = Object.keys(import.meta.glob("../../../../docs/specs/*.md")).map((p) => p.split("/").pop()!.replace(/\.md$/, ""));
@@ -112,7 +112,14 @@ describe("057 C13 roadmap", () => {
   });
   it("leaves out the map, internal work and features that already shipped", () => {
     const hrefs = items.map((i) => i.href);
-    for (const n of [1, 61, 62, 64, 65, 67, 68, 141, 205, 231, 326]) expect(hrefs.some((h) => h.endsWith(`/issues/${n}`)), `#${n}`).toBe(false);
+    for (const n of [1, 61, 62, 64, 65, 67, 68, 141, 231, 326]) expect(hrefs.some((h) => h.endsWith(`/issues/${n}`)), `#${n}`).toBe(false);
+    expect(lane("next").find((i) => i.href.endsWith("/205"))?.title).toBe("Deadlines in Android's calendar");
+  });
+  it("shows an issue only once someone wrote its line, and names the ones waiting", () => {
+    const fresh: GhIssue = { number: 9999, title: "Core: SIS parser fixtures", html_url: "https://github.com/x/y/issues/9999", labels: [{ name: "P1" }] };
+    expect(roadmap(specIndex, [fresh], []).some((i) => i.href.endsWith("/9999"))).toBe(false);
+    expect(unlisted([fresh, { ...fresh, number: 9998, title: "", labels: [{ name: "P2" }, { name: "type:chore" }] }])).toEqual(["#9999 Core: SIS parser fixtures"]);
+    expect(unlisted(recorded as GhIssue[])).toEqual([]);
   });
   it("keeps the lanes in order and every item says something", () => {
     const order = ["shipped", "building", "next", "later"];

@@ -1,62 +1,340 @@
 [
  {
-  "tag_name": "android-v0.2.0-rc.1",
-  "name": "IntPortal for Android 0.2.0 RC 1",
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-0.5.0-linux.AppImage",
+    "name": "IntPortal-0.5.0-linux.AppImage",
+    "size": 85801464
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-0.5.0-linux.deb",
+    "name": "IntPortal-0.5.0-linux.deb",
+    "size": 7946998
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-0.5.0-mac.dmg",
+    "name": "IntPortal-0.5.0-mac.dmg",
+    "size": 7779674
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-0.5.0-unsigned.ipa",
+    "name": "IntPortal-0.5.0-unsigned.ipa",
+    "size": 8116383
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-0.5.0-windows.msi",
+    "name": "IntPortal-0.5.0-windows.msi",
+    "size": 7225344
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-0.5.0.aab",
+    "name": "IntPortal-0.5.0.aab",
+    "size": 13728590
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-0.5.0.apk",
+    "name": "IntPortal-0.5.0.apk",
+    "size": 22842102
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-linux.AppImage",
+    "name": "IntPortal-linux.AppImage",
+    "size": 85801464
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-linux.deb",
+    "name": "IntPortal-linux.deb",
+    "size": 7946998
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-mac.dmg",
+    "name": "IntPortal-mac.dmg",
+    "size": 7779674
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-unsigned.ipa",
+    "name": "IntPortal-unsigned.ipa",
+    "size": 8116383
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal-windows.msi",
+    "name": "IntPortal-windows.msi",
+    "size": 7225344
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.5.0/IntPortal.apk",
+    "name": "IntPortal.apk",
+    "size": 22842102
+   }
+  ],
   "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.5.0",
+  "prerelease": false,
+  "published_at": "2026-11-17T14:27:51Z",
+  "tag_name": "android-v0.5.0"
+ },
+ {
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-0.4.0-linux.AppImage",
+    "name": "IntPortal-0.4.0-linux.AppImage",
+    "size": 85768696
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-0.4.0-linux.deb",
+    "name": "IntPortal-0.4.0-linux.deb",
+    "size": 7928714
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-0.4.0-mac.dmg",
+    "name": "IntPortal-0.4.0-mac.dmg",
+    "size": 7768845
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-0.4.0-unsigned.ipa",
+    "name": "IntPortal-0.4.0-unsigned.ipa",
+    "size": 7699758
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-0.4.0-windows.msi",
+    "name": "IntPortal-0.4.0-windows.msi",
+    "size": 7213056
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-0.4.0.aab",
+    "name": "IntPortal-0.4.0.aab",
+    "size": 13299492
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-0.4.0.apk",
+    "name": "IntPortal-0.4.0.apk",
+    "size": 22399370
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-linux.AppImage",
+    "name": "IntPortal-linux.AppImage",
+    "size": 85768696
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-linux.deb",
+    "name": "IntPortal-linux.deb",
+    "size": 7928714
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-mac.dmg",
+    "name": "IntPortal-mac.dmg",
+    "size": 7768845
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-unsigned.ipa",
+    "name": "IntPortal-unsigned.ipa",
+    "size": 7699758
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal-windows.msi",
+    "name": "IntPortal-windows.msi",
+    "size": 7213056
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/IntPortal.apk",
+    "name": "IntPortal.apk",
+    "size": 22399370
+   }
+  ],
+  "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.4.0",
+  "prerelease": false,
+  "published_at": "2026-11-17T06:45:20Z",
+  "tag_name": "android-v0.4.0"
+ },
+ {
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.2.0-rc.1/IntPortal-0.2.0.aab",
+    "name": "IntPortal-0.2.0.aab",
+    "size": 37281291
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.2.0-rc.1/IntPortal-0.2.0.apk",
+    "name": "IntPortal-0.2.0.apk",
+    "size": 69736008
+   }
+  ],
+  "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.2.0-rc.1",
   "prerelease": true,
   "published_at": "2026-11-15T08:07:30Z",
-  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.2.0-rc.1",
-  "assets": [
-   {
-    "name": "IntPortal-0.2.0.aab",
-    "size": 37281291,
-    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.2.0-rc.1/IntPortal-0.2.0.aab"
-   },
-   {
-    "name": "IntPortal-0.2.0.apk",
-    "size": 69736008,
-    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.2.0-rc.1/IntPortal-0.2.0.apk"
-   }
-  ]
+  "tag_name": "android-v0.2.0-rc.1"
  },
  {
-  "tag_name": "android-v0.1.9-beta.1",
-  "name": "IntPortal for Android 0.1.9 beta 1",
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.9-beta.1/IntPortal-0.1.9.aab",
+    "name": "IntPortal-0.1.9.aab",
+    "size": 37119568
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.9-beta.1/IntPortal-0.1.9.apk",
+    "name": "IntPortal-0.1.9.apk",
+    "size": 69227988
+   }
+  ],
   "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.9-beta.1",
   "prerelease": true,
   "published_at": "2026-11-14T02:28:27Z",
-  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.9-beta.1",
-  "assets": [
-   {
-    "name": "IntPortal-0.1.9.aab",
-    "size": 37119568,
-    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.9-beta.1/IntPortal-0.1.9.aab"
-   },
-   {
-    "name": "IntPortal-0.1.9.apk",
-    "size": 69227988,
-    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.9-beta.1/IntPortal-0.1.9.apk"
-   }
-  ]
+  "tag_name": "android-v0.1.9-beta.1"
  },
  {
-  "tag_name": "android-v0.1.10-beta.1",
-  "name": "IntPortal for Android 0.1.10 beta 1",
-  "draft": false,
-  "prerelease": true,
-  "published_at": "2026-11-14T06:11:40Z",
-  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.10-beta.1",
   "assets": [
    {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.10-beta.1/IntPortal-0.1.10.aab",
     "name": "IntPortal-0.1.10.aab",
-    "size": 37105815,
-    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.10-beta.1/IntPortal-0.1.10.aab"
+    "size": 37105815
    },
    {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.10-beta.1/IntPortal-0.1.10.apk",
     "name": "IntPortal-0.1.10.apk",
-    "size": 69227988,
-    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.10-beta.1/IntPortal-0.1.10.apk"
+    "size": 69227988
    }
-  ]
+  ],
+  "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.10-beta.1",
+  "prerelease": true,
+  "published_at": "2026-11-14T06:11:40Z",
+  "tag_name": "android-v0.1.10-beta.1"
+ },
+ {
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.8-beta.1/IntPortal-0.1.8.aab",
+    "name": "IntPortal-0.1.8.aab",
+    "size": 21135012
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.8-beta.1/IntPortal-0.1.8.apk",
+    "name": "IntPortal-0.1.8.apk",
+    "size": 38440422
+   }
+  ],
+  "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.8-beta.1",
+  "prerelease": true,
+  "published_at": "2026-10-26T12:13:32Z",
+  "tag_name": "android-v0.1.8-beta.1"
+ },
+ {
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.7-beta.1/IntPortal-0.1.7.aab",
+    "name": "IntPortal-0.1.7.aab",
+    "size": 20714161
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.7-beta.1/IntPortal-0.1.7.apk",
+    "name": "IntPortal-0.1.7.apk",
+    "size": 37666998
+   }
+  ],
+  "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.7-beta.1",
+  "prerelease": true,
+  "published_at": "2026-10-22T13:24:05Z",
+  "tag_name": "android-v0.1.7-beta.1"
+ },
+ {
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.6-beta.1/IntPortal-0.1.6.aab",
+    "name": "IntPortal-0.1.6.aab",
+    "size": 20688176
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.6-beta.1/IntPortal-0.1.6.apk",
+    "name": "IntPortal-0.1.6.apk",
+    "size": 37594814
+   }
+  ],
+  "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.6-beta.1",
+  "prerelease": true,
+  "published_at": "2026-10-15T14:13:45Z",
+  "tag_name": "android-v0.1.6-beta.1"
+ },
+ {
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.5-beta.1/IntPortal-0.1.5.aab",
+    "name": "IntPortal-0.1.5.aab",
+    "size": 20861051
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.5-beta.1/IntPortal-0.1.5.apk",
+    "name": "IntPortal-0.1.5.apk",
+    "size": 37780854
+   }
+  ],
+  "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.5-beta.1",
+  "prerelease": true,
+  "published_at": "2026-10-15T11:48:41Z",
+  "tag_name": "android-v0.1.5-beta.1"
+ },
+ {
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.4-beta.1/IntPortal-0.1.4.aab",
+    "name": "IntPortal-0.1.4.aab",
+    "size": 20849558
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.4-beta.1/IntPortal-0.1.4.apk",
+    "name": "IntPortal-0.1.4.apk",
+    "size": 37732006
+   }
+  ],
+  "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.4-beta.1",
+  "prerelease": true,
+  "published_at": "2026-10-15T06:02:25Z",
+  "tag_name": "android-v0.1.4-beta.1"
+ },
+ {
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.3-beta.1/IntPortal-0.1.3.aab",
+    "name": "IntPortal-0.1.3.aab",
+    "size": 20636241
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.3-beta.1/IntPortal-0.1.3.apk",
+    "name": "IntPortal-0.1.3.apk",
+    "size": 37319406
+   }
+  ],
+  "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.3-beta.1",
+  "prerelease": true,
+  "published_at": "2026-10-10T20:18:31Z",
+  "tag_name": "android-v0.1.3-beta.1"
+ },
+ {
+  "assets": [
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.2-beta.1/IntPortal-0.1.2.aab",
+    "name": "IntPortal-0.1.2.aab",
+    "size": 16555495
+   },
+   {
+    "browser_download_url": "https://github.com/cGradying/IntPortal/releases/download/android-v0.1.2-beta.1/IntPortal-0.1.2.apk",
+    "name": "IntPortal-0.1.2.apk",
+    "size": 28859622
+   }
+  ],
+  "draft": false,
+  "html_url": "https://github.com/cGradying/IntPortal/releases/tag/android-v0.1.2-beta.1",
+  "prerelease": true,
+  "published_at": "2026-10-10T19:18:40Z",
+  "tag_name": "android-v0.1.2-beta.1"
  }
 ]
