@@ -1,0 +1,451 @@
+<style>
+/* Deck: a dithered swirl table, a face-down pile, cards dealt, flipped, kept or tucked back. */
+.d-ph .view { padding: 0; display: block; overflow: hidden; }
+.d-ph .tabs { display: none; }
+.d-t { position: absolute; inset: 0; z-index: 14; perspective: 900px; touch-action: manipulation; overflow: hidden; }
+.d-end .d-t { pointer-events: none; }
+.d-end .d-bg, .d-end .d-scr { pointer-events: none; }
+.d-bg { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.d-scr { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(color-mix(in srgb, var(--ground) 62%, transparent), transparent 22%, transparent 56%, color-mix(in srgb, var(--ground) 52%, transparent)); }
+
+/* score panel */
+.d-ph .d-pn { position: absolute; left: 12px; top: 48px; width: 296px; height: 80px; z-index: 5; overflow: hidden; clip-path: var(--n4); background: #170509; box-shadow: inset 0 0 0 2px #cca128; }
+.d-pcv { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.d-pn::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgb(11 7 16 / 0.5), rgb(11 7 16 / 0.68)); }
+.d-pi { position: absolute; inset: 0; z-index: 1; display: grid; grid-template-columns: 64px 16px 70px 16px 1fr; align-items: center; padding: 0 10px 12px; color: #faebb3; }
+.d-pi > div { display: grid; gap: 5px; justify-items: center; }
+.d-pi i { font: 500 11px var(--f-pixel); font-style: normal; letter-spacing: 0.08em; color: #e8b04a; }
+.d-n { display: block; min-height: 28px; transform-origin: 50% 70%; will-change: transform; }
+.d-n[data-n="score"] { color: #f3cf6a; }
+.d-cx { display: flex; align-items: flex-end; gap: 4px; }
+.d-sy { display: grid; place-items: center; color: #e8b04a; opacity: 0.8; padding-top: 14px; }
+.d-toast { position: absolute; z-index: 2; left: 0; right: 0; bottom: 3px; text-align: center; font: 600 12px var(--f-pixel); letter-spacing: 0.1em; color: #fff6dc; opacity: 0; transition: opacity 0.2s; }
+.d-toast.on { opacity: 1; }
+.d-prog { position: absolute; left: 16px; right: 16px; top: 134px; height: 18px; display: flex; align-items: center; gap: 8px; z-index: 5; }
+.d-dk { flex: 1; min-width: 0; font: 600 12px var(--f-ui); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d-full .d-dk, .d-full .d-pips { background: color-mix(in srgb, var(--ground) 78%, transparent); padding: 2px 6px; }
+.d-pips { display: flex; gap: 3px; flex: none; align-items: center; }
+.d-pips u { display: block; width: 8px; height: 8px; text-decoration: none; background: color-mix(in srgb, var(--ink) 24%, transparent); }
+.d-pips u.k { background: var(--gold); }
+
+/* piles, LAR */
+.d-pile { position: absolute; left: 12px; bottom: 14px; width: 64px; height: 54px; image-rendering: pixelated; z-index: 3; }
+.d-kept { position: absolute; right: 12px; bottom: 14px; width: 64px; height: 54px; z-index: 3; }
+.d-kl { position: absolute; left: 0; width: 60px; height: 46px; display: grid; place-items: center; color: var(--on-gold); background: var(--gold); box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.22), inset 0 -4px 0 rgb(0 0 0 / 0.2); clip-path: var(--n3); }
+.d-kept.hit { animation: d-thunk 0.3s var(--spring); }
+@keyframes d-thunk { from { scale: 1.14; } }
+.d-pc, .d-kc { position: absolute; bottom: 72px; z-index: 3; font: 500 11px var(--f-pixel); letter-spacing: 0.08em; color: var(--ink-2); }
+.d-full .d-pc, .d-full .d-kc { background: color-mix(in srgb, var(--ground) 78%, transparent); padding: 1px 5px; }
+.d-pc { left: 12px; } .d-kc { right: 12px; }
+.d-lar { position: absolute; left: 107px; bottom: 6px; z-index: 4; pointer-events: none; transition: translate 0.5s var(--ease); }
+.d-end .d-lar { translate: 108px -332px; z-index: 13; }
+.d-end .d-pile, .d-end .d-kept, .d-end .d-pc, .d-end .d-kc { opacity: 0; transition: opacity 0.3s; }
+.d-fx { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; z-index: 30; }
+
+/* cards */
+.d-card { position: absolute; left: 22px; top: 156px; width: 276px; height: 212px; transform-style: preserve-3d; z-index: 10; will-change: transform; outline: none; }
+.d-card.tap { cursor: pointer; }
+.d-sh { position: absolute; left: 34px; top: 168px; width: 252px; height: 196px; z-index: 9; background: rgb(0 0 0 / 0.5); filter: blur(11px); border-radius: 14px; will-change: transform; pointer-events: none; }
+.d-fr, .d-bk { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; clip-path: var(--n4); }
+.d-fr { background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 2px var(--edge-2), inset 0 -5px 0 rgb(0 0 0 / 0.16); display: grid; grid-template-rows: auto 1fr auto; padding: 14px 18px 14px; color: var(--ink); }
+.d-bk { transform: rotateY(180deg); background: #170509; }
+.d-bk canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.d-lb { display: flex; justify-content: space-between; font: 500 12px var(--f-pixel); letter-spacing: 0.08em; color: var(--ink-3); }
+.d-tx { align-self: center; justify-self: center; text-align: center; font: 800 32px/1.1 var(--f-ui); letter-spacing: -0.02em; text-wrap: balance; overflow-wrap: anywhere; }
+.d-tx.m { font: 600 21px/1.28 var(--f-ui); letter-spacing: 0; }
+.d-tp { text-align: center; font: 13px var(--f-ui); color: var(--ink-3); }
+
+/* controls under the card */
+.d-ph .d-cn { position: absolute; left: 14px; right: 14px; top: 382px; z-index: 8; display: grid; gap: 6px; transition: opacity 0.2s; }
+.d-cn.off { pointer-events: none; }
+.d-ph .d-hint { margin: 0; min-height: 22px; font: 600 14px/1.3 var(--f-ui); color: var(--ink); text-align: center; }
+.d-ph .d-rate { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.d-ph .d-rb { min-height: 60px; border: 0; padding: 4px 2px; display: grid; align-content: center; justify-items: center; gap: 2px; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 2px var(--edge-2), inset 0 -3px 0 rgb(0 0 0 / 0.18); clip-path: var(--n3); font: 700 14px var(--f-ui); color: var(--ink); transition: scale 0.16s var(--spring); }
+.d-ph .d-rb small { font: 400 12px var(--f-ui); color: var(--ink-2); }
+.d-ph .d-rb[data-r="2"], .d-ph .d-rb[data-r="3"] { box-shadow: inset 0 0 0 2px var(--gold), inset 0 -3px 0 rgb(0 0 0 / 0.18); }
+.d-ph .d-rb:disabled, .d-cn.off .d-op, .d-cn.off .d-in { color: var(--ink-3); box-shadow: inset 0 0 0 2px var(--edge); }
+.d-cn.off .d-go { filter: saturate(0.4) brightness(0.8); }
+.d-ph .d-rb:active:not(:disabled), .d-ph .d-op:active, .d-ph .d-go:active { scale: 0.96; }
+.d-ph .d-in { height: 52px; width: 100%; border: 0; padding: 0 14px; font: 600 17px var(--f-ui); background: var(--card); color: var(--ink); box-shadow: inset 0 0 0 2px var(--edge-2); clip-path: var(--n3); outline: none; }
+.d-ph .d-in:focus { box-shadow: inset 0 0 0 2px var(--gold); }
+.d-ph .d-go { min-height: 52px; width: 100%; border-radius: 0; clip-path: var(--n3); }
+.d-ph .d-op { min-height: 46px; width: 100%; border: 0; padding: 5px 12px; text-align: left; font: 600 14px/1.25 var(--f-ui); background: linear-gradient(var(--card-2), var(--card)); color: var(--ink); box-shadow: inset 0 0 0 2px var(--edge-2); clip-path: var(--n3); transition: scale 0.16s var(--spring); }
+.d-ph .d-op.ok { box-shadow: inset 0 0 0 3px var(--gold); background: color-mix(in srgb, var(--gold) 20%, var(--card)); }
+.d-ph .d-op.no { box-shadow: inset 0 0 0 3px #c8432f; }
+
+/* results */
+.d-res { position: absolute; inset: 0; z-index: 12; pointer-events: none; opacity: 0; transition: opacity 0.25s; }
+.d-end .d-res { opacity: 1; pointer-events: auto; }
+.d-end .d-cn, .d-end .d-prog { opacity: 0; pointer-events: none; }
+.d-fan { position: absolute; left: 0; right: 0; top: 152px; height: 114px; }
+.d-fc { position: absolute; left: 50%; top: 28px; width: 80px; height: 60px; margin-left: -40px; padding: 4px; display: grid; place-items: center; text-align: center; font: 700 12px/1.15 var(--f-ui); color: var(--ink); background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 2px var(--gold); clip-path: var(--n3); transition: transform 0.8s var(--spring) calc(var(--i) * 45ms); }
+.d-fc.bad { box-shadow: inset 0 0 0 2px #c8432f; }
+.d-fan.open .d-fc { transform: translate(var(--fx), var(--fy)) rotate(var(--fr)); }
+.d-fan.still .d-fc { transition: opacity 0.25s; opacity: 0; transform: translate(var(--fx), var(--fy)) rotate(var(--fr)); }
+.d-fan.still.open .d-fc { opacity: 1; }
+.d-tal { position: absolute; left: 12px; right: 12px; top: 270px; height: 98px; display: flex; gap: 14px; align-items: center; padding: 0 14px; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-2); clip-path: var(--n3); }
+.d-sc { display: grid; gap: 5px; justify-items: start; min-width: 92px; }
+.d-sc i, .d-st i { font: 500 11px var(--f-pixel); font-style: normal; letter-spacing: 0.08em; color: var(--gold); }
+.d-sc .sv { color: var(--ink); min-height: 42px; }
+.d-stamp { font: 700 13px var(--f-pixel); letter-spacing: 0.1em; color: var(--gold); box-shadow: inset 0 0 0 2px currentColor; padding: 2px 6px; rotate: -7deg; opacity: 0; }
+.d-stamp.on { animation: d-stamp 0.4s var(--ease) both; }
+@keyframes d-stamp { from { opacity: 0; scale: 2.4; } 40% { opacity: 1; } to { opacity: 1; scale: 1; } }
+.d-st { display: grid; gap: 3px; font: 14px/1.2 var(--f-ui); color: var(--ink); }
+.d-st div { display: flex; gap: 8px; align-items: baseline; }
+.d-st b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.d-list { position: absolute; left: 12px; right: 12px; top: 376px; height: 214px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; scrollbar-width: none; overscroll-behavior: contain; }
+.d-list > * { flex: none; }
+.d-list::-webkit-scrollbar { display: none; }
+.d-lr { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; min-height: 48px; padding: 6px 12px; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-2); clip-path: var(--n3); color: var(--ink); }
+.d-lr b { font: 600 15px var(--f-ui); }
+.d-chip { font: 500 11px var(--f-pixel); letter-spacing: 0.06em; padding: 3px 6px; box-shadow: inset 0 0 0 1px currentColor; color: var(--ink-2); }
+.d-chip.bad { color: #d8604a; } .d-chip.good { color: var(--gold); }
+.d-ph .d-ask { grid-column: 1 / -1; min-height: 44px; border: 0; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); font: 600 13px var(--f-ui); color: var(--ink); text-align: left; padding: 0 10px; clip-path: var(--n3); }
+.d-why { grid-column: 1 / -1; margin: 0; font: 13px/1.35 var(--f-ui); color: var(--ink-2); padding-bottom: 4px; }
+.d-rbt { position: absolute; left: 12px; right: 12px; top: 600px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.d-ph .d-rbt .btn { min-height: 48px; border-radius: 0; clip-path: var(--n3); }
+
+/* the controls panel */
+.d-cp .pbtn[aria-pressed="true"] { background: var(--pg); color: var(--on-pg); box-shadow: inset 0 -3px 0 var(--pg-shade); }
+.d-cp .pbtns + .pbtns { margin-top: -2px; }
+</style>
+
+<section class="row" id="deck">
+  <div class="q">
+    <h2>Deck: a pile on a turning table</h2>
+    <p>The closest to a card game's feel. The whole session sits on a slowly turning dithered swirl; cards are dealt up from a face-down pile, sway, lean toward your finger and flip. Right answers burst and fly to the kept pile, misses shake and tuck back under the deck. The score panel reads RIGHT × COMBO into SCORE, and the swirl speeds up and brightens at each combo tier (3, 6, 10 in a row).</p>
+    <p>Play both. A keeps the swirl on the whole table and is louder; B keeps the room calm, with the swirl only in the score panel, the card backs and the pile.</p>
+  </div>
+  <div class="wide">
+    <div class="opt"><div class="phone" id="dPhoneA"></div><div class="name"><b>A: Full table</b><span>The swirl is the table, always on, bolder at every combo tier.</span></div><div class="picks"><button class="pick" data-row="deck" data-v="A: Full table">This one</button></div></div>
+    <div class="opt"><div class="phone" id="dPhoneB"></div><div class="name"><b>B: Card on calm</b><span>Dot-grid room. The swirl lives only on the card backs, the pile and the score panel.</span></div><div class="picks"><button class="pick" data-row="deck" data-v="B: Card on calm">This one</button></div></div>
+    <div class="panel d-cp">
+      <h3>Try it</h3>
+      <div class="pbtns"><button class="pbtn" id="dReplay">Replay</button><button class="pbtn" id="dDay" aria-pressed="false">Day room</button><button class="pbtn" id="dReduce" aria-pressed="false">Reduce Motion: off</button><button class="pbtn" id="dSound" aria-pressed="false">Sound: off</button><button class="pbtn" id="dCount" aria-pressed="false">Cards: 8</button></div>
+      <div class="pbtns" role="group" aria-label="Mode"><button class="pbtn" data-dmode="flash" aria-pressed="true">Flash</button><button class="pbtn" data-dmode="type" aria-pressed="false">Type</button><button class="pbtn" data-dmode="choice" aria-pressed="false">Choice</button></div>
+      <p>Flash: tap the card, then rate it (Good and Easy count as right, Again as a miss, Hard keeps your combo). Type: see the meaning, type the term. Choice: see the term, pick the meaning. Three in a row is x2, six is x3, ten is x4, so x4 only shows on the 12 card deck with no misses (Cards: 12 is for that).</p>
+      <p>Reduce Motion: no travel, tilt, sway, shake or particles, one still swirl frame, and a short fade for each card. Sound: one semitone up per answer in a row.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+const dS = { mode: "flash", day: false, reduce: false, sound: false, n: 8 };
+const dDECK = [
+  ["Stack", "Last in, first out list", "A stack hands back the newest item first, like a pile of plates."],
+  ["Queue", "First in, first out list", "A queue serves the oldest item first, like a line at the registrar."],
+  ["Hash table", "Keys mapped to buckets by a hash function", "The hash turns a key into a bucket number, so lookup skips the search."],
+  ["Binary search", "Halves a sorted range each step", "Each check throws away half of what is left, so it needs a sorted list."],
+  ["Linked list", "Nodes that each point to the next", "Each node stores a value and a pointer to the next node."],
+  ["Big O", "How cost grows with input size", "It describes the growth of steps as the input gets larger, not the exact time."],
+  ["Recursion", "A function that calls itself on a smaller case", "It needs a base case to stop, and each call works on a smaller piece."],
+  ["Heap", "A tree where each parent beats its children", "The best item is always at the root, which makes priority queues cheap."],
+  ["Tree", "Nodes in levels under a single root", "A tree has one root, and every other node hangs below exactly one parent."],
+  ["Graph", "Nodes joined by edges", "A graph can hold loops and many links, unlike a tree."],
+  ["Array", "Items stored side by side by position", "Neighbours in memory make reading by index instant."],
+  ["Sorting", "Putting items into a chosen order", "Many methods exist; they trade speed, memory and stability."],
+];
+const dRATE = [["Again", "1m"], ["Hard", "6m"], ["Good", "1d"], ["Easy", "4d"]];
+const dRGBN = ["#170509", "#540a1c", "#941c30", "#cca128", "#faebb3"].map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
+const dRGBD = ["#f6e9dd", "#f0cfa8", "#e6a45a", "#c9602f", "#7a1c2c"].map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
+const dBURST = ["#b5412a", "#e08a35", "#f3cf6a", "#fff6dc", "#e8b04a"];
+const dTINT = ["#faebb3", "#f3cf6a", "#e08a35", "#ffffff"];
+const dBAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const dRM = () => dS.reduce || reduce;
+const dSpr = (k) => (k >= 1 ? 1 : 1 - Math.exp(-6.5 * k) * Math.cos(k * 9));
+const dIO = (k) => (k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2);
+const dTierOf = (s) => (s >= 10 ? 3 : s >= 6 ? 2 : s >= 3 ? 1 : 0);
+const dNorm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+const dGeo = new Map();
+function dGeoOf(w, h, k) {
+  const key = w + "x" + h + "x" + k; let g = dGeo.get(key);
+  if (g) return g;
+  g = { R: new Float32Array(w * h), A: new Float32Array(w * h), B: new Float32Array(w * h) };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = (x + 0.5 - w / 2) / h, dy = (y + 0.5 - h * 0.46) / h, p = y * w + x;
+    g.R[p] = Math.hypot(dx, dy) * 2 * k; g.A[p] = Math.atan2(dy, dx); g.B[p] = dBAY[(y & 3) * 4 + (x & 3)] / 16;
+  }
+  dGeo.set(key, g); return g;
+}
+/* One swirl, dithered into five steps of a ramp. lvl is the combo tier (smoothed). */
+function dSwirl(img, w, h, k, T, lvl, boost, ramp) {
+  const g = dGeoOf(w, h, k), d = img.data, sc = (0.6 + 0.1 * lvl) * boost, off = 0.05 * lvl + (boost > 1 ? 0.05 : 0);
+  for (let p = 0, n = w * h; p < n; p++) {
+    const r = g.R[p], a = g.A[p];
+    const s1 = Math.sin(a * 3 + r * 7 - T + 1.2 * Math.sin(r * 4 - T * 0.7)), s2 = Math.sin(a * 5 - r * 11 + T * 1.3);
+    let i = Math.floor((0.5 + 0.5 * (0.7 * s1 + 0.3 * s2)) * sc * 4 + off * 4 + g.B[p]);
+    i = i < 0 ? 0 : i > 4 ? 4 : i;
+    const c = ramp[i], q = p * 4; d[q] = c[0]; d[q + 1] = c[1]; d[q + 2] = c[2]; d[q + 3] = 255;
+  }
+}
+const dGl = (ch, u) => `<svg viewBox="0 0 3 3" width="${3 * u}" height="${3 * u}" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" style="display:block">${(ch === "x" ? [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]] : [[0, 0], [1, 0], [2, 0], [0, 2], [1, 2], [2, 2]]).map(([x, y]) => `<rect x="${x}" y="${y}" width="1" height="1"/>`).join("")}</svg>`;
+
+/* sound: off until asked; pitch climbs a semitone per answer in a row */
+let dAc = null;
+function dAudio() { if (!dS.sound) return null; try { dAc ??= new AudioContext(); if (dAc.state === "suspended") dAc.resume(); return dAc; } catch { return null; } }
+function dTone(hz, at, dur, type = "triangle", vol = 0.06) { const a = dAc, o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = hz; g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vol, at + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, at + dur); o.connect(g).connect(a.destination); o.start(at); o.stop(at + dur + 0.02); }
+const dSfx = {
+  right(step) { const a = dAudio(); if (!a) return; const f = 523.25 * 2 ** (Math.min(step, 12) / 12), t = a.currentTime; dTone(f, t, 0.16); dTone(f * 1.5, t + 0.05, 0.14, "sine", 0.03); },
+  tier(step) { const a = dAudio(); if (!a) return; const f = 523.25 * 2 ** (Math.min(step, 12) / 12), t = a.currentTime; [1, 1.25, 1.5, 2].forEach((m, i) => dTone(f * m, t + i * 0.06, 0.2, "triangle", 0.05)); },
+  miss() { const a = dAudio(); if (!a) return; const t = a.currentTime, o = a.createOscillator(), g = a.createGain(); o.type = "sine"; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.18); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.14, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22); o.connect(g).connect(a.destination); o.start(t); o.stop(t + 0.25); },
+  tick() { const a = dAudio(); if (a) dTone(1500, a.currentTime, 0.04, "square", 0.015); },
+  best() { const a = dAudio(); if (!a) return; const t = a.currentTime; [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => dTone(f, t + i * 0.09, 0.25, "triangle", 0.05)); },
+};
+
+const dPhones = [];
+function dMake(el, variant) {
+  const full = variant === "A";
+  const view = shell(el, dS.day ? DAY : NIGHT, "study");
+  el.classList.add("d-ph"); if (full) el.classList.add("d-full");
+  view.innerHTML = `${full ? '<canvas class="d-bg" width="80" height="168"></canvas><div class="d-scr"></div>' : ""}<div class="d-t">
+
+    <div class="d-pn"><canvas class="d-pcv" width="74" height="20"></canvas><div class="d-pi">
+      <div><i>RIGHT</i><b class="d-n" data-n="right"></b></div><span class="d-sy">${dGl("x", 4)}</span>
+      <div><i>COMBO</i><b class="d-n" data-n="combo"></b></div><span class="d-sy">${dGl("=", 4)}</span>
+      <div><i>SCORE</i><b class="d-n" data-n="score"></b></div></div><div class="d-toast" aria-live="polite"></div></div>
+    <div class="d-prog"><span class="d-dk" title="COMP 20073 · Data Structures">Data Structures</span><span class="d-pips"></span></div>
+    <canvas class="d-pile" width="32" height="27"></canvas><span class="d-pc"></span>
+    <div class="d-kept"></div><span class="d-kc"></span>
+    <canvas class="d-lar"></canvas>
+    <div class="d-cn off"></div>
+    <canvas class="d-fx" width="160" height="336"></canvas></div><div class="d-res"></div>`;
+  const q = (s) => $(s, view), t = q(".d-t"), cnEl = q(".d-cn"), resEl = q(".d-res"), fx = q(".d-fx"), fg = fx.getContext("2d"), toastEl = q(".d-toast");
+  const nEls = { right: q('[data-n="right"]'), combo: q('[data-n="combo"]'), score: q('[data-n="score"]') }, nCache = {};
+  const mkImg = (cv, w, h) => { const g = cv.getContext("2d"); return { cv, g, w, h, img: g.createImageData(w, h) }; };
+  const bg = full ? mkImg(q(".d-bg"), 80, 168) : null, pnl = mkImg(q(".d-pcv"), 74, 20);
+  const pileCv = q(".d-pile"), pileG = pileCv.getContext("2d"), tile = document.createElement("canvas"); tile.width = 28; tile.height = 21;
+  const tileI = mkImg(tile, 28, 21);
+  const lcv = startLar(q(".d-lar"), () => larTheme(null));
+  const CC = { x: 160, y: 262 }, PC = { x: 42, y: 627 }, KC = { x: 278, y: 627 }, PS = 0.217;
+  const PD = { x: PC.x - CC.x, y: PC.y - CC.y }, KD = { x: KC.x - CC.x, y: KC.y - CC.y };
+  let gen = 0, clock = 0, sched = [], cards = [], cur = null, state = "idle", deckList = [], queue = [], kept = [], first = {}, right = 0, streak = 0, bestStreak = 0, score = 0, disp = 0, tier = 0, lvl = 0, swT = 0, lastSw = 0, dirty = true, trauma = 0, best = 12, touched = false;
+  const bump = { right: 0, combo: 0, score: 0 }, tgt = { x: 0, y: 0 }, P = [];
+  let resAnim = null, resN = null, vis = true, raf = 0, last = 0, fxDirty = false;
+  const after = (ms, fn) => sched.push({ t: clock + ms, fn, gen });
+  const mult = () => tier + 1;
+  const larSay = (s, ms = 1500) => { if (reduce) return; const tt = performance.now() / 1000; lcv._rig.set(s, tt); lcv._happyUntil = tt + ms / 1000; };
+
+  function setN(key, html) { if (nCache[key] !== html) { nCache[key] = html; nEls[key].innerHTML = html; } }
+  function nums() {
+    setN("right", pn(right, 4)); setN("combo", `<span class="d-cx">${dGl("x", 3)}${pn(mult(), 4)}</span>`); setN("score", pn(Math.round(disp), 5));
+    nEls.combo.style.color = dTierColor();
+  }
+  const dTierColor = () => dTINT[tier];
+  function pips() { q(".d-pips").innerHTML = deckList.map((_, i) => `<u class="${i < kept.length ? "k" : ""}"></u>`).join(""); }
+  function keptView() {
+    const n = Math.min(kept.length, 4);
+    q(".d-kept").innerHTML = Array.from({ length: n }, (_, i) => `<div class="d-kl" style="top:${(n - 1 - i) * 2 + 0}px;opacity:${1 - (n - 1 - i) * 0.12}">${i === n - 1 ? pi("check", 16) : ""}</div>`).join("");
+    q(".d-kc").textContent = kept.length ? "KEPT " + kept.length : "";
+    q(".d-pc").textContent = queue.length ? "DECK " + queue.length : "";
+    pips();
+  }
+  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add("on"); after(1200, () => toastEl.classList.remove("on")); }
+
+  /* ---- particles ---- */
+  function burst(cx, cy, n, spread = 1) {
+    if (dRM()) return; const k = full ? 1 : 0.7;
+    for (let i = 0; i < n * k; i++) { const a = Math.random() * 6.283, v = (60 + Math.random() * 230) * spread; P.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, life: 0, max: 0.55 + Math.random() * 0.45, s: 2 + Math.floor(Math.random() * 3), c: dBURST[Math.floor(Math.random() * dBURST.length)] }); }
+  }
+  function drawFx(dt) {
+    if (!P.length) { if (fxDirty) { fg.clearRect(0, 0, 160, 336); fxDirty = false; } return; }
+    fg.clearRect(0, 0, 160, 336); fxDirty = true;
+    for (let i = P.length - 1; i >= 0; i--) {
+      const p = P[i]; p.life += dt; if (p.life >= p.max) { P.splice(i, 1); continue; }
+      p.vy += 700 * dt; p.x += p.vx * dt; p.y += p.vy * dt; fg.globalAlpha = 1 - (p.life / p.max) ** 2; fg.fillStyle = p.c;
+      fg.fillRect(Math.round(p.x / 2), Math.round(p.y / 2), p.s, p.s);
+    }
+    fg.globalAlpha = 1;
+  }
+
+  /* ---- swirls: table (A), panel, card backs, pile ---- */
+  function backDraw(c, T) {
+    const g = c.bg, W = 69, H = 53; dSwirl(c.bimg, W, H, 1.3, T + c.ph, lvl, 1, dRGBN); g.putImageData(c.bimg, 0, 0);
+    g.fillStyle = "#170509"; g.fillRect(0, 0, W, 2); g.fillRect(0, H - 2, W, 2); g.fillRect(0, 0, 2, H); g.fillRect(W - 2, 0, 2, H);
+    g.fillStyle = "#cca128"; g.fillRect(2, 2, W - 4, 1); g.fillRect(2, H - 3, W - 4, 1); g.fillRect(2, 2, 1, H - 4); g.fillRect(W - 3, 2, 1, H - 4);
+    g.fillStyle = "#170509"; for (let d = -6; d <= 6; d++) { const w = 6 - Math.abs(d); g.fillRect(34 - w, 26 + d, 2 * w + 1, 1); }
+    g.fillStyle = "#faebb3"; for (let d = -4; d <= 4; d++) { const w = 4 - Math.abs(d); g.fillRect(34 - w, 26 + d, 2 * w + 1, 1); }
+  }
+  function drawSwirls() {
+    const T = dRM() ? 2.1 : swT, boost = full ? 1.12 : 0.9;
+    if (bg) { dSwirl(bg.img, 80, 168, 1.7, T, lvl, boost, dS.day ? dRGBD : dRGBN); bg.g.putImageData(bg.img, 0, 0); }
+    dSwirl(pnl.img, 74, 20, 0.55, T * 1.2 + 3, lvl, boost, dRGBN); pnl.g.putImageData(pnl.img, 0, 0);
+    dSwirl(tileI.img, 28, 21, 1.1, T + 5, lvl, 1, dRGBN); tileI.g.putImageData(tileI.img, 0, 0);
+    pileG.clearRect(0, 0, 32, 27); const n = Math.min(queue.length, 4);
+    if (!n) { pileG.fillStyle = "rgba(250,235,179,.28)"; for (let x = 0; x < 30; x += 2) { pileG.fillRect(x, 0, 1, 1); pileG.fillRect(x, 22, 1, 1); } for (let y = 0; y < 23; y += 2) { pileG.fillRect(0, y, 1, 1); pileG.fillRect(29, y, 1, 1); } }
+    for (let i = n - 1; i >= 0; i--) { pileG.fillStyle = "#170509"; pileG.fillRect(0, i, 30, 23); pileG.drawImage(tile, 1, i + 1); pileG.fillStyle = "#cca128"; pileG.fillRect(1, i + 1, 28, 1); if (i) { pileG.fillStyle = `rgba(0,0,0,${0.18 * i})`; pileG.fillRect(1, i + 1, 28, 21); } }
+    for (const c of cards) if (c.fbk) backDraw(c, T);
+  }
+
+  /* ---- cards ---- */
+  function front(c, reveal) {
+    const d = dDECK[c.idx], m = dS.mode, pos = `${Math.min(kept.length + 1, deckList.length)}/${deckList.length}`;
+    const lab = m === "flash" ? (reveal ? "MEANING" : "TERM") : m === "type" ? "TYPE THE TERM" : "PICK THE MEANING";
+    const text = m === "flash" ? (reveal ? d[1] : d[0]) : m === "type" ? d[1] : d[0], small = (m === "flash" && reveal) || m === "type";
+    c.fr.innerHTML = `<div class="d-lb"><span>${lab}</span><span>${pos}</span></div><div class="d-tx${small ? " m" : ""}">${esc(text)}</div><div class="d-tp">${m === "flash" && !reveal ? "Tap the card to flip it" : "&nbsp;"}</div>`;
+  }
+  function mkCard(idx) {
+    const c = { idx, ph: Math.random() * 6.28, p: { x: 0, y: 0, rz: 0, sc: 1, fy: 0, op: 1 }, tx: 0, ty: 0, act: null, revealed: false, fbk: false };
+    c.el = document.createElement("div"); c.el.className = "d-card"; c.el.innerHTML = `<div class="d-fr"></div><div class="d-bk"><canvas width="69" height="53"></canvas></div>`;
+    c.sh = document.createElement("div"); c.sh.className = "d-sh";
+    t.append(c.sh, c.el); c.fr = $(".d-fr", c.el); c.bg = $("canvas", c.el).getContext("2d"); c.bimg = c.bg.createImageData(69, 53);
+    front(c, false); cards.push(c); return c;
+  }
+  function removeCard(c) { c.el.remove(); c.sh.remove(); cards = cards.filter((x) => x !== c); }
+  function stepCard(c, dt) {
+    if (c.act) {
+      c.act.t += dt * 1000; const k = clamp(c.act.t / c.act.dur), o = c.act.fn(k) || {};
+      c.p = { x: o.x ?? 0, y: o.y ?? 0, rz: o.rz ?? 0, sc: o.sc ?? 1, fy: o.fy ?? 0, op: o.op ?? 1 };
+      if (k >= 1) { const dn = c.act.done; c.act = null; dn?.(); }
+    }
+    let { x, y, rz, sc, fy, op } = c.p, rx = 0;
+    if (c === cur && !dRM()) {
+      const live = state === "ready" && !c.act, k = 1 - Math.exp(-dt * 14);
+      c.tx += ((live ? tgt.x : 0) - c.tx) * k; c.ty += ((live ? tgt.y : 0) - c.ty) * k;
+      if (state !== "resolving") rz += Math.sin(clock / 1000 * 1.3 + c.ph) * 1.5;
+      fy += c.tx; rx = c.ty;
+    }
+    c.fbk = Math.abs(fy) > 70; if (c.fbk) backDraw(c, dRM() ? 2.1 : swT);
+    c.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) rotateZ(${rz.toFixed(2)}deg) rotateX(${rx.toFixed(2)}deg) rotateY(${fy.toFixed(2)}deg) scale(${sc.toFixed(3)})`;
+    c.el.style.opacity = op; c.sh.style.transform = `translate3d(${x.toFixed(1)}px,${(y + 8 * sc).toFixed(1)}px,0) scale(${sc.toFixed(3)})`; c.sh.style.opacity = op * (Math.abs(fy) > 90 ? 0.7 : 1);
+  }
+
+  /* ---- controls ---- */
+  function renderCn(c) {
+    const d = dDECK[c.idx], m = dS.mode; c.opts = null;
+    if (m === "flash") cnEl.innerHTML = `<div class="d-rate">${dRATE.map(([n, iv], i) => `<button class="d-rb" data-r="${i}" disabled><b>${n}</b><small>${iv}</small></button>`).join("")}</div>`;
+    else if (m === "type") cnEl.innerHTML = `<p class="d-hint">&nbsp;</p><input class="d-in" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the term" aria-label="Type the term"><button class="btn go d-go">Check</button>`;
+    else {
+      const pool = dDECK.slice(0, dS.n).filter((_, i) => i !== c.idx).sort(() => Math.random() - 0.5).slice(0, 3).map((x) => x[1]);
+      c.opts = [...pool, d[1]].sort(() => Math.random() - 0.5);
+      cnEl.innerHTML = c.opts.map((o) => `<button class="d-op" data-o="${esc(o)}">${esc(o)}</button>`).join("");
+    }
+  }
+  const setOn = (on) => cnEl.classList.toggle("off", !on);
+
+  /* ---- flow ---- */
+  function dealNext() {
+    if (!queue.length) return;
+    const idx = queue.shift(), c = cur = mkCard(idx); state = "dealing"; renderCn(c); setOn(false); keptView(); c.el.classList.toggle("tap", dS.mode === "flash"); tgt.x = tgt.y = 0;
+    if (dRM()) c.act = { t: 0, dur: 240, fn: (k) => ({ op: k }), done: ready };
+    else c.act = { t: 0, dur: 720, fn: (k) => { const s = dSpr(k), f = dEase(clamp((k - 0.38) / 0.6)); return { x: PD.x * (1 - s), y: PD.y * (1 - s), rz: -16 * (1 - s), sc: PS + (1 - PS) * s, fy: 180 * (1 - f) }; }, done: ready };
+    stepCard(c, 0); dSfx.tick();
+  }
+  const dEase = (k) => 1 - (1 - k) ** 3;
+  function ready() { state = "ready"; setOn(true); if (dS.mode === "type" && touched) $(".d-in", cnEl)?.focus({ preventScroll: true }); }
+  function reveal(c) {
+    if (state !== "ready" || c !== cur || c.revealed || dS.mode !== "flash") return; c.revealed = true; state = "flipping"; dSfx.tick();
+    const swap = () => { front(c, true); c.el.classList.remove("tap"); }, fin = () => { state = "ready"; $$(".d-rb", cnEl).forEach((b) => (b.disabled = false)); };
+    if (dRM()) c.act = { t: 0, dur: 240, fn: (k) => { if (k >= 0.5 && !c.sw) { c.sw = 1; swap(); } return { op: Math.abs(k - 0.5) * 2 }; }, done: fin };
+    else c.act = { t: 0, dur: 440, fn: (k) => { if (k >= 0.5 && !c.sw) { c.sw = 1; swap(); } const fy = k < 0.5 ? 90 * dIO(k * 2) : -90 * (1 - dEase((k - 0.5) * 2)); return { fy, y: -8 * Math.sin(k * Math.PI), sc: 1 + 0.05 * Math.sin(k * Math.PI) }; }, done: fin };
+  }
+  function resolve(kind, label) {
+    if (state !== "ready" || !cur) return; const c = cur; cur = null; state = "resolving"; setOn(false);
+    if (first[c.idx] == null) first[c.idx] = label;
+    const cx = CC.x + c.p.x, cy = CC.y + c.p.y;
+    if (kind === "miss") {
+      streak = 0; const was = tier; tier = 0; bump.combo = 0.7; if (was) larSay("error"); else larSay("error", 900); dSfx.miss();
+      const base = { ...c.p };
+      const tuck = () => { if (dRM()) { c.act = { t: 0, dur: 240, fn: (k) => ({ ...base, op: 1 - k }), done: () => { removeCard(c); queue.push(c.idx); keptView(); after(150, advance); } }; return; }
+        c.act = { t: 0, dur: 540, fn: (k) => { const e = dIO(k); return { x: PD.x * e, y: PD.y * e, rz: -14 * e, sc: 1 + (PS - 1) * e, fy: 180 * dEase(clamp((k - 0.15) / 0.6)) }; }, done: () => { removeCard(c); queue.push(c.idx); keptView(); after(160, advance); } }; };
+      if (dRM()) tuck(); else c.act = { t: 0, dur: 400, fn: (k) => ({ x: Math.sin(k * Math.PI * 7) * 11 * (1 - k), rz: Math.sin(k * Math.PI * 7) * 2.2 * (1 - k) }), done: tuck };
+      return;
+    }
+    const goes = () => { const e = dRM() ? null : true; if (!e) { c.act = { t: 0, dur: 260, fn: (k) => ({ op: 1 - k }), done: () => land(c) }; return; }
+      c.act = { t: 0, dur: 640, fn: (k) => { if (k < 0.16) return { sc: 1 + 0.08 * dEase(k / 0.16) }; const e2 = dIO((k - 0.16) / 0.84); return { x: KD.x * e2, y: KD.y * e2 - Math.sin(e2 * Math.PI) * 60, rz: 30 * e2, sc: 1.08 + (PS - 1.08) * e2 }; }, done: () => land(c) }; };
+    if (kind === "right") {
+      streak++; right++; const was = tier; tier = dTierOf(streak); bestStreak = Math.max(bestStreak, streak); score += mult(); bump.right = 1; bump.score = 1; bump.combo = 1; burst(cx, cy, 34);
+      if (tier > was) { trauma = Math.min(1, trauma + 0.75); bump.combo = 1.8; larSay("happy", 1800); toast("COMBO x" + mult()); burst(160, 88, 40, 1.1); dSfx.tier(streak - 1); }
+      else dSfx.right(streak - 1);
+      if (dRM()) lvl = tier;
+    } else { dSfx.tick(); burst(cx, cy, 10, 0.6); }
+    goes(); after(queue.length ? 320 : 740, advance);
+  }
+  function land(c) { removeCard(c); kept.push(c.idx); keptView(); const k = q(".d-kept"); k.classList.remove("hit"); void k.offsetWidth; if (!dRM()) k.classList.add("hit"); }
+  function advance() { if (queue.length) dealNext(); else if (!cards.length) showResults(); else after(120, advance); }
+
+  cnEl.addEventListener("click", (e) => {
+    touched = true; if (state !== "ready" || !cur) return;
+    const rb = e.target.closest(".d-rb"), op = e.target.closest(".d-op"), go = e.target.closest(".d-go"), d = dDECK[cur.idx];
+    if (rb) { const r = +rb.dataset.r; resolve(r === 0 ? "miss" : r === 1 ? "pass" : "right", dRATE[r][0]); }
+    else if (op) { const ok = op.dataset.o === d[1]; op.classList.add(ok ? "ok" : "no"); if (!ok) $$(".d-op", cnEl).find((b) => b.dataset.o === d[1])?.classList.add("ok"); resolve(ok ? "right" : "miss", ok ? "Right" : "Miss"); }
+    else if (go) check();
+  });
+  cnEl.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches(".d-in")) { e.preventDefault(); check(); } });
+  function check() {
+    if (state !== "ready" || !cur) return; const inp = $(".d-in", cnEl), d = dDECK[cur.idx]; if (!inp || !inp.value.trim()) { inp?.focus({ preventScroll: true }); return; }
+    const ok = dNorm(inp.value) === dNorm(d[0]); inp.disabled = true;
+    if (!ok) $(".d-hint", cnEl).textContent = "It was " + d[0]; else $(".d-hint", cnEl).textContent = "Yes, " + d[0];
+    resolve(ok ? "right" : "miss", ok ? "Right" : "Miss");
+  }
+  t.addEventListener("click", (e) => { touched = true; const cd = e.target.closest(".d-card"); if (cd && cur && cd === cur.el) reveal(cur); });
+  t.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.closest(".d-card") && cur) { e.preventDefault(); reveal(cur); } });
+  const aim = (e) => { if (dRM() || !cur) return; const r = el.getBoundingClientRect(), s = r.width / 320; tgt.x = clamp(((e.clientX - r.left) / s - CC.x) / 138, -1, 1) * 10; tgt.y = -clamp(((e.clientY - r.top) / s - CC.y) / 106, -1, 1) * 10; };
+  t.addEventListener("pointermove", aim); t.addEventListener("pointerdown", aim);
+  ["pointerleave", "pointercancel"].forEach((n) => t.addEventListener(n, () => (tgt.x = tgt.y = 0)));
+  t.addEventListener("pointerup", (e) => { if (e.pointerType !== "mouse") tgt.x = tgt.y = 0; });
+
+  /* ---- results ---- */
+  function showResults() {
+    state = "done"; cur = null; el.classList.add("d-end"); larSay("happy", 2500);
+    const total = deckList.length, order = [...deckList].sort((a, b) => (isMiss(b) - isMiss(a)) || (a - b)), misses = deckList.filter(isMiss);
+    const isBest = score > best, prev = best; if (isBest) best = score;
+    const fi = deckList.filter((i) => !isMiss(i) || false).length;
+    resEl.innerHTML = `<div class="d-fan${dRM() ? " still" : ""}">${deckList.map((i, n) => { const u = deckList.length > 1 ? (n / (deckList.length - 1)) * 2 - 1 : 0; return `<div class="d-fc${isMiss(i) ? " bad" : ""}" style="--i:${n};--fx:${(u * 112).toFixed(0)}px;--fy:${(u * u * 20).toFixed(0)}px;--fr:${(u * 26).toFixed(0)}deg">${esc(dDECK[i][0])}</div>`; }).join("")}</div>
+      <div class="d-tal"><div class="d-sc"><i>SCORE</i><div class="sv"></div><div class="d-stamp">NEW BEST</div></div>
+        <div class="d-st"><div><i>FIRST TRY</i><b>${fi} / ${total}</b></div><div><i>COMBO</i><b>x${dTierOf(bestStreak) + 1}</b></div><div><i>${isBest ? "WAS" : "BEST"}</i><b>${prev}</b></div></div></div>
+      <div class="d-list">${order.map((i) => `<div class="d-lr" data-i="${i}"><b>${esc(dDECK[i][0])}</b><span class="d-chip ${isMiss(i) ? "bad" : "good"}">${esc(String(first[i]).toUpperCase())}</span>${isMiss(i) ? '<button class="d-ask">Ask LAR why</button>' : ""}</div>`).join("")}</div>
+      <div class="d-rbt"><button class="btn d-prac" ${misses.length ? "" : "disabled"}>Practice misses</button><button class="btn go d-done">Done</button></div>`;
+    const fan = $(".d-fan", resEl); void fan.offsetWidth; after(80, () => fan.classList.add("open"));
+    resAnim = { t: 0, dur: dRM() ? 1 : 1100, isBest }; resN = $(".sv", resEl); resN.innerHTML = pn(0, 6);
+  }
+  const isMiss = (i) => first[i] === "Again" || first[i] === "Miss";
+  resEl.addEventListener("click", (e) => {
+    const ask = e.target.closest(".d-ask");
+    if (ask) { const row = ask.closest(".d-lr"), w = $(".d-why", row); if (w) { w.remove(); return; } larSay("think", 1400); after(500, () => larSay("happy", 1200)); ask.insertAdjacentHTML("afterend", `<p class="d-why">${esc(dDECK[+row.dataset.i][2])}</p>`); return; }
+    if (e.target.closest(".d-prac")) start(deckList.filter(isMiss)); else if (e.target.closest(".d-done")) start();
+  });
+
+  function start(list) {
+    gen++; sched = []; [...cards].forEach(removeCard); cur = null; P.length = 0; fxDirty = true;
+    deckList = list ?? Array.from({ length: dS.n }, (_, i) => i); queue = [...deckList]; kept = []; first = {}; right = streak = bestStreak = score = disp = tier = 0; trauma = 0; resAnim = null;
+    if (dRM()) lvl = 0; bump.right = bump.combo = bump.score = 0;
+    el.classList.remove("d-end"); resEl.innerHTML = ""; $$(".d-ph .d-lar", el).forEach((x) => (x.style.translate = "")); cnEl.innerHTML = ""; setOn(false);
+    larSay("idle", 1); keptView(); nums(); state = "dealing"; dirty = true; after(380, advance);
+  }
+
+  /* ---- the loop ---- */
+  function frame(now) {
+    raf = 0; if (!vis || document.hidden) return;
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt * 1000; const rm = dRM();
+    for (let i = 0; i < sched.length; i++) if (sched[i].t <= clock) { const s = sched.splice(i--, 1)[0]; if (s.gen === gen) s.fn(); }
+    for (const c of [...cards]) stepCard(c, dt);
+    lvl += (tier - lvl) * (rm ? 1 : 1 - Math.exp(-dt * 2.5)); swT += dt * (0.5 + 0.55 * lvl) * (full ? 1.5 : 1);
+    if (dirty || (!rm && now - lastSw > 33)) { drawSwirls(); lastSw = now; dirty = false; }
+    disp += (score - disp) * (1 - Math.exp(-dt * 9)); if (Math.abs(score - disp) < 0.5) disp = score; nums();
+    for (const k of ["right", "combo", "score"]) { bump[k] *= Math.exp(-dt * 8); nEls[k].style.transform = rm ? "" : `scale(${(1 + 0.4 * bump[k]).toFixed(3)})`; }
+    if (disp !== score && Math.round(disp) !== (nCache._s ?? -1)) { nCache._s = Math.round(disp); }
+    trauma = Math.max(0, trauma - dt * 1.6); const sh = rm ? 0 : trauma * trauma, amp = full ? 9 : 6;
+    t.style.transform = sh > 0.001 ? `translate(${((Math.random() - 0.5) * 2 * amp * sh).toFixed(1)}px,${((Math.random() - 0.5) * 2 * amp * sh).toFixed(1)}px) rotate(${((Math.random() - 0.5) * 3 * sh).toFixed(2)}deg)` : "";
+    drawFx(dt);
+    if (resAnim) {
+      resAnim.t += dt * 1000; const k = clamp(resAnim.t / resAnim.dur), v = Math.round(score * dEase(k)); if (resN && nCache._r !== v) { nCache._r = v; resN.innerHTML = pn(v, 6); }
+      if (k >= 1) { const b = resAnim.isBest; resAnim = null; if (b) after(250, () => { $(".d-stamp", resEl)?.classList.add("on"); trauma = Math.min(1, trauma + 0.6); burst(100, 330, 40, 1); dSfx.best(); }); }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+  const kick = () => { if (!raf && vis && !document.hidden) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+  if ("IntersectionObserver" in window) new IntersectionObserver((es) => { vis = es[es.length - 1].isIntersecting; if (vis) kick(); }).observe(el);
+  document.addEventListener("visibilitychange", kick);
+  const api = { start: () => start(), setDay() { dress(el, dS.day ? DAY : NIGHT); dirty = true; }, setReduce() { P.length = 0; fxDirty = true; trauma = 0; tgt.x = tgt.y = 0; lvl = tier; dirty = true; t.style.transform = ""; }, kick };
+  dPhones.push(api); start(); kick(); return api;
+}
+
+dMake($("#dPhoneA"), "A"); dMake($("#dPhoneB"), "B");
+const dPress = (b, on, text) => { b.setAttribute("aria-pressed", String(on)); if (text) b.textContent = text; };
+$("#dReplay").addEventListener("click", () => dPhones.forEach((p) => p.start()));
+$("#dDay").addEventListener("click", (e) => { dS.day = !dS.day; dPress(e.currentTarget, dS.day); dPhones.forEach((p) => p.setDay()); });
+$("#dReduce").addEventListener("click", (e) => { dS.reduce = !dS.reduce; dPress(e.currentTarget, dS.reduce, "Reduce Motion: " + (dS.reduce ? "on" : "off")); dPhones.forEach((p) => p.setReduce()); });
+$("#dSound").addEventListener("click", (e) => { dS.sound = !dS.sound; dPress(e.currentTarget, dS.sound, "Sound: " + (dS.sound ? "on" : "off")); if (dS.sound) dAudio(); });
+$("#dCount").addEventListener("click", (e) => { dS.n = dS.n === 8 ? 12 : 8; dPress(e.currentTarget, dS.n === 12, "Cards: " + dS.n); dPhones.forEach((p) => p.start()); });
+$$("[data-dmode]").forEach((b) => b.addEventListener("click", () => { dS.mode = b.dataset.dmode; $$("[data-dmode]").forEach((x) => dPress(x, x === b)); dPhones.forEach((p) => p.start()); }));
+</script>
