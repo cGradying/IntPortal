@@ -131,15 +131,12 @@
     clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
   }
   .scene {
-    position: relative;
     display: flex;
+    align-items: flex-end;
     justify-content: center;
-    padding-bottom: 36px;
   }
   .lar {
-    position: absolute;
-    right: -18px;
-    bottom: 0;
+    margin-left: -10px;
   }
   figcaption {
     margin-top: 14px;
