@@ -49,6 +49,9 @@
   // Effects follow You's Motion setting (047 C8) and Reduce Motion: full, calm (no shake, fewer bits) or off.
   const fx = still() ? "off" : app.effects;
   const moving = fx !== "off";
+  // Short phones (an SE, a 568-tall screen): LAR steps down a size so the card and its answers fit one screen.
+  const SHORT = "(max-height: 760px)";
+  let short = $state(typeof matchMedia === "function" && matchMedia(SHORT).matches);
   // --t-hero: a card's deal and a missed card's tuck.
   const hero = () => ms(getComputedStyle(document.documentElement).getPropertyValue("--t-hero"), 550);
 
@@ -76,6 +79,7 @@
   let hints = $state<string[] | null>(null);
   let problem = $state("");
   let t0 = 0;
+  let lifted = false;
   let leaving: Answer = "right";
   let timer = 0;
 
@@ -167,6 +171,20 @@
 
   // The deal ends: the soft clock starts (spec 055 C6).
   function dealt() {
+    // When the answers would sit under the class bar or the tabs ([data-chrome]), scroll once,
+    // just enough to clear them and never past the score panel; the back row is one scroll up (C15).
+    if (!lifted) {
+      lifted = true;
+      const answers = root.querySelector(".opts, .rates, .typed");
+      const panel = root.querySelector(".panel");
+      const floor = Math.min(innerHeight, ...[...document.querySelectorAll("[data-chrome]")].map((e) => e.getBoundingClientRect().top).filter((y) => y > innerHeight / 2));
+      if (answers && panel) {
+        const need = answers.getBoundingClientRect().bottom - (floor - 8);
+        const room = panel.getBoundingClientRect().top - 8;
+        const by = Math.min(need, room);
+        if (by > 0) window.scrollBy({ top: by, behavior: moving ? "smooth" : "auto" });
+      }
+    }
     ready = true;
     t0 = performance.now();
     loop();
@@ -386,15 +404,20 @@
     const wake = () => {
       if (document.hidden) hiddenAt = performance.now();
       else {
-        if (hiddenAt && t0) t0 += performance.now() - hiddenAt;
+        // Only a card that was already on the table while hidden gets its clock moved.
+        if (hiddenAt && t0 && t0 < hiddenAt) t0 += performance.now() - hiddenAt;
         hiddenAt = 0;
         loop();
       }
     };
     document.addEventListener("visibilitychange", wake);
+    const mq = matchMedia(SHORT);
+    const fit = () => (short = mq.matches);
+    mq.addEventListener("change", fit);
     begin(firstPass, practice, "Tara, simulan natin!");
     return () => {
       alive = false;
+      mq.removeEventListener("change", fit);
       document.removeEventListener("visibilitychange", wake);
       cancelAnimationFrame(raf);
       clearTimeout(timer);
@@ -434,7 +457,7 @@
     </div>
 
     <div class="comp">
-      <Lar size={3} state={lar} />
+      <Lar size={short ? 2 : 3} state={lar} />
       <p class="bub" aria-live="polite">{line}</p>
     </div>
 
@@ -545,10 +568,14 @@
 </div>
 
 <style>
+  /* One centred column on tablets and desktop windows: a card wider than a phone reads stretched. */
   .session {
     position: relative;
     display: grid;
     gap: 10px;
+    width: 100%;
+    max-width: 560px;
+    margin-inline: auto;
     animation: enter var(--t-flow) var(--ease) backwards;
   }
   @keyframes enter {
@@ -1121,6 +1148,35 @@
     margin: 0;
     font-size: var(--text-caption);
     color: var(--bad);
+  }
+  /* Short screens: tighter rows and a shorter card, so a question and its answers share one screen. */
+  @media (max-height: 760px) {
+    .session {
+      gap: 8px;
+    }
+    .hud {
+      min-height: 48px;
+    }
+    .comp {
+      min-height: 0;
+    }
+    .bub {
+      padding: 6px 10px;
+      font-size: var(--text-sub);
+    }
+    .face {
+      min-height: clamp(120px, 24vh, 196px);
+      padding: 14px 16px;
+    }
+    .term {
+      font-size: var(--text-title);
+    }
+    .opt {
+      min-height: 60px;
+    }
+    .rates .tile {
+      min-height: 56px;
+    }
   }
   .fx {
     position: absolute;

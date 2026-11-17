@@ -9,8 +9,13 @@ const RGB = RAMP.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 export const BURST = ["#b5412a", "#e08a35", "#f3cf6a", "#fff6dc", "#e8b04a"];
 
-// Each canvas is painted at its own size (one canvas pixel per 3 CSS px), never stretched.
-const targets = new Map<HTMLCanvasElement, ImageData | null>();
+// One shared swirl buffer, painted once a frame. Each canvas shows a centred crop of it at the
+// same pixel scale (never stretched), so a wide strip shows a slice and a card a bigger piece.
+const BW = 128;
+const BH = 80;
+const targets = new Set<HTMLCanvasElement>();
+let src: HTMLCanvasElement | null = null;
+let img: ImageData | null = null;
 let raf = 0;
 let last = 0;
 let t = 2.1;
@@ -18,38 +23,62 @@ let t = 2.1;
 /** 0–3, from the soft clock (spec 055 C6). Each step speeds the swirl and lifts it a tone. */
 export const table = { heat: 0, still: false };
 
-/** Canvas pixels per unit of the swirl, the same on every canvas, so a wide strip shows a slice of it instead of a squashed copy. */
+/** Canvas pixels per unit of the swirl. */
 const UNIT = 40;
 
-/** One frame of the swirl: polar bands twisted with time, quantised to the ramp through a 4×4 Bayer. */
-export function paint(px: Uint8ClampedArray, w: number, h: number, time: number, heat: number) {
-  const lift = 0.05 * heat;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const dx = (x + 0.5 - w / 2) / UNIT;
-      const dy = (y + 0.5 - h / 2) / UNIT;
-      const r = Math.hypot(dx, dy) * 2.4;
-      const a = Math.atan2(dy, dx);
-      const v = 0.5 + 0.5 * (0.7 * Math.sin(a * 3 + r * 7 - time + 1.2 * Math.sin(r * 4 - time * 0.7)) + 0.3 * Math.sin(a * 5 - r * 11 + time * 1.3));
-      const i = Math.max(0, Math.min(4, Math.floor((v * (0.62 + 0.1 * heat) + lift) * 4 + BAYER[(y & 3) * 4 + (x & 3)] / 16)));
-      const c = RGB[i];
-      const p = (y * w + x) * 4;
-      px[p] = c[0];
-      px[p + 1] = c[1];
-      px[p + 2] = c[2];
-      px[p + 3] = 255;
+// The swirl's geometry never changes, so angle, radius and the Bayer threshold are worked out
+// once; a frame is then three sines a pixel over BW × BH.
+let geo: { a: Float32Array; r: Float32Array; b: Float32Array } | null = null;
+function geometry() {
+  if (geo) return geo;
+  geo = { a: new Float32Array(BW * BH), r: new Float32Array(BW * BH), b: new Float32Array(BW * BH) };
+  for (let y = 0; y < BH; y++) {
+    for (let x = 0; x < BW; x++) {
+      const dx = (x + 0.5 - BW / 2) / UNIT;
+      const dy = (y + 0.5 - BH / 2) / UNIT;
+      const i = y * BW + x;
+      geo.r[i] = Math.hypot(dx, dy) * 2.4;
+      geo.a[i] = Math.atan2(dy, dx);
+      geo.b[i] = BAYER[(y & 3) * 4 + (x & 3)] / 16;
     }
+  }
+  return geo;
+}
+
+/** One frame of the swirl into a BW × BH buffer: polar bands twisted with time, quantised to the ramp through a 4×4 Bayer. */
+export function paint(px: Uint8ClampedArray, time: number, heat: number) {
+  const { a, r, b } = geometry();
+  const lift = 0.05 * heat;
+  const gain = 0.62 + 0.1 * heat;
+  for (let i = 0, n = BW * BH; i < n; i++) {
+    const v = 0.5 + 0.5 * (0.7 * Math.sin(a[i] * 3 + r[i] * 7 - time + 1.2 * Math.sin(r[i] * 4 - time * 0.7)) + 0.3 * Math.sin(a[i] * 5 - r[i] * 11 + time * 1.3));
+    const c = RGB[Math.max(0, Math.min(4, Math.floor((v * gain + lift) * 4 + b[i])))];
+    const p = i * 4;
+    px[p] = c[0];
+    px[p + 1] = c[1];
+    px[p + 2] = c[2];
+    px[p + 3] = 255;
   }
 }
 
 function draw() {
-  for (const [cv, had] of targets) {
+  if (!src) {
+    src = document.createElement("canvas");
+    src.width = BW;
+    src.height = BH;
+    img = src.getContext("2d")!.createImageData(BW, BH);
+  }
+  paint(img!.data, t, table.heat);
+  src.getContext("2d")!.putImageData(img!, 0, 0);
+  for (const cv of targets) {
     const g = cv.getContext("2d");
     if (!g || !cv.isConnected) continue;
-    const img = had && had.width === cv.width && had.height === cv.height ? had : g.createImageData(cv.width, cv.height);
-    targets.set(cv, img);
-    paint(img.data, cv.width, cv.height, t, table.heat);
-    g.putImageData(img, 0, 0);
+    // A canvas bigger than the buffer (a wide desktop card) takes a scaled crop with its own aspect.
+    const k = Math.max(1, cv.width / BW, cv.height / BH);
+    const sw = cv.width / k;
+    const sh = cv.height / k;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(src, (BW - sw) / 2, (BH - sh) / 2, sw, sh, 0, 0, cv.width, cv.height);
   }
 }
 
@@ -90,7 +119,7 @@ export function swirl(cv: HTMLCanvasElement) {
     kick();
   });
   watch.observe(cv);
-  targets.set(cv, null);
+  targets.add(cv);
   kick();
   return {
     destroy() {

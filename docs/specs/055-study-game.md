@@ -40,6 +40,8 @@ Reviewing cards plays like a small card game. The card is dealt from a pile, til
 - **C13. Results, step two.** "See the cards" lists every card with its rating and next review, misses first, filtered by All, Missed and Right. A miss has Why? (when IntAssis is installed). "Practice misses (N)" replays only the misses as practice; the other button goes back.
 - **C14. Personal best.** Kept per deck on the phone (`studyBest:<deck id>`, or `all` for the all-due session). Practice never sets it.
 
+- **C15. Any screen.** The session fills the page's column from a 320 px phone to a desktop window, with no sideways scroll. On short screens (760 px tall or less) the rows tighten, LAR steps down a size, the card gets shorter, and the page scrolls once so the score panel is at the top: the card and its answers then sit above the class bar and the tabs. Each swirl canvas shows a crop of one shared swirl at the same pixel size, so no shape stretches as the width changes.
+
 ## Copy
 
 - LAR: "Tara, simulan natin!", "Tama!", "Galing!", "Sige pa!", "Ayos!", "Bilis mo!", "Okay, dahan-dahan.", "Tatlo na!", "Anim na!", "Sampu na!", "Balikan natin 'to.", "Isipin mo muna…", "Huling isa!", "Bagong rekord!", "Ang galing mo!", "Balikan natin ang mali."
