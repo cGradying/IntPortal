@@ -1,7 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import type { DeadlineEntry, Today } from "../api";
 import { entryLabel } from "../deadlines";
-import { appended, describe, followUps, foundLine, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters } from "./apply";
+import { appended, describe, followUps, foundLine, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters, topicOf } from "./apply";
 
 suite("applying a proposal", () => {
   it("puts a class note on the class and anything else on one note a day", () => {
@@ -130,5 +130,25 @@ suite("Ask AI results landing in the note", () => {
     expect(starters(true)).toHaveLength(4);
     expect(starters(false)).toHaveLength(4);
     expect(starters(true).map((s) => s.label)).toContain("What should I review from this note?");
+  });
+});
+
+suite("follow-ups after an answer from what LAR knows (spec 021 C21)", () => {
+  it("offers simpler and cards on the question's topic", () => {
+    const f = followUps({ intent: "ask", known: true }, undefined, "What is osmosis?");
+    expect(f.map((s) => s.label)).toEqual(["Explain it simpler", "Quiz me on it"]);
+    expect(f[1].say).toBe("Make 5 flashcards on osmosis");
+  });
+
+  it("reads the topic out of the question", () => {
+    expect(topicOf("explain the chain rule")).toBe("chain rule");
+    expect(topicOf("Who is Jose Rizal?")).toBe("Jose Rizal");
+    expect(topicOf("how does a hash table work?")).toBe("hash table work");
+    expect(topicOf("photosynthesis")).toBe("photosynthesis");
+  });
+
+  it("an answer from notes keeps its own follow-ups", () => {
+    const f = followUps({ intent: "ask", known: false, sources: [{ key: "note:a", title: "Bio" }] }, undefined, "What is osmosis?");
+    expect(f[0].label).toMatch(/^Make 5 cards from Bio/);
   });
 });
