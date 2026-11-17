@@ -1,28 +1,81 @@
 <script lang="ts">
+  // 057 C15: Features, Roadmap, Help, Try it and the gold Get it; on a phone they
+  // fold into a sheet that holds focus and closes on Escape.
   import { page } from "$app/state";
+  import { tick } from "svelte";
+  import PixelIcon from "$app_lib/PixelIcon.svelte";
   import PixelPortal from "./PixelPortal.svelte";
   import { REPO_URL } from "./releases";
+
   const links = [
-    ["/#features", "Features"],
-    ["/download", "Download"],
-    ["/reel", "Reel"],
+    ["/features", "Features"],
+    ["/roadmap", "Roadmap"],
+    ["/help", "Help"],
     ["/try", "Try it"],
   ] as const;
+  const more = [
+    ["/changelog", "What's new"],
+    ["/reel", "Reel"],
+    ["/about", "About"],
+  ] as const;
+
   let scrolled = $state(false);
+  let open = $state(false);
+  let sheet = $state<HTMLElement>();
+  let toggle = $state<HTMLButtonElement>();
+
+  const here = (href: string) => page.url.pathname === href || page.url.pathname.startsWith(href + "/");
+
+  async function show(v: boolean) {
+    open = v;
+    await tick();
+    if (v) sheet?.querySelector<HTMLElement>("a")?.focus();
+    else toggle?.focus();
+  }
+  function keys(e: KeyboardEvent) {
+    if (!open) return;
+    if (e.key === "Escape") return void show(false);
+    if (e.key !== "Tab" || !sheet) return;
+    const f = [...sheet.querySelectorAll<HTMLElement>("a, button")];
+    const first = f[0];
+    const last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) (e.preventDefault(), last.focus());
+    else if (!e.shiftKey && document.activeElement === last) (e.preventDefault(), first.focus());
+  }
+  $effect(() => {
+    void page.url.pathname;
+    open = false;
+  });
 </script>
 
-<svelte:window onscroll={() => (scrolled = scrollY > 8)} />
+<svelte:window onscroll={() => (scrolled = scrollY > 8)} onkeydown={keys} />
 
-<header class:scrolled>
+<header class:scrolled class:open>
   <nav class="wrap" aria-label="Main">
     <a class="mark" href="/" aria-label="IntPortal home"><PixelPortal size={3} /><span>IntPortal</span></a>
-    <ul>
+    <ul class="wide">
       {#each links as [href, text] (href)}
-        <li><a {href} aria-current={page.url.pathname === href ? "page" : undefined}>{text}</a></li>
+        <li><a {href} aria-current={here(href) ? "page" : undefined}>{text}</a></li>
       {/each}
-      <li class="gh"><a href={REPO_URL} rel="noopener">GitHub</a></li>
+      <li><a href={REPO_URL} rel="noopener">GitHub</a></li>
     </ul>
+    <div class="end">
+      <a class="get" href="/download">Get it</a>
+      <button class="menu" bind:this={toggle} aria-expanded={open} aria-controls="menu" aria-label={open ? "Close the menu" : "Open the menu"} onclick={() => show(!open)}>
+        <PixelIcon name={open ? "close" : "dots"} size={20} />
+      </button>
+    </div>
   </nav>
+  {#if open}
+    <div class="sheet" id="menu" bind:this={sheet} role="dialog" aria-modal="true" aria-label="Menu">
+      <ul>
+        {#each [...links, ["/download", "Download"], ...more] as [href, text] (href)}
+          <li><a {href} aria-current={here(href) ? "page" : undefined}>{text}<PixelIcon name="chev" size={12} /></a></li>
+        {/each}
+        <li><a href={REPO_URL} rel="noopener">GitHub<PixelIcon name="chev" size={12} /></a></li>
+      </ul>
+    </div>
+  {/if}
 </header>
 
 <style>
@@ -30,11 +83,14 @@
     position: sticky;
     top: 0;
     z-index: 10;
-    background: var(--void);
+    background: color-mix(in srgb, var(--void) 88%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 1px 0 transparent;
     transition: box-shadow var(--t-move) var(--ease);
   }
-  header.scrolled {
+  header.scrolled,
+  header.open {
     box-shadow: 0 1px 0 var(--site-line);
   }
   nav {
@@ -56,13 +112,16 @@
     text-decoration: none;
   }
   ul {
-    display: flex;
-    gap: 4px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
-  ul a {
+  .wide {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+  }
+  .wide a {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
@@ -73,20 +132,93 @@
     text-decoration: none;
     transition: color var(--t-quick) var(--ease), background var(--t-quick) var(--ease);
   }
-  ul a:hover {
+  .wide a:hover {
     color: var(--site-ink);
     background: rgba(244, 236, 216, 0.06);
   }
-  ul a[aria-current="page"] {
-    color: var(--gold);
+  a[aria-current="page"] {
+    color: var(--gold) !important;
   }
-  @media (max-width: 640px) {
-    .gh,
-    ul li:first-child {
+  .end {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .get {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: var(--radius);
+    background: var(--gold);
+    color: #1b1406;
+    font-family: var(--site-display);
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: inset 0 -3px 0 #b87a10;
+    transition: transform var(--t-quick) var(--ease);
+  }
+  .get:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 -1px 0 #b87a10;
+  }
+  .menu {
+    display: none;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--site-ink);
+    cursor: pointer;
+  }
+  .menu:hover {
+    background: rgba(244, 236, 216, 0.06);
+  }
+  .sheet {
+    display: none;
+  }
+  @media (max-width: 860px) {
+    .wide {
       display: none;
     }
-    ul a {
-      padding: 0 9px;
+    .menu {
+      display: grid;
+    }
+    .sheet {
+      display: block;
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      max-height: calc(100svh - 64px);
+      overflow-y: auto;
+      padding: 8px var(--site-gutter) 24px;
+      background: var(--void);
+      box-shadow: 0 1px 0 var(--site-line), 0 30px 60px -20px rgba(0, 0, 0, 0.8);
+      animation: drop var(--t-move) var(--ease);
+    }
+    .sheet a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 56px;
+      color: var(--site-ink);
+      font-family: var(--site-display);
+      font-weight: 600;
+      font-size: 1.2rem;
+      text-decoration: none;
+      box-shadow: inset 0 -1px 0 var(--site-line);
+    }
+    .sheet a :global(svg) {
+      color: var(--site-ink-3);
+    }
+  }
+  @keyframes drop {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
     }
   }
   @media (max-width: 380px) {
