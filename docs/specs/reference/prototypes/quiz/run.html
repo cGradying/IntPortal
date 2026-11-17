@@ -1,0 +1,446 @@
+<style>
+/* Run: the quiz as a clear, quick loop. Calm dot-grid ground, a stepped progress bar, a combo meter,
+   LAR reacting, big beveled answer tiles. Everything here is prefixed r-. */
+.r-ph { --bad: #f0a090; }
+.r-ph[data-day] { --bad: #b3261e; }
+.r-ph .view.r-v { padding: 46px 14px 12px; gap: 8px; overflow: hidden; }
+.r-ph .ground::before, .r-ph .ground::after { opacity: calc(var(--aura-o, 1) * 0.7); }
+.r-ph[data-rm] .ground::before, .r-ph[data-rm] .ground::after { animation: none; }
+.r-ph canvas.r-fx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; image-rendering: pixelated; }
+
+/* HUD */
+.r-top { display: flex; align-items: center; gap: 6px; min-height: 44px; margin-inline: -8px -2px; }
+.r-x { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none; color: var(--ink-2) !important; transition: scale 0.14s var(--spring); }
+.r-x:active { scale: 0.88; }
+.r-segs { flex: 1; min-width: 0; display: flex; gap: 3px; height: 16px; }
+.r-segs i { flex: 1; min-width: 4px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); clip-path: var(--n3); transition: background 0.22s var(--ease), box-shadow 0.22s var(--ease); }
+.r-segs i.ok { background: var(--gold); box-shadow: inset 0 -4px 0 rgb(0 0 0 / 0.22); }
+.r-segs i.miss { background: repeating-linear-gradient(135deg, var(--bad) 0 3px, var(--sunk) 3px 6px); box-shadow: inset 0 0 0 1px var(--bad); }
+.r-segs i.re { box-shadow: inset 0 0 0 1.5px var(--bad); animation: r-seg 0.34s var(--spring) backwards; }
+.r-segs i.cur { box-shadow: inset 0 0 0 2px var(--gold); }
+.r-segs i.cur.re { box-shadow: inset 0 0 0 2px var(--gold), inset 0 0 0 3px var(--bad); }
+.r-ph:not([data-rm]) .r-segs i.cur { animation: r-cur 1.2s ease-in-out infinite; }
+@keyframes r-seg { from { scale: 0.4 1; opacity: 0; } }
+@keyframes r-cur { 50% { background: var(--gold-soft); } }
+.r-score { flex: none; min-width: 52px; display: flex; justify-content: flex-end; color: var(--gold); transform-origin: right center; }
+.r-cmb { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+.r-stamp { flex: none; min-width: 48px; height: 34px; padding: 0 8px; display: grid; place-items: center; font: 700 22px var(--f-pixel); letter-spacing: 0.04em; color: var(--ink-3); box-shadow: inset 0 0 0 2px currentColor; rotate: -4deg; transition: color 0.2s; }
+.r-stamp.on { color: var(--gold); }
+.r-stamp.pop { animation: r-pop 0.5s var(--spring); }
+@keyframes r-pop { from { scale: 1.9; } 55% { scale: 0.92; } }
+.r-meter { flex: 1; min-width: 0; height: 12px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); clip-path: var(--n3); position: relative; }
+.r-meter i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--gold); box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.22); transition: width 0.3s var(--ease); }
+.r-meter b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--edge-2); }
+.r-cl { flex: none; font: 500 12px var(--f-pixel); letter-spacing: 0.04em; color: var(--ink-2); min-width: 70px; text-align: right; }
+.r-rl { display: none; flex: 1; font: 500 12px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-2); }
+.r-B .r-cmb .r-lar { flex: none; width: 48px !important; height: 45px !important; margin: -4px -4px -4px 0; image-rendering: pixelated; }
+
+/* Companion */
+.r-comp { display: flex; align-items: center; gap: 8px; min-height: 90px; }
+.r-comp .r-lar { flex: none; margin: -6px -4px -6px -10px; image-rendering: pixelated; }
+.r-bubw { position: relative; flex: 1; min-width: 0; }
+.r-bub { margin: 0; padding: 10px 12px; min-height: 44px; display: flex; align-items: center; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge-2); clip-path: var(--n3); font: 600 16px/1.2 var(--f-pixel); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.r-bub.say { animation: r-say 0.3s var(--ease); }
+.r-tail { position: absolute; left: -4px; top: 18px; width: 8px; height: 8px; background: var(--card); rotate: 45deg; box-shadow: -1px 1px 0 var(--edge-2); }
+@keyframes r-say { from { translate: 8px 0; opacity: 0; } }
+
+/* The card and its answers */
+.r-main { display: grid; gap: 8px; align-content: start; }
+.r-main.r-in { animation: r-slide 0.34s var(--ease) both; }
+.r-ph[data-rm] .r-main.r-in { animation: r-fade 0.18s both; }
+@keyframes r-slide { from { translate: 30px 0; opacity: 0; } }
+@keyframes r-fade { from { opacity: 0; } }
+.r-q { display: grid; gap: 6px; align-content: center; padding: 14px; min-height: 88px; }
+.r-B .r-q { min-height: 120px; }
+.r-lbl { font: 500 12px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-3); }
+.r-term { font: 800 30px/1.08 var(--f-ui); letter-spacing: -0.03em; color: var(--ink); }
+.r-B .r-term { font-size: 36px; }
+.r-mean { font: 600 17px/1.3 var(--f-ui); color: var(--ink); }
+.r-ans { margin: 0; font: 600 15px var(--f-ui); color: var(--ink-2); }
+.r-ans b { color: var(--gold); font-weight: 800; }
+.r-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.r-ph .r-tile { position: relative; min-height: 92px; padding: 10px 11px 15px; border: 0; display: grid; align-content: center; gap: 3px; text-align: left; font: 600 14px/1.25 var(--f-ui); color: var(--ink); background: linear-gradient(var(--card-2), var(--card)); clip-path: var(--n4); box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 3px 0 rgb(255 255 255 / 0.07), inset 0 -5px 0 color-mix(in srgb, var(--gold) 68%, var(--card)); transition: translate 0.09s var(--ease), background 0.18s, box-shadow 0.18s; -webkit-tap-highlight-color: transparent; }
+.r-B .r-opts .r-tile { min-height: 108px; font-size: 15px; }
+.r-ph .r-tile:active:not(:disabled) { translate: 0 3px; box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 3px 0 rgb(255 255 255 / 0.07), inset 0 -2px 0 color-mix(in srgb, var(--gold) 68%, var(--card)); }
+.r-ph .r-tile.r-ok { background: var(--gold); color: var(--on-gold); box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 3px 0 rgb(255 255 255 / 0.3), inset 0 -5px 0 rgb(0 0 0 / 0.25); }
+.r-ph .r-tile.r-ok small { color: inherit; }
+.r-ph .r-tile.r-no { box-shadow: inset 0 0 0 2.5px var(--bad), inset 0 -5px 0 color-mix(in srgb, var(--bad) 60%, var(--card)); }
+.r-ph .r-tile.r-reveal { box-shadow: inset 0 0 0 3px var(--gold), inset 0 -5px 0 var(--gold); background: var(--gold-soft); }
+.r-ph .r-tile.r-reveal::after { content: ""; position: absolute; top: 6px; right: 6px; width: 14px; height: 14px; background: var(--gold); clip-path: polygon(0 50%, 25% 50%, 25% 75%, 37.5% 75%, 37.5% 50%, 62.5% 50%, 62.5% 25%, 75% 25%, 75% 0, 100% 0, 100% 25%, 87.5% 25%, 87.5% 50%, 75% 50%, 75% 75%, 62.5% 75%, 62.5% 100%, 25% 100%, 25% 75%, 0 75%); }
+.r-ph .r-tile:disabled { opacity: 0.45; }
+.r-ph .r-tile.r-ok:disabled, .r-ph .r-tile.r-no:disabled, .r-ph .r-tile.r-reveal:disabled { opacity: 1; }
+.r-lock .r-main .r-tile, .r-lock .r-main .r-flip { pointer-events: none; }
+.r-ph .r-tile.r-shake, .r-ph .r-fld.r-shake { animation: r-shake 0.42s linear; }
+.r-ph[data-rm] .r-tile.r-shake, .r-ph[data-rm] .r-fld.r-shake { animation: none; }
+@keyframes r-shake { 15% { translate: -7px 0; } 30% { translate: 6px 0; } 45% { translate: -5px 0; } 60% { translate: 4px 0; } 75% { translate: -2px 0; } }
+
+/* Flash */
+.r-flip { position: relative; display: block; width: 100%; height: 150px; padding: 0; border: 0; background: none; perspective: 800px; color: var(--ink); text-align: left; }
+.r-B .r-flip { height: 210px; }
+.r-cd { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 0.46s var(--ease); }
+.r-flip.on .r-cd { transform: rotateY(180deg); }
+.r-ph[data-rm] .r-cd { transition: none; }
+.r-face { position: absolute; inset: 0; display: grid; gap: 6px; align-content: center; padding: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: linear-gradient(var(--card-2), var(--card)); clip-path: var(--n4); box-shadow: inset 0 0 0 1px var(--edge-2); }
+.r-face.b { transform: rotateY(180deg); }
+.r-face .r-tap { margin: 0; font-size: 13px; color: var(--ink-2); }
+.r-rate { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.r-rate .r-tile { min-height: 76px; padding: 8px 6px 13px; justify-items: center; text-align: center; align-content: center; gap: 2px; }
+.r-rate .r-tile b { font: 800 15px/1 var(--f-ui); letter-spacing: -0.01em; }
+.r-rate .r-tile small { font: 600 12px/1 var(--f-ui); color: var(--ink-2); }
+
+/* Type */
+.r-typ { display: grid; gap: 8px; }
+.r-fld { width: 100%; height: 56px; padding: 0 14px; border: 0; outline: 0; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--edge-2), inset 0 -4px 0 var(--edge); clip-path: var(--n3); font: 600 18px var(--f-ui); color: var(--ink); caret-color: var(--gold); }
+.r-fld:focus { box-shadow: inset 0 0 0 2px var(--gold), inset 0 -4px 0 var(--gold); }
+.r-fld.r-no { box-shadow: inset 0 0 0 2.5px var(--bad), inset 0 -4px 0 var(--bad); }
+.r-fld.r-ok { box-shadow: inset 0 0 0 2.5px var(--gold), inset 0 -4px 0 var(--gold); }
+.r-ph .r-tile.go { min-height: 56px; justify-items: center; text-align: center; font: 800 17px var(--f-ui); background: var(--gold); color: var(--on-gold); box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 3px 0 rgb(255 255 255 / 0.3), inset 0 -5px 0 rgb(0 0 0 / 0.25); }
+.r-ph .r-tile.go:active:not(:disabled) { box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 3px 0 rgb(255 255 255 / 0.3), inset 0 -2px 0 rgb(0 0 0 / 0.25); }
+.r-ph .r-tile.go:disabled { opacity: 0.4; }
+
+/* Foot: the miss reveal */
+.r-foot { margin-top: auto; display: grid; gap: 8px; }
+.r-foot:empty { display: none; }
+.r-miss { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: stretch; animation: r-fade 0.2s both; }
+.r-chip { min-height: 56px; padding: 0 14px; border: 0; display: grid; align-content: center; justify-items: start; background: var(--card); color: var(--ink) !important; clip-path: var(--n3); box-shadow: inset 0 0 0 1.5px var(--gold); font: 800 16px/1.1 var(--f-ui); }
+.r-chip small { font: 600 12px var(--f-ui); color: var(--ink-2); }
+.r-chip:active { translate: 0 2px; }
+.r-ph .r-miss .r-tile { min-height: 56px; justify-items: center; text-align: center; font-size: 17px; font-weight: 800; }
+.r-wy { margin: 0; padding: 10px 12px; font: 400 14px/1.35 var(--f-ui); color: var(--ink); background: var(--card); box-shadow: inset 3px 0 0 var(--gold), inset 0 0 0 1px var(--edge); clip-path: var(--n3); animation: r-fade 0.25s both; }
+.r-wy small { display: block; font: 500 12px var(--f-pixel); letter-spacing: 0.06em; color: var(--gold); margin-bottom: 2px; }
+
+/* Results */
+.r-v[data-stage="res"] .r-cmb .r-stamp, .r-v[data-stage="res"] .r-cmb .r-meter, .r-v[data-stage="res"] .r-cmb .r-cl { display: none; }
+.r-v[data-stage="res"] .r-cmb .r-rl { display: block; }
+.r-v[data-stage="res"] .r-score { visibility: hidden; }
+.r-res { display: grid; gap: 8px; align-content: start; animation: r-slide 0.34s var(--ease) both; }
+.r-ph[data-rm] .r-res { animation: r-fade 0.18s both; }
+.r-tally { display: grid; gap: 12px; padding: 16px; justify-items: start; position: relative; }
+.r-big { display: flex; align-items: flex-end; gap: 8px; color: var(--gold); transform-origin: left bottom; }
+.r-big span { font: 500 13px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-2); padding-bottom: 2px; }
+.r-nb { position: absolute; right: 14px; top: 46px; padding: 4px 8px; font: 700 15px var(--f-pixel); letter-spacing: 0.06em; color: var(--gold); box-shadow: inset 0 0 0 2.5px currentColor; background: var(--card); rotate: -7deg; animation: thunk 0.36s var(--ease) 1.25s both; }
+.r-ph[data-rm] .r-nb { animation: r-fade 0.2s 0.2s both; }
+.r-st { width: 100%; display: grid; gap: 0; }
+.r-st div { display: flex; align-items: center; justify-content: space-between; min-height: 40px; font-size: 15px; color: var(--ink-2); box-shadow: inset 0 1px 0 var(--edge); }
+.r-st b { font: 700 17px var(--f-pixel); color: var(--ink); letter-spacing: 0.03em; }
+.r-ph .btn.go.r-wide { width: 100%; min-height: 56px; font-size: 17px; font-weight: 800; clip-path: var(--n4); border-radius: 0; box-shadow: inset 0 3px 0 rgb(255 255 255 / 0.3), inset 0 -5px 0 rgb(0 0 0 / 0.25); }
+.r-ph .btn.go.r-wide:disabled { opacity: 0.4; }
+.r-ph .btn.r-wide2 { width: 100%; min-height: 48px; border-radius: 0; clip-path: var(--n3); }
+.r-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.r-tabs button { min-height: 44px; border: 0; background: var(--sunk); color: var(--ink-2) !important; clip-path: var(--n3); font: 500 14px var(--f-pixel); letter-spacing: 0.04em; box-shadow: inset 0 0 0 1px var(--edge); }
+.r-tabs button[aria-pressed="true"] { background: var(--gold); color: var(--on-gold) !important; box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.22); }
+.r-lst { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; max-height: 226px; padding: 0 12px; }
+.r-B .r-lst { max-height: 316px; }
+.r-lst::-webkit-scrollbar { display: none; }
+.r-li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; padding: 9px 0; }
+.r-li + .r-li { box-shadow: inset 0 1px 0 var(--edge); }
+.r-li b { font: 700 15px/1.2 var(--f-ui); color: var(--ink); }
+.r-li small { grid-column: 1; font-size: 13px; color: var(--ink-2); line-height: 1.25; }
+.r-rt2 { grid-row: 1; grid-column: 2; font: 500 12px var(--f-pixel); letter-spacing: 0.04em; padding: 3px 7px; color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--edge-2); }
+.r-rt2.again { color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
+.r-rt2.good, .r-rt2.easy { background: var(--gold); color: var(--on-gold); box-shadow: none; }
+.r-li button { grid-column: 1 / -1; justify-self: start; min-height: 44px; margin-top: -2px; padding: 0 2px; border: 0; background: none; color: var(--gold) !important; font: 700 14px var(--f-ui); }
+.r-li .r-wy { grid-column: 1 / -1; }
+.r-none { margin: 0; padding: 14px 0; font-size: 14px; color: var(--ink-2); }
+.r-acts { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 2px; }
+
+/* Page controls */
+.r-ctl .pbtn[aria-pressed="true"] { background: var(--pg); color: var(--on-pg); box-shadow: inset 0 -3px 0 var(--pg-shade); }
+.r-ctl .pbtn { min-height: 44px; }
+</style>
+
+<section class="row" id="run">
+  <div class="q">
+    <h2>Run: clarity and momentum</h2>
+    <p>The closest to Gizmo and Duolingo. A chunky progress bar steps once per card, a combo meter fills toward the next tier and stamps x2, x3, x4, and LAR answers every tap. Answers are big tiles that press in. Play a full run in each mode, miss a card to see it come back, then read the results.</p>
+    <p>Two ways to hold LAR: big at the top and talking, or tiny in the HUD so the card gets the room. Pick one; the controls on the right change both phones.</p>
+  </div>
+  <div class="wide">
+    <div class="opt"><div class="phone" id="rPhoneA"></div><div class="name"><b>A: Companion</b><span>LAR sits big at the top and says a short line after every answer.</span></div><div class="picks"><button class="pick" data-row="run" data-v="A: Companion">This one</button></div></div>
+    <div class="opt"><div class="phone" id="rPhoneB"></div><div class="name"><b>B: Focus</b><span>LAR is small in the HUD and the card and tiles get the space.</span></div><div class="picks"><button class="pick" data-row="run" data-v="B: Focus">This one</button></div></div>
+    <div class="panel r-ctl">
+      <h3>Try it</h3>
+      <div class="pbtns"><button class="pbtn" id="rReplay">Replay</button></div>
+      <div class="pbtns" role="group" aria-label="Mode"><button class="pbtn" data-m="flash" aria-pressed="false">Flash</button><button class="pbtn" data-m="type" aria-pressed="false">Type</button><button class="pbtn" data-m="choice" aria-pressed="true">Choice</button></div>
+      <div class="pbtns"><button class="pbtn" id="rRoom">Day room</button><button class="pbtn" id="rReduce" aria-pressed="false">Reduce Motion: off</button><button class="pbtn" id="rSound" aria-pressed="false">Sound: off</button></div>
+      <p>Score is right answers times the combo: x1, x2 at three in a row, x3 at six, x4 at ten. A miss drops the combo to x1, marks the bar and sends the card to the back of the pile. No lives. In Flash, Hard keeps the combo but does not add a step.</p>
+      <p>Reduce Motion drops slides, flips, shakes, particles and the LAR hop; a short fade stays. Sound is off by default, climbs a semitone per combo step, and (as in the app) stays quiet under Reduce Motion.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+const R = { mode: "choice", day: false, reduce: false, sound: false, best: 60 };
+const rTheme = () => ({ ...(R.day ? DAY : NIGHT), aura: "soft" });
+const rDeck = [
+  { t: "Stack", m: "Last in, first out list", why: "A stack hands back the newest item first, like a pile of plates: the last one you set down is the first you lift." },
+  { t: "Queue", m: "First in, first out list", why: "A queue serves the oldest item first, like the line at the canteen: whoever came first is served first." },
+  { t: "Hash table", m: "Keys mapped to buckets by a hash function", why: "A hash function turns a key into a bucket number, so a lookup jumps straight there instead of searching." },
+  { t: "Binary search", m: "Halves a sorted range each step", why: "Each look at the middle throws away half of a sorted range, so 1,000 items take about 10 steps." },
+  { t: "Linked list", m: "Nodes that each point to the next", why: "Each node holds a value and a pointer to the next node, so you follow the chain instead of indexing." },
+  { t: "Big O", m: "How cost grows with input size", why: "Big O names how the work grows as the input grows, and ignores constants, so O(n) beats O(n squared) for big inputs." },
+  { t: "Recursion", m: "A function that calls itself on a smaller case", why: "Each call solves a smaller case until a base case stops it, like opening nested boxes until the last one." },
+  { t: "Heap", m: "A tree where each parent beats its children", why: "Every parent beats its children, so the best item always sits at the top, ready to pop." },
+];
+const rRates = [["again", "Again", "10 min"], ["hard", "Hard", "1 day"], ["good", "Good", "3 days"], ["easy", "Easy", "7 days"]];
+const rMult = (c) => (c >= 10 ? 4 : c >= 6 ? 3 : c >= 3 ? 2 : 1);
+const rNextTier = (c) => (c < 3 ? 3 : c < 6 ? 6 : c < 10 ? 10 : 0);
+const rPrevTier = (c) => (c < 3 ? 0 : c < 6 ? 3 : c < 10 ? 6 : 10);
+const rShuffle = (a) => { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
+const rNorm = (x) => x.toLowerCase().replace(/[^a-z0-9]/g, "");
+const rRamp = ["#fff6dc", "#f3cf6a", "#e08a35", "#b5412a", "#7a1c2c"];
+
+/* Sound: one blip per answer, a semitone higher per combo step. Off by default. */
+let rAc = null;
+function rBlip(kind, n = 0) {
+  if (!R.sound || R.reduce) return;
+  try { rAc ??= new AudioContext(); if (rAc.state === "suspended") rAc.resume(); } catch { return; }
+  const t = rAc.currentTime;
+  const tone = (f0, f1, at, dur, type, vol) => {
+    const o = rAc.createOscillator(), g = rAc.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t + at); o.frequency.exponentialRampToValueAtTime(f1, t + at + dur * 0.8);
+    g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+    o.connect(g).connect(rAc.destination); o.start(t + at); o.stop(t + at + dur + 0.02);
+  };
+  const f = 523.25 * 2 ** (Math.min(n, 12) / 12);
+  if (kind === "ok") tone(f, f * 1.26, 0, 0.14, "triangle", 0.07);
+  else if (kind === "tier") [1, 1.25, 1.5].forEach((k, i) => tone(f * k, f * k * 1.05, i * 0.07, 0.16, "triangle", 0.06));
+  else if (kind === "best") [1, 1.25, 1.5, 2].forEach((k, i) => tone(523.25 * k, 523.25 * k * 1.04, i * 0.09, 0.2, "triangle", 0.06));
+  else tone(247, 175, 0, 0.22, "sine", 0.06);
+}
+const rRe = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
+
+const rPhones = [];
+function rMake(host, variant) {
+  const A = variant === "A";
+  const el = host;
+  el.classList.add("r-ph", "r-" + variant);
+  const view = shell(el, rTheme(), "study");
+  $(".tabs", el).remove();
+  view.classList.add("r-v");
+  const lar = `<canvas class="r-lar" aria-hidden="true"></canvas>`;
+  view.innerHTML = `
+    <div class="r-top"><button class="r-x" aria-label="Close session">${pi("x", 20)}</button><div class="r-segs" role="progressbar" aria-label="Cards" aria-valuemin="0"></div><div class="r-score" role="status" aria-label="Score"></div></div>
+    <div class="r-cmb"><b class="r-stamp">x1</b><div class="r-meter"><i></i><b style="left:33%"></b><b style="left:66%"></b></div><span class="r-cl"></span><span class="r-rl">RESULTS</span>${A ? "" : lar}</div>
+    ${A ? `<div class="r-comp">${lar}<div class="r-bubw"><span class="r-tail"></span><p class="r-bub" aria-live="polite"></p></div></div>` : ""}
+    <div class="r-main"></div><div class="r-foot"></div>`;
+  const fx = document.createElement("canvas"); fx.className = "r-fx"; fx.width = 160; fx.height = 336; el.append(fx);
+  const g = fx.getContext("2d");
+  const cv = $(".r-lar", view);
+  startLar(cv, () => larTheme(null));
+  const real = cv._rig;
+  cv._rig = { get state() { return real.state; }, set: (st, t) => real.set(st, t), at: (t, o, still) => real.at(t, o, still || R.reduce) };
+  const segs = $(".r-segs", view), score = $(".r-score", view), stamp = $(".r-stamp", view), meter = $(".r-meter i", view), cl = $(".r-cl", view), main = $(".r-main", view), foot = $(".r-foot", view), bub = $(".r-bub", view);
+  let s = {}, raf = 0, vis = true, last = 0, larTimer = 0, thinkTimer = 0, advTimer = 0;
+  const larSet = (st, ms = 0) => { clearTimeout(larTimer); cv._rig.set(st, performance.now() / 1000); if (ms) larTimer = setTimeout(() => cv._rig.set("idle", performance.now() / 1000), ms); };
+  const say = (txt) => { if (!bub) return; bub.textContent = txt; rRe(bub, "say"); };
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const kick = () => { if (!raf && vis && !document.hidden) raf = requestAnimationFrame(tick); };
+
+  function start(ids, practice = false) {
+    clearTimeout(advTimer); clearTimeout(thinkTimer);
+    s = { queue: ids.slice(), segs: ids.map(() => "todo"), pos: 0, streak: 0, top: 0, score: 0, disp: 0, shown: -1, bump: 0, trauma: 0, parts: [], first: {}, tries: 0, rights: 0, locked: false, stage: "play", practice, tally: null, filter: "all" };
+    view.dataset.stage = "play"; foot.innerHTML = ""; el.classList.remove("r-lock");
+    larSet("idle"); say(practice ? "Balikan natin ang mali" : "Tara, simulan natin!");
+    hud(); card(); kick();
+  }
+  const cur = () => s.queue[s.pos];
+
+  function hud() {
+    const n = s.segs.length;
+    while (segs.children.length < n) segs.append(document.createElement("i"));
+    while (segs.children.length > n) segs.lastChild.remove();
+    [...segs.children].forEach((e, i) => { e.className = s.segs[i] + (i === s.pos && s.stage === "play" ? " cur" : ""); });
+    segs.setAttribute("aria-valuemax", String(n)); segs.setAttribute("aria-valuenow", String(s.segs.filter((x) => x === "ok").length));
+    const m = rMult(s.streak), nt = rNextTier(s.streak);
+    stamp.textContent = "x" + m; stamp.classList.toggle("on", m > 1);
+    meter.style.width = nt ? ((s.streak - rPrevTier(s.streak)) / (nt - rPrevTier(s.streak))) * 100 + "%" : "100%";
+    cl.textContent = nt ? `x${m + 1} in ${nt - s.streak}` : "MAX COMBO";
+  }
+
+  function card() {
+    const c = rDeck[cur()], id = cur();
+    s.locked = false; s.flipped = false; el.classList.remove("r-lock"); foot.innerHTML = "";
+    if (R.mode === "choice") {
+      const pool = rShuffle(rDeck.map((_, i) => i).filter((i) => i !== id)).slice(0, 3);
+      const opts = rShuffle([id, ...pool]);
+      main.innerHTML = `<div class="r-q card"><span class="r-lbl">PICK THE MEANING</span><b class="r-term">${esc(c.t)}</b></div><div class="r-opts">${opts.map((o) => `<button class="r-tile" data-id="${o}"><span>${esc(rDeck[o].m)}</span></button>`).join("")}</div>`;
+      $$(".r-tile", main).forEach((b) => b.addEventListener("click", () => {
+        const ok = +b.dataset.id === id;
+        if (!ok) { b.classList.add("r-no"); const right = $(`.r-tile[data-id="${id}"]`, main); right.classList.add("r-reveal"); right.setAttribute("aria-label", right.textContent + " (correct answer)"); }
+        answer(ok ? "good" : "again", b);
+      }));
+    } else if (R.mode === "flash") {
+      main.innerHTML = `<button class="r-flip" aria-label="Flip card"><span class="r-cd"><span class="r-face f"><span class="r-lbl">TERM</span><b class="r-term">${esc(c.t)}</b><p class="r-tap">Tap to flip</p></span><span class="r-face b"><span class="r-lbl">MEANING</span><b class="r-mean">${esc(c.m)}</b></span></span></button>
+        <div class="r-rate">${rRates.map(([k, l, iv]) => `<button class="r-tile" data-r="${k}" disabled><b>${l}</b><small>${iv}</small></button>`).join("")}</div>`;
+      const fl = $(".r-flip", main);
+      fl.addEventListener("click", () => { if (s.flipped) return; s.flipped = true; fl.classList.add("on"); $$(".r-rate .r-tile", main).forEach((b) => (b.disabled = false)); say("Alam mo ba?"); });
+      $$(".r-rate .r-tile", main).forEach((b) => b.addEventListener("click", () => answer(b.dataset.r, b)));
+    } else {
+      main.innerHTML = `<div class="r-q card"><span class="r-lbl">TYPE THE TERM</span><b class="r-mean">${esc(c.m)}</b></div>
+        <div class="r-typ"><input class="r-fld" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Type the term" aria-label="Your answer"><button class="r-tile go" disabled>Check</button></div>`;
+      const inp = $(".r-fld", main), chk = $(".r-tile.go", main);
+      const submit = () => { if (s.locked || !inp.value.trim()) return; const ok = rNorm(inp.value) === rNorm(c.t); inp.readOnly = true; if (!ok) { inp.classList.add("r-no"); $(".r-q", main).insertAdjacentHTML("beforeend", `<p class="r-ans">Answer: <b>${esc(c.t)}</b></p>`); } else inp.classList.add("r-ok"); chk.disabled = true; clearTimeout(thinkTimer); answer(ok ? "good" : "again", ok ? chk : inp); };
+      inp.addEventListener("input", () => { chk.disabled = !inp.value.trim(); larSet("think"); clearTimeout(thinkTimer); thinkTimer = setTimeout(() => { if (!s.locked) larSet("idle"); }, 1600); if (A && !s.said) { s.said = 1; say("Isipin mo muna…"); } });
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+      chk.addEventListener("click", submit);
+    }
+    s.said = 0;
+    rRe(main, "r-in");
+  }
+
+  function answer(rating, src) {
+    if (s.locked) return; s.locked = true; el.classList.add("r-lock");
+    const id = cur(); if (!(id in s.first)) s.first[id] = rating;
+    s.tries++;
+    if (rating !== "again") {
+      s.rights++;
+      const was = rMult(s.streak);
+      if (rating !== "hard") s.streak++;
+      s.top = Math.max(s.top, s.streak);
+      const m = rMult(s.streak), tier = m > was;
+      s.score += 10 * m; s.bump = 1; s.segs[s.pos] = "ok";
+      src.classList.add("r-ok");
+      burst(src, tier ? 40 : 16);
+      rBlip(tier ? "tier" : "ok", s.streak);
+      larSet("happy", 1100);
+      if (tier) { rRe(stamp, "pop"); bigStamp("x" + m); s.trauma = R.reduce ? 0 : 0.55; say(m === 2 ? "Tatlo na!" : m === 3 ? "Anim na!" : "Sampu na!"); }
+      else say(rating === "hard" ? "Okay, dahan-dahan" : pick(["Tama!", "Galing!", "Sige pa!", "Ayos!"]));
+      hud();
+      advTimer = setTimeout(next, R.reduce ? 380 : 720);
+    } else {
+      s.streak = 0; s.segs[s.pos] = "miss"; s.queue.push(id); s.segs.push("re");
+      src.classList.add("r-shake", "r-no"); rBlip("miss"); larSet("error", 1100); say("Balikan natin 'to");
+      hud();
+      foot.innerHTML = `<div class="r-miss"><button class="r-chip">Why?<small>Ask LAR</small></button><button class="r-tile go r-next">Next</button></div>`;
+      $(".r-chip", foot).addEventListener("click", () => ask(id));
+      $(".r-next", foot).addEventListener("click", next);
+    }
+    kick();
+  }
+  function ask(id) {
+    if ($(".r-wy", foot)) return;
+    larSet("think"); say("Sandali lang…");
+    clearTimeout(thinkTimer);
+    thinkTimer = setTimeout(() => {
+      larSet("happy", 1200); say("Eto ang paliwanag");
+      foot.insertAdjacentHTML("afterbegin", `<p class="r-wy"><small>LAR</small>${esc(rDeck[id].why)}</p>`);
+    }, R.reduce ? 150 : 750);
+  }
+  function next() {
+    clearTimeout(advTimer); clearTimeout(thinkTimer);
+    if (s.stage !== "play" || !s.locked) return;
+    s.pos++;
+    if (s.pos >= s.queue.length) return finish();
+    hud(); card();
+    if (s.pos === s.queue.length - 1) say("Huling isa!");
+    larSet("idle");
+    kick();
+  }
+
+  function bigStamp(txt) {
+    const b = document.createElement("div"); b.className = "bigstamp"; b.textContent = txt; el.append(b);
+    setTimeout(() => b.remove(), R.reduce ? 900 : 1000);
+    if (R.reduce) b.style.animation = "r-fade .2s both";
+  }
+  function burst(srcEl, n) {
+    if (R.reduce) return;
+    const pr = el.getBoundingClientRect(), r = srcEl.getBoundingClientRect(), k = 160 / pr.width;
+    const cx = (r.left + r.width / 2 - pr.left) * k, cy = (r.top + r.height / 2 - pr.top) * k;
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = 30 + Math.random() * 70; s.parts.push({ x: cx + (Math.random() - 0.5) * r.width * k * 0.6, y: cy + (Math.random() - 0.5) * 8, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 45, life: 0.5 + Math.random() * 0.5, age: 0, z: 2 + Math.floor(Math.random() * 3), c: rRamp[Math.floor(Math.random() * rRamp.length)] }); }
+  }
+
+  function finish() {
+    s.stage = "tally"; view.dataset.stage = "res"; foot.innerHTML = ""; hud();
+    const acc = Math.round((100 * s.rights) / s.tries);
+    const nb = !s.practice && s.score > R.best;
+    s.nb = nb; s.acc = acc; s.prevBest = R.best;
+    if (!s.practice) R.best = Math.max(R.best, s.score);
+    larSet("happy", 1800); say(nb ? "Bagong rekord!" : "Ang galing mo!");
+    s.tally = { t0: performance.now(), shown: -1 };
+    const firstTry = Object.values(s.first).filter((x) => x !== "again").length, uniq = Object.keys(s.first).length;
+    main.innerHTML = `<div class="r-res"><div class="card r-tally"><span class="r-lbl">COMP 20073 · DATA STRUCTURES</span><div class="r-big"><b class="r-bn" style="display:block"></b><span>PTS</span></div>${nb ? `<b class="r-nb">NEW BEST</b>` : ""}
+      <div class="r-st"><div>Best combo<b>x${rMult(s.top)} · ${s.top} in a row</b></div><div>Accuracy<b>${acc}%</b></div><div>Right first try<b>${firstTry} / ${uniq}</b></div><div>${nb ? "Previous best" : "Personal best"}<b>${nb ? s.prevBest : Math.max(R.best, s.prevBest)}</b></div></div></div>
+      <button class="btn go r-wide">See the cards</button></div>`;
+    $(".r-wide", main).addEventListener("click", list);
+    if (nb) setTimeout(() => rBlip("best"), R.reduce ? 0 : 1250);
+    kick();
+  }
+  function list() {
+    s.stage = "list";
+    const ids = Object.keys(s.first).map(Number).sort((a, b) => (s.first[a] === "again" ? 0 : 1) - (s.first[b] === "again" ? 0 : 1) || a - b);
+    const missed = ids.filter((i) => s.first[i] === "again");
+    const body = (f) => {
+      const rows = ids.filter((i) => (f === "all" ? true : f === "missed" ? s.first[i] === "again" : s.first[i] !== "again"));
+      if (!rows.length) return `<p class="r-none">${f === "missed" ? "Nothing missed. A clean run." : "No cards here yet."}</p>`;
+      return rows.map((i) => `<div class="r-li"><b>${esc(rDeck[i].t)}</b><span class="r-rt2 ${s.first[i]}">${s.first[i][0].toUpperCase() + s.first[i].slice(1)}</span><small>${esc(rDeck[i].m)}</small>${s.first[i] === "again" ? `<button data-why="${i}">Ask LAR why</button>` : ""}</div>`).join("");
+    };
+    main.innerHTML = `<div class="r-res"><div class="r-tabs" role="group" aria-label="Filter">${["all", "missed", "right"].map((f) => `<button data-f="${f}" aria-pressed="${f === s.filter}">${f[0].toUpperCase() + f.slice(1)}</button>`).join("")}</div>
+      <div class="card r-lst">${body(s.filter)}</div>
+      <div class="r-acts"><button class="btn go r-wide r-pm" ${missed.length ? "" : "disabled"}>${missed.length ? `Practice misses (${missed.length})` : "No misses to practice"}</button><button class="btn r-wide2 r-done">Done</button></div></div>`;
+    say(missed.length ? "Balikan natin ang mali" : "Walang mali!");
+    const lst = $(".r-lst", main);
+    const wire = () => $$("[data-why]", lst).forEach((b) => b.addEventListener("click", () => { const row = b.closest(".r-li"); if ($(".r-wy", row)) return; larSet("think"); setTimeout(() => { larSet("happy", 1000); row.insertAdjacentHTML("beforeend", `<p class="r-wy"><small>LAR</small>${esc(rDeck[+b.dataset.why].why)}</p>`); b.remove(); }, R.reduce ? 100 : 600); }));
+    wire();
+    $$(".r-tabs button", main).forEach((b) => b.addEventListener("click", () => { s.filter = b.dataset.f; $$(".r-tabs button", main).forEach((x) => x.setAttribute("aria-pressed", String(x === b))); lst.innerHTML = body(s.filter); wire(); }));
+    $(".r-pm", main).addEventListener("click", () => missed.length && start(missed, true));
+    $(".r-done", main).addEventListener("click", () => start(rDeck.map((_, i) => i)));
+  }
+
+  function tick(now) {
+    raf = 0;
+    if (!vis || document.hidden) return;
+    const dt = Math.min(0.05, (now - last) / 1000 || 0.016); last = now;
+    let busy = false;
+    if (s.stage === "tally" && s.tally) {
+      const k = R.reduce ? 1 : clamp((performance.now() - s.tally.t0) / 1300);
+      const v = Math.round(s.score * ease(k));
+      const el2 = $(".r-bn", main);
+      if (el2 && v !== s.tally.shown) { s.tally.shown = v; el2.innerHTML = pn(v, 6); }
+      if (k >= 1 && !s.tally.done) { s.tally.done = true; s.bump = 1; }
+      if (k < 1) busy = true;
+      const big = $(".r-big", main); if (big) big.style.scale = String(1 + 0.18 * s.bump);
+    } else if (s.stage === "play") {
+      const d = s.score - s.disp;
+      if (Math.abs(d) > 0.5) { s.disp += d * Math.min(1, dt * 10); busy = true; } else s.disp = s.score;
+      const v = R.reduce ? s.score : Math.round(s.disp);
+      if (v !== s.shown) { s.shown = v; score.innerHTML = pn(v, 3); }
+      score.style.scale = String(1 + 0.3 * s.bump);
+    }
+    if (s.bump > 0.001) { s.bump = R.reduce ? 0 : Math.max(0, s.bump - dt * 3.2); busy = true; }
+    if (s.trauma > 0.01) {
+      s.trauma = Math.max(0, s.trauma - dt * 1.8); const m = s.trauma * s.trauma * 7;
+      view.style.translate = `${(Math.random() - 0.5) * 2 * m}px ${(Math.random() - 0.5) * 2 * m}px`; busy = true;
+    } else if (view.style.translate) view.style.translate = "";
+    if (s.parts.length || s.drewParts) {
+      g.clearRect(0, 0, 160, 336);
+      s.parts = s.parts.filter((p) => (p.age += dt) < p.life);
+      for (const p of s.parts) { p.vy += 230 * dt; p.x += p.vx * dt; p.y += p.vy * dt; g.globalAlpha = Math.min(1, (p.life - p.age) * 3); g.fillStyle = p.c; g.fillRect(Math.round(p.x), Math.round(p.y), p.z, p.z); }
+      g.globalAlpha = 1; s.drewParts = s.parts.length > 0; busy = true;
+    }
+    if (busy) kick();
+  }
+  if ("IntersectionObserver" in window) new IntersectionObserver((es) => { vis = es[es.length - 1].isIntersecting; if (vis) kick(); }).observe(el);
+  document.addEventListener("visibilitychange", kick);
+  $(".r-x", view).addEventListener("click", () => start(rDeck.map((_, i) => i)));
+  const api = {
+    restart: () => start(rDeck.map((_, i) => i)),
+    dress: () => { dress(el, rTheme()); el.toggleAttribute("data-day", R.day); },
+    reduce: () => { el.toggleAttribute("data-rm", R.reduce); if (R.reduce) { s.parts = []; s.trauma = 0; } kick(); },
+  };
+  api.reduce();
+  return api;
+}
+
+function rSetup() {
+  rPhones.push(rMake($("#rPhoneA"), "A"), rMake($("#rPhoneB"), "B"));
+  rPhones.forEach((p) => p.restart());
+}
+rSetup();
+$("#rReplay").addEventListener("click", () => rPhones.forEach((p) => p.restart()));
+$$("[data-m]", $("#run")).forEach((b) => b.addEventListener("click", () => { R.mode = b.dataset.m; $$("[data-m]", $("#run")).forEach((x) => x.setAttribute("aria-pressed", String(x === b))); rPhones.forEach((p) => p.restart()); }));
+$("#rRoom").addEventListener("click", (e) => { R.day = !R.day; e.target.textContent = R.day ? "Night room" : "Day room"; rPhones.forEach((p) => p.dress()); });
+$("#rReduce").addEventListener("click", (e) => { R.reduce = !R.reduce; e.target.setAttribute("aria-pressed", String(R.reduce)); e.target.textContent = `Reduce Motion: ${R.reduce ? "on" : "off"}`; rPhones.forEach((p) => p.reduce()); });
+$("#rSound").addEventListener("click", (e) => { R.sound = !R.sound; e.target.setAttribute("aria-pressed", String(R.sound)); e.target.textContent = `Sound: ${R.sound ? "on" : "off"}`; if (R.sound) rBlip("ok", 0); });
+window.__run = { R, rPhones };
+</script>
