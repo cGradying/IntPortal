@@ -79,6 +79,9 @@ pub fn looped(text: &str) -> bool {
     w.windows(4).any(|t| w.windows(4).filter(|u| *u == t).count() >= 3)
 }
 
+/// The section `assis` gives the per-turn rule in; it goes after the student's message, not in the system text.
+pub const HOW: &str = "How to take this message";
+
 /// Tokens an open reply may take: room for an explanation with its steps (a tutor turn), not an essay.
 const REPLY_TOKENS: u32 = 420;
 
@@ -91,7 +94,17 @@ fn prefill_for(msg: &str) -> String {
 #[allow(clippy::too_many_arguments)]
 fn attempt(llm: &mut dyn Llm, tpl: Template, style: Option<&str>, sections: &[Section], msg: &str, fil: bool, (shots, prefill): (bool, bool), schema: &Value, on_text: &mut dyn FnMut(&str)) -> Result<String, String> {
     let system = if shots { persona::system(style, fil) } else { persona::system_all(style) };
-    let prompt = tpl.wrap(&build(&system, sections, PROMPT_BUDGET), &format!("Student: {msg}"));
+    // How to take this message rides with the message itself: buried in the system text, Qwen3.5 2B
+    // ignored "Reply in English" and "answer from what you know" (spec 021, suite rerun).
+    let (how, rest): (Vec<&Section>, Vec<&Section>) = sections.iter().partition(|s| s.title == HOW);
+    let rest: Vec<Section> = rest.into_iter().cloned().collect();
+    let turn = match how.first() {
+        Some(h) => format!("Student: {msg}\n\n({})", h.body),
+        None => format!("Student: {msg}"),
+    };
+    // The rule now sits outside the system text, so the budget leaves room for it.
+    let extra = how.first().map_or(0, |h| h.body.chars().count() + 4);
+    let prompt = tpl.wrap(&build(&system, &rest, PROMPT_BUDGET.saturating_sub(extra)), &turn);
     let mut stream = ReplyStream::default();
     let mut show = |piece: &str| {
         if let Some(words) = stream.feed(piece) {

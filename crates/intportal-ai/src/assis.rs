@@ -262,7 +262,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
         Section { title: "Open note", body: &note, priority: 6 },
         Section { title: "From the student's notes", body: &hits, priority: 7 },
         Section { title: "Conversation so far", body: &chat, priority: 4 },
-        Section { title: "How to take this message", body: &how, priority: 9 },
+        Section { title: lang::HOW, body: &how, priority: 9 },
     ];
     // A request gets no facts: with them a 1B model starts chatting inside `text`.
     let live: Vec<_> = sections.into_iter().filter(|s| !s.body.trim().is_empty() && (matches!(intent, Intent::Ask) || s.title.starts_with("Dates"))).collect();
@@ -298,6 +298,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let reply = match (&proposal, intent) {
         (Some(p), _) => confirm(p, fil),
         (None, Intent::Ask) if s("reply").is_empty() => return Err("the reply came back empty".into()), // never a blank bubble
+        (None, Intent::Ask) if from_knowledge => without_preamble(&postcheck(&s("reply"), msg)),
         (None, Intent::Ask) => postcheck(&s("reply"), msg),
         (None, _) => if fil { "Hindi ko nakuha iyon. Pwede mo bang ulitin?" } else { "I didn't catch that. Could you say it again?" }.into(),
     };
@@ -361,6 +362,28 @@ fn postcheck(reply: &str, msg: &str) -> String {
         return persona::line(Line::Retry, replies_in_filipino(msg), msg);
     }
     reply.to_string()
+}
+
+/// An answer from what the model knows, without the "I don't see that in your notes" it opens with: the
+/// chat already says it is from what LAR knows (C16). Only leading refusals go, and only when something
+/// follows them; "But"/"However" at the start of what is left goes too. A reply that is only a refusal stays.
+fn without_preamble(reply: &str) -> String {
+    let parts = sentences(reply);
+    let keep: Vec<&str> = parts.iter().copied().skip_while(|s| is_refusal(s) || is_no_access(s)).collect();
+    if keep.is_empty() || keep.len() == parts.len() {
+        return reply.to_string();
+    }
+    let rest = keep.join(" ");
+    let low = rest.to_lowercase();
+    let trimmed = ["but ", "however, ", "however ", "still, "].iter().find(|p| low.starts_with(*p)).map_or(rest.as_str(), |p| &rest[p.len()..]);
+    let mut c = trimmed.chars();
+    c.next().map_or(rest.clone(), |f| f.to_uppercase().chain(c).collect())
+}
+
+/// "I don't have access to your schedule, grades or notes" and the like: about the app's data, not an answer.
+fn is_no_access(sentence: &str) -> bool {
+    let low = sentence.to_lowercase().replace('\u{2019}', "'");
+    ["have access to", "can't look", "cannot look", "don't see your", "isn't in your", "is not in your"].iter().any(|p| low.contains(p)) && ["notes", "schedule", "grades", "data", "app"].iter().any(|w| low.contains(w))
 }
 
 /// What `ai_load` says when a phone with little RAM cannot hold the chat model at all.
@@ -972,7 +995,7 @@ mod tests {
         assert!(at("Student: question 3\nLAR: answer 3") < at("Student: question 4\nLAR: answer 4"));
         assert!(at("Student: question 5\nLAR: answer 5") < at("Student: question 6\nLAR: answer 6"), "oldest first");
         assert!(at("## Conversation so far") < at("Student: question 3"));
-        assert!(p.ends_with("Student: and now?<end_of_turn>\n<start_of_turn>model\n"));
+        assert!(p.contains("Student: and now?") && p.ends_with("<end_of_turn>\n<start_of_turn>model\n"), "the question comes last, with how to take it");
     }
 
     #[test]
@@ -1286,6 +1309,14 @@ mod tests {
         let mut m = FakeLlm::new(&[r#"{"reply":"Jose Rizal was born on June 19, 1861."}"#]);
         let a = answer(&mut m, Template::ChatMl, &rich(), &[], "Kailan ipinanganak si Jose Rizal?").unwrap();
         assert!(a.known && !a.cited, "{a:?}");
-        assert!(m.prompts[0].contains("Answer from what you know") && m.prompts[0].contains("Reply in English"), "{}", m.prompts[0]);
+        assert!(m.prompts[0].contains("Answer it from what you know") && m.prompts[0].contains("Reply in English"), "{}", m.prompts[0]);
+    }
+
+    #[test]
+    fn a_knowledge_answer_loses_its_not_in_your_notes_opening() {
+        assert_eq!(without_preamble("I don't see your schedule or notes mentioning the capital of France, so I can't tell you for sure. But I know it's Paris."), "I know it's Paris.");
+        assert_eq!(without_preamble("I don't have access to your personal schedule, grades, or notes. However, the national hero is Jose Rizal."), "The national hero is Jose Rizal.");
+        assert_eq!(without_preamble("I don't know who won it."), "I don't know who won it.", "only a refusal: kept");
+        assert_eq!(without_preamble("Paris is the capital."), "Paris is the capital.");
     }
 }
