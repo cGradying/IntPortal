@@ -215,7 +215,7 @@
     width: 100vw;
     height: 110vh;
     translate: -50% 0;
-    background: radial-gradient(rgba(245, 178, 39, 0.07) 1px, transparent 1.5px) 0 0 / 14px 14px;
+    background: radial-gradient(rgba(245, 178, 39, 0.07) 1px, transparent 1.5px) 0 0 / 15px 15px;
     mask-image: linear-gradient(#000, transparent);
     -webkit-mask-image: linear-gradient(#000, transparent);
     pointer-events: none;
