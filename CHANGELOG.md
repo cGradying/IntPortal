@@ -15,6 +15,7 @@ IntPortal on every platform: phones, computers and the browser, with a website a
 - The reel: 46 seconds of the real app, in 9:16 and 16:9 (#308)
 - iPhone: an unsigned build for AltStore or SideStore comes with each release (#303)
 - Sign-in can't be fooled into a lockout: the guard takes its limits from the portal, a broken count file means no tries for 15 minutes instead of a fresh count, and each try is saved before any password is sent (#303)
+- Studying plays like a card game: streaks multiply points, quick answers earn a bonus, a missed card comes back once, and each deck keeps a best score; it follows You › Done effects and Reduce Motion (#313)
 - Decks say how much you know ("62% known") and what's due over the next seven days (#303)
 - A syllabus marks the rows dated this week (#303)
 - Links from eMabini open only on PUP's own sites (#303)
