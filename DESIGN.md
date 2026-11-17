@@ -363,6 +363,8 @@ The landing scene is a pure function of time and state (spec 010). The tile port
 
 **The dive** (spec 010 C26–C30, `crates/intportal-tiles/src/dive.rs`) is one field of tiles from the void to Today, and the loading screen on every signed-in launch. The camera zooms into the portal's mouth, which holds the field at a finer pitch, until the mouth's tiles are the screen's tiles. The tunnel changes form on the way in (spiral arms, round rings, a square corridor, petals, polar checks, plasma), and every dark part glows at its edge, all in the school's ramp through a Bayer dither. Speed comes in ramps: the tunnel and the camera surge through each change and coast between. The field then warms to the room, and from the centre out each tile flares, shrinks to one of Today's dots and lifts off, leaving a glint. Today is already in place and nothing on it moves; one ripple runs through the dot grid. A launch lasts about 0.66 s and a first sign-in about 2.4 s.
 
+**The study session** (spec 055) is the one place that plays like a game: the card is dealt from a dithered pile, tilts to the finger, sways and flips; a combo stamp, a soft clock and the portal swirl (score panel, card backs, pile) heat with quick answers; LAR talks at the top; the results count up. Its kit stays inside the session.
+
 **Reduce Motion.** A global rule clamps every CSS animation and transition to 0.01 ms. The landing shows a still, open portal, and there is no dive: launch and Step through go straight to Today. LAR holds still and stops blinking, the skeleton stops shimmering, confetti is skipped, and the campus strip redraws one still frame a minute.
 
 ### Haptics
