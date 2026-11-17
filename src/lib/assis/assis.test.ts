@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { cancel, isPermissionGranted, pending as devicePending, requestPermission } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, larStyle, spaceLine, speedOf, etaLine, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
+import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, choices, larStyle, spaceLine, speedOf, etaLine, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -37,7 +37,8 @@ function deferred<T>() {
 
 const model = (o: Partial<ModelInfo>): ModelInfo => ({ id: "m", name: "M", chat: true, bytes: 1000, installed: true, default: true, fits: "ok", loaded: true, ...o });
 const chat = (o: Partial<ModelInfo> = {}) => model({ id: "chat", name: "Chat", ...o });
-const gemma = (o: Partial<ModelInfo> = {}) => model({ id: "gemma", name: "Gemma", default: false, bytes: 800, ...o });
+const gemma = (o: Partial<ModelInfo> = {}) => model({ id: "gemma", name: "Gemma", default: false, bytes: 800, legacy: true, ...o });
+const qwen3 = (o: Partial<ModelInfo> = {}) => model({ id: "qwen3", name: "Qwen3 1.7B", default: false, bytes: 1100, ...o });
 const embed = (o: Partial<ModelInfo> = {}) => model({ id: "embed", name: "Embed", chat: false, default: false, bytes: 500, ...o });
 
 let disk: ModelInfo[];
@@ -481,10 +482,48 @@ describe("installing IntAssis", () => {
     backend.ai_download = () => d.promise;
     const p = install();
     await settle();
-    expect(localStorage.getItem("intassisInstalling")).toBe("1");
+    expect(localStorage.getItem("intassisInstalling")).toBe("chat");
     d.resolve();
     await p;
     expect(localStorage.getItem("intassisInstalling")).toBeNull();
+  });
+});
+
+describe("choosing the chat model (C11, C13)", () => {
+  beforeEach(() => {
+    backend.ai_space = () => ({ need: 0, free: null });
+    backend.ai_delete = (a) => void (disk.find((m) => m.id === a.id)!.installed = false);
+    backend.ai_download = (a) => {
+      for (const id of a.ids) disk.find((m) => m.id === id)!.installed = true;
+    };
+  });
+
+  it("offers the two current models, never a legacy one", () => {
+    assis.models = [chat({ installed: false }), qwen3({ installed: false }), gemma(), embed()];
+    expect(choices().map((m) => m.id)).toEqual(["chat", "qwen3"]);
+  });
+
+  it("keeps a chosen Qwen3 1.7B without asking to update", () => {
+    assis.models = [chat({ installed: false }), qwen3(), embed()];
+    expect(chatModel()?.id).toBe("qwen3");
+    expect(updatable()).toBe(false);
+  });
+
+  it("switches: brings the other model, then lets the old one go", async () => {
+    disk = [chat(), qwen3({ installed: false }), embed()];
+    assis.models = structuredClone(disk);
+    await install("qwen3");
+    expect(ran("ai_download").map(([, a]) => a.ids)).toEqual([["qwen3"]]);
+    expect(ran("ai_delete").map(([, a]) => a.id)).toEqual(["chat"]);
+    expect(chatModel()?.id).toBe("qwen3");
+  });
+
+  it("does nothing for a model that is already there", async () => {
+    disk = [chat(), qwen3(), embed()];
+    assis.models = structuredClone(disk);
+    await install("qwen3");
+    expect(ran("ai_download")).toHaveLength(0);
+    expect(ran("ai_delete")).toHaveLength(0);
   });
 });
 

@@ -146,6 +146,8 @@ pub struct ModelInfo {
     /// "ok", "warn" (over 60% of available memory) or "refuse" (over 90%).
     fits: &'static str,
     loaded: bool,
+    /// No longer offered (spec 021 C13); listed only while it is on the phone.
+    legacy: bool,
 }
 
 /// The Storage view's list: every model, whether it is on the phone, whether it fits.
@@ -156,15 +158,18 @@ pub async fn ai_models(app: tauri::AppHandle, ai: tauri::State<'_, AiState>) -> 
     let loaded: Vec<String> = [&ai.engine, &ai.embedder].iter().filter_map(|s| s.try_lock().ok().and_then(|e| e.as_ref().map(|l| l.id.clone()))).collect();
     Ok(models::CATALOG
         .iter()
-        .map(|m| ModelInfo {
+        .map(|m| (m, dir.join(m.file).metadata().is_ok_and(|f| f.len() == m.bytes)))
+        .filter(|(m, installed)| !m.legacy || *installed)
+        .map(|(m, installed)| ModelInfo {
             id: m.id,
             name: m.name,
             chat: m.kind == models::Kind::Chat,
             bytes: m.bytes,
-            installed: dir.join(m.file).metadata().is_ok_and(|f| f.len() == m.bytes),
+            installed,
             default: m.id == models::DEFAULT_CHAT,
             fits: match fits(m) { Gate::Ok => "ok", Gate::Warn => "warn", Gate::Refuse => "refuse" },
             loaded: loaded.iter().any(|l| l == m.id),
+            legacy: m.legacy,
         })
         .collect())
 }

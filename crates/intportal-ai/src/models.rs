@@ -23,9 +23,27 @@ pub struct Model {
     pub n_ctx: u32,
     /// Rough per-1000-token KV cache at q8_0, for the RAM gate.
     pub kv_bytes_per_1k: u64,
+    /// A model an earlier version installed and this one no longer offers (spec 021 C13). It is listed
+    /// only while it is on the phone, keeps answering until the default arrives, and is deleted then.
+    pub legacy: bool,
 }
 
-pub const CATALOG: [Model; 4] = [
+pub const CATALOG: [Model; 5] = [
+    Model {
+        id: "qwen3.5-2b",
+        name: "Qwen3.5 2B",
+        kind: Kind::Chat,
+        template: Template::ChatMl,
+        file: "Qwen3.5-2B-IQ4_XS.gguf",
+        url: "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-IQ4_XS.gguf",
+        sha256: "3639f34b5ca22aa1c51f3616566eae8c355111554f6924ad97ee2652ed11c1cd",
+        bytes: 1_172_996_352,
+        n_ctx: 4096,
+        // Hybrid: three of every four layers are linear attention with a fixed state, so the cache grows
+        // with only a quarter of the layers. Set from the peak RSS of `speed` (docs/ai.md), with margin.
+        kv_bytes_per_1k: 60_000_000,
+        legacy: false,
+    },
     Model {
         id: "qwen3-0.6b",
         name: "Qwen3 0.6B",
@@ -37,6 +55,7 @@ pub const CATALOG: [Model; 4] = [
         bytes: 396_705_472,
         n_ctx: 4096,
         kv_bytes_per_1k: 60_000_000,
+        legacy: true,
     },
     Model {
         id: "gemma3-1b",
@@ -49,6 +68,7 @@ pub const CATALOG: [Model; 4] = [
         bytes: 806_058_272,
         n_ctx: 4096,
         kv_bytes_per_1k: 25_000_000,
+        legacy: true,
     },
     Model {
         id: "qwen3-1.7b",
@@ -61,6 +81,7 @@ pub const CATALOG: [Model; 4] = [
         bytes: 1_107_409_472,
         n_ctx: 4096,
         kv_bytes_per_1k: 115_000_000,
+        legacy: false,
     },
     Model {
         id: "embeddinggemma-2",
@@ -77,13 +98,14 @@ pub const CATALOG: [Model; 4] = [
         // vocabulary. Kept as a per-1k figure so `gate` sees weights plus that overhead at 1024.
         n_ctx: 1024,
         kv_bytes_per_1k: 200_000_000,
+        legacy: false,
     },
 ];
 
-/// The answering model of a new install (spec 021). Chosen by the user on 2026-10-25 for English answers
-/// that read better than Gemma's; Gemma 3 1B stays in the catalog as the lighter download. Phones that
-/// already hold Gemma keep it (`chatModel()` in the app) until they tap Update.
-pub const DEFAULT_CHAT: &str = "qwen3-1.7b";
+/// The answering model of a new install (spec 021 C10, C12). The owner chose Qwen3.5 2B on 2026-11-17;
+/// IQ4_XS won the benchmark: the first word 3.4 times sooner than Q4_K_M on CPU, the same on Metal, and
+/// 110 MB smaller (docs/ai.md). Qwen3 1.7B stays as the other choice; Gemma 3 1B and Qwen3 0.6B are legacy.
+pub const DEFAULT_CHAT: &str = "qwen3.5-2b";
 pub const EMBED: &str = "embeddinggemma-2";
 
 /// The embedder before EmbeddingGemma-2 (nomic-embed-text v1.5, 84 MB). It is no
@@ -155,6 +177,7 @@ mod tests {
             assert!(CATALOG[i + 1..].iter().all(|o| o.id != m.id));
         }
         assert!(find("nope").is_none());
+        assert!(!find(DEFAULT_CHAT).unwrap().legacy);
         assert_eq!(find(DEFAULT_CHAT).unwrap().kind, Kind::Chat);
         assert_eq!(find(EMBED).unwrap().kind, Kind::Embed);
     }
@@ -163,18 +186,21 @@ mod tests {
     fn the_embedder_is_embeddinggemma_2_and_nomic_is_only_a_file_to_clean_up() {
         let m = find(EMBED).unwrap();
         assert_eq!((m.id, m.file, m.bytes, m.kind), ("embeddinggemma-2", "embeddinggemma-2-Q8_0.gguf", 309_855_456, Kind::Embed));
-        assert_eq!(CATALOG.len(), 4);
+        assert_eq!(CATALOG.len(), 5);
         assert!(CATALOG.iter().all(|c| !LEGACY_EMBED_FILES.contains(&c.file) && !c.id.contains("nomic")));
     }
 
     #[test]
-    fn qwen_is_the_default_and_every_template_matches_its_family() {
-        assert_eq!(DEFAULT_CHAT, "qwen3-1.7b");
+    fn qwen35_is_the_default_qwen3_the_choice_and_the_rest_legacy() {
+        assert_eq!(DEFAULT_CHAT, "qwen3.5-2b");
+        let offered: Vec<&str> = CATALOG.iter().filter(|m| m.kind == Kind::Chat && !m.legacy).map(|m| m.id).collect();
+        assert_eq!(offered, ["qwen3.5-2b", "qwen3-1.7b"]);
+        assert!(find("gemma3-1b").unwrap().legacy && find("qwen3-0.6b").unwrap().legacy);
         for m in &CATALOG {
             let want = if m.id.starts_with("gemma3") { Template::Gemma } else { Template::ChatMl };
             assert_eq!(m.template, want, "{}", m.id);
         }
-        assert!(find("gemma3-1b").is_some(), "Gemma stays installable as the lighter fallback");
+
     }
 
     #[test]
