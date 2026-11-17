@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Storage card for LAR's brain. Light is the default: nothing is
   // downloaded unless the student asks, and they can take it off again.
-  import { addSearch, assis, cancelDownload, chatModel, defaultChat, downloadSizes, embedModel, install, installed, larStyle, mb, open, remove, setLarStyle, STYLE_MAX, updatable } from "./assis.svelte";
+  import { addSearch, assis, cancelDownload, chatModel, choices, defaultChat, downloadSizes, embedModel, install, installed, larStyle, mb, open, remove, setLarStyle, STYLE_MAX, updatable } from "./assis.svelte";
   import { buzz } from "../haptics";
 
   const m = $derived(chatModel());
@@ -14,6 +14,8 @@
   const next = $derived(defaultChat());
   const update = $derived(updatable() && next ? mb(next.bytes + (e && !e.installed ? e.bytes : 0)) : "");
   const pct = $derived(assis.total ? Math.min(100, Math.round((assis.done / assis.total) * 100)) : 0);
+  // The other offered model, to switch to (spec 021 C11); none while a legacy model waits for its update.
+  const other = $derived(update ? undefined : choices().find((c) => c.id !== m?.id));
   let confirming = $state(false);
   let style = $state(larStyle());
 </script>
@@ -41,7 +43,11 @@
       {#if update}
         <button class="ghost" onclick={() => { buzz.tick(); install(); }}>Update IntAssis · {update}</button>
         <p class="fine">A newer model for LAR. Your chat and notes stay, and {m.name} keeps answering until it arrives. Use Wi-Fi.</p>
-      {:else if searchMissing && e}
+      {:else if other}
+        <button class="ghost" onclick={() => { buzz.tick(); install(other.id); }}>Switch to {other.name} · {mb(other.bytes)}</button>
+        <p class="fine">{other.default ? "Smarter, the default." : "The earlier model, a little smaller."} Your chat and notes stay, and {m.name} answers until it arrives.</p>
+      {/if}
+      {#if !update && searchMissing && e}
         <button class="ghost" onclick={() => { buzz.tick(); addSearch(); }}>Add note search · {mb(e.bytes)}</button>
       {/if}
       {#if confirming}

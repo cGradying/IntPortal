@@ -17,6 +17,8 @@ export interface ModelInfo {
   default: boolean;
   fits: "ok" | "warn" | "refuse";
   loaded: boolean;
+  /** No longer offered; listed only while it is on the phone (spec 021 C13). */
+  legacy?: boolean;
 }
 
 export interface Source {
@@ -74,19 +76,23 @@ export const assis = $state({
 /** The model a new install gets (the catalog's default chat model). */
 export const defaultChat = () => assis.models.find((m) => m.chat && m.default) ?? assis.models.find((m) => m.chat);
 /**
- * The model that answers: the default when it is installed, else whichever chat model is
- * (a phone that has the old default keeps working until its student taps Update), else the
- * default, so "Add IntAssis" has a target. Nothing is stored: it follows from what is on the phone.
+ * The model that answers: the default when it is installed, else the other offered model the student
+ * chose, else a legacy one an earlier version left (it keeps working until its student taps Update),
+ * else the default, so "Add IntAssis" has a target. Nothing is stored: it follows from what is on the phone.
  */
 export const chatModel = () => {
   const d = defaultChat();
-  return d?.installed ? d : assis.models.find((m) => m.chat && m.installed) ?? d;
+  if (d?.installed) return d;
+  const on = assis.models.filter((m) => m.chat && m.installed);
+  return on.find((m) => !m.legacy) ?? on[0] ?? d;
 };
 /** The small model that finds the student's notes. */
 export const embedModel = () => assis.models.find((m) => !m.chat);
 export const installed = () => assis.models.some((m) => m.chat && m.installed);
-/** A chat model is on the phone but it is not the default: the card offers Update. */
-export const updatable = () => installed() && !defaultChat()?.installed;
+/** Only a legacy chat model is on the phone: the card offers Update (C13). A chosen Qwen3 1.7B is not asked. */
+export const updatable = () => installed() && !assis.models.some((m) => m.chat && m.installed && !m.legacy);
+/** The offered chat models, for the choice on the IntAssis card (C11). */
+export const choices = () => assis.models.filter((m) => m.chat && !m.legacy);
 export const mb = (bytes: number) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : `${Math.round(bytes / 1e6)} MB`);
 
 /** What a download is, piece by piece from the sizes the phone reports: "Chat model 1.11 GB + note search 310 MB, use Wi-Fi". */
@@ -108,17 +114,18 @@ export async function refresh() {
 }
 
 const INSTALLING = "intassisInstalling";
-const flag = (on: boolean) => {
+/** The chat model an install is bringing, kept while it runs so a cut-off install carries on with the same one. */
+const flag = (id: string | false) => {
   try {
-    if (on) localStorage.setItem(INSTALLING, "1");
+    if (id) localStorage.setItem(INSTALLING, id);
     else localStorage.removeItem(INSTALLING);
   } catch {}
 };
-const flagged = () => {
+const flagged = (): string | null => {
   try {
-    return localStorage.getItem(INSTALLING) === "1";
+    return localStorage.getItem(INSTALLING);
   } catch {
-    return false;
+    return null;
   }
 };
 
@@ -148,7 +155,7 @@ export function etaLine(left: number, speed: number): string {
  * The whole install in one Rust call, one bar over every file. The download goes on when the student
  * leaves the app (spec 021 C3–C5); a dropped connection is waited out in Rust (C7). True when every file arrived.
  */
-async function fetchAll(todo: ModelInfo[]): Promise<boolean> {
+async function fetchAll(todo: ModelInfo[], target = todo[0]?.id ?? ""): Promise<boolean> {
   if (!todo.length || assis.busy) return false;
   assis.error = "";
   assis.busy = "downloading";
@@ -165,7 +172,7 @@ async function fetchAll(todo: ModelInfo[]): Promise<boolean> {
   assis.done = 0;
   assis.total = todo.reduce((n, m) => n + m.bytes, 0);
   assis.install = { open: true, files: todo, file: 0, speed: 0, waiting: "", ready: false };
-  flag(true);
+  flag(target);
   const samples: { t: number; done: number }[] = [];
   try {
     const onProgress = new Channel<{ done: number; total: number; file: number; waiting: string | null }>();
@@ -197,18 +204,18 @@ async function fetchAll(todo: ModelInfo[]): Promise<boolean> {
 }
 
 /**
- * The one-time download: LAR's brain, then the model that finds your notes, whichever is missing.
- * On a phone that has another chat model (the old default) this is the update: that model keeps
- * answering until the new one has arrived, then goes, so the phone holds one chat model. The chat
- * history, the notes index and the settings are not touched.
+ * The one-time download: LAR's brain (the default, or `id` when the student switches models), then the
+ * model that finds their notes, whichever is missing. The phone holds one chat model: once the new one has
+ * arrived, any other goes; until then the old one keeps answering. History, the notes index and the settings
+ * are not touched.
  */
-export async function install() {
-  const chat = defaultChat();
+export async function install(id?: string) {
+  const chat = assis.models.find((m) => m.chat && m.id === id) ?? defaultChat();
   const todo = [chat, embedModel()].filter((m): m is ModelInfo => !!m && !m.installed);
-  const hadOther = updatable();
-  if (!chat || !(await fetchAll(todo))) return;
-  if (hadOther && defaultChat()?.installed) {
-    for (const old of assis.models.filter((m) => m.chat && !m.default && m.installed)) await invoke("ai_delete", { id: old.id }).catch(() => {});
+  if (!chat || !todo.length || !(await fetchAll(todo, chat.id))) return;
+  const others = assis.models.filter((m) => m.chat && m.installed && m.id !== chat.id);
+  if (assis.models.find((m) => m.id === chat.id)?.installed && others.length) {
+    for (const old of others) await invoke("ai_delete", { id: old.id }).catch(() => {});
     await refresh();
   }
 }
@@ -533,12 +540,14 @@ const asLocalDigits = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() 
 /** Wire once: let the model go when the app is hidden, and look for it at launch. */
 export function watchAssis() {
   // An install the system cut off (the app was ended mid-download) carries on without a tap (spec 021 C7).
-  refresh().then(() => {
-    if (flagged() && !assis.busy) install();
-  });
+  const resume = () => {
+    const id = flagged();
+    if (id && !assis.busy) install(id);
+  };
+  refresh().then(resume);
   document.addEventListener("visibilitychange", () => {
     if (globalThis.document?.hidden) sleep();
-    else if (flagged() && !assis.busy) install();
+    else resume();
   });
 }
 
