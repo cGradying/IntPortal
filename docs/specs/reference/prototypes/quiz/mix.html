@@ -1,0 +1,605 @@
+<style>
+/* Mix, "Heat": calm at x1, earns its spectacle. The table heats with the combo (A) or the clock (B). */
+.m-ph { --m-bad: #ff9680; --m-bad-bg: rgb(255 150 128 / 0.14); }
+.m-ph.m-day { --m-bad: #b3261e; --m-bad-bg: rgb(179 38 30 / 0.1); }
+.m-ph .tabs { display: none; }
+.m-ph .ground i { opacity: 0; }
+.m-ph .view { overflow: hidden; padding: 44px 14px 14px; gap: 8px; will-change: translate; }
+.m-ph .view.m-res { overflow-y: auto; padding-bottom: 0; gap: 10px; overscroll-behavior: contain; }
+.m-ph .view > .m-stage { flex: 1 1 0; min-height: 0; }
+.m-fx, .m-pt { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
+.m-fx { z-index: 2; }
+.m-pt { z-index: 50; }
+.m-ph button { touch-action: manipulation; }
+
+/* HUD: one solid strip, so the numbers read over any heat */
+.m-hud { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 2px; min-height: 48px; }
+.m-x { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 0; background: none; color: var(--ink-2) !important; }
+.m-ring { flex: none; display: block; }
+.m-ring circle { fill: none; stroke-width: 4; }
+.m-ring .m-rb { stroke: var(--edge-2); }
+.m-ring .m-rp { stroke: var(--gold); stroke-dasharray: 69.1; stroke-dashoffset: 0; }
+.m-ring.slow .m-rp { stroke: var(--ink-3); }
+.m-gauge { display: flex; align-items: center; gap: 3px; flex: none; }
+.m-gauge i { width: 11px; height: 14px; background: var(--edge-2); clip-path: polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% 100%,0 100%); }
+.m-gauge i.on { background: var(--c); }
+.m-gauge i.pop { animation: m-pop 0.32s var(--spring); }
+.m-gauge i:nth-child(1) { --c: #b5412a; } .m-gauge i:nth-child(2) { --c: #e08a35; } .m-gauge i:nth-child(3) { --c: #f3cf6a; } .m-gauge i:nth-child(4) { --c: #fff1b8; }
+@keyframes m-pop { from { scale: 1.9; } }
+.m-mult { font: 600 16px var(--f-pixel); letter-spacing: 0.04em; color: var(--ink-2); min-width: 24px; margin-left: 3px; }
+.m-hot .m-mult { color: var(--gold); }
+.m-sc { margin-left: auto; transform-origin: right center; color: var(--ink); display: block; }
+.m-hot .m-sc { color: var(--gold); }
+.m-cnt { font: 500 12px var(--f-pixel); letter-spacing: 0.04em; color: var(--ink-2); min-width: 26px; text-align: right; }
+
+/* LAR at the side */
+.m-lh { flex: none; display: flex; align-items: flex-end; gap: 8px; min-height: 46px; padding-left: 2px; }
+.m-say { flex: 1; min-width: 0; margin-bottom: 4px; padding: 8px 10px; font-size: 13px; line-height: 1.3; color: var(--ink-2); background: var(--card); box-shadow: inset 0 0 0 1px var(--edge-2); clip-path: var(--n3); }
+.m-lh canvas, .m-tally canvas { flex: none; width: 53px; height: 50px; margin-bottom: -4px; image-rendering: pixelated; }
+
+/* The table: the card, with a pile behind it */
+.m-stage { position: relative; perspective: 900px; }
+.m-pl { position: absolute; top: 14px; left: calc(var(--i) * 7px); right: calc(var(--i) * 7px); bottom: calc(18px - var(--i) * 6px); background: var(--card-2); box-shadow: inset 0 0 0 1px var(--edge-2); clip-path: var(--n4); z-index: 0; }
+.m-card { position: absolute; inset: 0 0 18px; transform-style: preserve-3d; z-index: 2; will-change: transform; cursor: pointer; }
+.m-flip { position: absolute; inset: 0; transform-style: preserve-3d; }
+.m-sh { position: absolute; inset: 0; translate: 0 6px; background: rgb(0 0 0 / 0.34); clip-path: var(--n4); transform: translateZ(-2px); }
+.m-ph.m-day .m-sh { background: rgb(40 20 20 / 0.18); }
+.m-f, .m-b { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 18px; text-align: center; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 -4px 0 var(--edge); clip-path: var(--n4); }
+.m-b { transform: rotateY(180deg); box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 3px 0 var(--gold); }
+.m-f small, .m-b small { display: inline-flex; align-items: center; gap: 6px; font: 500 12px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-2); }
+.m-f strong { font: 800 28px/1.1 var(--f-ui); letter-spacing: -0.03em; text-wrap: balance; color: var(--ink); }
+.m-f strong.m-q { font: 600 19px/1.3 var(--f-ui); letter-spacing: 0; }
+.m-b strong { font: 600 19px/1.3 var(--f-ui); text-wrap: balance; color: var(--ink); }
+.m-b b { font: 800 24px/1.1 var(--f-ui); letter-spacing: -0.03em; color: var(--gold); }
+.m-tag { font: 700 12px var(--f-pixel); letter-spacing: 0.08em; padding: 2px 8px; font-style: normal; color: var(--on-gold); background: var(--gold); }
+.m-tag.no { color: var(--m-bad); background: none; box-shadow: inset 0 0 0 2px currentColor; }
+.m-plus { position: absolute; left: 50%; top: 22%; z-index: 5; translate: -50% 0; padding: 3px 10px; font: 700 22px var(--f-pixel); letter-spacing: 0.04em; color: var(--gold); background: var(--card); box-shadow: inset 0 0 0 2px var(--gold); clip-path: var(--n3); pointer-events: none; animation: m-rise 0.9s var(--ease) both; }
+@keyframes m-rise { from { opacity: 0; translate: -50% 18px; } 25% { opacity: 1; } to { opacity: 0; translate: -50% -34px; } }
+.m-stamp { top: 24%; z-index: 6; font-size: 26px; }
+.m-ph.m-rm .m-plus { animation: m-fade 0.9s linear both; }
+.m-ph.m-rm .m-gauge i.pop, .m-ph.m-rm .bigstamp { animation: m-fade 0.9s linear both; }
+.m-ph.m-rm .m-gauge i.pop { animation: none; }
+@keyframes m-fade { from { opacity: 0; } 20%, 70% { opacity: 1; } to { opacity: 0; } }
+
+/* answer controls */
+.m-ctl { flex: none; display: grid; gap: 8px; align-content: start; min-height: 60px; }
+.m-hint { margin: 0; justify-self: center; text-align: center; font-size: 13px; color: var(--ink-2); padding: 3px 10px; background: var(--card); clip-path: var(--n3); }
+.m-card .m-hint, .m-list .m-hint { background: none; }
+.m-rate { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.m-rate button { min-height: 60px; padding: 6px 2px; border: 0; display: grid; gap: 2px; justify-items: center; align-content: center; background: var(--card); color: var(--ink) !important; box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 -3px 0 var(--gold); clip-path: var(--n3); font: 700 14px var(--f-ui); transition: translate 0.12s var(--ease); }
+.m-rate button:active { translate: 0 2px; }
+.m-rate small { font: 500 12px var(--f-ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.m-opts { display: grid; gap: 6px; }
+.m-opt { min-height: 48px; padding: 8px 12px; border: 0; text-align: left; font: 600 14px/1.25 var(--f-ui); color: var(--ink) !important; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 -3px 0 var(--gold); clip-path: var(--n3); transition: translate 0.12s var(--ease); }
+.m-opt:active { translate: 0 2px; }
+.m-opt.right { background: var(--gold); color: var(--on-gold) !important; box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.25); }
+.m-opt.wrong { background: var(--m-bad-bg); box-shadow: inset 0 0 0 2px var(--m-bad); }
+.m-opt.ans { box-shadow: inset 0 0 0 2px var(--gold); }
+.m-type { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.m-type input { min-width: 0; min-height: 48px; padding: 0 12px; border: 0; outline: 0; font-size: 16px; color: var(--ink); background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 -3px 0 var(--gold); clip-path: var(--n3); }
+.m-type input:focus-visible { box-shadow: inset 0 0 0 2px var(--gold); }
+.m-type .btn { min-height: 48px; padding: 0 18px; }
+.m-skip { min-height: 44px; justify-self: center; padding: 0 14px; border: 0; background: var(--card); clip-path: var(--n3); font-size: 13px; font-weight: 600; color: var(--ink-2) !important; text-decoration: underline; text-underline-offset: 3px; }
+.m-ph .btn.m-flipb { min-height: 48px; }
+
+/* results */
+.m-res > .lb { align-self: flex-start; padding: 3px 8px; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); }
+.m-rtop { align-self: flex-start; }
+.m-rtop .lb { padding: 3px 8px; background: var(--card); }
+.m-best:not(.new) { justify-self: start; }
+.m-rtop { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.m-tally { position: relative; display: grid; gap: 10px; padding: 14px; }
+.m-tally .m-lar2 { position: absolute; right: 8px; top: 6px; }
+.m-big { color: var(--gold); min-height: 56px; }
+.m-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.m-stats div { display: grid; gap: 2px; }
+.m-stats b { font: 700 18px var(--f-ui); color: var(--ink); font-variant-numeric: tabular-nums; }
+.m-stats small { font: 500 11px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-2); }
+.m-best { font: 700 14px var(--f-pixel); letter-spacing: 0.06em; color: var(--ink-2); }
+.m-best.new { color: var(--on-gold); background: var(--gold); padding: 3px 8px; justify-self: start; animation: m-pop 0.4s var(--spring); }
+.m-ph.m-rm .m-best.new { animation: none; }
+.m-list { padding: 4px 12px; }
+.m-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 10px 0; }
+.m-row + .m-row { box-shadow: inset 0 1px 0 var(--edge); }
+.m-row .m-ri { color: var(--gold); }
+.m-row.miss .m-ri { color: var(--m-bad); }
+.m-row b { display: block; font-size: 15px; font-weight: 600; line-height: 1.2; color: var(--ink); }
+.m-row small { display: block; font-size: 13px; color: var(--ink-2); line-height: 1.3; }
+.m-chip { font: 600 12px var(--f-pixel); letter-spacing: 0.04em; color: var(--ink-2); }
+.m-row.miss .m-chip { color: var(--m-bad); }
+.m-row .btn { grid-column: 2 / 4; justify-self: start; margin-top: 6px; }
+.m-why { grid-column: 2 / 4; margin: 4px 0 0; padding: 8px 10px; font-size: 13px; line-height: 1.35; color: var(--ink); background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge), inset 3px 0 0 var(--gold); }
+.m-bar { position: sticky; bottom: 0; z-index: 3; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 18px 0 14px; margin-top: auto; background: linear-gradient(transparent, var(--ground) 16px); }
+.m-bar .btn { min-height: 48px; }
+.m-bar .btn:disabled { opacity: 0.45; }
+
+/* page chrome */
+.m-one { grid-template-columns: 1fr; }
+.m-one .pick { height: 44px; }
+.m-panel { grid-column: 1 / -1; max-width: 760px; justify-self: stretch; }
+.m-panel .seg0 button, .m-panel .pbtn { min-height: 44px; }
+.m-panel .m-tg[aria-pressed="true"], .m-panel .pbtn.on { background: var(--pg); color: var(--on-pg); box-shadow: inset 0 -3px 0 var(--pg-shade); }
+.m-panel .row2 { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+</style>
+
+<section class="row" id="mix">
+  <div class="q"><h2>Heat: it starts calm and earns its spectacle</h2><p>The table is the app's quiet room at x1. Every combo tier heats it: dots drift, a dithered swirl bleeds in from the edges, the card sways, the score gets louder, and x4 shakes and bursts. A miss cools it at once. Two ways to earn the heat. Play both, in any mode.</p></div>
+  <div class="wide">
+    <div class="opt"><div class="phone m-ph" id="mPhA"></div><div class="name"><b>A: Heat by combo</b><span>The table heats with your run of right answers: x1, x2, x3, x4.</span></div><div class="picks m-one"><button class="pick" data-row="mix" data-v="A: Heat by combo">This one</button></div></div>
+    <div class="opt"><div class="phone m-ph" id="mPhB"></div><div class="name"><b>B: Heat by the clock</b><span>The table heats as you answer quickly. A soft ring counts down each card; running out is never a miss, a quick answer is just +1.</span></div><div class="picks m-one"><button class="pick" data-row="mix" data-v="B: Heat by the clock">This one</button></div></div>
+    <div class="panel m-panel">
+      <h3>Try it</h3>
+      <div class="pbtns"><button class="pbtn" data-m="replay">Replay</button><button class="pbtn" data-m="x4">Jump to x4</button></div>
+      <div class="row2">
+        <div class="seg0" role="group" aria-label="Mode"><button data-m-mode="flash" aria-pressed="true">Flash</button><button data-m-mode="type" aria-pressed="false">Type</button><button data-m-mode="choice" aria-pressed="false">Choice</button></div>
+        <button class="pbtn m-tg" data-m="day" aria-pressed="false">Day room</button>
+        <button class="pbtn m-tg" data-m="rm" aria-pressed="false">Reduce Motion</button>
+        <button class="pbtn m-tg" data-m="snd" aria-pressed="false">Sound</button>
+      </div>
+      <p>Eight cards of COMP 20073 · Data Structures. Three right in a row is x2, six is x3, ten is x4 (the deck is only eight, so Jump to x4 shows full heat). A miss cools the table, shakes the card and tucks it back under; it comes back three cards later. Tilt follows your finger or pointer. Sound is off until you turn it on, and the pitch climbs a semitone per right answer in a row.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+const mDeck = [
+  ["Stack", "Last in, first out list", "A stack hands back the newest item first, like a pile of plates. Last in, first out."],
+  ["Queue", "First in, first out list", "A queue is a line. Whoever joined first is served first."],
+  ["Hash table", "Keys mapped to buckets by a hash function", "The hash function turns a key into a bucket number, so a lookup skips the searching."],
+  ["Binary search", "Halves a sorted range each step", "Each step throws away half of a sorted range, so it needs very few steps."],
+  ["Linked list", "Nodes that each point to the next", "Every node stores a pointer to the next one, so the list grows without shifting anything."],
+  ["Big O", "How cost grows with input size", "Big O describes how the work grows when the input gets bigger, not how fast one run is."],
+  ["Recursion", "A function that calls itself on a smaller case", "A recursive function solves a smaller piece of the same problem until it reaches a base case."],
+  ["Heap", "A tree where each parent beats its children", "In a heap each parent beats its children, so the best item always sits at the top."],
+];
+const mRamp = ["#3b1220", "#7a1c2c", "#b5412a", "#e08a35", "#f3cf6a"];
+const mSwirl = ["#170509", "#540a1c", "#941c30", "#cca128", "#faebb3"];
+const mBayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const mS = { mode: "flash", day: false, reduce, sound: false };
+const mPhones = [];
+const mMult = (n) => (n >= 10 ? 4 : n >= 6 ? 3 : n >= 3 ? 2 : 1);
+const mFW = 160, mFH = 336, mCW = 80, mCH = 168;
+let mBest = 12;
+try { mBest = +localStorage.getItem("ip-quiz-mix-best") || 12; } catch {}
+
+/* ---- sound: Web Audio blips, off until asked; pitch climbs a semitone per right in a row ---- */
+let mAc = null;
+function mBeep(hz, dur = 0.12, type = "triangle", vol = 0.06, at = 0) {
+  if (!mS.sound) return;
+  try {
+    mAc ??= new AudioContext();
+    if (mAc.state === "suspended") mAc.resume();
+    const t = mAc.currentTime + at, o = mAc.createOscillator(), g = mAc.createGain();
+    o.type = type; o.frequency.value = hz * 2 ** ((Math.random() - 0.5) * 0.012);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(mAc.destination); o.start(t); o.stop(t + dur + 0.02);
+  } catch { /* silent is fine */ }
+}
+const mHz = (n) => 330 * 2 ** (Math.min(n, 14) / 12);
+function mSoundRight(streak, tier) {
+  mBeep(mHz(streak), 0.14, "triangle", 0.06 + tier * 0.02);
+  if (tier) mBeep(mHz(streak) * 2, 0.1, "sine", 0.03 + tier * 0.015, 0.04);
+}
+const mSoundUp = (tier) => [0, 4, 7, 12].slice(0, tier + 2).forEach((s, i) => mBeep(mHz(8 + s), 0.14, "square", 0.035, i * 0.07));
+const mSoundMiss = () => { mBeep(220, 0.16, "triangle", 0.05); mBeep(165, 0.22, "triangle", 0.05, 0.1); };
+
+/* ---- one spring, semi-implicit Euler ---- */
+const mSp = (v = 0) => ({ x: v, v: 0, t: v });
+function mStep(s, dt, k, c) { s.v += (k * (s.t - s.x) - c * s.v) * dt; s.x += s.v * dt; }
+
+function mMount(el, kind) {
+  const ph = { el, kind, v: shell(el, NIGHT, "study"), run: 0, tm: [], vis: false, raf: 0, last: 0, trauma: 0, shk: null, ptr: { nx: 0, ny: 0, on: false, down: false },
+    sp: { x: mSp(), y: mSp(), rz: mSp(), rx: mSp(), ry: mSp(), sc: mSp(1), fl: mSp(), op: mSp(1) }, parts: [], bump: 0, sd: 0, shown: -1, tier: 0, ht: 0, amp: 0, cov: 0, covQ: 0, dirty: true, phase: Math.random() * 6, touched: false, state: "play", fxAcc: 0 };
+  el.classList.add("m-ph");
+  const g = $(".ground", el);
+  ph.fx = Object.assign(document.createElement("canvas"), { width: mFW, height: mFH, className: "m-fx" });
+  ph.fx.setAttribute("aria-hidden", "true");
+  g.appendChild(ph.fx);
+  ph.fxc = ph.fx.getContext("2d"); ph.img = ph.fxc.createImageData(mFW, mFH); ph.u32 = new Uint32Array(ph.img.data.buffer);
+  ph.pt = Object.assign(document.createElement("canvas"), { width: mFW, height: mFH, className: "m-pt" });
+  ph.pt.setAttribute("aria-hidden", "true");
+  el.appendChild(ph.pt); ph.ptc = ph.pt.getContext("2d");
+  ph.A = new Float32Array(mCW * mCH); ph.R = new Float32Array(mCW * mCH); ph.D = new Float32Array(mCW * mCH); ph.T = new Float32Array(mCW * mCH);
+  for (let cy = 0; cy < mCH; cy++) for (let cx = 0; cx < mCW; cx++) {
+    const i = cy * mCW + cx, nx = (cx - mCW / 2) / (mCW / 2), ny = (cy - mCH / 2) / (mCH / 2);
+    ph.A[i] = Math.atan2(ny, nx); ph.R[i] = Math.hypot(nx * 0.55, ny * 0.9); ph.D[i] = Math.max(Math.abs(nx), Math.abs(ny)); ph.T[i] = mBayer[(cy & 3) * 4 + (cx & 3)] / 16;
+  }
+  ph.lar = startLar(document.createElement("canvas"), () => LarKit.THEMES.sis);
+  ph.lar.style.width = "53px"; ph.lar.style.height = "50px";
+  ph.lar.setAttribute("aria-hidden", "true");
+
+  // pointer: the card tilts toward the finger, up to 10 degrees, then springs back
+  const stageRect = () => $(".m-stage", el)?.getBoundingClientRect();
+  el.addEventListener("pointermove", (e) => {
+    const r = stageRect(); if (!r || !r.width) return;
+    ph.ptr.on = true; ph.ptr.nx = clamp(((e.clientX - (r.left + r.width / 2)) / (r.width / 2)), -1, 1); ph.ptr.ny = clamp(((e.clientY - (r.top + r.height / 2)) / (r.height / 2)), -1, 1);
+  });
+  el.addEventListener("pointerleave", () => { ph.ptr.on = false; ph.ptr.down = false; });
+  let touch = false;
+  el.addEventListener("pointerdown", (e) => { ph.ptr.down = true; ph.touched = true; touch = e.pointerType === "touch"; });
+  addEventListener("pointerup", () => { ph.ptr.down = false; if (touch) ph.ptr.on = false; });
+
+  el.addEventListener("click", (e) => mClick(ph, e));
+  el.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches(".m-type input")) { e.preventDefault(); mCheck(ph); } });
+  new IntersectionObserver((es) => { ph.vis = es[es.length - 1].isIntersecting; if (ph.vis) mKick(ph); }, { threshold: 0.01 }).observe(el);
+  mPhones.push(ph);
+  mTheme(ph); mStart(ph);
+  return ph;
+}
+
+function mTheme(ph) {
+  dress(ph.el, mS.day ? DAY : NIGHT);
+  ph.el.classList.toggle("m-day", mS.day);
+  const cs = getComputedStyle(ph.el), dot = cs.getPropertyValue("--dot").trim(), gr = cs.getPropertyValue("--ground").trim();
+  const u32 = (rgb, a = 255) => ((a << 24) | (Math.round(rgb[2]) << 16) | (Math.round(rgb[1]) << 8) | Math.round(rgb[0])) >>> 0;
+  ph.dotRgb = hex(dot.slice(0, 7)); ph.dotA = dot.length > 7 ? parseInt(dot.slice(7, 9), 16) : 40;
+  ph.pal = mSwirl.map((c) => u32(mS.day ? hex(mix(gr.slice(0, 7), c, 0.5)) : hex(c)));
+  ph.dirty = true; mKick(ph);
+}
+function mRm(ph) {
+  ph.el.classList.toggle("m-rm", mS.reduce);
+  if (mS.reduce) { lars.delete(ph.lar); mLarPaint(ph); } else if (ph.lar.isConnected) lars.add(ph.lar);
+  ph.dirty = true; mKick(ph);
+}
+function mLarPaint(ph) {
+  const cv = ph.lar, g = cv.getContext("2d");
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); g.imageSmoothingEnabled = false;
+  g.save(); g.translate(-LarKit.BOX.x0 * 2, -LarKit.BOX.y0 * 2); g.scale(2, 2);
+  try { LarKit.drawLar(g, cv._rig.at(0, {}, true), cv._theme(), 0, { shadow: false }); } catch {}
+  g.restore();
+}
+function mLar(ph, state, secs, line) {
+  const cv = ph.lar, t = performance.now() / 1000;
+  cv._rig.set(state, mS.reduce ? 0 : t);
+  cv._happyUntil = secs && !mS.reduce ? t + secs : 0;
+  if (mS.reduce) { mLarPaint(ph); if (secs) later(ph, secs * 1000, () => { cv._rig.set("idle", 0); mLarPaint(ph); }); }
+  if (line != null && ph.say) ph.say.textContent = line;
+}
+function later(ph, ms, fn) { const run = ph.run; ph.tm.push(setTimeout(() => run === ph.run && fn(), ms)); }
+const mCard = (i) => mDeck[i];
+
+/* ---- a run ---- */
+function mStart(ph, only) {
+  ph.tm.forEach(clearTimeout); ph.tm = []; ph.run++;
+  const idx = only ?? mDeck.map((_, i) => i);
+  ph.s = { total: idx.length, queue: idx.map((i) => ({ i, again: false })), score: 0, streak: 0, best: 0, rights: 0, cleared: 0, log: {}, mult: 1 };
+  ph.state = "play"; ph.tier = 0; ph.ht = 0; ph.sd = 0; ph.shown = -1; ph.trauma = 0; ph.parts.length = 0; ph.bump = 0; ph.endTier = 0; ph.tally = null; ph.ringOn = false;
+  ph.v.className = "view"; ph.v.style.translate = ""; ph.v.style.rotate = "";
+  const ring = ph.kind === "B" ? `<svg class="m-ring" viewBox="0 0 30 30" width="30" height="30" aria-hidden="true"><circle class="m-rb" cx="15" cy="15" r="11"/><circle class="m-rp" cx="15" cy="15" r="11" transform="rotate(-90 15 15)"/></svg>` : "";
+  ph.v.innerHTML = `<div class="card m-hud"><button class="m-x" data-x aria-label="End session">${pi("x", 16)}</button>${ring}<div class="m-gauge" role="img" aria-label="Heat"><i></i><i></i><i></i><i></i><b class="m-mult">x1</b></div><span class="m-sc"></span><span class="m-cnt"></span></div>
+<div class="m-lh"><div class="m-say">Take your time.</div></div>
+<div class="m-stage"><i class="m-pl" style="--i:3"></i><i class="m-pl" style="--i:2"></i><i class="m-pl" style="--i:1"></i><div class="m-card"><div class="m-sh"></div><div class="m-flip"><div class="m-f"></div><div class="m-b"></div></div></div></div>
+<div class="m-ctl"></div>`;
+  ph.hud = $(".m-hud", ph.v); ph.say = $(".m-say", ph.v); ph.card = $(".m-card", ph.v); ph.F = $(".m-f", ph.v); ph.B = $(".m-b", ph.v); ph.ctl = $(".m-ctl", ph.v); ph.stage = $(".m-stage", ph.v);
+  ph.gauge = $$(".m-gauge i", ph.v); ph.mult = $(".m-mult", ph.v); ph.sc = $(".m-sc", ph.v); ph.cnt = $(".m-cnt", ph.v); ph.rp = $(".m-rp", ph.v); ph.rg = $(".m-ring", ph.v);
+  $(".m-lh", ph.v).appendChild(ph.lar); if (!mS.reduce) lars.add(ph.lar);
+  mLar(ph, "idle", 0);
+  mHud(ph, true); ph.dirty = true; mKick(ph);
+  mDeal(ph);
+}
+const mRingS = () => (mS.mode === "type" ? 14 : 8);
+
+function mFaces(ph, c) {
+  const sub = `<small><span class="tile" style="--c:var(--s2)"></span>COMP 20073</small>`;
+  const m = mS.mode;
+  ph.F.innerHTML = m === "type" ? `<small>WHAT IS THE TERM?</small><strong class="m-q">${esc(c[1])}</strong>` : `${sub}<strong>${esc(c[0])}</strong>`;
+  ph.B.innerHTML = `<small>${m === "type" ? "THE TERM" : esc(c[0]).toUpperCase()}</small><b>${esc(c[0])}</b><strong>${esc(c[1])}</strong>`;
+}
+function mCtl(ph, c) {
+  const m = mS.mode;
+  if (m === "flash") ph.ctl.innerHTML = `<p class="m-hint">Tap the card to flip it</p><button class="btn go m-flipb" data-flip>Flip card</button>`;
+  else if (m === "type") ph.ctl.innerHTML = `<div class="m-type"><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the term" aria-label="Type the term"><button class="btn go" data-check>Check</button></div><button class="m-skip" data-skip>I don't know</button>`;
+  else {
+    const others = mDeck.filter((d) => d !== c).sort(() => Math.random() - 0.5).slice(0, 3);
+    const opts = [c, ...others].sort(() => Math.random() - 0.5);
+    ph.opts = opts;
+    ph.ctl.innerHTML = `<div class="m-opts">${opts.map((o, i) => `<button class="m-opt" data-opt="${i}">${esc(o[1])}</button>`).join("")}</div>`;
+  }
+}
+function mDeal(ph) {
+  const s = ph.s, it = s.queue.shift();
+  if (!it) return mResults(ph);
+  ph.cur = it; ph.flipped = false; ph.locked = true; ph.ringOn = false; ph.t0 = 0;
+  const c = mCard(it.i);
+  mFaces(ph, c); mCtl(ph, c); mHud(ph);
+  const sp = ph.sp;
+  if (mS.reduce) { sp.x.x = sp.y.x = sp.rz.x = 0; sp.sc.x = 1; sp.op.x = 0; }
+  else { sp.x.x = -150; sp.y.x = 90; sp.rz.x = -16; sp.sc.x = 0.8; sp.op.x = 0; }
+  sp.x.v = sp.y.v = sp.rz.v = sp.sc.v = 0;
+  sp.x.t = sp.y.t = sp.rz.t = sp.fl.t = sp.rx.t = sp.ry.t = 0; sp.sc.t = 1; sp.fl.x = 0; sp.fl.v = 0; sp.op.t = 1;
+  $$(".m-pl", ph.stage).forEach((p, i) => (p.style.display = s.queue.length >= 3 - i ? "" : "none"));
+  later(ph, mS.reduce ? 150 : 380, () => {
+    ph.locked = false; ph.t0 = performance.now(); ph.ringOn = ph.kind === "B"; ph.rg?.classList.remove("slow");
+    if (mS.mode === "type" && ph.touched) $(".m-type input", ph.v)?.focus({ preventScroll: true });
+  });
+}
+function mHud(ph, fresh) {
+  const s = ph.s, lit = ph.tier + 1;
+  ph.gauge.forEach((c, i) => { const was = c.classList.contains("on"); c.classList.toggle("on", i < lit); if (i < lit && !was && !fresh) { c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop"); } });
+  ph.mult.textContent = "x" + s.mult;
+  ph.hud.classList.toggle("m-hot", ph.tier >= 2 || s.mult >= 3);
+  ph.cnt.textContent = `${Math.min(s.cleared + 1, s.total)}/${s.total}`;
+  ph.hud.querySelector(".m-gauge").setAttribute("aria-label", `Heat ${lit} of 4`);
+}
+
+/* ---- answering ---- */
+function mClick(ph, e) {
+  const t = e.target; ph.touched = true;
+  if (t.closest("[data-x]")) { if (ph.state === "play") mResults(ph); return; }
+  if (ph.state === "res") return mResClick(ph, t);
+  if (t.closest("[data-flip]") || (t.closest(".m-card") && mS.mode === "flash")) return mFlip(ph);
+  const rate = t.closest("[data-rate]"); if (rate) return mRate(ph, rate.dataset.rate);
+  const opt = t.closest("[data-opt]"); if (opt) return mOpt(ph, +opt.dataset.opt, opt);
+  if (t.closest("[data-check]")) return mCheck(ph);
+  if (t.closest("[data-skip]")) return mAnswer(ph, "miss", "Missed");
+}
+function mFlip(ph) {
+  if (ph.locked || ph.flipped || mS.mode !== "flash") return;
+  mReveal(ph);
+  const iv = { again: "1m", hard: "6m", good: "1d", easy: "4d" }, nm = { again: "Again", hard: "Hard", good: "Good", easy: "Easy" };
+  ph.ctl.innerHTML = `<p class="m-hint">How well did you know it?</p><div class="m-rate">${Object.keys(nm).map((k) => `<button data-rate="${k}">${nm[k]}<small>${iv[k]}</small></button>`).join("")}</div>`;
+}
+function mReveal(ph) { if (ph.flipped) return; ph.flipped = true; ph.sp.fl.t = 180; if (mS.reduce) { ph.sp.fl.x = 180; ph.sp.op.x = 0.2; } }
+const mRate = (ph, k) => (k === "again" ? mAnswer(ph, "miss", "Again") : k === "hard" ? mAnswer(ph, "hard", "Hard") : mAnswer(ph, "right", k === "easy" ? "Easy" : "Good"));
+function mOpt(ph, i, btn) {
+  if (ph.locked) return;
+  const ok = ph.opts[i] === mCard(ph.cur.i);
+  btn.classList.add(ok ? "right" : "wrong");
+  if (!ok) $$(".m-opt", ph.ctl)[ph.opts.indexOf(mCard(ph.cur.i))].classList.add("ans");
+  mAnswer(ph, ok ? "right" : "miss", ok ? "Right" : "Missed");
+}
+function mLev(a, b) { const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
+function mCheck(ph) {
+  if (ph.locked) return;
+  const inp = $(".m-type input", ph.v), a = inp.value.trim().toLowerCase().replace(/\s+/g, " "), b = mCard(ph.cur.i)[0].toLowerCase();
+  if (!a) { inp.focus({ preventScroll: true }); return; }
+  mAnswer(ph, a === b || (b.length >= 5 && mLev(a, b) <= 1) ? "right" : "miss", "");
+}
+
+function mAnswer(ph, res, label) {
+  if (ph.locked) return; ph.locked = true; ph.ringOn = false;
+  const s = ph.s, rm = mS.reduce, quickS = (mRingS()) / 2, el = ph.t0 ? (performance.now() - ph.t0) / 1000 : 99, fast = el <= quickS, slow = el > mRingS();
+  if (!(ph.cur.i in s.log)) s.log[ph.cur.i] = { res, label: label || (res === "right" ? "Right" : "Missed") };
+  const instant = mS.mode === "flash";
+  if (!ph.flipped) mReveal(ph);
+  ph.B.insertAdjacentHTML("afterbegin", `<em class="m-tag ${res === "miss" ? "no" : ""}">${res === "miss" ? "NOT QUITE" : res === "hard" ? "HARD" : "RIGHT"}</em>`);
+  $$("button, input", ph.ctl).forEach((b) => (b.disabled = true));
+  const hold = instant ? 140 : 760;
+  if (res === "right") {
+    s.streak++; s.best = Math.max(s.best, s.streak); s.rights++;
+    const was = s.mult; s.mult = mMult(s.streak);
+    let pts = s.mult, quick = false;
+    if (ph.kind === "B" && fast) { pts += 1; quick = true; }
+    s.score += pts;
+    const prev = ph.tier;
+    if (ph.kind === "A") ph.tier = s.mult - 1;
+    else if (fast) ph.tier = ph.ht = Math.min(3, ph.ht + 1);
+    else if (slow) ph.tier = ph.ht = Math.max(0, ph.ht - 1);
+    const up = ph.tier > prev;
+    mHud(ph);
+    ph.bump = 0.2 + 0.12 * ph.tier + (up ? 0.25 : 0);
+    mPopup(ph, `+${pts}${quick ? " QUICK" : ""}`);
+    mBurst(ph, 6 + ph.tier * 6, false);
+    mSoundRight(s.streak, ph.tier);
+    if (up) {
+      ph.trauma = Math.max(ph.trauma, [0, 0.45, 0.65, 0.9][ph.tier]); mSoundUp(ph.tier);
+      if (ph.tier === 3) mBurst(ph, 30, true);
+    }
+    if (s.mult > was || up) mStamp(ph, up ? (ph.kind === "A" ? ["", "WARM x2", "HOT x3", "FULL HEAT x4"] : ["", "WARM", "HOT", "FULL HEAT"])[ph.tier] : "x" + s.mult);
+    const lines = ["Nice.", "Clean. Keep going.", "The table is warming.", "Hot hands.", "Full heat!"];
+    mLar(ph, "happy", up ? 1.8 : 1, up ? ["", "x2. It's warming up.", "x3. Hot hands.", "Full heat!"][ph.tier] : quick ? "Quick one." : rand(lines.slice(0, 3)));
+    later(ph, hold, () => mExit(ph, true));
+    later(ph, hold + (rm ? 200 : 420), () => { s.cleared++; mDeal(ph); });
+  } else if (res === "hard") {
+    s.cleared++;
+    if (ph.kind === "B" && slow) ph.tier = ph.ht = Math.max(0, ph.ht - 1);
+    mHud(ph); mLar(ph, "idle", 0, "Hard. You keep your combo."); mBeep(300, 0.1, "triangle", 0.04);
+    later(ph, hold, () => mExit(ph, true));
+    later(ph, hold + (rm ? 200 : 420), () => mDeal(ph));
+  } else {
+    s.streak = 0; s.mult = 1; ph.tier = 0; ph.ht = 0;
+    mHud(ph); mSoundMiss();
+    if (!rm) ph.shk = { age: 0, amp: 13 };
+    mLar(ph, "error", 1.2, "Cooled off. It comes back soon.");
+    if (!ph.cur.again) s.queue.splice(Math.min(3, s.queue.length), 0, { i: ph.cur.i, again: true }); else s.cleared++;
+    const wait = instant ? 520 : 1150;
+    later(ph, wait, () => mExit(ph, false));
+    later(ph, wait + (rm ? 200 : 480), () => mDeal(ph));
+  }
+}
+function mExit(ph, good) {
+  const sp = ph.sp;
+  if (mS.reduce) { sp.op.t = 0; return; }
+  if (good) { sp.x.t = 280; sp.y.t = -50; sp.rz.t = 20; sp.op.t = 0; } else { sp.y.t = 26; sp.sc.t = 0.84; sp.op.t = 0; }
+}
+
+/* ---- effects ---- */
+function mPopup(ph, txt) { const b = document.createElement("b"); b.className = "m-plus"; b.textContent = txt; ph.stage.appendChild(b); setTimeout(() => b.remove(), 950); }
+function mStamp(ph, txt) { const b = document.createElement("div"); b.className = "bigstamp m-stamp"; b.textContent = txt; ph.el.appendChild(b); setTimeout(() => b.remove(), 900); }
+function mBurst(ph, n, ring) {
+  if (mS.reduce) return;
+  const sr = ph.el.getBoundingClientRect(), cr = ph.stage.getBoundingClientRect();
+  const k = mFW / sr.width, cx = (cr.left + cr.width / 2 - sr.left) * k, cy = (cr.top + cr.height / 2 - sr.top) * k;
+  for (let i = 0; i < n; i++) {
+    const a = ring ? (i / n) * Math.PI * 2 : Math.random() * Math.PI * 2, sp = ring ? 95 + Math.random() * 20 : 30 + Math.random() * 80;
+    const rr = ring ? 52 : 6;
+    ph.parts.push({ x: cx + Math.cos(a) * rr * (ring ? 1.4 : 1), y: cy + Math.sin(a) * rr * (ring ? 1.5 : 1), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (ring ? 0 : 30), life: 0.55 + Math.random() * 0.5, age: 0, s: 2 + (Math.random() * 2 | 0), c: mRamp[1 + (Math.random() * 4 | 0)], g: ring ? 40 : 150 });
+  }
+  mKick(ph);
+}
+
+/* ---- the frame ---- */
+function mKick(ph) { if (!ph.raf && ph.vis && !document.hidden) { ph.last = 0; ph.raf = requestAnimationFrame((x) => mTick(ph, x)); } }
+document.addEventListener("visibilitychange", () => mPhones.forEach(mKick));
+function mTick(ph, ts) {
+  ph.raf = 0;
+  if (!ph.vis || document.hidden) return;
+  const dt = Math.min(0.05, ph.last ? (ts - ph.last) / 1000 : 0.016); ph.last = ts;
+  const t = ts / 1000, rm = mS.reduce;
+  mCardStep(ph, dt, t, rm); mWorld(ph, dt, t, rm); mScore(ph, dt); mHeat(ph, dt, t, rm); mParts(ph, dt); mRing(ph); mTally(ph, ts);
+  ph.raf = requestAnimationFrame((x) => mTick(ph, x));
+}
+function mCardStep(ph, dt, t, rm) {
+  const s = ph.sp, c = ph.card; if (!c || ph.state !== "play") return;
+  const T = ph.tier;
+  if (rm) { for (const k of ["x", "y", "rz", "rx", "ry", "sc", "fl"]) { s[k].x = s[k].t; s[k].v = 0; } s.op.x += (s.op.t - s.op.x) * Math.min(1, dt * 9); }
+  else {
+    s.rx.t = ph.ptr.on ? -ph.ptr.ny * 10 : 0; s.ry.t = ph.ptr.on ? ph.ptr.nx * 10 : 0;
+    s.sc.t = s.sc.t > 0.9 ? (ph.ptr.down ? 0.97 : 1) : s.sc.t;
+    mStep(s.x, dt, 170, 12); mStep(s.y, dt, 170, 12); mStep(s.rz, dt, 150, 13); mStep(s.sc, dt, 230, 17);
+    mStep(s.rx, dt, 240, 22); mStep(s.ry, dt, 240, 22); mStep(s.fl, dt, 150, 15);
+    s.op.x += (s.op.t - s.op.x) * Math.min(1, dt * (s.op.t > s.op.x ? 12 : 7));
+  }
+  let sx = 0;
+  if (ph.shk) { ph.shk.age += dt; const k = Math.max(0, 1 - ph.shk.age / 0.42); sx = Math.sin(ph.shk.age * 58) * ph.shk.amp * k * k; if (ph.shk.age > 0.45) ph.shk = null; }
+  const sway = rm ? 0 : Math.sin(t * (1.1 + 0.35 * T) + ph.phase) * [1.4, 2.2, 3.2, 4.4][T] + Math.sin(t * 0.6 + ph.phase) * T * 0.7;
+  const bob = rm ? 0 : Math.sin(t * 1.5 + ph.phase) * (0.8 + T * 0.9);
+  c.style.transform = `translate3d(${(s.x.x + sx).toFixed(2)}px,${(s.y.x + bob).toFixed(2)}px,0) rotate(${(s.rz.x + sway).toFixed(2)}deg) rotateX(${s.rx.x.toFixed(2)}deg) rotateY(${(s.ry.x + s.fl.x).toFixed(2)}deg) scale(${s.sc.x.toFixed(3)})`;
+  c.style.opacity = clamp(s.op.x).toFixed(2);
+}
+function mWorld(ph, dt, t, rm) {
+  if (ph.trauma > 0) ph.trauma = Math.max(0, ph.trauma - dt * 1.7);
+  const k = rm ? 0 : ph.trauma * ph.trauma;
+  if (k > 0.0004) { ph.v.style.translate = `${((Math.sin(t * 61) + Math.sin(t * 37.3)) * 4.5 * k).toFixed(2)}px ${((Math.sin(t * 53.1) + Math.sin(t * 29.7)) * 4.5 * k).toFixed(2)}px`; ph.v.style.rotate = `${(Math.sin(t * 47) * 1.1 * k).toFixed(3)}deg`; ph.shaking = true; }
+  else if (ph.shaking) { ph.v.style.translate = ""; ph.v.style.rotate = ""; ph.shaking = false; }
+}
+function mScore(ph, dt) {
+  if (ph.state !== "play" || !ph.s) return;
+  const goal = ph.s.score;
+  if (mS.reduce) ph.sd = goal; else { ph.sd += (goal - ph.sd) * Math.min(1, dt * 9); if (Math.abs(goal - ph.sd) < 0.02) ph.sd = goal; }
+  const n = Math.round(ph.sd);
+  if (n !== ph.shown) { ph.shown = n; ph.sc.innerHTML = pn(n, 3); }
+  ph.bump = mS.reduce ? 0 : ph.bump * Math.exp(-dt * 7);
+  ph.sc.style.scale = (1 + ph.bump).toFixed(3);
+}
+function mHeat(ph, dt, t, rm) {
+  const T = ph.tier, ampT = [0, 0.55, 0.8, 1][T], covT = [0, 0, 0.5, 0.8][T];
+  if (rm) { ph.amp = 0; if (ph.covQ !== covT) { ph.covQ = ph.cov = covT; ph.dirty = true; } }
+  else {
+    ph.amp += (ampT - ph.amp) * Math.min(1, dt * (ampT > ph.amp ? 2.2 : 7));
+    if (Math.abs(ampT - ph.amp) < 0.002) ph.amp = ampT;
+    const up = covT > ph.cov; ph.cov += Math.sign(covT - ph.cov) * Math.min(Math.abs(covT - ph.cov), dt * (up ? 1.1 : 3));
+    const q = Math.round(ph.cov * 10) / 10; if (q !== ph.covQ) { ph.covQ = q; ph.dirty = true; }
+  }
+  const moving = !rm && (ph.amp > 0 || ph.covQ > 0);
+  ph.fxAcc += dt;
+  if (!ph.dirty && !(moving && ph.fxAcc >= 0.033)) return;
+  ph.fxAcc = 0; ph.dirty = false;
+  mDraw(ph, rm ? 2.4 : t);
+}
+function mDraw(ph, t) {
+  const u = ph.u32; if (!ph.pal) return;
+  u.fill(0);
+  const cov = ph.covQ, amp = ph.amp, ts = t * (0.55 + ph.tier * 0.3), gain = 0.3 + 0.45 * Math.min(1, cov / 0.8);
+  if (cov > 0) {
+    const A = ph.A, R = ph.R, D = ph.D, Th = ph.T, pal = ph.pal;
+    for (let cy = 0; cy < mCH; cy++) for (let cx = 0; cx < mCW; cx++) {
+      const i = cy * mCW + cx;
+      if (Th[i] >= cov * 1.6 - 0.6 * (1 - D[i])) continue;
+      const v = (0.5 + 0.5 * Math.sin(A[i] * 3 + R[i] * 7 - ts)) * 0.6 + (0.5 + 0.5 * Math.sin(A[i] * 2 - R[i] * 4.5 + ts * 0.7)) * 0.4;
+      const k = Math.max(0, Math.min(4, Math.floor(v * gain * 5.6 + (Th[i] - 0.5) * 1.1)));
+      const p = cy * 2 * mFW + cx * 2, col = pal[k];
+      u[p] = u[p + 1] = u[p + mFW] = u[p + mFW + 1] = col;
+    }
+  }
+  // the dot grid: still at x1, then it drifts and swirls with the heat
+  const [dr, dg, db] = ph.dotRgb, da = Math.min(255, Math.round(ph.dotA * (1 + amp * 1.6))), dc = ((da << 24) | (db << 16) | (dg << 8) | dr) >>> 0;
+  for (let gy = 0; gy < 49; gy++) for (let gx = 0; gx < 23; gx++) {
+    let x = 3 + gx * 7, y = 3 + gy * 7;
+    if (amp > 0) {
+      const nx = (x - 80) / 40, ny = (y - 168) / 84, r = Math.hypot(nx, ny) + 0.001, d = amp * (2 + 2 * Math.sin(r * 5 - t * 1.3));
+      x += Math.round((-ny / r) * d + Math.sin(y * 0.06 + t * 1.1) * amp * 1.6); y += Math.round((nx / r) * d + Math.cos(x * 0.06 + t * 0.9) * amp * 1.6);
+    }
+    if (x < 0 || y < 0 || x >= mFW || y >= mFH) continue;
+    const p = y * mFW + x; if (!u[p]) u[p] = dc;
+  }
+  ph.fxc.putImageData(ph.img, 0, 0);
+}
+function mParts(ph, dt) {
+  const P = ph.parts;
+  if (!P.length) { if (ph.ptDirty) { ph.ptc.clearRect(0, 0, mFW, mFH); ph.ptDirty = false; } return; }
+  const g = ph.ptc; g.clearRect(0, 0, mFW, mFH); ph.ptDirty = true;
+  for (let i = P.length - 1; i >= 0; i--) {
+    const p = P[i]; p.age += dt;
+    if (p.age >= p.life) { P.splice(i, 1); continue; }
+    p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 1 - dt * 1.5;
+    g.globalAlpha = p.age > p.life * 0.7 ? 0.5 : 1; g.fillStyle = p.c; g.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);
+  }
+  g.globalAlpha = 1;
+}
+function mRing(ph) {
+  if (!ph.rp || ph.state !== "play") return;
+  const k = ph.ringOn && ph.t0 ? clamp((performance.now() - ph.t0) / 1000 / mRingS()) : (ph.ringOn ? 0 : ph.ringK ?? 0);
+  if (ph.ringOn) ph.ringK = k; else if (!ph.t0) ph.ringK = 0;
+  ph.rp.style.strokeDashoffset = (69.1 * (ph.ringOn ? k : ph.ringK ?? 0)).toFixed(1);
+  ph.rg.classList.toggle("slow", (ph.ringK ?? 0) > 0.5);
+}
+
+/* ---- results: the tally counts up over the swirl at the heat you ended on ---- */
+function mResults(ph) {
+  if (ph.state === "res") return;
+  ph.tm.forEach(clearTimeout); ph.tm = []; ph.run++;
+  ph.state = "res"; ph.endTier = ph.tier; ph.ringOn = false; ph.parts.length = 0;
+  const s = ph.s, log = Object.entries(s.log).map(([i, l]) => ({ i: +i, ...l })).sort((a, b) => (a.res === "miss" ? 0 : 1) - (b.res === "miss" ? 0 : 1));
+  const misses = log.filter((l) => l.res === "miss"), isBest = s.score > mBest;
+  const prev = mBest; if (isBest) { mBest = s.score; try { localStorage.setItem("ip-quiz-mix-best", String(mBest)); } catch {} }
+  ph.v.className = "view m-res"; ph.v.scrollTop = 0; ph.v.style.translate = ""; ph.v.style.rotate = "";
+  const rows = log.map((l) => { const c = mCard(l.i), miss = l.res === "miss"; return `<div class="m-row ${miss ? "miss" : ""}"><span class="m-ri">${pi(miss ? "x" : "check", 18)}</span><div><b>${esc(c[0])}</b><small>${esc(c[1])}</small></div><span class="m-chip">${esc(l.label)}</span>${miss ? `<button class="btn sm" data-why="${l.i}">Ask LAR why</button>` : ""}</div>`; }).join("");
+  ph.v.innerHTML = `<div class="m-rtop"><p class="lb">RESULTS · COMP 20073</p></div>
+<div class="card m-tally"><span class="lb">SCORE</span><div class="m-big" aria-live="polite">${pn(0, 8)}</div><span class="m-lar2"></span>${isBest ? `<span class="m-best new">NEW BEST</span>` : `<span class="m-best">BEST ${prev}</span>`}<div class="m-stats"><div><b>${s.rights}/${s.total}</b><small>RIGHT</small></div><div><b>${s.best}</b><small>BEST STREAK</small></div><div><b>x${ph.endTier + 1}</b><small>HEAT AT END</small></div></div></div>
+<p class="lb">CARDS${misses.length ? " · MISSES FIRST" : ""}</p>
+<div class="card m-list">${rows || `<p class="m-hint">No cards answered.</p>`}</div>
+<div class="m-bar"><button class="btn" data-practice ${misses.length ? "" : "disabled"}>${misses.length ? "Practice misses" : "No misses"}</button><button class="btn go" data-done>Done</button></div>`;
+  ph.misses = misses.map((l) => l.i);
+  $(".m-lar2", ph.v).appendChild(ph.lar); if (!mS.reduce) lars.add(ph.lar);
+  ph.say = null;
+  mLar(ph, isBest || s.rights >= s.total - 1 ? "happy" : "idle", 0);
+  ph.tally = { t0: performance.now(), n: s.score, shown: -1, done: false, best: isBest };
+  mKick(ph);
+}
+function mTally(ph, ts) {
+  const y = ph.tally; if (!y || y.done || ph.state !== "res") return;
+  const k = mS.reduce ? 1 : clamp((ts - y.t0) / 1100), n = Math.round(y.n * ease(k));
+  if (n !== y.shown) { y.shown = n; const b = $(".m-big", ph.v); if (b) b.innerHTML = pn(n, 8); if (!mS.reduce && n) mBeep(mHz(n % 13), 0.05, "square", 0.02); }
+  if (k >= 1) { y.done = true; if (y.best) { mBeep(mHz(12), 0.2, "square", 0.04); mBeep(mHz(19), 0.3, "square", 0.04, 0.1); } }
+}
+function mResClick(ph, t) {
+  const why = t.closest("[data-why]");
+  if (why) {
+    const row = why.closest(".m-row"), open = $(".m-why", row);
+    if (open) { open.remove(); return; }
+    mLar(ph, "think", 1, null);
+    row.insertAdjacentHTML("beforeend", `<p class="m-why"><b style="font:600 12px var(--f-pixel);color:var(--gold);letter-spacing:.06em">LAR</b><br>${esc(mDeck[+why.dataset.why][2])}</p>`);
+    later(ph, 1000, () => mLar(ph, "idle", 0));
+    return;
+  }
+  if (t.closest("[data-practice]") && ph.misses.length) return mStart(ph, ph.misses);
+  if (t.closest("[data-done]")) return mStart(ph);
+}
+
+/* ---- the shared panel ---- */
+function mAllX4() {
+  mPhones.forEach((ph) => {
+    if (ph.state !== "play") mStart(ph);
+    const s = ph.s; s.streak = Math.max(s.streak, 10); s.best = Math.max(s.best, s.streak); const prev = ph.tier; s.mult = 4; ph.tier = ph.ht = 3;
+    mHud(ph); mLar(ph, "happy", 1.8, "Full heat!");
+    if (prev < 3) { ph.bump = 0.6; if (!mS.reduce) { ph.trauma = 0.9; mBurst(ph, 30, true); } mStamp(ph, "FULL HEAT x4"); }
+    mSoundUp(3);
+  });
+}
+$("#mix .m-panel").addEventListener("click", (e) => {
+  const mode = e.target.closest("[data-m-mode]");
+  if (mode) { mS.mode = mode.dataset.mMode; $$("[data-m-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b === mode))); mPhones.forEach((ph) => mStart(ph)); return; }
+  const b = e.target.closest("[data-m]"); if (!b) return;
+  const k = b.dataset.m;
+  if (k === "replay") mPhones.forEach((ph) => mStart(ph));
+  else if (k === "x4") mAllX4();
+  else if (k === "day") { mS.day = !mS.day; b.setAttribute("aria-pressed", String(mS.day)); mPhones.forEach(mTheme); }
+  else if (k === "rm") { mS.reduce = !mS.reduce; b.setAttribute("aria-pressed", String(mS.reduce)); mPhones.forEach(mRm); }
+  else if (k === "snd") { mS.sound = !mS.sound; b.setAttribute("aria-pressed", String(mS.sound)); if (mS.sound) mBeep(mHz(0), 0.12, "triangle", 0.06); }
+});
+$$('#mix [data-m="rm"]').forEach((b) => b.setAttribute("aria-pressed", String(mS.reduce)));
+mMount($("#mPhA"), "A");
+mMount($("#mPhB"), "B");
+mPhones.forEach(mRm);
+</script>

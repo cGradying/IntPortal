@@ -14,7 +14,7 @@
   ];
 </script>
 
-<nav class="bar">
+<nav class="bar" data-chrome>
   <i class="sel" style:translate="{tabs.findIndex((t) => t.id === app.tab) * 100}% 0"></i>
   {#each tabs as t (t.id)}
     <button class:on={app.tab === t.id} onclick={() => { if (app.tab !== t.id) (buzz.select(), (popped = t.id)); app.tab = t.id; }} aria-current={app.tab === t.id ? "page" : undefined}>

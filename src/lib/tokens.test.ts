@@ -90,7 +90,8 @@ describe("spec 045 tokens", () => {
     expect(reduce).toMatch(/:not\(:disabled\):is\(:active, \[data-press\]\) \{\s*scale: none !important;\s*transform: none !important;\s*translate: none !important;\s*filter: brightness/);
   });
 
-  it("c17_study_session_does_not_celebrate", () => {
+  // Spec 055 C11: the session celebrates with its own game kit, never the app's Confetti.
+  it("c17_study_session_uses_its_own_kit", () => {
     expect(files.find((f) => f.name === "lib/StudySession.svelte")!.src).not.toContain("Confetti");
   });
 

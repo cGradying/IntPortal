@@ -95,6 +95,26 @@ export const sfx = {
     pluck(a, f * 1.5, t + 0.07, 0.2, "triangle", 0.05);
     thump(a, t + 0.24);
   },
+  /** A right answer in a study run: a semitone higher per answer in a row (spec 055 C10). */
+  right(step: number) {
+    const a = audio();
+    if (!a) return;
+    const f = 523.25 * 2 ** (Math.min(step, 12) / 12);
+    pluck(a, f, a.currentTime, 0.16);
+    pluck(a, f * 1.5, a.currentTime + 0.05, 0.14, "sine", 0.03);
+  },
+  /** The combo reaching x2, x3 or x4: a short rising run from the same note. */
+  tier(step: number) {
+    const a = audio();
+    if (!a) return;
+    const f = 523.25 * 2 ** (Math.min(step, 12) / 12);
+    [1, 1.25, 1.5, 2].forEach((m, i) => pluck(a, f * m, a.currentTime + i * 0.06, 0.2, "triangle", 0.05));
+  },
+  /** A miss: the low thump, no buzzer. */
+  miss() {
+    const a = audio();
+    if (a) thump(a, a.currentTime);
+  },
   /** A card landing in Done. */
   land() {
     const a = audio();
