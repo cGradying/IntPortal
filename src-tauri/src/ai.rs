@@ -229,6 +229,8 @@ pub async fn ai_download(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, i
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         backup::exclude(&dir)?;
         let keep = Keep::new(&app);
+        #[cfg(target_os = "ios")]
+        hand_over(&app, &todo, &dir);
         let mut before = 0;
         let out = todo.iter().enumerate().try_for_each(|(file, m)| {
             let report = |done: u64, waiting: Option<String>| {
@@ -250,6 +252,17 @@ pub async fn ai_download(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, i
             Ok::<(), String>(())
         });
         keep.release();
+        #[cfg(target_os = "ios")]
+        if pause.load(Ordering::Relaxed) {
+            if let Some(dl) = app.try_state::<tauri_plugin_download::Download<tauri::Wry>>() {
+                for m in &todo {
+                    let path = dir.join(format!("{}.part", m.file)).to_string_lossy().to_string();
+                    if dl.status(&path).state == "running" {
+                        dl.cancel(&path); // the files handed over ahead stop too; what arrived stays
+                    }
+                }
+            }
+        }
         out
     })
     .await
@@ -311,6 +324,23 @@ fn mb(b: u64) -> String {
 #[cfg(not(target_os = "ios"))]
 fn fetch_one(_app: &tauri::AppHandle, m: &Model, dir: &std::path::Path, on_progress: &mut dyn FnMut(u64, u64) -> bool, on_wait: &mut dyn FnMut(&download::DlError) -> bool) -> Result<PathBuf, download::DlError> {
     download::download(m, dir, on_progress, on_wait)
+}
+
+/// iOS: every file goes to the background session at once, so the whole install can finish while the
+/// app is away; the system runs nothing of ours meanwhile, so one at a time stopped after the first.
+/// `fetch_one` then waits on each in turn.
+#[cfg(target_os = "ios")]
+fn hand_over(app: &tauri::AppHandle, todo: &[Model], dir: &std::path::Path) {
+    let Some(dl) = app.try_state::<tauri_plugin_download::Download<tauri::Wry>>() else { return };
+    for m in todo {
+        let (done, part) = (dir.join(m.file), dir.join(format!("{}.part", m.file)));
+        let path = part.to_string_lossy().to_string();
+        let have = |f: &PathBuf| f.metadata().is_ok_and(|f| f.len() == m.bytes);
+        if !have(&done) && !have(&part) && dl.status(&path).state != "running" {
+            let _ = std::fs::remove_file(&part);
+            let _ = dl.start(m.url, &path);
+        }
+    }
 }
 
 #[cfg(target_os = "ios")]
