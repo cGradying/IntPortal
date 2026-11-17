@@ -19,15 +19,25 @@ pnpm build && node scripts/check-build.mjs && pnpm preview
 
 ## Put it online
 
-The build is the `site/build` folder of plain files. Any static host works. Links like `/download` need the host to serve `download.html` for them, which all of these do.
+The build is the `site/build` folder of plain files. Any static host works. Links like `/download` need the host to serve `download.html` for them, which all of these do. The site must sit at the root of its domain, because the browser demo is built for `/app`.
 
-**Vercel.** New project, import the GitHub repository, set **Root Directory** to `site`. `site/vercel.json` sets the rest. Add a domain under Settings › Domains.
+**Cloudflare Pages (recommended).** It is free, with no bandwidth cap, and allows commercial use. You get `<name>.pages.dev`. Workers & Pages › Create › Pages › Connect to Git, pick the repository, then:
 
-**Netlify.** New site from Git, base directory `site`. `site/netlify.toml` sets the rest.
+| Setting | Value |
+|---|---|
+| Framework preset | None |
+| Root directory | `site` |
+| Build command | `pnpm install --frozen-lockfile && pnpm build && node scripts/check-build.mjs` |
+| Build output directory | `build` |
+| Environment variables | `SKIP_DEPENDENCY_INSTALL=1`, `PNPM_VERSION=11.7.0` |
 
-**Cloudflare Pages.** Framework preset none, root directory `site`, build command `pnpm build`, output directory `build`.
+`static/_headers` sets the security and cache headers. Every push to `main` redeploys. Each file must stay under 25 MiB, and the largest today is the 8.3 MB reel.
 
-**GitHub Pages.** Settings › Pages › Source: GitHub Actions. Then Actions › Site › Run workflow with "deploy" ticked. It serves at `https://<owner>.github.io/intportal-app/` unless you add a custom domain, so set `BASE_PATH=/intportal-app` in the workflow when you have no domain.
+**Vercel.** The free Hobby plan is for non-commercial use only. New project, import the GitHub repository, set **Root Directory** to `site`. `site/vercel.json` sets the rest.
+
+**Netlify.** New site from Git, base directory `site`. `site/netlify.toml` sets the rest, and `static/_headers` sets the headers.
+
+**GitHub Pages.** It needs a custom domain, because without one the site lives under `/intportal-app/` and the demo breaks. Settings › Pages › Source: GitHub Actions, add the domain, then Actions › Site › Run workflow with "deploy" ticked.
 
 After the site has an address, set `SITE` in `src/lib/links.ts` at the repository root, so the app's Updates link opens `/download`.
 
