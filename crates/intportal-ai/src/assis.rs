@@ -4,7 +4,7 @@
 //! existing commands (`set_note`, `set_plan`, `save_deck`).
 use crate::{
     ground,
-    intent::{card_count, replies_in_filipino, resolve, resolve_when, subject_in, words, Intent, CARDS_DEFAULT},
+    intent::{card_count, is_filipino, replies_in_filipino, resolve, resolve_when, subject_in, words, Intent, CARDS_DEFAULT},
     lang,
     llm::Llm,
     persona::{self, Line, List},
@@ -216,7 +216,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     if let Some((reply, route)) = scope::reply(scope, msg) {
         return Ok(Answer { reply, proposal: None, route, cited: false, known: false });
     }
-    let how = scope::rule(scope).unwrap_or_default();
+    let mut how = scope::rule(scope).unwrap_or_default().to_string();
     // "Do my homework in Math" names homework, which the rules read as "what's due": schoolwork, health and
     // legal questions are open questions for the model, whatever word in them looks like a list.
     let intent = if matches!(scope, scope::Scope::Homework | scope::Scope::Harm(_)) { Intent::Ask } else { intent };
@@ -230,6 +230,14 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     // knows and the chat says so (spec 021 C15, C16). The words check is `ground`'s; it no longer refuses.
     let covered = facts.open_note.is_some() || !facts.hits.is_empty() || !facts.near.is_empty();
     let from_knowledge = intent == Intent::Ask && !matches!(scope, scope::Scope::Chitchat(_)) && (!covered || !ground::missing_terms(msg, facts).is_empty());
+    if from_knowledge && how.is_empty() {
+        how = scope::rule(scope::Scope::General).unwrap_or_default().to_string();
+    }
+    // Spec 021 C14: a model shown a Filipino question answers in Filipino, and its Filipino facts are worse
+    // (Qwen3.5 2B named the wrong national hero in Filipino and the right one in English).
+    if is_filipino(msg) && intent == Intent::Ask {
+        how.push_str(if how.is_empty() { "They wrote in Filipino or Taglish. Reply in English." } else { " They wrote in Filipino or Taglish. Reply in English." });
+    }
     let when = resolve_when(msg, today);
     let ask_when = intent == Intent::Remind && when.is_none();
 
@@ -254,7 +262,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
         Section { title: "Open note", body: &note, priority: 6 },
         Section { title: "From the student's notes", body: &hits, priority: 7 },
         Section { title: "Conversation so far", body: &chat, priority: 4 },
-        Section { title: "How to take this message", body: how, priority: 9 },
+        Section { title: "How to take this message", body: &how, priority: 9 },
     ];
     // A request gets no facts: with them a 1B model starts chatting inside `text`.
     let live: Vec<_> = sections.into_iter().filter(|s| !s.body.trim().is_empty() && (matches!(intent, Intent::Ask) || s.title.starts_with("Dates"))).collect();
@@ -1271,5 +1279,13 @@ mod tests {
             assert_eq!(bullets(&r), ["MATH 101: 86% so far"]);
         }
         assert!(!persona::all_variants().iter().any(|v| v.contains("updated")), "no wording says a grade was changed");
+    }
+
+    #[test]
+    fn an_uncovered_question_is_told_to_answer_from_what_it_knows_and_a_filipino_one_in_english() {
+        let mut m = FakeLlm::new(&[r#"{"reply":"Jose Rizal was born on June 19, 1861."}"#]);
+        let a = answer(&mut m, Template::ChatMl, &rich(), &[], "Kailan ipinanganak si Jose Rizal?").unwrap();
+        assert!(a.known && !a.cited, "{a:?}");
+        assert!(m.prompts[0].contains("Answer from what you know") && m.prompts[0].contains("Reply in English"), "{}", m.prompts[0]);
     }
 }

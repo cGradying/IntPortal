@@ -70,13 +70,17 @@ impl Plan {
     }
 }
 
-/// The same word three words long, three times over: the model is stuck. Qwen3 1.7B does this in
-/// Filipino ("ang nangunguna na nangunguna na nangunguna") on about one question in eight.
+/// The same four words, three times over: the model is stuck. Qwen3 1.7B did this in Filipino ("ang
+/// nangunguna na nangunguna na nangunguna na nangunguna") on about one question in eight. Three words
+/// were too few: a longer English answer says "the left subtree" three times and is not stuck.
 pub fn looped(text: &str) -> bool {
     let low = text.to_lowercase();
     let w: Vec<&str> = low.split_whitespace().collect();
-    w.windows(3).any(|t| w.windows(3).filter(|u| *u == t).count() >= 3)
+    w.windows(4).any(|t| w.windows(4).filter(|u| *u == t).count() >= 3)
 }
+
+/// Tokens an open reply may take: room for an explanation with its steps (a tutor turn), not an essay.
+const REPLY_TOKENS: u32 = 420;
 
 /// The `{"reply":"` and opener a Filipino reply starts with.
 fn prefill_for(msg: &str) -> String {
@@ -98,9 +102,9 @@ fn attempt(llm: &mut dyn Llm, tpl: Template, style: Option<&str>, sections: &[Se
     if prefill && fil {
         let start = prefill_for(msg);
         show(&start); // the opener is already written: the chat shows it at once
-        llm.generate_prefilled(&prompt, &start, Some(schema), 300, &mut show)
+        llm.generate_prefilled(&prompt, &start, Some(schema), REPLY_TOKENS, &mut show)
     } else {
-        llm.generate(&prompt, Some(schema), 300, &mut show)
+        llm.generate(&prompt, Some(schema), REPLY_TOKENS, &mut show)
     }
 }
 
