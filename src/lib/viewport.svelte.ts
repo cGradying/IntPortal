@@ -52,7 +52,10 @@ export function watchKeyboard() {
     // A turned phone starts over: its old height is no yardstick.
     if (innerWidth !== width) ((width = innerWidth), (tallest = 0));
     tallest = Math.max(tallest, height());
-    set(keyboardUp(height(), tallest));
+    const up = keyboardUp(height(), tallest);
+    set(up);
+    // Android shrinks the page but leaves the field where it was, under the keyboard's old place.
+    if (up && field(document.activeElement)) (document.activeElement as HTMLElement).scrollIntoView({ block: "nearest" });
   };
   addEventListener("pointerdown", () => (touched = performance.now()), true);
   addEventListener("focusin", (e) => field(e.target) && focusOpens(performance.now() - touched) && set(true));

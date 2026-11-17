@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { cancel, isPermissionGranted, pending as devicePending, requestPermission } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, choices, larStyle, spaceLine, speedOf, etaLine, newChat, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
+import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, choices, larStyle, spaceLine, speedOf, etaLine, newChat, noRoom, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -437,6 +437,22 @@ describe("installing IntAssis", () => {
     await install();
     expect(ran("ai_download")).toHaveLength(0);
     expect(assis.error).toBe("IntAssis needs 1.90 GB free. This phone has 1.20 GB. Free up 700 MB and try again.");
+  });
+
+  it("downloads nothing when the phone lacks the RAM for any offered model (C2)", async () => {
+    assis.models = [chat({ installed: false, fits: "refuse" }), embed({ installed: false })];
+    await install();
+    expect(ran("ai_download")).toHaveLength(0);
+    expect(assis.error).toMatch(/enough memory \(RAM\)/);
+    expect(noRoom()).toBe(true);
+  });
+
+  it("takes the other offered model when the default doesn't fit (C2)", async () => {
+    assis.models = [chat({ installed: false, fits: "refuse" }), chat({ id: "small", default: false, installed: false }), embed({ installed: false })];
+    expect(noRoom()).toBe(false);
+    expect(chatModel().id).toBe("small");
+    await install();
+    expect(ran("ai_download").map(([, a]) => a.ids)).toEqual([["small", "embed"]]);
   });
 
   it("goes ahead when the phone doesn't say how much is free", async () => {

@@ -1,6 +1,7 @@
 package ph.intportal.app
 
 import android.os.Bundle
+import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
@@ -14,6 +15,12 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    // Edge to edge, Android 15 no longer shrinks the window for the keyboard, so the page never saw
+    // it and the keyboard covered LAR's text box and the sign-in form. The frame stops at its top.
+    ViewCompat.setOnApplyWindowInsetsListener(findViewById<View>(android.R.id.content)) { view, insets ->
+      view.setPadding(0, 0, 0, insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
+      insets
+    }
   }
 
   // The bridge for src/lib/bars.ts. The page reports what sits under the
