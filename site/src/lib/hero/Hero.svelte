@@ -137,20 +137,6 @@
       radial-gradient(rgba(245, 178, 39, 0.07) 1px, transparent 1.5px) 0 0 / 15px 15px,
       var(--void);
   }
-  /* As the stage scrolls away at the end of the dive, its bottom edge melts into
-     the page instead of cutting across it. */
-  .stage::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 55%;
-    z-index: 2;
-    background: linear-gradient(transparent, var(--void) 85%);
-    opacity: calc((var(--p) - 0.5) * 4);
-    pointer-events: none;
-  }
   .scene {
     position: absolute;
     inset: 0;
@@ -161,7 +147,7 @@
     pointer-events: none;
   }
   .scene.on {
-    opacity: calc(1 - max(0, (var(--p) - 0.9) * 10));
+    opacity: 1;
     transition: opacity var(--t-hero) var(--ease);
   }
   .live .scene.on {

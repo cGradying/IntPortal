@@ -54,15 +54,11 @@
       {/if}
     </div>
 
-    <div class="show">
-      {#if f.media}
+    {#if f.media}
+      <div class="show">
         <Phone src={f.media.src} alt={f.media.alt} video={f.media.video} poster={f.media.poster} />
-      {:else}
-        <div class="plate" aria-hidden="true">
-          <PixelIcon name={GROUP_ICON[data.group.id]} size={96} />
-        </div>
-      {/if}
-    </div>
+      </div>
+    {/if}
   </div>
 
   <nav class="pager" aria-label="More in {data.group.name}">
@@ -97,6 +93,9 @@
   .crumbs a:hover {
     color: var(--site-ink);
     text-decoration: underline;
+  }
+  .layout.bare {
+    grid-template-columns: minmax(0, 1fr);
   }
   .layout {
     display: grid;
@@ -188,19 +187,6 @@
     position: sticky;
     top: 96px;
   }
-  .plate {
-    display: grid;
-    place-items: center;
-    width: min(264px, 70vw);
-    aspect-ratio: 1;
-    color: var(--parch);
-    background:
-      radial-gradient(rgba(245, 178, 39, 0.1) 1px, transparent 1.5px) 0 0 / 14px 14px,
-      radial-gradient(circle at 50% 55%, rgba(148, 28, 48, 0.35), transparent 70%),
-      var(--void-3);
-    box-shadow: inset 0 0 0 3px var(--slab-edge);
-    clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
-  }
   .pager {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -239,9 +225,6 @@
     .show {
       position: static;
       order: -1;
-    }
-    .layout.bare .show {
-      display: none;
     }
   }
 </style>

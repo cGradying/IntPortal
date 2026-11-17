@@ -42,7 +42,7 @@ The site stops being one download page. The first screen is the portal itself, i
 - **C12. Changelog, `/changelog`.** CHANGELOG.md rendered, newest first, each version with its date, its items and its known gaps, and an anchor per version.
 - **C13. Roadmap, `/roadmap`.** Four lanes: Shipped (each release with its real date), Building (approved specs not yet shipped), Next (open P0 and P1 issues) and Later (draft specs and P2 issues). Each item says what it is in a student's words and links its spec or issue. No dates that don't exist.
 - **C14. About, `/about`.** The owner alone: the GitHub handle cGradying, a PUP student, their public bio, what IntPortal is built with, and a link to their GitHub. Nothing that isn't on their public profile.
-- **C15. Navigation.** The header has Features, Download, Roadmap, Help and a gold Get it; on phones it folds into a menu sheet. The footer lists every page.
+- **C15. Navigation.** The header has Features, Roadmap, Help, Try it, GitHub and a gold Get it, which is Download (one link to it, in gold, rather than two). On phones it folds into a menu sheet, which also lists Download, What's new, Reel and About. The footer lists every page.
 
 ### Every page
 

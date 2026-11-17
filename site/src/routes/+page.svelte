@@ -30,13 +30,13 @@
 
   const count = (g: string) => FEATURES.filter((f) => f.group === g).length;
 
-  const features = [
+  const features: { group: string; title: string; body: string; src: string; alt: string; video?: boolean; poster?: string }[] = [
     { group: "today", title: "Today", body: "The class in session counts down. What's due sits right under it, and the free time between classes shows as gaps you can use.", src: "/media/today.webp", alt: "Today: the campus scene, the class in session and the deadlines" },
-    { group: "today", title: "Deadlines", body: "SIS, eMabini and your own, in one list. Tick Done, and Undo if your thumb slipped. Scan a handout or paste a group chat message to add them.", src: "/media/done.mp4", poster: "/media/done-poster.webp", video: true, alt: "Ticking a deadline Done, then Undo" },
+    { group: "today", title: "Deadlines", body: "SIS, eMabini and your own, in one list. Tick Done, and Undo if your thumb slipped. Scan a handout or paste a group chat message to add them.", src: "/media/due.webp", alt: "The Due card on Today with three deadlines and Add, on sample data" },
     { group: "schedule", title: "Schedule", body: "Day and week. Mark a class vacant or online, move it for a week, give it a colour, keep a note on it.", src: "/media/schedule.webp", alt: "The day schedule" },
     { group: "grades", title: "Grades", body: "Every term, your GPA and its trend, and what you need on the rest of the term to reach the grade you want.", src: "/media/grades.webp", alt: "Grades with the GPA trend" },
     { group: "lar", title: "LAR", body: "A small robot from the other side of the portal shows you around and gives one nudge at a time. Turn on his assistant and he answers questions about your classes and notes, on the phone itself.", src: "/media/talk.webp", alt: "LAR asking what to call you" },
-    { group: "study", title: "Study", body: "Notes per class or per day, with checklists and photos. Decks bring each card back just before you'd forget it, and a session plays like a card game: a streak multiplies your points.", src: "/media/tabs.mp4", poster: "/media/tabs-poster.webp", video: true, alt: "Moving between Today, Schedule, Grades, Study and You" },
+    { group: "study", title: "Study", body: "Notes per class or per day, with checklists and photos. Decks bring each card back just before you'd forget it, and a session plays like a card game: a streak multiplies your points.", src: "/media/game.webp", alt: "A round of the study game on sample cards" },
   ];
 
   const facts = [
@@ -141,7 +141,7 @@
     <div>
       <h2 id="n-h">Where it's going</h2>
       <p>
-        {#if data.release}Version {data.release.version} shipped{#if shipped} on {shipped}{/if}.{/if}
+        {#if data.release}Version {data.release.version} shipped{#if shipped}{" "}on {shipped}{/if}.{/if}
         The roadmap shows what's being built now and what comes after, straight from the specs and issues it's built from.
       </p>
     </div>
@@ -203,7 +203,8 @@
   }
   .features {
     position: relative;
-    margin-top: clamp(48px, 8vh, 96px);
+    isolation: isolate;
+    margin-top: 32px;
   }
   /* The dive ends in the dot grid; it carries on behind the first section and fades out. */
   .features::before {
@@ -211,29 +212,33 @@
     position: absolute;
     z-index: -1;
     left: 50%;
-    top: calc(-1 * clamp(48px, 8vh, 96px));
+    top: -32px;
     width: 100vw;
     height: 110vh;
     translate: -50% 0;
-    background: radial-gradient(rgba(245, 178, 39, 0.07) 1px, transparent 1.5px) 0 0 / 15px 15px;
-    mask-image: linear-gradient(#000, transparent);
-    -webkit-mask-image: linear-gradient(#000, transparent);
+    /* The same 3 px dot on a 15 px pitch the dive ends on, lit, then fading out. */
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15'%3E%3Crect width='3' height='3' fill='%23f5b227' fill-opacity='.26'/%3E%3C/svg%3E") 0 0 / 15px 15px;
+    mask-image: linear-gradient(#000 20%, transparent);
+    -webkit-mask-image: linear-gradient(#000 20%, transparent);
     pointer-events: none;
   }
   .features .lede {
     margin-bottom: 32px;
   }
+  /* Phone and text sit together in the middle, alternating sides, so no row
+     leaves a dead half beside its text. */
   .feature {
     display: flex;
     align-items: center;
-    gap: clamp(28px, 6vw, 96px);
+    justify-content: center;
+    gap: clamp(28px, 6vw, 88px);
     padding-block: 28px;
   }
   .feature.flip {
     flex-direction: row-reverse;
   }
   .feature .text {
-    max-width: 44ch;
+    flex: 0 1 500px;
   }
   .feature h3 {
     font-size: clamp(1.6rem, 3.4vw, 2.3rem);
