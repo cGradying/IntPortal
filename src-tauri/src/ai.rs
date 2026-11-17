@@ -847,6 +847,20 @@ pub async fn ai_cards(ai: tauri::State<'_, AiState>, text: String, want: usize) 
     .await
 }
 
+/// Flashcards on a topic the student named in the chat (spec 021 C22): the passages the note search finds
+/// for it go first, then what the model knows. The old way handed the model "Topic: X" as if it were the
+/// student's text, so it had nothing to write from and echoed the topic back.
+#[tauri::command]
+pub async fn ai_topic_cards(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, topic: String, want: usize) -> Res<Cards> {
+    let (slot, q, handle) = (ai.embedder.clone(), topic.clone(), app.clone());
+    let passages: Vec<String> = background(move || recall(&handle, &slot, &q)).await.ok().and_then(Result::ok).map(|r| r.lines.into_iter().chain(r.near).collect()).unwrap_or_default();
+    with_model(&ai, move |llm, tpl| {
+        let o = gen::topic_cards(llm, tpl, &topic, &passages, want.clamp(1, 40));
+        Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back }).collect(), stopped: o.stopped })
+    })
+    .await
+}
+
 /// A scan's text, tidied by the loaded model (spec 041 C25, spec 020 C16). Never fails the scan:
 /// a busy or missing model, a slow phone or a bad answer gives the text back as it came.
 #[tauri::command]

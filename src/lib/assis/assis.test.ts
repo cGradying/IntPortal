@@ -772,7 +772,7 @@ describe("applying a proposal", () => {
   });
 
   it("shows the cards LAR wrote first and saves nothing until the student confirms", async () => {
-    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }], stopped: null });
+    backend.ai_topic_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }], stopped: null });
     backend.save_deck = () => undefined;
     pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
@@ -783,7 +783,7 @@ describe("applying a proposal", () => {
   });
 
   it("saves the deck with the student's edits and removals on confirm", async () => {
-    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }, { front: "e", back: "f" }], stopped: null });
+    backend.ai_topic_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }, { front: "e", back: "f" }], stopped: null });
     backend.save_deck = () => undefined;
     pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
@@ -798,7 +798,7 @@ describe("applying a proposal", () => {
   });
 
   it("says 1 card, not 1 cards", async () => {
-    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
+    backend.ai_topic_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
     backend.save_deck = () => undefined;
     pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
@@ -807,14 +807,14 @@ describe("applying a proposal", () => {
   });
 
   it("asks the generator for the count the student asked for", async () => {
-    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
+    backend.ai_topic_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
     pending({ kind: "make_cards", topic: "Trees", count: 5 });
     await apply(0);
-    expect(ran("ai_cards")[0][1]).toMatchObject({ text: "Topic: Trees", want: 5 });
+    expect(ran("ai_topic_cards")[0][1]).toMatchObject({ topic: "Trees", want: 5 });
   });
 
   it("says plainly when fewer cards than asked could be made, and drops the stale leading sentence", async () => {
-    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }, { front: "e", back: "f" }, { front: "g", back: "h" }], stopped: "no new cards" });
+    backend.ai_topic_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }, { front: "e", back: "f" }, { front: "g", back: "h" }], stopped: "no new cards" });
     backend.save_deck = () => undefined;
     pending({ kind: "make_cards", topic: "Trees", count: 8 });
     assis.chat[0].text = "I'll make 8 flashcards on Trees. Confirm to start.";
@@ -825,7 +825,7 @@ describe("applying a proposal", () => {
   });
 
   it("reads only the result once the cards are shown, when all were made", async () => {
-    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }], stopped: null });
+    backend.ai_topic_cards = () => ({ cards: [{ front: "a", back: "b" }, { front: "c", back: "d" }], stopped: null });
     pending({ kind: "make_cards", topic: "Trees", count: 2 });
     assis.chat[0].text = "I'll make 2 flashcards on Trees. Confirm to start.";
     await apply(0);
@@ -833,7 +833,7 @@ describe("applying a proposal", () => {
   });
 
   it("discarding the preview saves nothing and offers the proposal again", async () => {
-    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
+    backend.ai_topic_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
     pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
     discardCards(0);
@@ -842,7 +842,7 @@ describe("applying a proposal", () => {
   });
 
   it("confirms nothing when every card was removed", async () => {
-    backend.ai_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
+    backend.ai_topic_cards = () => ({ cards: [{ front: "a", back: "b" }], stopped: null });
     pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
     assis.chat[0].cards!.length = 0;
@@ -851,10 +851,10 @@ describe("applying a proposal", () => {
   });
 
   it("explains when no cards could be made", async () => {
-    backend.ai_cards = () => ({ cards: [], stopped: null });
+    backend.ai_topic_cards = () => ({ cards: [], stopped: null });
     pending({ kind: "make_cards", topic: "Trees", count: 8 });
     await apply(0);
-    expect(assis.chat[0].problem).toMatch(/couldn't make cards/);
+    expect(assis.chat[0].problem).toMatch(/couldn't make good cards on Trees/);
     expect(assis.chat[0].state).toBe("pending");
     expect(assis.busy).toBe("");
   });
