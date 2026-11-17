@@ -1,0 +1,427 @@
+[
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/326",
+  "labels": [
+   {
+    "name": "role:core"
+   },
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P1"
+   },
+   {
+    "name": "handoff"
+   }
+  ],
+  "number": 326,
+  "title": "Website v2 content: feature directory, changelog and roadmap data (spec 057)"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/270",
+  "labels": [
+   {
+    "name": "role:head"
+   },
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P2"
+   }
+  ],
+  "number": 270,
+  "title": "Parked ideas from the closed macOS PRs (design calls, not bugs)"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/269",
+  "labels": [
+   {
+    "name": "role:ui"
+   },
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P2"
+   }
+  ],
+  "number": 269,
+  "title": "Syllabus: mark this week, and Quiz me on a lecture row"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/231",
+  "labels": [
+   {
+    "name": "role:qa"
+   },
+   {
+    "name": "P1"
+   }
+  ],
+  "number": 231,
+  "title": "Release gate: crystal on a low-end Android (046 C1d2)"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/205",
+  "labels": [
+   {
+    "name": "role:android"
+   },
+   {
+    "name": "type:chore"
+   },
+   {
+    "name": "P1"
+   },
+   {
+    "name": "handoff"
+   }
+  ],
+  "number": 205,
+  "title": "Android: verify all-day deadlines in the phone calendar (#204, spec 041 C21)"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/189",
+  "labels": [
+   {
+    "name": "role:ui"
+   },
+   {
+    "name": "type:bug"
+   },
+   {
+    "name": "handoff"
+   }
+  ],
+  "number": 189,
+  "title": "UI: pause canvas/CSS animations behind the LAR sheet and when hidden (Android 4 GB emulator ANR)"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/156",
+  "labels": [
+   {
+    "name": "role:qa"
+   },
+   {
+    "name": "handoff"
+   }
+  ],
+  "number": 156,
+  "title": "Test build without the simulator + x.x.x.1 release (hub, LAR chat, launch fix)"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/142",
+  "labels": [
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P1"
+   },
+   {
+    "name": "role:ai"
+   }
+  ],
+  "number": 142,
+  "title": "Spec 022: Quiz me from my notes"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/141",
+  "labels": [
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P2"
+   },
+   {
+    "name": "role:ai"
+   }
+  ],
+  "number": 141,
+  "title": "Spec 021: Better answers model (Qwen3 1.7B, opt-in)"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/130",
+  "labels": [
+   {
+    "name": "role:ui"
+   },
+   {
+    "name": "type:bug"
+   },
+   {
+    "name": "P1"
+   },
+   {
+    "name": "handoff"
+   }
+  ],
+  "number": 130,
+  "title": "UI: Mabini follow-ups (edit a rejected login, copy, link allowlist)"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/93",
+  "labels": [
+   {
+    "name": "role:core"
+   },
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P2"
+   }
+  ],
+  "number": 93,
+  "title": "Core: Plan.guide flag for AI-generated syllabus"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/92",
+  "labels": [
+   {
+    "name": "role:ui"
+   },
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P2"
+   }
+  ],
+  "number": 92,
+  "title": "UI: Ask AI, cards-from-note/PDF and syllabus hooks in NoteEditor, DeckPage, SubjectPage"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/82",
+  "labels": [
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P2"
+   },
+   {
+    "name": "role:ai"
+   }
+  ],
+  "number": 82,
+  "title": "AI A8: syllabus from text or a course title"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/81",
+  "labels": [
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P2"
+   },
+   {
+    "name": "role:ai"
+   }
+  ],
+  "number": 81,
+  "title": "AI A7: cards from a note or PDF, and Why?"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/80",
+  "labels": [
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P2"
+   },
+   {
+    "name": "role:ai"
+   },
+   {
+    "name": "handoff"
+   }
+  ],
+  "number": 80,
+  "title": "AI A6: Notes Ask AI: summarize, answer, structure, with RAG"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/68",
+  "labels": [
+   {
+    "name": "role:qa"
+   },
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P1"
+   }
+  ],
+  "number": 68,
+  "title": "QA: smoke script that screenshots every tab"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/67",
+  "labels": [
+   {
+    "name": "role:qa"
+   },
+   {
+    "name": "type:chore"
+   },
+   {
+    "name": "P0"
+   }
+  ],
+  "number": 67,
+  "title": "QA: test strategy and coverage in CI"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/66",
+  "labels": [
+   {
+    "name": "role:ui"
+   },
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P1"
+   }
+  ],
+  "number": 66,
+  "title": "UI: accessibility pass"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/65",
+  "labels": [
+   {
+    "name": "role:ui"
+   },
+   {
+    "name": "type:refactor"
+   },
+   {
+    "name": "P0"
+   }
+  ],
+  "number": 65,
+  "title": "UI: move to generated bindings and typed errors"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/64",
+  "labels": [
+   {
+    "name": "role:ui"
+   },
+   {
+    "name": "type:refactor"
+   },
+   {
+    "name": "P0"
+   }
+  ],
+  "number": 64,
+  "title": "UI: split Today, Grades and You into section components"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/63",
+  "labels": [
+   {
+    "name": "role:core"
+   },
+   {
+    "name": "type:chore"
+   },
+   {
+    "name": "P1"
+   }
+  ],
+  "number": 63,
+  "title": "Core: SIS parser fixtures from real pages"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/62",
+  "labels": [
+   {
+    "name": "role:core"
+   },
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P1"
+   }
+  ],
+  "number": 62,
+  "title": "Core: typed command errors"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/61",
+  "labels": [
+   {
+    "name": "role:core"
+   },
+   {
+    "name": "type:refactor"
+   },
+   {
+    "name": "P0"
+   }
+  ],
+  "number": 61,
+  "title": "Core: typed IPC, generated TypeScript bindings"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/26",
+  "labels": [
+   {
+    "name": "role:qa"
+   },
+   {
+    "name": "type:chore"
+   },
+   {
+    "name": "P2"
+   },
+   {
+    "name": "blocked"
+   }
+  ],
+  "number": 26,
+  "title": "P2.12 Beta: TestFlight and Play internal testing"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/24",
+  "labels": [
+   {
+    "name": "role:head"
+   },
+   {
+    "name": "type:feature"
+   },
+   {
+    "name": "P2"
+   },
+   {
+    "name": "blocked"
+   }
+  ],
+  "number": 24,
+  "title": "P2.9 Live Activity and home-screen widget"
+ },
+ {
+  "html_url": "https://github.com/cGradying/IntPortal/issues/1",
+  "labels": [
+   {
+    "name": "wayfinder:map"
+   },
+   {
+    "name": "role:head"
+   }
+  ],
+  "number": 1,
+  "title": "Map: IntPortal v1 on phones"
+ }
+]
