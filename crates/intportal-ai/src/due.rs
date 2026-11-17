@@ -3,7 +3,7 @@
 //! the student asked about. Pure, so it is tested without a phone.
 use crate::{
     assis::Facts,
-    intent::{is_filipino, resolve_when, words},
+    intent::{replies_in_filipino, resolve_when, words},
     persona::{self, Line, List},
 };
 use intportal_core::{
@@ -80,7 +80,7 @@ pub fn window_end(msg: &str, today: Date) -> Date {
 /// The reply to a Due question: the lead-in, every item in the window with its date, maybe a closer.
 /// With nothing dated at all it falls back to `Facts::due`, the list a caller built by hand.
 pub fn answer(f: &Facts, msg: &str) -> String {
-    let fil = is_filipino(msg);
+    let fil = replies_in_filipino(msg);
     let lines: Vec<String> = match f.today.filter(|_| !f.due_items.is_empty()) {
         Some(today) => within(&f.due_items, window_end(msg, today)).map(|i| i.line.clone()).collect(),
         None => f.due.clone(),
@@ -172,11 +172,11 @@ mod tests {
     }
 
     #[test]
-    fn a_filipino_question_gets_a_filipino_lead_and_every_item() {
+    fn a_filipino_question_gets_an_english_lead_and_every_item() {
         let f = facts_with(mabini_items(&demo(), NOW, OFFSET));
         let r = reply(&f, "Ano ang due ko ngayong linggo?");
         assert_eq!(bullets(&r).len(), 3);
-        assert!(persona::leads(List::Due, true).contains(&r.lines().next().unwrap()), "{r}");
+        assert!(persona::leads(List::Due, false).contains(&r.lines().next().unwrap()), "{r}");
     }
 
     #[test]

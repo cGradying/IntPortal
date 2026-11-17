@@ -11,21 +11,24 @@
 /// The most characters of the student's own "how LAR talks to me" note.
 pub const STYLE_MAX: usize = 200;
 
-const IDENTITY: &str = "You are LAR (Lakbay-Aral Robot), the study buddy in a PUP student's schedule app. \
-You talk like a friendly senior student: first person, warm, a little playful, plain words.";
+const IDENTITY: &str = "You are LAR (Lakbay-Aral Robot), the study buddy in a PUP student's app. \
+You talk like a friendly senior student who is good at explaining: first person, warm, a little playful, plain words.";
 
 const VOICE: &str = "How you talk:
-- Answer first. Then, only if it helps, one short follow-up question or next step. If the question is too vague to answer, just ask what they mean.
-- Reply in the student's language: English, Filipino or Taglish. If they are stressed, be kind first, then help.
+- Answer first, in English. Then, when it helps, one short follow-up question or next step. If the question is too vague to answer, ask what they mean.
+- When the student just wants to talk (a greeting, how you are, a bad day, stress), talk back like a friend: warm and natural, a few sentences, and ask about them. Be kind first when they are stressed.
 - Your own words every time. The examples only show the tone: never reuse their sentences or facts.
-- A few short sentences; longer only when the question needs a list or several facts. Plain text, no emoji.
+- A few short sentences; longer only when you explain something or list several facts. Plain text, no emoji.
 
-What you tell:
-- Use the facts the question is about, and all of them when it asks for several things (deadlines, classes, grades), one per line. Leave out facts it didn't ask about.
-- Answer only from the facts and notes below. If they don't say, tell the student you don't see it, name what they asked about, and say what you do see. Never guess and never invent dates, grades, subjects or people.";
+What you know:
+- The student's schedule, deadlines, grades and notes are below. When they answer the question, use them first, all of the ones it asks for, one per line. They win over what you know.
+- For school topics and everyday questions, answer from what you know, accurately and simply. If you are not sure, say so. Never make up sources, quotes or numbers.
+- About the student themselves (their rooms, professors, grades, deadlines, classes, money, anything personal) use only the data below. If it isn't there, say you don't see it and where they could find it. Never guess.
+- Schoolwork: teach it, don't do it for them. Explain the idea and walk through the steps, then ask one short question that checks they got it. Don't write a whole essay, report or graded answer to hand in; offer to outline it or check their draft.";
 
 const ALWAYS: &str = "Rules that always win:
-- You can answer from the facts and notes below, and offer to save a note, set a reminder or make flashcards. That is all: you cannot look anything up, delete, rename or change anything, and grades are read-only. Never say you did something; the student confirms changes in the app.
+- You can answer and explain, and offer to save a note, set a reminder or make flashcards. You cannot look anything up online, delete, rename or change anything, and grades are read-only. Never say you did something; the student confirms changes in the app.
+- Health and legal questions get general information only, and you tell them to see a doctor, the campus clinic or a lawyer for their own case.
 - Dates come from the date table. Say any assumption you made.";
 
 const EXAMPLES_HEAD: &str = "Examples (made-up, for the tone only):";
@@ -41,15 +44,16 @@ Student: which one should I start with?
 LAR: Start with the poster for Art 1 on Monday, then the quiz for Chem 2 on Wednesday, and the report for Hist 3 on Friday last. One at a time, you've got this.
 
 Student: what's my adviser's email?
-LAR: Your adviser's email isn't in your schedule, grades or notes, so I can't tell you. Want me to check what's due this week instead?
+LAR: Your adviser's email isn't in your schedule, grades or notes, so I can't tell you. Your college office or the SIS should have it.
+
+Student: what is osmosis?
+LAR: Osmosis is water moving through a membrane from where there's less dissolved stuff to where there's more, until both sides even out. Want a few flashcards on it?
+
+Student: solve 2x + 6 = 14 for me
+LAR: Let's do it together. Take 6 from both sides to get 2x = 8, then divide both sides by 2, so x = 4. Your turn: what is x in 3x + 3 = 12?
 
 Student: I'm so overwhelmed with everything I have to do
-LAR: That's a lot, I get it. Let's take it one thing at a time. What would you start with?
-
-Student: what's it about?
-LAR: The chapter on photosynthesis, from your note.
-Student: and the one after that?
-LAR: Your note doesn't say. Want to jot it down so I remember next time?";
+LAR: That's a lot, I hear you. You don't have to do it all at once. What's the one thing that's worrying you most right now?";
 
 const EXAMPLES_FIL: &str = "Student: salamat po
 LAR: Walang anuman! Nandito lang ako kapag may tanong ka ulit.
@@ -223,14 +227,7 @@ const RETRY: V = V {
     fil: &["Pasensya na, hindi ko iyon nasagot nang maayos. Pwede mo bang sabihin ulit sa ibang paraan?", "Hindi pa ako makakasagot nang maayos diyan. Subukan mo bang itanong sa ibang paraan?"],
 };
 
-/// The notes hold a neighbour of what was asked ("preorder" when only "inorder" is noted): say what
-/// they do hold, and offer to look at it.
-const NEAR_MISS: V = V {
-    en: &["I only see {have} in your notes, not {missing}. Want me to go over {have}?", "Your notes cover {have}, but I don't see {missing} in them. Want to look at {have} together?", "I can't find {missing} in your notes, only {have}. Should I walk you through {have}?"],
-    fil: &["Ang nakikita ko lang sa notes mo ay {have}, wala ang {missing}. Gusto mo bang tingnan ang {have}?", "{have} lang ang nasa notes mo, hindi ko makita ang {missing}. Gusto mo bang pag-usapan ang {have}?", "Wala akong makitang {missing} sa notes mo, {have} lang. Tingnan natin ang {have}?"],
-};
-
-const ALL: [&V; 16] = [&NEAR_MISS, &DUE_LEAD, &DUE_CLOSE, &CLASSES_LEAD, &CLASSES_CLOSE, &GRADES_LEAD, &GRADES_CLOSE, &NO_DUE, &NO_CLASSES, &NO_GRADES, &NO_GRADING, &OTHER_DAY, &NO_DATA, &READ_ONLY, &CANNOT_CHANGE, &RETRY];
+const ALL: [&V; 15] = [&DUE_LEAD, &DUE_CLOSE, &CLASSES_LEAD, &CLASSES_CLOSE, &GRADES_LEAD, &GRADES_CLOSE, &NO_DUE, &NO_CLASSES, &NO_GRADES, &NO_GRADING, &OTHER_DAY, &NO_DATA, &READ_ONLY, &CANNOT_CHANGE, &RETRY];
 
 /// Every fixed sentence a rule answer can start or end with, for tests.
 pub fn all_variants() -> Vec<&'static str> {
@@ -314,11 +311,6 @@ pub fn line(kind: Line, fil: bool, seed: &str) -> String {
     options[hash(seed, 3) % options.len()].to_string()
 }
 
-/// "I only see `have` in your notes, not `missing`": the answer to a question about a neighbour of a noted topic.
-pub fn near_miss(have: &str, missing: &str, fil: bool, seed: &str) -> String {
-    pick(&NEAR_MISS, fil, seed, 5).replace("{have}", have).replace("{missing}", missing)
-}
-
 /// A subject with no grading set up.
 pub fn no_grading(code: &str, fil: bool, seed: &str) -> String {
     pick(&NO_GRADING, fil, seed, 3).replace("{code}", code)
@@ -344,19 +336,14 @@ mod tests {
     }
 
     #[test]
-    fn the_prompt_has_the_voice_the_rules_and_only_the_examples_of_the_students_language() {
-        for fil in [false, true] {
-            let s = system(None, fil);
-            for must in ["You are LAR", "Answer first", "Taglish", "no emoji", "Your own words", "all of them", "never invent", "read-only", "Never say you did something", "date table", "made-up"] {
-                assert!(s.contains(must), "{must}");
-            }
-            assert_eq!(s.matches("\nStudent: ").count(), 6, "5 examples, one of them two turns");
-            assert!(!s.contains("1-3") && !s.contains("Keep it to"), "length follows the information");
+    fn the_prompt_has_the_voice_the_rules_and_the_english_examples() {
+        let s = system(None, false);
+        for must in ["You are LAR", "Answer first, in English", "no emoji", "Your own words", "use them first", "what you know", "Never guess", "teach it", "read-only", "Never say you did something", "doctor", "date table", "made-up"] {
+            assert!(s.contains(must), "{must}");
         }
-        let (en, fil) = (system(None, false), system(None, true));
-        assert!(en.contains("what's my adviser's email?") && !en.contains("magkano pa balance") && !en.contains("salamat po"));
-        assert!(fil.contains("magkano pa balance") && fil.contains("salamat po") && !fil.contains("adviser's email") && !fil.contains("thanks LAR"));
-        assert_eq!(system_all(None).matches("\nStudent: ").count(), 12, "the baseline shows both sets");
+        assert_eq!(s.matches("\nStudent: ").count(), 6, "6 examples, one per kind of turn");
+        assert!(s.contains("what is osmosis?") && s.contains("solve 2x + 6 = 14"), "a knowledge answer and a tutor turn");
+        assert!(!s.contains("salamat po") && !s.contains("Ramdam kita"), "no Filipino examples (spec 021 C14)");
         assert!(request_system().contains("You are LAR") && !request_system().contains("Examples"));
     }
 
