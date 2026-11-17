@@ -34,6 +34,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [012-portals](012-portals.md) | shipped | The portal model: SIS now, Mabini next |
 | [013-mabini](013-mabini.md) | shipped | eMabini: sign-in, courses, deadlines and grades, the guard, eMabini alone |
 | [020-ai](020-ai.md) | shipped | LAR that streams, remembers, cites notes; Ask AI in a note |
+| [021-intassis-v2](021-intassis-v2.md) | approved | Background install with an install screen, Qwen3.5 2B, a tutor that answers from what it knows, checked study cards, a faster first word |
 | [030-from-the-mac-app](030-from-the-mac-app.md) | shipped (wave 1) | The Mac app's features mapped to the phone; wave 1: join links, deadlines in the calendar, dated note entries |
 | [040-trust-and-speed](040-trust-and-speed.md) | shipped | Honest loading and errors, fixable logins, review all due, consistent taps, week navigation |
 | [041-one-deadline-list](041-one-deadline-list.md) | shipped | Syllabus, eMabini and own deadlines in one list: Today, reminders, LAR, calendar; add by typing or photo |
