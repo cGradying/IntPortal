@@ -34,7 +34,7 @@ export interface GhRelease {
   assets: GhAsset[];
 }
 
-export const REPO = "cGradying/intportal-app";
+export const REPO = "cGradying/IntPortal";
 export const REPO_URL = `https://github.com/${REPO}`;
 export const RELEASES_URL = `${REPO_URL}/releases`;
 export const API_URL = `https://api.github.com/repos/${REPO}/releases?per_page=12`;

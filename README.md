@@ -4,16 +4,16 @@
 
 <p align="center">
   <a href="CHANGELOG.md"><img alt="Version" src="https://img.shields.io/badge/version-0.3.0-c8102e"></a>
-  <a href="https://github.com/cGradying/intportal-app/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/cGradying/intportal-app/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/cGradying/IntPortal/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/cGradying/IntPortal/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Mac%20%7C%20Windows%20%7C%20Linux%20%7C%20Web-555">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-555"></a>
 </p>
 
 # IntPortal
 
-A student app for PUP that keeps your classes, grades and deadlines on your phone. It signs in with your own SIS and eMabini accounts, works offline, and keeps everything on the phone. A small robot named LAR shows you around.
+A student app that keeps your classes, grades and deadlines from your school's portal on your phone. It signs in with your own account, works offline, and keeps everything on the phone. Today it signs in to PUP's SIS and eMabini, and more schools are coming. A small robot named LAR shows you around.
 
-IntPortal is unofficial. It is not made by or affiliated with PUP, and it only works with your own account.
+IntPortal is unofficial. It is not made by or affiliated with any school, and it only works with your own account.
 
 <p align="center">
   <img src="docs/images/dive.gif" width="200" alt="The portal opens and the app dives in to Today">
@@ -43,7 +43,7 @@ Every feature is listed in [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Get it
 
-**Android.** Download `IntPortal.apk` from the [latest release](https://github.com/cGradying/intportal-app/releases/latest), open it, and allow the install when Android asks. It needs Android 7 or newer on a 64-bit phone. Updates install over the old version and keep your data.
+**Android.** Download `IntPortal.apk` from the [latest release](https://github.com/cGradying/IntPortal/releases/latest), open it, and allow the install when Android asks. It needs Android 7 or newer on a 64-bit phone. Updates install over the old version and keep your data.
 
 **iPhone.** There is no App Store build yet. Either sideload `IntPortal-unsigned.ipa` from the release with AltStore or SideStore, which sign it with your own Apple ID, or build it with Xcode: see [docs/BUILDING.md](docs/BUILDING.md).
 
@@ -51,11 +51,11 @@ Every feature is listed in [docs/FEATURES.md](docs/FEATURES.md).
 
 **Any browser.** Try the whole app on sample data at `/try` on the website, with nothing to install.
 
-**Look around first.** Tap it on the sign-in page to try the whole app on sample data, with no PUP account.
+**Look around first.** Tap it on the sign-in page to try the whole app on sample data, with no school account.
 
 ## Your data
 
-Everything stays on your phone. There is no IntPortal account, server, analytics or ads. Your login is kept in the phone's keychain, and the app talks only to PUP's own sites. Details are in [PRIVACY.md](PRIVACY.md).
+Everything stays on your phone. There is no IntPortal account, server, analytics or ads. Your login is kept in the phone's keychain, and the app talks only to your school's own sites. Details are in [PRIVACY.md](PRIVACY.md).
 
 ## Built with
 
@@ -69,7 +69,7 @@ This repository also holds the website (`site/`) and the reel (`reel/`).
 - [The website](site/README.md) and [the reel](reel/README.md)
 - [Architecture](docs/ARCHITECTURE.md) and [terms used in the app](CONTEXT.md)
 - [Specs](docs/specs/README.md), [decisions](docs/adr/), [changelog](CHANGELOG.md)
-- Found a problem? [Open an issue](https://github.com/cGradying/intportal-app/issues).
+- Found a problem? [Open an issue](https://github.com/cGradying/IntPortal/issues).
 
 ## License
 

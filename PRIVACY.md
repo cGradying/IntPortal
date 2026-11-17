@@ -1,17 +1,17 @@
 # Privacy
 
-IntPortal is an unofficial student app for the Polytechnic University of the Philippines (PUP). It is not made by or affiliated with PUP. This page says what the app does with your data. Last updated 2026-11-16.
+IntPortal is an unofficial student app. It works with your school's own portals, which today are the SIS and eMabini of the Polytechnic University of the Philippines (PUP). It is not made by or affiliated with any school. This page says what the app does with your data. Last updated 2026-11-16.
 
 ## The short version
 
 - Your login and your data stay on your phone. There is no IntPortal account, no IntPortal server, no analytics and no ads.
-- The app talks to PUP's own systems with your own login, the way you would in a browser.
+- The app talks to your school's own systems with your own login, the way you would in a browser.
 - Nothing is sold or shared, because nothing is collected.
 
 ## What stays on your phone
 
 - **Your login** for the SIS and eMabini. It is kept in the phone's keychain (the iOS Keychain, or the Android Keystore).
-- **What the app reads from PUP**: your schedule, grades, courses and deadlines. It is saved in a database on the phone, encrypted with SQLCipher. The key is kept in the keychain, and each student who signs in on the phone gets their own file.
+- **What the app reads from your school**: your schedule, grades, courses and deadlines. It is saved in a database on the phone, encrypted with SQLCipher. The key is kept in the keychain, and each student who signs in on the phone gets their own file.
 - **What you make**: notes, note photos, study decks, deadlines you add, goals, your name for LAR, your campus and your look.
 - **Scans**: a photo you scan for text is read on the phone and not kept, unless you attach it to a note.
 - **The optional AI** (IntAssis). It runs entirely on the phone, and your questions and notes never leave it.
@@ -45,8 +45,8 @@ Backups are files you make and share yourself (You › Backup). A backup holds y
 
 ## Children
 
-IntPortal is for PUP students. It collects nothing, so it collects nothing from anyone under 18 either.
+IntPortal is for students. It collects nothing, so it collects nothing from anyone under 18 either.
 
 ## Changes and contact
 
-Changes to this page are listed in the repository's history. Questions or problems: open an issue at <https://github.com/cGradying/intportal-app/issues>.
+Changes to this page are listed in the repository's history. Questions or problems: open an issue at <https://github.com/cGradying/IntPortal/issues>.

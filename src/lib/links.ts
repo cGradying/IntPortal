@@ -1,7 +1,7 @@
 /** The website's address once it is live (spec 051). Until then the Updates link opens GitHub's releases page. */
 export const SITE: string | null = null;
 
-const REPO = "https://github.com/cGradying/intportal-app";
+const REPO = "https://github.com/cGradying/IntPortal";
 
 /** Where You › Updates goes (050 C15). */
 export const UPDATES = SITE ? `${SITE}/download` : `${REPO}/releases`;

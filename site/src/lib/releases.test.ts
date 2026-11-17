@@ -3,7 +3,7 @@ import recorded from "./fallback.json";
 import { megabytes, pick, toRelease, versionOf, type GhRelease } from "./releases";
 
 const rel = (over: Partial<GhRelease>): GhRelease => ({ tag_name: "android-v0.4.0", draft: false, prerelease: false, published_at: "2026-11-20T00:00:00Z", html_url: "https://github.com/x/y/releases/tag/android-v0.4.0", assets: [], ...over });
-const asset = (name: string, size = 70_000_000) => ({ name, size, browser_download_url: `https://github.com/cGradying/intportal-app/releases/download/android-v0.4.0/${name}` });
+const asset = (name: string, size = 70_000_000) => ({ name, size, browser_download_url: `https://github.com/cGradying/IntPortal/releases/download/android-v0.4.0/${name}` });
 
 describe("051 C9 every download, listed", () => {
   it("reads the version from a tag", () => {
@@ -18,7 +18,7 @@ describe("051 C9 every download, listed", () => {
   });
   it("links a full release's stable names through /latest/, so links never go stale", () => {
     const r = toRelease(rel({ assets: [asset("IntPortal-0.4.0.apk"), asset("IntPortal.apk"), asset("IntPortal-0.4.0.aab"), asset("IntPortal-unsigned.ipa"), asset("IntPortal-linux.AppImage"), asset("IntPortal-linux.deb"), asset("IntPortal-mac.dmg"), asset("IntPortal-windows.msi")] }), true);
-    expect(r.assets.map((a) => [a.platform, a.url.replace("https://github.com/cGradying/intportal-app/releases", "")])).toEqual([
+    expect(r.assets.map((a) => [a.platform, a.url.replace("https://github.com/cGradying/IntPortal/releases", "")])).toEqual([
       ["android", "/latest/download/IntPortal.apk"],
       ["ios", "/latest/download/IntPortal-unsigned.ipa"],
       ["mac", "/latest/download/IntPortal-mac.dmg"],

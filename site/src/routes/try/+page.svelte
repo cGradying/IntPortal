@@ -14,7 +14,7 @@
   <div class="copy">
     <h1>Try it in your browser</h1>
     <p class="lede">This is IntPortal on demo data. Nothing you change is kept.</p>
-    <p class="fine">It's the real app: the same screens and the same Rust core, running in this page. Signing in to PUP, reminders, the camera and the assistant need the app on your phone.</p>
+    <p class="fine">It's the real app: the same screens and the same Rust core, running in this page. Signing in to your school, reminders, the camera and the assistant need the app on your phone.</p>
     <div class="actions">
       <a class="gold" href="/download">Get the app</a>
       <a class="ghost" href="/app/" target="_blank" rel="noopener">Open it full screen</a>

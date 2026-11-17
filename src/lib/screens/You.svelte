@@ -371,7 +371,7 @@
             <PortalConnect portal={portalOf("mabini")!} />
           {/if}
         </section>
-        <p class="fine">Your logins stay in this phone's keychain. IntPortal only talks to PUP SIS and eMabini.</p>
+        <p class="fine">Your logins stay in this phone's keychain. IntPortal only talks to your school's own portals.</p>
         <p class="fine">Signing out of SIS removes your login, schedule and grades; signing out of eMabini removes its login and courses. Your notes, decks, syllabus pages and goals stay for when you sign back in.</p>
         {#if confirming}
           {@render signOutRow()}
@@ -546,7 +546,7 @@
         </div>
         <p class="fine">Asks when IntPortal opens or comes back after a minute away, and hides the screen in the app switcher.</p>
         {#if lock.error}<p class="fine bad">{lock.error}</p>{/if}
-        <p class="fine">Your login stays in this phone's keychain and everything else stays on this phone. IntPortal only talks to PUP SIS and eMabini.</p>
+        <p class="fine">Your login stays in this phone's keychain and everything else stays on this phone. IntPortal only talks to your school's own portals.</p>
         <p class="fine">Each student's notes and decks stay separate on this phone; another student signing in here can't see yours.</p>
         <p class="fine">Signing out lives in Accounts and keeps your notes, decks, syllabus pages and goals for when you sign back in.</p>
         {#if confirming}
@@ -608,7 +608,7 @@
     {/if}
     <div class="about">
       <p>LAR is the Lakbay-Aral Robot who came through the portal to study with you.</p>
-      <p>IntPortal {__APP_VERSION__} · An unofficial student app, not made by or affiliated with PUP.</p>
+      <p>IntPortal {__APP_VERSION__} · An unofficial student app, not made by or affiliated with any school.</p>
       <p class="links">
         <button class="link" onclick={() => openLink(PRIVACY, true)}>Privacy</button>
         <span aria-hidden="true">·</span>

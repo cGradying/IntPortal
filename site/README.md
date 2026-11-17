@@ -37,7 +37,7 @@ The build is the `site/build` folder of plain files. Any static host works. Link
 
 **Netlify.** New site from Git, base directory `site`. `site/netlify.toml` sets the rest, and `static/_headers` sets the headers.
 
-**GitHub Pages.** It needs a custom domain, because without one the site lives under `/intportal-app/` and the demo breaks. Settings › Pages › Source: GitHub Actions, add the domain, then Actions › Site › Run workflow with "deploy" ticked.
+**GitHub Pages.** It needs a custom domain, because without one the site lives under `/IntPortal/` and the demo breaks. Settings › Pages › Source: GitHub Actions, add the domain, then Actions › Site › Run workflow with "deploy" ticked.
 
 After the site has an address, set `SITE` in `src/lib/links.ts` at the repository root, so the app's Updates link opens `/download`.
 
