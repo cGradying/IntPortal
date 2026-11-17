@@ -52,7 +52,7 @@ Adding IntAssis works on any phone that can run it. The download keeps going whe
 ### Answers
 
 - **C15. Its own knowledge, plus notes.** A school or general question gets an answer even when note search finds nothing. When the student's notes, syllabus or cards bear on the question, LAR uses them first, and they win where they disagree with what the model knows.
-- **C16. Where it came from.** An answer that used notes keeps its source chips. An answer from the model alone ends with a small "From what I know, not your notes" line under the bubble, so the student knows to check it.
+- **C16. Where it came from.** An answer that used notes keeps its source chips. An answer from the model alone carries a line under the bubble: "From what I know, not your notes. I might get facts wrong, so double-check anything important." (the owner, 2026-11-17: a disclaimer when nothing grounds the answer).
 - **C17. The student's own data is never invented.** Rooms, professors, grades, deadlines, schedules and anything else about the student come only from the app's data. When it isn't there, LAR says so and says where to find it.
 - **C18. Tutor, not ghostwriter.** Homework and problem questions get an explanation and the steps, ending with a check-your-understanding question. LAR won't write a whole essay, report or graded answer to hand in, and says it will help outline or check theirs instead.
 - **C19. Talks like a person.** Greetings, how-are-you, venting, stress and small talk go to the model with LAR's persona, not to a canned line, and LAR answers warmly and briefly, with one follow-up question when it fits. It remembers the last turns of the chat.
@@ -78,7 +78,7 @@ Adding IntAssis works on any phone that can run it. The download keeps going whe
 - Android notification: title "Adding IntAssis", text "{pct}% · {done} of {total}".
 - Errors: "No connection. It carries on when you're back online." / "Storage filled up. Free up {short}, then tap Resume." / "The file didn't arrive whole, so it was deleted. Tap Resume to fetch it again." / "The download server didn't answer. Tap Resume to try again."
 - Models: "Qwen3.5 2B · Smarter, default · {size}", "Qwen3 1.7B · A bit smaller and faster · {size}", "Switch to {name}".
-- Answers: "From what I know, not your notes". Ghostwriting: "I won't write the whole thing to hand in, but I'll help you outline it or check your draft."
+- Answers: "From what I know, not your notes. I might get facts wrong, so double-check anything important." Ghostwriting: "I won't write the whole thing to hand in, but I'll help you outline it or check your draft."
 
 ## Data shape
 
