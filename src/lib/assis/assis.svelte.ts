@@ -86,8 +86,16 @@ export const chatModel = () => {
   const d = defaultChat();
   if (d?.installed) return d;
   const on = assis.models.filter((m) => m.chat && m.installed);
-  return on.find((m) => !m.legacy) ?? on[0] ?? d;
+  return on.find((m) => !m.legacy) ?? on[0] ?? runnable();
 };
+/** The offered chat model this phone has the RAM for: the default, else the other one, else the default (spec 021 C2). */
+const runnable = () => {
+  const d = defaultChat();
+  return d?.fits !== "refuse" ? d : (choices().find((m) => m.fits !== "refuse") ?? d);
+};
+/** True when no offered chat model fits this phone's RAM: Add is never offered, nothing is downloaded. */
+export const noRoom = () => runnable()?.fits === "refuse";
+export const RAM_LINE = "This phone doesn't have enough memory (RAM) for LAR's brain. Storage won't help.";
 /** The small model that finds the student's notes. */
 export const embedModel = () => assis.models.find((m) => !m.chat);
 export const installed = () => assis.models.some((m) => m.chat && m.installed);
@@ -212,7 +220,12 @@ async function fetchAll(todo: ModelInfo[], target = todo[0]?.id ?? ""): Promise<
  * are not touched.
  */
 export async function install(id?: string) {
-  const chat = assis.models.find((m) => m.chat && m.id === id) ?? defaultChat();
+  const chat = assis.models.find((m) => m.chat && m.id === id) ?? runnable();
+  // Checked before a byte comes, not after 1.5 GB: the model would only be refused when it loads.
+  if (chat?.fits === "refuse") {
+    assis.error = RAM_LINE;
+    return;
+  }
   const todo = [chat, embedModel()].filter((m): m is ModelInfo => !!m && !m.installed);
   if (!chat || !todo.length || !(await fetchAll(todo, chat.id))) return;
   const others = assis.models.filter((m) => m.chat && m.installed && m.id !== chat.id);

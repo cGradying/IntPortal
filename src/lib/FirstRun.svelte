@@ -4,7 +4,7 @@
   // never shows (+page checks `showFirstRun`).
   import { buzz } from "./haptics";
   import Lar from "./lar/Lar.svelte";
-  import { chatModel, downloadSizes, embedModel, install, mb } from "./assis/assis.svelte";
+  import { chatModel, downloadSizes, embedModel, install, mb, noRoom, RAM_LINE } from "./assis/assis.svelte";
 
   let { ondone }: { ondone: () => void } = $props();
   /** Spec 020 C9: Light is preselected; skipping is the same as Light. */
@@ -14,7 +14,7 @@
   const size = $derived(mb(todo.reduce((n, m) => n + m.bytes, 0)));
 
   function go() {
-    if (pick === "ai") {
+    if (pick === "ai" && !noRoom()) {
       buzz.tick();
       install();
     } else buzz.select();
@@ -26,13 +26,17 @@
   <div class="art"><Lar size={4} state="happy" /></div>
   <div class="card notch text">
     <h1 id="first-title">Light or With AI?</h1>
-    <p>You can add AI later on You. A one-time download of {size}: {downloadSizes(todo)}. It works offline.</p>
+    {#if noRoom()}
+      <p>{RAM_LINE} Everything else works without it.</p>
+    {:else}
+      <p>You can add AI later on You. A one-time download of {size}: {downloadSizes(todo)}. It works offline.</p>
+    {/if}
   </div>
   <div class="pick" role="radiogroup" aria-label="Light or With AI">
     <button role="radio" aria-checked={pick === "light"} class:on={pick === "light"} onclick={() => { buzz.select(); pick = "light"; }}>
       <b>Light</b><small>No AI. Nothing downloaded.</small>
     </button>
-    <button role="radio" aria-checked={pick === "ai"} class:on={pick === "ai"} onclick={() => { buzz.select(); pick = "ai"; }}>
+    <button role="radio" aria-checked={pick === "ai"} class:on={pick === "ai"} disabled={noRoom()} onclick={() => { buzz.select(); pick = "ai"; }}>
       <b>With AI · {size}</b><small>Ask LAR about your classes and notes. One-time download, works offline. Use Wi-Fi.</small>
     </button>
   </div>
@@ -99,6 +103,9 @@
   }
   .pick button.on {
     border-color: var(--gold);
+  }
+  .pick button:disabled {
+    opacity: 0.45;
   }
   .pick small {
     font-family: inherit;
