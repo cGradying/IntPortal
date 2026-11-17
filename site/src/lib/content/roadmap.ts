@@ -10,9 +10,9 @@ export const ISSUES_URL = `https://api.github.com/repos/${REPO}/issues?state=ope
 const SPECS_URL = `${REPO_URL}/blob/main/docs/specs`;
 
 /**
- * What an open issue means to a student. `null` keeps it off the roadmap: internal work, or a
- * feature that already shipped while its issue stayed open. An issue not listed falls back to its
- * title without the team's prefix.
+ * What an open issue means to a student. Only issues listed here show: a new issue stays off until
+ * someone writes its line (the build warns, see `unlisted`). `null` marks one looked at and left off:
+ * internal work, or a feature that already shipped while its issue stayed open.
  */
 const ISSUES: Record<number, { title: string; line: string } | null> = {
   142: { title: "Quiz me from my notes", line: "Pick a note and LAR quizzes you on it." },
@@ -20,6 +20,7 @@ const ISSUES: Record<number, { title: string; line: string } | null> = {
   66: { title: "Accessibility pass", line: "Every screen checked for screen readers, large text and Reduce Motion." },
   269: { title: "Quiz me on a syllabus row", line: "Tap a lecture in your syllabus and study it right there." },
   82: { title: "A syllabus from a course title", line: "Type a course name or paste its text and LAR drafts the outline for you to check." },
+  205: { title: "Deadlines in Android's calendar", line: "All-day deadlines show on the right day in Android's calendar." },
   26: { title: "App Store and Play Store", line: "Install IntPortal from the stores instead of a file. Needs store accounts first." },
   24: { title: "Home-screen widget", line: "Your next class on the home screen. Waits on a paid Apple developer account." },
   62: null, // typed errors inside the app
@@ -51,7 +52,7 @@ const RELEASES: Record<string, string> = {
   "0.1.4": "eMabini, and LAR answering from your notes.",
   "0.1.3": "IntAssis: ask LAR, on your phone.",
   "0.1.2": "Android beta builds, and the groundwork for IntAssis.",
-  "0.1.1": "A small release with no notes.",
+  "0.1.1": "Sign-in and sync try all eight SIS servers, so your schedule is found on whichever one has it.",
   "0.1.0": "The first build: schedule, grades, notes, decks, reminders and your next class on the Lock Screen.",
 };
 
@@ -64,13 +65,7 @@ export function specRows(md: string) {
 
 const humanize = (id: string) => {
   const words = id.replace(/^\d+-/, "").replace(/-/g, " ");
-  return words[0].toUpperCase() + words.slice(1);
-};
-
-/** "UI: accessibility pass" or "AI A8: syllabus from text" to the part after the team's prefix. */
-const plain = (title: string) => {
-  const t = title.replace(/^[^:]{1,24}:\s*/, "");
-  return t[0].toUpperCase() + t.slice(1);
+  return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
 const firstSentence = (s: string) => s.replace(/\s*\(#[\d#, –-]+\)\s*$/, "").split(/(?<=\.)\s/)[0];
@@ -94,18 +89,18 @@ export function roadmap(specIndexMd: string, issues: GhIssue[], releases: Releas
     return lane ? [{ title: SPECS[id]?.title ?? humanize(id), line: SPECS[id]?.line ?? covers, lane, href: `${SPECS_URL}/${file}`, kind: "spec" }] : [];
   });
   const open = issues.flatMap((i): RoadItem[] => {
-    const labels = new Set(i.labels.map((l) => l.name));
     const said = ISSUES[i.number];
-    // A line written above outranks the labels: #26 is a QA chore to the team and the stores to a student.
-    if (i.pull_request || said === null || (!said && [...labels].some((l) => INTERNAL.has(l)))) return [];
+    const labels = new Set(i.labels.map((l) => l.name));
     const lane = labels.has("P0") || labels.has("P1") ? "next" : labels.has("P2") ? "later" : null;
-    if (!lane) return [];
-    const title = said?.title ?? plain(i.title);
-    return [{ title, line: said?.line ?? title, lane, href: i.html_url, kind: "issue" }];
+    return said && lane && !i.pull_request ? [{ ...said, lane, href: i.html_url, kind: "issue" }] : [];
   });
   const order = { shipped: 0, building: 1, next: 2, later: 3 };
   return [...shipped, ...specs, ...open].sort((a, b) => order[a.lane] - order[b.lane]);
 }
+
+/** Open issues with a priority that nobody has written a line for yet, so the build can say so. */
+export const unlisted = (issues: GhIssue[]) =>
+  issues.filter((i) => !i.pull_request && !(i.number in ISSUES) && !i.labels.some((l) => INTERNAL.has(l.name)) && i.labels.some((l) => /^P[012]$/.test(l.name))).map((i) => `#${i.number} ${i.title}`);
 
 /** Open issues from GitHub; null when it doesn't answer. */
 export async function fetchIssues(get: typeof fetch = fetch): Promise<GhIssue[] | null> {
