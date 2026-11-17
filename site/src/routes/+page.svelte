@@ -45,24 +45,24 @@
     ["Your login stays on your phone.", "It goes into the phone's keychain, the same place your other passwords live."],
     ["Your data is encrypted on the phone.", "Schedule, grades, notes and decks sit in a SQLCipher database. Each student who signs in gets their own."],
     ["There is no IntPortal server.", "No account, no analytics, no ads, no tracking. Nothing to sell, because nothing is collected."],
-    ["It only talks to PUP.", "It signs in to SIS and eMabini with your own login, the way your browser would, then works offline."],
+    ["It only talks to your school.", "It signs in to your school's portal with your own login, the way your browser would, then works offline."],
   ];
 
   const faq = [
-    ["Is this official?", "No. IntPortal is an independent student project. It isn't made by PUP, isn't affiliated with PUP, and only works with your own account."],
-    ["Is my password safe?", "It never leaves your phone except to sign in to PUP's own SIS or eMabini. It's kept in the phone's keychain, and the app makes at most three sign-in tries every fifteen minutes so it can never lock your SIS account."],
+    ["Is this official?", "No. IntPortal is an independent student project. It isn't made by or affiliated with any school, and only works with your own account."],
+    ["Is my password safe?", "It never leaves your phone except to sign in to your school's own portal. It's kept in the phone's keychain, and the app makes at most three sign-in tries every fifteen minutes so it can never lock your SIS account."],
     ["Does it work offline?", "Yes. After one sign-in, your schedule, grades, deadlines, notes and decks are on the phone. It syncs again when you have signal."],
     ["Is it free?", "Yes, free and with no ads. The source is public under the PolyForm Noncommercial licence."],
     ["Why isn't it on the App Store?", "Publishing there needs a paid Apple developer account. Until then, iPhone users can sideload it with AltStore or SideStore, build it with Xcode, or try it in the browser."],
-    ["What about other schools?", "The portal wall lists other schools' portals, but only PUP's SIS and eMabini sign in today."],
+    ["What about other schools?", "More are coming. The portal wall already lists other schools' portals, and today PUP's SIS and eMabini sign in."],
   ];
 </script>
 
 <svelte:head>
-  <title>IntPortal: your PUP schedule, grades and deadlines, on your phone</title>
-  <meta name="description" content="An unofficial student app for PUP. Your schedule, grades and deadlines from SIS and eMabini, on your phone. Works offline. Stays on your phone. Free for Android, iPhone and the browser." />
+  <title>IntPortal: your schedule, grades and deadlines, on your phone</title>
+  <meta name="description" content="An unofficial student app. Your schedule, grades and deadlines from your school's portal, on your phone. PUP's SIS and eMabini today, more schools coming. Works offline. Stays on your phone. Free for Android, iPhone and the browser." />
   <meta property="og:title" content="IntPortal" />
-  <meta property="og:description" content="Your PUP schedule, grades and deadlines, on your phone. Works offline. Stays on your phone." />
+  <meta property="og:description" content="Your schedule, grades and deadlines, on your phone. Works offline. Stays on your phone." />
   <meta property="og:image" content="/og.png" />
   <meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
@@ -74,12 +74,12 @@
   </div>
   <div class="wrap copy">
     <h1>IntPortal</h1>
-    <p class="line">Your PUP schedule, grades and deadlines, on your phone. Works offline. Stays on your phone.</p>
+    <p class="line">Your school schedule, grades and deadlines, on your phone. Works offline. Stays on your phone.</p>
     <div class="actions">
       <a class="gold" href={cta.href}>{cta.text}</a>
       {#if first !== "try"}<a class="ghost" href="/try">Try it in your browser</a>{:else}<a class="ghost" href="#download">Every download</a>{/if}
     </div>
-    <p class="un">Unofficial. Not made by or affiliated with PUP.</p>
+    <p class="un">Unofficial. Not made by or affiliated with any school.</p>
   </div>
   <div class="stage">
     <Campus {campus} />

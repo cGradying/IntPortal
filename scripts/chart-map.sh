@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Charts the wayfinder map for intportal-app: one map issue, child tickets as
+# Charts the wayfinder map for IntPortal: one map issue, child tickets as
 # native sub-issues, and blocked-by edges. Run once, inside the repo clone.
 set -euo pipefail
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)

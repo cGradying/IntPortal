@@ -29,3 +29,7 @@ The owner asked for a download website and a reel page, in one repo if that is b
 - One CI, one version, one changelog. A change to the app's look reaches the site in the same PR.
 - The site's build must not need Rust, so any host can build it. Whatever needs Rust (the browser demo's WebAssembly) is built by CI and published as a release asset or a prebuilt folder.
 - The public repo gains the reel's source. Anything in it must be fit to publish: demo data only, no real student data, no third-party art.
+
+## Update, 2026-11-17
+
+`intportal-app` is renamed `IntPortal`, and the app is now for any school, starting with PUP. The older repos are kept private and archived as `IntPortal-archived` (the old macOS app), `intportal-web-archived` and `PUPSIS-archived`.
