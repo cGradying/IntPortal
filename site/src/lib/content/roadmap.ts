@@ -20,7 +20,7 @@ const ISSUES: Record<number, { title: string; line: string } | null> = {
   66: { title: "Accessibility pass", line: "Every screen checked for screen readers, large text and Reduce Motion." },
   269: { title: "Quiz me on a syllabus row", line: "Tap a lecture in your syllabus and study it right there." },
   82: { title: "A syllabus from a course title", line: "Type a course name or paste its text and LAR drafts the outline for you to check." },
-  205: { title: "Deadlines in Android's calendar", line: "Checking that each deadline lands on the right day in your Android calendar, all-day or at its due time." },
+  205: { title: "Deadlines in Android's calendar", line: "All-day deadlines show on the right day in Android's calendar." },
   26: { title: "App Store and Play Store", line: "Install IntPortal from the stores instead of a file. Needs store accounts first." },
   24: { title: "Home-screen widget", line: "Your next class on the home screen. Waits on a paid Apple developer account." },
   62: null, // typed errors inside the app
@@ -52,7 +52,7 @@ const RELEASES: Record<string, string> = {
   "0.1.4": "eMabini, and LAR answering from your notes.",
   "0.1.3": "IntAssis: ask LAR, on your phone.",
   "0.1.2": "Android beta builds, and the groundwork for IntAssis.",
-  "0.1.1": "Sign-in tries all eight SIS servers, and an empty server no longer wipes your schedule.",
+  "0.1.1": "Sign-in and sync try all eight SIS servers, so your schedule is found on whichever one has it.",
   "0.1.0": "The first build: schedule, grades, notes, decks, reminders and your next class on the Lock Screen.",
 };
 
