@@ -498,11 +498,13 @@ export async function apply(i: number) {
       msg.notice = allowed ? undefined : notificationsOff(looksFilipino(msg.text, p.text, assis.chat[i - 1]?.text));
     } else {
       assis.busy = "cards";
-      const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null }>("ai_topic_cards", { topic: p.topic, want: p.count });
+      const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null; known?: boolean }>("ai_topic_cards", { topic: p.topic, want: p.count });
       if (!found.cards.length) throw new Error(`I couldn't make good cards on ${p.topic}. Try a narrower topic, or make them from a note.`);
       // The confirm sentence ("Confirm to start.") is spent: from here the bubble says what was made.
       const n = found.cards.length;
-      msg.text = n < p.count ? `I could make ${n} of ${p.count} from what I know.` : `Here ${n === 1 ? "is 1 card" : `are ${n} cards`} on ${p.topic}.`;
+      msg.text = n < p.count ? `I could make ${n} of ${p.count} on ${p.topic}.` : `Here ${n === 1 ? "is 1 card" : `are ${n} cards`} on ${p.topic}.`;
+      // Cards with no note behind them come from the model alone: say so, so the student checks them (C16).
+      if (found.known) msg.text += " They're from what I know, not your notes, so check them before you save.";
       msg.cards = found.cards; // Shown for the student to edit; confirmCards saves.
       return;
     }
