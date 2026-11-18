@@ -26,7 +26,7 @@ Success means students open it instead of SIS, every day.
 
 ## Positioning
 
-It works offline after one sign-in. Everything stays on the phone, and the app only ever talks to the student's own school portals, plus Hugging Face once if the student chooses With AI, to download the on-device model (a plain file download that sends nothing about them). IntPortal Cloud is planned as an opt-in paid tier: sync, plus a browser view on any laptop.
+It works offline after one sign-in. Everything stays on the phone, and the student's data only ever goes to their own school portals. The few other services the app reaches are listed in PRIVACY.md: Hugging Face, when the student adds, updates or switches the on-device AI models (plain file downloads that send nothing about them beyond the request), Google's scanner download on Android, and links the student opens. IntPortal Cloud is planned as an opt-in paid tier: sync, plus a browser view on any laptop.
 
 ## Operating Context
 
