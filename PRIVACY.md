@@ -22,7 +22,7 @@ IntPortal is an unofficial student app. It works with your school's own portals,
 |---|---|---|
 | PUP SIS (`sis8.pup.edu.ph` and its mirrors) | Signing in and syncing | Your student number, birthdate and password, sent to PUP only, to sign in as you |
 | PUP eMabini (`emabini.pup.edu.ph`) | If you connect eMabini | Your eMabini login, sent to PUP only |
-| Hugging Face (`huggingface.co`) | Only if you choose "With AI" | A plain download of the AI model file; nothing about you |
+| Hugging Face (`huggingface.co`) | Only when you add LAR's AI ("With AI" at first run, or Add IntAssis in You), update it or switch models | Plain downloads of the AI model files; nothing about you beyond the download request itself |
 | Google Play services (Android only) | The first time you scan, if the scanner isn't on the phone yet | Google's standard request to download the text and QR scanner; no photo is sent |
 | Your browser | When you tap a class link (Meet, Zoom) or eMabini | Whatever that site normally gets when you open it |
 
