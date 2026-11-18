@@ -392,7 +392,7 @@ Eight verbs, all silent when haptics are off in You or there is no engine, and t
 - **Do** cut pixel surfaces with stepped corners (3 px, or 4 px on cards and sheets) and put their shadow on an unclipped parent.
 - **Do** use the shared ease for anything that travels or resizes, keep `steps()` for frames of art that stay in place, and give every animation a Reduce Motion resting state.
 - **Do** pair each meaningful change with its haptic verb from `haptics.ts`.
-- **Do** say plainly where login happens that the login stays on the phone and the app only talks to the student's school portals (and Hugging Face, only to download the AI model when they choose With AI).
+- **Do** say plainly where login happens that the login stays on the phone and goes only to the student's own school portal.
 
 ### Don't:
 - **Don't** use the PUP seal or wordmark, or anything that implies the app is official. Maroon, gold and the plain name "PUP SIS" are fine.

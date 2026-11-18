@@ -43,7 +43,7 @@
     ["Your login stays on your phone.", "It goes into the phone's keychain, the same place your other passwords live."],
     ["Your data is encrypted on the phone.", "Schedule, grades, notes and decks sit in a SQLCipher database. Each student who signs in gets their own."],
     ["There is no IntPortal server.", "No account, no analytics, no ads, no tracking. Nothing to sell, because nothing is collected."],
-    ["It only talks to your school.", "It signs in to your school's portal with your own login, the way your browser would, then works offline. If you choose With AI, it also downloads the model file once from Hugging Face, sending nothing about you."],
+    ["It only talks to your school.", "It signs in to your school's portal with your own login, the way your browser would, then works offline. If you add LAR's AI, it also downloads the model files from Hugging Face, sending nothing about you beyond the download itself."],
   ];
 
   const shipped = $derived(

@@ -556,7 +556,7 @@ export const FEATURES: Feature[] = [
     group: "you",
     line: "No IntPortal server. Your data and logins stay on the phone.",
     body: [
-      "There is no IntPortal server. The app talks to your school's portals, and fetches the AI model from huggingface.co only when you choose With AI. Your data stays on the phone.",
+      "There is no IntPortal server. The app talks to your school's portals, and fetches the AI model files from huggingface.co only when you add, update or switch LAR's AI. Your data stays on the phone.",
       "Your logins are in the phone's keychain (the Keystore on Android), never in the app's files. Each student's data is its own encrypted file with its own key, so two students can share a phone.",
       "Sign out of the SIS or eMabini and your own notes and decks stay. Erase everything removes it all from the phone.",
     ],
