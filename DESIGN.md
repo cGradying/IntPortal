@@ -365,6 +365,8 @@ The landing scene is a pure function of time and state (spec 010). The tile port
 
 **The study session** (spec 055) is the one place that plays like a game: the card is dealt from a dithered pile, tilts to the finger, sways and flips; a combo stamp, a soft clock and the portal swirl (score panel, card backs, pile) heat with quick answers; LAR talks at the top; the results count up. Its kit stays inside the session.
 
+**The website's hero** (spec 057, `site/src/lib/hero/`) is the tile portal in three.js, loaded only on the home page. It renders at a third of the screen and scales up nearest-neighbour, so one rendered pixel is the app's 3 px art pixel and the blocks read as pixel art with depth, not glossy 3D. Scrolling dives into the mouth's swirl, and the dive ends in a Bayer dither break: pixels leave the swirl in Bayer order and land on a 3 px dot on a 15 px pitch at 26% gold over the void. The next section carries on with that same dot ground, so the page continues where the dive ends. The still (`Still.svelte`), the open portal drawn from the same layout and swirl, paints first and stays where the scene can't run: under Reduce Motion (including when it's switched on mid-scene), Save-Data, no WebGL2, fewer than four cores, or frames held over 40 ms for a second.
+
 **Reduce Motion.** A global rule clamps every CSS animation and transition to 0.01 ms. The landing shows a still, open portal, and there is no dive: launch and Step through go straight to Today. LAR holds still and stops blinking, the skeleton stops shimmering, confetti is skipped, and the campus strip redraws one still frame a minute.
 
 ### Haptics

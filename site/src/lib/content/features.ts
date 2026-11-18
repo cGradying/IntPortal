@@ -201,6 +201,7 @@ export const FEATURES: Feature[] = [
     steps: ["Tap + Add on the Due card.", "Type it, or tap Scan and take a photo.", "Check the date and subject, then save."],
     since: "0.1.9",
     spec: SPEC.deadlines,
+    media: { src: "/media/due.webp", alt: "Today on sample data, with the Due card and its Add button" },
   },
   {
     slug: "lar-nudge",
@@ -353,6 +354,7 @@ export const FEATURES: Feature[] = [
     steps: ["Open Study.", "Pick a subject and a deck.", "Add cards, or paste a list."],
     since: "0.1.0",
     spec: SPEC.release,
+    media: { src: "/media/study.webp", alt: "Study on sample data: cards due now, notebooks, decks and Done" },
   },
   {
     slug: "spaced-repetition",
@@ -387,6 +389,7 @@ export const FEATURES: Feature[] = [
     steps: ["Start a round in any deck.", "Answer fast and keep the streak.", "See your score and each card's next review at the end."],
     since: "0.4.0",
     spec: SPEC.game,
+    media: { src: "/media/game.webp", alt: "A round of the study game on sample cards: the score panel, LAR, and a card dealt face up" },
   },
   {
     slug: "streak",
@@ -523,6 +526,7 @@ export const FEATURES: Feature[] = [
     steps: ["Open You.", "Pick a room, or open the theme maker.", "Share it with a code or QR."],
     since: "0.1.0",
     spec: SPEC.you,
+    media: { src: "/media/you.webp", alt: "You on sample data, with its settings rows" },
   },
   {
     slug: "backup",
