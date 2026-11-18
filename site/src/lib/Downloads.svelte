@@ -41,8 +41,8 @@
         <p class="needs">{p.needs}</p>
         {#if p.files.length}
           <p class="meta">
-            {#each p.files as f, i (f.file)}{#if i}<span aria-hidden="true"> · </span>{/if}{f.file.replace(/-[\d.]+(?=[-.])/, "")}, {megabytes(f.size)}{/each}
-            <span aria-hidden="true"> · </span>{release?.prerelease ? "pre-release" : "version"} {release?.version}
+            {#each p.files as f, i (f.file)}{#if i}<span aria-hidden="true">{" · "}</span>{/if}{f.file.replace(/-[\d.]+(?=[-.])/, "")}, {megabytes(f.size)}{/each}
+            <span aria-hidden="true">{" · "}</span>{release?.prerelease ? "pre-release" : "version"} {release?.version}
           </p>
         {:else}
           <p class="meta">{p.later ?? "Not in this release yet."} <a href={RELEASES_URL} rel="noopener">All releases</a></p>
@@ -52,14 +52,12 @@
         {#each p.files as f (f.file)}
           <a class={p.id === first ? "gold" : "ghost"} href={f.url} rel="noopener">{p.files.length > 1 ? (f.file.endsWith(".deb") ? ".deb" : "AppImage") : p.button}</a>
         {/each}
+        {#if p.id === "android" && android && (here === "mac" || here === "windows" || here === "linux")}
+          <Qr text={android.url} label="Scan with your Android phone to download" />
+        {/if}
       </div>
     </div>
   {/each}
-  {#if android && (here === "mac" || here === "windows" || here === "linux")}
-    <div class="qr">
-      <Qr text={android.url} label="Scan with your Android phone to download" />
-    </div>
-  {/if}
 </div>
 <p class="fine all">Every file and its checksum is on the <a href={RELEASES_URL} rel="noopener">releases page</a>. The APK is signed with the same key since the first beta, so updates install over the old version.</p>
 
@@ -99,13 +97,9 @@
   .get {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    align-items: center;
+    gap: 8px 16px;
     flex: none;
-  }
-  .qr {
-    display: flex;
-    justify-content: flex-end;
-    padding-top: 24px;
   }
   .all {
     margin-top: 20px;
