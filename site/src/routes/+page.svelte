@@ -204,7 +204,8 @@
   .features {
     position: relative;
     isolation: isolate;
-    margin-top: 32px;
+    margin-top: 0;
+    padding-top: 32px;
   }
   /* The dive ends in the dot grid; it carries on behind the first section and fades out. */
   .features::before {
@@ -212,12 +213,12 @@
     position: absolute;
     z-index: -1;
     left: 50%;
-    top: -32px;
+    top: 0;
     width: 100vw;
     height: 110vh;
     translate: -50% 0;
     /* The same 3 px dot on a 15 px pitch the dive ends on, lit, then fading out. */
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15'%3E%3Crect width='3' height='3' fill='%23f5b227' fill-opacity='.26'/%3E%3C/svg%3E") 0 0 / 15px 15px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15'%3E%3Crect width='3' height='3' fill='%23f5b227' fill-opacity='.26'/%3E%3C/svg%3E") 0 12px / 15px 15px;
     mask-image: linear-gradient(#000 20%, transparent);
     -webkit-mask-image: linear-gradient(#000 20%, transparent);
     pointer-events: none;
