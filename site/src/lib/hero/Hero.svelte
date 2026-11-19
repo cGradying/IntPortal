@@ -4,6 +4,7 @@
   // and scrolling the hero dives through the mouth into the page.
   import { onMount, type Snippet } from "svelte";
   import Lar from "$app_lib/lar/Lar.svelte";
+  import { talk } from "./talk";
   import PixelIcon from "$app_lib/PixelIcon.svelte";
   import Still from "./Still.svelte";
   import { canRun, readEnv } from "./gate";
@@ -20,12 +21,17 @@
   let tx = $state(0);
   let ty = $state(0);
   let larSize = $state(5);
+  // 058 C12: tap LAR and he says the next of the app's own lines.
+  let said = $state(0);
+  const line = $derived(talk[said % talk.length]);
 
   onMount(() => {
     const wide = matchMedia("(min-width: 900px)");
-    const size = () => (larSize = wide.matches ? 7 : 5);
+    const huge = matchMedia("(min-width: 1800px) and (min-height: 1000px)");
+    const size = () => (larSize = huge.matches ? 9 : wide.matches ? 7 : 5);
     size();
     wide.addEventListener("change", size);
+    huge.addEventListener("change", size);
 
     let hero: Hero | null = null;
     let gone = false;
@@ -89,6 +95,7 @@
       gone = true;
       hero?.stop();
       wide.removeEventListener("change", size);
+      huge.removeEventListener("change", size);
       rm.removeEventListener("change", still);
       removeEventListener("scroll", onScroll);
       removeEventListener("pointermove", onPointer);
@@ -102,15 +109,15 @@
       <div class="still" class:gone={shown}><Still /></div>
     </div>
     <canvas class="scene" bind:this={canvas} class:on={shown} aria-hidden="true"></canvas>
-    <div class="box over">
-      <div class="lar">
-        <Lar size={larSize} gesture="wave" label="LAR, the Lakbay-Aral Robot, waving" />
-        <p class="slab"><span class="pixel who">LAR</span> Tara, pasok!</p>
-      </div>
-    </div>
     <div class="wrap copy">
       {@render children()}
       {#if live}<p class="hint pixel" aria-hidden="true">Scroll to step through <span><PixelIcon name="down" size={12} accent="var(--gold)" /></span></p>{/if}
+    </div>
+    <div class="box over">
+      <button class="lar" aria-label="LAR, say something" onclick={() => said++}>
+        <Lar size={larSize} gesture="wave" label="LAR, the Lakbay-Aral Robot, waving" />
+        <span class="slab" aria-live="polite"><span class="pixel who">LAR</span> {#key said}<span class="said">{line}</span>{/key}</span>
+      </button>
     </div>
   </div>
 </section>
@@ -159,7 +166,7 @@
     position: absolute;
     left: 50%;
     top: max(72px, 8svh);
-    height: min(clamp(190px, 100svh - 460px, 46svh), 92vw * 4 / 3);
+    height: min(clamp(190px, 100svh - 460px, 54svh), 92vw * 4 / 3);
     aspect-ratio: 12 / 16;
     translate: -50% 0;
   }
@@ -179,29 +186,66 @@
     left: 50%;
     bottom: -4%;
     display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    pointer-events: auto;
     translate: calc(-50% + var(--tx) * -10px) calc(var(--ty) * -6px);
     /* LAR steps through first: he shrinks into the mouth as the dive starts. */
     transform: translateY(calc(var(--p) * -160%)) scale(calc(1 - min(1, var(--p) * 2.2) * 0.85));
     transform-origin: 50% 100%;
     opacity: calc(1 - var(--p) * 3);
   }
+  /* His line sits centred over his head and grows up over the portal, so it
+     never runs off the screen or into the title, at any width. */
   .slab {
     position: absolute;
-    left: 60%;
-    top: 4%;
+    left: 50%;
+    bottom: calc(100% + 22px);
+    translate: -50% 0;
+    text-align: center;
     padding: 7px 12px;
     background: var(--void-3);
     box-shadow: inset 0 0 0 3px var(--slab-edge);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
+    width: max-content;
+    max-width: min(300px, 100vw - 40px);
     color: var(--parch);
     font-weight: 600;
-    white-space: nowrap;
+    line-height: 1.35;
+    text-wrap: pretty;
+  }
+  .said {
+    display: inline;
+    animation: said 240ms steps(4) both;
+  }
+  @keyframes said {
+    from {
+      opacity: 0;
+    }
+  }
+  .lar:hover .slab {
+    box-shadow: inset 0 0 0 3px var(--gold);
+  }
+  .lar:focus-visible {
+    outline: none;
+  }
+  .lar:focus-visible .slab {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
   }
   .who {
     color: var(--gold);
     margin-right: 6px;
   }
+  /* The copy box spans the stage on a wide screen; only its children catch taps,
+     so LAR stays tappable under it. */
   .copy {
+    pointer-events: none;
     position: absolute;
     left: 0;
     right: 0;
@@ -211,6 +255,14 @@
     background: linear-gradient(to top, var(--void) 40%, color-mix(in srgb, var(--void) 80%, transparent) 70%, transparent);
     opacity: calc(1 - var(--p) * 3);
     translate: 0 calc(var(--p) * -40px);
+  }
+  .copy > :global(*) {
+    pointer-events: auto;
+  }
+  @media (max-width: 359px) {
+    .slab {
+      font-size: 0.88rem;
+    }
   }
   .hint {
     display: none;
@@ -252,8 +304,17 @@
       max-width: min(560px, 48%);
     }
   }
+  @media (min-width: 1800px) and (min-height: 1000px) {
+    .box {
+      height: min(66svh, 900px);
+    }
+    .copy > :global(*) {
+      max-width: min(720px, 48%);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .hint span {
+    .hint span,
+    .said {
       animation: none;
     }
   }

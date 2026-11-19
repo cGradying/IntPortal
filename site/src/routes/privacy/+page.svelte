@@ -40,6 +40,9 @@
     font-size: 0.9em;
     color: var(--site-ink);
   }
+  .prose :global(a) {
+    overflow-wrap: anywhere;
+  }
   .prose :global(.table) {
     overflow-x: auto;
     margin: 20px 0;
