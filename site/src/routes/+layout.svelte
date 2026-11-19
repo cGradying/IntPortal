@@ -3,7 +3,22 @@
   import "../site.css";
   import Nav from "$lib/Nav.svelte";
   import Footer from "$lib/Footer.svelte";
+  import { onNavigate } from "$app/navigation";
   let { children } = $props();
+
+  // 058 C9: cross-fade between pages where the browser can, never under Reduce
+  // Motion, and not when it already animated a swipe-back itself.
+  onNavigate((nav) => {
+    const nv = (window as { navigation?: { hasUAVisualTransition?: boolean } }).navigation;
+    if (!document.startViewTransition || nav.from?.url.pathname === nav.to?.url.pathname) return;
+    if (nv?.hasUAVisualTransition || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    return new Promise((resolve) => {
+      document.startViewTransition(async () => {
+        resolve();
+        await nav.complete;
+      });
+    });
+  });
 </script>
 
 <a class="skip" href="#main">Skip to content</a>
