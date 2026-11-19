@@ -76,8 +76,11 @@ const frag = /* glsl */ `
     v += uBreath * 0.06 + uEnergy * 0.16 * (1.0 - r * 1.6);
     // 059 C5: the kawoosh, a bright ring running out to the frame as it opens.
     // 059 C1: a dim pool behind the sculpture, so it stands against the fire.
-    v -= uForm * 0.38 * exp(-pow(length(q - vec2(0.0, 0.22)) * 3.4, 2.0));
-    if (uBurst >= 0.0) v += 0.95 * exp(-pow((r - uBurst) * 13.0, 2.0)) * (1.0 - uBurst * 1.4);
+    float f = length(q - vec2(0.0, 0.22)) * 3.4;
+    v -= uForm * 0.38 * exp(-f * f);
+    // k * k, not pow(): pow of a negative base is undefined, and NaN on Apple GPUs.
+    float k = (r - uBurst) * 13.0;
+    if (uBurst >= 0.0) v += 0.95 * exp(-k * k) * (1.0 - uBurst * 1.4);
     float ring = fract(0.16 / (r + 0.03) - uTime * 0.7 - uDive * 4.0);
     float tun = (1.0 - abs(ring - 0.5) * 2.0) * (1.0 - r * 0.9) + 0.2;
     v = mix(v, max(v * 0.55, tun), smoothstep(0.08, 0.45, uDive));
@@ -173,7 +176,8 @@ const spring = (u: number) => (u <= 0 ? 0 : 1 - Math.exp(-5.5 * u) * Math.cos(7.
 // Voxels touch, so the outline (drawn a little larger, back faces only) shows
 // only round the sculpture's silhouette, not between voxels.
 const VOX = 0.55;
-const IN_SPAN = 0.55;
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const IN_SPAN = 0.5;
 const IN_DUR = 0.4;
 const OUT_DUR = 0.35;
 
@@ -236,19 +240,33 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
   const vox = new THREE.InstancedMesh(voxelGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true }), MAX);
   vox.count = 0;
   vox.frustumCulled = false;
-  sculpt.add(vox);
+  // The turn and bob live on a child, so the sculpture's own space (where the
+  // mouth's centre is worked out) never turns.
+  const spin = new THREE.Group();
+  sculpt.add(spin);
+  spin.add(vox);
   // A one-pixel obsidian outline, so gold voxels read against the gold swirl: the
   // same voxels a little larger, back faces only, drawn behind them.
   const rim = new THREE.InstancedMesh(new THREE.BoxGeometry(VOX, VOX, VOX), new THREE.MeshBasicMaterial({ color: RIM, side: THREE.BackSide }), MAX);
   rim.count = 0;
   rim.frustumCulled = false;
-  sculpt.add(rim);
+  spin.add(rim);
   const ramp = RAMP.map((h) => new THREE.Color(h));
   const grow = new THREE.Vector3(1.14, 1.14, 1.14);
   // Where each voxel comes from: the mouth's centre, in the sculpture's space.
   const origin = new THREE.Vector3(0, -sculpt.position.y, -sculpt.position.z - 0.3);
+  const from = new THREE.Vector3();
+  // Each voxel's last state coming out, so going back in starts where it is.
+  const curP = new Float32Array(MAX);
+  const curS = new Float32Array(MAX);
+  const curA = new Float32Array(MAX);
+  const fromP = new Float32Array(MAX);
+  const fromS = new Float32Array(MAX);
+  const fromA = new Float32Array(MAX);
+  let shownId: string | null = null;
   let shown: Voxel[] = [];
   let wanted: Voxel[] | null = null;
+  let wantedId: string | null = null;
   let tIn = -9;
   let tOut = -9;
   let hush = 0;
@@ -257,15 +275,29 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
     return [...v].sort((a, b) => a.y - b.y || a.x - b.x || a.z - b.z);
   }
   function setForm(id: string | null, t: number) {
-    const next = id && FORMS[id] ? order(FORMS[id].voxels) : [];
+    const key = id && FORMS[id] ? id : null;
+    const leavingNow = tOut >= tIn;
+    // The same sculpture again, still out: leave it be.
+    if (key === shownId && !leavingNow && shown.length) {
+      wanted = null;
+      return;
+    }
+    const next = key ? order(FORMS[key].voxels) : [];
     if (!shown.length) {
       shown = next;
+      shownId = key;
       tIn = t;
       wanted = null;
       return;
     }
     wanted = next;
-    if (tOut < tIn) tOut = t;
+    wantedId = key;
+    if (!leavingNow) {
+      tOut = t;
+      fromP.set(curP);
+      fromS.set(curS);
+      fromA.set(curA);
+    }
   }
 
   // 059 C6: where the pointer meets the portal, in its own space.
@@ -371,6 +403,8 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
       }
     }
     const near = Math.max(0, 1 - Math.hypot(lx, ly * 0.75) / 7);
+    // Eased by time, not by frame, so 30 fps phones and 120 Hz screens match.
+    const ease110 = 1 - Math.exp(-dt / 110);
     // 059 C7: as the dive starts, the frame opens like an iris, outer ring first.
     const iris = smooth(0.02, 0.4, dive);
     for (let i = 0; i < tiles.length; i++) {
@@ -379,7 +413,7 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
       const ty = tile.y - ROWS / 2 + 0.5;
       const d = Math.hypot(tx - lx, ty - ly);
       const want = d < 2.5 ? 0.5 * (1 - (d / 2.5) ** 2) : 0;
-      lift[i] += (want - lift[i]) * 0.14;
+      lift[i] += (want - lift[i]) * ease110;
       const k = (t - tile.order * SPAWN) / POP;
       let s = 1;
       let col = tone[toneOf[i]];
@@ -401,9 +435,9 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
     // 059 C3: breath, and energy from the pointer's nearness and a sculpture leaving.
-    energy += (near - energy) * 0.06;
+    energy += (near - energy) * (1 - Math.exp(-dt / 270));
     // While a sculpture is out, the swirl darkens behind it so it reads.
-    hush += ((shown.length && tOut < tIn ? 1 : 0) - hush) * 0.08;
+    hush += ((shown.length && tOut < tIn ? 1 : 0) - hush) * (1 - Math.exp(-dt / 200));
     uniforms.uForm.value = hush * (1 - smooth(0, 0.18, dive));
     phase += (dt / 1000) * (1 + energy * 0.8);
     uniforms.uTime.value = t;
@@ -425,13 +459,18 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
     ry += (px * 0.14 * stay - ry) * 0.06;
     portal.rotation.set(rx, ry, 0);
     moteUniforms.uStay.value = stay;
+    // Points never draw smaller than one pixel, so hide them outright late in the dive.
+    motes.visible = stay > 0.01;
 
     // 059 C1: the sculpture goes back in, last voxel first, then the next comes out.
     if (wanted && tOut >= tIn && t - tOut > OUT_DUR + 0.05) {
       shown = wanted;
+      shownId = wantedId;
       wanted = null;
       tIn = t;
     }
+    // The mouth's centre, in the turning sculpture's space.
+    from.copy(origin).sub(spin.position).applyAxisAngle(Y_AXIS, -spin.rotation.y);
     const n = shown.length;
     const leaving = tOut >= tIn;
     // 059 C7: the sculpture is back in the mouth before the camera gets close.
@@ -443,20 +482,24 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
       let arc: number;
       if (leaving) {
         const u = Math.min(1, Math.max(0, (t - tOut - (1 - i / n) * 0.2) / 0.15));
-        p = 1 - u * u * (3 - 2 * u);
-        sc = p;
-        arc = 0;
+        const keep = 1 - u * u * (3 - 2 * u);
+        p = fromP[i] * keep;
+        sc = fromS[i] * keep;
+        arc = fromA[i] * keep;
       } else {
         const u = (t - tIn - (i / n) * IN_SPAN) / IN_DUR;
         p = spring(u);
         sc = Math.min(1, Math.max(0, u * 3));
         arc = Math.sin(Math.PI * Math.min(1, Math.max(0, u))) * 1.2;
+        curP[i] = p;
+        curS[i] = sc;
+        curA[i] = arc;
       }
       sc *= gone;
       m.makeScale(sc, sc, sc).setPosition(
-        origin.x + (v.x * VOX - origin.x) * p,
-        origin.y + (v.y * VOX - origin.y) * p,
-        origin.z + (v.z * VOX - origin.z) * p + arc,
+        from.x + (v.x * VOX - from.x) * p,
+        from.y + (v.y * VOX - from.y) * p,
+        from.z + (v.z * VOX - from.z) * p + arc,
       );
       vox.setMatrixAt(i, m);
       vox.setColorAt(i, ramp[v.tone]);
@@ -469,8 +512,8 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
       rim.instanceMatrix.needsUpdate = true;
       if (vox.instanceColor) vox.instanceColor.needsUpdate = true;
     }
-    sculpt.rotation.y = Math.sin(t * 0.5) * 0.2;
-    sculpt.position.y = 2.6 + Math.sin(t * 1.3) * 0.15;
+    spin.rotation.y = Math.sin(t * 0.5) * 0.2;
+    spin.position.y = Math.sin(t * 1.3) * 0.15;
 
     layers.forEach((l, i) => {
       l.position.x = ((l.position.x + (dt / 1000) * (0.4 + i * 0.5) + 60) % 120) - 60;
