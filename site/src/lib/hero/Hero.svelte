@@ -107,9 +107,9 @@
     }
     // The mouse left the window: the tiles settle and the swirl calms (059 C6).
     function onLeave(e: PointerEvent) {
-      if (e.relatedTarget || !live) return;
+      if (e.pointerType !== "mouse" || e.relatedTarget || !live) return;
       tx = ty = 0;
-      hero?.pointer(9, 9);
+      hero?.leave();
     }
     // 059 C2: while the scene runs and the hero is in view, he talks on his own.
     const chat = setInterval(() => {
