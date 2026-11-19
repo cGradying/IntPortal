@@ -200,16 +200,20 @@
     transform-origin: 50% 100%;
     opacity: calc(1 - var(--p) * 3);
   }
+  /* His line sits centred over his head and grows up over the portal, so it
+     never runs off the screen or into the title, at any width. */
   .slab {
     position: absolute;
-    left: 78%;
-    bottom: 96%;
+    left: 50%;
+    bottom: calc(100% + 22px);
+    translate: -50% 0;
+    text-align: center;
     padding: 7px 12px;
     background: var(--void-3);
     box-shadow: inset 0 0 0 3px var(--slab-edge);
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
     width: max-content;
-    max-width: min(300px, 50vw - 28px);
+    max-width: min(300px, 100vw - 40px);
     color: var(--parch);
     font-weight: 600;
     line-height: 1.35;
@@ -254,17 +258,6 @@
   }
   .copy > :global(*) {
     pointer-events: auto;
-  }
-  /* On a phone the line sits centred over his head and grows up over the portal,
-     so it never runs off the screen or down into the title. */
-  @media (max-width: 899px) {
-    .slab {
-      left: 50%;
-      bottom: calc(100% + 22px);
-      translate: -50% 0;
-      max-width: min(280px, 100vw - 40px);
-      text-align: center;
-    }
   }
   @media (max-width: 359px) {
     .slab {
