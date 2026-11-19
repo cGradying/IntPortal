@@ -23,7 +23,8 @@
       clearTimeout(timer);
       timer = setTimeout(() => (said = ""), 2000);
     } catch {
-      (e.currentTarget as HTMLElement | null)?.focus();
+      // Neither worked: the link still goes to its address.
+      location.href = url;
     }
   }
 </script>

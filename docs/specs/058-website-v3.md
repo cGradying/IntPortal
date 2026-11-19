@@ -36,7 +36,7 @@ Anything on the site is one search away: press / or ⌘K, or tap the magnifier, 
 ### Find (every page)
 
 - **C1.** The header gets a search button: the pixel magnifier, labelled "Search". On a phone it sits beside Get it.
-  - It opens a search dialog (native `<dialog>`, modal). Pressing `/` or ⌘K/Ctrl+K anywhere opens it too, except while typing in a field.
+  - It opens a search dialog (native `<dialog>`, modal). Pressing `/` opens it too, except while typing in a field; ⌘K/Ctrl+K opens it anywhere.
 - **C2.** The dialog searches:
   - every feature (name, line, group, body);
   - every help question and fix;
@@ -63,6 +63,7 @@ Anything on the site is one search away: press / or ⌘K, or tap the magnifier, 
   - Pages are network-first with the saved copy as fallback; hashed build files are cache-first.
   - `/app/`, `/reel`, videos and release downloads are never saved.
   - Old caches are deleted on activate.
+  - Offline, a link loads the whole page instead of moving in-app, so the worker can answer it. After an in-app move the page itself is fetched once in the background so the worker saves it (not on Save-Data).
 - **C8.** Offline, a page that wasn't saved opens the site's error page: "You're offline." over "This page wasn't saved yet. Pages you've opened before still work." and a gold Open Help.
 
 ### Moving between pages
@@ -113,7 +114,7 @@ Anything on the site is one search away: press / or ⌘K, or tap the magnifier, 
 
 - The index fails to load: the dialog says "Search didn't load. Check your connection." and keeps the page links.
 - Share is cancelled: nothing happens.
-- Clipboard is denied: the link stays focused, so a long-press copies it.
+- Clipboard is denied too: the link goes to its address, so the student can copy it from the address bar.
 
 ## Motion and Reduce Motion
 
