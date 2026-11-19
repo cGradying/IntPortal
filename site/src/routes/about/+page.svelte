@@ -122,6 +122,8 @@
   }
   .card {
     margin: 0;
+    /* LAR's canvas is wider than he is (room for his mitts); keep it in the card. */
+    overflow: hidden;
     padding: 28px 28px 18px;
     background:
       radial-gradient(rgba(245, 178, 39, 0.08) 1px, transparent 1.5px) 0 0 / 14px 14px,
