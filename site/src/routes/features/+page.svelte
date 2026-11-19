@@ -58,7 +58,7 @@
         {#each g.items as f (f.slug)}
           <li>
             <a href="/features/{f.slug}">
-              <span class="fn">{f.name}</span>
+              <span class="fn" style:view-transition-name="f-{f.slug}">{f.name}</span>
               <span class="fl">{f.line}</span>
               {#if f.since}<span class="since pixel">since {f.since}</span>{/if}
             </a>

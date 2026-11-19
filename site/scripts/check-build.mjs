@@ -3,6 +3,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gzipSync } from "node:zlib";
 
 const ALLOW = new Set(["github.com", "api.github.com", "www.w3.org", "svelte.dev"]);
 const files = [];
@@ -30,6 +31,15 @@ for (const t of three) {
   }
 }
 if (three.length > 1) bad.set(`three in ${three.length} chunks`, three.join(", "));
+
+// 058 C4: the search index stays small enough to fetch on weak data.
+const idx = files.find((f) => /[\\/]build[\\/]search\.json$/.test(f));
+if (!idx) bad.set("search.json missing", "build/");
+else {
+  const raw = readFileSync(idx);
+  const gz = gzipSync(raw).length;
+  if (raw.length > 48 * 1024 || gz > 16 * 1024) bad.set(`search.json is ${raw.length} B, ${gz} B gzip (max 48 KB, 16 KB)`, idx);
+}
 
 if (bad.size) {
   for (const [what, f] of bad) console.error(`${what.includes(" ") ? what : `third-party host ${what}`} in ${f}`);

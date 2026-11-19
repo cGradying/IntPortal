@@ -5,6 +5,7 @@
   import { tick } from "svelte";
   import PixelIcon from "$app_lib/PixelIcon.svelte";
   import PixelPortal from "./PixelPortal.svelte";
+  import Search from "./Search.svelte";
   import { REPO_URL } from "./releases";
 
   const links = [
@@ -23,6 +24,7 @@
   let open = $state(false);
   let sheet = $state<HTMLElement>();
   let toggle = $state<HTMLButtonElement>();
+  let finder = $state<ReturnType<typeof Search>>();
 
   const here = (href: string) => page.url.pathname === href || page.url.pathname.startsWith(href + "/");
 
@@ -50,7 +52,7 @@
 
 <svelte:window onscroll={() => (scrolled = scrollY > 8)} onkeydown={keys} />
 
-<header class:scrolled class:open>
+<header class="site" class:scrolled class:open>
   <nav class="wrap" aria-label="Main">
     <a class="mark" href="/" aria-label="IntPortal home"><PixelPortal size={3} /><span>IntPortal</span></a>
     <ul class="wide">
@@ -60,6 +62,7 @@
       <li><a href={REPO_URL} rel="noopener">GitHub</a></li>
     </ul>
     <div class="end">
+      <button class="find" aria-label="Search" aria-keyshortcuts="/ Control+K Meta+K" onclick={() => finder?.open()}><PixelIcon name="search" size={18} /></button>
       <a class="get" href="/download">Get it</a>
       <button class="menu" bind:this={toggle} aria-expanded={open} aria-controls="menu" aria-label={open ? "Close the menu" : "Open the menu"} onclick={() => show(!open)}>
         <PixelIcon name={open ? "close" : "dots"} size={20} />
@@ -77,6 +80,7 @@
     </div>
   {/if}
 </header>
+<Search bind:this={finder} />
 
 <style>
   header {
@@ -161,6 +165,22 @@
   .get:active {
     transform: translateY(1px);
     box-shadow: inset 0 -1px 0 #b87a10;
+  }
+  .find {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--site-ink-2);
+    cursor: pointer;
+    transition: color var(--t-quick) var(--ease), background var(--t-quick) var(--ease);
+  }
+  .find:hover {
+    color: var(--site-ink);
+    background: rgba(244, 236, 216, 0.06);
   }
   .menu {
     display: none;
