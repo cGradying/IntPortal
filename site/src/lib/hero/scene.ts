@@ -12,6 +12,8 @@ export type Hero = {
   pointer(x: number, y: number): void;
   /** 059 C1: the sculpture the portal sends out, or none. */
   form(id: string | null): void;
+  /** 059 C6: the mouse left: the portal faces front, the tiles settle, the swirl calms. */
+  leave(): void;
 };
 type Opts = {
   /** The box the still portal fills; the 3D frame is fitted to it so the swap never jumps. */
@@ -558,5 +560,6 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
     scroll: (p) => (dive = Math.min(1, Math.max(0, p))),
     pointer: (x, y) => ((px = x), (py = y), (pointerSeen = true)),
     form: (id) => (pending = id),
+    leave: () => ((px = 0), (py = 0), (pointerSeen = false)),
   };
 }
