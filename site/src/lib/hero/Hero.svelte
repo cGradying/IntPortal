@@ -21,9 +21,18 @@
   let tx = $state(0);
   let ty = $state(0);
   let larSize = $state(5);
-  // 058 C12: tap LAR and he says the next of the app's own lines.
+  // 058 C12 and 059 C1–C2: LAR says the app's own lines, and the portal sends out
+  // a sculpture for each. He talks on his own every 7 s until he is tapped; only
+  // lines the visitor asked for are announced.
   let said = $state(0);
+  let tapped = $state(false);
   const line = $derived(talk[said % talk.length]);
+  let heroApi = $state.raw<Hero | null>(null);
+  $effect(() => heroApi?.form(line.form));
+  function tap() {
+    tapped = true;
+    said++;
+  }
 
   onMount(() => {
     const wide = matchMedia("(min-width: 900px)");
@@ -42,10 +51,11 @@
       import("./scene").then(({ start }) => {
         if (gone || stillOnly) return;
         try {
-          hero = start(canvas, {
+          heroApi = hero = start(canvas, {
           box,
           onFirst: () => (shown = true),
           onSlow: () => {
+            heroApi = null;
             shown = false;
             live = false;
             p = 0;
@@ -64,7 +74,7 @@
       if (!rm.matches) return;
       stillOnly = true;
       hero?.stop();
-      hero = null;
+      hero = heroApi = null;
       live = false;
       shown = false;
       p = tx = ty = 0;
@@ -89,9 +99,14 @@
       ty = y;
       hero?.pointer(x, y);
     }
+    // 059 C2: while the scene runs and the hero is in view, he talks on his own.
+    const chat = setInterval(() => {
+      if (!tapped && heroApi && p < 0.02 && !document.hidden) said++;
+    }, 7000);
     addEventListener("scroll", onScroll, { passive: true });
     addEventListener("pointermove", onPointer, { passive: true });
     return () => {
+      clearInterval(chat);
       gone = true;
       hero?.stop();
       wide.removeEventListener("change", size);
@@ -114,9 +129,9 @@
       {#if live}<p class="hint pixel" aria-hidden="true">Scroll to step through <span><PixelIcon name="down" size={12} accent="var(--gold)" /></span></p>{/if}
     </div>
     <div class="box over">
-      <button class="lar" aria-label="LAR, say something" onclick={() => said++}>
+      <button class="lar" aria-label="LAR, say something" onclick={tap}>
         <Lar size={larSize} gesture="wave" label="LAR, the Lakbay-Aral Robot, waving" />
-        <span class="slab" aria-live="polite"><span class="pixel who">LAR</span> {#key said}<span class="said">{line}</span>{/key}</span>
+        <span class="slab" aria-live={tapped ? "polite" : "off"}><span class="pixel who">LAR</span> {#key said}<span class="said">{line.text}</span>{/key}</span>
       </button>
     </div>
   </div>
