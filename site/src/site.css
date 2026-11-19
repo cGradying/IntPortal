@@ -139,3 +139,67 @@ canvas {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* 058 C9: page changes cross-fade the main column; the header holds still. */
+header.site {
+  view-transition-name: site-header;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: var(--ease);
+}
+::view-transition-group(*) {
+  animation-duration: 240ms;
+  animation-timing-function: var(--ease);
+}
+
+/* 058 C14: the parts the browser draws. */
+html {
+  scrollbar-color: rgba(245, 178, 39, 0.35) var(--void);
+  accent-color: var(--gold);
+  caret-color: var(--gold);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--void);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(245, 178, 39, 0.3);
+  border: 2px solid var(--void);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 178, 39, 0.55);
+}
+time,
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+    --site-ink: #111;
+    --site-ink-2: #333;
+    --site-ink-3: #555;
+    --site-line: #ccc;
+  }
+  header.site,
+  footer,
+  .skip,
+  .share {
+    display: none !important;
+  }
+  main a[href^="http"]::after,
+  main a[href^="/"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #555;
+  }
+}
