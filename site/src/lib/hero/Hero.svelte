@@ -21,9 +21,22 @@
   let tx = $state(0);
   let ty = $state(0);
   let larSize = $state(5);
-  // 058 C12: tap LAR and he says the next of the app's own lines.
+  // 058 C12 and 059 C1–C2: LAR says the app's own lines, and the portal sends out
+  // a sculpture for each. He talks on his own every 7 s until he is tapped; only
+  // lines the visitor asked for are announced.
   let said = $state(0);
+  // He says this many lines on his own, then rests until tapped (059 C2).
+  const OWN = 4;
+  let tapped = $state(false);
   const line = $derived(talk[said % talk.length]);
+  let heroApi = $state.raw<Hero | null>(null);
+  $effect(() => heroApi?.form(line.form));
+  let heard = $state("");
+  function tap() {
+    tapped = true;
+    said++;
+    heard = talk[said % talk.length].text;
+  }
 
   onMount(() => {
     const wide = matchMedia("(min-width: 900px)");
@@ -42,10 +55,11 @@
       import("./scene").then(({ start }) => {
         if (gone || stillOnly) return;
         try {
-          hero = start(canvas, {
+          heroApi = hero = start(canvas, {
           box,
           onFirst: () => (shown = true),
           onSlow: () => {
+            heroApi = null;
             shown = false;
             live = false;
             p = 0;
@@ -64,7 +78,7 @@
       if (!rm.matches) return;
       stillOnly = true;
       hero?.stop();
-      hero = null;
+      hero = heroApi = null;
       live = false;
       shown = false;
       p = tx = ty = 0;
@@ -83,15 +97,29 @@
     }
     function onPointer(e: PointerEvent) {
       if (e.pointerType !== "mouse" || !live) return;
-      const x = (e.clientX / innerWidth) * 2 - 1;
-      const y = (e.clientY / innerHeight) * 2 - 1;
+      // Against the canvas, which can be taller than the window or narrower by a scrollbar.
+      const r = canvas.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width) * 2 - 1;
+      const y = ((e.clientY - r.top) / r.height) * 2 - 1;
       tx = x;
       ty = y;
       hero?.pointer(x, y);
     }
+    // The mouse left the window: the tiles settle and the swirl calms (059 C6).
+    function onLeave(e: PointerEvent) {
+      if (e.pointerType !== "mouse" || e.relatedTarget || !live) return;
+      tx = ty = 0;
+      hero?.leave();
+    }
+    // 059 C2: while the scene runs and the hero is in view, he talks on his own.
+    const chat = setInterval(() => {
+      if (!tapped && heroApi && p < 0.02 && !document.hidden && said < OWN) said++;
+    }, 7000);
     addEventListener("scroll", onScroll, { passive: true });
     addEventListener("pointermove", onPointer, { passive: true });
+    document.addEventListener("pointerout", onLeave);
     return () => {
+      clearInterval(chat);
       gone = true;
       hero?.stop();
       wide.removeEventListener("change", size);
@@ -99,6 +127,7 @@
       rm.removeEventListener("change", still);
       removeEventListener("scroll", onScroll);
       removeEventListener("pointermove", onPointer);
+      document.removeEventListener("pointerout", onLeave);
     };
   });
 </script>
@@ -114,10 +143,12 @@
       {#if live}<p class="hint pixel" aria-hidden="true">Scroll to step through <span><PixelIcon name="down" size={12} accent="var(--gold)" /></span></p>{/if}
     </div>
     <div class="box over">
-      <button class="lar" aria-label="LAR, say something" onclick={() => said++}>
+      <button class="lar" aria-label="LAR, say something" onclick={tap}>
         <Lar size={larSize} gesture="wave" label="LAR, the Lakbay-Aral Robot, waving" />
-        <span class="slab" aria-live="polite"><span class="pixel who">LAR</span> {#key said}<span class="said">{line}</span>{/key}</span>
+        <span class="slab" aria-hidden="true"><span class="pixel who">LAR</span> {#key said}<span class="said">{line.text}</span>{/key}</span>
       </button>
+      <!-- Only lines the visitor asked for are read out; this region is live from the start. -->
+      <span class="sr" aria-live="polite">{heard}</span>
     </div>
   </div>
 </section>
@@ -238,6 +269,14 @@
     outline: 2px solid var(--gold);
     outline-offset: 3px;
   }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   .who {
     color: var(--gold);
     margin-right: 6px;
@@ -281,6 +320,11 @@
     }
   }
   @media (min-width: 900px) {
+    /* Stars stay off the copy column until the dive fills the screen. */
+    .scene {
+      mask-image: linear-gradient(to right, rgb(0 0 0 / min(1, calc(var(--p) * 4))) 42%, #000 56%);
+      -webkit-mask-image: linear-gradient(to right, rgb(0 0 0 / min(1, calc(var(--p) * 4))) 42%, #000 56%);
+    }
     .box {
       left: auto;
       right: max(var(--site-gutter), (100% - var(--site-max)) / 2 + 24px);
