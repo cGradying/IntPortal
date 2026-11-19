@@ -38,17 +38,17 @@ The portal on the website's first screen is alive. It breathes, it notices your 
 
 - **C1. Sculptures.**
   - Each of LAR's lines names a form, or none. "Tara, pasok!" names none, because the portal itself is the invitation.
-  - The forms: crystal, heart, phone, lock, book, cards, bell, calendar, hourglass. Each is at most 72 voxels in the ramp's five tones (`site/src/lib/hero/forms.ts`).
+  - The forms: crystal, heart, phone, lock, book, cards, bell, calendar, hourglass. Each is at most 72 voxels in the ramp's five tones (`site/src/lib/hero/forms.ts`), with front faces at tone 2 or lighter. Voxels touch, and one obsidian outline runs round the silhouette. While a sculpture is out, the swirl dims in a pool behind it, so it reads against the fire.
   - On a new line, the current sculpture goes back into the mouth, last voxel first, in 0.35 s. Then the new one comes out: each voxel leaves the mouth's centre in order, bottom first, and springs into place with a little overshoot, all within 0.9 s.
   - It floats in front of the mouth's upper half, turns slowly (±25°) and bobs.
 - **C2. LAR talks on his own.**
-  - While the 3D scene runs and the hero is on screen and not diving, LAR says his next line every 7 s.
+  - While the 3D scene runs and the hero is on screen and not diving, LAR says his next line every 7 s, four lines in all; then he rests, so motion doesn't keep pulling at the eye while the visitor reads.
   - Tapping him moves to the next line at once and stops the timer for good: from then on, the student leads.
 - **C3. The vortex breathes.**
   - The swirl's brightness rises and falls on a 5 s cycle.
-  - As the pointer nears the mouth, and for a moment when a sculpture comes out, the swirl turns up to 1.8 times faster and brighter, eased.
+  - As the pointer nears the mouth, the swirl turns up to 1.8 times faster and brighter, eased.
 - **C4. Motes.** About 40 gold and pale pixels spiral into the mouth on slow inward paths and are reborn at the rim. They are drawn in the vertex shader, with no work on the CPU.
-- **C5. Kawoosh.** When the mouth opens after the frame builds (057 C3), a bright ring runs out from the centre to the frame in 0.6 s, then the swirl settles.
+- **C5. Kawoosh.** Once the mouth has opened after the frame builds (057 C3), a bright ring runs out from the centre to the frame in 0.6 s, then the swirl settles.
 - **C6. Tiles lean in.** With a fine pointer over the portal, the frame tiles within about 2.5 tiles of it lift toward the viewer by up to half a tile and light one tone, eased back when it leaves.
 - **C7. The dive.** Scrolling into the dive shrinks the sculpture into the mouth with the camera's approach, so nothing floats in front of the tunnel. Scrolling back brings it out again.
 

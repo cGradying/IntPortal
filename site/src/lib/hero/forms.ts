@@ -1,7 +1,8 @@
 // Spec 059: what comes out of the portal. Small voxel sculptures, like the forms
 // LAR's crystal takes in the app (spec 046 C1b3), each standing for what he is
 // talking about. Drawn as layers, front to back; each row top to bottom. A digit
-// is a tone of the SIS ramp (0 dark maroon to 4 pale gold), "." is empty.
+// is a tone of the SIS ramp (0 dark maroon to 4 pale gold), "." is empty. Front
+// faces stay at tone 2 or lighter, so nothing sinks into the swirl behind.
 import { RAMP } from "./portal";
 
 export type Voxel = { x: number; y: number; z: number; tone: number };
@@ -11,11 +12,10 @@ export type Form = { id: string; voxels: Voxel[] };
 export const MAX = 72;
 
 const DRAWN: Record<string, string[][]> = {
-  // LAR's crystal: the app's 3x3x3 cube of glass.
+  // LAR's crystal, as a gem: what he carries from the other side.
   crystal: [
-    ["434", "343", "434"],
-    ["323", "212", "323"],
-    ["212", "101", "212"],
+    ["..4..", ".434.", "43334", ".323.", "..2.."],
+    ["..3..", ".323.", "32223", ".212.", "..1.."],
   ],
   // A heart, for when he's tickled.
   heart: [
@@ -24,13 +24,13 @@ const DRAWN: Record<string, string[][]> = {
   ],
   // A phone with the class on it, working with no signal.
   phone: [
-    ["11111", "13331", "14441", "13331", "13331", "11111", "11411"],
+    ["22222", "23332", "24442", "23332", "23332", "22222", "22422"],
     ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
   ],
   // A padlock: the login in the phone's keychain.
   lock: [
-    [".333.", "3...3", "3...3", "22222", "22022", "22022", "22222"],
-    [".333.", "3...3", "3...3", "11111", "11111", "11111", "11111"],
+    [".444.", "4...4", "4...4", "33333", "33.33", "33.33", "33333"],
+    [".333.", "3...3", "3...3", "22222", "22222", "22222", "22222"],
   ],
   // An open notebook.
   book: [

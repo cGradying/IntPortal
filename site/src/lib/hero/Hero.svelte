@@ -25,6 +25,8 @@
   // a sculpture for each. He talks on his own every 7 s until he is tapped; only
   // lines the visitor asked for are announced.
   let said = $state(0);
+  // He says this many lines on his own, then rests until tapped (059 C2).
+  const OWN = 4;
   let tapped = $state(false);
   const line = $derived(talk[said % talk.length]);
   let heroApi = $state.raw<Hero | null>(null);
@@ -101,7 +103,7 @@
     }
     // 059 C2: while the scene runs and the hero is in view, he talks on his own.
     const chat = setInterval(() => {
-      if (!tapped && heroApi && p < 0.02 && !document.hidden) said++;
+      if (!tapped && heroApi && p < 0.02 && !document.hidden && said < OWN) said++;
     }, 7000);
     addEventListener("scroll", onScroll, { passive: true });
     addEventListener("pointermove", onPointer, { passive: true });
@@ -296,6 +298,11 @@
     }
   }
   @media (min-width: 900px) {
+    /* Stars stay off the copy column until the dive fills the screen. */
+    .scene {
+      mask-image: linear-gradient(to right, rgb(0 0 0 / min(1, calc(var(--p) * 4))) 42%, #000 56%);
+      -webkit-mask-image: linear-gradient(to right, rgb(0 0 0 / min(1, calc(var(--p) * 4))) 42%, #000 56%);
+    }
     .box {
       left: auto;
       right: max(var(--site-gutter), (100% - var(--site-max)) / 2 + 24px);

@@ -10,6 +10,8 @@ describe("portal forms (059)", () => {
       expect(Math.abs(Math.max(...xs) + Math.min(...xs))).toBeLessThanOrEqual(1);
       for (const v of f.voxels) expect(v.tone).toBeGreaterThanOrEqual(0), expect(v.tone).toBeLessThanOrEqual(4);
       expect(new Set(f.voxels.map((v) => `${v.x},${v.y},${v.z}`)).size).toBe(f.voxels.length);
+      const front = Math.max(...f.voxels.map((v) => v.z));
+      for (const v of f.voxels.filter((v) => v.z === front)) expect(v.tone, `${f.id} front`).toBeGreaterThanOrEqual(2);
     });
   }
 });
