@@ -20,18 +20,34 @@ sw.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(CACHE).then(async (c) => {
       await c.addAll(SHELL);
-      const named = new Set(build.filter((f) => /-latin-[\w-]*normal\.[\w-]+\.woff2$/.test(f)));
-      for (const page of SHELL) {
-        const text = await (await c.match(page))!.text();
-        for (const m of text.matchAll(/["'](\.{0,2}\/?[^"']*_app\/immutable\/[^"']+)["']/g)) {
+      // The static adapter's fallback page renders any route from the saved
+      // code; absent in dev, so it may fail.
+      await c.add("/404.html").catch(() => {});
+      // The code the first pages and the offline fallback name, the error
+      // page's own code (shown offline for unsaved pages), and everything those
+      // import statically. Dynamic import() is left out, which keeps the hero out.
+      const named = new Set(build.filter((f) => /-latin-[\w-]*normal\.[\w-]+\.woff2$|\/nodes\/1\.[\w-]+\.js$|\/assets\/1\.[\w-]+\.css$/.test(f)));
+      for (const page of [...SHELL, "/404.html"]) {
+        const hit = await c.match(page);
+        if (!hit) continue;
+        for (const m of (await hit.text()).matchAll(/["'](\.{0,2}\/?[^"']*_app\/immutable\/[^"']+)["']/g)) {
           const path = new URL(m[1], new URL(page, sw.location.origin)).pathname;
           if (build.includes(path)) named.add(path);
         }
       }
+      const queue = [...named].filter((f) => f.endsWith(".js"));
+      while (queue.length) {
+        const f = queue.pop()!;
+        const text = await (await fetch(f)).text();
+        for (const m of text.matchAll(/(?:from|import)\s*["']([^"']+\.js)["']/g)) {
+          const path = new URL(m[1], new URL(f, sw.location.origin)).pathname;
+          if (build.includes(path) && !named.has(path)) {
+            named.add(path);
+            queue.push(path);
+          }
+        }
+      }
       await c.addAll([...named]);
-      // The static adapter's fallback page renders any route from the cached
-      // code; absent in dev, so it may fail.
-      await c.add("/404.html").catch(() => {});
       await sw.skipWaiting();
     }),
   );
