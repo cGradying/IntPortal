@@ -47,12 +47,18 @@
 
   // 058 C13: the dot ground lights up round a fine pointer.
   let lit = $state<HTMLElement>();
+  let frame = 0;
   function glow(e: PointerEvent) {
-    if (e.pointerType !== "mouse" || !lit) return;
-    // The ground spans the viewport's width from its left edge, so x is the
-    // pointer's own; y is measured from the section's top.
-    lit.style.setProperty("--gx", `${e.clientX}px`);
-    lit.style.setProperty("--gy", `${e.clientY - lit.getBoundingClientRect().top}px`);
+    if (e.pointerType !== "mouse" || !lit || frame) return;
+    const { clientX, clientY } = e;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (!lit) return;
+      // The ground spans the viewport's width from its left edge, so x is the
+      // pointer's own; y is measured from the section's top.
+      lit.style.setProperty("--gx", `${clientX}px`);
+      lit.style.setProperty("--gy", `${clientY - lit.getBoundingClientRect().top}px`);
+    });
   }
 
   const features: { group: string; title: string; body: string; src: string; alt: string; video?: boolean; poster?: string }[] = [
@@ -95,7 +101,9 @@
   <p class="un">Unofficial. Not made by or affiliated with any school.</p>
 </Hero>
 
-<section id="features" class="wrap features" aria-labelledby="f-h" bind:this={lit} onpointermove={glow}>
+<svelte:window onpointermove={glow} />
+
+<section id="features" class="wrap features" aria-labelledby="f-h" bind:this={lit}>
   <h2 id="f-h">On the other side</h2>
   <p class="lede">Everything SIS has, kept on your phone, and the parts SIS never had.</p>
   <div class="story">
@@ -103,6 +111,7 @@
       {#each features as f, i (f.title)}
         <article id={slug(f.title)} class="feature" class:flip={i % 2 === 1} class:on={i === story} data-i={i}>
           <div class="own"><Phone src={f.src} alt={f.alt} video={f.video} poster={f.poster} /></div>
+          <span class="vh">{f.alt}</span>
           <div class="text">
             <h3>{f.title}</h3>
             <p>{f.body}</p>
@@ -114,7 +123,7 @@
     <div class="stage" aria-hidden="true">
       <div class="phone">
         {#each features as f, i (f.title)}
-          <img src={f.src} alt="" class:on={i === story} loading="lazy" decoding="async" width="450" height="1000" />
+          <img src={f.video ? f.poster : f.src} alt="" class:on={i === story} loading="lazy" decoding="async" width="450" height="1000" />
         {/each}
       </div>
       <ol class="rail">
@@ -272,12 +281,11 @@
     left: 50%;
     top: 0;
     width: 100vw;
-    height: 110vh;
+    height: 100%;
     translate: -50% 0;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15'%3E%3Crect width='3' height='3' fill='%23f5b227' fill-opacity='.9'/%3E%3C/svg%3E") 0 12px / 15px 15px;
-    mask-image: radial-gradient(circle 140px at var(--gx, -999px) var(--gy, -999px), #000, transparent), linear-gradient(#000 20%, transparent);
-    mask-composite: intersect;
-    -webkit-mask-composite: source-in;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15'%3E%3Crect width='3' height='3' fill='%23f5b227' fill-opacity='.75'/%3E%3C/svg%3E") 0 12px / 15px 15px;
+    mask-image: radial-gradient(circle 140px at var(--gx, -999px) var(--gy, -999px), #000, transparent);
+    -webkit-mask-image: radial-gradient(circle 140px at var(--gx, -999px) var(--gy, -999px), #000, transparent);
     opacity: 0;
     transition: opacity 240ms var(--ease);
     pointer-events: none;
@@ -336,15 +344,22 @@
     }
     .feature .text {
       flex: 0 1 520px;
-      opacity: 0.38;
-      transition: opacity 240ms var(--ease);
     }
-    .feature.on .text,
-    .feature:focus-within .text {
-      opacity: 1;
+    .feature h3,
+    .feature p {
+      transition: color 240ms var(--ease);
+    }
+    .feature:not(.on):not(:focus-within) h3 {
+      color: var(--site-ink-2);
+    }
+    .feature:not(.on):not(:focus-within) p {
+      color: var(--site-ink-3);
+    }
+    .steps {
+      padding-bottom: 22svh;
     }
     .stage {
-      --w: min(300px, calc((100svh - 190px) * 0.45));
+      --w: min(17.65rem, calc((100svh - 190px) * 0.45));
       position: sticky;
       top: calc(50svh - var(--w) * 10 / 9 - 27px);
       align-self: start;
@@ -377,7 +392,9 @@
     }
     .rail {
       display: flex;
-      gap: 4px;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0 4px;
       margin: 0;
       padding: 0;
       list-style: none;
@@ -412,7 +429,8 @@
   }
   @media (min-width: 900px) and (prefers-reduced-motion: reduce) {
     .phone img,
-    .feature .text {
+    .feature h3,
+    .feature p {
       transition: none;
     }
   }
@@ -465,9 +483,9 @@
     color: var(--site-ink-2);
   }
   .count {
-    margin-left: auto;
+    margin-left: 2px;
     color: var(--site-ink-3);
-    font-size: 0.78rem;
+    font-size: 0.875rem;
     font-weight: 400;
   }
   .gline {
@@ -487,6 +505,7 @@
     display: inline-flex;
     align-items: center;
     min-height: 36px;
+    gap: 8px;
     padding: 0 10px;
     border-radius: var(--radius);
     color: var(--site-ink);
@@ -494,9 +513,35 @@
     text-decoration: none;
     transition: color var(--t-quick) var(--ease), background var(--t-quick) var(--ease);
   }
+  .group li a::before {
+    content: "";
+    width: 4px;
+    height: 4px;
+    flex: none;
+    background: var(--gold);
+    opacity: 0.5;
+  }
+  .group li a:hover::before {
+    opacity: 1;
+  }
   .group li a:hover {
     color: var(--gold);
     background: rgba(244, 236, 216, 0.05);
+  }
+
+  .vh {
+    display: none;
+  }
+  @media (min-width: 900px) {
+    .vh {
+      display: block;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
   }
 
   .campus .lede {
