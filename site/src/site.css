@@ -72,6 +72,23 @@ video,
 canvas {
   max-width: 100%;
 }
+/* Big screens: the page grows with them instead of sitting small in the middle. */
+@media (min-width: 1800px) {
+  html {
+    font-size: 19px;
+  }
+  body {
+    --site-max: 1440px;
+  }
+}
+@media (min-width: 2400px) {
+  html {
+    font-size: 21px;
+  }
+  body {
+    --site-max: 1680px;
+  }
+}
 .wrap {
   width: min(var(--site-max), 100% - 2 * var(--site-gutter));
   margin-inline: auto;

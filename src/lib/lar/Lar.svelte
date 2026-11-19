@@ -120,8 +120,11 @@
   .lar.fit {
     margin-inline: 0;
   }
+  /* The canvas is wider than the span on purpose (the mitts float past it), so
+     a page's max-width on canvases would squash him. */
   canvas {
     position: absolute;
+    max-width: none;
     pointer-events: none;
     image-rendering: pixelated;
   }

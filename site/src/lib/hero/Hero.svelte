@@ -27,9 +27,11 @@
 
   onMount(() => {
     const wide = matchMedia("(min-width: 900px)");
-    const size = () => (larSize = wide.matches ? 7 : 5);
+    const huge = matchMedia("(min-width: 1800px) and (min-height: 1000px)");
+    const size = () => (larSize = huge.matches ? 9 : wide.matches ? 7 : 5);
     size();
     wide.addEventListener("change", size);
+    huge.addEventListener("change", size);
 
     let hero: Hero | null = null;
     let gone = false;
@@ -93,6 +95,7 @@
       gone = true;
       hero?.stop();
       wide.removeEventListener("change", size);
+      huge.removeEventListener("change", size);
       rm.removeEventListener("change", still);
       removeEventListener("scroll", onScroll);
       removeEventListener("pointermove", onPointer);
@@ -106,15 +109,15 @@
       <div class="still" class:gone={shown}><Still /></div>
     </div>
     <canvas class="scene" bind:this={canvas} class:on={shown} aria-hidden="true"></canvas>
+    <div class="wrap copy">
+      {@render children()}
+      {#if live}<p class="hint pixel" aria-hidden="true">Scroll to step through <span><PixelIcon name="down" size={12} accent="var(--gold)" /></span></p>{/if}
+    </div>
     <div class="box over">
       <button class="lar" aria-label="LAR, say something" onclick={() => said++}>
         <Lar size={larSize} gesture="wave" label="LAR, the Lakbay-Aral Robot, waving" />
         <span class="slab" aria-live="polite"><span class="pixel who">LAR</span> {#key said}<span class="said">{line}</span>{/key}</span>
       </button>
-    </div>
-    <div class="wrap copy">
-      {@render children()}
-      {#if live}<p class="hint pixel" aria-hidden="true">Scroll to step through <span><PixelIcon name="down" size={12} accent="var(--gold)" /></span></p>{/if}
     </div>
   </div>
 </section>
@@ -163,7 +166,7 @@
     position: absolute;
     left: 50%;
     top: max(72px, 8svh);
-    height: min(clamp(190px, 100svh - 460px, 46svh), 92vw * 4 / 3);
+    height: min(clamp(190px, 100svh - 460px, 54svh), 92vw * 4 / 3);
     aspect-ratio: 12 / 16;
     translate: -50% 0;
   }
@@ -199,8 +202,8 @@
   }
   .slab {
     position: absolute;
-    left: 60%;
-    top: 4%;
+    left: 78%;
+    bottom: 96%;
     padding: 7px 12px;
     background: var(--void-3);
     box-shadow: inset 0 0 0 3px var(--slab-edge);
@@ -252,11 +255,20 @@
   .copy > :global(*) {
     pointer-events: auto;
   }
-  /* On a phone a long line grows up over the portal, never down into the title. */
+  /* On a phone the line sits centred over his head and grows up over the portal,
+     so it never runs off the screen or down into the title. */
   @media (max-width: 899px) {
     .slab {
-      top: auto;
-      bottom: 62%;
+      left: 50%;
+      bottom: calc(100% + 22px);
+      translate: -50% 0;
+      max-width: min(280px, 100vw - 40px);
+      text-align: center;
+    }
+  }
+  @media (max-width: 359px) {
+    .slab {
+      font-size: 0.88rem;
     }
   }
   .hint {
@@ -297,6 +309,14 @@
     }
     .copy > :global(*) {
       max-width: min(560px, 48%);
+    }
+  }
+  @media (min-width: 1800px) and (min-height: 1000px) {
+    .box {
+      height: min(66svh, 900px);
+    }
+    .copy > :global(*) {
+      max-width: min(720px, 48%);
     }
   }
   @media (prefers-reduced-motion: reduce) {
