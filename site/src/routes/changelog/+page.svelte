@@ -2,6 +2,7 @@
   // 057 C12: CHANGELOG.md, newest first, an anchor per version.
   import { releaseId } from "$lib/content/changelog";
   import { notes } from "$lib/notes";
+  import Share from "$lib/Share.svelte";
 
   let { data } = $props();
   const md = notes;
@@ -25,6 +26,7 @@
         <h2 id="{releaseId(r.version)}-h"><a href="#{releaseId(r.version)}">{r.version}</a></h2>
         <p class="date pixel"><time datetime={r.date}>{day(r.date)}</time></p>
         {#if i === 0}<p class="latest pixel">Latest</p>{/if}
+        <Share href="/changelog#{releaseId(r.version)}" title="IntPortal {r.version}" />
       </div>
       <div class="what">
         {#if r.intro}<p class="intro">{@html md(r.intro)}</p>{/if}

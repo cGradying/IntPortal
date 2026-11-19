@@ -2,6 +2,7 @@
   // 057 C10: one feature: what it does, how to use it, where it lives.
   import PixelIcon from "$app_lib/PixelIcon.svelte";
   import Phone from "$lib/Phone.svelte";
+  import Share from "$lib/Share.svelte";
   import { releaseId } from "$lib/content/changelog";
   import { GROUP_ICON } from "$lib/groupIcon";
   import { REPO_URL } from "$lib/releases";
@@ -28,12 +29,13 @@
   <div class="layout" class:bare={!f.media}>
     <div class="text">
       <header>
-        <h1>{f.name}</h1>
+        <h1 style:view-transition-name="f-{f.slug}">{f.name}</h1>
         <p class="line">{f.line}</p>
         <p class="meta pixel">
           <span><PixelIcon name={GROUP_ICON[data.group.id]} size={12} />{data.group.name}</span>
           {#if f.since}<a href="/changelog#{releaseId(f.since)}">since {f.since}</a>{/if}
         </p>
+        <Share href="/features/{f.slug}" title="{f.name} · IntPortal" />
       </header>
 
       <div class="body">

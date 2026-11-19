@@ -1,29 +1,28 @@
 <script lang="ts">
   // 057 C11: install help, questions, fixes, and where to go next.
+  import { afterNavigate } from "$app/navigation";
   import PixelIcon from "$app_lib/PixelIcon.svelte";
+  import Share from "$lib/Share.svelte";
+  import { FAQ, FIXES } from "$lib/content/help";
   import { PLATFORMS } from "$lib/platforms";
   import { REPO_URL } from "$lib/releases";
 
-  const faq = [
-    ["Is this official?", "No. IntPortal is an independent student project. It isn't made by or affiliated with any school, and only works with your own account."],
-    ["Is my password safe?", "It never leaves your phone except to sign in to your school's own portal. It's kept in the phone's keychain, and the app makes at most three sign-in tries every fifteen minutes so it can never lock your SIS account."],
-    ["Does it work offline?", "Yes. After one sign-in, your schedule, grades, deadlines, notes and decks are on the phone. It syncs again when you have signal."],
-    ["Is it free?", "Yes, free and with no ads. The source is public under the PolyForm Noncommercial licence."],
-    ["Why isn't it on the App Store?", "Publishing there needs a paid Apple developer account. Until then, iPhone users can sideload it with AltStore or SideStore, build it with Xcode, or try it in the browser."],
-    ["What about other schools?", "More are coming. The portal wall already lists other schools' portals, and today PUP's SIS and eMabini sign in."],
-    ["Does the AI send my notes anywhere?", "No. LAR's assistant runs on the phone itself, and you turn it on yourself. Your questions and notes stay on the phone."],
-  ];
+  // 058 C5: /help#q-… opens that answer, on load and when search or a link
+  // changes the hash on this page.
+  function reveal() {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const d = id.startsWith("q-") ? document.getElementById(id) : null;
+    if (!(d instanceof HTMLDetailsElement)) return;
+    d.open = true;
+    d.scrollIntoView({ block: "start" });
+  }
+  afterNavigate(reveal);
 
-  const fixes = [
-    ["It says to wait before signing in again", "After three tries in fifteen minutes the app stops and tells you when you can try again. It never retries a rejected password on its own, so it can't get your school account locked. If you forgot the password, Forgot password opens your portal's own reset page."],
-    ["The SIS isn't answering", "A chip under the portal says so; it checks without sending your login. Everything you already have still opens offline. Pull down on Today to sync again once the SIS is back."],
-    ["Reminders don't come", "Turn them on in You, then check that your phone allows notifications for IntPortal in its Settings."],
-    ["The iPhone app stopped opening", "Apps signed with a free Apple ID stop opening after 7 days. Open AltStore or SideStore and refresh IntPortal; your data stays."],
-    ["The Mac says it can't open IntPortal", "The Mac build isn't signed yet. The first time, open it from the right-click menu and choose Open."],
-    ["Windows says it protected your PC", "That's SmartScreen, because the build isn't signed. Choose More info, then Run anyway."],
-    ["Moving to a new phone", "Make a backup in You and open it on the new phone, or just sign in again: your schedule and grades come back from the SIS. Your own notes and decks are only in the backup."],
-  ];
+  // 058 C14: print every answer, not only the open ones.
+  const printAll = () => document.querySelectorAll("details").forEach((d) => (d.open = true));
 </script>
+
+<svelte:window onbeforeprint={printAll} onhashchange={reveal} />
 
 <svelte:head>
   <title>Help · IntPortal</title>
@@ -59,10 +58,11 @@
 
   <section id="questions" aria-labelledby="q-h">
     <h2 id="q-h">Questions</h2>
-    {#each faq as [q, a] (q)}
-      <details>
-        <summary>{q}</summary>
-        <p>{a}</p>
+    {#each FAQ as h (h.id)}
+      <details id={h.id}>
+        <summary>{h.q}</summary>
+        <p>{h.a}</p>
+        <Share href="/help#{h.id}" title={h.q} />
       </details>
     {/each}
     <p class="fine after">The whole story of your data is in the <a href="/privacy">privacy policy</a>.</p>
@@ -70,10 +70,11 @@
 
   <section id="fixes" aria-labelledby="fix-h">
     <h2 id="fix-h">Something's wrong</h2>
-    {#each fixes as [q, a] (q)}
-      <details>
-        <summary>{q}</summary>
-        <p>{a}</p>
+    {#each FIXES as h (h.id)}
+      <details id={h.id}>
+        <summary>{h.q}</summary>
+        <p>{h.a}</p>
+        <Share href="/help#{h.id}" title={h.q} />
       </details>
     {/each}
   </section>
@@ -189,10 +190,34 @@
   details[open] summary::after {
     transform: rotate(45deg);
   }
+  details {
+    scroll-margin-top: 88px;
+  }
   details p {
     max-width: 65ch;
-    margin: 0 0 20px;
+    margin: 0 0 4px;
     color: var(--site-ink-2);
     line-height: 1.6;
+  }
+  details :global(.share) {
+    margin-bottom: 12px;
+  }
+  @media print {
+    .jump,
+    details :global(.share),
+    summary::after {
+      display: none;
+    }
+    h2 {
+      margin-bottom: 12px;
+    }
+    .plat {
+      background: none;
+      box-shadow: inset 0 0 0 1px #999;
+      break-inside: avoid;
+    }
+    details {
+      break-inside: avoid;
+    }
   }
 </style>
