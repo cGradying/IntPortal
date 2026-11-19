@@ -3,9 +3,11 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 // Spec 058 C7: pages you've opened still load with no signal. The pages a
-// student needs first are saved on install (prerendered HTML reads without its
-// scripts); code, fonts and every other page are saved the first time they load,
-// so nobody downloads the 3D hero who never runs it. The browser demo, the reel, videos and downloads never are.
+// student needs first are saved on install, with the code and styles each one
+// names (a page whose code is missing reloads itself forever offline) and the
+// Latin fonts. Every other page and file is saved the first time it loads. The
+// 3D hero is only ever imported, never named in a page, so nobody downloads it
+// just because the worker installed. The browser demo, the reel, videos and downloads never are.
 import { build, prerendered, version } from "$service-worker";
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
@@ -18,6 +20,15 @@ sw.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(CACHE).then(async (c) => {
       await c.addAll(SHELL);
+      const named = new Set(build.filter((f) => /-latin-[\w-]*normal\.[\w-]+\.woff2$/.test(f)));
+      for (const page of SHELL) {
+        const text = await (await c.match(page))!.text();
+        for (const m of text.matchAll(/["'](\.{0,2}\/?[^"']*_app\/immutable\/[^"']+)["']/g)) {
+          const path = new URL(m[1], new URL(page, sw.location.origin)).pathname;
+          if (build.includes(path)) named.add(path);
+        }
+      }
+      await c.addAll([...named]);
       // The static adapter's fallback page renders any route from the cached
       // code; absent in dev, so it may fail.
       await c.add("/404.html").catch(() => {});

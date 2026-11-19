@@ -14,11 +14,12 @@
     location.href = nav.to.url.href;
   });
   // An in-app move fetches only code, so ask for the page itself too and the
-  // worker saves it. Skipped on Save-Data.
+  // worker saves it, once. Skipped on Save-Data and on back and forward.
   afterNavigate((nav) => {
     const saveData = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData;
-    if (nav.type === "enter" || !nav.to || saveData || !navigator.serviceWorker?.controller) return;
-    fetch(nav.to.url.pathname).catch(() => {});
+    if (nav.type === "enter" || nav.type === "popstate" || !nav.to || saveData || !navigator.serviceWorker?.controller) return;
+    const path = nav.to.url.pathname;
+    caches.match(path).then((hit) => hit || fetch(path)).catch(() => {});
   });
 
   // 058 C9: cross-fade between pages where the browser can, never under Reduce
