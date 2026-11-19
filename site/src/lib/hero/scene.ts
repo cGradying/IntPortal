@@ -53,6 +53,7 @@ const frag = /* glsl */ `
   uniform float uEnergy;
   uniform float uBreath;
   uniform float uBurst;
+  uniform float uForm;
   uniform float uDive;
   uniform float uOpen;
   uniform vec3 uRamp[5];
@@ -74,6 +75,8 @@ const frag = /* glsl */ `
     // 059 C3: it breathes, and brightens as the pointer nears or a sculpture leaves it.
     v += uBreath * 0.06 + uEnergy * 0.16 * (1.0 - r * 1.6);
     // 059 C5: the kawoosh, a bright ring running out to the frame as it opens.
+    // 059 C1: a dim pool behind the sculpture, so it stands against the fire.
+    v -= uForm * 0.38 * exp(-pow(length(q - vec2(0.0, 0.22)) * 3.4, 2.0));
     if (uBurst >= 0.0) v += 0.95 * exp(-pow((r - uBurst) * 13.0, 2.0)) * (1.0 - uBurst * 1.4);
     float ring = fract(0.16 / (r + 0.03) - uTime * 0.7 - uDive * 4.0);
     float tun = (1.0 - abs(ring - 0.5) * 2.0) * (1.0 - r * 0.9) + 0.2;
@@ -156,7 +159,7 @@ const moteFrag = /* glsl */ `
 
 /** A sculpture voxel: a cube with pre-shaded faces, like the frame's tiles. */
 function voxelGeometry() {
-  const geo = new THREE.BoxGeometry(0.62, 0.62, 0.62);
+  const geo = new THREE.BoxGeometry(VOX, VOX, VOX);
   const shade = [0.62, 0.9, 1.15, 0.5, 1, 0.55];
   const colors: number[] = [];
   for (const s of shade) for (let i = 0; i < 4; i++) colors.push(s, s, s);
@@ -167,7 +170,9 @@ function voxelGeometry() {
 /** A damped spring from 0 to 1 with a little overshoot, for a voxel springing into place. */
 const spring = (u: number) => (u <= 0 ? 0 : 1 - Math.exp(-5.5 * u) * Math.cos(7.5 * u));
 
-const VOX = 0.7;
+// Voxels touch, so the outline (drawn a little larger, back faces only) shows
+// only round the sculpture's silhouette, not between voxels.
+const VOX = 0.55;
 const IN_SPAN = 0.55;
 const IN_DUR = 0.4;
 const OUT_DUR = 0.35;
@@ -200,6 +205,7 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
     uEnergy: { value: 0 },
     uBreath: { value: 0 },
     uBurst: { value: -1 },
+    uForm: { value: 0 },
     uDive: { value: 0 },
     uOpen: { value: 0 },
     uRamp: { value: RAMP.map((h) => new THREE.Color(h)) },
@@ -233,19 +239,19 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
   sculpt.add(vox);
   // A one-pixel obsidian outline, so gold voxels read against the gold swirl: the
   // same voxels a little larger, back faces only, drawn behind them.
-  const rim = new THREE.InstancedMesh(new THREE.BoxGeometry(0.62, 0.62, 0.62), new THREE.MeshBasicMaterial({ color: RIM, side: THREE.BackSide }), MAX);
+  const rim = new THREE.InstancedMesh(new THREE.BoxGeometry(VOX, VOX, VOX), new THREE.MeshBasicMaterial({ color: RIM, side: THREE.BackSide }), MAX);
   rim.count = 0;
   rim.frustumCulled = false;
   sculpt.add(rim);
   const ramp = RAMP.map((h) => new THREE.Color(h));
-  const grow = new THREE.Vector3(1.32, 1.32, 1.32);
+  const grow = new THREE.Vector3(1.14, 1.14, 1.14);
   // Where each voxel comes from: the mouth's centre, in the sculpture's space.
   const origin = new THREE.Vector3(0, -sculpt.position.y, -sculpt.position.z - 0.3);
   let shown: Voxel[] = [];
   let wanted: Voxel[] | null = null;
   let tIn = -9;
   let tOut = -9;
-  let kick = 0;
+  let hush = 0;
   function order(v: Voxel[]) {
     // Out of the mouth bottom first, then left to right, back to front.
     return [...v].sort((a, b) => a.y - b.y || a.x - b.x || a.z - b.z);
@@ -255,7 +261,6 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
     if (!shown.length) {
       shown = next;
       tIn = t;
-      kick = shown.length ? 1 : kick;
       wanted = null;
       return;
     }
@@ -396,14 +401,16 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
     // 059 C3: breath, and energy from the pointer's nearness and a sculpture leaving.
-    kick *= Math.exp(-dt / 600);
-    energy += (Math.min(1, near + kick) - energy) * 0.06;
+    energy += (near - energy) * 0.06;
+    // While a sculpture is out, the swirl darkens behind it so it reads.
+    hush += ((shown.length && tOut < tIn ? 1 : 0) - hush) * 0.08;
+    uniforms.uForm.value = hush * (1 - smooth(0, 0.18, dive));
     phase += (dt / 1000) * (1 + energy * 0.8);
     uniforms.uTime.value = t;
     uniforms.uPhase.value = phase;
     uniforms.uEnergy.value = energy;
     uniforms.uBreath.value = Math.sin((t * Math.PI * 2) / 5);
-    const opened = SPAWN + 0.15;
+    const opened = SPAWN + 0.15 + OPEN;
     uniforms.uBurst.value = t > opened && t < opened + 0.6 ? (t - opened) / 0.6 * 0.62 : -1;
     uniforms.uOpen.value = smooth(SPAWN + 0.15, SPAWN + 0.15 + OPEN, t) * 1.0001;
     uniforms.uDive.value = dive;
@@ -424,7 +431,6 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
       shown = wanted;
       wanted = null;
       tIn = t;
-      if (shown.length) kick = 1;
     }
     const n = shown.length;
     const leaving = tOut >= tIn;
@@ -463,7 +469,7 @@ export function start(canvas: HTMLCanvasElement, opts: Opts): Hero {
       rim.instanceMatrix.needsUpdate = true;
       if (vox.instanceColor) vox.instanceColor.needsUpdate = true;
     }
-    sculpt.rotation.y = Math.sin(t * 0.5) * 0.44;
+    sculpt.rotation.y = Math.sin(t * 0.5) * 0.2;
     sculpt.position.y = 2.6 + Math.sin(t * 1.3) * 0.15;
 
     layers.forEach((l, i) => {
