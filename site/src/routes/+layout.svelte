@@ -3,8 +3,23 @@
   import "../site.css";
   import Nav from "$lib/Nav.svelte";
   import Footer from "$lib/Footer.svelte";
-  import { onNavigate } from "$app/navigation";
+  import { afterNavigate, beforeNavigate, onNavigate } from "$app/navigation";
   let { children } = $props();
+
+  // 058 C7: offline, a link loads the whole page, so the service worker can
+  // answer it from what it saved; an in-app move would need code it may not have.
+  beforeNavigate((nav) => {
+    if (navigator.onLine || nav.type !== "link" || !nav.to || nav.to.url.origin !== location.origin) return;
+    nav.cancel();
+    location.href = nav.to.url.href;
+  });
+  // An in-app move fetches only code, so ask for the page itself too and the
+  // worker saves it. Skipped on Save-Data.
+  afterNavigate((nav) => {
+    const saveData = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData;
+    if (nav.type === "enter" || !nav.to || saveData || !navigator.serviceWorker?.controller) return;
+    fetch(nav.to.url.pathname).catch(() => {});
+  });
 
   // 058 C9: cross-fade between pages where the browser can, never under Reduce
   // Motion, and not when it already animated a swipe-back itself.

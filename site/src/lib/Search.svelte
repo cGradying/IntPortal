@@ -81,7 +81,7 @@
         placeholder="Search features, help and releases"
         aria-label="Search"
         role="combobox"
-        aria-expanded="true"
+        aria-expanded={count > 0}
         aria-controls="hits"
         aria-autocomplete="list"
         aria-activedescendant={count ? `hit-${at}` : undefined}
@@ -90,19 +90,18 @@
       />
       <button class="x" aria-label="Close the search" onclick={() => dialog?.close()}><PixelIcon name="close" size={16} /></button>
     </div>
+    {#if failed}<p class="note">Search didn't load. Check your connection.</p>{/if}
+    {#if !count}<p class="note">Nothing called that yet. <a href="/help" onclick={() => dialog?.close()}>Help</a> might know.</p>{/if}
     <div class="hits" id="hits" role="listbox" aria-label="Results" bind:this={list}>
-      {#if failed}<p class="note">Search didn't load. Check your connection.</p>{/if}
       {#each groups as g (g.name)}
         <p class="kind pixel" aria-hidden="true">{g.name}</p>
         {#each g.hits as h (h.href)}
           {@const i = flat.indexOf(h)}
-          <a id="hit-{i}" href={h.href} role="option" aria-selected={i === at} class:on={i === at} onmousemove={() => (at = i)}>
+          <a id="hit-{i}" href={h.href} role="option" aria-selected={i === at} class:on={i === at} onmousemove={() => (at = i)} onclick={() => dialog?.close()}>
             <span class="t">{h.title}</span>
             <span class="l">{h.line}</span>
           </a>
         {/each}
-      {:else}
-        <p class="note">Nothing called that yet. <a href="/help">Help</a> might know.</p>
       {/each}
     </div>
     <p class="keys pixel" aria-hidden="true">↑↓ to move · Enter to open · Esc to close</p>
