@@ -28,7 +28,32 @@
     return { href: "#download", text: "Get IntPortal" };
   });
 
-  const count = (g: string) => FEATURES.filter((f) => f.group === g).length;
+  const inGroup = (g: string) => FEATURES.filter((f) => f.group === g);
+  const slug = (t: string) => "s-" + t.toLowerCase();
+
+  // 058 C10: on a wide screen one phone stays in view and shows the story at the
+  // middle of the viewport.
+  let story = $state(0);
+  let stories = $state<HTMLElement>();
+  onMount(() => {
+    if (!stories) return;
+    const io = new IntersectionObserver(
+      (es) => es.forEach((e) => e.isIntersecting && (story = Number((e.target as HTMLElement).dataset.i))),
+      { rootMargin: "-50% 0px -50% 0px" },
+    );
+    stories.querySelectorAll<HTMLElement>("article").forEach((a) => io.observe(a));
+    return () => io.disconnect();
+  });
+
+  // 058 C13: the dot ground lights up round a fine pointer.
+  let lit = $state<HTMLElement>();
+  function glow(e: PointerEvent) {
+    if (e.pointerType !== "mouse" || !lit) return;
+    // The ground spans the viewport's width from its left edge, so x is the
+    // pointer's own; y is measured from the section's top.
+    lit.style.setProperty("--gx", `${e.clientX}px`);
+    lit.style.setProperty("--gy", `${e.clientY - lit.getBoundingClientRect().top}px`);
+  }
 
   const features: { group: string; title: string; body: string; src: string; alt: string; video?: boolean; poster?: string }[] = [
     { group: "today", title: "Today", body: "The class in session counts down. What's due sits right under it, and the free time between classes shows as gaps you can use.", src: "/media/today.webp", alt: "Today: the campus scene, the class in session and the deadlines" },
@@ -70,19 +95,35 @@
   <p class="un">Unofficial. Not made by or affiliated with any school.</p>
 </Hero>
 
-<section id="features" class="wrap features" aria-labelledby="f-h">
+<section id="features" class="wrap features" aria-labelledby="f-h" bind:this={lit} onpointermove={glow}>
   <h2 id="f-h">On the other side</h2>
   <p class="lede">Everything SIS has, kept on your phone, and the parts SIS never had.</p>
-  {#each features as f, i (f.title)}
-    <article class="feature" class:flip={i % 2 === 1}>
-      <Phone src={f.src} alt={f.alt} video={f.video} poster={f.poster} />
-      <div class="text">
-        <h3>{f.title}</h3>
-        <p>{f.body}</p>
-        <a class="more" href="/features#{f.group}">More in {GROUPS.find((g) => g.id === f.group)?.name}<PixelIcon name="chev" size={12} /></a>
+  <div class="story">
+    <div class="steps" bind:this={stories}>
+      {#each features as f, i (f.title)}
+        <article id={slug(f.title)} class="feature" class:flip={i % 2 === 1} class:on={i === story} data-i={i}>
+          <div class="own"><Phone src={f.src} alt={f.alt} video={f.video} poster={f.poster} /></div>
+          <div class="text">
+            <h3>{f.title}</h3>
+            <p>{f.body}</p>
+            <a class="more" href="/features#{f.group}">More in {GROUPS.find((g) => g.id === f.group)?.name}<PixelIcon name="chev" size={12} /></a>
+          </div>
+        </article>
+      {/each}
+    </div>
+    <div class="stage" aria-hidden="true">
+      <div class="phone">
+        {#each features as f, i (f.title)}
+          <img src={f.src} alt="" class:on={i === story} loading="lazy" decoding="async" width="450" height="1000" />
+        {/each}
       </div>
-    </article>
-  {/each}
+      <ol class="rail">
+        {#each features as f, i (f.title)}
+          <li><a href="#{slug(f.title)}" class="pixel" class:on={i === story} tabindex="-1">{f.title}</a></li>
+        {/each}
+      </ol>
+    </div>
+  </div>
 </section>
 
 <section class="wrap directory" aria-labelledby="dir-h">
@@ -90,18 +131,18 @@
     <h2 id="dir-h">Everything in IntPortal</h2>
     <a class="ghost" href="/features">The whole directory</a>
   </div>
-  <ul class="groups">
+  <div class="index">
     {#each GROUPS as g (g.id)}
-      <li>
-        <a href="/features#{g.id}">
-          <span class="icon"><PixelIcon name={GROUP_ICON[g.id]} size={24} /></span>
-          <span class="name">{g.name}</span>
-          <span class="gline">{g.line}</span>
-          <span class="count pixel">{count(g.id)} {count(g.id) === 1 ? "feature" : "features"}</span>
-        </a>
-      </li>
+      {@const fs = inGroup(g.id)}
+      <section class="group" aria-labelledby="g-{g.id}">
+        <h3 id="g-{g.id}"><a href="/features#{g.id}"><span class="icon"><PixelIcon name={GROUP_ICON[g.id]} size={20} /></span>{g.name}<span class="count pixel">{fs.length}</span></a></h3>
+        <p class="gline">{g.line}</p>
+        <ul>
+          {#each fs as f (f.slug)}<li><a href="/features/{f.slug}">{f.name}</a></li>{/each}
+        </ul>
+      </section>
     {/each}
-  </ul>
+  </div>
 </section>
 
 <section class="campus" aria-labelledby="c-h">
@@ -223,6 +264,29 @@
     -webkit-mask-image: linear-gradient(#000 20%, transparent);
     pointer-events: none;
   }
+  /* 058 C13: a brighter copy of the same dots, shown only round the pointer. */
+  .features::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: 50%;
+    top: 0;
+    width: 100vw;
+    height: 110vh;
+    translate: -50% 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15'%3E%3Crect width='3' height='3' fill='%23f5b227' fill-opacity='.9'/%3E%3C/svg%3E") 0 12px / 15px 15px;
+    mask-image: radial-gradient(circle 140px at var(--gx, -999px) var(--gy, -999px), #000, transparent), linear-gradient(#000 20%, transparent);
+    mask-composite: intersect;
+    -webkit-mask-composite: source-in;
+    opacity: 0;
+    transition: opacity 240ms var(--ease);
+    pointer-events: none;
+  }
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .features:hover::after {
+      opacity: 1;
+    }
+  }
   .features .lede {
     margin-bottom: 32px;
   }
@@ -250,6 +314,108 @@
     line-height: 1.6;
     color: var(--site-ink-2);
   }
+  .stage {
+    display: none;
+  }
+  /* 058 C10: on a wide screen the stories scroll past one phone that stays put. */
+  @media (min-width: 900px) {
+    .story {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: clamp(40px, 6vw, 96px);
+    }
+    .own {
+      display: none;
+    }
+    .feature,
+    .feature.flip {
+      flex-direction: row;
+      justify-content: flex-start;
+      min-height: 72svh;
+      padding-block: 0;
+    }
+    .feature .text {
+      flex: 0 1 520px;
+      opacity: 0.38;
+      transition: opacity 240ms var(--ease);
+    }
+    .feature.on .text,
+    .feature:focus-within .text {
+      opacity: 1;
+    }
+    .stage {
+      --w: min(300px, calc((100svh - 190px) * 0.45));
+      position: sticky;
+      top: calc(50svh - var(--w) * 10 / 9 - 27px);
+      align-self: start;
+      display: grid;
+      justify-items: center;
+      gap: 22px;
+    }
+    .phone {
+      position: relative;
+      width: var(--w);
+      aspect-ratio: 9 / 20;
+      padding: 8px;
+      border-radius: 36px;
+      background: #050307;
+      box-shadow: inset 0 0 0 1px rgba(244, 236, 216, 0.12), 0 40px 80px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px #000;
+    }
+    .phone img {
+      position: absolute;
+      inset: 8px;
+      width: calc(100% - 16px);
+      height: calc(100% - 16px);
+      object-fit: cover;
+      border-radius: 28px;
+      background: var(--void-2);
+      opacity: 0;
+      transition: opacity 240ms steps(4, jump-none);
+    }
+    .phone img.on {
+      opacity: 1;
+    }
+    .rail {
+      display: flex;
+      gap: 4px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .rail a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 0 6px;
+      color: var(--site-ink-3);
+      font-size: 0.7rem;
+      text-decoration: none;
+      transition: color 240ms var(--ease);
+    }
+    .rail a::before {
+      content: "";
+      width: 4px;
+      height: 4px;
+      background: currentColor;
+      opacity: 0.5;
+    }
+    .rail a:hover {
+      color: var(--site-ink);
+    }
+    .rail a.on {
+      color: var(--gold);
+    }
+    .rail a.on::before {
+      opacity: 1;
+    }
+  }
+  @media (min-width: 900px) and (prefers-reduced-motion: reduce) {
+    .phone img,
+    .feature .text {
+      transition: none;
+    }
+  }
   .more {
     display: inline-flex;
     align-items: center;
@@ -273,55 +439,64 @@
     gap: 16px 24px;
     margin-bottom: 36px;
   }
-  .groups {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-    box-shadow: inset 1px 1px 0 var(--site-line);
+  /* 058 C11: every feature, by group, as plain links. */
+  .index {
+    columns: 2 420px;
+    column-gap: clamp(32px, 5vw, 72px);
   }
-  .groups li {
-    box-shadow: inset -1px -1px 0 var(--site-line);
+  .group {
+    break-inside: avoid;
+    padding: 22px 0 28px;
+    box-shadow: inset 0 1px 0 var(--site-line);
   }
-  .groups a {
-    display: grid;
-    grid-template-columns: 24px 1fr;
-    grid-template-rows: auto auto 1fr;
-    column-gap: 14px;
-    row-gap: 6px;
-    height: 100%;
-    padding: 22px 20px 20px;
-    background: var(--void);
+  .group h3 a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    font-size: 1.3rem;
     text-decoration: none;
-    transition: background var(--t-quick) var(--ease);
   }
-  .groups a:hover {
-    background: color-mix(in srgb, var(--void) 88%, var(--gold));
+  .group h3 a:hover {
+    color: var(--gold);
   }
   .icon {
-    grid-row: 1 / 3;
+    display: inline-grid;
     color: var(--site-ink-2);
-    padding-top: 2px;
   }
-  .groups a:hover .icon {
-    color: var(--parch);
-  }
-  .name {
-    font-family: var(--site-display);
-    font-weight: 700;
-    font-size: 1.15rem;
+  .count {
+    margin-left: auto;
+    color: var(--site-ink-3);
+    font-size: 0.78rem;
+    font-weight: 400;
   }
   .gline {
+    margin: 2px 0 14px 32px;
     color: var(--site-ink-2);
     line-height: 1.45;
   }
-  .count {
-    grid-column: 2;
-    align-self: end;
-    margin-top: 10px;
-    font-size: 0.78rem;
-    color: var(--site-ink-3);
+  .group ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 4px;
+    margin: 0 0 0 22px;
+    padding: 0;
+    list-style: none;
+  }
+  .group li a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 10px;
+    border-radius: var(--radius);
+    color: var(--site-ink);
+    font-weight: 600;
+    text-decoration: none;
+    transition: color var(--t-quick) var(--ease), background var(--t-quick) var(--ease);
+  }
+  .group li a:hover {
+    color: var(--gold);
+    background: rgba(244, 236, 216, 0.05);
   }
 
   .campus .lede {
