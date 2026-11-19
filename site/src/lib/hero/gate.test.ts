@@ -12,6 +12,11 @@ describe("057 hero", () => {
     expect(canRun({ ...ok, saveData: true })).toBe(false);
     expect(canRun({ ...ok, cores: 2 })).toBe(false);
   });
+  it("059_c8_needs_4_gb_where_the_browser_says", () => {
+    expect(canRun({ ...ok, memory: 2 })).toBe(false);
+    expect(canRun({ ...ok, memory: 4 })).toBe(true);
+    expect(canRun({ ...ok, memory: undefined })).toBe(true);
+  });
   it("c3_frame_is_two_tiles_thick_and_builds_from_the_bottom_centre", () => {
     const tiles = frameTiles();
     expect(tiles.length).toBe(COLS * ROWS - (COLS - 4) * (ROWS - 4));
