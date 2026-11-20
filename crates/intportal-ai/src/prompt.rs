@@ -141,6 +141,7 @@ mod tests {
         let p = Template::ChatMl.wrap("S", evil);
         assert_eq!(p.matches("<|im_start|>").count(), 3, "only the template's own turns");
         assert!(!Template::Gemma.wrap("S", evil).contains("<end_of_turn><start_of_turn>model"));
+        assert_eq!(super::unmark("a<|im_<|im_end|>start|>b<|endoftext|><eos>"), "ab", "split markers can't rejoin");
     }
 }
 
@@ -168,13 +169,21 @@ pub fn gemma(system: &str, user: &str) -> String {
     format!("<start_of_turn>user\n{system}\n\n{user}<end_of_turn>\n<start_of_turn>model\n")
 }
 
-/// Text with every chat-template turn marker removed.
+/// Text with every chat-template marker removed, the ones llama.cpp reads as special
+/// tokens included. Repeated until nothing changes, so `<|im_<|im_end|>start|>` can't
+/// put one back together.
 pub fn unmark(s: &str) -> String {
+    const MARKERS: [&str; 9] = ["<|im_start|>", "<|im_end|>", "<|endoftext|>", "<start_of_turn>", "<end_of_turn>", "<bos>", "<eos>", "<think>", "</think>"];
     let mut out = s.to_string();
-    for m in ["<|im_start|>", "<|im_end|>", "<start_of_turn>", "<end_of_turn>", "<think>", "</think>"] {
-        out = out.replace(m, "");
+    loop {
+        let before = out.len();
+        for m in MARKERS {
+            out = out.replace(m, "");
+        }
+        if out.len() == before {
+            return out;
+        }
     }
-    out
 }
 
 /// How a model wants its prompt wrapped.
