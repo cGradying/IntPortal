@@ -51,6 +51,7 @@
           <h3>{p.name}</h3>
           <p class="needs pixel">{p.needs}</p>
           <ol>{#each p.steps as s (s)}<li>{s}</li>{/each}</ol>
+          {#if p.links}<p class="fine">Set up with {#each p.links as l, i (l.href)}{#if i}{" or "}{/if}<a href={l.href} rel="noopener">{l.name}</a>{/each}.</p>{/if}
         </div>
       {/each}
     </div>

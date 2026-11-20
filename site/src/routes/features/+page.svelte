@@ -152,9 +152,9 @@
     padding: 10px var(--site-gutter);
     overflow-x: auto;
     scrollbar-width: none;
-    background: color-mix(in srgb, var(--void) 92%, transparent);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    /* Solid, so the list never shows through it while it sticks. */
+    background: var(--void);
+    box-shadow: 0 1px 0 var(--site-line);
   }
   .rail a {
     flex: none;

@@ -11,7 +11,7 @@ export type Env = {
 };
 
 export const canRun = (e: Env) =>
-  e.webgl2 && !e.reduced && !e.saveData && e.cores >= 4 && (e.memory ?? 4) >= 4 && (e.net?.type ?? "4g") === "4g" && (e.net?.downlink ?? 1.5) >= 1.5;
+  e.webgl2 && !e.reduced && !e.saveData && e.cores >= 4 && (e.memory ?? 4) >= 4 && (e.net?.type ?? "4g") === "4g";
 
 export function readEnv(): Env {
   let webgl2 = false;

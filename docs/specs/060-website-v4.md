@@ -77,7 +77,7 @@ DESIGN.md and specs 057–059 hold. No new fonts, colours or dependencies.
 
 ### Lighter on phones (lens 4)
 
-- **C20.** The 3D hero also waits for a 4G connection (where the browser reports it). It loads during idle time, after the first paint.
+- **C20.** The 3D hero also waits for a 4G-class connection (`effectiveType`, where the browser reports it; the raw downlink figure is ignored, because Chrome understates it on a fresh profile). It loads during idle time, after the first paint.
 - **C21.** The service worker saves nothing on install under Save-Data or on 2G/3G. Pages are still saved when opened.
 - **C22.**
   - The two Latin body fonts are preloaded.

@@ -21,7 +21,8 @@ describe("057 hero", () => {
     expect(canRun({ ...ok, net: { type: "4g", downlink: 10 } })).toBe(true);
     expect(canRun({ ...ok, net: { type: "3g", downlink: 10 } })).toBe(false);
     expect(canRun({ ...ok, net: { type: "2g" } })).toBe(false);
-    expect(canRun({ ...ok, net: { type: "4g", downlink: 1.4 } })).toBe(false);
+    // Chrome reports a cautious downlink on a fresh profile, so only the class counts.
+    expect(canRun({ ...ok, net: { type: "4g", downlink: 1.4 } })).toBe(true);
     expect(canRun({ ...ok, net: { type: "4g", downlink: 1.5 } })).toBe(true);
     expect(canRun({ ...ok, net: {} })).toBe(true);
     expect(canRun({ ...ok, net: undefined })).toBe(true);
