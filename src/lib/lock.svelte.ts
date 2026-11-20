@@ -21,6 +21,14 @@ function read(): boolean {
 export const lock = $state({ enabled: read(), locked: read(), hidden: false, error: "" });
 
 let hiddenAt = 0;
+let waiting: (() => void) | null = null;
+
+/** Runs `fn` now, or once the student unlocks: a notification tapped while
+ *  locked opens nothing behind the lock. */
+export function whenUnlocked(fn: () => void) {
+  if (lock.locked) waiting = fn;
+  else fn();
+}
 
 export function watchLock() {
   document.addEventListener("visibilitychange", () => {
@@ -34,6 +42,8 @@ export async function unlock(): Promise<boolean> {
   try {
     await authenticate("Unlock IntPortal", { allowDeviceCredential: true, cancelTitle: "Cancel" });
     lock.locked = false;
+    waiting?.();
+    waiting = null;
     buzz.done();
     lock.error = "";
     return true;
