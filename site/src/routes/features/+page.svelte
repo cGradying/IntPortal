@@ -1,6 +1,7 @@
 <script lang="ts">
   // 057 C9: every feature, in its group, with a filter.
   import PixelIcon from "$app_lib/PixelIcon.svelte";
+  import Lar from "$app_lib/lar/Lar.svelte";
   import { GROUP_ICON } from "$lib/groupIcon";
 
   let { data } = $props();
@@ -18,6 +19,32 @@
       .filter((g) => g.items.length);
   });
   const total = $derived(shown.reduce((n, g) => n + g.items.length, 0));
+
+  // 060 C18: nothing here, so look across the whole site with the same words.
+  const everything = () => dispatchEvent(new CustomEvent("site-search", { detail: { q } }));
+
+  // 060 C18: the rail marks the group in the upper part of the screen.
+  let current = $state("");
+  let rail = $state<HTMLElement>();
+  $effect(() => {
+    const groups = shown;
+    current = "";
+    const seen = new Set<string>();
+    const io = new IntersectionObserver(
+      (es) => {
+        for (const e of es) (e.isIntersecting ? seen.add(e.target.id) : seen.delete(e.target.id));
+        current = groups.find((g) => seen.has(g.id))?.id ?? "";
+      },
+      { rootMargin: "-140px 0px -55% 0px" },
+    );
+    document.querySelectorAll("section.group").forEach((s) => io.observe(s));
+    return () => io.disconnect();
+  });
+  // On a phone the rail scrolls sideways; keep the marked group in it.
+  $effect(() => {
+    const a = current && rail?.querySelector<HTMLElement>(`a[href="#${current}"]`);
+    if (a && rail) rail.scrollTo({ left: a.offsetLeft - (rail.clientWidth - a.offsetWidth) / 2 });
+  });
 </script>
 
 <svelte:head>
@@ -27,8 +54,8 @@
   <meta property="og:image" content="/og.png" />
 </svelte:head>
 
-<div class="wrap page">
-  <header class="top">
+<div class="wrap">
+  <header class="page-head">
     <h1>Everything in IntPortal</h1>
     <p class="lede">{data.features.length} features in {data.groups.length} groups. Each has its own page with what it does and how to use it.</p>
     <div class="find">
@@ -39,9 +66,9 @@
     </div>
   </header>
 
-  <nav class="rail" aria-label="Groups">
+  <nav class="rail" aria-label="Groups" bind:this={rail}>
     {#each data.groups as g (g.id)}
-      <a href="#{g.id}" class:dim={q && !shown.some((s) => s.id === g.id)}><PixelIcon name={GROUP_ICON[g.id]} size={16} />{g.name}</a>
+      <a href="#{g.id}" class:dim={q && !shown.some((s) => s.id === g.id)} aria-current={current === g.id ? "location" : undefined}><PixelIcon name={GROUP_ICON[g.id]} size={16} />{g.name}</a>
     {/each}
   </nav>
 
@@ -67,25 +94,21 @@
       </ul>
     </section>
   {:else}
-    <p class="empty">Nothing called that yet. Try a shorter word, or <a href="/roadmap">see what's coming</a>.</p>
+    <div class="empty">
+      <Lar size={3} mood="wow" label="LAR, surprised" />
+      <div>
+        <p>No feature called “{q.trim()}” yet. Try a shorter word, or look across help and releases too.</p>
+        <div class="acts">
+          <button class="gold" onclick={everything}>Search everything</button>
+          <button class="ghost" onclick={() => (q = "")}>Clear</button>
+        </div>
+        <p class="fine">Or <a href="/roadmap">see what's coming</a>.</p>
+      </div>
+    </div>
   {/each}
 </div>
 
 <style>
-  .page {
-    padding-top: clamp(40px, 8vh, 88px);
-  }
-  h1 {
-    font-size: clamp(2.4rem, 6vw, 4.2rem);
-    font-weight: 800;
-    letter-spacing: -0.035em;
-  }
-  .lede {
-    margin-top: 16px;
-    max-width: 56ch;
-    font-size: 1.15rem;
-    color: var(--site-ink-2);
-  }
   .find {
     position: relative;
     max-width: 520px;
@@ -154,6 +177,11 @@
   .rail a.dim {
     opacity: 0.4;
   }
+  .rail a[aria-current] {
+    color: var(--site-ink);
+    background: rgba(244, 236, 216, 0.09);
+    box-shadow: inset 0 -2px 0 var(--gold);
+  }
   .group {
     margin-top: 72px;
     scroll-margin-top: 140px;
@@ -217,12 +245,29 @@
     grid-column: 2;
     grid-row: 1;
     align-self: center;
-    font-size: 0.75rem;
-    color: var(--site-ink-3);
+    font-size: 0.875rem;
+    color: var(--site-ink);
+    opacity: 0.7;
   }
   .empty {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 28px;
     margin-top: 56px;
+  }
+  .empty > div > p:first-child {
+    max-width: 44ch;
     font-size: 1.15rem;
     color: var(--site-ink-2);
+  }
+  .acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .empty .fine {
+    margin-top: 14px;
   }
 </style>

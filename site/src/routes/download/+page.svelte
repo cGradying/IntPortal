@@ -11,8 +11,11 @@
 </svelte:head>
 
 <section class="wrap">
-  <h1>Download</h1>
-  <p class="lede">The newest IntPortal for each device. Updates install over the old version and keep your data.</p>
+  <header class="page-head">
+    <h1>Download</h1>
+    <p class="lede">The newest IntPortal for each device. Updates install over the old version and keep your data.</p>
+  </header>
+  <h2 class="sr">Every device</h2>
   <Downloads release={data.release} />
   <h2>Installing it</h2>
   {#each PLATFORMS as p (p.id)}
@@ -22,20 +25,10 @@
 </section>
 
 <style>
-  section {
-    padding-top: clamp(32px, 7vh, 80px);
+  header {
+    margin-bottom: 40px;
   }
-  h1 {
-    font-size: clamp(2.6rem, 7vw, 4.4rem);
-    letter-spacing: -0.035em;
-  }
-  .lede {
-    margin: 16px 0 40px;
-    max-width: 52ch;
-    font-size: 1.2rem;
-    color: var(--site-ink-2);
-  }
-  h2 {
+  h2:not(.sr) {
     font-size: clamp(1.8rem, 4vw, 2.6rem);
     margin: 96px 0 8px;
   }
