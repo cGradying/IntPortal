@@ -25,6 +25,8 @@ pub struct MabiniData {
 }
 
 #[cfg(feature = "net")]
+const HOST: &str = "emabini.pup.edu.ph";
+#[cfg(feature = "net")]
 const BASE: &str = "https://emabini.pup.edu.ph";
 
 /// One signed-in eMabini session. The cookie jar plus the session key.
@@ -48,9 +50,9 @@ impl LoginPage {
             .connect_timeout(host::CONNECT_TIMEOUT)
             .timeout(host::REQUEST_TIMEOUT)
             .cookie_store(true)
-            .redirect(Policy::custom(|a| if host::is_trusted(a.url()) && a.previous().len() < 10 { a.follow() } else { a.stop() }))
+            .redirect(Policy::custom(|a| if host::is_trusted(a.url(), HOST) && a.previous().len() < 10 { a.follow() } else { a.stop() }))
             .build()?;
-        let page = http.get(format!("{BASE}/login/index.php")).send().await?.error_for_status()?.text().await?;
+        let page = host::text(http.get(format!("{BASE}/login/index.php")).send().await?.error_for_status()?).await?;
         let token = parse::login_token(&page).ok_or_else(|| Error::Network("no login form on the eMabini page".into()))?;
         Ok(LoginPage { http, token })
     }
@@ -67,8 +69,8 @@ impl LoginPage {
             .form(&[("anchor", ""), ("logintoken", token.as_str()), ("username", username.as_str()), ("password", password)])
             .send()
             .await?
-            .text()
-            .await?;
+            .error_for_status()?;
+        let after = host::text(after).await?;
         if parse::has_login_form(&after) {
             return Err(Error::Rejected(
                 parse::login_error(&after)
@@ -85,7 +87,7 @@ impl MabiniClient {
     async fn call(&self, method: &str, args: Value) -> Result<Value, Error> {
         let url = format!("{BASE}/lib/ajax/service.php?sesskey={}&info={method}", self.sesskey);
         let body = json!([{ "index": 0, "methodname": method, "args": args }]);
-        let reply = self.http.post(url).header("Content-Type", "application/json").body(body.to_string()).send().await?.error_for_status()?.text().await?;
+        let reply = host::text(self.http.post(url).header("Content-Type", "application/json").body(body.to_string()).send().await?.error_for_status()?).await?;
         parse::service_data(&reply)
     }
 
@@ -109,7 +111,7 @@ impl MabiniClient {
     }
 
     pub async fn grades(&self) -> Result<Vec<CourseGrade>, Error> {
-        let page = self.http.get(format!("{BASE}/grade/report/overview/index.php")).send().await?.error_for_status()?.text().await?;
+        let page = host::text(self.http.get(format!("{BASE}/grade/report/overview/index.php")).send().await?.error_for_status()?).await?;
         if parse::has_login_form(&page) {
             return Err(Error::SignedOut);
         }

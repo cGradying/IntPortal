@@ -6,6 +6,10 @@ use crate::schedule::ScheduleRow;
 use reqwest::redirect::Policy;
 use std::collections::BTreeMap;
 
+/// Past terms read at most: years in the picker, and semesters (with summer) per year.
+const MAX_YEARS: usize = 12;
+const MAX_SEMESTERS: usize = 4;
+
 /// One signed-in session on one SIS host. The cookie jar is the session.
 pub struct SisClient {
     http: reqwest::Client,
@@ -17,12 +21,13 @@ impl SisClient {
         if !host::is_candidate(host) {
             return Err(Error::UntrustedHost(host.into()));
         }
+        let pinned = host.to_string();
         let http = reqwest::Client::builder()
             .connect_timeout(host::CONNECT_TIMEOUT)
             .timeout(host::REQUEST_TIMEOUT)
             .cookie_store(true)
-            .redirect(Policy::custom(|a| {
-                if host::is_trusted(a.url()) && a.previous().len() < 10 {
+            .redirect(Policy::custom(move |a| {
+                if host::is_trusted(a.url(), &pinned) && a.previous().len() < 10 {
                     a.follow()
                 } else {
                     a.stop()
@@ -41,7 +46,7 @@ impl SisClient {
     }
 
     async fn get(&self, path: &str) -> Result<String, Error> {
-        Ok(self.http.get(self.url(path)).send().await?.error_for_status()?.text().await?)
+        host::text(self.http.get(self.url(path)).send().await?.error_for_status()?).await
     }
 
     /// A plain GET: is this host up and serving the login form? Sends no
@@ -63,7 +68,7 @@ impl SisClient {
         let action = reqwest::Url::parse(&self.url(""))
             .and_then(|base| base.join(form.action.as_deref().unwrap_or("")))
             .map_err(|e| Error::Network(e.to_string()))?;
-        if !host::is_trusted(&action) {
+        if !host::is_trusted(&action, &self.host) {
             return Err(Error::UntrustedHost(action.to_string()));
         }
 
@@ -82,7 +87,8 @@ impl SisClient {
             }
         }
 
-        let after = self.http.post(action).header("Referer", self.url("")).form(&fields).send().await?.text().await?;
+        // A server error page has no login form either; it must not count as signed in.
+        let after = host::text(self.http.post(action).header("Referer", self.url("")).form(&fields).send().await?.error_for_status()?).await?;
         if scrape::has_login_form(&after) {
             let msg = scrape::page_message(&after)
                 .unwrap_or_else(|| "Sign-in didn't go through. Check your student number, birthdate and password.".into());
@@ -120,18 +126,20 @@ impl SisClient {
         let action = reqwest::Url::parse(&self.url("grades"))
             .and_then(|base| base.join(p.action.as_deref().unwrap_or("")))
             .map_err(|e| Error::Network(e.to_string()))?;
-        if !host::is_trusted(&action) {
+        if !host::is_trusted(&action, &self.host) {
             return Err(Error::UntrustedHost(action.to_string()));
         }
         let mut out = vec![];
-        for (year, year_label) in &p.years {
-            for (sem, sem_label) in &p.semesters {
+        // A student has a handful of terms; a picker listing hundreds is broken, so read the newest few.
+        let years = &p.years[p.years.len().saturating_sub(MAX_YEARS)..];
+        for (year, year_label) in years {
+            for (sem, sem_label) in p.semesters.iter().take(MAX_SEMESTERS) {
                 let mut fields = p.fields.clone();
                 fields.push((p.year_field.clone(), year.clone()));
                 fields.push((p.semester_field.clone(), sem.clone()));
                 let req = if p.post { self.http.post(action.clone()).form(&fields) } else { self.http.get(action.clone()).query(&fields) };
                 let Ok(resp) = req.send().await else { continue };
-                let Ok(html) = resp.text().await else { continue };
+                let Ok(html) = host::text(resp).await else { continue };
                 let (rows, summary) = scrape::grades(&html);
                 let report = GradeReport {
                     subjects: crate::grades::parse(&rows),
