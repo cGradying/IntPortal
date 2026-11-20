@@ -4,7 +4,7 @@
 
 ## What changes for the student
 
-A student who hears about IntPortal opens one address on any phone or computer, sees what the app is in the first screen, and gets the right download for their device in one tap. Every other way to get it (other platforms, sideloading, building it, trying it in the browser) is one scroll away. They can read what happens to their data before they install anything.
+A student who hears about IntPortal opens one address on any phone or computer, sees what the app is in the first screen, and gets the right download for their device in one tap. Every other way to get it (other platforms, sideloading, trying it in the browser) is one scroll away. They can read what happens to their data before they install anything.
 
 ## Direction and references
 
@@ -40,7 +40,7 @@ A student who hears about IntPortal opens one address on any phone or computer, 
   - Mac, Windows or Linux: that desktop build when 053 has shipped one, and a QR code for the phone beside it.
   - Anything else: the full list.
 - **C9. Every download, listed.** A section and `/download` list every platform with its file, size, version and requirement (Android 7, 64-bit; iOS 16; macOS 12; Windows 10; Linux x86-64). The links point at `releases/latest/download/<stable name>`, so they never go stale. The version and sizes come from the GitHub API at build time and are refreshed in the browser when the API answers; when it doesn't, the build-time values stay.
-- **C10. Install help.** Android: allow installs from the browser, open the file, updates keep your data. iPhone: AltStore or SideStore with your own Apple ID (re-signs every 7 days), or build with Xcode (links docs/BUILDING.md). Mac: open it from the context menu the first time. Windows: SmartScreen's "More info, Run anyway". Each is a short numbered list.
+- **C10. Install help.** Android: allow installs from the browser, open the file, updates keep your data. iPhone: AltStore or SideStore with your own Apple ID (re-signs every 7 days). (Building with Xcode was dropped from the help on 2026-11-20, when the code became all rights reserved.) Mac: open it from the context menu the first time. Windows: SmartScreen's "More info, Run anyway". Each is a short numbered list.
 - **C11. Your data.** Four facts from PRIVACY.md (login in the keychain, data encrypted on the phone, no IntPortal server or account, talks only to PUP), and a link to `/privacy`.
 - **C12. Questions.** Is it official? Is my password safe? Does it work offline? Is it free? Why isn't it on the App Store? What about other schools? Each answer is two or three sentences.
 - **C13. The footer.** The unofficial line, the licence (all rights reserved since 2026-11-20; PolyForm Noncommercial before), the source on GitHub, Report a problem, and the version.

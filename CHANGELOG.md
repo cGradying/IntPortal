@@ -2,6 +2,10 @@
 
 What changed in each release, newest first. A release PR adds its section; `scripts/version.sh` sets the version.
 
+## Unreleased
+
+- Licence: IntPortal is all rights reserved from 2026-11-20. The official builds stay free to download and use; copies taken before then keep PolyForm Noncommercial.
+
 ## 0.5.0 (2026-11-17)
 
 IntAssis, rebuilt: an install that finishes on any phone, a smarter and faster LAR that answers what it knows, and flashcards that work.
