@@ -27,10 +27,14 @@ impl SisClient {
             .timeout(host::REQUEST_TIMEOUT)
             .cookie_store(true)
             .redirect(Policy::custom(move |a| {
-                if host::is_trusted(a.url(), &pinned) && a.previous().len() < 10 {
-                    a.follow()
+                // A blocked redirect is an error, not the 3xx page: that page has no login
+                // form, so it would otherwise pass for a signed-in one.
+                if !host::is_trusted(a.url(), &pinned) {
+                    a.error("redirected off the SIS host")
+                } else if a.previous().len() >= 10 {
+                    a.error("too many redirects")
                 } else {
-                    a.stop()
+                    a.follow()
                 }
             }))
             .build()?;
