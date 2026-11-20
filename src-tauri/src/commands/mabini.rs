@@ -30,12 +30,13 @@ pub(crate) fn mabini_account<'a>(sis_number: Option<&str>, typed: &'a str) -> Re
 pub async fn mabini_sign_in(state: tauri::State<'_, AppState>, login: MabiniLogin) -> Res<MabiniData> {
     let open = mabini_account(vault::load().as_ref().map(|l| l.student_number.as_str()), &login.student_number)?;
     let client = guarded_mabini_sign_in(&state, &login, false).await?;
+    // Moodle can hand a session key to a page that isn't really signed in. One read proves
+    // the session before this student's store opens or the login is kept.
+    client.courses().await.map_err(err)?;
     DEMO.store(false, Ordering::Relaxed);
     if let Some(n) = open {
         open_account(&state, n)?;
     }
-    // The login is kept only once a sync went through: Moodle can hand a session key to a
-    // page that isn't really signed in, and that login must not be saved.
     let data = mabini_refresh(&state, &client).await?;
     mabini_vault::save(&login)?;
     *state.mabini.lock().await = Some(client);
