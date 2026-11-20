@@ -104,16 +104,18 @@ impl Ledger {
         if auto && self.rejected {
             return Err(Error::Rejected(self.again.into()));
         }
-        if !auto {
-            self.rejected = false;
-        }
         Ok(())
     }
 
-    /// Remembers whether the portal turned the login down.
+    /// Remembers whether the portal turned the login down. Only a sign-in that went
+    /// through clears it: a tap that never reached the portal, or a dropped answer,
+    /// leaves the rejected login rejected, so a background sync can't send it again
+    /// and add to the portal's own failed-login count.
     fn record<T>(&mut self, result: &Result<T, Error>) {
-        if let Err(e) = result {
-            self.rejected = matches!(e, Error::Rejected(_));
+        match result {
+            Ok(_) => self.rejected = false,
+            Err(Error::Rejected(_)) => self.rejected = true,
+            Err(_) => {}
         }
     }
 
@@ -364,6 +366,19 @@ mod tests {
         assert_eq!(l.tries_left(1100), 2, "a refused auto try spends nothing");
         assert_eq!(once(&mut l, 1200, false, true, Ok(())), (Ok(()), 1));
         assert!(!l.rejected(), "the tap cleared it and a success leaves it clear");
+    }
+
+    #[test]
+    fn a_tap_that_never_signs_in_keeps_the_rejection() {
+        let mut l = Ledger::default();
+        let _ = once(&mut l, 1000, false, true, Err(Error::Rejected("bad".into())));
+        // The tap finds the portal down, then its answer is lost: still rejected either way.
+        assert!(matches!(once(&mut l, 1100, false, false, Ok(())).0, Err(Error::Network(_))));
+        assert!(l.rejected());
+        assert!(matches!(once(&mut l, 1200, false, true, Err(Error::Network("dropped".into()))).0, Err(Error::Network(_))));
+        assert!(l.rejected());
+        // So the background sync still sends nothing.
+        assert_eq!(once(&mut l, 1300, true, true, Ok(())), (Err(Error::Rejected(SIS.rejected_again.into())), 0));
     }
 
     #[test]
