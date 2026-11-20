@@ -463,7 +463,10 @@
       <p class="bub" aria-live="polite">{line}</p>
     </div>
 
-    <div class="table" role="group" aria-label="Card" bind:this={tableEl} onpointermove={aim} onpointerdown={aim} onpointerleave={rest} onpointerup={(e) => e.pointerType !== "mouse" && rest()}>
+    <!-- The tap lands on the table, which never moves: a press near the card's edge tilts the card
+         out from under the finger, so a click on the card itself would miss. Keys still reach the button. -->
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+    <div class="table" role="group" aria-label="Card" bind:this={tableEl} onclick={flip} onpointermove={aim} onpointerdown={aim} onpointerleave={rest} onpointerup={(e) => e.pointerType !== "mouse" && rest()}>
       <div class="pile" aria-hidden="true">
         {#if queue.length - pos > 2}<div class="under b2 notch"><canvas use:swirl></canvas></div>{/if}
         {#if queue.length - pos > 1}<div class="under b1 notch"><canvas use:swirl></canvas></div>{/if}
@@ -474,7 +477,7 @@
             <div class="tilt" class:shake={missed && fx === "full"} style:--rx="{rx}deg" style:--ry="{ry}deg">
               <div class="cover notch" aria-hidden="true"><canvas use:swirl></canvas></div>
               {#if mode === "flash"}
-                <button class="flipper" class:shown onclick={flip} aria-label={shown ? undefined : `${card.front}. Tap to show the meaning`}>
+                <button class="flipper" class:shown aria-label={shown ? undefined : `${card.front}. Tap to show the meaning`}>
                   <span class="side face notch" aria-hidden={shown}>
                     <span class="label">{mixed ? deck.name : "Term"}</span>
                     <span class="term">{card.front}</span>
