@@ -9,10 +9,10 @@ pub fn demo(state: tauri::State<'_, AppState>, today: Date) -> Res<Snapshot> {
     if vault::load().is_some() || mabini_vault::load().is_some() {
         return Err("Sign out first to look around.".into());
     }
-    DEMO.store(true, Ordering::Relaxed);
     *state.store.lock().unwrap() = Store::in_memory().map_err(err)?;
     let snap = intportal_core::demo::sis(snapshot_of(&state)?, today, now_secs());
     state.store.lock().unwrap().save(&snap).map_err(err)?;
     state.store.lock().unwrap().save_mabini(&intportal_core::demo::mabini(unix_now())).map_err(err)?;
+    DEMO.store(true, Ordering::Relaxed);
     Ok(snap)
 }

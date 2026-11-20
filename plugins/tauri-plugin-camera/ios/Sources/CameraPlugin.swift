@@ -148,14 +148,13 @@ class CameraPlugin: Plugin, UIImagePickerControllerDelegate, UINavigationControl
     result.height = Int(size.height)
   }
 
-  /// Only the app's own `photo-tmp` folder: photos never land beside the stores or the models.
+  /// Only the app's own `photo-tmp` folder, in Tauri's app data dir (Application Support/<bundle id>):
+  /// photos never land beside the stores or the models.
   private static func isInsideAppData(_ folder: String) -> Bool {
-    let url = URL(fileURLWithPath: folder).resolvingSymlinksInPath().standardizedFileURL
-    let path = url.path
-    let roots = [FileManager.SearchPathDirectory.applicationSupportDirectory, .documentDirectory].compactMap {
-      FileManager.default.urls(for: $0, in: .userDomainMask).first?.resolvingSymlinksInPath().standardizedFileURL.path
-    }
-    return url.lastPathComponent == "photo-tmp" && roots.contains { path.hasPrefix($0 + "/") }
+    guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first,
+          let id = Bundle.main.bundleIdentifier else { return false }
+    let want = support.appendingPathComponent(id).appendingPathComponent("photo-tmp").resolvingSymlinksInPath().standardizedFileURL.path
+    return URL(fileURLWithPath: folder).resolvingSymlinksInPath().standardizedFileURL.path == want
   }
 
   private static func visionOrientation(_ o: UIImage.Orientation) -> CGImagePropertyOrientation {

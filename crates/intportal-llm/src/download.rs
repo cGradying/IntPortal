@@ -116,7 +116,8 @@ pub fn fetch(url: &str, file: &str, sha256: &str, bytes: u64, dir: &Path, on_pro
         let mut resp = req.send().map_err(net)?;
         let append = match resp.status().as_u16() {
             // Only a range that starts where the part ends is appended; any other is started over.
-            206 if resumes_at(resp.headers().get(reqwest::header::CONTENT_RANGE).and_then(|v| v.to_str().ok()), have) => true,
+            // (A 206 from byte 0 with no part yet is a whole file: written fresh, not appended.)
+            206 if resumes_at(resp.headers().get(reqwest::header::CONTENT_RANGE).and_then(|v| v.to_str().ok()), have) => have > 0,
             206 => {
                 drop(resp);
                 let _ = fs::remove_file(&part);

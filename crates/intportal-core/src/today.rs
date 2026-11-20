@@ -74,7 +74,8 @@ impl std::str::FromStr for Date {
     fn from_str(s: &str) -> Result<Date, String> {
         let mut it = s.splitn(3, '-').map(str::parse::<i32>);
         match (it.next(), it.next(), it.next()) {
-            (Some(Ok(y)), Some(Ok(m @ 1..=12)), Some(Ok(d @ 1..=31))) => Ok(Date::new(y, m as u8, d as u8)),
+            // Years stay in 1..=9999: a date from the webview can't push day arithmetic past i32.
+            (Some(Ok(y @ 1..=9999)), Some(Ok(m @ 1..=12)), Some(Ok(d @ 1..=31))) => Ok(Date::new(y, m as u8, d as u8)),
             _ => Err(format!("not a YYYY-MM-DD date: {s}")),
         }
     }
@@ -714,6 +715,8 @@ mod tests {
         assert_eq!(Date::new(2026, 8, 3).to_string(), "2026-08-03");
         assert_eq!("2026-08-03".parse(), Ok(Date::new(2026, 8, 3)));
         assert!("2026-13-01".parse::<Date>().is_err());
+        assert!("2147483647-12-25".parse::<Date>().is_err(), "a year past 9999 never reaches day arithmetic");
+        assert!("0-01-01".parse::<Date>().is_err());
     }
 
     #[test]
