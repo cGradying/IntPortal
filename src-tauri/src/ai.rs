@@ -445,7 +445,8 @@ pub async fn ai_load(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: S
         return Err(assis::friendly(refusal, fil));
     }
     let path = models_dir(&app)?.join(m.file);
-    // A cut-short or swapped file never reaches llama.cpp's parser (the hash is checked when it downloads).
+    // A cut-short file never reaches llama.cpp's parser. The hash is checked once, when the file
+    // downloads; a same-size file changed on disk after that would need the app's own sandbox.
     if path.metadata().map(|f| f.len() != m.bytes).unwrap_or(true) {
         return Err(assis::friendly("Download the model first", fil));
     }
