@@ -134,8 +134,11 @@ impl SisClient {
             return Err(Error::UntrustedHost(action.to_string()));
         }
         let mut out = vec![];
-        // A student has a handful of terms; a picker listing hundreds is broken, so read the newest few.
-        let years = &p.years[p.years.len().saturating_sub(MAX_YEARS)..];
+        // A student has a handful of terms; a picker listing hundreds is broken, so read the newest
+        // few. The picker puts the selected year first and the rest in page order: sort by label.
+        let mut years: Vec<_> = p.years.iter().collect();
+        years.sort_by(|a, b| b.1.cmp(&a.1));
+        years.truncate(MAX_YEARS);
         for (year, year_label) in years {
             for (sem, sem_label) in p.semesters.iter().take(MAX_SEMESTERS) {
                 let mut fields = p.fields.clone();
