@@ -34,8 +34,10 @@ pub async fn mabini_sign_in(state: tauri::State<'_, AppState>, login: MabiniLogi
     if let Some(n) = open {
         open_account(&state, n)?;
     }
-    mabini_vault::save(&login)?;
+    // The login is kept only once a sync went through: Moodle can hand a session key to a
+    // page that isn't really signed in, and that login must not be saved.
     let data = mabini_refresh(&state, &client).await?;
+    mabini_vault::save(&login)?;
     *state.mabini.lock().await = Some(client);
     Ok(data)
 }

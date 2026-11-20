@@ -385,6 +385,29 @@ mod tests {
     }
 
     #[test]
+    fn a_hand_edited_restore_keeps_the_apps_limits() {
+        let s = filled();
+        s.set_note("note:a", "words", None, 400).unwrap();
+        let mut b = Backup::parse(&file(&s)).unwrap();
+        let mut odd = b.notes[0].clone();
+        odd.key = "../../evil".into();
+        b.notes.push(odd);
+        s.add_photo("note:a", &crate::store::NewPhoto { w: 1, h: 1, bytes: &[1] }, None, None, 500).unwrap();
+        let photo = Backup::parse(&file(&s)).unwrap().photos.into_iter().find(|p| p.note_key == "note:a").unwrap();
+        b.photos = vec![photo; 30];
+        b.colors.insert("A".into(), "red; background: url(x)".into());
+        b.colors.insert("B".into(), "var(--s3)".into());
+        b.colors.insert("C".into(), "#3B82F6".into());
+        let fresh = Store::in_memory().unwrap();
+        fresh.restore(&b).unwrap();
+        assert!(fresh.notes().unwrap().iter().all(|n| crate::notes::is_known_key(&n.key)));
+        assert_eq!(fresh.photos("note:a").unwrap().len() as i64, crate::store::MAX_PHOTOS);
+        let colors = fresh.load().unwrap().colors;
+        assert!(!colors.contains_key("A"));
+        assert_eq!((colors["B"].as_str(), colors["C"].as_str()), ("var(--s3)", "#3B82F6"));
+    }
+
+    #[test]
     fn c11_space_counts_notes_and_decks() {
         let sp = filled().space().unwrap();
         assert_eq!((sp.notes, sp.photos), (6, 0));
