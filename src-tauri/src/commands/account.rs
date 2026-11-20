@@ -66,6 +66,13 @@ pub(crate) async fn guarded_sign_in(
     sign_in_guarded(SisClient::new, &login.into(), remembered, &mut ledger, unix_now() as u64, auto, save).await.map_err(err)
 }
 
+/// A login that signed in is now the one in the keychain: it is no longer the rejected one.
+pub(crate) async fn accept_login(ledger: &tokio::sync::Mutex<Ledger>, dir: &std::path::Path, file: &str) {
+    let mut l = ledger.lock().await;
+    l.accept();
+    let _ = save_ledger(dir, file, &l);
+}
+
 #[derive(Serialize)]
 pub struct Tries {
     pub(crate) left: usize,
@@ -105,6 +112,7 @@ pub async fn sign_in(state: tauri::State<'_, AppState>, login: Login) -> Res<Sna
     DEMO.store(false, Ordering::Relaxed);
     open_account(&state, &login.student_number)?;
     vault::save(&login)?;
+    accept_login(&state.ledger, &state.dir, GUARD_FILE).await;
     let snap = refresh(&state, &client, Some(rows)).await?;
     *state.client.lock().await = Some(client);
     Ok(snap)

@@ -107,16 +107,20 @@ impl Ledger {
         Ok(())
     }
 
-    /// Remembers whether the portal turned the login down. Only a sign-in that went
-    /// through clears it: a tap that never reached the portal, or a dropped answer,
-    /// leaves the rejected login rejected, so a background sync can't send it again
-    /// and add to the portal's own failed-login count.
+    /// Remembers a rejection. Nothing here clears one: the rejected login is the one in
+    /// the keychain, so only the shell, once a new login is saved there, calls `accept`.
+    /// A tap that never reached the portal, a dropped answer, or a sign-in that went
+    /// through but failed after leaves the keychain's login rejected, so a background
+    /// sync can't send it again and add to the portal's own failed-login count.
     fn record<T>(&mut self, result: &Result<T, Error>) {
-        match result {
-            Ok(_) => self.rejected = false,
-            Err(Error::Rejected(_)) => self.rejected = true,
-            Err(_) => {}
+        if let Err(Error::Rejected(_)) = result {
+            self.rejected = true;
         }
+    }
+
+    /// The login in the keychain was just replaced by one that signed in.
+    pub fn accept(&mut self) {
+        self.rejected = false;
     }
 
     fn spend(&mut self, now: u64) -> Result<(), Error> {
@@ -312,9 +316,12 @@ mod tests {
         let (r, log) = run(&[], false, false, 3, &mut l, 1100, true);
         assert_eq!(r, Err(Error::Rejected(SIS.rejected_again.into())));
         assert!(log.probes.is_empty() && log.posts.is_empty());
-        // The student edits the login and taps Sign in: allowed again.
+        // The student edits the login and taps Sign in: allowed again, and once the shell
+        // saves the new login, accepted.
         let (r, _) = run(&[], false, false, 3, &mut l, 1200, false);
         assert_eq!(r, Ok(3));
+        assert!(l.rejected(), "still the keychain's old login until it is replaced");
+        l.accept();
         assert!(!l.rejected());
     }
 
@@ -365,7 +372,8 @@ mod tests {
         assert_eq!(once(&mut l, 1100, true, true, Ok(())), (Err(Error::Rejected(SIS.rejected_again.into())), 0));
         assert_eq!(l.tries_left(1100), 2, "a refused auto try spends nothing");
         assert_eq!(once(&mut l, 1200, false, true, Ok(())), (Ok(()), 1));
-        assert!(!l.rejected(), "the tap cleared it and a success leaves it clear");
+        l.accept();
+        assert!(!l.rejected(), "the shell accepts the new login once it is saved");
     }
 
     #[test]
