@@ -1,6 +1,7 @@
 <script lang="ts">
   // Spec 058 C1–C4: search everything on the site. A native modal <dialog>, so
   // focus stays inside and Escape closes it; the index loads on first open.
+  import { onMount, tick } from "svelte";
   import { afterNavigate } from "$app/navigation";
   import PixelIcon from "$app_lib/PixelIcon.svelte";
   import { KINDS, PAGES, search, type Hit } from "./search";
@@ -22,9 +23,14 @@
     at = 0;
   });
 
-  export async function open() {
+  /** Opens the search, with `text` in the field when given (060 C18). */
+  export async function open(text?: string) {
     if (!dialog || dialog.open) return;
     dialog.showModal();
+    if (text) {
+      q = text;
+      await tick();
+    }
     field?.select();
     if (index) return;
     try {
@@ -64,6 +70,13 @@
   }
 
   afterNavigate(() => dialog?.close());
+
+  // Any page can open it: dispatchEvent(new CustomEvent("site-search", { detail: { q } })).
+  onMount(() => {
+    const on = (e: Event) => open((e as CustomEvent<{ q?: string } | null>).detail?.q);
+    addEventListener("site-search", on);
+    return () => removeEventListener("site-search", on);
+  });
 </script>
 
 <svelte:window onkeydown={global} />

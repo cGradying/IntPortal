@@ -1,6 +1,7 @@
 <script lang="ts">
   // 057 C14: the owner alone, from their public GitHub profile and nothing else.
   import Lar from "$app_lib/lar/Lar.svelte";
+  import NextStep from "$lib/NextStep.svelte";
   import PixelPortal from "$lib/PixelPortal.svelte";
   import { REPO_URL } from "$lib/releases";
 
@@ -23,8 +24,8 @@
   <meta property="og:image" content="/og.png" />
 </svelte:head>
 
-<div class="wrap page">
-  <div class="intro">
+<div class="wrap">
+  <div class="intro page-head">
     <div class="copy">
       <h1>Made by one student</h1>
       <p class="lede">
@@ -71,29 +72,16 @@
     <h2 id="talk-h">Say something</h2>
     <p>Found a bug, or want your school next? <a href="{REPO_URL}/issues" rel="noopener">Open an issue</a> on GitHub.</p>
   </section>
+
+  <NextStep />
 </div>
 
 <style>
-  .page {
-    padding-top: clamp(40px, 8vh, 88px);
-  }
   .intro {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: clamp(32px, 6vw, 96px);
     align-items: center;
-  }
-  h1 {
-    font-size: clamp(2.4rem, 6vw, 4.4rem);
-    font-weight: 800;
-    letter-spacing: -0.035em;
-  }
-  .lede {
-    margin-top: 18px;
-    max-width: 52ch;
-    font-size: clamp(1.15rem, 2vw, 1.35rem);
-    line-height: 1.5;
-    color: var(--site-ink-2);
   }
   .lede a {
     color: var(--site-ink);
@@ -149,9 +137,6 @@
   section {
     margin-top: clamp(72px, 10vh, 112px);
     max-width: 70ch;
-  }
-  section:last-child {
-    max-width: none;
   }
   h2 {
     font-size: clamp(1.8rem, 4vw, 2.6rem);

@@ -1,5 +1,10 @@
 <script lang="ts">
+  import NextStep from "$lib/NextStep.svelte";
   let { data } = $props();
+  // 060 C14: PRIVACY.md's title and first paragraph become the shared page head.
+  const cut = $derived(data.html.indexOf("</p>") + 4);
+  const head = $derived(data.html.slice(0, cut).replace("<p>", '<p class="lede">'));
+  const body = $derived(data.html.slice(cut));
 </script>
 
 <svelte:head>
@@ -7,22 +12,19 @@
   <meta name="description" content="What IntPortal does with your data: it stays on your phone. No account, no server, no analytics." />
 </svelte:head>
 
-<article class="wrap prose">
-  <!-- eslint-disable-next-line svelte/no-at-html-tags: our own PRIVACY.md, escaped by markdown() -->
-  {@html data.html}
+<article class="wrap">
+  <!-- eslint-disable svelte/no-at-html-tags: our own PRIVACY.md, escaped by markdown() -->
+  <header class="page-head">{@html head}</header>
+  <div class="prose">{@html body}</div>
+  <!-- eslint-enable svelte/no-at-html-tags -->
+  <NextStep />
 </article>
 
 <style>
   .prose {
-    padding-top: clamp(32px, 7vh, 80px);
     max-width: 72ch;
     line-height: 1.65;
     color: var(--site-ink-2);
-  }
-  .prose :global(h1) {
-    font-size: clamp(2.6rem, 7vw, 4rem);
-    color: var(--site-ink);
-    margin-bottom: 20px;
   }
   .prose :global(h2) {
     font-size: 1.6rem;

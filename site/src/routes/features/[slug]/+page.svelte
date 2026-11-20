@@ -1,6 +1,7 @@
 <script lang="ts">
   // 057 C10: one feature: what it does, how to use it, where it lives.
   import PixelIcon from "$app_lib/PixelIcon.svelte";
+  import NextStep from "$lib/NextStep.svelte";
   import Phone from "$lib/Phone.svelte";
   import Share from "$lib/Share.svelte";
   import { releaseId } from "$lib/content/changelog";
@@ -19,25 +20,37 @@
   <meta property="og:image" content={f.media && !f.media.video ? f.media.src : "/og.png"} />
 </svelte:head>
 
-<article class="wrap page">
+<article class="wrap page-head">
   <nav class="crumbs" aria-label="Breadcrumb">
     <a href="/features">Features</a>
     <PixelIcon name="chev" size={10} />
     <a href="/features#{data.group.id}">{data.group.name}</a>
   </nav>
 
-  <div class="layout" class:bare={!f.media}>
-    <div class="text">
-      <header>
-        <h1 style:view-transition-name="f-{f.slug}">{f.name}</h1>
-        <p class="line">{f.line}</p>
-        <p class="meta pixel">
-          <span><PixelIcon name={GROUP_ICON[data.group.id]} size={12} />{data.group.name}</span>
-          {#if f.since}<a href="/changelog#{releaseId(f.since)}">since {f.since}</a>{/if}
-        </p>
-        <Share href="/features/{f.slug}" title="{f.name} · IntPortal" />
-      </header>
+  <div class="layout">
+    <header>
+      <h1 style:view-transition-name="f-{f.slug}">{f.name}</h1>
+      <p class="lede">{f.line}</p>
+      <p class="meta pixel">
+        <span><PixelIcon name={GROUP_ICON[data.group.id]} size={12} />{data.group.name}</span>
+        {#if f.since}<a href="/changelog#{releaseId(f.since)}">since {f.since}</a>{/if}
+      </p>
+      <Share href="/features/{f.slug}" title="{f.name} · IntPortal" />
+    </header>
 
+    <div class="show">
+      {#if f.media}
+        <Phone src={f.media.src} alt={f.media.alt} video={f.media.video} poster={f.media.poster} />
+      {:else}
+        <!-- 060 C15: no screen yet, so the phone shows where the feature lives. -->
+        <figure class="tile">
+          <PixelIcon name={GROUP_ICON[data.group.id]} size={96} />
+          <figcaption class="pixel">Lives in {data.group.name}</figcaption>
+        </figure>
+      {/if}
+    </div>
+
+    <div class="text">
       <div class="body">
         {#each f.body as para, i (i)}<p>{para}</p>{/each}
       </div>
@@ -50,17 +63,7 @@
           </ol>
         </section>
       {/if}
-
-      {#if f.spec}
-        <p class="fine spec">How it's meant to work, criterion by criterion: <a href="{REPO_URL}/blob/main/docs/specs/{f.spec}.md" rel="noopener">spec {f.spec.split("-")[0]}</a>.</p>
-      {/if}
     </div>
-
-    {#if f.media}
-      <div class="show">
-        <Phone src={f.media.src} alt={f.media.alt} video={f.media.video} poster={f.media.poster} />
-      </div>
-    {/if}
   </div>
 
   <nav class="pager" aria-label="More in {data.group.name}">
@@ -73,12 +76,15 @@
       <a class="next" href="/features"><span class="pixel">Back to</span><strong>Every feature</strong></a>
     {/if}
   </nav>
+
+  <NextStep />
+
+  {#if f.spec}
+    <p class="fine spec">How it's meant to work, criterion by criterion: <a href="{REPO_URL}/blob/main/docs/specs/{f.spec}.md" rel="noopener">spec {f.spec.split("-")[0]}</a>.</p>
+  {/if}
 </article>
 
 <style>
-  .page {
-    padding-top: clamp(28px, 6vh, 64px);
-  }
   .crumbs {
     display: flex;
     align-items: center;
@@ -96,29 +102,24 @@
     color: var(--site-ink);
     text-decoration: underline;
   }
-  .layout.bare {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  /* Wide: the text runs down the left, the phone stays in view on the right.
+     Phones: the title, then the phone, then the rest. */
   .layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: clamp(32px, 7vw, 112px);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "head show" "text show";
+    column-gap: clamp(32px, 7vw, 112px);
     align-items: start;
     margin-top: 24px;
   }
-  .text {
+  header {
+    grid-area: head;
     max-width: 62ch;
   }
-  h1 {
-    font-size: clamp(2.4rem, 6vw, 4rem);
-    font-weight: 800;
-    letter-spacing: -0.035em;
-  }
-  .line {
-    margin-top: 14px;
-    font-size: clamp(1.15rem, 2vw, 1.35rem);
-    color: var(--site-ink-2);
-    line-height: 1.45;
+  .text {
+    grid-area: text;
+    max-width: 62ch;
   }
   .meta {
     display: flex;
@@ -183,11 +184,32 @@
     clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
   }
   .spec {
-    margin-top: 32px;
+    margin-top: 20px;
   }
   .show {
+    grid-area: show;
     position: sticky;
     top: 96px;
+  }
+  .tile {
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 22px;
+    width: min(260px, 70vw);
+    aspect-ratio: 9 / 20;
+    margin: 0;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15'%3E%3Crect width='3' height='3' fill='%23f5b227' fill-opacity='.16'/%3E%3C/svg%3E") 6px 6px / 15px 15px,
+      radial-gradient(circle at 50% 45%, rgba(245, 178, 39, 0.08), transparent 65%),
+      var(--void-3);
+    box-shadow: inset 0 0 0 3px var(--slab-edge);
+    color: var(--parch);
+    clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
+  }
+  .tile figcaption {
+    font-size: 0.875rem;
+    color: var(--site-ink-2);
   }
   .pager {
     display: grid;
@@ -222,11 +244,16 @@
   }
   @media (max-width: 820px) {
     .layout {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: none;
+      grid-template-areas: "head" "show" "text";
     }
     .show {
       position: static;
-      order: -1;
+      margin-top: 36px;
+    }
+    .tile {
+      width: min(180px, 50vw);
     }
   }
 </style>
