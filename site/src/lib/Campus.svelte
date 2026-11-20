@@ -24,7 +24,6 @@
   $effect(() => {
     if (cv) void show(campus);
   });
-
 </script>
 
 <div class="scene" role="img" aria-label="{label}, drawn in pixels at this hour, with a jeepney passing">
@@ -39,12 +38,26 @@
     mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
     -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
   }
+  /* 060 C10: whole-number scales only (192 px wide art), so every pixel stays square. */
   canvas {
     display: block;
-    width: max(100%, 760px);
+    width: 768px;
     height: auto;
     margin-left: 50%;
     transform: translateX(-50%);
     image-rendering: pixelated;
+    /* Where the viewport outgrows the scene, its sides fade into the night. */
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+  @media (min-width: 900px) {
+    canvas {
+      width: 960px;
+    }
+  }
+  @media (min-width: 1152px) {
+    canvas {
+      width: 1152px;
+    }
   }
 </style>
