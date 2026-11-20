@@ -17,8 +17,8 @@
       <a class="mark" href="/"><PixelPortal size={3} /><span>IntPortal</span></a>
       <p class="un">Unofficial. Not made by or affiliated with any school.</p>
       <p class="fine">
-        An independent student project, free under the
-        <a href="{REPO_URL}/blob/main/LICENSE" rel="noopener">PolyForm Noncommercial</a> licence.{#if release}{" "}Version {release.version}.{/if}
+        An independent student project. Free to download and use.
+        © 2026 cGradying, <a href="{REPO_URL}/blob/main/LICENSE" rel="noopener">all rights reserved</a>.{#if release}{" "}Version {release.version}.{/if}
       </p>
     </div>
     {#each cols as [title, items] (title)}

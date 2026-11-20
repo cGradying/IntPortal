@@ -49,7 +49,6 @@
           <h3>{p.name}</h3>
           <p class="needs pixel">{p.needs}</p>
           <ol>{#each p.steps as s (s)}<li>{s}</li>{/each}</ol>
-          {#if p.id === "ios"}<p class="fine"><a href="{REPO_URL}/blob/main/docs/BUILDING.md" rel="noopener">Building it with Xcode</a></p>{/if}
         </div>
       {/each}
     </div>
