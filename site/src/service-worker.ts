@@ -16,7 +16,17 @@ const FIRST = ["/", "/help", "/features", "/download", "/search.json"];
 const SHELL = prerendered.filter((p) => FIRST.includes(p));
 const never = (u: URL) => u.origin !== sw.location.origin || /^\/(app|reel)(\/|$)/.test(u.pathname) || /\.(mp4|apk|ipa|dmg|msi|deb|AppImage|wasm)$/.test(u.pathname);
 
+// 060 C21: on Save-Data or a 2G/3G link, install saves nothing; pages are still saved when opened.
+const light = () => {
+  const c = (sw.navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  return !!c?.saveData || ["slow-2g", "2g", "3g"].includes(c?.effectiveType ?? "");
+};
+
 sw.addEventListener("install", (e) => {
+  if (light()) {
+    e.waitUntil(sw.skipWaiting());
+    return;
+  }
   e.waitUntil(
     caches.open(CACHE).then(async (c) => {
       await c.addAll(SHELL);

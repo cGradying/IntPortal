@@ -7,7 +7,7 @@ export const FAQ: HelpItem[] = [
   { id: "q-is-my-password-safe", q: "Is my password safe?", a: "It never leaves your phone except to sign in to your school's own portal. It's kept in the phone's keychain, and the app makes at most three sign-in tries every fifteen minutes so it can never lock your SIS account." },
   { id: "q-does-it-work-offline", q: "Does it work offline?", a: "Yes. After one sign-in, your schedule, grades, deadlines, notes and decks are on the phone. It syncs again when you have signal." },
   { id: "q-is-it-free", q: "Is it free?", a: "Yes: free to download and use, with no ads. The code is published on GitHub so anyone can read it; it isn't open for reuse, so copying or changing it needs permission." },
-  { id: "q-why-isnt-it-on-the-app-store", q: "Why isn't it on the App Store?", a: "Publishing there needs a paid Apple developer account. Until then, iPhone users can sideload it with AltStore or SideStore, or try it in the browser." },
+  { id: "q-why-isnt-it-on-the-app-store", q: "Why isn't it on the App Store?", a: "Publishing there needs a paid Apple developer account. Until then, you can sideload it with AltStore or SideStore: you need a Mac or Windows computer once to set it up, a free Apple ID runs at most 3 sideloaded apps, and you refresh it every 7 days. Or try it in the browser, no install." },
   { id: "q-what-about-other-schools", q: "What about other schools?", a: "More are coming. The portal wall already lists other schools' portals, and today PUP's SIS and eMabini sign in." },
   { id: "q-does-the-ai-send-my-notes-anywhere", q: "Does the AI send my notes anywhere?", a: "No. LAR's assistant runs on the phone itself, and you turn it on yourself. Your questions and notes stay on the phone." },
 ];

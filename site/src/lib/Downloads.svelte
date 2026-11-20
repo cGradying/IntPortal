@@ -39,6 +39,9 @@
       <div class="what">
         <h3>{p.name}</h3>
         <p class="needs">{p.needs}</p>
+        {#if p.links}
+          <p class="meta">Set up with {#each p.links as l, i (l.href)}{#if i}{" or "}{/if}<a href={l.href} rel="noopener">{l.name}</a>{/each}.</p>
+        {/if}
         {#if p.files.length}
           <p class="meta">
             {#each p.files as f, i (f.file)}{#if i}<span aria-hidden="true">{" · "}</span>{/if}{f.file.replace(/-[\d.]+(?=[-.])/, "")}, {megabytes(f.size)}{/each}

@@ -17,6 +17,15 @@ describe("057 hero", () => {
     expect(canRun({ ...ok, memory: 4 })).toBe(true);
     expect(canRun({ ...ok, memory: undefined })).toBe(true);
   });
+  it("060_c20_needs_4g_and_1_5_mbit_where_the_browser_says", () => {
+    expect(canRun({ ...ok, net: { type: "4g", downlink: 10 } })).toBe(true);
+    expect(canRun({ ...ok, net: { type: "3g", downlink: 10 } })).toBe(false);
+    expect(canRun({ ...ok, net: { type: "2g" } })).toBe(false);
+    expect(canRun({ ...ok, net: { type: "4g", downlink: 1.4 } })).toBe(false);
+    expect(canRun({ ...ok, net: { type: "4g", downlink: 1.5 } })).toBe(true);
+    expect(canRun({ ...ok, net: {} })).toBe(true);
+    expect(canRun({ ...ok, net: undefined })).toBe(true);
+  });
   it("c3_frame_is_two_tiles_thick_and_builds_from_the_bottom_centre", () => {
     const tiles = frameTiles();
     expect(tiles.length).toBe(COLS * ROWS - (COLS - 4) * (ROWS - 4));

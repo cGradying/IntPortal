@@ -4,6 +4,9 @@
   import Nav from "$lib/Nav.svelte";
   import Footer from "$lib/Footer.svelte";
   import { afterNavigate, beforeNavigate, onNavigate } from "$app/navigation";
+  // 060 C22: the two Latin body fonts, fetched with the page instead of after its CSS.
+  import montserrat from "@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2?url";
+  import sourceSans from "@fontsource-variable/source-sans-3/files/source-sans-3-latin-wght-normal.woff2?url";
   let { children } = $props();
 
   // 058 C7: offline, a link loads the whole page, so the service worker can
@@ -36,6 +39,11 @@
     });
   });
 </script>
+
+<svelte:head>
+  <link rel="preload" href={montserrat} as="font" type="font/woff2" crossorigin="anonymous" />
+  <link rel="preload" href={sourceSans} as="font" type="font/woff2" crossorigin="anonymous" />
+</svelte:head>
 
 <a class="skip" href="#main">Skip to content</a>
 <Nav />

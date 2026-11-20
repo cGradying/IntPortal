@@ -7,6 +7,8 @@ export default {
   kit: {
     adapter: adapter({ pages: "build", assets: "build", fallback: "404.html", strict: true }),
     alias: { $app_lib: "../src/lib" },
+    // 060 C22: small stylesheets go in the page, one round trip fewer.
+    inlineStyleThreshold: 8192,
     prerender: {
       // /app is the browser demo, a folder of plain files (spec 052), not a page of this site.
       handleHttpError: ({ path, message }) => {
