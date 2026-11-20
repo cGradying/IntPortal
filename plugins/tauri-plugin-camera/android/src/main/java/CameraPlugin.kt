@@ -201,10 +201,8 @@ class CameraPlugin(private val activity: Activity) : Plugin(activity) {
         out.put("path", file.path).put("width", upright.width).put("height", upright.height)
     }
 
-    /** Only the app's own `photo-tmp` folder: photos never land beside the stores or the models. */
-    private fun insideAppData(folder: String): Boolean {
-        val root = File(activity.applicationInfo.dataDir).canonicalPath
-        val dir = File(folder).canonicalFile
-        return dir.name == "photo-tmp" && dir.path.startsWith("$root/")
-    }
+    /** Only the app's own `photo-tmp` folder (Tauri's app data dir is `dataDir`): photos never
+     *  land beside the stores or the models. */
+    private fun insideAppData(folder: String): Boolean =
+        File(folder).canonicalPath == File(activity.applicationInfo.dataDir, "photo-tmp").canonicalPath
 }
