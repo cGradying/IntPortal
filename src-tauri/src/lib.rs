@@ -173,6 +173,8 @@ mod mabini_vault;
 const CURRENT: &str = "current-account";
 /// The single store from before stores were per student.
 const LEGACY: &str = "intportal.sqlite";
+/// The most days a command reads ahead: a webview asking for more would only burn memory.
+const MAX_DAYS: i64 = 400;
 
 /// Switches to this student's own store. The first student to sign in after
 /// the upgrade inherits the old single store.

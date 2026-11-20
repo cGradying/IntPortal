@@ -108,14 +108,20 @@ pub fn fetch(url: &str, file: &str, sha256: &str, bytes: u64, dir: &Path, on_pro
     }
     if have < bytes {
         // The blocking client applies the timeout to each read: a stalled one (a network switch, a dead Wi-Fi) errors after 30 s and is retried.
-        let client = reqwest::blocking::Client::builder().connect_timeout(Duration::from_secs(15)).timeout(Duration::from_secs(30)).build().map_err(net)?;
+        let client = reqwest::blocking::Client::builder().https_only(!cfg!(test)).connect_timeout(Duration::from_secs(15)).timeout(Duration::from_secs(30)).build().map_err(net)?;
         let mut req = client.get(url);
         if have > 0 {
             req = req.header("Range", format!("bytes={have}-"));
         }
         let mut resp = req.send().map_err(net)?;
         let append = match resp.status().as_u16() {
-            206 => true,
+            // Only a range that starts where the part ends is appended; any other is started over.
+            206 if resumes_at(resp.headers().get(reqwest::header::CONTENT_RANGE).and_then(|v| v.to_str().ok()), have) => true,
+            206 => {
+                drop(resp);
+                let _ = fs::remove_file(&part);
+                return Err(DlError::Offline);
+            }
             200 => false, // the server ignored Range: start over
             s => return Err(DlError::Http(s)),
         };
@@ -129,8 +135,14 @@ pub fn fetch(url: &str, file: &str, sha256: &str, bytes: u64, dir: &Path, on_pro
             if n == 0 {
                 break;
             }
-            out.write_all(&buf[..n]).map_err(io)?;
             have += n as u64;
+            if have > bytes {
+                // More than the pinned size: not the file we want, and it would fill the phone.
+                drop(out);
+                let _ = fs::remove_file(&part);
+                return Err(DlError::BadHash);
+            }
+            out.write_all(&buf[..n]).map_err(io)?;
             if !on_progress(have, bytes) {
                 return Err(DlError::Paused);
             }
@@ -141,6 +153,11 @@ pub fn fetch(url: &str, file: &str, sha256: &str, bytes: u64, dir: &Path, on_pro
         }
     }
     finish(&part, &done, sha256)
+}
+
+/// Whether a 206 answer's `Content-Range` starts at `have`.
+fn resumes_at(content_range: Option<&str>, have: u64) -> bool {
+    content_range.is_some_and(|v| v.starts_with(&format!("bytes {have}-")))
 }
 
 /// Checks a whole `.part` against the pin and renames it into place; a bad one is deleted.
@@ -200,7 +217,7 @@ mod tests {
                     let _ = write!(s, "HTTP/1.1 {code} Nope\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
                     continue;
                 }
-                let head = if start > 0 { "206 Partial Content" } else { "200 OK" };
+                let head = if start > 0 { format!("206 Partial Content\r\nContent-Range: bytes {start}-{}/{}", body.len() - 1, body.len()) } else { "200 OK".into() };
                 let _ = write!(s, "HTTP/1.1 {head}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len() - start);
                 let rest = &body[start..];
                 let _ = s.write_all(if i < cut { &rest[..rest.len() / 2] } else { rest });
@@ -229,6 +246,23 @@ mod tests {
         assert!(part > 0 && part < body.len() as u64);
         let path = fetch(&url, "m.gguf", &sha(&body), body.len() as u64, &dir, &mut |_, _| true).unwrap();
         assert_eq!(fs::read(path).unwrap(), body);
+        assert!(!dir.join("m.gguf.part").exists());
+    }
+
+    #[test]
+    fn a_resume_must_start_where_the_part_ends() {
+        assert!(resumes_at(Some("bytes 300-999/1000"), 300));
+        assert!(!resumes_at(Some("bytes 0-999/1000"), 300));
+        assert!(!resumes_at(Some("bytes 3000-3999/4000"), 300));
+        assert!(!resumes_at(None, 300));
+    }
+
+    #[test]
+    fn a_body_longer_than_the_pin_stops_and_is_deleted() {
+        let body = vec![7u8; 600_000];
+        let (url, dir) = (serve(body, 1), tmp("toolong"));
+        let r = fetch(&url, "m.gguf", &sha(b"x"), 1000, &dir, &mut |_, _| true);
+        assert_eq!(r.unwrap_err(), DlError::BadHash);
         assert!(!dir.join("m.gguf.part").exists());
     }
 

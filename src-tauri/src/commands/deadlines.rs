@@ -39,7 +39,7 @@ pub fn tally(components: Vec<Component>, target: f64) -> Tally {
 #[tauri::command(async)]
 pub fn deadlines(state: tauri::State<'_, AppState>, now: Moment, utc_offset: i32, days: i64) -> Res<Vec<Deadline>> {
     let store = state.store.lock().unwrap();
-    Ok(deadline::deadlines(&store.load().map_err(err)?, &store.mabini().map_err(err)?, now, utc_offset, days))
+    Ok(deadline::deadlines(&store.load().map_err(err)?, &store.mabini().map_err(err)?, now, utc_offset, days.clamp(0, MAX_DAYS)))
 }
 
 /// Marks a deadline done or not (041 C5, C6). A syllabus item ticks its own
