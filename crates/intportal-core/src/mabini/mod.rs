@@ -50,7 +50,7 @@ impl LoginPage {
             .connect_timeout(host::CONNECT_TIMEOUT)
             .timeout(host::REQUEST_TIMEOUT)
             .cookie_store(true)
-            .redirect(Policy::custom(|a| if host::is_trusted(a.url(), HOST) && a.previous().len() < 10 { a.follow() } else { a.stop() }))
+            .redirect(Policy::custom(|a| if !host::is_trusted(a.url(), HOST) { a.error("redirected off eMabini") } else if a.previous().len() >= 10 { a.error("too many redirects") } else { a.follow() }))
             .build()?;
         let page = host::text(http.get(format!("{BASE}/login/index.php")).send().await?.error_for_status()?).await?;
         let token = parse::login_token(&page).ok_or_else(|| Error::Network("no login form on the eMabini page".into()))?;
