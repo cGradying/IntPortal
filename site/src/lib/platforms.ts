@@ -37,7 +37,6 @@ export const PLATFORMS: PlatformInfo[] = [
       "Install AltStore or SideStore on your iPhone, with your own Apple ID.",
       "Download IntPortal-unsigned.ipa on the iPhone and open it with AltStore or SideStore. It signs the app with your Apple ID.",
       "A free Apple ID's apps stop opening after 7 days. Open AltStore or SideStore to refresh it.",
-      "Or build it yourself with Xcode on a Mac: the steps are in BUILDING.md.",
     ],
   },
   {
