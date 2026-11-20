@@ -6,7 +6,7 @@
   <a href="CHANGELOG.md"><img alt="Version" src="https://img.shields.io/badge/version-0.3.0-c8102e"></a>
   <a href="https://github.com/cGradying/IntPortal/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/cGradying/IntPortal/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Mac%20%7C%20Windows%20%7C%20Linux%20%7C%20Web-555">
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-555"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-all%20rights%20reserved-555"></a>
 </p>
 
 # IntPortal
@@ -73,4 +73,4 @@ This repository also holds the website (`site/`) and the reel (`reel/`).
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE): free to read, run and change for noncommercial use. IntPortal is an independent student project.
+All rights reserved ([LICENSE](LICENSE)). The code is published so you can read it; using, copying or changing it needs permission. The official builds are free to download and use on your own devices. Versions 0.5.0 and earlier were published under PolyForm Noncommercial 1.0.0, which still covers copies taken then. IntPortal is an independent student project.

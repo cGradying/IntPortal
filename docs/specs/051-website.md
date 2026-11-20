@@ -43,7 +43,7 @@ A student who hears about IntPortal opens one address on any phone or computer, 
 - **C10. Install help.** Android: allow installs from the browser, open the file, updates keep your data. iPhone: AltStore or SideStore with your own Apple ID (re-signs every 7 days), or build with Xcode (links docs/BUILDING.md). Mac: open it from the context menu the first time. Windows: SmartScreen's "More info, Run anyway". Each is a short numbered list.
 - **C11. Your data.** Four facts from PRIVACY.md (login in the keychain, data encrypted on the phone, no IntPortal server or account, talks only to PUP), and a link to `/privacy`.
 - **C12. Questions.** Is it official? Is my password safe? Does it work offline? Is it free? Why isn't it on the App Store? What about other schools? Each answer is two or three sentences.
-- **C13. The footer.** The unofficial line, the licence (PolyForm Noncommercial), the source on GitHub, Report a problem, and the version.
+- **C13. The footer.** The unofficial line, the licence (all rights reserved since 2026-11-20; PolyForm Noncommercial before), the source on GitHub, Report a problem, and the version.
 
 ### Every page
 
