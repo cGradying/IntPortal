@@ -2,10 +2,12 @@ IntPortal
 
 Copyright (c) 2026 cGradying (https://github.com/cGradying). All rights reserved.
 
-This repository is published so people can read it. Publishing it grants no licence.
+This repository is published so people can read it. Publishing it grants no
+licence beyond what this notice says.
 
-The source code, documents, designs, artwork and other material in this
-repository belong to the copyright holder. Without the copyright holder's prior
+Except for third-party components (below), the source code, documents,
+designs, artwork and other material in this repository belong to the
+copyright holder. Without the copyright holder's prior
 written permission, no one may use, copy, modify, merge, publish, distribute,
 sublicense, sell, or make works based on any part of it, commercially or
 otherwise, except as the law allows without permission.
@@ -13,21 +15,23 @@ otherwise, except as the law allows without permission.
 Official builds. You may download the official IntPortal releases published by
 the copyright holder (https://github.com/cGradying/IntPortal/releases, and the
 IntPortal website) and install and use them on your own devices for your own
-personal use. You may not redistribute, sell, rent, or modify them, or remove
-this notice from them.
+personal use. You may also use the browser version on the IntPortal website.
+You may not redistribute, sell, rent, or modify them, or remove this notice
+from them.
 
 GitHub. Under GitHub's Terms of Service, other GitHub users may view and fork
 this public repository on GitHub. That permission covers nothing beyond what
 those terms require.
 
-Third-party material. Components by others (for example the fonts, under the
-SIL Open Font License, and the libraries listed in the package manifests) keep
-their own licences.
+Third-party material. Components by others keep their own licences: the
+fonts, under the SIL Open Font License (see THIRD_PARTY_NOTICES.md), the
+libraries listed in the package manifests, and generated build tooling such
+as src-tauri/gen/android/gradlew (Apache License 2.0).
 
-Earlier versions. Copies of versions 0.5.0 and earlier, obtained while this
-repository was published under the PolyForm Noncommercial License 1.0.0, remain
-under that licence for those copies only. Everything published after
-2026-11-20 is under this notice.
+Earlier versions. Copies obtained before 2026-11-20, including versions 0.5.0
+and earlier, were published under the PolyForm Noncommercial License 1.0.0 and
+remain under that licence for those copies only. Everything published from
+2026-11-20 on is under this notice.
 
 Permission and commercial licences: ask through
 https://github.com/cGradying/IntPortal/issues.
