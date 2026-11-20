@@ -27,6 +27,8 @@ class MainActivity : TauriActivity() {
   // system bars so their icons stay readable; it reads the bars' heights
   // from here because older WebViews leave env(safe-area-inset-*) at 0.
   override fun onWebViewCreate(webView: WebView) {
+    // The app is served from tauri.localhost; nothing in it needs file:// (on by default before Android 11).
+    webView.settings.allowFileAccess = false
     webView.addJavascriptInterface(object {
       @JavascriptInterface
       fun bars(topDark: Boolean, bottomDark: Boolean) = runOnUiThread {

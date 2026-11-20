@@ -11,6 +11,7 @@ import { buzz } from "./haptics";
 import { friendly } from "./errors";
 import { openPortalLink } from "./openLink";
 import { larReminderIds } from "./assis/apply";
+import { whenUnlocked } from "./lock.svelte";
 import { oneOf, parseCards, type Cards } from "./you";
 import { anyReminderOn, dueDecks } from "./planning";
 
@@ -191,7 +192,7 @@ export function setExtra(key: "warmUp" | "afterClass" | "brief", on: boolean) {
 
 /** Routes notification taps for the app's lifetime; desktop and tests have none. */
 export function listenForTaps() {
-  onAction((n) => openFromNotification(n.extra?.open as string | undefined)).catch(() => {});
+  onAction((n) => whenUnlocked(() => void openFromNotification(n.extra?.open as string | undefined))).catch(() => {});
 }
 
 /** Where a tapped notification goes (spec 042 C7, C9): a subject's cards, a class note, or Today. */
