@@ -148,12 +148,14 @@ class CameraPlugin: Plugin, UIImagePickerControllerDelegate, UINavigationControl
     result.height = Int(size.height)
   }
 
+  /// Only the app's own `photo-tmp` folder: photos never land beside the stores or the models.
   private static func isInsideAppData(_ folder: String) -> Bool {
-    let path = URL(fileURLWithPath: folder).standardizedFileURL.path
+    let url = URL(fileURLWithPath: folder).resolvingSymlinksInPath().standardizedFileURL
+    let path = url.path
     let roots = [FileManager.SearchPathDirectory.applicationSupportDirectory, .documentDirectory].compactMap {
-      FileManager.default.urls(for: $0, in: .userDomainMask).first?.standardizedFileURL.path
+      FileManager.default.urls(for: $0, in: .userDomainMask).first?.resolvingSymlinksInPath().standardizedFileURL.path
     }
-    return roots.contains { path == $0 || path.hasPrefix($0 + "/") }
+    return url.lastPathComponent == "photo-tmp" && roots.contains { path.hasPrefix($0 + "/") }
   }
 
   private static func visionOrientation(_ o: UIImage.Orientation) -> CGImagePropertyOrientation {
