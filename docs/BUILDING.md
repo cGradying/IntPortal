@@ -1,5 +1,7 @@
 # Building and running
 
+These are the maintainer's notes. IntPortal is all rights reserved (see [LICENSE](../LICENSE)): building it from this source needs the copyright holder's permission. To use the app, download an official build.
+
 How to build IntPortal and run it on a simulator, an emulator or your own phone. For what the app is, see the [README](../README.md); for how it is put together, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## What you need
