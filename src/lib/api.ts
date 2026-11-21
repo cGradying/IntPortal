@@ -25,6 +25,12 @@ export interface ClassTime {
   end: number;
 }
 
+/** A class read from a photo or text, for the student to check (spec 061 C13). */
+export interface FoundClass {
+  class: OwnClass;
+  unsure: boolean;
+}
+
 export interface OwnClass {
   code: string;
   name: string;
@@ -502,6 +508,7 @@ export const api = {
   deadlines: (now: Moment, days: number) => invoke<DeadlineEntry[]>("deadlines", { now, utcOffset: -new Date().getTimezoneOffset(), days }),
   setDone: (id: string, done: boolean) => invoke<Snapshot>("set_done", { id, done }),
   saveClass: (was: string | null, cls: OwnClass) => invoke<Snapshot>("save_class", { was, class: cls }),
+  readTimetable: (lines: { text: string; x: number; y: number; w: number; h: number }[], text: string) => invoke<FoundClass[]>("read_timetable", { lines, text }),
   deleteClass: (code: string) => invoke<Snapshot>("delete_class", { code }),
   startOwn: (school: string) => invoke<Snapshot>("start_own", { school }),
   ownSchedule: () => invoke<string | null>("own_schedule"),
