@@ -21,7 +21,7 @@ const OWN = [
   "Sign in first, then back up.", "That deck is gone.", "That card is gone.", "That photo isn't where it should be.", "A class has to end after it starts, before midnight.",
   "A target GPA runs from 1.00 to 5.00.", "Program units look off; check your curriculum.", "The last day of classes has to be after today.", "Weights and scores are percents, 0 to 100.",
   "That isn't the student number signed in to the SIS on this phone.", "That isn't the student number signed in to eMabini on this phone.",
-  "Your photos make this backup too big to restore here;",
+  "Your photos make this backup too big to restore here;", "Pick one of the colours.",
   // the AI crate and the core
   "Type a question first.", "Select the words to explain first.", "The note is empty.", "This note is too long for me to take in at once. Select part of it.",
   "This PDF has no text to read", "This PDF is over 20 MB", "This PDF has ", "This file could not be read as a PDF",
