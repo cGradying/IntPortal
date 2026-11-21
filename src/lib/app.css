@@ -4,10 +4,13 @@
    pixel icons, stamps and the portal. Every colour lives here; components
    read roles, never hex. A room (theme) is one block of roles. */
 
-/* Pixelify: the Latin subset only, no Cyrillic (060 C22). */
+/* Pixelify: Latin and Latin Extended (accented names, ₱), no Cyrillic (060 C22). */
 @import "@fontsource/pixelify-sans/latin-500.css";
 @import "@fontsource/pixelify-sans/latin-600.css";
 @import "@fontsource/pixelify-sans/latin-700.css";
+@import "@fontsource/pixelify-sans/latin-ext-500.css";
+@import "@fontsource/pixelify-sans/latin-ext-600.css";
+@import "@fontsource/pixelify-sans/latin-ext-700.css";
 /* Latin and Latin Extended only (Filipino, Spanish names, ñ): the fonts'
    Cyrillic, Greek and Vietnamese files are 127 KB the app never shows. */
 @font-face {

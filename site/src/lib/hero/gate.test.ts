@@ -17,7 +17,7 @@ describe("057 hero", () => {
     expect(canRun({ ...ok, memory: 4 })).toBe(true);
     expect(canRun({ ...ok, memory: undefined })).toBe(true);
   });
-  it("060_c20_needs_4g_and_1_5_mbit_where_the_browser_says", () => {
+  it("060_c20_needs_a_4g_class_connection_where_the_browser_says", () => {
     expect(canRun({ ...ok, net: { type: "4g", downlink: 10 } })).toBe(true);
     expect(canRun({ ...ok, net: { type: "3g", downlink: 10 } })).toBe(false);
     expect(canRun({ ...ok, net: { type: "2g" } })).toBe(false);

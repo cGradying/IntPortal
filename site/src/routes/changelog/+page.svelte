@@ -1,7 +1,6 @@
 <script lang="ts">
   // 057 C12: CHANGELOG.md, newest first, an anchor per version.
-  import { onMount } from "svelte";
-  import { afterNavigate } from "$app/navigation";
+    import { afterNavigate } from "$app/navigation";
   import { releaseId } from "$lib/content/changelog";
   import PixelIcon from "$app_lib/PixelIcon.svelte";
   import { notes } from "$lib/notes";
@@ -19,7 +18,6 @@
     d.open = true;
     d.scrollIntoView({ block: "start" });
   }
-  onMount(reveal);
   afterNavigate(reveal);
   const day = (d: string) => new Date(d + "T12:00:00+08:00").toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
 </script>
