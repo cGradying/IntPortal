@@ -27,7 +27,7 @@ ADR 0002 (data stays on the device) and ADR 0005 (portals are first class) hold.
 - **C2. What a class is.** A name, one or more meetings (each a set of days with a start and an end time), and optionally a code, a room and a teacher. With no code, the app makes one from the name: the first letters of its words plus any number in it, upper case ("Calculus 1" becomes "C1", "Purposive Communication" becomes "PC"). If that code is taken it gets "-2", "-3".
 - **C3. Checks.** Saving refuses a class with no name, no meeting, a meeting with no day, or an end at or before the start, and says which. A meeting at the same day and times as a class already on the week, under the same code, is refused: "That class is already on your week."
 - **C4. One class, many sessions.** On the week, an own class is one session per day per meeting, the same shape as a synced class. Editing it replaces all of its sessions; renaming its code moves its colour to the new code.
-- **C5. Where they are added.** The Schedule tab's head has "+ Class", which opens the class editor, and "Scan", which opens the photo flow (C10). An own class in its class sheet shows "Edit" and "Remove"; a synced class doesn't.
+- **C5. Where they are added.** You › Classes lists the own classes (tap one to edit it) with "Add a class", which opens the class editor, and "Scan a schedule", which opens the photo flow (C10). Today's empty state offers the same two. The Schedule tab's head carries neither, so it stays the week and its four-week month. An own class in its class sheet shows "Edit" and "Remove"; a synced class doesn't.
 - **C6. In backups.** A backup carries own classes under `own_classes`; restoring puts them back in place of the own classes on the phone.
 
 ### Own schedule mode
@@ -55,7 +55,7 @@ ADR 0002 (data stays on the device) and ADR 0005 (portals are first class) hold.
 | Field error | Type your school's name. |
 | Hub hint | Own schedule · {school} |
 | Today empty | Add your classes · Add by hand · Scan a schedule |
-| Schedule head | + Class · Scan |
+| You › Classes | Classes · Add a class · Scan a schedule |
 | Editor title | New class · Edit class |
 | Editor fields | Name · Code (optional) · Room (optional) · Teacher (optional) · Days · Starts · Ends · + Another time · Save · Remove class |
 | Editor errors | Give the class a name. · Pick at least one day. · It has to end after it starts. · That class is already on your week. |

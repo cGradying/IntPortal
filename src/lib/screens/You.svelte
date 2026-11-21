@@ -4,7 +4,7 @@
   import { askForCalendar } from "../devcal";
   import { ISSUES, PRIVACY, UPDATES } from "../links";
   import { PHONE } from "../platform";
-  import { adopt, app, forgetThemes, mabiniSyncNow, restoreThemes, themesForBackup, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setGlanceOutside, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
+  import { adopt, app, editClass, forgetThemes, mabiniSyncNow, restoreThemes, themesForBackup, refreshLogins, scheduleReminders, setCalendar, setDeadlineAt, setExtra, setGlanceOutside, setLook, setReminderLead, setRoom, setStudyAt, setTextStyle, syncNow } from "../state.svelte";
   import { api, isoDate, type BackupPreview, type Portal, type Space } from "../api";
   import { onMount, tick as settled } from "svelte";
   import { reduced as still } from "../motion";
@@ -27,6 +27,7 @@
   import { campus, sceneKey, setCampus } from "../campus/choice.svelte";
   import { CAMPUSES } from "../profile";
   import { search } from "../hub";
+  import { classesOf, timeLine } from "../ownClass";
   import { BELOW, CARD_NAMES, GROUPS, TOP, inGroup, moveWithin, type CardId, rowProblem, searchSettings, toggleCard, type PageId } from "../you";
 
   let { onsignout, ongallery }: { onsignout: () => void; ongallery?: () => void } = $props();
@@ -206,7 +207,7 @@
     }),
   ]);
 
-  const ICON: Record<PageId, SpriteName> = { accounts: "you", campus: "today", theme: "mark", layout: "bullet", motion: "wave", reminders: "bell", calendar: "date", assis: "ai", notes: "note2", backup: "disk", privacy: "lock" };
+  const ICON: Record<PageId, SpriteName> = { accounts: "you", classes: "schedule", campus: "today", theme: "mark", layout: "bullet", motion: "wave", reminders: "bell", calendar: "date", assis: "ai", notes: "note2", backup: "disk", privacy: "lock" };
   const TAB_NAME = { today: "Today", schedule: "Schedule", study: "Study" };
   const GLANCE_NOTE = {
     always: "The countdown to your next class stays on the Lock Screen and in the Dynamic Island (the status bar on Android), even while the app is open.",
@@ -220,6 +221,7 @@
     const connected = Number(app.sisConnected) + Number(app.mabiniConnected) + Number(app.ownSchedule !== null);
     return {
       accounts: connected ? `${connected} connected` : "Not connected",
+      classes: own.length ? `${own.length} added` : "",
       campus: campusName(sceneKey()),
       theme: rooms.find((r) => r.id === app.room)?.name ?? "",
       layout: `Opens on ${TAB_NAME[app.opensOn]}`,
@@ -242,6 +244,8 @@
       queuedError: app.queued.error,
       lockError: lock.error,
     });
+  // Classes the student added (spec 061): on the week they sit beside synced ones.
+  const own = $derived(classesOf(app.snapshot?.sessions ?? []));
   const NAME = Object.fromEntries(GROUPS.flatMap(([, r]) => r)) as Record<PageId, string>;
 
   const synced = $derived.by(() => {
@@ -400,6 +404,20 @@
             {#if app.mabiniConnected}<button class="ghost" onclick={mabiniOut}>Sign out of eMabini</button>{/if}
           </div>
         {/if}
+      {:else if page === "classes"}
+        <section class="card notch block">
+          <p class="fine">Add a class your portal doesn't list, or your whole week if your school has no portal. They stay on this phone; a sync never removes them.</p>
+          {#each own as c (c.code)}
+            <button class="own" onclick={() => editClass(c)}>
+              <strong>{c.name}</strong>
+              <span>{c.code} · {c.meetings.map(timeLine).join(" · ")}</span>
+            </button>
+          {/each}
+          <div class="row">
+            <button class="primary" onclick={() => editClass()}>Add a class</button>
+            <button class="ghost" onclick={() => (app.scanning = true)}>Scan a schedule</button>
+          </div>
+        </section>
       {:else if page === "campus"}
         <section class="card notch strip"><CampusStrip /></section>
         {#if campus.resolved}
@@ -981,6 +999,22 @@
   .ghost {
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
+  }
+  .own {
+    display: grid;
+    height: auto;
+    min-height: 56px;
+    padding: 8px 12px;
+    gap: 2px;
+    text-align: left;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+  }
+  .own span {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: var(--text-caption);
+    color: var(--ink-2);
   }
   .ghost.bad {
     color: var(--bad);
