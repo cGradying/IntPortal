@@ -34,11 +34,12 @@
   import MabiniGrades from "$lib/MabiniGrades.svelte";
   import NeedSis from "$lib/NeedSis.svelte";
   import MabiniPage from "$lib/MabiniPage.svelte";
+  import ClassEditor from "$lib/ClassEditor.svelte";
   import ThemeMaker from "$lib/ThemeMaker.svelte";
   import { watchDynamicIsland } from "$lib/glance";
   import { watchBars } from "$lib/bars";
   import { watchBack } from "$lib/back";
-  import { app, adopt, applyLook, forgetStudent, listenForTaps, refreshLogins, setRoom, setTextStyle, startClock, syncNow, watchGlance } from "$lib/state.svelte";
+  import { app, adopt, applyLook, forgetStudent, hasClasses, listenForTaps, refreshLogins, setRoom, setTextStyle, startClock, syncNow, watchGlance } from "$lib/state.svelte";
 
   let ready = $state(false);
   let signedIn = $state(false);
@@ -108,7 +109,7 @@
     const snapshot = (keepDemo ? api.demo(isoDate(new Date())) : api.snapshot()).catch(() => null);
     if (keepDemo) await snapshot;
     await refreshLogins();
-    signedIn = app.sisConnected || app.mabiniConnected;
+    signedIn = app.sisConnected || app.mabiniConnected || app.ownSchedule !== null;
     if (signedIn) void ownPortal();
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Signed in: the dive is the loading screen, and the snapshot loads while it runs (spec 010 C26).
@@ -138,7 +139,7 @@
 
   async function ownPortal() {
     const list = await api.portals().catch(() => []);
-    const id = app.sisConnected ? "sis" : "mabini";
+    const id = app.sisConnected ? "sis" : app.ownSchedule !== null ? "own" : "mabini";
     const found = list.find((p) => p.id === id);
     if (found) setSchool(found.theme); // only a real match changes the school
     return found ?? FALLBACK_SIS;
@@ -218,7 +219,7 @@
   // One portal signed out: stay inside while the other still has a login.
   async function signedOut() {
     await refreshLogins();
-    if (app.sisConnected || app.mabiniConnected) {
+    if (app.sisConnected || app.mabiniConnected || app.ownSchedule !== null) {
       const snap = await api.snapshot().catch(() => null);
       if (snap) await adopt(snap);
       void ownPortal(); // the school that is left
@@ -270,7 +271,7 @@
       {#key app.tab}
         <div class="page" in:shared={page(true)} out:shared={page(false)}>
           {#if app.tab === "today"}<Today />
-          {:else if app.tab === "schedule"}{#if app.sisConnected}<Schedule />{:else}<div class="needs"><NeedSis what="your schedule" /></div>{/if}
+          {:else if app.tab === "schedule"}{#if hasClasses()}<Schedule />{:else}<div class="needs"><NeedSis what="your schedule" /></div>{/if}
           {:else if app.tab === "grades"}{#if app.sisConnected}<Grades />{:else}<div class="needs"><NeedSis what="your grades" /><MabiniGrades /></div>{/if}
           {:else if app.tab === "study"}<Study />
           {:else if gallery}<Gallery onclose={() => (gallery = false)} />
@@ -292,13 +293,16 @@
     {#key app.subject.code}<SubjectPage {...app.subject} />{/key}
   {/if}
   {#if app.mabiniPage}<MabiniPage />{/if}
+  {#if app.classEditor}
+    {#key app.classEditor}<ClassEditor was={app.classEditor.was} start={app.classEditor.cls} onclose={() => (app.classEditor = null)} />{/key}
+  {/if}
   {#if app.themeMaker}<ThemeMaker />{/if}
   {#if assis.open}<AssisWindow onclose={() => (assis.open = false)} />{/if}
   {#if assis.install.open}<InstallView />{/if}
 {/if}
 
 {#if greet && inside}
-  <Greeting start={!dive} ready={lifted && (app.today !== null || !app.sisConnected)} ondone={() => (greet = false)} />
+  <Greeting start={!dive} ready={lifted && (app.today !== null || !hasClasses())} ondone={() => (greet = false)} />
 {/if}
 
 {#if dive}

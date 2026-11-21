@@ -5,16 +5,18 @@
 
   // The icon pops only for a tap, not when the bar first appears.
   let popped = $state<Tab | null>(null);
-  const tabs: { id: Tab; label: string; icon: SpriteName }[] = [
+  const all: { id: Tab; label: string; icon: SpriteName }[] = [
     { id: "today", label: "Today", icon: "today" },
     { id: "schedule", label: "Schedule", icon: "schedule" },
     { id: "grades", label: "Grades", icon: "grades" },
     { id: "study", label: "Study", icon: "study" },
     { id: "you", label: "You", icon: "you" },
   ];
+  // Own schedule has no portal to bring grades from (spec 060 C8).
+  const tabs = $derived(app.ownSchedule !== null && !app.sisConnected ? all.filter((t) => t.id !== "grades") : all);
 </script>
 
-<nav class="bar" data-chrome>
+<nav class="bar" data-chrome style:--tabs={tabs.length}>
   <i class="sel" style:translate="{tabs.findIndex((t) => t.id === app.tab) * 100}% 0"></i>
   {#each tabs as t (t.id)}
     <button class:on={app.tab === t.id} onclick={() => { if (app.tab !== t.id) (buzz.select(), (popped = t.id)); app.tab = t.id; }} aria-current={app.tab === t.id ? "page" : undefined}>
@@ -30,7 +32,7 @@
     position: absolute;
     left: 8px;
     top: 6px;
-    width: calc((100% - 16px) / 5);
+    width: calc((100% - 16px) / var(--tabs, 5));
     height: 44px;
     pointer-events: none;
     transition: translate var(--t-move) var(--ease-sheet);

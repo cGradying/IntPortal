@@ -30,6 +30,14 @@ export const portalApi: Record<string, PortalApi> = {
       await refreshLogins();
     },
   },
+  // Own schedule (spec 060 C7): no login and no tries, only the school's name.
+  own: {
+    tries: async () => ({ left: 3, retry_at: null, rejected: false }),
+    async signIn(raw) {
+      await adopt(await api.startOwn(raw.school ?? ""));
+      await refreshLogins();
+    },
+  },
 };
 
 export const portalApiFor = (id: string): PortalApi => portalApi[id] ?? portalApi.sis;

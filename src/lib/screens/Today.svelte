@@ -24,7 +24,7 @@
   import { FLOW_MS } from "../doneRun";
   import Skeleton from "../Skeleton.svelte";
   import { previewOf } from "../photos";
-  import { app, openFromNotification, openNote, openSubject, startReview, syncNow } from "../state.svelte";
+  import { app, editClass, hasClasses, openFromNotification, openNote, openSubject, startReview, syncNow } from "../state.svelte";
   import ClassSheet from "../ClassSheet.svelte";
   import Lar from "../lar/Lar.svelte";
   import { ago } from "../glance";
@@ -203,8 +203,15 @@
           {:else}
             <div class="who">
               <p class="label">Up next</p>
-              <h2>Nothing scheduled</h2>
-              <p class="desc">Sync to pull your classes from the SIS.</p>
+              {#if app.ownSchedule !== null}
+                <h2>Add your classes</h2>
+                <div class="adds">
+                  <button onclick={() => editClass()}>Add by hand</button>
+                </div>
+              {:else}
+                <h2>Nothing scheduled</h2>
+                <p class="desc">Sync to pull your classes from the SIS.</p>
+              {/if}
             </div>
           {/if}
         </div>
@@ -213,7 +220,7 @@
         {/if}
       </section>
 
-      {#if !app.sisConnected}<NeedSis what="your classes" />{/if}
+      {#if !hasClasses()}<NeedSis what="your classes" />{/if}
     {:else if id === "due"}
       <DueCard />
     {:else if id === "term"}
@@ -707,5 +714,21 @@
   }
   .tomorrow strong {
     color: var(--ink);
+  }
+  /* Own schedule with no classes yet (spec 060 C8). */
+  .adds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .adds button {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--gold);
+    color: var(--on-gold);
+    font-weight: 700;
   }
 </style>

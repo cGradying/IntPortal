@@ -10,7 +10,7 @@
   import { busyFrom } from "../devcal";
   import { weekSpans, type Span } from "../dayrows";
   import { buzz } from "../haptics";
-  import { app } from "../state.svelte";
+  import { app, editClass } from "../state.svelte";
   import { api, clock, isoDate, moment, span, subjectColor, WEEKDAYS, type DeadlineEntry, type Meeting, type Weekday } from "../api";
   import { gapText, gaps, month, movedFrom, phaseOf, pin, stampOf, weekRange } from "../weekModel";
   import { settle, step, type Motion } from "../carousel";
@@ -259,6 +259,9 @@
         <span>Due, next 4 weeks</span>
         <div>{#each cells as c (c.date)}<i class:due={c.due} class:over={c.over} class:today={c.today} class:wk={c.thisWeek}></i>{/each}</div>
       </div>
+    </div>
+    <div class="adds">
+      <button onclick={() => editClass()}>+ Class</button>
     </div>
     <Synced />
   </header>
@@ -679,5 +682,20 @@
     font-size: var(--text-caption);
     font-weight: 700;
     color: var(--gold);
+  }
+  /* Own classes start here (spec 060 C5). */
+  .adds {
+    display: flex;
+    gap: 8px;
+  }
+  .adds button {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink);
+    font-weight: 600;
   }
 </style>

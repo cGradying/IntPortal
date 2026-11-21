@@ -217,7 +217,7 @@
 
   /** What each row shows on its right. */
   function value(id: PageId): string {
-    const connected = Number(app.sisConnected) + Number(app.mabiniConnected);
+    const connected = Number(app.sisConnected) + Number(app.mabiniConnected) + Number(app.ownSchedule !== null);
     return {
       accounts: connected ? `${connected} connected` : "Not connected",
       campus: campusName(sceneKey()),
@@ -273,6 +273,13 @@
     await api.signOut();
     await refreshLogins();
     confirming = null;
+    onsignout();
+  }
+
+  /** Own schedule closes; its classes and notes stay in its file for next time (spec 060 C9). */
+  async function leaveOwn() {
+    await api.leaveOwn();
+    await refreshLogins();
     onsignout();
   }
 
@@ -342,6 +349,14 @@
       <header class="top"><h1>{NAME[page]}</h1></header>
 
       {#if page === "accounts"}
+        {#if app.ownSchedule !== null}
+          <section class="card notch block">
+            <p class="label">Own schedule</p>
+            <div class="line"><span>School</span><strong>{app.ownSchedule || "—"}</strong></div>
+            <p class="fine">Your classes stay on this phone. Leaving keeps them for when you come back.</p>
+            <button class="ghost" onclick={leaveOwn}>Leave own schedule</button>
+          </section>
+        {/if}
         <section class="card notch block">
           <p class="label">SIS</p>
           {#if app.sisConnected && app.sisRejected}
