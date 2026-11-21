@@ -228,6 +228,30 @@ export function setStudyAt(minute: number) {
   scheduleReminders(true);
 }
 
+/** Nobody is signed in now: the last class leaves the widget and the Live Activity, every
+ *  pending reminder and the phone calendar's classes go, and so do the copies of the student's
+ *  data kept for the screens. Each step is best effort; a missing plugin skips it. */
+export async function forgetStudent() {
+  generation++; // a reminder pass still running stops before it queues anything
+  invoke("plugin:glance|update", { next: null, line: "", activity: false }).catch(() => {});
+  try {
+    const queued = await pending();
+    if (queued.length) await cancel(queued.map((n) => n.id));
+  } catch {
+    // No notification plugin here.
+  }
+  if (app.calendarClasses) await keepClasses(true).catch(() => {});
+  try {
+    for (const k of STUDENT_KEYS) localStorage.removeItem(k);
+    for (const k of Object.keys(localStorage)) if (STUDENT_PREFIXES.some((p) => k.startsWith(p))) localStorage.removeItem(k);
+  } catch {
+    // Storage off: nothing was kept.
+  }
+}
+// What the screens keep in localStorage that comes from the student's own data.
+const STUDENT_KEYS = ["calendarStamp", "stamped", "celebrated", "trendDrawn", "intportal.seen", "intportal.week.seen", "ip.doneWeek", "larReminders", "larStyle", "intportal.name", "intportal.campus", "intportal.focus", "intportal.hub.recent"];
+const STUDENT_PREFIXES = ["passedPopped-", "coach-dismissed-", "studyBest:"];
+
 /** Hands the next class to the home-screen widget and the Live Activity.
  *  Only iOS has the glance plugin; elsewhere the call fails quietly. */
 function pushGlance() {

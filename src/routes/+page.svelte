@@ -38,7 +38,7 @@
   import { watchDynamicIsland } from "$lib/glance";
   import { watchBars } from "$lib/bars";
   import { watchBack } from "$lib/back";
-  import { app, adopt, applyLook, listenForTaps, refreshLogins, setRoom, setTextStyle, startClock, syncNow, watchGlance } from "$lib/state.svelte";
+  import { app, adopt, applyLook, forgetStudent, listenForTaps, refreshLogins, setRoom, setTextStyle, startClock, syncNow, watchGlance } from "$lib/state.svelte";
 
   let ready = $state(false);
   let signedIn = $state(false);
@@ -232,6 +232,8 @@
     app.editing = null;
     app.subject = null;
     app.tab = "today";
+    assis.chat = [];
+    void forgetStudent();
     try {
       localStorage.removeItem("entered");
       delete document.documentElement.dataset.first;

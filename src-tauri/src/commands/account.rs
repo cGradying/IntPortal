@@ -107,6 +107,7 @@ pub fn has_login() -> bool {
 
 #[tauri::command]
 pub async fn sign_in(state: tauri::State<'_, AppState>, login: Login) -> Res<Snapshot> {
+    super::mabini::sis_account(mabini_vault::load().as_ref().map(|l| l.student_number.as_str()), &login.student_number)?;
     let (client, rows) = guarded_sign_in(&state, &login, None, false).await?;
     // A real account ends Look around, so sync goes to the SIS again.
     DEMO.store(false, Ordering::Relaxed);
