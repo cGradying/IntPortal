@@ -19,6 +19,11 @@ pub fn get_or_create(file: &str) -> Result<[u8; 32], String> {
     }
 }
 
+/// Forgets a store's key, once its file is gone.
+pub fn delete(file: &str) {
+    keychain::delete(SERVICE, file)
+}
+
 fn parse(hex: &str) -> Option<[u8; 32]> {
     let mut key = [0u8; 32];
     if hex.len() != 64 {
