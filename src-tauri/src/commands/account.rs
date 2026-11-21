@@ -123,7 +123,7 @@ pub async fn sign_in(state: tauri::State<'_, AppState>, login: Login) -> Res<Sna
 /// missing or expired.
 #[tauri::command]
 pub async fn sync(state: tauri::State<'_, AppState>) -> Res<Snapshot> {
-    // Own schedule has nothing to sync (060 C8).
+    // Own schedule has nothing to sync (061 C8).
     if own_open(&state) && vault::load().is_none() {
         return snapshot_of(&state);
     }

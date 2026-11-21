@@ -276,7 +276,7 @@
     onsignout();
   }
 
-  /** Own schedule closes; its classes and notes stay in its file for next time (spec 060 C9). */
+  /** Own schedule closes; its classes and notes stay in its file for next time (spec 061 C9). */
   async function leaveOwn() {
     await api.leaveOwn();
     await refreshLogins();

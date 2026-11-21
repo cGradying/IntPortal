@@ -104,7 +104,7 @@ pub struct Backup {
     #[serde(default)]
     pub class_info: Option<BTreeMap<String, ClassInfo>>,
     pub own_deadlines: Vec<OwnDeadline>,
-    /// Classes the student added (spec 060 C6). Synced ones never go in a file.
+    /// Classes the student added (spec 061 C6). Synced ones never go in a file.
     #[serde(default)]
     pub own_classes: Vec<crate::model::ClassSession>,
     pub done: BTreeSet<String>,

@@ -55,7 +55,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [057-website-v2](057-website-v2.md) | approved | The website, second edition: a 3D portal hero with the dive, a feature directory, help, changelog, roadmap and About |
 | [058-website-v3](058-website-v3.md) | approved | The website, third pass: search, share links, offline pages, page transitions, and a home with one phone and a talking LAR |
 | [059-portal-art](059-portal-art.md) | approved | The website's portal, alive: sculptures from the other side when LAR speaks, a breathing vortex, motes, a kawoosh, tiles that lean in |
-| [060-own-schedule](060-own-schedule.md) | building | Classes without a portal: own schedule mode, adding classes by hand, and reading a photo of a schedule on the phone |
+| [061-own-schedule](061-own-schedule.md) | building | Classes without a portal: own schedule mode, adding classes by hand, and reading a photo of a schedule on the phone |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md), [ADR 0005](../adr/0005-portals-are-first-class.md) and [ADR 0006](../adr/0006-one-repo.md).
 

@@ -83,7 +83,7 @@
   let studno = $state("");
   let birthday = $state("");
   let password = $state("");
-  // Own schedule's one field (spec 060 C7).
+  // Own schedule's one field (spec 061 C7).
   let school = $state("");
   let showPw = $state(false);
   // The birthdate wheels' sheet (011 C1), and an SIS that didn't answer (C9).
@@ -183,7 +183,7 @@
   const why = $derived(validate(portal, values));
   const started = $derived(!!(studno || birthday || password || school));
   const own = $derived(portal.fields.includes("school"));
-  /** A school whose portal opens later can start with its own classes now (060 C7). */
+  /** A school whose portal opens later can start with its own classes now (061 C7). */
   let ownFrom: string | null = null;
   function useOwn(name: string) {
     ownFrom = portal.id;

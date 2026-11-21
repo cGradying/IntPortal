@@ -83,7 +83,7 @@ describe("the status chip on the plaque (010 C40)", () => {
     expect(statusChip({ id: "mabini", status: "ready" } as Portal, { up: true, host: null })).toEqual({ text: "eMabini is up", tone: "up" });
     expect(statusChip(ready, { up: false, host: null })).toEqual({ text: "SIS isn't answering", tone: "down" });
   });
-  it("says own schedule needs no login, with nothing to check (060 C7)", () => {
+  it("says own schedule needs no login, with nothing to check (061 C7)", () => {
     expect(statusChip({ id: "own", status: "ready", fields: ["school"] } as Portal, null)).toEqual({ text: "No login", tone: "up" });
   });
 });

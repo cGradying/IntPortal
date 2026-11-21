@@ -1,7 +1,7 @@
 use crate::*;
 use intportal_core::own_class::{self, OwnClass};
 
-/// Adds the student's own class, or replaces the own class whose code was `was` (spec 060 C1 to C4).
+/// Adds the student's own class, or replaces the own class whose code was `was` (spec 061 C1 to C4).
 #[tauri::command(async)]
 pub fn save_class(state: tauri::State<'_, AppState>, was: Option<String>, class: OwnClass) -> Res<Snapshot> {
     let store = state.store.lock().unwrap();

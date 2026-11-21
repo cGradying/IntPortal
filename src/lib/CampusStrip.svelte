@@ -18,7 +18,7 @@
   let cv: HTMLCanvasElement;
   let built = $state<Built | null>(null);
   let strip: Strip | null = null;
-  // Own schedule draws its school's gate, not a PUP campus, unless a listed school was picked (spec 060 C7).
+  // Own schedule draws its school's gate, not a PUP campus, unless a listed school was picked (spec 061 C7).
   const key = $derived(scene || (app.ownSchedule !== null && !sceneKey().startsWith("school:") ? "school:own" : sceneKey()));
   const lit = $derived(built ? litWindow(litKey, built.windows) : -1);
 
@@ -26,7 +26,7 @@
   async function schoolLook(id: string): Promise<SchoolLook | undefined> {
     portals ??= api.portals().then((ps) => ps.map((p) => ({ id: p.id, name: p.name, accent: p.theme.accent, ramp: p.theme.ramp, motif: p.motif })), () => []);
     const look = (await portals).find((p) => p.id === id);
-    // Own schedule's gate carries the student's school (spec 060 C7).
+    // Own schedule's gate carries the student's school (spec 061 C7).
     return look && id === "own" && app.ownSchedule ? { ...look, name: gateName(app.ownSchedule) } : look;
   }
 

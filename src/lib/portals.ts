@@ -7,7 +7,7 @@ export interface FormValues {
   student_number: string;
   birthdate: string;
   password: string;
-  /** Own schedule's one field (spec 060 C7). */
+  /** Own schedule's one field (spec 061 C7). */
   school?: string;
 }
 

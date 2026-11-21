@@ -1,4 +1,4 @@
-//! Classes the student adds themselves (spec 060 C1 to C4). On the week an own
+//! Classes the student adds themselves (spec 061 C1 to C4). On the week an own
 //! class is plain sessions with `own` set, so every screen reads it like a
 //! synced one; here it is grouped back into one class with its meetings.
 

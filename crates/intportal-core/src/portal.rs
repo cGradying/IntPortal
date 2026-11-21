@@ -58,7 +58,7 @@ pub enum Field {
     StudentNumber,
     Birthdate,
     Password,
-    /// The school's name, for own schedule (spec 060 C7).
+    /// The school's name, for own schedule (spec 061 C7).
     School,
 }
 
@@ -131,7 +131,7 @@ pub const MABINI: Portal = Portal {
     rejected_again: "eMabini turned your login down. Update your username or password to try again.",
 };
 
-/// Own schedule (spec 060): no portal behind it, no login. The student names
+/// Own schedule (spec 061): no portal behind it, no login. The student names
 /// their school and adds their classes; nothing leaves the phone.
 pub const OWN: Portal = Portal {
     id: "own",

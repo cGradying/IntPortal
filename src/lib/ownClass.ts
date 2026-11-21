@@ -1,4 +1,4 @@
-// Own classes on the UI side (spec 060): grouping the week's own sessions back
+// Own classes on the UI side (spec 061): grouping the week's own sessions back
 // into classes for the editor, and the day chips. Mirrors `own_class.rs`.
 import type { ClassSession, ClassTime, OwnClass, Weekday } from "./api";
 

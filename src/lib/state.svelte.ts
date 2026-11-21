@@ -39,11 +39,11 @@ export const app = $state({
   syncCount: 0,
   /** Which portals have a saved login on this phone. */
   sisConnected: false,
-  /** The school's name while own schedule is open (spec 060 C8), else null. */
+  /** The school's name while own schedule is open (spec 061 C8), else null. */
   ownSchedule: null as string | null,
-  /** The class editor (060 C5): `was` is the own class's code when editing one. */
+  /** The class editor (061 C5): `was` is the own class's code when editing one. */
   classEditor: null as null | { was: string | null; cls: OwnClass },
-  /** The schedule scan sheet (060 C10). */
+  /** The schedule scan sheet (061 C10). */
   scanning: false,
   /** The portal turned the saved login down (spec 040 C5); only a new password clears it. */
   sisRejected: false,
@@ -177,7 +177,7 @@ export async function allowReminders() {
   await scheduleReminders(true);
 }
 
-/** Classes come from the SIS or from the student (spec 060 C8): the week, Today and the editor work either way. */
+/** Classes come from the SIS or from the student (spec 061 C8): the week, Today and the editor work either way. */
 export const hasClasses = () => app.sisConnected || app.ownSchedule !== null;
 
 /** Opens the class editor on a new class, or on an own class to change it. */
