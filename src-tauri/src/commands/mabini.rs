@@ -35,6 +35,7 @@ pub async fn mabini_sign_in(state: tauri::State<'_, AppState>, login: MabiniLogi
         open_account(&state, n)?;
     }
     mabini_vault::save(&login)?;
+    super::account::accept_login(&state.mabini_ledger, &state.dir, MABINI_GUARD_FILE).await;
     let data = mabini_refresh(&state, &client).await?;
     *state.mabini.lock().await = Some(client);
     Ok(data)
