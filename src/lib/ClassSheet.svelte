@@ -130,7 +130,7 @@
     {#if s.own}
       <!-- An own class is the student's to change (spec 060 C5). -->
       <div class="opts two">
-        <button class="note" onclick={() => { const c = classesOf(app.snapshot?.sessions ?? []).find((c) => c.code === s.subject_code); close(); if (c) editClass(c); }}>Edit class</button>
+        <button onclick={() => { const c = classesOf(app.snapshot?.sessions ?? []).find((c) => c.code === s.subject_code); close(); if (c) editClass(c); }}>Edit class</button>
         <button onclick={() => run(api.deleteClass(s.subject_code))}>Remove class</button>
       </div>
     {/if}

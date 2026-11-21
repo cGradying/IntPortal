@@ -55,7 +55,7 @@
     bottom: 0;
     z-index: 20;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(var(--tabs, 5), 1fr);
     padding: 8px 8px calc(var(--safe-bottom) + 6px);
     background: color-mix(in srgb, var(--ground) 86%, transparent);
     backdrop-filter: blur(16px);

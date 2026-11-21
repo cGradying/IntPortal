@@ -184,7 +184,9 @@
   const started = $derived(!!(studno || birthday || password || school));
   const own = $derived(portal.fields.includes("school"));
   /** A school whose portal opens later can start with its own classes now (060 C7). */
+  let ownFrom: string | null = null;
   function useOwn(name: string) {
+    ownFrom = portal.id;
     school = name;
     portalId = "own";
     error = "";
@@ -202,6 +204,8 @@
     try {
       await portalApiFor(portal.id).signIn({ student_number: studno, birthdate: birthday, password, school });
       password = "";
+      // Today's campus strip draws the school's gate: the listed school's look, else own schedule's.
+      if (own) setCampus(`school:${ownFrom ?? "own"}`);
       rest = "hub";
       buzz.done();
     } catch (err) {
@@ -294,10 +298,7 @@
             <button type="button" class="ghost" onclick={() => useOwn(portal.school)}>Start an own schedule</button>
             <button type="button" class="ghost" onclick={demo}>Look around</button>
           {:else if own}
-            <div class="soon">
-              <b>Own schedule</b>
-              <p>{copy.pitch}</p>
-            </div>
+            <div class="soon"><p>{copy.pitch}</p></div>
             <div class="field" class:filled={!!school} class:bad={bad("school")}>
               <input id="f-school" bind:value={school} maxlength="60" autocapitalize="words" autocomplete="organization" aria-invalid={bad("school")} />
               <label for="f-school">Your school</label>

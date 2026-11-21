@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClassSession } from "./api";
-import { classesOf, problem, timeLine } from "./ownClass";
+import { classesOf, gateName, problem, timeLine } from "./ownClass";
 
 const s = (day: ClassSession["day"], start: number, end: number, own = true): ClassSession => ({ subject_code: "C1", description: "Calculus 1", faculty: "", day, start, end, occurrence: 0, own, room: "R1" });
 
@@ -23,5 +23,11 @@ describe("own classes", () => {
     expect(problem({ ...ok, name: " " })).toBe("Give the class a name.");
     expect(problem({ ...ok, meetings: [{ days: [], start: 450, end: 540 }] })).toBe("Pick at least one day.");
     expect(problem({ ...ok, meetings: [{ days: ["Monday"], start: 540, end: 450 }] })).toBe("It has to end after it starts.");
+  });
+
+  it("shortens a long school name to its initials for the campus gate", () => {
+    expect(gateName("Bulacan State University")).toBe("BSU");
+    expect(gateName("University of the East")).toBe("UE");
+    expect(gateName("FEU Tech")).toBe("FEU Tech");
   });
 });

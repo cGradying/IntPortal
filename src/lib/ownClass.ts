@@ -48,3 +48,16 @@ export function problem(c: OwnClass): string {
   if (c.meetings.some((m) => m.end <= m.start)) return "It has to end after it starts.";
   return "";
 }
+
+/** A school's name short enough for a 12-letter gate: as is, or its initials ("Bulacan State University" is "BSU"). */
+export function gateName(school: string): string {
+  const name = school.trim();
+  if (name.length <= 12) return name;
+  const skip = new Set(["of", "the", "and", "de", "ng", "sa"]);
+  return name
+    .split(/\s+/)
+    .filter((w) => !skip.has(w.toLowerCase()))
+    .map((w) => w[0].toUpperCase())
+    .join("")
+    .slice(0, 12);
+}

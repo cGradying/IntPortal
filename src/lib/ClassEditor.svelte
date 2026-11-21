@@ -13,7 +13,7 @@
   $effect(() => closable(() => onclose()));
 
   // svelte-ignore state_referenced_locally
-  let c = $state<OwnClass>(structuredClone(start));
+  let c = $state<OwnClass>($state.snapshot(start) as OwnClass);
   let problem = $state("");
   let busy = $state(false);
 
@@ -26,6 +26,7 @@
   function toggle(i: number, day: (typeof DAYS)[number]["day"]) {
     const days = c.meetings[i].days;
     c.meetings[i].days = days.includes(day) ? days.filter((d) => d !== day) : [...days, day];
+    problem = "";
     buzz.tick();
   }
   function another() {
