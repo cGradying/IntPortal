@@ -10,7 +10,7 @@
   import { busyFrom } from "../devcal";
   import { weekSpans, type Span } from "../dayrows";
   import { buzz } from "../haptics";
-  import { app, editClass } from "../state.svelte";
+  import { app } from "../state.svelte";
   import { api, clock, isoDate, moment, span, subjectColor, WEEKDAYS, type DeadlineEntry, type Meeting, type Weekday } from "../api";
   import { gapText, gaps, month, movedFrom, phaseOf, pin, stampOf, weekRange } from "../weekModel";
   import { settle, step, type Motion } from "../carousel";
@@ -259,10 +259,6 @@
         <span>Due, next 4 weeks</span>
         <div>{#each cells as c (c.date)}<i class:due={c.due} class:over={c.over} class:today={c.today} class:wk={c.thisWeek}></i>{/each}</div>
       </div>
-    </div>
-    <div class="adds">
-      <button onclick={() => editClass()}>+ Class</button>
-      <button onclick={() => (app.scanning = true)}>Scan</button>
     </div>
     <Synced />
   </header>
@@ -544,12 +540,12 @@
   }
   .mm div {
     display: grid;
-    grid-template-columns: repeat(7, 6px);
-    gap: 2px;
+    grid-template-columns: repeat(7, 7px);
+    gap: 3px;
   }
   .mm i {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     background: var(--sunk);
     box-shadow: inset 0 0 0 1px var(--edge);
   }
@@ -565,8 +561,7 @@
     box-shadow: none;
   }
   .mm i.today {
-    outline: 1px solid var(--ink);
-    outline-offset: 1px;
+    box-shadow: inset 0 0 0 2px var(--ink);
   }
   .time {
     display: grid;
@@ -685,18 +680,4 @@
     color: var(--gold);
   }
   /* Own classes start here (spec 061 C5). */
-  .adds {
-    display: flex;
-    gap: 8px;
-  }
-  .adds button {
-    min-height: 44px;
-    padding: 0 14px;
-    border: 0;
-    border-radius: var(--radius);
-    background: var(--sunk);
-    box-shadow: inset 0 0 0 1px var(--edge);
-    color: var(--ink);
-    font-weight: 600;
-  }
 </style>
