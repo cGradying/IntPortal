@@ -27,8 +27,10 @@ pub struct Found {
     pub unsure: bool,
 }
 
-/// Lines whose middles sit within half a line's height are one row, read left
-/// to right. Columns stay apart by two spaces, so a row splits back into cells.
+/// Lines are joined into rows left to right: each line joins the row whose
+/// rightmost line sits nearest its height, within half a line. Chaining
+/// column to column follows a tilted photo, where one height for the whole
+/// row would split it. Columns stay apart by two spaces, so a row splits back into cells.
 pub fn rows(lines: &[ScanLine]) -> Vec<String> {
     let mut lines: Vec<&ScanLine> = lines.iter().filter(|l| !l.text.trim().is_empty()).collect();
     if lines.is_empty() {
@@ -36,22 +38,23 @@ pub fn rows(lines: &[ScanLine]) -> Vec<String> {
     }
     let mut heights: Vec<f32> = lines.iter().map(|l| l.h).collect();
     heights.sort_by(f32::total_cmp);
-    let tol = heights[heights.len() / 2] * 0.5;
-    lines.sort_by(|a, b| (a.y + a.h / 2.0).total_cmp(&(b.y + b.h / 2.0)));
+    let tol = heights[heights.len() / 2] * 0.6;
+    lines.sort_by(|a, b| a.x.total_cmp(&b.x));
+    let mid = |l: &ScanLine| l.y + l.h / 2.0;
     let mut out: Vec<Vec<&ScanLine>> = vec![];
     for l in lines {
-        let mid = l.y + l.h / 2.0;
-        match out.last_mut() {
-            Some(row) if (row_mid(row) - mid).abs() <= tol => row.push(l),
-            _ => out.push(vec![l]),
+        // A row takes one line per column: its last line must end before this one starts.
+        let near = out
+            .iter_mut()
+            .filter(|row| row.last().is_some_and(|last| last.x + last.w * 0.5 < l.x && (mid(last) - mid(l)).abs() <= tol))
+            .min_by(|a, b| (mid(a.last().unwrap()) - mid(l)).abs().total_cmp(&(mid(b.last().unwrap()) - mid(l)).abs()));
+        match near {
+            Some(row) => row.push(l),
+            None => out.push(vec![l]),
         }
     }
-    out.into_iter()
-        .map(|mut row| {
-            row.sort_by(|a, b| a.x.total_cmp(&b.x));
-            row.iter().map(|l| l.text.trim()).collect::<Vec<_>>().join("  ")
-        })
-        .collect()
+    out.sort_by(|a, b| row_mid(a).total_cmp(&row_mid(b)));
+    out.into_iter().map(|row| row.iter().map(|l| l.text.trim()).collect::<Vec<_>>().join("  ")).collect()
 }
 
 fn row_mid(row: &[&ScanLine]) -> f32 {
@@ -445,6 +448,20 @@ mod tests {
         assert_eq!(r, ["NSTP 1  Civic Welfare  MWF 8:00-9:00 AM", "PE 2  Rhythmic Activities  TTh 1:00-2:30 PM"]);
         let f = read(&r);
         assert_eq!(f.iter().map(|f| (f.class.name.as_str(), f.class.meetings[0].start)).collect::<Vec<_>>(), [("Civic Welfare", 480), ("Rhythmic Activities", 780)]);
+    }
+
+    #[test]
+    fn a_tilted_photo_still_keeps_each_row_together() {
+        // Tilted so the right end of a row sits a whole line lower than its left end.
+        let tilt = |x: f32, y: f32| y + x * 0.03;
+        let l = |text: &str, x: f32, y: f32| ScanLine { text: text.into(), x, y: tilt(x, y), w: 0.012 * text.len() as f32, h: 0.02 };
+        let mut lines = vec![];
+        for (i, (code, name, when)) in [("MATH 102", "Calculus 1", "TTh 10:00-11:30 AM"), ("PE 2", "Rhythmic Activities", "S 8:00-10:00 AM"), ("NSTP 1", "Civic Welfare", "S 1:00-4:00 PM")].into_iter().enumerate() {
+            let y = 0.2 + i as f32 * 0.045;
+            lines.extend([l(code, 0.04, y), l(name, 0.19, y), l("3", 0.51, y), l(when, 0.57, y)]);
+        }
+        let f = read(&rows(&lines));
+        assert_eq!(f.iter().map(|f| (f.class.code.as_str(), f.class.name.as_str())).collect::<Vec<_>>(), [("MATH 102", "Calculus 1"), ("PE 2", "Rhythmic Activities"), ("NSTP 1", "Civic Welfare")]);
     }
 
     #[test]

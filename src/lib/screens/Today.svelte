@@ -207,6 +207,7 @@
                 <h2>Add your classes</h2>
                 <div class="adds">
                   <button onclick={() => editClass()}>Add by hand</button>
+                  <button class="quiet" onclick={() => (app.scanning = true)}>Scan a schedule</button>
                 </div>
               {:else}
                 <h2>Nothing scheduled</h2>
@@ -730,5 +731,10 @@
     background: var(--gold);
     color: var(--on-gold);
     font-weight: 700;
+  }
+  .adds .quiet {
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    color: var(--ink);
   }
 </style>

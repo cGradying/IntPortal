@@ -35,6 +35,7 @@
   import NeedSis from "$lib/NeedSis.svelte";
   import MabiniPage from "$lib/MabiniPage.svelte";
   import ClassEditor from "$lib/ClassEditor.svelte";
+  import ScanSheet from "$lib/ScanSheet.svelte";
   import ThemeMaker from "$lib/ThemeMaker.svelte";
   import { watchDynamicIsland } from "$lib/glance";
   import { watchBars } from "$lib/bars";
@@ -293,6 +294,7 @@
     {#key app.subject.code}<SubjectPage {...app.subject} />{/key}
   {/if}
   {#if app.mabiniPage}<MabiniPage />{/if}
+  {#if app.scanning}<ScanSheet onclose={() => (app.scanning = false)} />{/if}
   {#if app.classEditor}
     {#key app.classEditor}<ClassEditor was={app.classEditor.was} start={app.classEditor.cls} onclose={() => (app.classEditor = null)} />{/key}
   {/if}

@@ -262,6 +262,7 @@
     </div>
     <div class="adds">
       <button onclick={() => editClass()}>+ Class</button>
+      <button onclick={() => (app.scanning = true)}>Scan</button>
     </div>
     <Synced />
   </header>

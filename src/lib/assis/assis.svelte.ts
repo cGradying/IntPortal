@@ -3,7 +3,7 @@
 // nothing here writes until Apply.
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { Schedule, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
-import { api, isoDate, moment } from "../api";
+import { api, isoDate, moment, type FoundClass } from "../api";
 import { app } from "../state.svelte";
 import { tidy, type Draft } from "./cards";
 import { appended, existingText, newDeck, noteFor, looksFilipino, noteTarget, notificationsOff, reminderAt, reminderId, rememberLarReminder, type Proposal } from "./apply";
@@ -457,6 +457,28 @@ export async function tidyScan(text: string): Promise<string | null> {
     try {
       const out = (await invoke<string>("clean_scan_ai", { text })).trim();
       return out && out !== text.trim() ? out : null;
+    } finally {
+      assis.busy = "";
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Spec 060 C12: classes the model finds in a schedule the rules couldn't read, or null when IntAssis
+ * isn't installed, won't wake or is busy. An empty list means it looked and found nothing.
+ */
+export async function timetableByAi(text: string): Promise<FoundClass[] | null> {
+  if (!installed() || assis.busy) return null;
+  try {
+    if (!(await wake())) {
+      assis.error = "";
+      return null;
+    }
+    assis.busy = "thinking";
+    try {
+      return await invoke<FoundClass[]>("read_timetable_ai", { text });
     } finally {
       assis.busy = "";
     }
