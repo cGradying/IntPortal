@@ -261,6 +261,13 @@ pub fn run() {
         .manage(ai::AiState::default())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
+            // iOS keeps keychain items after the app is deleted. A fresh install (no data folder
+            // yet) must not sign in from them: that would skip the app lock a reinstall dropped.
+            #[cfg(target_os = "ios")]
+            if !dir.exists() {
+                vault::clear();
+                mabini_vault::clear();
+            }
             std::fs::create_dir_all(&dir)?;
             // A photo the plugin saved but nobody took in (046 Data).
             let _ = std::fs::remove_dir_all(dir.join(PHOTO_TMP));

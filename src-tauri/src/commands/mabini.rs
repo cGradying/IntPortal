@@ -26,6 +26,15 @@ pub(crate) fn mabini_account<'a>(sis_number: Option<&str>, typed: &'a str) -> Re
     }
 }
 
+/// The other way round: a SIS sign-in while eMabini stays signed in must be the
+/// same student, or that student's eMabini syncs would land in this one's store.
+pub(crate) fn sis_account(mabini_number: Option<&str>, typed: &str) -> Res<()> {
+    match mabini_number {
+        Some(n) if account_file(n) != account_file(typed) => Err("That isn't the student number signed in to eMabini on this phone. Use your own SIS login, or sign out of eMabini first.".into()),
+        _ => Ok(()),
+    }
+}
+
 #[tauri::command]
 pub async fn mabini_sign_in(state: tauri::State<'_, AppState>, login: MabiniLogin) -> Res<MabiniData> {
     let open = mabini_account(vault::load().as_ref().map(|l| l.student_number.as_str()), &login.student_number)?;
@@ -35,6 +44,7 @@ pub async fn mabini_sign_in(state: tauri::State<'_, AppState>, login: MabiniLogi
         open_account(&state, n)?;
     }
     mabini_vault::save(&login)?;
+    super::account::accept_login(&state.mabini_ledger, &state.dir, MABINI_GUARD_FILE).await;
     let data = mabini_refresh(&state, &client).await?;
     *state.mabini.lock().await = Some(client);
     Ok(data)
@@ -102,5 +112,12 @@ mod tests {
         assert_eq!(mabini_account(Some("2024-00001-MN-0"), "2024-00001-mn-0"), Ok(None), "same student: keep the open store");
         assert!(mabini_account(Some("2024-00001-MN-0"), "2024-00002-MN-0").is_err(), "another student's number is refused");
         assert_eq!(mabini_account(None, "2024-00002-MN-0"), Ok(Some("2024-00002-MN-0")), "eMabini alone opens that student's store");
+    }
+
+    #[test]
+    fn sis_sign_in_must_match_the_mabini_student() {
+        assert_eq!(sis_account(Some("2024-00001-MN-0"), "2024-00001-mn-0"), Ok(()));
+        assert!(sis_account(Some("2024-00001-MN-0"), "2024-00002-MN-0").is_err(), "another student's eMabini stays out of this store");
+        assert_eq!(sis_account(None, "2024-00002-MN-0"), Ok(()));
     }
 }
