@@ -58,6 +58,8 @@ pub enum Field {
     StudentNumber,
     Birthdate,
     Password,
+    /// The school's name, for own schedule (spec 060 C7).
+    School,
 }
 
 /// At most `attempts` logins per `window_secs`, counted on the phone.
@@ -129,6 +131,23 @@ pub const MABINI: Portal = Portal {
     rejected_again: "eMabini turned your login down. Update your username or password to try again.",
 };
 
+/// Own schedule (spec 060): no portal behind it, no login. The student names
+/// their school and adds their classes; nothing leaves the phone.
+pub const OWN: Portal = Portal {
+    id: "own",
+    name: "Own schedule",
+    school: "Your school",
+    region: "Anywhere",
+    status: Status::Ready,
+    theme: Theme { ramp: ["#1c1912", "#3a3324", "#6e5c38", "#b8924c", "#f0dca2"], accent: "#e6bd5c" },
+    shape: Shape { cols: 6, rows: 7, corner: Corner::Arch },
+    motif: Motif::Lattice,
+    fields: &[Field::School],
+    limits: LIMITS,
+    keychain_service: "ph.intportal.app.own",
+    rejected_again: "",
+};
+
 /// A state university listed before its portal is built: a name, a look and
 /// "Opens soon", no sign-in. The palettes are placeholders until the
 /// universities reference (docs/specs/reference) confirms each school's colours.
@@ -194,7 +213,7 @@ fn school(i: usize, &(id, name, school, region, base): &schools::Row) -> Portal 
 /// The registry, in the order the landing carousel shows it: PUP's portals
 /// and the hand-drawn placeholders first, then every listed school.
 pub static ALL: LazyLock<Vec<Portal>> =
-    LazyLock::new(|| [SIS, MABINI, UP, TUP, PNU, BULSU].into_iter().chain(schools::ROWS.iter().enumerate().map(|(i, r)| school(i, r))).collect());
+    LazyLock::new(|| [SIS, MABINI, OWN, UP, TUP, PNU, BULSU].into_iter().chain(schools::ROWS.iter().enumerate().map(|(i, r)| school(i, r))).collect());
 
 pub fn get(id: &str) -> Option<&'static Portal> {
     ALL.iter().find(|p| p.id == id)
@@ -211,6 +230,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn own_schedule_is_third_ready_and_asks_only_for_the_school() {
+        assert_eq!(ALL[2].id, "own");
+        assert_eq!((OWN.status, OWN.fields), (Status::Ready, &[Field::School][..]));
+    }
+
+    #[test]
     fn sis_and_mabini_are_ready() {
         assert_eq!(get("sis").unwrap().status, Status::Ready);
         assert_eq!(get("mabini").unwrap().status, Status::Ready);
@@ -218,9 +243,9 @@ mod tests {
     }
 
     #[test]
-    fn only_pup_portals_are_ready_and_placeholders_have_no_form() {
+    fn only_pup_portals_and_own_schedule_are_ready_and_placeholders_have_no_form() {
         for p in ALL.iter() {
-            let ready = matches!(p.id, "sis" | "mabini");
+            let ready = matches!(p.id, "sis" | "mabini" | "own");
             assert_eq!(p.status == Status::Ready, ready, "{}", p.id);
             if !ready {
                 assert!(p.fields.is_empty(), "{}", p.id);

@@ -74,7 +74,30 @@ impl Demo {
                 }
                 out(&self.snap)
             }
-            "has_login" | "has_mabini_login" => out(true),
+            // Own schedule in the browser (spec 060): no portal, so neither login is "there".
+            "has_login" | "has_mabini_login" => out(self.snap.school.is_none()),
+            "own_schedule" => out(&self.snap.school),
+            "start_own" => {
+                let school = arg::<String>(a, "school")?.split_whitespace().collect::<Vec<_>>().join(" ");
+                if school.is_empty() || school.chars().count() > 60 {
+                    return Err("Type your school's name.".into());
+                }
+                *self = Demo { snap: Snapshot { school: Some(school), ..Default::default() }, ..Default::default() };
+                out(&self.snap)
+            }
+            "leave_own" => {
+                *self = Demo::default();
+                out(())
+            }
+            "save_class" => {
+                let (was, class): (Option<String>, intportal_core::own_class::OwnClass) = (arg(a, "was")?, arg(a, "class")?);
+                intportal_core::own_class::save(&mut self.snap, was.as_deref(), class).map_err(|e| e.to_string())?;
+                out(&self.snap)
+            }
+            "delete_class" => {
+                let code: String = arg(a, "code")?;
+                self.edit(|s| intportal_core::own_class::remove(s, &code))
+            }
             "sign_out" | "erase_everything" | "mabini_sign_out" => out(()),
             "portals" => out(intportal_core::portal::ALL.clone()),
             "portal_status" => out(json!({ "up": true, "host": "sis8.pup.edu.ph" })),

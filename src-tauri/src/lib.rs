@@ -29,7 +29,7 @@ mod demo;
 
 // Every command and helper is in scope here, so the handler list below names them plainly
 // and the modules reach each other through `use crate::*`.
-use commands::{account::*, backup::*, coach::*, deadlines::*, mabini::*, notes::*, schedule::*, study::*};
+use commands::{account::*, backup::*, classes::*, coach::*, deadlines::*, mabini::*, notes::*, schedule::*, study::*};
 use demo::*;
 
 /// Set by `demo` (Look around first, in every build): the demo counts as
@@ -131,7 +131,10 @@ async fn refresh(state: &AppState, client: &SisClient, rows: Option<Vec<schedule
         None => client.schedule().await.map_err(err)?,
     };
     let mut snap = snapshot_of(state)?;
+    // The student's own classes stay; only the synced ones are replaced (spec 060 C1).
+    let own: Vec<_> = snap.sessions.drain(..).filter(|s| s.own).collect();
     snap.sessions = schedule::parse(&rows);
+    snap.sessions.extend(own);
     // A grades page that fails keeps the last grades; only an expired
     // session fails the whole sync, so the caller can sign in again.
     match client.grades().await {
@@ -169,6 +172,14 @@ fn save_ledger(dir: &std::path::Path, file: &str, ledger: &Ledger) -> Result<(),
 
 mod mabini_vault;
 
+/// Own schedule's one file on this phone is named as if this were its student number (spec 060 C7).
+const OWN_KEY: &str = "OWN-SCHEDULE";
+
+/// Whether the open file is own schedule's.
+fn own_open(state: &AppState) -> bool {
+    std::fs::read_to_string(state.dir.join(CURRENT)).is_ok_and(|n| n.trim() == account_file(OWN_KEY))
+}
+
 /// Names the file of the student signed in last, so a relaunch opens it.
 const CURRENT: &str = "current-account";
 /// The single store from before stores were per student.
@@ -194,6 +205,9 @@ fn open_account(state: &AppState, student_number: &str) -> Res<()> {
 /// signing out of the SIS with eMabini still in leaves the SIS student's store open.
 fn open_student(state: &AppState) -> Option<String> {
     let open = std::fs::read_to_string(state.dir.join(CURRENT)).ok()?;
+    if open.trim() == account_file(OWN_KEY) {
+        return Some(OWN_KEY.into());
+    }
     [vault::load().map(|l| l.student_number), mabini_vault::load().map(|l| l.student_number)]
         .into_iter()
         .flatten()
@@ -292,7 +306,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            snapshot, has_login, portals, portal_status, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, backup_make, backup_preview, backup_restore, space_used, set_mark, set_move, set_color, set_class_info, week, set_goals, standing, notes, set_note, delete_note, photo_dir, add_photo, note_photos, photo_bytes, photo_thumb, set_photo_thumb, notes_zip, delete_photo, set_note_pin, set_note_subject, entry_date, notes_markdown, export_ics, parse_outline, clean_scan, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, review_preview, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
+            snapshot, has_login, save_class, delete_class, start_own, own_schedule, leave_own, portals, portal_status, tries_left, mabini_sign_in, mabini_sync, mabini_data, has_mabini_login, login_hint, mabini_tries_left, mabini_sign_out, sign_in, sync, load_history, sign_out, erase_everything, backup_make, backup_preview, backup_restore, space_used, set_mark, set_move, set_color, set_class_info, week, set_goals, standing, notes, set_note, delete_note, photo_dir, add_photo, note_photos, photo_bytes, photo_thumb, set_photo_thumb, notes_zip, delete_photo, set_note_pin, set_note_subject, entry_date, notes_markdown, export_ics, parse_outline, clean_scan, set_plan, tally, deadlines, set_done, save_own, delete_own, parse_own, study, deck, save_deck, delete_deck, parse_cards, review_card, review_preview, check_answer, distractors, coach, today, class_events, reminders, campus, demo,
             ai::ai_models, ai::ai_small_ram, ai::ai_download, ai::ai_pause_download, ai::ai_space, ai::ai_delete, ai::ai_load, ai::ai_unload, ai::ai_index, ai::ai_cancel, ai::ai_ask, ai::ai_history, ai::ai_clear_history, ai::ai_note, ai::ai_why, ai::ai_cards, ai::ai_topic_cards, ai::ai_pdf_text, ai::ai_outline_text, ai::ai_guide, ai::clean_scan_ai
         ])
         .run(tauri::generate_context!())

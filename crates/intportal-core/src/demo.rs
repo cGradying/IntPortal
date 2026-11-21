@@ -12,7 +12,7 @@ use crate::today::Date;
 /// term's grades and two past terms. The student's own marks, goals and pages
 /// in `base` stay.
 pub fn sis(base: Snapshot, today: Date, synced: String) -> Snapshot {
-    let s = |code: &str, desc: &str, day: Weekday, start: u16, end: u16| ClassSession {
+    let s = |code: &str, desc: &str, day: Weekday, start: u16, end: u16| ClassSession { own: false, room: String::new(),
         subject_code: code.into(),
         description: desc.into(),
         faculty: "SANTOS, JUAN".into(),

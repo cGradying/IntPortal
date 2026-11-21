@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn c8_after_class_only_for_noted_subjects() {
-        let s = |code: &str, start: u16, end: u16| ClassSession { subject_code: code.into(), description: String::new(), faculty: String::new(), day: Weekday::Tuesday, start, end, occurrence: 0 };
+        let s = |code: &str, start: u16, end: u16| ClassSession { own: false, room: String::new(), subject_code: code.into(), description: String::new(), faculty: String::new(), day: Weekday::Tuesday, start, end, occurrence: 0 };
         let w = [s("COMP 20073", 540, 630), s("GEED 10053", 660, 750)];
         let got = after_class(&w, &Marks::default(), &["COMP 20073".into()], Moment { date: TUE, minute: 0 }, 1);
         assert_eq!(got.len(), 1);

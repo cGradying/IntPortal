@@ -946,7 +946,7 @@ mod tests {
 
     fn snap() -> Snapshot {
         let mut s = Snapshot::default();
-        s.sessions.push(ClassSession { subject_code: "COMP 20073".into(), description: "Data Structures".into(), faculty: "x".into(), day: Weekday::Thursday, start: 540, end: 630, occurrence: 0 });
+        s.sessions.push(ClassSession { own: false, room: String::new(), subject_code: "COMP 20073".into(), description: "Data Structures".into(), faculty: "x".into(), day: Weekday::Thursday, start: 540, end: 630, occurrence: 0 });
         s.syllabus.insert("COMP 20073".into(), Plan { items: vec![Item { id: "1".into(), topic: "Quiz 2".into(), kind: Kind::Quiz, week: None, date: Some(Date::new(2026, 10, 16)), done: false }], ..Plan::default() });
         s
     }

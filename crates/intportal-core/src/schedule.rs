@@ -47,7 +47,7 @@ pub fn parse_row(row: &ScheduleRow) -> Vec<ClassSession> {
         return vec![];
     }
 
-    let session = |day: Weekday, (start, end): (u16, u16)| ClassSession {
+    let session = |day: Weekday, (start, end): (u16, u16)| ClassSession { own: false, room: String::new(),
         subject_code: row.subject_code.clone(),
         description: row.description.clone(),
         faculty: row.faculty.clone(),
