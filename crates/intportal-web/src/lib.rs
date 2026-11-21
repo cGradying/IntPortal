@@ -74,7 +74,7 @@ impl Demo {
                 }
                 out(&self.snap)
             }
-            // Own schedule in the browser (spec 060): no portal, so neither login is "there".
+            // Own schedule in the browser (spec 061): no portal, so neither login is "there".
             "has_login" | "has_mabini_login" => out(self.snap.school.is_none()),
             "own_schedule" => out(&self.snap.school),
             "start_own" => {

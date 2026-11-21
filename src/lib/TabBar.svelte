@@ -12,7 +12,7 @@
     { id: "study", label: "Study", icon: "study" },
     { id: "you", label: "You", icon: "you" },
   ];
-  // Own schedule has no portal to bring grades from (spec 060 C8).
+  // Own schedule has no portal to bring grades from (spec 061 C8).
   const tabs = $derived(app.ownSchedule !== null && !app.sisConnected ? all.filter((t) => t.id !== "grades") : all);
 </script>
 

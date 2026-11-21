@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import PixelIcon from "$app_lib/PixelIcon.svelte";
+  import PixelIcon, { type SpriteName } from "$app_lib/PixelIcon.svelte";
   import { HAND_DRAWN } from "$app_lib/campus/scenes";
   import Campus from "$lib/Campus.svelte";
   import Downloads from "$lib/Downloads.svelte";
@@ -10,6 +10,7 @@
   import { GROUP_ICON } from "$lib/groupIcon";
   import { device } from "$lib/device";
   import { firstFor, PLATFORMS } from "$lib/platforms";
+  import { REPO_URL } from "$lib/releases";
 
   let { data } = $props();
   const campuses = Object.keys(HAND_DRAWN);
@@ -70,11 +71,17 @@
     { group: "study", title: "Study", body: "Notes per class or per day, with checklists and photos. Decks bring each card back just before you'd forget it, and a session plays like a card game: a streak multiplies your points.", src: "/media/game.webp", alt: "A round of the study game on sample cards" },
   ];
 
-  const facts = [
-    ["Your login stays on your phone.", "It goes into the phone's keychain, the same place your other passwords live."],
-    ["Your data is encrypted on the phone.", "Schedule, grades, notes and decks sit in a SQLCipher database. Each student who signs in gets their own."],
-    ["There is no IntPortal server.", "No account, no analytics, no ads, no tracking. Nothing to sell, because nothing is collected."],
-    ["It only talks to your school.", "It signs in to your school's portal with your own login, the way your browser would, then works offline. If you add LAR's AI, it also downloads the model files from Hugging Face, sending nothing about you beyond the download itself."],
+  const facts: { icon: SpriteName; lead: string; more: string; href?: string; link?: string }[] = [
+    { icon: "lock", lead: "Your login only goes to your school.", more: "It's kept in the phone's keychain and used only to sign in to your school's own portal." },
+    { icon: "disk", lead: "Your data is encrypted on the phone.", more: "Schedule, grades, notes and decks sit in an encrypted database. Each student who signs in gets their own." },
+    { icon: "you", lead: "There is no IntPortal server.", more: "No account, no analytics, no ads, no tracking. Nothing to sell, because nothing is collected." },
+    { icon: "sync", lead: "It only talks to your school.", more: "It signs in to your school's portal with your own login, the way your browser would, then works offline. If you add LAR's AI, it also downloads the model files from Hugging Face, sending nothing about you beyond the download itself." },
+    { icon: "find", lead: "Anyone can read the code.", more: "It's published on GitHub, so anyone can check what the app does.", href: REPO_URL, link: "The code on GitHub" },
+  ];
+  const questions = [
+    ["q-is-this-official", "Is this official?"],
+    ["q-is-my-password-safe", "Is my password safe?"],
+    ["q-why-isnt-it-on-the-app-store", "Why isn't it on the App Store?"],
   ];
 
   const shipped = $derived(
@@ -85,8 +92,8 @@
 <svelte:head>
   <title>IntPortal: your schedule, grades and deadlines, on your phone</title>
   <meta name="description" content="An unofficial student app. Your schedule, grades and deadlines from your school's portal, on your phone. PUP's SIS and eMabini today, more schools coming. Works offline. Stays on your phone. Free for Android, iPhone, computers and the browser." />
-  <meta property="og:title" content="IntPortal" />
-  <meta property="og:description" content="Your schedule, grades and deadlines, on your phone. Works offline. Stays on your phone." />
+  <meta property="og:title" content="IntPortal: your school portal, on your phone" />
+  <meta property="og:description" content="Free, unofficial student app. Your schedule, grades and deadlines from PUP SIS and eMabini, on your phone. Works offline." />
   <meta property="og:image" content="/og.png" />
   <meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
@@ -104,10 +111,10 @@
 <svelte:window onpointermove={glow} />
 
 <section id="features" class="wrap features" aria-labelledby="f-h" bind:this={lit}>
-  <h2 id="f-h">On the other side</h2>
-  <p class="lede">Everything SIS has, kept on your phone, and the parts SIS never had.</p>
   <div class="story">
     <div class="steps" bind:this={stories}>
+      <h2 id="f-h">On the other side</h2>
+      <p class="lede">Everything SIS has, kept on your phone, and the parts SIS never had.</p>
       {#each features as f, i (f.title)}
         <article id={slug(f.title)} class="feature" class:flip={i % 2 === 1} class:on={i === story} data-i={i}>
           <div class="own"><Phone src={f.src} alt={f.alt} video={f.video} poster={f.poster} /></div>
@@ -173,8 +180,12 @@
 <section class="wrap data" aria-labelledby="d-h">
   <h2 id="d-h">Stays on your phone</h2>
   <dl>
-    {#each facts as [lead, more] (lead)}
-      <div><dt>{lead}</dt><dd>{more}</dd></div>
+    {#each facts as f (f.lead)}
+      <div>
+        <span class="tile" aria-hidden="true"><PixelIcon name={f.icon} size={20} /></span>
+        <dt>{f.lead}</dt>
+        <dd>{f.more}{#if f.href}{" "}<a href={f.href} rel="noopener">{f.link}</a>{/if}</dd>
+      </div>
     {/each}
   </dl>
   <p class="fine">The whole of it is in the <a href="/privacy">privacy policy</a>.</p>
@@ -186,7 +197,8 @@
   <p class="fine after">Installing it for the first time? <a href="/help#install">Install help for every device</a>.</p>
 </section>
 
-<section class="wrap next" aria-labelledby="n-h">
+<div class="wrap after-dl">
+<section class="next" aria-labelledby="n-h">
   <div class="band">
     <div>
       <h2 id="n-h">Where it's going</h2>
@@ -202,10 +214,14 @@
   </div>
 </section>
 
-<section class="wrap ask" aria-labelledby="q-h">
+<section class="ask" aria-labelledby="q-h">
   <h2 id="q-h">Questions?</h2>
-  <p>Is it official? Is my password safe? Why isn't it on the App Store? The answers, and fixes for when something's wrong, are in <a href="/help">Help</a>.</p>
+  <ul>
+    {#each questions as [id, q] (id)}<li><a href="/help#{id}">{q}<PixelIcon name="chev" size={12} /></a></li>{/each}
+  </ul>
+  <a class="all" href="/help#questions">All questions</a>
 </section>
+</div>
 
 <style>
   h1 {
@@ -216,8 +232,8 @@
   }
   .line {
     margin-top: 18px;
-    max-width: 30ch;
-    font-size: clamp(1.12rem, 2.1vw, 1.42rem);
+    max-width: 34ch;
+    font-size: clamp(1.12rem, 1.5vw, 1.6rem);
     line-height: 1.4;
     color: var(--site-ink-2);
   }
@@ -229,7 +245,7 @@
   }
   .un {
     margin-top: 18px;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: var(--site-ink-3);
   }
   section h2 {
@@ -247,8 +263,7 @@
   .campus,
   .data,
   .dl,
-  .next,
-  .ask {
+  .after-dl {
     margin-top: clamp(96px, 14vh, 160px);
   }
   .features {
@@ -358,6 +373,10 @@
     .steps {
       padding-bottom: 22svh;
     }
+    .steps > article:first-of-type {
+      min-height: auto;
+      padding-block: 8px 18svh;
+    }
     .stage {
       --w: min(17.65rem, calc((100svh - 190px) * 0.45));
       position: sticky;
@@ -459,11 +478,20 @@
   }
   /* 058 C11: every feature, by group, as plain links. */
   .index {
-    columns: 2 420px;
-    column-gap: clamp(32px, 5vw, 72px);
+    display: grid;
+    gap: 0 clamp(32px, 4vw, 56px);
+  }
+  @media (min-width: 900px) {
+    .index {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1280px) {
+    .index {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
   }
   .group {
-    break-inside: avoid;
     padding: 22px 0 28px;
     box-shadow: inset 0 1px 0 var(--site-line);
   }
@@ -504,7 +532,7 @@
   .group li a {
     display: inline-flex;
     align-items: center;
-    min-height: 36px;
+    min-height: 44px;
     gap: 8px;
     padding: 0 10px;
     border-radius: var(--radius);
@@ -596,7 +624,29 @@
     gap: 40px 56px;
     margin: 0;
   }
+  dl > div {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    align-content: start;
+    gap: 0 18px;
+  }
+  dl dt,
+  dl dd {
+    grid-column: 2;
+  }
+  .tile {
+    grid-row: 1 / span 2;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    background: var(--obsidian);
+    color: var(--site-ink);
+    /* The band's stepped corner, one 3 px art pixel deep. */
+    clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
+  }
   dt {
+    padding-top: 4px;
     font-family: var(--site-display);
     font-weight: 700;
     font-size: 1.25rem;
@@ -635,12 +685,58 @@
     flex-wrap: wrap;
     gap: 10px;
   }
-  .ask p {
-    margin-top: 14px;
-    max-width: 60ch;
-    font-size: 1.12rem;
-    line-height: 1.6;
-    color: var(--site-ink-2);
+  /* 060 C12: the roadmap band and Questions share one row on a wide screen. */
+  .after-dl {
+    display: grid;
+    gap: clamp(64px, 10vh, 96px) clamp(40px, 5vw, 72px);
+  }
+  @media (min-width: 900px) {
+    .after-dl {
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      align-items: start;
+    }
+    /* Questions' heading lines up with the one inside the band. */
+    .ask {
+      padding-top: clamp(28px, 5vw, 56px);
+    }
+    .next h2,
+    .ask h2 {
+      font-size: clamp(2rem, 3.2vw, 2.6rem);
+    }
+  }
+  .ask ul {
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ask li a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 52px;
+    box-shadow: inset 0 -1px 0 var(--site-line);
+    color: var(--site-ink);
+    font-size: 1.08rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color var(--t-quick) var(--ease);
+  }
+  .ask li a:hover {
+    color: var(--gold);
+  }
+  .ask li :global(svg) {
+    flex: none;
+    color: var(--gold);
+  }
+  .all {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-top: 10px;
+    color: var(--gold);
+    font-family: var(--site-display);
+    font-weight: 600;
   }
   @media (max-width: 899px) {
     h1 {
@@ -663,9 +759,22 @@
     .feature.flip {
       flex-direction: column;
       align-items: flex-start;
+      gap: 20px;
+      padding-block: 20px;
+    }
+    .feature .text {
+      flex: none;
     }
     dl {
       grid-template-columns: 1fr;
+    }
+    /* 060 C11: on a phone the directory is the groups; each opens on /features. */
+    .gline,
+    .group ul {
+      display: none;
+    }
+    .group {
+      padding: 6px 0;
     }
   }
 </style>

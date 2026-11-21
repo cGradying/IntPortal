@@ -46,7 +46,7 @@ pub struct Snapshot {
     /// Deadline ids marked done on this phone: eMabini and own ones (041 C5).
     #[serde(default)]
     pub done: std::collections::BTreeSet<String>,
-    /// The school's name in own schedule mode (spec 060 C7).
+    /// The school's name in own schedule mode (spec 061 C7).
     #[serde(default)]
     pub school: Option<String>,
 }
@@ -638,7 +638,7 @@ impl Store {
     }
 
     pub fn forget_sis(&self) -> Result<(), StoreError> {
-        // The student's own classes are theirs, not the SIS's (spec 060 C1).
+        // The student's own classes are theirs, not the SIS's (spec 061 C1).
         let own: Vec<ClassSession> = self.load()?.sessions.into_iter().filter(|s| s.own).collect();
         self.db.execute("DELETE FROM kv WHERE key IN ('sessions', 'grades', 'history', 'host', 'last_synced')", [])?;
         if !own.is_empty() {
@@ -731,7 +731,7 @@ impl Store {
                     .collect::<Result<BTreeMap<_, _>, _>>()
             })
             .transpose()?;
-        // Own classes replace the phone's own ones; synced ones stay (060 C6).
+        // Own classes replace the phone's own ones; synced ones stay (061 C6).
         let mut sessions: Vec<ClassSession> = tx
             .query_row("SELECT json FROM kv WHERE key = 'sessions'", [], |r| r.get::<_, String>(0))
             .optional()?

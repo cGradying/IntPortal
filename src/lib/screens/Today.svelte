@@ -716,7 +716,7 @@
   .tomorrow strong {
     color: var(--ink);
   }
-  /* Own schedule with no classes yet (spec 060 C8). */
+  /* Own schedule with no classes yet (spec 061 C8). */
   .adds {
     display: flex;
     flex-wrap: wrap;

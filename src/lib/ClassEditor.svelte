@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The class editor (spec 060 C2 to C5): a new own class, or one to change.
+  // The class editor (spec 061 C2 to C5): a new own class, or one to change.
   // Opened from Schedule's "+ Class", Today's empty state, the scan review and an
   // own class's sheet. Synced classes never open here.
   import { closable } from "./back";

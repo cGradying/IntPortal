@@ -13,7 +13,7 @@ export interface ClassSession {
   start: number;
   end: number;
   occurrence: number;
-  /** The student added it (spec 060); a sync never touches it. */
+  /** The student added it (spec 061); a sync never touches it. */
   own?: boolean;
   room?: string;
 }
@@ -274,7 +274,7 @@ export interface Meeting {
 
 export interface Snapshot {
   sessions: ClassSession[];
-  /** The school's name in own schedule mode (spec 060 C7). */
+  /** The school's name in own schedule mode (spec 061 C7). */
   school?: string | null;
   grades: GradeReport | null;
   history: GradeReport[];

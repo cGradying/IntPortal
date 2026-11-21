@@ -131,7 +131,7 @@ async fn refresh(state: &AppState, client: &SisClient, rows: Option<Vec<schedule
         None => client.schedule().await.map_err(err)?,
     };
     let mut snap = snapshot_of(state)?;
-    // The student's own classes stay; only the synced ones are replaced (spec 060 C1).
+    // The student's own classes stay; only the synced ones are replaced (spec 061 C1).
     let own: Vec<_> = snap.sessions.drain(..).filter(|s| s.own).collect();
     snap.sessions = schedule::parse(&rows);
     snap.sessions.extend(own);
@@ -172,7 +172,7 @@ fn save_ledger(dir: &std::path::Path, file: &str, ledger: &Ledger) -> Result<(),
 
 mod mabini_vault;
 
-/// Own schedule's one file on this phone is named as if this were its student number (spec 060 C7).
+/// Own schedule's one file on this phone is named as if this were its student number (spec 061 C7).
 const OWN_KEY: &str = "OWN-SCHEDULE";
 
 /// Whether the open file is own schedule's.

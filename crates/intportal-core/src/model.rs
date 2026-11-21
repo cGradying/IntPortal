@@ -55,7 +55,7 @@ pub struct ClassSession {
     /// literal repeated SIS row, so ids stay unique.
     #[serde(default)]
     pub occurrence: u16,
-    /// The student added it (spec 060 C1): a sync never replaces it.
+    /// The student added it (spec 061 C1): a sync never replaces it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub own: bool,
     /// Where it meets, for an own class. The SIS doesn't give one.

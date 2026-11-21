@@ -128,7 +128,7 @@
     <button class="link" onclick={() => (moving = null)}>Back</button>
   {:else}
     {#if s.own}
-      <!-- An own class is the student's to change (spec 060 C5). -->
+      <!-- An own class is the student's to change (spec 061 C5). -->
       <div class="opts two">
         <button onclick={() => { const c = classesOf(app.snapshot?.sessions ?? []).find((c) => c.code === s.subject_code); close(); if (c) editClass(c); }}>Edit class</button>
         <button onclick={() => run(api.deleteClass(s.subject_code))}>Remove class</button>

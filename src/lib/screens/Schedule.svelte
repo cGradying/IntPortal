@@ -684,7 +684,7 @@
     font-weight: 700;
     color: var(--gold);
   }
-  /* Own classes start here (spec 060 C5). */
+  /* Own classes start here (spec 061 C5). */
   .adds {
     display: flex;
     gap: 8px;
