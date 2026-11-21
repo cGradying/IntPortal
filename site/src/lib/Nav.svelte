@@ -1,5 +1,5 @@
 <script lang="ts">
-  // 057 C15: Features, Roadmap, Help, Try it and the gold Get it; on a phone they
+  // 057 C15: Features, Roadmap, Help and the gold Get it; on a phone they
   // fold into a sheet that holds focus and closes on Escape.
   import { page } from "$app/state";
   import { tick } from "svelte";
@@ -12,7 +12,6 @@
     ["/features", "Features"],
     ["/roadmap", "Roadmap"],
     ["/help", "Help"],
-    ["/try", "Try it"],
   ] as const;
   const more = [
     ["/changelog", "What's new"],

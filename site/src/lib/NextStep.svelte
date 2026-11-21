@@ -1,5 +1,5 @@
 <script lang="ts">
-  // 060 C5: inner pages end on one next step: this device's download, or the browser.
+  // 060 C5: inner pages end on one next step: this device's download.
   // iPhones and unknown devices get /download, where the steps are.
   import { onMount } from "svelte";
   import { page } from "$app/state";
@@ -23,7 +23,7 @@
   <div class="go">
     <div class="links">
       <a class="gold" href={get.href}>Get IntPortal</a>
-      <a class="ghost" href="/try">Try it in your browser</a>
+      <a class="ghost" href="/download">Every download</a>
     </div>
     {#if get.name}<p class="fine">For {get.name}. Other devices are on <a href="/download">Download</a>.</p>{/if}
   </div>

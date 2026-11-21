@@ -19,7 +19,6 @@ export const PAGES: Hit[] = [
   ["/", "Home", "The portal, the app in six screens, and every download"],
   ["/features", "Features", "Everything in IntPortal, by tab"],
   ["/download", "Download", "Android, iPhone, Mac, Windows, Linux"],
-  ["/try", "Try it in your browser", "The whole app on sample data"],
   ["/help", "Help", "Installing it, questions, and fixes"],
   ["/changelog", "What's new", "Every release, newest first"],
   ["/roadmap", "Roadmap", "Shipped, building, next and later"],

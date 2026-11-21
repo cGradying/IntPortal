@@ -13,7 +13,6 @@
     ["Tauri 2", "One app for iPhone, Android, Mac, Windows and Linux."],
     ["SQLCipher", "Your data, encrypted on the device."],
     ["llama.cpp", "LAR's assistant, running on the phone itself."],
-    ["WebAssembly", "The Rust core in your browser, for Try it."],
   ];
 </script>
 

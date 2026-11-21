@@ -28,7 +28,7 @@
   {:else}
     <div class="soon">
       <p>The reel isn't out yet. It comes with a later release.</p>
-      <a class="gold" href="/try">Try the app in your browser meanwhile</a>
+      <a class="gold" href="/download">Get the app meanwhile</a>
     </div>
   {/if}
 </section>

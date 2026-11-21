@@ -55,7 +55,7 @@
         </div>
       {/each}
     </div>
-    <p class="fine after">Every file, with its size and version, is on <a href="/download">Download</a>. No install at all: <a href="/try">try it in your browser</a>.</p>
+    <p class="fine after">Every file, with its size and version, is on <a href="/download">Download</a>.</p>
   </section>
 
   <section id="questions" aria-labelledby="q-h">

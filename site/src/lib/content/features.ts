@@ -32,7 +32,6 @@ const SPEC = {
   chat: "048-lar-chat",
   intro: "049-intro",
   release: "050-release-0.4",
-  browser: "052-try-in-browser",
   desktop: "053-desktop",
   game: "055-study-game",
 };
@@ -653,18 +652,5 @@ export const FEATURES: Feature[] = [
     steps: ["Open the download page on your computer.", "Download the file for your system.", "Open it, and allow it once when asked."],
     since: "0.4.0",
     spec: SPEC.desktop,
-  },
-  {
-    slug: "try-in-browser",
-    name: "Try it in your browser",
-    group: "everywhere",
-    line: "The real app on sample data, in any browser. Nothing is sent or kept.",
-    body: [
-      "Look around runs on this website: the real app on sample data, with its core compiled to WebAssembly.",
-      "Nothing is signed in, sent or kept. It's the quickest way to see IntPortal before you install it.",
-    ],
-    steps: ["Open Try it in your browser.", "Tap Look around.", "Use it as you would on a phone."],
-    since: "0.4.0",
-    spec: SPEC.browser,
   },
 ];
