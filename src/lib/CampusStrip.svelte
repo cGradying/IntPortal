@@ -4,6 +4,8 @@
   // class is a lit window, a jeepney passes now and then, at a stepped 12 fps.
   import { onMount } from "svelte";
   import { api } from "./api";
+  import { app } from "./state.svelte";
+  import { gateName } from "./ownClass";
   import { refreshCampus, resolveCampus, sceneKey } from "./campus/choice.svelte";
   import { build, type Built } from "./campus/paint";
   import { startStrip, type Strip } from "./campus/render";
@@ -16,13 +18,16 @@
   let cv: HTMLCanvasElement;
   let built = $state<Built | null>(null);
   let strip: Strip | null = null;
-  const key = $derived(scene || sceneKey());
+  // Own schedule draws its school's gate, not a PUP campus, unless a listed school was picked (spec 061 C7).
+  const key = $derived(scene || (app.ownSchedule !== null && !sceneKey().startsWith("school:") ? "school:own" : sceneKey()));
   const lit = $derived(built ? litWindow(litKey, built.windows) : -1);
 
   let portals: Promise<SchoolLook[]> | null = null;
   async function schoolLook(id: string): Promise<SchoolLook | undefined> {
     portals ??= api.portals().then((ps) => ps.map((p) => ({ id: p.id, name: p.name, accent: p.theme.accent, ramp: p.theme.ramp, motif: p.motif })), () => []);
-    return (await portals).find((p) => p.id === id);
+    const look = (await portals).find((p) => p.id === id);
+    // Own schedule's gate carries the student's school (spec 061 C7).
+    return look && id === "own" && app.ownSchedule ? { ...look, name: gateName(app.ownSchedule) } : look;
   }
 
   // Only the picked campus's scene is fetched; a load that a newer pick overtook is dropped.

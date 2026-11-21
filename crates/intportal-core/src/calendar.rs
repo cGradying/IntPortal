@@ -196,7 +196,7 @@ mod tests {
     use Weekday::*;
 
     fn s(code: &str, day: Weekday, start: u16, end: u16) -> ClassSession {
-        ClassSession { subject_code: code.into(), description: "Data Structures, Algorithms".into(), faculty: "SANTOS, JUAN".into(), day, start, end, occurrence: 0 }
+        ClassSession { own: false, room: String::new(), subject_code: code.into(), description: "Data Structures, Algorithms".into(), faculty: "SANTOS, JUAN".into(), day, start, end, occurrence: 0 }
     }
 
     const NOW: &str = "20260927T120000Z";

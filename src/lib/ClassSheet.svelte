@@ -5,7 +5,8 @@
   import { closable } from "./back";
   import { dismiss, scrim, sheet as rises } from "./motion";
   import { buzz } from "./haptics";
-  import { app, adopt, openNote, openSubject } from "./state.svelte";
+  import { app, adopt, editClass, openNote, openSubject } from "./state.svelte";
+  import { classesOf } from "./ownClass";
   import { openLink } from "./openLink";
   import { api, clock, isoDate, WEEKDAYS, type Mark, type Meeting, type Snapshot, type Weekday } from "./api";
 
@@ -126,6 +127,13 @@
     </div>
     <button class="link" onclick={() => (moving = null)}>Back</button>
   {:else}
+    {#if s.own}
+      <!-- An own class is the student's to change (spec 061 C5). -->
+      <div class="opts two">
+        <button onclick={() => { const c = classesOf(app.snapshot?.sessions ?? []).find((c) => c.code === s.subject_code); close(); if (c) editClass(c); }}>Edit class</button>
+        <button onclick={() => run(api.deleteClass(s.subject_code))}>Remove class</button>
+      </div>
+    {/if}
     <h2>How is this class meeting?</h2>
     <p class="label">This week only</p>
     <div class="opts">
@@ -148,7 +156,7 @@
     <p class="label">Time</p>
     <div class="opts two">
       <button onclick={() => (moving = { day: s.day, start: hhmm(s.start), end: hhmm(s.end) })}>Change its time</button>
-      <button disabled={!meeting.moved} onclick={unmove}>Back to SIS time</button>
+      <button disabled={!meeting.moved} onclick={unmove}>{s.own ? "Back to its time" : "Back to SIS time"}</button>
     </div>
     <p class="label">Your description</p>
     <textarea rows="2" bind:value={about} onblur={() => saveInfo()} aria-label="Your description"></textarea>

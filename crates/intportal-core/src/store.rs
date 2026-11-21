@@ -46,6 +46,9 @@ pub struct Snapshot {
     /// Deadline ids marked done on this phone: eMabini and own ones (041 C5).
     #[serde(default)]
     pub done: std::collections::BTreeSet<String>,
+    /// The school's name in own schedule mode (spec 061 C7).
+    #[serde(default)]
+    pub school: Option<String>,
 }
 
 /// The file one student's data lives in. Each student number gets its own,
@@ -304,6 +307,7 @@ impl Store {
             last_synced: self.get::<Option<_>>("last_synced")?.flatten(),
             own_deadlines: self.get("own_deadlines")?.unwrap_or_default(),
             done: self.get("done")?.unwrap_or_default(),
+            school: self.get::<Option<_>>("school")?.flatten(),
         };
         *self.cache.borrow_mut() = Some(snap.clone());
         Ok(snap)
@@ -320,7 +324,7 @@ impl Store {
                 }
             )*};
         }
-        put_changed!(sessions, grades, history, marks, colors, goals, class_info, syllabus, host, last_synced, own_deadlines, done);
+        put_changed!(sessions, grades, history, marks, colors, goals, class_info, syllabus, host, last_synced, own_deadlines, done, school);
         tx.commit()?;
         *self.cache.borrow_mut() = Some(s.clone());
         Ok(())
@@ -634,7 +638,12 @@ impl Store {
     }
 
     pub fn forget_sis(&self) -> Result<(), StoreError> {
+        // The student's own classes are theirs, not the SIS's (spec 061 C1).
+        let own: Vec<ClassSession> = self.load()?.sessions.into_iter().filter(|s| s.own).collect();
         self.db.execute("DELETE FROM kv WHERE key IN ('sessions', 'grades', 'history', 'host', 'last_synced')", [])?;
+        if !own.is_empty() {
+            self.put("sessions", &own)?;
+        }
         self.forget();
         // What LAR said may quote those grades and classes.
         self.clear_turns()
@@ -722,7 +731,17 @@ impl Store {
                     .collect::<Result<BTreeMap<_, _>, _>>()
             })
             .transpose()?;
+        // Own classes replace the phone's own ones; synced ones stay (061 C6).
+        let mut sessions: Vec<ClassSession> = tx
+            .query_row("SELECT json FROM kv WHERE key = 'sessions'", [], |r| r.get::<_, String>(0))
+            .optional()?
+            .map(|j| serde_json::from_str(&j))
+            .transpose()?
+            .unwrap_or_default();
+        sessions.retain(|s| !s.own);
+        sessions.extend(b.own_classes.iter().cloned().map(|s| ClassSession { own: true, ..s }));
         let mut kv: Vec<(&str, String)> = vec![
+            ("sessions", serde_json::to_string(&sessions)?),
             ("marks", serde_json::to_string(&b.marks)?),
             ("colors", serde_json::to_string(&b.colors.iter().filter(|(_, c)| is_color(c)).collect::<BTreeMap<_, _>>())?),
             ("goals", serde_json::to_string(&b.goals)?),
@@ -783,7 +802,7 @@ mod tests {
         };
         Snapshot {
             sessions: (0..14u16)
-                .map(|i| ClassSession {
+                .map(|i| ClassSession { own: false, room: String::new(),
                     subject_code: format!("COMP 2008{}", i % 7),
                     description: "Data Structures and Algorithms".into(),
                     faculty: "Dela Cruz, Juan".into(),
@@ -850,6 +869,30 @@ mod tests {
         let reopened = Store::open_plain(&path).unwrap().load().unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(reopened, snap);
+    }
+
+    #[test]
+    fn signing_out_of_the_sis_keeps_own_classes_and_a_backup_carries_them() {
+        let store = Store::in_memory().unwrap();
+        let mut snap = seasoned();
+        let own = crate::own_class::OwnClass { name: "Org meeting".into(), meetings: vec![crate::own_class::Meeting { days: vec![crate::model::Weekday::Friday], start: 1020, end: 1080 }], ..Default::default() };
+        crate::own_class::save(&mut snap, None, own).unwrap();
+        snap.school = Some("Bulacan State".into());
+        store.save(&snap).unwrap();
+        let synced = snap.sessions.iter().filter(|s| !s.own).count();
+        assert!(synced > 0);
+        store.forget_sis().unwrap();
+        let kept = store.load().unwrap();
+        assert_eq!(kept.sessions.iter().map(|s| (s.own, s.subject_code.as_str())).collect::<Vec<_>>(), [(true, "OM")]);
+        assert_eq!(kept.school.as_deref(), Some("Bulacan State"));
+
+        let b = Backup::make(&store, "OWN-SCHEDULE", [0; 16], vec![], 1).unwrap();
+        assert_eq!(b.own_classes.len(), 1);
+        let fresh = Store::in_memory().unwrap();
+        fresh.save(&seasoned()).unwrap();
+        fresh.restore(&b).unwrap();
+        let back = fresh.load().unwrap().sessions;
+        assert_eq!((back.iter().filter(|s| s.own).count(), back.iter().filter(|s| !s.own).count()), (1, synced), "own classes come back, synced ones stay");
     }
 
     #[test]
@@ -932,7 +975,7 @@ mod tests {
         let store = Store::in_memory().unwrap();
         assert_eq!(store.load().unwrap(), Snapshot::default());
 
-        let session = ClassSession {
+        let session = ClassSession { own: false, room: String::new(),
             subject_code: "COMP 20073".into(),
             description: "Data Structures".into(),
             faculty: "SANTOS, JUAN".into(),
@@ -957,7 +1000,7 @@ mod tests {
     fn sign_out_forgets_sis_data_but_keeps_the_students_work() {
         let store = Store::in_memory().unwrap();
         let mut snap = Snapshot { host: Some("sis8.pup.edu.ph".into()), last_synced: Some("1".into()), ..Default::default() };
-        snap.sessions.push(ClassSession { subject_code: "A".into(), description: String::new(), faculty: String::new(), day: Weekday::Monday, start: 0, end: 60, occurrence: 0 });
+        snap.sessions.push(ClassSession { own: false, room: String::new(), subject_code: "A".into(), description: String::new(), faculty: String::new(), day: Weekday::Monday, start: 0, end: 60, occurrence: 0 });
         snap.grades = Some(GradeReport { subjects: vec![], summary: BTreeMap::new(), school_year: None, semester: None });
         snap.colors.insert("A".into(), "var(--s2)".into());
         snap.goals.target_gpa = Some(1.5);

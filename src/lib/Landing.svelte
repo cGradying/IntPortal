@@ -83,6 +83,8 @@
   let studno = $state("");
   let birthday = $state("");
   let password = $state("");
+  // Own schedule's one field (spec 061 C7).
+  let school = $state("");
   let showPw = $state(false);
   // The birthdate wheels' sheet (011 C1), and an SIS that didn't answer (C9).
   let wheels = $state(false);
@@ -177,9 +179,18 @@
     return () => cancelAnimationFrame(raf);
   });
 
-  const values = $derived({ student_number: studno, birthdate: birthday, password });
+  const values = $derived({ student_number: studno, birthdate: birthday, password, school });
   const why = $derived(validate(portal, values));
-  const started = $derived(!!(studno || birthday || password));
+  const started = $derived(!!(studno || birthday || password || school));
+  const own = $derived(portal.fields.includes("school"));
+  /** A school whose portal opens later can start with its own classes now (061 C7). */
+  let ownFrom: string | null = null;
+  function useOwn(name: string) {
+    ownFrom = portal.id;
+    school = name;
+    portalId = "own";
+    error = "";
+  }
   const bad = (field: PortalField) => tried && !!validate({ ...portal, fields: [field] }, values);
 
   async function submit(e?: Event) {
@@ -191,17 +202,19 @@
     if (error) return;
     busy = true;
     try {
-      await portalApiFor(portal.id).signIn({ student_number: studno, birthdate: birthday, password });
+      await portalApiFor(portal.id).signIn({ student_number: studno, birthdate: birthday, password, school });
       password = "";
+      // Today's campus strip draws the school's gate: the listed school's look, else own schedule's.
+      if (own) setCampus(`school:${ownFrom ?? "own"}`);
       rest = "hub";
       buzz.done();
     } catch (err) {
       const said = friendly(err);
       // No host answered: the down state, with Try again; it spends no try (C9).
-      down = /^couldn't reach the SIS/i.test(String((err as { message?: string })?.message ?? err)) || said.startsWith("Can't reach the SIS");
+      down = !own && /^couldn't reach the SIS/i.test(String((err as { message?: string })?.message ?? err)) || said.startsWith("Can't reach the SIS");
       // A rejection in words we can't read gets ours (C8).
       // Mabini has no birthdate, so its line doesn't ask for one.
-      error = down ? DOWN : said === FALLBACK ? (portal.fields.includes("birthdate") ? REJECTED : REJECTED.replace(", birthdate and", " and")) : said;
+      error = own ? said : down ? DOWN : said === FALLBACK ? (portal.fields.includes("birthdate") ? REJECTED : REJECTED.replace(", birthdate and", " and")) : said;
       buzz.fail();
     } finally {
       busy = false;
@@ -270,7 +283,7 @@
   <div class="dock" class:on={resting} class:hub={rest === "hub"} inert={!resting}>
       {#if rest === "hub"}
         <button class="step" onclick={step}>Step through</button>
-        <p class="hint">{app.sisConnected ? `PUP SIS · via ${(app.snapshot?.host ?? "sis8").split(".")[0]}` : copy.hint}</p>
+        <p class="hint">{app.sisConnected ? `PUP SIS · via ${(app.snapshot?.host ?? "sis8").split(".")[0]}` : app.ownSchedule !== null ? `Own schedule · ${app.ownSchedule}` : copy.hint}</p>
         <!-- 011 C10: signed in, but the SIS has no schedule for this term yet; the student still goes in. -->
         {#if app.sisConnected && app.snapshot && !app.snapshot.sessions.length && !returning}<p class="hint empty">Signed in, but your schedule isn't up yet.</p>{/if}
       {:else}
@@ -282,7 +295,21 @@
               <b>{portal.school}</b>
               <p>Its portal opens soon. IntPortal will connect here once it's ready; for now, SIS and Mabini work.</p>
             </div>
+            <button type="button" class="ghost" onclick={() => useOwn(portal.school)}>Start an own schedule</button>
             <button type="button" class="ghost" onclick={demo}>Look around</button>
+          {:else if own}
+            <div class="soon"><p>{copy.pitch}</p></div>
+            <div class="field" class:filled={!!school} class:bad={bad("school")}>
+              <input id="f-school" bind:value={school} maxlength="60" autocapitalize="words" autocomplete="organization" aria-invalid={bad("school")} />
+              <label for="f-school">Your school</label>
+            </div>
+            <button class="go" disabled={busy || !!why}>{busy ? "Opening…" : "Start"}</button>
+            {#if error}<p class="error" role="alert">{error}</p>{/if}
+            <p class="fine">
+              No login. Add your classes by hand once you're in.
+              <span aria-hidden="true">·</span>
+              <button type="button" class="link" onclick={demo} disabled={busy}>Look around</button>
+            </p>
           {:else}
           <div class="field" class:filled={!!studno} class:bad={bad("student_number")}>
             <input id="f-studno" value={studno} oninput={(e) => typedStudno(e.currentTarget)} placeholder="2026-00000-MN-0" autocapitalize="characters" autocomplete="username" inputmode="text" spellcheck="false" aria-invalid={bad("student_number")} />

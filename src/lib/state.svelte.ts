@@ -2,7 +2,7 @@
 // reading of it, and sync status. Screens read `app`; only this file writes.
 import { invoke } from "@tauri-apps/api/core";
 import { Schedule, cancel, isPermissionGranted, onAction, pending, requestPermission } from "@tauri-apps/plugin-notification";
-import { api, isoDate, localMs, moment, type Busy, type MabiniData, type NoteItem, type Snapshot, type Today } from "./api";
+import { api, isoDate, localMs, moment, type Busy, type MabiniData, type NoteItem, type OwnClass, type Snapshot, type Today } from "./api";
 import { busyFrom, keepClasses } from "./devcal";
 import { applyRoom } from "./rooms";
 import type { Theme } from "./theme";
@@ -39,6 +39,12 @@ export const app = $state({
   syncCount: 0,
   /** Which portals have a saved login on this phone. */
   sisConnected: false,
+  /** The school's name while own schedule is open (spec 061 C8), else null. */
+  ownSchedule: null as string | null,
+  /** The class editor (061 C5): `was` is the own class's code when editing one. */
+  classEditor: null as null | { was: string | null; cls: OwnClass },
+  /** The schedule scan sheet (061 C10). */
+  scanning: false,
   /** The portal turned the saved login down (spec 040 C5); only a new password clears it. */
   sisRejected: false,
   mabiniRejected: false,
@@ -169,6 +175,14 @@ export async function allowReminders() {
     // No notification engine here (a browser): the sample still shows.
   }
   await scheduleReminders(true);
+}
+
+/** Classes come from the SIS or from the student (spec 061 C8): the week, Today and the editor work either way. */
+export const hasClasses = () => app.sisConnected || app.ownSchedule !== null;
+
+/** Opens the class editor on a new class, or on an own class to change it. */
+export function editClass(cls?: OwnClass) {
+  app.classEditor = cls ? { was: cls.code, cls: structuredClone($state.snapshot(cls)) } : { was: null, cls: { code: "", name: "", room: "", teacher: "", meetings: [{ days: [], start: 8 * 60, end: 9 * 60 + 30 }] } };
 }
 
 export function setReminderLead(minutes: number) {
@@ -369,8 +383,9 @@ export async function setCalendar(which: "calendarEvents" | "calendarClasses", o
 
 /** Reads which portals have a login and, for eMabini, what was kept last time. */
 export async function refreshLogins() {
-  const [sis, mabini] = await Promise.all([api.hasLogin().catch(() => false), api.hasMabiniLogin().catch(() => false)]);
+  const [sis, mabini, own] = await Promise.all([api.hasLogin().catch(() => false), api.hasMabiniLogin().catch(() => false), api.ownSchedule().catch(() => null)]);
   app.sisConnected = sis;
+  app.ownSchedule = own;
   app.mabiniConnected = mabini;
   app.sisRejected = sis && (await api.triesLeft().catch(() => null))?.rejected === true;
   app.mabiniRejected = mabini && (await api.mabiniTriesLeft().catch(() => null))?.rejected === true;

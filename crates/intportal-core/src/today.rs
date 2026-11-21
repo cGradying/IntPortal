@@ -583,7 +583,7 @@ mod tests {
     use Weekday::*;
 
     fn s(code: &str, day: Weekday, start: u16, end: u16) -> ClassSession {
-        ClassSession {
+        ClassSession { own: false, room: String::new(),
             subject_code: code.into(),
             description: String::new(),
             faculty: String::new(),

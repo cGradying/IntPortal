@@ -15,7 +15,7 @@ const TABLE: [RegExp, string | ((m: RegExpMatchArray) => string)][] = [
 /** The app's own sentences (Rust commands, the core's store and backup, the UI). A string starts with one of these. */
 const OWN = [
   // src-tauri commands
-  "Give the deck a name.", "Give it a name first.", "No such card.", "Unknown note", "Unknown model", "Unknown action", "Sync first", "Not signed in",
+  "Give the deck a name.", "Give the class a name.", "Pick at least one day.", "It has to end after it starts.", "That class is already on your week.", "Type your school's name.", "Give it a name first.", "No such card.", "Unknown note", "Unknown model", "Unknown action", "Sync first", "Not signed in",
   "Turn IntAssis on first", "Send the PDF as raw bytes", "Saving your login isn't supported on this device yet.", "The data is locked. Restart the app.",
   "The store key in the keychain is damaged.", "IntAssis is busy", "IntAssis stopped. Try again.", "Couldn't make the backup.", "Couldn't restore that backup, so nothing changed.",
   "Sign in first, then back up.", "That deck is gone.", "That card is gone.", "That photo isn't where it should be.", "A class has to end after it starts, before midnight.",

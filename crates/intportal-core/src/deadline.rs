@@ -365,7 +365,7 @@ mod tests {
     }
 
     fn session(code: &str) -> ClassSession {
-        ClassSession { subject_code: code.into(), description: String::new(), faculty: String::new(), day: crate::model::Weekday::Monday, start: 480, end: 570, occurrence: 0 }
+        ClassSession { own: false, room: String::new(), subject_code: code.into(), description: String::new(), faculty: String::new(), day: crate::model::Weekday::Monday, start: 480, end: 570, occurrence: 0 }
     }
 
     fn item(id: &str, topic: &str, kind: Kind, date: Date) -> Item {
@@ -515,7 +515,7 @@ mod tests {
     }
 
     fn meeting(code: &str, day: crate::model::Weekday) -> ClassSession {
-        ClassSession { subject_code: code.into(), description: String::new(), faculty: String::new(), day, start: 480, end: 570, occurrence: 0 }
+        ClassSession { own: false, room: String::new(), subject_code: code.into(), description: String::new(), faculty: String::new(), day, start: 480, end: 570, occurrence: 0 }
     }
 
     #[test]

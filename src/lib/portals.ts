@@ -7,6 +7,8 @@ export interface FormValues {
   student_number: string;
   birthdate: string;
   password: string;
+  /** Own schedule's one field (spec 061 C7). */
+  school?: string;
 }
 
 const STUDENT_NUMBER = /^\d{4}-?\d{5}-?[A-Za-z]{2}-?\d$/;
@@ -20,6 +22,7 @@ export function validate(portal: Portal, v: FormValues): string {
     }
     if (field === "birthdate" && !v.birthdate) return "Add your birthdate.";
     if (field === "password" && !v.password) return "Add your password.";
+    if (field === "school" && !(v.school ?? "").trim()) return "Type your school's name.";
   }
   return "";
 }
@@ -67,6 +70,14 @@ const COPY: Record<string, PortalCopy> = {
     system: "PUP eMabini",
     reset: "https://emabini.pup.edu.ph/login/forgot_password.php",
   },
+  own: {
+    lar: "Wala pang portal ang school mo? Okay lang. Ilagay natin ang classes mo dito.",
+    keychainNote: "There's no login. Your classes stay on this phone.",
+    hint: "Own schedule",
+    pitch: "For schools without a portal yet. Your classes stay on this phone.",
+    system: "this phone",
+    reset: "",
+  },
 };
 
 export const portalCopy = (id: string): PortalCopy => COPY[id] ?? COPY.sis;
@@ -74,6 +85,7 @@ export const portalCopy = (id: string): PortalCopy => COPY[id] ?? COPY.sis;
 /** What the plaque's chip says about a portal: `status` is the last check, null while one is out (010 C40). */
 export function statusChip(portal: Portal, status: PortalStatus | null): { text: string; tone: "up" | "down" | "wait" | "soon" } {
   if (portal.status !== "ready") return { text: "Opens soon", tone: "soon" };
+  if (portal.fields?.includes("school")) return { text: "No login", tone: "up" };
   if (!status) return { text: "Checking…", tone: "wait" };
   const name = portalCopy(portal.id).system.replace(/^PUP /, "");
   if (!status.up) return { text: `${name} isn't answering`, tone: "down" };

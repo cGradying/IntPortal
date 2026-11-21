@@ -13,6 +13,24 @@ export interface ClassSession {
   start: number;
   end: number;
   occurrence: number;
+  /** The student added it (spec 061); a sync never touches it. */
+  own?: boolean;
+  room?: string;
+}
+
+/** Some days at one time, for an own class (the core's `own_class::Meeting`). */
+export interface ClassTime {
+  days: Weekday[];
+  start: number;
+  end: number;
+}
+
+export interface OwnClass {
+  code: string;
+  name: string;
+  room: string;
+  teacher: string;
+  meetings: ClassTime[];
 }
 
 export interface SubjectGrade {
@@ -250,6 +268,8 @@ export interface Meeting {
 
 export interface Snapshot {
   sessions: ClassSession[];
+  /** The school's name in own schedule mode (spec 061 C7). */
+  school?: string | null;
   grades: GradeReport | null;
   history: GradeReport[];
   marks: Layers<Mark> & { moved: Layers<Slot> };
@@ -434,7 +454,7 @@ export interface PortalStatus {
   host: string | null;
 }
 
-export type PortalField = "student_number" | "birthdate" | "password";
+export type PortalField = "student_number" | "birthdate" | "password" | "school";
 
 export interface Portal {
   id: string;
@@ -481,6 +501,11 @@ export const api = {
     invoke<{ nudge: Nudge; line: string; key: string } | null>("coach", { now, dismissed, busy, utcOffset: -new Date().getTimezoneOffset() }),
   deadlines: (now: Moment, days: number) => invoke<DeadlineEntry[]>("deadlines", { now, utcOffset: -new Date().getTimezoneOffset(), days }),
   setDone: (id: string, done: boolean) => invoke<Snapshot>("set_done", { id, done }),
+  saveClass: (was: string | null, cls: OwnClass) => invoke<Snapshot>("save_class", { was, class: cls }),
+  deleteClass: (code: string) => invoke<Snapshot>("delete_class", { code }),
+  startOwn: (school: string) => invoke<Snapshot>("start_own", { school }),
+  ownSchedule: () => invoke<string | null>("own_schedule"),
+  leaveOwn: () => invoke<void>("leave_own"),
   saveOwn: (own: OwnDeadline) => invoke<Snapshot>("save_own", { own }),
   deleteOwn: (id: string) => invoke<Snapshot>("delete_own", { id }),
   parseOwn: (text: string, today: string) => invoke<DeadlineDraft[]>("parse_own", { text, today }),

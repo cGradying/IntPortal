@@ -36,6 +36,14 @@ _Avoid_: status, tag
 The color the student gives a subject code. It survives every sync.
 _Avoid_: class color, label
 
+**Own class**:
+A class the student added to their week themselves. A sync never touches it.
+_Avoid_: custom class, manual class
+
+**Own schedule**:
+Using the app with no portal behind it: the student's school has none in IntPortal yet, so every class is an own class.
+_Avoid_: offline mode, manual mode, no-portal mode
+
 ### The app's worlds
 
 **Void**:

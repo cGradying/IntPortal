@@ -104,6 +104,9 @@ pub struct Backup {
     #[serde(default)]
     pub class_info: Option<BTreeMap<String, ClassInfo>>,
     pub own_deadlines: Vec<OwnDeadline>,
+    /// Classes the student added (spec 061 C6). Synced ones never go in a file.
+    #[serde(default)]
+    pub own_classes: Vec<crate::model::ClassSession>,
     pub done: BTreeSet<String>,
     pub study_stats: Stats,
     /// The webview's saved themes (`[{id, code}]`), handed in by the UI.
@@ -158,7 +161,7 @@ impl Backup {
     /// Builds the file from the store. `student` is the signed-in student number
     /// and `salt` is 16 random bytes, new for every file.
     pub fn make(store: &Store, student: &str, salt: [u8; 16], themes: Vec<serde_json::Value>, now: i64) -> Result<Backup, StoreError> {
-        let Snapshot { marks, colors, class_info, goals, syllabus, own_deadlines, done, .. } = store.load()?;
+        let Snapshot { sessions, marks, colors, class_info, goals, syllabus, own_deadlines, done, .. } = store.load()?;
         Ok(Backup {
             app: APP.into(),
             version: VERSION,
@@ -172,6 +175,7 @@ impl Backup {
             colors,
             class_info: Some(class_info),
             own_deadlines,
+            own_classes: sessions.into_iter().filter(|s| s.own).collect(),
             done,
             study_stats: store.study_stats()?,
             themes,
@@ -260,7 +264,7 @@ mod tests {
         let text = file(&s);
         let v: serde_json::Value = serde_json::from_str(&text).unwrap();
         let keys: Vec<&str> = v.as_object().unwrap().keys().map(String::as_str).collect();
-        let allowed = ["app", "class_info", "colors", "decks", "done", "goals", "made", "marks", "notes", "own_deadlines", "photos", "student", "study_stats", "syllabus", "themes", "version"];
+        let allowed = ["app", "class_info", "colors", "decks", "done", "goals", "made", "marks", "notes", "own_classes", "own_deadlines", "photos", "student", "study_stats", "syllabus", "themes", "version"];
         assert_eq!(keys, allowed, "a new field in the file has to be added here on purpose");
         for secret in [ME, "password", "birth", "token", "keychain", "sis8.pup.edu.ph", "last_synced", "sessions", "grades", "mabini"] {
             assert!(!text.to_lowercase().contains(&secret.to_lowercase()), "backup mentions {secret}");

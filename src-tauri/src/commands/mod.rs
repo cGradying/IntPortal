@@ -5,6 +5,7 @@
 
 pub mod account;
 pub mod backup;
+pub mod classes;
 pub mod coach;
 pub mod deadlines;
 pub mod mabini;
