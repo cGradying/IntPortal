@@ -4,7 +4,29 @@ What changed in each release, newest first. A release PR adds its section; `scri
 
 ## Unreleased
 
+## 0.6.0 (2026-11-21)
+
+No portal? No problem: build your week by hand or from a photo. Plus a round of privacy and safety fixes.
+
+- **Own schedule.** A school without a portal in IntPortal can still use the app: pick Own schedule, type your school's name, and start with no login. A listed school whose portal isn't ready yet offers "Start an own schedule" with its name filled in. The Grades tab stays hidden, since there are no grades to sync (#358)
+- **Add a class by hand:** name, and optionally code, room and teacher, plus days and times. Leave the code empty and one is made from the name ("Calculus 1" is C1). PUP students can add a class the SIS doesn't show; a sync never removes it (#358)
+- **Scan a schedule** from the camera, a photo or pasted text. The phone reads it, nothing leaves it, and every class found is shown to check and edit before it's saved. IntAssis tries when the phone's own reading finds nothing (#359)
+- Adding and scanning live in You › Classes, which lists the classes you added; tap one to edit it. Today's empty screen offers both too. The Schedule header is back to just the week (#360)
+- Schedule's four-week month: today's square no longer spills over the days beside it (#360)
+- Flashcards flip wherever you tap, not just near the middle (#337)
+- Erase everything really erases: notes, photos, decks and syllabus pages no longer come back on the next sign-in (#339)
+- Signing out of the last portal clears the widget, the Lock Screen countdown, reminders and your classes in the phone calendar. One student per phone: a different student number than the eMabini login on the phone is refused (#343)
+- A turned-down login stays turned down until a sign-in works, so the app never retries a wrong password in the background (#345)
+- The app talks only to the exact portal host it signed in to, and refuses oversized pages (#341)
+- Links open only web pages; camera files, PDFs and model downloads are size- and path-checked (#347, #355)
+- iPhone: a reinstall forgets old logins. Android: app data isn't copied by cloud backup or phone transfer. A tapped notification waits for Face ID when the app is locked (#349)
+- Restoring a backup keeps the app's own limits, and eMabini saves a login only after its first sync works (#357)
 - Licence: IntPortal is all rights reserved from 2026-11-20. The official builds stay free to download and use; copies taken before then keep PolyForm Noncommercial.
+
+Known gaps:
+
+- The scan was tried on the iOS Simulator with a photo from Photos, not yet with a real camera or a real form. It reads list-style schedules; a weekly grid (days across, times down) comes later
+- The IntAssis fallback for the scan is tested with a stand-in, not the real model
 
 ## 0.5.0 (2026-11-17)
 
