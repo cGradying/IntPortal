@@ -44,10 +44,30 @@ pub fn space_used(state: tauri::State<'_, AppState>) -> Res<store::Space> {
     state.store.lock().unwrap().space().map_err(err)
 }
 
-/// Everything on this phone, the student's own notes and decks included.
-#[tauri::command(async)]
-pub fn erase_everything(state: tauri::State<'_, AppState>) -> Res<()> {
+/// Everything on this phone, the student's own notes and decks included. Holds both sync
+/// locks and signs out in the same step, so no refresh in flight writes the student's data
+/// back; then the student's file and its key go too.
+#[tauri::command]
+pub async fn erase_everything(state: tauri::State<'_, AppState>) -> Res<()> {
+    let mut sis = state.client.lock().await;
+    let mut mabini = state.mabini.lock().await;
     state.store.lock().unwrap().wipe().map_err(err)?;
     let _ = std::fs::remove_dir_all(state.dir.join(PHOTO_TMP));
+    *sis = None;
+    *mabini = None;
+    vault::clear();
+    mabini_vault::clear();
+    DEMO.store(false, Ordering::Relaxed);
+    *state.store.lock().unwrap() = Store::in_memory().map_err(err)?;
+    if let Ok(name) = std::fs::read_to_string(state.dir.join(CURRENT)) {
+        let name = name.trim();
+        if name.starts_with("account-") {
+            for suffix in ["", "-wal", "-shm", "-journal"] {
+                let _ = std::fs::remove_file(state.dir.join(format!("{name}{suffix}")));
+            }
+            dbkey::delete(name);
+        }
+    }
+    let _ = std::fs::remove_file(state.dir.join(CURRENT));
     Ok(())
 }
