@@ -4,7 +4,7 @@ IntPortal is an unofficial student app. It works with your school's own portals,
 
 ## The short version
 
-- Your login and your data stay on your phone. There is no IntPortal account, no IntPortal server, no analytics and no ads.
+- Your login is kept on your phone and only ever sent to your school. Your data stays on your phone. There is no IntPortal account, no IntPortal server, no analytics and no ads.
 - The app talks to your school's own systems with your own login, the way you would in a browser.
 - Nothing is sold or shared, because nothing is collected.
 

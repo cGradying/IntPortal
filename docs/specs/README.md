@@ -52,10 +52,10 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [054-reel](054-reel.md) | shipped | A new launch reel made from the app, and its page on the site |
 | [055-study-game](055-study-game.md) | shipped | The study session plays like a card game: combo, soft clock, LAR, results |
 | [056-web-app](056-web-app.md) | draft | Future: the same app in any browser, signed in, with data kept in the browser |
-| [057-website-v2](057-website-v2.md) | approved | The website, second edition: a 3D portal hero with the dive, a feature directory, help, changelog, roadmap and About |
-| [058-website-v3](058-website-v3.md) | approved | The website, third pass: search, share links, offline pages, page transitions, and a home with one phone and a talking LAR |
-| [059-portal-art](059-portal-art.md) | approved | The website's portal, alive: sculptures from the other side when LAR speaks, a breathing vortex, motes, a kawoosh, tiles that lean in |
-| [060-website-v4](060-website-v4.md) | approved | The website, fourth pass: honest install steps, a next step on every page, finished feature pages, lighter on phones |
+| [057-website-v2](057-website-v2.md) | shipped | The website, second edition: a 3D portal hero with the dive, a feature directory, help, changelog, roadmap and About |
+| [058-website-v3](058-website-v3.md) | shipped | The website, third pass: search, share links, offline pages, page transitions, and a home with one phone and a talking LAR |
+| [059-portal-art](059-portal-art.md) | shipped | The website's portal, alive: sculptures from the other side when LAR speaks, a breathing vortex, motes, a kawoosh, tiles that lean in |
+| [060-website-v4](060-website-v4.md) | shipped | The website, fourth pass: honest install steps, a next step on every page, finished feature pages, lighter on phones |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md), [ADR 0005](../adr/0005-portals-are-first-class.md) and [ADR 0006](../adr/0006-one-repo.md).
 

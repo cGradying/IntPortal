@@ -71,6 +71,14 @@
         </div>
         {@render what(r)}
       </section>
+    {:else if !r.items.length && !r.intro}
+      <section {id} class="release old empty" aria-labelledby="{id}-h">
+        <div class="sum">
+          <h2 id="{id}-h">{r.version}</h2>
+          <span class="date pixel"><time datetime={r.date}>{day(r.date)}</time></span>
+          <span class="count">No notes for this release</span>
+        </div>
+      </section>
     {:else}
       <details {id} class="release old">
         <summary>
@@ -290,5 +298,13 @@
     .when {
       position: static;
     }
+  }
+  .empty .sum {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 16px;
+    min-height: 56px;
+    padding: 12px 0;
   }
 </style>

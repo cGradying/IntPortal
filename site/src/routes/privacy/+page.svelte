@@ -9,7 +9,7 @@
 
 <svelte:head>
   <title>Privacy · IntPortal</title>
-  <meta name="description" content="What IntPortal does with your data: it stays on your phone. No account, no server, no analytics." />
+  <meta name="description" content="What IntPortal does with your data: it stays on your phone, and your login only goes to your school. No account, no server, no analytics." />
 </svelte:head>
 
 <article class="wrap">

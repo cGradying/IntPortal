@@ -56,7 +56,7 @@
           <a class={p.id === first ? "gold" : "ghost"} href={f.url} rel="noopener">{p.files.length > 1 ? (f.file.endsWith(".deb") ? ".deb" : "AppImage") : p.button}</a>
         {/each}
         {#if p.id === "android" && android && (here === "mac" || here === "windows" || here === "linux")}
-          <Qr text={android.url} label="Scan with your Android phone to download" />
+          <span class="qr"><Qr text={android.url} label="Scan with your Android phone to download" /></span>
         {/if}
       </div>
     </div>
@@ -115,6 +115,12 @@
     }
     .get a {
       flex: 1;
+    }
+  }
+  /* A narrow window gets the button alone; the QR is for a computer beside a phone. */
+  @media (max-width: 640px) {
+    .qr {
+      display: none;
     }
   }
 </style>

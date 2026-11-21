@@ -7,17 +7,17 @@
   import { firstFor, PLATFORMS } from "./platforms";
   import type { Release } from "./releases";
 
-  let get = $state<{ href: string; name?: string }>({ href: "/download" });
+  let get = $state<{ href: string; name?: string; computer?: boolean }>({ href: "/download" });
   onMount(() => {
     const id = firstFor(device(navigator.userAgent, navigator.maxTouchPoints));
     const file = (page.data.release as Release | null)?.assets.find((a) => a.platform === id);
-    if (file) get = { href: file.url, name: PLATFORMS.find((p) => p.id === id)?.name };
+    if (file) get = { href: file.url, name: PLATFORMS.find((p) => p.id === id)?.name, computer: id !== "android" };
   });
 </script>
 
 <section class="next" aria-labelledby="next-h">
   <div>
-    <h2 id="next-h">Have it on your phone</h2>
+    <h2 id="next-h">Have it on your {get.computer ? "computer" : "phone"}</h2>
     <p>Free, with no IntPortal account. Your login only goes to your school.</p>
   </div>
   <div class="go">

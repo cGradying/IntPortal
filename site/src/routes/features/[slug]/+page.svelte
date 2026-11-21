@@ -256,4 +256,21 @@
       width: min(180px, 50vw);
     }
   }
+  /* On a phone the tile is a short strip, so the words start sooner. */
+  @media (max-width: 640px) {
+    .tile {
+      grid-auto-flow: column;
+      place-content: center start;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+      height: 120px;
+      aspect-ratio: auto;
+      padding: 0 22px;
+    }
+    .tile :global(svg) {
+      width: 56px;
+      height: 56px;
+    }
+  }
 </style>
