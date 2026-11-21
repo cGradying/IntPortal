@@ -1,5 +1,5 @@
 //! A photo or paste of a schedule, read into own classes for the student to
-//! check (spec 060 C10 to C14). The phone's text reader gives lines with
+//! check (spec 061 C10 to C14). The phone's text reader gives lines with
 //! where they sit; lines at one height are one row of the table. A row with a
 //! day and a time range is a class. Nothing here is sure: the review is.
 

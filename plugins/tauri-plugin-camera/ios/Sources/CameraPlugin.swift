@@ -15,7 +15,7 @@ class CaptureArgs: Decodable {
   let saveTo: String?
 }
 
-/// One line of read text and where it sits, 0 to 1 of the upright photo, top-left origin (spec 060 C10).
+/// One line of read text and where it sits, 0 to 1 of the upright photo, top-left origin (spec 061 C10).
 struct TextLine: Encodable {
   let text: String
   let x: Double

@@ -466,7 +466,7 @@ export async function tidyScan(text: string): Promise<string | null> {
 }
 
 /**
- * Spec 060 C12: classes the model finds in a schedule the rules couldn't read, or null when IntAssis
+ * Spec 061 C12: classes the model finds in a schedule the rules couldn't read, or null when IntAssis
  * isn't installed, won't wake or is busy. An empty list means it looked and found nothing.
  */
 export async function timetableByAi(text: string): Promise<FoundClass[] | null> {

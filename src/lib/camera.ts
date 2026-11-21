@@ -16,7 +16,7 @@ export interface Capture {
   width?: number;
   height?: number;
   text?: string;
-  /** Each line read and where it sits, 0 to 1 of the photo, top-left origin (spec 060 C10). */
+  /** Each line read and where it sits, 0 to 1 of the photo, top-left origin (spec 061 C10). */
   lines?: ScanLine[];
   qr?: string[];
 }

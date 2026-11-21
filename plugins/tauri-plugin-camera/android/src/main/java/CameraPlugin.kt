@@ -135,7 +135,7 @@ class CameraPlugin(private val activity: Activity) : Plugin(activity) {
             text?.let { reader ->
                 val found = Tasks.await(reader.process(image))
                 out.put("text", found.text)
-                // Each line with where it sits, 0 to 1 of the upright photo (spec 060 C10).
+                // Each line with where it sits, 0 to 1 of the upright photo (spec 061 C10).
                 val turned = image.rotationDegrees % 180 != 0
                 val w = (if (turned) image.height else image.width).toDouble().coerceAtLeast(1.0)
                 val h = (if (turned) image.width else image.height).toDouble().coerceAtLeast(1.0)

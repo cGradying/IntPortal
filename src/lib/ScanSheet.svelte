@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A schedule from a photo or pasted text (spec 060 C10 to C14): the phone reads
+  // A schedule from a photo or pasted text (spec 061 C10 to C14): the phone reads
   // it, the core finds the classes, IntAssis tries when the rules find none, and
   // the student checks every class before anything is saved.
   import { closable } from "./back";

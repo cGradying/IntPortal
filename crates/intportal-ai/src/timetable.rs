@@ -1,4 +1,4 @@
-//! The model's pass over a schedule the rules couldn't read (spec 060 C12). It
+//! The model's pass over a schedule the rules couldn't read (spec 061 C12). It
 //! rewrites the text as one line per meeting, `code | name | days | start-end | room`,
 //! and `intportal_core::timetable` reads those lines like any other. A line with a
 //! number the photo didn't have is dropped: the model may reorder, never invent.

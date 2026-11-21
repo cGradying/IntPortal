@@ -904,7 +904,7 @@ pub async fn clean_scan_ai(ai: tauri::State<'_, AiState>, text: String) -> Res<S
     Ok(with_model(&ai, move |llm, tpl| Ok(scan::tidy(llm, tpl, &text, std::time::Duration::from_secs(40)))).await.unwrap_or(kept))
 }
 
-/// A schedule the rules found nothing in, read by the loaded model (spec 060 C12). A busy or
+/// A schedule the rules found nothing in, read by the loaded model (spec 061 C12). A busy or
 /// missing model is an error; a slow or fumbled answer is an empty list.
 #[tauri::command]
 pub async fn read_timetable_ai(ai: tauri::State<'_, AiState>, text: String) -> Res<Vec<intportal_core::timetable::Found>> {

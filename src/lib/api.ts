@@ -25,7 +25,7 @@ export interface ClassTime {
   end: number;
 }
 
-/** A class read from a photo or text, for the student to check (spec 060 C13). */
+/** A class read from a photo or text, for the student to check (spec 061 C13). */
 export interface FoundClass {
   class: OwnClass;
   unsure: boolean;
