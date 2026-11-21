@@ -54,6 +54,9 @@ pub fn export_ics(state: tauri::State<'_, AppState>, from: Date, until: Date, ut
     if until < from {
         return Err("The last day of classes has to be after today.".into());
     }
+    if until.days_since(from) > MAX_DAYS {
+        return Err("Pick a last day of classes within a year.".into());
+    }
     let snap = snapshot_of(&state)?;
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
     let deadlines = deadline_events(&state, &snap, from, until.days_since(from) + 1, utc_offset.unwrap_or(MANILA_OFFSET))?;
@@ -100,6 +103,7 @@ pub fn today(state: tauri::State<'_, AppState>, now: Moment, sync_trouble: Optio
 #[tauri::command(async)]
 pub fn class_events(state: tauri::State<'_, AppState>, from: Date, days: i64, utc_offset: Option<i32>) -> Res<Vec<calendar::ClassEvent>> {
     let snap = snapshot_of(&state)?;
+    let days = days.clamp(0, MAX_DAYS);
     let mut out = calendar::class_events(&snap.sessions, &snap.marks, from, days);
     out.extend(deadline_events(&state, &snap, from, days, utc_offset.unwrap_or(MANILA_OFFSET))?);
     Ok(out)

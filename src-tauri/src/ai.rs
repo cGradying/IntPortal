@@ -908,7 +908,8 @@ pub async fn clean_scan_ai(ai: tauri::State<'_, AiState>, text: String) -> Res<S
 #[tauri::command]
 pub async fn ai_pdf_text(request: tauri::ipc::Request<'_>) -> Res<String> {
     let bytes = match request.body() {
-        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        tauri::ipc::InvokeBody::Raw(bytes) if bytes.len() <= pdf::MAX_BYTES => bytes.clone(),
+        tauri::ipc::InvokeBody::Raw(_) => return Err("This PDF is over 20 MB".into()),
         _ => return Err("Send the PDF as raw bytes".into()),
     };
     tokio::task::spawn_blocking(move || pdf::text(&bytes)).await.map_err(|e| e.to_string())?
