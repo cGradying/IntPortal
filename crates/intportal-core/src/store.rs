@@ -127,6 +127,13 @@ pub struct Store {
 /// A note holds at most this many photos (046 C15a).
 pub const MAX_PHOTOS: i64 = 20;
 
+/// A subject colour the app sets: one of its six swatches, or a `#rrggbb` from older versions.
+pub fn is_color(c: &str) -> bool {
+    let hex = c.len() == 7 && c.starts_with('#') && c[1..].bytes().all(|b| b.is_ascii_hexdigit());
+    let swatch = c.len() == 9 && c.starts_with("var(--s") && c.ends_with(')') && matches!(c.as_bytes()[7], b'1'..=b'6');
+    hex || swatch
+}
+
 /// A photo on its way in.
 pub struct NewPhoto<'a> {
     pub w: u32,
@@ -661,12 +668,15 @@ impl Store {
     }
 
     /// Replaces what a backup carries with the file's, all or nothing (spec 047 C10).
+    /// A hand-edited file gets the same limits as the app: known note keys only,
+    /// at most `MAX_PHOTOS` per note, and subject colours the app could have set.
     /// SIS data, eMabini data, logins and chat stay as they are. AI chunks go,
     /// because the notes they came from just changed; search re-reads them.
     pub fn restore(&self, b: &Backup) -> Result<(), StoreError> {
         let tx = self.db.unchecked_transaction()?;
         tx.execute_batch("DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks;")?;
-        for n in &b.notes {
+        let notes: Vec<_> = b.notes.iter().filter(|n| crate::notes::is_known_key(&n.key)).collect();
+        for n in &notes {
             tx.execute(
                 "INSERT INTO notes (key, text, title, updated, subject, pinned) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![n.key, n.text, n.title, n.updated, n.subject, n.pinned],
@@ -674,7 +684,13 @@ impl Store {
         }
         // Photos follow the notes they belong to, in the same transaction.
         tx.execute("DELETE FROM photos", [])?;
-        for p in b.photos.iter().filter(|p| b.notes.iter().any(|n| n.key == p.note_key)) {
+        let mut per_note: BTreeMap<&str, i64> = BTreeMap::new();
+        for p in b.photos.iter().filter(|p| notes.iter().any(|n| n.key == p.note_key)) {
+            let count = per_note.entry(p.note_key.as_str()).or_default();
+            *count += 1;
+            if *count > MAX_PHOTOS {
+                continue;
+            }
             let bad = |_| StoreError::Io(std::io::Error::other("bad photo"));
             let bytes = B64.decode(&p.data).map_err(bad)?;
             let thumb = p.thumb.as_deref().map(|t| B64.decode(t)).transpose().map_err(bad)?;
@@ -708,7 +724,7 @@ impl Store {
             .transpose()?;
         let mut kv: Vec<(&str, String)> = vec![
             ("marks", serde_json::to_string(&b.marks)?),
-            ("colors", serde_json::to_string(&b.colors)?),
+            ("colors", serde_json::to_string(&b.colors.iter().filter(|(_, c)| is_color(c)).collect::<BTreeMap<_, _>>())?),
             ("goals", serde_json::to_string(&b.goals)?),
             ("syllabus", serde_json::to_string(&b.syllabus)?),
             ("own_deadlines", serde_json::to_string(&b.own_deadlines)?),

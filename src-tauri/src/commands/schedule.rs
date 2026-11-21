@@ -19,6 +19,9 @@ pub fn set_move(state: tauri::State<'_, AppState>, session_id: String, week: Opt
 /// A subject's colour; empty goes back to the automatic one.
 #[tauri::command(async)]
 pub fn set_color(state: tauri::State<'_, AppState>, subject_code: String, color: Option<String>) -> Res<Snapshot> {
+    if color.as_deref().is_some_and(|c| !intportal_core::store::is_color(c)) {
+        return Err("Pick one of the colours.".into());
+    }
     edit(&state, |s| match color {
         Some(c) => {
             s.colors.insert(subject_code, c);
@@ -50,6 +53,9 @@ pub async fn set_class_info(state: tauri::State<'_, AppState>, subject_code: Str
 pub fn export_ics(state: tauri::State<'_, AppState>, from: Date, until: Date, utc_offset: Option<i32>) -> Res<String> {
     if until < from {
         return Err("The last day of classes has to be after today.".into());
+    }
+    if until.days_since(from) > MAX_DAYS {
+        return Err("Pick a last day of classes within a year.".into());
     }
     let snap = snapshot_of(&state)?;
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
@@ -97,6 +103,7 @@ pub fn today(state: tauri::State<'_, AppState>, now: Moment, sync_trouble: Optio
 #[tauri::command(async)]
 pub fn class_events(state: tauri::State<'_, AppState>, from: Date, days: i64, utc_offset: Option<i32>) -> Res<Vec<calendar::ClassEvent>> {
     let snap = snapshot_of(&state)?;
+    let days = days.clamp(0, MAX_DAYS);
     let mut out = calendar::class_events(&snap.sessions, &snap.marks, from, days);
     out.extend(deadline_events(&state, &snap, from, days, utc_offset.unwrap_or(MANILA_OFFSET))?);
     Ok(out)

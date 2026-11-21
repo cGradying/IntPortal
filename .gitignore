@@ -6,6 +6,14 @@ node_modules
 .env
 .env.*
 !.env.example
+# Signing material never goes in the repo.
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision
+*keystore.properties
+key.properties
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 

@@ -283,10 +283,14 @@
   }
 
   async function eraseAll() {
+    // Erase first: signing out swaps the student's file for an empty store,
+    // so an erase after it would leave their notes and decks on the phone.
+    await api.eraseEverything();
     await api.signOut();
     await api.mabiniSignOut();
-    await api.eraseEverything();
     forgetThemes();
+    // Grade and schedule copies kept for the UI (calendar stamp, seen grades) go too.
+    try { localStorage.clear(); } catch {}
     await refreshLogins();
     onsignout();
   }

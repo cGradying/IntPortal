@@ -445,7 +445,9 @@ pub async fn ai_load(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: S
         return Err(assis::friendly(refusal, fil));
     }
     let path = models_dir(&app)?.join(m.file);
-    if !path.exists() {
+    // A cut-short file never reaches llama.cpp's parser. The hash is checked once, when the file
+    // downloads; a same-size file changed on disk after that would need the app's own sandbox.
+    if path.metadata().map(|f| f.len() != m.bytes).unwrap_or(true) {
         return Err(assis::friendly("Download the model first", fil));
     }
     let slot = ai.slot(&m);
@@ -906,7 +908,8 @@ pub async fn clean_scan_ai(ai: tauri::State<'_, AiState>, text: String) -> Res<S
 #[tauri::command]
 pub async fn ai_pdf_text(request: tauri::ipc::Request<'_>) -> Res<String> {
     let bytes = match request.body() {
-        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        tauri::ipc::InvokeBody::Raw(bytes) if bytes.len() <= pdf::MAX_BYTES => bytes.clone(),
+        tauri::ipc::InvokeBody::Raw(_) => return Err("This PDF is over 20 MB".into()),
         _ => return Err("Send the PDF as raw bytes".into()),
     };
     tokio::task::spawn_blocking(move || pdf::text(&bytes)).await.map_err(|e| e.to_string())?

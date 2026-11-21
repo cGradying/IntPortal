@@ -469,12 +469,16 @@
         {#if queue.length - pos > 1}<div class="under b1 notch"><canvas use:swirl></canvas></div>{/if}
       </div>
       {#key deal}
-        <div class="slot" in:dealIn|global out:leave>
+        <!-- The tap lands on the slot, which holds still once dealt: a press near the card's edge tilts
+             the card out from under the finger, so a click on the card itself would miss. Keys still
+             reach the button. -->
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div class="slot" in:dealIn|global out:leave onclick={flip}>
           <div class="sway" class:on={moving && !locked} style:--amp="{0.8 + run.heat * 0.5}deg">
             <div class="tilt" class:shake={missed && fx === "full"} style:--rx="{rx}deg" style:--ry="{ry}deg">
               <div class="cover notch" aria-hidden="true"><canvas use:swirl></canvas></div>
               {#if mode === "flash"}
-                <button class="flipper" class:shown onclick={flip} aria-label={shown ? undefined : `${card.front}. Tap to show the meaning`}>
+                <button class="flipper" class:shown aria-label={shown ? undefined : `${card.front}. Tap to show the meaning`}>
                   <span class="side face notch" aria-hidden={shown}>
                     <span class="label">{mixed ? deck.name : "Term"}</span>
                     <span class="term">{card.front}</span>

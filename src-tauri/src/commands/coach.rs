@@ -96,6 +96,7 @@ pub struct ReminderPrefs {
 /// (spec 042 C14, C15): deadlines, the Sunday brief, study days, notes after class.
 #[tauri::command(async)]
 pub fn reminders(state: tauri::State<'_, AppState>, now: Moment, lead: u16, days: u16, prefs: Option<ReminderPrefs>) -> Res<Vec<Reminder>> {
+    let days = days.min(MAX_DAYS as u16);
     let store = state.store.lock().unwrap();
     let snap = store.load().map_err(err)?;
     let prefs = prefs.unwrap_or_default();
