@@ -25,6 +25,7 @@ describe("spec 040 C4: friendly", () => {
   it("every sentence the app writes passes through unchanged, even ones a table regex would catch", () => {
     const sentences = [
       "That isn't the student number signed in to the SIS on this phone. Use your own eMabini login, or sign out of the SIS first.",
+      "That isn't the student number signed in to eMabini on this phone. Use your own SIS login, or sign out of eMabini first.",
       "Sign in first, then back up.", "That deck is gone.", "That card is gone.", "Turn IntAssis on first", "Sync first", "Not signed in", "Not signed in to Mabini",
       "The store key in the keychain is damaged.", "Couldn't restore that backup, so nothing changed.", "Couldn't make the backup.", "IntAssis is busy, try again in a moment.",
       "Your photos make this backup too big to restore here; it's 40 MB. Remove some photos and try again.", "Use a link that starts with https://",

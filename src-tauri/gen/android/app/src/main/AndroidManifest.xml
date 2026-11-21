@@ -6,9 +6,12 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
     <!-- No backup: the store and login are sealed by Keystore keys, which
-         never leave this phone, so a restored copy couldn't be opened. -->
+         never leave this phone, so a restored copy couldn't be opened.
+         Android 12+ ignores allowBackup for a phone-to-phone transfer;
+         data_extraction_rules leaves everything out of that too. -->
     <application
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/Theme.intportal"

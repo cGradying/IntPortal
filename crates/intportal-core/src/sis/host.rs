@@ -20,10 +20,33 @@ pub fn is_candidate(host: &str) -> bool {
     CANDIDATE.is_match(host)
 }
 
-/// The credential gate: only https `pup.edu.ph` or its subdomains.
+/// The credential gate: https on exactly the host the session started on, so a
+/// redirect or a form action can't carry the password or the cookies to another
+/// `pup.edu.ph` subdomain.
 #[cfg(feature = "net")]
-pub fn is_trusted(url: &reqwest::Url) -> bool {
-    url.scheme() == "https" && url.host_str().is_some_and(|h| h == "pup.edu.ph" || h.ends_with(".pup.edu.ph"))
+pub fn is_trusted(url: &reqwest::Url, host: &str) -> bool {
+    url.scheme() == "https" && url.host_str() == Some(host) && url.port().is_none()
+}
+
+/// The most of one page the app reads. Real pages are well under 1 MB; a broken
+/// or hostile server streaming more would otherwise fill the phone's memory.
+#[cfg(feature = "net")]
+pub const MAX_BODY: usize = 8 << 20;
+
+/// A response's body as text, at most `MAX_BODY` bytes.
+#[cfg(feature = "net")]
+pub async fn text(mut resp: reqwest::Response) -> Result<String, super::Error> {
+    if resp.content_length().is_some_and(|n| n > MAX_BODY as u64) {
+        return Err(super::Error::Network("the page was too big".into()));
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = resp.chunk().await? {
+        if body.len() + chunk.len() > MAX_BODY {
+            return Err(super::Error::Network("the page was too big".into()));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(String::from_utf8_lossy(&body).into_owned())
 }
 
 /// The remembered host first if it is still a candidate, then the default order.
@@ -53,12 +76,24 @@ mod tests {
 
     #[test]
     fn trusted_urls() {
-        let t = |s: &str| is_trusted(&reqwest::Url::parse(s).unwrap());
+        let t = |s: &str| is_trusted(&reqwest::Url::parse(s).unwrap(), "sis8.pup.edu.ph");
         assert!(t("https://sis8.pup.edu.ph/student/"));
-        assert!(t("https://pup.edu.ph/"));
+        assert!(!t("https://pup.edu.ph/"));
+        assert!(!t("https://sis1.pup.edu.ph/student/"));
+        assert!(!t("https://mail.pup.edu.ph/student/"));
+        assert!(!t("https://sis8.pup.edu.ph:8443/student/"));
         assert!(!t("http://sis8.pup.edu.ph/student/"));
         assert!(!t("https://sis8.pup.edu.ph.evil.com/"));
         assert!(!t("https://notpup.edu.ph/"));
+    }
+
+    #[cfg(feature = "net")]
+    #[tokio::test]
+    async fn text_stops_at_the_cap() {
+        let resp = |n: usize| reqwest::Response::from(http::Response::new(vec![b'a'; n]));
+        assert_eq!(text(resp(5)).await.unwrap(), "aaaaa");
+        assert!(text(resp(MAX_BODY)).await.is_ok());
+        assert!(text(resp(MAX_BODY + 1)).await.is_err());
     }
 
     #[test]

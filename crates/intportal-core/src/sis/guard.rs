@@ -104,17 +104,23 @@ impl Ledger {
         if auto && self.rejected {
             return Err(Error::Rejected(self.again.into()));
         }
-        if !auto {
-            self.rejected = false;
-        }
         Ok(())
     }
 
-    /// Remembers whether the portal turned the login down.
+    /// Remembers a rejection. Nothing here clears one: the rejected login is the one in
+    /// the keychain, so only the shell, once a new login is saved there, calls `accept`.
+    /// A tap that never reached the portal, a dropped answer, or a sign-in that went
+    /// through but failed after leaves the keychain's login rejected, so a background
+    /// sync can't send it again and add to the portal's own failed-login count.
     fn record<T>(&mut self, result: &Result<T, Error>) {
-        if let Err(e) = result {
-            self.rejected = matches!(e, Error::Rejected(_));
+        if let Err(Error::Rejected(_)) = result {
+            self.rejected = true;
         }
+    }
+
+    /// The login in the keychain was just replaced by one that signed in.
+    pub fn accept(&mut self) {
+        self.rejected = false;
     }
 
     fn spend(&mut self, now: u64) -> Result<(), Error> {
@@ -310,9 +316,12 @@ mod tests {
         let (r, log) = run(&[], false, false, 3, &mut l, 1100, true);
         assert_eq!(r, Err(Error::Rejected(SIS.rejected_again.into())));
         assert!(log.probes.is_empty() && log.posts.is_empty());
-        // The student edits the login and taps Sign in: allowed again.
+        // The student edits the login and taps Sign in: allowed again, and once the shell
+        // saves the new login, accepted.
         let (r, _) = run(&[], false, false, 3, &mut l, 1200, false);
         assert_eq!(r, Ok(3));
+        assert!(l.rejected(), "still the keychain's old login until it is replaced");
+        l.accept();
         assert!(!l.rejected());
     }
 
@@ -363,7 +372,21 @@ mod tests {
         assert_eq!(once(&mut l, 1100, true, true, Ok(())), (Err(Error::Rejected(SIS.rejected_again.into())), 0));
         assert_eq!(l.tries_left(1100), 2, "a refused auto try spends nothing");
         assert_eq!(once(&mut l, 1200, false, true, Ok(())), (Ok(()), 1));
-        assert!(!l.rejected(), "the tap cleared it and a success leaves it clear");
+        l.accept();
+        assert!(!l.rejected(), "the shell accepts the new login once it is saved");
+    }
+
+    #[test]
+    fn a_tap_that_never_signs_in_keeps_the_rejection() {
+        let mut l = Ledger::default();
+        let _ = once(&mut l, 1000, false, true, Err(Error::Rejected("bad".into())));
+        // The tap finds the portal down, then its answer is lost: still rejected either way.
+        assert!(matches!(once(&mut l, 1100, false, false, Ok(())).0, Err(Error::Network(_))));
+        assert!(l.rejected());
+        assert!(matches!(once(&mut l, 1200, false, true, Err(Error::Network("dropped".into()))).0, Err(Error::Network(_))));
+        assert!(l.rejected());
+        // So the background sync still sends nothing.
+        assert_eq!(once(&mut l, 1300, true, true, Ok(())), (Err(Error::Rejected(SIS.rejected_again.into())), 0));
     }
 
     #[test]

@@ -21,26 +21,47 @@ function read(): boolean {
 export const lock = $state({ enabled: read(), locked: read(), hidden: false, error: "" });
 
 let hiddenAt = 0;
+let waiting: (() => void) | null = null;
+
+/** Runs `fn` now, or once the student unlocks: a notification tapped while
+ *  locked opens nothing behind the lock. */
+export function whenUnlocked(fn: () => void) {
+  // On a warm resume the tap can arrive before visibilitychange does: lock first.
+  lockIfAway();
+  if (lock.locked) waiting = fn;
+  else fn();
+}
+
+/** Locks when the app has been away a minute; the clock restarts once it's back. */
+function lockIfAway() {
+  if (lock.enabled && hiddenAt && Date.now() - hiddenAt >= AWAY_MS) lock.locked = true;
+}
 
 export function watchLock() {
   document.addEventListener("visibilitychange", () => {
     lock.hidden = document.hidden;
     if (document.hidden) hiddenAt = Date.now();
-    else if (lock.enabled && Date.now() - hiddenAt >= AWAY_MS) lock.locked = true;
+    else {
+      lockIfAway();
+      hiddenAt = 0;
+    }
   });
 }
 
 export async function unlock(): Promise<boolean> {
   try {
     await authenticate("Unlock IntPortal", { allowDeviceCredential: true, cancelTitle: "Cancel" });
-    lock.locked = false;
-    buzz.done();
-    lock.error = "";
-    return true;
   } catch (e) {
     lock.error = typeof e === "string" ? e : "Couldn't confirm it's you.";
     return false;
   }
+  lock.locked = false;
+  lock.error = "";
+  buzz.done();
+  const fn = waiting;
+  waiting = null;
+  fn?.();
+  return true;
 }
 
 /** Turning the lock on proves Face ID works first, so nobody locks

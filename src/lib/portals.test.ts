@@ -7,19 +7,19 @@ const mabini = { id: "mabini", fields: ["student_number", "password"], limits: {
 
 describe("validate", () => {
   it("asks only for the fields a portal has", () => {
-    expect(validate(mabini, { student_number: "2026-12610-MN-0", birthdate: "", password: "x" })).toBe("");
-    expect(validate(sis, { student_number: "2026-12610-MN-0", birthdate: "", password: "x" })).toBe("Add your birthdate.");
+    expect(validate(mabini, { student_number: "2026-00000-MN-0", birthdate: "", password: "x" })).toBe("");
+    expect(validate(sis, { student_number: "2026-00000-MN-0", birthdate: "", password: "x" })).toBe("Add your birthdate.");
   });
   it("checks the student number shape and the password", () => {
     expect(validate(mabini, { student_number: "", birthdate: "", password: "x" })).toBe("Add your student number.");
     expect(validate(mabini, { student_number: "12345", birthdate: "", password: "x" })).toBe("Student number looks like 2026-00000-MN-0.");
-    expect(validate(mabini, { student_number: "202612610mn0", birthdate: "", password: "" })).toBe("Add your password.");
+    expect(validate(mabini, { student_number: "202600000mn0", birthdate: "", password: "" })).toBe("Add your password.");
   });
 });
 
 describe("fieldValues", () => {
   it("trims and upper-cases the student number", () => {
-    expect(fieldValues({ student_number: " 2026-12610-mn-0 ", birthdate: "", password: "p" }).student_number).toBe("2026-12610-MN-0");
+    expect(fieldValues({ student_number: " 2026-00000-mn-0 ", birthdate: "", password: "p" }).student_number).toBe("2026-00000-MN-0");
   });
 });
 
