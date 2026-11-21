@@ -94,6 +94,11 @@ impl Demo {
                 intportal_core::own_class::save(&mut self.snap, was.as_deref(), class).map_err(|e| e.to_string())?;
                 out(&self.snap)
             }
+            "read_timetable" => {
+                use intportal_core::timetable;
+                let (lines, text): (Vec<timetable::ScanLine>, String) = (arg(a, "lines")?, arg(a, "text")?);
+                out(if lines.is_empty() { timetable::read_text(&text) } else { timetable::read(&timetable::rows(&lines)) })
+            }
             "delete_class" => {
                 let code: String = arg(a, "code")?;
                 self.edit(|s| intportal_core::own_class::remove(s, &code))

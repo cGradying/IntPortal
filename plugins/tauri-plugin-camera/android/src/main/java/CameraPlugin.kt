@@ -132,7 +132,20 @@ class CameraPlugin(private val activity: Activity) : Plugin(activity) {
         val qr = if (what.qr) BarcodeScanning.getClient(BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()) else null
         try {
             downloaded(listOfNotNull(text, qr))
-            text?.let { out.put("text", Tasks.await(it.process(image)).text) }
+            text?.let { reader ->
+                val found = Tasks.await(reader.process(image))
+                out.put("text", found.text)
+                // Each line with where it sits, 0 to 1 of the upright photo (spec 060 C10).
+                val turned = image.rotationDegrees % 180 != 0
+                val w = (if (turned) image.height else image.width).toDouble().coerceAtLeast(1.0)
+                val h = (if (turned) image.width else image.height).toDouble().coerceAtLeast(1.0)
+                val lines = JSArray()
+                for (block in found.textBlocks) for (line in block.lines) {
+                    val box = line.boundingBox ?: continue
+                    lines.put(JSObject().put("text", line.text).put("x", box.left / w).put("y", box.top / h).put("w", box.width() / w).put("h", box.height() / h))
+                }
+                out.put("lines", lines)
+            }
             qr?.let { c ->
                 val found = JSArray()
                 Tasks.await(c.process(image)).mapNotNull { it.rawValue }.forEach { found.put(it) }

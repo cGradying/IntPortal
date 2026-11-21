@@ -23,5 +23,6 @@ pub mod sis;
 pub mod store;
 pub mod study;
 pub mod syllabus;
+pub mod timetable;
 pub mod today;
 pub mod when;

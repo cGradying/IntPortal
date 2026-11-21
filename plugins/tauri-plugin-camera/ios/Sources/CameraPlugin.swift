@@ -15,12 +15,22 @@ class CaptureArgs: Decodable {
   let saveTo: String?
 }
 
+/// One line of read text and where it sits, 0 to 1 of the upright photo, top-left origin (spec 060 C10).
+struct TextLine: Encodable {
+  let text: String
+  let x: Double
+  let y: Double
+  let w: Double
+  let h: Double
+}
+
 struct CaptureResult: Encodable {
   var cancelled = false
   var path: String?
   var width: Int?
   var height: Int?
   var text: String?
+  var lines: [TextLine]?
   var qr: [String]?
 }
 
@@ -121,7 +131,14 @@ class CameraPlugin: Plugin, UIImagePickerControllerDelegate, UINavigationControl
     guard !requests.isEmpty else { return }
     try? VNImageRequestHandler(cgImage: cg, orientation: visionOrientation(image.imageOrientation)).perform(requests)
     if what?.text == true {
-      result.text = (textRequest.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+      let found = textRequest.results ?? []
+      result.text = found.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+      // Vision's boxes start at the bottom left; the core reads from the top.
+      result.lines = found.compactMap { o in
+        guard let s = o.topCandidates(1).first?.string else { return nil }
+        let b = o.boundingBox
+        return TextLine(text: s, x: b.minX, y: 1 - b.maxY, w: b.width, h: b.height)
+      }
     }
     if what?.qr == true {
       result.qr = (qrRequest.results ?? []).compactMap { $0.payloadStringValue }

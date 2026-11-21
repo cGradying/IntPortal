@@ -19,6 +19,7 @@ pub mod prompt;
 pub mod rag;
 pub mod scan;
 pub mod scope;
+pub mod timetable;
 pub mod reply;
 pub mod schema;
 pub mod why;

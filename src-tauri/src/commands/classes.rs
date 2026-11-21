@@ -46,3 +46,14 @@ pub fn leave_own(state: tauri::State<'_, AppState>) -> Res<()> {
     }
     Ok(())
 }
+
+/// A photo's lines (or typed text, with no lines) read into classes for the student to check (C10, C11, C14).
+#[tauri::command(async)]
+pub fn read_timetable(lines: Vec<intportal_core::timetable::ScanLine>, text: String) -> Vec<intportal_core::timetable::Found> {
+    use intportal_core::timetable;
+    if lines.is_empty() {
+        timetable::read_text(&text)
+    } else {
+        timetable::read(&timetable::rows(&lines))
+    }
+}
