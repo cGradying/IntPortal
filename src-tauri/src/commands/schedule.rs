@@ -19,6 +19,9 @@ pub fn set_move(state: tauri::State<'_, AppState>, session_id: String, week: Opt
 /// A subject's colour; empty goes back to the automatic one.
 #[tauri::command(async)]
 pub fn set_color(state: tauri::State<'_, AppState>, subject_code: String, color: Option<String>) -> Res<Snapshot> {
+    if color.as_deref().is_some_and(|c| !intportal_core::store::is_color(c)) {
+        return Err("Pick one of the colours.".into());
+    }
     edit(&state, |s| match color {
         Some(c) => {
             s.colors.insert(subject_code, c);
