@@ -11,6 +11,7 @@ import { buzz } from "./haptics";
 import { friendly } from "./errors";
 import { openPortalLink } from "./openLink";
 import { larReminderIds } from "./assis/apply";
+import { whenUnlocked } from "./lock.svelte";
 import { oneOf, parseCards, type Cards } from "./you";
 import { anyReminderOn, dueDecks } from "./planning";
 
@@ -191,7 +192,7 @@ export function setExtra(key: "warmUp" | "afterClass" | "brief", on: boolean) {
 
 /** Routes notification taps for the app's lifetime; desktop and tests have none. */
 export function listenForTaps() {
-  onAction((n) => openFromNotification(n.extra?.open as string | undefined)).catch(() => {});
+  onAction((n) => whenUnlocked(() => void openFromNotification(n.extra?.open as string | undefined))).catch(() => {});
 }
 
 /** Where a tapped notification goes (spec 042 C7, C9): a subject's cards, a class note, or Today. */
@@ -226,6 +227,30 @@ export function setStudyAt(minute: number) {
   write("studyAt", String(minute));
   scheduleReminders(true);
 }
+
+/** Nobody is signed in now: the last class leaves the widget and the Live Activity, every
+ *  pending reminder and the phone calendar's classes go, and so do the copies of the student's
+ *  data kept for the screens. Each step is best effort; a missing plugin skips it. */
+export async function forgetStudent() {
+  generation++; // a reminder pass still running stops before it queues anything
+  invoke("plugin:glance|update", { next: null, line: "", activity: false }).catch(() => {});
+  try {
+    const queued = await pending();
+    if (queued.length) await cancel(queued.map((n) => n.id));
+  } catch {
+    // No notification plugin here.
+  }
+  if (app.calendarClasses) await keepClasses(true).catch(() => {});
+  try {
+    for (const k of STUDENT_KEYS) localStorage.removeItem(k);
+    for (const k of Object.keys(localStorage)) if (STUDENT_PREFIXES.some((p) => k.startsWith(p))) localStorage.removeItem(k);
+  } catch {
+    // Storage off: nothing was kept.
+  }
+}
+// What the screens keep in localStorage that comes from the student's own data.
+const STUDENT_KEYS = ["calendarStamp", "stamped", "celebrated", "trendDrawn", "intportal.seen", "intportal.week.seen", "ip.doneWeek", "larReminders", "larStyle", "intportal.name", "intportal.campus", "intportal.focus", "intportal.hub.recent"];
+const STUDENT_PREFIXES = ["passedPopped-", "coach-dismissed-", "studyBest:"];
 
 /** Hands the next class to the home-screen widget and the Live Activity.
  *  Only iOS has the glance plugin; elsewhere the call fails quietly. */
