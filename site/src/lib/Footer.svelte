@@ -5,7 +5,7 @@
   import { REPO_URL } from "./releases";
   const release = $derived(page.data.release as { version: string } | null);
   const cols = [
-    ["The app", [["/features", "Features"], ["/download", "Download"], ["/try", "Try it in your browser"], ["/reel", "The reel"]]],
+    ["The app", [["/features", "Features"], ["/download", "Download"], ["/reel", "The reel"]]],
     ["Help", [["/help", "Help and questions"], ["/help#install", "Installing it"], ["/privacy", "Privacy"], [`${REPO_URL}/issues`, "Report a problem"]]],
     ["Project", [["/roadmap", "Roadmap"], ["/changelog", "What's new"], ["/about", "About"], [REPO_URL, "Source on GitHub"]]],
   ] as const;

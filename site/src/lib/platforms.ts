@@ -83,4 +83,5 @@ export const PLATFORMS: PlatformInfo[] = [
 ];
 
 /** The platform to put first for a device; iPhones and unknown devices get the browser demo first. */
-export const firstFor = (d: Device): Platform | "try" => (d === "ios" || d === "other" ? "try" : d);
+/** The visitor's own platform; an unknown device is offered the phone app. */
+export const firstFor = (d: Device): Platform => (d === "other" ? "android" : d);
