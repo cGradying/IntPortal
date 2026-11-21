@@ -3,6 +3,7 @@
   import "../site.css";
   import Nav from "$lib/Nav.svelte";
   import Footer from "$lib/Footer.svelte";
+  import { REPO_URL } from "$lib/releases";
   import { afterNavigate, beforeNavigate, onNavigate } from "$app/navigation";
   // 060 C22: the two Latin body fonts, fetched with the page instead of after its CSS.
   import montserrat from "@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2?url";
@@ -46,11 +47,39 @@
 </svelte:head>
 
 <a class="skip" href="#main">Skip to content</a>
+<p class="beta"><span class="tag pixel">Beta</span> IntPortal is still being tested. Expect bugs, and check anything important against your school's own portal. <a href={`${REPO_URL}/issues`} rel="noopener">Report a problem</a></p>
 <Nav />
 <main id="main">{@render children()}</main>
 <Footer />
 
 <style>
+  /* Every page says it's a beta, above the menu; it scrolls away with the page. */
+  .beta {
+    margin: 0;
+    padding: 9px var(--site-gutter);
+    text-align: center;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--site-ink-2);
+    background: rgba(245, 178, 39, 0.08);
+    box-shadow: inset 0 -1px 0 rgba(245, 178, 39, 0.22);
+  }
+  .beta .tag {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: var(--gold);
+    color: #1b1406;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    vertical-align: 1px;
+  }
+  .beta a {
+    color: var(--gold);
+    white-space: nowrap;
+  }
   .skip {
     position: absolute;
     left: 12px;

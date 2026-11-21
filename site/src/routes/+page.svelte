@@ -112,7 +112,7 @@
     <a class="gold" href={cta.href}>{cta.text}</a>
     <a class="ghost" href="#download">Every download</a>
   </div>
-  <p class="un">Unofficial. Not made by or affiliated with any school.</p>
+  <p class="un">Beta, and unofficial. Not made by or affiliated with any school.</p>
 </Hero>
 
 <svelte:window onpointermove={glow} />
