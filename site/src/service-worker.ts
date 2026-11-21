@@ -16,7 +16,17 @@ const FIRST = ["/", "/help", "/features", "/download", "/search.json"];
 const SHELL = prerendered.filter((p) => FIRST.includes(p));
 const never = (u: URL) => u.origin !== sw.location.origin || /^\/(app|reel)(\/|$)/.test(u.pathname) || /\.(mp4|apk|ipa|dmg|msi|deb|AppImage|wasm)$/.test(u.pathname);
 
+// 060 C21: on Save-Data or a 2G/3G link, install saves nothing; pages are still saved when opened.
+const light = () => {
+  const c = (sw.navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  return !!c?.saveData || ["slow-2g", "2g", "3g"].includes(c?.effectiveType ?? "");
+};
+
 sw.addEventListener("install", (e) => {
+  if (light()) {
+    e.waitUntil(sw.skipWaiting());
+    return;
+  }
   e.waitUntil(
     caches.open(CACHE).then(async (c) => {
       await c.addAll(SHELL);
@@ -56,7 +66,10 @@ sw.addEventListener("install", (e) => {
 sw.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then(async (keys) => {
-      await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
+      // On a slow link install saved nothing; keep the old saved pages until a
+      // version that did save its own replaces them. ponytail: old caches can
+      // linger across versions on slow links; prune by age if that ever matters.
+      if (keys.includes(CACHE)) await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
       await sw.clients.claim();
     }),
   );
@@ -79,10 +92,11 @@ sw.addEventListener("fetch", (e) => {
         if (res.ok && res.type === "basic") cache.put(req, res.clone());
         return res;
       } catch (err) {
-        const hit = await cache.match(req, { ignoreSearch: true });
+        // Any saved copy, from this version's cache or one a slow link kept.
+        const hit = await caches.match(req, { ignoreSearch: true });
         if (hit) return hit;
         if (req.mode === "navigate") {
-          const shell = await cache.match("/404.html");
+          const shell = await caches.match("/404.html");
           if (shell) return shell;
         }
         throw err;

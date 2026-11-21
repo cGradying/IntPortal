@@ -49,6 +49,7 @@
     display: inline-flex;
     align-items: center;
     gap: 10px;
+    min-height: 44px;
     font-family: var(--site-display);
     font-weight: 800;
     font-size: 1.12rem;

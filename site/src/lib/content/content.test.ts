@@ -103,7 +103,8 @@ describe("057 C13 roadmap", () => {
       const id = i.href.split("/").pop()!.replace(/\.md$/, "");
       expect(i.lane, id).toBe(statuses.get(id)!.startsWith("draft") ? "later" : "building");
     }
-    expect(lane("building").map((i) => i.title)).toContain("The website, second edition");
+    // Shipped specs leave the board; the website editions are shipped.
+    expect(items.map((i) => i.title)).not.toContain("The website, second edition");
     expect(lane("later").map((i) => i.title)).toContain("IntPortal in any browser, signed in");
   });
   it("puts open P0 and P1 issues next and P2 later, in a student's words", () => {

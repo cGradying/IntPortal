@@ -39,6 +39,9 @@
       <div class="what">
         <h3>{p.name}</h3>
         <p class="needs">{p.needs}</p>
+        {#if p.links}
+          <p class="meta">Set up with {#each p.links as l, i (l.href)}{#if i}{" or "}{/if}<a href={l.href} rel="noopener">{l.name}</a>{/each}.</p>
+        {/if}
         {#if p.files.length}
           <p class="meta">
             {#each p.files as f, i (f.file)}{#if i}<span aria-hidden="true">{" · "}</span>{/if}{f.file.replace(/-[\d.]+(?=[-.])/, "")}, {megabytes(f.size)}{/each}
@@ -53,7 +56,7 @@
           <a class={p.id === first ? "gold" : "ghost"} href={f.url} rel="noopener">{p.files.length > 1 ? (f.file.endsWith(".deb") ? ".deb" : "AppImage") : p.button}</a>
         {/each}
         {#if p.id === "android" && android && (here === "mac" || here === "windows" || here === "linux")}
-          <Qr text={android.url} label="Scan with your Android phone to download" />
+          <span class="qr"><Qr text={android.url} label="Scan with your Android phone to download" /></span>
         {/if}
       </div>
     </div>
@@ -112,6 +115,12 @@
     }
     .get a {
       flex: 1;
+    }
+  }
+  /* A narrow window gets the button alone; the QR is for a computer beside a phone. */
+  @media (max-width: 640px) {
+    .qr {
+      display: none;
     }
   }
 </style>

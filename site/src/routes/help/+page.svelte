@@ -31,15 +31,17 @@
   <meta property="og:image" content="/og.png" />
 </svelte:head>
 
-<div class="wrap page">
-  <h1>Help</h1>
-  <p class="lede">Installing it, the usual questions, and what to do when something's wrong. Still stuck? <a href="{REPO_URL}/issues" rel="noopener">Report a problem</a>.</p>
+<div class="wrap">
+  <header class="page-head">
+    <h1>Help</h1>
+    <p class="lede">Installing it, the usual questions, and what to do when something's wrong. Still stuck? <a href="{REPO_URL}/issues" rel="noopener">Report a problem</a>.</p>
 
-  <nav class="jump" aria-label="On this page">
-    <a href="#install"><PixelIcon name="down" size={12} />Installing it</a>
-    <a href="#questions"><PixelIcon name="down" size={12} />Questions</a>
-    <a href="#fixes"><PixelIcon name="down" size={12} />Something's wrong</a>
-  </nav>
+    <nav class="jump" aria-label="On this page">
+      <a href="#install"><PixelIcon name="down" size={12} />Installing it</a>
+      <a href="#questions"><PixelIcon name="down" size={12} />Questions</a>
+      <a href="#fixes"><PixelIcon name="down" size={12} />Something's wrong</a>
+    </nav>
+  </header>
 
   <section id="install" aria-labelledby="install-h">
     <h2 id="install-h">Installing it</h2>
@@ -49,6 +51,7 @@
           <h3>{p.name}</h3>
           <p class="needs pixel">{p.needs}</p>
           <ol>{#each p.steps as s (s)}<li>{s}</li>{/each}</ol>
+          {#if p.links}<p class="fine">Set up with {#each p.links as l, i (l.href)}{#if i}{" or "}{/if}<a href={l.href} rel="noopener">{l.name}</a>{/each}.</p>{/if}
         </div>
       {/each}
     </div>
@@ -80,21 +83,6 @@
 </div>
 
 <style>
-  .page {
-    padding-top: clamp(40px, 8vh, 88px);
-  }
-  h1 {
-    font-size: clamp(2.4rem, 6vw, 4.2rem);
-    font-weight: 800;
-    letter-spacing: -0.035em;
-  }
-  .lede {
-    margin-top: 16px;
-    max-width: 58ch;
-    font-size: 1.15rem;
-    color: var(--site-ink-2);
-    line-height: 1.55;
-  }
   .jump {
     display: flex;
     flex-wrap: wrap;

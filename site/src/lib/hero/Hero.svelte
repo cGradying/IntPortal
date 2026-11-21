@@ -52,7 +52,9 @@
     const env = readEnv();
     if (canRun(env)) {
       live = true;
-      import("./scene").then(({ start }) => {
+      // 060 C20: fetch the scene in idle time, after the first paint.
+      const idle = window.requestIdleCallback ?? ((f: () => void) => setTimeout(f, 200));
+      idle(() => import("./scene").then(({ start }) => {
         if (gone || stillOnly) return;
         try {
           heroApi = hero = start(canvas, {
@@ -70,7 +72,7 @@
           return;
         }
         onScroll();
-      }, () => (live = false));
+      }, () => (live = false)));
     }
     // Reduce Motion turned on while the scene runs: stop it and show the still.
     const rm = matchMedia("(prefers-reduced-motion: reduce)");
@@ -306,8 +308,8 @@
   .hint {
     display: none;
     margin-top: 22px;
-    font-size: 0.82rem;
-    color: var(--site-ink-3);
+    font-size: 0.85rem;
+    color: var(--site-ink-2);
   }
   .hint span {
     display: inline-block;

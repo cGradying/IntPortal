@@ -7,6 +7,8 @@ export default {
   kit: {
     adapter: adapter({ pages: "build", assets: "build", fallback: "404.html", strict: true }),
     alias: { $app_lib: "../src/lib" },
+    // 060 C22: small stylesheets go in the page, one round trip fewer.
+    inlineStyleThreshold: 8192,
     // Written into each prerendered page as a <meta> CSP, with hashes for SvelteKit's own inline
     // script. GitHub Pages sends no headers of its own, so this is the policy that applies there.
     csp: {
