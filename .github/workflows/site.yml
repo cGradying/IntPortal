@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy:
-        description: Publish to GitHub Pages
+        description: Publish to GitHub Pages (Cloudflare Pages publishes on every push to main)
         type: boolean
         default: false
 
@@ -49,3 +49,21 @@ jobs:
     steps:
       - id: pages
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+  # The site lives at intportal.pages.dev. Every push to main that touches it
+  # publishes the build there; PRs only build. The token is a Cloudflare API token
+  # limited to Pages (repo secret CLOUDFLARE_API_TOKEN); the account id isn't secret.
+  cloudflare:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: github-pages
+      - run: mkdir site && tar -xf artifact.tar -C site
+      - uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.158.0"
+          command: pages deploy site --project-name=intportal --branch=main --commit-dirty=true
