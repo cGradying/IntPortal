@@ -27,7 +27,7 @@
     </p>
   {:else}
     <div class="soon">
-      <p>The reel comes with IntPortal 0.4.</p>
+      <p>The reel isn't out yet. It comes with a later release.</p>
       <a class="gold" href="/try">Try the app in your browser meanwhile</a>
     </div>
   {/if}

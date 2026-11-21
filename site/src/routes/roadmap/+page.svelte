@@ -1,6 +1,8 @@
 <script lang="ts">
   // 057 C13: what's shipped, being built, next and later. No invented dates.
   import type { Lane, RoadItem } from "$lib/content/types";
+  import PixelIcon from "$app_lib/PixelIcon.svelte";
+  import NextStep from "$lib/NextStep.svelte";
 
   let { data } = $props();
   const lane = (l: Lane) => data.items.filter((i: RoadItem) => i.lane === l);
@@ -22,9 +24,11 @@
   <meta property="og:image" content="/og.png" />
 </svelte:head>
 
-<div class="wrap page">
-  <h1>Roadmap</h1>
-  <p class="lede">What's done, what's being built, and what comes after. No dates until they're real.</p>
+<div class="wrap">
+  <header class="page-head">
+    <h1>Roadmap</h1>
+    <p class="lede">What's done, what's being built, and what comes after. No dates until they're real.</p>
+  </header>
 
   <div class="lanes">
     {#each ahead as l (l.id)}
@@ -53,9 +57,9 @@
 
   <section class="shipped" aria-labelledby="shipped-h">
     <h2 id="shipped-h">Shipped</h2>
-    <p class="sub">{shipped.length} releases so far. Each one's full notes are in <a href="/changelog">What's new</a>.</p>
+    <p class="sub">The five newest. Each one's full notes are in <a href="/changelog">What's new</a>.</p>
     <ol>
-      {#each shipped as i (i.href)}
+      {#each shipped.slice(0, 5) as i (i.href)}
         <li>
           <a href={i.href}>
             {#if i.date}<time class="pixel" datetime={i.date}>{day(i.date)}</time>{/if}
@@ -65,24 +69,13 @@
         </li>
       {/each}
     </ol>
+    <a class="all" href="/changelog">All {shipped.length} releases on What's new <PixelIcon name="chev" size={10} /></a>
   </section>
+
+  <NextStep />
 </div>
 
 <style>
-  .page {
-    padding-top: clamp(40px, 8vh, 88px);
-  }
-  h1 {
-    font-size: clamp(2.4rem, 6vw, 4.2rem);
-    font-weight: 800;
-    letter-spacing: -0.035em;
-  }
-  .lede {
-    margin-top: 16px;
-    max-width: 56ch;
-    font-size: 1.15rem;
-    color: var(--site-ink-2);
-  }
   .lanes {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -219,6 +212,14 @@
   }
   .shipped a:hover strong {
     color: var(--gold);
+  }
+  .all {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin: 8px 0 0 32px;
+    font-weight: 600;
   }
   @media (max-width: 900px) {
     .lanes {

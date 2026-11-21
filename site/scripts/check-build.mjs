@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
-const ALLOW = new Set(["github.com", "api.github.com", "www.w3.org", "svelte.dev"]);
+// altstore.io and sidestore.io are link targets in the iPhone steps (060 C2), never loads.
+const ALLOW = new Set(["github.com", "api.github.com", "www.w3.org", "svelte.dev", "altstore.io", "sidestore.io"]);
 const files = [];
 const walk = (d) => readdirSync(d).forEach((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : files.push(join(d, f))));
 walk(fileURLToPath(new URL("../build", import.meta.url)));
@@ -39,6 +40,12 @@ else {
   const raw = readFileSync(idx);
   const gz = gzipSync(raw).length;
   if (raw.length > 48 * 1024 || gz > 16 * 1024) bad.set(`search.json is ${raw.length} B, ${gz} B gzip (max 48 KB, 16 KB)`, idx);
+}
+
+// 060 C22: the site's CSS (files, or inlined in pages) carries only Latin Pixelify. Its
+// Cyrillic files are small enough to inline as data: URIs, so look for the range too.
+for (const f of files.filter((f) => /\.(html|css)$/.test(f) && !/[\\/]build[\\/]app[\\/]/.test(f))) {
+  if (/pixelify-sans-cyrillic|U\+0400-045F/i.test(readFileSync(f, "utf8"))) bad.set("Cyrillic Pixelify font", f);
 }
 
 if (bad.size) {
