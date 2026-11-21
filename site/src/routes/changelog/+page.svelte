@@ -1,6 +1,6 @@
 <script lang="ts">
   // 057 C12: CHANGELOG.md, newest first, an anchor per version.
-    import { afterNavigate } from "$app/navigation";
+  import { afterNavigate } from "$app/navigation";
   import { releaseId } from "$lib/content/changelog";
   import PixelIcon from "$app_lib/PixelIcon.svelte";
   import { notes } from "$lib/notes";
