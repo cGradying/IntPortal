@@ -32,6 +32,7 @@ rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"]
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt"] }
 rpassword = "7"
+http = "1"
 
 [[example]]
 name = "live"
