@@ -61,16 +61,22 @@
     });
   }
 
-  // Each story's camera: how far the phone's screen zooms in and onto which point of the
-  // screenshot (x, y in %), so the stories land on different parts of a screen.
-  const features: { group: string; title: string; body: string; src: string; alt: string; video?: boolean; poster?: string; focus: [number, number, number] }[] = [
-    { group: "today", title: "Today", body: "The class in session counts down. What's due sits right under it, and the free time between classes shows as gaps you can use.", src: "/media/today.webp", alt: "Today: the campus scene, the class in session and the deadlines", focus: [1.1, 30, 12] },
-    { group: "today", title: "Deadlines", body: "SIS, eMabini and your own, in one list. Tick Done, and Undo if your thumb slipped. Scan a handout or paste a group chat message to add them.", src: "/media/due.webp", alt: "The Due card on Today with three deadlines and Add, on sample data", focus: [1.6, 12, 72] },
-    { group: "schedule", title: "Schedule", body: "Day and week. Mark a class vacant or online, move it for a week, give it a colour, keep a note on it.", src: "/media/schedule.webp", alt: "The day schedule", focus: [1.1, 30, 35] },
-    { group: "grades", title: "Grades", body: "Every term, your GPA and its trend, and what you need on the rest of the term to reach the grade you want.", src: "/media/grades.webp", alt: "Grades with the GPA trend", focus: [1.1, 30, 22] },
-    { group: "lar", title: "LAR", body: "A small robot from the other side of the portal shows you around and gives one nudge at a time. Turn on his assistant and he answers questions about your classes and notes, on the phone itself.", src: "/media/talk.webp", alt: "LAR asking what to call you", focus: [1.1, 30, 20] },
-    { group: "study", title: "Study", body: "Notes per class or per day, with checklists and photos. Decks bring each card back just before you'd forget it, and a session plays like a card game: a streak multiplies your points.", src: "/media/game.webp", alt: "A round of the study game on sample cards", focus: [1.1, 30, 30] },
+  // `spot` frames the part of the screen each story is about: left, top, width, height,
+  // in % of the screenshot. Today and Deadlines share one screen, so the frame moves
+  // down it instead of the screen changing.
+  const features: { group: string; title: string; body: string; src: string; alt: string; video?: boolean; poster?: string; spot: [number, number, number, number] }[] = [
+    { group: "today", title: "Today", body: "The class in session counts down. What's due sits right under it, and the free time between classes shows as gaps you can use.", src: "/media/due.webp", alt: "Today: the campus scene, the class in session and the deadlines", spot: [3, 33.5, 94, 17.5] },
+    { group: "today", title: "Deadlines", body: "SIS, eMabini and your own, in one list. Tick Done, and Undo if your thumb slipped. Scan a handout or paste a group chat message to add them.", src: "/media/due.webp", alt: "The Due card on Today with three deadlines and Add, on sample data", spot: [3, 53.5, 94, 26] },
+    { group: "schedule", title: "Schedule", body: "Day and week. Mark a class vacant or online, move it for a week, give it a colour, keep a note on it.", src: "/media/schedule.webp", alt: "The day schedule", spot: [3, 27, 94, 9.5] },
+    { group: "grades", title: "Grades", body: "Every term, your GPA and its trend, and what you need on the rest of the term to reach the grade you want.", src: "/media/grades.webp", alt: "Grades with the GPA trend", spot: [3, 25.5, 94, 20.5] },
+    { group: "lar", title: "LAR", body: "A small robot from the other side of the portal shows you around and gives one nudge at a time. Turn on his assistant and he answers questions about your classes and notes, on the phone itself.", src: "/media/talk.webp", alt: "LAR asking what to call you", spot: [3, 26.5, 92, 15.5] },
+    { group: "study", title: "Study", body: "Notes per class or per day, with checklists and photos. Decks bring each card back just before you'd forget it, and a session plays like a card game: a streak multiplies your points.", src: "/media/game.webp", alt: "A round of the study game on sample cards", spot: [3, 29.5, 94, 25] },
   ];
+
+  // The stage's screens, one per screenshot; a story shows its own.
+  const screens = [...new Set(features.map((f) => (f.video ? f.poster! : f.src)))];
+  const shown = $derived(screens.indexOf(features[story].video ? features[story].poster! : features[story].src));
+  const spot = $derived(features[story].spot);
 
   const facts: { icon: SpriteName; lead: string; more: string; href?: string; link?: string }[] = [
     { icon: "lock", lead: "Your login only goes to your school.", more: "It's kept in the phone's keychain and used only to sign in to your school's own portal." },
@@ -118,7 +124,7 @@
       <p class="lede">Everything SIS has, kept on your phone, and the parts SIS never had.</p>
       {#each features as f, i (f.title)}
         <article id={slug(f.title)} class="feature" class:flip={i % 2 === 1} class:on={i === story} data-i={i}>
-          <div class="own"><Phone src={f.src} alt={f.alt} video={f.video} poster={f.poster} focus={f.focus} /></div>
+          <div class="own"><Phone src={f.src} alt={f.alt} video={f.video} poster={f.poster} spot={f.spot} /></div>
           <span class="vh">{f.alt}</span>
           <div class="text">
             <h3>{f.title}</h3>
@@ -129,23 +135,14 @@
       {/each}
     </div>
     <div class="stage" aria-hidden="true">
-      <div class="phone" style:--ry="{story % 2 ? 7 : -7}deg">
+      <div class="phone">
         <div class="screen">
-          {#each features as f, i (f.title)}
-            <img
-              src={f.video ? f.poster : f.src}
-              alt=""
-              class:on={i === story}
-              class:past={i < story}
-              style:--s={f.focus[0]}
-              style:--fx="{f.focus[1]}%"
-              style:--fy="{f.focus[2]}%"
-              loading="lazy"
-              decoding="async"
-              width="450"
-              height="1000"
-            />
+          {#each screens as src, i (src)}
+            <img {src} alt="" class:on={i === shown} class:under={i < shown} style:z-index={i} loading="lazy" decoding="async" width="450" height="1000" />
           {/each}
+          {#if spot}
+            <i class="spot" style:left="{spot[0]}%" style:top="{spot[1]}%" style:width="{spot[2]}%" style:height="{spot[3]}%"></i>
+          {/if}
         </div>
       </div>
       <ol class="rail">
@@ -401,10 +398,11 @@
       justify-items: center;
       gap: 22px;
     }
-    /* 058 C10, reworked: the phone turns a little toward each new story, and its
-       screen zooms onto the part the story is about. The next screen rises in from
-       below and the last one leaves upward, so scrolling reads as moving through
-       the app, not flicking between stills. */
+    /* 058 C10, reworked: the stage moves like the phone it is. A new screen pushes
+       in from the right over the last, which slides a third of the way left and
+       darkens, as an app's navigation does; scrolling back pops it the other way.
+       A gold frame glides to the part each story is about, and the rest of the
+       screen dims a little. Nothing scales or tilts, so the text stays crisp. */
     .phone {
       position: relative;
       width: var(--w);
@@ -413,10 +411,9 @@
       border-radius: 36px;
       background: #050307;
       box-shadow: inset 0 0 0 1px rgba(244, 236, 216, 0.12), 0 40px 80px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px #000;
-      transform: perspective(1400px) rotateY(var(--ry, 0deg)) rotateX(4deg);
-      transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
     }
     .screen {
+      --push: cubic-bezier(0.32, 0.72, 0, 1);
       position: absolute;
       inset: 8px;
       overflow: hidden;
@@ -429,19 +426,33 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      opacity: 0;
-      transform-origin: var(--fx) var(--fy);
-      transform: translateY(18%) scale(1);
+      transform: translateX(100%);
+      box-shadow: -12px 0 32px rgba(0, 0, 0, 0.5);
       transition:
-        opacity 360ms var(--ease),
-        transform 1100ms cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .screen img.past {
-      transform: translateY(-18%) scale(1);
+        transform 560ms var(--push),
+        filter 560ms var(--push);
     }
     .screen img.on {
-      opacity: 1;
-      transform: translateY(0) scale(var(--s));
+      transform: none;
+    }
+    .screen img.under {
+      transform: translateX(-30%);
+      filter: brightness(0.5);
+    }
+    .spot {
+      position: absolute;
+      z-index: 99;
+      border-radius: 12px;
+      box-shadow:
+        0 0 0 1.5px rgba(245, 178, 39, 0.9),
+        0 0 0 6px rgba(245, 178, 39, 0.14),
+        0 0 0 999px rgba(5, 3, 7, 0.42);
+      pointer-events: none;
+      transition:
+        left 640ms var(--push),
+        top 640ms var(--push),
+        width 640ms var(--push),
+        height 640ms var(--push);
     }
     .rail {
       display: flex;
@@ -481,8 +492,16 @@
     }
   }
   @media (min-width: 900px) and (prefers-reduced-motion: reduce) {
-    .phone,
-    .screen img,
+    .screen img {
+      transform: none;
+      opacity: 0;
+      filter: none;
+      transition: opacity 200ms linear;
+    }
+    .screen img.on {
+      opacity: 1;
+    }
+    .spot,
     .feature h3,
     .feature p {
       transition: none;
