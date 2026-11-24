@@ -9,7 +9,7 @@ Anything on the site is one search away: press / or ⌘K, or tap the magnifier, 
 ## Direction and references
 
 - Spec 057 and DESIGN.md hold: the void and the gold dot ground, one gold, obsidian tiles, Montserrat, Source Sans 3, Pixelify for short labels, stepped corners on pixel surfaces. No new fonts, colours or dependencies.
-- Researched on 2026-11-20 with two agy (Gemini) research passes, both unverified, used for ideas only:
+- Researched on 2026-11-20 in two web research passes, both unverified, used for ideas only:
   - Raycast and Linear: a command palette, opened by keyboard.
   - Linear: a dot field that answers the pointer.
   - Scroll-told product pages: one device that stays in view while the story moves.

@@ -1,7 +1,6 @@
 # Threat model — IntPortal Web
 
-Draft for the hosted multi-user port. Written before any code (Phase 0 of
-`.claude/plans/im-planning-to-migrate-calm-seal.md`) — it decides what the rest of the
+Draft for the hosted multi-user port. Written before any code — it decides what the rest of the
 build is allowed to do, not a retrofit.
 
 This is an **unofficial student-built tool**, not affiliated with, endorsed by, or

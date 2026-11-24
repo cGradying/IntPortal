@@ -28,8 +28,7 @@ rather than let this document contradict the native one.
 Everything else in the native app's `PRODUCT.md` — the audience (PUP students with
 their own SIS8 account), the purpose (native/fast access to their own schedule, grades,
 and study tools the official portal doesn't offer), the own-data-only scope, and the
-design language — is the target for this port, not being renegotiated. See the full
-feature/design inventory in `.claude/plans/im-planning-to-migrate-calm-seal.md`.
+design language — is the target for this port, not being renegotiated.
 
 ## Positioning note
 

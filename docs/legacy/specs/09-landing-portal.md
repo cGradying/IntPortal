@@ -142,8 +142,7 @@ static float bayer(float2 a) { return b2(0.5 * a) * 0.25 + b2(a); }
 }
 ```
 Colors passed as `.color(palette.swirl0…4)`. `Package.swift`: add `.process("Resources/Shaders")`.
-Needs a working Metal toolchain (the same fix that unblocks `swift build`; see
-`.claude/plans/backend-fixes.md`).
+Needs a working Metal toolchain (the same fix that unblocks `swift build`).
 
 ### Cost budget
 Swirl is one fragment pass over ~4B×6B points at ≤ 60fps; pause the `TimelineView` when the window

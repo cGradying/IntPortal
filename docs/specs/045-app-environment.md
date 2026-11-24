@@ -12,7 +12,7 @@ Signing in no longer drops the student out of IntPortal's world into a generic d
 - [Market scan 2026-10-25](reference/market-scan-2026-10-25.md), takeaways 1–12.
 - [Reference sheet](reference/prototypes/reference-sheet.html): the stamps, the notch and the dither.
 - The LAR chat stage ([010](010-landing.md) C18b) is the target mood.
-- Grilling decisions, 2026-10-25 ([plan](PLAN-dive-environment.md)):
+- The owner's decisions, 2026-10-25:
   - **Premium means playful.** The play wraps the data and never sits on it.
   - **Priority:** first every school's colours, then glance plus dense lists, then light and dark.
   - **Pixel rule.** "One pixel moment per screen" is replaced by the rule in C9.

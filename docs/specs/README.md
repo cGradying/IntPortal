@@ -60,10 +60,6 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md), [ADR 0005](../adr/0005-portals-are-first-class.md) and [ADR 0006](../adr/0006-one-repo.md).
 
-The release plan for 0.4, the website and the reel is [PLAN-release-0.4.md](PLAN-release-0.4.md).
-
 ## Reference material
 
 `reference/` holds the visual prototype and the capture guide. Raw SIS and Mabini captures and third-party art stay local in `reference/private/`, which git ignores. See [reference/README.md](reference/README.md).
-
-The working plan that produced these specs is [PLAN-landing-login.md](PLAN-landing-login.md).

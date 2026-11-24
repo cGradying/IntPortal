@@ -6,9 +6,8 @@ other way round.
 ## Flow
 
 1. **Spec.** One file per area, from the template below. Reviewed and merged as a docs-only PR.
-2. **Plan.** `/pstack:poteto-mode`, multi-phase-plan playbook, over the approved specs. Output is
-   `docs/specs/PLAN.md`, one section per PR, linted by `check-plan.mjs`. Stops for an explicit go.
-3. **Issue.** Each PR section becomes a GitHub issue (`docs/agents/issue-tracker.md`).
+2. **Plan.** One section per PR over the approved specs. Stops for an explicit go.
+3. **Issue.** Each PR section becomes a GitHub issue.
 4. **Build.** One slice per PR. The old view is replaced in place and deleted in the same PR.
 5. **Verify.** Tick the spec's acceptance boxes, each with the evidence it names.
 
@@ -50,12 +49,10 @@ Build in this order. Each row is one or more PRs; each spec lists its acceptance
 | 11 | [08-menu-bar](08-menu-bar.md) | Menu bar panel | 2 | approved |
 | 12 | HyperFrames trailer | 30 to 45s MP4 of void, portal, warp and app, rendered from prototype v3 for the README, releases and intportal-web. Never bundled in the app | 3 | planned |
 
-Execution plan: [`PLAN.md`](PLAN.md) (phase 1: prototype v3, tokens, pixel components, depth kit, shell, landing; built by the head, landed by the operator). Phase 2 (screen slices, sonnet workers): [`PLAN-2.md`](PLAN-2.md).
+Phase 1: prototype v3, tokens, pixel components, depth kit, shell, landing. Phase 2: screen slices.
 Prototype v3 adds the 3D moves in DESIGN.md Signature components. P3 review media: `reference/P3-review*`.
 
-Sign-in (former 02-login) is part of 09. Backend fix briefs: `.claude/plans/backend-fixes.md`
-(local). Any agent guidance that still prescribes Liquid Glass for content (e.g. a `liquid-glass`
-skill copied from PUPSISPortal) is retired by `DESIGN.md`. `PRODUCT.md` still names Ollama; refresh
+Sign-in (former 02-login) is part of 09. Liquid Glass for content is retired by `DESIGN.md`. `PRODUCT.md` still names Ollama; refresh
 it to llama.cpp/MLX + optional cloud providers when step 9 lands.
 
 ## Template

@@ -14,7 +14,7 @@ Notes stop being a flat list at the bottom of Study. Each subject holds its own 
 - Spec 030 stays the parity map. C11–C14 there are *removed*, pointing here, as C6–C10 point to 041; rows 26–33 point here too (#146). 030 C1–C5 stay in 030.
 - Issues: this spec re-scopes #20 to the live editor it describes. #147 keeps C1 and C2 and #149 keeps C3–C5, with their entry criteria moving here.
 - Out of scope: spec 022 and #142 (quiz from notes) stay with the AI engineer; 046 leaves a place for its entry point. Row 33 (which notes the AI reads) touches `rag.rs` and needs the Code engineer's agreement, so it stays out for now.
-- Settled picks in `PLAN-dive-environment.md` apply: nothing rises or spawns in after a transition, and readability beats pixel font on small data.
+- The settled picks of 2026-10-25 apply: nothing rises or spawns in after a transition, and readability beats pixel font on small data.
 
 ## Keep
 

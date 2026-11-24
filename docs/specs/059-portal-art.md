@@ -9,7 +9,7 @@ The portal on the website's first screen is alive. It breathes, it notices your 
 ## Direction and references
 
 - **The app's own idea.** In LAR's chat, the crystal is 27 voxels of glass that take shapes while he thinks: a neuron, roots, a helix (spec 046 C1b3, `src/lib/assis/crystal.ts`). The website does the same in its own medium: obsidian and ramp-toned voxels, rendered at a third of the screen and scaled up nearest-neighbour (057 C1), so they read as pixel art with depth.
-- **Research, 2026-11-20.** Five agy (Gemini) passes, unverified, used for ideas only:
+- **Research, 2026-11-20.** Five web research passes, unverified, used for ideas only:
   1. Shipped WebGL heroes: Bruno Simon, Lusion, Active Theory.
   2. Voxel morphing:
      - instanced voxels with staggered springs suit ≤ 600 voxels;
