@@ -45,11 +45,9 @@ Every feature is listed in [docs/FEATURES.md](docs/FEATURES.md).
 
 **Android.** Download `IntPortal.apk` from the [latest release](https://github.com/cGradying/IntPortal/releases/latest), open it, and allow the install when Android asks. It needs Android 7 or newer on a 64-bit phone. Updates install over the old version and keep your data.
 
-**iPhone.** There is no App Store build yet. Sideload `IntPortal-unsigned.ipa` from the release with AltStore or SideStore, which sign it with your own Apple ID, or try it in the browser.
+**iPhone.** There is no App Store build yet. Sideload `IntPortal-unsigned.ipa` from the release with AltStore or SideStore, which sign it with your own Apple ID.
 
 **Mac, Windows and Linux.** The release has `IntPortal-mac.dmg` (Apple Silicon), `IntPortal-windows.msi`, and `IntPortal-linux.AppImage` or `.deb`. They aren't signed, so the first launch asks once. The website's install help says how to get past that.
-
-**Any browser.** Try the whole app on sample data at `/try` on the website, with nothing to install.
 
 **Look around first.** Tap it on the sign-in page to try the whole app on sample data, with no school account.
 
