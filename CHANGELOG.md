@@ -265,13 +265,13 @@ Known gaps:
 
 ## 0.1.0 (2026-10-09)
 
-- Docs: TEAM.md, roles and kickoff prompts for parallel sessions (#71)
-- Builds: one Cargo build cache for every worktree, and scripts/worktree.sh (#70)
+- Docs: how work is split and reviewed (#71)
+- Builds: one Cargo build cache for every worktree (#70)
 - CI: two jobs that always run, and an iOS simulator build on main (#59)
 - Repo: stop tracking review screenshots, add issue and PR templates (#58)
-- Docs: a curated architecture, and a CodeGraph index kept local (#57)
+- Docs: a curated architecture (#57)
 - Android: the iOS app on Android, with a Live Update for the Dynamic Island (#55)
-- README for GitHub and a CLAUDE.md with the working loop (#54)
+- README for GitHub (#54)
 - Device calendar: classes in an IntPortal calendar, your events on Today (#53)
 - IskoLAR across the app: LAR talks, Isko cheers (#51)
 - IskoLAR landing: a pentomino portal builds itself, LAR comes through (#50)

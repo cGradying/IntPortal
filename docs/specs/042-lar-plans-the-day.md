@@ -10,7 +10,7 @@ LAR turns the day's free time into one concrete plan: "Free 1–3 PM: start Lab 
 
 - This is the third spec of the everyday-UX plan (040–049). It builds on 041's one deadline list (`crates/intportal-core/src/deadline.rs`, #202) and 040's Review all due (C9).
 - Rules first. The plan, the lines and the budget are rules in the Rust core and work without the AI model. Rewording by the model is out of scope.
-- The grilling decisions it follows (2026-10-22):
+- The owner's decisions it follows (2026-10-22):
   - Today stays a glance with **one** LAR card.
   - At most 3 nudges a day, class reminders excluded, ranked deadline, then warm-up, then note after class.
   - Quiet from 10 PM to 7 AM.

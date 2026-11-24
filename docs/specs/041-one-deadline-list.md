@@ -8,7 +8,7 @@ Every deadline the student has is in one list, wherever it came from: the syllab
 
 ## Direction and references
 
-- North star of the 040–049 range: never miss a deadline (the UX plan's grilling decisions, 2026-10-22).
+- North star of the 040–049 range: never miss a deadline (the owner's decisions, 2026-10-22).
 - This spec takes over 030 C6–C10 (syllabus deadlines in the calendar). 030 keeps C1–C5 and C11–C14. Issue #148 is re-scoped to this spec.
 - Rules first. Everything here works without the AI model. The model is never asked for a date ([020](020-ai.md), `intent.rs` "The model never computes dates").
 - Logic lives in the Rust core with a test. The phone draws what the core returns ([ARCHITECTURE.md](../ARCHITECTURE.md)).
@@ -149,7 +149,7 @@ pub fn parse_own(text: &str, today: Date, subjects: &[(String, String)]) -> Draf
   - `syllabus::due` stays private to `deadlines`;
   - `ai.rs` `facts_for` reads `deadlines`.
 - **Parser.** `parse_own` lives in the core. It moves `resolve_when` and `subject_in` from `intportal-ai/src/intent.rs` into `intportal-core`, and `intent.rs` calls the core versions. The date rules then have one home.
-- **Commands** in `src-tauri/src/lib.rs`, a hot file (TEAM.md, Working in parallel), so this waits for #60 or goes in one small PR:
+- **Commands** in `src-tauri/src/lib.rs`, a hot file, so this waits for #60 or goes in one small PR:
   - `deadlines(now, days)`;
   - `set_done(id, done)`;
   - `add_own(draft)`, `edit_own(own)`, `delete_own(id)`;

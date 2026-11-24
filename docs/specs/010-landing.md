@@ -18,7 +18,7 @@ A minimal grid of flat tiles with gaps, in the spirit of three references: a but
 - Haptics for the build, the open and failure (`src/lib/haptics.ts`).
 - The sign-in form's fields ([011](011-login.md)).
 
-Retired by the user's direction (grilling, 2026-10): the three.js scene (`portal3d.ts`), the pentomino frame (`pentomino.ts`), the swirl-as-3D and the three **stones** (Schedule, Grades, Study) that LAR pulled out. **The stones are retired** (decided 2026-10-11; the user left the call to the UI engineer). The tab bar and Today already name those sections, and the new landing is about the portal and the form.
+Retired by the user's direction (2026-10): the three.js scene (`portal3d.ts`), the pentomino frame (`pentomino.ts`), the swirl-as-3D and the three **stones** (Schedule, Grades, Study) that LAR pulled out. **The stones are retired** (decided 2026-10-11; the user left the call to the UI engineer). The tab bar and Today already name those sections, and the new landing is about the portal and the form.
 
 ## Behaviour
 
@@ -72,7 +72,7 @@ Shipped in `crates/intportal-tiles` (the scene and the dive), `Landing.svelte`, 
 
 **The dive (replaces the morph)**
 
-Decided in grilling, 2026-10-25 ([plan](PLAN-dive-environment.md)). The dive is the loading screen on every launch. It supersedes the 2026-10-22 decision that a signed-in launch opens straight to Today.
+Decided with the owner, 2026-10-25. The dive is the loading screen on every launch. It supersedes the 2026-10-22 decision that a signed-in launch opens straight to Today.
 
 - **C20.** *Removed* (2026-10-25). The tile morph into the Up next card, the tab icons and the dot grid is retired. The dive replaces it.
 - **C21.** *Removed* (2026-10-25). The "fourth dimension" morph prototype is retired with C20.

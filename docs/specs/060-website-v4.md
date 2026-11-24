@@ -1,6 +1,6 @@
 # 060 The website, fourth pass: honest install, every page finished, lighter on phones
 
-**Status:** approved (the owner's ask, 2026-11-20: "for the website make sure you enhance it a little more, swarm on this")
+**Status:** approved (the owner's ask, 2026-11-20: "for the website make sure you enhance it a little more")
 
 ## What changes for the student
 
@@ -8,12 +8,12 @@ A link shared in a group chat says what IntPortal is. The iPhone and Android ste
 
 ## Direction and references
 
-A five-way audit on 2026-11-20 (the swarm), each lens run by its own agent on the live site:
-1. Home design and hierarchy (Claude, screenshots at 390, 1440, 1920).
-2. Inner pages (Claude, 11 pages at 390 and 1440).
-3. Copy and the path to installing (Claude).
-4. Performance and accessibility (Claude, on the production build: 4× CPU, Slow 4G).
-5. What shipped app sites have that this one lacks (agy, unverified).
+A five-way audit of the live site on 2026-11-20:
+1. Home design and hierarchy (screenshots at 390, 1440, 1920).
+2. Inner pages (11 pages at 390 and 1440).
+3. Copy and the path to installing.
+4. Performance and accessibility (on the production build: 4× CPU, Slow 4G).
+5. What shipped app sites have that this one lacks (unverified).
 
 DESIGN.md and specs 057–059 hold. No new fonts, colours or dependencies.
 
@@ -88,7 +88,7 @@ DESIGN.md and specs 057–059 hold. No new fonts, colours or dependencies.
   - Changelog version links and the footer mark are 44 px targets.
   - The "since" badges are 14 px at 0.7.
 
-## Out of scope (named by the swarm, needs the owner)
+## Out of scope (named by the audit, needs the owner)
 
 - A pricing / "free forever vs Cloud" page.
 - A comparison with the official SIS.

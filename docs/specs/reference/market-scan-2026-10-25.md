@@ -1,6 +1,6 @@
 # Market scan: what shipping apps do (2026-10-25)
 
-Step 1 of [PLAN-dive-environment](../PLAN-dive-environment.md). This was gathered by a background research agent from the web, and every claim carries the link it came from. Anything without a primary source is marked **unverified**. Some page text came through a summarising fetcher, so treat details as second-hand.
+This was gathered from the web, and every claim carries the link it came from. Anything without a primary source is marked **unverified**. Some page text came through a summarising fetcher, so treat details as second-hand.
 
 ## Balatro (mobile)
 - **Award.** Apple Design Award 2025, Delight and Fun ([Apple Newsroom](https://www.apple.com/newsroom/2025/06/apple-unveils-winners-and-finalists-of-the-2025-apple-design-awards/)).

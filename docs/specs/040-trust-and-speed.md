@@ -9,7 +9,7 @@ The app never shows something it doesn't know: no "Nothing scheduled" while it i
 ## Direction and references
 
 - Part of the everyday-UX plan, range 040–049. North star: never miss a deadline. 041 is the deadline list; this spec is everything around it that makes the app trustworthy and quick.
-- **Launch is not here.** The 2026-10-22 decision "a signed-in launch goes straight to Today" was replaced on 2026-10-25 by the dive plan (`docs/specs/PLAN-dive-environment.md`, branch `docs/plan-dive-environment`): the dive is the loading screen, at least 0.6 s, and Reduce Motion goes straight to Today. That plan owns launch.
+- **Launch is not here.** The 2026-10-22 decision "a signed-in launch goes straight to Today" was replaced on 2026-10-25 by the dive plan: the dive is the loading screen, at least 0.6 s, and Reduce Motion goes straight to Today. That plan owns launch.
 - **Calendar views follow the dive plan's mockups.** C13 (week navigation) holds whatever those views become.
 - The trust bugs already filed carry over as criteria: #158 (C1), #159 (C3), #160 (C5). Their PRs cite these ids once this spec is approved. Until then they ship as bug fixes.
 - PRODUCT.md: glance first, two taps or fewer. Copy is LAR's voice: friendly, clear first, light Taglish.
