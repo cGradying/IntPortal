@@ -784,7 +784,7 @@ describe("applying a proposal", () => {
     expect(saved).toMatchObject({ text: "- A tree\n- Insert is O(log n)", title: "Heaps" });
     expect(saved.key).toMatch(/^note:/);
     expect(ran("set_note_subject")[0][1]).toEqual({ key: saved.key, subject: "COMP 20073" });
-    expect(assis.chat[0]).toMatchObject({ state: "done", text: "Saved to your notes." });
+    expect(assis.chat[0]).toMatchObject({ state: "done", text: "Saved to your notes.", saved: saved.key, editing: false });
   });
 
   it("does nothing for a card already answered", async () => {
@@ -1241,21 +1241,49 @@ describe("spec 062 B: LAR changes a note", () => {
     await apply(0);
     await undoChange(0);
     expect(ran("undo_lar_note")[0][1]).toEqual({ key: "note:1" });
-    expect(assis.chat[0]).toMatchObject({ undo: false, notice: "Put back.", state: "done" });
+    expect(assis.chat[0]).toMatchObject({ undo: false, undone: true, state: "done" });
+    expect(assis.chat[0].notice).toBeUndefined();
+    expect(assis.chat[0].problem).toBe("");
     expect(app.notes).toEqual([note]);
     await undoChange(0);
     expect(ran("undo_lar_note")).toHaveLength(1);
   });
 
   it("Undo that fails keeps the button so the student can try again", async () => {
-    backend.undo_lar_note = () => Promise.reject("There's nothing to undo.");
+    backend.undo_lar_note = () => Promise.reject("Couldn't save your notes.");
     card({ kind: "rename_note", key: "note:1", name: "Heaps", title: "Trees" }, { state: "done", undo: true });
     await undoChange(0);
-    expect(assis.chat[0]).toMatchObject({ undo: true, problem: "There's nothing to undo." });
+    expect(assis.chat[0]).toMatchObject({ undo: true, problem: "Couldn't save your notes." });
     backend.undo_lar_note = () => undefined;
     backend.notes = () => [];
     await undoChange(0);
     expect(assis.chat[0].undo).toBe(false);
+  });
+
+  it("063 Errors: Undo after a hand edit says there's nothing to undo, as a plain line, and takes the button away", async () => {
+    backend.undo_lar_note = () => Promise.reject("There's nothing to undo.");
+    card({ kind: "edit_note", key: "note:1", name: "Heaps", edit: "change", before: "a", after: "b" }, { state: "done", undo: true });
+    await undoChange(0);
+    expect(assis.chat[0]).toMatchObject({ undo: false, notice: "There's nothing to undo." });
+    expect(assis.chat[0].problem).toBeFalsy();
+    expect(assis.chat[0].undone).toBeFalsy();
+  });
+
+  it("063 C6: a tapped row stays marked", async () => {
+    backend.ai_ask = () => reply("ok");
+    card({ kind: "pick_note", candidates: [{ key: "note:1", name: "Heaps" }, { key: "note:2", name: "Heaps 2" }], ask: "fix it" });
+    await pickNote(0, "note:2");
+    expect(assis.chat[0]).toMatchObject({ state: "done", picked: "note:2" });
+  });
+
+  it("063 C4, C6: a card lands with Move's old subject and each candidate's subject and day", async () => {
+    app.notes = [{ ...note, subject: "COMP 20073", updated: 500 }];
+    backend.ai_ask = () => reply("Move Heaps to MATH 101?", { proposal: { kind: "move_note", key: "note:1", name: "Heaps", subject: "MATH 101" } });
+    await ask("move my heaps note to MATH 101");
+    expect(assis.chat[1].proposal).toEqual({ kind: "move_note", key: "note:1", name: "Heaps", subject: "MATH 101", from: "COMP 20073" });
+    backend.ai_ask = () => reply("Which note do you mean?", { proposal: { kind: "pick_note", ask: "fix heaps", candidates: [{ key: "note:1", name: "Heaps" }] } });
+    await ask("fix heaps");
+    expect(assis.chat[3].proposal).toMatchObject({ candidates: [{ key: "note:1", name: "Heaps", subject: "COMP 20073", updated: 500 }] });
   });
 
   it("Undo does nothing on a card with no change to undo", async () => {
