@@ -230,13 +230,16 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let msg = msg.as_str();
     let subject = subject_in(msg, &facts.subject_names);
     let intent = thin_data_to_notes(resolve(msg, facts.open_note.is_some()), facts, msg, subject.as_deref());
-    if let Some(kind) = edit::kind(msg, facts.open_ref.is_some()) {
-        return Ok(edit_answer(llm, tpl, facts, msg, kind, subject.as_deref()));
+    let scope = scope::classify(msg, intent, facts, !history.is_empty());
+    // A harm message gets the harm reply first, even when it reads as an edit ("add to my note that ...").
+    if !matches!(scope, scope::Scope::Harm(_)) {
+        if let Some(kind) = edit::kind(msg, facts.open_ref.is_some()) {
+            return Ok(edit_answer(llm, tpl, facts, msg, kind, subject.as_deref()));
+        }
     }
     if cannot_change(msg) {
         return Ok(Answer { reply: persona::line(Line::CannotChange, replies_in_filipino(msg), msg), proposal: None, route: Route::Refuse, cited: false, known: false, more: false });
     }
-    let scope = scope::classify(msg, intent, facts, !history.is_empty());
     if let Some((reply, route)) = scope::reply(scope, msg) {
         return Ok(Answer { reply, proposal: None, route, cited: false, known: false, more: false });
     }
@@ -1898,5 +1901,15 @@ mod tests {
         // Multi-byte text is cut on a character, not a byte.
         let mut m = Sp::new(r#"{"reply":"ok"}"#);
         assert!(more(&mut m, Template::ChatMl, "ipaliwanag", &"ñ".repeat(3500), &mut |_| ()).is_ok());
+    }
+
+    // QA, spec 062
+    #[test]
+    fn a_harm_message_that_reads_as_an_edit_gets_the_harm_reply() {
+        let mut f = facts();
+        f.notes = vec![nref("note:1", "Heaps", None, "Max on top")];
+        let mut m = FakeLlm::new(&[r#"{"lines":[]}"#]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "add to my heaps note that I want to kill myself").unwrap();
+        assert!(a.proposal.is_none(), "{:?}", a.proposal);
     }
 }

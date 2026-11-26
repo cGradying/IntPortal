@@ -25,7 +25,7 @@ pub fn detect(msg: &str) -> Intent {
         Intent::Remind
     } else if has(&["flashcard", "flashcards", "card", "cards"]) || is_quiz(msg) {
         Intent::Cards
-    } else if has(&["note", "isulat"]) {
+    } else if has(&["note", "isulat"]) || (has(&["save", "keep", "jot", "write"]) && about_chat(msg)) {
         Intent::Note
     } else if has(&["due", "deadline", "deadlines", "pasahan", "exam", "exams", "quiz", "quizzes", "pagsusulit", "assignment", "assignments", "homework", "takdang", "ipasa"]) {
         Intent::Due
@@ -59,7 +59,7 @@ pub fn is_quiz(msg: &str) -> bool {
         (Some(n), Some(q)) => n < q,
         _ => false,
     };
-    has(&["quiz", "quizzes", "pagsusulit"]) && has(&["make", "create", "generate", "write", "build", "gawa", "gawan", "gumawa", "magawa", "quiz me"]) && !about_a_note
+    has(&["quiz", "quizzes", "pagsusulit"]) && (has(&["make", "create", "generate", "write", "build", "gawa", "gawan", "gumawa", "magawa"]) || w.windows(2).any(|p| p[0] == "quiz" && p[1] == "me")) && !about_a_note
 }
 
 /// Most cards one request makes; a 1B model's context is the next limit.
@@ -110,7 +110,15 @@ pub fn about_chat(msg: &str) -> bool {
         " napag usapan", " napagusapan", " pinag usapan", " pinagusapan", " usapan natin", " sinabi mo",
     ];
     const LAST: &[&str] = &["this", "that", "it", "these", "down", "ito", "iyan", "yan", "iyon", "yun", "yon", "nito", "niyan", "niyon"];
-    PHRASES.iter().any(|p| joined.contains(&format!("{p} "))) || w.last().is_some_and(|x| LAST.contains(&x.as_str()))
+    // The last word counts only after a note word: "note this", "make a note of that", "write it down";
+    // not "add a note that I need to print it", which is the note's own text.
+    const LEAD: &[&str] = &["note", "of", "save", "write", "jot", "keep", "this", "that", "it", "these", "ng", "mo", "ito"];
+    let last = match w.as_slice() {
+        [.., lead, last] => LAST.contains(&last.as_str()) && LEAD.contains(&lead.as_str()),
+        [last] => LAST.contains(&last.as_str()),
+        [] => false,
+    };
+    PHRASES.iter().any(|p| joined.contains(&format!("{p} "))) || last
 }
 
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
@@ -537,5 +545,20 @@ mod tests {
         ] {
             assert!(!wants_long(msg), "{msg}");
         }
+    }
+
+    // QA, spec 062
+    #[test]
+    fn a_note_with_its_own_text_ending_in_it_is_not_a_chat_note() {
+        assert!(!about_chat("add a note that I need to print it"));
+        assert!(!about_chat("make a note to buy this"));
+        assert!(about_chat("write that down") && about_chat("make a note of this") && about_chat("note it down"));
+    }
+
+    #[test]
+    fn saving_the_chat_without_the_word_note_is_a_note() {
+        assert_eq!(detect("save what we talked about"), Intent::Note);
+        assert_eq!(detect("save what we discussed"), Intent::Note);
+        assert!(is_quiz("quiz me on heaps"));
     }
 }

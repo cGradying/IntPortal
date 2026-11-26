@@ -141,7 +141,8 @@ pub fn wrong_ok(card: &Card) -> bool {
     // doesn't (every meaning word already in it) is a copy.
     let near = |a: &str, b: &str| {
         let (x, y) = (content(a), content(b));
-        key(a) == key(b) || x.iter().all(|w| y.contains(w))
+        // Both ways: "two identical daughter cells" is the right answer "two identical cells" with a word added.
+        key(a) == key(b) || x.iter().all(|w| y.contains(w)) || y.iter().all(|w| x.contains(w))
     };
     card.wrong.len() == 3
         && card.wrong.iter().enumerate().all(|(i, w)| {
@@ -620,5 +621,14 @@ mod tests {
         let o = topic_cards(&mut m, Template::ChatMl, "cells", &[], 2, true);
         assert_eq!(o.cards.len(), 2);
         assert!(o.cards.iter().all(|c| c.wrong.len() == 3));
+    }
+
+    // QA, spec 062
+    #[test]
+    fn a_wrong_answer_that_is_the_right_one_with_words_added_is_a_copy() {
+        let w = ["Cell division that makes two identical daughter cells", "Cell division that makes four different cells", "Joining two cells into one"];
+        assert!(!wrong_ok(&quiz("Mitosis", "Cell division that makes two identical cells", &w)));
+        let w = ["The number of nodes in the tree", "The total number of nodes in the tree", "The number of leaves"];
+        assert!(!wrong_ok(&quiz("Size of a tree", "The longest path from the root", &w)), "two wrong answers that say the same thing");
     }
 }

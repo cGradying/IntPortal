@@ -1304,6 +1304,16 @@ describe("spec 062 C25: Keep going, more cases", () => {
     expect(assis.busy).toBe("");
   });
 
+  it("does nothing on an older cut bubble: only the newest LAR turn extends", async () => {
+    await cutAnswer();
+    await cutAnswer("Iteration is a loop");
+    await keepGoing(1);
+    expect(ran("ai_more")).toHaveLength(0);
+    expect(assis.chat[1]).toMatchObject({ cut: true, more: 0 });
+    await keepGoing(3);
+    expect(ran("ai_more")).toHaveLength(1);
+  });
+
   it("joins the new part with one space unless it starts with punctuation or the old text ends in space", async () => {
     for (const [before, add, want] of [
       ["Recursion is a function", "calling itself.", "Recursion is a function calling itself."],

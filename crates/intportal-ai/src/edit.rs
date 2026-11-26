@@ -42,6 +42,12 @@ pub fn kind(msg: &str, note_open: bool) -> Option<Kind> {
     if !(names_note || note_open) || has(&w, &["remind", "reminder", "paalala", "flashcard", "flashcards", "card", "cards", "quiz"]) {
         return None;
     }
+    // A question is asked, not done: "how do I fix a segfault?", "what's the cost to delete from a heap?"
+    // with a note open. "Can you fix this note?" is still a request.
+    const ASKS: &[&str] = &["how", "what", "whats", "why", "when", "where", "who", "which", "explain", "define", "describe", "paano", "ano", "bakit", "kailan", "saan", "sino"];
+    if w.first().is_some_and(|x| ASKS.contains(&x.as_str())) {
+        return None;
+    }
     let new_note = [" add a note", " new note", " make a note", " create a note", " write a note", " save a note", " take a note", " jot", " note "].iter().any(|p| joined.starts_with(p) || (*p != " note " && joined.contains(p)));
     if new_note {
         return None;
@@ -56,15 +62,15 @@ pub fn kind(msg: &str, note_open: bool) -> Option<Kind> {
     let part = has(&w, &["line", "lines", "part", "bullet", "sentence", "word", "words", "date", "time"]) || from_a_note;
     if has(&w, &["rename", "retitle"]) || joined.contains(" change the title") || joined.contains(" call it ") || joined.contains(" palitan ang pangalan") || joined.contains(" title to ") {
         Some(Kind::Rename)
-    } else if has(&w, &["move", "file", "ilipat"]) || joined.contains(" put it under") {
+    } else if (has(&w, &["move", "ilipat"]) || joined.contains(" put it under") || (has(&w, &["file"]) && joined.contains(" under "))) && !part {
         Some(Kind::Move)
-    } else if has(&w, &["delete", "erase", "burahin", "trash"]) || (has(&w, &["remove", "alisin", "tanggalin"]) && !part) {
+    } else if has(&w, &["delete", "erase", "burahin", "trash", "remove", "alisin", "tanggalin"]) && !part {
         Some(Kind::Delete)
-    } else if has(&w, &["tidy", "clean", "organize", "organise", "format", "linisin", "ayusin", "spelling", "grammar", "typos"]) {
+    } else if has(&w, &["tidy", "clean", "organize", "organise", "format", "linisin", "ayusin", "pakiayos", "spelling", "grammar", "typos"]) {
         Some(Kind::Tidy)
-    } else if has(&w, &["change", "update", "edit", "fix", "replace", "correct", "palitan", "baguhin", "remove", "alisin", "tanggalin"]) {
+    } else if has(&w, &["change", "update", "edit", "fix", "replace", "correct", "palitan", "baguhin", "remove", "alisin", "tanggalin", "delete", "erase", "burahin", "move"]) {
         Some(Kind::Change)
-    } else if has(&w, &["add", "append", "include", "idagdag", "isama", "ilagay", "put"]) && (has(&w, &["to", "into", "in", "sa"]) || note_open) {
+    } else if (has(&w, &["add", "append", "include", "idagdag", "isama", "ilagay", "put"]) && (has(&w, &["to", "into", "in", "sa"]) || note_open)) || has(&w, &["dagdagan", "lagyan"]) {
         Some(Kind::Append)
     } else {
         None
@@ -138,7 +144,18 @@ pub struct LineEdit {
 pub fn apply(text: &str, edits: &[LineEdit]) -> Option<String> {
     let mut lines: Vec<String> = text.lines().map(String::from).collect();
     let n = lines.len();
-    let mut ok: Vec<(usize, &LineEdit)> = edits.iter().enumerate().filter(|(_, e)| match e.op.as_str() { "insert" => e.line <= n, "replace" | "remove" => (1..=n).contains(&e.line), _ => false }).collect();
+    // One replace or remove per line, the first listed: a second one would hit a line that moved or is gone
+    // (and `remove` past the end panics).
+    let mut hit = std::collections::HashSet::new();
+    let mut ok: Vec<(usize, &LineEdit)> = edits
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| match e.op.as_str() {
+            "insert" => e.line <= n,
+            "replace" | "remove" => (1..=n).contains(&e.line) && hit.insert(e.line),
+            _ => false,
+        })
+        .collect();
     // From the bottom up, so each edit's line number still means the line the model saw. On one line the
     // inserts go first (after the line as it was), last-listed first, so they read in the model's order.
     ok.sort_by_key(|&(i, e)| (std::cmp::Reverse(e.line), e.op != "insert", std::cmp::Reverse(i)));
@@ -636,5 +653,37 @@ mod tests {
         assert_eq!(new_title("rename this note to Midterm review").as_deref(), Some("Midterm review"));
         assert_eq!(new_title("call it \"Heaps and stacks\"").as_deref(), Some("Heaps and stacks"));
         assert_eq!(new_title("rename it"), None);
+    }
+
+    // QA, spec 062
+    #[test]
+    fn two_edits_on_one_line_keep_the_first_and_never_panic() {
+        assert_eq!(apply("a\nb\nc", &[le("remove", 3, ""), le("remove", 3, "")]).as_deref(), Some("a\nb"));
+        assert_eq!(apply("a\nb\nc", &[le("remove", 3, ""), le("replace", 3, "C")]).as_deref(), Some("a\nb"));
+        assert_eq!(apply("a", &[le("remove", 1, ""), le("remove", 1, "")]).as_deref(), Some(""));
+        assert_eq!(apply("a\nb\nc", &[le("remove", 2, ""), le("replace", 2, "B")]).as_deref(), Some("a\nc"), "line 3 is untouched");
+    }
+
+    #[test]
+    fn a_question_is_never_an_edit() {
+        for (msg, open) in [
+            ("how do I fix a segfault in C?", true),
+            ("what's the time complexity to delete from a heap?", true),
+            ("what is move semantics", true),
+            ("explain file systems", true),
+            ("how do I format a citation", true),
+            ("what do my notes say about how to delete from a BST?", false),
+            ("summarize my notes on file handling", false),
+        ] {
+            assert_eq!(kind(msg, open), None, "{msg}");
+        }
+        assert_eq!(kind("can you fix the typos in my note?", false), Some(Kind::Tidy), "a request asked politely is still a request");
+    }
+
+    #[test]
+    fn deleting_or_moving_a_part_edits_the_note() {
+        assert_eq!(kind("delete the last line of my heaps note", false), Some(Kind::Change));
+        assert_eq!(kind("move the exam date in my COMP note to Friday", false), Some(Kind::Change));
+        assert_eq!(kind("dagdagan mo ang note ko ng formula", false), Some(Kind::Append));
     }
 }

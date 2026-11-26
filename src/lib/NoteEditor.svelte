@@ -188,6 +188,26 @@
     });
   });
 
+  // LAR renames this note while it is open: show the new name, unless the student is typing one (C14).
+  let lastTitle = untrack(() => item?.title ?? title ?? null);
+  let naming = false;
+  $effect(() => {
+    const t = item?.title ?? null;
+    if (!item || t === lastTitle) return;
+    lastTitle = t;
+    if (!naming) name = t ?? "";
+  });
+
+  // LAR deletes this note while it is open: close the page, and never save it back.
+  let seen = false;
+  $effect(() => {
+    if (item) seen = true;
+    else if (seen) {
+      clearTimeout(timer);
+      app.editing = null;
+    }
+  });
+
   async function done() {
     clearTimeout(timer);
     // Closing on blank text deletes the note (C17a).
@@ -261,6 +281,8 @@
           change: (t) => {
             text = t;
             can = nv?.can() ?? can;
+            // Text the core already holds (LAR's change just shown) is not an edit: saving it would clear Undo.
+            if (t === lastSaved) return void (clearTimeout(timer), (saved = true));
             typed();
           },
           select: (a, b) => (sel = [a, b]),
@@ -525,7 +547,7 @@
   </header>
   <div class="title">
     {#if named}
-      <input class="name" bind:value={name} oninput={typed} placeholder="Name this note" aria-label="Note name" />
+      <input class="name" bind:value={name} oninput={typed} onfocus={() => (naming = true)} onblur={() => (naming = false)} placeholder="Name this note" aria-label="Note name" />
     {:else}
       <h2>{heading}</h2>
     {/if}

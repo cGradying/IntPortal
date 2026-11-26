@@ -382,7 +382,6 @@ impl Store {
         Ok(())
     }
 
-    /// Deletes a note with its chunks and photos, in one transaction (046 C17).
     /// A change LAR made, which the student confirmed (spec 062 C14). The note as it was is kept, so
     /// `undo_lar` can put it back until the student edits the note. Only LAR's last change is kept.
     pub fn lar_change(&self, key: &str, change: &LarChange, now: i64) -> Result<(), StoreError> {
@@ -442,9 +441,11 @@ impl Store {
         Ok(keys)
     }
 
+    /// Deletes a note with its chunks and photos, in one transaction (046 C17). The student's own delete
+    /// also drops LAR's Undo for it, so a card left in the chat can't bring the note back.
     pub fn delete_note(&self, key: &str) -> Result<(), StoreError> {
         let tx = self.db.unchecked_transaction()?;
-        for table in ["notes WHERE key", "chunks WHERE note_key", "photos WHERE note_key"] {
+        for table in ["notes WHERE key", "chunks WHERE note_key", "photos WHERE note_key", "note_undo WHERE key"] {
             tx.execute(&format!("DELETE FROM {table} = ?1"), [key])?;
         }
         tx.commit()?;
@@ -764,7 +765,7 @@ impl Store {
     /// because the notes they came from just changed; search re-reads them.
     pub fn restore(&self, b: &Backup) -> Result<(), StoreError> {
         let tx = self.db.unchecked_transaction()?;
-        tx.execute_batch("DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks;")?;
+        tx.execute_batch("DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM note_undo;")?;
         let notes: Vec<_> = b.notes.iter().filter(|n| crate::notes::is_known_key(&n.key)).collect();
         for n in &notes {
             tx.execute(
@@ -857,7 +858,7 @@ impl Store {
     /// Erase everything on the device, the student's own work included.
     pub fn wipe(&self) -> Result<(), StoreError> {
         let tx = self.db.unchecked_transaction()?;
-        tx.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns; DELETE FROM photos;")?;
+        tx.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns; DELETE FROM photos; DELETE FROM note_undo;")?;
         tx.commit()?;
         self.forget();
         // Deleting doesn't shrink the file; erasing everything does (046 Data).
@@ -1715,5 +1716,22 @@ mod tests {
         store.extend_last_turn("A heap is a tree.").unwrap();
         let after = store.turns(1).unwrap().remove(0);
         assert_eq!((after.role.as_str(), after.at, after.ask, after.sources.len()), (before.role.as_str(), before.at, before.ask, before.sources.len()));
+    }
+
+    // QA, spec 062: no note text outlives Erase everything, a restore or the student's delete.
+    #[test]
+    fn b_erase_restore_and_delete_leave_no_undo_behind() {
+        let store = lar_note();
+        store.lar_change("note:a", &LarChange::Text("Quiz Monday".into()), 200).unwrap();
+        store.delete_note("note:a").unwrap();
+        assert!(store.undo_keys().unwrap().is_empty(), "delete");
+        let store = lar_note();
+        store.lar_change("note:a", &LarChange::Text("Quiz Monday".into()), 200).unwrap();
+        let backup = Backup::make(&store, "2024-00001-MN-0", [7; 16], vec![], 0).unwrap();
+        store.restore(&backup).unwrap();
+        assert!(store.undo_keys().unwrap().is_empty(), "restore");
+        store.lar_change("note:a", &LarChange::Text("Quiz Tuesday".into()), 300).unwrap();
+        store.wipe().unwrap();
+        assert!(store.undo_keys().unwrap().is_empty(), "wipe");
     }
 }
