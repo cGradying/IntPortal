@@ -57,6 +57,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [059-portal-art](059-portal-art.md) | shipped | The website's portal, alive: sculptures from the other side when LAR speaks, a breathing vortex, motes, a kawoosh, tiles that lean in |
 | [060-website-v4](060-website-v4.md) | shipped | The website, fourth pass: honest install steps, a next step on every page, finished feature pages, lighter on phones |
 | [061-own-schedule](061-own-schedule.md) | building | Classes without a portal: own schedule mode, adding classes by hand, and reading a photo of a schedule on the phone |
+| [062-lar-v3](062-lar-v3.md) | draft | LAR makes notes from the chat, edits notes with Undo, makes quizzes with wrong answers, and gives long answers with Keep going |
 
 Decisions behind them: [ADR 0004](../adr/0004-landing-renders-in-rust-wasm-tiles.md), [ADR 0005](../adr/0005-portals-are-first-class.md) and [ADR 0006](../adr/0006-one-repo.md).
 
