@@ -139,8 +139,18 @@ export const larLook = (h: number) => ({ ramp: [0.1, 0.2, 0.36, 0.56, 0.84].map(
  * else the school's. Only the header: LAR himself keeps the school's unless given a LAR colour.
  */
 export function skyLook<T extends { ramp: readonly string[]; accent: string }>(worn: Theme | null | undefined, school: T): T | ReturnType<typeof larLook> {
-  if (!worn) return school;
-  return larLook(worn.lar ?? hueOf(worn.accent));
+  if (worn?.lar != null) return larLook(worn.lar);
+  // A grey accent has no hue to draw a sky from (hueOf would say 0, red): it keeps the school's, as with no theme.
+  if (!worn || satOf(worn.accent) < 0.15) return school;
+  return larLook(hueOf(worn.accent));
+}
+
+/** A colour's HSL saturation, 0 to 1. */
+export function satOf(c: string): number {
+  const [r, g, b] = hex(c).map((v) => v / 255);
+  const [mx, mn] = [Math.max(r, g, b), Math.min(r, g, b)];
+  const d = 1 - Math.abs(mx + mn - 1);
+  return d === 0 ? 0 : (mx - mn) / d;
 }
 
 const BASE = { hue2: null, lar: null, pattern: "dots", aura: "full", corners: "step", cards: "fill", titles: "phone" } as const;

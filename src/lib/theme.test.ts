@@ -14,7 +14,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-notification", () => ({ Schedule: {}, cancel: vi.fn(), isPermissionGranted: vi.fn(), onAction: vi.fn(), pending: vi.fn(), requestPermission: vi.fn() }));
 
 import { contrast, mix } from "./rooms";
-import { PRESETS, hsl, hueOf, larLook, roles, roll, seed, skyLook, type Theme } from "./theme";
+import { PRESETS, hsl, hueOf, larLook, roles, roll, satOf, seed, skyLook, type Theme } from "./theme";
 import { decodeTheme, encodeTheme } from "./themeCode";
 import { app, deleteTheme, saveTheme, setRoom } from "./state.svelte";
 
@@ -167,6 +167,14 @@ describe("spec 063 C14: LAR's sky header follows the worn theme", () => {
   it("draws the sky from the theme's accent when no LAR colour is set", () => {
     const t = worn({ accent: "#2f80ed", lar: null });
     expect(skyLook(t, school)).toEqual(larLook(hueOf("#2f80ed")));
+  });
+
+  it("keeps the school's colours when the accent is grey, since a grey has no hue", () => {
+    for (const grey of ["#808080", "#1a1a1c", "#f2f2f2", "#8a8580"]) expect(skyLook(worn({ accent: grey, lar: null }), school), grey).toBe(school);
+    expect(satOf("#808080")).toBe(0);
+    expect(skyLook(worn({ accent: "#a67a7a", lar: null }), school)).toEqual(larLook(hueOf("#a67a7a")));
+    // A set LAR colour still wins on a grey theme.
+    expect(skyLook(worn({ accent: "#808080", lar: 200 }), school)).toEqual(larLook(200));
   });
 
   it("lets a set LAR colour win over the accent", () => {
