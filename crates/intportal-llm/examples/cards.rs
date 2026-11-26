@@ -67,8 +67,12 @@ fn main() {
             println!("  {} | {}  [{}]", c.front, c.back, if c.wrong.len() == 3 { "kept" } else { "dropped" });
             if quiz {
                 let asked = gen::repair(&gen::Card { wrong: raw.get(i).cloned().unwrap_or_default(), ..c.clone() });
-                for (j, w) in asked.wrong.iter().enumerate() {
-                    let f = gen::wrong_fault(&asked, w, &asked.wrong[..j]);
+                let mut kept = vec![];
+                for w in &asked.wrong {
+                    let f = if kept.len() == 3 { Some("not needed") } else { gen::wrong_fault(&asked, w, &kept) };
+                    if f.is_none() {
+                        kept.push(w.clone());
+                    }
                     *faults.entry(f.unwrap_or("fair")).or_default() += 1;
                     println!("      {} {w}{}", if c.wrong.contains(w) { "x" } else { "-" }, f.map(|f| format!("  <- {f}")).unwrap_or_default());
                 }
