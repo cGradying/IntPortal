@@ -130,31 +130,43 @@ pub fn check(card: &Card) -> Result<(), Reject> {
     Ok(())
 }
 
-/// Whether three wrong answers make a fair quiz (C19): each a plain statement, not the right answer or a copy
-/// of it (no meaning word of its own), not another of the three, not naming the front's term, and between half and twice the right
-/// answer's length in words.
-pub fn wrong_ok(card: &Card) -> bool {
+/// A near miss ("toward less dissolved substance") is a good wrong answer; one that says nothing the other
+/// doesn't (every meaning word already in it) is a copy. Both ways: "two identical daughter cells" is the
+/// right answer "two identical cells" with a word added.
+fn near(a: &str, b: &str) -> bool {
+    let (x, y) = (content(a), content(b));
+    key(a) == key(b) || x.iter().all(|w| y.contains(w)) || y.iter().all(|w| x.contains(w))
+}
+
+/// Why one wrong answer is unfair for `card` (C19), given the ones before it in the set; `None` if it is
+/// fair: a plain statement, not the right answer or a copy of it, not a copy of an earlier one, not naming
+/// the front's term, and between a third and twice the right answer's length in words.
+pub fn wrong_fault(card: &Card, w: &str, before: &[String]) -> Option<&'static str> {
     let (front, back) = (card.front.trim(), card.back.trim());
-    let n = back.split_whitespace().count().max(1);
+    let (n, m) = (back.split_whitespace().count().max(1), w.split_whitespace().count());
     let fronts = content(front);
-    // A near miss ("toward less dissolved substance") is a good wrong answer; one that says nothing the other
-    // doesn't (every meaning word already in it) is a copy.
-    let near = |a: &str, b: &str| {
-        let (x, y) = (content(a), content(b));
-        // Both ways: "two identical daughter cells" is the right answer "two identical cells" with a word added.
-        key(a) == key(b) || x.iter().all(|w| y.contains(w)) || y.iter().all(|w| x.contains(w))
-    };
-    card.wrong.len() == 3
-        && card.wrong.iter().enumerate().all(|(i, w)| {
-            let m = w.split_whitespace().count();
-            !w.trim().is_empty()
-                && !w.trim_end().ends_with('?')
-                && !near(w, back)
-                && !card.wrong[..i].iter().any(|o| near(w, o))
-                && m * 3 >= n
-                && m <= n * 2 + 2
-                && !(is_term(front) && !fronts.is_empty() && fronts.iter().all(|t| content(w).contains(t)))
-        })
+    if w.trim().is_empty() {
+        Some("blank")
+    } else if w.trim_end().ends_with('?') {
+        Some("a question")
+    } else if near(w, back) {
+        Some("a copy of the right answer")
+    } else if before.iter().any(|o| near(w, o)) {
+        Some("a copy of another wrong answer")
+    } else if m * 3 < n {
+        Some("too short")
+    } else if m > n * 2 + 2 {
+        Some("too long")
+    } else if is_term(front) && !fronts.is_empty() && fronts.iter().all(|t| content(w).contains(t)) {
+        Some("names the term")
+    } else {
+        None
+    }
+}
+
+/// Whether three wrong answers make a fair quiz (C19): exactly three, each passing `wrong_fault`.
+pub fn wrong_ok(card: &Card) -> bool {
+    card.wrong.len() == 3 && card.wrong.iter().enumerate().all(|(i, w)| wrong_fault(card, w, &card.wrong[..i]).is_none())
 }
 
 const QUIZ: &str = "
