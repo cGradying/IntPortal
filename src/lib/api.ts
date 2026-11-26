@@ -71,6 +71,8 @@ export interface NoteItem {
   preview: string;
   /** How many photos it holds; the bytes are read one at a time (046 C15). */
   photos?: number;
+  /** LAR's last change to it can still be undone (spec 062 C14). */
+  undo?: boolean;
 }
 
 export interface NotePhoto {
@@ -541,6 +543,9 @@ export const api = {
   deletePhoto: (id: number) => invoke<void>("delete_photo", { id }),
   setNotePin: (key: string, pinned: boolean) => invoke<void>("set_note_pin", { key, pinned }),
   setNoteSubject: (key: string, subject: string | null) => invoke<void>("set_note_subject", { key, subject }),
+  larNoteChange: (key: string, change: { text?: string; title?: string; subject?: string; delete?: boolean }) =>
+    invoke<void>("lar_note_change", { key, text: change.text ?? null, title: change.title ?? null, subject: change.subject ?? null, delete: !!change.delete }),
+  undoLarNote: (key: string) => invoke<void>("undo_lar_note", { key }),
   entryDate: (code: string, today: string) => invoke<string>("entry_date", { code, today }),
   today: (now: Moment, syncTrouble: string | null, busy: Busy[] = []) => invoke<Today>("today", { now, syncTrouble, busy }),
   classEvents: (from: string, days: number) => invoke<ClassEvent[]>("class_events", { from, days, utcOffset: -new Date().getTimezoneOffset() }),

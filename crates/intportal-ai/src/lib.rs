@@ -5,6 +5,7 @@
 pub mod assis;
 pub mod chatnote;
 pub mod due;
+pub mod edit;
 pub mod evalset;
 pub mod gen;
 pub mod ground;

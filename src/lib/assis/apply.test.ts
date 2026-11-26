@@ -1,7 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import type { DeadlineEntry, Today } from "../api";
 import { entryLabel } from "../deadlines";
-import { appended, describe, followUps, foundLine, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters, topicOf } from "./apply";
+import { appended, describe, folded, followUps, lineDiff, foundLine, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters, topicOf } from "./apply";
 
 suite("applying a proposal", () => {
   it("puts a class note on the class and anything else on one note a day", () => {
@@ -150,5 +150,28 @@ suite("follow-ups after an answer from what LAR knows (spec 021 C21)", () => {
   it("an answer from notes keeps its own follow-ups", () => {
     const f = followUps({ intent: "ask", known: false, sources: [{ key: "note:a", title: "Bio" }] }, undefined, "What is osmosis?");
     expect(f[0].label).toMatch(/^Make 5 cards from Bio/);
+  });
+});
+
+suite("spec 062 C13: the before-and-after of a note change", () => {
+  it("keeps shared lines and marks the rest removed or added", () => {
+    expect(lineDiff("Quiz Friday\nBring ID\nRoom 302", "Quiz Monday\nBring ID\nRoom 302")).toEqual([
+      { kind: "del", text: "Quiz Friday" },
+      { kind: "add", text: "Quiz Monday" },
+      { kind: "same", text: "Bring ID" },
+      { kind: "same", text: "Room 302" },
+    ]);
+    expect(lineDiff("a", "a\nb")).toEqual([{ kind: "same", text: "a" }, { kind: "add", text: "b" }]);
+  });
+
+  it("folds more than three unchanged lines in a row", () => {
+    const before = "1\n2\n3\n4\n5\nold";
+    const rows = folded(lineDiff(before, "1\n2\n3\n4\n5\nnew"));
+    expect(rows).toEqual([{ kind: "same", text: "1" }, { kind: "fold", n: 3 }, { kind: "same", text: "5" }, { kind: "del", text: "old" }, { kind: "add", text: "new" }]);
+  });
+
+  it("names the change on the card", () => {
+    expect(describe({ kind: "edit_note", key: "note:1", name: "Heaps", edit: "append", before: "", after: "x" }).label).toBe("Add to Heaps");
+    expect(describe({ kind: "delete_note", key: "note:1", name: "Heaps", preview: "x" })).toMatchObject({ label: "Delete this note?", yes: "Delete" });
   });
 });

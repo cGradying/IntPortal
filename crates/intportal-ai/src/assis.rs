@@ -3,7 +3,7 @@
 //! confirm. Nothing here writes: the UI shows a card and Apply calls the
 //! existing commands (`set_note`, `set_plan`, `save_deck`).
 use crate::{
-    chatnote, ground,
+    chatnote, edit, ground,
     intent::{about_chat, card_count, is_filipino, replies_in_filipino, resolve, resolve_when, subject_in, words, Intent, CARDS_DEFAULT},
     lang,
     llm::Llm,
@@ -43,6 +43,9 @@ pub struct Facts {
     /// Every (student, LAR) pair of this chat, oldest first, rule answers included: what a note of the chat
     /// is made from (spec 062 C3). Filled only for a note request.
     pub chat: Vec<(String, String)>,
+    /// The student's notes and the open one, for an edit request (spec 062 C8). Filled only then.
+    pub notes: Vec<edit::NoteRef>,
+    pub open_ref: Option<edit::NoteRef>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -51,6 +54,13 @@ pub enum Proposal {
     /// A whole note made from the chat (spec 062 C2). `partial`: older turns didn't fit.
     SaveNote { title: String, subject: Option<String>, text: String, partial: bool },
     SetReminder { date: Date, text: String },
+    /// A note's new text (Change, Append or Tidy), with the old for the before-and-after card (C13).
+    EditNote { key: String, name: String, kind: &'static str, before: String, after: String },
+    RenameNote { key: String, name: String, title: String },
+    MoveNote { key: String, name: String, subject: String },
+    DeleteNote { key: String, name: String, preview: String },
+    /// More than one note fits: the student taps one and `ask` is asked again about it.
+    PickNote { candidates: Vec<(String, String)>, ask: String },
     MakeCards { topic: String, count: usize },
 }
 
@@ -214,6 +224,9 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let msg = msg.as_str();
     let subject = subject_in(msg, &facts.subject_names);
     let intent = thin_data_to_notes(resolve(msg, facts.open_note.is_some()), facts, msg, subject.as_deref());
+    if let Some(kind) = edit::kind(msg, facts.open_ref.is_some()) {
+        return Ok(edit_answer(llm, tpl, facts, msg, kind, subject.as_deref()));
+    }
     if cannot_change(msg) {
         return Ok(Answer { reply: persona::line(Line::CannotChange, replies_in_filipino(msg), msg), proposal: None, route: Route::Refuse, cited: false, known: false });
     }
@@ -322,6 +335,49 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let known = answered && from_knowledge;
     let cited = answered && covered && !known;
     Ok(Answer { reply, proposal, route: if open { Route::Model } else { Route::Rule }, cited, known })
+}
+
+fn refuse(reply: &str) -> Answer {
+    Answer { reply: reply.into(), proposal: None, route: Route::Refuse, cited: false, known: false }
+}
+
+/// A change to a note the student has (spec 062 C7–C15): one model call for Change, Append and Tidy, none for
+/// the rest. The proposal carries what Apply writes.
+fn edit_answer(llm: &mut dyn Llm, tpl: Template, f: &Facts, msg: &str, kind: edit::Kind, subject: Option<&str>) -> Answer {
+    use edit::{Kind, Target};
+    if kind == Kind::Delete && words(msg).iter().any(|w| ["all", "every", "lahat"].contains(&w.as_str())) {
+        return refuse("I delete one note at a time, and only after you check it. Name the note, or open it and ask again.");
+    }
+    let n = match edit::target(msg, f.open_ref.as_ref(), &f.notes, subject) {
+        Target::One(n) => n,
+        Target::Pick(v) => {
+            let p = Proposal::PickNote { candidates: v.into_iter().map(|n| (n.key, n.name)).collect(), ask: msg.to_string() };
+            return Answer { reply: "Which note do you mean?".into(), proposal: Some(p), route: Route::Rule, cited: false, known: false };
+        }
+        Target::None => return refuse("I couldn't find a note about that. Open it and ask again."),
+    };
+    let own = n.key.starts_with("note:");
+    let p = match kind {
+        Kind::Rename | Kind::Move if !own => return refuse("Only your own notes can be renamed or moved. Class and day notes keep theirs."),
+        Kind::Rename => match edit::new_title(msg) {
+            Some(title) => Proposal::RenameNote { key: n.key, name: n.name, title },
+            None => return refuse("What should I call it? Say the new name, like \"rename this note to Midterm review\"."),
+        },
+        Kind::Move => match subject.filter(|s| f.subjects.iter().any(|x| x == s)).map(String::from).or_else(|| f.subjects.iter().find(|s| norm(msg).contains(&norm(s))).cloned()) {
+            Some(s) => Proposal::MoveNote { key: n.key, name: n.name, subject: s },
+            None => return refuse("Which subject should it go under? Say its code, like MATH 101."),
+        },
+        Kind::Delete => Proposal::DeleteNote { preview: n.text.lines().take(3).collect::<Vec<_>>().join("\n"), key: n.key, name: n.name },
+        Kind::Change | Kind::Append | Kind::Tidy => match edit::rewrite(llm, tpl, kind, &n, &f.chat, msg) {
+            Ok(after) => {
+                let kind = match kind { Kind::Append => "append", Kind::Tidy => "tidy", _ => "change" };
+                Proposal::EditNote { key: n.key, name: n.name, kind, before: n.text, after }
+            }
+            Err(e) if e.starts_with("That") || e.starts_with("This") => return refuse(&e),
+            Err(e) => return refuse(&friendly(&e, false)),
+        },
+    };
+    Answer { reply: confirm(&p, false), proposal: Some(p), route: Route::Rule, cited: false, known: false }
 }
 
 /// Lower-case letters and digits only, so a copy matches whatever its punctuation or capitals.
@@ -444,6 +500,11 @@ fn confirm(p: &Proposal, fil: bool) -> String {
         (Proposal::AddNote { subject, text }, true) => format!("Handa na ang note{}: {text}. I-confirm para i-save.", subject.as_ref().map(|s| format!(" sa {s}")).unwrap_or_default()),
         (Proposal::SaveNote { title, .. }, false) => format!("Here's a note from our chat: {title}. Save it, or edit it first."),
         (Proposal::SaveNote { title, .. }, true) => format!("Heto ang note mula sa usapan natin: {title}. I-save, o i-edit muna."),
+        (Proposal::EditNote { name, kind, .. }, _) => format!("Here's {name} with your change{}. Apply it if it looks right.", if *kind == "tidy" { ", tidied" } else { "" }),
+        (Proposal::RenameNote { name, title, .. }, _) => format!("Rename {name} to {title}?"),
+        (Proposal::MoveNote { name, subject, .. }, _) => format!("Move {name} to {subject}?"),
+        (Proposal::DeleteNote { name, .. }, _) => format!("Delete {name}? You can undo it right after."),
+        (Proposal::PickNote { .. }, _) => "Which note do you mean?".into(),
         (Proposal::MakeCards { topic, count }, false) => format!("I'll make {count} flashcards on {topic}. Confirm to start."),
         (Proposal::MakeCards { topic, count }, true) => format!("Gagawa ako ng {count} flashcards sa {topic}. I-confirm para magsimula."),
     }
@@ -609,7 +670,7 @@ mod tests {
 
     impl Facts {
         fn clone_for_test(&self) -> Facts {
-            Facts { today: self.today, classes_today: self.classes_today.clone(), due: self.due.clone(), due_items: self.due_items.clone(), standing: self.standing.clone(), open_note: self.open_note.clone(), hits: self.hits.clone(), near: self.near.clone(), search_off: self.search_off, subjects: self.subjects.clone(), subject_names: self.subject_names.clone(), style: self.style.clone(), chat: self.chat.clone() }
+            Facts { today: self.today, classes_today: self.classes_today.clone(), due: self.due.clone(), due_items: self.due_items.clone(), standing: self.standing.clone(), open_note: self.open_note.clone(), hits: self.hits.clone(), near: self.near.clone(), search_off: self.search_off, subjects: self.subjects.clone(), subject_names: self.subject_names.clone(), style: self.style.clone(), chat: self.chat.clone(), notes: self.notes.clone(), open_ref: self.open_ref.clone() }
         }
     }
 
@@ -1295,14 +1356,16 @@ mod tests {
     fn asking_to_delete_or_rename_is_refused_by_the_rules_and_never_reaches_the_model() {
         let mut m = FakeLlm::new(&[]);
         for (msg, fil) in [
-            ("Please delete all my notes", false),
-            ("delete my MATH 101 note", false),
             ("can you rename my event", false),
-            ("Burahin mo ang mga notes ko", false),
             ("pwede bang tanggalin yung reminder ko", false),
         ] {
             let a = answer(&mut m, Template::Gemma, &rich(), &[], msg).unwrap();
             assert!(persona::lines(Line::CannotChange, fil).contains(&a.reply.as_str()) && a.proposal.is_none(), "{msg}: {}", a.reply);
+        }
+        // Notes are LAR's to change now (spec 062), one at a time and never in bulk.
+        for msg in ["Please delete all my notes", "Burahin mo ang lahat ng notes ko"] {
+            let a = answer(&mut m, Template::Gemma, &rich(), &[], msg).unwrap();
+            assert!(a.reply.starts_with("I delete one note at a time") && a.proposal.is_none(), "{msg}: {}", a.reply);
         }
         assert!(m.prompts.is_empty());
         // Adding or reminding is not deleting, even with the word in it.
@@ -1351,6 +1414,26 @@ mod tests {
         // "Note: …" carries its own text, chat or not.
         let mut m = FakeLlm::new(&[r#"{"text":"Bring calculator","subject":"none"}"#]);
         assert!(matches!(answer(&mut m, Template::ChatMl, &f, &[], "Note: bring calculator").unwrap().proposal, Some(Proposal::AddNote { .. })));
+    }
+
+    #[test]
+    fn c7_c28_an_edit_names_its_note_and_only_a_text_change_calls_the_model() {
+        let mut f = facts();
+        f.notes = vec![edit::NoteRef { key: "note:1".into(), name: "Heaps".into(), subject: Some("COMP 20073".into()), text: "Max on top".into() }];
+        let mut m = FakeLlm::new(&[]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "delete my note about heaps").unwrap();
+        assert_eq!(a.proposal, Some(Proposal::DeleteNote { key: "note:1".into(), name: "Heaps".into(), preview: "Max on top".into() }));
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "rename my heaps note to Heaps review").unwrap();
+        assert_eq!(a.proposal, Some(Proposal::RenameNote { key: "note:1".into(), name: "Heaps".into(), title: "Heaps review".into() }));
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "move my heaps note to MATH 101").unwrap();
+        assert_eq!(a.proposal, Some(Proposal::MoveNote { key: "note:1".into(), name: "Heaps".into(), subject: "MATH 101".into() }));
+        assert!(m.prompts.is_empty(), "rename, move and delete need no model call (C12, C28)");
+        let mut m = FakeLlm::new(&[r#"{"edits":[{"op":"replace","line":1,"text":"Biggest on top"}]}"#]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "change the first line of my heaps note to Biggest on top").unwrap();
+        assert!(matches!(a.proposal, Some(Proposal::EditNote { ref after, kind: "change", .. }) if after == "Biggest on top"), "{a:?}");
+        assert_eq!(m.prompts.len(), 1);
+        let a = answer(&mut FakeLlm::new(&[]), Template::ChatMl, &f, &[], "delete my note about photosynthesis").unwrap();
+        assert_eq!((a.reply.as_str(), a.route), ("I couldn't find a note about that. Open it and ask again.", Route::Refuse));
     }
 
 }

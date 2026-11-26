@@ -54,6 +54,8 @@ export interface Msg {
   notice?: string;
   /** make_cards: the cards LAR wrote, shown to edit before anything is saved. */
   cards?: Draft[];
+  /** A note change was applied and can still be undone from the card (spec 062 C14). */
+  undo?: boolean;
   /** save_note: the student opened the note's title and body to change them before saving (spec 062 C5). */
   editing?: boolean;
 }
@@ -382,10 +384,11 @@ export function setLarStyle(text: string) {
   }
 }
 
-export async function ask(text: string) {
+/** `openKey`: the note the question is about (the open one, or the one picked from "Which note?"). */
+export async function ask(text: string, openKey: string | null = app.editing?.key ?? null, echo = true) {
   const message = text.trim();
   if (!message || assis.busy) return;
-  assis.chat.push({ from: "me", text: message });
+  if (echo) assis.chat.push({ from: "me", text: message });
   stopped = false;
   const asleep = !chatModel()?.loaded;
   const awake = await wake(looksFilipino(message));
@@ -404,7 +407,7 @@ export async function ask(text: string) {
   // A new array each time: pushing into the one just assigned would miss the state proxy and lose the first step.
   onStep.onmessage = (s) => (reply.steps = [...(reply.steps ?? []), s]);
   try {
-    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[]; intent: Intent; known?: boolean }>("ai_ask", { now: moment(), message, openKey: app.editing?.key ?? null, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText, onStep });
+    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[]; intent: Intent; known?: boolean }>("ai_ask", { now: moment(), message, openKey, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText, onStep });
     reply.text = r.reply;
     reply.intent = r.intent;
     reply.sources = r.sources.length ? r.sources : undefined;
@@ -503,6 +506,29 @@ export async function cardsFrom(text: string, want: number): Promise<{ front: st
   }
 }
 
+/** "Which note do you mean?": ask the same thing again about the note tapped (spec 062 C8). */
+export function pickNote(i: number, key: string) {
+  const p = assis.chat[i].proposal;
+  if (p?.kind !== "pick_note" || assis.chat[i].state !== "pending") return;
+  assis.chat[i].state = "done";
+  return ask(p.ask, key, false);
+}
+
+/** Undo on an applied note card: the note goes back to how it was before LAR's change. */
+export async function undoChange(i: number) {
+  const msg = assis.chat[i];
+  const p = msg.proposal;
+  if (!p || !("key" in p) || !msg.undo) return;
+  try {
+    await api.undoLarNote(p.key);
+    app.notes = await api.notes();
+    msg.undo = false;
+    msg.notice = "Put back.";
+  } catch (e) {
+    msg.problem = say(e);
+  }
+}
+
 export function dismiss(i: number) {
   assis.chat[i].state = "dismissed";
 }
@@ -524,6 +550,14 @@ export async function apply(i: number) {
       if (p.subject) await api.setNoteSubject(key, p.subject);
       app.notes = await api.notes();
       msg.text = "Saved to your notes.";
+    } else if (p.kind === "edit_note" || p.kind === "rename_note" || p.kind === "move_note" || p.kind === "delete_note") {
+      const change =
+        p.kind === "edit_note" ? { text: p.after } : p.kind === "rename_note" ? { title: p.title } : p.kind === "move_note" ? { subject: p.subject } : { delete: true };
+      await api.larNoteChange(p.key, change);
+      app.notes = await api.notes();
+      msg.undo = true;
+    } else if (p.kind === "pick_note") {
+      return;
     } else if (p.kind === "set_reminder") {
       const id = reminderId(p.text, p.date);
       // Same rule as scheduleReminders: look first, ask once, and never say it will ring when it cannot.

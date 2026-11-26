@@ -5,14 +5,18 @@ pub struct NoteItem {
     #[serde(flatten)]
     note: Note,
     preview: String,
+    /// LAR's last change to it can still be undone (spec 062 C14).
+    undo: bool,
 }
 
 /// Every note, pinned ones first, then the latest edit first, with a one-line preview.
 #[tauri::command(async)]
 pub fn notes(state: tauri::State<'_, AppState>) -> Res<Vec<NoteItem>> {
-    let mut list = state.store.lock().unwrap().notes().map_err(err)?;
+    let store = state.store.lock().unwrap();
+    let mut list = store.notes().map_err(err)?;
+    let undo = store.undo_keys().map_err(err)?;
     notes::pinned_first(&mut list);
-    Ok(list.into_iter().map(|note| NoteItem { preview: notes::preview(&note.text, 80), note }).collect())
+    Ok(list.into_iter().map(|note| NoteItem { preview: notes::preview(&note.text, 80), undo: undo.contains(&note.key), note }).collect())
 }
 
 /// Notes as Markdown: one note by `key`, or every note when it's empty.
@@ -124,4 +128,26 @@ pub fn set_note_subject(state: tauri::State<'_, AppState>, key: String, subject:
 pub fn entry_date(state: tauri::State<'_, AppState>, code: String, today: Date) -> Res<Date> {
     let snap = snapshot_of(&state)?;
     Ok(today::entry_date(&snap.sessions, &snap.marks, &code, today))
+}
+
+/// A change LAR proposed and the student applied (spec 062 C13): new text, a new title, another subject, or
+/// a delete. The note as it was is kept for `undo_lar_note`.
+#[tauri::command(async)]
+pub fn lar_note_change(state: tauri::State<'_, AppState>, key: String, text: Option<String>, title: Option<String>, subject: Option<String>, delete: bool) -> Res<()> {
+    use intportal_core::store::LarChange;
+    let change = match (text, title, subject, delete) {
+        (_, _, _, true) => LarChange::Delete,
+        (Some(t), None, None, false) => LarChange::Text(t),
+        (None, Some(t), None, false) => LarChange::Title(t.trim().to_string()),
+        (None, None, Some(s), false) => LarChange::Subject(Some(s)),
+        _ => return Err("Unknown change".into()),
+    };
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+    state.store.lock().unwrap().lar_change(&key, &change, now).map_err(err)
+}
+
+/// Puts a note back as it was before LAR's last change (spec 062 C14).
+#[tauri::command(async)]
+pub fn undo_lar_note(state: tauri::State<'_, AppState>, key: String) -> Res<()> {
+    state.store.lock().unwrap().undo_lar(&key).map_err(err)
 }

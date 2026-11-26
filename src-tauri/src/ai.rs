@@ -3,7 +3,7 @@
 use crate::{err, snapshot_of, AppState, Res, MANILA_OFFSET};
 use intportal_ai::{
     assis::{self, Facts, Proposal},
-    due,
+    due, edit,
     gen,
     intent::{self, Intent},
     llm::Llm,
@@ -16,7 +16,7 @@ use intportal_ai::{
 use intportal_core::{
     deadline,
     mabini::MabiniData,
-    notes,
+    notes::{self, Note},
     store::{Store, Turn},
     syllabus::{self, Item},
     today::{self, Date, Moment},
@@ -549,7 +549,18 @@ pub enum ProposalDto {
     AddNote { subject: Option<String>, text: String },
     SaveNote { title: String, subject: Option<String>, text: String, partial: bool },
     SetReminder { date: Date, text: String },
+    EditNote { key: String, name: String, edit: &'static str, before: String, after: String },
+    RenameNote { key: String, name: String, title: String },
+    MoveNote { key: String, name: String, subject: String },
+    DeleteNote { key: String, name: String, preview: String },
+    PickNote { candidates: Vec<PickDto>, ask: String },
     MakeCards { topic: String, count: usize },
+}
+
+#[derive(Serialize)]
+pub struct PickDto {
+    key: String,
+    name: String,
 }
 
 impl From<Proposal> for ProposalDto {
@@ -558,6 +569,11 @@ impl From<Proposal> for ProposalDto {
             Proposal::AddNote { subject, text } => ProposalDto::AddNote { subject, text },
             Proposal::SaveNote { title, subject, text, partial } => ProposalDto::SaveNote { title, subject, text, partial },
             Proposal::SetReminder { date, text } => ProposalDto::SetReminder { date, text },
+            Proposal::EditNote { key, name, kind, before, after } => ProposalDto::EditNote { key, name, edit: kind, before, after },
+            Proposal::RenameNote { key, name, title } => ProposalDto::RenameNote { key, name, title },
+            Proposal::MoveNote { key, name, subject } => ProposalDto::MoveNote { key, name, subject },
+            Proposal::DeleteNote { key, name, preview } => ProposalDto::DeleteNote { key, name, preview },
+            Proposal::PickNote { candidates, ask } => ProposalDto::PickNote { candidates: candidates.into_iter().map(|(key, name)| PickDto { key, name }).collect(), ask },
             Proposal::MakeCards { topic, count } => ProposalDto::MakeCards { topic, count },
         }
     }
@@ -719,6 +735,12 @@ const fn intent_name(i: Intent) -> &'static str {
     }
 }
 
+/// A note as an edit request sees it (spec 062 C8): its name is what the student sees in the list.
+fn note_ref(n: &Note) -> edit::NoteRef {
+    let subject = n.subject.clone().or_else(|| n.key.strip_prefix("class:").map(String::from));
+    edit::NoteRef { key: n.key.clone(), name: notes::heading(n), subject, text: n.text.clone() }
+}
+
 /// The note the student has open, cut to what fits the prompt.
 fn open_note(state: &AppState, key: &str) -> Option<String> {
     let all = store(state).ok()?.notes().ok()?;
@@ -806,12 +828,18 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
     let mut facts = facts_for(&snapshot_of(&state)?, &mabini, now, utc_offset.unwrap_or(MANILA_OFFSET));
     facts.style = style; // the student's own note on how LAR talks; `persona::system` cleans and caps it
     let history = recent_asks(&state);
-    if intent::detect(&message) == Intent::Note && intent::about_chat(&message) {
-        facts.chat = chat_pairs(&state); // read only for a note of the chat (spec 062 C28: nothing else pays for it)
+    let editing = edit::kind(&message, open_key.is_some()).is_some();
+    if editing || (intent::detect(&message) == Intent::Note && intent::about_chat(&message)) {
+        facts.chat = chat_pairs(&state); // read only for a note of the chat or an edit (spec 062 C28: nothing else pays for it)
+    }
+    if editing {
+        let all = store(&state)?.notes().map_err(err)?;
+        facts.notes = all.iter().map(note_ref).collect();
+        facts.open_ref = open_key.as_ref().and_then(|k| all.iter().find(|n| &n.key == k)).map(note_ref);
     }
     let note = open_key.and_then(|k| open_note(&state, &k));
     let intent = intent_name(intent::resolve(&message, note.is_some()));
-    let (mut sources, open) = (vec![], searches_notes(&message, note.is_some()));
+    let (mut sources, open) = (vec![], !editing && searches_notes(&message, note.is_some()));
     // Only an open question reads the notes: the rest are answered from the schedule or acted on.
     if open {
         facts.open_note = note;

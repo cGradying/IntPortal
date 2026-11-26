@@ -392,6 +392,12 @@
     await refreshNotes();
     sheet = null;
   }
+  /** Spec 062 C14: put the note back as it was before LAR's last change. */
+  async function undoLar() {
+    await api.undoLarNote(key).catch((e) => (problem = friendly(e)));
+    await refreshNotes(); // the effect below brings the old text into the editor
+    sheet = null;
+  }
   async function move(code: string | null) {
     if (!saved || !item) await save();
     await api.setNoteSubject(key, code).catch((e) => (problem = friendly(e)));
@@ -614,6 +620,7 @@
         <div class="menu">
           <button onclick={pin} disabled={!text.trim()}><PixelIcon name="pinn" size={18} />{item?.pinned ? "Unpin" : "Pin to the top"}</button>
           {#if named}<button onclick={() => (sheet = "move")} disabled={!text.trim()}><PixelIcon name="move" size={18} />Move to a subject<span class="val">{subjectOf ?? "General"}</span></button>{/if}
+          {#if item?.undo}<button onclick={undoLar}><PixelIcon name="undo" size={18} />Undo LAR's change</button>{/if}
           <button onclick={() => (sheet = "find")}><PixelIcon name="find" size={18} />Find in note</button>
           <button onclick={share} disabled={!text.trim() && !photos.length}><PixelIcon name="share" size={18} />Share<span class="val">{count} {count === 1 ? "word" : "words"}</span></button>
           {#if photos.length}<p class="fine">{photosInShare}</p>{/if}

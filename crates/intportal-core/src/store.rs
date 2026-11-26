@@ -153,6 +153,15 @@ pub struct Photo {
     pub created: i64,
 }
 
+/// What LAR may change in a note, once the student taps Apply (spec 062 C13).
+#[derive(Debug, Clone, PartialEq)]
+pub enum LarChange {
+    Text(String),
+    Title(String),
+    Subject(Option<String>),
+    Delete,
+}
+
 #[cfg(feature = "store")]
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -171,6 +180,10 @@ pub enum StoreError {
     SubjectIsFixed,
     #[error("A note holds up to 20 photos.")]
     TooManyPhotos,
+    #[error("This note has photos. Delete it from the note itself.")]
+    HasPhotos,
+    #[error("There's nothing to undo.")]
+    NothingToUndo,
 }
 
 /// `CREATE TABLE IF NOT EXISTS` leaves a store's existing table alone, so
@@ -273,7 +286,8 @@ impl Store {
              CREATE TABLE IF NOT EXISTS chunks (note_key TEXT NOT NULL, n INTEGER NOT NULL, text TEXT NOT NULL, vec BLOB NOT NULL, note_updated INTEGER NOT NULL, model TEXT NOT NULL, PRIMARY KEY (note_key, n));
              CREATE TABLE IF NOT EXISTS turns (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, ask INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS photos (id INTEGER PRIMARY KEY AUTOINCREMENT, note_key TEXT NOT NULL, w INTEGER NOT NULL, h INTEGER NOT NULL, created INTEGER NOT NULL, bytes BLOB NOT NULL, thumb BLOB);
-             CREATE INDEX IF NOT EXISTS photos_note ON photos (note_key);",
+             CREATE INDEX IF NOT EXISTS photos_note ON photos (note_key);
+             CREATE TABLE IF NOT EXISTS note_undo (key TEXT PRIMARY KEY, text TEXT NOT NULL, title TEXT, subject TEXT, pinned INTEGER NOT NULL, updated INTEGER NOT NULL);",
         )?;
         add_note_columns(&db)?;
         Ok(Store { db, cache: RefCell::new(None) })
@@ -346,6 +360,8 @@ impl Store {
     /// linger in the list, unless it has photos: then the row stays with no
     /// text and no AI chunks (046 C17c). `title` empty keeps the one already stored.
     pub fn set_note(&self, key: &str, text: &str, title: Option<&str>, now: i64) -> Result<(), StoreError> {
+        // The student's own edit: LAR's change can no longer be undone over it (spec 062 C14).
+        self.db.execute("DELETE FROM note_undo WHERE key = ?1", [key])?;
         if text.trim().is_empty() {
             let tx = self.db.unchecked_transaction()?;
             let photos: i64 = tx.query_row("SELECT COUNT(*) FROM photos WHERE note_key = ?1", [key], |r| r.get(0))?;
@@ -367,6 +383,65 @@ impl Store {
     }
 
     /// Deletes a note with its chunks and photos, in one transaction (046 C17).
+    /// A change LAR made, which the student confirmed (spec 062 C14). The note as it was is kept, so
+    /// `undo_lar` can put it back until the student edits the note. Only LAR's last change is kept.
+    pub fn lar_change(&self, key: &str, change: &LarChange, now: i64) -> Result<(), StoreError> {
+        if let LarChange::Delete = change {
+            let photos: i64 = self.db.query_row("SELECT COUNT(*) FROM photos WHERE note_key = ?1", [key], |r| r.get(0))?;
+            if photos > 0 {
+                return Err(StoreError::HasPhotos);
+            }
+        }
+        let tx = self.db.unchecked_transaction()?;
+        let kept = tx.execute("INSERT OR REPLACE INTO note_undo (key, text, title, subject, pinned, updated) SELECT key, text, title, subject, pinned, updated FROM notes WHERE key = ?1", [key])?;
+        if kept == 0 {
+            return Err(StoreError::NoSuchNote);
+        }
+        match change {
+            LarChange::Text(t) => {
+                tx.execute("UPDATE notes SET text = ?2, updated = ?3 WHERE key = ?1", params![key, t, now])?;
+                tx.execute("DELETE FROM chunks WHERE note_key = ?1", [key])?; // search reads the new words
+            }
+            LarChange::Title(t) => drop(tx.execute("UPDATE notes SET title = ?2, updated = ?3 WHERE key = ?1", params![key, t, now])?),
+            LarChange::Subject(s) => {
+                if !key.starts_with("note:") {
+                    return Err(StoreError::SubjectIsFixed);
+                }
+                tx.execute("UPDATE notes SET subject = ?2 WHERE key = ?1", params![key, s.as_deref().map(str::trim).filter(|s| !s.is_empty())])?;
+            }
+            LarChange::Delete => {
+                for table in ["notes WHERE key", "chunks WHERE note_key"] {
+                    tx.execute(&format!("DELETE FROM {table} = ?1"), [key])?;
+                }
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Puts back the note as it was before LAR's last change, deleted or not.
+    pub fn undo_lar(&self, key: &str) -> Result<(), StoreError> {
+        let tx = self.db.unchecked_transaction()?;
+        let n = tx.execute(
+            "INSERT OR REPLACE INTO notes (key, text, title, updated, subject, pinned) SELECT key, text, title, updated, subject, pinned FROM note_undo WHERE key = ?1",
+            [key],
+        )?;
+        if n == 0 {
+            return Err(StoreError::NothingToUndo);
+        }
+        tx.execute("DELETE FROM note_undo WHERE key = ?1", [key])?;
+        tx.execute("DELETE FROM chunks WHERE note_key = ?1", [key])?; // search reads the old words again
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Notes with a change of LAR's that can still be undone.
+    pub fn undo_keys(&self) -> Result<Vec<String>, StoreError> {
+        let mut q = self.db.prepare("SELECT key FROM note_undo")?;
+        let keys = q.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        Ok(keys)
+    }
+
     pub fn delete_note(&self, key: &str) -> Result<(), StoreError> {
         let tx = self.db.unchecked_transaction()?;
         for table in ["notes WHERE key", "chunks WHERE note_key", "photos WHERE note_key"] {
@@ -1446,4 +1521,34 @@ mod tests {
         store.delete_photo(p.id).unwrap();
         assert!(store.notes().unwrap().is_empty(), "no text, no photos: the row goes");
     }
+    #[test]
+    fn c14_lar_changes_are_undone_until_the_student_edits_the_note() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "Quiz Friday", Some("Math"), 100).unwrap();
+        store.set_note_subject("note:a", Some("MATH 101")).unwrap();
+        store.set_note_pin("note:a", true).unwrap();
+        store.lar_change("note:a", &LarChange::Text("Quiz Monday".into()), 200).unwrap();
+        assert_eq!(store.notes().unwrap()[0].text, "Quiz Monday");
+        assert_eq!(store.undo_keys().unwrap(), vec!["note:a".to_string()]);
+        store.undo_lar("note:a").unwrap();
+        let n = &store.notes().unwrap()[0];
+        assert_eq!((n.text.as_str(), n.title.as_deref(), n.subject.as_deref(), n.pinned, n.updated), ("Quiz Friday", Some("Math"), Some("MATH 101"), true, 100));
+        assert!(matches!(store.undo_lar("note:a"), Err(StoreError::NothingToUndo)), "one step only");
+
+        // A rename, then the student's own edit: nothing to undo any more.
+        store.lar_change("note:a", &LarChange::Title("Midterm".into()), 300).unwrap();
+        assert_eq!(store.notes().unwrap()[0].title.as_deref(), Some("Midterm"));
+        store.set_note("note:a", "Quiz Friday, bring ID", None, 400).unwrap();
+        assert!(store.undo_keys().unwrap().is_empty());
+
+        // A delete comes back whole.
+        store.lar_change("note:a", &LarChange::Delete, 500).unwrap();
+        assert!(store.notes().unwrap().is_empty());
+        store.undo_lar("note:a").unwrap();
+        let n = &store.notes().unwrap()[0];
+        assert_eq!((n.text.as_str(), n.title.as_deref(), n.subject.as_deref(), n.pinned), ("Quiz Friday, bring ID", Some("Midterm"), Some("MATH 101"), true));
+
+        assert!(matches!(store.lar_change("note:zz", &LarChange::Delete, 1), Err(StoreError::NoSuchNote)));
+    }
+
 }

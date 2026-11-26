@@ -15,7 +15,7 @@ const TABLE: [RegExp, string | ((m: RegExpMatchArray) => string)][] = [
 /** The app's own sentences (Rust commands, the core's store and backup, the UI). A string starts with one of these. */
 const OWN = [
   // src-tauri commands
-  "Give the deck a name.", "Give the class a name.", "Pick at least one day.", "It has to end after it starts.", "That class is already on your week.", "Type your school's name.", "Give it a name first.", "No such card.", "Unknown note", "Unknown model", "Unknown action", "Sync first", "Not signed in",
+  "Give the deck a name.", "Give the class a name.", "Pick at least one day.", "It has to end after it starts.", "That class is already on your week.", "Type your school's name.", "Give it a name first.", "No such card.", "Unknown note", "Unknown change", "Unknown model", "Unknown action", "Sync first", "Not signed in",
   "Turn IntAssis on first", "Send the PDF as raw bytes", "Saving your login isn't supported on this device yet.", "The data is locked. Restart the app.",
   "The store key in the keychain is damaged.", "IntAssis is busy", "IntAssis stopped. Try again.", "Couldn't make the backup.", "Couldn't restore that backup, so nothing changed.",
   "Sign in first, then back up.", "That deck is gone.", "That card is gone.", "That photo isn't where it should be.", "A class has to end after it starts, before midnight.",
@@ -25,7 +25,7 @@ const OWN = [
   // the AI crate and the core
   "Type a question first.", "Select the words to explain first.", "The note is empty.", "This note is too long for me to take in at once. Select part of it.",
   "This PDF has no text to read", "This PDF is over 20 MB", "This PDF has ", "This file could not be read as a PDF",
-  "This store can't be opened with this phone's key.", "That note isn't saved yet.", "Only a freeform note can change subject.", "A note holds up to 20 photos.",
+  "This store can't be opened with this phone's key.", "That note isn't saved yet.", "Only a freeform note can change subject.", "A note holds up to 20 photos.", "This note has photos. Delete it from the note itself.", "There's nothing to undo.",
   "That file isn't a readable IntPortal backup.", "That file is too big to be an IntPortal backup.", "That backup is from a newer IntPortal. Update the app, then try again.",
   "That backup belongs to another student.", "Sign in first, then restore.", "Use a link that starts with https://",
   // the UI

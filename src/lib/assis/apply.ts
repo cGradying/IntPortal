@@ -7,6 +7,11 @@ export type Proposal =
   | { kind: "add_note"; subject: string | null; text: string }
   | { kind: "save_note"; title: string; subject: string | null; text: string; partial: boolean }
   | { kind: "set_reminder"; date: string; text: string }
+  | { kind: "edit_note"; key: string; name: string; edit: "change" | "append" | "tidy"; before: string; after: string }
+  | { kind: "rename_note"; key: string; name: string; title: string }
+  | { kind: "move_note"; key: string; name: string; subject: string }
+  | { kind: "delete_note"; key: string; name: string; preview: string }
+  | { kind: "pick_note"; candidates: { key: string; name: string }[]; ask: string }
   | { kind: "make_cards"; topic: string; count: number };
 
 /** A note about a class goes on that class's note; any other goes on one running "From LAR" note for the day. */
@@ -185,6 +190,16 @@ export function describe(p: Proposal): { label: string; text: string; yes: strin
     }
     case "make_cards":
       return { label: "Flashcards", text: p.topic, yes: "Make cards" };
+    case "edit_note":
+      return { label: `${p.edit === "append" ? "Add to" : p.edit === "tidy" ? "Tidy" : "Change"} ${p.name}`, text: p.after, yes: "Apply" };
+    case "rename_note":
+      return { label: "Rename note", text: `${p.name} → ${p.title}`, yes: "Apply" };
+    case "move_note":
+      return { label: "Move note", text: `${p.name} → ${p.subject}`, yes: "Apply" };
+    case "delete_note":
+      return { label: "Delete this note?", text: `${p.name}\n${p.preview}`, yes: "Delete" };
+    case "pick_note":
+      return { label: "Which note do you mean?", text: "", yes: "" };
   }
 }
 
@@ -207,4 +222,40 @@ export function rememberLarReminder(id: number, at: Date) {
   } catch {
     // Storage off: see larReminderIds.
   }
+}
+
+export type DiffLine = { kind: "same" | "add" | "del"; text: string };
+
+/** Before and after, line by line (spec 062 C13): the longest run of lines both share stays, the rest is struck or added. */
+export function lineDiff(before: string, after: string): DiffLine[] {
+  const a = before.split("\n");
+  const b = after.split("\n");
+  // ponytail: O(n·m) table, fine for notes up to 3,000 characters.
+  const lcs = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+  const out: DiffLine[] = [];
+  let [i, j] = [0, 0];
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) out.push({ kind: "same", text: a[i++] }), j++;
+    else if (i < a.length && (j >= b.length || lcs[i + 1][j] >= lcs[i][j + 1])) out.push({ kind: "del", text: a[i++] });
+    else out.push({ kind: "add", text: b[j++] });
+  }
+  return out;
+}
+
+/** Unchanged lines past three in a row fold into one "N lines unchanged" row (C13). */
+export function folded(lines: DiffLine[]): (DiffLine | { kind: "fold"; n: number })[] {
+  const out: (DiffLine | { kind: "fold"; n: number })[] = [];
+  for (let k = 0; k < lines.length; ) {
+    let end = k;
+    while (end < lines.length && lines[end].kind === "same") end++;
+    if (end - k > 3) {
+      out.push(lines[k], { kind: "fold", n: end - k - 2 }, lines[end - 1]);
+      k = end;
+    } else if (end > k) {
+      out.push(...lines.slice(k, end));
+      k = end;
+    } else out.push(lines[k++]);
+  }
+  return out;
 }
