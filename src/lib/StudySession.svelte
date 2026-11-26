@@ -10,6 +10,7 @@
   // oldest due first (spec 040 C9). Flashcards take the student's own rating; typed and
   // multiple-choice answers rate themselves: right is Good, wrong is Again. A missed card comes
   // back once, three cards later, as practice: only its first answer is scheduled.
+  // Quiz deals each card as Choice, Type or true or false, from the same parts (spec 063 C7–C10).
   import { friendly } from "./errors";
   import { closable } from "./back";
   import WhyButton from "./assis/WhyButton.svelte";
@@ -22,7 +23,8 @@
   import { dueQueue, type Entry } from "./dueQueue";
   import { dueIn, interval } from "./interval";
   import { ms, reduced as still, tokens } from "./motion";
-  import { clockSecs, fresh, mult, play, readBest, requeue, saveBest, toNext, type Answer, type Mode } from "./study/game";
+  import { clockSecs, fresh, mult, play, readBest, requeue, saveBest, toNext, type Answer, type Face, type Mode } from "./study/game";
+  import { claimFor, faceFor, optionsFor } from "./study/quiz";
   import { bursts, kick, swirl, table } from "./study/fx";
   import { chip } from "./assis/AssisWindow.svelte";
   import { onMount } from "svelte";
@@ -77,6 +79,12 @@
   let options = $state<string[]>([]);
   let picked = $state<string | null>(null);
   let hints = $state<string[] | null>(null);
+  // How the card in front is shown: the mode itself, or in a Quiz the face it was dealt.
+  // svelte-ignore state_referenced_locally
+  let face = $state<Face>(mode === "quiz" ? "choice" : mode);
+  let claim = $state<{ claim: string; truth: boolean } | null>(null);
+  let faces: Face[] = [];
+  let claims = { t: 0, f: 0 };
   let problem = $state("");
   let t0 = 0;
   let lifted = false;
@@ -129,6 +137,8 @@
     filter = "all";
     newBest = false;
     best = readBest(bestOf);
+    faces = [];
+    claims = { t: 0, f: 0 };
     disp = 0;
     tally = 0;
     table.heat = 0;
@@ -145,8 +155,14 @@
     const it = queue[pos];
     if (!it) return;
     const c = it.card;
+    face = mode === "quiz" ? faceFor(faces, c) : mode;
+    faces.push(face);
+    claim = face === "tf" ? claimFor(c, claims) : null;
     if (mode === "flash" && !practice && !it.again) api.reviewPreview(c.memory).then((ss) => { if (card === c) hints = ss.map(interval); }, () => {});
-    if (mode === "choice") {
+    // A card with its own three wrong answers offers them (C7); the rest take other cards' backs.
+    const own = face === "choice" ? optionsFor(c) : null;
+    if (own) options = own;
+    else if (face === "choice") {
       const at = it.deck.cards.findIndex((x) => x.id === c.id);
       // If the core can't pick distractors, three other backs from the deck keep the card answerable.
       const local = () => shuffle(it.deck.cards.filter((x) => x.id !== c.id && x.back !== c.back).map((x) => x.back)).slice(0, 3);
@@ -218,7 +234,7 @@
     if (!alive) return;
     const key = `${it.deck.id}/${it.card.id}`;
     if (!log.some((l) => l.key === key)) log.push({ key, entry: { deck: it.deck, card: it.card }, rating, due: dueAt, missed: kind === "miss" });
-    const p = play(run, kind, secs, mode);
+    const p = play(run, kind, secs, face);
     run = p.run;
     if (table.heat !== run.heat) {
       table.heat = run.heat;
@@ -281,6 +297,14 @@
     if (picked || locked || !ready) return;
     picked = o;
     verdict = o === card.back;
+    answer(verdict ? "right" : "miss", verdict ? "good" : "again");
+  }
+
+  // True or false: the claim on the card is right or it isn't.
+  function judge(says: boolean) {
+    if (picked || locked || !ready || !claim) return;
+    picked = says ? "True" : "False";
+    verdict = says === claim.truth;
     answer(verdict ? "right" : "miss", verdict ? "good" : "again");
   }
 
@@ -376,7 +400,7 @@
       busy = true;
     }
     if (stage === "play" && ready && !locked && t0) {
-      ring = Math.min(1, (nowMs - t0) / 1000 / clockSecs(mode));
+      ring = Math.min(1, (nowMs - t0) / 1000 / clockSecs(face));
       busy ||= ring < 1;
     }
     if (stage === "tally" && tally !== run.score) {
@@ -492,9 +516,10 @@
                 </button>
               {:else}
                 <section class="face notch solo">
-                  <span class="label">{mixed ? deck.name : mode === "type" ? "Type the term" : "Pick the meaning"}</span>
-                  {#if mode === "type"}<span class="mean">{card.back}</span>{:else}<span class="term">{card.front}</span>{/if}
-                  {#if mode === "type" && verdict === false}<span class="reveal">It's <b>{card.front}</b>.</span>{/if}
+                  <span class="label">{face === "tf" ? card.front : mixed ? deck.name : face === "type" ? "Type the term" : "Pick the meaning"}</span>
+                  {#if face === "type"}<span class="mean">{card.back}</span>{:else if face === "tf"}<span class="mean">{claim?.claim}</span>{:else}<span class="term">{card.front}</span>{/if}
+                  {#if face === "type" && verdict === false}<span class="reveal">It's <b>{card.front}</b>.</span>{/if}
+                  {#if face === "tf" && picked && !claim?.truth}<span class="reveal">It's <b>{card.back}</b>.</span>{/if}
                 </section>
               {/if}
             </div>
@@ -511,10 +536,17 @@
           </button>
         {/each}
       </div>
-    {:else if mode === "type"}
+    {:else if face === "type"}
       <div class="typed">
         <input bind:value={typed} readonly={locked} class:ok={verdict === true} class:no={verdict === false} autocapitalize="off" spellcheck="false" placeholder="Type the term" aria-label="Your answer" oninput={() => { if (!locked) say("Isipin mo muna…", "think", 1600); }} onkeydown={(e) => e.key === "Enter" && (missed ? advance() : check())} />
         <button class="tile go" onclick={check} disabled={!typed.trim() || locked}>Check</button>
+      </div>
+    {:else if face === "tf" && claim}
+      <div class="opts tf" role="group" aria-label="Is it true?">
+        {#each [true, false] as t (t)}
+          {@const label = t ? "True" : "False"}
+          <button class="tile opt" class:ok={picked !== null && t === claim.truth} class:no={picked === label && t !== claim.truth} class:shake={picked === label && t !== claim.truth && fx === "full"} disabled={picked !== null && label !== picked && t !== claim.truth} onclick={() => judge(t)}>{label}</button>
+        {/each}
       </div>
     {:else}
       <div class="opts">
@@ -526,7 +558,7 @@
 
     {#if missed && mode !== "flash"}
       <div class="foot">
-        <WhyButton front={card.front} back={card.back} typed={mode === "type" ? typed : (picked ?? "")} subject={deck.subject} />
+        <WhyButton front={card.front} back={card.back} typed={face === "type" ? typed : face === "tf" ? (claim?.truth ? "" : (claim?.claim ?? "")) : (picked ?? "")} subject={deck.subject} />
         <button class="tile go" onclick={advance}>Next</button>
       </div>
     {/if}
@@ -990,6 +1022,17 @@
     font-weight: 600;
     font-size: var(--text-sub);
     line-height: 1.25;
+  }
+  /* True or false: two full-width tiles, stacked, in thumb reach (spec 063 C9). */
+  .tf {
+    grid-template-columns: 1fr;
+  }
+  .tf .opt {
+    min-height: 60px;
+    text-align: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--text-body);
   }
   .typed {
     display: grid;

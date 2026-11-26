@@ -110,8 +110,9 @@
         <button class="primary" onclick={() => (studying = "flash")}>Flashcards</button>
         <button class="ghost" onclick={() => (studying = "type")}>Type it</button>
         <button class="ghost" disabled={deck.cards.length < 4} onclick={() => (studying = "choice")}>Choices</button>
+        <button class="ghost" disabled={deck.cards.length < 4} onclick={() => (studying = "quiz")}>Quiz</button>
       </div>
-      {#if deck.cards.length < 4}<p class="fine">Multiple choice needs at least 4 cards.</p>{/if}
+      {#if deck.cards.length < 4}<p class="fine">Choices and Quiz need 4 or more cards.</p>{/if}
     {:else if deck}
       <LarNote>No cards yet. Add one below, or paste a list as "term - meaning", one per line.</LarNote>
     {/if}
@@ -208,7 +209,7 @@
   }
   .modes {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
   .row {

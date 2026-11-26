@@ -39,8 +39,9 @@ export function claimFor(c: QuizCard, tally: { t: number; f: number }, rnd = Mat
 
 /** C7: the back and the card's three wrong answers in random order, or null to take other cards' backs as Choice does. */
 export function optionsFor(c: QuizCard, rnd = Math.random): string[] | null {
-  if (c.wrong?.length !== 3) return null;
-  const a = [c.back, ...c.wrong];
+  const a = [c.back, ...(c.wrong ?? [])];
+  // The tiles are keyed by their text, so a repeat would break the face.
+  if (a.length !== 4 || new Set(a).size !== 4) return null;
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rnd() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];

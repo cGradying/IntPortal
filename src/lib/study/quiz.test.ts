@@ -90,5 +90,6 @@ describe("spec 063 C7: multiple choice options", () => {
   it("c7_a_card_without_three_wrong_answers_falls_back_to_other_backs", () => {
     expect(optionsFor(card("b"), seeded())).toBeNull();
     expect(optionsFor(card("b", ["w1"]), seeded())).toBeNull();
+    expect(optionsFor(card("b", ["w1", "w1", "b"]), seeded())).toBeNull();
   });
 });
