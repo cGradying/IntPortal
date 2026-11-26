@@ -252,12 +252,6 @@ impl Wrong {
         if from.is_empty() || from.chars().count() >= CHANGE_MAX || to.chars().count() >= CHANGE_MAX {
             return None;
         }
-        // New words the back already holds make no new claim ("search, insert, and delete" to "search,
-        // insert, and insert").
-        let had = meaning(back);
-        if meaning(&to).iter().all(|w| had.contains(w)) {
-            return None;
-        }
         // ASCII lowering keeps byte offsets, so the match can be cut out of the back as written. Whole words
         // only: "rock" is not changed inside "rocks".
         let low = back.to_ascii_lowercase();
@@ -784,10 +778,6 @@ mod tests {
             ],
             "not in the back, cut off at the length limit, the same words, half a word: all dropped"
         );
-        let echo = changes(&[&[("more", "membrane"), ("toward", "away from"), ("more", "less"), ("Water", "Gas")]]);
-        let got = wrong_for(&mut FakeLlm::new(&[&echo]), Template::ChatMl, &[quiz("Osmosis", RIGHT, &[])]).unwrap();
-        assert!(!got[0].iter().any(|w| w.contains("membrane membrane") || w.contains("toward membrane")), "words the back already holds are no new claim");
-        assert_eq!(got[0].len(), 3);
         let two = changes(&[&[("more", "less"), ("toward", "away from"), ("sugar", "salt"), ("water", "water")]]);
         assert!(wrong_for(&mut FakeLlm::new(&[&two]), Template::ChatMl, &[quiz("Osmosis", RIGHT, &[])]).unwrap()[0].is_empty(), "two fair of four is none");
     }
