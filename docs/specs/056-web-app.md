@@ -9,14 +9,14 @@ IntPortal opens in any browser and is the same app as on the phone: the same scr
 ## Direction and references
 
 - One app, every platform. The browser is one more target of the Svelte UI and the Rust core, like iOS, Android, Mac, Windows and Linux. It is not a separate website with its own UI.
-- The start is already shipped: the browser demo (spec 052) runs the real app on sample data at `/try`.
+- The start is already shipped: the browser demo (spec 052) runs the real app on sample data. Its files are still in `site/static/app`, but since #362 (2026-11-21) the site no longer links to it.
 - The old hosted port, kept in [reference/intportal-web](reference/intportal-web/README.md), is the anti-reference. It was a second app on a server that held logins.
 
 ## Keep
 
 - No IntPortal account, and no server that stores logins or data (`PRODUCT.md`).
 - The same UI as the native apps. A web-only screen is a bug.
-- The demo at `/try` keeps working with no sign-in.
+- The demo keeps working with no sign-in, if it is linked again.
 
 ## Behaviour
 

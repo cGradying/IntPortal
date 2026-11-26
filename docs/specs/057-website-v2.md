@@ -1,6 +1,6 @@
 # 057 The website, second edition
 
-**Status:** approved (the owner's ask, 2026-11-18: "a fully fledged website… directory, downloads, roadmap… introduce the staff… especially Three.js"; answers: the staff is the owner alone, the directory is every feature plus help, the look is the app's own)
+**Status:** shipped (#328, 2026-11-18; approved from the owner's ask, 2026-11-18: "a fully fledged website… directory, downloads, roadmap… introduce the staff… especially Three.js"; answers: the staff is the owner alone, the directory is every feature plus help, the look is the app's own)
 
 ## What changes for the student
 
@@ -31,7 +31,7 @@ The site stops being one download page. The first screen is the portal itself, i
 - **C4. At rest.** The swirl turns in the SIS ramp (`#3b1220`, `#7a1c2c`, `#b5412a`, `#e08a35`, `#f3cf6a`) through a 4×4 Bayer dither. A few blocks flip tone now and then. Stars drift behind in three layers. LAR floats in front, bobbing, his art drawn by the app's own `drawLar`, nearest-neighbour.
 - **C5. Pointer.** The portal turns up to 8° toward the pointer (or the phone's tilt when allowed), eased; LAR turns less, so the two separate in depth.
 - **C6. The dive.** Scrolling through the hero's first 100 vh flies the camera into the portal's mouth: the swirl becomes a tunnel, the frame passes the edges of the screen, and at the end the field breaks into the page's dot grid as the next section arrives. Scrolling back reverses it. It is a pure function of scroll position.
-- **C7.** Copy over the scene: "IntPortal", the one line, the one gold button for this device (051 C8), "Try it in your browser", and the unofficial line, all readable at 4.5:1 over every frame of the scene.
+- **C7.** Copy over the scene: "IntPortal", the one line, the one gold button for this device (051 C8), a second button (*amended 2026-11-21, #362:* "Every download", since the owner removed Try it), and the unofficial line, all readable at 4.5:1 over every frame of the scene.
 - **C8.** The scene renders at most 60 fps while it moves, stops when the hero is off screen or the tab is hidden, and drops to a still frame if the frame time stays over 40 ms for a second.
 
 ### Pages
@@ -42,7 +42,7 @@ The site stops being one download page. The first screen is the portal itself, i
 - **C12. Changelog, `/changelog`.** CHANGELOG.md rendered, newest first, each version with its date, its items and its known gaps, and an anchor per version.
 - **C13. Roadmap, `/roadmap`.** Four lanes: Shipped (each release with its real date), Building (approved specs not yet shipped), Next (open P0 and P1 issues) and Later (draft specs and P2 issues). Each item says what it is in a student's words and links its spec or issue. No dates that don't exist.
 - **C14. About, `/about`.** The owner alone: the GitHub handle cGradying, a PUP student, their public bio, what IntPortal is built with, and a link to their GitHub. Nothing that isn't on their public profile.
-- **C15. Navigation.** The header has Features, Roadmap, Help, Try it, GitHub and a gold Get it, which is Download (one link to it, in gold, rather than two). On phones it folds into a menu sheet, which also lists Download, What's new, Reel and About. The footer lists every page.
+- **C15. Navigation.** The header has Features, Roadmap, Help, GitHub (*amended 2026-11-21, #362:* Try it removed) and a gold Get it, which is Download (one link to it, in gold, rather than two). On phones it folds into a menu sheet, which also lists Download, What's new, Reel and About. The footer lists every page.
 
 ### Every page
 

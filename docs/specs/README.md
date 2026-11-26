@@ -56,7 +56,7 @@ Criterion ids are `C1`, `C2`, … within one spec and are never reused or renumb
 | [058-website-v3](058-website-v3.md) | shipped | The website, third pass: search, share links, offline pages, page transitions, and a home with one phone and a talking LAR |
 | [059-portal-art](059-portal-art.md) | shipped | The website's portal, alive: sculptures from the other side when LAR speaks, a breathing vortex, motes, a kawoosh, tiles that lean in |
 | [060-website-v4](060-website-v4.md) | shipped | The website, fourth pass: honest install steps, a next step on every page, finished feature pages, lighter on phones |
-| [061-own-schedule](061-own-schedule.md) | building | Classes without a portal: own schedule mode, adding classes by hand, and reading a photo of a schedule on the phone |
+| [061-own-schedule](061-own-schedule.md) | shipped | Classes without a portal: own schedule mode, adding classes by hand, and reading a photo of a schedule on the phone |
 | [062-lar-v3](062-lar-v3.md) | shipped | LAR makes notes from the chat, edits notes with Undo, makes quizzes with wrong answers, and gives long answers with Keep going |
 | [063-lar-v3-screens](063-lar-v3-screens.md) | shipped | LAR's note and edit cards in their picked look, Quiz mode from the study faces, the deck's LAR box, streaming words and a header that follows the theme, sharper wrong answers, Keep going that continues |
 | [064-lar-calendar](064-lar-calendar.md) | shipped | LAR adds, moves and marks done the student's deadlines, changes a class for one week or every week, and moves or deletes its own reminders, behind a card with Undo |

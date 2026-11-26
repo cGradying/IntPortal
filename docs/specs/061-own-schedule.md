@@ -1,6 +1,6 @@
 # 061 Own schedule: classes without a portal
 
-**Status:** building
+**Status:** shipped (0.6.0, 2026-11-21)
 
 ## What changes for the student
 
