@@ -468,9 +468,20 @@ pub fn more(llm: &mut dyn Llm, tpl: Template, msg: &str, so_far: &str, on_text: 
     let schema = json!({"type": "object", "properties": {"reply": {"type": "string"}}, "required": ["reply"]});
     let mut stream = reply::ReplyStream::default();
     stream.feed(&prefill); // already on the screen
+    // The newest finished sentence is held back until the next one ends, so a loop is caught before the
+    // student sees it, and the model is stopped there.
+    let (mut new, mut sent) = (String::new(), 0);
     let raw = llm.generate_prefilled(&tpl.wrap(&sys, &format!("Student: {msg}")), &prefill, Some(&schema), lang::MORE_TOKENS, &mut |piece| {
         if let Some(words) = stream.feed(piece) {
-            on_text(&words);
+            new.push_str(&words);
+        }
+        if repeat_at(&so_far, &new).is_some() {
+            return false;
+        }
+        let ends: Vec<usize> = new.match_indices(['.', '!', '?']).map(|(i, _)| i + 1).filter(|&i| new[i..].starts_with(char::is_whitespace)).collect();
+        if let Some(&upto) = ends.len().checked_sub(2).and_then(|k| ends.get(k)).filter(|&&u| u > sent) {
+            on_text(&new[sent..upto]);
+            sent = upto;
         }
         true
     })?;
@@ -482,25 +493,35 @@ pub fn more(llm: &mut dyn Llm, tpl: Template, msg: &str, so_far: &str, on_text: 
     if new.trim().is_empty() {
         return Err("Keep going wrote nothing".into());
     }
-    // An answer cut at its limit was often looping (the same list item again and again), and the next
-    // words go on looping. They stop before the first sentence already written, and the answer is done.
-    // Read as one text, so a sentence that began before the cut is whole.
+    let (kept, cut) = match repeat_at(&so_far, new) {
+        // The loop and the list number it came after ("... in 395 AD. 4.") go, and the answer is done.
+        Some(stop) => match new[..stop].trim_end().rsplit_once(char::is_whitespace) {
+            Some((head, n)) if n.len() > 1 && n.trim_end_matches('.').chars().all(|c| c.is_ascii_digit()) => (head.trim_end(), false),
+            _ => (new[..stop].trim_end(), false),
+        },
+        None => (new, cut),
+    };
+    if let Some(rest) = kept.get(sent..).filter(|r| !r.is_empty()) {
+        on_text(rest);
+    }
+    Ok((kept.to_string(), cut))
+}
+
+/// Where the next words of an answer cut at its limit start repeating a sentence already written (often
+/// the same list item again and again): the length of `new` worth keeping. A sentence that began before the
+/// cut is read whole.
+fn repeat_at(so_far: &str, new: &str) -> Option<usize> {
     let all = format!("{so_far}{new}");
     let mut seen = vec![];
     for s in sentences(&all) {
         let at = s.as_ptr() as usize - all.as_ptr() as usize; // `s` is a slice of `all`
-        if at + s.len() > so_far.len() && s.split_whitespace().count() >= 5 && seen.contains(&norm(s)) {
-            let kept = all[so_far.len()..so_far.len().max(at)].trim_end();
-            // Without the list number the repeat would have followed ("... in 395 AD. 4.").
-            let kept = match kept.rsplit_once(char::is_whitespace) {
-                Some((head, n)) if n.len() > 1 && n.trim_end_matches('.').chars().all(|c| c.is_ascii_digit()) => head.trim_end(),
-                _ => kept,
-            };
-            return Ok((kept.to_string(), false));
+        let done = at + s.len() < all.len() || s.ends_with(['.', '!', '?']);
+        if at + s.len() > so_far.len() && done && s.split_whitespace().count() >= 5 && seen.contains(&norm(s)) {
+            return Some(at.saturating_sub(so_far.len()));
         }
         seen.push(norm(s));
     }
-    Ok((new.to_string(), cut))
+    None
 }
 
 /// Lower-case letters and digits only, so a copy matches whatever its punctuation or capitals.
@@ -2009,6 +2030,40 @@ mod tests {
         assert_eq!((text.as_str(), cut), (" empire split in two in 395 AD.", false), "the new part is kept, the loop and its list number are not");
         let out = r#" West fell in 476 AD, and the East went on for a thousand years. 4. The West fell in 476 AD, and the East went on for a thousand years."#;
         assert_eq!(more(&mut Sp::new(out), Template::ChatMl, "teach me Rome", so_far, &mut |_| ()).unwrap().0, " West fell in 476 AD, and the East went on for a thousand years.", "a repeat inside the new part too");
+    }
+
+    #[test]
+    fn c19_a_loop_never_reaches_the_screen_and_the_model_is_stopped_at_it() {
+        let so_far = "Rome grew strong. 2. The crisis came around 200 AD, and the empire began to split. 3. The";
+        let loop_ = " empire split in two in 395 AD. 4. The crisis came around 200 AD, and the empire began to split. 5. The crisis came around 200 AD, and the empire began to split. 6. The end";
+        /// Writes `.1` word by word after the prefill; `.0` counts the words written before it was stopped.
+        struct Words(usize, &'static str);
+        impl Llm for Words {
+            fn generate(&mut self, _p: &str, _s: Option<&Value>, _n: u32, _f: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+                Err("unused".into())
+            }
+            fn generate_prefilled(&mut self, _p: &str, pre: &str, _s: Option<&Value>, _n: u32, f: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+                let mut out = pre.to_string();
+                for w in self.1.split_inclusive(' ') {
+                    out.push_str(w);
+                    self.0 += 1;
+                    if !f(w) {
+                        break;
+                    }
+                }
+                Ok(out)
+            }
+            fn embed(&mut self, _t: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+                Ok(vec![])
+            }
+        }
+        let mut m = Words(0, loop_);
+        let mut streamed = String::new();
+        let (text, cut) = more(&mut m, Template::ChatMl, "teach me Rome", so_far, &mut |w| streamed.push_str(w)).unwrap();
+        assert_eq!((text.as_str(), cut), (" empire split in two in 395 AD.", false));
+        assert_eq!(streamed, text, "what the student saw is what is kept");
+        assert_eq!(m.0, 21, "stopped on \"split.\", the word that finished the repeated sentence, not at the end");
+        assert!(loop_.split_inclusive(' ').count() > 30);
     }
 
     #[test]
