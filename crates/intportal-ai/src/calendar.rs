@@ -212,7 +212,7 @@ pub fn day_in(msg: &str, today: Date) -> Result<Option<Date>, &'static str> {
 fn topic(msg: &str) -> Vec<String> {
     const SKIP: &[&str] = &[
         "the", "a", "an", "my", "this", "that", "it", "to", "in", "into", "of", "on", "for", "from", "and", "with", "is", "be", "me", "i", "please", "can", "you", "could", "pls", "s", "na", "ko", "ang", "sa", "ng", "mo", "yung", "ako", "ito", "namin",
-        "kami", "we", "have", "has", "our", "will", "move", "moved", "ilipat", "resched", "reschedule", "postpone", "delete", "remove", "cancel", "erase", "drop", "done", "finished", "finish", "tapos", "natapos", "submitted", "rename", "change", "update",
+        "kami", "kaming", "aming", "natin", "tayo", "po", "daw", "raw", "nang", "nga", "pala", "muna", "yun", "iyon", "we", "have", "has", "our", "will", "move", "moved", "ilipat", "resched", "reschedule", "postpone", "delete", "remove", "cancel", "erase", "drop", "done", "finished", "finish", "tapos", "natapos", "submitted", "rename", "change", "update",
         "edit", "set", "no", "wala", "walang", "online", "class", "classes", "klase", "reminder", "reminders", "paalala", "every", "week", "weekly", "now", "lagi", "today", "tomorrow", "bukas", "ngayon", "next", "monday", "tuesday", "wednesday",
         "thursday", "friday", "saturday", "sunday", "mon", "tue", "wed", "thu", "fri", "sat", "sun", "lunes", "martes", "miyerkules", "huwebes", "biyernes", "sabado", "linggo", "pm", "am", "deadline", "due", "already", "just", "na", "lang",
     ];
@@ -277,8 +277,9 @@ pub fn find_class(which: &str, rows: &[ClassRow], subject: Option<&str>, day: Op
             .filter(|r| subject.is_none_or(|s| r.code == s))
             .filter(|r| day.is_none_or(|d| r.day == d))
             .map(|r| {
-                let (s, full) = if subject.is_some() { (3, false) } else { hits(&want, &format!("{} {}", r.code, r.name)) };
-                (s + usize::from(day.is_some() && s > 0) * 2, full, r.clone())
+                // "No class tomorrow" names no class: every meeting that day is a candidate.
+                let (s, full) = if subject.is_some() || want.is_empty() { (usize::from(subject.is_some()) * 3, false) } else { hits(&want, &format!("{} {}", r.code, r.name)) };
+                (s + usize::from(day.is_some() && (s > 0 || want.is_empty())) * 2, full, r.clone())
             })
             .collect(),
     )
@@ -632,6 +633,13 @@ mod tests {
         assert!(matches!(go("no ORG class"), Ok(Proposal::MarkClass { week: Some(w), .. }) if w == Date::new(2026, 10, 21)));
         assert_eq!(go("no MATH class on Thursday"), Err(NOT_FOUND.into()), "MATH doesn't meet on Thursdays");
         assert_eq!(go("no MATH class on 10/1/2026"), Err(PASSED.into()));
+        // No class named: the meetings that day to pick from, or the only one.
+        match go("no class on Friday").unwrap() {
+            Proposal::PickItem { candidates, .. } => assert_eq!(candidates.iter().map(|c| c.2).collect::<Vec<_>>(), ["class", "class"]),
+            p => panic!("{p:?}"),
+        }
+        assert!(matches!(go("wala kaming klase sa Miyerkules"), Ok(Proposal::MarkClass { mark: Mark::Vacant, .. })));
+        assert_eq!(go("no class"), Err(NOT_FOUND.into()));
     }
 
     #[test]
