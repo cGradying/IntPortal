@@ -1067,7 +1067,7 @@ describe("spec 062 C25: Keep going", () => {
     expect(assis.chat[1].more).toBe(2);
     const before = calls.length;
     await keepGoing(1);
-    expect(calls.length).toBe(before, "no third Keep going");
+    expect(calls.length, "no third Keep going").toBe(before);
   });
 
   it("is not offered under an answer that finished", async () => {
