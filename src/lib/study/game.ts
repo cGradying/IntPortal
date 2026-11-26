@@ -1,7 +1,9 @@
 // The study session's game rules (spec 055): a combo that multiplies, a soft clock that
 // heats the table, a personal best per deck. Pure, so the rules are tested apart from the UI.
 
-export type Mode = "flash" | "type" | "choice";
+export type Mode = "flash" | "type" | "choice" | "quiz";
+/** How one card is shown. Quiz deals each card as choice, type or true or false (spec 063 C10). */
+export type Face = "flash" | "type" | "choice" | "tf";
 export type Answer = "right" | "hard" | "miss";
 export type Run = { streak: number; top: number; score: number; heat: number; rights: number; tries: number };
 
@@ -19,8 +21,8 @@ export function toNext(streak: number): { need: number; frac: number } | null {
   return { need: next - streak, frac: (streak - prev) / (next - prev) };
 }
 
-/** The soft clock per card: typing gets longer. Running out is never a miss. */
-export const clockSecs = (mode: Mode) => (mode === "type" ? 14 : 8);
+/** The soft clock per card: typing gets longer; true or false is timed like Choice. Running out is never a miss. */
+export const clockSecs = (face: Face) => (face === "type" ? 14 : 8);
 export const QUICK_BONUS = 5;
 
 /**
@@ -28,8 +30,8 @@ export const QUICK_BONUS = 5;
  * the clock. Hard keeps the combo and scores nothing. A miss drops the combo and the heat.
  * Heat (0–3) rises one step on a quick answer and cools one step on a slow one.
  */
-export function play(run: Run, answer: Answer, secs: number, mode: Mode) {
-  const clock = clockSecs(mode);
+export function play(run: Run, answer: Answer, secs: number, face: Face) {
+  const clock = clockSecs(face);
   const quick = answer === "right" && secs <= clock / 2;
   const slow = secs > clock;
   const was = mult(run.streak);
