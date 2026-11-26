@@ -55,7 +55,7 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 ### C. The deck page, in the LAR box we have (round 2)
 
 - **C11. Make a quiz** is the button already in the deck's LAR box (`DeckCards.svelte`, 062 C17). It doesn't move.
-- **C12. Write wrong answers** sits in the same box, for a deck with 4 or more cards and none with wrong answers (062 C20).
+- **C12. Write wrong answers** sits in the same box, for a deck with 4 or more cards where some have no wrong answers. It writes only for those, so a stopped run can finish later (062 C20 said "none with wrong answers"; this replaces it).
   - While it runs, the box shows "N of M cards" and **Stop**, in the box's own look.
   - Hiding the app pauses it at the next card, and coming back resumes it (062 C29).
   - Round 2 picks where the button and its progress sit.
@@ -67,7 +67,7 @@ LAR's note and edit cards get their final look, and an applied change stays in t
   - The sky header's colours come from the worn theme.
   - The theme maker's LAR colour, when set, wins as today.
   - With no theme worn, the header keeps the school's colours.
-  - Round 2 picks between two ways: the header follows the theme's accent when no LAR colour is set, or the theme maker gets its own "Chat header" colour.
+  - Round 2 picks: the header follows the theme's accent when no LAR colour is set, the theme maker gets its own "Chat header" colour, or it stays on LAR's colour with the theme maker saying so.
 
 ### E. Sharper quizzes
 
@@ -116,7 +116,7 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 ## Accessibility
 
 - Struck and gold words also read "Removed:" and "Added:".
-- True and False are full-width, at least 44 pt tall.
+- True and False are at least 44 pt tall; round 2 picks side by side or full width (this replaces 062's "full-width").
 - Picker rows are buttons labelled with the name and the caption.
 - The header's colours keep the title and status readable on the room's ground. The theme maker refuses a header colour that fails contrast, as it does for the accent.
 
@@ -149,4 +149,4 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 
 ## Open questions
 
-- Round 2, three items (`reference/prototypes/lar-v3-picks.html`): where True or false's claim sits (C9), where Write wrong answers sits (C12), and the word motion and the header's colour source (C13, C14).
+- Round 2 (`reference/prototypes/lar-v3-picks.html`), four lines: True or false's face (C9), Write wrong answers in the LAR box (C12), words as they stream (C13), and where the header's colour comes from (C14).

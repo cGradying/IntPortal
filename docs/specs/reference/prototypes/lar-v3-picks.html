@@ -1,0 +1,1855 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LAR v3 Picks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Pixelify+Sans:wght@500;600;700&display=swap">
+<style>
+/* LAR v3 picks, round two (spec 063). Live phones at real size and real type sizes.
+   Page chrome stays in the portal's night; the phones switch room, and in item 3b, theme. */
+:root {
+  color-scheme: dark;
+  --void: #0b0710; --void-2: #140c16; --void-3: #170b1a; --void-lift: #1c1220; --void-ink: #060307; --slab-edge: #3a2446;
+  --line: rgb(244 236 216 / 0.12);
+  --parch: #f4ecd8; --parch-2: rgb(244 236 216 / 0.72); --parch-3: rgb(244 236 216 / 0.52);
+  --cream: #fff6dc; --white: #fff;
+  --pg: #f5b227; --pg-hi: #ffc94a; --pg-shade: #b87a10; --on-pg: #1b1406;
+  --f-head: "Montserrat", system-ui, sans-serif;
+  --f-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --f-pixel: "Pixelify Sans", ui-monospace, monospace;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-quick: 0.16s; --t-move: 0.32s; --t-flow: 0.36s; --t-hero: 0.55s;
+  --n3: polygon(0 3px,3px 3px,3px 0,calc(100% - 3px) 0,calc(100% - 3px) 3px,100% 3px,100% calc(100% - 3px),calc(100% - 3px) calc(100% - 3px),calc(100% - 3px) 100%,3px 100%,3px calc(100% - 3px),0 calc(100% - 3px));
+  --n4: polygon(0 8px,4px 8px,4px 4px,8px 4px,8px 0,calc(100% - 8px) 0,calc(100% - 8px) 4px,calc(100% - 4px) 4px,calc(100% - 4px) 8px,100% 8px,100% calc(100% - 8px),calc(100% - 4px) calc(100% - 8px),calc(100% - 4px) calc(100% - 4px),calc(100% - 8px) calc(100% - 4px),calc(100% - 8px) 100%,8px 100%,8px calc(100% - 4px),4px calc(100% - 4px),4px calc(100% - 8px),0 calc(100% - 8px));
+  --n6: polygon(0 6px,3px 6px,3px 3px,6px 3px,6px 0,calc(100% - 6px) 0,calc(100% - 6px) 3px,calc(100% - 3px) 3px,calc(100% - 3px) 6px,100% 6px,100% calc(100% - 6px),calc(100% - 3px) calc(100% - 6px),calc(100% - 3px) calc(100% - 3px),calc(100% - 6px) calc(100% - 3px),calc(100% - 6px) 100%,6px 100%,6px calc(100% - 3px),3px calc(100% - 3px),3px calc(100% - 6px),0 calc(100% - 6px));
+  --slab: var(--n6);
+}
+* { box-sizing: border-box; }
+html { background: var(--void); }
+body { margin: 0; background: var(--void); color: var(--parch); font: 400 15px/1.5 var(--f-ui); padding: 0 16px 120px; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+::selection { background: var(--pg); color: var(--on-pg); }
+:focus-visible { outline: 2px solid var(--pg); outline-offset: 2px; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.wrap { max-width: 1240px; margin: 0 auto; }
+.top { padding-block: 40px 8px; display: grid; gap: 12px; }
+.top h1 { margin: 0; font: 800 clamp(28px, 5vw, 42px)/1.05 var(--f-head); letter-spacing: -0.02em; text-wrap: balance; max-width: 24ch; }
+.top p { margin: 0; color: var(--parch-2); max-width: 68ch; }
+.ctl { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; font-size: 13px; color: var(--parch-2); }
+.ctl > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.seg0 { display: inline-flex; flex-wrap: wrap; box-shadow: inset 0 0 0 1px var(--line); width: fit-content; max-width: 100%; }
+.seg0 button { border: 0; background: none; min-height: 44px; padding: 6px 11px; font-size: 13px; color: var(--parch-2); }
+.seg0 button[aria-pressed="true"] { background: var(--void-3); color: var(--parch); box-shadow: inset 0 -2px 0 var(--pg); }
+
+/* picked in round 1 */
+.picked { margin: 6px 0 0; padding: 14px 16px 16px; background: var(--void-2); box-shadow: inset 0 0 0 1px var(--line); display: grid; gap: 10px; }
+.picked h2 { margin: 0; font: 600 13px var(--f-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: var(--parch-2); }
+.picked ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: 8px 18px; }
+.picked li { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; }
+.picked li i { grid-row: span 2; font: 600 13px/1 var(--f-pixel); font-style: normal; color: var(--on-pg); background: var(--pg); padding: 4px 7px; }
+.picked li b { font-weight: 600; font-size: 14px; }
+.picked li span { grid-column: 2; font-size: 13px; color: var(--parch-2); }
+
+nav.jump { position: sticky; top: 0; z-index: 20; display: flex; gap: 6px; flex-wrap: wrap; padding-block: 12px; background: linear-gradient(var(--void) 75%, transparent); }
+nav.jump a { display: inline-flex; align-items: center; min-height: 44px; font: 500 13px var(--f-pixel); letter-spacing: 0.06em; color: var(--parch-2); text-decoration: none; padding: 0 12px; box-shadow: inset 0 0 0 1px var(--line); }
+nav.jump a:hover { color: var(--parch); box-shadow: inset 0 0 0 1px var(--parch-3); }
+section.row { padding-block: 40px 8px; display: grid; gap: 18px; scroll-margin-top: 64px; }
+section.row > * { min-width: 0; }
+.q { display: grid; gap: 6px; max-width: 72ch; }
+.q h2 { margin: 0; font: 700 clamp(21px, 3vw, 26px)/1.2 var(--f-head); letter-spacing: -0.01em; text-wrap: balance; }
+.q h2 small { display: block; font: 600 12px var(--f-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: var(--pg); margin-bottom: 4px; }
+.q p { margin: 0; color: var(--parch-2); }
+.q ul { margin: 2px 0 0; padding-left: 18px; color: var(--parch-2); display: grid; gap: 3px; font-size: 14px; }
+.q ul b { color: var(--parch); font-weight: 600; }
+.wide { display: flex; flex-wrap: wrap; gap: 30px 28px; align-items: flex-start; justify-content: center; }
+.opt { display: grid; gap: 10px; justify-items: center; width: min(var(--pw), 100%); }
+.opt.ref { padding-right: 28px; box-shadow: inset -1px 0 0 var(--line); }
+.name { width: 100%; display: grid; gap: 3px; }
+.name b { font: 600 15px var(--f-ui); }
+.name b i { font: 500 13px var(--f-pixel); font-style: normal; color: var(--on-pg); background: var(--pg); padding: 1px 6px; margin-right: 6px; }
+.name b i.ref { background: var(--void-3); color: var(--parch-2); box-shadow: inset 0 0 0 1px var(--line); }
+.name span { font-size: 13px; color: var(--parch-2); }
+.opt .seg0 { width: 100%; }
+.opt .seg0 button { flex: 1; }
+.cap0 { width: 100%; margin: 0; font-size: 13px; color: var(--parch-2); display: flex; gap: 8px; align-items: center; }
+.cap0 i { flex: none; width: 14px; height: 14px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25); }
+.pickbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+.pick { min-width: 64px; height: 44px; padding: 0 14px; border: 0; font: 600 14px var(--f-ui); color: var(--parch); background: var(--void-3); box-shadow: inset 0 0 0 1px var(--line); clip-path: var(--n3); }
+.pick:hover { background: #26172b; }
+.pick[aria-pressed="true"] { background: var(--pg); color: var(--on-pg); box-shadow: inset 0 -3px 0 var(--pg-shade); }
+.pickbar input { flex: 1 1 240px; max-width: 420px; height: 44px; padding: 0 12px; border: 0; background: var(--void-2); box-shadow: inset 0 0 0 1px var(--line); font-size: 16px; caret-color: var(--pg); }
+.pickbar input::placeholder { color: var(--parch-3); }
+.tray { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--void-2) 94%, transparent); backdrop-filter: blur(12px); box-shadow: inset 0 1px 0 var(--line); }
+.tray .in { max-width: 1240px; margin: 0 auto; display: flex; gap: 12px; align-items: center; }
+.tray .chips { flex: 1; min-width: 0; display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.tray .chips span { flex: none; font: 500 11px var(--f-pixel); letter-spacing: 0.04em; padding: 4px 8px; box-shadow: inset 0 0 0 1px var(--line); color: var(--parch-3); }
+.tray .chips span.set { color: var(--on-pg); background: var(--pg); box-shadow: none; }
+.tray .toast { font-size: 12px; color: var(--parch-2); }
+.tray .copy { flex: none; height: 44px; padding: 0 16px; border: 0; background: var(--pg); color: var(--on-pg); box-shadow: inset 0 -3px 0 var(--pg-shade); font-weight: 600; font-size: 14px; clip-path: var(--n3); }
+
+/* ================= the phone and its rooms (app.css tokens) ================= */
+.phone { --pw: 320px; width: var(--pw); height: var(--ph, 690px); position: relative; overflow: hidden; border-radius: 40px; flex: none; isolation: isolate;
+  box-shadow: 0 0 0 7px #1a1520, 0 0 0 8px #2f2939, 0 24px 50px rgb(0 0 0 / 0.5);
+  background: var(--ground); color: var(--ink); font: 400 16px/1.35 var(--f-ui);
+  --t-body: 16px; --t-sub: 14px; --t-cap: 13px; --t-label: 12px; --t-head: 18px; --t-title: 22px; --t-display: 28px; --t-micro: 10px;
+  --radius: 10px; --accent: #e8b04a; }
+.phone[data-room="night"], .tm[data-room="night"] { --ground: #0b0710; --dot: rgba(232,176,74,.13); --card: #170b1a; --card-2: #1d1022; --sunk: #120914; --edge: rgba(244,236,216,.09); --edge-2: rgba(244,236,216,.16); --ink: #f4ecd8; --ink-2: #bfb3c4; --ink-3: #8f8296; --gold: #f5b227; --gold-soft: rgba(245,178,39,.14); --on-gold: #1b1406; --good: #58c792; --bad: #f07a6e; }
+.phone[data-room="day"], .tm[data-room="day"] { --ground: #f4f2ef; --dot: rgba(122,17,40,.07); --card: #fff; --card-2: #f8f6f3; --sunk: #efece7; --edge: rgba(28,21,23,.08); --edge-2: rgba(28,21,23,.16); --ink: #1c1517; --ink-2: #554c4f; --ink-3: #766c6f; --gold: #b8860b; --gold-soft: rgba(201,162,39,.16); --on-gold: #fff; --good: #1e7249; --bad: #b42318; }
+.phone .island { position: absolute; top: 10px; left: 50%; translate: -50% 0; width: 92px; height: 26px; border-radius: 13px; background: #000; z-index: 90; }
+.phone .sbar { position: absolute; top: 14px; left: 28px; right: 24px; display: flex; justify-content: space-between; font: 600 14px var(--f-ui); z-index: 89; }
+.phone .home { position: absolute; bottom: 8px; left: 50%; translate: -50% 0; width: 120px; height: 5px; border-radius: 3px; background: var(--ink); opacity: 0.5; z-index: 90; }
+.dots { position: absolute; inset: 0; z-index: -1; background-image: var(--pattern, radial-gradient(var(--dot) 1px, transparent 1.2px)); background-size: var(--pattern-size, 14px 14px); }
+.phone button { color: inherit; font-family: var(--f-ui); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.lbl0 { margin: 0; font: 600 var(--t-label) var(--f-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.card { background: linear-gradient(180deg, var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge); clip-path: var(--n4); }
+.fine { margin: 0; font-size: var(--t-cap); color: var(--ink-3); }
+
+/* the page behind the chat: a quiet Today */
+.behind { position: absolute; inset: 0; padding: 56px 16px 0; display: grid; gap: 10px; align-content: start; }
+.behind h3 { margin: 4px 0 2px; font: 800 var(--t-display)/1.1 var(--f-ui); letter-spacing: -0.035em; }
+.behind .bc { height: 74px; padding: 12px 14px; font-size: var(--t-sub); color: var(--ink-2); }
+.behind .bc b { display: block; color: var(--ink); font-size: var(--t-head); }
+.tabs { position: absolute; left: 0; right: 0; bottom: 0; height: 78px; padding: 10px 6px 26px; display: grid; grid-template-columns: repeat(5, 1fr); background: color-mix(in srgb, var(--ground) 86%, transparent); backdrop-filter: blur(16px); box-shadow: inset 0 1px 0 var(--edge); z-index: 30; }
+.tabs span { display: grid; justify-items: center; gap: 4px; font: 500 11px var(--f-pixel); letter-spacing: 0.04em; color: var(--ink-3); }
+.tabs span::before { content: ""; width: 18px; height: 18px; background: currentColor; opacity: 0.55; clip-path: var(--n3); }
+.tabs span.on { color: var(--gold); }
+
+/* ================= LAR's window (AssisWindow.svelte) ================= */
+.win { --g-a: color-mix(in srgb, var(--card), var(--ink) 8%); --g-b: color-mix(in srgb, var(--card), var(--ground) 45%); --g-rim: color-mix(in srgb, var(--gold) 42%, transparent); --g-hi: rgb(168 134 210 / 0.42); --g-ext: rgb(0 0 0 / 0.45);
+  --r0: #3b1220; --r1: #7a1c2c; --r2: #b5412a; --r3: #e08a35; --r4: #f3cf6a;
+  position: absolute; z-index: 61; right: 14px; width: calc(100% - 28px); bottom: 92px; height: 60%; color: var(--ink); }
+.phone[data-room="day"] .win { --g-hi: rgb(255 255 255 / 0.95); --g-ext: rgb(90 40 50 / 0.22); }
+.win.tall { height: 68%; }
+.face0 { position: absolute; inset: 0; overflow: hidden; display: flex; flex-direction: column;
+  background: linear-gradient(to bottom, var(--g-hi) 0 1px, transparent 1px), linear-gradient(to right, var(--g-hi) 0 1px, transparent 1px), linear-gradient(to left, var(--g-rim) 0 1px, transparent 1px), linear-gradient(165deg, var(--g-a), var(--g-b));
+  box-shadow: 2px 2px 0 var(--g-ext), 0 14px 30px -12px rgb(0 0 0 / 0.6); }
+.hd { position: relative; z-index: 1; flex: none; height: 92px; display: flex; align-items: center; gap: 6px; padding: 2px 10px 0 0; isolation: isolate; color: var(--cream); }
+.sky { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: linear-gradient(172deg, var(--r0), var(--r1) 72%, var(--r0)); box-shadow: inset 0 1px 0 rgb(255 236 214 / 0.2); transition: background var(--t-move) var(--ease); }
+.sky::before { content: ""; position: absolute; inset: -40%; background: radial-gradient(30% 40% at 28% 72%, color-mix(in srgb, var(--r3) 70%, transparent), transparent 70%), radial-gradient(26% 40% at 76% 28%, color-mix(in srgb, var(--r4) 30%, transparent), transparent 70%), radial-gradient(40% 46% at 56% 86%, color-mix(in srgb, var(--r2) 80%, transparent), transparent 75%); animation: drift 16s ease-in-out infinite alternate; }
+.sky::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: conic-gradient(var(--g-a) 25%, transparent 0 50%, var(--g-a) 0 75%, transparent 0) 0 0 / 6px 6px; }
+.sky i { position: absolute; width: 2px; height: 2px; background: var(--cream); animation: twinkle 2.6s steps(3, jump-none) infinite alternate; }
+.sky i:nth-child(1) { left: 44%; top: 14px; } .sky i:nth-child(2) { left: 56%; top: 30px; opacity: 0.6; animation-delay: -0.8s; } .sky i:nth-child(3) { left: 66%; top: 10px; animation-delay: -1.6s; }
+.sky i:nth-child(4) { left: 74%; top: 40px; opacity: 0.5; animation-delay: -0.4s; } .sky i:nth-child(5) { left: 50%; top: 22px; opacity: 0.7; animation-delay: -2s; } .sky i:nth-child(6) { left: 62%; top: 46px; opacity: 0.4; animation-delay: -1.2s; }
+@keyframes drift { from { transform: translate(-6%, -4%); } to { transform: translate(6%, 5%); } }
+@keyframes twinkle { to { opacity: 0.15; } }
+.perch { position: relative; flex: none; align-self: stretch; width: 104px; }
+.perch canvas { position: absolute; left: -6px; bottom: -4px; image-rendering: pixelated; }
+.who { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.tag { font: 600 16px/1 var(--f-pixel); letter-spacing: 0.12em; color: var(--cream); text-shadow: 0 2px 0 rgb(6 3 7 / 0.55); }
+.status { display: flex; align-items: center; gap: 6px; height: 16px; font: 500 var(--t-cap)/1 var(--f-ui); color: rgb(255 246 220 / 0.82); white-space: nowrap; overflow: hidden; }
+.status::before { content: ""; flex: none; width: 6px; height: 6px; background: var(--r4); box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.5); }
+.status.busy::before { animation: blink 0.8s steps(1, end) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.keys { flex: none; display: flex; }
+.key { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none; color: var(--cream) !important; }
+.cap { display: grid; place-items: center; width: 36px; height: 36px; background: rgb(6 3 8 / 0.34); clip-path: var(--n3); box-shadow: inset 0 1px 0 rgb(255 246 220 / 0.16), inset 0 -2px 0 rgb(0 0 0 / 0.32); }
+.log { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.log::-webkit-scrollbar { display: none; }
+.in { display: grid; gap: 10px; align-content: start; padding: 2px 12px 10px; }
+.lar { justify-self: start; max-width: 92%; padding: 10px 12px; background: var(--void-3); color: var(--parch); box-shadow: inset 0 2px 0 color-mix(in srgb, var(--accent) 45%, var(--slab-edge)), inset 0 -2px 0 var(--void-ink); clip-path: var(--slab); }
+.lar p { margin: 0; font-size: var(--t-sub); line-height: 1.4; white-space: pre-line; overflow-wrap: anywhere; }
+.me { justify-self: end; max-width: 82%; margin: 0; padding: 9px 13px; border-radius: 16px 16px 3px 16px; background: color-mix(in srgb, var(--ink) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 13%, transparent); font-size: var(--t-sub); line-height: 1.35; }
+.known { justify-self: start; max-width: 92%; margin: -2px 0 0 2px; font-size: var(--t-cap); line-height: 1.4; color: color-mix(in srgb, var(--ink) 60%, transparent); }
+.known b { font-weight: 600; }
+.dock { flex: none; padding: 4px 8px 8px; }
+.dock form { display: flex; gap: 8px; margin: 0; }
+.well { flex: 1; min-width: 0; display: flex; align-items: center; height: 44px; padding: 0 12px; border-radius: var(--radius); background: color-mix(in srgb, var(--ground) 70%, transparent); box-shadow: inset 0 0 0 1px var(--edge-2); font-size: 16px; color: var(--ink-3); }
+.send { flex: none; height: 44px; padding: 0 16px; border: 0; background: linear-gradient(180deg, var(--pg-hi), var(--pg) 60%); color: var(--on-pg) !important; font: 600 var(--t-sub) var(--f-ui); box-shadow: inset 0 -3px 0 var(--pg-shade); clip-path: var(--n3); }
+.send.off { opacity: 0.45; }
+.send.stop { background: var(--void-3); color: var(--parch) !important; box-shadow: inset 0 0 0 1px rgb(255 246 220 / 0.2); }
+/* Keep going, as shipped: the window's quiet button, under the bubble */
+.more { justify-self: start; height: 44px; padding: 0 14px; margin-top: -4px; border: 0; border-radius: var(--radius); background: rgb(255 246 220 / 0.06); box-shadow: inset 0 0 0 1px rgb(255 246 220 / 0.14); color: var(--parch) !important; font: 600 var(--t-sub) var(--f-ui); transition: translate var(--t-quick) var(--ease), background var(--t-quick) var(--ease); }
+.phone[data-room="day"] .more { background: color-mix(in srgb, var(--ink) 6%, transparent); box-shadow: inset 0 0 0 1px var(--edge-2); color: var(--ink) !important; }
+.more.press { translate: 0 2px; background: rgb(245 178 39 / 0.2); }
+.hide { display: none !important; }
+
+/* ---- 3a: words as they stream ---- */
+.st .w:not(.on), .st .s:not(.on) { display: none; }
+.sA .w.on { display: inline-block; animation: rise var(--t-quick) var(--ease) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+.sB .w.on { display: inline-block; }
+.sB .w[data-d="1"] { -webkit-mask: conic-gradient(#000 25%, #0000 0) 0 0 / 6px 6px; mask: conic-gradient(#000 25%, #0000 0) 0 0 / 6px 6px; }
+.sB .w[data-d="2"] { -webkit-mask: conic-gradient(#000 25%, #0000 0 50%, #000 0 75%, #0000 0) 0 0 / 6px 6px; mask: conic-gradient(#000 25%, #0000 0 50%, #000 0 75%, #0000 0) 0 0 / 6px 6px; }
+.sB .w[data-d="3"] { -webkit-mask: conic-gradient(#000 75%, #0000 0) 0 0 / 6px 6px; mask: conic-gradient(#000 75%, #0000 0) 0 0 / 6px 6px; }
+.sC .w { transition: color var(--t-hero) var(--ease); }
+.sC .w.g { color: var(--pg); transition: none; }
+.caret { display: inline-block; width: 6px; height: 1.05em; margin-left: 2px; vertical-align: -0.18em; background: var(--pg); box-shadow: inset 0 -2px 0 var(--pg-shade); }
+.caret.wait { animation: blink 0.9s steps(1, end) infinite; }
+.rm .st .w { animation: none !important; -webkit-mask: none !important; mask: none !important; color: inherit !important; }
+
+/* ---- 3b: the theme maker, a slice of its controls (ThemeMaker.svelte) ---- */
+.tm { width: var(--pw); flex: none; display: grid; gap: 2px; padding: 12px 14px 0; background: var(--ground); color: var(--ink); border-radius: 22px; overflow: hidden; box-shadow: 0 0 0 7px #1a1520, 0 0 0 8px #2f2939; font: 400 16px/1.35 var(--f-ui); --t-sub: 14px; --t-cap: 13px; --t-label: 12px; --radius: 10px; }
+.tm .fld { display: grid; gap: 0; }
+.tm .fld .lbl0 { margin-top: 6px; }
+.tm .fld .lbl0 em { font-style: normal; color: var(--gold); }
+.tm input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 44px; background: none; margin: 0; }
+.tm input[type="range"]::-webkit-slider-runnable-track { height: 16px; background: var(--trk, var(--sunk)); box-shadow: inset 0 0 0 1px var(--edge-2); }
+.tm input[type="range"]::-moz-range-track { height: 16px; background: var(--trk, var(--sunk)); box-shadow: inset 0 0 0 1px var(--edge-2); }
+.tm input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 36px; margin-top: -10px; background: var(--ink); box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.3); border: 0; border-radius: 0; }
+.tm input[type="range"]::-moz-range-thumb { width: 28px; height: 36px; background: var(--ink); border: 0; border-radius: 0; }
+.tm input.unset::-webkit-slider-thumb { background: var(--ink-3); }
+.tm .ghost { justify-self: start; min-height: 44px; padding: 0 14px; margin: 4px 0 6px; border: 0; border-radius: var(--radius); background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); color: var(--ink); font: 700 var(--t-sub) var(--f-ui); }
+.tm .fine { margin: 0 0 10px; }
+.tm .fine mark { background: var(--gold-soft); color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold); padding: 0 2px; }
+.tm .secs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin: 0 -14px; box-shadow: inset 0 1px 0 var(--edge); }
+.tm .secs span { display: grid; place-items: center; min-height: 48px; font-size: var(--t-cap); font-weight: 600; color: var(--ink-3); }
+.tm .secs span.on { color: var(--ink); box-shadow: inset 0 3px 0 var(--gold); }
+.tm .new { display: inline-block; margin-left: 6px; padding: 1px 5px; font: 600 10px var(--f-pixel); letter-spacing: 0.06em; color: var(--on-gold); background: var(--gold); vertical-align: 1px; }
+
+/* ================= study session (StudySession.svelte) ================= */
+.scr { position: absolute; inset: 0; padding: 50px 16px 24px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; scrollbar-width: none; }
+.scr::-webkit-scrollbar { display: none; }
+.scr > * { flex: none; }
+.shd { display: flex; justify-content: space-between; align-items: center; }
+.back { height: 44px; padding: 0; border: 0; background: none; color: var(--gold) !important; font: 700 var(--t-body) var(--f-ui); }
+.segs { display: flex; gap: 3px; height: 12px; }
+.segs i { flex: 1; min-width: 4px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); }
+.segs i.ok { background: var(--gold); box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.22); }
+.segs i.miss { background: repeating-linear-gradient(135deg, var(--bad) 0 3px, var(--sunk) 3px 6px); }
+.segs i.re { box-shadow: inset 0 0 0 1.5px var(--bad); }
+.segs i.cur { box-shadow: inset 0 0 0 2px var(--gold); }
+.panel { position: relative; isolation: isolate; min-height: 56px; background: #170509; clip-path: var(--n3); }
+.panel::after { content: ""; position: absolute; inset: 0; z-index: -1; background: rgb(11 7 16 / 0.55); }
+canvas.sw { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; image-rendering: pixelated; }
+.hud { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 12px; color: var(--parch); }
+.stamp { flex: none; min-width: 44px; padding: 2px 6px; text-align: center; font: 700 var(--t-title) var(--f-pixel); color: var(--pg); box-shadow: inset 0 0 0 2px currentColor; rotate: -4deg; }
+.meter { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.track { display: block; height: 8px; background: rgb(11 7 16 / 0.8); box-shadow: inset 0 0 0 1px rgb(244 236 216 / 0.22); }
+.track i { display: block; width: 50%; height: 100%; background: var(--pg); }
+.to { font: 500 var(--t-micro) var(--f-pixel); letter-spacing: 0.06em; color: rgb(244 236 216 / 0.75); }
+.clock { flex: none; } .clock circle { fill: none; stroke-width: 4; } .clock .rb { stroke: rgb(244 236 216 / 0.18); } .clock .rp { stroke: var(--pg); stroke-dasharray: 69.1; }
+.heat { flex: none; display: flex; gap: 2px; } .heat i { width: 6px; height: 12px; background: rgb(244 236 216 / 0.16); } .heat i.on:nth-child(1) { background: #b5412a; } .heat i.on:nth-child(2) { background: #e08a35; }
+.score { flex: none; min-width: 40px; text-align: right; font: 700 var(--t-title)/1 var(--f-pixel); color: var(--pg); }
+.comp { display: flex; align-items: center; gap: 8px; min-height: 72px; }
+.comp canvas { flex: none; image-rendering: pixelated; }
+.bub { flex: 1; min-width: 0; margin: 0; padding: 10px 12px; background: var(--card); box-shadow: inset 0 0 0 1px var(--edge-2); font: 600 var(--t-body)/1.2 var(--f-pixel); color: var(--ink); }
+.table { display: grid; padding-bottom: 16px; }
+.pile, .slot { grid-area: 1 / 1; }
+.pile { position: relative; }
+.under { position: absolute; isolation: isolate; background: #170509; box-shadow: inset 0 0 0 2px #cca128; clip-path: var(--n4); overflow: hidden; }
+.under canvas.sw { z-index: -1; }
+.b1 { inset: 7px 8px -7px; } .b2 { inset: 14px 16px -14px; filter: brightness(0.7); }
+.face { position: relative; display: grid; gap: 8px; min-height: 196px; align-content: center; padding: 20px; background: linear-gradient(180deg, var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 -4px 0 var(--edge); color: var(--ink); clip-path: var(--n4); }
+.term { font: 800 var(--t-display)/1.1 var(--f-ui); letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.mean { font-size: var(--t-head); font-weight: 600; line-height: 1.3; }
+.answer { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--edge); font-size: var(--t-head); line-height: 1.3; }
+.reveal { font-size: var(--t-body); color: var(--ink-2); }
+.reveal b { color: var(--gold); }
+.tile { min-height: 56px; padding: 8px 12px 12px; border: 0; background: linear-gradient(var(--card-2), var(--card)); box-shadow: inset 0 0 0 1px var(--edge-2), inset 0 -5px 0 color-mix(in srgb, var(--gold) 68%, var(--card)); color: var(--ink) !important; font: 700 var(--t-body) var(--f-ui); clip-path: var(--n3); }
+.tile:active { translate: 0 3px; }
+.tile.go { background: var(--gold); color: var(--on-gold) !important; box-shadow: inset 0 3px 0 rgb(255 255 255 / 0.3), inset 0 -5px 0 rgb(0 0 0 / 0.25); }
+.tile.dim { opacity: 0.45; }
+.tile.ok { background: var(--gold); color: var(--on-gold) !important; opacity: 1; }
+.tile.no { box-shadow: inset 0 0 0 2.5px var(--bad); opacity: 1; }
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.opt0 { min-height: 76px; text-align: left; font: 600 var(--t-sub)/1.25 var(--f-ui); }
+.tf2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tf2 .tile { min-height: 64px; }
+.tf1 { display: grid; gap: 8px; }
+.typed { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.typed .field { display: flex; align-items: center; height: 56px; padding: 0 12px; border-radius: var(--radius); background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); color: var(--ink-3); font-size: 16px; }
+.foot { display: grid; gap: 8px; }
+.why { justify-self: start; min-height: 44px; padding: 0 16px; border: 0; border-radius: var(--radius); background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge); font: 700 var(--t-sub) var(--f-ui); }
+
+/* ================= deck page (DeckPage.svelte, DeckCards.svelte) ================= */
+.dscr { gap: 12px; padding-bottom: 96px; }
+.dh h1 { margin: 2px 0 0; font: 700 var(--t-display)/1.15 var(--f-ui); }
+.db { height: 44px; padding: 0 14px; border: 0; border-radius: var(--radius); font: 700 var(--t-sub) var(--f-ui); white-space: nowrap; }
+.db.primary { background: var(--gold); color: var(--on-gold) !important; }
+.db.ghost { background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); color: var(--ink) !important; }
+.db.off { opacity: 0.4; }
+.db.full { width: 100%; }
+.modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.modes.g2 { grid-template-columns: 1fr 1fr; }
+.modes .db { padding: 0 6px; }
+.hl { box-shadow: inset 0 0 0 2px var(--gold) !important; }
+.addc { display: grid; gap: 8px; padding: 14px; }
+.addc .inp { display: flex; align-items: center; height: 44px; padding: 0 10px; border-radius: var(--radius); background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge); color: var(--ink-3); font-size: 16px; }
+.row2 { display: flex; gap: 8px; }
+.row2 > .db:first-child { flex: 1; }
+.ai { display: grid; gap: 12px; }
+.box { display: grid; gap: 8px; padding: 14px; }
+.working { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--t-sub); }
+.working i { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--edge); border-top-color: var(--gold); animation: spin 0.9s linear infinite; }
+.working b { font-weight: 700; font-variant-numeric: tabular-nums; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.rm .working i, .rm .caret { animation: none !important; }
+.plist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pk { display: grid; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: var(--radius); text-align: left; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge); color: var(--ink) !important; font: 700 var(--t-sub) var(--f-ui); }
+.pk small { font-weight: 400; font-size: var(--t-cap); color: var(--ink-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.clist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.clist li { display: flex; align-items: center; gap: 8px; padding: 8px 4px 8px 12px; border-radius: var(--radius); background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); }
+.clist span { display: grid; flex: 1; min-width: 0; font-size: var(--t-body); }
+.clist small { font-size: var(--t-cap); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clist em { flex: none; font-style: normal; font-size: var(--t-label); color: var(--ink-3); }
+.clist .x { flex: none; width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink-3); font-size: var(--t-head); }
+/* B: progress in the button's own shape */
+.pbtn { position: relative; isolation: isolate; flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; border-radius: var(--radius); background: var(--card); box-shadow: inset 0 0 0 1px var(--edge-2); font: 700 var(--t-sub) var(--f-ui); font-variant-numeric: tabular-nums; overflow: hidden; }
+.pbtn::before { content: ""; position: absolute; inset: 0 auto 0 0; z-index: -1; width: calc(var(--p, 0) * 100%); background: var(--gold-soft); box-shadow: inset -2px 0 0 var(--gold); transition: width var(--t-move) var(--ease); }
+/* C: LAR in the box, and the session's own segment bar */
+.lnote { display: flex; align-items: center; gap: 12px; }
+.lnote canvas { flex: none; image-rendering: pixelated; }
+.lnote p { margin: 0; font-size: var(--t-body); line-height: 1.4; color: var(--ink-2); }
+.pseg { display: flex; gap: 2px; height: 12px; }
+.pseg i { flex: 1; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--edge-2); transition: background var(--t-quick) var(--ease); }
+.pseg i.ok { background: var(--gold); box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.22); }
+.prow { display: flex; align-items: center; gap: 8px; }
+.prow span { flex: 1; font-size: var(--t-sub); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
+.rm .phone *, .rm .phone *::before, .rm .phone *::after { animation: none !important; transition: none !important; }
+@media (max-width: 560px) { .wide { gap: 24px; } .opt.ref { padding-right: 0; box-shadow: none; } nav.jump { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; } nav.jump a { flex: none; } .tray .toast { display: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>LAR v3, round two: quizzes, the deck box, long answers</h1>
+    <p>Spec 063. Only the three items you sent back are asked again, each built from screens the app already has. Every phone is live: tap the state buttons above it. For each item, pick a letter, or Needs work with a note, then Copy picks at the bottom.</p>
+    <div class="ctl">
+      <div><span>Room</span><div class="seg0" id="room"><button aria-pressed="true" data-v="night">Night</button><button aria-pressed="false" data-v="day">Day</button></div></div>
+      <div><span>Width</span><div class="seg0" id="width"><button aria-pressed="true" data-v="320">320</button><button aria-pressed="false" data-v="375">375</button><button aria-pressed="false" data-v="402">402</button><button aria-pressed="false" data-v="430">430</button></div></div>
+      <div><span>Motion</span><div class="seg0" id="motion"><button aria-pressed="true" data-v="full">Full</button><button aria-pressed="false" data-v="reduce">Reduce Motion</button></div></div>
+    </div>
+    <section class="picked" aria-labelledby="pk1">
+      <h2 id="pk1">Picked in round 1, final</h2>
+      <ul id="picked"></ul>
+    </section>
+  </header>
+  <nav class="jump" id="jump" aria-label="Items"></nav>
+  <main id="rows"></main>
+</div>
+<div class="tray" role="region" aria-label="Your picks"><div class="in"><div class="chips" id="chips"></div><span class="toast" id="toast" aria-live="polite"></span><button class="copy" id="copy">Copy picks</button></div></div>
+
+<script>
+const { LAR_PAL, MOODS, W, H, VISOR, bodyGrid, faceGrid, MITT, THUMB, ANTENNA, CUBE, STREAK, ZZZ, SPARKLE, rows, dotsGrid, redGrid, mosaic, THEMES, SIS, VOID, contrast, tint, drawSwirl, blinkAt, STATES, BOX, EASE, CUBE_EASE, SPAWN_SECS, ERROR_SECS, PIVOT, cubeAngle, pose, bodyAt, extents, FIRE, fireGrid, SHEEN, sheenGrid, rig, GEST, hands, drawLar, CUBE_BOX, drawCube } = (() => {
+// LAR, the Lakbay-Aral Robot: a pocket-size robot from the portal's other
+// side. Ported from the film rig (intportal-films/assets/isko/isko.js, where
+// he was drafted as "Isko 3.0"). An obsidian pebble with stepped block ears,
+// a dark visor with gold eyes, a belly window showing the live swirl, a
+// gold spark antenna, two floating mitts and a tiny orbiting portal cube.
+// Outlined, four-tone, ordered dither between tones. Pure grids here, plus
+// tint() (a portal's colours), pose() (every part's offset for a state),
+// extents() (where the parts land) and drawLar(), the one renderer that
+// Lar.svelte, the landing's flight and the sheet all draw him with.
+const LAR_PAL = {
+    o: "#1a0f20",
+    d: "#2c1c3a",
+    k: "#43295a",
+    b: "#5f3f7e",
+    B: "#8663a8",
+    L: "#b996d8",
+    v: "#140b1b",
+    V: "#2d1d3c",
+    g: "#f5b227",
+    G: "#b87a10",
+    w: "#fff6dc",
+    p: "#ff7a9c",
+    r: "#7a1128",
+    s: "#24162e",
+    e: "#5d3f78",
+    m: "#e27bd0",
+    c: "#c2403a",
+    // The portal's own pixels: belly and ear studs (lit, shade) and the alert red.
+    t: "#f5b227",
+    T: "#b87a10",
+    x: "#ff5a4a",
+    // The spawn fire, coolest to hottest under the white core (the portal's ramp).
+    "1": "#7a1c2c",
+    "2": "#b5412a",
+    "3": "#e08a35",
+    "4": "#f3cf6a",
+};
+const MOODS = ["open", "blink", "happy", "wow", "wink", "focus", "sleep"];
+const W = 26;
+const H = 23;
+/** The visor, where every face is drawn. */
+const VISOR = { x0: 5, x1: W - 6, y0: 6, y1: 13 };
+const BAYER = [
+    [0, 8, 2, 10],
+    [12, 4, 14, 6],
+    [3, 11, 1, 9],
+    [15, 7, 13, 5],
+];
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const grid = (w, h) => Array.from({ length: h }, () => Array(w).fill(null));
+function outline(g) {
+    const out = g.map((r) => r.slice());
+    for (let j = 0; j < g.length; j++)
+        for (let i = 0; i < g[0].length; i++) {
+            if (g[j][i])
+                continue;
+            const near = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => {
+                const k = g[j + b]?.[i + a];
+                return k && k !== "o";
+            });
+            if (near)
+                out[j][i] = "o";
+        }
+    return out;
+}
+/** The pebble body, lit from the top left, with ears, visor and belly window. */
+function bodyGrid() {
+    const g = grid(W, H);
+    const cx = W / 2 - 0.5;
+    const cy = 12.2;
+    const rx = 10.6;
+    const ry = 9.8;
+    const tones = ["d", "k", "b", "B", "L"];
+    for (let j = 0; j < H; j++)
+        for (let i = 0; i < W; i++) {
+            const nx = (i - cx) / rx;
+            const ny = (j - cy) / (j > cy ? ry * 0.92 : ry);
+            if (Math.abs(nx) ** 2.4 + Math.abs(ny) ** 2.2 > 1)
+                continue;
+            const nz = Math.sqrt(Math.max(0, 1 - Math.min(1, nx * nx + ny * ny)));
+            let l = clamp(0.5 + (-nx * 0.55 - ny * 0.65 + nz * 0.55) * 0.62);
+            l = l * 4 + (BAYER[j % 4][i % 4] / 16 - 0.5) * 0.55;
+            g[j][i] = tones[clamp(Math.round(l), 0, 4)];
+        }
+    // Stepped block ears: the portal frame's own corner blocks.
+    const ear = (x0, dir) => {
+        for (let s = 0; s < 3; s++)
+            for (let w = 0; w < 3 - s; w++)
+                g[3 - s][x0 + dir * w] = s === 2 ? "B" : "b";
+    };
+    ear(5, 1);
+    ear(W - 6, -1);
+    g[1][5] = "t";
+    g[1][W - 6] = "t";
+    for (let j = VISOR.y0; j <= VISOR.y1; j++)
+        for (let i = VISOR.x0; i <= VISOR.x1; i++) {
+            const corner = (j === VISOR.y0 || j === VISOR.y1) && (i === VISOR.x0 || i === VISOR.x1);
+            if (corner)
+                continue;
+            const rim = j === VISOR.y0 || j === VISOR.y1 || i === VISOR.x0 || i === VISOR.x1;
+            g[j][i] = rim ? "V" : "v";
+        }
+    g[7][7] = "V";
+    g[7][8] = "V";
+    // Belly window: a tiny pixel portal; the swirl inside is drawn live.
+    const bx0 = W / 2 - 4;
+    const by0 = 14;
+    for (let j = 0; j < 7; j++)
+        for (let i = 0; i < 8; i++) {
+            const corner = (j === 0 || j === 6) && (i === 0 || i === 7);
+            if (corner)
+                continue;
+            g[by0 + j][bx0 + i] = j === 0 || j === 6 || i === 0 || i === 7 ? "s" : "v";
+        }
+    g[by0][bx0 + 1] = "t";
+    g[by0][bx0 + 6] = "t";
+    g[by0 + 6][bx0 + 1] = "T";
+    g[by0 + 6][bx0 + 6] = "T";
+    // Magenta rim light on the right edge, so he reads on dark scenes.
+    for (let j = 0; j < H; j++)
+        for (let i = W - 1; i > 0; i--) {
+            const k = g[j][i];
+            if (k && k !== "o") {
+                if (j > 4 && j < 19 && !"vVsgGtT".includes(k))
+                    g[j][i] = "m";
+                break;
+            }
+        }
+    return outline(g);
+}
+/** Eyes, blush and mouth for one mood, drawn over the visor. */
+function faceGrid(mood) {
+    const g = grid(W, H);
+    const L = 9;
+    const R = W - 11;
+    const y = 8;
+    const put = (i, j, k) => (g[j][i] = k);
+    const open = (x) => {
+        for (let j = 0; j < 4; j++)
+            for (let i = 0; i < 2; i++)
+                put(x + i, y + j, "g");
+        put(x, y, "w");
+        put(x + 1, y + 3, "G");
+    };
+    const closed = (x) => [-1, 0, 1, 2].forEach((d) => put(x + d, y + 2, "g"));
+    const happy = (x) => {
+        put(x - 1, y + 2, "g");
+        put(x, y + 1, "g");
+        put(x + 1, y + 1, "g");
+        put(x + 2, y + 2, "g");
+    };
+    const wow = (x) => {
+        for (let j = 0; j < 4; j++)
+            for (let i = -1; i < 3; i++) {
+                const edge = j === 0 || j === 3 || i === -1 || i === 2;
+                const corner = (j === 0 || j === 3) && (i === -1 || i === 2);
+                if (edge && !corner)
+                    put(x + i, y + j, "g");
+            }
+        put(x, y + 1, "w");
+    };
+    const focus = (x, side) => {
+        put(x - 1, y + 1, "g");
+        for (let i = 0; i < 3; i++)
+            put(x + i - (side < 0 ? 1 : 0), y + 2, "g");
+        put(x, y + 3, "G");
+        put(x + 1, y + 3, "G");
+    };
+    // Eyes shut and drooping, like two little bowls.
+    const shut = (x) => {
+        put(x - 1, y + 2, "G");
+        put(x, y + 3, "g");
+        put(x + 1, y + 3, "g");
+        put(x + 2, y + 2, "G");
+    };
+    const eyes = {
+        open: [open, open],
+        blink: [closed, closed],
+        happy: [happy, happy],
+        wow: [wow, wow],
+        wink: [open, happy],
+        focus: [(x) => focus(x, 1), (x) => focus(x, -1)],
+        sleep: [shut, shut],
+    };
+    eyes[mood][0](L);
+    eyes[mood][1](R);
+    if (mood !== "focus") {
+        put(L - 2, y + 4, "p");
+        put(L - 1, y + 4, "p");
+        put(R + 2, y + 4, "p");
+        put(R + 3, y + 4, "p");
+    }
+    if (mood === "sleep") {
+        put(W / 2 - 1, y + 4, "r");
+        put(W / 2, y + 4, "r");
+    }
+    else if (mood === "wow") {
+        put(W / 2 - 1, y + 4, "g");
+        put(W / 2, y + 4, "g");
+    }
+    else if (mood === "happy" || mood === "wink") {
+        put(W / 2 - 2, y + 4, "g");
+        put(W / 2 + 1, y + 4, "g");
+        put(W / 2 - 1, y + 5, "g");
+        put(W / 2, y + 5, "g");
+    }
+    return g;
+}
+const MITT = ["..ooo..", ".oBLBo.", "oBLBbbo", "obBbbko", "obbbkko", ".okkko.", "..ooo.."];
+const THUMB = ["..oo...", ".oLBo..", ".oBbo..", "oBLBbbo", "obBbbko", "obbbkko", ".ooooo."];
+const ANTENNA = ["...g...", "..gwg..", ".ggwgg.", "..gwg..", "...g...", "..oBo..", "..obo..", "..oko..", ".okkko."];
+const CUBE = ["...o...", "..oto..", ".otwto.", "otwctTo", ".otcTo.", "..oTo..", "...o..."];
+/** Speed dashes behind a flying mitt; the right edge touches the mitt. */
+const STREAK = ["...kbB", ".dkkbB", "...kbB"];
+/** The sleeper's z, three sizes. */
+const ZZZ = [
+    ["LLL", ".L.", "LLL"],
+    ["LLLL", "..L.", ".L..", "LLLL"],
+    ["LLLLL", "...L.", "..L..", ".L...", "LLLLL"],
+];
+/** Sparkle frames: a pip, a plus, a star. */
+const SPARKLE = [["...", ".w.", "..."], [".w.", "www", ".w."], ["..w..", "..g..", "wgwgw", "..g..", "..w.."]];
+const rows = (r) => r.map((line) => [...line].map((c) => (c === "." ? null : c)));
+/** Three dashes across the top of the visor, above the focused eyes; `on` (0 to 2) is the bright one. */
+function dotsGrid(on) {
+    const g = grid(W, H);
+    for (let d = 0; d < 3; d++)
+        for (let i = 0; i < 2; i++)
+            g[7][9 + d * 3 + i] = d === on ? "w" : "G";
+    return g;
+}
+/** A dithered red wash and bright rim over the visor, for the error flicker. */
+function redGrid() {
+    const g = grid(W, H);
+    for (let j = VISOR.y0; j <= VISOR.y1; j++)
+        for (let i = VISOR.x0; i <= VISOR.x1; i++) {
+            if ((j === VISOR.y0 || j === VISOR.y1) && (i === VISOR.x0 || i === VISOR.x1))
+                continue;
+            const rim = j === VISOR.y0 || j === VISOR.y1 || i === VISOR.x0 || i === VISOR.x1;
+            if (rim)
+                g[j][i] = "x";
+            else if ((i + j) % 2 === 0)
+                g[j][i] = "r";
+        }
+    return g;
+}
+/**
+ * Spawn: the grid redrawn as blocks b by b, centred on the sprite, each the
+ * palette colour nearest the average of the pixels in it (empty blocks stay empty).
+ */
+function mosaic(g, b, pal = LAR_PAL) {
+    if (b <= 1)
+        return g;
+    const h = g.length;
+    const w = g[0].length;
+    const out = grid(w, h);
+    const all = Object.keys(pal).map((k) => [k, rgb(pal[k])]);
+    const x0 = -Math.floor((Math.ceil(w / b) * b - w) / 2);
+    const y0 = -Math.floor((Math.ceil(h / b) * b - h) / 2);
+    for (let j = y0; j < h; j += b)
+        for (let i = x0; i < w; i += b) {
+            const sum = [0, 0, 0];
+            let n = 0;
+            for (let y = Math.max(0, j); y < Math.min(h, j + b); y++)
+                for (let x = Math.max(0, i); x < Math.min(w, i + b); x++) {
+                    const k = g[y][x];
+                    if (k)
+                        (n++, rgb(pal[k]).forEach((v, c) => (sum[c] += v)));
+                }
+            const area = (Math.min(w, i + b) - Math.max(0, i)) * (Math.min(h, j + b) - Math.max(0, j));
+            if (n * 2 < area)
+                continue;
+            const k = all.map(([key, c]) => [key, c.reduce((d, v, q) => d + (v - sum[q] / n) ** 2, 0)]).sort((p, q) => p[1] - q[1])[0][0];
+            for (let y = Math.max(0, j); y < Math.min(h, j + b); y++)
+                for (let x = Math.max(0, i); x < Math.min(w, i + b); x++)
+                    out[y][x] = k;
+        }
+    return out;
+}
+/** The six portal themes, as in crates/intportal-core/src/portal.rs (a test keeps them equal). */
+const THEMES = {
+    sis: { ramp: ["#3b1220", "#7a1c2c", "#b5412a", "#e08a35", "#f3cf6a"], accent: "#e8b04a" },
+    mabini: { ramp: ["#0b2238", "#13466f", "#1f78a8", "#3fb4c9", "#a8efe4"], accent: "#5fd0d6" },
+    up: { ramp: ["#0d2418", "#17452c", "#2a7a46", "#6cbf6a", "#d4f2b0"], accent: "#9fe07a" },
+    tup: { ramp: ["#16181f", "#2c3140", "#56607a", "#9aa6bd", "#e6ebf5"], accent: "#ff6b5f" },
+    pnu: { ramp: ["#160f33", "#2d1f66", "#5440b0", "#9a86f0", "#e2dbff"], accent: "#c8b6ff" },
+    bulsu: { ramp: ["#2a1405", "#5c2c08", "#b0560f", "#f0a030", "#ffe3a3"], accent: "#ffc04d" },
+};
+const SIS = THEMES.sis;
+/** The scene LAR flies on; his rim light has to read against it. */
+const VOID = "#0b0710";
+const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const hex = (c) => "#" + c.map((v) => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, "0")).join("");
+const mixHex = (a, b, f) => {
+    const y = rgb(b);
+    return hex(rgb(a).map((v, i) => v + (y[i] - v) * f));
+};
+function lum(h) {
+    const [r, g, b] = rgb(h).map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+/** WCAG contrast ratio of two hex colours. */
+function contrast(a, b) {
+    const [hi, lo] = [lum(a), lum(b)].sort((p, q) => q - p);
+    return (hi + 0.05) / (lo + 0.05);
+}
+function hsl(h) {
+    const [r, g, b] = rgb(h).map((v) => v / 255);
+    const mx = Math.max(r, g, b);
+    const mn = Math.min(r, g, b);
+    const l = (mx + mn) / 2;
+    if (mx === mn)
+        return [0, 0, l];
+    const d = mx - mn;
+    const s = d / (1 - Math.abs(2 * l - 1));
+    const hu = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return [hu * 60, s, l];
+}
+function fromHsl(h, s, l) {
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) => l - a * Math.max(-1, Math.min((n + h / 30) % 12 - 3, 9 - ((n + h / 30) % 12), 1));
+    return hex([f(0), f(8), f(4)].map((v) => v * 255));
+}
+/** Hue a part of the way from a to b, the short way round. */
+const hueMix = (a, b, f) => a + (((((b - a) % 360) + 540) % 360) - 180) * f;
+const BODY_KEYS = ["d", "k", "b", "B", "L"];
+/** How far each body tone (and the outline) leans toward the portal: a hint in the shadows, a little more in the light. */
+const HINT = { o: 0.12, d: 0.12, k: 0.15, b: 0.18, B: 0.22, L: 0.26 };
+/**
+ * LAR's palette for a portal: he is still the obsidian LAR, with a hint of
+ * the university. His body keeps its lightness ladder and dither and its
+ * purple, nudged toward a gradient from the ramp's deep hue in the shadows to
+ * the accent's hue in the light (maroon to gold for PUP, forest to lime for
+ * UP, slate to coral for TUP). The outline and mitts follow. The portal shows
+ * in full where he is lit by it: the rim light is the accent lifted until it
+ * reads on the void, and the studs, cube, swirl and spawn fire take the ramp.
+ * His gold eyes and spark never change: that is how you know him.
+ */
+function tint(theme = SIS) {
+    const [r0, r1, r2, r3, r4] = theme.ramp;
+    const [deep, deepS] = hsl(r1);
+    const [glow, glowS] = hsl(theme.accent);
+    const body = Object.fromEntries(BODY_KEYS.map((k, i) => {
+        // Most of him stays in the deep hue; the accent comes in at the light.
+        const f = (i / (BODY_KEYS.length - 1)) ** 1.6;
+        const s = clamp(deepS + (glowS - deepS) * f, 0.16, 0.46);
+        const portal = fromHsl((hueMix(deep, glow, f) + 360) % 360, s, hsl(LAR_PAL[k])[2]);
+        return [k, mixHex(LAR_PAL[k], portal, HINT[k])];
+    }));
+    let rim = mixHex(theme.accent, "#ffffff", 0.18);
+    for (let i = 0; contrast(rim, VOID) < 3 && i < 20; i++)
+        rim = mixHex(rim, "#ffffff", 0.12);
+    return {
+        ...LAR_PAL,
+        ...body,
+        o: mixHex(LAR_PAL.o, fromHsl(deep, 0.32, hsl(LAR_PAL.o)[2]), HINT.o),
+        e: body.b,
+        m: rim,
+        t: mixHex(r3, r4, 0.45),
+        T: mixHex(r2, r3, 0.3),
+        c: mixHex(r1, r2, 0.5),
+        s: mixHex(LAR_PAL.s, r0, 0.3),
+        V: mixHex(LAR_PAL.V, r1, 0.25),
+        "1": r1,
+        "2": r2,
+        "3": r3,
+        "4": r4,
+    };
+}
+const SWIRL_KEYS = 5;
+/** The live swirl in his belly window, n × m pixels at time t, in a portal's ramp. */
+function drawSwirl(ctx, t, n = 6, m = 5, ramp = SIS.ramp) {
+    const tones = [mixHex(ramp[0], "#000000", 0.35), ramp[1], ramp[2], ramp[3], ramp[4]];
+    ctx.clearRect(0, 0, n, m);
+    const c = (n - 1) / 2;
+    const cy = (m - 1) / 2;
+    for (let j = 0; j < m; j++)
+        for (let i = 0; i < n; i++) {
+            const dx = i - c;
+            const dy = (j - cy) * 1.1;
+            const r = Math.hypot(dx, dy);
+            let v = 0.5 + 0.5 * Math.sin(Math.atan2(dy, dx) * 2 - r * 1.6 + t * 5.5);
+            v = v * (1 - r / (c + 1)) * 1.25 + (1 - r / (c + 0.5)) * 0.35;
+            v += (BAYER[j % 4][i % 4] / 16 - 0.5) * 0.28;
+            ctx.fillStyle = tones[clamp(Math.floor(v * SWIRL_KEYS), 0, SWIRL_KEYS - 1)];
+            ctx.fillRect(i, j, 1, 1);
+        }
+}
+/** Closed for about a tenth of a second at seeded moments, open otherwise. */
+function blinkAt(t, seed = 3, base = "open") {
+    const period = 2.9 + (seed % 3) * 0.4;
+    const k = ((t + seed * 0.37) % period) / period;
+    return k > 0.958 ? "blink" : base;
+}
+// ------------------------------------------------------------------ poses
+const STATES = ["idle", "fly", "spawn", "think", "sleep", "error", "happy"];
+/** The fixed frame every part of every state stays in, with the body at 0,0 to W,H. */
+const BOX = { x0: -13, y0: -17, x1: W + 14, y1: H + 10 };
+/** Seconds offsets take to ease across a state switch. */
+const EASE = 0.25;
+/** The cube eases a little slower, since it has the furthest to go. */
+const CUBE_EASE = 0.6;
+const SPAWN_SECS = 1.1;
+const ERROR_SECS = 0.4;
+const TAU = Math.PI * 2;
+/** The body squashes and leans about this point. */
+const PIVOT = { x: W / 2, y: 15 };
+const MITT_X = [-5, 24];
+const SIDE = [-1, 1];
+const ANT = { x: W / 2 - 3.5, y: -7 };
+const smooth = (u) => u * u * (3 - 2 * u);
+/** Cube orbit: angular speed, and for a parked cube where it rests. */
+const ORBIT = {
+    idle: { w: 2.2 },
+    fly: { w: 2.8 },
+    spawn: { w: 2.2 },
+    think: { w: 3.5 },
+    sleep: { w: 0, park: Math.PI * 1.04 },
+    error: { w: 0.9 },
+    happy: { w: 3 },
+};
+const PARK_ACCEL = 0.8;
+const mix = (a, b, e) => typeof a === "number"
+    ? (a + (b - a) * e)
+    : Array.isArray(a)
+        ? a.map((v, i) => mix(v, b[i], e))
+        : Object.fromEntries(Object.entries(a).map(([k, v]) => [k, mix(v, b[k], e)]));
+const mittRaw = (_i, dx = 0, dy = 0, rot = 0, streak = 0, streakRot = 0) => ({ x: dx, y: dy, rot, streak, streakRot });
+const cubeRaw = (o = {}) => ({ x: W / 2, y: 9.5, rx: 16, ry: 3, s0: 0.75, sa: 0.25, vis: 1, ...o });
+const calm = () => ({ mood: "open", kinds: ["mitt", "mitt"], dots: -1, red: false, zzz: [], sparkle: [], shake: 0, resolve: 1, fire: -1 });
+const body = (o = {}) => ({ x: 0, y: 0, sx: 1, sy: 1, rot: 0, ...o });
+function spec(state, t, o) {
+    const vx = o.vx ?? 40;
+    const vy = o.vy ?? 0;
+    const since = o.since ?? Infinity;
+    const nx = clamp(vx / 60, -1, 1);
+    const ny = clamp(vy / 60, -1, 1);
+    const bob = Math.sin(t * 3.1) * 1.4;
+    const sway = Math.sin(t * 3.1 - 0.9) * 6;
+    const lag = (i) => Math.sin(t * 3.1 - 0.7 - i * 0.3) * 1.2;
+    const pick = calm();
+    switch (state) {
+        case "idle":
+            pick.mood = blinkAt(t);
+            return {
+                raw: { b: body({ y: bob }), a: { x: 0, y: 0, rot: sway }, m: [0, 1].map((i) => mittRaw(i, 0, lag(i))), c: cubeRaw({ y: 9.5 + bob * 0.5 }), alpha: 1 },
+                pick,
+            };
+        case "fly": {
+            pick.mood = blinkAt(t);
+            const sp = clamp(Math.hypot(vx, vy) / 60);
+            const flutter = (i) => Math.sin(t * 11 + i * 1.7);
+            return {
+                raw: {
+                    b: body({ x: 0, y: Math.sin(t * 7) * 0.8 + ny * 1.5, rot: nx * 13 + ny * (nx < 0 ? -4 : 4) }),
+                    a: { x: -nx * 0.5, y: 0, rot: -nx * 34 + ny * 10 + Math.sin(t * 13) * 3 * sp },
+                    m: [0, 1].map((i) => mittRaw(i, -nx * 4.5 - SIDE[i] * 1.5, 2 - ny * 3.5 + flutter(i) * 0.7 * sp, -nx * 14 * SIDE[i] + flutter(i + 1) * 5 * sp, sp, (Math.atan2(vy, vx) * 180) / Math.PI)),
+                    c: cubeRaw({ x: W / 2 - nx * 3.5, y: 9.5 - ny * 2.5, rx: 15 }),
+                    alpha: 1,
+                },
+                pick,
+            };
+        }
+        case "spawn": {
+            // He comes out of a fire: it flares up first, he resolves inside it from
+            // coarse blocks to the sharp sprite, rising, and it burns out round him.
+            const k = clamp(o.k ?? 1);
+            const u = clamp((k - 0.2) / 0.8);
+            const e = 1 - (1 - u) ** 3;
+            pick.mood = k < 1 ? "open" : blinkAt(t);
+            pick.resolve = k >= 1 ? 1 : u <= 0 ? 8 : [8, 6, 4, 3, 2][Math.min(4, Math.floor(u * 5))];
+            pick.fire = k < 1 ? k : -1;
+            if (k > 0.78 && k < 1)
+                pick.sparkle = [{ x: W - 2, y: 0, s: k < 0.88 ? 1 : 2, a: 1 }];
+            return {
+                raw: {
+                    b: body({ y: bob * e + (1 - e) * 4 }),
+                    a: { x: 0, y: 0, rot: sway * e },
+                    m: [0, 1].map((i) => mittRaw(i, 0, lag(i))),
+                    c: cubeRaw({ y: 9.5 + bob * 0.5 }),
+                    alpha: clamp(u * 3),
+                },
+                pick,
+            };
+        }
+        case "think": {
+            pick.mood = "focus";
+            pick.dots = ((Math.floor(t * 3.4) % 3) + 3) % 3;
+            const tap = Math.sin(t * 7);
+            return {
+                raw: {
+                    b: body({ y: 0.5 + Math.sin(t * 2.2) * 0.7 }),
+                    a: { x: 0, y: 0, rot: Math.sin(t * 5) * 4 },
+                    m: [mittRaw(0, 0.5, 1 + tap * 0.6), mittRaw(1, -2.5, -4.5 + Math.sin(t * 2.2) * 0.4, -10)],
+                    c: cubeRaw({ y: 3, rx: 12, ry: 2.5 }),
+                    alpha: 1,
+                },
+                pick,
+            };
+        }
+        case "sleep": {
+            pick.mood = "sleep";
+            const P = 3.6;
+            const br = Math.sin(t * 1.25);
+            for (let i = 0; i < 3; i++) {
+                const p = (((t / P + i / 3) % 1) + 1) % 1;
+                const s = p < 0.3 ? 0 : p < 0.65 ? 1 : 2;
+                const sz = [3, 4, 5][s];
+                pick.zzz.push({ x: 21 + p * 5 + Math.sin(p * 6) - sz / 2, y: -1 - p * 12 - sz / 2, s, a: p < 0.15 ? p / 0.15 : p > 0.7 ? (1 - p) / 0.3 : 1 });
+            }
+            return {
+                raw: {
+                    b: body({ y: 2.5 + br * 0.9, sy: 1 + br * 0.012, rot: 3 }),
+                    a: { x: 0, y: 1, rot: 22 + Math.sin(t * 1.25 - 1) * 2.5 },
+                    m: [mittRaw(0, 2.5, 4 + br * 0.5, -12), mittRaw(1, -2.5, 4 + br * 0.5, 12)],
+                    c: cubeRaw({ y: 15.5, rx: 18, ry: 1 }),
+                    alpha: 1,
+                },
+                pick,
+            };
+        }
+        case "error": {
+            pick.mood = "wow";
+            const dec = clamp(1 - since / ERROR_SECS);
+            const u = (since / 0.2) % 1;
+            const tri = u < 0.25 ? 4 * u : u < 0.75 ? 2 - 4 * u : 4 * u - 4;
+            pick.shake = since < ERROR_SECS ? tri * 2 * dec : 0;
+            pick.red = since < ERROR_SECS && Math.floor(since * 20) % 2 === 0;
+            const tremble = Math.sin(t * 19) * 0.4;
+            return {
+                raw: {
+                    b: body({ x: pick.shake, y: -2 * dec, sy: 1 + 0.05 * dec, sx: 1 - 0.03 * dec }),
+                    a: { x: 0, y: 0, rot: 16 * dec + Math.sin(t * 17) * 2 },
+                    m: [0, 1].map((i) => mittRaw(i, SIDE[i] * 1.5, -5 + tremble * (i ? 1 : -1), SIDE[i] * 16)),
+                    c: cubeRaw({ y: 9.5 - 2 * dec }),
+                    alpha: 1,
+                },
+                pick,
+            };
+        }
+        case "happy": {
+            pick.mood = "happy";
+            const T = 0.8;
+            const u = (((t / T) % 1) + 1) % 1;
+            const hop = -5 * 4 * u * (1 - u);
+            const air = Math.sin(Math.PI * u);
+            const pulse = Math.max(0, 1 - Math.min(u, 1 - u) / 0.14);
+            const sy = 1 - 0.09 * pulse;
+            const by = hop + (1 - sy) * (23 - PIVOT.y);
+            const f = (((Math.floor(t * 6) % 3) + 3) % 3);
+            // The waving hand comes up over the first moments of the cheer.
+            const r = smooth(clamp(since / 0.7));
+            pick.sparkle = [{ x: W - 3, y: -4, s: [1, 2, 0][f], a: 1 }];
+            return {
+                raw: {
+                    b: body({ y: by, sx: 1 + 0.06 * pulse, sy }),
+                    a: { x: 0, y: 0, rot: sway * 0.5 + Math.sin(TAU * u + 0.6) * 5 },
+                    m: [mittRaw(0, 1, hop * 0.7 - 4 * air + 1, -8 * air), mittRaw(1, 2 * r, hop - (4.5 - Math.sin(t * 8)) * r, (-10 + Math.sin(t * 8) * 14) * r)],
+                    c: cubeRaw({ y: 9.5 + hop * 0.5 }),
+                    alpha: 1,
+                },
+                pick,
+            };
+        }
+    }
+}
+/**
+ * The cube's angle. States spin at their own speed, so a switch blends the
+ * speeds (not the angles): the cube speeds up or slows down without a jump.
+ * Sleeping parks it: it coasts to a stop at its resting spot, and a wake-up
+ * eases it back to speed. `phase` is what earlier switches left on the angle.
+ */
+function cubeAngle(state, t, o = {}) {
+    const B = ORBIT[state];
+    const s = o.since ?? Infinity;
+    const steady = (st, tt) => ORBIT[st].park ?? ORBIT[st].w * tt;
+    const phase = o.phase ?? 0;
+    if (!o.from || o.from === state || !isFinite(s))
+        return B.park ?? B.w * t + phase;
+    const A = ORBIT[o.from];
+    const a0 = A.park ?? steady(o.from, t - s) + phase;
+    if (B.park !== undefined) {
+        if (A.park !== undefined)
+            return B.park;
+        // Coast from speed A.w to a stop exactly at the parking spot.
+        let d = (((B.park - a0) % TAU) + TAU) % TAU;
+        if (d < 0.6)
+            d += TAU;
+        const td = (2 * d) / A.w;
+        return a0 + (s < td ? A.w * (s - (s * s) / (2 * td)) : d);
+    }
+    if (A.park !== undefined)
+        return a0 + B.w * (s < PARK_ACCEL ? (s * s) / (2 * PARK_ACCEL) : s - PARK_ACCEL / 2);
+    const u = clamp(s / CUBE_EASE);
+    return a0 + A.w * s + (B.w - A.w) * (s < CUBE_EASE ? CUBE_EASE * (u ** 3 - u ** 4 / 2) : s - CUBE_EASE / 2);
+}
+/**
+ * Every part's offset for `state` at time t (seconds). Pure. With `from` and
+ * `since`, offsets ease from the old state's pose over EASE seconds so a
+ * switch never pops; faces and glyphs swap instantly, they are not offsets.
+ */
+function pose(state, t, o = {}) {
+    const s = o.since ?? Infinity;
+    const B = spec(state, t, o);
+    let raw = B.raw;
+    let pick = B.pick;
+    if (o.from && o.from !== state && s < CUBE_EASE) {
+        // The old state is settled: nothing of its entrance (shake, spawn) is left.
+        const A = spec(o.from, t, { ...o, since: Infinity, k: 1 });
+        const e = smooth(clamp(s / easeTime(o.from, state, t - s, o)));
+        raw = { ...mix(A.raw, B.raw, e), c: mix(A.raw.c, B.raw.c, smooth(clamp(s / CUBE_EASE))) };
+        pick = { ...B.pick };
+        if (e < 0.4)
+            (pick.mood = A.pick.mood, (pick.kinds = A.pick.kinds), (pick.dots = A.pick.dots));
+        pick.zzz = [...A.pick.zzz.map((g) => ({ ...g, a: g.a * (1 - e) })), ...B.pick.zzz.map((g) => ({ ...g, a: g.a * e }))];
+        pick.sparkle = [...A.pick.sparkle.map((g) => ({ ...g, a: g.a * (1 - e) })), ...B.pick.sparkle.map((g) => ({ ...g, a: g.a * e }))];
+    }
+    return build(raw, pick, cubeAngle(state, t, o));
+}
+function build(raw, pick, angle) {
+    const c = raw.c;
+    const sn = Math.sin(angle);
+    const scale = (c.s0 + c.sa * sn) * c.vis;
+    return {
+        body: raw.b,
+        antenna: { x: ANT.x + raw.a.x, y: ANT.y + raw.a.y, rot: raw.a.rot },
+        mitts: [0, 1].map((i) => {
+            const m = raw.m[i];
+            return { x: MITT_X[i] + m.x, y: 13 + m.y, rot: m.rot, side: SIDE[i], kind: pick.kinds[i], streak: m.streak, streakRot: m.streakRot };
+        }),
+        cube: { x: c.x + c.rx * Math.cos(angle), y: c.y + c.ry * sn, scale, front: sn > 0, angle },
+        mood: pick.mood,
+        dots: pick.dots,
+        red: pick.red,
+        zzz: pick.zzz.filter((g) => g.a > 0.02),
+        sparkle: pick.sparkle.filter((g) => g.a > 0.02),
+        shake: pick.shake,
+        resolve: pick.resolve,
+        fire: pick.fire,
+        alpha: raw.alpha,
+    };
+}
+/**
+ * How long a switch takes: EASE, stretched when the two poses are far apart
+ * (measured at the instant of the switch) so no corner ever races.
+ */
+function easeTime(from, to, ts, o) {
+    let d = 0;
+    // The target keeps moving while the offsets ease, so look a little ahead too.
+    for (let i = 0; i <= 6; i++) {
+        const tt = ts + i * 0.1;
+        const ea = extents(build(spec(from, tt, { ...o, since: Infinity, k: 1 }).raw, calm(), 0));
+        const eb = extents(build(spec(to, tt, { ...o, since: i * 0.1, k: 0 }).raw, calm(), 0));
+        for (const n of ["body", "antenna", "mitt0", "mitt1"])
+            ea[n].forEach((p, j) => (d = Math.max(d, Math.hypot(p[0] - eb[n][j][0], p[1] - eb[n][j][1]))));
+    }
+    return clamp(d / 30, EASE, 0.8);
+}
+const rot = ([x, y], c, deg) => {
+    const r = (deg * Math.PI) / 180;
+    const [dx, dy] = [x - c[0], y - c[1]];
+    return [c[0] + dx * Math.cos(r) - dy * Math.sin(r), c[1] + dx * Math.sin(r) + dy * Math.cos(r)];
+};
+const quad = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+/** Where the body's squash and lean put a point of the sprite. */
+function bodyAt(p, pt) {
+    const { x, y, sx, sy, rot: r } = p.body;
+    const q = rot([PIVOT.x + (pt[0] - PIVOT.x) * sx, PIVOT.y + (pt[1] - PIVOT.y) * sy], [PIVOT.x, PIVOT.y], r);
+    return [q[0] + x, q[1] + y];
+}
+/** The corners of each part's box after its transform, for bounds and continuity checks. */
+function extents(p) {
+    const out = {};
+    out.body = quad(0, 0, W, H).map((q) => bodyAt(p, q));
+    const a = p.antenna;
+    out.antenna = quad(a.x, a.y, 7, 9).map((q) => bodyAt(p, rot(q, [a.x + 3.5, a.y + 9], a.rot)));
+    p.mitts.forEach((m, i) => {
+        out[`mitt${i}`] = quad(m.x, m.y, 7, 7).map((q) => rot(q, [m.x + 3.5, m.y + 3.5], m.rot));
+        if (m.streak > 0.02)
+            out[`streak${i}`] = quad(m.x + 3.5 - 9.5, m.y + 2, 6, 3).map((q) => rot(q, [m.x + 3.5, m.y + 3.5], m.streakRot));
+    });
+    const c = p.cube;
+    out.cube = quad(c.x - 3.5 * c.scale, c.y - 3.5 * c.scale, 7 * c.scale, 7 * c.scale);
+    p.zzz.forEach((g, i) => (out[`zzz${i}`] = quad(g.x, g.y, ZZZ[g.s][0].length, ZZZ[g.s].length)));
+    p.sparkle.forEach((g, i) => (out[`spark${i}`] = quad(g.x, g.y, SPARKLE[g.s][0].length, SPARKLE[g.s].length)));
+    if (p.fire >= 0)
+        out.fire = quad(FIRE.x, FIRE.y, FIRE.w, FIRE.h);
+    return out;
+}
+// ------------------------------------------------------------ fire, sheen
+/** Where the spawn fire burns, in sprite px: a bonfire round his body. */
+const FIRE = { x: -2, y: -9, w: 30, h: 34 };
+const FIRE_STEPS = 44;
+const FIRE_MAX = 31;
+const FIRE_KEYS = [null, "1", "2", "3", "4", "w"];
+let fireMemo = { key: "", g: [] };
+/**
+ * The fire he spawns in: a small Doom-style fire. A bonfire-shaped bed of
+ * heat feeds it until k is 0.6; every step each cell's heat rises a row,
+ * drifts sideways and cools at random, so flames lick up and taper. Then the
+ * bed goes out and the last flames rise and die. Coloured cool to hot by the
+ * portal's ramp under a white core. Pure for a k and seed (the last is cached).
+ */
+function fireGrid(k, seed = 7) {
+    const steps = Math.round(clamp(k) * FIRE_STEPS);
+    const key = `${steps}:${seed}`;
+    if (fireMemo.key === key)
+        return fireMemo.g;
+    const { w, h } = FIRE;
+    const heat = new Uint8Array(w * h);
+    let a = seed >>> 0;
+    const rand = () => {
+        a = (a + 0x6d2b79f5) >>> 0;
+        let x = Math.imul(a ^ (a >>> 15), a | 1);
+        x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+        return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+    for (let s = 0; s < steps; s++) {
+        const fuel = clamp(1 - (s / FIRE_STEPS - 0.6) / 0.08);
+        for (let x = 0; x < w; x++) {
+            const bed = Math.max(0, 1 - Math.abs(x - (w - 1) / 2) / (w * 0.44));
+            heat[(h - 1) * w + x] = Math.round(FIRE_MAX * fuel * Math.sqrt(bed) * (rand() < 0.8 ? 1 : 0.5));
+        }
+        // Each cell pulls heat from the one below or a neighbour of it, and cools;
+        // heat that came in sideways cools more, which splits the fire into
+        // tongues. A slow wind sways the whole fire.
+        // Two rows a step, so it flares up fast.
+        const wind = Math.sin(s * 0.45) * 0.35;
+        for (let sub = 0; sub < 2; sub++)
+            for (let y = 1; y < h; y++)
+                for (let x = 0; x < w; x++) {
+                    const dx = Math.round(rand() * 2 - 1 + wind);
+                    const from = Math.min(w - 1, Math.max(0, x + dx));
+                    heat[(y - 1) * w + x] = Math.max(0, heat[y * w + from] - (dx ? 1 : 0) - (rand() < 0.35 ? 1 : 0));
+                }
+    }
+    const g = grid(w, h);
+    for (let j = 0; j < h; j++)
+        for (let i = 0; i < w; i++) {
+            const v = heat[j * w + i];
+            if (v >= 3)
+                g[j][i] = FIRE_KEYS[Math.min(5, Math.ceil((v / FIRE_MAX) * 5))];
+        }
+    fireMemo = { key, g };
+    return g;
+}
+/** Seconds between sheens, and how long one takes to cross him. */
+const SHEEN = { every: 5.5, cross: 0.9 };
+const LIFT = { d: "k", k: "b", b: "B", B: "L", m: "w" };
+let BODY_G = null;
+/**
+ * A whimsical sheen: now and then a diagonal band of light sweeps across his
+ * body, lifting each tone a step (the brightest to white at its core). Its
+ * edges are dithered, so it reads as a gradient in whole pixels. Null
+ * between sweeps.
+ */
+function sheenGrid(t) {
+    const u = (((t % SHEEN.every) + SHEEN.every) % SHEEN.every) / SHEEN.cross;
+    if (u >= 1)
+        return null;
+    BODY_G ??= bodyGrid();
+    const at = -6 + u * (W + H + 12);
+    const g = grid(W, H);
+    BODY_G.forEach((row, j) => row.forEach((k, i) => {
+        if (!k)
+            return;
+        const d = Math.abs(i * 0.8 + j - at);
+        const core = d < 1.2;
+        const edge = d < 3.5 && BAYER[j % 4][i % 4] / 16 < (3.5 - d) / 2.3;
+        const up = k === "L" ? (core ? "w" : undefined) : LIFT[k];
+        if (up && (core || edge))
+            g[j][i] = up;
+    }));
+    return g;
+}
+// ------------------------------------------------------------------- rig
+/**
+ * One LAR's state over time: which state he is in, which he came from, when
+ * he switched and the cube angle owed, so pose() eases every change.
+ */
+function rig(initial = "idle") {
+    let cur = initial;
+    let from;
+    let switched = -Infinity;
+    let phase = 0;
+    let last = 0;
+    return {
+        get state() {
+            return cur;
+        },
+        /** Seconds in the current state at t. */
+        since: (t) => t - switched,
+        /** Switch to `next` at t, easing from wherever he is (a spawn starts afresh). */
+        set(next, t, o = {}) {
+            if (next === cur)
+                return;
+            if (next === "spawn")
+                return this.start(next, t);
+            phase = last - pose(cur, t, { ...o, phase: 0 }).cube.angle;
+            from = cur;
+            cur = next;
+            switched = t;
+        },
+        /** Start `state` afresh at t, with nothing to ease from (a spawn). */
+        start(state, t) {
+            cur = state;
+            from = undefined;
+            switched = t;
+            phase = 0;
+        },
+        /** His pose at t. `still` (Reduce Motion) holds him settled. */
+        at(t, o = {}, still = false) {
+            const since = still ? Infinity : t - switched;
+            const p = pose(cur, still ? 0 : t, { k: still ? 1 : Math.min(1, since / SPAWN_SECS), ...o, from: still ? undefined : from, since, phase });
+            last = p.cube.angle;
+            return p;
+        },
+    };
+}
+/** [dx, dy, rot] per mitt, in sprite pixels and degrees from where it floats. */
+const GEST = {
+    idle: [[0, 0, 0], [0, 0, 0]],
+    wave: [[0, 0, 0], [3, -12, -30]],
+    point: [[0, 0, 0], [9, -6, -20]],
+    reach: [[-3, -10, -30], [3, -10, 30]],
+    thumbs: [[0, 0, 0], [3, -7, 0]],
+};
+/**
+ * Eases his mitts into a gesture and out again, so they glide instead of
+ * teleporting (spec 010 C18c): at most one sprite pixel a frame at 60 fps,
+ * the wave's swing ramps in and out over 0.2 s, and a mitt changes shape
+ * only once it has settled on its target.
+ */
+function hands() {
+    const cur = [
+        [0, 0, 0],
+        [0, 0, 0],
+    ];
+    const thumb = [false, false];
+    let swing = 0;
+    let last;
+    return {
+        /** Offsets per mitt at t; `still` (Reduce Motion) snaps to the gesture. */
+        at(g, t, still = false) {
+            const dt = still || last === undefined ? 0 : Math.min(0.1, Math.max(0, t - last));
+            last = t;
+            const want = g === "wave" ? 1 : 0;
+            swing = still ? want : swing + Math.sign(want - swing) * Math.min(Math.abs(want - swing), dt / 0.2);
+            return cur.map((c, i) => {
+                const goal = GEST[g][i];
+                const move = Math.hypot(goal[0] - c[0], goal[1] - c[1]);
+                // Ease out, but never faster than a pixel a frame.
+                const k = still ? 1 : Math.min(1 - Math.exp(-dt * 14), move ? (dt * 60) / move : 1);
+                for (let a = 0; a < 3; a++)
+                    c[a] += (goal[a] - c[a]) * k;
+                if (Math.hypot(goal[0] - c[0], goal[1] - c[1]) <= 1)
+                    thumb[i] = g === "thumbs" && i === 1;
+                const wave = i === 1 ? Math.sin(t * 9) * 28 * swing : 0;
+                return { dx: c[0], dy: c[1], rot: c[2] + wave, thumb: thumb[i] };
+            });
+        },
+    };
+}
+const palettes = new Map();
+const baked = new Map();
+const paintInto = (x, g, pal, ox = 0, oy = 0) => g.forEach((row, j) => row.forEach((k, i) => {
+    if (!k)
+        return;
+    x.fillStyle = pal[k];
+    x.fillRect(ox + i, oy + j, 1, 1);
+}));
+let belly = null;
+/**
+ * Draws LAR for a pose. `ctx` is in sprite px with the body's top left at
+ * 0,0 (scale it first); smoothing is off, so every part lands on whole pixels
+ * of whatever scale the caller picked, while positions stay smooth.
+ */
+function drawLar(ctx, p, theme, t, o = {}) {
+    const id = theme.ramp.join() + theme.accent;
+    let pal = palettes.get(id);
+    if (!pal)
+        palettes.set(id, (pal = tint(theme)));
+    const P = pal;
+    const bake = (name, g) => {
+        let c = baked.get(id + name);
+        if (!c) {
+            const gr = g();
+            c = document.createElement("canvas");
+            c.width = gr[0].length;
+            c.height = gr.length;
+            paintInto(c.getContext("2d"), gr, P);
+            baked.set(id + name, c);
+        }
+        return c;
+    };
+    const res = p.resolve;
+    const sharp = (name, g) => (res > 1 ? bake(`${name}@${res}`, () => mosaic(g(), res, P)) : bake(name, g));
+    const deg = Math.PI / 180;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    const fire = p.fire >= 0 ? fireGrid(p.fire) : null;
+    const fireAlpha = clamp((1 - p.fire) / 0.15);
+    // The glow: a soft gradient from the accent through the ramp to nothing.
+    if (o.aura !== false && p.alpha > 0) {
+        const cx = W / 2 + p.body.x;
+        const cy = 12 + p.body.y;
+        const r = 20 + Math.sin(t * 1.3) * 1.5;
+        const g = ctx.createRadialGradient(cx, cy, 1, cx, cy, r);
+        g.addColorStop(0, theme.accent + "38");
+        g.addColorStop(0.55, theme.ramp[2] + "16");
+        g.addColorStop(1, theme.ramp[2] + "00");
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = g;
+        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    }
+    if (fire) {
+        ctx.globalAlpha = fireAlpha;
+        paintInto(ctx, fire, P, FIRE.x, FIRE.y);
+    }
+    ctx.globalAlpha = p.alpha;
+    if (o.shadow !== false) {
+        ctx.fillStyle = "rgb(0 0 0 / 0.3)";
+        ctx.beginPath();
+        ctx.ellipse(W / 2 + p.body.x, 25.5, 8 * Math.max(0.5, 1 + p.body.y / 16), 1, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    const cube = () => {
+        const c = p.cube;
+        if (o.cube === false || c.scale < 0.01)
+            return;
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.scale(c.scale, c.scale);
+        ctx.drawImage(sharp("cube", () => rows(CUBE)), -3.5, -3.5);
+        ctx.restore();
+    };
+    if (!p.cube.front)
+        cube();
+    for (const m of p.mitts) {
+        if (m.streak < 0.02)
+            continue;
+        ctx.save();
+        ctx.globalAlpha = p.alpha * m.streak * 0.9;
+        ctx.translate(m.x + 3.5, m.y + 3.5);
+        ctx.rotate(m.streakRot * deg);
+        ctx.drawImage(bake("streak", () => rows(STREAK)), -9.5, -1.5);
+        ctx.restore();
+    }
+    ctx.save();
+    const b = p.body;
+    ctx.translate(b.x + PIVOT.x, b.y + PIVOT.y);
+    ctx.rotate(b.rot * deg);
+    ctx.scale(b.sx, b.sy);
+    ctx.translate(-PIVOT.x, -PIVOT.y);
+    ctx.save();
+    ctx.translate(p.antenna.x + 3.5, p.antenna.y + 9);
+    ctx.rotate(p.antenna.rot * deg);
+    ctx.drawImage(sharp("antenna", () => rows(ANTENNA)), -3.5, -9);
+    ctx.restore();
+    if (res > 1) {
+        // While he resolves, body and face are blocked together so the blocks agree.
+        const flat = (...layers) => bodyGrid().map((row, j) => row.map((k, i) => layers.reduce((acc, l) => l[j][i] ?? acc, k)));
+        ctx.drawImage(bake(`whole@${res}${p.mood}${p.red}`, () => mosaic(p.red ? flat(redGrid(), faceGrid(p.mood)) : flat(faceGrid(p.mood)), res, P)), 0, 0);
+    }
+    else {
+        ctx.drawImage(bake("body", bodyGrid), 0, 0);
+        const sheen = sheenGrid(t);
+        if (sheen)
+            paintInto(ctx, sheen, P);
+        if (p.red)
+            ctx.drawImage(bake("red", redGrid), 0, 0);
+        ctx.drawImage(bake(`face:${p.mood}`, () => faceGrid(p.mood)), 0, 0);
+        if (p.dots >= 0)
+            ctx.drawImage(bake(`dots:${p.dots}`, () => dotsGrid(p.dots)), 0, 0);
+        belly ??= Object.assign(document.createElement("canvas"), { width: 6, height: 5 });
+        drawSwirl(belly.getContext("2d"), t, 6, 5, theme.ramp);
+        ctx.drawImage(belly, W / 2 - 3, 15);
+    }
+    ctx.restore();
+    if (p.cube.front)
+        cube();
+    for (const m of p.mitts) {
+        ctx.save();
+        ctx.translate(m.x + 3.5, m.y + 3.5);
+        ctx.rotate(m.rot * deg);
+        ctx.scale(m.side, 1);
+        ctx.drawImage(sharp(m.kind, () => rows(m.kind === "thumb" ? THUMB : MITT)), -3.5, -3.5);
+        ctx.restore();
+    }
+    for (const g of p.zzz) {
+        ctx.globalAlpha = g.a * p.alpha;
+        ctx.drawImage(bake(`z${g.s}`, () => rows(ZZZ[g.s])), g.x, g.y);
+    }
+    for (const g of p.sparkle) {
+        ctx.globalAlpha = g.a * p.alpha;
+        ctx.drawImage(bake(`sp${g.s}`, () => rows(SPARKLE[g.s])), g.x, g.y);
+    }
+    // The flames in front of him: the lower part, fading as he comes clear.
+    if (fire) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(FIRE.x, H * 0.6, FIRE.w, FIRE.y + FIRE.h - H * 0.6);
+        ctx.clip();
+        ctx.globalAlpha = fireAlpha * clamp(1.5 - p.fire * 1.7);
+        paintInto(ctx, fire, P, FIRE.x, FIRE.y);
+        ctx.restore();
+    }
+    ctx.restore();
+}
+/** The cube's box in sprite px round its centre: room for its bob and glow. */
+const CUBE_BOX = 9;
+/**
+ * The cube LAR holds, on its own: the way into his chat. It floats on a slow
+ * bob, turns (a squash across its width), catches a sheen every few seconds
+ * and glows in the portal's colours. `ctx` is in sprite px with the cube's
+ * centre at 0,0. `speed` spins it faster while he thinks.
+ */
+function drawCube(ctx, theme, t, o = {}) {
+    const id = theme.ramp.join() + theme.accent;
+    let pal = palettes.get(id);
+    if (!pal)
+        palettes.set(id, (pal = tint(theme)));
+    let c = baked.get(id + "cube");
+    if (!c) {
+        c = Object.assign(document.createElement("canvas"), { width: 7, height: 7 });
+        paintInto(c.getContext("2d"), rows(CUBE), pal);
+        baked.set(id + "cube", c);
+    }
+    const speed = o.speed ?? 1;
+    const tt = o.still ? 0 : t;
+    const bob = Math.sin(tt * 2.1) * 0.9;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    const r = 8 + Math.sin(tt * 1.3) * 0.6;
+    const g = ctx.createRadialGradient(0, bob, 0.5, 0, bob, r);
+    g.addColorStop(0, theme.accent + "55");
+    g.addColorStop(0.5, theme.ramp[2] + "22");
+    g.addColorStop(1, theme.ramp[2] + "00");
+    ctx.fillStyle = g;
+    ctx.fillRect(-r, bob - r, r * 2, r * 2);
+    // Its shadow tightens as it rises.
+    ctx.fillStyle = `rgb(0 0 0 / ${0.32 - bob * 0.05})`;
+    ctx.beginPath();
+    ctx.ellipse(0, 6.5, 2.6 + bob * 0.3, 0.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.translate(0, bob);
+    ctx.scale(0.86 + 0.14 * Math.cos(tt * speed * 1.4), 1);
+    ctx.drawImage(c, -3.5, -3.5);
+    // The sheen: a diagonal of light crossing it once a cycle.
+    const band = ((tt * speed * 2.4) % 9) * 2 - 3;
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = pal.w;
+    rows(CUBE).forEach((row, j) => row.forEach((k, i) => {
+        if (k && k !== "o" && Math.abs(i + j - band) < 0.5)
+            ctx.fillRect(i - 3.5, j - 3.5, 1, 1);
+    }));
+    ctx.restore();
+}
+
+return { LAR_PAL, MOODS, W, H, VISOR, bodyGrid, faceGrid, MITT, THUMB, ANTENNA, CUBE, STREAK, ZZZ, SPARKLE, rows, dotsGrid, redGrid, mosaic, THEMES, SIS, VOID, contrast, tint, drawSwirl, blinkAt, STATES, BOX, EASE, CUBE_EASE, SPAWN_SECS, ERROR_SECS, PIVOT, cubeAngle, pose, bodyAt, extents, FIRE, fireGrid, SHEEN, sheenGrid, rig, GEST, hands, drawLar, CUBE_BOX, drawCube };
+})();
+</script>
+<script>
+"use strict";
+const G = { room: "night", w: 320, rm: matchMedia("(prefers-reduced-motion: reduce)").matches };
+const H_FOR = { 320: 690, 375: 812, 402: 874, 430: 932 };
+const still = () => G.rm;
+
+/* ---------- colour, as src/lib/rooms.ts and src/lib/theme.ts do it ---------- */
+const hexc = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const toHex = (c) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+const mix = (a, b, t) => toHex(hexc(a).map((v, i) => v + (hexc(b)[i] - v) * t));
+const lum = (h) => { const [r, g, b] = hexc(h).map((v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const ctr = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+const push = (fg, bg, ratio, toward) => { let c = fg; for (let i = 1; i <= 20 && ctr(c, bg) < ratio; i++) c = mix(fg, toward, i / 20); return c; };
+function hsl(h, s, l) { const f = (n) => { const k = (n + h / 30) % 12; const a = s * Math.min(l, 1 - l); return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); }; return "#" + [0, 8, 4].map((n) => Math.round(f(n) * 255).toString(16).padStart(2, "0")).join(""); }
+function hueOf(c) { const [r, g, b] = hexc(c).map((v) => v / 255); const mx = Math.max(r, g, b), d = mx - Math.min(r, g, b); if (!d) return 0; return (mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60; }
+const alpha = (h, a) => `${h}${Math.round(a * 255).toString(16).padStart(2, "0")}`;
+const larLook = (h) => ({ ramp: [0.1, 0.2, 0.36, 0.56, 0.84].map((l) => hsl(h, 0.7, l)), accent: hsl(h, 0.8, 0.64) });
+const isDark = (t) => lum(t.ground) < 0.3;
+function roles(t) {
+  const dark = isDark(t), far = dark ? "#ffffff" : "#000000", near = dark ? "#000000" : "#ffffff";
+  const ground = push(t.ground, far, 7, near), card = push(t.card, far, 7, near), card2 = mix(card, far, dark ? 0.05 : 0.02);
+  const ink = push(push(t.ink, card, 7, far), ground, 7, far), gold = push(t.accent, card, 3, far);
+  return { "--ground": ground, "--card": card, "--card-2": card2, "--sunk": mix(ground, "#000000", dark ? 0.2 : 0.05), "--edge": alpha(ink, 0.09), "--edge-2": alpha(ink, 0.18), "--ink": ink,
+    "--ink-2": push(mix(ink, card, 0.3), card, 4.5, ink), "--ink-3": push(mix(ink, card, 0.48), card, 3, ink), "--gold": gold, "--gold-soft": alpha(gold, 0.16),
+    "--on-gold": ctr("#ffffff", gold) >= ctr("#111111", gold) ? "#ffffff" : "#111111", "--dot": alpha(gold, dark ? 0.16 : 0.14),
+    "--good": push(dark ? "#58c792" : "#1e7249", card, 4.5, far), "--bad": push(dark ? "#f07a6e" : "#b42318", card, 4.5, far) };
+}
+function spriteBg(rws, pad, colour) {
+  const w = rws[0].length + pad, h = rws.length + pad, rgb = colour.slice(0, 7), a = colour.length > 7 ? parseInt(colour.slice(7), 16) / 255 : 1;
+  const rects = rws.flatMap((row, y) => [...row].flatMap((c, x) => (c === "#" ? [`<rect x='${x}' y='${y}' width='1' height='1'/>`] : [])));
+  return `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${w} ${h}' shape-rendering='crispEdges' fill='${rgb}' fill-opacity='${a.toFixed(3)}'>${rects.join("")}</svg>`)}")`;
+}
+function pattern(p, c) {
+  if (p === "squares") return [spriteBg(["##"], 5, c), "14px 14px"];
+  if (p === "hearts") return [spriteBg([".##.##.", "#######", "#######", ".#####.", "..###..", "...#..."], 3, c), "20px 20px"];
+  if (p === "stars") return [spriteBg(["...#...", "...#...", "..###..", "#######", "..###..", "...#...", "...#..."], 5, c), "24px 24px"];
+  return [`radial-gradient(${c} 1px, transparent 1.2px)`, "14px 14px"];
+}
+/* Real presets from theme.ts PRESETS. Gruvbox is shown with a LAR colour set, to show that it still wins. */
+const THEMES_3 = {
+  "No theme": null,
+  "Tokyo Night": { accent: "#7aa2f7", ground: "#12131b", card: "#1e1f2c", ink: "#c5cae6", pattern: "stars", lar: null },
+  "Sakura": { accent: "#e0417e", ground: "#fce9f0", card: "#fff7fa", ink: "#210816", pattern: "hearts", lar: null },
+  "Gruvbox + LAR": { accent: "#fabd2f", ground: "#1d2021", card: "#2d2d2d", ink: "#ebdbb2", pattern: "squares", lar: 172 },
+};
+const NIGHT_T = { accent: "#e8b04a", ground: "#0b0710", card: "#170b1a", ink: "#f4ecd8", pattern: "dots", lar: null };
+const HUES = "linear-gradient(90deg," + [0, 60, 120, 180, 240, 300, 360].map((h) => hsl(h, 0.8, 0.55)).join(",") + ")";
+
+/* ---------- tiny pixel icons ---------- */
+const ic = {
+  plus: '<svg width="14" height="14" viewBox="0 0 7 7" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M3 0h1v3h3v1H4v3H3V4H0V3h3z"/></svg>',
+  x: '<svg width="14" height="14" viewBox="0 0 7 7" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg>',
+};
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+/* ---------- LAR and the swirl, drawn by the app's own sprite code ---------- */
+const cvs = new Set();
+const LW = BOX.x1 - BOX.x0, LH = BOX.y1 - BOX.y0;
+const looks = new Map();
+const lookFor = (hue) => (hue === "" || hue == null ? SIS : looks.get(+hue) ?? (looks.set(+hue, larLook(+hue)), looks.get(+hue)));
+function mountCanvases(root) {
+  for (const cv of root.querySelectorAll("canvas.larcv")) {
+    const s = +cv.dataset.s || 2;
+    cv.width = LW * s; cv.height = LH * s; cv.style.width = LW * s + "px"; cv.style.height = LH * s + "px";
+    cv._s = s; cv._rig = rig(cv.dataset.state || "idle"); cvs.add(cv); paint(cv, 0);
+  }
+  for (const cv of root.querySelectorAll("canvas.sw")) { cv.width = +cv.dataset.n || 40; cv.height = +cv.dataset.m || 8; cvs.add(cv); paint(cv, 0); }
+}
+function paint(cv, t) {
+  const g = cv.getContext("2d");
+  if (cv.classList.contains("sw")) { try { drawSwirl(g, t * 0.35, cv.width, cv.height, SIS.ramp); } catch {} return; }
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+  g.imageSmoothingEnabled = false; g.save(); g.scale(cv._s, cv._s); g.translate(-BOX.x0, -BOX.y0);
+  try { drawLar(g, cv._rig.at(t, {}, still()), lookFor(cv.dataset.hue), t, { shadow: false, cube: false }); } catch {}
+  g.restore();
+}
+let lastT = 0;
+(function loop(ts) {
+  if (ts - lastT > 66) {
+    lastT = ts; const t = still() ? 0 : ts / 1000;
+    for (const cv of cvs) {
+      if (!cv.isConnected) { cvs.delete(cv); continue; }
+      const r = cv.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) continue;
+      paint(cv, t);
+    }
+  }
+  requestAnimationFrame(loop);
+})(0);
+const lar = (s = 2, state = "idle", hue = "") => `<canvas class="larcv" data-s="${s}" data-state="${state}" data-hue="${hue ?? ""}" aria-hidden="true"></canvas>`;
+const sw = (n, m) => `<canvas class="sw" data-n="${n}" data-m="${m}" aria-hidden="true"></canvas>`;
+
+/* ---------- frames ---------- */
+const chrome = (inner) => `<div class="island"></div><div class="sbar"><span>9:41</span><span>5G</span></div>${inner}<div class="home"></div>`;
+const tabs = (on) => `<div class="tabs" aria-hidden="true">${["Today", "Week", "Grades", "Study", "You"].map((t) => `<span class="${t === on ? "on" : ""}">${t}</span>`).join("")}</div>`;
+function skyVars(sky) { return `--r0:${sky.ramp[0]};--r1:${sky.ramp[1]};--r2:${sky.ramp[2]};--r3:${sky.ramp[3]};--r4:${sky.ramp[4] ?? sky.accent};--accent:${sky.accent}`; }
+function chat(log, o = {}) {
+  const sky = o.sky ?? SIS;
+  return chrome(`<div class="dots"></div>
+    <div class="behind" aria-hidden="true"><p class="lbl0">Wed, Nov 26</p><h3>Magandang hapon</h3><div class="bc card"><b>COMP 20063 · 1:30</b>S512 · Data Structures</div><div class="bc card"><b>Due Friday</b>Lab 4: heaps</div></div>
+    ${tabs("Today")}
+    <div class="win${o.tall ? " tall" : ""}" role="dialog" aria-label="LAR" style="${skyVars(sky)}"><div class="face0">
+      <div class="hd"><div class="sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="perch">${lar(2, o.busy ? "think" : "idle", o.larHue)}</div>
+        <div class="who"><span class="tag">LAR</span><span class="status${o.busy ? " busy" : ""}">${o.busy ? "Writing" : "Ready"}</span></div>
+        <div class="keys"><button class="key" aria-label="New chat"><span class="cap">${ic.plus}</span></button><button class="key" aria-label="Close"><span class="cap">${ic.x}</span></button></div></div>
+      <div class="log"><div class="in">${log}</div></div>
+      <div class="dock"><form onsubmit="return false"><span class="well">Ask LAR…</span>${o.busy ? `<button class="send stop" type="button">Stop</button>` : `<button class="send off" type="button">Send</button>`}</form></div>
+    </div></div>`);
+}
+const me = (t) => `<p class="me">${esc(t)}</p>`;
+const KNOWN = `<p class="known"><b>From what I know, not your notes.</b> I might get facts wrong, so double-check anything important.</p>`;
+
+/* ================= rows ================= */
+const ROWS = [];
+
+/* ---- 1. Quiz mode: True or false, from the study faces we have ---- */
+const REC = { front: "Recursion", back: "A function that solves a problem by calling itself on a smaller input",
+  wrong: ["A function that calls itself with the same input until it stops", "A loop that repeats until its condition turns false", "A function that runs two copies of itself at once"] };
+const MC = [REC.wrong[0], REC.back, REC.wrong[2], REC.wrong[1]];
+function session(face, answers, o = {}) {
+  const segs = Array.from({ length: 12 }, (_, k) => `<i class="${k < 2 ? "ok" : k === 2 ? (o.miss ? "miss" : o.right ? "ok" : "cur") : k === 5 && o.miss ? "re" : ""}"></i>`).join("");
+  const ls = G.w <= 320 ? 2 : 3;
+  return chrome(`<div class="dots"></div><div class="scr">
+    <div class="shd"><button class="back">‹ Data Structures</button><p class="lbl0">3 / 12</p></div>
+    <div class="segs" aria-hidden="true">${segs}</div>
+    <div class="panel">${sw(48, 9)}<div class="hud"><b class="stamp">x${o.right ? 3 : 2}</b><div class="meter"><span class="track"><i style="width:${o.right ? 0 : 50}%"></i></span><span class="to">x${o.right ? 4 : 3} in ${o.right ? 4 : 1}</span></div>
+      <svg class="clock" viewBox="0 0 30 30" width="26" height="26" aria-hidden="true"><circle cx="15" cy="15" r="11" class="rb"/><circle cx="15" cy="15" r="11" class="rp" transform="rotate(-90 15 15)" style="stroke-dashoffset:${o.answered ? 30 : 12}"/></svg>
+      <span class="heat" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i><i></i></span><span class="score">${o.right ? 1640 : 1240}</span></div></div>
+    <div class="comp">${lar(ls, o.lar ?? "idle")}<p class="bub">${esc(o.line ?? "Sige pa!")}</p></div>
+    <div class="table"><div class="pile" aria-hidden="true"><div class="under b2">${sw(30, 20)}</div><div class="under b1">${sw(30, 20)}</div></div><div class="slot">${face}</div></div>
+    ${answers}${o.miss ? `<div class="foot"><button class="why">Why?</button><button class="tile go">Next</button></div>` : ""}</div>`);
+}
+const QZ = { front: "Queue", claim: "Items leave in last in, first out order.", right: "first in, first out" };
+const reveal = `<span class="reveal">It's false. Items leave in <b>${QZ.right}</b> order.</span>`;
+const TF_STATES = ["Asking", "Got it", "Missed"];
+const tfTiles = (s, cls) => {
+  const t = s === "Missed" ? " no" : s === "Got it" ? " dim" : "", f = s === "Asking" ? "" : " ok";
+  return `<div class="${cls}" role="group" aria-label="True or false"><button class="tile${t}" data-go="Missed">True</button><button class="tile${f}" data-go="Got it">False</button></div>`;
+};
+const tfOpts = (s) => ({ miss: s === "Missed", right: s === "Got it", answered: s !== "Asking", lar: s === "Missed" ? "error" : s === "Got it" ? "happy" : "idle", line: s === "Missed" ? "Balikan natin 'to." : s === "Got it" ? "Tama!" : "Tama o mali?" });
+const faceTerm = (s) => `<section class="face"><span class="lbl0">True or false</span><span class="term">${QZ.front}</span><span class="answer">${QZ.claim}</span>${s === "Missed" ? reveal : ""}</section>`;
+const faceClaim = (s) => `<section class="face"><span class="lbl0">${QZ.front} · true or false</span><span class="mean">${QZ.claim}</span>${s === "Missed" ? reveal : ""}</section>`;
+const deckToday = () => deckPage(modesToday(), aiClosed(), { hl: "quiz", scrollTo: "modes" });
+ROWS.push({ id: "quiz", title: "Quiz mode: True or false", head: "Item 1",
+  q: "Multiple choice and Identification are Choice and Type exactly as they ship; only True or false is asked. Each variant uses only parts the session already has.",
+  notes: ["<b>Multiple choice</b> is Choice's \"Pick the meaning\" face and tiles. The four options are the card's back and LAR's three wrong answers.", "<b>Identification</b> is the Type face, unchanged.", "A wrong answer shows the right one on the card, then Why? and Next, as Choice and Type do now."],
+  letters: ["A", "B", "C"], opts: [
+  { ref: true, name: "Fixed in every variant", line: "Where a quiz starts today, and the two faces that don't change.", states: ["Deck page now", "Multiple choice", "Identification"],
+    render: (s) => s === "Deck page now" ? deckToday()
+      : s === "Multiple choice" ? session(`<section class="face"><span class="lbl0">Pick the meaning</span><span class="term">${REC.front}</span></section>`, `<div class="opts">${MC.map((o) => `<button class="tile opt0">${esc(o)}</button>`).join("")}</div>`, { line: "Sige pa!" })
+      : session(`<section class="face"><span class="lbl0">Type the term</span><span class="mean">Stores items so the last one in is the first one out</span></section>`, `<div class="typed"><span class="field">Type the term</span><button class="tile go" style="padding-inline:18px">Check</button></div>`, { line: "Isipin mo muna…", lar: "think" }) },
+  { name: "Flipped card, two tiles", line: "The flashcard's answer side: the term, then the claim under its rule. True and False sit side by side in Choice's tiles.", states: TF_STATES,
+    render: (s) => session(faceTerm(s), tfTiles(s, "tf2"), tfOpts(s)) },
+  { name: "Claim on the face", line: "Type's face: the claim is the big text and the term moves into the label. True and False side by side.", states: TF_STATES,
+    render: (s) => session(faceClaim(s), tfTiles(s, "tf2"), tfOpts(s)) },
+  { name: "Claim, full-width tiles", line: "B's face, with True and False stacked full width, as 062's accessibility line reads. Easiest to hit one-handed; uses more height.", states: TF_STATES,
+    render: (s) => session(faceClaim(s), tfTiles(s, "tf1"), tfOpts(s)) },
+] });
+
+/* ---- 2. The deck page, in the LAR box we have ---- */
+const CARDS = [["Recursion", "A function that calls itself on a smaller input", "due"], ["Stack", "Last in, first out", "due"], ["Queue", "First in, first out", "tomorrow"], ["Heap", "A complete tree where parents beat children", "in 3d"], ["Hash table", "Keys mapped to slots by a hash", "in 5d"]];
+const NOTES = [["Heaps and priority queues", "A heap is a complete binary tree kept in an array…"], ["Trees, week 9", "A binary search tree keeps smaller keys on the left…"]];
+function deckPage(modes, ai, o = {}) {
+  return chrome(`<div class="dots"></div><div class="scr dscr" data-scroll-to="${o.scrollTo ?? "ai"}">
+    <div class="dh"><button class="back">‹ Decks</button><h1>Data Structures</h1><p class="lbl0">COMP 20063 · 24 cards · 6 due</p></div>
+    <div data-at="modes">${modes}</div>
+    <section class="card addc"><p class="lbl0">Add a card</p><span class="inp">Term, e.g. Stack</span><span class="inp">Meaning, e.g. last in, first out</span><div class="row2"><button class="db primary off">Add</button><button class="db ghost">Paste many</button></div></section>
+    <div class="ai" data-at="ai">${o.hl === "quiz" ? ai.replace('>Make a quiz<', ' style="box-shadow:inset 0 0 0 2px var(--gold)">Make a quiz<') : ai}</div>
+    <ul class="clist">${CARDS.map(([f, b, d]) => `<li><span>${f}<small>${b}</small></span><em>${d}</em><span class="x" aria-hidden="true">×</span></li>`).join("")}</ul>
+  </div>${tabs("Study")}`);
+}
+const modesToday = () => `<div class="modes"><button class="db primary">Flashcards</button><button class="db ghost">Type it</button><button class="db ghost">Choices</button></div>`;
+const modes2x2 = () => `<div class="modes g2"><button class="db primary">Flashcards</button><button class="db ghost">Type it</button><button class="db ghost">Choices</button><button class="db ghost">Quiz</button></div>`;
+const modesRow = () => `<div style="display:grid;gap:8px">${modesToday()}<button class="db ghost full">Quiz</button></div>`;
+const aiClosed = (extra = "", off = false) => `<button class="db ghost full${off ? " off" : ""}">AI cards from a note</button><button class="db ghost full${off ? " off" : ""}">Make a quiz</button>${extra}`;
+const pickBox = () => `<section class="card box"><p class="lbl0">AI quiz</p><p class="fine">Pick a note or a PDF. LAR reads it on this phone and suggests cards. You choose which to keep.</p><button class="db ghost">Pick a PDF (up to 20 MB)</button><ul class="plist">${NOTES.map(([t, p]) => `<li><button class="pk"><strong>${t}</strong><small>${p}</small></button></li>`).join("")}</ul><button class="db ghost">Close</button></section>`;
+const STOPPED = "Wrote wrong answers for 16 of 24 cards.";
+const D_STATES = ["Old deck", "Writing", "Stopped", "Make a quiz"];
+const pseg = (n) => `<div class="pseg" aria-hidden="true" data-pseg>${Array.from({ length: 24 }, (_, k) => `<i class="${k < n ? "ok" : ""}"></i>`).join("")}</div>`;
+ROWS.push({ id: "deck", title: "The deck page: Write wrong answers and Quiz", head: "Item 2",
+  q: "Built from DeckPage and its LAR box (DeckCards) as they ship: the same ghost buttons, the same card box, its label and its \"LAR is reading…\" row. Make a quiz doesn't move.",
+  notes: ["<b>Write wrong answers</b> shows for a deck with 4 or more cards and none with wrong answers. It writes 8 cards per call; Writing counts up live.", "<b>Quiz</b> is on with 4 or more cards, even before wrong answers exist: cards without them borrow other cards' meanings, as Choices does.", "After Stop, every variant keeps the button for the cards still without wrong answers (the spec only says when it first appears)."],
+  letters: ["A", "B", "C"], opts: [
+  { name: "A third button, the box runs it", line: "Write wrong answers joins the two AI buttons. Tapping it opens the box with the \"LAR is …\" row, the count and Stop, like Make cards does. Modes become 2 by 2.", states: D_STATES,
+    render: (s) => deckPage(modes2x2(), s === "Make a quiz" ? pickBox()
+      : s === "Writing" ? `<section class="card box"><p class="lbl0">Wrong answers</p><p class="working" role="status"><i aria-hidden="true"></i><span>LAR is writing wrong answers… <b data-n>8</b> of 24 cards</span></p><p class="fine">If you leave the app, he pauses and picks up at the next card.</p><button class="db ghost">Stop</button></section>`
+      : aiClosed(`<button class="db ghost full">Write wrong answers</button>${s === "Stopped" ? `<p class="fine">${STOPPED}</p>` : ""}`)), prog: true },
+  { name: "The button fills as it writes", line: "Same three buttons, but the run happens in place: Write wrong answers becomes its own progress bar with Stop beside it, and the box never opens. Quiz goes full width under the three modes.", states: D_STATES,
+    render: (s) => deckPage(modesRow(), s === "Make a quiz" ? pickBox()
+      : s === "Writing" ? aiClosed(`<div class="row2"><div class="pbtn" role="status" data-p style="--p:.33"><span><b data-n>8</b> of 24 cards</span></div><button class="db ghost">Stop</button></div><p class="fine">LAR pauses if you leave the app.</p>`, true)
+      : aiClosed(`<button class="db ghost full">Write wrong answers</button>${s === "Stopped" ? `<p class="fine">${STOPPED}</p>` : ""}`)), prog: true },
+  { name: "LAR offers it in the box", line: "For an old deck the box is already open, with LAR saying what it's for, as his empty-state notes do. While writing, he thinks over the session's segment bar, one block per card. Modes 2 by 2.", states: D_STATES,
+    render: (s) => {
+      const two = aiClosed();
+      if (s === "Make a quiz") return deckPage(modes2x2(), pickBox());
+      if (s === "Writing") return deckPage(modes2x2(), `<section class="card box"><p class="lbl0">Wrong answers</p><div class="lnote">${lar(2, "think")}<p>Writing three for each card, 8 at a time.</p></div>${pseg(8)}<div class="prow" role="status"><span><b data-n>8</b> of 24 cards</span><button class="db ghost">Stop</button></div></section>${aiClosed("", true)}`);
+      const say = s === "Stopped" ? STOPPED + " The rest still borrow other cards' meanings." : "Quiz already works on these 24 cards. If I write three wrong answers for each, the choices get harder.";
+      return deckPage(modes2x2(), `<section class="card box"><p class="lbl0">AI cards</p><div class="lnote">${lar(2)}<p>${say}</p></div><button class="db ghost">Write wrong answers</button></section>${two}`);
+    }, prog: true },
+] });
+
+/* ---- 3a. Long answers: words as they stream ---- */
+const P1 = "Recursion is when a function solves a problem by calling itself on a smaller piece of the same problem, until the piece is small enough to answer straight away.\n\nGanito siya gumagana:\n1. Base case. Pick the smallest input you can answer at once, like factorial(0) = 1.\n2. Recursive case. Write the answer using a smaller input: factorial(n) = n × factorial(n − 1).\n3. Shrink every time. Each call has to move toward the base case, or it never stops.\n4. Wind up, then unwind. factorial(3) waits on factorial(2), which waits on factorial(1), down to factorial(0). Once the base case returns, each waiting call";
+const P2 = " multiplies its n by the result and hands it back up, so 1 × 1 × 2 × 3 gives 6.\n\nQuick check: no base case, or an input that doesn't shrink, ends in a stack overflow.";
+const toks = (text, part) => text.split(/(\s+)/).filter(Boolean).map((t) => /^\s+$/.test(t) ? `<span class="s" data-part="${part}">${esc(t)}</span>` : `<span class="w" data-part="${part}">${esc(t)}</span>`).join("");
+const LQ = me("explain recursion step by step");
+const streamPhone = (style) => () => chat(LQ + `<div class="lar st ${style}"><p>${toks(P1, 1)}${toks(P2, 2)}</p></div><button class="more hide" data-more>Keep going</button><span data-known class="hide">${KNOWN}</span>`, { tall: true, busy: true });
+ROWS.push({ id: "stream", title: "Long answers: words as they stream", head: "Item 3a",
+  q: "Each phone loops one long answer: it streams, stops at its limit, Keep going is tapped, and the same bubble carries on. Words already placed never move. Set Motion to Reduce Motion above to see words just appear.",
+  notes: ["Keep going is the button as shipped, under the bubble. Its words come in the same way.", "Chunks arrive one to three words at a time, about as fast as the 2B model writes on a phone."],
+  letters: ["A", "B", "C"], opts: [
+  { name: "Rise and fade", line: "Each new word rises 4 px and fades in over 0.16 s, the app's quick duration and ease. The quietest.", states: [], render: streamPhone("sA"), stream: "A" },
+  { name: "Pixel dither-in", line: "Each new word resolves through three dither steps on the 3 px art pixel, like LAR coming out of his fire. Stepped, and it stays in place.", states: [], render: streamPhone("sB"), stream: "B" },
+  { name: "Gold caret, words settle", line: "A gold pixel caret leads the text; the newest words land gold and settle to parchment. Blinks while LAR waits.", states: [], render: streamPhone("sC"), stream: "C" },
+] });
+
+/* ---- 3b. Long answers: the chat header and the theme ---- */
+const SHORT = "Recursion is when a function solves a problem by calling itself on a smaller piece of the same problem.\n\nGanito siya gumagana:\n1. Base case. Pick the smallest input you can answer at once, like factorial(0) = 1.\n2. Recursive case. Write the answer using a smaller input: factorial(n) = n × factorial(n − 1).\n3. Shrink every time. Each call has to move toward the base case, or it never stops.";
+const T_STATES = Object.keys(THEMES_3);
+const themed = (letter) => (s, m) => {
+  const e = effective(m, s);
+  return chat(LQ + `<div class="lar"><p>${esc(SHORT)}</p></div><button class="more">Keep going</button>` + KNOWN, { sky: skyFor(letter, e), larHue: e.lar ?? "" });
+};
+ROWS.push({ id: "header", title: "Long answers: the chat header and the theme", head: "Item 3b",
+  q: "Today the red sky takes LAR's colour from the theme maker's LAR section, else the school's red. Switch themes on each phone (real presets), and drag the slider under it.",
+  notes: ["In every variant LAR's own colour, when set, still wins for LAR. Gruvbox is shown with one set.", "The sky keeps its two-row pixel dither into the glass and its twinkles; under Reduce Motion it holds still."],
+  letters: ["A", "B", "C"], opts: [
+  { name: "Sky follows the accent", line: "No LAR colour set? The sky is drawn from the theme's accent, in LAR's ramp. No new control: wearing a theme is enough.", states: T_STATES, render: themed("A"), maker: "A" },
+  { name: "A Chat header colour", line: "The theme maker's LAR section gets its own Chat header slider. Left alone it follows LAR's colour, then the school's.", states: T_STATES, render: themed("B"), maker: "B" },
+  { name: "As it is, shown plainly", line: "Only LAR's colour moves the sky. The LAR section says so, so the student knows where to set it.", states: T_STATES, render: themed("C"), maker: "C" },
+] });
+
+/* ---- the theme logic for 3b ---- */
+function effective(m, s) {
+  let base = THEMES_3[s];
+  const ov = m.ov ?? (m.ov = {});
+  if (ov.acc != null) { const b = base ?? NIGHT_T; base = { ...b, accent: hsl(ov.acc, 0.84, isDark(b) ? 0.62 : 0.42) }; }
+  const lar = ov.lar !== undefined ? ov.lar : base?.lar ?? null;
+  return { base, lar, hdr: ov.hdr ?? null };
+}
+function skyFor(letter, e) {
+  if (letter === "B" && e.hdr != null) return larLook(e.hdr);
+  if (e.lar != null) return larLook(e.lar);
+  if (letter === "A" && e.base) return larLook(hueOf(e.base.accent));
+  return SIS;
+}
+function skyWhy(letter, e) {
+  if (letter === "B" && e.hdr != null) return "Sky: the Chat header colour";
+  if (e.lar != null) return "Sky: LAR's colour";
+  if (letter === "A" && e.base) return "Sky: the theme's accent";
+  return e.base ? "Sky: the school's red (this theme sets no LAR colour)" : "Sky: the school's red (no theme worn)";
+}
+function makerHtml(letter, e) {
+  const secs = (on) => `<div class="secs" aria-hidden="true">${["Colour", "Ground", "Shape", "LAR", "Share"].map((n) => `<span class="${n === on ? "on" : ""}">${n}</span>`).join("")}</div>`;
+  const range = (k, v, label, unset) => `<input type="range" min="0" max="359" value="${Math.round(v)}" data-k="${k}" class="${unset ? "unset" : ""}" style="--trk:${HUES}" aria-label="${label}">`;
+  if (letter === "A") return `<div class="fld"><p class="lbl0">Accent</p>${range("acc", e.base ? hueOf(e.base.accent) : 40, "Accent colour")}</div><p class="fine">With no LAR colour set, LAR's sky follows this.</p>${secs("Colour")}`;
+  const larF = `<div class="fld"><p class="lbl0">LAR's colour${e.lar == null ? " <em>· school's</em>" : ""}</p>${range("lar", e.lar ?? 40, "LAR's colour", e.lar == null)}</div>`;
+  if (letter === "B") return `${larF}<div class="fld"><p class="lbl0">Chat header<span class="new">NEW</span>${e.hdr == null ? " <em>· follows LAR</em>" : ""}</p>${range("hdr", e.hdr ?? e.lar ?? 350, "Chat header colour", e.hdr == null)}</div><button class="ghost" data-k="hdr-off">Header follows LAR</button><p class="fine">The sky over his chat.</p>${secs("LAR")}`;
+  return `${larF}<button class="ghost" data-k="lar-off">Back to your school's colours</button><p class="fine">It changes his glow, studs, cube and belly swirl, <mark>and the sky over his chat</mark>. He's still obsidian underneath, and his eyes stay gold.</p>${secs("LAR")}`;
+}
+function themeVars(el, base) {
+  for (const k of ["--ground", "--card", "--card-2", "--sunk", "--edge", "--edge-2", "--ink", "--ink-2", "--ink-3", "--gold", "--gold-soft", "--on-gold", "--dot", "--good", "--bad", "--pattern", "--pattern-size"]) el.style.removeProperty(k);
+  if (!base) return G.room;
+  const r = roles(base);
+  for (const [k, v] of Object.entries(r)) el.style.setProperty(k, v);
+  const [img, size] = pattern(base.pattern, r["--dot"]);
+  el.style.setProperty("--pattern", img); el.style.setProperty("--pattern-size", size);
+  return isDark(base) ? "night" : "day";
+}
+
+/* ---------- live parts: the stream loop, the progress tick ---------- */
+function runStream(m) {
+  const root = m.phone, bub = root.querySelector(".st"), log = root.querySelector(".log"), p = bub.querySelector("p");
+  const more = root.querySelector("[data-more]"), known = root.querySelector("[data-known]");
+  const status = root.querySelector(".status"), send = root.querySelector(".send"), larCv = root.querySelector(".perch canvas");
+  const letter = m.o.stream;
+  const all = [...p.children];
+  const later = (ms, f) => m.timers.push(setTimeout(f, ms));
+  const every = (ms, f) => { const id = setInterval(f, ms); m.timers.push(id); return id; };
+  let caret = null;
+  if (letter === "C" && !still()) { caret = document.createElement("i"); caret.className = "caret"; caret.setAttribute("aria-hidden", "true"); p.prepend(caret); }
+  const busy = (on) => {
+    status.textContent = on ? "Writing" : "Ready"; status.classList.toggle("busy", on);
+    send.className = on ? "send stop" : "send off"; send.textContent = on ? "Stop" : "Send";
+    if (larCv) larCv._rig = rig(on ? "think" : "idle");
+    if (caret) caret.classList.toggle("wait", !on);
+  };
+  const fresh = [];
+  const show = (el) => {
+    el.classList.add("on");
+    if (still() || !el.classList.contains("w")) return;
+    if (letter === "B") { el.dataset.d = "1"; fresh.push([el, performance.now()]); }
+    if (letter === "C") { el.classList.add("g"); fresh.push([el, performance.now()]); }
+  };
+  // B steps each word through its three dither frames; C lets the gold settle after a beat.
+  every(50, () => {
+    const now = performance.now();
+    for (let i = fresh.length - 1; i >= 0; i--) {
+      const [el, at] = fresh[i], age = now - at;
+      if (letter === "B") { const d = 1 + Math.floor(age / 60); if (d > 3) { delete el.dataset.d; fresh.splice(i, 1); } else el.dataset.d = d; }
+      else if (age > 260) { el.classList.remove("g"); fresh.splice(i, 1); }
+    }
+  });
+  const pour = (part, done) => {
+    const q = all.filter((el) => el.dataset.part === String(part));
+    let i = 0;
+    busy(true);
+    const id = every(110, () => {
+      let words = 1 + Math.floor(Math.random() * 3);
+      while (i < q.length && words > 0) { const el = q[i++]; show(el); if (el.classList.contains("w")) words--; }
+      if (caret) (q[i - 1] ?? caret).after(caret);
+      log.scrollTop = log.scrollHeight;
+      if (i >= q.length) { clearInterval(id); busy(false); done(); }
+    });
+  };
+  const cycle = () => {
+    all.forEach((el) => { el.classList.remove("on", "g"); delete el.dataset.d; });
+    if (caret) p.prepend(caret);
+    more.classList.add("hide"); more.classList.remove("press"); known.classList.add("hide");
+    log.scrollTop = 0;
+    pour(1, () => {
+      more.classList.remove("hide"); known.classList.remove("hide"); log.scrollTop = log.scrollHeight;
+      later(1900, () => {
+        more.classList.add("press");
+        later(180, () => { more.classList.add("hide"); known.classList.add("hide");
+          pour(2, () => { known.classList.remove("hide"); if (caret) caret.classList.add("hide"); log.scrollTop = log.scrollHeight;
+            later(3600, () => { if (caret) caret.classList.remove("hide"); cycle(); }); }); });
+      });
+    });
+  };
+  more.addEventListener("click", () => { m.timers.forEach((t) => { clearTimeout(t); clearInterval(t); }); m.timers = []; draw(m); });
+  cycle();
+}
+function runProgress(m) {
+  if (m.state !== "Writing") return;
+  let n = 8;
+  const set = () => {
+    m.phone.querySelectorAll("[data-n]").forEach((b) => (b.textContent = n));
+    m.phone.querySelectorAll("[data-p]").forEach((b) => b.style.setProperty("--p", n / 24));
+    m.phone.querySelectorAll("[data-pseg] i").forEach((i, k) => i.classList.toggle("ok", k < n));
+  };
+  set();
+  m.timers.push(setInterval(() => { n = n >= 16 ? 0 : n + 8; set(); }, 2000));
+}
+
+/* ================= mounting ================= */
+const PICKED = [
+  ["Note from our chat", "A", "Slab, refined", "Subject chip, title, gold bullets, Save pinned; then Saved · Open note."],
+  ["Editing the note before it's saved", "A", "Two fields", "Title over a note field that grows; the second button is Done."],
+  ["Change, Add to and Tidy", "C", "Word marks", "A changed line shows once, its old words struck, its new ones gold."],
+  ["Rename, Move and Delete", "A", "Old over new", "The old name or subject struck, over the new one in gold."],
+  ["After Apply", "B", "Card stays, dimmed", "The card stays at 70%, with Changed · Undo under it."],
+  ["Which note do you mean?", "A", "Note rows", "Full-width rows: the name, its subject and day, a chevron."],
+];
+document.getElementById("picked").innerHTML = PICKED.map(([t, l, n, d]) => `<li><i>${l}</i><b>${esc(t)}: ${esc(n)}</b><span>${esc(d)}</span></li>`).join("");
+
+const KEY = "lar-v3-picks-r2";
+const picks = {};
+try { Object.assign(picks, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(picks)); } catch {} };
+const mounted = [];
+const rowsEl = document.getElementById("rows"), jump = document.getElementById("jump");
+
+for (const row of ROWS) {
+  jump.insertAdjacentHTML("beforeend", `<a href="#${row.id}">${row.head}</a>`);
+  const sec = document.createElement("section");
+  sec.className = "row"; sec.id = row.id;
+  sec.innerHTML = `<div class="q"><h2><small>${row.head}</small>${esc(row.title)}</h2><p>${esc(row.q)}</p>${row.notes ? `<ul>${row.notes.map((n) => `<li>${n}</li>`).join("")}</ul>` : ""}</div><div class="wide"></div><div class="pickbar" role="group" aria-label="Pick for ${esc(row.title)}"></div>`;
+  const wide = sec.querySelector(".wide");
+  let n = 0;
+  for (const o of row.opts) {
+    const letter = o.ref ? "" : row.letters[n++];
+    o.letter = letter;
+    const el = document.createElement("div"); el.className = "opt" + (o.ref ? " ref" : "");
+    el.innerHTML = `<div class="name"><b><i class="${o.ref ? "ref" : ""}">${o.ref ? "FIXED" : letter}</i>${esc(o.name)}</b><span>${esc(o.line)}</span></div>${o.states.length ? `<div class="seg0" role="group" aria-label="State">${o.states.map((st, k) => `<button data-st="${st}" aria-pressed="${k === 0}">${st}</button>`).join("")}</div>` : ""}<div class="phone"></div>${o.maker ? `<p class="cap0"><i></i><span></span></p><div class="tm"></div>` : ""}`;
+    wide.append(el);
+    const m = { o, el, phone: el.querySelector(".phone"), tm: el.querySelector(".tm"), why: el.querySelector(".cap0"), state: o.states[0] ?? "", timers: [] };
+    mounted.push(m);
+    el.querySelector(".seg0")?.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setState(m, b.dataset.st); });
+    m.phone.addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b && m.o.states.includes(b.dataset.go)) setState(m, b.dataset.go); });
+    if (m.tm) {
+      m.tm.addEventListener("input", (e) => { const k = e.target.dataset.k; if (!k) return; m.ov[k] = +e.target.value; e.target.classList.remove("unset"); e.target.closest(".fld")?.querySelector("em")?.remove(); draw(m, true); });
+      m.tm.addEventListener("click", (e) => { const k = e.target.closest("[data-k]")?.dataset.k; if (k === "hdr-off") { m.ov.hdr = null; draw(m); } if (k === "lar-off") { m.ov.lar = null; draw(m); } });
+    }
+  }
+  const bar = sec.querySelector(".pickbar");
+  bar.innerHTML = [...row.letters, "Needs work"].map((l) => `<button class="pick" data-v="${l}" aria-pressed="${picks[row.id]?.v === l}">${l}</button>`).join("") + `<input placeholder="A note for this item (optional)" aria-label="Note for ${esc(row.title)}" value="${esc(picks[row.id]?.note ?? "")}">`;
+  bar.addEventListener("click", (e) => { const b = e.target.closest(".pick"); if (!b) return; picks[row.id] = { ...picks[row.id], v: b.dataset.v }; bar.querySelectorAll(".pick").forEach((p) => p.setAttribute("aria-pressed", p === b)); save(); chips(); });
+  bar.querySelector("input").addEventListener("input", (e) => { picks[row.id] = { ...picks[row.id], note: e.target.value }; save(); });
+  rowsEl.append(sec);
+}
+
+function setState(m, st) {
+  m.state = st;
+  if (m.o.maker) m.ov = {};
+  m.el.querySelectorAll(".seg0 button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.st === st));
+  draw(m);
+}
+function fit(m) {
+  const avail = m.el.parentElement.clientWidth;
+  const z = Math.min(1, (avail - 4) / G.w);
+  m.phone.style.zoom = z < 1 ? z : "";
+  if (m.tm) m.tm.style.zoom = z < 1 ? z : "";
+}
+// `live` (a slider moving): repaint the phone, keep the panel so the drag isn't lost.
+function draw(m, live = false) {
+  m.timers.forEach((t) => { clearTimeout(t); clearInterval(t); }); m.timers = [];
+  let room = G.room;
+  if (m.o.maker) {
+    const e = effective(m, m.state);
+    room = themeVars(m.phone, e.base);
+    m.why.querySelector("span").textContent = skyWhy(m.o.maker, e);
+    m.why.querySelector("i").style.background = `linear-gradient(172deg, ${skyFor(m.o.maker, e).ramp[0]}, ${skyFor(m.o.maker, e).ramp[2]})`;
+    if (!live) { themeVars(m.tm, e.base); m.tm.dataset.room = room; m.tm.innerHTML = makerHtml(m.o.maker, e); }
+  }
+  m.phone.dataset.room = room;
+  m.phone.style.setProperty("--pw", G.w + "px");
+  m.phone.style.setProperty("--ph", H_FOR[G.w] + "px");
+  m.el.style.setProperty("--pw", G.w + "px");
+  if (m.tm) m.tm.style.setProperty("--pw", G.w + "px");
+  fit(m);
+  m.phone.innerHTML = m.o.render(m.state, m);
+  mountCanvases(m.phone);
+  if (m.o.stream) runStream(m);
+  if (m.o.prog) runProgress(m);
+  requestAnimationFrame(() => {
+    const log = m.phone.querySelector(".log");
+    if (log && !m.o.stream) log.scrollTop = log.scrollHeight;
+    const scr = m.phone.querySelector(".dscr");
+    if (scr) { const at = scr.querySelector(".dh h1"); if (at) scr.scrollTop = Math.max(0, at.offsetTop - 52); }
+  });
+}
+const drawAll = () => mounted.forEach((m) => draw(m));
+for (const [id, key] of [["room", "room"], ["width", "w"], ["motion", "rm"]]) {
+  document.getElementById(id).addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    G[key] = key === "w" ? +b.dataset.v : key === "rm" ? b.dataset.v === "reduce" : b.dataset.v;
+    e.currentTarget.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    document.body.classList.toggle("rm", G.rm);
+    drawAll();
+  });
+}
+if (G.rm) { document.body.classList.add("rm"); document.querySelectorAll("#motion button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === "reduce")); }
+let rz = 0;
+addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => mounted.forEach(fit), 120); });
+drawAll();
+
+function chips() {
+  document.getElementById("chips").innerHTML = ROWS.map((r) => `<span class="${picks[r.id]?.v ? "set" : ""}">${r.head}${picks[r.id]?.v ? ": " + picks[r.id].v : ""}</span>`).join("");
+}
+chips();
+document.getElementById("copy").addEventListener("click", () => {
+  const lines = ROWS.map((r) => {
+    const p = picks[r.id] ?? {};
+    const o = r.opts.find((x) => x.letter && x.letter === p.v);
+    const v = p.v ? (o ? `${p.v}: ${o.name}` : p.v) : "(no pick)";
+    return `- ${r.title}: ${v}${p.note ? " " + p.note : ""}`;
+  });
+  const text = `IntPortal picks, LAR v3 round 2:\n${lines.join("\n")}`;
+  const toast = document.getElementById("toast"), btn = document.getElementById("copy");
+  const said = (msg) => { toast.textContent = msg; btn.textContent = msg.startsWith("Copied") ? "Copied" : "Copy picks"; setTimeout(() => { toast.textContent = ""; btn.textContent = "Copy picks"; }, 2500); };
+  const fallback = () => { const t = document.createElement("textarea"); t.value = text; document.body.append(t); t.select(); try { document.execCommand("copy"); said("Copied. Paste it into the chat."); } catch { said("Copy blocked here"); } t.remove(); };
+  if (!navigator.clipboard) return fallback();
+  navigator.clipboard.writeText(text).then(() => said("Copied. Paste it into the chat."), fallback);
+});
+</script>
+</html>
