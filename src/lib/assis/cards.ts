@@ -1,6 +1,6 @@
 // Cards from a note: the pure parts. What goes to the model, and what comes
 // back, is cleaned here so it is tested without a phone.
-import type { NoteItem } from "../api";
+import type { Card, NoteItem } from "../api";
 
 export const MAX_CARDS = 20;
 /** The model's window is small; a longer note is cut at a line break rather than refused. */
@@ -88,4 +88,56 @@ export function pdfError(e: unknown): string {
   if (s.includes("could not be read")) return "I couldn't open that file as a PDF. Try another one.";
   if (s.includes("raw bytes")) return "I couldn't read that PDF. Try again, or try a note instead.";
   return friendlyError(e);
+}
+
+/** Spec 063 C12: a deck with 4 or more cards where some have no wrong answers offers Write wrong answers. */
+export const lacksWrong = (cards: { wrong?: string[] }[]) => cards.length >= 4 && cards.some((c) => !c.wrong?.length);
+
+/** `writeWrongAnswers` in assis.svelte.ts: one model call per 8 cards, `onBatch` after each, `stop()` checked between. */
+type Writer = (cards: Card[], onBatch: (part: Card[]) => Promise<void> | void, stop: () => boolean) => Promise<void>;
+export type WrongHooks = {
+  stopped: () => boolean;
+  hidden: () => boolean;
+  /** Resolves when the app is on screen again. */
+  shown: () => Promise<void>;
+  progress: (done: number, wrote: number, of: number) => void;
+};
+
+/**
+ * Write wrong answers for the cards that have none (spec 063 C12, 062 C29). Each batch is saved as it
+ * arrives, then counted. Hiding the app pauses it between batches, and coming back goes on from the next
+ * card; Stop ends it. A card the model fumbled is tried once per run, so Try again is what retries it.
+ * A failed call or save throws, with what was saved kept.
+ */
+export async function writeMissing(cards: Card[], write: Writer, save: (part: Card[]) => Promise<void>, on: WrongHooks): Promise<void> {
+  const todo = cards.filter((c) => !c.wrong?.length).map((c) => ({ ...c }));
+  const tried = new Set<string>();
+  let wrote = 0;
+  on.progress(0, 0, todo.length);
+  while (!on.stopped()) {
+    const left = todo.filter((c) => !tried.has(c.id));
+    if (!left.length) return;
+    if (on.hidden()) {
+      await on.shown();
+      continue;
+    }
+    const before = tried.size;
+    try {
+      await write(
+        left,
+        async (part) => {
+          const got = part.filter((c) => c.wrong?.length === 3);
+          if (got.length) await save(got);
+          for (const c of part) tried.add(c.id);
+          wrote += got.length;
+          on.progress(tried.size, wrote, todo.length);
+        },
+        () => on.stopped() || on.hidden(),
+      );
+    } catch (e) {
+      // A call cut off by the app going away is a pause, not a failure.
+      if (!on.hidden()) throw e;
+    }
+    if (tried.size === before && !on.hidden()) return;
+  }
 }

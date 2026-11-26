@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { NoteItem } from "../api";
-import { friendlyError, hasText, MAX_CARDS, MAX_PDF, MAX_SOURCE, noteLabel, pdfError, pdfProblem, sourceText, tidy, usable } from "./cards";
+import type { Card, NoteItem } from "../api";
+import { friendlyError, hasText, lacksWrong, writeMissing, type WrongHooks, MAX_CARDS, MAX_PDF, MAX_SOURCE, noteLabel, pdfError, pdfProblem, sourceText, tidy, usable } from "./cards";
 
 const note = (key: string, text: string, updated = 0, title: string | null = null): NoteItem => ({ key, text, title, updated, subject: null, pinned: false, preview: "" });
 
@@ -109,3 +109,95 @@ describe("spec 062 C16: a quiz card's wrong answers through tidy", () => {
   });
 });
 
+
+describe("spec 063 C12: Write wrong answers", () => {
+  const mk = (n: number, withWrong = 0): Card[] =>
+    Array.from({ length: n }, (_, i) => ({ id: `c${i}`, front: `f${i}`, back: `b${i}`, accepted: [], ...(i < withWrong ? { wrong: ["p", "q", "r"] } : {}), memory: { due: 0, stability: 0, difficulty: 0, reps: 0, lapses: 0, last_review: null } }));
+
+  // Behaves as writeWrongAnswers does: batches of 8, stop() checked between them.
+  function writer(calls: string[][], opt: { fail?: number; fumble?: string[]; after?: (n: number) => void } = {}) {
+    return async (cards: Card[], onBatch: (part: Card[]) => Promise<void> | void, stop: () => boolean) => {
+      const todo = cards.filter((c) => !c.wrong?.length);
+      for (let k = 0; k < todo.length && !stop(); k += 8) {
+        const part = todo.slice(k, k + 8);
+        calls.push(part.map((c) => c.id));
+        if (calls.length === opt.fail) throw new Error("busy");
+        for (const c of part) if (!opt.fumble?.includes(c.id)) c.wrong = ["x", "y", "z"];
+        await onBatch(part);
+        opt.after?.(calls.length);
+      }
+    };
+  }
+  const hooks = (o: Partial<WrongHooks> = {}) => {
+    const seen: [number, number, number][] = [];
+    return { seen, on: { stopped: () => false, hidden: () => false, shown: async () => {}, progress: (d: number, w: number, of: number) => seen.push([d, w, of]), ...o } };
+  };
+
+  it("C12: shows for 4 or more cards where some have no wrong answers", () => {
+    expect(lacksWrong(mk(3))).toBe(false);
+    expect(lacksWrong(mk(4))).toBe(true);
+    expect(lacksWrong(mk(6, 3))).toBe(true);
+    expect(lacksWrong(mk(6, 6))).toBe(false);
+  });
+
+  it("C12: writes only for cards without wrong answers, saving and counting each batch", async () => {
+    const calls: string[][] = [];
+    const saved: string[] = [];
+    const { seen, on } = hooks();
+    await writeMissing(mk(20, 4), writer(calls), async (p) => void saved.push(...p.map((c) => c.id)), on);
+    expect(calls[0][0]).toBe("c4");
+    expect(saved).toHaveLength(16);
+    expect(saved).not.toContain("c0");
+    expect(seen).toEqual([[0, 0, 16], [8, 8, 16], [16, 16, 16]]);
+  });
+
+  it("C12: Stop ends it between batches and keeps what was saved", async () => {
+    let stop = false;
+    const calls: string[][] = [];
+    const saved: string[] = [];
+    const { seen, on } = hooks({ stopped: () => stop });
+    await writeMissing(mk(20), writer(calls, { after: () => (stop = true) }), async (p) => void saved.push(...p.map((c) => c.id)), on);
+    expect(calls).toHaveLength(1);
+    expect(saved).toHaveLength(8);
+    expect(seen.at(-1)).toEqual([8, 8, 20]);
+  });
+
+  it("C12 / 062 C29: hiding the app pauses it, and coming back goes on from the next card", async () => {
+    let hidden = false;
+    let waited = 0;
+    const calls: string[][] = [];
+    const { seen, on } = hooks({ hidden: () => hidden, shown: async () => { waited++; hidden = false; } });
+    await writeMissing(mk(20), writer(calls, { after: (n) => n === 1 && (hidden = true) }), async () => {}, on);
+    expect(waited).toBe(1);
+    expect(calls.map((c) => c[0])).toEqual(["c0", "c8", "c16"]);
+    expect(seen.at(-1)).toEqual([20, 20, 20]);
+  });
+
+  it("C12: a call cut off by hiding the app is a pause, not a failure", async () => {
+    let hidden = false;
+    const calls: string[][] = [];
+    const flaky = writer(calls, { fail: 2 });
+    const { seen, on } = hooks({ hidden: () => hidden, shown: async () => void (hidden = false) });
+    await writeMissing(mk(16), (c, b, s) => flaky(c, b, s).catch((e) => { hidden = true; throw e; }), async () => {}, on);
+    expect(seen.at(-1)).toEqual([16, 16, 16]);
+  });
+
+  it("C12 errors: a failure part way throws with the first batches saved", async () => {
+    const saved: string[] = [];
+    const { seen, on } = hooks();
+    await expect(writeMissing(mk(20), writer([], { fail: 2 }), async (p) => void saved.push(...p.map((c) => c.id)), on)).rejects.toThrow("busy");
+    expect(saved).toHaveLength(8);
+    expect(seen.at(-1)).toEqual([8, 8, 20]);
+  });
+
+  it("C12: a card the model fumbled is counted done, not saved, and not tried again on resume", async () => {
+    let hidden = false;
+    const calls: string[][] = [];
+    const saved: string[] = [];
+    const { seen, on } = hooks({ hidden: () => hidden, shown: async () => void (hidden = false) });
+    await writeMissing(mk(12), writer(calls, { fumble: ["c1"], after: (n) => n === 1 && (hidden = true) }), async (p) => void saved.push(...p.map((c) => c.id)), on);
+    expect(calls.flat().filter((id) => id === "c1")).toHaveLength(1);
+    expect(saved).not.toContain("c1");
+    expect(seen.at(-1)).toEqual([12, 11, 12]);
+  });
+});
