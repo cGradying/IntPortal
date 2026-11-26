@@ -394,7 +394,7 @@
                 {/if}
               {/if}
               {#if m.text}<div class="lar"><p>{m.text}</p></div>{/if}
-              {#if m.cut && (m.more ?? 0) < MORE_MAX}<button class="no more" onclick={() => keepGoing(i)} disabled={!!assis.busy}>Keep going</button>{/if}
+              {#if m.cut && (m.more ?? 0) < MORE_MAX && assis.chat.findLastIndex((x) => x.from === "lar") === i}<button class="no more" onclick={() => keepGoing(i)} disabled={!!assis.busy}>Keep going</button>{/if}
               {#if m.known}<p class="known"><b>From what I know, not your notes.</b> I might get facts wrong, so double-check anything important.</p>{/if}
               {#if m.sources}
                 <div class="chips from">

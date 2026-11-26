@@ -516,6 +516,8 @@ export const MORE_MAX = 2;
 export async function keepGoing(i: number) {
   const reply = assis.chat[i];
   const question = assis.chat.slice(0, i).findLast((m) => m.from === "me")?.text;
+  // The shell extends the newest LAR turn only.
+  if (assis.chat.findLastIndex((m) => m.from === "lar") !== i) return;
   if (!reply?.cut || (reply.more ?? 0) >= MORE_MAX || !question || assis.busy) return;
   if (!(await wake())) return void (reply.problem = assis.error || "I couldn't wake up. Try again.");
   assis.busy = "thinking";

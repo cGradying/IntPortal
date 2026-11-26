@@ -228,8 +228,9 @@ export type DiffLine = { kind: "same" | "add" | "del"; text: string };
 
 /** Before and after, line by line (spec 062 C13): the longest run of lines both share stays, the rest is struck or added. */
 export function lineDiff(before: string, after: string): DiffLine[] {
-  const a = before.split("\n");
-  const b = after.split("\n");
+  // An empty note has no lines, not one empty line.
+  const a = before ? before.split("\n") : [];
+  const b = after ? after.split("\n") : [];
   // ponytail: O(n·m) table, fine for notes up to 3,000 characters.
   const lcs = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
   for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);

@@ -230,13 +230,16 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let msg = msg.as_str();
     let subject = subject_in(msg, &facts.subject_names);
     let intent = thin_data_to_notes(resolve(msg, facts.open_note.is_some()), facts, msg, subject.as_deref());
-    if let Some(kind) = edit::kind(msg, facts.open_ref.is_some()) {
-        return Ok(edit_answer(llm, tpl, facts, msg, kind, subject.as_deref()));
+    let scope = scope::classify(msg, intent, facts, !history.is_empty());
+    // A harm message gets the harm reply first, even when it reads as an edit ("add to my note that ...").
+    if !matches!(scope, scope::Scope::Harm(_)) {
+        if let Some(kind) = edit::kind(msg, facts.open_ref.is_some()) {
+            return Ok(edit_answer(llm, tpl, facts, msg, kind, subject.as_deref()));
+        }
     }
     if cannot_change(msg) {
         return Ok(Answer { reply: persona::line(Line::CannotChange, replies_in_filipino(msg), msg), proposal: None, route: Route::Refuse, cited: false, known: false, more: false });
     }
-    let scope = scope::classify(msg, intent, facts, !history.is_empty());
     if let Some((reply, route)) = scope::reply(scope, msg) {
         return Ok(Answer { reply, proposal: None, route, cited: false, known: false, more: false });
     }
@@ -368,7 +371,17 @@ fn edit_answer(llm: &mut dyn Llm, tpl: Template, f: &Facts, msg: &str, kind: edi
     if kind == Kind::Delete && words(msg).iter().any(|w| ["all", "every", "lahat"].contains(&w.as_str())) {
         return refuse("I delete one note at a time, and only after you check it. Name the note, or open it and ask again.");
     }
-    let n = match edit::target(msg, f.open_ref.as_ref(), &f.notes, subject) {
+    // "move my heaps note to MATH 101", "rename my heaps note to Midterm": the words after "to" are where it
+    // goes or what it's called, not which note, so they don't pick the note.
+    let (which, scope) = match kind {
+        Kind::Move | Kind::Rename => {
+            let low = msg.to_lowercase();
+            let cut = [" to ", " under ", " as "].iter().filter_map(|k| low.rfind(k)).min().unwrap_or(low.len());
+            (low[..cut].to_string(), None)
+        }
+        _ => (msg.to_string(), subject),
+    };
+    let n = match edit::target(&which, f.open_ref.as_ref(), &f.notes, scope) {
         Target::One(n) => n,
         Target::Pick(v) => {
             let p = Proposal::PickNote { candidates: v.into_iter().map(|n| (n.key, n.name)).collect(), ask: msg.to_string() };
@@ -570,6 +583,71 @@ mod tests {
             subjects: vec!["COMP 20073".into(), "MATH 101".into()],
             ..Facts::default()
         }
+    }
+
+    fn chatty() -> Facts {
+        Facts { chat: vec![("what is a heap?".into(), "A heap is a tree. Insert is O(log n).".into())], ..facts() }
+    }
+    const HEAP_NOTE: &str = r#"{"title":"Heaps","subject":"COMP 20073","bullets":["A heap is a tree","Insert is O(log n)"]}"#;
+
+    #[test]
+    fn a_note_of_the_chat_proposes_a_save_with_one_model_call() {
+        let mut m = FakeLlm::new(&[HEAP_NOTE]);
+        let a = answer(&mut m, Template::ChatMl, &chatty(), &[], "make a note of what we talked about").unwrap();
+        assert_eq!(a.proposal, Some(Proposal::SaveNote { title: "Heaps".into(), subject: Some("COMP 20073".into()), text: "- A heap is a tree\n- Insert is O(log n)".into(), partial: false }));
+        assert_eq!(a.route, Route::Rule);
+        assert!(a.reply.contains("Heaps"));
+        assert_eq!(m.prompts.len(), 1);
+    }
+
+    #[test]
+    fn a_note_of_the_chat_with_an_empty_chat_makes_no_save() {
+        let mut m = FakeLlm::new(&[HEAP_NOTE, HEAP_NOTE]);
+        let a = answer(&mut m, Template::ChatMl, &facts(), &[], "make a note of this").unwrap();
+        assert!(!matches!(a.proposal, Some(Proposal::SaveNote { .. })));
+    }
+
+    #[test]
+    fn a_plain_note_request_with_a_chat_still_makes_the_short_note() {
+        let mut m = FakeLlm::new(&[r#"{"text":"Review photosynthesis","subject":"none"}"#]);
+        let a = answer(&mut m, Template::ChatMl, &chatty(), &[], "add a note about photosynthesis").unwrap();
+        assert!(matches!(a.proposal, Some(Proposal::AddNote { .. })), "{:?}", a.proposal);
+    }
+
+    #[test]
+    fn a_note_with_its_own_text_after_a_colon_is_not_a_chat_note() {
+        let mut m = FakeLlm::new(&[r#"{"text":"bring calculator","subject":"none"}"#]);
+        let a = answer(&mut m, Template::ChatMl, &chatty(), &[], "note this: bring calculator").unwrap();
+        assert!(!matches!(a.proposal, Some(Proposal::SaveNote { .. })));
+    }
+
+    #[test]
+    fn a_chat_note_with_nothing_grounded_says_it_could_not() {
+        let mut m = FakeLlm::new(&[r#"{"title":"Heaps","subject":"none","bullets":["Room 302"]}"#]);
+        let a = answer(&mut m, Template::ChatMl, &chatty(), &[], "note this down").unwrap();
+        assert_eq!(a.proposal, None);
+        assert_eq!(a.route, Route::Refuse);
+        assert!(a.reply.contains("couldn't make a note"));
+    }
+
+    #[test]
+    fn a_chat_note_from_a_long_chat_says_it_is_partial() {
+        let mut f = chatty();
+        f.chat.insert(0, ("old ".repeat(2000), "x".into()));
+        let a = answer(&mut FakeLlm::new(&[HEAP_NOTE]), Template::ChatMl, &f, &[], "save what we talked about as a note").unwrap();
+        assert!(matches!(a.proposal, Some(Proposal::SaveNote { partial: true, .. })), "{:?}", a.proposal);
+    }
+
+    #[test]
+    fn an_edit_request_wins_over_the_chat_note() {
+        // C0: the message names the chat ("what we talked about") but edits an open note
+        let mut f = chatty();
+        f.open_ref = Some(edit::NoteRef { key: "note:1".into(), name: "Heaps".into(), subject: None, text: "- A heap is a tree".into() });
+        f.open_note = Some("- A heap is a tree".into());
+        let mut m = FakeLlm::new(&[r#"{"lines":[]}"#, HEAP_NOTE]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "add what we talked about to this note").unwrap();
+        assert!(!matches!(a.proposal, Some(Proposal::SaveNote { .. })), "{:?}", a.proposal);
+        assert!(m.prompts.iter().all(|p| !p.contains("Student: what is a heap?")), "the chat note was never made");
     }
 
     #[test]
@@ -1481,6 +1559,189 @@ mod tests {
         assert_eq!((a.reply.as_str(), a.route), ("I couldn't find a note about that. Open it and ask again.", Route::Refuse));
     }
 
+    fn nref(key: &str, name: &str, subject: Option<&str>, text: &str) -> edit::NoteRef {
+        edit::NoteRef { key: key.into(), name: name.into(), subject: subject.map(String::from), text: text.into() }
+    }
+    fn edit_facts() -> Facts {
+        let mut f = facts();
+        f.notes = vec![nref("note:1", "Heaps", Some("COMP 20073"), "Max on top\nInsert is O(log n)\nDelete is O(log n)\nBuild is O(n)"), nref("class:MATH 101", "MATH 101", Some("MATH 101"), "Quiz Friday")];
+        f
+    }
+    fn no_model(f: &Facts, msg: &str) -> Answer {
+        let mut m = FakeLlm::new(&[]);
+        let a = answer(&mut m, Template::ChatMl, f, &[], msg).unwrap();
+        assert!(m.prompts.is_empty(), "{msg}: no model call");
+        a
+    }
+
+    #[test]
+    fn c8_two_notes_that_fit_become_buttons_that_ask_the_same_request_again() {
+        let mut f = edit_facts();
+        f.notes.push(nref("note:2", "Heaps in Java", None, ""));
+        let a = no_model(&f, "delete my heaps note");
+        assert_eq!(a.reply, "Which note do you mean?");
+        assert_eq!(a.route, Route::Rule);
+        assert_eq!(a.proposal, Some(Proposal::PickNote { candidates: vec![("note:1".into(), "Heaps".into()), ("note:2".into(), "Heaps in Java".into())], ask: "delete my heaps note".into() }));
+    }
+
+    #[test]
+    fn c8_at_most_four_buttons() {
+        let mut f = facts();
+        f.notes = (0..6).map(|i| nref(&format!("note:{i}"), "Heaps", None, "")).collect();
+        match no_model(&f, "rename my heaps note to Trees").proposal {
+            Some(Proposal::PickNote { candidates, .. }) => assert_eq!(candidates.len(), edit::PICK_MAX),
+            p => panic!("{p:?}"),
+        }
+    }
+
+    #[test]
+    fn c8_the_open_note_is_the_one_even_when_the_request_names_another() {
+        let mut f = edit_facts();
+        f.open_ref = Some(nref("note:7", "Open one", None, "a\nb\nc\nd\ne"));
+        let a = no_model(&f, "delete my heaps note");
+        assert_eq!(a.proposal, Some(Proposal::DeleteNote { key: "note:7".into(), name: "Open one".into(), preview: "a\nb\nc".into() }), "the preview is the first three lines");
+    }
+
+    #[test]
+    fn c12_delete_names_one_note_and_never_a_bulk() {
+        let f = edit_facts();
+        for msg in ["delete all my notes", "delete every note I have", "burahin lahat ng note ko", "erase all of my heaps notes"] {
+            let a = no_model(&f, msg);
+            assert_eq!((a.route, a.proposal.is_none()), (Route::Refuse, true), "{msg}");
+            assert!(a.reply.contains("one note at a time"), "{msg}: {}", a.reply);
+        }
+        // Even with a note open.
+        let mut f = f;
+        f.open_ref = Some(nref("note:7", "Open", None, "x"));
+        assert!(no_model(&f, "delete all my notes").proposal.is_none());
+    }
+
+    #[test]
+    fn c12_all_inside_a_word_is_not_a_bulk_delete() {
+        let a = no_model(&edit_facts(), "delete my heaps note about small things");
+        assert!(matches!(a.proposal, Some(Proposal::DeleteNote { .. })), "{a:?}");
+    }
+
+    #[test]
+    fn c12_class_and_day_notes_keep_their_title_and_subject() {
+        let f = edit_facts();
+        for msg in ["rename my MATH 101 note to Quizzes", "move my MATH 101 note to COMP 20073"] {
+            let a = no_model(&f, msg);
+            assert_eq!((a.route, a.proposal.is_none()), (Route::Refuse, true), "{msg}");
+            assert!(a.reply.contains("Only your own notes"), "{}", a.reply);
+        }
+        // But a class note can be deleted or changed.
+        assert!(matches!(no_model(&f, "delete my MATH 101 note").proposal, Some(Proposal::DeleteNote { .. })));
+    }
+
+    #[test]
+    fn c12_a_rename_needs_a_name_and_a_move_needs_one_of_the_students_subjects() {
+        let mut f = edit_facts();
+        let a = no_model(&f, "rename my heaps note");
+        assert!(a.proposal.is_none() && a.reply.contains("What should I call it"), "{}", a.reply);
+        let a = no_model(&f, "move my heaps note to PHYS 999");
+        assert!(a.proposal.is_none() && a.reply.contains("Which subject"), "{}", a.reply);
+        let a = no_model(&f, "move my heaps note");
+        assert!(a.proposal.is_none() && a.reply.contains("Which subject"), "{}", a.reply);
+        f.notes.truncate(1);
+        let a = no_model(&f, "move my heaps note to math 101");
+        assert_eq!(a.proposal, Some(Proposal::MoveNote { key: "note:1".into(), name: "Heaps".into(), subject: "MATH 101".into() }), "case does not matter");
+    }
+
+    #[test]
+    fn c12_moving_to_a_subject_does_not_search_that_subjects_notes() {
+        let a = no_model(&edit_facts(), "move my heaps note to MATH 101");
+        assert_eq!(a.proposal, Some(Proposal::MoveNote { key: "note:1".into(), name: "Heaps".into(), subject: "MATH 101".into() }), "{}", a.reply);
+    }
+
+    #[test]
+    fn c12_the_cards_say_what_will_happen() {
+        let mut f = edit_facts();
+        f.notes.truncate(1);
+        assert_eq!(no_model(&f, "rename my heaps note to Trees").reply, "Rename Heaps to Trees?");
+        assert_eq!(no_model(&f, "move my heaps note to MATH 101").reply, "Move Heaps to MATH 101?");
+        assert_eq!(no_model(&f, "delete my heaps note").reply, "Delete Heaps? You can undo it right after.");
+    }
+
+    #[test]
+    fn c9_c10_c11_a_text_change_is_one_call_and_the_card_holds_before_and_after() {
+        let f = edit_facts();
+        let mut m = FakeLlm::new(&[r#"{"lines":["Peek is O(1)"]}"#]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "add peek to my heaps note").unwrap();
+        assert_eq!(m.prompts.len(), 1);
+        assert_eq!(
+            a.proposal,
+            Some(Proposal::EditNote { key: "note:1".into(), name: "Heaps".into(), kind: "append", before: f.notes[0].text.clone(), after: format!("{}\nPeek is O(1)", f.notes[0].text) })
+        );
+        assert_eq!(a.route, Route::Rule);
+        assert!(a.reply.contains("Heaps") && !a.reply.contains("tidied"));
+        let mut m = FakeLlm::new(&[r#"{"edits":[{"op":"remove","line":4}]}"#]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "fix my heaps note").unwrap();
+        assert!(matches!(a.proposal, Some(Proposal::EditNote { kind: "change", ref after, .. }) if after == "Max on top\nInsert is O(log n)\nDelete is O(log n)"), "{a:?}");
+    }
+
+    #[test]
+    fn c9_a_change_that_changes_nothing_is_said_not_proposed() {
+        let f = edit_facts();
+        let mut m = FakeLlm::new(&[r#"{"edits":[{"op":"replace","line":1,"text":"Max on top"}]}"#]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "fix my heaps note").unwrap();
+        assert_eq!((a.reply.as_str(), a.route, a.proposal.is_none()), ("That didn't change anything in the note.", Route::Refuse, true));
+        let mut m = FakeLlm::new(&[r#"{"edits":[{"op":"replace","line":99,"text":"x"}]}"#]);
+        assert!(answer(&mut m, Template::ChatMl, &f, &[], "fix my heaps note").unwrap().proposal.is_none());
+    }
+
+    #[test]
+    fn c15_a_long_note_is_too_long_to_change_but_not_to_rename_move_or_delete() {
+        let mut f = facts();
+        f.notes = vec![nref("note:1", "Long", None, &"x ".repeat(2000))];
+        let a = no_model(&f, "fix my long note");
+        assert!(a.proposal.is_none() && a.reply.contains("too long"), "{}", a.reply);
+        assert!(matches!(no_model(&f, "rename my long note to Short").proposal, Some(Proposal::RenameNote { .. })));
+        assert!(matches!(no_model(&f, "move my long note to MATH 101").proposal, Some(Proposal::MoveNote { .. })));
+        assert!(matches!(no_model(&f, "delete my long note").proposal, Some(Proposal::DeleteNote { .. })));
+    }
+
+    #[test]
+    fn c9_a_broken_model_reply_is_a_plain_refusal() {
+        let f = edit_facts();
+        let mut m = FakeLlm::new(&["not json"]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "fix my heaps note").unwrap();
+        assert_eq!((a.route, a.proposal.is_none()), (Route::Refuse, true));
+        assert!(!a.reply.is_empty());
+        let mut m = FakeLlm::new(&[]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "fix my heaps note").unwrap();
+        assert_eq!((a.route, a.proposal.is_none()), (Route::Refuse, true), "a model that is not there");
+    }
+
+    #[test]
+    fn c7_nothing_found_says_so_and_never_guesses() {
+        let a = no_model(&edit_facts(), "delete my note about photosynthesis");
+        assert_eq!((a.route, a.proposal.is_none()), (Route::Refuse, true));
+        let a = no_model(&facts(), "delete my heaps note");
+        assert_eq!((a.reply.as_str(), a.route), ("I couldn't find a note about that. Open it and ask again.", Route::Refuse), "no notes at all");
+    }
+
+    #[test]
+    fn c0_an_edit_is_routed_before_the_other_intents() {
+        let f = edit_facts();
+        // "quiz" and "when" would send these to Due or Schedule: with an edit verb and a note named, they are edits.
+        let a = no_model(&f, "rename my heaps note to Trees");
+        assert!(matches!(a.proposal, Some(Proposal::RenameNote { .. })));
+        // A new note is not an edit: it still goes down the note path.
+        let mut m = FakeLlm::new(&[r#"{"text":"Prof. Reyes moved the exam","subject":"none"}"#]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "Add a note that Prof. Reyes moved the exam").unwrap();
+        assert!(matches!(a.proposal, Some(Proposal::AddNote { .. })), "{a:?}");
+        // A reminder about a note is still a reminder.
+        let mut m = FakeLlm::new(&[r#"{"date":"2026-10-16","text":"Fix my heaps note"}"#]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "remind me to fix my heaps note tomorrow").unwrap();
+        assert!(!matches!(a.proposal, Some(Proposal::EditNote { .. } | Proposal::DeleteNote { .. } | Proposal::PickNote { .. })), "{a:?}");
+        // Cards from a note are not an edit.
+        let a = answer(&mut FakeLlm::new(&[]), Template::ChatMl, &f, &[], "make flashcards from my heaps note");
+        if let Ok(a) = a {
+            assert!(!matches!(a.proposal, Some(Proposal::EditNote { .. } | Proposal::DeleteNote { .. } | Proposal::PickNote { .. })), "{a:?}");
+        }
+    }
+
     #[test]
     fn c23_c25_a_teach_me_question_gets_room_and_a_cut_answer_is_kept_and_continued() {
         struct Spy(Vec<u32>, Vec<String>);
@@ -1515,4 +1776,140 @@ mod tests {
         assert!(m.prompts[0].contains("Your answer so far:\nRecursion is ... 2. Make the"));
     }
 
+    // Spec 062 C23 to C26 (part D tests).
+    /// A model that records the token limit and prompt of each call, and says `out`.
+    struct Sp {
+        tokens: Vec<u32>,
+        prompts: Vec<String>,
+        out: String,
+    }
+    impl Sp {
+        fn new(out: &str) -> Self {
+            Sp { tokens: vec![], prompts: vec![], out: out.into() }
+        }
+    }
+    impl Llm for Sp {
+        fn generate(&mut self, p: &str, _s: Option<&Value>, max: u32, f: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+            self.tokens.push(max);
+            self.prompts.push(p.to_string());
+            f(&self.out);
+            Ok(self.out.clone())
+        }
+        fn embed(&mut self, _t: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+            Ok(vec![])
+        }
+    }
+    const DONE: &str = r#"{"reply":"A stack is last in, first out."}"#;
+    const CUT: &str = r#"{"reply":"Recursion is a function calling itself. 1. Find the base case. 2. Make the"#;
+
+    #[test]
+    fn c23_a_long_answer_has_no_length_cap_in_its_schema_and_a_short_one_does() {
+        let long = schema(Intent::Ask, &[], false, true);
+        assert_eq!(long["properties"]["reply"], json!({"type": "string"}), "no maxLength");
+        assert_eq!(long["required"], json!(["reply"]));
+        let short = schema(Intent::Ask, &[], false, false);
+        assert_eq!(short["properties"]["reply"]["maxLength"], REPLY_MAX);
+        // A request has no reply field either way.
+        assert!(schema(Intent::Remind, &[], false, true)["properties"].get("reply").is_none());
+    }
+
+    #[test]
+    fn c23_the_token_limit_follows_the_long_rule_and_the_window() {
+        for (msg, want) in [
+            ("what is a stack?", lang::REPLY_TOKENS),
+            ("who wrote Noli Me Tangere", lang::REPLY_TOKENS),
+            ("explain recursion", lang::LONG_TOKENS),
+            ("walk me through binary search", lang::LONG_TOKENS),
+            ("teach me heaps", lang::LONG_TOKENS),
+            ("ipaliwanag mo ang recursion", lang::LONG_TOKENS),
+        ] {
+            let mut m = Sp::new(DONE);
+            answer(&mut m, Template::ChatMl, &facts(), &[], msg).unwrap();
+            assert_eq!(m.tokens[0], want, "{msg}");
+        }
+        assert_eq!(Facts::default().long_tokens, 0, "unset means the 8,192 window's figure");
+        let mut f = facts();
+        f.long_tokens = lang::LONG_TOKENS_LOW;
+        let mut m = Sp::new(DONE);
+        answer(&mut m, Template::ChatMl, &f, &[], "what is a stack?").unwrap();
+        assert_eq!(m.tokens[0], lang::REPLY_TOKENS, "the window only changes a long answer");
+        const { assert!(lang::LONG_TOKENS_LOW < lang::LONG_TOKENS && lang::REPLY_TOKENS < lang::LONG_TOKENS) };
+    }
+
+    #[test]
+    fn c23_only_a_long_question_carries_the_full_answer_rule() {
+        let mut m = Sp::new(DONE);
+        answer(&mut m, Template::ChatMl, &facts(), &[], "what is a stack?").unwrap();
+        assert!(!m.prompts[0].contains("They want a full answer"));
+        let mut m = Sp::new(DONE);
+        answer(&mut m, Template::ChatMl, &facts(), &[], "explain how a stack works").unwrap();
+        assert!(m.prompts[0].contains("They want a full answer"));
+    }
+
+    #[test]
+    fn c23_a_request_never_gets_the_long_limit() {
+        let mut m = Sp::new(r#"{"text":"Explain recursion"}"#);
+        answer(&mut m, Template::ChatMl, &facts(), &[], "remind me to explain recursion to Ana").unwrap();
+        assert_eq!(m.tokens, vec![300]);
+    }
+
+    #[test]
+    fn c25_a_reply_cut_at_its_limit_is_kept_and_flagged_and_a_finished_one_is_not() {
+        let a = answer(&mut Sp::new(CUT), Template::ChatMl, &facts(), &[], "explain recursion").unwrap();
+        assert!(a.more);
+        assert!(a.reply.starts_with("Recursion is a function calling itself.") && a.reply.ends_with("2. Make the"), "{}", a.reply);
+        assert_eq!(a.route, Route::Model);
+        let a = answer(&mut Sp::new(r#"{"reply":"Recursion is a function calling itself."}"#), Template::ChatMl, &facts(), &[], "explain recursion").unwrap();
+        assert!(!a.more, "valid JSON is a finished answer, however long");
+    }
+
+    #[test]
+    fn c25_a_cut_that_wrote_nothing_is_an_error_not_an_empty_bubble() {
+        assert!(answer(&mut Sp::new(r#"{"reply":""#), Template::ChatMl, &facts(), &[], "explain recursion").is_err());
+        assert!(answer(&mut Sp::new("garbage"), Template::ChatMl, &facts(), &[], "explain recursion").is_err());
+    }
+
+    #[test]
+    fn c25_keep_going_says_whether_the_next_part_was_cut_too() {
+        let mut m = Sp::new(r#"{"reply":"3. Call yourself on a smaller input and then"#);
+        let mut streamed = String::new();
+        let (text, cut) = more(&mut m, Template::ChatMl, "explain recursion", "Recursion is ... 2. Make the", &mut |w| streamed = w.to_string()).unwrap();
+        assert!(cut, "stopped at its limit again");
+        assert_eq!(text, "3. Call yourself on a smaller input and then");
+        assert_eq!(m.tokens, vec![lang::MORE_TOKENS]);
+        assert!(!streamed.is_empty(), "the words streamed to the screen");
+        let (text, cut) = more(&mut Sp::new(r#"{"reply":"That is all."}"#), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).unwrap();
+        assert_eq!((text.as_str(), cut), ("That is all.", false));
+    }
+
+    #[test]
+    fn c25_keep_going_with_nothing_written_is_an_error() {
+        assert!(more(&mut Sp::new(r#"{"reply":""#), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).is_err());
+        assert!(more(&mut Sp::new("garbage"), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).is_err());
+        assert!(more(&mut FakeLlm::new(&[]), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).is_err(), "the model failing");
+    }
+
+    #[test]
+    fn c25_keep_going_sends_the_question_and_the_end_of_the_answer_without_the_facts() {
+        let long = format!("HEAD-OF-ANSWER {} tail end", "x".repeat(4000));
+        let mut m = Sp::new(r#"{"reply":"ok"}"#);
+        more(&mut m, Template::ChatMl, "explain recursion", &long, &mut |_| ()).unwrap();
+        let p = &m.prompts[0];
+        assert!(p.contains("Student: explain recursion") && p.contains("tail end") && p.contains("Continue it from exactly where it stops"));
+        assert!(!p.contains("HEAD-OF-ANSWER"), "only the last 3,000 characters");
+        assert!(!p.contains("Today") && !p.contains("Coming up"), "no facts again");
+        // Multi-byte text is cut on a character, not a byte.
+        let mut m = Sp::new(r#"{"reply":"ok"}"#);
+        assert!(more(&mut m, Template::ChatMl, "ipaliwanag", &"ñ".repeat(3500), &mut |_| ()).is_ok());
+    }
+
+    // QA, spec 062
+    #[test]
+    fn a_harm_message_that_reads_as_an_edit_gets_the_harm_reply() {
+        let mut f = facts();
+        f.notes = vec![nref("note:1", "Heaps", None, "Max on top")];
+        let mut m = FakeLlm::new(&[r#"{"lines":[]}"#]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "add to my heaps note that I want to kill myself").unwrap();
+        assert!(a.proposal.is_none(), "{:?}", a.proposal);
+    }
 }

@@ -382,7 +382,6 @@ impl Store {
         Ok(())
     }
 
-    /// Deletes a note with its chunks and photos, in one transaction (046 C17).
     /// A change LAR made, which the student confirmed (spec 062 C14). The note as it was is kept, so
     /// `undo_lar` can put it back until the student edits the note. Only LAR's last change is kept.
     pub fn lar_change(&self, key: &str, change: &LarChange, now: i64) -> Result<(), StoreError> {
@@ -442,9 +441,11 @@ impl Store {
         Ok(keys)
     }
 
+    /// Deletes a note with its chunks and photos, in one transaction (046 C17). The student's own delete
+    /// also drops LAR's Undo for it, so a card left in the chat can't bring the note back.
     pub fn delete_note(&self, key: &str) -> Result<(), StoreError> {
         let tx = self.db.unchecked_transaction()?;
-        for table in ["notes WHERE key", "chunks WHERE note_key", "photos WHERE note_key"] {
+        for table in ["notes WHERE key", "chunks WHERE note_key", "photos WHERE note_key", "note_undo WHERE key"] {
             tx.execute(&format!("DELETE FROM {table} = ?1"), [key])?;
         }
         tx.commit()?;
@@ -764,7 +765,7 @@ impl Store {
     /// because the notes they came from just changed; search re-reads them.
     pub fn restore(&self, b: &Backup) -> Result<(), StoreError> {
         let tx = self.db.unchecked_transaction()?;
-        tx.execute_batch("DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks;")?;
+        tx.execute_batch("DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM note_undo;")?;
         let notes: Vec<_> = b.notes.iter().filter(|n| crate::notes::is_known_key(&n.key)).collect();
         for n in &notes {
             tx.execute(
@@ -857,7 +858,7 @@ impl Store {
     /// Erase everything on the device, the student's own work included.
     pub fn wipe(&self) -> Result<(), StoreError> {
         let tx = self.db.unchecked_transaction()?;
-        tx.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns; DELETE FROM photos;")?;
+        tx.execute_batch("DELETE FROM kv; DELETE FROM notes; DELETE FROM decks; DELETE FROM chunks; DELETE FROM turns; DELETE FROM photos; DELETE FROM note_undo;")?;
         tx.commit()?;
         self.forget();
         // Deleting doesn't shrink the file; erasing everything does (046 Data).
@@ -1557,6 +1558,119 @@ mod tests {
         assert!(matches!(store.lar_change("note:zz", &LarChange::Delete, 1), Err(StoreError::NoSuchNote)));
     }
 
+    fn lar_note() -> Store {
+        let store = Store::in_memory().unwrap();
+        store.set_note("note:a", "Quiz Friday", Some("Math"), 100).unwrap();
+        store.set_note_subject("note:a", Some("MATH 101")).unwrap();
+        store.set_note_pin("note:a", true).unwrap();
+        store
+    }
+    fn lar_row(store: &Store) -> (String, Option<String>, Option<String>, bool, i64) {
+        let n = store.notes().unwrap().into_iter().find(|n| n.key == "note:a").unwrap();
+        (n.text, n.title, n.subject, n.pinned, n.updated)
+    }
+
+    #[test]
+    fn b_a_text_change_sets_the_text_drops_its_search_chunks_and_undo_brings_it_all_back() {
+        let store = lar_note();
+        store.replace_chunks("note:a", 100, "m", &[("Quiz Friday".into(), vec![1.0])]).unwrap();
+        store.lar_change("note:a", &LarChange::Text("Quiz Monday".into()), 200).unwrap();
+        assert_eq!(lar_row(&store), ("Quiz Monday".into(), Some("Math".into()), Some("MATH 101".into()), true, 200));
+        assert!(store.chunks("m").unwrap().is_empty(), "search must not read the old words");
+        store.undo_lar("note:a").unwrap();
+        assert_eq!(lar_row(&store), ("Quiz Friday".into(), Some("Math".into()), Some("MATH 101".into()), true, 100));
+    }
+
+    #[test]
+    fn b_a_title_change_keeps_the_text_and_undo_restores_the_old_title() {
+        let store = lar_note();
+        store.lar_change("note:a", &LarChange::Title("Midterm".into()), 200).unwrap();
+        assert_eq!(lar_row(&store), ("Quiz Friday".into(), Some("Midterm".into()), Some("MATH 101".into()), true, 200));
+        store.undo_lar("note:a").unwrap();
+        assert_eq!(lar_row(&store).1.as_deref(), Some("Math"));
+    }
+
+    #[test]
+    fn b_a_move_sets_or_clears_the_subject_and_undo_puts_it_back() {
+        let store = lar_note();
+        store.lar_change("note:a", &LarChange::Subject(Some(" COMP 20073 ".into())), 200).unwrap();
+        assert_eq!(lar_row(&store).2.as_deref(), Some("COMP 20073"), "trimmed");
+        store.lar_change("note:a", &LarChange::Subject(None), 300).unwrap();
+        assert_eq!(lar_row(&store).2, None);
+        store.undo_lar("note:a").unwrap();
+        assert_eq!(lar_row(&store).2.as_deref(), Some("COMP 20073"), "undo goes back one step only");
+        store.lar_change("note:a", &LarChange::Subject(Some("   ".into())), 400).unwrap();
+        assert_eq!(lar_row(&store).2, None, "a blank subject clears it");
+    }
+
+    #[test]
+    fn b_only_a_freeform_note_can_move_and_a_refused_change_leaves_nothing_to_undo() {
+        let store = Store::in_memory().unwrap();
+        store.set_note("class:MATH 101", "Quiz", None, 100).unwrap();
+        assert!(matches!(store.lar_change("class:MATH 101", &LarChange::Subject(Some("COMP".into())), 200), Err(StoreError::SubjectIsFixed)));
+        assert!(store.undo_keys().unwrap().is_empty());
+        assert!(matches!(store.lar_change("note:zz", &LarChange::Text("x".into()), 200), Err(StoreError::NoSuchNote)));
+        assert!(store.undo_keys().unwrap().is_empty(), "no snapshot of a note that isn't there");
+    }
+
+    #[test]
+    fn b_only_lars_last_change_to_a_note_is_kept() {
+        let store = lar_note();
+        store.lar_change("note:a", &LarChange::Text("B".into()), 200).unwrap();
+        store.lar_change("note:a", &LarChange::Text("C".into()), 300).unwrap();
+        store.undo_lar("note:a").unwrap();
+        assert_eq!(lar_row(&store).0, "B");
+        assert!(matches!(store.undo_lar("note:a"), Err(StoreError::NothingToUndo)));
+    }
+
+    #[test]
+    fn b_a_note_with_photos_cannot_be_deleted_by_lar() {
+        let store = lar_note();
+        store.add_photo("note:a", &NewPhoto { w: 4, h: 3, bytes: &[1] }, None, None, 110).unwrap();
+        assert!(matches!(store.lar_change("note:a", &LarChange::Delete, 200), Err(StoreError::HasPhotos)));
+        assert_eq!(lar_row(&store).0, "Quiz Friday");
+        assert!(store.undo_keys().unwrap().is_empty());
+        // Other changes to a note with photos are fine.
+        store.lar_change("note:a", &LarChange::Title("Trip".into()), 300).unwrap();
+        assert_eq!(lar_row(&store).1.as_deref(), Some("Trip"));
+    }
+
+    #[test]
+    fn b_undoing_a_delete_brings_back_the_key_title_subject_and_pin_and_search_rebuilds() {
+        let store = lar_note();
+        store.replace_chunks("note:a", 100, "m", &[("Quiz Friday".into(), vec![1.0])]).unwrap();
+        store.lar_change("note:a", &LarChange::Delete, 200).unwrap();
+        assert!(store.notes().unwrap().is_empty());
+        assert!(store.chunks("m").unwrap().is_empty());
+        assert_eq!(store.undo_keys().unwrap(), ["note:a"], "a deleted note can still be undone");
+        store.undo_lar("note:a").unwrap();
+        assert_eq!(lar_row(&store), ("Quiz Friday".into(), Some("Math".into()), Some("MATH 101".into()), true, 100));
+        assert!(store.undo_keys().unwrap().is_empty());
+    }
+
+    #[test]
+    fn b_the_students_own_edit_clears_only_that_notes_undo() {
+        let store = lar_note();
+        store.set_note("note:b", "Other", None, 100).unwrap();
+        store.lar_change("note:a", &LarChange::Text("A2".into()), 200).unwrap();
+        store.lar_change("note:b", &LarChange::Text("B2".into()), 200).unwrap();
+        let mut keys = store.undo_keys().unwrap();
+        keys.sort();
+        assert_eq!(keys, ["note:a", "note:b"]);
+        store.set_note("note:a", "A3", None, 300).unwrap();
+        assert_eq!(store.undo_keys().unwrap(), ["note:b"]);
+        assert!(matches!(store.undo_lar("note:a"), Err(StoreError::NothingToUndo)));
+        assert_eq!(lar_row(&store).0, "A3", "the student's words stay");
+    }
+
+    #[test]
+    fn b_undo_with_no_change_made_says_so() {
+        let store = lar_note();
+        assert!(matches!(store.undo_lar("note:a"), Err(StoreError::NothingToUndo)));
+        assert!(matches!(store.undo_lar("note:zz"), Err(StoreError::NothingToUndo)));
+        assert!(store.undo_keys().unwrap().is_empty());
+    }
+
     #[test]
     fn c25_keep_going_lengthens_the_last_answer_it_stored() {
         let store = Store::in_memory().unwrap();
@@ -1566,4 +1680,58 @@ mod tests {
         assert_eq!(store.turns(5).unwrap().last().unwrap().text, "Recursion is a function calling itself.");
     }
 
+    #[test]
+    fn c25_extend_last_turn_changes_only_lars_latest_answer() {
+        let store = Store::in_memory().unwrap();
+        store.add_turn("me", "what is a heap", 1, true, &[]).unwrap();
+        store.add_turn("lar", "A tree.", 1, true, &[]).unwrap();
+        store.add_turn("me", "explain recursion", 2, true, &[]).unwrap();
+        store.add_turn("lar", "Recursion is", 2, true, &[]).unwrap();
+        store.extend_last_turn("Recursion is a function calling itself.").unwrap();
+        let t = store.turns(10).unwrap();
+        let texts: Vec<&str> = t.iter().map(|t| t.text.as_str()).collect();
+        assert_eq!(texts, ["what is a heap", "A tree.", "explain recursion", "Recursion is a function calling itself."], "the earlier answers and the question stay");
+        store.add_turn("me", "thanks", 3, true, &[]).unwrap();
+        store.extend_last_turn("Recursion is a function calling itself, on a smaller input.").unwrap();
+        let t = store.turns(10).unwrap();
+        assert_eq!(t.last().unwrap().text, "thanks", "a student's turn after it is never rewritten");
+        assert_eq!(t[3].text, "Recursion is a function calling itself, on a smaller input.");
+        assert_eq!(t.len(), 5);
+    }
+
+    #[test]
+    fn c25_extend_last_turn_with_no_answer_yet_changes_nothing_and_is_not_an_error() {
+        let store = Store::in_memory().unwrap();
+        store.extend_last_turn("x").unwrap();
+        store.add_turn("me", "hi", 1, true, &[]).unwrap();
+        store.extend_last_turn("x").unwrap();
+        assert_eq!(store.turns(5).unwrap()[0].text, "hi");
+    }
+
+    #[test]
+    fn c25_a_lengthened_answer_keeps_its_source_chips() {
+        let store = Store::in_memory().unwrap();
+        store.add_turn("lar", "A heap is", 1, true, &[]).unwrap();
+        let before = store.turns(1).unwrap().remove(0);
+        store.extend_last_turn("A heap is a tree.").unwrap();
+        let after = store.turns(1).unwrap().remove(0);
+        assert_eq!((after.role.as_str(), after.at, after.ask, after.sources.len()), (before.role.as_str(), before.at, before.ask, before.sources.len()));
+    }
+
+    // QA, spec 062: no note text outlives Erase everything, a restore or the student's delete.
+    #[test]
+    fn b_erase_restore_and_delete_leave_no_undo_behind() {
+        let store = lar_note();
+        store.lar_change("note:a", &LarChange::Text("Quiz Monday".into()), 200).unwrap();
+        store.delete_note("note:a").unwrap();
+        assert!(store.undo_keys().unwrap().is_empty(), "delete");
+        let store = lar_note();
+        store.lar_change("note:a", &LarChange::Text("Quiz Monday".into()), 200).unwrap();
+        let backup = Backup::make(&store, "2024-00001-MN-0", [7; 16], vec![], 0).unwrap();
+        store.restore(&backup).unwrap();
+        assert!(store.undo_keys().unwrap().is_empty(), "restore");
+        store.lar_change("note:a", &LarChange::Text("Quiz Tuesday".into()), 300).unwrap();
+        store.wipe().unwrap();
+        assert!(store.undo_keys().unwrap().is_empty(), "wipe");
+    }
 }

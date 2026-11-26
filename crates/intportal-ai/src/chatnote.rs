@@ -57,14 +57,15 @@ fn transcript(chat: &[(String, String)], budget: usize) -> (String, bool) {
     (kept.concat(), partial)
 }
 
-/// Lower-case letters and digits, so "COMP 20073" and "comp20073" match.
-fn norm(s: &str) -> String {
-    s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+/// The runs of digits in `s`: "2026-10-16" is 2026, 10 and 16; "comp20073" is 20073.
+fn numbers(s: &str) -> Vec<&str> {
+    s.split(|c: char| !c.is_ascii_digit()).filter(|n| !n.is_empty()).collect()
 }
 
-/// Every word of `text` that holds a digit (a number, a date, a course code's number) is in the chat (C6).
-fn grounded(text: &str, chat: &str) -> bool {
-    words(text).iter().filter(|w| w.chars().any(|c| c.is_ascii_digit())).all(|w| chat.contains(&norm(w)))
+/// Every number in `text` (a date's parts, a course code's number) is a whole number the chat said (C6):
+/// a 20 the chat never said doesn't pass because the chat said 2026.
+fn grounded(text: &str, chat: &[&str]) -> bool {
+    numbers(text).iter().all(|n| chat.contains(n))
 }
 
 /// A bullet about the chat rather than the subject ("LAR explained the formula", "The student asked for an
@@ -92,7 +93,7 @@ pub fn make(llm: &mut dyn Llm, tpl: Template, chat: &[(String, String)], subject
     }
     let raw = llm.generate(&tpl.wrap(SYSTEM, &format!("Chat:\n{said}")), Some(&schema(subjects)), NOTE_TOKENS, &mut |_| true)?;
     let r: Raw = reply::parse(&raw).map_err(|e| e.to_string())?;
-    let heard = norm(&said);
+    let heard = numbers(&said);
     let bullets: Vec<String> = r
         .bullets
         .iter()
@@ -163,5 +164,145 @@ mod tests {
         let mut m = FakeLlm::new(&[r#"{"title":"T","subject":"none","bullets":["newest answer"]}"#]);
         let chat = [pair(&"old ".repeat(2000), "x"), pair("newest question", "newest answer")];
         assert!(make(&mut m, Template::ChatMl, &chat, &[]).unwrap().unwrap().partial);
+    }
+
+    fn note_of(raw: &str, chat: &[(String, String)], subjects: &[String]) -> Result<Option<ChatNote>, String> {
+        make(&mut FakeLlm::new(&[raw]), Template::ChatMl, chat, subjects)
+    }
+
+    #[test]
+    fn the_transcript_takes_a_turn_that_fits_the_budget_exactly_and_drops_one_char_over() {
+        let t = pair("q", "a"); // "Student: q\nLAR: a\n" = 19 chars
+        let n = "Student: q\nLAR: a\n".chars().count();
+        assert_eq!(transcript(std::slice::from_ref(&t), n), ("Student: q\nLAR: a\n".into(), false));
+        assert_eq!(transcript(std::slice::from_ref(&t), n - 1), (String::new(), true));
+        assert_eq!(transcript(&[t.clone(), t.clone()], n * 2 - 1).0.chars().count(), n, "only the newest of two fits");
+        assert_eq!(transcript(&[], 10), (String::new(), false));
+    }
+
+    #[test]
+    fn the_transcript_counts_characters_not_bytes_and_stops_at_the_first_turn_that_does_not_fit() {
+        let wide = pair("é", "ñ"); // 2-byte chars: counted as one each
+        let n = "Student: é\nLAR: ñ\n".chars().count();
+        assert!(!transcript(std::slice::from_ref(&wide), n).1);
+        let big = pair(&"x".repeat(100), "y");
+        let small = pair("s", "t");
+        // newest small fits, the big one before it does not, and the small one before the big is not reached
+        let (said, partial) = transcript(&[small.clone(), big, small], 60);
+        assert!(partial);
+        assert_eq!(said, "Student: s\nLAR: t\n");
+    }
+
+    #[test]
+    fn a_chat_over_the_budget_in_one_turn_makes_no_call() {
+        let chat = [pair(&"x".repeat(CHAT_BUDGET), "y")];
+        let mut m = FakeLlm::new(&[]);
+        assert_eq!(make(&mut m, Template::ChatMl, &chat, &[]).unwrap(), None);
+        assert!(m.prompts.is_empty());
+    }
+
+    #[test]
+    fn grounded_matches_a_course_code_with_or_without_its_space() {
+        let chat = [pair("what class?", "It is comp20073 on Monday.")];
+        let n = note_of(r#"{"title":"Class","subject":"none","bullets":["Class is COMP 20073 on Monday"]}"#, &chat, &[]).unwrap().unwrap();
+        assert_eq!(n.text, "- Class is COMP 20073 on Monday");
+        let chat = [pair("what class?", "It is COMP 20073 on Monday.")];
+        let n = note_of(r#"{"title":"Class","subject":"none","bullets":["Class is comp20073"]}"#, &chat, &[]).unwrap().unwrap();
+        assert_eq!(n.text, "- Class is comp20073");
+    }
+
+    #[test]
+    fn a_bullet_with_a_wrong_date_or_code_is_dropped_but_a_said_one_stays() {
+        let chat = [pair("exam?", "The exam is on 2026-10-16 for COMP 20073. Bring 2 pencils.")];
+        let raw = r#"{"title":"Exam","subject":"none","bullets":["Exam on 2026-10-16","Exam on 2026-10-17","Course COMP 20074","Bring 2 pencils","Bring 9 pencils","No digits at all here"]}"#;
+        let n = note_of(raw, &chat, &[]).unwrap().unwrap();
+        assert_eq!(n.text, "- Exam on 2026-10-16\n- Bring 2 pencils\n- No digits at all here");
+    }
+
+    #[test]
+    fn a_number_that_is_only_part_of_a_longer_chat_number_is_not_said() {
+        let chat = [pair("year?", "It is 2026.")];
+        assert_eq!(note_of(r#"{"title":"Year","subject":"none","bullets":["The room is 20","It is 2026"]}"#, &chat, &[]).unwrap().unwrap().text, "- It is 2026");
+    }
+
+    #[test]
+    fn about_the_chat_catches_each_meta_word_and_leaves_subject_words_alone() {
+        for b in ["LAR said hello", "The Student must review", "students learn", "In this chat we saw", "A conversation about trees", "He asked why", "They discussed trees", "Explained the proof"] {
+            assert!(about_the_chat(b), "{b}");
+        }
+        for b in ["A heap is a tree", "Larynx is part of the throat", "Chatter is noise", "Ask the professor"] {
+            assert!(!about_the_chat(b), "{b}");
+        }
+    }
+
+    #[test]
+    fn a_title_over_eight_words_is_cut_and_loses_its_trailing_dot_or_colon() {
+        let chat = [pair("trees", "one two three four five six seven eight nine ten")];
+        let raw = r#"{"title":"one two three four five six seven eight nine ten","subject":"none","bullets":["one two three"]}"#;
+        assert_eq!(note_of(raw, &chat, &[]).unwrap().unwrap().title, "one two three four five six seven eight");
+        let raw = r#"{"title":"Heaps:","subject":"none","bullets":["a heap"]}"#;
+        let chat = [pair("heaps", "a heap is a tree")];
+        assert_eq!(note_of(raw, &chat, &[]).unwrap().unwrap().title, "Heaps");
+    }
+
+    #[test]
+    fn a_blank_title_falls_back() {
+        let chat = [pair("heaps", "a heap is a tree")];
+        for t in ["", "   "] {
+            let raw = format!(r#"{{"title":"{t}","subject":"none","bullets":["a heap is a tree"]}}"#);
+            assert_eq!(note_of(&raw, &chat, &[]).unwrap().unwrap().title, FALLBACK_TITLE, "{t:?}");
+        }
+    }
+
+    #[test]
+    fn a_subject_not_in_the_list_is_none_and_one_in_the_list_is_kept() {
+        let chat = [pair("heaps", "a heap is a tree")];
+        let subs = vec!["COMP 20073".to_string()];
+        let mk = |s: &str| note_of(&format!(r#"{{"title":"Heaps","subject":"{s}","bullets":["a heap is a tree"]}}"#), &chat, &subs).unwrap().unwrap().subject;
+        assert_eq!(mk("MATH 101"), None);
+        assert_eq!(mk("none"), None);
+        assert_eq!(mk(""), None);
+        assert_eq!(mk("comp 20073"), None, "must match the list exactly");
+        assert_eq!(mk("COMP 20073"), Some("COMP 20073".into()));
+        let no_subject_key = note_of(r#"{"title":"Heaps","bullets":["a heap is a tree"]}"#, &chat, &subs).unwrap().unwrap();
+        assert_eq!(no_subject_key.subject, None, "subject may be missing");
+    }
+
+    #[test]
+    fn bullet_markers_and_spaces_are_trimmed_and_empty_bullets_dropped() {
+        let chat = [pair("heaps", "a heap is a tree. b is c. d is e. f is g.")];
+        let raw = r#"{"title":"Heaps","subject":"none","bullets":["- a heap is a tree","* b is c","• d is e","  -  * f is g  ","-","  ","*"]}"#;
+        assert_eq!(note_of(raw, &chat, &[]).unwrap().unwrap().text, "- a heap is a tree\n- b is c\n- d is e\n- f is g");
+    }
+
+    #[test]
+    fn at_most_twelve_bullets_are_kept() {
+        let said: String = (1..=15).map(|i| format!("fact{} ", ["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o"][i - 1])).collect();
+        let chat = [pair("facts", &said)];
+        let bullets: Vec<String> = ["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o"].iter().map(|x| format!("\"fact{x}\"")).collect();
+        let raw = format!(r#"{{"title":"Facts","subject":"none","bullets":[{}]}}"#, bullets.join(","));
+        let n = note_of(&raw, &chat, &[]).unwrap().unwrap();
+        assert_eq!(n.text.lines().count(), 12);
+        assert!(n.text.ends_with("- factl"));
+    }
+
+    #[test]
+    fn malformed_json_or_a_missing_field_is_an_error_not_a_note() {
+        let chat = [pair("heaps", "a heap is a tree")];
+        for raw in ["not json at all", "", r#"{"title":"Heaps"}"#, r#"{"title":"Heaps","subject":"none","bullets":"a heap"}"#, r#"{"subject":"none","bullets":["a heap is a tree"]}"#] {
+            assert!(note_of(raw, &chat, &[]).is_err(), "{raw}");
+        }
+    }
+
+    #[test]
+    fn the_call_sends_the_schema_and_the_token_limit() {
+        let chat = [pair("heaps", "a heap is a tree")];
+        let s = schema(&["COMP 20073".to_string()]);
+        assert_eq!(s["properties"]["subject"]["enum"], json!(["COMP 20073", "none"]));
+        assert_eq!(s["properties"]["bullets"]["maxItems"], 12);
+        assert_eq!(NOTE_TOKENS, 500);
+        let mut m = FakeLlm::new(&[r#"{"title":"Heaps","subject":"none","bullets":["a heap is a tree"]}"#]);
+        make(&mut m, Template::ChatMl, &chat, &[]).unwrap();
+        assert_eq!(m.prompts.len(), 1);
     }
 }
