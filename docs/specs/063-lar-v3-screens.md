@@ -71,7 +71,7 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 
 ### E. Sharper quizzes
 
-- **C15. Near misses, not paraphrases.** The wrong-answer prompt asks for answers that are false in one checkable detail: a wrong number, a wrong term, or a reversed relation. It gives one example of each. It still takes one call per 8 cards (062 C28).
+- **C15. Near misses, not paraphrases.** The wrong-answer prompt asks for changes that make the back false in one checkable detail: a wrong number, a wrong term, or a reversed relation. It gives one example of each. The model writes each change as `{change, to}` (words from the back, and what goes in their place), and the code makes the swap; a change whose words aren't in the back, or whose new words the back already holds, is dropped. It still takes one call per 8 cards (062 C28).
 - **C16. True or false needs a checkable claim.** A wrong answer is shown as a True or false claim only if it differs from the back in a number or a content word the back has. Otherwise that card is dealt as multiple choice or identification.
 - **C17. Ship gate.** On the `examples/cards` quiz set, at least 15 of 22 cards keep three wrong answers. A hand check of 20 kept sets finds no wrong answer that is true. The numbers go in `docs/ai.md`. If the model can't reach 15 of 22, the gate and the numbers are reported to the owner, not lowered.
 
