@@ -435,8 +435,8 @@
                   {:else if m.state === "pending"}
                     <div class="two">
                       <button class="yes" onclick={() => apply(i)} disabled={assis.busy === "cards"}>{assis.busy === "cards" ? "Making…" : d.yes}</button>
-                      {#if m.proposal.kind === "save_note" && !m.editing}
-                        <button class="no" onclick={() => (m.editing = true)}>Edit</button>
+                      {#if m.proposal.kind === "save_note"}
+                        <button class="no" onclick={() => (m.editing = !m.editing)}>{m.editing ? "Done" : "Edit"}</button>
                       {:else}
                         <button class="no" onclick={() => dismiss(i)}>Not now</button>
                       {/if}
