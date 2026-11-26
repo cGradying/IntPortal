@@ -140,18 +140,18 @@ pub fn check(card: &Card) -> Result<(), Reject> {
 
 const NOT: [&str; 4] = ["not", "non", "no", "never"];
 
-/// The words two answers are compared by: `content`, plus what a wrong number or formula changes and
-/// `content` drops: a short number word or "not" ("one", "non-zero"), and a token with a digit or a math
-/// sign, kept whole ("o(n)", "nx^(n+1)", "1896").
+/// The words two answers are compared by: `content`, plus what a wrong detail changes and `content` drops:
+/// a short word that names something ("gas", "ATP", "one"), "not", and a token with a digit or a math sign,
+/// kept whole ("o(n)", "nx^(n+1)", "1896").
 fn meaning(text: &str) -> Vec<String> {
-    const SHORT: [&str; 6] = ["one", "two", "six", "ten", "few", "all"];
+    const LINKS: [&str; 16] = ["the", "and", "for", "are", "was", "its", "has", "had", "can", "but", "any", "may", "who", "how", "why", "per"];
     text.split_whitespace()
         .flat_map(|t| {
             let t = t.trim_matches(|c: char| ".,;:!?\"'".contains(c)).to_lowercase();
             if t.chars().any(|c| c.is_ascii_digit() || "^()+=/".contains(c)) && t.chars().any(char::is_alphanumeric) {
                 vec![t]
             } else {
-                words(&t).into_iter().filter(|w| SHORT.contains(&w.as_str()) || NOT.contains(&w.as_str()) || !content(w).is_empty()).collect()
+                words(&t).into_iter().filter(|w| NOT.contains(&w.as_str()) || (w.chars().count() == 3 && !LINKS.contains(&w.as_str())) || !content(w).is_empty()).collect()
             }
         })
         .collect()
@@ -731,4 +731,76 @@ mod tests {
         let w = ["The number of nodes in the tree", "The total number of nodes in the tree", "The number of leaves"];
         assert!(!wrong_ok(&quiz("Size of a tree", "The longest path from the root", &w)), "two wrong answers that say the same thing");
     }
+
+    // Spec 063 part E.
+    fn changes(sets: &[&[(&str, &str)]]) -> String {
+        json!({"cards": sets.iter().map(|w| json!({"front": "t", "wrong": w.iter().map(|(c, t)| json!({"change": c, "to": t})).collect::<Vec<_>>()})).collect::<Vec<_>>()}).to_string()
+    }
+
+    #[test]
+    fn c15_the_prompt_asks_for_four_near_misses_with_an_example_of_each_kind() {
+        let mut m = FakeLlm::new(&[&changes(&[&[]])]);
+        wrong_for(&mut m, Template::ChatMl, &[quiz("Osmosis", RIGHT, &[])]).unwrap();
+        let p = &m.prompts[0];
+        assert!(p.contains("four changes") && p.contains("a wrong number") && p.contains("a wrong term") && p.contains("a reversed relation"));
+        for ex in [r#"{"change": "2,900", "to": "29"}"#, r#"{"change": "rock", "to": "ice"}"#, r#"{"change": "below", "to": "above"}"#] {
+            assert!(p.contains(ex), "{ex}");
+        }
+        assert_eq!(m.prompts.len(), 1, "one call, no checking pass");
+    }
+
+    #[test]
+    fn c15_each_wrong_answer_is_the_back_with_one_change_made() {
+        let reply = changes(&[&[("more", "less"), ("membrane", "wall"), ("Water", "salt"), ("dissolved", "frozen")]]);
+        let got = wrong_for(&mut FakeLlm::new(&[&reply]), Template::ChatMl, &[quiz("Osmosis", RIGHT, &[])]).unwrap();
+        assert_eq!(
+            got[0],
+            [
+                "Water moving through a membrane toward less dissolved substance",
+                "Water moving through a wall toward more dissolved substance",
+                "Salt moving through a membrane toward more dissolved substance",
+            ],
+            "the first three fair ones, in order; a change at the start takes the capital"
+        );
+    }
+
+    #[test]
+    fn c15_a_change_that_is_not_in_the_back_or_was_cut_off_or_changes_nothing_is_dropped() {
+        let cut = "a".repeat(CHANGE_MAX);
+        let reply = changes(&[&[("sugar", "salt"), ("membrane toward", &cut), ("water", "water"), ("brane", "x"), ("more", "less"), ("toward", "away from"), ("Water", "Gas")]]);
+        let got = wrong_for(&mut FakeLlm::new(&[&reply]), Template::ChatMl, &[quiz("Osmosis", RIGHT, &[])]).unwrap();
+        assert_eq!(
+            got[0],
+            [
+                "Water moving through a membrane toward less dissolved substance",
+                "Water moving through a membrane away from more dissolved substance",
+                "Gas moving through a membrane toward more dissolved substance",
+            ],
+            "not in the back, cut off at the length limit, the same words, half a word: all dropped"
+        );
+        let two = changes(&[&[("more", "less"), ("toward", "away from"), ("sugar", "salt"), ("water", "water")]]);
+        assert!(wrong_for(&mut FakeLlm::new(&[&two]), Template::ChatMl, &[quiz("Osmosis", RIGHT, &[])]).unwrap()[0].is_empty(), "two fair of four is none");
+    }
+
+    #[test]
+    fn c15_a_near_miss_in_the_backs_own_words_is_fair_a_copy_is_not() {
+        let tree = "Tree where every left child is smaller than its parent and every right child is larger";
+        assert!(!near("Tree where every left child is larger than its parent", tree), "the back's words in a new order say something else");
+        assert!(!near("The derivative of x^n is nx^(n+1)", "The derivative of x^n is nx^(n-1)"), "a sign in a formula");
+        assert!(!near("Takes O(n) time", "Takes O(log n) time"));
+        assert!(!near("Always non-zero", "Always zero") && !near("It does not divide", "It does divide"), "an added not turns it around");
+        assert!(!near("Always one", "Always zero") && !near("Light makes ATP", "Light makes DNA"), "a short word that names something counts");
+        assert!(near("Gas spreading through the air", "Gas spreading through air"), "a short linking word does not");
+        assert!(near("Tree where every left child is smaller than its parent", tree), "the back with words left out is still a copy");
+        assert!(near("The Revolution began in 1896", "The Revolution began in 1896"));
+    }
+
+    #[test]
+    fn c15_a_wrong_answer_that_opens_with_the_term_is_cut_like_the_back() {
+        let back = "Required to drive the light-dependent reactions";
+        let card = repair(&quiz("Sunlight", back, &["Sunlight is required to stop the reactions", "Optional for the light-dependent reactions", "Required to drive the dark-dependent reactions"]));
+        assert_eq!(card.wrong[0], "Required to stop the reactions");
+        assert_eq!(pick(&card).len(), 3);
+    }
+
 }

@@ -107,5 +107,8 @@ fn main() {
         let t = std::time::Instant::now();
         let w = gen::wrong_for(&mut m, Template::ChatMl, &plain[..plain.len().min(8)]).expect("wrong_for");
         println!("wrong_for: {} of {} cards got three, in {:.1}s", w.iter().filter(|x| x.len() == 3).count(), w.len(), t.elapsed().as_secs_f64());
+        for (c, w) in plain.iter().zip(&w).filter(|(_, w)| !w.is_empty()) {
+            println!("  {} | {}\n      x {}", c.front, c.back, w.join("\n      x "));
+        }
     }
 }
