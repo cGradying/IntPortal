@@ -566,12 +566,34 @@ pub enum ProposalDto {
     DeleteNote { key: String, name: String, preview: String },
     PickNote { candidates: Vec<PickDto>, ask: String },
     MakeCards { topic: String, count: usize, quiz: bool },
+    // Spec 064. The shell offers no calendar rows yet (`Facts::calendar` stays None), so these aren't sent until
+    // the cards and Apply land.
+    AddDeadline { title: String, subject: Option<String>, deadline: intportal_core::syllabus::Kind, date: Date },
+    ChangeDeadline { id: String, name: String, was: Date, title: String, date: Date },
+    DoneDeadline { id: String, name: String },
+    DeleteDeadline { id: String, name: String, date: Date },
+    MarkClass { session: String, name: String, week: Option<Date>, mark: intportal_core::today::Mark },
+    MoveClass { session: String, name: String, week: Option<Date>, was: intportal_core::today::Slot, slot: intportal_core::today::Slot },
+    ChangeOwnClass { was: intportal_core::own_class::OwnClass, class: intportal_core::own_class::OwnClass },
+    DeleteOwnClass { code: String, name: String },
+    NewClass { name: String, day: Option<intportal_core::model::Weekday>, start: Option<u16> },
+    MoveReminder { id: i64, text: String, was: Date, date: Date },
+    DeleteReminder { id: i64, text: String },
+    PickItem { candidates: Vec<PickItemDto>, ask: String },
 }
 
 #[derive(Serialize)]
 pub struct PickDto {
     key: String,
     name: String,
+}
+
+#[derive(Serialize)]
+pub struct PickItemDto {
+    id: String,
+    name: String,
+    /// "deadline", "class" or "reminder", read out on the row (spec 064 Accessibility).
+    item: &'static str,
 }
 
 impl From<Proposal> for ProposalDto {
@@ -586,6 +608,18 @@ impl From<Proposal> for ProposalDto {
             Proposal::DeleteNote { key, name, preview } => ProposalDto::DeleteNote { key, name, preview },
             Proposal::PickNote { candidates, ask } => ProposalDto::PickNote { candidates: candidates.into_iter().map(|(key, name)| PickDto { key, name }).collect(), ask },
             Proposal::MakeCards { topic, count, quiz } => ProposalDto::MakeCards { topic, count, quiz },
+            Proposal::AddDeadline { title, subject, kind, date } => ProposalDto::AddDeadline { title, subject, deadline: kind, date },
+            Proposal::ChangeDeadline { id, name, was, title, date } => ProposalDto::ChangeDeadline { id, name, was, title, date },
+            Proposal::DoneDeadline { id, name } => ProposalDto::DoneDeadline { id, name },
+            Proposal::DeleteDeadline { id, name, date } => ProposalDto::DeleteDeadline { id, name, date },
+            Proposal::MarkClass { session, name, week, mark } => ProposalDto::MarkClass { session, name, week, mark },
+            Proposal::MoveClass { session, name, week, was, slot } => ProposalDto::MoveClass { session, name, week, was, slot },
+            Proposal::ChangeOwnClass { was, class } => ProposalDto::ChangeOwnClass { was, class },
+            Proposal::DeleteOwnClass { code, name } => ProposalDto::DeleteOwnClass { code, name },
+            Proposal::NewClass { name, day, start } => ProposalDto::NewClass { name, day, start },
+            Proposal::MoveReminder { id, text, was, date } => ProposalDto::MoveReminder { id, text, was, date },
+            Proposal::DeleteReminder { id, text } => ProposalDto::DeleteReminder { id, text },
+            Proposal::PickItem { candidates, ask } => ProposalDto::PickItem { candidates: candidates.into_iter().map(|(id, name, item)| PickItemDto { id, name, item }).collect(), ask },
         }
     }
 }

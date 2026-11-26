@@ -3,7 +3,7 @@
 //! confirm. Nothing here writes: the UI shows a card and Apply calls the
 //! existing commands (`set_note`, `set_plan`, `save_deck`).
 use crate::{
-    chatnote, edit, ground,
+    calendar, chatnote, edit, ground,
     intent::{about_chat, card_count, wants_long, is_filipino, replies_in_filipino, resolve, resolve_when, subject_in, words, Intent, CARDS_DEFAULT},
     lang,
     llm::Llm,
@@ -12,7 +12,12 @@ use crate::{
     reply,
     scope,
 };
-use intportal_core::today::Date;
+use intportal_core::{
+    model::Weekday,
+    own_class::OwnClass,
+    syllabus::Kind as DeadlineKind,
+    today::{Date, Mark, Slot},
+};
 use serde_json::{json, Value};
 
 /// What IntAssis may know, already formatted by the caller from core data
@@ -48,6 +53,9 @@ pub struct Facts {
     pub open_ref: Option<edit::NoteRef>,
     /// Tokens a long answer may take with the window the model runs at (spec 062 C26); 0 is `lang::LONG_TOKENS`.
     pub long_tokens: u32,
+    /// The student's deadlines, classes and LAR's reminders, as rows to match a calendar change against (spec 064).
+    /// None: the shell offers no calendar changes, and such requests read as before.
+    pub calendar: Option<calendar::Calendar>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -65,6 +73,26 @@ pub enum Proposal {
     PickNote { candidates: Vec<(String, String)>, ask: String },
     /// `quiz`: each card also gets three wrong answers (spec 062 C17).
     MakeCards { topic: String, count: usize, quiz: bool },
+    /// Spec 064, the student's week. A new own deadline (C3).
+    AddDeadline { title: String, subject: Option<String>, kind: DeadlineKind, date: Date },
+    /// An own deadline's new title or day (C4). `name` and `was` are how it reads now, for old over new.
+    ChangeDeadline { id: String, name: String, was: Date, title: String, date: Date },
+    /// Any deadline, school or own (C5).
+    DoneDeadline { id: String, name: String },
+    DeleteDeadline { id: String, name: String, date: Date },
+    /// One meeting (`week`: the meeting's date) or, with `week` None, every week (C7, C8). Any class.
+    MarkClass { session: String, name: String, week: Option<Date>, mark: Mark },
+    MoveClass { session: String, name: String, week: Option<Date>, was: Slot, slot: Slot },
+    /// An own class's room, teacher or name (C9).
+    ChangeOwnClass { was: OwnClass, class: OwnClass },
+    DeleteOwnClass { code: String, name: String },
+    /// "Add a class": the class editor opens, filled with what was read (C10).
+    NewClass { name: String, day: Option<Weekday>, start: Option<u16> },
+    /// A reminder LAR set, found by its text (C11).
+    MoveReminder { id: i64, text: String, was: Date, date: Date },
+    DeleteReminder { id: i64, text: String },
+    /// Two to four items fit (C12): (id, name, "deadline" | "class" | "reminder"). A tap asks `ask` again about it.
+    PickItem { candidates: Vec<(String, String, &'static str)>, ask: String },
 }
 
 /// Who wrote the reply.
@@ -233,8 +261,18 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let scope = scope::classify(msg, intent, facts, !history.is_empty());
     // A harm message gets the harm reply first, even when it reads as an edit ("add to my note that ...").
     if !matches!(scope, scope::Scope::Harm(_)) {
-        if let Some(kind) = edit::kind(msg, facts.open_ref.is_some()) {
+        // Spec 064 C1: note edit > calendar change > the rest. An open note doesn't make "move my lab report to
+        // Monday" a note edit; a message that names a note never reads as a calendar change.
+        let change = facts.calendar.as_ref().zip(calendar::request(msg, &facts.subject_names));
+        if let Some(kind) = edit::kind(msg, facts.open_ref.is_some() && change.is_none()) {
             return Ok(edit_answer(llm, tpl, facts, msg, kind, subject.as_deref()));
+        }
+        // No model call: the rules read it, pick the item and the day (C17).
+        if let Some((cal, req)) = change {
+            return Ok(match calendar::plan(req, msg, cal, today, &facts.subject_names) {
+                Ok(p) => Answer { reply: confirm(&p, false), proposal: Some(p), route: Route::Rule, cited: false, known: false, more: false },
+                Err(e) => refuse(&e),
+            });
         }
     }
     if cannot_change(msg) {
@@ -565,7 +603,35 @@ fn confirm(p: &Proposal, fil: bool) -> String {
         (Proposal::MakeCards { topic, count, quiz: true }, _) => format!("I'll make a {count}-question quiz on {topic}. Confirm to start."),
         (Proposal::MakeCards { topic, count, .. }, false) => format!("I'll make {count} flashcards on {topic}. Confirm to start."),
         (Proposal::MakeCards { topic, count, .. }, true) => format!("Gagawa ako ng {count} flashcards sa {topic}. I-confirm para magsimula."),
+        (Proposal::AddDeadline { title, date, .. }, _) => format!("Add {title}, due {}?", day_label(*date)),
+        (Proposal::ChangeDeadline { name, title, date, was, .. }, _) if date == was => format!("Rename {name} to {title}?"),
+        (Proposal::ChangeDeadline { name, date, .. }, _) => format!("Move {name} to {}?", day_label(*date)),
+        (Proposal::DoneDeadline { name, .. }, _) => format!("Mark {name} done?"),
+        (Proposal::DeleteDeadline { name, .. } | Proposal::DeleteOwnClass { name, .. }, _) => format!("Delete {name}? You can undo it right after."),
+        (Proposal::MarkClass { name, week, mark, .. }, _) => format!("Mark {name} {}, {}?", if *mark == Mark::Online { "online" } else { "as no class" }, when_label(*week)),
+        (Proposal::MoveClass { name, week, slot, .. }, _) => format!("Move {name} to {} {}, {}?", &format!("{:?}", slot.day)[..3], clock_label(slot.start), when_label(*week)),
+        (Proposal::ChangeOwnClass { was, .. }, _) => format!("Change {}? Apply it if it looks right.", was.name),
+        (Proposal::NewClass { .. }, _) => "I'll open the class editor with what I read. Check it, then save.".into(),
+        (Proposal::MoveReminder { text, date, .. }, _) => format!("Move the reminder \"{text}\" to {}?", day_label(*date)),
+        (Proposal::DeleteReminder { text, .. }, _) => format!("Delete the reminder \"{text}\"?"),
+        (Proposal::PickItem { .. }, _) => "Which one do you mean?".into(),
     }
+}
+
+/// "Fri, Oct 16".
+fn day_label(d: Date) -> String {
+    const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    format!("{}, {} {}", &format!("{:?}", d.weekday())[..3], MONTHS[usize::from(d.m.clamp(1, 12)) - 1], d.d)
+}
+
+/// "Fri, Oct 16 only" for one meeting, "every week" for the term (spec 064 C14).
+fn when_label(week: Option<Date>) -> String {
+    week.map_or("every week".into(), |d| format!("{} only", day_label(d)))
+}
+
+fn clock_label(min: u16) -> String {
+    let (h, m) = (min / 60, min % 60);
+    format!("{}:{m:02} {}", if h % 12 == 0 { 12 } else { h % 12 }, if h < 12 { "AM" } else { "PM" })
 }
 
 #[cfg(test)]
@@ -793,7 +859,7 @@ mod tests {
 
     impl Facts {
         fn clone_for_test(&self) -> Facts {
-            Facts { today: self.today, classes_today: self.classes_today.clone(), due: self.due.clone(), due_items: self.due_items.clone(), standing: self.standing.clone(), open_note: self.open_note.clone(), hits: self.hits.clone(), near: self.near.clone(), search_off: self.search_off, subjects: self.subjects.clone(), subject_names: self.subject_names.clone(), style: self.style.clone(), chat: self.chat.clone(), notes: self.notes.clone(), open_ref: self.open_ref.clone(), long_tokens: self.long_tokens }
+            Facts { today: self.today, classes_today: self.classes_today.clone(), due: self.due.clone(), due_items: self.due_items.clone(), standing: self.standing.clone(), open_note: self.open_note.clone(), hits: self.hits.clone(), near: self.near.clone(), search_off: self.search_off, subjects: self.subjects.clone(), subject_names: self.subject_names.clone(), style: self.style.clone(), chat: self.chat.clone(), notes: self.notes.clone(), open_ref: self.open_ref.clone(), long_tokens: self.long_tokens, calendar: self.calendar.clone() }
         }
     }
 
@@ -1911,5 +1977,94 @@ mod tests {
         let mut m = FakeLlm::new(&[r#"{"lines":[]}"#]);
         let a = answer(&mut m, Template::ChatMl, &f, &[], "add to my heaps note that I want to kill myself").unwrap();
         assert!(a.proposal.is_none(), "{:?}", a.proposal);
+    }
+
+    mod calendar_changes {
+        use super::*;
+        use crate::calendar::{Calendar, ClassRow, DeadlineRow, ReminderRow};
+        use intportal_core::deadline::Source;
+
+        fn week() -> Facts {
+            let cal = Calendar {
+                deadlines: vec![
+                    DeadlineRow { id: "own:1".into(), title: "Lab report 3".into(), subject: Some("COMP 20073".into()), date: Date::new(2026, 10, 16), source: Source::Own },
+                    DeadlineRow { id: "mab:9".into(), title: "Lab report 4".into(), subject: Some("COMP 20073".into()), date: Date::new(2026, 10, 22), source: Source::Mabini },
+                ],
+                classes: vec![ClassRow { session: "MATH 101-5-540-630".into(), code: "MATH 101".into(), name: "Calculus".into(), day: Weekday::Friday, start: 540, end: 630, own: false }],
+                own_classes: vec![],
+                reminders: vec![ReminderRow { id: 7, text: "Pay tuition".into(), date: Date::new(2026, 10, 19) }],
+            };
+            Facts { subject_names: vec![("MATH 101".into(), "Calculus".into()), ("COMP 20073".into(), "Data Structures".into())], calendar: Some(cal), ..facts() }
+        }
+
+        /// A stub model with no replies: any call would fail the turn, and `prompts` counts the calls.
+        fn ruled(f: &Facts, msg: &str) -> Answer {
+            let mut m = FakeLlm::new(&[]);
+            let a = answer(&mut m, Template::ChatMl, f, &[], msg).unwrap();
+            assert!(m.prompts.is_empty(), "{msg}: the model was called");
+            a
+        }
+
+        #[test]
+        fn c17_no_calendar_change_calls_the_model() {
+            for msg in [
+                "add a lab report due Friday",
+                "move lab report 3 to Monday",
+                "move my lab report to Monday",
+                "I finished lab report 4",
+                "tapos na ako sa lab report 3",
+                "delete lab report 3",
+                "no MATH class tomorrow",
+                "walang klase sa MATH bukas",
+                "MATH is online every week",
+                "move tomorrow's MATH to 3 pm",
+                "delete the tuition reminder",
+                "move the tuition reminder to Saturday",
+                "delete the gym reminder",
+                "add a lab report",
+            ] {
+                let a = ruled(&week(), msg);
+                assert!(matches!(a.route, Route::Rule | Route::Refuse), "{msg}");
+            }
+        }
+
+        #[test]
+        fn c1_a_change_gets_a_card_and_a_reply_from_the_rules() {
+            let a = ruled(&week(), "move lab report 3 to Monday");
+            assert_eq!(a.proposal, Some(Proposal::ChangeDeadline { id: "own:1".into(), name: "Lab report 3".into(), was: Date::new(2026, 10, 16), title: "Lab report 3".into(), date: Date::new(2026, 10, 19) }));
+            assert_eq!(a.reply, "Move Lab report 3 to Mon, Oct 19?");
+            assert_eq!(ruled(&week(), "no MATH class tomorrow").reply, "Mark MATH 101 Calculus · Fri 9:00 AM as no class, Fri, Oct 16 only?");
+            assert_eq!(ruled(&week(), "MATH is online every week").reply, "Mark MATH 101 Calculus · Fri 9:00 AM online, every week?");
+            assert_eq!(ruled(&week(), "move my lab report to Monday").reply, "Which one do you mean?");
+            let none = ruled(&week(), "delete the gym reminder");
+            assert_eq!((none.reply.as_str(), none.route, none.proposal), (calendar::NOT_FOUND, Route::Refuse, None));
+            assert_eq!(ruled(&week(), "add a lab report").reply, calendar::NO_DATE);
+        }
+
+        #[test]
+        fn c1_order_note_edit_then_calendar_then_remind_then_due() {
+            let mut f = week();
+            f.notes = vec![edit::NoteRef { key: "note:1".into(), name: "Heaps".into(), subject: None, text: "- a heap".into() }];
+            // A note named: a note edit, even with calendar rows.
+            assert!(matches!(ruled(&f, "move my heaps note to MATH 101").proposal, Some(Proposal::MoveNote { .. })));
+            // An open note doesn't turn a calendar change into a note edit.
+            f.open_ref = f.notes.first().cloned();
+            assert!(matches!(ruled(&f, "move lab report 3 to Monday").proposal, Some(Proposal::ChangeDeadline { .. })));
+            // Calendar beats remind: "delete the tuition reminder" deletes LAR's reminder.
+            assert!(matches!(ruled(&week(), "delete the tuition reminder").proposal, Some(Proposal::DeleteReminder { id: 7, .. })));
+            // "Remind me ..." is still a reminder, and a question is still a Due question.
+            assert_eq!(resolve("remind me to finish lab report 3 on Friday", false), Intent::Remind);
+            assert!(calendar::request("remind me to finish lab report 3 on Friday", &week().subject_names).is_none());
+            let due = ruled(&week(), "When is my lab report due?");
+            assert!(due.proposal.is_none(), "{:?}", due.proposal);
+        }
+
+        #[test]
+        fn without_calendar_rows_requests_read_as_before() {
+            let f = Facts { calendar: None, ..week() };
+            let a = ruled(&f, "delete the tuition reminder");
+            assert_eq!(a.proposal, None);
+            assert_eq!(a.route, Route::Refuse, "the old 'I can't change that' line");
+        }
     }
 }
