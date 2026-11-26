@@ -478,11 +478,29 @@ pub fn more(llm: &mut dyn Llm, tpl: Template, msg: &str, so_far: &str, on_text: 
         Ok(v) => (v["reply"].as_str().unwrap_or("").to_string(), false),
         Err(e) => (reply::partial_reply(&raw).ok_or(e.to_string())?, true),
     };
-    let new = full.strip_prefix(so_far.as_str()).unwrap_or(&full).trim_end().to_string();
+    let new = full.strip_prefix(so_far.as_str()).unwrap_or(&full).trim_end();
     if new.trim().is_empty() {
         return Err("Keep going wrote nothing".into());
     }
-    Ok((new, cut))
+    // An answer cut at its limit was often looping (the same list item again and again), and the next
+    // words go on looping. They stop before the first sentence already written, and the answer is done.
+    // Read as one text, so a sentence that began before the cut is whole.
+    let all = format!("{so_far}{new}");
+    let mut seen = vec![];
+    for s in sentences(&all) {
+        let at = s.as_ptr() as usize - all.as_ptr() as usize; // `s` is a slice of `all`
+        if at + s.len() > so_far.len() && s.split_whitespace().count() >= 5 && seen.contains(&norm(s)) {
+            let kept = all[so_far.len()..so_far.len().max(at)].trim_end();
+            // Without the list number the repeat would have followed ("... in 395 AD. 4.").
+            let kept = match kept.rsplit_once(char::is_whitespace) {
+                Some((head, n)) if n.len() > 1 && n.trim_end_matches('.').chars().all(|c| c.is_ascii_digit()) => head.trim_end(),
+                _ => kept,
+            };
+            return Ok((kept.to_string(), false));
+        }
+        seen.push(norm(s));
+    }
+    Ok((new.to_string(), cut))
 }
 
 /// Lower-case letters and digits only, so a copy matches whatever its punctuation or capitals.
@@ -1978,6 +1996,19 @@ mod tests {
         // Multi-byte text is cut on a character, not a byte.
         let mut m = Sp::new(r#" ok"}"#);
         assert!(more(&mut m, Template::ChatMl, "ipaliwanag", &"ñ".repeat(3500), &mut |_| ()).is_ok());
+    }
+
+    #[test]
+    fn c19_keep_going_stops_before_a_sentence_already_written_and_the_answer_is_done() {
+        let so_far = "Rome grew strong. 2. The crisis came around 200 AD, and the empire began to split. 3. The";
+        let out = r#" crisis came around 200 AD, and the empire began to split. 4. The crisis came around 200 AD, and the empire began to split. 5. The"#;
+        let (text, cut) = more(&mut Sp::new(out), Template::ChatMl, "teach me Rome", so_far, &mut |_| ()).unwrap();
+        assert_eq!((text.as_str(), cut), ("", false), "only the loop: nothing new, and no more Keep going");
+        let out = r#" empire split in two in 395 AD. 4. The crisis came around 200 AD, and the empire began to split. 5. The"#;
+        let (text, cut) = more(&mut Sp::new(out), Template::ChatMl, "teach me Rome", so_far, &mut |_| ()).unwrap();
+        assert_eq!((text.as_str(), cut), (" empire split in two in 395 AD.", false), "the new part is kept, the loop and its list number are not");
+        let out = r#" West fell in 476 AD, and the East went on for a thousand years. 4. The West fell in 476 AD, and the East went on for a thousand years."#;
+        assert_eq!(more(&mut Sp::new(out), Template::ChatMl, "teach me Rome", so_far, &mut |_| ()).unwrap().0, " West fell in 476 AD, and the East went on for a thousand years.", "a repeat inside the new part too");
     }
 
     #[test]

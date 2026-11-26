@@ -64,6 +64,11 @@ fn gate_run(m: &mut Llama, facts: &assis::Facts) {
         "walk me through every stage of mitosis in detail",
         "explain in detail how vaccines train the immune system",
         "teach me the history of the Roman Empire in detail",
+        "explain in detail the causes and main events of World War I",
+        "explain in detail how the internet loads a web page, from typing the address to seeing the page",
+        "explain in detail the parts of a cell and what each one does",
+        "teach me step by step how to do long division, with a worked example",
+        "explain in detail how supply and demand set prices, with examples",
     ];
     let (mut cut_answers, mut restarts, mut repeats, mut parts, mut mid) = (0, 0, 0, 0, 0);
     for q in qs {
