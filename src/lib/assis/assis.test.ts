@@ -1506,6 +1506,7 @@ describe("spec 062 C20, C29: writing wrong answers on an old deck", () => {
 
 
 import { pickItem } from "./assis.svelte";
+import { larReminderList, notificationsOff, reminderId } from "./apply";
 import type { Snapshot } from "../api";
 
 describe("spec 064: LAR changes the week, with Undo", () => {
@@ -1647,6 +1648,21 @@ describe("spec 064: LAR changes the week, with Undo", () => {
     });
     card({ kind: "delete_reminder", id, text: "Pay tuition" });
     await appliedThenUndone({ applied: () => expect(queue).toEqual([]), undone: () => expect(queue.map((q) => q.id)).toEqual([id]) });
+  });
+
+  it("Errors: with notifications off a moved reminder is still saved, with the note, and Undo puts the old day back", async () => {
+    const at = new Date(2099, 9, 19, 8).getTime();
+    ring(7, at, "Pay tuition");
+    vi.mocked(isPermissionGranted).mockResolvedValue(false);
+    vi.mocked(requestPermission).mockResolvedValue("denied");
+    backend["plugin:notification|notify"] = () => Promise.reject("not allowed");
+    card({ kind: "move_reminder", id: 7, text: "Pay tuition", was: "2099-10-19", date: "2099-10-17" });
+    await apply(0);
+    expect(assis.chat[0]).toMatchObject({ state: "done", undo: true, notice: notificationsOff(false) });
+    expect(larReminderList()).toEqual([{ id: reminderId("Pay tuition", "2099-10-17"), at: new Date(2099, 9, 17, 8).getTime(), text: "Pay tuition" }]);
+    await undoChange(0);
+    expect(assis.chat[0]).toMatchObject({ undone: true });
+    expect(larReminderList()).toEqual([{ id: 7, at, text: "Pay tuition" }]);
   });
 
   it("C11: an old reminder kept without its text isn't offered to match", async () => {

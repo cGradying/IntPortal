@@ -699,9 +699,10 @@ async function ring(id: number, text: string, date: string): Promise<boolean> {
   let allowed = await isPermissionGranted();
   if (!allowed) allowed = (await requestPermission()) === "granted";
   app.notifications = allowed;
+  // Kept whether or not it can ring: a moved reminder is saved even with notifications off (064 Errors).
+  rememberLarReminder(id, reminderAt(date), text);
   try {
     await invoke("plugin:notification|notify", { options: { id, title: "LAR", body: text, schedule: Schedule.at(asLocalDigits(reminderAt(date))) } });
-    rememberLarReminder(id, reminderAt(date), text);
   } catch (e) {
     if (allowed) throw e; // a refusal is expected while they are off; anything else is a real failure
   }
