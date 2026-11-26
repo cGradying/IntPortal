@@ -580,16 +580,17 @@ export async function keepGoing(i: number) {
   assis.busy = "thinking";
   stopped = false;
   const before = reply.text;
-  const glue = /\s$/.test(before) ? "" : " ";
+  // The model goes on from the words already written (spec 063 C18): its next words join as they are,
+  // so a word cut in half stays one word and a new one brings its own space.
   let first = true;
   const onText = new Channel<string>();
   onText.onmessage = (words) => {
-    reply.text += first && !/^[\s,.;:]/.test(words) ? glue + words : words;
+    reply.text += words;
     first = false;
   };
   try {
     const r = await invoke<{ text: string; more: boolean }>("ai_more", { message: question, soFar: before, onText });
-    if (first && r.text) reply.text = before + glue + r.text; // nothing streamed: show it whole
+    if (first && r.text) reply.text = before + r.text; // nothing streamed: show it whole
     reply.cut = r.more;
     reply.more = (reply.more ?? 0) + 1;
   } catch (e) {

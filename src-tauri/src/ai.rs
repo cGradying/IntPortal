@@ -1005,14 +1005,9 @@ pub async fn ai_more(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, messa
     let (m, sf) = (message.clone(), so_far.clone());
     let (text, more) = with_model(&ai, move |llm, tpl| assis::more(llm, tpl, &m, &sf, &mut |w| drop(on_text.send(w.to_string())))).await.map_err(|e| assis::friendly(&e, false))?;
     if let Ok(store) = store(&app.state::<AppState>()) {
-        let _ = store.extend_last_turn(&format!("{}{}", so_far, joined(&so_far, &text)));
+        let _ = store.extend_last_turn(&format!("{so_far}{text}")); // `more` continues the words exactly (063 C18)
     }
     Ok(More { text, more })
-}
-
-/// What goes between an answer's cut and its continuation: a space unless one is already there.
-fn joined(so_far: &str, next: &str) -> String {
-    if so_far.ends_with(char::is_whitespace) || next.starts_with(char::is_whitespace) || next.starts_with([',', '.', ';', ':']) { next.to_string() } else { format!(" {next}") }
 }
 
 /// "Ask AI" in a note. `text` is the note as it is on screen (it may not be saved yet).

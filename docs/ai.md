@@ -523,3 +523,27 @@ Cost: a wrong-answer call takes about twice as long as on main (14 to 33 s per 8
 | what is a stack? (short) | 80 | no | 5.0 s |
 
 The long rule gives answers that open with the answer, then numbered steps where steps were asked for. Only the history summary hit the 800-token limit. Its Keep going restated part of the answer instead of picking up mid-sentence: the continuation sees the question and the answer so far, not the notes. The same answer gave a wrong year (1846). The "from what I know" label under such answers is the guardrail. Not measured: a real phone, the 4,096 window (`low`), and Qwen3 1.7B.
+
+### Keep going continues (spec 063 C18–C19)
+
+`cargo run --release -p intportal-llm --example long -- <chat.gguf> gate` runs at the 4,096 window, where a long answer gets 400 tokens, until 5 answers are cut at that limit (7 of 12 questions were not cut). Each cut answer gets Keep going up to twice. Mac M-series, Metal, Qwen3.5 2B IQ4_XS, 2026-11-27. Both rows are the same 5 cut answers (greedy decoding); only `assis::more` differs. "Restarts" is from reading every continuation. The probe's own restart check (the answer's first five words again) caught none of them, so it is printed but not trusted.
+
+| `more()` | Continuations | Restart the topic or the step | Repeat a full sentence already written | Time per Keep going |
+|---|---|---|---|---|
+| main: "continue from exactly where it stops", answer copied into the prompt | 7 | 4 of 5 first taps | 1 (the cell answer's second tap, "as mentioned earlier ...") | 5.7 to 17.2 s |
+| this: the answer so far is the start of the model's own reply (`generate_prefilled`), a repeat stops it | 5 | **0** | **0** | 0.5 to 11.1 s |
+
+On main the restarts read: "The causes of the Philippine Revolution were primarily driven by ...", "The repetition in your previous answer indicates a need for a clean, structured response. Here is the detailed history of the Roman Empire", "Chloroplasts are the sites of photosynthesis ..." straight after "These are the sites of photosynthesis. They", and TCP's checksum step written again. Now every continuation picks up mid-sentence: "... adds a checksum to| ensure no bits were lost", "They| use sunlight to turn carbon dioxide and water into glucose", "7. **|Final Answer**".
+
+How it works: the reply is still held to `{"reply": string}`. The prefill is `{"reply":"` plus the answer so far (its last 3,000 characters, JSON-escaped), with the string left open, so the grammar and the model both carry on inside it. The prompt has the question and the long-answer rule, not the answer a second time. The text returned is only the new part and joins exactly.
+
+**Loops.** 2 of the 5 answers were cut because they were looping: the Roman Empire answer wrote "The Crisis of the Third Century" as items 2 to 8. With the prefill, the next words go on looping. So the continuation stops before the first sentence it repeats, the model is stopped there, and the answer counts as finished (no more Keep going). Those two taps added nothing, in 0.5 and 1.1 s, where the loop used to run its full 400 tokens (about 14 s). The newest finished sentence is held back from the screen until the next one ends, so the student never sees words that are then taken back.
+
+**Gate (C19): met.** Of 5 long answers cut at their limit, none restarts the topic and none repeats a full sentence already written.
+
+The joins follow: the app (`keepGoing` in `assis.svelte.ts`) and the stored turn (`ai_more` in `ai.rs`) now add the continuation as it is, with no space of their own. On main they put a space before a continuation that starts with a letter, which would now split a word cut in half ("photo synthesis"). In the main run, 4 of the 7 continuations followed text cut mid-word ("1899 to 19").
+
+Follow-ups:
+- The loop starts in the first answer (`assis::answer`, 062 part D) and is on screen before Keep going is tapped: the same repeat rule there would stop it and not offer Keep going (for a later spec).
+- Content is unchanged by this: the TCP continuation says the receiver "sends the complete message back to the sender", which is wrong.
+- Not measured: a real phone, the 8,192 window (answers there were rarely cut: 1 of 6 in the run above), and Qwen3 1.7B.
