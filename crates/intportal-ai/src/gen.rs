@@ -101,14 +101,15 @@ fn cut_term(front: &str, back: &str) -> String {
         let rest = low.strip_prefix(&format!("{a}{term}"))?;
         LINKS.iter().find(|l| rest.starts_with(*l)).map(|l| back.len() - rest.len() + l.len())
     });
-    let mut c = match cut {
-        Some(cut) => back[cut..].trim_start().chars(),
-        None => return back.to_string(),
-    };
-    match c.next() {
-        Some(first) => first.to_uppercase().chain(c).collect(),
-        None => back.to_string(),
+    match cut {
+        Some(cut) if !back[cut..].trim().is_empty() => cap(back[cut..].trim_start()),
+        _ => back.to_string(),
     }
+}
+
+fn cap(text: &str) -> String {
+    let mut c = text.chars();
+    c.next().map(|first| first.to_uppercase().chain(c).collect()).unwrap_or_default()
 }
 
 /// Whether a (repaired) card is fit for the game.
@@ -137,18 +138,20 @@ pub fn check(card: &Card) -> Result<(), Reject> {
     Ok(())
 }
 
+const NOT: [&str; 4] = ["not", "non", "no", "never"];
+
 /// The words two answers are compared by: `content`, plus what a wrong number or formula changes and
-/// `content` drops, a short number word ("one", "six") and a token with a digit or a math sign kept whole
-/// ("o(n)", "nx^(n+1)", "1896").
+/// `content` drops: a short number word or "not" ("one", "non-zero"), and a token with a digit or a math
+/// sign, kept whole ("o(n)", "nx^(n+1)", "1896").
 fn meaning(text: &str) -> Vec<String> {
-    const NUMBERS: [&str; 6] = ["one", "two", "six", "ten", "few", "all"];
+    const SHORT: [&str; 6] = ["one", "two", "six", "ten", "few", "all"];
     text.split_whitespace()
         .flat_map(|t| {
             let t = t.trim_matches(|c: char| ".,;:!?\"'".contains(c)).to_lowercase();
             if t.chars().any(|c| c.is_ascii_digit() || "^()+=/".contains(c)) && t.chars().any(char::is_alphanumeric) {
                 vec![t]
             } else {
-                words(&t).into_iter().filter(|w| NUMBERS.contains(&w.as_str()) || !content(w).is_empty()).collect()
+                words(&t).into_iter().filter(|w| SHORT.contains(&w.as_str()) || NOT.contains(&w.as_str()) || !content(w).is_empty()).collect()
             }
         })
         .collect()
@@ -161,12 +164,14 @@ fn within(a: &[String], b: &[String]) -> bool {
 }
 
 /// Whether `a` says nothing `b` doesn't: the same words in any order, or one is the other with words left
-/// out ("two identical cells" in "two identical daughter cells"). A near miss built from the other's own
+/// out ("two identical cells" in "two identical daughter cells"), with as many "not"s. A near miss built from the other's own
 /// words in a new order ("every left child is larger", against "every left child is smaller ... every
 /// right child larger") says something else, so it is fair.
 fn near(a: &str, b: &str) -> bool {
     let (x, y) = (meaning(a), meaning(b));
-    key(a) == key(b) || (x.iter().all(|w| y.contains(w)) && y.iter().all(|w| x.contains(w))) || within(&x, &y) || within(&y, &x)
+    // "Always non-zero" and "does not determine" turn the other around: an added "not" is not a copy.
+    let not = |v: &[String]| v.iter().filter(|w| NOT.contains(&w.as_str())).count();
+    not(&x) == not(&y) && ((x.iter().all(|w| y.contains(w)) && y.iter().all(|w| x.contains(w))) || within(&x, &y) || within(&y, &x))
 }
 
 /// Why one wrong answer is unfair for `card` (C19), given the ones before it in the set; `None` if it is
@@ -214,43 +219,76 @@ pub fn pick(card: &Card) -> Vec<String> {
     if kept.len() == 3 { kept } else { vec![] }
 }
 
-/// The wrong-answer rule (063 C15): near misses, each false in one checkable detail, one example of each kind,
-/// in a subject far from most decks.
+/// The wrong-answer rule (063 C15): near misses, each the back made false in one checkable detail, one
+/// example of each kind, in a subject far from most decks. The model names the change and the app makes
+/// it: asked for whole answers, Qwen3.5 2B copied the back word for word in 44 of 88 (docs/ai.md).
 const QUIZ: &str = "
-- wrong: four wrong answers for the same front, for a multiple-choice quiz. Each is a near miss: written like the back and about as long, but false in one detail a student can check. Change one detail per answer, a different one each time:
-  a wrong number: \"Earth's crust is about 35 km thick under continents\" becomes \"Earth's crust is about 350 km thick under continents\".
-  a wrong term: \"Rock formed when melted rock cools and hardens\" becomes \"Rock formed when sand and mud are pressed into layers\".
-  a reversed relation: \"Rock gets hotter the deeper you dig\" becomes \"Rock gets colder the deeper you dig\".
-  Each must be false. Never the back in other words, never something also true, never the front, never \"none of the above\".";
+- wrong: four changes to the back, each making it false in one detail a student can check: a wrong number, a wrong term (another thing of the same kind, which is not true here), or a reversed relation (above for below, more for less). change: one to four words copied exactly from the back. to: other words to put in their place, never the same words. Change a different part of the back each time, so the result is false to anyone who knows the topic.
+  Example: front \"Mantle\", back \"Hot layer of rock about 2,900 km thick that lies below the crust\", wrong [{\"change\": \"2,900\", \"to\": \"29\"}, {\"change\": \"rock\", \"to\": \"ice\"}, {\"change\": \"below\", \"to\": \"above\"}, {\"change\": \"Hot\", \"to\": \"Cold\"}].";
 
 /// Wrong answers for cards that have none (C20): one call for up to `WRONG_BATCH` cards, in order. A card
 /// with fewer than three fair ones (`pick`) gets none, so it still plays Choice from other backs.
 pub const WRONG_BATCH: usize = 8;
 
+/// The longest change the schema lets through, in characters; one that reaches it was cut off.
+const CHANGE_MAX: usize = 40;
+
+/// One wrong answer as the model writes it: a change to the back, or (a stub, an older reply) a whole answer.
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum Wrong {
+    Change { change: String, to: String },
+    Whole(String),
+}
+
+impl Wrong {
+    /// The back with the change made, or nothing when the words to change aren't in it.
+    pub fn answer(self, back: &str) -> Option<String> {
+        let (from, to) = match self {
+            Wrong::Whole(w) => return Some(w),
+            Wrong::Change { change, to } => (change.trim().to_string(), to.trim().to_string()),
+        };
+        // A change the length limit cut off is half a phrase.
+        if from.is_empty() || from.chars().count() >= CHANGE_MAX || to.chars().count() >= CHANGE_MAX {
+            return None;
+        }
+        // ASCII lowering keeps byte offsets, so the match can be cut out of the back as written. Whole words
+        // only: "rock" is not changed inside "rocks".
+        let low = back.to_ascii_lowercase();
+        let at = low.match_indices(&from.to_ascii_lowercase()).map(|(i, _)| i).find(|&i| {
+            let end = i + from.len();
+            !back[..i].ends_with(char::is_alphanumeric) && !back[end..].starts_with(char::is_alphanumeric)
+        })?;
+        // At the start, the new words take the back's capital: "Absorbed" changed to "produced" is "Produced".
+        let to = if at == 0 && back.starts_with(char::is_uppercase) { cap(&to) } else { to };
+        Some(format!("{}{to}{}", &back[..at], &back[at + from.len()..]))
+    }
+}
+
 pub fn wrong_for(llm: &mut dyn Llm, tpl: Template, cards: &[Card]) -> Result<Vec<Vec<String>>, String> {
     let cards = &cards[..cards.len().min(WRONG_BATCH)];
     let list: String = cards.iter().map(|c| format!("- front: {} | back: {}\n", c.front, c.back)).collect();
-    let sys = format!("You write wrong answers for a multiple-choice quiz. Each card has a front and its right answer (the back). For each card, in the same order, give the front again and four wrong answers.{QUIZ}\nEnglish. Reply as JSON.");
+    let sys = format!("You write wrong answers for a multiple-choice quiz. Each card has a front and its right answer (the back). For each card, in the same order, give the front again and four changes to its back.{QUIZ}\nEnglish. Reply as JSON.");
+    let change = json!({"type": "object", "properties": {"change": {"type": "string", "maxLength": CHANGE_MAX}, "to": {"type": "string", "maxLength": CHANGE_MAX}}, "required": ["change", "to"]});
     let schema = json!({"type": "object", "properties": {"cards": {"type": "array", "minItems": cards.len(), "maxItems": cards.len(), "items": {
-        "type": "object", "properties": {"front": {"type": "string", "maxLength": 80}, "wrong": {"type": "array", "minItems": WRONG_ASKED, "maxItems": WRONG_ASKED, "items": {"type": "string", "maxLength": 200}}}, "required": ["front", "wrong"]}}}, "required": ["cards"]});
+        "type": "object", "properties": {"front": {"type": "string", "maxLength": 80}, "wrong": {"type": "array", "minItems": WRONG_ASKED, "maxItems": WRONG_ASKED, "items": change}}, "required": ["front", "wrong"]}}}, "required": ["cards"]});
     let raw = llm.generate(&tpl.wrap(&sys, &format!("Cards:\n{list}")), Some(&schema), 1200, &mut |_| true)?;
     #[derive(Deserialize)]
     struct One {
         #[serde(default)]
-        wrong: Vec<String>,
+        wrong: Vec<Wrong>,
     }
     #[derive(Deserialize)]
     struct W {
         cards: Vec<One>,
     }
     let w: W = reply::parse(&raw).map_err(|e| e.to_string())?;
+    let mut sets = w.cards.into_iter().map(|o| o.wrong);
     Ok(cards
         .iter()
-        .enumerate()
-        .map(|(i, c)| {
-            let mut c = c.clone();
-            c.wrong = w.cards.get(i).map(|o| o.wrong.clone()).unwrap_or_default();
-            pick(&repair(&c))
+        .map(|c| {
+            let wrong = sets.next().unwrap_or_default().into_iter().filter_map(|x| x.answer(c.back.trim())).collect();
+            pick(&repair(&Card { wrong, ..c.clone() }))
         })
         .collect())
 }

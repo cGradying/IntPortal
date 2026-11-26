@@ -25,15 +25,24 @@ impl Llm for Rec {
     }
 }
 
-/// The wrong answers of each card in the wrong-answer replies logged, in card order.
-fn raw_sets(log: &[(String, String, f64)]) -> Vec<Vec<String>> {
+/// The wrong answers each card got in the wrong-answer replies logged, in card order, as the model wrote them.
+fn raw_sets(log: &[(String, String, f64)]) -> Vec<Vec<serde_json::Value>> {
     log.iter()
         .filter(|(p, _, _)| p.contains("wrong answers for a multiple-choice"))
         .flat_map(|(_, r, _)| {
             let v: serde_json::Value = serde_json::from_str(r).unwrap_or_default();
-            v["cards"].as_array().cloned().unwrap_or_default().into_iter().map(|c| c["wrong"].as_array().map(|w| w.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default())
+            v["cards"].as_array().cloned().unwrap_or_default().into_iter().map(|c| c["wrong"].as_array().cloned().unwrap_or_default())
         })
         .collect()
+}
+
+/// A change as the app makes it, with the change shown, or why it could not be made.
+fn applied(back: &str, w: serde_json::Value) -> (String, Option<String>) {
+    let shown = format!("[{} -> {}] ", w["change"].as_str().unwrap_or(""), w["to"].as_str().unwrap_or(""));
+    match serde_json::from_value::<gen::Wrong>(w).ok().and_then(|x| x.answer(back.trim())) {
+        Some(a) => (shown, Some(a)),
+        None => (shown, None),
+    }
 }
 
 fn main() {
@@ -66,15 +75,27 @@ fn main() {
             armed += usize::from(c.wrong.len() == 3);
             println!("  {} | {}  [{}]", c.front, c.back, if c.wrong.len() == 3 { "kept" } else { "dropped" });
             if quiz {
-                let asked = gen::repair(&gen::Card { wrong: raw.get(i).cloned().unwrap_or_default(), ..c.clone() });
+                let mut asked = gen::Card { wrong: vec![], ..c.clone() };
+                let mut shown = vec![];
+                for w in raw.get(i).cloned().unwrap_or_default() {
+                    let (s, a) = applied(&c.back, w);
+                    match a {
+                        Some(a) => {
+                            asked.wrong.push(a);
+                            shown.push(s);
+                        }
+                        None => println!("      - {s} <- not in the back"),
+                    }
+                }
+                let asked = gen::repair(&asked);
                 let mut kept = vec![];
-                for w in &asked.wrong {
+                for (w, s) in asked.wrong.iter().zip(&shown) {
                     let f = if kept.len() == 3 { Some("not needed") } else { gen::wrong_fault(&asked, w, &kept) };
                     if f.is_none() {
                         kept.push(w.clone());
                     }
                     *faults.entry(f.unwrap_or("fair")).or_default() += 1;
-                    println!("      {} {w}{}", if c.wrong.contains(w) { "x" } else { "-" }, f.map(|f| format!("  <- {f}")).unwrap_or_default());
+                    println!("      {} {s}{w}{}", if c.wrong.contains(w) { "x" } else { "-" }, f.map(|f| format!("  <- {f}")).unwrap_or_default());
                 }
             }
             plain.push(gen::Card { wrong: vec![], ..c.clone() });
