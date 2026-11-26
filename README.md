@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cGradying/IntPortal/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/cGradying/IntPortal?color=c8102e&label=release"></a>
+  <a href="https://github.com/cGradying/IntPortal/releases/latest"><img alt="Version" src="https://img.shields.io/github/package-json/v/cGradying/IntPortal?color=c8102e&label=version"></a>
   <a href="https://github.com/cGradying/IntPortal/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/cGradying/IntPortal/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Web-555">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-all%20rights%20reserved-555"></a>
