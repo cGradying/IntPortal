@@ -175,3 +175,76 @@ suite("spec 062 C13: the before-and-after of a note change", () => {
     expect(describe({ kind: "delete_note", key: "note:1", name: "Heaps", preview: "x" })).toMatchObject({ label: "Delete this note?", yes: "Delete" });
   });
 });
+
+suite("spec 062 C5: the note-from-chat card", () => {
+  it("shows the title's subject on the label and the whole body, with Save", () => {
+    expect(describe({ kind: "save_note", title: "Heaps", subject: "COMP 20073", text: "- a\n- b", partial: false })).toEqual({ label: "Note from our chat · COMP 20073", text: "- a\n- b", yes: "Save" });
+  });
+
+  it("has no subject on the label when none was picked", () => {
+    expect(describe({ kind: "save_note", title: "Heaps", subject: null, text: "- a", partial: false }).label).toBe("Note from our chat");
+  });
+
+  it("looks the same when older turns did not fit", () => {
+    const p = { kind: "save_note" as const, title: "Heaps", subject: null, text: "- a", partial: false };
+    expect(describe({ ...p, partial: true })).toEqual(describe(p));
+  });
+});
+
+suite("spec 062 B: the diff and its folds, more cases", () => {
+  const kinds = (rows: { kind: string }[]) => rows.map((r) => r.kind);
+
+  it("shows removed lines before the added ones in each changed block", () => {
+    expect(lineDiff("1\n2\n3", "x\ny\n3")).toEqual([
+      { kind: "del", text: "1" },
+      { kind: "del", text: "2" },
+      { kind: "add", text: "x" },
+      { kind: "add", text: "y" },
+      { kind: "same", text: "3" },
+    ]);
+    expect(kinds(lineDiff("keep\nold\nkeep too", "keep\nnew\nkeep too"))).toEqual(["same", "del", "add", "same"]);
+  });
+
+  it("marks a note that did not change as all unchanged, and a removed last line as removed", () => {
+    expect(kinds(lineDiff("a\nb", "a\nb"))).toEqual(["same", "same"]);
+    expect(lineDiff("a\nb", "a")).toEqual([{ kind: "same", text: "a" }, { kind: "del", text: "b" }]);
+    expect(lineDiff("a\nc", "a\nb\nc")).toEqual([{ kind: "same", text: "a" }, { kind: "add", text: "b" }, { kind: "same", text: "c" }]);
+  });
+
+  it("an appended line is shown as added only", () => {
+    expect(lineDiff("- a\n- b", "- a\n- b\n- c")).toEqual([{ kind: "same", text: "- a" }, { kind: "same", text: "- b" }, { kind: "add", text: "- c" }]);
+  });
+
+  it("adding to an empty note shows only the added line", () => {
+    expect(lineDiff("", "x")).toEqual([{ kind: "add", text: "x" }]);
+  });
+
+  it("rebuilds both notes from the diff", () => {
+    const [a, b] = ["Quiz Friday\nBring ID\nRoom 302\nHeaps", "Quiz Monday\nRoom 302\nCalculator\nHeaps"];
+    const rows = lineDiff(a, b);
+    expect(rows.filter((r) => r.kind !== "add").map((r) => r.text).join("\n")).toBe(a);
+    expect(rows.filter((r) => r.kind !== "del").map((r) => r.text).join("\n")).toBe(b);
+  });
+
+  it("keeps three unchanged lines and folds from four", () => {
+    const same = (n: number) => Array.from({ length: n }, (_, i) => ({ kind: "same" as const, text: String(i) }));
+    expect(folded(same(3))).toHaveLength(3);
+    expect(folded(same(4))).toEqual([same(4)[0], { kind: "fold", n: 2 }, same(4)[3]]);
+    expect(folded(same(10))).toEqual([same(10)[0], { kind: "fold", n: 8 }, same(10)[9]]);
+    expect(folded([])).toEqual([]);
+  });
+
+  it("folds each long run on its own and leaves the changes alone", () => {
+    const run = (tag: string, n: number) => Array.from({ length: n }, (_, i) => ({ kind: "same" as const, text: `${tag}${i}` }));
+    const rows = folded([...run("a", 5), { kind: "del", text: "x" }, { kind: "add", text: "y" }, ...run("b", 2), { kind: "add", text: "z" }, ...run("c", 6)]);
+    expect(kinds(rows)).toEqual(["same", "fold", "same", "del", "add", "same", "same", "add", "same", "fold", "same"]);
+    expect(rows.filter((r) => r.kind === "fold")).toEqual([{ kind: "fold", n: 3 }, { kind: "fold", n: 4 }]);
+  });
+
+  it("shows every line it does not fold: shown plus folded add up to the whole note", () => {
+    const all = lineDiff(Array.from({ length: 12 }, (_, i) => `l${i}`).join("\n"), Array.from({ length: 12 }, (_, i) => (i === 6 ? "NEW" : `l${i}`)).join("\n"));
+    const rows = folded(all);
+    const hidden = rows.reduce((n, r) => n + (r.kind === "fold" ? (r as { n: number }).n : 0), 0);
+    expect(rows.length - rows.filter((r) => r.kind === "fold").length + hidden).toBe(all.length);
+  });
+});

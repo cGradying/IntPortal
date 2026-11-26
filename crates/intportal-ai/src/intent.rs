@@ -45,7 +45,7 @@ pub fn wants_long(msg: &str) -> bool {
     let joined = format!(" {} ", w.join(" "));
     const WORDS: &[&str] = &["explain", "teach", "summarize", "summarise", "compare", "outline", "detail", "detailed", "elaborate", "ipaliwanag", "turuan", "ituro", "ibuod"];
     const PHRASES: &[&str] = &[" walk me through", " step by step", " in detail", " paano gawin", " how do i solve", " how to solve", " difference between", " pros and cons", " tell me everything", " full explanation", " long answer"];
-    w.iter().any(|x| WORDS.contains(&x.as_str())) || PHRASES.iter().any(|p| joined.contains(p))
+    w.iter().any(|x| WORDS.contains(&x.as_str())) || PHRASES.iter().any(|p| joined.contains(&format!("{p} ")))
 }
 
 /// "Make a quiz on recursion", "gawan mo ako ng quiz sa trees": a quiz to make, not one to look up
@@ -53,7 +53,13 @@ pub fn wants_long(msg: &str) -> bool {
 pub fn is_quiz(msg: &str) -> bool {
     let w = words(msg);
     let has = |list: &[&str]| w.iter().any(|x| list.contains(&x.as_str()));
-    has(&["quiz", "quizzes", "pagsusulit"]) && has(&["make", "create", "generate", "write", "build", "gawa", "gawan", "gumawa", "magawa", "quiz me"])
+    let at = |list: &[&str]| w.iter().position(|x| list.contains(&x.as_str()));
+    // "make a note about the quiz" is a note: the quiz is what the note is about, not what to make.
+    let about_a_note = match (at(&["note", "isulat"]), at(&["quiz", "quizzes", "pagsusulit"])) {
+        (Some(n), Some(q)) => n < q,
+        _ => false,
+    };
+    has(&["quiz", "quizzes", "pagsusulit"]) && has(&["make", "create", "generate", "write", "build", "gawa", "gawan", "gumawa", "magawa", "quiz me"]) && !about_a_note
 }
 
 /// Most cards one request makes; a 1B model's context is the next limit.
@@ -66,7 +72,7 @@ pub const CARDS_DEFAULT: usize = 8;
 pub fn card_count(msg: &str) -> Option<usize> {
     const NAMED: [&str; 12] = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
     let w = words(msg);
-    let n = w.iter().enumerate().filter(|(_, x)| ["flashcard", "flashcards", "card", "cards", "quiz", "questions", "items"].contains(&x.as_str())).find_map(|(i, _)| {
+    let n = w.iter().enumerate().filter(|(_, x)| ["flashcard", "flashcards", "card", "cards", "quiz", "question", "questions", "item", "items"].contains(&x.as_str())).find_map(|(i, _)| {
         // "12 na cards", "8 of cards": skip one linking word.
         let before = |k: usize| i.checked_sub(k).map(|j| w[j].as_str());
         let num = |x: &str| x.parse::<usize>().ok().or_else(|| NAMED.iter().position(|n| *n == x).map(|p| p + 1));
@@ -104,7 +110,7 @@ pub fn about_chat(msg: &str) -> bool {
         " napag usapan", " napagusapan", " pinag usapan", " pinagusapan", " usapan natin", " sinabi mo",
     ];
     const LAST: &[&str] = &["this", "that", "it", "these", "down", "ito", "iyan", "yan", "iyon", "yun", "yon", "nito", "niyan", "niyon"];
-    PHRASES.iter().any(|p| joined.contains(p)) || w.last().is_some_and(|x| LAST.contains(&x.as_str()))
+    PHRASES.iter().any(|p| joined.contains(&format!("{p} "))) || w.last().is_some_and(|x| LAST.contains(&x.as_str()))
 }
 
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
@@ -179,6 +185,45 @@ mod tests {
         for msg in ["Note: bring calculator", "Add a note that Prof. Reyes moved the exam", "make a note: remember this", "Pa-add naman ng note: bring calculator", "add a note to bring my ID"] {
             assert!(!about_chat(msg), "{msg}");
         }
+    }
+
+    #[test]
+    fn about_chat_reads_the_chat_phrases_in_english_and_taglish() {
+        for msg in [
+            "save what we discussed", "make a note of what you told me", "put our chat in a note", "note down this conversation", "save all of this as a note", "make a note of all that",
+            "gawa ka ng note sa napag usapan", "gawan mo ng note ang napagusapan", "isulat mo ang usapan natin", "i-note mo ang sinabi mo", "gawan mo ako ng note nito", "note this", "write that down", "jot these",
+        ] {
+            assert!(about_chat(msg), "{msg}");
+        }
+    }
+
+    #[test]
+    fn about_chat_is_not_set_off_by_plain_note_cards_or_reminders() {
+        for msg in ["make a note about photosynthesis", "make a note on the chain rule", "remind me", "remind me to pay tuition", "make cards", "make flashcards about trees", "add a note for MATH 101", "create a note about derivatives"] {
+            assert!(!about_chat(msg), "{msg}");
+        }
+    }
+
+    #[test]
+    fn about_chat_colon_with_two_words_after_it_is_the_notes_own_text() {
+        assert!(!about_chat("note this: bring calculator"), "two words after the colon");
+        assert!(!about_chat("make a note of our chat: bring ID tomorrow"));
+        assert!(about_chat("make a note of this:"), "nothing after the colon");
+        assert!(about_chat("make a note of our chat: ok"), "one word after the colon is not a text");
+    }
+
+    #[test]
+    fn about_chat_phrases_match_whole_words() {
+        assert!(!about_chat("make a note about the chatter"));
+        assert!(!about_chat("make a note about all thatch roofs"));
+    }
+
+    #[test]
+    fn about_chat_only_counts_the_last_word_and_whole_phrases() {
+        assert!(!about_chat("it is due friday, make a note about trees"), "'it' not last");
+        assert!(about_chat("Make a note of this!"), "punctuation is ignored");
+        assert!(about_chat("MAKE A NOTE OF OUR CHAT"));
+        assert!(!about_chat(""));
     }
 
     // #161
@@ -392,5 +437,105 @@ mod tests {
         assert_eq!(subject_in("how is pe doing", &s), None, "two-letter codes are too easy to hit by accident");
         assert_eq!(subject_in("grade sa pe 1", &s), Some("PE 1".into()), "the full code works");
         assert_eq!(subject_in("physical", &s), Some("PE 1".into()), "a long description word is enough");
+    }
+
+    // Spec 062 C18, C23 (part C and D tests).
+    #[test]
+    fn c18_a_making_word_beside_quiz_makes_a_quiz_and_a_lookup_stays_a_lookup() {
+        for msg in ["Make a quiz on recursion", "make me a quiz from my notes", "create a quiz about heaps", "Generate a quiz for MATH 101", "write a quiz on trees", "build a quiz from this note", "gawan mo ako ng quiz sa trees", "gumawa ka ng quiz tungkol sa heaps", "gawa ka ng quiz", "make 5 quizzes", "Make a pagsusulit on trees"] {
+            assert!(is_quiz(msg), "{msg}");
+            assert_eq!(detect(msg), Intent::Cards, "{msg}");
+        }
+        for msg in ["When is the next quiz?", "Is there a quiz tomorrow?", "May quiz ba ako bukas?", "What quizzes do I have this week?", "make flashcards on heaps", "quiz", "Kailan ang pagsusulit ko?"] {
+            assert!(!is_quiz(msg), "{msg}");
+        }
+        assert_eq!(detect("When is the next quiz?"), Intent::Due);
+    }
+
+    #[test]
+    fn c18_a_note_about_a_quiz_is_still_a_note() {
+        for msg in ["make a note that the quiz moved to Friday", "Make a note about the quiz", "gumawa ka ng note para sa quiz"] {
+            assert_eq!(detect(msg), Intent::Note, "{msg}");
+        }
+    }
+
+    #[test]
+    fn c18_a_reminder_still_beats_a_quiz_and_flashcards_stay_flashcards() {
+        assert_eq!(detect("remind me to make a quiz"), Intent::Remind);
+        assert_eq!(detect("make flashcards on heaps"), Intent::Cards);
+        assert!(!is_quiz("make flashcards on heaps"), "a flashcard deck is not a quiz");
+    }
+
+    #[test]
+    fn c17_the_number_of_questions_is_read_beside_quiz_questions_and_items() {
+        for (msg, want) in [
+            ("make a quiz with 10 questions", Some(10)),
+            ("make a quiz of 5 items", Some(5)),
+            ("quiz me with 6 questions on heaps", Some(6)),
+            ("make 12 questions about trees", Some(12)),
+            ("gawan mo ako ng 6 na items sa trees", Some(6)),
+            ("make 8 quiz questions", Some(8)),
+            ("make a quiz of fifty questions", None),
+            ("make a quiz with 99 questions", Some(20)),
+            ("make a quiz on recursion", None),
+        ] {
+            assert_eq!(card_count(msg), want, "{msg}");
+        }
+    }
+
+    #[test]
+    fn c17_a_number_before_a_singular_item_or_question_is_read() {
+        assert_eq!(card_count("create a 10 item quiz from my notes"), Some(10));
+        assert_eq!(card_count("make a 10 question quiz"), Some(10));
+    }
+
+    #[test]
+    fn c23_a_message_that_asks_to_be_taught_wants_a_long_answer() {
+        for msg in [
+            "explain recursion",
+            "Explain recursion step by step",
+            "teach me how heaps work",
+            "walk me through binary search",
+            "walk me through it",
+            "show me step by step how to solve 2x + 3 = 11",
+            "how do I solve a quadratic equation",
+            "what is the difference between a stack and a queue",
+            "summarize chapter 3 in detail",
+            "give me an outline of the French Revolution",
+            "compare BFS and DFS",
+            "Can you please elaborate on that",
+            "paki-explain mo naman ang recursion",
+            "ipaliwanag mo ang heaps",
+            "turuan mo ako ng recursion",
+            "ituro mo sa akin ang binary search",
+            "paano gawin ang long division",
+            "ibuod mo ang chapter 2",
+            "explain mo nga ang pointers, step by step",
+            "EXPLAIN RECURSION!!!",
+            "tell me everything about the Katipunan",
+        ] {
+            assert!(wants_long(msg), "{msg}");
+        }
+    }
+
+    #[test]
+    fn c23_a_short_question_wants_a_short_answer() {
+        for msg in [
+            "what is a stack?",
+            "who is Jose Rizal",
+            "what's the capital of France?",
+            "define heap",
+            "ano ang GWA ko",
+            "kailan ang quiz ko",
+            "when did the Philippines become independent",
+            "is a tomato a fruit",
+            "who is my teacher",
+            "what does explanatory mean",
+            "How many credits is COMP 20073?",
+            "hi",
+            "",
+        ] {
+            assert!(!wants_long(msg), "{msg}");
+        }
     }
 }

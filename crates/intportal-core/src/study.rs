@@ -448,5 +448,35 @@ mod tests {
         ];
         assert_eq!(forecast_7(&cards, today, manila), [3, 1, 0, 0, 0, 0, 1]);
     }
-}
 
+    // Spec 062 C16: a card's wrong answers on the wire and on disk.
+    #[test]
+    fn c16_a_card_saved_before_wrong_answers_existed_reads_with_none() {
+        let mut v: serde_json::Value = serde_json::to_value(card("x", "y")).unwrap();
+        v.as_object_mut().unwrap().remove("wrong");
+        v.as_object_mut().unwrap().remove("accepted");
+        let c2: Card = serde_json::from_value(v).unwrap();
+        assert!(c2.wrong.is_empty() && c2.accepted.is_empty());
+    }
+
+    #[test]
+    fn c16_a_card_without_wrong_answers_writes_no_wrong_field_and_one_with_them_round_trips() {
+        let plain = serde_json::to_value(card("Osmosis", "Water moving")).unwrap();
+        assert!(plain.get("wrong").is_none(), "an empty list is left out: old readers see nothing new");
+        let mut c = card("Osmosis", "Water moving");
+        c.wrong = vec!["Sugar leaving a cell".into(), "Gas drifting through air".into(), "Salt forming as water dries".into()];
+        let json = serde_json::to_string(&c).unwrap();
+        assert!(json.contains("\"wrong\":[\"Sugar leaving a cell\""));
+        let back: Card = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, c);
+        let again: Card = serde_json::from_str(&serde_json::to_string(&back).unwrap()).unwrap();
+        assert_eq!(again.wrong, c.wrong, "order kept");
+    }
+
+    #[test]
+    fn c16_an_empty_wrong_list_reads_as_none() {
+        let mut v = serde_json::to_value(card("x", "y")).unwrap();
+        v["wrong"] = serde_json::json!([]);
+        assert!(serde_json::from_value::<Card>(v).unwrap().wrong.is_empty());
+    }
+}

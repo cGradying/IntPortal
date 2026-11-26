@@ -83,3 +83,29 @@ describe("cards from a PDF", () => {
     expect(pdfError("busy")).toBe("LAR is still working on something. Give it a second.");
   });
 });
+
+describe("spec 062 C16: a quiz card's wrong answers through tidy", () => {
+  const three = ["Sugar leaving a cell", "Gas drifting through air", "Salt forming as water dries"];
+
+  it("keeps exactly three wrong answers and drops any other number", () => {
+    const out = tidy([
+      { front: "Osmosis", back: "Water moving", wrong: three },
+      { front: "Diffusion", back: "Spreading", wrong: three.slice(0, 2) },
+      { front: "Mitosis", back: "Splitting", wrong: [...three, "A fourth"] },
+      { front: "Meiosis", back: "Halving", wrong: [] },
+      { front: "Fission", back: "Dividing" },
+    ], []);
+    expect(out.map((c) => c.wrong?.length)).toEqual([3, undefined, undefined, undefined, undefined]);
+    expect(out).toHaveLength(5);
+  });
+
+  it("trims the card and leaves the wrong answers as given", () => {
+    expect(tidy([{ front: "  Osmosis ", back: " Water moving ", wrong: three }], [])).toEqual([{ front: "Osmosis", back: "Water moving", wrong: three }]);
+  });
+
+  it("a duplicate front is dropped with its wrong answers", () => {
+    const out = tidy([{ front: "Osmosis", back: "a", wrong: three }, { front: "osmosis!", back: "b", wrong: three }], []);
+    expect(out).toHaveLength(1);
+  });
+});
+

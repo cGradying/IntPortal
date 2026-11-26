@@ -46,7 +46,14 @@ pub fn kind(msg: &str, note_open: bool) -> Option<Kind> {
     if new_note {
         return None;
     }
-    let part = has(&w, &["line", "lines", "part", "bullet", "sentence", "word", "words", "date", "time", "from"]);
+    // "remove heaps from my note" takes a part out; "remove my note from yesterday" deletes the note.
+    let at = |list: &[&str]| w.iter().position(|x| list.contains(&x.as_str()));
+    let from_a_note = match (at(&["from"]), at(&["note", "notes"])) {
+        (Some(f), Some(n)) => f < n,
+        (Some(_), None) => true,
+        _ => false,
+    };
+    let part = has(&w, &["line", "lines", "part", "bullet", "sentence", "word", "words", "date", "time"]) || from_a_note;
     if has(&w, &["rename", "retitle"]) || joined.contains(" change the title") || joined.contains(" call it ") || joined.contains(" palitan ang pangalan") || joined.contains(" title to ") {
         Some(Kind::Rename)
     } else if has(&w, &["move", "file", "ilipat"]) || joined.contains(" put it under") {
@@ -110,10 +117,11 @@ pub fn target(msg: &str, open: Option<&NoteRef>, notes: &[NoteRef], subject: Opt
 
 /// The new name in "rename this note to Midterm review", "call it 'Heaps'".
 pub fn new_title(msg: &str) -> Option<String> {
-    let quoted = msg.split(['"', '\u{201c}', '\u{201d}', '\'']).nth(1).map(str::trim).filter(|q| !q.is_empty());
+    // Double quotes only: an apostrophe ("Prof's notes") is not a quote. Single quotes are trimmed below.
+    let quoted = msg.split(['"', '\u{201c}', '\u{201d}']).nth(1).map(str::trim).filter(|q| !q.is_empty());
     let after = |k: &str| msg.to_lowercase().rfind(k).map(|i| msg[i + k.len()..].trim().to_string());
     let t = quoted.map(String::from).or_else(|| after(" to ")).or_else(|| after(" as ")).or_else(|| after(" it "))?;
-    let t = t.trim_end_matches(['.', '!', '?']).trim().to_string();
+    let t = t.trim_end_matches(['.', '!', '?']).trim().trim_matches(['"', '\'', '\u{201c}', '\u{201d}', '\u{2018}', '\u{2019}']).trim().to_string();
     (!t.is_empty() && t.chars().count() <= 80).then_some(t)
 }
 
@@ -130,10 +138,11 @@ pub struct LineEdit {
 pub fn apply(text: &str, edits: &[LineEdit]) -> Option<String> {
     let mut lines: Vec<String> = text.lines().map(String::from).collect();
     let n = lines.len();
-    let mut ok: Vec<&LineEdit> = edits.iter().filter(|e| match e.op.as_str() { "insert" => e.line <= n, "replace" | "remove" => (1..=n).contains(&e.line), _ => false }).collect();
-    // From the bottom up, so each edit's line number still means the line the model saw.
-    ok.sort_by_key(|e| std::cmp::Reverse(e.line));
-    for e in ok {
+    let mut ok: Vec<(usize, &LineEdit)> = edits.iter().enumerate().filter(|(_, e)| match e.op.as_str() { "insert" => e.line <= n, "replace" | "remove" => (1..=n).contains(&e.line), _ => false }).collect();
+    // From the bottom up, so each edit's line number still means the line the model saw. On one line the
+    // inserts go first (after the line as it was), last-listed first, so they read in the model's order.
+    ok.sort_by_key(|&(i, e)| (std::cmp::Reverse(e.line), e.op != "insert", std::cmp::Reverse(i)));
+    for (_, e) in ok {
         match e.op.as_str() {
             "replace" => {
                 let was = &lines[e.line - 1];
@@ -320,6 +329,306 @@ mod tests {
         let note = n("note:1", "Q", None, "Quiz Friday");
         let mut m = FakeLlm::new(&[r#"{"edits":[{"op":"replace","line":1,"text":"Quiz Friday"}]}"#]);
         assert_eq!(rewrite(&mut m, Template::ChatMl, Kind::Change, &note, &[], "fix it").unwrap_err(), "That didn't change anything in the note.");
+    }
+
+    fn le(op: &str, line: usize, text: &str) -> LineEdit {
+        LineEdit { op: op.into(), line, text: text.into() }
+    }
+
+    #[test]
+    fn c7_more_ways_to_ask_for_each_kind() {
+        for (msg, open, want) in [
+            ("append the formula to my Math note", false, Some(Kind::Append)),
+            ("include the room in this note", true, Some(Kind::Append)),
+            ("idagdag sa note ko ang formula", false, Some(Kind::Append)),
+            ("add a line to my heaps note", false, Some(Kind::Append)),
+            ("edit my COMP note", false, Some(Kind::Change)),
+            ("update the room in my note", false, Some(Kind::Change)),
+            ("baguhin ang date sa note ko", false, Some(Kind::Change)),
+            ("alisin ang line 2 sa note ko", false, Some(Kind::Change)),
+            ("remove the date from my note", false, Some(Kind::Change)),
+            ("organize my heaps note", false, Some(Kind::Tidy)),
+            ("linisin ang note ko", false, Some(Kind::Tidy)),
+            ("check the grammar in this note", true, Some(Kind::Tidy)),
+            ("retitle my heaps note to Trees", false, Some(Kind::Rename)),
+            ("change the title of this note to Trees", true, Some(Kind::Rename)),
+            ("call it Trees", true, Some(Kind::Rename)),
+            ("palitan ang pangalan ng note ko", false, Some(Kind::Rename)),
+            ("ilipat mo ang note ko sa MATH 101", false, Some(Kind::Move)),
+            ("file my heaps note under COMP 20073", false, Some(Kind::Move)),
+            ("put it under MATH 101", true, Some(Kind::Move)),
+            ("erase my heaps note", false, Some(Kind::Delete)),
+            ("trash this note", true, Some(Kind::Delete)),
+            ("remove my heaps note", false, Some(Kind::Delete)),
+            ("tanggalin ang note ko sa heaps", false, Some(Kind::Delete)),
+            ("DELETE MY NOTE ABOUT HEAPS!", false, Some(Kind::Delete)),
+        ] {
+            assert_eq!(kind(msg, open), want, "{msg}");
+        }
+    }
+
+    #[test]
+    fn c7_a_new_note_a_reminder_cards_or_a_quiz_is_never_an_edit() {
+        for (msg, open) in [
+            ("add a note about heaps", false),
+            ("create a note for my math class", false),
+            ("write a note that the exam moved", true),
+            ("take a note: delete the old file", true),
+            ("jot this down in my notes", false),
+            ("Add the formula to a new note", false),
+            ("remind me to delete my note", false),
+            ("paalala: palitan ang note ko", false),
+            ("make flashcards from this note", true),
+            ("add a card to my note", true),
+            ("make a quiz from my notes", false),
+            ("when is the next quiz in my notes", false),
+            ("delete this note and make cards", true),
+        ] {
+            assert_eq!(kind(msg, open), None, "{msg}");
+        }
+    }
+
+    #[test]
+    fn c7_it_must_be_about_a_note_and_name_a_change() {
+        assert_eq!(kind("delete it", false), None, "no note named, none open");
+        assert_eq!(kind("fix the spelling", false), None);
+        assert_eq!(kind("what does my note say", false), None, "a question about a note is not an edit");
+        assert_eq!(kind("show me my notes", false), None);
+        assert_eq!(kind("hello", true), None);
+        assert_eq!(kind("", true), None);
+    }
+
+    #[test]
+    fn c7_removing_a_part_changes_the_note_but_removing_the_note_deletes_it() {
+        assert_eq!(kind("remove the last bullet from my note", false), Some(Kind::Change));
+        assert_eq!(kind("remove the first sentence of this note", true), Some(Kind::Change));
+    }
+
+    #[test]
+    fn c7_remove_my_note_from_a_day_deletes_the_note() {
+        assert_eq!(kind("remove my note from yesterday", false), Some(Kind::Delete));
+    }
+
+    fn pool() -> Vec<NoteRef> {
+        vec![
+            n("note:1", "Heaps", Some("COMP 20073"), "A max-heap keeps the biggest on top"),
+            n("note:2", "Trees", Some("COMP 20073"), "Heaps are trees"),
+            n("note:3", "Stacks", Some("COMP 20073"), "LIFO"),
+            n("class:MATH 101", "MATH 101", Some("MATH 101"), "Quiz Friday"),
+        ]
+    }
+
+    #[test]
+    fn c8_a_name_match_counts_three_and_a_text_match_one() {
+        // "heaps": name of note 1 (3) against the text of note 2 (1): 3 >= 2 * 1, so note 1 wins clearly.
+        assert!(matches!(target("delete my heaps note", None, &pool(), None), Target::One(t) if t.key == "note:1"));
+        // Only a text match is still a match.
+        assert!(matches!(target("delete my note about biggest", None, &pool(), None), Target::One(t) if t.key == "note:1"));
+    }
+
+    #[test]
+    fn c8_the_subject_in_the_request_adds_three() {
+        // "stacks" is a name match for note 3 (3). Subject adds 3 to every COMP note: 3 -> 6, others 0 -> 3.
+        let notes = [n("note:a", "Stacks", Some("COMP 20073"), ""), n("note:b", "Queues", Some("MATH 101"), "stacks")];
+        // a: 3 + 3 = 6, b: 1. A clear winner.
+        assert!(matches!(target("tidy my stacks note", None, &notes, Some("COMP 20073")), Target::One(t) if t.key == "note:a"));
+        // With a subject only (no topic words) every note in it ties: the student picks.
+        assert!(matches!(target("tidy my COMP note", None, &pool(), Some("COMP 20073")), Target::Pick(v) if v.len() == 3));
+    }
+
+    #[test]
+    fn c8_a_clear_winner_needs_twice_the_next_score() {
+        let top = |text: &str| n("note:1", "x", None, text);
+        let other = |text: &str| n("note:2", "y", None, text);
+        // 2 text hits against 1: exactly twice, so one note.
+        let notes = [top("alpha beta"), other("alpha")];
+        assert!(matches!(target("fix alpha beta", None, &notes, None), Target::One(t) if t.key == "note:1"));
+        // 3 (a name hit) against 2: less than twice, so the student picks, best first.
+        let notes = [other("alpha beta"), n("note:1", "Alpha", None, "")];
+        match target("fix alpha beta", None, &notes, None) {
+            Target::Pick(v) => assert_eq!(v.iter().map(|n| n.key.as_str()).collect::<Vec<_>>(), ["note:1", "note:2"]),
+            _ => panic!("3 against 2 is not a clear winner"),
+        }
+        // A tie is a pick, in the order the notes came.
+        let notes = [n("note:1", "Heaps", None, ""), n("note:2", "Heaps", None, "")];
+        assert!(matches!(target("delete my heaps note", None, &notes, None), Target::Pick(v) if v[0].key == "note:1" && v.len() == 2));
+    }
+
+    #[test]
+    fn c8_never_more_than_four_buttons() {
+        let notes: Vec<NoteRef> = (0..7).map(|i| n(&format!("note:{i}"), "Heaps", None, "")).collect();
+        assert!(matches!(target("delete my heaps note", None, &notes, None), Target::Pick(v) if v.len() == PICK_MAX));
+    }
+
+    #[test]
+    fn c8_the_open_note_wins_over_a_better_match_and_with_no_notes_at_all() {
+        let open = n("note:9", "Open", None, "x");
+        assert!(matches!(target("delete my heaps note", Some(&open), &pool(), None), Target::One(t) if t.key == "note:9"));
+        assert!(matches!(target("delete my heaps note", Some(&open), &[], None), Target::One(_)));
+    }
+
+    #[test]
+    fn c8_no_match_means_none_not_a_guess() {
+        assert!(matches!(target("delete my note", None, &pool(), None), Target::None), "no topic words, no subject");
+        assert!(matches!(target("delete my heaps note", None, &[], None), Target::None));
+        // Short words and request words don't count as the topic.
+        assert!(matches!(target("fix it up to my note", None, &[n("note:1", "Up to it", None, "it up")], None), Target::None));
+        // A subject the note doesn't have adds nothing.
+        assert!(matches!(target("tidy my note", None, &pool(), Some("PHYS 1")), Target::None));
+    }
+
+    #[test]
+    fn c12_the_new_title_has_its_edge_cases() {
+        assert_eq!(new_title("retitle this note as Heaps and stacks.").as_deref(), Some("Heaps and stacks"));
+        assert_eq!(new_title("rename it to “Midterm”").as_deref(), Some("Midterm"));
+        assert_eq!(new_title("change the title to Week 3 recap!").as_deref(), Some("Week 3 recap"));
+        assert_eq!(new_title("call it Heaps").as_deref(), Some("Heaps"));
+        assert_eq!(new_title(&format!("rename this note to {}", "x".repeat(81))), None, "80 characters at most");
+        assert_eq!(new_title(&format!("rename this note to {}", "x".repeat(80))).map(|t| t.len()), Some(80));
+        assert_eq!(new_title(""), None);
+    }
+
+    #[test]
+    fn c12_an_empty_quote_names_nothing() {
+        assert_eq!(new_title("rename this note to \"\""), None);
+    }
+
+    #[test]
+    fn c12_an_apostrophe_in_the_new_title_is_part_of_it() {
+        assert_eq!(new_title("rename my note to Prof's notes").as_deref(), Some("Prof's notes"));
+    }
+
+    #[test]
+    fn c9_remove_edits_go_bottom_up_so_each_number_is_the_line_the_model_saw() {
+        assert_eq!(apply("a\nb\nc\nd", &[le("remove", 1, ""), le("remove", 2, "")]).unwrap(), "c\nd");
+        assert_eq!(apply("a\nb\nc\nd", &[le("remove", 2, ""), le("remove", 1, "")]).unwrap(), "c\nd", "the order the model listed them in does not matter");
+        assert_eq!(apply("a\nb\nc", &[le("remove", 1, ""), le("replace", 3, "C")]).unwrap(), "b\nC");
+        assert_eq!(apply("a\nb\nc", &[le("replace", 3, "C"), le("insert", 1, "x")]).unwrap(), "a\nx\nb\nC");
+    }
+
+    #[test]
+    fn c9_insert_at_the_top_after_the_last_line_and_past_it() {
+        assert_eq!(apply("a\nb", &[le("insert", 0, "top")]).unwrap(), "top\na\nb");
+        assert_eq!(apply("a\nb", &[le("insert", 2, "end")]).unwrap(), "a\nb\nend", "after the last line is in range");
+        assert_eq!(apply("a\nb", &[le("insert", 3, "lost")]), None, "past the end is dropped");
+        assert_eq!(apply("a\nb", &[le("insert", 3, "lost"), le("insert", 1, "mid")]).unwrap(), "a\nmid\nb");
+    }
+
+    #[test]
+    fn c9_lines_out_of_range_or_unknown_ops_are_dropped() {
+        assert_eq!(apply("a\nb", &[le("replace", 0, "x")]), None, "line 0 is not a line to replace");
+        assert_eq!(apply("a\nb", &[le("remove", 0, "")]), None);
+        assert_eq!(apply("a\nb", &[le("remove", 3, "")]), None);
+        assert_eq!(apply("a\nb", &[le("rewrite", 1, "x")]), None, "an op it doesn't know");
+        assert_eq!(apply("a\nb", &[]), None);
+        assert_eq!(apply("a\nb", &[le("bogus", 1, "x"), le("replace", 2, "B")]).unwrap(), "a\nB");
+    }
+
+    #[test]
+    fn c9_a_replaced_bullet_keeps_its_lead() {
+        assert_eq!(apply("- a\n* b\n  - c\n• d", &[le("replace", 1, "A"), le("replace", 2, "B"), le("replace", 3, "C"), le("replace", 4, "D")]).unwrap(), "- A\n* B\n  - C\n• D");
+        assert_eq!(apply("- a", &[le("replace", 1, "- b")]).unwrap(), "- b", "it already has its own bullet");
+        assert_eq!(apply("- a", &[le("replace", 1, "* b")]).unwrap(), "* b", "the model's own bullet wins");
+        assert_eq!(apply("plain", &[le("replace", 1, "  - b  ")]).unwrap(), "  - b", "a plain line takes the text as it is, trailing space trimmed");
+        assert_eq!(apply("- a", &[le("replace", 1, "a")]), None, "same words under the same bullet is no change");
+    }
+
+    #[test]
+    fn c9_an_edit_that_only_changes_trailing_blank_space_changes_nothing() {
+        assert_eq!(apply("a\nb\n", &[le("replace", 2, "b")]), None);
+    }
+
+    #[test]
+    fn c9_two_inserts_after_the_same_line_keep_the_order_given() {
+        assert_eq!(apply("a\nb", &[le("insert", 1, "x"), le("insert", 1, "y")]).unwrap(), "a\nx\ny\nb");
+    }
+
+    #[test]
+    fn c9_a_remove_and_an_insert_at_the_same_line_number_use_the_original_numbers() {
+        assert_eq!(apply("a\nb\nc", &[le("remove", 1, ""), le("insert", 1, "x")]).unwrap(), "x\nb\nc");
+    }
+
+    #[test]
+    fn c10_append_drops_repeats_blank_lines_and_lines_the_note_has() {
+        let note = n("note:1", "Q", None, "- Quiz Friday\n- Bring ID\n");
+        let mut m = FakeLlm::new(&[r#"{"lines":["- bring id.","","- Room 302","- ROOM 302!","   ","Calculator"]}"#]);
+        assert_eq!(
+            rewrite(&mut m, Template::ChatMl, Kind::Append, &note, &[], "add the room and calculator to my note").unwrap(),
+            "- Quiz Friday\n- Bring ID\n- Room 302\nCalculator",
+            "the note's own trailing newline is not doubled"
+        );
+        let mut m = FakeLlm::new(&[r#"{"lines":["Quiz Friday","bring ID"]}"#]);
+        assert_eq!(rewrite(&mut m, Template::ChatMl, Kind::Append, &note, &[], "add the quiz to my note").unwrap_err(), "That didn't change anything in the note.");
+        let mut m = FakeLlm::new(&[r#"{"lines":["", "  "]}"#]);
+        assert!(rewrite(&mut m, Template::ChatMl, Kind::Append, &note, &[], "add it to my note").is_err());
+    }
+
+    #[test]
+    fn c10_an_empty_note_can_be_appended_to_but_not_changed() {
+        let empty = n("note:1", "E", None, "  \n");
+        let mut m = FakeLlm::new(&[r#"{"lines":["First line","Second"]}"#]);
+        assert_eq!(rewrite(&mut m, Template::ChatMl, Kind::Append, &empty, &[], "add a first line to this note").unwrap(), "First line\nSecond");
+        let mut m = FakeLlm::new(&[]);
+        assert!(rewrite(&mut m, Template::ChatMl, Kind::Change, &empty, &[], "fix this note").unwrap_err().contains("empty"));
+        assert!(rewrite(&mut m, Template::ChatMl, Kind::Tidy, &empty, &[], "tidy this note").unwrap_err().contains("empty"));
+        assert!(m.prompts.is_empty(), "no model call for nothing");
+    }
+
+    #[test]
+    fn c10_the_chat_goes_in_only_when_the_request_points_at_it() {
+        let chat = [("old".to_string(), "older answer".to_string()), ("power rule?".to_string(), "LAR said d/dx x^n".to_string())];
+        let note = n("note:1", "Q", None, "Quiz Friday");
+        for (msg, pointed) in [("add a line about Monday to this note", false), ("add what you said to this note", true), ("idagdag ang sinabi mo sa note", true), ("add the formula from above", true), ("add the chat to this note", true)] {
+            let mut m = FakeLlm::new(&[r#"{"lines":["new line"]}"#]);
+            rewrite(&mut m, Template::ChatMl, Kind::Append, &note, &chat, msg).unwrap();
+            assert_eq!(m.prompts[0].contains("Chat:") && m.prompts[0].contains("LAR said d/dx x^n"), pointed, "{msg}");
+            assert!(!m.prompts[0].contains("older answer") || !pointed || chat.len() <= 2, "only the last two turns");
+        }
+        let mut m = FakeLlm::new(&[r#"{"edits":[{"op":"replace","line":1,"text":"Quiz Monday"}]}"#]);
+        rewrite(&mut m, Template::ChatMl, Kind::Change, &note, &chat, "change it to what you said").unwrap();
+        assert!(m.prompts[0].contains("LAR said d/dx x^n"), "Change gets the chat too when pointed at");
+        let mut m = FakeLlm::new(&[r#"{"edits":[{"op":"replace","line":1,"text":"Quiz Monday"}]}"#]);
+        rewrite(&mut m, Template::ChatMl, Kind::Change, &note, &chat, "change friday to monday").unwrap();
+        assert!(!m.prompts[0].contains("Chat:"));
+    }
+
+    #[test]
+    fn c10_a_pointed_at_chat_with_no_turns_adds_no_empty_chat_section() {
+        let note = n("note:1", "Q", None, "Quiz Friday");
+        let mut m = FakeLlm::new(&[r#"{"lines":["new"]}"#]);
+        rewrite(&mut m, Template::ChatMl, Kind::Append, &note, &[], "add what you said to this note").unwrap();
+        assert!(!m.prompts[0].contains("Chat:"));
+    }
+
+    #[test]
+    fn c9_every_edit_out_of_range_or_a_broken_reply_is_said_plainly() {
+        let note = n("note:1", "Q", None, "Quiz Friday");
+        let mut m = FakeLlm::new(&[r#"{"edits":[{"op":"replace","line":9,"text":"x"},{"op":"remove","line":5}]}"#]);
+        assert_eq!(rewrite(&mut m, Template::ChatMl, Kind::Change, &note, &[], "fix it").unwrap_err(), "That didn't change anything in the note.");
+        let mut m = FakeLlm::new(&[r#"{"edits":[]}"#]);
+        assert_eq!(rewrite(&mut m, Template::ChatMl, Kind::Change, &note, &[], "fix it").unwrap_err(), "That didn't change anything in the note.");
+        let mut m = FakeLlm::new(&["I changed it!"]);
+        assert!(rewrite(&mut m, Template::ChatMl, Kind::Change, &note, &[], "fix it").is_err());
+        let mut m = FakeLlm::new(&[]);
+        assert!(rewrite(&mut m, Template::ChatMl, Kind::Append, &note, &[], "add x to my note").is_err(), "a model that fails is an error, not a panic");
+    }
+
+    #[test]
+    fn c15_a_note_of_exactly_the_limit_is_still_edited_one_over_is_not() {
+        let at = n("note:1", "L", None, &"x".repeat(note::MAX_NOTE));
+        let mut m = FakeLlm::new(&[r#"{"lines":["more"]}"#]);
+        assert!(rewrite(&mut m, Template::ChatMl, Kind::Append, &at, &[], "add more to this note").is_ok());
+        let over = n("note:1", "L", None, &"x".repeat(note::MAX_NOTE + 1));
+        for k in [Kind::Append, Kind::Tidy, Kind::Change] {
+            assert!(rewrite(&mut FakeLlm::new(&[]), Template::ChatMl, k, &over, &[], "edit this note").unwrap_err().contains("too long"), "{k:?}");
+        }
+    }
+
+    #[test]
+    fn c15_the_limit_counts_characters_not_bytes() {
+        let ok = n("note:1", "L", None, &"é".repeat(note::MAX_NOTE));
+        let mut m = FakeLlm::new(&[r#"{"lines":["more"]}"#]);
+        assert!(rewrite(&mut m, Template::ChatMl, Kind::Append, &ok, &[], "add more to this note").is_ok());
     }
 
     #[test]

@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { cancel, isPermissionGranted, pending as devicePending, requestPermission } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { addSearch, apply, keepGoing, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, choices, larStyle, spaceLine, speedOf, etaLine, newChat, noRoom, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
+import { addSearch, apply, keepGoing, writeWrongAnswers, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, choices, larStyle, spaceLine, speedOf, etaLine, newChat, noRoom, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -1076,3 +1076,392 @@ describe("spec 062 C25: Keep going", () => {
     expect(assis.chat[1].cut).toBeUndefined();
   });
 });
+
+describe("spec 062 C5: saving a note made from the chat", () => {
+  const pending = (proposal: any) => (assis.chat = [{ from: "lar", text: "Here's a note.", proposal, state: "pending" }]);
+  const card = (o: any = {}) => ({ kind: "save_note", title: "Heaps", subject: "COMP 20073", text: "- A tree", partial: false, ...o });
+  beforeEach(() => {
+    backend.set_note = () => undefined;
+    backend.set_note_subject = () => undefined;
+    backend.notes = () => [];
+  });
+
+  it("a card left alone saves nothing", async () => {
+    pending(card());
+    await settle();
+    expect(ran("set_note")).toHaveLength(0);
+    expect(ran("set_note_subject")).toHaveLength(0);
+    expect(assis.chat[0].state).toBe("pending");
+  });
+
+  it("dismissing the card saves nothing", async () => {
+    pending(card());
+    dismiss(0);
+    await settle();
+    expect(calls.filter(([c]) => c === "set_note" || c === "set_note_subject")).toHaveLength(0);
+    expect(assis.chat[0].state).toBe("dismissed");
+  });
+
+  it("Save writes the note, then its subject, in that order", async () => {
+    pending(card());
+    await apply(0);
+    expect(calls.map(([c]) => c).filter((c) => c === "set_note" || c === "set_note_subject")).toEqual(["set_note", "set_note_subject"]);
+  });
+
+  it("a note with no subject sets no subject", async () => {
+    pending(card({ subject: null }));
+    await apply(0);
+    expect(ran("set_note")).toHaveLength(1);
+    expect(ran("set_note_subject")).toHaveLength(0);
+  });
+
+  it("a blank title is saved as the fallback title and the text is trimmed", async () => {
+    pending(card({ title: "  ", text: "\n- A tree  \n" }));
+    await apply(0);
+    expect(ran("set_note")[0][1]).toMatchObject({ title: "Notes from our chat", text: "- A tree" });
+  });
+
+  it("each Save makes a new note key, never an existing one", async () => {
+    pending(card());
+    await apply(0);
+    pending(card());
+    await apply(0);
+    const [a, b] = ran("set_note").map((c) => c[1].key);
+    expect(a).toMatch(/^note:/);
+    expect(a).not.toBe(b);
+  });
+
+  it("saving twice does nothing the second time", async () => {
+    pending(card());
+    await apply(0);
+    await apply(0);
+    expect(ran("set_note")).toHaveLength(1);
+  });
+
+  it("a failed save keeps the card pending and does not set the subject", async () => {
+    backend.set_note = () => Promise.reject("Disk is full.");
+    pending(card());
+    await apply(0);
+    expect(assis.chat[0]).toMatchObject({ state: "pending", problem: "Disk is full." });
+    expect(ran("set_note_subject")).toHaveLength(0);
+  });
+});
+
+import { pickNote, undoChange } from "./assis.svelte";
+
+describe("spec 062 B: LAR changes a note", () => {
+  const card = (proposal: any, extra: object = {}) => (assis.chat = [{ from: "lar", text: "Sure.", proposal, state: "pending", ...extra } as any]);
+  const note = { key: "note:1", text: "x", title: "Heaps", updated: 1, subject: null, pinned: false, preview: "" };
+
+  it("C13: Apply writes an edit's new text through the one change command and offers Undo", async () => {
+    backend.lar_note_change = () => undefined;
+    backend.notes = () => [note];
+    card({ kind: "edit_note", key: "note:1", name: "Heaps", edit: "change", before: "a", after: "b" });
+    await apply(0);
+    expect(ran("lar_note_change")[0][1]).toEqual({ key: "note:1", text: "b", title: null, subject: null, delete: false });
+    expect(assis.chat[0]).toMatchObject({ state: "done", undo: true });
+    expect(ran("set_note")).toHaveLength(0);
+  });
+
+  it("C12: rename sets only the title, move only the subject, delete only the delete flag", async () => {
+    backend.lar_note_change = () => undefined;
+    backend.notes = () => [];
+    card({ kind: "rename_note", key: "note:1", name: "Heaps", title: "Trees" });
+    await apply(0);
+    card({ kind: "move_note", key: "note:1", name: "Heaps", subject: "MATH 101" });
+    await apply(0);
+    card({ kind: "delete_note", key: "note:1", name: "Heaps", preview: "x" });
+    await apply(0);
+    expect(ran("lar_note_change").map((c) => c[1])).toEqual([
+      { key: "note:1", text: null, title: "Trees", subject: null, delete: false },
+      { key: "note:1", text: null, title: null, subject: "MATH 101", delete: false },
+      { key: "note:1", text: null, title: null, subject: null, delete: true },
+    ]);
+    expect(assis.chat[0].undo).toBe(true);
+  });
+
+  it("an edit that can't be saved stays pending, with the reason, and offers no Undo", async () => {
+    backend.lar_note_change = () => Promise.reject("This note has photos. Delete it from the note itself.");
+    card({ kind: "delete_note", key: "note:1", name: "Heaps", preview: "x" });
+    await apply(0);
+    expect(assis.chat[0]).toMatchObject({ state: "pending", problem: "This note has photos. Delete it from the note itself." });
+    expect(assis.chat[0].undo).toBeFalsy();
+  });
+
+  it("Cancel leaves the note alone, and a card already applied does not apply twice", async () => {
+    backend.lar_note_change = () => undefined;
+    backend.notes = () => [];
+    card({ kind: "rename_note", key: "note:1", name: "Heaps", title: "Trees" });
+    dismiss(0);
+    await apply(0);
+    expect(ran("lar_note_change")).toHaveLength(0);
+    card({ kind: "rename_note", key: "note:1", name: "Heaps", title: "Trees" });
+    await apply(0);
+    await apply(0);
+    expect(ran("lar_note_change")).toHaveLength(1);
+  });
+
+  it("C8: tapping a note asks the same request again about that note, without repeating the student's words", async () => {
+    backend.ai_ask = () => reply("Delete Heaps? You can undo it right after.", { proposal: { kind: "delete_note", key: "note:2", name: "Heaps", preview: "x" } });
+    assis.chat = [{ from: "me", text: "delete my heaps note" }, { from: "lar", text: "Which note do you mean?", proposal: { kind: "pick_note", candidates: [["note:1", "Heaps"], ["note:2", "Heaps in Java"]].map(([key, name]) => ({ key, name })), ask: "delete my heaps note" }, state: "pending" } as any];
+    await pickNote(1, "note:2");
+    const [, args] = ran("ai_ask")[0];
+    expect(args).toMatchObject({ message: "delete my heaps note", openKey: "note:2" });
+    expect(assis.chat[1].state).toBe("done");
+    expect(assis.chat.filter((m) => m.from === "me")).toHaveLength(1);
+    expect(assis.chat[2]).toMatchObject({ from: "lar", state: "pending", proposal: { kind: "delete_note", key: "note:2" } });
+  });
+
+  it("a second tap on the buttons, or a tap on a card that isn't a pick, asks nothing", async () => {
+    backend.ai_ask = () => reply("ok");
+    card({ kind: "pick_note", candidates: [{ key: "note:1", name: "Heaps" }], ask: "fix it" });
+    await pickNote(0, "note:1");
+    await pickNote(0, "note:1");
+    expect(ran("ai_ask")).toHaveLength(1);
+    card({ kind: "delete_note", key: "note:1", name: "Heaps", preview: "x" });
+    await pickNote(0, "note:1");
+    card({ kind: "pick_note", candidates: [], ask: "fix it" });
+    assis.chat[0].state = "dismissed";
+    await pickNote(0, "note:1");
+    expect(ran("ai_ask")).toHaveLength(1);
+  });
+
+  it("applying a pick card does nothing", async () => {
+    card({ kind: "pick_note", candidates: [{ key: "note:1", name: "Heaps" }], ask: "fix it" });
+    await apply(0);
+    expect(calls).toHaveLength(0);
+    expect(assis.chat[0].state).toBe("pending");
+  });
+
+  it("C14: Undo puts the note back, refreshes the notes, and says so once", async () => {
+    backend.lar_note_change = () => undefined;
+    backend.undo_lar_note = () => undefined;
+    backend.notes = () => [note];
+    card({ kind: "delete_note", key: "note:1", name: "Heaps", preview: "x" });
+    await apply(0);
+    await undoChange(0);
+    expect(ran("undo_lar_note")[0][1]).toEqual({ key: "note:1" });
+    expect(assis.chat[0]).toMatchObject({ undo: false, notice: "Put back.", state: "done" });
+    expect(app.notes).toEqual([note]);
+    await undoChange(0);
+    expect(ran("undo_lar_note")).toHaveLength(1);
+  });
+
+  it("Undo that fails keeps the button so the student can try again", async () => {
+    backend.undo_lar_note = () => Promise.reject("There's nothing to undo.");
+    card({ kind: "rename_note", key: "note:1", name: "Heaps", title: "Trees" }, { state: "done", undo: true });
+    await undoChange(0);
+    expect(assis.chat[0]).toMatchObject({ undo: true, problem: "There's nothing to undo." });
+    backend.undo_lar_note = () => undefined;
+    backend.notes = () => [];
+    await undoChange(0);
+    expect(assis.chat[0].undo).toBe(false);
+  });
+
+  it("Undo does nothing on a card with no change to undo", async () => {
+    card({ kind: "rename_note", key: "note:1", name: "Heaps", title: "Trees" });
+    await undoChange(0);
+    card({ kind: "pick_note", candidates: [], ask: "x" }, { undo: true });
+    await undoChange(0);
+    card(null as any);
+    await undoChange(0);
+    expect(ran("undo_lar_note")).toHaveLength(0);
+  });
+});
+
+describe("spec 062 C25: Keep going, more cases", () => {
+  const cutAnswer = async (text = "Recursion is a function") => {
+    backend.ai_ask = () => reply(text, { more: true });
+    await ask("explain recursion");
+  };
+
+  it("a finished answer carries no cut or more field, and a cut one starts at more 0", async () => {
+    backend.ai_ask = () => reply("A stack is last in, first out.");
+    await ask("what is a stack?");
+    expect(assis.chat[1].cut).toBeUndefined();
+    expect(assis.chat[1].more).toBeUndefined();
+    await cutAnswer();
+    expect(assis.chat[3]).toMatchObject({ cut: true, more: 0 });
+  });
+
+  it("keeps going only under a cut answer, and never twice at once", async () => {
+    backend.ai_ask = () => reply("A stack is last in, first out.");
+    await ask("what is a stack?");
+    await keepGoing(1);
+    expect(ran("ai_more")).toHaveLength(0);
+    await keepGoing(99); // no such message
+    expect(ran("ai_more")).toHaveLength(0);
+    await cutAnswer();
+    const d = deferred<{ text: string; more: boolean }>();
+    backend.ai_more = () => d.promise;
+    const first = keepGoing(3);
+    await settle();
+    expect(assis.busy).toBe("thinking");
+    await keepGoing(3);
+    expect(ran("ai_more"), "the second tap while busy does nothing").toHaveLength(1);
+    d.resolve({ text: " done.", more: false });
+    await first;
+    expect(assis.busy).toBe("");
+  });
+
+  it("joins the new part with one space unless it starts with punctuation or the old text ends in space", async () => {
+    for (const [before, add, want] of [
+      ["Recursion is a function", "calling itself.", "Recursion is a function calling itself."],
+      ["Recursion is a function", ", calling itself.", "Recursion is a function, calling itself."],
+      ["Recursion is a function ", "calling itself.", "Recursion is a function calling itself."],
+      ["Step one.\n", "Step two.", "Step one.\nStep two."],
+    ]) {
+      await cutAnswer(before);
+      backend.ai_more = (a) => (a.onText.onmessage(add), { text: add, more: false });
+      await keepGoing(assis.chat.length - 1);
+      expect(assis.chat[assis.chat.length - 1].text).toBe(want);
+    }
+  });
+
+  it("shows the whole new part when nothing streamed", async () => {
+    await cutAnswer();
+    backend.ai_more = () => ({ text: "calling itself.", more: false });
+    await keepGoing(1);
+    expect(assis.chat[1].text).toBe("Recursion is a function calling itself.");
+  });
+
+  it("a part that was not cut ends the offer; one that was keeps it until the second", async () => {
+    await cutAnswer();
+    backend.ai_more = () => ({ text: "x.", more: false });
+    await keepGoing(1);
+    expect(assis.chat[1]).toMatchObject({ cut: false, more: 1 });
+    await keepGoing(1);
+    expect(ran("ai_more"), "not offered under a finished answer").toHaveLength(1);
+  });
+
+  it("stops at MORE_MAX, even if the part is still cut", async () => {
+    await cutAnswer();
+    backend.ai_more = () => ({ text: "x", more: true });
+    for (let i = 0; i < 5; i++) await keepGoing(1);
+    expect(ran("ai_more")).toHaveLength(2);
+    expect(assis.chat[1].more).toBe(2);
+  });
+
+  it("sends the question that came before the answer and the words so far", async () => {
+    backend.ai_ask = () => reply("Hello.");
+    await ask("hi");
+    await cutAnswer("Recursion is");
+    let sent: any;
+    backend.ai_more = (a) => ((sent = a), { text: "x", more: false });
+    await keepGoing(3);
+    expect(sent).toMatchObject({ message: "explain recursion", soFar: "Recursion is" });
+  });
+
+  it("a failure shows a problem, keeps the words, and does not use up a tap", async () => {
+    await cutAnswer();
+    backend.ai_more = () => Promise.reject("Something broke. Try again.");
+    await keepGoing(1);
+    expect(assis.chat[1]).toMatchObject({ text: "Recursion is a function", problem: "Something broke. Try again.", cut: true, more: 0 });
+    expect(assis.busy).toBe("");
+  });
+
+  it("Stop during Keep going keeps the words so far with no problem", async () => {
+    await cutAnswer();
+    const d = deferred<unknown>();
+    let emit!: (w: string) => void;
+    backend.ai_more = (a) => ((emit = a.onText.onmessage), d.promise);
+    backend.ai_cancel = () => undefined;
+    const p = keepGoing(1);
+    await settle();
+    emit("calling");
+    stop();
+    d.reject("EOF while parsing a value");
+    await p;
+    expect(assis.chat[1].text).toBe("Recursion is a function calling");
+    expect(assis.chat[1].problem).toBeUndefined();
+    expect(assis.busy).toBe("");
+  });
+
+  it("says so when the model cannot wake", async () => {
+    await cutAnswer();
+    assis.models = [chat({ loaded: false }), embed()];
+    backend.ai_load = () => Promise.reject("Not enough memory.");
+    await keepGoing(1);
+    expect(assis.chat[1].problem).toBeTruthy();
+    expect(ran("ai_more")).toHaveLength(0);
+  });
+});
+
+describe("spec 062 C20, C29: writing wrong answers on an old deck", () => {
+  const deck = (n: number, withWrong: number[] = []) =>
+    Array.from({ length: n }, (_, i) => ({ id: `c${i}`, front: `Front ${i}`, back: `Back ${i}`, accepted: [], wrong: withWrong.includes(i) ? ["a", "b", "c"] : undefined, memory: {} }) as any);
+  const three = ["Sugar leaving a cell", "Gas drifting through air", "Salt forming as water dries"];
+
+  it("sends 8 cards per call, front and back only, and tells the caller after each batch", async () => {
+    const cards = deck(20);
+    const sizes: number[] = [];
+    let sent: any;
+    backend.ai_wrong_answers = (a) => ((sent ??= a), sizes.push(a.cards.length), a.cards.map(() => three));
+    const done: number[] = [];
+    await writeWrongAnswers(cards, (part) => void done.push(part.length), () => false);
+    expect(sizes).toEqual([8, 8, 4]);
+    expect(done).toEqual([8, 8, 4]);
+    expect(sent.cards[0]).toEqual({ front: "Front 0", back: "Back 0" });
+    expect(cards.every((c: any) => c.wrong.length === 3)).toBe(true);
+    expect(assis.busy).toBe("");
+  });
+
+  it("leaves out cards that already have wrong answers", async () => {
+    const cards = deck(10, [0, 1, 2]);
+    const sizes: number[] = [];
+    backend.ai_wrong_answers = (a) => (sizes.push(a.cards.length), a.cards.map(() => three));
+    await writeWrongAnswers(cards, () => {}, () => false);
+    expect(sizes, "seven are left, in one call").toEqual([7]);
+    expect(cards[0].wrong).toEqual(["a", "b", "c"]);
+    const none = deck(4, [0, 1, 2, 3]);
+    await writeWrongAnswers(none, () => {}, () => false);
+    expect(ran("ai_wrong_answers")).toHaveLength(1);
+  });
+
+  it("stop ends it between batches and keeps what is done", async () => {
+    const cards = deck(20);
+    backend.ai_wrong_answers = (a) => a.cards.map(() => three);
+    let stopNow = false;
+    await writeWrongAnswers(cards, () => void (stopNow = true), () => stopNow);
+    expect(ran("ai_wrong_answers")).toHaveLength(1);
+    expect(cards.filter((c: any) => c.wrong?.length === 3)).toHaveLength(8);
+    expect(cards[8].wrong).toBeUndefined();
+    expect(assis.busy).toBe("");
+  });
+
+  it("stop before the first batch makes no call", async () => {
+    await writeWrongAnswers(deck(10), () => {}, () => true);
+    expect(ran("ai_wrong_answers")).toHaveLength(0);
+  });
+
+  it("a card that came back without exactly three keeps none, and the rest are set", async () => {
+    const cards = deck(3);
+    backend.ai_wrong_answers = () => [three, [], ["a", "b"]];
+    await writeWrongAnswers(cards, () => {}, () => false);
+    expect(cards.map((c: any) => c.wrong?.length)).toEqual([3, undefined, undefined]);
+  });
+
+  it("a short answer from the model leaves the missing cards alone", async () => {
+    const cards = deck(3);
+    backend.ai_wrong_answers = () => [three];
+    await writeWrongAnswers(cards, () => {}, () => false);
+    expect(cards.map((c: any) => c.wrong?.length)).toEqual([3, undefined, undefined]);
+  });
+
+  it("a failed batch rejects, keeps the earlier ones, and clears busy", async () => {
+    const cards = deck(20);
+    let n = 0;
+    backend.ai_wrong_answers = (a) => (++n === 2 ? Promise.reject("Something broke.") : a.cards.map(() => three));
+    await expect(writeWrongAnswers(cards, () => {}, () => false)).rejects.toBeTruthy();
+    expect(cards.filter((c: any) => c.wrong?.length === 3)).toHaveLength(8);
+    expect(assis.busy).toBe("");
+  });
+
+  it("throws when the model cannot wake, before any call", async () => {
+    assis.models = [chat({ loaded: false }), embed()];
+    backend.ai_load = () => Promise.reject("Not enough memory.");
+    await expect(writeWrongAnswers(deck(4), () => {}, () => false)).rejects.toThrow();
+    expect(ran("ai_wrong_answers")).toHaveLength(0);
+  });
+});
+

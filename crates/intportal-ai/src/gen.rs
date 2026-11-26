@@ -450,4 +450,175 @@ mod tests {
         assert_eq!(m.prompts.len(), 1);
     }
 
+    // Spec 062 C19, C20, C17 (part C tests).
+    const RIGHT: &str = "Water moving through a membrane toward more dissolved substance";
+    const FAIR: [&str; 3] = ["Sugar moving out of a cell using energy", "Gas spreading evenly through open air", "Salt crystals forming as water dries up"];
+
+    #[test]
+    fn c19_a_wrong_answer_is_a_third_to_twice_the_right_ones_length() {
+        let back = "Rock formed when melted rock cools"; // 6 words
+        let pad = ["Sand layers", "Gas drifting through open air", "Salt crystals forming as water dries"];
+        assert!(wrong_ok(&quiz("Igneous", back, &pad)), "two words against six is a third: fair");
+        let one = ["Sand", pad[1], pad[2]];
+        assert!(!wrong_ok(&quiz("Igneous", back, &one)), "one word against six is under a third");
+        let twelve = "Sand and mud pressed together in thin layers under a deep quiet";
+        assert_eq!(twelve.split_whitespace().count(), 12);
+        assert!(wrong_ok(&quiz("Igneous", back, &[twelve, pad[1], pad[2]])), "twice as long is fair");
+        let sixteen = "Sand and mud pressed together in thin layers under a deep quiet sea for many long years";
+        assert!(sixteen.split_whitespace().count() > 14);
+        assert!(!wrong_ok(&quiz("Igneous", back, &[sixteen, pad[1], pad[2]])), "far longer than twice");
+    }
+
+    #[test]
+    fn c19_a_wrong_answer_that_only_repeats_the_right_ones_words_is_a_copy() {
+        // Every meaning word of the wrong one is already in the right one: it adds nothing, so it is the answer reworded.
+        let shorter = ["Water moving through membrane", FAIR[1], FAIR[2]];
+        assert!(!wrong_ok(&quiz("Osmosis", RIGHT, &shorter)), "a subset of the right answer's words");
+        let reordered = ["Dissolved substance more toward membrane a through moving water", FAIR[1], FAIR[2]];
+        assert!(!wrong_ok(&quiz("Osmosis", RIGHT, &reordered)), "the same words in another order");
+        let one_new_word = ["Water moving through a membrane toward more dissolved sugar", FAIR[1], FAIR[2]];
+        assert!(wrong_ok(&quiz("Osmosis", RIGHT, &one_new_word)), "one word of its own makes it a near miss");
+        assert!(!wrong_ok(&quiz("Osmosis", RIGHT, &["   ", FAIR[1], FAIR[2]])), "blank");
+    }
+
+    #[test]
+    fn c19_the_three_are_exactly_three_and_none_is_a_copy_of_another() {
+        let mut four = FAIR.to_vec();
+        four.push("Dust settling slowly on a still shelf");
+        assert!(!wrong_ok(&quiz("Osmosis", RIGHT, &four)), "four is not three");
+        assert!(!wrong_ok(&quiz("Osmosis", RIGHT, &[])), "none");
+        // A later answer whose every meaning word an earlier one already holds is out, whatever its case.
+        let later = [FAIR[0], "Gas spreading evenly through open air today", "GAS, spreading EVENLY through open air!"];
+        assert!(!wrong_ok(&quiz("Osmosis", RIGHT, &later)));
+    }
+
+    #[test]
+    fn c19_a_front_that_names_a_thing_must_not_be_named_in_a_wrong_answer_but_a_question_front_has_no_term() {
+        let back = "Tree where every node has at most two children";
+        let ok = ["List where each item points to the next", "Table that maps keys to stored values", "Queue where the first item in is first out"];
+        assert!(wrong_ok(&quiz("Binary tree", back, &ok)));
+        let names = ["A binary tree stores items in a sorted list", ok[1], ok[2]];
+        assert!(!wrong_ok(&quiz("Binary tree", back, &names)), "both words of the term");
+        let half = ["A tree of rooms in a large old house", ok[1], ok[2]];
+        assert!(wrong_ok(&quiz("Binary tree", back, &half)), "one word of a two-word term is not naming it");
+        assert!(wrong_ok(&quiz("What is a binary tree?", back, &names)), "a question front names no term");
+    }
+
+    #[test]
+    fn c20_a_card_left_with_fewer_than_three_keeps_none() {
+        let old: Vec<Card> = (0..3).map(|i| quiz(&format!("Term {i}"), RIGHT, &[])).collect();
+        let reply = json!({"cards": [
+            {"front": "a", "wrong": FAIR},
+            {"front": "b", "wrong": [FAIR[0], FAIR[1]]},
+            {"front": "c", "wrong": [FAIR[0], FAIR[1], FAIR[0]]},
+        ]}).to_string();
+        let got = wrong_for(&mut FakeLlm::new(&[&reply]), Template::ChatMl, &old).unwrap();
+        assert_eq!(got[0].len(), 3);
+        assert!(got[1].is_empty(), "two is none, not two");
+        assert!(got[2].is_empty(), "a repeat inside the set drops all three, not just the repeat");
+        assert!(old.iter().all(|c| c.wrong.is_empty()), "the cards passed in are not changed");
+    }
+
+    #[test]
+    fn c20_a_card_the_model_skipped_gets_none_and_the_others_still_get_theirs() {
+        let old: Vec<Card> = (0..3).map(|i| quiz(&format!("Term {i}"), RIGHT, &[])).collect();
+        let reply = json!({"cards": [{"front": "a", "wrong": FAIR}, {"front": "b", "wrong": FAIR}]}).to_string();
+        let got = wrong_for(&mut FakeLlm::new(&[&reply]), Template::ChatMl, &old).unwrap();
+        assert_eq!(got.len(), 3, "one answer per card asked, in order");
+        assert_eq!((got[0].len(), got[1].len(), got[2].len()), (3, 3, 0));
+        let noset = json!({"cards": [{"front": "a"}]}).to_string();
+        assert_eq!(wrong_for(&mut FakeLlm::new(&[&noset]), Template::ChatMl, &old[..1]).unwrap(), [Vec::<String>::new()], "a card with no wrong key");
+    }
+
+    #[test]
+    fn c20_only_the_first_eight_cards_go_in_one_call_and_the_prompt_lists_them_in_order() {
+        let old: Vec<Card> = (0..12).map(|i| quiz(&format!("Term {i}"), RIGHT, &[])).collect();
+        let reply = json!({"cards": (0..8).map(|_| json!({"front": "t", "wrong": FAIR})).collect::<Vec<_>>()}).to_string();
+        let mut m = FakeLlm::new(&[&reply]);
+        let got = wrong_for(&mut m, Template::ChatMl, &old).unwrap();
+        assert_eq!(got.len(), WRONG_BATCH);
+        assert_eq!(WRONG_BATCH, 8);
+        assert_eq!(m.prompts[0].matches("- front: ").count(), 8);
+        assert!(m.prompts[0].contains("- front: Term 7 |") && !m.prompts[0].contains("Term 8"));
+        assert!(m.prompts[0].find("Term 0").unwrap() < m.prompts[0].find("Term 1").unwrap());
+        let fewer = wrong_for(&mut FakeLlm::new(&[&json!({"cards": [{"front": "t", "wrong": FAIR}]}).to_string()]), Template::ChatMl, &old[..1]).unwrap();
+        assert_eq!(fewer.len(), 1, "no padding up to eight");
+    }
+
+    #[test]
+    fn c20_the_kept_wrong_answers_are_trimmed_and_lose_their_full_stop() {
+        let old = [quiz("Osmosis", RIGHT, &[])];
+        let spaced: Vec<String> = FAIR.iter().map(|w| format!("  {w}.  ")).collect();
+        let reply = json!({"cards": [{"front": "Osmosis", "wrong": spaced}]}).to_string();
+        let got = wrong_for(&mut FakeLlm::new(&[&reply]), Template::ChatMl, &old).unwrap();
+        assert_eq!(got[0], FAIR);
+    }
+
+    #[test]
+    fn c20_a_reply_that_is_not_json_is_an_error_the_caller_can_keep_the_cards_through() {
+        let old = [quiz("Osmosis", RIGHT, &[])];
+        assert!(wrong_for(&mut FakeLlm::new(&["garbage"]), Template::ChatMl, &old).is_err());
+        assert!(wrong_for(&mut FakeLlm::new(&[]), Template::ChatMl, &old).is_err(), "the model failing");
+    }
+
+    /// `n` cards whose backs pass `check`, and the reply that writes them.
+    fn written(n: usize) -> String {
+        let names = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa"];
+        let cards: Vec<_> = names[..n].iter().map(|x| json!({"front": format!("Topic {x}"), "back": format!("Something worth remembering for the quiz {x}")})).collect();
+        json!({"cards": cards}).to_string()
+    }
+    fn armed(n: usize) -> String {
+        let back = "Something worth remembering for the quiz alpha";
+        assert_eq!(back.split_whitespace().count(), 7);
+        json!({"cards": (0..n).map(|_| json!({"front": "t", "wrong": ["Sugar leaving a living cell", "Gas drifting through open air", "Salt forming as water dries"]})).collect::<Vec<_>>()}).to_string()
+    }
+
+    #[test]
+    fn c17_ten_quiz_cards_are_written_in_one_call_then_armed_in_a_call_of_eight_and_a_call_of_two() {
+        let (cards_reply, a, b) = (written(10), armed(8), armed(2));
+        let mut m = FakeLlm::new(&[&cards_reply, &a, &b]);
+        let o = cards_fn(&mut m, 10, true);
+        assert_eq!(o.stopped, None);
+        assert_eq!(o.cards.len(), 10);
+        assert!(o.cards.iter().all(|c| c.wrong.len() == 3), "every card is armed");
+        assert_eq!(m.prompts.len(), 3);
+        assert!(m.prompts[0].contains("Write 10 flashcards") && !m.prompts[0].contains("wrong answers for a multiple-choice"), "cards first");
+        assert!(m.prompts[1].contains("wrong answers for a multiple-choice") && m.prompts[1].matches("- front: ").count() == 8);
+        assert!(m.prompts[2].matches("- front: ").count() == 2 && m.prompts[2].contains("Topic iota") && m.prompts[2].contains("Topic kappa"));
+        assert!(!m.prompts[2].contains("Topic alpha"), "the second call holds only the cards left");
+    }
+
+    #[test]
+    fn c17_without_quiz_no_wrong_answers_are_asked_for() {
+        let cards_reply = written(3);
+        let mut m = FakeLlm::new(&[&cards_reply]);
+        let o = cards_fn(&mut m, 3, false);
+        assert_eq!((o.cards.len(), m.prompts.len()), (3, 1));
+        assert!(o.cards.iter().all(|c| c.wrong.is_empty()));
+    }
+
+    #[test]
+    fn c17_when_a_later_batch_of_wrong_answers_fails_the_cards_and_earlier_sets_are_kept() {
+        let (cards_reply, a) = (written(10), armed(8));
+        let mut m = FakeLlm::new(&[&cards_reply, &a, "garbage"]);
+        let o = cards_fn(&mut m, 10, true);
+        assert_eq!(o.cards.len(), 10, "all ten cards stay");
+        assert_eq!(o.cards.iter().filter(|c| c.wrong.len() == 3).count(), 8);
+        assert!(o.cards[8].wrong.is_empty() && o.cards[9].wrong.is_empty());
+        assert!(o.stopped.is_some(), "the student is told it stopped");
+        let mut m = FakeLlm::new(&[&cards_reply]);
+        let o = cards_fn(&mut m, 10, true);
+        assert_eq!(o.cards.len(), 10, "the model failing on the first set keeps the cards too");
+        assert!(o.cards.iter().all(|c| c.wrong.is_empty()) && o.stopped.is_some());
+        assert_eq!(m.prompts.len(), 2, "it stops asking after the first failure");
+    }
+
+    #[test]
+    fn c17_topic_cards_arm_a_quiz_the_same_way() {
+        let (cards_reply, a) = (written(2), armed(2));
+        let mut m = FakeLlm::new(&[&cards_reply, &a]);
+        let o = topic_cards(&mut m, Template::ChatMl, "cells", &[], 2, true);
+        assert_eq!(o.cards.len(), 2);
+        assert!(o.cards.iter().all(|c| c.wrong.len() == 3));
+    }
 }

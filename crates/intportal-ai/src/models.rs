@@ -268,4 +268,31 @@ mod tests {
         assert_eq!(window(embed, &[], Some(8_000_000_000)), embed.n_ctx, "the search model keeps its own");
     }
 
+    #[test]
+    fn c26_the_window_is_never_anything_but_the_models_own_or_the_wide_one_and_never_shrinks_with_more_room() {
+        let chat = find("qwen3.5-2b").unwrap();
+        let embed = CATALOG.iter().find(|m| m.kind == Kind::Embed && !m.legacy).unwrap();
+        let mut was_wide = false;
+        for gb in 0..=12u64 {
+            let w = window(chat, &[embed], Some(gb * 500_000_000));
+            assert!(w == chat.n_ctx || w == WIDE_CTX, "{gb}: {w}");
+            assert!(!was_wide || w == WIDE_CTX, "more memory lost the wide window at {gb}");
+            was_wide = w == WIDE_CTX;
+        }
+        assert_eq!(window(chat, &[embed], Some(0)), chat.n_ctx, "no memory at all");
+        assert_eq!(window(chat, &[embed], Some(12_000_000_000)), WIDE_CTX);
+        assert_eq!(chat.n_ctx, 4096);
+    }
+
+    #[test]
+    fn c26_a_model_already_at_or_over_the_wide_window_keeps_it_and_a_small_chat_model_is_gated_with_its_neighbour() {
+        let chat = find("qwen3.5-2b").unwrap();
+        let embed = CATALOG.iter().find(|m| m.kind == Kind::Embed && !m.legacy).unwrap();
+        let big = Model { n_ctx: 16_384, ..*chat };
+        assert_eq!(window(&big, &[], Some(1)), 16_384, "not cut down, whatever the memory");
+        // The wide cache is costed beside the search model: with it gone there is more room than with it.
+        let alone = (0..=24u64).map(|i| i * 250_000_000).find(|&a| window(chat, &[], Some(a)) == WIDE_CTX).unwrap();
+        let beside = (0..=24u64).map(|i| i * 250_000_000).find(|&a| window(chat, &[embed], Some(a)) == WIDE_CTX).unwrap();
+        assert!(alone <= beside, "{alone} {beside}");
+    }
 }
