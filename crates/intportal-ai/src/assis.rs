@@ -454,25 +454,35 @@ fn edit_answer(llm: &mut dyn Llm, tpl: Template, f: &Facts, msg: &str, kind: edi
 /// How a long answer reads (spec 062 C24).
 const LONG: &str = "They want a full answer: start with the answer itself, explain it in short paragraphs, use a numbered list where there are steps, and stop when it is complete.";
 
-/// "Keep going" (spec 062 C25): more of an answer that stopped at its limit, from where it stopped, without
-/// the facts again (they shaped what is already written). The text returned is only the new part; the flag
+/// "Keep going" (spec 062 C25, 063 C18): more of an answer that stopped at its limit, without the facts
+/// again (they shaped what is already written). The answer so far is the start of the model's own reply,
+/// inside the JSON string (`generate_prefilled`), so the model writes the next words rather than a new
+/// answer: asked to "continue" from a copy in the prompt, it restated the answer instead (docs/ai.md). The
+/// text returned is only the new part, joined exactly (a word cut in half goes on without a space); the flag
 /// says it stopped at its limit too.
 pub fn more(llm: &mut dyn Llm, tpl: Template, msg: &str, so_far: &str, on_text: &mut dyn FnMut(&str)) -> Result<(String, bool), String> {
     let so_far: String = so_far.chars().rev().take(3000).collect::<Vec<_>>().into_iter().rev().collect();
-    let sys = "You are LAR, a study helper. Your answer below stopped partway. Continue it from exactly where it stops: no greeting, no summary of what came before, and don't repeat it. Stop when the answer is complete. Reply as JSON.";
-    let user = format!("Student: {msg}\n\nYour answer so far:\n{so_far}");
+    let sys = format!("You are LAR, a study helper. {LONG} Reply as JSON.");
+    let quoted = serde_json::to_string(&so_far).map_err(|e| e.to_string())?;
+    let prefill = format!("{{\"reply\":{}", &quoted[..quoted.len() - 1]); // the string left open
     let schema = json!({"type": "object", "properties": {"reply": {"type": "string"}}, "required": ["reply"]});
     let mut stream = reply::ReplyStream::default();
-    let raw = llm.generate(&tpl.wrap(sys, &user), Some(&schema), lang::MORE_TOKENS, &mut |piece| {
+    stream.feed(&prefill); // already on the screen
+    let raw = llm.generate_prefilled(&tpl.wrap(&sys, &format!("Student: {msg}")), &prefill, Some(&schema), lang::MORE_TOKENS, &mut |piece| {
         if let Some(words) = stream.feed(piece) {
             on_text(&words);
         }
         true
     })?;
-    match reply::parse::<Value>(&raw) {
-        Ok(v) => Ok((v["reply"].as_str().unwrap_or("").to_string(), false)),
-        Err(e) => reply::partial_reply(&raw).filter(|t| !t.trim().is_empty()).map(|t| (t, true)).ok_or(e.to_string()),
+    let (full, cut) = match reply::parse::<Value>(&raw) {
+        Ok(v) => (v["reply"].as_str().unwrap_or("").to_string(), false),
+        Err(e) => (reply::partial_reply(&raw).ok_or(e.to_string())?, true),
+    };
+    let new = full.strip_prefix(so_far.as_str()).unwrap_or(&full).trim_end().to_string();
+    if new.trim().is_empty() {
+        return Err("Keep going wrote nothing".into());
     }
+    Ok((new, cut))
 }
 
 /// Lower-case letters and digits only, so a copy matches whatever its punctuation or capitals.
@@ -1836,10 +1846,10 @@ mod tests {
         let mut m = FakeLlm::new(&[r#"{"reply":"A stack is last in, first out."}"#]);
         let a = answer(&mut m, Template::ChatMl, &facts(), &[], "what is a stack?").unwrap();
         assert!(!a.more);
-        let mut m = FakeLlm::new(&[r#"{"reply":"step 2 is the smaller call."}"#]);
+        let mut m = FakeLlm::new(&[r#" smaller call."}"#]);
         let (more_text, cut) = more(&mut m, Template::ChatMl, "explain recursion", "Recursion is ... 2. Make the", &mut |_| ()).unwrap();
-        assert_eq!((more_text.as_str(), cut), ("step 2 is the smaller call.", false));
-        assert!(m.prompts[0].contains("Your answer so far:\nRecursion is ... 2. Make the"));
+        assert_eq!((more_text.as_str(), cut), (" smaller call.", false));
+        assert!(m.prompts[0].ends_with(r#"{"reply":"Recursion is ... 2. Make the"#), "the answer so far starts the reply");
     }
 
     // Spec 062 C23 to C26 (part D tests).
@@ -1937,36 +1947,64 @@ mod tests {
 
     #[test]
     fn c25_keep_going_says_whether_the_next_part_was_cut_too() {
-        let mut m = Sp::new(r#"{"reply":"3. Call yourself on a smaller input and then"#);
+        let mut m = Sp::new(" input smaller. 3. Call yourself on it and then");
         let mut streamed = String::new();
-        let (text, cut) = more(&mut m, Template::ChatMl, "explain recursion", "Recursion is ... 2. Make the", &mut |w| streamed = w.to_string()).unwrap();
+        let (text, cut) = more(&mut m, Template::ChatMl, "explain recursion", "Recursion is ... 2. Make the", &mut |w| streamed.push_str(w)).unwrap();
         assert!(cut, "stopped at its limit again");
-        assert_eq!(text, "3. Call yourself on a smaller input and then");
+        assert_eq!(text, " input smaller. 3. Call yourself on it and then");
+        assert_eq!(streamed, text, "only the new words stream; the answer so far is already on the screen");
         assert_eq!(m.tokens, vec![lang::MORE_TOKENS]);
         assert!(!streamed.is_empty(), "the words streamed to the screen");
-        let (text, cut) = more(&mut Sp::new(r#"{"reply":"That is all."}"#), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).unwrap();
-        assert_eq!((text.as_str(), cut), ("That is all.", false));
+        let (text, cut) = more(&mut Sp::new(r#" That is all."}"#), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).unwrap();
+        assert_eq!((text.as_str(), cut), (" That is all.", false));
     }
 
     #[test]
     fn c25_keep_going_with_nothing_written_is_an_error() {
-        assert!(more(&mut Sp::new(r#"{"reply":""#), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).is_err());
-        assert!(more(&mut Sp::new("garbage"), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).is_err());
+        assert!(more(&mut Sp::new(r#""}"#), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).is_err(), "it closed the reply at once");
+        assert!(more(&mut Sp::new(""), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).is_err(), "cut before a word");
         assert!(more(&mut FakeLlm::new(&[]), Template::ChatMl, "explain recursion", "so far", &mut |_| ()).is_err(), "the model failing");
     }
 
     #[test]
     fn c25_keep_going_sends_the_question_and_the_end_of_the_answer_without_the_facts() {
         let long = format!("HEAD-OF-ANSWER {} tail end", "x".repeat(4000));
-        let mut m = Sp::new(r#"{"reply":"ok"}"#);
+        let mut m = Sp::new(r#" ok"}"#);
         more(&mut m, Template::ChatMl, "explain recursion", &long, &mut |_| ()).unwrap();
         let p = &m.prompts[0];
-        assert!(p.contains("Student: explain recursion") && p.contains("tail end") && p.contains("Continue it from exactly where it stops"));
+        assert!(p.contains("Student: explain recursion") && p.ends_with("tail end") && p.contains("They want a full answer"));
         assert!(!p.contains("HEAD-OF-ANSWER"), "only the last 3,000 characters");
         assert!(!p.contains("Today") && !p.contains("Coming up"), "no facts again");
         // Multi-byte text is cut on a character, not a byte.
-        let mut m = Sp::new(r#"{"reply":"ok"}"#);
+        let mut m = Sp::new(r#" ok"}"#);
         assert!(more(&mut m, Template::ChatMl, "ipaliwanag", &"ñ".repeat(3500), &mut |_| ()).is_ok());
+    }
+
+    #[test]
+    fn c18_keep_going_hands_the_model_the_words_already_written_as_its_own_reply() {
+        /// Records what `generate_prefilled` was handed, and writes `out` after it.
+        struct Pre(Vec<(String, String, bool)>, &'static str);
+        impl Llm for Pre {
+            fn generate(&mut self, _p: &str, _s: Option<&Value>, _n: u32, _f: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+                Err("Keep going must continue the reply, not start one".into())
+            }
+            fn generate_prefilled(&mut self, p: &str, pre: &str, s: Option<&Value>, _n: u32, f: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+                self.0.push((p.to_string(), pre.to_string(), s.is_some()));
+                f(self.1);
+                Ok(format!("{pre}{}", self.1))
+            }
+            fn embed(&mut self, _t: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+                Ok(vec![])
+            }
+        }
+        let so_far = "A stack is \"last in, first out\".\n1. Push adds on top.\n2. Pop takes the to";
+        let mut m = Pre(vec![], r#"p one off."}"#);
+        let (text, cut) = more(&mut m, Template::ChatMl, "explain a stack", so_far, &mut |_| ()).unwrap();
+        let (prompt, pre, schema) = &m.0[0];
+        assert_eq!(pre, r#"{"reply":"A stack is \"last in, first out\".\n1. Push adds on top.\n2. Pop takes the to"#, "the words so far, escaped, the string left open");
+        assert!(*schema, "the reply is still held to its JSON shape");
+        assert!(!prompt.contains("Push adds on top"), "the answer is in the reply, not repeated in the prompt");
+        assert_eq!((text.as_str(), cut), ("p one off.", false), "a word cut in half goes on where it stopped");
     }
 
     // QA, spec 062
