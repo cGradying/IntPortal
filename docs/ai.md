@@ -491,6 +491,7 @@ Same probe, 2026-11-27, same Mac and model. The 22 cards are the same in every r
 | + `to` is "never the same words" (shipped, with short words counted) | **16** | **8** | **14 to 33 s** |
 | + "a word that means the same leaves it true" | 18 | 6 | 15 to 31 s, more synonyms kept |
 | + a `kind` field (number, term, relation) per change | 5 | crashed | 17 to 50 s |
+| Shipped + drop a swap whose new words the back already holds (not shipped) | 12 | 5 | 14 to 36 s |
 
 What was dropped on main, by the first rule each wrong answer failed (88 written): a copy of the right answer 17, names the term 8, a copy of another 5, too long 2, too short 2. Read by hand, most of the copies were real copies: the Revolution deck repeated the back word for word for every card, and asking for near misses made Qwen copy more (35 copies in 66), not less. But some were near misses the rules called copies: "Tree where every left child is larger than its parent" uses only the back's words, `O(n)` and `nx^(n+1)` lost their symbols, and "one" was too short to count.
 
@@ -501,6 +502,10 @@ What changed:
 - **A wrong answer that opens with the term is cut like a back** ("Sunlight is required for ..." on the card "Sunlight" becomes "Required for ..."), so it no longer fails "names the term".
 
 **Hand check (C17), 20 kept sets, 60 wrong answers:** 46 clearly false, 6 true, 8 arguable or not checkable; 11 of the 20 sets are clean. The true ones swap in a near-synonym or a weaker verb ("takes place" to "occurs", "process" to "reaction", "determines" to "influences", "store" to "delete"), repeat a word ("search, insert, and insert"), or are true because the card's own back is false ("The American administration established the Philippine Islands as a colony in 1898", for a back that dates the Spanish colony to 1898). On main, 4 of its 7 kept sets held a true answer ("Oxygen is released by the leaf to the atmosphere"). **The gate's count holds (16 of 22, at least 15); its "no true wrong answer" does not.** Two prompt lines against synonyms were tried and both made it worse (rows above). The rules can't see a synonym, and a wrong back makes wrong "wrong answers"; both need the card prompt or a bigger model, not more rules here.
+
+The last row was meant to catch "search, insert, and insert". It does, but the same test also drops the best reversals, "left" to "right" and "smaller" to "larger", whose new word appears elsewhere in the back. All 5 binary search tree cards lost their sets, and the count fell below the gate. From the words alone, "delete" to "insert" (true) and "smaller" to "larger" (false) look the same, so the rule was reverted.
+
+**Spec 063 C17, plainly: the count gate is met, 16 of 22 (gate 15). The truth gate is not met: 6 of 60 wrong answers in the hand check are true.** The misses are synonym or weaker-word swaps ("takes place" to "occurs", "process" to "reaction", "determines" to "influences", "store" to "delete"), a swap that repeats a word already in the list ("search, insert, and insert"), and a card whose own back is false, so a "wrong" answer is true. Rules can't tell these from good near misses. A fix needs the card prompt (backs that are true and checkable) or a bigger model, not more wrong-answer rules.
 
 Cost: a wrong-answer call takes about twice as long as on main (14 to 33 s per 8 cards on this Mac, against 7 to 16 s): the reply names four changes, and some changes copy a long run of the back. Expect a phone to be slower. Not measured: a real phone, Qwen3 1.7B, note and PDF decks (the probe makes topic decks only).
 
