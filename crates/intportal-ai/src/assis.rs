@@ -3,8 +3,8 @@
 //! confirm. Nothing here writes: the UI shows a card and Apply calls the
 //! existing commands (`set_note`, `set_plan`, `save_deck`).
 use crate::{
-    ground,
-    intent::{card_count, is_filipino, replies_in_filipino, resolve, resolve_when, subject_in, words, Intent, CARDS_DEFAULT},
+    chatnote, ground,
+    intent::{about_chat, card_count, is_filipino, replies_in_filipino, resolve, resolve_when, subject_in, words, Intent, CARDS_DEFAULT},
     lang,
     llm::Llm,
     persona::{self, Line, List},
@@ -40,11 +40,16 @@ pub struct Facts {
     pub subject_names: Vec<(String, String)>,
     /// The student's own note on how LAR should talk. Cleaned and capped by `persona::system`.
     pub style: Option<String>,
+    /// Every (student, LAR) pair of this chat, oldest first, rule answers included: what a note of the chat
+    /// is made from (spec 062 C3). Filled only for a note request.
+    pub chat: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Proposal {
     AddNote { subject: Option<String>, text: String },
+    /// A whole note made from the chat (spec 062 C2). `partial`: older turns didn't fit.
+    SaveNote { title: String, subject: Option<String>, text: String, partial: bool },
     SetReminder { date: Date, text: String },
     MakeCards { topic: String, count: usize },
 }
@@ -215,6 +220,16 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let scope = scope::classify(msg, intent, facts, !history.is_empty());
     if let Some((reply, route)) = scope::reply(scope, msg) {
         return Ok(Answer { reply, proposal: None, route, cited: false, known: false });
+    }
+    if intent == Intent::Note && about_chat(msg) && !facts.chat.is_empty() {
+        let fil = replies_in_filipino(msg);
+        return Ok(match chatnote::make(llm, tpl, &facts.chat, &facts.subjects)? {
+            Some(n) => {
+                let p = Proposal::SaveNote { title: n.title, subject: n.subject, text: n.text, partial: n.partial };
+                Answer { reply: confirm(&p, fil), proposal: Some(p), route: Route::Rule, cited: false, known: false }
+            }
+            None => Answer { reply: "I couldn't make a note from this chat. Try asking for it in a few words.".into(), proposal: None, route: Route::Refuse, cited: false, known: false },
+        });
     }
     let mut how = scope::rule(scope).unwrap_or_default().to_string();
     // "Do my homework in Math" names homework, which the rules read as "what's due": schoolwork, health and
@@ -427,6 +442,8 @@ fn confirm(p: &Proposal, fil: bool) -> String {
         (Proposal::SetReminder { text, .. }, true) => format!("Handa na ang paalala: {text}. I-confirm para i-save."),
         (Proposal::AddNote { subject, text }, false) => format!("Note ready{}: {text}. Confirm to save it.", subject.as_ref().map(|s| format!(" for {s}")).unwrap_or_default()),
         (Proposal::AddNote { subject, text }, true) => format!("Handa na ang note{}: {text}. I-confirm para i-save.", subject.as_ref().map(|s| format!(" sa {s}")).unwrap_or_default()),
+        (Proposal::SaveNote { title, .. }, false) => format!("Here's a note from our chat: {title}. Save it, or edit it first."),
+        (Proposal::SaveNote { title, .. }, true) => format!("Heto ang note mula sa usapan natin: {title}. I-save, o i-edit muna."),
         (Proposal::MakeCards { topic, count }, false) => format!("I'll make {count} flashcards on {topic}. Confirm to start."),
         (Proposal::MakeCards { topic, count }, true) => format!("Gagawa ako ng {count} flashcards sa {topic}. I-confirm para magsimula."),
     }
@@ -592,7 +609,7 @@ mod tests {
 
     impl Facts {
         fn clone_for_test(&self) -> Facts {
-            Facts { today: self.today, classes_today: self.classes_today.clone(), due: self.due.clone(), due_items: self.due_items.clone(), standing: self.standing.clone(), open_note: self.open_note.clone(), hits: self.hits.clone(), near: self.near.clone(), search_off: self.search_off, subjects: self.subjects.clone(), subject_names: self.subject_names.clone(), style: self.style.clone() }
+            Facts { today: self.today, classes_today: self.classes_today.clone(), due: self.due.clone(), due_items: self.due_items.clone(), standing: self.standing.clone(), open_note: self.open_note.clone(), hits: self.hits.clone(), near: self.near.clone(), search_off: self.search_off, subjects: self.subjects.clone(), subject_names: self.subject_names.clone(), style: self.style.clone(), chat: self.chat.clone() }
         }
     }
 
@@ -1319,4 +1336,21 @@ mod tests {
         assert_eq!(without_preamble("I don't know who won it."), "I don't know who won it.", "only a refusal: kept");
         assert_eq!(without_preamble("Paris is the capital."), "Paris is the capital.");
     }
+    #[test]
+    fn c1_a_note_of_the_chat_is_one_call_that_proposes_the_whole_note() {
+        let mut f = facts();
+        f.chat = vec![("what is a heap?".into(), "A tree where each parent is at least as big as its children.".into())];
+        let mut m = FakeLlm::new(&[r#"{"title":"Heaps","subject":"COMP 20073","bullets":["A tree where each parent is at least as big as its children"]}"#]);
+        let a = answer(&mut m, Template::ChatMl, &f, &[], "make a note of this").unwrap();
+        assert_eq!(a.proposal, Some(Proposal::SaveNote { title: "Heaps".into(), subject: Some("COMP 20073".into()), text: "- A tree where each parent is at least as big as its children".into(), partial: false }));
+        assert_eq!(m.prompts.len(), 1);
+        // With no chat yet, it is the short note it always was.
+        let mut m = FakeLlm::new(&[r#"{"text":"Bring calculator","subject":"none"}"#]);
+        let a = answer(&mut m, Template::ChatMl, &facts(), &[], "note this down").unwrap();
+        assert!(matches!(a.proposal, Some(Proposal::AddNote { .. })), "{a:?}");
+        // "Note: …" carries its own text, chat or not.
+        let mut m = FakeLlm::new(&[r#"{"text":"Bring calculator","subject":"none"}"#]);
+        assert!(matches!(answer(&mut m, Template::ChatMl, &f, &[], "Note: bring calculator").unwrap().proposal, Some(Proposal::AddNote { .. })));
+    }
+
 }

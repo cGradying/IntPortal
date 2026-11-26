@@ -547,6 +547,7 @@ pub fn facts_for(snap: &intportal_core::store::Snapshot, mabini: &MabiniData, no
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ProposalDto {
     AddNote { subject: Option<String>, text: String },
+    SaveNote { title: String, subject: Option<String>, text: String, partial: bool },
     SetReminder { date: Date, text: String },
     MakeCards { topic: String, count: usize },
 }
@@ -555,6 +556,7 @@ impl From<Proposal> for ProposalDto {
     fn from(p: Proposal) -> Self {
         match p {
             Proposal::AddNote { subject, text } => ProposalDto::AddNote { subject, text },
+            Proposal::SaveNote { title, subject, text, partial } => ProposalDto::SaveNote { title, subject, text, partial },
             Proposal::SetReminder { date, text } => ProposalDto::SetReminder { date, text },
             Proposal::MakeCards { topic, count } => ProposalDto::MakeCards { topic, count },
         }
@@ -767,6 +769,13 @@ fn recent_asks(state: &AppState) -> Vec<(String, String)> {
     ask_pairs(&turns)
 }
 
+/// Every student turn with LAR's turn right after it, rule answers included: what a note of the chat reads
+/// (spec 062 C3).
+fn chat_pairs(state: &AppState) -> Vec<(String, String)> {
+    let turns = store(state).and_then(|s| s.turns(40).map_err(err)).unwrap_or_default();
+    turns.windows(2).filter(|p| p[0].role == "me" && p[1].role == "lar").map(|p| (p[0].text.clone(), p[1].text.clone())).collect()
+}
+
 /// Each student ask turn with the model turn right after it. A lone turn (a
 /// dropped save, or the 40-turn window cutting a pair) is skipped, so it never
 /// shifts the pairs that follow.
@@ -797,6 +806,9 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
     let mut facts = facts_for(&snapshot_of(&state)?, &mabini, now, utc_offset.unwrap_or(MANILA_OFFSET));
     facts.style = style; // the student's own note on how LAR talks; `persona::system` cleans and caps it
     let history = recent_asks(&state);
+    if intent::detect(&message) == Intent::Note && intent::about_chat(&message) {
+        facts.chat = chat_pairs(&state); // read only for a note of the chat (spec 062 C28: nothing else pays for it)
+    }
     let note = open_key.and_then(|k| open_note(&state, &k));
     let intent = intent_name(intent::resolve(&message, note.is_some()));
     let (mut sources, open) = (vec![], searches_notes(&message, note.is_some()));

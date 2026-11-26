@@ -72,6 +72,23 @@ pub fn resolve(msg: &str, note_open: bool) -> Intent {
     if reads && !writes { Intent::Ask } else { intent }
 }
 
+/// A note request that names the chat itself ("make a note of this", "save what we talked about", "gawan mo ng
+/// note ito") rather than carrying its own text ("Note: bring calculator", "add a note that the exam moved"):
+/// spec 062 C1. Text after a colon is the note's own, so it is never about the chat.
+pub fn about_chat(msg: &str) -> bool {
+    if msg.split_once(':').is_some_and(|(_, rest)| words(rest).len() >= 2) {
+        return false;
+    }
+    let w = words(msg);
+    let joined = format!(" {} ", w.join(" "));
+    const PHRASES: &[&str] = &[
+        " what we talked", " what we discussed", " what you said", " what you told me", " our chat", " our conversation", " this chat", " this conversation", " the chat", " the conversation", " everything", " all of this", " all that",
+        " napag usapan", " napagusapan", " pinag usapan", " pinagusapan", " usapan natin", " sinabi mo",
+    ];
+    const LAST: &[&str] = &["this", "that", "it", "these", "down", "ito", "iyan", "yan", "iyon", "yun", "yon", "nito", "niyan", "niyon"];
+    PHRASES.iter().any(|p| joined.contains(p)) || w.last().is_some_and(|x| LAST.contains(&x.as_str()))
+}
+
 /// True when the message reads as Filipino or Taglish, so the canned reply matches.
 /// The language LAR replies in. English for everyone (spec 021 C14): Taglish and Filipino messages are
 /// still understood (`is_filipino`, the intents and dates read both), but the reply, the fixed lines
@@ -130,6 +147,16 @@ mod tests {
             assert_eq!(resolve(msg, true), Intent::Note, "{msg}");
         }
         assert_eq!(resolve("remind me about this note", true), Intent::Remind);
+    }
+
+    #[test]
+    fn a_note_of_the_chat_is_told_from_a_note_with_its_own_text() {
+        for msg in ["make a note of this", "Save what we talked about as a note", "note this down", "Gawan mo ng note ito", "isulat mo sa note ang napag-usapan natin", "make a note of our conversation", "can you turn the chat into a note", "jot it down", "note everything you said"] {
+            assert!(about_chat(msg), "{msg}");
+        }
+        for msg in ["Note: bring calculator", "Add a note that Prof. Reyes moved the exam", "make a note: remember this", "Pa-add naman ng note: bring calculator", "add a note to bring my ID"] {
+            assert!(!about_chat(msg), "{msg}");
+        }
     }
 
     // #161

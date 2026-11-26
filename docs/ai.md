@@ -435,3 +435,13 @@ Peak resident size on the Mac (`/usr/bin/time -l`, CPU device, `cargo run -p int
 Cards from a note or PDF in DeckPage, the syllabus guide in SubjectPage (UI #92, needs Core #93 `Plan.guide`), and the phone checks: Metal speed and memory on a real iPhone, a release APK run on Android, and the Android file picker.
 
 Done: RAG also indexes deck cards (`card:<deck id>`) and syllabus text (`plan:<code>`); the chat's source chips can carry those keys (the UI opens only notes so far). Done in spec [020-ai](specs/020-ai.md): RAG wired into `ai_ask` with sources, streamed replies, a chat that survives restarts, Ask AI in a note, the Light or With-AI choice at first run.
+
+## Notes from chat (spec 062 C1–C6)
+
+`cargo run --release -p intportal-llm --example notes -- <chat.gguf>` turns ten fixed chats into notes (Mac M-series, Metal, Qwen3.5 2B IQ4_XS, 2026-11-26).
+
+| Chats that made a note | Bullets kept | Time per note |
+|---|---|---|
+| 10 of 10 | 39 of 46 | 3.0 to 5.6 s |
+
+The 7 dropped bullets were caught by the rules, not the model: 2 named a number the chat never said (a worked example's result, a percentage), and 5 talked about the chat ("LAR explained the formula", "The student asked for an example") although the prompt forbids it. With the second filter off, 3 of the 10 notes carried such a line. No kept bullet holds an invented number. One kept osmosis bullet restates the definition in a confusing way. A note is a draft the student reads on the card before saving. Not measured: a real phone, Qwen3 1.7B.

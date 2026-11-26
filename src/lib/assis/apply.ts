@@ -5,6 +5,7 @@ import { entryLabel } from "../deadlines";
 
 export type Proposal =
   | { kind: "add_note"; subject: string | null; text: string }
+  | { kind: "save_note"; title: string; subject: string | null; text: string; partial: boolean }
   | { kind: "set_reminder"; date: string; text: string }
   | { kind: "make_cards"; topic: string; count: number };
 
@@ -175,6 +176,8 @@ export function describe(p: Proposal): { label: string; text: string; yes: strin
   switch (p.kind) {
     case "add_note":
       return { label: p.subject ? `Note for ${p.subject}` : "New note", text: p.text, yes: "Save note" };
+    case "save_note":
+      return { label: p.subject ? `Note from our chat · ${p.subject}` : "Note from our chat", text: p.text, yes: "Save" };
     case "set_reminder": {
       const d = reminderAt(p.date);
       const day = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });

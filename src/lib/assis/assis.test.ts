@@ -773,6 +773,20 @@ describe("applying a proposal", () => {
     expect(assis.chat[0].state).toBe("done");
   });
 
+  it("C5: saves a note from the chat as a new note, with its title and subject, as the student left it", async () => {
+    backend.set_note = () => undefined;
+    backend.set_note_subject = () => undefined;
+    backend.notes = () => [];
+    pending({ kind: "save_note", title: "Heaps", subject: "COMP 20073", text: "- A tree", partial: false });
+    (assis.chat[0].proposal as any).text = "- A tree\n- Insert is O(log n)"; // edited in the card
+    await apply(0);
+    const [, saved] = ran("set_note")[0];
+    expect(saved).toMatchObject({ text: "- A tree\n- Insert is O(log n)", title: "Heaps" });
+    expect(saved.key).toMatch(/^note:/);
+    expect(ran("set_note_subject")[0][1]).toEqual({ key: saved.key, subject: "COMP 20073" });
+    expect(assis.chat[0]).toMatchObject({ state: "done", text: "Saved to your notes." });
+  });
+
   it("does nothing for a card already answered", async () => {
     pending({ kind: "add_note", subject: null, text: "x" });
     assis.chat[0].state = "dismissed";
