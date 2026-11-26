@@ -134,6 +134,15 @@ export function look(t: Theme): Record<string, string> {
 /** LAR in a hue of the student's choosing, in the shape of a portal theme. */
 export const larLook = (h: number) => ({ ramp: [0.1, 0.2, 0.36, 0.56, 0.84].map((l) => hsl(h, 0.7, l)), accent: hsl(h, 0.8, 0.64) });
 
+/**
+ * The colours of LAR's sky header (spec 063 C14): a set LAR colour wins, else the worn theme's accent,
+ * else the school's. Only the header: LAR himself keeps the school's unless given a LAR colour.
+ */
+export function skyLook<T extends { ramp: readonly string[]; accent: string }>(worn: Theme | null | undefined, school: T): T | ReturnType<typeof larLook> {
+  if (!worn) return school;
+  return larLook(worn.lar ?? hueOf(worn.accent));
+}
+
 const BASE = { hue2: null, lar: null, pattern: "dots", aura: "full", corners: "step", cards: "fill", titles: "phone" } as const;
 
 /** A whole theme from one hue and a night-to-day shade (0 to 100). */
