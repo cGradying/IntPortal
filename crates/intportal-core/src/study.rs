@@ -101,6 +101,9 @@ pub struct Card {
     /// Other right answers for typed recall.
     #[serde(default)]
     pub accepted: Vec<String>,
+    /// Three wrong answers LAR wrote for a quiz (spec 062 C16), or none. Choice falls back to other backs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub wrong: Vec<String>,
     pub memory: Memory,
 }
 
@@ -281,7 +284,7 @@ mod tests {
     const T0: i64 = 1_790_000_000;
 
     fn card(front: &str, back: &str) -> Card {
-        Card { id: front.into(), front: front.into(), back: back.into(), accepted: vec![], memory: Memory::new(T0) }
+        Card { id: front.into(), front: front.into(), back: back.into(), accepted: vec![], wrong: vec![], memory: Memory::new(T0) }
     }
 
     fn days(m: &Memory, from: i64) -> f64 {
@@ -420,7 +423,7 @@ mod tests {
     }
 
     fn card_at(due: i64, reps: u32, stability: f64) -> Card {
-        Card { id: String::new(), front: String::new(), back: String::new(), accepted: vec![], memory: Memory { due, reps, stability, ..Memory::new(0) } }
+        Card { id: String::new(), front: String::new(), back: String::new(), accepted: vec![], wrong: vec![], memory: Memory { due, reps, stability, ..Memory::new(0) } }
     }
 
     #[test]

@@ -12,6 +12,9 @@ use serde_json::json;
 pub struct Card {
     pub front: String,
     pub back: String,
+    /// Three wrong answers for a quiz (spec 062 C16), or none.
+    #[serde(default)]
+    pub wrong: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -97,7 +100,8 @@ pub fn repair(card: &Card) -> Card {
             }
         }
     }
-    Card { front, back: out.trim().trim_end_matches('.').to_string() }
+    let wrong = card.wrong.iter().map(|w| w.trim().trim_end_matches('.').to_string()).collect();
+    Card { front, back: out.trim().trim_end_matches('.').to_string(), wrong }
 }
 
 /// Whether a (repaired) card is fit for the game.
@@ -126,6 +130,68 @@ pub fn check(card: &Card) -> Result<(), Reject> {
     Ok(())
 }
 
+/// Whether three wrong answers make a fair quiz (C19): each a plain statement, not the right answer or a copy
+/// of it (no meaning word of its own), not another of the three, not naming the front's term, and between half and twice the right
+/// answer's length in words.
+pub fn wrong_ok(card: &Card) -> bool {
+    let (front, back) = (card.front.trim(), card.back.trim());
+    let n = back.split_whitespace().count().max(1);
+    let fronts = content(front);
+    // A near miss ("toward less dissolved substance") is a good wrong answer; one that says nothing the other
+    // doesn't (every meaning word already in it) is a copy.
+    let near = |a: &str, b: &str| {
+        let (x, y) = (content(a), content(b));
+        key(a) == key(b) || x.iter().all(|w| y.contains(w))
+    };
+    card.wrong.len() == 3
+        && card.wrong.iter().enumerate().all(|(i, w)| {
+            let m = w.split_whitespace().count();
+            !w.trim().is_empty()
+                && !w.trim_end().ends_with('?')
+                && !near(w, back)
+                && !card.wrong[..i].iter().any(|o| near(w, o))
+                && m * 3 >= n
+                && m <= n * 2 + 2
+                && !(is_term(front) && !fronts.is_empty() && fronts.iter().all(|t| content(w).contains(t)))
+        })
+}
+
+const QUIZ: &str = "
+- wrong: three wrong answers for the same front, for a multiple-choice quiz. Each is false but believable: the same kind of thing as the back, about as long, on the same topic, and clearly different from the back and from each other. Never the front itself, never the right answer in other words, never \"none of the above\".
+  Example: front \"Igneous rock\", back \"Rock formed when melted rock cools and hardens\", wrong [\"Rock formed from layers of pressed sand and mud\", \"Rock changed by heat and pressure deep underground\", \"Rock made from the shells of sea animals\"].";
+
+/// Wrong answers for cards that have none (C20): one call for up to `WRONG_BATCH` cards, in order. A card
+/// whose three fail `wrong_ok` gets none, so it still plays Choice from other backs.
+pub const WRONG_BATCH: usize = 8;
+
+pub fn wrong_for(llm: &mut dyn Llm, tpl: Template, cards: &[Card]) -> Result<Vec<Vec<String>>, String> {
+    let cards = &cards[..cards.len().min(WRONG_BATCH)];
+    let list: String = cards.iter().map(|c| format!("- front: {} | back: {}\n", c.front, c.back)).collect();
+    let sys = format!("You write wrong answers for a multiple-choice quiz. Each card has a front and its right answer (the back). For each card, in the same order, give the front again and three wrong answers.{QUIZ}\nEnglish. Reply as JSON.");
+    let schema = json!({"type": "object", "properties": {"cards": {"type": "array", "minItems": cards.len(), "maxItems": cards.len(), "items": {
+        "type": "object", "properties": {"front": {"type": "string", "maxLength": 80}, "wrong": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "string", "maxLength": 200}}}, "required": ["front", "wrong"]}}}, "required": ["cards"]});
+    let raw = llm.generate(&tpl.wrap(&sys, &format!("Cards:\n{list}")), Some(&schema), 900, &mut |_| true)?;
+    #[derive(Deserialize)]
+    struct One {
+        #[serde(default)]
+        wrong: Vec<String>,
+    }
+    #[derive(Deserialize)]
+    struct W {
+        cards: Vec<One>,
+    }
+    let w: W = reply::parse(&raw).map_err(|e| e.to_string())?;
+    Ok(cards
+        .iter()
+        .enumerate()
+        .map(|(i, c)| {
+            let mut c = c.clone();
+            c.wrong = w.cards.get(i).map(|o| o.wrong.clone()).unwrap_or_default();
+            if wrong_ok(&repair(&c)) { repair(&c).wrong } else { vec![] }
+        })
+        .collect())
+}
+
 fn schema() -> serde_json::Value {
     json!({"type": "object", "properties": {"cards": {"type": "array", "items": {
         "type": "object", "properties": {"front": {"type": "string", "maxLength": 80}, "back": {"type": "string", "maxLength": 200}}, "required": ["front", "back"]}}},
@@ -134,15 +200,15 @@ fn schema() -> serde_json::Value {
 
 /// Flashcards from a note's or a PDF's text: only that text (C22).
 /// `tpl` is the loaded model's own prompt wrapper: a Gemma model given ChatML answers badly.
-pub fn cards(llm: &mut dyn Llm, tpl: Template, source: &str, want: usize) -> Outcome {
-    run(llm, tpl, want, &|n| format!("Write {n} flashcards from this text, using only what it says.\n\n{source}"))
+pub fn cards(llm: &mut dyn Llm, tpl: Template, source: &str, want: usize, quiz: bool) -> Outcome {
+    run(llm, tpl, want, quiz, &|n| format!("Write {n} flashcards from this text, using only what it says.\n\n{source}"))
 }
 
 /// Flashcards on a topic the student named in the chat (C22): the passages the note search found for it
 /// first, then what the model knows about it.
-pub fn topic_cards(llm: &mut dyn Llm, tpl: Template, topic: &str, passages: &[String], want: usize) -> Outcome {
+pub fn topic_cards(llm: &mut dyn Llm, tpl: Template, topic: &str, passages: &[String], want: usize, quiz: bool) -> Outcome {
     let notes: String = passages.iter().map(|p| format!("- {p}\n")).collect();
-    run(llm, tpl, want, &|n| {
+    run(llm, tpl, want, quiz, &|n| {
         if notes.is_empty() {
             format!("Write {n} flashcards on {topic}, from what you know. Only facts you are sure of.")
         } else {
@@ -151,7 +217,26 @@ pub fn topic_cards(llm: &mut dyn Llm, tpl: Template, topic: &str, passages: &[St
     })
 }
 
-fn run(llm: &mut dyn Llm, tpl: Template, want: usize, ask: &dyn Fn(usize) -> String) -> Outcome {
+/// `quiz`: once the cards are written, their wrong answers are, 8 cards per call (C17). Asking for both in
+/// one call was measured slower and broke: Qwen3.5 2B took 54 to 189 s per 8 cards and ran out of tokens
+/// mid-JSON in 3 of 4 topics, against about 20 s for the cards and 20 s per 8 sets of wrong answers.
+fn run(llm: &mut dyn Llm, tpl: Template, want: usize, quiz: bool, ask: &dyn Fn(usize) -> String) -> Outcome {
+    let mut o = write(llm, tpl, want, ask);
+    if quiz {
+        for part in o.cards.chunks_mut(WRONG_BATCH) {
+            match wrong_for(llm, tpl, part) {
+                Ok(w) => part.iter_mut().zip(w).for_each(|(c, w)| c.wrong = w),
+                Err(e) => {
+                    o.stopped.get_or_insert(e); // the cards are kept; the rest play Choice from other backs
+                    break;
+                }
+            }
+        }
+    }
+    o
+}
+
+fn write(llm: &mut dyn Llm, tpl: Template, want: usize, ask: &dyn Fn(usize) -> String) -> Outcome {
     let system = format!("{SYSTEM}\nExample of the form (a different subject, never copy it): {}", example_json());
     let (mut out, mut seen) = (Vec::<Card>::new(), std::collections::HashSet::new());
     let (mut size, mut strict) = (12, false);
@@ -166,7 +251,12 @@ fn run(llm: &mut dyn Llm, tpl: Template, want: usize, ask: &dyn Fn(usize) -> Str
         match parsed {
             Ok(b) => {
                 let before = out.len();
-                let fit: Vec<Card> = b.cards.iter().map(repair).filter(|c| check(c).is_ok()).collect();
+                let fit: Vec<Card> = b
+                    .cards
+                    .iter()
+                    .map(repair)
+                    .filter(|c| check(c).is_ok())
+                    .collect();
                 let all_failed = !b.cards.is_empty() && fit.is_empty();
                 for c in fit {
                     if seen.insert(key(&c.front)) && out.len() < want {
@@ -203,7 +293,7 @@ mod tests {
     #[test]
     fn dedupes_and_stops_at_want() {
         let mut m = FakeLlm::new(&[&batch(&["What is a tree?", "what is a TREE", "Define heap"])]);
-        let o = cards(&mut m, Template::ChatMl, "text", 2);
+        let o = cards(&mut m, Template::ChatMl, "text", 2, false);
         assert_eq!(o.cards.iter().map(|c| c.front.as_str()).collect::<Vec<_>>(), ["What is a tree?", "Define heap"]);
         assert_eq!(o.stopped, None);
     }
@@ -211,7 +301,7 @@ mod tests {
     #[test]
     fn a_failed_batch_retries_at_six_and_keeps_partial_results() {
         let mut m = FakeLlm::new(&["garbage", &batch(&["a", "b"]), "garbage", "garbage"]);
-        let o = cards(&mut m, Template::ChatMl, "text", 20);
+        let o = cards(&mut m, Template::ChatMl, "text", 20, false);
         assert_eq!(o.cards.len(), 2, "kept what arrived");
         assert!(o.stopped.is_some());
         assert!(m.prompts[0].contains("Write 12 flashcards"));
@@ -222,7 +312,7 @@ mod tests {
     #[test]
     fn a_short_batch_is_followed_by_another_until_want_is_met() {
         let mut m = FakeLlm::new(&[&batch(&["a", "b", "c"]), &batch(&["c", "d", "e", "f", "g", "h"])]);
-        let o = cards(&mut m, Template::ChatMl, "text", 8);
+        let o = cards(&mut m, Template::ChatMl, "text", 8, false);
         assert_eq!(o.cards.len(), 8);
         assert_eq!(o.stopped, None);
         assert!(m.prompts[1].contains("Write 5 flashcards"), "asks only for what is missing");
@@ -231,21 +321,21 @@ mod tests {
     #[test]
     fn each_model_gets_its_own_template() {
         let mut gemma = FakeLlm::new(&[&batch(&["a"])]);
-        cards(&mut gemma, Template::Gemma, "text", 1);
+        cards(&mut gemma, Template::Gemma, "text", 1, false);
         assert!(gemma.prompts[0].starts_with("<start_of_turn>user\n") && !gemma.prompts[0].contains("<|im_start|>"), "{}", gemma.prompts[0]);
         let mut qwen = FakeLlm::new(&[&batch(&["a"])]);
-        cards(&mut qwen, Template::ChatMl, "text", 1);
+        cards(&mut qwen, Template::ChatMl, "text", 1, false);
         assert!(qwen.prompts[0].starts_with("<|im_start|>system\n") && qwen.prompts[0].ends_with("<think>\n\n</think>\n\n"));
     }
 
     #[test]
     fn a_batch_of_only_repeats_ends_the_run() {
         let mut m = FakeLlm::new(&[&batch(&["a"]), &batch(&["A"])]);
-        assert_eq!(cards(&mut m, Template::ChatMl, "t", 5).stopped.as_deref(), Some("no new cards"));
+        assert_eq!(cards(&mut m, Template::ChatMl, "t", 5, false).stopped.as_deref(), Some("no new cards"));
     }
 
     fn card(front: &str, back: &str) -> Card {
-        Card { front: front.into(), back: back.into() }
+        Card { front: front.into(), back: back.into(), wrong: vec![] }
     }
 
     #[test]
@@ -281,20 +371,20 @@ mod tests {
         let bad = json!({"cards": [{"front": "Binary trees", "back": "Binary trees"}, {"front": "Heap", "back": "Heap"}]}).to_string();
         let good = json!({"cards": [{"front": "Heap", "back": "Tree where each parent beats its children"}]}).to_string();
         let mut m = FakeLlm::new(&[&bad, &good]);
-        let o = cards(&mut m, Template::ChatMl, "text", 1);
+        let o = cards(&mut m, Template::ChatMl, "text", 1, false);
         assert_eq!(o.cards, [card("Heap", "Tree where each parent beats its children")]);
         assert!(m.prompts[1].contains("Last time every back repeated its front"), "the retry says why");
         let mut m = FakeLlm::new(&[&bad, &bad]);
-        assert_eq!(cards(&mut m, Template::ChatMl, "text", 3).stopped.as_deref(), Some("no new cards"), "only once");
+        assert_eq!(cards(&mut m, Template::ChatMl, "text", 3, false).stopped.as_deref(), Some("no new cards"), "only once");
     }
 
     #[test]
     fn topic_cards_draw_on_the_notes_first_and_the_model_otherwise() {
         let one = json!({"cards": [{"front": "Mitosis", "back": "Cell division that makes two identical cells"}]}).to_string();
         let mut m = FakeLlm::new(&[&one, &one]);
-        topic_cards(&mut m, Template::ChatMl, "cell division", &["Bio note: mitosis makes two identical cells".into()], 1);
+        topic_cards(&mut m, Template::ChatMl, "cell division", &["Bio note: mitosis makes two identical cells".into()], 1, false);
         assert!(m.prompts[0].contains("cell division") && m.prompts[0].contains("mitosis makes two identical cells") && m.prompts[0].contains("passages from the student's notes first"));
-        topic_cards(&mut m, Template::ChatMl, "cell division", &[], 1);
+        topic_cards(&mut m, Template::ChatMl, "cell division", &[], 1, false);
         assert!(m.prompts[1].contains("from what you know") && !m.prompts[1].contains("passages"));
         assert!(!m.prompts[1].contains("Topic: "), "the old 'Topic: X as the text' prompt is gone");
     }
@@ -302,9 +392,62 @@ mod tests {
     #[test]
     fn note_cards_use_only_the_text_and_the_prompt_shows_the_game_form() {
         let mut m = FakeLlm::new(&[&batch(&["a"])]);
-        cards(&mut m, Template::ChatMl, "Photosynthesis makes sugar from light.", 1);
+        cards(&mut m, Template::ChatMl, "Photosynthesis makes sugar from light.", 1, false);
         let p = &m.prompts[0];
         assert!(p.contains("using only what it says") && p.contains("Photosynthesis makes sugar") && p.contains("at most 8 words") && p.contains("Never a question"));
         assert!(p.contains("Igneous rock"), "the example of the form");
     }
+    fn quiz(front: &str, back: &str, wrong: &[&str]) -> Card {
+        Card { front: front.into(), back: back.into(), wrong: wrong.iter().map(|w| w.to_string()).collect() }
+    }
+
+    #[test]
+    fn c19_wrong_answers_must_be_fair() {
+        let back = "Water moving through a membrane toward more dissolved substance";
+        assert!(wrong_ok(&quiz("Osmosis", back, &["Sugar moving out of a cell using energy", "Gas spreading evenly through open air", "Salt crystals forming as water dries up"])));
+        assert!(!wrong_ok(&quiz("Osmosis", back, &["Sugar moving out of a cell", "Gas spreading through air"])), "three, not two");
+        assert!(!wrong_ok(&quiz("Osmosis", back, &["Water moving through a membrane toward dissolved substance", "Gas spreading evenly through open air", "Salt crystals forming as water dries up"])), "a copy of the right answer");
+        assert!(!wrong_ok(&quiz("Osmosis", back, &["Gas spreading evenly through open air", "Gas spreading evenly through the open air", "Salt crystals forming as water dries up"])), "two of the three the same");
+        assert!(wrong_ok(&quiz("Osmosis", back, &["Water moving through a membrane toward less dissolved substance", "Water moving away from more dissolved substance", "Water staying still on both sides of a membrane"])), "near misses are fair");
+        assert!(!wrong_ok(&quiz("Osmosis", back, &["No", "Gas spreading evenly through open air", "Salt crystals forming as water dries up"])), "far too short");
+        assert!(!wrong_ok(&quiz("Osmosis", back, &["Osmosis of sugar out of a cell", "Gas spreading evenly through open air", "Salt crystals forming as water dries up"])), "names the term");
+        assert!(!wrong_ok(&quiz("Osmosis", back, &["Is it gas spreading through open air?", "Gas spreading evenly through open air", "Salt crystals forming as water dries up"])), "a question");
+    }
+
+    #[test]
+    fn c17_a_quiz_writes_the_cards_then_their_wrong_answers_eight_per_call() {
+        let cards = json!({"cards": [{"front": "Osmosis", "back": "Water moving through a membrane toward more dissolved substance"},
+            {"front": "Diffusion", "back": "Particles spreading from crowded to less crowded places"}]}).to_string();
+        let wrong = json!({"cards": [{"front": "Osmosis", "wrong": ["Sugar moving out of a cell using energy", "Gas spreading evenly through open air", "Salt crystals forming as water dries up"]},
+            {"front": "Diffusion", "wrong": ["x", "y", "z"]}]}).to_string();
+        let mut m = FakeLlm::new(&[&cards, &wrong]);
+        let o = cards_fn(&mut m, 2, true);
+        assert_eq!(o.cards.len(), 2);
+        assert_eq!(o.cards[0].wrong.len(), 3);
+        assert!(o.cards[1].wrong.is_empty(), "unfair wrong answers are dropped, the card stays");
+        assert_eq!(m.prompts.len(), 2, "one call for the cards, one for 8 sets of wrong answers");
+        // Wrong answers that fail to come back leave the cards as they are.
+        let mut m = FakeLlm::new(&[&cards, "garbage"]);
+        let o = cards_fn(&mut m, 2, true);
+        assert_eq!((o.cards.len(), o.cards[0].wrong.len()), (2, 0));
+        assert!(o.stopped.is_some());
+    }
+
+    fn cards_fn(m: &mut FakeLlm, want: usize, quiz: bool) -> Outcome {
+        cards(m, Template::ChatMl, "text", want, quiz)
+    }
+
+    #[test]
+    fn c20_wrong_answers_for_old_cards_come_in_one_call_per_eight() {
+        let old: Vec<Card> = (0..10).map(|i| quiz(&format!("Term {i}"), "Water moving through a membrane toward more dissolved substance", &[])).collect();
+        let w = json!(["Sugar moving out of a cell using energy", "Gas spreading evenly through open air", "Salt crystals forming as water dries up"]);
+        let reply = json!({"cards": (0..8).map(|i| json!({"front": "t", "wrong": if i == 1 { json!(["a", "b", "c"]) } else { w.clone() }})).collect::<Vec<_>>()}).to_string();
+        let mut m = FakeLlm::new(&[&reply]);
+        let got = wrong_for(&mut m, Template::ChatMl, &old).unwrap();
+        assert_eq!(got.len(), 8, "one batch is 8");
+        assert_eq!(got[0].len(), 3);
+        assert!(got[1].is_empty(), "an unfair set is none");
+        assert_eq!(m.prompts.len(), 1);
+    }
+
 }

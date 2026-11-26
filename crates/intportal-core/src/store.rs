@@ -1286,7 +1286,7 @@ mod tests {
 
     fn deck(id: &str, name: &str, cards: &[(&str, &str)]) -> Deck {
         use crate::study::{Card, Memory};
-        let cards = cards.iter().map(|(f, b)| Card { id: String::new(), front: f.to_string(), back: b.to_string(), accepted: vec![], memory: Memory::new(0) }).collect();
+        let cards = cards.iter().map(|(f, b)| Card { id: String::new(), front: f.to_string(), back: b.to_string(), accepted: vec![], wrong: vec![], memory: Memory::new(0) }).collect();
         Deck { id: id.into(), name: name.into(), subject: None, cards }
     }
 
@@ -1344,7 +1344,7 @@ mod tests {
         use crate::study::{Card, Memory};
         let store = Store::in_memory().unwrap();
         let mut deck = Deck { id: "d1".into(), name: "DSA".into(), subject: Some("COMP 20073".into()), cards: vec![] };
-        deck.cards.push(Card { id: String::new(), front: "Stack".into(), back: "LIFO".into(), accepted: vec![], memory: Memory::new(0) });
+        deck.cards.push(Card { id: String::new(), front: "Stack".into(), back: "LIFO".into(), accepted: vec![], wrong: vec![], memory: Memory::new(0) });
         deck.settle_new_cards(100);
         store.save_deck(&deck).unwrap();
         assert_eq!(store.deck("d1").unwrap(), Some(deck.clone()));

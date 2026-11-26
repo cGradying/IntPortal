@@ -6,7 +6,8 @@ export const MAX_CARDS = 20;
 /** The model's window is small; a longer note is cut at a line break rather than refused. */
 export const MAX_SOURCE = 3500;
 
-export type Draft = { front: string; back: string };
+/** `wrong`: a quiz card's three wrong answers (spec 062 C16). */
+export type Draft = { front: string; back: string; wrong?: string[] };
 
 const key = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
@@ -29,7 +30,7 @@ export function tidy(proposed: Draft[], existingFronts: string[], cap = MAX_CARD
     const k = key(front);
     if (!k || !back || seen.has(k)) continue;
     seen.add(k);
-    out.push({ front, back });
+    out.push(c.wrong?.length === 3 ? { front, back, wrong: c.wrong } : { front, back });
     if (out.length >= cap) break;
   }
   return out;

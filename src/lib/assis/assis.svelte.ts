@@ -3,7 +3,7 @@
 // nothing here writes until Apply.
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { Schedule, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
-import { api, isoDate, moment, type FoundClass } from "../api";
+import { api, isoDate, moment, type Card, type FoundClass } from "../api";
 import { app } from "../state.svelte";
 import { tidy, type Draft } from "./cards";
 import { appended, existingText, newDeck, noteFor, looksFilipino, noteTarget, notificationsOff, reminderAt, reminderId, rememberLarReminder, type Proposal } from "./apply";
@@ -496,11 +496,11 @@ export async function timetableByAi(text: string): Promise<FoundClass[] | null> 
 export const pdfText = (bytes: Uint8Array) => invoke<string>("ai_pdf_text", bytes);
 
 /** Proposed cards from a note's text. Nothing is saved here; the deck page asks the student first. */
-export async function cardsFrom(text: string, want: number): Promise<{ front: string; back: string }[]> {
+export async function cardsFrom(text: string, want: number, quiz = false): Promise<Draft[]> {
   if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");
   assis.busy = "cards";
   try {
-    return (await invoke<{ cards: { front: string; back: string }[] }>("ai_cards", { text, want })).cards;
+    return (await invoke<{ cards: Draft[] }>("ai_cards", { text, want, quiz })).cards;
   } finally {
     assis.busy = "";
   }
@@ -575,11 +575,13 @@ export async function apply(i: number) {
       msg.notice = allowed ? undefined : notificationsOff(looksFilipino(msg.text, p.text, assis.chat[i - 1]?.text));
     } else {
       assis.busy = "cards";
-      const found = await invoke<{ cards: { front: string; back: string }[]; stopped: string | null; known?: boolean }>("ai_topic_cards", { topic: p.topic, want: p.count });
+      const found = await invoke<{ cards: Draft[]; stopped: string | null; known?: boolean }>("ai_topic_cards", { topic: p.topic, want: p.count, quiz: !!p.quiz });
       if (!found.cards.length) throw new Error(`I couldn't make good cards on ${p.topic}. Try a narrower topic, or make them from a note.`);
       // The confirm sentence ("Confirm to start.") is spent: from here the bubble says what was made.
       const n = found.cards.length;
       msg.text = n < p.count ? `I could make ${n} of ${p.count} on ${p.topic}.` : `Here ${n === 1 ? "is 1 card" : `are ${n} cards`} on ${p.topic}.`;
+      const quizzing = found.cards.filter((c) => c.wrong?.length).length;
+      if (p.quiz) msg.text += ` ${quizzing} of them have wrong answers for the quiz.`;
       // Cards with no note behind them come from the model alone: say so, so the student checks them (C16).
       if (found.known) msg.text += " They're from what I know, not your notes, so check them before you save.";
       msg.cards = found.cards; // Shown for the student to edit; confirmCards saves.
@@ -608,6 +610,26 @@ export async function confirmCards(i: number) {
     msg.state = "done";
   } catch (e) {
     msg.problem = say(e);
+  }
+}
+
+/**
+ * "Write wrong answers" on an old deck (spec 062 C20): one call per 8 cards without them, `onBatch` after
+ * each with the cards done so far. `stop()` returning true ends it between batches; what's done is kept (C29).
+ */
+export async function writeWrongAnswers(cards: Card[], onBatch: (done: Card[]) => Promise<void> | void, stop: () => boolean): Promise<void> {
+  if (!(await wake())) throw new Error(assis.error || "I couldn't wake up. Try again.");
+  const todo = cards.filter((c) => !c.wrong?.length);
+  assis.busy = "cards";
+  try {
+    for (let k = 0; k < todo.length && !stop(); k += 8) {
+      const part = todo.slice(k, k + 8);
+      const got = await invoke<string[][]>("ai_wrong_answers", { cards: part.map((c) => ({ front: c.front, back: c.back })) });
+      part.forEach((c, n) => got[n]?.length === 3 && (c.wrong = got[n]));
+      await onBatch(part);
+    }
+  } finally {
+    assis.busy = "";
   }
 }
 

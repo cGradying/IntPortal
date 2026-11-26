@@ -136,6 +136,8 @@ export interface Card {
   front: string;
   back: string;
   accepted: string[];
+  /** Three wrong answers LAR wrote for a quiz (spec 062 C16); absent on most cards. */
+  wrong?: string[];
   memory: Memory;
 }
 

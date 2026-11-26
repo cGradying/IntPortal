@@ -462,3 +462,16 @@ The first run's misses, and what fixed them:
 - A new room number was added as a line, not swapped in. Fix: one prompt line, "replace the line that holds it".
 
 Read by hand, 8 of the 10 are clean. Edit 6 also re-added the first line with its typo fixed. Edit 9 (Tidy, which reuses Ask AI's Tidy) turned "stcks" into "stocks". The card shows every changed line before Apply, and Undo puts the note back. Not measured: a real phone, Qwen3 1.7B, and notes longer than about 10 lines.
+
+## Quizzes (spec 062 C16–C20)
+
+`cargo run --release -p intportal-llm --example cards -- <chat.gguf> quiz` makes the four topic decks of the card probe as quizzes, then writes wrong answers for 8 plain cards (Mac M-series, Metal, Qwen3.5 2B IQ4_XS, 2026-11-26).
+
+| Try | Quiz cards with three fair wrong answers | Old cards (`wrong_for`, 8) | Time per topic |
+|---|---|---|---|
+| Cards and wrong answers in one call | 11 of 27 | 0 of 8 | 54 to 189 s, 3 of 4 cut off mid-JSON |
+| Cards, then wrong answers 8 per call | 7 of 22 | 1 of 8 | 40 to 75 s |
+| The back's word count in the prompt | 1 of 22 | 1 of 8 | 33 to 70 s |
+| Length rule loosened to a third (shipped) | 9 of 22 | 3 of 8 | 36 to 68 s |
+
+What the rules drop, and why: a wrong answer much shorter than the right one (it gives the right one away), one with no meaning word the right answer lacks (a copy), two of the three alike, and sets where the model listed the right answer as wrong. A near miss ("toward less dissolved substance") is kept on purpose. Some kept sets are weak: three that differ in one word ("released by the leaf to the atmosphere / chloroplast / mitochondria"). A card with no wrong answers plays Choice and Quiz with other cards' backs, as Choice always has. The one-call version was dropped because it was slower and broke. Not measured: a real phone (expect it to be slower than these Mac times), Qwen3 1.7B.

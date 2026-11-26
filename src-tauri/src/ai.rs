@@ -554,7 +554,7 @@ pub enum ProposalDto {
     MoveNote { key: String, name: String, subject: String },
     DeleteNote { key: String, name: String, preview: String },
     PickNote { candidates: Vec<PickDto>, ask: String },
-    MakeCards { topic: String, count: usize },
+    MakeCards { topic: String, count: usize, quiz: bool },
 }
 
 #[derive(Serialize)]
@@ -574,7 +574,7 @@ impl From<Proposal> for ProposalDto {
             Proposal::MoveNote { key, name, subject } => ProposalDto::MoveNote { key, name, subject },
             Proposal::DeleteNote { key, name, preview } => ProposalDto::DeleteNote { key, name, preview },
             Proposal::PickNote { candidates, ask } => ProposalDto::PickNote { candidates: candidates.into_iter().map(|(key, name)| PickDto { key, name }).collect(), ask },
-            Proposal::MakeCards { topic, count } => ProposalDto::MakeCards { topic, count },
+            Proposal::MakeCards { topic, count, quiz } => ProposalDto::MakeCards { topic, count, quiz },
         }
     }
 }
@@ -900,6 +900,8 @@ pub async fn ai_why(ai: tauri::State<'_, AiState>, front: String, back: String, 
 pub struct CardDto {
     front: String,
     back: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    wrong: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -912,11 +914,12 @@ pub struct Cards {
 }
 
 /// Flashcards from a note's text or a PDF's text, for the existing deck review.
+/// `quiz`: each card also gets three wrong answers, in the same call (spec 062 C17).
 #[tauri::command]
-pub async fn ai_cards(ai: tauri::State<'_, AiState>, text: String, want: usize) -> Res<Cards> {
+pub async fn ai_cards(ai: tauri::State<'_, AiState>, text: String, want: usize, quiz: Option<bool>) -> Res<Cards> {
     with_model(&ai, move |llm, tpl| {
-        let o = gen::cards(llm, tpl, &text, want.clamp(1, 40));
-        Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back }).collect(), stopped: o.stopped, known: false })
+        let o = gen::cards(llm, tpl, &text, want.clamp(1, 40), quiz.unwrap_or(false));
+        Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back, wrong: c.wrong }).collect(), stopped: o.stopped, known: false })
     })
     .await
 }
@@ -925,15 +928,29 @@ pub async fn ai_cards(ai: tauri::State<'_, AiState>, text: String, want: usize) 
 /// for it go first, then what the model knows. The old way handed the model "Topic: X" as if it were the
 /// student's text, so it had nothing to write from and echoed the topic back.
 #[tauri::command]
-pub async fn ai_topic_cards(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, topic: String, want: usize) -> Res<Cards> {
+pub async fn ai_topic_cards(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, topic: String, want: usize, quiz: Option<bool>) -> Res<Cards> {
     let (slot, q, handle) = (ai.embedder.clone(), topic.clone(), app.clone());
     let passages: Vec<String> = background(move || recall(&handle, &slot, &q)).await.ok().and_then(Result::ok).map(|r| r.lines.into_iter().chain(r.near).collect()).unwrap_or_default();
     with_model(&ai, move |llm, tpl| {
         let known = passages.is_empty();
-        let o = gen::topic_cards(llm, tpl, &topic, &passages, want.clamp(1, 40));
-        Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back }).collect(), stopped: o.stopped, known })
+        let o = gen::topic_cards(llm, tpl, &topic, &passages, want.clamp(1, 40), quiz.unwrap_or(false));
+        Ok(Cards { cards: o.cards.into_iter().map(|c| CardDto { front: c.front, back: c.back, wrong: c.wrong }).collect(), stopped: o.stopped, known })
     })
     .await
+}
+
+#[derive(serde::Deserialize)]
+pub struct Pair {
+    front: String,
+    back: String,
+}
+
+/// Wrong answers for up to 8 cards of an old deck, in order (spec 062 C20). The deck page calls it once per
+/// batch, so Stop and hiding the app land between batches and what's done is kept (C29).
+#[tauri::command]
+pub async fn ai_wrong_answers(ai: tauri::State<'_, AiState>, cards: Vec<Pair>) -> Res<Vec<Vec<String>>> {
+    let cards: Vec<gen::Card> = cards.into_iter().map(|p| gen::Card { front: p.front, back: p.back, wrong: vec![] }).collect();
+    with_model(&ai, move |llm, tpl| gen::wrong_for(llm, tpl, &cards)).await
 }
 
 /// A scan's text, tidied by the loaded model (spec 041 C25, spec 020 C16). Never fails the scan:
