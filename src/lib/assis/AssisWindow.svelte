@@ -21,15 +21,15 @@
   import { activeTheme, app, openDeck, openNote, openSubject } from "../state.svelte";
   import { skyLook } from "../theme";
   import { sourceTarget } from "./sources";
-  import { describe, doneWord, folded, lineDiff, marked, noteLines, pickCaption, followUps, starters as startersFor, type Day, type Suggestion } from "./apply";
+  import { dayLabel, describe, doneWord, folded, isChange, lineDiff, marked, noteLines, pickCaption, followUps, starters as startersFor, whenLabel, type Day, type Suggestion } from "./apply";
   import { tidy } from "./cards";
   import { doing, rows, summary } from "./trace";
-  import { api, moment, subjectColor, type DeadlineEntry } from "../api";
+  import { api, clock, moment, subjectColor, type DeadlineEntry, type Slot } from "../api";
 
   type Rect = { x: number; y: number; w: number; h: number };
   import { invoke } from "@tauri-apps/api/core";
   import { cancelDither, runDither } from "./dither-draw";
-  import { MORE_MAX, apply, ask, assis, confirmCards, discardCards, dismiss, keepGoing, newChat, pickNote, stop, undoChange } from "./assis.svelte";
+  import { MORE_MAX, apply, ask, assis, confirmCards, discardCards, dismiss, keepGoing, newChat, pickItem, pickNote, stop, undoChange } from "./assis.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
   // Android's back gesture and Escape close it; the effect's return unregisters it.
@@ -306,6 +306,16 @@
     log.scrollTo({ top: Math.min(top, log.scrollHeight), behavior: "smooth" });
   }
 
+  /** Apply on a card. "Add a class" opens the class editor, which sits under the chat, so the chat closes (064 C10). */
+  async function applyCard(i: number) {
+    await apply(i);
+    const m = assis.chat[i];
+    if (m.proposal?.kind === "new_class" && m.state === "done") onclose();
+  }
+
+  /** "Fri 9:00 AM–10:30 AM", where a class meets. */
+  const slotLabel = (s: Slot) => `${s.day.slice(0, 3)} ${clock(s.start)}–${clock(s.end)}`;
+
   /** A suggestion opens its source, fills the field, or asks. */
   function pick(s: Suggestion) {
     if (s.open) show(s.open, s.label.replace(/^Open /, ""));
@@ -435,15 +445,28 @@
                   {/each}
                 </ul>
                 {#if m.problem}<p class="problem">{m.problem}</p>{/if}
+              {:else if m.proposal?.kind === "pick_item"}
+                <!-- 064 C12: the same rows for deadlines, classes and reminders; each says which it is. -->
+                <ul class="rows" aria-label="Which one">
+                  {#each m.proposal.candidates as c (c.id)}
+                    {@const kind = c.item[0].toUpperCase() + c.item.slice(1)}
+                    <li>
+                      <button class="nrow" class:on={m.picked === c.id} aria-pressed={m.picked === c.id} aria-label="{c.name}, {kind}" onclick={() => land(pickItem(i, c.id))} disabled={m.state !== "pending" || !!assis.busy}>
+                        <b>{c.name}</b><small>{kind}</small>
+                        <svg width="8" height="10" viewBox="0 0 4 5" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM1 3h1v1H1zM0 4h1v1H0z" /></svg>
+                      </button>
+                    </li>
+                  {/each}
+                </ul>
               {:else if m.proposal}
                 {@const d = describe(m.proposal)}
-                {@const changes = m.proposal.kind === "edit_note" || m.proposal.kind === "rename_note" || m.proposal.kind === "move_note" || m.proposal.kind === "delete_note" ? m.proposal.kind : null}
+                {@const changes = m.proposal.kind === "edit_note" || m.proposal.kind === "rename_note" || m.proposal.kind === "move_note" || m.proposal.kind === "delete_note" || isChange(m.proposal) ? m.proposal.kind : null}
                 <div class="offer" class:done={m.state === "done"}>
                   <!-- 063 C5: once applied, this part dims and the line under it stays clear. -->
                   <div class="gist">
                     <div class="head">
                       <p class="label">{d.label}</p>
-                      {#if m.proposal.kind === "save_note" && m.proposal.subject}<span class="subj" style:--sc={subjectColor(m.proposal.subject, colors)}>{m.proposal.subject}</span>{/if}
+                      {#if (m.proposal.kind === "save_note" || m.proposal.kind === "add_deadline") && m.proposal.subject}<span class="subj" style:--sc={subjectColor(m.proposal.subject, colors)}>{m.proposal.subject}</span>{/if}
                     </div>
                     {#if m.proposal.kind === "save_note" && m.editing && m.state === "pending"}
                       <!-- 063 C2: two fields, filled with the note. -->
@@ -491,6 +514,55 @@
                     {:else if m.proposal.kind === "delete_note"}
                       <p class="ttl">{m.proposal.name}</p>
                       <p class="peek">{m.proposal.preview}</p>
+                    {:else if m.proposal.kind === "add_deadline"}
+                      <!-- Spec 064: the week's cards, in 063's looks. -->
+                      <p class="ttl">{m.proposal.title}</p>
+                      <p class="fine">Due {dayLabel(m.proposal.date)}</p>
+                    {:else if m.proposal.kind === "change_deadline" && m.proposal.date === m.proposal.was}
+                      <div class="swap">
+                        <s class="o"><span class="sr">Removed: </span>{m.proposal.name}</s>
+                        <p class="n"><span class="sr">Added: </span>{m.proposal.title}</p>
+                      </div>
+                    {:else if m.proposal.kind === "change_deadline" || m.proposal.kind === "move_reminder"}
+                      <p class="ttl">{m.proposal.kind === "move_reminder" ? m.proposal.text : m.proposal.name}</p>
+                      <div class="swap">
+                        <s class="o"><span class="sr">Removed: </span>{dayLabel(m.proposal.was)}</s>
+                        <p class="n"><span class="sr">Added: </span>{dayLabel(m.proposal.date)}</p>
+                      </div>
+                    {:else if m.proposal.kind === "done_deadline"}
+                      <p class="ttl check">
+                        <svg width="14" height="12" viewBox="0 0 7 6" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM3 3h1v1H3zM2 4h1v1H2zM1 3h1v1H1zM0 2h1v1H0z" /></svg>
+                        <span><span class="sr">Done: </span>{m.proposal.name}</span>
+                      </p>
+                    {:else if m.proposal.kind === "delete_deadline"}
+                      <p class="ttl">{m.proposal.name}</p>
+                      <p class="fine">Due {dayLabel(m.proposal.date)}</p>
+                    {:else if m.proposal.kind === "mark_class" || m.proposal.kind === "move_class"}
+                      <p class="ttl">{m.proposal.name}</p>
+                      {#if m.proposal.kind === "move_class"}
+                        <div class="swap">
+                          <s class="o"><span class="sr">Removed: </span>{slotLabel(m.proposal.was)}</s>
+                          <p class="n"><span class="sr">Added: </span>{slotLabel(m.proposal.slot)}</p>
+                        </div>
+                      {/if}
+                      <p class="when"><span aria-hidden="true">{whenLabel(m.proposal.week)}</span><span class="sr">{whenLabel(m.proposal.week, true)}</span></p>
+                    {:else if m.proposal.kind === "change_own_class"}
+                      {@const was = m.proposal.was}
+                      {@const now = m.proposal.class}
+                      <p class="ttl">{was.name}</p>
+                      {#each [["Name", was.name, now.name], ["Room", was.room, now.room], ["Teacher", was.teacher, now.teacher]].filter(([, a, b]) => a !== b) as [field, a, b] (field)}
+                        <div class="swap">
+                          <s class="o"><span class="sr">Removed: </span>{field} {a || "none"}</s>
+                          <p class="n"><span class="sr">Added: </span>{field} {b}</p>
+                        </div>
+                      {/each}
+                    {:else if m.proposal.kind === "delete_own_class"}
+                      <p class="ttl">{m.proposal.name}</p>
+                    {:else if m.proposal.kind === "new_class"}
+                      <p class="ttl">{m.proposal.name || "A new class"}</p>
+                      {#if m.proposal.day || m.proposal.start != null}<p class="fine">{[m.proposal.day, m.proposal.start != null ? clock(m.proposal.start) : ""].filter(Boolean).join(" ")}</p>{/if}
+                    {:else if m.proposal.kind === "delete_reminder"}
+                      <p class="ttl">{m.proposal.text}</p>
                     {:else}
                       <p class="what">{d.text}</p>
                     {/if}
@@ -515,11 +587,11 @@
                     </div>
                   {:else if m.state === "pending"}
                     <div class="two stick">
-                      <button class="yes" class:danger={m.proposal.kind === "delete_note"} onclick={() => apply(i)} disabled={assis.busy === "cards"}>{assis.busy === "cards" ? "Making…" : d.yes}</button>
+                      <button class="yes" class:danger={m.proposal.kind.startsWith("delete_")} onclick={() => applyCard(i)} disabled={assis.busy === "cards"}>{assis.busy === "cards" ? "Making…" : d.yes}</button>
                       {#if m.proposal.kind === "save_note"}
                         <button class="no" onclick={() => (m.editing = !m.editing)}>{m.editing ? "Done" : "Edit"}</button>
                       {:else}
-                        <button class="no" onclick={() => dismiss(i)}>{m.proposal.kind.endsWith("_note") ? "Cancel" : "Not now"}</button>
+                        <button class="no" onclick={() => dismiss(i)}>{m.proposal.kind.endsWith("_note") || changes || m.proposal.kind === "new_class" ? "Cancel" : "Not now"}</button>
                       {/if}
                     </div>
                   {:else if m.state === "done" && changes}
@@ -535,6 +607,7 @@
                         <p class="ok">{doneWord(changes)}</p>
                       {/if}
                     </div>
+                    {#if m.undo && m.notice}<p class="fine">{m.notice}</p>{/if}
                   {:else if m.state === "done" && m.saved}
                     {@const key = m.saved}
                     {@const title = m.proposal.kind === "save_note" ? m.proposal.title : ""}
@@ -1239,6 +1312,22 @@
     flex: 1;
     height: 2px;
     background: repeating-linear-gradient(90deg, rgb(255 246 220 / 0.25) 0 2px, transparent 2px 6px);
+  }
+  /* 064 C14: which meeting a class change reaches, "Fri, Dec 5 only" or "Every week". */
+  .when {
+    margin: 0;
+    font: 500 var(--text-label) var(--font-pixel);
+    letter-spacing: 0.06em;
+    color: var(--portal-gold);
+  }
+  .ttl.check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ttl.check svg {
+    flex: none;
+    color: var(--good);
   }
   /* Rename: the old name struck and dim, over the new one in gold (063 C4). */
   .swap {

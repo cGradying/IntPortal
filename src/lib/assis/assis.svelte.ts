@@ -2,11 +2,30 @@
 // what happens when the student confirms a proposal. The model runs in Rust;
 // nothing here writes until Apply.
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { Schedule, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
-import { api, isoDate, moment, type Card, type FoundClass } from "../api";
-import { app } from "../state.svelte";
+import { Schedule, cancel as unring, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
+import { api, isoDate, moment, sessionId, type Card, type FoundClass, type Mark, type OwnClass, type OwnDeadline, type Slot, type Snapshot } from "../api";
+import { adopt, app } from "../state.svelte";
+import { classesOf } from "../ownClass";
 import { tidy, type Draft } from "./cards";
-import { appended, existingText, newDeck, noteFor, looksFilipino, noteTarget, notificationsOff, reminderAt, reminderId, rememberLarReminder, withNotes, type Proposal } from "./apply";
+import {
+  appended,
+  existingText,
+  forgetLarReminder,
+  isChange,
+  larReminderList,
+  newDeck,
+  noteFor,
+  looksFilipino,
+  noteTarget,
+  notificationsOff,
+  reminderAt,
+  reminderId,
+  rememberLarReminder,
+  weekOf,
+  withNotes,
+  type CalendarChange,
+  type Proposal,
+} from "./apply";
 
 export interface ModelInfo {
   id: string;
@@ -33,7 +52,7 @@ export interface Source {
 export type Step = { step: "wake" | "read" | "search" | "nothing" | "search_off" | "write" } | { step: "found"; found: Source[]; quote: string };
 
 /** What the rules took a question for; the chat picks its follow-ups by it (spec 048 C18). */
-export type Intent = "ask" | "note" | "remind" | "cards" | "due" | "classes" | "grades";
+export type Intent = "ask" | "note" | "remind" | "cards" | "due" | "classes" | "grades" | "calendar";
 
 export interface Msg {
   from: "me" | "lar";
@@ -67,7 +86,27 @@ export interface Msg {
   undone?: boolean;
   /** pick_note: the row tapped, kept marked (spec 063 C6). */
   picked?: string;
+  /** A calendar change applied (spec 064 C16): how to put it back, and the item as LAR left it, so a later
+   *  change by hand ends the Undo. */
+  restore?: Restore;
+  after?: string;
 }
+
+/** How Undo puts back one calendar change, through the same commands the screens use (spec 064 C16). */
+export type Restore =
+  /** An own deadline as it was; null deletes the one LAR added. */
+  | { do: "own"; id: string; own: OwnDeadline | null }
+  | { do: "done"; id: string }
+  /** `week`: the week's Monday, null for the term. The value before; null clears it. */
+  | { do: "mark"; session: string; week: string | null; mark: Mark | null }
+  | { do: "move"; session: string; week: string | null; slot: Slot | null }
+  /** The own class as it was, saved over `code`; `code` null re-adds a deleted one. */
+  | { do: "class"; code: string | null; cls: OwnClass }
+  /** Cancels the reminder LAR moved it to, and rings the old one again. */
+  | { do: "reminder"; cancel: number | null; put: { id: number; date: string; text: string } };
+
+export const CHANGED = "That changed since I read it. Ask me again.";
+const NOT_SAVED = "Couldn't save that. Try again.";
 
 export const assis = $state({
   models: [] as ModelInfo[],
@@ -394,13 +433,15 @@ export function setLarStyle(text: string) {
 }
 
 /** `openKey`: the note the question is about (the open one, or the one picked from "Which note?"). */
-export async function ask(text: string, openKey: string | null = app.editing?.key ?? null, echo = true) {
+export async function ask(text: string, openKey: string | null = app.editing?.key ?? null, echo = true, pick: string | null = null) {
   const message = text.trim();
   if (!message || assis.busy) return;
   if (echo) assis.chat.push({ from: "me", text: message });
   stopped = false;
-  const asleep = !chatModel()?.loaded;
-  const awake = await wake(looksFilipino(message));
+  // A change to the week is read by rules alone, so the model isn't woken for it (spec 064 C17).
+  const change = await invoke<boolean>("ai_is_change", { message }).catch(() => false);
+  const asleep = !change && !chatModel()?.loaded;
+  const awake = change || (await wake(looksFilipino(message)));
   if (stopped) return; // Stop while the model was waking: no reply at all
   if (!awake) {
     assis.chat.push({ from: "lar", text: assis.error || "I couldn't wake up. Try again." });
@@ -416,7 +457,17 @@ export async function ask(text: string, openKey: string | null = app.editing?.ke
   // A new array each time: pushing into the one just assigned would miss the state proxy and lose the first step.
   onStep.onmessage = (s) => (reply.steps = [...(reply.steps ?? []), s]);
   try {
-    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[]; intent: Intent; known?: boolean; more?: boolean }>("ai_ask", { now: moment(), message, openKey, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText, onStep });
+    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[]; intent: Intent; known?: boolean; more?: boolean }>("ai_ask", {
+      now: moment(),
+      message,
+      openKey,
+      style: larStyle() || null,
+      utcOffset: -new Date().getTimezoneOffset(),
+      onText,
+      onStep,
+      reminders: larReminderList(),
+      pick,
+    });
     reply.text = r.reply;
     reply.intent = r.intent;
     reply.sources = r.sources.length ? r.sources : undefined;
@@ -556,10 +607,19 @@ export function pickNote(i: number, key: string) {
   return ask(p.ask, key, false);
 }
 
+/** "Which one do you mean?" for the week (spec 064 C12): the same request again, about the row tapped. */
+export function pickItem(i: number, id: string) {
+  const p = assis.chat[i].proposal;
+  if (p?.kind !== "pick_item" || assis.chat[i].state !== "pending") return;
+  [assis.chat[i].state, assis.chat[i].picked] = ["done", id];
+  return ask(p.ask, null, false, id);
+}
+
 /** Undo on an applied note card: the note goes back to how it was before LAR's change. */
 export async function undoChange(i: number) {
   const msg = assis.chat[i];
   const p = msg.proposal;
+  if (msg.restore && msg.undo) return undoCalendar(msg);
   if (!p || !("key" in p) || !msg.undo) return;
   try {
     await api.undoLarNote(p.key);
@@ -600,24 +660,18 @@ export async function apply(i: number) {
       await api.larNoteChange(p.key, change);
       app.notes = await api.notes();
       msg.undo = true;
-    } else if (p.kind === "pick_note") {
+    } else if (p.kind === "pick_note" || p.kind === "pick_item") {
       return;
+    } else if (isChange(p)) {
+      return await applyCalendar(msg, p);
+    } else if (p.kind === "new_class") {
+      // A class has too many fields for one card: the editor opens with what LAR read (spec 064 C10).
+      const start = p.start ?? 8 * 60;
+      app.classEditor = { was: null, cls: { code: "", name: p.name, room: "", teacher: "", meetings: [{ days: p.day ? [p.day] : [], start, end: Math.min(start + 90, 24 * 60 - 1) }] } };
     } else if (p.kind === "set_reminder") {
-      const id = reminderId(p.text, p.date);
-      // Same rule as scheduleReminders: look first, ask once, and never say it will ring when it cannot.
-      let allowed = await isPermissionGranted();
-      if (!allowed) allowed = (await requestPermission()) === "granted";
-      app.notifications = allowed;
-      try {
-        await invoke("plugin:notification|notify", {
-          options: { id, title: "LAR", body: p.text, schedule: Schedule.at(asLocalDigits(reminderAt(p.date))) },
-        });
-        rememberLarReminder(id, reminderAt(p.date));
-      } catch (e) {
-        if (allowed) throw e; // a refusal is expected while they are off; anything else is a real failure
-      }
+      const allowed = await ring(reminderId(p.text, p.date), p.text, p.date);
       msg.notice = allowed ? undefined : notificationsOff(looksFilipino(msg.text, p.text, assis.chat[i - 1]?.text));
-    } else {
+    } else if (p.kind === "make_cards") {
       assis.busy = "cards";
       const found = await invoke<{ cards: Draft[]; stopped: string | null; known?: boolean }>("ai_topic_cards", { topic: p.topic, want: p.count, quiz: !!p.quiz });
       if (!found.cards.length) throw new Error(`I couldn't make good cards on ${p.topic}. Try a narrower topic, or make them from a note.`);
@@ -636,6 +690,159 @@ export async function apply(i: number) {
     msg.problem = say(e);
   } finally {
     if (assis.busy === "cards") assis.busy = "";
+  }
+}
+
+/** Rings a reminder LAR set at 8 AM on `date`, and keeps it with its text (064 C11). False: notifications are off. */
+async function ring(id: number, text: string, date: string): Promise<boolean> {
+  // Same rule as scheduleReminders: look first, ask once, and never say it will ring when it cannot.
+  let allowed = await isPermissionGranted();
+  if (!allowed) allowed = (await requestPermission()) === "granted";
+  app.notifications = allowed;
+  // Kept whether or not it can ring: a moved reminder is saved even with notifications off (064 Errors).
+  rememberLarReminder(id, reminderAt(date), text);
+  try {
+    await invoke("plugin:notification|notify", { options: { id, title: "LAR", body: text, schedule: Schedule.at(asLocalDigits(reminderAt(date))) } });
+  } catch (e) {
+    if (allowed) throw e; // a refusal is expected while they are off; anything else is a real failure
+  }
+  return allowed;
+}
+
+const ownOf = (id: string) => app.snapshot?.own_deadlines.find((o) => o.id === id.replace(/^own:/, ""));
+const layer = <T>(l: { term: Record<string, T>; weekly: Record<string, Record<string, T>> } | undefined, session: string, week: string | null): T | null =>
+  (week ? l?.weekly[session]?.[week] : l?.term[session]) ?? null;
+const classOf = (code: string) => classesOf(app.snapshot?.sessions ?? []).find((c) => c.code === code);
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const reminderOf = (id: number) => larReminderList().find((r) => r.id === id);
+
+/** The item an Undo would put back, as it is now: compared with how LAR left it before Undo runs. */
+function itemNow(r: Restore): string {
+  switch (r.do) {
+    case "own":
+      return JSON.stringify(ownOf(r.id) ?? null);
+    case "done":
+      return JSON.stringify(app.snapshot?.done.includes(r.id) ?? false);
+    case "mark":
+      return JSON.stringify(layer(app.snapshot?.marks, r.session, r.week));
+    case "move":
+      return JSON.stringify(layer(app.snapshot?.marks.moved, r.session, r.week));
+    case "class":
+      return JSON.stringify(classOf(r.code ?? r.cls.code) ?? null);
+    case "reminder":
+      return JSON.stringify(r.cancel == null ? null : (reminderOf(r.cancel) ?? null));
+  }
+}
+
+class Changed extends Error {}
+
+/** Spec 064 C15: the change, through the commands the screens use; then Today, Schedule and the phone calendar follow. */
+async function applyCalendar(msg: Msg, p: CalendarChange) {
+  let restore: Restore;
+  const take = async (snap: Snapshot) => adopt(snap);
+  try {
+    switch (p.kind) {
+      case "add_deadline": {
+        const before = new Set(app.snapshot?.own_deadlines.map((o) => o.id));
+        const snap = await api.saveOwn({ id: "", title: p.title, subject: p.subject, kind: p.deadline, date: p.date });
+        await take(snap);
+        restore = { do: "own", id: snap.own_deadlines.find((o) => !before.has(o.id))?.id ?? "", own: null };
+        break;
+      }
+      case "change_deadline":
+      case "delete_deadline": {
+        const old = ownOf(p.id);
+        if (!old || old.title !== p.name || old.date !== (p.kind === "change_deadline" ? p.was : p.date)) throw new Changed();
+        await take(p.kind === "change_deadline" ? await api.saveOwn({ ...old, title: p.title, date: p.date }) : await api.deleteOwn(old.id));
+        restore = { do: "own", id: old.id, own: { ...old } };
+        break;
+      }
+      case "done_deadline":
+        if (app.snapshot?.done.includes(p.id)) throw new Changed();
+        await take(await api.setDone(p.id, true));
+        restore = { do: "done", id: p.id };
+        break;
+      case "mark_class":
+      case "move_class": {
+        const week = p.week ? weekOf(p.week) : null;
+        if (!app.snapshot?.sessions.some((s) => sessionId(s) === p.session)) throw new Changed();
+        if (p.kind === "mark_class") {
+          restore = { do: "mark", session: p.session, week, mark: layer(app.snapshot?.marks, p.session, week) };
+          await take(await api.setMark(p.session, week, p.mark));
+        } else {
+          restore = { do: "move", session: p.session, week, slot: layer(app.snapshot?.marks.moved, p.session, week) };
+          await take(await api.setMove(p.session, week, p.slot));
+        }
+        break;
+      }
+      case "change_own_class":
+        if (!same(classOf(p.was.code), p.was)) throw new Changed();
+        await take(await api.saveClass(p.was.code, p.class));
+        restore = { do: "class", code: p.class.code, cls: p.was };
+        break;
+      case "delete_own_class": {
+        const cls = classOf(p.code);
+        if (!cls) throw new Changed();
+        await take(await api.deleteClass(p.code));
+        restore = { do: "class", code: null, cls };
+        break;
+      }
+      case "move_reminder":
+      case "delete_reminder": {
+        const r = reminderOf(p.id);
+        if (!r || r.text !== p.text) throw new Changed();
+        await unring([p.id]).catch(() => {});
+        forgetLarReminder(p.id);
+        const put = { id: p.id, date: isoDate(new Date(r.at)), text: r.text };
+        if (p.kind === "delete_reminder") restore = { do: "reminder", cancel: null, put };
+        else {
+          const id = reminderId(p.text, p.date);
+          if (!(await ring(id, p.text, p.date))) msg.notice = notificationsOff(false);
+          restore = { do: "reminder", cancel: id, put };
+        }
+        break;
+      }
+    }
+  } catch (e) {
+    if (e instanceof Changed) [msg.state, msg.notice] = ["done", CHANGED];
+    else msg.problem = NOT_SAVED;
+    return;
+  }
+  [msg.restore, msg.after, msg.undo, msg.state] = [restore, itemNow(restore), true, "done"];
+}
+
+/** Spec 064 C16: puts back exactly what was there, unless the student changed it by hand since. */
+async function undoCalendar(msg: Msg) {
+  const r = msg.restore!;
+  if (itemNow(r) !== msg.after) return void ([msg.undo, msg.notice] = [false, "There's nothing to undo."]);
+  try {
+    switch (r.do) {
+      case "own":
+        await adopt(r.own ? await api.saveOwn(r.own) : await api.deleteOwn(r.id));
+        break;
+      case "done":
+        await adopt(await api.setDone(r.id, false));
+        break;
+      case "mark":
+        await adopt(await api.setMark(r.session, r.week, r.mark));
+        break;
+      case "move":
+        await adopt(await api.setMove(r.session, r.week, r.slot));
+        break;
+      case "class":
+        await adopt(await api.saveClass(r.code, r.cls));
+        break;
+      case "reminder":
+        if (r.cancel != null) {
+          await unring([r.cancel]).catch(() => {});
+          forgetLarReminder(r.cancel);
+        }
+        await ring(r.put.id, r.put.text, r.put.date);
+        break;
+    }
+    [msg.undo, msg.undone, msg.problem] = [false, true, ""];
+  } catch {
+    msg.problem = NOT_SAVED;
   }
 }
 

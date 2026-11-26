@@ -3,6 +3,8 @@
 use crate::{err, snapshot_of, AppState, Res, MANILA_OFFSET};
 use intportal_ai::{
     assis::{self, Facts, Proposal},
+    calendar::{self, Calendar, ClassRow, DeadlineRow, ReminderRow},
+    llm::FakeLlm,
     due, edit,
     gen,
     intent::{self, Intent},
@@ -860,6 +862,57 @@ fn searches_notes(message: &str, note_open: bool) -> bool {
     !matches!(intent::resolve(message, note_open), Intent::Note | Intent::Remind | Intent::Cards)
 }
 
+/// A reminder LAR set, as the chat keeps it (spec 064 C11): `at` in epoch milliseconds.
+#[derive(serde::Deserialize)]
+pub struct LarReminder {
+    id: i64,
+    at: i64,
+    text: String,
+}
+
+/// The student's week as rows to match a change against (spec 064 C12): every deadline with its source, every
+/// meeting slot, the own classes, and LAR's reminders. `pick`: the row tapped on "Which one?", the only one
+/// of its kind kept, so the same request now finds it alone.
+pub fn calendar_rows(snap: &intportal_core::store::Snapshot, mabini: &MabiniData, now: Moment, utc_offset: i32, reminders: &[LarReminder], pick: Option<&str>) -> Calendar {
+    let day = |d: &deadline::Deadline| match d.due {
+        deadline::Due::Day(x) => x,
+        deadline::Due::At(t) => deadline::local_parts(t, utc_offset).0,
+    };
+    let mut cal = Calendar {
+        deadlines: deadline::deadlines(snap, mabini, now, utc_offset, 180)
+            .iter()
+            .map(|d| DeadlineRow { id: d.id.clone(), title: d.title.clone(), subject: d.subject.clone(), date: day(d), source: d.source })
+            .collect(),
+        classes: snap.sessions.iter().map(|s| ClassRow { session: s.id(), code: s.subject_code.clone(), name: s.description.clone(), day: s.day, start: s.start, end: s.end, own: s.own }).collect(),
+        own_classes: intportal_core::own_class::classes_of(&snap.sessions),
+        reminders: reminders
+            .iter()
+            .filter(|r| !r.text.is_empty())
+            .map(|r| ReminderRow { id: r.id, text: r.text.clone(), date: deadline::local_parts(r.at.div_euclid(1000), utc_offset).0 })
+            .collect(),
+    };
+    if let Some(id) = pick {
+        if cal.deadlines.iter().any(|d| d.id == id) {
+            cal.deadlines.retain(|d| d.id == id);
+        } else if cal.classes.iter().any(|c| c.session == id) {
+            cal.classes.retain(|c| c.session == id);
+        } else if cal.reminders.iter().any(|r| r.id.to_string() == id) {
+            cal.reminders.retain(|r| r.id.to_string() == id);
+        }
+    }
+    cal
+}
+
+/// True when a message asks to change the week (spec 064 C2), so the chat answers it without waking the model.
+#[tauri::command]
+pub fn ai_is_change(state: tauri::State<'_, AppState>, message: String) -> Res<bool> {
+    let snap = snapshot_of(&state)?;
+    let mut names: Vec<(String, String)> = snap.sessions.iter().map(|s| (s.subject_code.clone(), s.description.clone())).collect();
+    names.sort();
+    names.dedup_by(|a, b| a.0 == b.0);
+    Ok(calendar::request(&message, &names).is_some())
+}
+
 /// One chat turn. The words of an open question's reply arrive on `on_text`
 /// as the model writes them, and the steps it really takes on `on_step` (spec 048 C12).
 /// `open_key` is the note the student is looking at; `style` is the student's own
@@ -867,12 +920,38 @@ fn searches_notes(message: &str, note_open: bool) -> bool {
 /// The exchange is kept (encrypted, on the phone) so the chat survives a restart.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)] // one argument per field the sheet sends; Tauri has no struct form here
-pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: Moment, message: String, open_key: Option<String>, style: Option<String>, on_text: Channel<String>, on_step: Channel<Step>, utc_offset: Option<i32>) -> Res<Ask> {
+pub async fn ai_ask(
+    app: tauri::AppHandle,
+    ai: tauri::State<'_, AiState>,
+    now: Moment,
+    message: String,
+    open_key: Option<String>,
+    style: Option<String>,
+    on_text: Channel<String>,
+    on_step: Channel<Step>,
+    utc_offset: Option<i32>,
+    reminders: Option<Vec<LarReminder>>,
+    pick: Option<String>,
+) -> Res<Ask> {
     let mut send = |s: Step| drop(on_step.send(s));
     send(Step::Read);
     let state = app.state::<AppState>();
     let mabini = store(&state)?.mabini().unwrap_or_default();
-    let mut facts = facts_for(&snapshot_of(&state)?, &mabini, now, utc_offset.unwrap_or(MANILA_OFFSET));
+    let offset = utc_offset.unwrap_or(MANILA_OFFSET);
+    let snap = snapshot_of(&state)?;
+    let mut facts = facts_for(&snap, &mabini, now, offset);
+    // Spec 064: a change to the week is read and answered by rules alone (C17). Only then are the rows read,
+    // so no other answer pays for them.
+    if calendar::request(&message, &facts.subject_names).is_some() {
+        facts.calendar = Some(calendar_rows(&snap, &mabini, now, offset, &reminders.unwrap_or_default(), pick.as_deref()));
+        let a = assis::answer(&mut FakeLlm::default(), Template::ChatMl, &facts, &[], &message)?;
+        let ask = Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources: vec![], intent: "calendar", known: false, more: false, asked_model: false };
+        if let Ok(store) = store(&state) {
+            let at = now_unix();
+            let _ = store.add_turn("me", &message, at, false, &[]).and_then(|()| store.add_turn("lar", &ask.reply, at, false, &[]));
+        }
+        return Ok(ask);
+    }
     facts.long_tokens = if WINDOW.load(Ordering::Relaxed) >= models::WIDE_CTX { lang::LONG_TOKENS } else { lang::LONG_TOKENS_LOW };
     facts.style = style; // the student's own note on how LAR talks; `persona::system` cleans and caps it
     let history = recent_asks(&state);
@@ -1104,6 +1183,33 @@ mod tests {
         let mabini = MabiniData { deadlines: vec![essay], ..MabiniData::default() };
         let f = facts_for(&s, &mabini, Moment { date: Date::new(2026, 10, 15), minute: 480 }, 480);
         assert_eq!(f.due, ["Org fee, Thursday 2026-10-15", "Essay: COMP 20073, Friday 2026-10-16", "Quiz 2: COMP 20073, Friday 2026-10-16"]);
+    }
+
+    #[test]
+    fn spec_064_the_week_as_rows_with_sources_and_lars_reminders() {
+        let mut s = snap();
+        s.own_deadlines.push(intportal_core::deadline::OwnDeadline { id: "a".into(), title: "Lab report 3".into(), subject: None, kind: Kind::Project, date: Date::new(2026, 10, 20) });
+        let now = Moment { date: Date::new(2026, 10, 15), minute: 480 };
+        // 2026-10-19 8 AM Manila, in epoch milliseconds.
+        let tuition = LarReminder { id: 7, at: 1_792_368_000_000, text: "Pay tuition".into() };
+        let old = LarReminder { id: 5, at: 1_792_368_000_000, text: String::new() };
+        let cal = calendar_rows(&s, &MabiniData::default(), now, 480, &[tuition, old], None);
+        assert_eq!(cal.deadlines.iter().map(|d| (d.id.as_str(), d.source, d.date)).collect::<Vec<_>>(), [("syl:COMP 20073:1", deadline::Source::Syllabus, Date::new(2026, 10, 16)), ("own:a", deadline::Source::Own, Date::new(2026, 10, 20))]);
+        assert_eq!(cal.classes.iter().map(|c| (c.session.as_str(), c.day, c.own)).collect::<Vec<_>>(), [("COMP 20073-4-540-630", Weekday::Thursday, false)]);
+        assert_eq!(cal.reminders, [ReminderRow { id: 7, text: "Pay tuition".into(), date: Date::new(2026, 10, 19) }], "an old reminder with no text can't be matched");
+        // A tapped row keeps only that one of its kind.
+        let picked = calendar_rows(&s, &MabiniData::default(), now, 480, &[], Some("own:a"));
+        assert_eq!(picked.deadlines.iter().map(|d| d.id.as_str()).collect::<Vec<_>>(), ["own:a"]);
+        assert_eq!(picked.classes.len(), 1);
+    }
+
+    #[test]
+    fn spec_064_a_change_is_answered_by_rules_with_no_model() {
+        let now = Moment { date: Date::new(2026, 10, 15), minute: 480 };
+        let mut f = facts_for(&snap(), &MabiniData::default(), now, 480);
+        f.calendar = Some(calendar_rows(&snap(), &MabiniData::default(), now, 480, &[], None));
+        let a = assis::answer(&mut FakeLlm::default(), Template::ChatMl, &f, &[], "no COMP class today").unwrap();
+        assert!(matches!(a.proposal, Some(Proposal::MarkClass { .. })), "{a:?}");
     }
 
     fn at_8am() -> Facts {

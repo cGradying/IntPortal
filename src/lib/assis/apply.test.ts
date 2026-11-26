@@ -1,7 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import type { DeadlineEntry, Today } from "../api";
 import { entryLabel } from "../deadlines";
-import { appended, changedDay, describe, doneWord, folded, marked, noteLines, pickCaption, withNotes, wordDiff, followUps, lineDiff, foundLine, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters, topicOf } from "./apply";
+import { appended, changedDay, dayLabel, describe, doneWord, weekOf, whenLabel, folded, marked, noteLines, pickCaption, withNotes, wordDiff, followUps, lineDiff, foundLine, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters, topicOf } from "./apply";
 
 suite("applying a proposal", () => {
   it("puts a class note on the class and anything else on one note a day", () => {
@@ -332,5 +332,44 @@ suite("spec 063 A: the cards in their picked look", () => {
     expect(pickCaption({ subject: "MATH 101", updated: today }, now)).toBe("MATH 101 · changed today");
     expect(pickCaption({ subject: "", updated: today }, now)).toBe("Changed today");
     expect(pickCaption({}, now)).toBe("");
+  });
+});
+
+suite("spec 064: the week's cards", () => {
+  it("C14: says which week, short on the card and spelled out for VoiceOver", () => {
+    expect(dayLabel("2026-12-05")).toBe("Sat, Dec 5");
+    expect(whenLabel("2026-12-04")).toBe("Fri, Dec 4 only");
+    expect(whenLabel("2026-12-04", true)).toBe("Friday, December 4 only");
+    expect(whenLabel(null)).toBe("Every week");
+  });
+
+  it("keys a one-week change by its week's Monday", () => {
+    expect(weekOf("2026-12-04")).toBe("2026-11-30");
+    expect(weekOf("2026-11-30")).toBe("2026-11-30");
+    expect(weekOf("2026-12-06")).toBe("2026-11-30");
+  });
+
+  it("labels each card as the copy table says", () => {
+    const label = (p: Parameters<typeof describe>[0]) => describe(p).label;
+    expect(label({ kind: "add_deadline", title: "Essay", subject: null, deadline: "project", date: "2026-12-04" })).toBe("New deadline");
+    expect(label({ kind: "change_deadline", id: "own:a", name: "Essay", was: "2026-12-04", title: "Essay", date: "2026-12-07" })).toBe("Move deadline");
+    expect(label({ kind: "change_deadline", id: "own:a", name: "Essay", was: "2026-12-04", title: "Paper", date: "2026-12-04" })).toBe("Rename deadline");
+    expect(label({ kind: "done_deadline", id: "x", name: "Quiz" })).toBe("Mark done");
+    expect(describe({ kind: "delete_deadline", id: "own:a", name: "Essay", date: "2026-12-04" })).toMatchObject({ label: "Delete deadline", yes: "Delete" });
+    expect(label({ kind: "mark_class", session: "s", name: "MATH", week: null, mark: "vacant" })).toBe("No class");
+    expect(label({ kind: "mark_class", session: "s", name: "MATH", week: null, mark: "online" })).toBe("Online");
+    const slot = { day: "Friday" as const, start: 540, end: 630 };
+    expect(label({ kind: "move_class", session: "s", name: "MATH", week: null, was: slot, slot })).toBe("Move class");
+    const c = { code: "ORG", name: "Org", room: "", teacher: "", meetings: [] };
+    expect(label({ kind: "change_own_class", was: c, class: c })).toBe("Change class");
+    expect(label({ kind: "delete_own_class", code: "ORG", name: "Org" })).toBe("Delete class");
+    expect(label({ kind: "move_reminder", id: 1, text: "Pay", was: "2026-12-04", date: "2026-12-05" })).toBe("Move reminder");
+    expect(label({ kind: "delete_reminder", id: 1, text: "Pay" })).toBe("Delete reminder");
+  });
+
+  it("C15: says Changed, Deleted or Done after Apply", () => {
+    expect(["add_deadline", "change_deadline", "mark_class", "move_class", "change_own_class", "move_reminder"].map((k) => doneWord(k as never))).toEqual(Array(6).fill("Changed"));
+    expect(["delete_deadline", "delete_own_class", "delete_reminder"].map((k) => doneWord(k as never))).toEqual(Array(3).fill("Deleted"));
+    expect(doneWord("done_deadline")).toBe("Done");
   });
 });

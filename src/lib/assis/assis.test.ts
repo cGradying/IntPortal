@@ -136,7 +136,8 @@ describe("asking LAR", () => {
     backend.ai_load = () => void (disk[0].loaded = true);
     backend.ai_ask = () => reply("hi");
     await ask("hi");
-    expect(calls.map(([c]) => c).slice(0, 2)).toEqual(["ai_load", "ai_models"]);
+    // The rules check first whether it's a change to the week (spec 064 C17), then the model wakes.
+    expect(calls.map(([c]) => c).slice(0, 3)).toEqual(["ai_is_change", "ai_load", "ai_models"]);
     expect(assis.chat[1].text).toBe("hi");
   });
 
@@ -1503,3 +1504,222 @@ describe("spec 062 C20, C29: writing wrong answers on an old deck", () => {
   });
 });
 
+
+import { pickItem } from "./assis.svelte";
+import { larReminderList, notificationsOff, reminderId } from "./apply";
+import type { Snapshot } from "../api";
+
+describe("spec 064: LAR changes the week, with Undo", () => {
+  // A store that answers like the shell: each command changes the snapshot and returns it.
+  let snap: Snapshot;
+  let queue: { id: number; at: unknown; body: string }[];
+  let store: Map<string, string>;
+  const SESSION = { subject_code: "MATH 101", description: "Calculus", faculty: "", day: "Friday" as const, start: 540, end: 630, occurrence: 0 };
+  const ORG = { subject_code: "ORG", description: "Org meeting", faculty: "", day: "Wednesday" as const, start: 960, end: 1050, occurrence: 0, own: true, room: "S101" };
+  const card = (proposal: any, extra: object = {}) => (assis.chat = [{ from: "lar", text: "Sure.", proposal, state: "pending", ...extra } as any]);
+  const ring = (id: number, at: number, text: string) => store.set("larReminders", JSON.stringify([{ id, at, text }]));
+
+  beforeEach(() => {
+    snap = {
+      sessions: [SESSION, ORG],
+      own_deadlines: [{ id: "a1", title: "Lab report 3", subject: "COMP 20073", kind: "project", date: "2099-10-16" }],
+      done: [],
+      marks: { term: {}, weekly: {}, moved: { term: {}, weekly: {} } },
+    } as unknown as Snapshot;
+    app.snapshot = structuredClone(snap);
+    const ret = () => structuredClone(snap);
+    backend.save_own = ({ own }) => {
+      const o = { ...own, id: own.id || "new1" };
+      const i = snap.own_deadlines.findIndex((x) => x.id === o.id);
+      if (i < 0) snap.own_deadlines.push(o);
+      else snap.own_deadlines[i] = o;
+      return ret();
+    };
+    backend.delete_own = ({ id }) => ((snap.own_deadlines = snap.own_deadlines.filter((o) => o.id !== id)), ret());
+    backend.set_done = ({ id, done }) => ((snap.done = done ? [...snap.done, id] : snap.done.filter((d) => d !== id)), ret());
+    const set = (l: any, id: string, week: string | null, v: unknown) => {
+      if (week) {
+        l.weekly[id] ??= {};
+        if (v == null) delete l.weekly[id][week];
+        else l.weekly[id][week] = v;
+      } else if (v == null) delete l.term[id];
+      else l.term[id] = v;
+    };
+    backend.set_mark = ({ sessionId, week, mark }) => (set(snap.marks, sessionId, week, mark), ret());
+    backend.set_move = ({ sessionId, week, slot }) => (set(snap.marks.moved, sessionId, week, slot), ret());
+    const sessionsOf = (c: any) => c.meetings.flatMap((m: any) => m.days.map((day: string) => ({ subject_code: c.code, description: c.name, faculty: c.teacher, day, start: m.start, end: m.end, occurrence: 0, own: true, room: c.room })));
+    backend.save_class = ({ was, class: c }) => ((snap.sessions = [...snap.sessions.filter((s) => s.subject_code !== (was ?? c.code)), ...sessionsOf(c)]), ret());
+    backend.delete_class = ({ code }) => ((snap.sessions = snap.sessions.filter((s) => s.subject_code !== code)), ret());
+    store = new Map();
+    vi.stubGlobal("localStorage", { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) });
+    queue = [];
+    vi.mocked(isPermissionGranted).mockResolvedValue(true);
+    backend["plugin:notification|notify"] = ({ options }) => void queue.push({ id: options.id, at: options.schedule, body: options.body });
+    vi.mocked(cancel).mockImplementation(async (ids: number[]) => void (queue = queue.filter((q) => !ids.includes(q.id))));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const appliedThenUndone = async (check: { applied: () => void; undone: () => void }) => {
+    await apply(0);
+    expect(assis.chat[0]).toMatchObject({ state: "done", undo: true });
+    check.applied();
+    await undoChange(0);
+    expect(assis.chat[0]).toMatchObject({ undo: false, undone: true });
+    check.undone();
+  };
+
+  it("C3: adds an own deadline, and Undo deletes it", async () => {
+    card({ kind: "add_deadline", title: "Essay", subject: null, deadline: "project", date: "2099-10-20" });
+    await appliedThenUndone({
+      applied: () => expect(app.snapshot?.own_deadlines.map((o) => o.title)).toEqual(["Lab report 3", "Essay"]),
+      undone: () => expect(snap.own_deadlines.map((o) => o.title)).toEqual(["Lab report 3"]),
+    });
+  });
+
+  it("C4: moves or renames an own deadline, and Undo puts the old one back", async () => {
+    card({ kind: "change_deadline", id: "own:a1", name: "Lab report 3", was: "2099-10-16", title: "Lab report 3", date: "2099-10-19" });
+    await appliedThenUndone({
+      applied: () => expect(snap.own_deadlines[0].date).toBe("2099-10-19"),
+      undone: () => expect(snap.own_deadlines[0]).toEqual({ id: "a1", title: "Lab report 3", subject: "COMP 20073", kind: "project", date: "2099-10-16" }),
+    });
+    card({ kind: "change_deadline", id: "own:a1", name: "Lab report 3", was: "2099-10-16", title: "Lab 3", date: "2099-10-16" });
+    await appliedThenUndone({ applied: () => expect(snap.own_deadlines[0].title).toBe("Lab 3"), undone: () => expect(snap.own_deadlines[0].title).toBe("Lab report 3") });
+  });
+
+  it("C5: marks any deadline done, and Undo marks it not done", async () => {
+    card({ kind: "done_deadline", id: "syl:MATH 101:q2", name: "Quiz 2" });
+    await appliedThenUndone({ applied: () => expect(snap.done).toEqual(["syl:MATH 101:q2"]), undone: () => expect(snap.done).toEqual([]) });
+  });
+
+  it("C6: deletes an own deadline, and Undo puts it back whole", async () => {
+    const before = structuredClone(snap.own_deadlines);
+    card({ kind: "delete_deadline", id: "own:a1", name: "Lab report 3", date: "2099-10-16" });
+    await appliedThenUndone({ applied: () => expect(snap.own_deadlines).toEqual([]), undone: () => expect(snap.own_deadlines).toEqual(before) });
+  });
+
+  it("C7: one meeting goes through that week's mark, and Undo clears it", async () => {
+    card({ kind: "mark_class", session: "MATH 101-5-540-630", name: "MATH 101", week: "2099-10-16", mark: "vacant" });
+    await appliedThenUndone({
+      applied: () => expect(ran("set_mark").at(-1)?.[1]).toEqual({ sessionId: "MATH 101-5-540-630", week: "2099-10-12", mark: "vacant" }),
+      undone: () => expect(snap.marks.weekly["MATH 101-5-540-630"]).toEqual({}),
+    });
+  });
+
+  it("C8: every week sets the term's mark, and Undo puts back the one it replaced", async () => {
+    snap.marks.term["MATH 101-5-540-630"] = "online";
+    app.snapshot = structuredClone(snap);
+    card({ kind: "mark_class", session: "MATH 101-5-540-630", name: "MATH 101", week: null, mark: "vacant" });
+    await appliedThenUndone({ applied: () => expect(snap.marks.term["MATH 101-5-540-630"]).toBe("vacant"), undone: () => expect(snap.marks.term["MATH 101-5-540-630"]).toBe("online") });
+  });
+
+  it("C7: moves one meeting, and Undo clears the move", async () => {
+    const slot = { day: "Friday", start: 900, end: 990 };
+    card({ kind: "move_class", session: "MATH 101-5-540-630", name: "MATH 101", week: "2099-10-16", was: { day: "Friday", start: 540, end: 630 }, slot });
+    await appliedThenUndone({ applied: () => expect(snap.marks.moved.weekly["MATH 101-5-540-630"]).toEqual({ "2099-10-12": slot }), undone: () => expect(snap.marks.moved.weekly["MATH 101-5-540-630"]).toEqual({}) });
+  });
+
+  const org = { code: "ORG", name: "Org meeting", room: "S101", teacher: "", meetings: [{ days: ["Wednesday"], start: 960, end: 1050 }] };
+
+  it("C9: changes an own class's room, and Undo saves it as it was", async () => {
+    card({ kind: "change_own_class", was: org, class: { ...org, room: "302" } });
+    await appliedThenUndone({ applied: () => expect(snap.sessions.find((s) => s.subject_code === "ORG")?.room).toBe("302"), undone: () => expect(snap.sessions.find((s) => s.subject_code === "ORG")?.room).toBe("S101") });
+  });
+
+  it("C10: deletes an own class, and Undo adds it back; Add a class opens the editor", async () => {
+    card({ kind: "delete_own_class", code: "ORG", name: "Org meeting" });
+    await appliedThenUndone({ applied: () => expect(snap.sessions.map((s) => s.subject_code)).toEqual(["MATH 101"]), undone: () => expect(snap.sessions.map((s) => s.subject_code)).toEqual(["MATH 101", "ORG"]) });
+    card({ kind: "new_class", name: "Review", day: "Saturday", start: 540 });
+    await apply(0);
+    expect(app.classEditor).toEqual({ was: null, cls: { code: "", name: "Review", room: "", teacher: "", meetings: [{ days: ["Saturday"], start: 540, end: 630 }] } });
+    expect(assis.chat[0]).toMatchObject({ state: "done" });
+    expect(assis.chat[0].undo).toBeFalsy();
+    app.classEditor = null;
+  });
+
+  it("C11: LAR's reminders keep their text, and are moved and deleted with Undo", async () => {
+    card({ kind: "set_reminder", date: "2099-10-19", text: "Pay tuition" });
+    await apply(0);
+    const id = queue[0].id;
+    expect(JSON.parse(store.get("larReminders")!)).toEqual([{ id, at: new Date(2099, 9, 19, 8).getTime(), text: "Pay tuition" }]);
+    card({ kind: "move_reminder", id, text: "Pay tuition", was: "2099-10-19", date: "2099-10-17" });
+    await appliedThenUndone({
+      applied: () => expect(queue.map((q) => q.body)).toEqual(["Pay tuition"]) as void,
+      undone: () => expect(queue).toEqual([{ id, at: expect.anything(), body: "Pay tuition" }]),
+    });
+    card({ kind: "delete_reminder", id, text: "Pay tuition" });
+    await appliedThenUndone({ applied: () => expect(queue).toEqual([]), undone: () => expect(queue.map((q) => q.id)).toEqual([id]) });
+  });
+
+  it("Errors: with notifications off a moved reminder is still saved, with the note, and Undo puts the old day back", async () => {
+    const at = new Date(2099, 9, 19, 8).getTime();
+    ring(7, at, "Pay tuition");
+    vi.mocked(isPermissionGranted).mockResolvedValue(false);
+    vi.mocked(requestPermission).mockResolvedValue("denied");
+    backend["plugin:notification|notify"] = () => Promise.reject("not allowed");
+    card({ kind: "move_reminder", id: 7, text: "Pay tuition", was: "2099-10-19", date: "2099-10-17" });
+    await apply(0);
+    expect(assis.chat[0]).toMatchObject({ state: "done", undo: true, notice: notificationsOff(false) });
+    expect(larReminderList()).toEqual([{ id: reminderId("Pay tuition", "2099-10-17"), at: new Date(2099, 9, 17, 8).getTime(), text: "Pay tuition" }]);
+    await undoChange(0);
+    expect(assis.chat[0]).toMatchObject({ undone: true });
+    expect(larReminderList()).toEqual([{ id: 7, at, text: "Pay tuition" }]);
+  });
+
+  it("C11: an old reminder kept without its text isn't offered to match", async () => {
+    store.set("larReminders", JSON.stringify([{ id: 5, at: Date.now() + 86_400_000 }]));
+    backend.ai_is_change = () => true;
+    backend.ai_ask = () => reply("I couldn't find that in your week.");
+    await ask("delete the tuition reminder");
+    expect(ran("ai_ask")[0][1].reminders).toEqual([]);
+    ring(6, Date.now() + 86_400_000, "Pay tuition");
+    await ask("delete the tuition reminder");
+    expect(ran("ai_ask")[1][1].reminders).toEqual([{ id: 6, at: expect.any(Number), text: "Pay tuition" }]);
+  });
+
+  it("C17: a change to the week never wakes the model", async () => {
+    disk = [chat({ loaded: false }), embed()];
+    assis.models = structuredClone(disk);
+    backend.ai_is_change = () => true;
+    backend.ai_ask = () => reply("Mark MATH 101 as no class, Fri, Oct 16 only?", { proposal: { kind: "mark_class", session: "s", name: "MATH 101", week: "2099-10-16", mark: "vacant" }, intent: "calendar" });
+    await ask("no MATH class tomorrow");
+    expect(ran("ai_load")).toHaveLength(0);
+    expect(assis.chat[1]).toMatchObject({ state: "pending", proposal: { kind: "mark_class" } });
+  });
+
+  it("C12: a tapped row asks the same request again about that item", async () => {
+    backend.ai_is_change = () => true;
+    backend.ai_ask = () => reply("Delete Lab report 3? You can undo it right after.");
+    assis.chat = [{ from: "me", text: "delete my lab report" }, { from: "lar", text: "Which one do you mean?", state: "pending", proposal: { kind: "pick_item", ask: "delete my lab report", candidates: [{ id: "own:a1", name: "Lab report 3", item: "deadline" }, { id: "own:a2", name: "Lab report 4", item: "deadline" }] } } as any];
+    await pickItem(1, "own:a1");
+    expect(ran("ai_ask")[0][1]).toMatchObject({ message: "delete my lab report", pick: "own:a1" });
+    expect(assis.chat[1]).toMatchObject({ state: "done", picked: "own:a1" });
+    expect(assis.chat.filter((m) => m.from === "me")).toHaveLength(1);
+  });
+
+  it("Errors: an item changed by hand before the tap is not changed", async () => {
+    snap.own_deadlines[0].date = "2099-10-18";
+    app.snapshot = structuredClone(snap);
+    card({ kind: "change_deadline", id: "own:a1", name: "Lab report 3", was: "2099-10-16", title: "Lab report 3", date: "2099-10-19" });
+    await apply(0);
+    expect(assis.chat[0]).toMatchObject({ state: "done", notice: "That changed since I read it. Ask me again." });
+    expect(ran("save_own")).toHaveLength(0);
+    expect(assis.chat[0].undo).toBeFalsy();
+  });
+
+  it("Errors: a failed save keeps the card live with the retry line", async () => {
+    backend.set_done = () => Promise.reject("disk full");
+    card({ kind: "done_deadline", id: "own:a1", name: "Lab report 3" });
+    await apply(0);
+    expect(assis.chat[0]).toMatchObject({ state: "pending", problem: "Couldn't save that. Try again." });
+  });
+
+  it("C16: a change by hand after Apply ends that Undo", async () => {
+    card({ kind: "change_deadline", id: "own:a1", name: "Lab report 3", was: "2099-10-16", title: "Lab report 3", date: "2099-10-19" });
+    await apply(0);
+    snap.own_deadlines[0].title = "Lab report three";
+    app.snapshot = structuredClone(snap);
+    await undoChange(0);
+    expect(assis.chat[0]).toMatchObject({ undo: false, notice: "There's nothing to undo." });
+    expect(snap.own_deadlines[0]).toMatchObject({ title: "Lab report three", date: "2099-10-19" });
+  });
+});

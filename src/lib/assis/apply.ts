@@ -1,6 +1,6 @@
 // What "Apply" does with a proposal from LAR. Pure, so it is tested without a
 // phone. LAR never writes: the sheet shows a card and the student confirms.
-import type { Card, DeadlineEntry, Deck, NoteItem, Today } from "../api";
+import type { Card, DeadlineEntry, Deck, ItemKind, Mark, NoteItem, OwnClass, Slot, Today, Weekday } from "../api";
 import { entryLabel } from "../deadlines";
 import { subjectOf } from "../shelf";
 
@@ -15,7 +15,25 @@ export type Proposal =
   | { kind: "delete_note"; key: string; name: string; preview: string }
   /** Each candidate's subject ("" for none) and last change are read from the notes when the card lands (063 C6). */
   | { kind: "pick_note"; candidates: { key: string; name: string; subject?: string; updated?: number }[]; ask: string }
-  | { kind: "make_cards"; topic: string; count: number; quiz?: boolean };
+  | { kind: "make_cards"; topic: string; count: number; quiz?: boolean }
+  // Spec 064: the student's week. `week` is the one meeting's date; null is every week.
+  | { kind: "add_deadline"; title: string; subject: string | null; deadline: ItemKind; date: string }
+  | { kind: "change_deadline"; id: string; name: string; was: string; title: string; date: string }
+  | { kind: "done_deadline"; id: string; name: string }
+  | { kind: "delete_deadline"; id: string; name: string; date: string }
+  | { kind: "mark_class"; session: string; name: string; week: string | null; mark: Mark }
+  | { kind: "move_class"; session: string; name: string; week: string | null; was: Slot; slot: Slot }
+  | { kind: "change_own_class"; was: OwnClass; class: OwnClass }
+  | { kind: "delete_own_class"; code: string; name: string }
+  | { kind: "new_class"; name: string; day: Weekday | null; start: number | null }
+  | { kind: "move_reminder"; id: number; text: string; was: string; date: string }
+  | { kind: "delete_reminder"; id: number; text: string }
+  | { kind: "pick_item"; candidates: { id: string; name: string; item: "deadline" | "class" | "reminder" }[]; ask: string };
+
+/** The proposals that change the student's week (spec 064). */
+export type CalendarChange = Extract<Proposal, { kind: "add_deadline" | "change_deadline" | "done_deadline" | "delete_deadline" | "mark_class" | "move_class" | "change_own_class" | "delete_own_class" | "move_reminder" | "delete_reminder" }>;
+const CHANGES = ["add_deadline", "change_deadline", "done_deadline", "delete_deadline", "mark_class", "move_class", "change_own_class", "delete_own_class", "move_reminder", "delete_reminder"];
+export const isChange = (p: Proposal): p is CalendarChange => CHANGES.includes(p.kind);
 
 /** A note about a class goes on that class's note; any other goes on one running "From LAR" note for the day. */
 export function noteTarget(p: { subject: string | null }, today: string): { key: string; title: string | null } {
@@ -203,28 +221,98 @@ export function describe(p: Proposal): { label: string; text: string; yes: strin
       return { label: "Delete this note?", text: `${p.name}\n${p.preview}`, yes: "Delete" };
     case "pick_note":
       return { label: "Which note do you mean?", text: "", yes: "" };
+    case "add_deadline":
+      return { label: "New deadline", text: p.title, yes: "Add" };
+    case "change_deadline":
+      return { label: p.date !== p.was ? "Move deadline" : "Rename deadline", text: p.name, yes: "Apply" };
+    case "done_deadline":
+      return { label: "Mark done", text: p.name, yes: "Mark done" };
+    case "delete_deadline":
+      return { label: "Delete deadline", text: p.name, yes: "Delete" };
+    case "mark_class":
+      return { label: p.mark === "online" ? "Online" : p.mark === "vacant" ? "No class" : "Change class", text: p.name, yes: "Apply" };
+    case "move_class":
+      return { label: "Move class", text: p.name, yes: "Apply" };
+    case "change_own_class":
+      return { label: "Change class", text: p.was.name, yes: "Apply" };
+    case "delete_own_class":
+      return { label: "Delete class", text: p.name, yes: "Delete" };
+    case "new_class":
+      return { label: "New class", text: p.name, yes: "Open the class editor" };
+    case "move_reminder":
+      return { label: "Move reminder", text: p.text, yes: "Apply" };
+    case "delete_reminder":
+      return { label: "Delete reminder", text: p.text, yes: "Delete" };
+    case "pick_item":
+      return { label: "Which one do you mean?", text: "", yes: "" };
   }
+}
+
+const DAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const local = (date: string) => {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/** "Fri, Dec 5"; `long` spells it out for VoiceOver: "Friday, December 5". */
+export function dayLabel(date: string, long = false): string {
+  const d = local(date);
+  const [day, month] = [DAY[d.getDay()], MONTH[d.getMonth()]];
+  return long ? `${day}, ${month} ${d.getDate()}` : `${day.slice(0, 3)}, ${month.slice(0, 3)} ${d.getDate()}`;
+}
+
+/** A class change's reach (spec 064 C14): "Fri, Dec 5 only", or "Every week". */
+export const whenLabel = (week: string | null, long = false) => (week ? `${dayLabel(week, long)} only` : "Every week");
+
+/** The Monday of a date's week, as marks and moves are keyed (`Layers.weekly`). */
+export function weekOf(date: string): string {
+  const d = local(date);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 const LAR_KEY = "larReminders";
 
-/** Ids of reminders LAR set that are still ahead, so the weekly reschedule leaves them queued. */
-export function larReminderIds(now = Date.now()): Set<number> {
+/** A reminder LAR set. `text` is kept since spec 064 C11, so a later "delete the tuition reminder" finds it. */
+export interface LarReminder {
+  id: number;
+  at: number;
+  text?: string;
+}
+
+function larReminders(): LarReminder[] {
   try {
-    const all: { id: number; at: number }[] = JSON.parse(localStorage.getItem(LAR_KEY) ?? "[]");
-    return new Set(all.filter((r) => r.at > now).map((r) => r.id));
+    return JSON.parse(localStorage.getItem(LAR_KEY) ?? "[]");
   } catch {
-    return new Set(); // Storage off: LAR's reminders last until the next reschedule.
+    return []; // Storage off: LAR's reminders last until the next reschedule.
   }
 }
 
-export function rememberLarReminder(id: number, at: Date) {
+function keep(all: LarReminder[]) {
   try {
-    const all: { id: number; at: number }[] = JSON.parse(localStorage.getItem(LAR_KEY) ?? "[]");
-    localStorage.setItem(LAR_KEY, JSON.stringify(all.filter((r) => r.at > Date.now() && r.id !== id).concat({ id, at: at.getTime() })));
+    localStorage.setItem(LAR_KEY, JSON.stringify(all));
   } catch {
-    // Storage off: see larReminderIds.
+    // Storage off: see larReminders.
   }
+}
+
+/** Ids of reminders LAR set that are still ahead, so the weekly reschedule leaves them queued. */
+export function larReminderIds(now = Date.now()): Set<number> {
+  return new Set(larReminders().filter((r) => r.at > now).map((r) => r.id));
+}
+
+/** LAR's reminders still ahead that have their text: the ones a request can name (064 C11). Older ones can't be matched. */
+export function larReminderList(now = Date.now()): Required<LarReminder>[] {
+  return larReminders().filter((r): r is Required<LarReminder> => r.at > now && !!r.text);
+}
+
+export function rememberLarReminder(id: number, at: Date, text?: string) {
+  keep(larReminders().filter((r) => r.at > Date.now() && r.id !== id).concat(text ? { id, at: at.getTime(), text } : { id, at: at.getTime() }));
+}
+
+export function forgetLarReminder(id: number) {
+  keep(larReminders().filter((r) => r.id !== id));
 }
 
 export type DiffLine = { kind: "same" | "add" | "del"; text: string };
@@ -312,8 +400,8 @@ export const noteLines = (text: string) =>
   });
 
 /** The word on an applied note card (spec 063 C5). */
-export const doneWord = (kind: "edit_note" | "rename_note" | "move_note" | "delete_note") =>
-  ({ edit_note: "Changed", rename_note: "Renamed", move_note: "Moved", delete_note: "Deleted" })[kind];
+export const doneWord = (kind: "edit_note" | "rename_note" | "move_note" | "delete_note" | CalendarChange["kind"]) =>
+  kind === "edit_note" ? "Changed" : kind === "rename_note" ? "Renamed" : kind === "move_note" ? "Moved" : kind === "done_deadline" ? "Done" : kind.startsWith("delete_") ? "Deleted" : "Changed";
 
 /** What the card needs from the notes as they are when it lands: Move's old subject, each candidate's subject and day. */
 export function withNotes(p: Proposal, notes: NoteItem[]): Proposal {
