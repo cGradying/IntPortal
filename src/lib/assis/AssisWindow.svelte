@@ -459,7 +459,7 @@
                       {#if m.proposal.kind === "save_note"}
                         <button class="no" onclick={() => (m.editing = !m.editing)}>{m.editing ? "Done" : "Edit"}</button>
                       {:else}
-                        <button class="no" onclick={() => dismiss(i)}>{m.proposal.kind.endsWith("_note") && m.proposal.kind !== "save_note" ? "Cancel" : "Not now"}</button>
+                        <button class="no" onclick={() => dismiss(i)}>{m.proposal.kind.endsWith("_note") ? "Cancel" : "Not now"}</button>
                       {/if}
                     </div>
                   {:else if m.state === "done" && m.undo}
