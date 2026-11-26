@@ -404,7 +404,16 @@
                 {@const d = describe(m.proposal)}
                 <div class="offer" class:done={m.state === "done"}>
                   <p class="label">{d.label}</p>
-                  <p class="what">{d.text}</p>
+                  {#if m.proposal.kind === "save_note" && m.editing && m.state === "pending"}
+                    <input class="ed" bind:value={m.proposal.title} aria-label="Note title" />
+                    <textarea class="ed body" rows="8" bind:value={m.proposal.text} aria-label="Note text"></textarea>
+                  {:else if m.proposal.kind === "save_note"}
+                    <p class="what"><b>{m.proposal.title}</b></p>
+                    <p class="what note">{m.proposal.text}</p>
+                    {#if m.proposal.partial && m.state === "pending"}<p class="fine">Made from the last part of our chat.</p>{/if}
+                  {:else}
+                    <p class="what">{d.text}</p>
+                  {/if}
                   {#if m.state === "pending" && m.cards}
                     <p class="fine">Edit or remove any card. Nothing is saved until you tap the gold button.</p>
                     <ul class="cards">
@@ -426,7 +435,11 @@
                   {:else if m.state === "pending"}
                     <div class="two">
                       <button class="yes" onclick={() => apply(i)} disabled={assis.busy === "cards"}>{assis.busy === "cards" ? "Making…" : d.yes}</button>
-                      <button class="no" onclick={() => dismiss(i)}>Not now</button>
+                      {#if m.proposal.kind === "save_note"}
+                        <button class="no" onclick={() => (m.editing = !m.editing)}>{m.editing ? "Done" : "Edit"}</button>
+                      {:else}
+                        <button class="no" onclick={() => dismiss(i)}>Not now</button>
+                      {/if}
                     </div>
                   {:else if m.state === "done" && m.notice}
                     <p class="problem">{m.notice}</p>
@@ -916,6 +929,18 @@
     flex: 1;
     min-width: 0;
     gap: 6px;
+  }
+  .what.note {
+    white-space: pre-line;
+  }
+  .ed.body {
+    height: auto;
+    padding: 10px 12px;
+    resize: vertical;
+  }
+  .offer > .ed {
+    width: 100%;
+    margin-top: 6px;
   }
   .ed {
     min-width: 0;

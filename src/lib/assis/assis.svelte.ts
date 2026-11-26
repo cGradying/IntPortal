@@ -54,6 +54,8 @@ export interface Msg {
   notice?: string;
   /** make_cards: the cards LAR wrote, shown to edit before anything is saved. */
   cards?: Draft[];
+  /** save_note: the student opened the note's title and body to change them before saving (spec 062 C5). */
+  editing?: boolean;
 }
 
 export const assis = $state({
@@ -516,6 +518,12 @@ export async function apply(i: number) {
       const { key, title } = noteTarget(p, isoDate(new Date()));
       await api.setNote(key, appended(existingText(app.notes, key), p.text), title);
       app.notes = await api.notes();
+    } else if (p.kind === "save_note") {
+      const key = `note:${crypto.randomUUID()}`;
+      await api.setNote(key, p.text.trim(), p.title.trim() || "Notes from our chat");
+      if (p.subject) await api.setNoteSubject(key, p.subject);
+      app.notes = await api.notes();
+      msg.text = "Saved to your notes.";
     } else if (p.kind === "set_reminder") {
       const id = reminderId(p.text, p.date);
       // Same rule as scheduleReminders: look first, ask once, and never say it will ring when it cannot.

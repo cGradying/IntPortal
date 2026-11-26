@@ -3,6 +3,7 @@
 //! compiles it (ADR 0003).
 
 pub mod assis;
+pub mod chatnote;
 pub mod due;
 pub mod evalset;
 pub mod gen;
