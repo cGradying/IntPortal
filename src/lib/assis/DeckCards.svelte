@@ -1,15 +1,17 @@
 <script lang="ts">
   // "AI cards" in a deck: pick a note, LAR proposes cards, the student edits
   // and confirms. Nothing is saved until "Add N cards" (ADR 0003). Hidden
-  // until IntAssis is on the phone.
-  import { api, type NoteItem } from "../api";
+  // until IntAssis is on the phone. Write wrong answers runs here too, on the
+  // deck's own cards, and saves each batch as it lands (spec 063 C12).
+  import { api, type Card, type NoteItem } from "../api";
   import { buzz } from "../haptics";
-  import { cardsFrom, installed, pdfText } from "./assis.svelte";
-  import { friendlyError, hasText, noteLabel, pdfError, pdfProblem, sourceText, tidy, usable, type Draft } from "./cards";
+  import { cardsFrom, installed, pdfText, writeWrongAnswers } from "./assis.svelte";
+  import { friendlyError, hasText, lacksWrong, noteLabel, pdfError, pdfProblem, sourceText, tidy, usable, writeMissing, type Draft } from "./cards";
 
-  let { subject, fronts, onadd }: { subject: string | null; fronts: string[]; onadd: (cards: Draft[]) => Promise<void> } = $props();
+  let { subject, cards, onadd, onwrong }: { subject: string | null; cards: Card[]; onadd: (cards: Draft[]) => Promise<void>; onwrong: (part: Card[]) => Promise<void> } = $props();
+  const fronts = $derived(cards.map((c) => c.front));
 
-  let step = $state<"closed" | "pick" | "working" | "review">("closed");
+  let step = $state<"closed" | "pick" | "working" | "review" | "wrong">("closed");
   let notes = $state<NoteItem[]>([]);
   let proposed = $state<Draft[]>([]);
   let problem = $state("");
@@ -76,6 +78,40 @@
     problem = "";
   }
 
+  // Write wrong answers: n of m while it runs, then how many were written.
+  let wrong = $state({ done: 0, wrote: 0, of: 0, over: false });
+  let stopping = $state(false);
+  $effect(() => () => (stopping = true));
+  const shown = () =>
+    new Promise<void>((ok) => {
+      const back = () => {
+        if (document.hidden) return;
+        document.removeEventListener("visibilitychange", back);
+        ok();
+      };
+      document.addEventListener("visibilitychange", back);
+    });
+
+  async function writeWrong() {
+    buzz.select();
+    problem = "";
+    stopping = false;
+    wrong = { done: 0, wrote: 0, of: 0, over: false };
+    step = "wrong";
+    try {
+      await writeMissing($state.snapshot(cards) as Card[], writeWrongAnswers, onwrong, {
+        stopped: () => stopping,
+        hidden: () => document.hidden,
+        shown,
+        progress: (done, wrote, of) => (wrong = { done, wrote, of, over: false }),
+      });
+      buzz.done();
+    } catch {
+      buzz.fail();
+    }
+    wrong.over = true;
+  }
+
   async function add() {
     const cards = tidy(proposed, fronts);
     if (!cards.length) return;
@@ -88,10 +124,23 @@
   {#if step === "closed"}
     <button class="ghost wide" onclick={() => begin()}>AI cards from a note</button>
     <button class="ghost wide" onclick={() => begin(true)}>Make a quiz</button>
+    {#if lacksWrong(cards)}<button class="ghost wide" onclick={writeWrong}>Write wrong answers</button>{/if}
   {:else}
     <section class="card notch box" aria-label="AI cards">
-      <p class="label">{quiz ? "AI quiz" : "AI cards"}</p>
-      {#if step === "pick"}
+      <p class="label">{step === "wrong" ? "Wrong answers" : quiz ? "AI quiz" : "AI cards"}</p>
+      {#if step === "wrong"}
+        {#if !wrong.over}
+          <p class="working" role="status" aria-live="polite"><i aria-hidden="true"></i>LAR is writing wrong answers…</p>
+          <p class="fine num">{wrong.done} of {wrong.of} cards</p>
+          <button class="ghost" disabled={stopping} onclick={() => (stopping = true)}>{stopping ? "Stopping…" : "Stop"}</button>
+        {:else}
+          <p class="fine" role="status">Wrote wrong answers for {wrong.wrote} of {wrong.of} cards.</p>
+          <div class="row">
+            {#if wrong.wrote < wrong.of}<button class="primary" onclick={writeWrong}>Try again</button>{/if}
+            <button class="ghost" onclick={cancel}>Close</button>
+          </div>
+        {/if}
+      {:else if step === "pick"}
         <p class="fine">Pick a note or a PDF. LAR reads it on this phone and suggests cards. You choose which to keep.</p>
         <input bind:this={file} type="file" accept="application/pdf" hidden aria-hidden="true" tabindex="-1" onchange={pdf} />
         <button class="ghost" onclick={() => file?.click()}>Pick a PDF (up to 20 MB)</button>

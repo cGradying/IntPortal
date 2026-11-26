@@ -74,7 +74,15 @@
     if (deck) await save([...deck.cards, ...cards.map((c) => ({ ...blank(c.front, c.back), ...(c.wrong?.length ? { wrong: c.wrong } : {}) }))]);
   }
 
-  async function remove(card: Card) {
+  // One batch from Write wrong answers, onto the deck as it is now. A failed save throws, so the box can say how far it got.
+  async function addWrong(part: Card[]) {
+    if (!deck) return;
+    const by = new Map(part.map((c) => [c.id, c.wrong]));
+    const now = $state.snapshot(deck) as Deck;
+    deck = await api.saveDeck({ ...now, cards: now.cards.map((c) => (by.has(c.id) ? { ...c, wrong: by.get(c.id) } : c)) });
+  }
+
+    async function remove(card: Card) {
     if (!deck) return;
     await save(deck.cards.filter((c) => c.id !== card.id));
   }
@@ -137,7 +145,7 @@
       {/if}
     </section>
 
-    {#if deck}<DeckCards subject={deck.subject} fronts={deck.cards.map((c) => c.front)} onadd={addProposed} />{/if}
+    {#if deck}<DeckCards subject={deck.subject} cards={deck.cards} onadd={addProposed} onwrong={addWrong} />{/if}
 
     <ul class="cards">
       {#each deck?.cards ?? [] as c (c.id)}
