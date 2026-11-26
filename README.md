@@ -2,18 +2,32 @@
   <img src="docs/images/banner.gif" alt="IntPortal: PUP's Sta. Mesa campus drawn in pixels at night, with a jeepney driving past" width="100%">
 </p>
 
+<h1 align="center">IntPortal</h1>
+
 <p align="center">
-  <a href="CHANGELOG.md"><img alt="Version" src="https://img.shields.io/badge/version-0.3.0-c8102e"></a>
+  Your classes, grades and deadlines on your phone. Offline, private, and quick.
+</p>
+
+<p align="center">
+  <a href="https://github.com/cGradying/IntPortal/releases/latest"><img alt="Version" src="https://img.shields.io/github/package-json/v/cGradying/IntPortal?color=c8102e&label=version"></a>
   <a href="https://github.com/cGradying/IntPortal/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/cGradying/IntPortal/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Mac%20%7C%20Windows%20%7C%20Linux%20%7C%20Web-555">
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Web-555">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-all%20rights%20reserved-555"></a>
 </p>
 
-# IntPortal
+<p align="center">
+  <a href="https://intportal.pages.dev"><b>Website</b></a> ·
+  <a href="https://intportal.pages.dev/download">Download</a> ·
+  <a href="https://intportal.pages.dev/app/">Try it in the browser</a> ·
+  <a href="CHANGELOG.md">Changelog</a> ·
+  <a href="https://github.com/cGradying/IntPortal/issues">Report a problem</a>
+</p>
 
-A student app that keeps your classes, grades and deadlines from your school's portal on your phone. It signs in with your own account, works offline, and keeps everything on the phone. Today it signs in to PUP's SIS and eMabini, and more schools are coming. A small robot named LAR shows you around.
+---
 
-IntPortal is unofficial. It is not made by or affiliated with any school, and it only works with your own account.
+School portals are slow, and they don't load where campus has no signal. IntPortal signs in to your school's portal with your own account once, saves what it finds on your phone, and works from there offline. It signs in to PUP's SIS and eMabini today. A school with no portal in the app can still use it: add your classes by hand or scan a photo of your schedule.
+
+A small robot named **LAR** (the Lakbay-Aral Robot) shows you around. You are **Isko**, the student.
 
 <p align="center">
   <img src="docs/images/dive.gif" width="200" alt="The portal opens and the app dives in to Today">
@@ -21,16 +35,19 @@ IntPortal is unofficial. It is not made by or affiliated with any school, and it
   <img src="docs/images/tabs.gif" width="200" alt="Moving between the tabs">
 </p>
 
-## What you get
+## Features
 
-- **Today.** The class in session, what is due, your classes with the free time between them, and one nudge from LAR.
-- **Schedule.** Day and week views. Mark a class vacant or online, move it, colour it, add a note.
-- **Grades.** Every term, your GPA, a trend, and what you need on the rest to hit a target.
-- **Deadlines.** SIS, eMabini and your own, with Done and Undo. Scan a handout to add one.
-- **Study.** Flashcard decks that bring each card back at the right time.
-- **Notes.** Per class or per day, with checklists and photos.
-- **LAR, optional.** A small assistant that runs on the phone and answers questions about your classes and notes. You download it only if you choose to.
-- **Outside the app.** Reminders, a countdown to your next class on the Lock Screen and Dynamic Island (a status-bar chip on Android), and a home-screen widget.
+| | |
+|---|---|
+| **Today** | The class in session, what's due, your classes with the free time between them, and one nudge from LAR. |
+| **Schedule** | Day and week views, and a four-week month of deadlines. Mark a class vacant or online, move it, colour it, add a note. |
+| **Own schedule** | No portal? Add classes by hand, or scan a photo or pasted timetable and check each class before it's saved. |
+| **Grades** | Every term, your GPA, a trend, and what you need on the rest to hit a target. |
+| **Deadlines** | SIS, eMabini and your own in one list, with Done and Undo. Scan a handout to add one. |
+| **Study** | Flashcard decks that bring each card back when you're about to forget it. |
+| **Notes** | Per class or per day, with checklists and photos. |
+| **IntAssis** *(optional)* | An AI that runs on your phone. It answers questions about your classes and notes and makes flashcards. Nothing is uploaded, and you download it only if you want it. |
+| **Outside the app** | Reminders, a countdown to your next class on the Lock Screen and Dynamic Island (a status-bar chip on Android), a home-screen widget, and your classes in the phone's calendar. |
 
 Every feature is listed in [docs/FEATURES.md](docs/FEATURES.md).
 
@@ -41,34 +58,77 @@ Every feature is listed in [docs/FEATURES.md](docs/FEATURES.md).
   <img src="docs/images/grades.png" width="150" alt="Grades and the GPA trend">
 </p>
 
-## Get it
+## Install
 
-**Android.** Download `IntPortal.apk` from the [latest release](https://github.com/cGradying/IntPortal/releases/latest), open it, and allow the install when Android asks. It needs Android 7 or newer on a 64-bit phone. Updates install over the old version and keep your data.
+The [website](https://intportal.pages.dev/download) picks the right file for your device. Every file is also on the [latest release](https://github.com/cGradying/IntPortal/releases/latest).
 
-**iPhone.** There is no App Store build yet. Sideload `IntPortal-unsigned.ipa` from the release with AltStore or SideStore, which sign it with your own Apple ID.
+| Device | File | Notes |
+|---|---|---|
+| Android 7+ (64-bit) | `IntPortal.apk` | Open it and allow the install. Updates keep your data. |
+| iPhone | `IntPortal-unsigned.ipa` | No App Store build yet. Sideload with AltStore or SideStore. |
+| Mac (Apple Silicon) | `IntPortal-mac.dmg` | Unsigned, so the first launch asks once. |
+| Windows | `IntPortal-windows.msi` | Unsigned, so Windows asks once. |
+| Linux | `IntPortal-linux.AppImage` or `.deb` | |
 
-**Mac, Windows and Linux.** The release has `IntPortal-mac.dmg` (Apple Silicon), `IntPortal-windows.msi`, and `IntPortal-linux.AppImage` or `.deb`. They aren't signed, so the first launch asks once. The website's install help says how to get past that.
+To try it first, tap **Look around first** on the sign-in page, or open the [browser demo](https://intportal.pages.dev/app/). Both run the whole app on sample data, with no school account.
 
-**Look around first.** Tap it on the sign-in page to try the whole app on sample data, with no school account.
+## Privacy
 
-## Your data
+- Everything stays on your phone. There is no IntPortal account, server, analytics or ads.
+- Your login is kept in the phone's keychain. Your data is in an encrypted database with its own key.
+- The app talks only to your school's own sites, and to the model download if you choose IntAssis.
+- Sign-ins go through a guard. It allows at most three tries per 15 minutes and never retries a rejected password, so the app can't get your account locked.
 
-Everything stays on your phone. There is no IntPortal account, server, analytics or ads. Your login is kept in the phone's keychain, and the app talks only to your school's own sites. Details are in [PRIVACY.md](PRIVACY.md).
+Details are in [PRIVACY.md](PRIVACY.md).
 
-## Built with
+## How it's built
 
-Rust for the logic (`crates/`), Svelte 5 for the screens (`src/`), and Tauri 2 to put them on phones and computers (`src-tauri/`). The same core runs in the browser as WebAssembly (`crates/intportal-web`). How the pieces fit is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Rust holds the logic, Svelte 5 draws the screens, and Tauri 2 ships them to phones and computers. The same Rust core compiles to WebAssembly for the browser demo.
 
-This repository also holds the website (`site/`) and the reel (`reel/`).
+```mermaid
+flowchart TD
+  UI["Svelte 5 UI<br/>src/"] -->|"invoke(command)"| Shell["Tauri shell<br/>src-tauri/"]
+  Shell --> Core["intportal-core<br/>portals, schedule, grades,<br/>deadlines, study, encrypted store"]
+  Shell --> Plugins["Native plugins<br/>glance · calendar · camera · download"]
+  Shell --> AI["intportal-ai + intportal-llm<br/>optional, on-device"]
+  Web["intportal-web<br/>browser demo (WASM)"] --> Core
+  Tiles["intportal-tiles<br/>landing portal (WASM)"] -.-> UI
+```
 
-## More
+| Path | What's there |
+|---|---|
+| `crates/` | The Rust core, the AI, the landing portal and the browser build |
+| `src-tauri/` | Commands, keychain, store opening, and the iOS and Android projects |
+| `src/` | The app's screens |
+| `plugins/` | Native code for the widget and Live Activity, calendar, camera and model downloads |
+| `site/` | The website at [intportal.pages.dev](https://intportal.pages.dev) |
+| `reel/` | The intro video, rendered from code |
 
-- [Building and running it](docs/BUILDING.md), [releasing it](docs/RELEASING.md)
+How the pieces fit and what must stay true is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Development
+
+Building from this source needs the copyright holder's permission (see [LICENSE](LICENSE)). The maintainer's notes are in [docs/BUILDING.md](docs/BUILDING.md) (simulator, emulator and phone builds) and [docs/RELEASING.md](docs/RELEASING.md).
+
+Every pull request runs these checks in CI, plus clippy:
+
+```bash
+pnpm check && pnpm test
+cargo test -p intportal-core
+node scripts/commands-check.mjs
+node scripts/style-lint.mjs
+```
+
+## Docs
+
+- [Architecture](docs/ARCHITECTURE.md) and the [terms used in the app](CONTEXT.md)
+- [Features](docs/FEATURES.md), [specs](docs/specs/README.md) and [decisions](docs/adr/)
+- [On-device AI](docs/ai.md) and [Android notes](docs/android.md)
 - [The website](site/README.md) and [the reel](reel/README.md)
-- [Architecture](docs/ARCHITECTURE.md) and [terms used in the app](CONTEXT.md)
-- [Specs](docs/specs/README.md), [decisions](docs/adr/), [changelog](CHANGELOG.md)
-- Found a problem? [Open an issue](https://github.com/cGradying/IntPortal/issues).
+- [Changelog](CHANGELOG.md)
 
 ## License
 
-All rights reserved ([LICENSE](LICENSE)). The code is published so you can read it; using, copying or changing it needs permission. The official builds are free to download and use on your own devices. Versions 0.5.0 and earlier were published under PolyForm Noncommercial 1.0.0, which still covers copies taken then. IntPortal is an independent student project.
+All rights reserved ([LICENSE](LICENSE)). The code is published so you can read it. Using, copying or changing it needs permission. The official builds are free to download and use on your own devices. Versions 0.5.0 and earlier were published under PolyForm Noncommercial 1.0.0, which still covers copies taken then.
+
+IntPortal is a personal project by a PUP student. It is not made by or affiliated with any school, and it only works with your own account.
