@@ -13,8 +13,8 @@ const store = vi.hoisted(() => {
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-notification", () => ({ Schedule: {}, cancel: vi.fn(), isPermissionGranted: vi.fn(), onAction: vi.fn(), pending: vi.fn(), requestPermission: vi.fn() }));
 
-import { contrast } from "./rooms";
-import { PRESETS, roles, roll, seed, type Theme } from "./theme";
+import { contrast, mix } from "./rooms";
+import { PRESETS, hsl, hueOf, larLook, roles, roll, satOf, seed, skyLook, type Theme } from "./theme";
 import { decodeTheme, encodeTheme } from "./themeCode";
 import { app, deleteTheme, saveTheme, setRoom } from "./state.svelte";
 
@@ -152,5 +152,45 @@ describe("spec 047 C14: saved themes", () => {
   it("a room naming a theme that is gone wears Night", () => {
     setRoom("theme:gone");
     expect(app.room).toBe("night");
+  });
+});
+
+describe("spec 063 C14: LAR's sky header follows the worn theme", () => {
+  const school = { ramp: ["#3b1220", "#7a1c2c", "#b5412a", "#e08a35", "#f3cf6a"], accent: "#e8b04a" };
+  const worn = (o: Partial<Theme> = {}): Theme => ({ ...seed(210, 0), ...o });
+
+  it("keeps the school's colours with no theme worn", () => {
+    expect(skyLook(null, school)).toBe(school);
+    expect(skyLook(undefined, school)).toBe(school);
+  });
+
+  it("draws the sky from the theme's accent when no LAR colour is set", () => {
+    const t = worn({ accent: "#2f80ed", lar: null });
+    expect(skyLook(t, school)).toEqual(larLook(hueOf("#2f80ed")));
+  });
+
+  it("keeps the school's colours when the accent is grey, since a grey has no hue", () => {
+    for (const grey of ["#808080", "#1a1a1c", "#f2f2f2", "#8a8580"]) expect(skyLook(worn({ accent: grey, lar: null }), school), grey).toBe(school);
+    expect(satOf("#808080")).toBe(0);
+    expect(skyLook(worn({ accent: "#a67a7a", lar: null }), school)).toEqual(larLook(hueOf("#a67a7a")));
+    // A set LAR colour still wins on a grey theme.
+    expect(skyLook(worn({ accent: "#808080", lar: 200 }), school)).toEqual(larLook(200));
+  });
+
+  it("lets a set LAR colour win over the accent", () => {
+    expect(skyLook(worn({ accent: "#2f80ed", lar: 120 }), school)).toEqual(larLook(120));
+  });
+
+  it("keeps LAR's name and status readable on the sky's ground at every hue", () => {
+    const cream = "#fff6dc";
+    // The status line is cream at 82% over the sky; check it as the colour it lands as.
+    const status = (bg: string) => mix(bg, cream, 0.82);
+    for (let h = 0; h < 360; h += 5) {
+      const { ramp } = skyLook(worn({ accent: hsl(h, 0.7, 0.5), lar: null }), school);
+      for (const bg of ramp.slice(0, 2)) {
+        expect(contrast(cream, bg), `name on hue ${h}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(status(bg), bg), `status on hue ${h}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 });

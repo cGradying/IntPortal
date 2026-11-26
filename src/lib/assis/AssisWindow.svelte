@@ -18,7 +18,8 @@
   import { buzz } from "../haptics";
   import Lar, { larTheme, type Gesture } from "../lar/Lar.svelte";
   import { SPAWN_SECS, type State } from "../lar/sprite";
-  import { app, openDeck, openNote, openSubject } from "../state.svelte";
+  import { activeTheme, app, openDeck, openNote, openSubject } from "../state.svelte";
+  import { skyLook } from "../theme";
   import { sourceTarget } from "./sources";
   import { describe, doneWord, folded, lineDiff, marked, noteLines, pickCaption, followUps, starters as startersFor, type Day, type Suggestion } from "./apply";
   import { tidy } from "./cards";
@@ -39,7 +40,11 @@
   let smallRam = $state(true);
   invoke<boolean>("ai_small_ram").then((small) => (smallRam = small)).catch(() => {});
   const vv = visualViewport();
+  // LAR wears the school's colours (or his LAR colour); the sky behind him follows the worn theme (063 C14).
   const theme = larTheme();
+  const sky = skyLook(activeTheme(), theme);
+  /** A reply's words and the spaces between them; each word is its own box so it can rise in (063 C13). */
+  const wordsOf = (text: string) => text.match(/\s+|\S+/g) ?? [];
   const HELLO = "Hi! Ask me about your classes, what's due, your grades, or what's in your notes. I can also save a note or set a reminder, if you say so.";
   const CPS = 45;
 
@@ -342,13 +347,13 @@
   style:top="{box.y}px"
   style:width="{box.w}px"
   style:height="{box.h}px"
-  style:--accent={theme.accent}
+  style:--accent={sky.accent}
   style:--ls="{LS}px"
-  style:--r0={theme.ramp[0]}
-  style:--r1={theme.ramp[1]}
-  style:--r2={theme.ramp[2]}
-  style:--r3={theme.ramp[3]}
-  style:--r4={theme.ramp[4] ?? theme.accent}
+  style:--r0={sky.ramp[0]}
+  style:--r1={sky.ramp[1]}
+  style:--r2={sky.ramp[2]}
+  style:--r3={sky.ramp[3]}
+  style:--r4={sky.ramp[4] ?? sky.accent}
 >
   <div class="face">
     <!-- The content keeps its final layout and is revealed as the glass grows, so nothing reflows while it moves. -->
@@ -404,7 +409,11 @@
                   </ul>
                 {/if}
               {/if}
-              {#if m.text}<div class="lar"><p>{m.text}</p></div>{/if}
+              {#if m.text}
+                <!-- 063 C13: words written while he answers rise in; words already there never move. -->
+                {@const live = writing && i === assis.chat.length - 1}
+                <div class="lar"><span class="sr">{m.text}</span><p aria-hidden="true">{#each wordsOf(m.text) as w, k (k)}{#if w.trim()}<span class="t" class:w={live}>{w}</span>{:else}{w}{/if}{/each}</p></div>
+              {/if}
               {#if m.cut && (m.more ?? 0) < MORE_MAX && assis.chat.findLastIndex((x) => x.from === "lar") === i}<button class="no more" onclick={() => keepGoing(i)} disabled={!!assis.busy}>Keep going</button>{/if}
               {#if m.known}<p class="known"><b>From what I know, not your notes.</b> I might get facts wrong, so double-check anything important.</p>{/if}
               {#if m.sources}
@@ -860,6 +869,21 @@
   }
   .hello {
     position: relative;
+  }
+  /* Every word is a box, written or not, so a bubble never re-wraps when its words stop arriving. */
+  .lar .t {
+    display: inline-block;
+    max-width: 100%;
+  }
+  /* 063 C13: a new word rises 4 px and fades in. Reduce Motion: the app's rule makes it just appear. */
+  .lar .w {
+    animation: rise var(--t-quick) var(--ease) both;
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
   }
   /* The not-yet-typed rest keeps its room, so the slab never changes size. */
   .rest {
