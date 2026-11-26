@@ -4,7 +4,7 @@
 //! existing commands (`set_note`, `set_plan`, `save_deck`).
 use crate::{
     chatnote, edit, ground,
-    intent::{about_chat, card_count, is_filipino, replies_in_filipino, resolve, resolve_when, subject_in, words, Intent, CARDS_DEFAULT},
+    intent::{about_chat, card_count, wants_long, is_filipino, replies_in_filipino, resolve, resolve_when, subject_in, words, Intent, CARDS_DEFAULT},
     lang,
     llm::Llm,
     persona::{self, Line, List},
@@ -46,6 +46,8 @@ pub struct Facts {
     /// The student's notes and the open one, for an edit request (spec 062 C8). Filled only then.
     pub notes: Vec<edit::NoteRef>,
     pub open_ref: Option<edit::NoteRef>,
+    /// Tokens a long answer may take with the window the model runs at (spec 062 C26); 0 is `lang::LONG_TOKENS`.
+    pub long_tokens: u32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -87,6 +89,8 @@ pub struct Answer {
     /// The model answered from what it knows, not from the student's data or notes (spec 021 C16): the
     /// chat says so under the bubble.
     pub known: bool,
+    /// The reply stopped at its token limit: the chat offers "Keep going" (spec 062 C25).
+    pub more: bool,
 }
 
 /// Characters of facts and notes (and the system text) a prompt may hold; a
@@ -96,7 +100,7 @@ pub const PROMPT_BUDGET: usize = 8000;
 /// The most characters of an open reply: about 200 tokens of Filipino, well inside the 300 the call allows.
 const REPLY_MAX: usize = 600;
 
-fn schema(intent: Intent, subjects: &[String], ask_when: bool) -> Value {
+fn schema(intent: Intent, subjects: &[String], ask_when: bool, long: bool) -> Value {
     let mut props = json!({});
     let extra: Vec<(&str, Value)> = match intent {
         Intent::Ask | Intent::Due | Intent::Classes | Intent::Grades => vec![],
@@ -115,8 +119,9 @@ fn schema(intent: Intent, subjects: &[String], ask_when: bool) -> Value {
         Intent::Cards => vec![("topic", json!({"type": "string"}))],
     };
     if intent == Intent::Ask {
-        // A rambling 1B model otherwise runs into the 300-token limit and leaves cut-off JSON.
-        props["reply"] = json!({"type": "string", "maxLength": REPLY_MAX});
+        // A rambling small model otherwise runs into the limit and leaves cut-off JSON. A long answer has no
+        // cap: a cut one is kept and continued (spec 062 C24, C25).
+        props["reply"] = if long { json!({"type": "string"}) } else { json!({"type": "string", "maxLength": REPLY_MAX}) };
     }
     let mut req: Vec<String> = props.as_object().map_or(vec![], |o| o.keys().cloned().collect());
     for (k, v) in extra {
@@ -229,20 +234,20 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
         return Ok(edit_answer(llm, tpl, facts, msg, kind, subject.as_deref()));
     }
     if cannot_change(msg) {
-        return Ok(Answer { reply: persona::line(Line::CannotChange, replies_in_filipino(msg), msg), proposal: None, route: Route::Refuse, cited: false, known: false });
+        return Ok(Answer { reply: persona::line(Line::CannotChange, replies_in_filipino(msg), msg), proposal: None, route: Route::Refuse, cited: false, known: false, more: false });
     }
     let scope = scope::classify(msg, intent, facts, !history.is_empty());
     if let Some((reply, route)) = scope::reply(scope, msg) {
-        return Ok(Answer { reply, proposal: None, route, cited: false, known: false });
+        return Ok(Answer { reply, proposal: None, route, cited: false, known: false, more: false });
     }
     if intent == Intent::Note && about_chat(msg) && !facts.chat.is_empty() {
         let fil = replies_in_filipino(msg);
         return Ok(match chatnote::make(llm, tpl, &facts.chat, &facts.subjects)? {
             Some(n) => {
                 let p = Proposal::SaveNote { title: n.title, subject: n.subject, text: n.text, partial: n.partial };
-                Answer { reply: confirm(&p, fil), proposal: Some(p), route: Route::Rule, cited: false, known: false }
+                Answer { reply: confirm(&p, fil), proposal: Some(p), route: Route::Rule, cited: false, known: false, more: false }
             }
-            None => Answer { reply: "I couldn't make a note from this chat. Try asking for it in a few words.".into(), proposal: None, route: Route::Refuse, cited: false, known: false },
+            None => Answer { reply: "I couldn't make a note from this chat. Try asking for it in a few words.".into(), proposal: None, route: Route::Refuse, cited: false, known: false, more: false },
         });
     }
     let mut how = scope::rule(scope).unwrap_or_default().to_string();
@@ -250,10 +255,10 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     // legal questions are open questions for the model, whatever word in them looks like a list.
     let intent = if matches!(scope, scope::Scope::Homework | scope::Scope::Harm(_)) { Intent::Ask } else { intent };
     if let Some(reply) = no_data(intent, facts, msg, subject.as_deref(), today) {
-        return Ok(Answer { reply, proposal: None, route: Route::Refuse, cited: false, known: false });
+        return Ok(Answer { reply, proposal: None, route: Route::Refuse, cited: false, known: false, more: false });
     }
     if let Some(reply) = canned(intent, facts, msg, subject.as_deref()) {
-        return Ok(Answer { reply, proposal: None, route: Route::Rule, cited: false, known: false });
+        return Ok(Answer { reply, proposal: None, route: Route::Rule, cited: false, known: false, more: false });
     }
     // Notes that hold every key word of the question answer it; otherwise the model answers from what it
     // knows and the chat says so (spec 021 C15, C16). The words check is `ground`'s; it no longer refuses.
@@ -266,6 +271,12 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     // (Qwen3.5 2B named the wrong national hero in Filipino and the right one in English).
     if is_filipino(msg) && intent == Intent::Ask {
         how.push_str(if how.is_empty() { "They wrote in Filipino or Taglish. Reply in English." } else { " They wrote in Filipino or Taglish. Reply in English." });
+    }
+    // Spec 062 C23: "explain", "walk me through" get room to teach; the rule rides with the message.
+    let long = intent == Intent::Ask && wants_long(msg) && !matches!(scope, scope::Scope::Chitchat(_));
+    if long {
+        how.push_str(if how.is_empty() { "" } else { " " });
+        how.push_str(LONG);
     }
     let when = resolve_when(msg, today);
     let ask_when = intent == Intent::Remind && when.is_none();
@@ -302,16 +313,24 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
         Intent::Cards => "\nThe student wants flashcards or a quiz. In `topic` put the topic only (not \"quiz\", not \"flashcards\").",
     };
     let fil = replies_in_filipino(msg);
-    let schema = schema(intent, &facts.subjects, ask_when);
+    let schema = schema(intent, &facts.subjects, ask_when, long);
+    let tokens = if long { if facts.long_tokens == 0 { lang::LONG_TOKENS } else { facts.long_tokens } } else { lang::REPLY_TOKENS };
     let raw = if intent == Intent::Ask {
         // Only an open question chats, so only it gets the voice, the examples in its language and the reply language checks.
-        lang::open_reply(llm, tpl, lang::Plan::for_template(tpl), facts.style.as_deref(), &live, msg, fil, &schema, on_text)?
+        lang::open_reply(llm, tpl, lang::Plan::for_template(tpl), facts.style.as_deref(), &live, msg, fil, &schema, tokens, on_text)?
     } else {
         // A request just fills a field.
         let prompt = tpl.wrap(&build(&format!("{}{task}", persona::request_system()), &live, PROMPT_BUDGET), &format!("Student: {msg}"));
         llm.generate(&prompt, Some(&schema), 300, &mut |_| true)?
     };
-    let v: Value = reply::parse(&raw).map_err(|e| e.to_string())?;
+    // An open answer cut at its limit keeps what it said, and the chat offers to go on (C25).
+    let (v, cut): (Value, bool) = match reply::parse(&raw) {
+        Ok(v) => (v, false),
+        Err(e) => match reply::partial_reply(&raw).filter(|t| intent == Intent::Ask && !t.trim().is_empty()) {
+            Some(t) => (json!({ "reply": t }), true),
+            None => return Err(e.to_string()),
+        },
+    };
     let s = |k: &str| v[k].as_str().unwrap_or("").trim().to_string();
     let text: String = s("text").chars().take(120).collect::<String>().trim_end_matches(['.', ' ']).to_string();
     let proposal = match intent {
@@ -335,11 +354,11 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
     let answered = open && !says_nothing(&reply);
     let known = answered && from_knowledge;
     let cited = answered && covered && !known;
-    Ok(Answer { reply, proposal, route: if open { Route::Model } else { Route::Rule }, cited, known })
+    Ok(Answer { reply, proposal, route: if open { Route::Model } else { Route::Rule }, cited, known, more: cut })
 }
 
 fn refuse(reply: &str) -> Answer {
-    Answer { reply: reply.into(), proposal: None, route: Route::Refuse, cited: false, known: false }
+    Answer { reply: reply.into(), proposal: None, route: Route::Refuse, cited: false, known: false, more: false }
 }
 
 /// A change to a note the student has (spec 062 C7–C15): one model call for Change, Append and Tidy, none for
@@ -353,7 +372,7 @@ fn edit_answer(llm: &mut dyn Llm, tpl: Template, f: &Facts, msg: &str, kind: edi
         Target::One(n) => n,
         Target::Pick(v) => {
             let p = Proposal::PickNote { candidates: v.into_iter().map(|n| (n.key, n.name)).collect(), ask: msg.to_string() };
-            return Answer { reply: "Which note do you mean?".into(), proposal: Some(p), route: Route::Rule, cited: false, known: false };
+            return Answer { reply: "Which note do you mean?".into(), proposal: Some(p), route: Route::Rule, cited: false, known: false, more: false };
         }
         Target::None => return refuse("I couldn't find a note about that. Open it and ask again."),
     };
@@ -378,7 +397,31 @@ fn edit_answer(llm: &mut dyn Llm, tpl: Template, f: &Facts, msg: &str, kind: edi
             Err(e) => return refuse(&friendly(&e, false)),
         },
     };
-    Answer { reply: confirm(&p, false), proposal: Some(p), route: Route::Rule, cited: false, known: false }
+    Answer { reply: confirm(&p, false), proposal: Some(p), route: Route::Rule, cited: false, known: false, more: false }
+}
+
+/// How a long answer reads (spec 062 C24).
+const LONG: &str = "They want a full answer: start with the answer itself, explain it in short paragraphs, use a numbered list where there are steps, and stop when it is complete.";
+
+/// "Keep going" (spec 062 C25): more of an answer that stopped at its limit, from where it stopped, without
+/// the facts again (they shaped what is already written). The text returned is only the new part; the flag
+/// says it stopped at its limit too.
+pub fn more(llm: &mut dyn Llm, tpl: Template, msg: &str, so_far: &str, on_text: &mut dyn FnMut(&str)) -> Result<(String, bool), String> {
+    let so_far: String = so_far.chars().rev().take(3000).collect::<Vec<_>>().into_iter().rev().collect();
+    let sys = "You are LAR, a study helper. Your answer below stopped partway. Continue it from exactly where it stops: no greeting, no summary of what came before, and don't repeat it. Stop when the answer is complete. Reply as JSON.";
+    let user = format!("Student: {msg}\n\nYour answer so far:\n{so_far}");
+    let schema = json!({"type": "object", "properties": {"reply": {"type": "string"}}, "required": ["reply"]});
+    let mut stream = reply::ReplyStream::default();
+    let raw = llm.generate(&tpl.wrap(sys, &user), Some(&schema), lang::MORE_TOKENS, &mut |piece| {
+        if let Some(words) = stream.feed(piece) {
+            on_text(&words);
+        }
+        true
+    })?;
+    match reply::parse::<Value>(&raw) {
+        Ok(v) => Ok((v["reply"].as_str().unwrap_or("").to_string(), false)),
+        Err(e) => reply::partial_reply(&raw).filter(|t| !t.trim().is_empty()).map(|t| (t, true)).ok_or(e.to_string()),
+    }
 }
 
 /// Lower-case letters and digits only, so a copy matches whatever its punctuation or capitals.
@@ -672,7 +715,7 @@ mod tests {
 
     impl Facts {
         fn clone_for_test(&self) -> Facts {
-            Facts { today: self.today, classes_today: self.classes_today.clone(), due: self.due.clone(), due_items: self.due_items.clone(), standing: self.standing.clone(), open_note: self.open_note.clone(), hits: self.hits.clone(), near: self.near.clone(), search_off: self.search_off, subjects: self.subjects.clone(), subject_names: self.subject_names.clone(), style: self.style.clone(), chat: self.chat.clone(), notes: self.notes.clone(), open_ref: self.open_ref.clone() }
+            Facts { today: self.today, classes_today: self.classes_today.clone(), due: self.due.clone(), due_items: self.due_items.clone(), standing: self.standing.clone(), open_note: self.open_note.clone(), hits: self.hits.clone(), near: self.near.clone(), search_off: self.search_off, subjects: self.subjects.clone(), subject_names: self.subject_names.clone(), style: self.style.clone(), chat: self.chat.clone(), notes: self.notes.clone(), open_ref: self.open_ref.clone(), long_tokens: self.long_tokens }
         }
     }
 
@@ -970,15 +1013,15 @@ mod tests {
         }
     }
 
-    // C1, C8: Stop mid-reply. The words were already shown; the raw cut-off JSON is not a note to keep.
+    // C1, C8, spec 062 C27: Stop mid-reply keeps the words that were shown, and offers to go on.
     #[test]
-    fn stopping_mid_reply_has_streamed_the_words_and_then_errors_in_plain_words() {
+    fn stopping_mid_reply_keeps_the_streamed_words() {
         let mut m = Cut(&["{\"reply\": \"Para mag-focus, ", "patayin muna ang phone at", " mag-aral ng 25 min"]);
         let mut seen = String::new();
-        let err = answer_streaming(&mut m, Template::ChatMl, &noted(), &[], "paano mag-focus?", &mut |w| seen.push_str(w)).unwrap_err();
+        let a = answer_streaming(&mut m, Template::ChatMl, &noted(), &[], "paano mag-focus?", &mut |w| seen.push_str(w)).unwrap();
         assert_eq!(seen, "Para mag-focus, patayin muna ang phone at mag-aral ng 25 min");
-        assert_eq!(err, "the reply has no JSON object");
-        assert_eq!(friendly(&err, true), "Nagulo ang sagot ko. Pwede mo bang ulitin?");
+        assert_eq!((a.reply.as_str(), a.more), ("Para mag-focus, patayin muna ang phone at mag-aral ng 25 min", true));
+        assert_eq!(friendly("the reply has no JSON object", true), "Nagulo ang sagot ko. Pwede mo bang ulitin?");
     }
 
     #[test]
@@ -1202,23 +1245,23 @@ mod tests {
     fn the_schema_forces_the_shape_the_rules_chose() {
         let subs = vec!["MATH 101".to_string(), "COMP 20073".to_string()];
         let req = |v: &Value| -> Vec<String> { v["required"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect() };
-        let ask = schema(Intent::Ask, &subs, false);
+        let ask = schema(Intent::Ask, &subs, false, false);
         assert_eq!(req(&ask), ["reply"]);
         assert_eq!(ask["properties"].as_object().unwrap().len(), 1);
         assert_eq!(ask["properties"]["reply"]["maxLength"], 600, "a long reply ends as JSON, not cut off by the token limit");
 
-        let note = schema(Intent::Note, &subs, false);
+        let note = schema(Intent::Note, &subs, false, false);
         assert_eq!(note["properties"]["subject"]["enum"], json!(["MATH 101", "COMP 20073", "none"]), "only real subjects, plus none");
         assert!(req(&note).contains(&"text".to_string()) && req(&note).contains(&"subject".to_string()));
         assert!(note["properties"].get("reply").is_none(), "a request has no chatty `reply` field");
-        assert_eq!(schema(Intent::Note, &[], false)["properties"]["subject"]["enum"], json!(["none"]));
+        assert_eq!(schema(Intent::Note, &[], false, false)["properties"]["subject"]["enum"], json!(["none"]));
 
-        let remind = schema(Intent::Remind, &subs, true);
+        let remind = schema(Intent::Remind, &subs, true, false);
         let ids = remind["properties"]["when"]["enum"].as_array().unwrap();
         assert_eq!((ids.len(), ids[0].as_str(), ids[13].as_str()), (14, Some("d0"), Some("d13")));
-        assert!(schema(Intent::Remind, &subs, false)["properties"].get("when").is_none(), "no day to pick when the message named one");
+        assert!(schema(Intent::Remind, &subs, false, false)["properties"].get("when").is_none(), "no day to pick when the message named one");
 
-        assert_eq!(req(&schema(Intent::Cards, &subs, false)), ["topic"]);
+        assert_eq!(req(&schema(Intent::Cards, &subs, false, false)), ["topic"]);
     }
 
     #[test]
@@ -1436,6 +1479,40 @@ mod tests {
         assert_eq!(m.prompts.len(), 1);
         let a = answer(&mut FakeLlm::new(&[]), Template::ChatMl, &f, &[], "delete my note about photosynthesis").unwrap();
         assert_eq!((a.reply.as_str(), a.route), ("I couldn't find a note about that. Open it and ask again.", Route::Refuse));
+    }
+
+    #[test]
+    fn c23_c25_a_teach_me_question_gets_room_and_a_cut_answer_is_kept_and_continued() {
+        struct Spy(Vec<u32>, Vec<String>);
+        impl Llm for Spy {
+            fn generate(&mut self, p: &str, _s: Option<&Value>, max: u32, f: &mut dyn FnMut(&str) -> bool) -> Result<String, String> {
+                self.0.push(max);
+                self.1.push(p.to_string());
+                let out = r#"{"reply":"Recursion is a function calling itself. 1. Find the base case. 2. Make the"#;
+                f(out);
+                Ok(out.into())
+            }
+            fn embed(&mut self, _t: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+                Ok(vec![])
+            }
+        }
+        let mut m = Spy(vec![], vec![]);
+        let a = answer(&mut m, Template::ChatMl, &facts(), &[], "explain recursion step by step").unwrap();
+        assert_eq!(m.0, vec![lang::LONG_TOKENS]);
+        assert!(m.1[0].contains("They want a full answer"));
+        assert!(a.more && a.reply.starts_with("Recursion is a function calling itself"), "{a:?}");
+        let mut f = facts();
+        f.long_tokens = lang::LONG_TOKENS_LOW;
+        let mut m = Spy(vec![], vec![]);
+        answer(&mut m, Template::ChatMl, &f, &[], "explain recursion").unwrap();
+        assert_eq!(m.0, vec![lang::LONG_TOKENS_LOW], "a 4,096 window gives 400");
+        let mut m = FakeLlm::new(&[r#"{"reply":"A stack is last in, first out."}"#]);
+        let a = answer(&mut m, Template::ChatMl, &facts(), &[], "what is a stack?").unwrap();
+        assert!(!a.more);
+        let mut m = FakeLlm::new(&[r#"{"reply":"step 2 is the smaller call."}"#]);
+        let (more_text, cut) = more(&mut m, Template::ChatMl, "explain recursion", "Recursion is ... 2. Make the", &mut |_| ()).unwrap();
+        assert_eq!((more_text.as_str(), cut), ("step 2 is the smaller call.", false));
+        assert!(m.prompts[0].contains("Your answer so far:\nRecursion is ... 2. Make the"));
     }
 
 }

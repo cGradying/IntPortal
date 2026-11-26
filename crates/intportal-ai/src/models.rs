@@ -131,6 +131,20 @@ fn need(m: &Model) -> u64 {
     m.bytes + m.kv_bytes_per_1k * u64::from(m.n_ctx) / 1000
 }
 
+/// A chat model's window when the phone has room (spec 062 C26): long answers and a longer chat fit.
+pub const WIDE_CTX: u32 = 8192;
+
+/// The window a chat model loads with: `WIDE_CTX` when the models it sits beside still pass `gate` at it
+/// with room to spare (Ok, not Warn), else its own `n_ctx`. Unknown memory (the Mac) gets the wide one.
+pub fn window(m: &Model, beside: &[&Model], available: Option<u64>) -> u32 {
+    if m.kind != Kind::Chat || m.n_ctx >= WIDE_CTX {
+        return m.n_ctx;
+    }
+    let wide = Model { n_ctx: WIDE_CTX, ..*m };
+    let all: Vec<&Model> = beside.iter().copied().chain([&wide]).collect();
+    if gate(&all, available) == Gate::Ok { WIDE_CTX } else { m.n_ctx }
+}
+
 /// A phone with at most this much RAM (`MemTotal`, which reads under the label: a "6 GB" phone shows about
 /// 5.5 GB) cannot keep the chat model and the note-search model beside each other: Android's low-memory
 /// killer ended five other apps and the app stopped answering when both loaded on a 4 GB phone.
@@ -244,4 +258,14 @@ mod tests {
         assert_eq!(gate_by_total(&[qwen], gb(3.8)), Gate::Warn, "a 4 GB phone runs it, tightly");
         assert_eq!(gate_by_total(&[qwen], gb(2.8)), Gate::Refuse, "a 3 GB phone can't");
     }
+    #[test]
+    fn c26_the_chat_model_gets_the_wide_window_only_with_room_to_spare() {
+        let chat = find("qwen3.5-2b").unwrap();
+        let embed = CATALOG.iter().find(|m| m.kind == Kind::Embed && !m.legacy).unwrap();
+        assert_eq!(window(chat, &[embed], None), WIDE_CTX, "unknown memory");
+        assert_eq!(window(chat, &[embed], Some(4_000_000_000)), WIDE_CTX);
+        assert_eq!(window(chat, &[embed], Some(2_700_000_000)), 4096, "tight: stays at 4,096");
+        assert_eq!(window(embed, &[], Some(8_000_000_000)), embed.n_ctx, "the search model keeps its own");
+    }
+
 }

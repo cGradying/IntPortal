@@ -475,3 +475,18 @@ Read by hand, 8 of the 10 are clean. Edit 6 also re-added the first line with it
 | Length rule loosened to a third (shipped) | 9 of 22 | 3 of 8 | 36 to 68 s |
 
 What the rules drop, and why: a wrong answer much shorter than the right one (it gives the right one away), one with no meaning word the right answer lacks (a copy), two of the three alike, and sets where the model listed the right answer as wrong. A near miss ("toward less dissolved substance") is kept on purpose. Some kept sets are weak: three that differ in one word ("released by the leaf to the atmosphere / chloroplast / mitochondria"). A card with no wrong answers plays Choice and Quiz with other cards' backs, as Choice always has. The one-call version was dropped because it was slower and broke. Not measured: a real phone (expect it to be slower than these Mac times), Qwen3 1.7B.
+
+## Long answers (spec 062 C23–C27)
+
+`cargo run --release -p intportal-llm --example long -- <chat.gguf>` asks six questions through `assis::answer` at the 8,192-token window (Mac M-series, Metal, Qwen3.5 2B IQ4_XS, 2026-11-26).
+
+| Question | Words | Cut | Time |
+|---|---|---|---|
+| explain recursion step by step | 133 | no | 6.7 s |
+| walk me through how to solve 2x + 3 = 11 | 78 | no | 4.9 s |
+| explain the difference between a stack and a queue | 131 | no | 6.2 s |
+| teach me how photosynthesis works | 156 | no | 8.1 s |
+| summarize the causes of the Philippine Revolution | 528 | yes | 31.9 s, then Keep going +90 words in 5.8 s |
+| what is a stack? (short) | 80 | no | 5.0 s |
+
+The long rule gives answers that open with the answer, then numbered steps where steps were asked for. Only the history summary hit the 800-token limit. Its Keep going restated part of the answer instead of picking up mid-sentence: the continuation sees the question and the answer so far, not the notes. The same answer gave a wrong year (1846). The "from what I know" label under such answers is the guardrail. Not measured: a real phone, the 4,096 window (`low`), and Qwen3 1.7B.

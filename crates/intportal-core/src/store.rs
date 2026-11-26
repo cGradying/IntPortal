@@ -733,6 +733,12 @@ impl Store {
         Ok(())
     }
 
+    /// Replaces the text of LAR's last turn: an answer that "Keep going" made longer (spec 062 C25).
+    pub fn extend_last_turn(&self, text: &str) -> Result<(), StoreError> {
+        self.db.execute("UPDATE turns SET text = ?1 WHERE id = (SELECT MAX(id) FROM turns WHERE role = 'lar')", [text])?;
+        Ok(())
+    }
+
     /// The last `limit` messages, oldest first.
     pub fn turns(&self, limit: usize) -> Result<Vec<Turn>, StoreError> {
         let mut q = self.db.prepare("SELECT role, text, at, ask, sources FROM turns ORDER BY id DESC LIMIT ?1")?;
@@ -1549,6 +1555,15 @@ mod tests {
         assert_eq!((n.text.as_str(), n.title.as_deref(), n.subject.as_deref(), n.pinned), ("Quiz Friday, bring ID", Some("Midterm"), Some("MATH 101"), true));
 
         assert!(matches!(store.lar_change("note:zz", &LarChange::Delete, 1), Err(StoreError::NoSuchNote)));
+    }
+
+    #[test]
+    fn c25_keep_going_lengthens_the_last_answer_it_stored() {
+        let store = Store::in_memory().unwrap();
+        store.add_turn("me", "explain recursion", 1, true, &[]).unwrap();
+        store.add_turn("lar", "Recursion is", 1, true, &[]).unwrap();
+        store.extend_last_turn("Recursion is a function calling itself.").unwrap();
+        assert_eq!(store.turns(5).unwrap().last().unwrap().text, "Recursion is a function calling itself.");
     }
 
 }

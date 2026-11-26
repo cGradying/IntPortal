@@ -38,6 +38,16 @@ pub fn detect(msg: &str) -> Intent {
     }
 }
 
+/// A question that asks to be taught, not told (spec 062 C23): "explain", "walk me through", "step by step".
+/// It gets a long answer; every other open question a short one.
+pub fn wants_long(msg: &str) -> bool {
+    let w = words(msg);
+    let joined = format!(" {} ", w.join(" "));
+    const WORDS: &[&str] = &["explain", "teach", "summarize", "summarise", "compare", "outline", "detail", "detailed", "elaborate", "ipaliwanag", "turuan", "ituro", "ibuod"];
+    const PHRASES: &[&str] = &[" walk me through", " step by step", " in detail", " paano gawin", " how do i solve", " how to solve", " difference between", " pros and cons", " tell me everything", " full explanation", " long answer"];
+    w.iter().any(|x| WORDS.contains(&x.as_str())) || PHRASES.iter().any(|p| joined.contains(p))
+}
+
 /// "Make a quiz on recursion", "gawan mo ako ng quiz sa trees": a quiz to make, not one to look up
 /// (spec 062 C18). "When is the next quiz?" names no making verb, so it stays a Due question.
 pub fn is_quiz(msg: &str) -> bool {

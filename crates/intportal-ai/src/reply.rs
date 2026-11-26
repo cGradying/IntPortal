@@ -43,7 +43,7 @@ fn hex4(chars: &mut std::str::Chars) -> Option<u32> {
 
 /// The text of the `"reply"` string so far in a JSON object that is still
 /// being written, with escapes decoded. None until the string has started.
-fn partial_reply(raw: &str) -> Option<String> {
+pub fn partial_reply(raw: &str) -> Option<String> {
     let after_key = &raw[raw.find("\"reply\"")? + "\"reply\"".len()..];
     let body = after_key.trim_start().strip_prefix(':')?.trim_start().strip_prefix('"')?;
     let (mut out, mut chars) = (String::new(), body.chars());

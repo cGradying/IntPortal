@@ -82,8 +82,13 @@ pub fn looped(text: &str) -> bool {
 /// The section `assis` gives the per-turn rule in; it goes after the student's message, not in the system text.
 pub const HOW: &str = "How to take this message";
 
-/// Tokens an open reply may take: room for an explanation with its steps (a tutor turn), not an essay.
-const REPLY_TOKENS: u32 = 420;
+/// Tokens a short open reply may take: room for an explanation with its steps (a tutor turn), not an essay.
+pub const REPLY_TOKENS: u32 = 420;
+/// A long one (spec 062 C23), when the model runs with an 8,192-token window; `LONG_TOKENS_LOW` at 4,096.
+pub const LONG_TOKENS: u32 = 800;
+pub const LONG_TOKENS_LOW: u32 = 400;
+/// What one "Keep going" adds (C25).
+pub const MORE_TOKENS: u32 = 400;
 
 /// The `{"reply":"` and opener a Filipino reply starts with.
 fn prefill_for(msg: &str) -> String {
@@ -92,7 +97,7 @@ fn prefill_for(msg: &str) -> String {
 
 /// One attempt. Returns the raw JSON the model wrote (prefill included).
 #[allow(clippy::too_many_arguments)]
-fn attempt(llm: &mut dyn Llm, tpl: Template, style: Option<&str>, sections: &[Section], msg: &str, fil: bool, (shots, prefill): (bool, bool), schema: &Value, on_text: &mut dyn FnMut(&str)) -> Result<String, String> {
+fn attempt(llm: &mut dyn Llm, tpl: Template, style: Option<&str>, sections: &[Section], msg: &str, fil: bool, (shots, prefill): (bool, bool), schema: &Value, tokens: u32, on_text: &mut dyn FnMut(&str)) -> Result<String, String> {
     let system = if shots { persona::system(style, fil) } else { persona::system_all(style) };
     // How to take this message rides with the message itself: buried in the system text, Qwen3.5 2B
     // ignored "Reply in English" and "answer from what you know" (spec 021, suite rerun).
@@ -115,9 +120,9 @@ fn attempt(llm: &mut dyn Llm, tpl: Template, style: Option<&str>, sections: &[Se
     if prefill && fil {
         let start = prefill_for(msg);
         show(&start); // the opener is already written: the chat shows it at once
-        llm.generate_prefilled(&prompt, &start, Some(schema), REPLY_TOKENS, &mut show)
+        llm.generate_prefilled(&prompt, &start, Some(schema), tokens, &mut show)
     } else {
-        llm.generate(&prompt, Some(schema), REPLY_TOKENS, &mut show)
+        llm.generate(&prompt, Some(schema), tokens, &mut show)
     }
 }
 
@@ -129,11 +134,11 @@ fn reply_of(raw: &str) -> String {
 /// The words of the first attempt stream to `on_text`; a retry streams nothing (the chat replaces
 /// the streamed words with the final reply).
 #[allow(clippy::too_many_arguments)]
-pub fn open_reply(llm: &mut dyn Llm, tpl: Template, plan: Plan, style: Option<&str>, sections: &[Section], msg: &str, fil: bool, schema: &Value, on_text: &mut dyn FnMut(&str)) -> Result<String, String> {
-    let mut raw = attempt(llm, tpl, style, sections, msg, fil, (plan.shots, plan.prefill), schema, on_text)?;
+pub fn open_reply(llm: &mut dyn Llm, tpl: Template, plan: Plan, style: Option<&str>, sections: &[Section], msg: &str, fil: bool, schema: &Value, tokens: u32, on_text: &mut dyn FnMut(&str)) -> Result<String, String> {
+    let mut raw = attempt(llm, tpl, style, sections, msg, fil, (plan.shots, plan.prefill), schema, tokens, on_text)?;
     if let Some(again) = plan.retry.filter(|_| fil && reads_english(&reply_of(&raw))) {
         // A failed retry keeps the first answer: English beats an error.
-        raw = attempt(llm, tpl, style, sections, msg, fil, again, schema, &mut |_| ()).ok().filter(|r| !reply_of(r).is_empty()).unwrap_or(raw);
+        raw = attempt(llm, tpl, style, sections, msg, fil, again, schema, tokens, &mut |_| ()).ok().filter(|r| !reply_of(r).is_empty()).unwrap_or(raw);
     }
     // Words that go round in a circle are not an answer; ask for the question another way.
     if looped(&reply_of(&raw)) {
@@ -157,7 +162,7 @@ mod tests {
     fn ask(llm: &mut FakeLlm, plan: Plan, msg: &str, fil: bool) -> (String, String) {
         let sections = [Section { title: "From the student's notes", body: "- Math 101: passing is 75%.\n", priority: 7 }];
         let mut shown = String::new();
-        let raw = open_reply(llm, Template::ChatMl, plan, None, &sections, msg, fil, &schema(), &mut |w| shown.push_str(w)).unwrap();
+        let raw = open_reply(llm, Template::ChatMl, plan, None, &sections, msg, fil, &schema(), REPLY_TOKENS, &mut |w| shown.push_str(w)).unwrap();
         (reply_of(&raw), shown)
     }
 
