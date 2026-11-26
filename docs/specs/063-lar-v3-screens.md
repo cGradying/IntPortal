@@ -1,6 +1,6 @@
 # 063 LAR v3 screens and sharper quizzes
 
-**Status:** draft
+**Status:** approved
 
 ## What changes for the student
 
@@ -49,7 +49,7 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 
 - **C7. Multiple choice is Choice.** It is the existing "Pick the meaning" face and tiles. The four options are the card's back and its three wrong answers. If the card has no wrong answers, it takes other cards' backs, as Choice does today.
 - **C8. Identification is Type.** The existing Type face, unchanged.
-- **C9. True or false, from the same parts.** It shows a claim built from the card's back or one of its wrong answers (half and half, 062 C21), and two answer tiles, True and False. Only existing Choice parts are used. Round 2 picks where the claim sits.
+- **C9. True or false, from the same parts.** Type's face, with the claim (the card's back or one of its wrong answers, half and half, 062 C21) as the big text and the term in the small label. Under it, True and False as two full-width tiles, stacked. Only existing Choice and Type parts are used.
 - **C10. Where Quiz starts.** **Quiz** joins the deck page's mode buttons next to Flashcards, Type it and Choices. It is on with 4 or more cards (062 C21). Scores, times and heat are as 062 C22 says.
 
 ### C. The deck page, in the LAR box we have (round 2)
@@ -58,16 +58,16 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 - **C12. Write wrong answers** sits in the same box, for a deck with 4 or more cards where some have no wrong answers. It writes only for those, so a stopped run can finish later (062 C20 said "none with wrong answers"; this replaces it).
   - While it runs, the box shows "N of M cards" and **Stop**, in the box's own look.
   - Hiding the app pauses it at the next card, and coming back resumes it (062 C29).
-  - Round 2 picks where the button and its progress sit.
+  - Write wrong answers is a third ghost button beside the box's existing ones. Tapping it opens the box with its "LAR is …" row, the count and Stop. Quiz joins the mode buttons, which go two by two.
 
 ### D. Long answers (round 2)
 
-- **C13. Words appear as they come.** Each chunk of streamed words in LAR's bubble animates in, in the app's pixel style. Round 2 picks the motion. The text never reflows as it appears, and Keep going's words come in the same way.
+- **C13. Words appear as they come.** Each new word in LAR's bubble rises 4 px and fades in over 160 ms. The text never reflows as it appears, and Keep going's words come in the same way.
 - **C14. The header follows the theme.**
   - The sky header's colours come from the worn theme.
   - The theme maker's LAR colour, when set, wins as today.
   - With no theme worn, the header keeps the school's colours.
-  - Round 2 picks: the header follows the theme's accent when no LAR colour is set, the theme maker gets its own "Chat header" colour, or it stays on LAR's colour with the theme maker saying so.
+  - With a theme worn and no LAR colour set, the header is drawn from the theme's accent (`larLook(hueOf(accent))`). No new control.
 
 ### E. Sharper quizzes
 
@@ -97,7 +97,6 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 ## Data shape
 
 - No new stored data. `Card.wrong` (062) feeds C7 and C9. Applied and undone states are fields on the chat message (`src/lib/assis/assis.svelte.ts`).
-- C14 (if the second way is picked): `Theme.header: number | null` in `src/lib/theme.ts`. Null follows the rule in C14.
 - C18: `assis::more` builds its prompt with `generate_prefilled` (`crates/intportal-ai/src/llm.rs`).
 
 ## Errors
@@ -116,7 +115,7 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 ## Accessibility
 
 - Struck and gold words also read "Removed:" and "Added:".
-- True and False are at least 44 pt tall; round 2 picks side by side or full width (this replaces 062's "full-width").
+- True and False are full-width, at least 44 pt tall.
 - Picker rows are buttons labelled with the name and the caption.
 - The header's colours keep the title and status readable on the room's ground. The theme maker refuses a header colour that fails contrast, as it does for the accent.
 
@@ -149,4 +148,13 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 
 ## Open questions
 
-- Round 2 (`reference/prototypes/lar-v3-picks.html`), four lines: True or false's face (C9), Write wrong answers in the LAR box (C12), words as they stream (C13), and where the header's colour comes from (C14).
+None.
+
+## Decisions
+
+- **2026-11-27, round 2.** The owner: "choose what's ergonomically the best". Chosen, with the reason for each:
+  - True or false is **C, claim, full-width tiles**: the biggest targets in thumb reach, one column to scan, and it meets the full-width rule.
+  - The deck page is **A, a third button, the box runs it**: the action is visible on every old deck, Stop is a full-size button, and the progress lives in the box's existing spinner row.
+  - Streaming words is **A, rise and fade**: the words stay legible while they arrive, it costs the least on a slow phone, and it is gone in 160 ms.
+  - The header is **A, sky follows the accent**: it follows the theme with nothing new to learn, and a set LAR colour still wins.
+
