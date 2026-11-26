@@ -1,6 +1,6 @@
 # 064 LAR changes the calendar
 
-**Status:** approved
+**Status:** shipped (merged 2026-11-27, #378, #380; not yet released)
 
 ## What changes for the student
 

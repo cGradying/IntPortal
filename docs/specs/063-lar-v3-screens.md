@@ -1,6 +1,6 @@
 # 063 LAR v3 screens and sharper quizzes
 
-**Status:** approved
+**Status:** shipped (merged 2026-11-27, #375–#377, #379, #381; not yet released), except C17's truth gate
 
 ## What changes for the student
 
@@ -148,7 +148,7 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 
 ## Open questions
 
-None.
+- C17's truth gate is not met. On the 2026-11-27 run, 16 of 22 cards kept three wrong answers, but 6 of 60 wrong answers in the hand check were true: synonym swaps, a word repeated from a list, and a card whose own back was false (`docs/ai.md`). Rules can't catch these. The owner decides whether to change the card prompt, try a bigger model, or accept it.
 
 ## Decisions
 
