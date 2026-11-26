@@ -23,7 +23,7 @@ pub fn detect(msg: &str) -> Intent {
     let has = |list: &[&str]| w.iter().any(|x| list.contains(&x.as_str()));
     if has(&["remind", "reminder", "paalala", "ipaalala", "alarm"]) {
         Intent::Remind
-    } else if has(&["flashcard", "flashcards", "card", "cards"]) {
+    } else if has(&["flashcard", "flashcards", "card", "cards"]) || is_quiz(msg) {
         Intent::Cards
     } else if has(&["note", "isulat"]) {
         Intent::Note
@@ -38,6 +38,14 @@ pub fn detect(msg: &str) -> Intent {
     }
 }
 
+/// "Make a quiz on recursion", "gawan mo ako ng quiz sa trees": a quiz to make, not one to look up
+/// (spec 062 C18). "When is the next quiz?" names no making verb, so it stays a Due question.
+pub fn is_quiz(msg: &str) -> bool {
+    let w = words(msg);
+    let has = |list: &[&str]| w.iter().any(|x| list.contains(&x.as_str()));
+    has(&["quiz", "quizzes", "pagsusulit"]) && has(&["make", "create", "generate", "write", "build", "gawa", "gawan", "gumawa", "magawa", "quiz me"])
+}
+
 /// Most cards one request makes; a 1B model's context is the next limit.
 pub const CARDS_MAX: usize = 20;
 /// Cards made when the student names no number.
@@ -48,7 +56,7 @@ pub const CARDS_DEFAULT: usize = 8;
 pub fn card_count(msg: &str) -> Option<usize> {
     const NAMED: [&str; 12] = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
     let w = words(msg);
-    let n = w.iter().enumerate().filter(|(_, x)| ["flashcard", "flashcards", "card", "cards"].contains(&x.as_str())).find_map(|(i, _)| {
+    let n = w.iter().enumerate().filter(|(_, x)| ["flashcard", "flashcards", "card", "cards", "quiz", "questions", "items"].contains(&x.as_str())).find_map(|(i, _)| {
         // "12 na cards", "8 of cards": skip one linking word.
         let before = |k: usize| i.checked_sub(k).map(|j| w[j].as_str());
         let num = |x: &str| x.parse::<usize>().ok().or_else(|| NAMED.iter().position(|n| *n == x).map(|p| p + 1));
@@ -128,6 +136,10 @@ mod tests {
             ("Summarize my notes", Intent::Ask),
             ("Ano ang due ko this week?", Intent::Due),
             ("When is the next quiz?", Intent::Due),
+            ("Make a quiz on recursion", Intent::Cards),
+            ("gawan mo ako ng quiz sa trees", Intent::Cards),
+            ("create a 10 item quiz from my notes", Intent::Cards),
+            ("Is there a quiz tomorrow?", Intent::Due),
             ("Anong klase ko ngayon?", Intent::Classes),
             ("What's my GWA?", Intent::Grades),
             ("Bagsak ba ako sa Math?", Intent::Grades),

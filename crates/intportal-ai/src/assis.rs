@@ -61,7 +61,8 @@ pub enum Proposal {
     DeleteNote { key: String, name: String, preview: String },
     /// More than one note fits: the student taps one and `ask` is asked again about it.
     PickNote { candidates: Vec<(String, String)>, ask: String },
-    MakeCards { topic: String, count: usize },
+    /// `quiz`: each card also gets three wrong answers (spec 062 C17).
+    MakeCards { topic: String, count: usize, quiz: bool },
 }
 
 /// Who wrote the reply.
@@ -298,7 +299,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
         Intent::Ask | Intent::Due | Intent::Classes | Intent::Grades => "",
         Intent::Note => "\nThe student wants a note saved. In `text` put only the note itself, under 15 words, no reply. Example: \"Pa-add ng note: bring calculator sa quiz\" -> text \"Bring calculator to the quiz\".",
         Intent::Remind => "\nThe student wants a reminder. In `text` put only the thing to be reminded of, under 10 words, no reply. Example: \"remind me to pay tuition on Monday\" -> text \"Pay tuition\".",
-        Intent::Cards => "\nThe student wants flashcards. In `topic` put the topic.",
+        Intent::Cards => "\nThe student wants flashcards or a quiz. In `topic` put the topic only (not \"quiz\", not \"flashcards\").",
     };
     let fil = replies_in_filipino(msg);
     let schema = schema(intent, &facts.subjects, ask_when);
@@ -321,7 +322,7 @@ pub fn answer_streaming(llm: &mut dyn Llm, tpl: Template, facts: &Facts, history
             let date = when.or_else(|| s("when").strip_prefix('d').and_then(|n| n.parse::<i64>().ok()).filter(|n| (0..14).contains(n)).map(|n| today.add_days(n)));
             date.map(|date| Proposal::SetReminder { date, text })
         }
-        Intent::Cards => Some(Proposal::MakeCards { topic: s("topic"), count: card_count(msg).unwrap_or(CARDS_DEFAULT) }).filter(|p| matches!(p, Proposal::MakeCards { topic, .. } if !topic.is_empty())),
+        Intent::Cards => Some(Proposal::MakeCards { topic: s("topic"), count: card_count(msg).unwrap_or(CARDS_DEFAULT), quiz: crate::intent::is_quiz(msg) }).filter(|p| matches!(p, Proposal::MakeCards { topic, .. } if !topic.is_empty())),
     };
     let reply = match (&proposal, intent) {
         (Some(p), _) => confirm(p, fil),
@@ -505,8 +506,9 @@ fn confirm(p: &Proposal, fil: bool) -> String {
         (Proposal::MoveNote { name, subject, .. }, _) => format!("Move {name} to {subject}?"),
         (Proposal::DeleteNote { name, .. }, _) => format!("Delete {name}? You can undo it right after."),
         (Proposal::PickNote { .. }, _) => "Which note do you mean?".into(),
-        (Proposal::MakeCards { topic, count }, false) => format!("I'll make {count} flashcards on {topic}. Confirm to start."),
-        (Proposal::MakeCards { topic, count }, true) => format!("Gagawa ako ng {count} flashcards sa {topic}. I-confirm para magsimula."),
+        (Proposal::MakeCards { topic, count, quiz: true }, _) => format!("I'll make a {count}-question quiz on {topic}. Confirm to start."),
+        (Proposal::MakeCards { topic, count, .. }, false) => format!("I'll make {count} flashcards on {topic}. Confirm to start."),
+        (Proposal::MakeCards { topic, count, .. }, true) => format!("Gagawa ako ng {count} flashcards sa {topic}. I-confirm para magsimula."),
     }
 }
 
@@ -582,7 +584,7 @@ mod tests {
     fn cards_need_a_topic() {
         let mut m = FakeLlm::new(&[r#"{"reply":"ok","topic":"binary trees"}"#]);
         let a = answer(&mut m, Template::Gemma, &facts(), &[], "gawan mo ako ng flashcards sa trees").unwrap();
-        assert_eq!(a.proposal, Some(Proposal::MakeCards { topic: "binary trees".into(), count: 8 }), "no number asked: the default");
+        assert_eq!(a.proposal, Some(Proposal::MakeCards { topic: "binary trees".into(), count: 8, quiz: false }), "no number asked: the default");
     }
 
     // #161: the count the student asked for rides in the action and in the confirm card.
@@ -596,7 +598,7 @@ mod tests {
         ] {
             let mut m = FakeLlm::new(&[r#"{"topic":"recursion"}"#]);
             let a = answer(&mut m, Template::Gemma, &facts(), &[], msg).unwrap();
-            assert_eq!(a.proposal, Some(Proposal::MakeCards { topic: "recursion".into(), count }), "{msg}");
+            assert_eq!(a.proposal, Some(Proposal::MakeCards { topic: "recursion".into(), count, quiz: false }), "{msg}");
             assert_eq!(a.reply, says, "{msg}");
         }
     }
@@ -1188,7 +1190,7 @@ mod tests {
         assert_eq!(confirm(&note(Some("MATH 101")), false), "Note ready for MATH 101: bring ID. Confirm to save it.");
         assert_eq!(confirm(&note(None), true), "Handa na ang note: bring ID. I-confirm para i-save.");
         assert_eq!(confirm(&note(Some("MATH 101")), true), "Handa na ang note sa MATH 101: bring ID. I-confirm para i-save.");
-        let cards = Proposal::MakeCards { topic: "trees".into(), count: 8 };
+        let cards = Proposal::MakeCards { topic: "trees".into(), count: 8, quiz: false };
         assert_eq!(confirm(&cards, false), "I'll make 8 flashcards on trees. Confirm to start.");
         assert_eq!(confirm(&cards, true), "Gagawa ako ng 8 flashcards sa trees. I-confirm para magsimula.");
         let rem = Proposal::SetReminder { date: THU, text: "pay".into() };

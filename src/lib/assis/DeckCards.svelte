@@ -16,8 +16,11 @@
   let run = 0;
   let file = $state<HTMLInputElement>();
   let reading = $state<"note" | "PDF">("note");
+  /** "Make a quiz": the cards also get three wrong answers each (spec 062 C17). */
+  let quiz = $state(false);
 
-  async function begin() {
+  async function begin(asQuiz = false) {
+    quiz = asQuiz;
     buzz.select();
     problem = "";
     step = "pick";
@@ -54,7 +57,7 @@
     try {
       const t = await text();
       if (mine !== run) return;
-      const cards = tidy(await cardsFrom(sourceText(t), 12), fronts);
+      const cards = tidy(await cardsFrom(sourceText(t), quiz ? 6 : 12, quiz), fronts);
       if (mine !== run) return;
       if (!cards.length) throw new Error(`I couldn't find new cards in that ${what}. Try another one.`);
       proposed = cards;
@@ -83,10 +86,11 @@
 
 {#if installed()}
   {#if step === "closed"}
-    <button class="ghost wide" onclick={begin}>AI cards from a note</button>
+    <button class="ghost wide" onclick={() => begin()}>AI cards from a note</button>
+    <button class="ghost wide" onclick={() => begin(true)}>Make a quiz</button>
   {:else}
     <section class="card notch box" aria-label="AI cards">
-      <p class="label">AI cards</p>
+      <p class="label">{quiz ? "AI quiz" : "AI cards"}</p>
       {#if step === "pick"}
         <p class="fine">Pick a note or a PDF. LAR reads it on this phone and suggests cards. You choose which to keep.</p>
         <input bind:this={file} type="file" accept="application/pdf" hidden aria-hidden="true" tabindex="-1" onchange={pdf} />

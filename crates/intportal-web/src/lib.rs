@@ -247,7 +247,7 @@ impl Demo {
             }
             "parse_cards" => out(study::parse_cards(&arg::<String>(a, "text")?)
                 .into_iter()
-                .map(|(front, back)| Card { id: String::new(), front, back, accepted: vec![], memory: Memory::new(0) })
+                .map(|(front, back)| Card { id: String::new(), front, back, accepted: vec![], wrong: vec![], memory: Memory::new(0) })
                 .collect::<Vec<_>>()),
             "review_card" => {
                 let (deck_id, card_id, rating, today): (String, String, Rating, Date) = (arg(a, "deckId")?, arg(a, "cardId")?, arg(a, "rating")?, arg(a, "today")?);
@@ -446,6 +446,7 @@ fn sample_decks(unix: i64) -> Vec<Deck> {
         front: front.into(),
         back: back.into(),
         accepted: vec![],
+        wrong: vec![],
         memory: Memory { due: unix + (due_days * DAY as f64) as i64, reps, stability, last_review: (reps > 0).then_some(unix - 3 * DAY), ..Memory::new(unix) },
     };
     let dsa = [

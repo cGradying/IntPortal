@@ -75,7 +75,7 @@ pub fn delete_deck(state: tauri::State<'_, AppState>, id: String) -> Res<()> {
 pub fn parse_cards(text: String) -> Vec<Card> {
     study::parse_cards(&text)
         .into_iter()
-        .map(|(front, back)| Card { id: String::new(), front, back, accepted: vec![], memory: Memory::new(0) })
+        .map(|(front, back)| Card { id: String::new(), front, back, accepted: vec![], wrong: vec![], memory: Memory::new(0) })
         .collect()
 }
 

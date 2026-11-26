@@ -321,7 +321,7 @@ mod tests {
 
     fn deck(id: &str, cards: &[(&str, &str)]) -> intportal_core::study::Deck {
         use intportal_core::study::{Card, Deck, Memory};
-        let cards = cards.iter().map(|(f, b)| Card { id: String::new(), front: f.to_string(), back: b.to_string(), accepted: vec![], memory: Memory::new(0) }).collect();
+        let cards = cards.iter().map(|(f, b)| Card { id: String::new(), front: f.to_string(), back: b.to_string(), accepted: vec![], wrong: vec![], memory: Memory::new(0) }).collect();
         Deck { id: id.into(), name: "DSA".into(), subject: None, cards }
     }
 

@@ -70,8 +70,8 @@
     pasting = false;
   }
 
-  async function addProposed(cards: { front: string; back: string }[]) {
-    if (deck) await save([...deck.cards, ...cards.map((c) => blank(c.front, c.back))]);
+  async function addProposed(cards: { front: string; back: string; wrong?: string[] }[]) {
+    if (deck) await save([...deck.cards, ...cards.map((c) => ({ ...blank(c.front, c.back), ...(c.wrong?.length ? { wrong: c.wrong } : {}) }))]);
   }
 
   async function remove(card: Card) {
