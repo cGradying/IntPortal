@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { cancel, isPermissionGranted, pending as devicePending, requestPermission } from "@tauri-apps/plugin-notification";
 import { app, scheduleReminders } from "../state.svelte";
-import { addSearch, apply, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, choices, larStyle, spaceLine, speedOf, etaLine, newChat, noRoom, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
+import { addSearch, apply, keepGoing, chatModel, embedModel, mb, confirmCards, discardCards, ask, assis, dismiss, explain, indexNotes, install, choices, larStyle, spaceLine, speedOf, etaLine, newChat, noRoom, downloadSizes, noteAi, open, refresh, remove, setLarStyle, STYLE_MAX, stop, updatable, wake, sleep, tidyScan, WAKE_GIVE_UP_MS, WAKE_SLOW_MS, type ModelInfo } from "./assis.svelte";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 const ran = (cmd: string) => calls.filter(([c]) => c === cmd);
@@ -1050,5 +1050,29 @@ describe("history (#180)", () => {
     expect(fromTurn({ role: "lar", text: "A heap is a tree.", sources: trees })).toEqual({ from: "lar", text: "A heap is a tree.", sources: trees });
     expect(fromTurn({ role: "lar", text: "Hi.", sources: [] })).toEqual({ from: "lar", text: "Hi.", sources: undefined });
     expect(fromTurn({ role: "me", text: "What is a heap?", sources: trees })).toEqual({ from: "me", text: "What is a heap?" });
+  });
+});
+
+describe("spec 062 C25: Keep going", () => {
+  it("offers it under a cut answer, continues the same bubble, and stops offering after two", async () => {
+    backend.ai_ask = () => reply("Recursion is a function", { more: true });
+    await ask("explain recursion");
+    expect(assis.chat[1]).toMatchObject({ text: "Recursion is a function", cut: true, more: 0 });
+    let sent: any;
+    backend.ai_more = (a) => ((sent = a), a.onText.onmessage("calling itself."), { text: "calling itself.", more: true });
+    await keepGoing(1);
+    expect(sent).toMatchObject({ message: "explain recursion", soFar: "Recursion is a function" });
+    expect(assis.chat[1]).toMatchObject({ text: "Recursion is a function calling itself.", cut: true, more: 1 });
+    await keepGoing(1);
+    expect(assis.chat[1].more).toBe(2);
+    const before = calls.length;
+    await keepGoing(1);
+    expect(calls.length).toBe(before, "no third Keep going");
+  });
+
+  it("is not offered under an answer that finished", async () => {
+    backend.ai_ask = () => reply("A stack is last in, first out.");
+    await ask("what is a stack?");
+    expect(assis.chat[1].cut).toBeUndefined();
   });
 });

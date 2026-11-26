@@ -98,7 +98,7 @@ fn main() {
         for (id, q, kw) in QS {
             let mut spy = Spy(&mut m, 0);
             let t = Instant::now();
-            let raw = lang::open_reply(&mut spy, tpl, plan, None, &sections, q, true, &schema, &mut |_| ());
+            let raw = lang::open_reply(&mut spy, tpl, plan, None, &sections, q, true, &schema, lang::REPLY_TOKENS, &mut |_| ());
             let s = t.elapsed().as_secs_f64();
             let calls = spy.1;
             let text = raw.as_ref().ok().and_then(|r| reply::parse::<Value>(r).ok()).and_then(|v| v["reply"].as_str().map(String::from)).unwrap_or_default();

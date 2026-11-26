@@ -6,6 +6,7 @@ use intportal_ai::{
     due, edit,
     gen,
     intent::{self, Intent},
+    lang,
     llm::Llm,
     models::{self, Gate, Kind, Model},
     note::{self, Mode},
@@ -25,7 +26,7 @@ use intportal_llm::{backup, download, mem, Device, Llama};
 use serde::Serialize;
 use std::{
     path::PathBuf,
-    sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, MutexGuard, OnceLock},
+    sync::{atomic::{AtomicBool, AtomicU32, Ordering}, Arc, Mutex, MutexGuard, OnceLock},
 };
 use tauri::{ipc::Channel, Manager};
 
@@ -467,10 +468,20 @@ pub async fn ai_load(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, id: S
     })
 }
 
+/// The window the chat model was loaded with (spec 062 C26). ponytail: one chat model at a time, so one value.
+static WINDOW: AtomicU32 = AtomicU32::new(4096);
+
 fn load_into(slot: &Mutex<Option<Loaded>>, m: &Model, path: &std::path::Path) -> Res<()> {
     let mut slot = slot.try_lock().map_err(|_| "IntAssis is busy".to_string())?;
     *slot = None; // free the old one before the new one loads
-    let llm = Llama::load(path, m.n_ctx, device())?;
+    // The search model sits beside the chat model unless the phone is small (it is let go there).
+    let embed = models::CATALOG.iter().find(|x| x.kind == Kind::Embed && !x.legacy);
+    let beside: Vec<&Model> = if small_ram() { vec![] } else { embed.into_iter().collect() };
+    let ctx = models::window(m, &beside, mem::available());
+    let llm = Llama::load(path, ctx, device())?;
+    if m.kind == Kind::Chat {
+        WINDOW.store(ctx, Ordering::Relaxed);
+    }
     *slot = Some(Loaded { id: m.id.into(), tpl: m.template, llm: Box::new(llm) });
     Ok(())
 }
@@ -595,6 +606,8 @@ pub struct Ask {
     intent: &'static str,
     /// Answered from what the model knows, not the student's data or notes (spec 021 C16).
     known: bool,
+    /// The answer stopped at its limit: the chat offers "Keep going" (spec 062 C25).
+    more: bool,
     #[serde(skip)]
     asked_model: bool,
 }
@@ -826,6 +839,7 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
     let state = app.state::<AppState>();
     let mabini = store(&state)?.mabini().unwrap_or_default();
     let mut facts = facts_for(&snapshot_of(&state)?, &mabini, now, utc_offset.unwrap_or(MANILA_OFFSET));
+    facts.long_tokens = if WINDOW.load(Ordering::Relaxed) >= models::WIDE_CTX { lang::LONG_TOKENS } else { lang::LONG_TOKENS_LOW };
     facts.style = style; // the student's own note on how LAR talks; `persona::system` cleans and caps it
     let history = recent_asks(&state);
     let editing = edit::kind(&message, open_key.is_some()).is_some();
@@ -853,7 +867,7 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
         let a = answer_with_steps(llm, tpl, &facts, &history, &asked, &mut |words| drop(on_text.send(words.to_string())), &mut |s| drop(on_step.send(s)))?;
         // A chip only when the answer used the notes it was shown.
         let sources = if a.cited { sources } else { vec![] };
-        Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources, intent, known: a.known, asked_model: a.route == assis::Route::Model })
+        Ok(Ask { reply: a.reply, proposal: a.proposal.map(Into::into), sources, intent, known: a.known, more: a.more, asked_model: a.route == assis::Route::Model })
     })
     .await
     .map_err(|e| assis::friendly(&e, fil))?;
@@ -863,6 +877,29 @@ pub async fn ai_ask(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, now: M
         let _ = store.add_turn("me", &message, at, a.asked_model, &[]).and_then(|()| store.add_turn("lar", &a.reply, at, a.asked_model, &a.sources));
     }
     Ok(a)
+}
+
+#[derive(Serialize)]
+pub struct More {
+    text: String,
+    more: bool,
+}
+
+/// "Keep going" under an answer that stopped at its limit (spec 062 C25): the next part streams on `on_text`.
+/// The chat keeps the turn's text up to date, so a restart shows the whole answer.
+#[tauri::command]
+pub async fn ai_more(app: tauri::AppHandle, ai: tauri::State<'_, AiState>, message: String, so_far: String, on_text: Channel<String>) -> Res<More> {
+    let (m, sf) = (message.clone(), so_far.clone());
+    let (text, more) = with_model(&ai, move |llm, tpl| assis::more(llm, tpl, &m, &sf, &mut |w| drop(on_text.send(w.to_string())))).await.map_err(|e| assis::friendly(&e, false))?;
+    if let Ok(store) = store(&app.state::<AppState>()) {
+        let _ = store.extend_last_turn(&format!("{}{}", so_far, joined(&so_far, &text)));
+    }
+    Ok(More { text, more })
+}
+
+/// What goes between an answer's cut and its continuation: a space unless one is already there.
+fn joined(so_far: &str, next: &str) -> String {
+    if so_far.ends_with(char::is_whitespace) || next.starts_with(char::is_whitespace) || next.starts_with([',', '.', ';', ':']) { next.to_string() } else { format!(" {next}") }
 }
 
 /// "Ask AI" in a note. `text` is the note as it is on screen (it may not be saved yet).

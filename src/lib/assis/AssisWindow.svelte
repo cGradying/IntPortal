@@ -28,7 +28,7 @@
   type Rect = { x: number; y: number; w: number; h: number };
   import { invoke } from "@tauri-apps/api/core";
   import { cancelDither, runDither } from "./dither-draw";
-  import { apply, ask, assis, confirmCards, discardCards, dismiss, newChat, pickNote, stop, undoChange } from "./assis.svelte";
+  import { MORE_MAX, apply, ask, assis, confirmCards, discardCards, dismiss, keepGoing, newChat, pickNote, stop, undoChange } from "./assis.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
   // Android's back gesture and Escape close it; the effect's return unregisters it.
@@ -394,6 +394,7 @@
                 {/if}
               {/if}
               {#if m.text}<div class="lar"><p>{m.text}</p></div>{/if}
+              {#if m.cut && (m.more ?? 0) < MORE_MAX}<button class="no more" onclick={() => keepGoing(i)} disabled={!!assis.busy}>Keep going</button>{/if}
               {#if m.known}<p class="known"><b>From what I know, not your notes.</b> I might get facts wrong, so double-check anything important.</p>{/if}
               {#if m.sources}
                 <div class="chips from">
@@ -957,6 +958,10 @@
     flex: 1;
     min-width: 0;
     gap: 6px;
+  }
+  .more {
+    align-self: flex-start;
+    margin-top: 6px;
   }
   .diff {
     display: grid;

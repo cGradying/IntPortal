@@ -54,6 +54,9 @@ export interface Msg {
   notice?: string;
   /** make_cards: the cards LAR wrote, shown to edit before anything is saved. */
   cards?: Draft[];
+  /** The answer stopped at its limit; `more` counts the Keep going taps so far (at most 2, spec 062 C25). */
+  more?: number;
+  cut?: boolean;
   /** A note change was applied and can still be undone from the card (spec 062 C14). */
   undo?: boolean;
   /** save_note: the student opened the note's title and body to change them before saving (spec 062 C5). */
@@ -407,11 +410,12 @@ export async function ask(text: string, openKey: string | null = app.editing?.ke
   // A new array each time: pushing into the one just assigned would miss the state proxy and lose the first step.
   onStep.onmessage = (s) => (reply.steps = [...(reply.steps ?? []), s]);
   try {
-    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[]; intent: Intent; known?: boolean }>("ai_ask", { now: moment(), message, openKey, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText, onStep });
+    const r = await invoke<{ reply: string; proposal: Proposal | null; sources: Source[]; intent: Intent; known?: boolean; more?: boolean }>("ai_ask", { now: moment(), message, openKey, style: larStyle() || null, utcOffset: -new Date().getTimezoneOffset(), onText, onStep });
     reply.text = r.reply;
     reply.intent = r.intent;
     reply.sources = r.sources.length ? r.sources : undefined;
     reply.known = r.known || undefined;
+    if (r.more) [reply.cut, reply.more] = [true, 0];
     if (r.proposal) [reply.proposal, reply.state] = [r.proposal, "pending"];
   } catch (e) {
     // Stopping cuts the JSON short, which is not a failure the student needs told about.
@@ -501,6 +505,36 @@ export async function cardsFrom(text: string, want: number, quiz = false): Promi
   assis.busy = "cards";
   try {
     return (await invoke<{ cards: Draft[] }>("ai_cards", { text, want, quiz })).cards;
+  } finally {
+    assis.busy = "";
+  }
+}
+
+/** Spec 062 C25: under an answer that stopped at its limit, at most twice. The next part streams into the same bubble. */
+export const MORE_MAX = 2;
+
+export async function keepGoing(i: number) {
+  const reply = assis.chat[i];
+  const question = assis.chat.slice(0, i).findLast((m) => m.from === "me")?.text;
+  if (!reply?.cut || (reply.more ?? 0) >= MORE_MAX || !question || assis.busy) return;
+  if (!(await wake())) return void (reply.problem = assis.error || "I couldn't wake up. Try again.");
+  assis.busy = "thinking";
+  stopped = false;
+  const before = reply.text;
+  const glue = /\s$/.test(before) ? "" : " ";
+  let first = true;
+  const onText = new Channel<string>();
+  onText.onmessage = (words) => {
+    reply.text += first && !/^[\s,.;:]/.test(words) ? glue + words : words;
+    first = false;
+  };
+  try {
+    const r = await invoke<{ text: string; more: boolean }>("ai_more", { message: question, soFar: before, onText });
+    if (first && r.text) reply.text = before + glue + r.text; // nothing streamed: show it whole
+    reply.cut = r.more;
+    reply.more = (reply.more ?? 0) + 1;
+  } catch (e) {
+    if (!stopped) reply.problem = say(e);
   } finally {
     assis.busy = "";
   }
