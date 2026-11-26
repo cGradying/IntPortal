@@ -2,6 +2,7 @@
 // phone. LAR never writes: the sheet shows a card and the student confirms.
 import type { Card, DeadlineEntry, Deck, NoteItem, Today } from "../api";
 import { entryLabel } from "../deadlines";
+import { subjectOf } from "../shelf";
 
 export type Proposal =
   | { kind: "add_note"; subject: string | null; text: string }
@@ -9,9 +10,11 @@ export type Proposal =
   | { kind: "set_reminder"; date: string; text: string }
   | { kind: "edit_note"; key: string; name: string; edit: "change" | "append" | "tidy"; before: string; after: string }
   | { kind: "rename_note"; key: string; name: string; title: string }
-  | { kind: "move_note"; key: string; name: string; subject: string }
+  /** `from` is the subject it leaves, read from the notes when the card lands (spec 063 C4). */
+  | { kind: "move_note"; key: string; name: string; subject: string; from?: string }
   | { kind: "delete_note"; key: string; name: string; preview: string }
-  | { kind: "pick_note"; candidates: { key: string; name: string }[]; ask: string }
+  /** Each candidate's subject ("" for none) and last change are read from the notes when the card lands (063 C6). */
+  | { kind: "pick_note"; candidates: { key: string; name: string; subject?: string; updated?: number }[]; ask: string }
   | { kind: "make_cards"; topic: string; count: number; quiz?: boolean };
 
 /** A note about a class goes on that class's note; any other goes on one running "From LAR" note for the day. */
@@ -182,7 +185,7 @@ export function describe(p: Proposal): { label: string; text: string; yes: strin
     case "add_note":
       return { label: p.subject ? `Note for ${p.subject}` : "New note", text: p.text, yes: "Save note" };
     case "save_note":
-      return { label: p.subject ? `Note from our chat · ${p.subject}` : "Note from our chat", text: p.text, yes: "Save" };
+      return { label: "Note from our chat", text: p.text, yes: "Save" };
     case "set_reminder": {
       const d = reminderAt(p.date);
       const day = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
@@ -225,12 +228,11 @@ export function rememberLarReminder(id: number, at: Date) {
 }
 
 export type DiffLine = { kind: "same" | "add" | "del"; text: string };
+/** A changed line shown once, its words marked (spec 063 C3). */
+export type Marked = DiffLine | { kind: "change"; words: DiffLine[] };
 
-/** Before and after, line by line (spec 062 C13): the longest run of lines both share stays, the rest is struck or added. */
-export function lineDiff(before: string, after: string): DiffLine[] {
-  // An empty note has no lines, not one empty line.
-  const a = before ? before.split("\n") : [];
-  const b = after ? after.split("\n") : [];
+/** The longest run both share stays; the rest is struck or added. */
+function lcsDiff(a: string[], b: string[]): DiffLine[] {
   // ponytail: O(n·m) table, fine for notes up to 3,000 characters.
   const lcs = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
   for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
@@ -244,9 +246,50 @@ export function lineDiff(before: string, after: string): DiffLine[] {
   return out;
 }
 
+/** Before and after, line by line (spec 062 C13). An empty note has no lines, not one empty line. */
+export const lineDiff = (before: string, after: string) => lcsDiff(before ? before.split("\n") : [], after ? after.split("\n") : []);
+
+/** Before and after inside one line, word by word, in runs of the same kind (spec 063 C3). */
+export function wordDiff(before: string, after: string): DiffLine[] {
+  const words = (s: string) => s.split(/\s+/).filter(Boolean);
+  const out: DiffLine[] = [];
+  for (const w of lcsDiff(words(before), words(after))) {
+    const prev = out[out.length - 1];
+    if (prev?.kind === w.kind) prev.text += ` ${w.text}`;
+    else out.push(w);
+  }
+  return out;
+}
+
+/**
+ * A removed line and the added one after it show once, with word marks, when they share a real word
+ * (spec 063 C3). Runs pair in order; a line with no partner, or nothing in common, stays whole.
+ */
+export function marked(lines: DiffLine[]): Marked[] {
+  const out: Marked[] = [];
+  for (let k = 0; k < lines.length; ) {
+    if (lines[k].kind !== "del") {
+      out.push(lines[k++]);
+      continue;
+    }
+    let d = k;
+    while (d < lines.length && lines[d].kind === "del") d++;
+    let e = d;
+    while (e < lines.length && lines[e].kind === "add") e++;
+    for (let n = 0; n < Math.max(d - k, e - d); n++) {
+      const [x, y] = [k + n < d ? lines[k + n] : undefined, d + n < e ? lines[d + n] : undefined];
+      const words = x && y ? wordDiff(x.text, y.text) : [];
+      if (words.some((w) => w.kind === "same" && /[\p{L}\p{N}]/u.test(w.text))) out.push({ kind: "change", words });
+      else out.push(...[x, y].filter((l) => !!l));
+    }
+    k = e;
+  }
+  return out;
+}
+
 /** Unchanged lines past three in a row fold into one "N lines unchanged" row (C13). */
-export function folded(lines: DiffLine[]): (DiffLine | { kind: "fold"; n: number })[] {
-  const out: (DiffLine | { kind: "fold"; n: number })[] = [];
+export function folded<T extends { kind: string }>(lines: T[]): (T | { kind: "fold"; n: number })[] {
+  const out: (T | { kind: "fold"; n: number })[] = [];
   for (let k = 0; k < lines.length; ) {
     let end = k;
     while (end < lines.length && lines[end].kind === "same") end++;
@@ -259,4 +302,44 @@ export function folded(lines: DiffLine[]): (DiffLine | { kind: "fold"; n: number
     } else out.push(lines[k++]);
   }
   return out;
+}
+
+/** A note's lines as the note editor draws them: "- ", "* " and "+ " lines are bullets (spec 063 C1). */
+export const noteLines = (text: string) =>
+  text.split("\n").map((l) => {
+    const m = /^\s*[-*+]\s+(.*)$/.exec(l);
+    return m ? { bullet: true, text: m[1] } : { bullet: false, text: l };
+  });
+
+/** The word on an applied note card (spec 063 C5). */
+export const doneWord = (kind: "edit_note" | "rename_note" | "move_note" | "delete_note") =>
+  ({ edit_note: "Changed", rename_note: "Renamed", move_note: "Moved", delete_note: "Deleted" })[kind];
+
+/** What the card needs from the notes as they are when it lands: Move's old subject, each candidate's subject and day. */
+export function withNotes(p: Proposal, notes: NoteItem[]): Proposal {
+  const find = (key: string) => notes.find((n) => n.key === key);
+  if (p.kind === "move_note") {
+    const n = find(p.key);
+    return n ? { ...p, from: subjectOf(n) } : p;
+  }
+  if (p.kind === "pick_note") return { ...p, candidates: p.candidates.map((c) => { const n = find(c.key); return n ? { ...c, subject: subjectOf(n), updated: n.updated } : c; }) };
+  return p;
+}
+
+/** When a note was last changed, as a picker row says it: today, yesterday, a weekday this week, or a date. */
+export function changedDay(updated: number, now = new Date()): string {
+  const at = new Date(updated * 1000);
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((day(now) - day(at)) / 864e5);
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days > 1 && days < 7) return at.toLocaleDateString(undefined, { weekday: "short" });
+  return at.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** A picker row's caption (spec 063 C6): "{subject} · changed {day}", or "Changed {day}" with no subject. */
+export function pickCaption(c: { subject?: string; updated?: number }, now = new Date()): string {
+  if (c.updated == null) return "";
+  const day = changedDay(c.updated, now);
+  return c.subject ? `${c.subject} · changed ${day}` : `Changed ${day}`;
 }

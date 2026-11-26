@@ -6,7 +6,7 @@ import { Schedule, isPermissionGranted, requestPermission } from "@tauri-apps/pl
 import { api, isoDate, moment, type Card, type FoundClass } from "../api";
 import { app } from "../state.svelte";
 import { tidy, type Draft } from "./cards";
-import { appended, existingText, newDeck, noteFor, looksFilipino, noteTarget, notificationsOff, reminderAt, reminderId, rememberLarReminder, type Proposal } from "./apply";
+import { appended, existingText, newDeck, noteFor, looksFilipino, noteTarget, notificationsOff, reminderAt, reminderId, rememberLarReminder, withNotes, type Proposal } from "./apply";
 
 export interface ModelInfo {
   id: string;
@@ -61,6 +61,12 @@ export interface Msg {
   undo?: boolean;
   /** save_note: the student opened the note's title and body to change them before saving (spec 062 C5). */
   editing?: boolean;
+  /** save_note: the key it was saved under, for Open note (spec 063 C1). */
+  saved?: string;
+  /** A note change was put back with Undo (spec 063 C5). */
+  undone?: boolean;
+  /** pick_note: the row tapped, kept marked (spec 063 C6). */
+  picked?: string;
 }
 
 export const assis = $state({
@@ -416,7 +422,7 @@ export async function ask(text: string, openKey: string | null = app.editing?.ke
     reply.sources = r.sources.length ? r.sources : undefined;
     reply.known = r.known || undefined;
     if (r.more) [reply.cut, reply.more] = [true, 0];
-    if (r.proposal) [reply.proposal, reply.state] = [r.proposal, "pending"];
+    if (r.proposal) [reply.proposal, reply.state] = [withNotes(r.proposal, app.notes), "pending"];
   } catch (e) {
     // Stopping cuts the JSON short, which is not a failure the student needs told about.
     reply.text = stopped ? reply.text || "Stopped." : say(e);
@@ -546,7 +552,7 @@ export async function keepGoing(i: number) {
 export function pickNote(i: number, key: string) {
   const p = assis.chat[i].proposal;
   if (p?.kind !== "pick_note" || assis.chat[i].state !== "pending") return;
-  assis.chat[i].state = "done";
+  [assis.chat[i].state, assis.chat[i].picked] = ["done", key];
   return ask(p.ask, key, false);
 }
 
@@ -558,10 +564,12 @@ export async function undoChange(i: number) {
   try {
     await api.undoLarNote(p.key);
     app.notes = await api.notes();
-    msg.undo = false;
-    msg.notice = "Put back.";
+    [msg.undo, msg.undone, msg.problem] = [false, true, ""];
   } catch (e) {
-    msg.problem = say(e);
+    const why = say(e);
+    // The student edited the note since: there is nothing left to put back, so the button goes (063 Errors).
+    if (why === "There's nothing to undo.") [msg.undo, msg.notice] = [false, why];
+    else msg.problem = why;
   }
 }
 
@@ -585,7 +593,7 @@ export async function apply(i: number) {
       await api.setNote(key, p.text.trim(), p.title.trim() || "Notes from our chat");
       if (p.subject) await api.setNoteSubject(key, p.subject);
       app.notes = await api.notes();
-      msg.text = "Saved to your notes.";
+      [msg.text, msg.saved, msg.editing] = ["Saved to your notes.", key, false];
     } else if (p.kind === "edit_note" || p.kind === "rename_note" || p.kind === "move_note" || p.kind === "delete_note") {
       const change =
         p.kind === "edit_note" ? { text: p.after } : p.kind === "rename_note" ? { title: p.title } : p.kind === "move_note" ? { subject: p.subject } : { delete: true };

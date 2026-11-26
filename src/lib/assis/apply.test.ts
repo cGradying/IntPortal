@@ -1,7 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import type { DeadlineEntry, Today } from "../api";
 import { entryLabel } from "../deadlines";
-import { appended, describe, folded, followUps, lineDiff, foundLine, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters, topicOf } from "./apply";
+import { appended, changedDay, describe, doneWord, folded, marked, noteLines, pickCaption, withNotes, wordDiff, followUps, lineDiff, foundLine, newDeck, noteFor, noteTarget, reminderAt, reminderId, replaced, starters, topicOf } from "./apply";
 
 suite("applying a proposal", () => {
   it("puts a class note on the class and anything else on one note a day", () => {
@@ -177,8 +177,8 @@ suite("spec 062 C13: the before-and-after of a note change", () => {
 });
 
 suite("spec 062 C5: the note-from-chat card", () => {
-  it("shows the title's subject on the label and the whole body, with Save", () => {
-    expect(describe({ kind: "save_note", title: "Heaps", subject: "COMP 20073", text: "- a\n- b", partial: false })).toEqual({ label: "Note from our chat · COMP 20073", text: "- a\n- b", yes: "Save" });
+  it("shows the whole body with Save, and leaves the subject to its chip (063 C1)", () => {
+    expect(describe({ kind: "save_note", title: "Heaps", subject: "COMP 20073", text: "- a\n- b", partial: false })).toEqual({ label: "Note from our chat", text: "- a\n- b", yes: "Save" });
   });
 
   it("has no subject on the label when none was picked", () => {
@@ -246,5 +246,91 @@ suite("spec 062 B: the diff and its folds, more cases", () => {
     const rows = folded(all);
     const hidden = rows.reduce((n, r) => n + (r.kind === "fold" ? (r as { n: number }).n : 0), 0);
     expect(rows.length - rows.filter((r) => r.kind === "fold").length + hidden).toBe(all.length);
+  });
+});
+
+suite("spec 063 A: the cards in their picked look", () => {
+  it("C1: draws a note's points as bullets and keeps other lines as they are", () => {
+    expect(noteLines("Heaps\n- A tree\n* kept in an array\n\n+ O(log n)")).toEqual([
+      { bullet: false, text: "Heaps" },
+      { bullet: true, text: "A tree" },
+      { bullet: true, text: "kept in an array" },
+      { bullet: false, text: "" },
+      { bullet: true, text: "O(log n)" },
+    ]);
+    expect(noteLines("-dash with no space")).toEqual([{ bullet: false, text: "-dash with no space" }]);
+  });
+
+  it("C3: marks only the words that changed inside a line, in runs", () => {
+    expect(wordDiff("- Exam on Thursday, Room S512", "- Exam on Friday, Room S512")).toEqual([
+      { kind: "same", text: "- Exam on" },
+      { kind: "del", text: "Thursday," },
+      { kind: "add", text: "Friday," },
+      { kind: "same", text: "Room S512" },
+    ]);
+    expect(wordDiff("a b", "a b c d")).toEqual([{ kind: "same", text: "a b" }, { kind: "add", text: "c d" }]);
+  });
+
+  it("C3: a removed line followed by an added one that shares words shows once, with word marks", () => {
+    const rows = marked(lineDiff("Title\nExam on Thursday\nEnd", "Title\nExam on Friday\nEnd"));
+    expect(rows).toEqual([
+      { kind: "same", text: "Title" },
+      { kind: "change", words: [{ kind: "same", text: "Exam on" }, { kind: "del", text: "Thursday" }, { kind: "add", text: "Friday" }] },
+      { kind: "same", text: "End" },
+    ]);
+  });
+
+  it("C3: a line wholly added stays added, and one wholly removed stays removed", () => {
+    expect(marked(lineDiff("a\nb", "a\nb\nHeapsort is O(n log n)"))).toEqual([{ kind: "same", text: "a" }, { kind: "same", text: "b" }, { kind: "add", text: "Heapsort is O(n log n)" }]);
+    expect(marked(lineDiff("a\nold line", "a"))).toEqual([{ kind: "same", text: "a" }, { kind: "del", text: "old line" }]);
+    // Nothing in common: struck over gold, not a line of marks.
+    expect(marked(lineDiff("x\ncats sleep", "x\ndogs run")).map((r) => r.kind)).toEqual(["same", "del", "add"]);
+  });
+
+  it("C3: pairs removed and added lines in order, and leaves the extra ones whole", () => {
+    const rows = marked(lineDiff("Quiz Friday\nBring ID", "Quiz Monday\nBring ID card\nRoom 302"));
+    expect(rows.map((r) => r.kind)).toEqual(["change", "change", "add"]);
+  });
+
+  it("C3: unchanged runs still fold around the word marks", () => {
+    const before = ["t", "1", "2", "3", "4", "Exam on Thursday", "5"].join("\n");
+    const rows = folded(marked(lineDiff(before, before.replace("Thursday", "Friday"))));
+    expect(rows.map((r) => r.kind)).toEqual(["same", "fold", "same", "change", "same"]);
+    expect(rows[1]).toEqual({ kind: "fold", n: 3 });
+  });
+
+  it("C5: says what was done on an applied card", () => {
+    expect(["edit_note", "rename_note", "move_note", "delete_note"].map((k) => doneWord(k as never))).toEqual(["Changed", "Renamed", "Moved", "Deleted"]);
+  });
+
+  const notes = [
+    { key: "note:1", text: "", title: "Limits", updated: 100, subject: "MATH 101", pinned: false, preview: "" },
+    { key: "class:COMP 20073", text: "", title: null, updated: 200, subject: null, pinned: false, preview: "" },
+    { key: "note:2", text: "", title: "Loose", updated: 300, subject: null, pinned: false, preview: "" },
+  ];
+
+  it("C6: fills each candidate's subject and last change from the notes, and Move's old subject", () => {
+    const pick = withNotes({ kind: "pick_note", ask: "fix it", candidates: ["note:1", "class:COMP 20073", "note:2", "note:gone"].map((key) => ({ key, name: key })) }, notes);
+    expect(pick.kind === "pick_note" && pick.candidates.map((c) => [c.subject, c.updated])).toEqual([
+      ["MATH 101", 100],
+      ["COMP 20073", 200],
+      ["", 300],
+      [undefined, undefined],
+    ]);
+    expect(withNotes({ kind: "move_note", key: "note:1", name: "Limits", subject: "MATH 102" }, notes)).toMatchObject({ from: "MATH 101" });
+    expect(withNotes({ kind: "rename_note", key: "note:1", name: "Limits", title: "X" }, notes)).toEqual({ kind: "rename_note", key: "note:1", name: "Limits", title: "X" });
+  });
+
+  it("C6: the row caption is '{subject} · changed {day}'", () => {
+    const now = new Date(2026, 10, 27, 15, 0);
+    const at = (d: Date) => d.getTime() / 1000;
+    expect(changedDay(at(new Date(2026, 10, 27, 8, 0)), now)).toBe("today");
+    expect(changedDay(at(new Date(2026, 10, 26, 23, 0)), now)).toBe("yesterday");
+    expect(changedDay(at(new Date(2026, 10, 23, 9, 0)), now)).toBe(new Date(2026, 10, 23).toLocaleDateString(undefined, { weekday: "short" }));
+    expect(changedDay(at(new Date(2026, 10, 2, 9, 0)), now)).toBe(new Date(2026, 10, 2).toLocaleDateString(undefined, { month: "short", day: "numeric" }));
+    const today = at(new Date(2026, 10, 27, 8, 0));
+    expect(pickCaption({ subject: "MATH 101", updated: today }, now)).toBe("MATH 101 · changed today");
+    expect(pickCaption({ subject: "", updated: today }, now)).toBe("Changed today");
+    expect(pickCaption({}, now)).toBe("");
   });
 });
