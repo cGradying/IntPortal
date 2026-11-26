@@ -1060,7 +1060,7 @@ describe("spec 062 C25: Keep going", () => {
     await ask("explain recursion");
     expect(assis.chat[1]).toMatchObject({ text: "Recursion is a function", cut: true, more: 0 });
     let sent: any;
-    backend.ai_more = (a) => ((sent = a), a.onText.onmessage("calling itself."), { text: "calling itself.", more: true });
+    backend.ai_more = (a) => ((sent = a), a.onText.onmessage(" calling itself."), { text: " calling itself.", more: true });
     await keepGoing(1);
     expect(sent).toMatchObject({ message: "explain recursion", soFar: "Recursion is a function" });
     expect(assis.chat[1]).toMatchObject({ text: "Recursion is a function calling itself.", cut: true, more: 1 });
@@ -1343,11 +1343,11 @@ describe("spec 062 C25: Keep going, more cases", () => {
     expect(ran("ai_more")).toHaveLength(1);
   });
 
-  it("joins the new part with one space unless it starts with punctuation or the old text ends in space", async () => {
+  it("063 C18: joins the new part exactly as the model went on, a word cut in half included", async () => {
     for (const [before, add, want] of [
-      ["Recursion is a function", "calling itself.", "Recursion is a function calling itself."],
+      ["Recursion is a function", " calling itself.", "Recursion is a function calling itself."],
+      ["Light energy drives photo", "synthesis in the leaf.", "Light energy drives photosynthesis in the leaf."],
       ["Recursion is a function", ", calling itself.", "Recursion is a function, calling itself."],
-      ["Recursion is a function ", "calling itself.", "Recursion is a function calling itself."],
       ["Step one.\n", "Step two.", "Step one.\nStep two."],
     ]) {
       await cutAnswer(before);
@@ -1359,9 +1359,13 @@ describe("spec 062 C25: Keep going, more cases", () => {
 
   it("shows the whole new part when nothing streamed", async () => {
     await cutAnswer();
-    backend.ai_more = () => ({ text: "calling itself.", more: false });
+    backend.ai_more = () => ({ text: " calling itself.", more: false });
     await keepGoing(1);
     expect(assis.chat[1].text).toBe("Recursion is a function calling itself.");
+    await cutAnswer("Light energy drives photo");
+    backend.ai_more = () => ({ text: "synthesis.", more: false });
+    await keepGoing(assis.chat.length - 1);
+    expect(assis.chat[assis.chat.length - 1].text, "a word cut in half, whole").toBe("Light energy drives photosynthesis.");
   });
 
   it("a part that was not cut ends the offer; one that was keeps it until the second", async () => {
@@ -1407,7 +1411,7 @@ describe("spec 062 C25: Keep going, more cases", () => {
     backend.ai_cancel = () => undefined;
     const p = keepGoing(1);
     await settle();
-    emit("calling");
+    emit(" calling");
     stop();
     d.reject("EOF while parsing a value");
     await p;

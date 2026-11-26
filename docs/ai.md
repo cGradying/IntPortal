@@ -541,8 +541,9 @@ How it works: the reply is still held to `{"reply": string}`. The prefill is `{"
 
 **Gate (C19): met.** Of 5 long answers cut at their limit, none restarts the topic and none repeats a full sentence already written.
 
-Left for later:
-- **The loop starts in the first answer** (`assis::answer`, 062 part D): it is on screen before Keep going is tapped. The same repeat rule there would stop it and not offer Keep going.
-- **A word cut in half gets a space.** The app (`keepGoing`'s glue in `assis.svelte.ts`) and the stored turn (`joined` in `ai.rs`) add a space before a continuation that starts with a letter. With the prefill, the continuation joins exactly, so "photo" + "synthesis" would read "photo synthesis". It hit 0 of 5 here and 4 of 7 on main (the old join had the same space). Both joins can become plain concatenation.
+The joins follow: the app (`keepGoing` in `assis.svelte.ts`) and the stored turn (`ai_more` in `ai.rs`) now add the continuation as it is, with no space of their own. On main they put a space before a continuation that starts with a letter, which would now split a word cut in half ("photo synthesis"). In the main run, 4 of the 7 continuations followed text cut mid-word ("1899 to 19").
+
+Follow-ups:
+- The loop starts in the first answer (`assis::answer`, 062 part D) and is on screen before Keep going is tapped: the same repeat rule there would stop it and not offer Keep going (for a later spec).
 - Content is unchanged by this: the TCP continuation says the receiver "sends the complete message back to the sender", which is wrong.
 - Not measured: a real phone, the 8,192 window (answers there were rarely cut: 1 of 6 in the run above), and Qwen3 1.7B.
