@@ -81,27 +81,35 @@ fn is_term(front: &str) -> bool {
 /// "Osmosis is water moving ..." is cut to "Water moving ...": the definition without the term, which is
 /// what the back of a type-the-term card must be. Other backs are only trimmed.
 pub fn repair(card: &Card) -> Card {
-    let (front, back) = (card.front.trim().trim_end_matches(['.', ':']).to_string(), card.back.trim().to_string());
-    let mut out = back.clone();
-    if is_term(&front) {
-        let low = back.to_lowercase();
-        let term = front.to_lowercase();
-        // Only "Term is …", "Term: …", "A term means …": the term as a whole word, then a link to its meaning.
-        // "The root node of a tree is …" or "The revolution ended …" are left alone (and may fail `check`).
-        const LINKS: [&str; 11] = [": ", " - ", " is when ", " is a ", " is an ", " is the ", " are the ", " refers to ", " means ", " is ", " are "];
-        let cut = ["a ", "an ", "the ", ""].iter().find_map(|a| {
-            let rest = low.strip_prefix(&format!("{a}{term}"))?;
-            LINKS.iter().find(|l| rest.starts_with(*l)).map(|l| back.len() - rest.len() + l.len())
-        });
-        if let Some(cut) = cut {
-            let mut c = back[cut..].trim_start().chars();
-            if let Some(first) = c.next() {
-                out = first.to_uppercase().chain(c).collect();
-            }
-        }
+    let front = card.front.trim().trim_end_matches(['.', ':']).to_string();
+    let fix = |text: &str| cut_term(&front, text.trim()).trim().trim_end_matches('.').to_string();
+    Card { back: fix(&card.back), wrong: card.wrong.iter().map(|w| fix(w)).collect(), front }
+}
+
+/// A wrong answer gets the same cut as the back: "Sunlight is required for ..." on the card "Sunlight"
+/// becomes "Required for ...", in the back's form.
+fn cut_term(front: &str, back: &str) -> String {
+    if !is_term(front) {
+        return back.to_string();
     }
-    let wrong = card.wrong.iter().map(|w| w.trim().trim_end_matches('.').to_string()).collect();
-    Card { front, back: out.trim().trim_end_matches('.').to_string(), wrong }
+    let low = back.to_lowercase();
+    let term = front.to_lowercase();
+    // Only "Term is …", "Term: …", "A term means …": the term as a whole word, then a link to its meaning.
+    // "The root node of a tree is …" or "The revolution ended …" are left alone (and may fail `check`).
+    const LINKS: [&str; 11] = [": ", " - ", " is when ", " is a ", " is an ", " is the ", " are the ", " refers to ", " means ", " is ", " are "];
+    let cut = ["a ", "an ", "the ", ""].iter().find_map(|a| {
+        let rest = low.strip_prefix(&format!("{a}{term}"))?;
+        LINKS.iter().find(|l| rest.starts_with(*l)).map(|l| back.len() - rest.len() + l.len())
+    });
+    match cut {
+        Some(cut) if !back[cut..].trim().is_empty() => cap(back[cut..].trim_start()),
+        _ => back.to_string(),
+    }
+}
+
+fn cap(text: &str) -> String {
+    let mut c = text.chars();
+    c.next().map(|first| first.to_uppercase().chain(c).collect()).unwrap_or_default()
 }
 
 /// Whether a (repaired) card is fit for the game.
@@ -130,65 +138,157 @@ pub fn check(card: &Card) -> Result<(), Reject> {
     Ok(())
 }
 
-/// Whether three wrong answers make a fair quiz (C19): each a plain statement, not the right answer or a copy
-/// of it (no meaning word of its own), not another of the three, not naming the front's term, and between half and twice the right
-/// answer's length in words.
-pub fn wrong_ok(card: &Card) -> bool {
-    let (front, back) = (card.front.trim(), card.back.trim());
-    let n = back.split_whitespace().count().max(1);
-    let fronts = content(front);
-    // A near miss ("toward less dissolved substance") is a good wrong answer; one that says nothing the other
-    // doesn't (every meaning word already in it) is a copy.
-    let near = |a: &str, b: &str| {
-        let (x, y) = (content(a), content(b));
-        // Both ways: "two identical daughter cells" is the right answer "two identical cells" with a word added.
-        key(a) == key(b) || x.iter().all(|w| y.contains(w)) || y.iter().all(|w| x.contains(w))
-    };
-    card.wrong.len() == 3
-        && card.wrong.iter().enumerate().all(|(i, w)| {
-            let m = w.split_whitespace().count();
-            !w.trim().is_empty()
-                && !w.trim_end().ends_with('?')
-                && !near(w, back)
-                && !card.wrong[..i].iter().any(|o| near(w, o))
-                && m * 3 >= n
-                && m <= n * 2 + 2
-                && !(is_term(front) && !fronts.is_empty() && fronts.iter().all(|t| content(w).contains(t)))
+const NOT: [&str; 4] = ["not", "non", "no", "never"];
+
+/// The words two answers are compared by: `content`, plus what a wrong detail changes and `content` drops:
+/// a short word that names something ("gas", "ATP", "one"), "not", and a token with a digit or a math sign,
+/// kept whole ("o(n)", "nx^(n+1)", "1896").
+fn meaning(text: &str) -> Vec<String> {
+    const LINKS: [&str; 16] = ["the", "and", "for", "are", "was", "its", "has", "had", "can", "but", "any", "may", "who", "how", "why", "per"];
+    text.split_whitespace()
+        .flat_map(|t| {
+            let t = t.trim_matches(|c: char| ".,;:!?\"'".contains(c)).to_lowercase();
+            if t.chars().any(|c| c.is_ascii_digit() || "^()+=/".contains(c)) && t.chars().any(char::is_alphanumeric) {
+                vec![t]
+            } else {
+                words(&t).into_iter().filter(|w| NOT.contains(&w.as_str()) || (w.chars().count() == 3 && !LINKS.contains(&w.as_str())) || !content(w).is_empty()).collect()
+            }
         })
+        .collect()
 }
 
+/// Whether `a` is `b`'s meaning words with some left out, in the same order.
+fn within(a: &[String], b: &[String]) -> bool {
+    let mut b = b.iter();
+    a.iter().all(|w| b.any(|x| x == w))
+}
+
+/// Whether `a` says nothing `b` doesn't: the same words in any order, or one is the other with words left
+/// out ("two identical cells" in "two identical daughter cells"), with as many "not"s. A near miss built
+/// from the other's own words in a new order ("every left child is larger", against "every left child is
+/// smaller ... every right child larger") says something else, so it is fair.
+fn near(a: &str, b: &str) -> bool {
+    let (x, y) = (meaning(a), meaning(b));
+    // "Always non-zero" and "does not determine" turn the other around: an added "not" is not a copy.
+    let not = |v: &[String]| v.iter().filter(|w| NOT.contains(&w.as_str())).count();
+    not(&x) == not(&y) && ((x.iter().all(|w| y.contains(w)) && y.iter().all(|w| x.contains(w))) || within(&x, &y) || within(&y, &x))
+}
+
+/// Why one wrong answer is unfair for `card` (C19), given the ones before it in the set; `None` if it is
+/// fair: a plain statement, not the right answer or a copy of it, not a copy of an earlier one, not naming
+/// the front's term, and between a third and twice the right answer's length in words.
+pub fn wrong_fault(card: &Card, w: &str, before: &[String]) -> Option<&'static str> {
+    let (front, back) = (card.front.trim(), card.back.trim());
+    let (n, m) = (back.split_whitespace().count().max(1), w.split_whitespace().count());
+    let fronts = content(front);
+    if w.trim().is_empty() {
+        Some("blank")
+    } else if w.trim_end().ends_with('?') {
+        Some("a question")
+    } else if near(w, back) {
+        Some("a copy of the right answer")
+    } else if before.iter().any(|o| near(w, o)) {
+        Some("a copy of another wrong answer")
+    } else if m * 3 < n {
+        Some("too short")
+    } else if m > n * 2 + 2 {
+        Some("too long")
+    } else if is_term(front) && !fronts.is_empty() && fronts.iter().all(|t| content(w).contains(t)) {
+        Some("names the term")
+    } else {
+        None
+    }
+}
+
+/// Whether three wrong answers make a fair quiz (C19): exactly three, each passing `wrong_fault`.
+pub fn wrong_ok(card: &Card) -> bool {
+    card.wrong.len() == 3 && card.wrong.iter().enumerate().all(|(i, w)| wrong_fault(card, w, &card.wrong[..i]).is_none())
+}
+
+/// The model writes `WRONG_ASKED`; the first three fair ones are kept (each checked against the right answer
+/// and the ones kept before it), or none if fewer than three are fair.
+pub const WRONG_ASKED: usize = 4;
+
+pub fn pick(card: &Card) -> Vec<String> {
+    let mut kept = vec![];
+    for w in &card.wrong {
+        if kept.len() < 3 && wrong_fault(card, w, &kept).is_none() {
+            kept.push(w.clone());
+        }
+    }
+    if kept.len() == 3 { kept } else { vec![] }
+}
+
+/// The wrong-answer rule (063 C15): near misses, each the back made false in one checkable detail, one
+/// example of each kind, in a subject far from most decks. The model names the change and the app makes
+/// it: asked for whole near misses, Qwen3.5 2B copied the back word for word in 35 of 66 (docs/ai.md).
 const QUIZ: &str = "
-- wrong: three wrong answers for the same front, for a multiple-choice quiz. Each is false but believable: the same kind of thing as the back, about as long, on the same topic, and clearly different from the back and from each other. Never the front itself, never the right answer in other words, never \"none of the above\".
-  Example: front \"Igneous rock\", back \"Rock formed when melted rock cools and hardens\", wrong [\"Rock formed from layers of pressed sand and mud\", \"Rock changed by heat and pressure deep underground\", \"Rock made from the shells of sea animals\"].";
+- wrong: four changes to the back, each making it false in one detail a student can check: a wrong number, a wrong term (another thing of the same kind, which is not true here), or a reversed relation (above for below, more for less). change: one to four words copied exactly from the back. to: other words to put in their place, never the same words. Change a different part of the back each time, so the result is false to anyone who knows the topic.
+  Example: front \"Mantle\", back \"Hot layer of rock about 2,900 km thick that lies below the crust\", wrong [{\"change\": \"2,900\", \"to\": \"29\"}, {\"change\": \"rock\", \"to\": \"ice\"}, {\"change\": \"below\", \"to\": \"above\"}, {\"change\": \"Hot\", \"to\": \"Cold\"}].";
 
 /// Wrong answers for cards that have none (C20): one call for up to `WRONG_BATCH` cards, in order. A card
-/// whose three fail `wrong_ok` gets none, so it still plays Choice from other backs.
+/// with fewer than three fair ones (`pick`) gets none, so it still plays Choice from other backs.
 pub const WRONG_BATCH: usize = 8;
+
+/// The longest change the schema lets through, in characters; one that reaches it was cut off.
+const CHANGE_MAX: usize = 40;
+
+/// One wrong answer as the model writes it: a change to the back, or (a stub, an older reply) a whole answer.
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum Wrong {
+    Change { change: String, to: String },
+    Whole(String),
+}
+
+impl Wrong {
+    /// The back with the change made, or nothing when the words to change aren't in it.
+    pub fn answer(self, back: &str) -> Option<String> {
+        let (from, to) = match self {
+            Wrong::Whole(w) => return Some(w),
+            Wrong::Change { change, to } => (change.trim().to_string(), to.trim().to_string()),
+        };
+        // A change the length limit cut off is half a phrase.
+        if from.is_empty() || from.chars().count() >= CHANGE_MAX || to.chars().count() >= CHANGE_MAX {
+            return None;
+        }
+        // ASCII lowering keeps byte offsets, so the match can be cut out of the back as written. Whole words
+        // only: "rock" is not changed inside "rocks".
+        let low = back.to_ascii_lowercase();
+        let at = low.match_indices(&from.to_ascii_lowercase()).map(|(i, _)| i).find(|&i| {
+            let end = i + from.len();
+            !back[..i].ends_with(char::is_alphanumeric) && !back[end..].starts_with(char::is_alphanumeric)
+        })?;
+        // At the start, the new words take the back's capital: "Absorbed" changed to "produced" is "Produced".
+        let to = if at == 0 && back.starts_with(char::is_uppercase) { cap(&to) } else { to };
+        Some(format!("{}{to}{}", &back[..at], &back[at + from.len()..]))
+    }
+}
 
 pub fn wrong_for(llm: &mut dyn Llm, tpl: Template, cards: &[Card]) -> Result<Vec<Vec<String>>, String> {
     let cards = &cards[..cards.len().min(WRONG_BATCH)];
     let list: String = cards.iter().map(|c| format!("- front: {} | back: {}\n", c.front, c.back)).collect();
-    let sys = format!("You write wrong answers for a multiple-choice quiz. Each card has a front and its right answer (the back). For each card, in the same order, give the front again and three wrong answers.{QUIZ}\nEnglish. Reply as JSON.");
+    let sys = format!("You write wrong answers for a multiple-choice quiz. Each card has a front and its right answer (the back). For each card, in the same order, give the front again and four changes to its back.{QUIZ}\nEnglish. Reply as JSON.");
+    let change = json!({"type": "object", "properties": {"change": {"type": "string", "maxLength": CHANGE_MAX}, "to": {"type": "string", "maxLength": CHANGE_MAX}}, "required": ["change", "to"]});
     let schema = json!({"type": "object", "properties": {"cards": {"type": "array", "minItems": cards.len(), "maxItems": cards.len(), "items": {
-        "type": "object", "properties": {"front": {"type": "string", "maxLength": 80}, "wrong": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "string", "maxLength": 200}}}, "required": ["front", "wrong"]}}}, "required": ["cards"]});
-    let raw = llm.generate(&tpl.wrap(&sys, &format!("Cards:\n{list}")), Some(&schema), 900, &mut |_| true)?;
+        "type": "object", "properties": {"front": {"type": "string", "maxLength": 80}, "wrong": {"type": "array", "minItems": WRONG_ASKED, "maxItems": WRONG_ASKED, "items": change}}, "required": ["front", "wrong"]}}}, "required": ["cards"]});
+    let raw = llm.generate(&tpl.wrap(&sys, &format!("Cards:\n{list}")), Some(&schema), 1200, &mut |_| true)?;
     #[derive(Deserialize)]
     struct One {
         #[serde(default)]
-        wrong: Vec<String>,
+        wrong: Vec<Wrong>,
     }
     #[derive(Deserialize)]
     struct W {
         cards: Vec<One>,
     }
     let w: W = reply::parse(&raw).map_err(|e| e.to_string())?;
+    let mut sets = w.cards.into_iter().map(|o| o.wrong);
     Ok(cards
         .iter()
-        .enumerate()
-        .map(|(i, c)| {
-            let mut c = c.clone();
-            c.wrong = w.cards.get(i).map(|o| o.wrong.clone()).unwrap_or_default();
-            if wrong_ok(&repair(&c)) { repair(&c).wrong } else { vec![] }
+        .map(|c| {
+            let wrong = sets.next().unwrap_or_default().into_iter().filter_map(|x| x.answer(c.back.trim())).collect();
+            pick(&repair(&Card { wrong, ..c.clone() }))
         })
         .collect())
 }
@@ -631,4 +731,76 @@ mod tests {
         let w = ["The number of nodes in the tree", "The total number of nodes in the tree", "The number of leaves"];
         assert!(!wrong_ok(&quiz("Size of a tree", "The longest path from the root", &w)), "two wrong answers that say the same thing");
     }
+
+    // Spec 063 part E.
+    fn changes(sets: &[&[(&str, &str)]]) -> String {
+        json!({"cards": sets.iter().map(|w| json!({"front": "t", "wrong": w.iter().map(|(c, t)| json!({"change": c, "to": t})).collect::<Vec<_>>()})).collect::<Vec<_>>()}).to_string()
+    }
+
+    #[test]
+    fn c15_the_prompt_asks_for_four_near_misses_with_an_example_of_each_kind() {
+        let mut m = FakeLlm::new(&[&changes(&[&[]])]);
+        wrong_for(&mut m, Template::ChatMl, &[quiz("Osmosis", RIGHT, &[])]).unwrap();
+        let p = &m.prompts[0];
+        assert!(p.contains("four changes") && p.contains("a wrong number") && p.contains("a wrong term") && p.contains("a reversed relation"));
+        for ex in [r#"{"change": "2,900", "to": "29"}"#, r#"{"change": "rock", "to": "ice"}"#, r#"{"change": "below", "to": "above"}"#] {
+            assert!(p.contains(ex), "{ex}");
+        }
+        assert_eq!(m.prompts.len(), 1, "one call, no checking pass");
+    }
+
+    #[test]
+    fn c15_each_wrong_answer_is_the_back_with_one_change_made() {
+        let reply = changes(&[&[("more", "less"), ("membrane", "wall"), ("Water", "salt"), ("dissolved", "frozen")]]);
+        let got = wrong_for(&mut FakeLlm::new(&[&reply]), Template::ChatMl, &[quiz("Osmosis", RIGHT, &[])]).unwrap();
+        assert_eq!(
+            got[0],
+            [
+                "Water moving through a membrane toward less dissolved substance",
+                "Water moving through a wall toward more dissolved substance",
+                "Salt moving through a membrane toward more dissolved substance",
+            ],
+            "the first three fair ones, in order; a change at the start takes the capital"
+        );
+    }
+
+    #[test]
+    fn c15_a_change_that_is_not_in_the_back_or_was_cut_off_or_changes_nothing_is_dropped() {
+        let cut = "a".repeat(CHANGE_MAX);
+        let reply = changes(&[&[("sugar", "salt"), ("membrane toward", &cut), ("water", "water"), ("brane", "x"), ("more", "less"), ("toward", "away from"), ("Water", "Gas")]]);
+        let got = wrong_for(&mut FakeLlm::new(&[&reply]), Template::ChatMl, &[quiz("Osmosis", RIGHT, &[])]).unwrap();
+        assert_eq!(
+            got[0],
+            [
+                "Water moving through a membrane toward less dissolved substance",
+                "Water moving through a membrane away from more dissolved substance",
+                "Gas moving through a membrane toward more dissolved substance",
+            ],
+            "not in the back, cut off at the length limit, the same words, half a word: all dropped"
+        );
+        let two = changes(&[&[("more", "less"), ("toward", "away from"), ("sugar", "salt"), ("water", "water")]]);
+        assert!(wrong_for(&mut FakeLlm::new(&[&two]), Template::ChatMl, &[quiz("Osmosis", RIGHT, &[])]).unwrap()[0].is_empty(), "two fair of four is none");
+    }
+
+    #[test]
+    fn c15_a_near_miss_in_the_backs_own_words_is_fair_a_copy_is_not() {
+        let tree = "Tree where every left child is smaller than its parent and every right child is larger";
+        assert!(!near("Tree where every left child is larger than its parent", tree), "the back's words in a new order say something else");
+        assert!(!near("The derivative of x^n is nx^(n+1)", "The derivative of x^n is nx^(n-1)"), "a sign in a formula");
+        assert!(!near("Takes O(n) time", "Takes O(log n) time"));
+        assert!(!near("Always non-zero", "Always zero") && !near("It does not divide", "It does divide"), "an added not turns it around");
+        assert!(!near("Always one", "Always zero") && !near("Light makes ATP", "Light makes DNA"), "a short word that names something counts");
+        assert!(near("Gas spreading through the air", "Gas spreading through air"), "a short linking word does not");
+        assert!(near("Tree where every left child is smaller than its parent", tree), "the back with words left out is still a copy");
+        assert!(near("The Revolution began in 1896", "The Revolution began in 1896"));
+    }
+
+    #[test]
+    fn c15_a_wrong_answer_that_opens_with_the_term_is_cut_like_the_back() {
+        let back = "Required to drive the light-dependent reactions";
+        let card = repair(&quiz("Sunlight", back, &["Sunlight is required to stop the reactions", "Optional for the light-dependent reactions", "Required to drive the dark-dependent reactions"]));
+        assert_eq!(card.wrong[0], "Required to stop the reactions");
+        assert_eq!(pick(&card).len(), 3);
+    }
+
 }
