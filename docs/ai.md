@@ -445,3 +445,20 @@ Done: RAG also indexes deck cards (`card:<deck id>`) and syllabus text (`plan:<c
 | 10 of 10 | 39 of 46 | 3.0 to 5.6 s |
 
 The 7 dropped bullets were caught by the rules, not the model: 2 named a number the chat never said (a worked example's result, a percentage), and 5 talked about the chat ("LAR explained the formula", "The student asked for an example") although the prompt forbids it. With the second filter off, 3 of the 10 notes carried such a line. No kept bullet holds an invented number. One kept osmosis bullet restates the definition in a confusing way. A note is a draft the student reads on the card before saving. Not measured: a real phone, Qwen3 1.7B.
+
+## Note edits (spec 062 C7–C15)
+
+The second half of `examples/notes` asks for ten edits on fixed notes: changes, additions, a tidy and a typo fix (Mac M-series, Metal, Qwen3.5 2B IQ4_XS, 2026-11-26). An edit passes when the note has what was asked, keeps every line it wasn't asked to touch, and loses what it should (the old day, the old room, the removed line, the typo).
+
+| Run | Passed by the check | Time per edit |
+|---|---|---|
+| First prompt | 6 of 10 | 0.5 to 3.1 s |
+| After the fixes below | 10 of 10 | 0.6 to 2.5 s |
+
+The first run's misses, and what fixed them:
+- Additions repeated the note's lines. Fix: a line the note already has is dropped.
+- The chat was pasted into unrelated additions. Fix: the chat goes in only when the request points at it ("what you told me").
+- A changed bullet lost its "- ". Fix: the app keeps the line's lead.
+- A new room number was added as a line, not swapped in. Fix: one prompt line, "replace the line that holds it".
+
+Read by hand, 8 of the 10 are clean. Edit 6 also re-added the first line with its typo fixed. Edit 9 (Tidy, which reuses Ask AI's Tidy) turned "stcks" into "stocks". The card shows every changed line before Apply, and Undo puts the note back. Not measured: a real phone, Qwen3 1.7B, and notes longer than about 10 lines.

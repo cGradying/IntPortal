@@ -1,7 +1,9 @@
 //! Notes-from-chat probe (spec 062 C1–C6): ten fixed chats turned into notes by a real model, printed with the
 //! time, the bullets kept and the bullets the number check dropped.
+//! Then ten edits on fixed notes (C9–C11): an edit passes when the note has what was asked and keeps every
+//! line it was not asked to touch.
 //! `cargo run --release -p intportal-llm --example notes -- <chat.gguf> [cpu]`
-use intportal_ai::{chatnote, llm::Llm, prompt::Template};
+use intportal_ai::{chatnote, edit, llm::Llm, prompt::Template};
 use intportal_llm::{Device, Llama};
 
 /// Counts the bullets the model wrote, so the probe can show how many the check dropped.
@@ -55,4 +57,35 @@ fn main() {
         }
     }
     println!("\n{made} of {} chats made a note; {kept} of {wrote} bullets kept", chats.len());
+
+    let note = |t: &str| edit::NoteRef { key: "note:1".into(), name: "Quiz".into(), subject: None, text: t.into() };
+    let quiz = "Quiz 2 on Friday, Oct 16\nCovers stacks and queues\nBring a calculator\nRoom 302";
+    let heap = "- A heap is a compelte binary tree\n- Max-heap: parent >= children\n- Insert is O(log n)";
+    let chat = vec![p("power rule?", "The derivative of x^n is n times x^(n-1).")];
+    use edit::Kind::*;
+    // (note, kind, request, must contain, must still contain)
+    let cases: Vec<(&str, edit::Kind, &str, &str, Vec<&str>)> = vec![
+        (quiz, Change, "change the quiz day to Monday", "Monday", vec!["Covers stacks and queues", "Bring a calculator", "Room 302"]),
+        (quiz, Change, "the room is now 305", "305", vec!["Covers stacks and queues", "Bring a calculator"]),
+        (quiz, Change, "remove the calculator line", "Room 302", vec!["Covers stacks and queues", "Quiz 2 on Friday, Oct 16"]),
+        (quiz, Change, "it also covers linked lists", "linked lists", vec!["Bring a calculator", "Room 302"]),
+        (heap, Change, "change insert to O(log n) worst case", "worst case", vec!["- A heap is a compelte binary tree", "- Max-heap: parent >= children"]),
+        (heap, Append, "add that reading the max is O(1)", "O(1)", vec!["- Insert is O(log n)"]),
+        (quiz, Append, "add: bring my ID too", "ID", vec!["Room 302"]),
+        ("Derivatives\n- Chain rule: f'(g(x)) g'(x)", Append, "add the power rule you just told me", "x^(n-1)", vec!["- Chain rule: f'(g(x)) g'(x)"]),
+        ("quiz frday covers stcks n queues\nbring calc", Tidy, "fix the spelling", "riday", vec![]),
+        (heap, Change, "fix the typo in the first line", "complete binary tree", vec!["- Insert is O(log n)"]),
+    ];
+    // What a change must have taken out.
+    let gone = |msg: &str| match msg { "remove the calculator line" => Some("calculator"), "change the quiz day to Monday" => Some("Friday"), "the room is now 305" => Some("302"), "fix the typo in the first line" => Some("compelte"), _ => None };
+    let mut pass = 0;
+    for (k, (text, kind, msg, want, keep)) in cases.iter().enumerate() {
+        let t = std::time::Instant::now();
+        let out = edit::rewrite(&mut m, Template::ChatMl, *kind, &note(text), &chat, msg);
+        let dt = t.elapsed().as_secs_f64();
+        let ok = out.as_ref().is_ok_and(|o| o.contains(want) && keep.iter().all(|l| o.contains(l)) && !gone(msg).is_some_and(|g| o.contains(g)));
+        pass += usize::from(ok);
+        println!("== edit {} {} in {dt:.1}s: {msg}\n{}", k + 1, if ok { "PASS" } else { "FAIL" }, out.unwrap_or_else(|e| format!("Err: {e}")));
+    }
+    println!("\n{pass} of {} edits applied as asked", cases.len());
 }

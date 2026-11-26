@@ -20,7 +20,7 @@
   import { SPAWN_SECS, type State } from "../lar/sprite";
   import { app, openDeck, openNote, openSubject } from "../state.svelte";
   import { sourceTarget } from "./sources";
-  import { describe, followUps, starters as startersFor, type Day, type Suggestion } from "./apply";
+  import { describe, folded, lineDiff, followUps, starters as startersFor, type Day, type Suggestion } from "./apply";
   import { tidy } from "./cards";
   import { doing, rows, summary } from "./trace";
   import { api, moment, type DeadlineEntry } from "../api";
@@ -28,7 +28,7 @@
   type Rect = { x: number; y: number; w: number; h: number };
   import { invoke } from "@tauri-apps/api/core";
   import { cancelDither, runDither } from "./dither-draw";
-  import { apply, ask, assis, confirmCards, discardCards, dismiss, newChat, stop } from "./assis.svelte";
+  import { apply, ask, assis, confirmCards, discardCards, dismiss, newChat, pickNote, stop, undoChange } from "./assis.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
   // Android's back gesture and Escape close it; the effect's return unregisters it.
@@ -411,6 +411,25 @@
                     <p class="what"><b>{m.proposal.title}</b></p>
                     <p class="what note">{m.proposal.text}</p>
                     {#if m.proposal.partial && m.state === "pending"}<p class="fine">Made from the last part of our chat.</p>{/if}
+                  {:else if m.proposal.kind === "edit_note"}
+                    <ul class="diff" aria-label="Changes to {m.proposal.name}">
+                      {#each folded(lineDiff(m.proposal.before, m.proposal.after)) as l, k (k)}
+                        {#if l.kind === "fold"}
+                          <li class="fold">{l.n} lines unchanged</li>
+                        {:else}
+                          <li class={l.kind}><span class="sr">{l.kind === "add" ? "Added: " : l.kind === "del" ? "Removed: " : ""}</span>{l.text || " "}</li>
+                        {/if}
+                      {/each}
+                    </ul>
+                  {:else if m.proposal.kind === "delete_note"}
+                    <p class="what"><b>{m.proposal.name}</b></p>
+                    <p class="what note dim">{m.proposal.preview}</p>
+                  {:else if m.proposal.kind === "pick_note"}
+                    {#if m.state === "pending"}
+                      <div class="picks">
+                        {#each m.proposal.candidates as c (c.key)}<button class="chip" onclick={() => pickNote(i, c.key)} disabled={!!assis.busy}>{c.name}</button>{/each}
+                      </div>
+                    {/if}
                   {:else}
                     <p class="what">{d.text}</p>
                   {/if}
@@ -432,15 +451,24 @@
                       <button class="yes" onclick={() => confirmCards(i)} disabled={!n}>Add {n} {n === 1 ? "card" : "cards"}</button>
                       <button class="no" onclick={() => discardCards(i)}>Discard</button>
                     </div>
+                  {:else if m.state === "pending" && m.proposal.kind === "pick_note"}
+                    <p class="fine">Tap the note you mean.</p>
                   {:else if m.state === "pending"}
                     <div class="two">
                       <button class="yes" onclick={() => apply(i)} disabled={assis.busy === "cards"}>{assis.busy === "cards" ? "Making…" : d.yes}</button>
                       {#if m.proposal.kind === "save_note"}
                         <button class="no" onclick={() => (m.editing = !m.editing)}>{m.editing ? "Done" : "Edit"}</button>
                       {:else}
-                        <button class="no" onclick={() => dismiss(i)}>Not now</button>
+                        <button class="no" onclick={() => dismiss(i)}>{m.proposal.kind.endsWith("_note") && m.proposal.kind !== "save_note" ? "Cancel" : "Not now"}</button>
                       {/if}
                     </div>
+                  {:else if m.state === "done" && m.undo}
+                    <div class="two">
+                      <p class="ok">Changed</p>
+                      <button class="no" onclick={() => undoChange(i)}>Undo</button>
+                    </div>
+                  {:else if m.state === "done" && m.proposal.kind === "pick_note"}
+                    <span></span>
                   {:else if m.state === "done" && m.notice}
                     <p class="problem">{m.notice}</p>
                   {:else if m.state === "done"}
@@ -929,6 +957,46 @@
     flex: 1;
     min-width: 0;
     gap: 6px;
+  }
+  .diff {
+    display: grid;
+    gap: 2px;
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-body);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .diff .same,
+  .diff .fold {
+    color: rgb(255 246 220 / 0.55);
+  }
+  .diff .fold {
+    font-style: italic;
+  }
+  .diff .del {
+    color: rgb(255 246 220 / 0.55);
+    text-decoration: line-through;
+  }
+  .diff .add {
+    color: var(--portal-gold);
+  }
+  .what.dim {
+    color: rgb(255 246 220 / 0.55);
+  }
+  .picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
   .what.note {
     white-space: pre-line;
