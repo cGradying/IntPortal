@@ -164,9 +164,9 @@ fn within(a: &[String], b: &[String]) -> bool {
 }
 
 /// Whether `a` says nothing `b` doesn't: the same words in any order, or one is the other with words left
-/// out ("two identical cells" in "two identical daughter cells"), with as many "not"s. A near miss built from the other's own
-/// words in a new order ("every left child is larger", against "every left child is smaller ... every
-/// right child larger") says something else, so it is fair.
+/// out ("two identical cells" in "two identical daughter cells"), with as many "not"s. A near miss built
+/// from the other's own words in a new order ("every left child is larger", against "every left child is
+/// smaller ... every right child larger") says something else, so it is fair.
 fn near(a: &str, b: &str) -> bool {
     let (x, y) = (meaning(a), meaning(b));
     // "Always non-zero" and "does not determine" turn the other around: an added "not" is not a copy.
@@ -221,7 +221,7 @@ pub fn pick(card: &Card) -> Vec<String> {
 
 /// The wrong-answer rule (063 C15): near misses, each the back made false in one checkable detail, one
 /// example of each kind, in a subject far from most decks. The model names the change and the app makes
-/// it: asked for whole answers, Qwen3.5 2B copied the back word for word in 44 of 88 (docs/ai.md).
+/// it: asked for whole near misses, Qwen3.5 2B copied the back word for word in 35 of 66 (docs/ai.md).
 const QUIZ: &str = "
 - wrong: four changes to the back, each making it false in one detail a student can check: a wrong number, a wrong term (another thing of the same kind, which is not true here), or a reversed relation (above for below, more for less). change: one to four words copied exactly from the back. to: other words to put in their place, never the same words. Change a different part of the back each time, so the result is false to anyone who knows the topic.
   Example: front \"Mantle\", back \"Hot layer of rock about 2,900 km thick that lies below the crust\", wrong [{\"change\": \"2,900\", \"to\": \"29\"}, {\"change\": \"rock\", \"to\": \"ice\"}, {\"change\": \"below\", \"to\": \"above\"}, {\"change\": \"Hot\", \"to\": \"Cold\"}].";
