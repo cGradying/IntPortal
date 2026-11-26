@@ -1,6 +1,6 @@
 # 064 LAR changes the calendar
 
-**Status:** draft
+**Status:** approved
 
 ## What changes for the student
 

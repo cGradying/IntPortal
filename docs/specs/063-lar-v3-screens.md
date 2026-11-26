@@ -13,7 +13,7 @@ LAR's note and edit cards get their final look, and an applied change stays in t
   - Quiz faces: "there's already a UI for this".
   - Deck page: "use the current UI for the AI".
   - Long answers: "add animation on text spawns". On the header: "the red part, can this be modified by theme customizer too".
-- Round 2 asks only those three items. C9, C12 and C13 stay open until it comes back.
+- Round 2 asked only those three items; the choices are in Decisions.
 - The 062 evals on Qwen3.5 2B, in `docs/ai.md`:
   - Only 9 of 22 quiz cards kept three wrong answers, and some kept ones were true.
   - In one test, Keep going started the topic over.
@@ -130,8 +130,8 @@ LAR's note and edit cards get their final look, and an applied change stays in t
 1. `ui/lar-cards`: A (C1–C6). Round 1 is enough to start now.
 2. `ai/quiz-accuracy`: E (C15–C17), with the eval numbers.
 3. `ai/keep-going`: F (C18–C19), with the eval numbers.
-4. `ui/quiz-mode`: B and C (C7–C12), after round 2.
-5. `ui/lar-motion`: D (C13–C14), after round 2.
+4. `ui/quiz-mode`: B and C (C7–C12).
+5. `ui/lar-motion`: D (C13–C14).
 
 ## Test map
 
