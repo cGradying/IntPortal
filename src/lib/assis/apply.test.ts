@@ -329,8 +329,8 @@ suite("spec 063 A: the cards in their picked look", () => {
     expect(changedDay(at(new Date(2026, 10, 23, 9, 0)), now)).toBe(new Date(2026, 10, 23).toLocaleDateString(undefined, { weekday: "short" }));
     expect(changedDay(at(new Date(2026, 10, 2, 9, 0)), now)).toBe(new Date(2026, 10, 2).toLocaleDateString(undefined, { month: "short", day: "numeric" }));
     const today = at(new Date(2026, 10, 27, 8, 0));
-    expect(pickCaption({ key: "note:1", name: "L", subject: "MATH 101", updated: today }, now)).toBe("MATH 101 · changed today");
-    expect(pickCaption({ key: "note:2", name: "L", subject: "", updated: today }, now)).toBe("Changed today");
-    expect(pickCaption({ key: "note:3", name: "L" }, now)).toBe("");
+    expect(pickCaption({ subject: "MATH 101", updated: today }, now)).toBe("MATH 101 · changed today");
+    expect(pickCaption({ subject: "", updated: today }, now)).toBe("Changed today");
+    expect(pickCaption({}, now)).toBe("");
   });
 });

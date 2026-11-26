@@ -20,10 +20,10 @@
   import { SPAWN_SECS, type State } from "../lar/sprite";
   import { app, openDeck, openNote, openSubject } from "../state.svelte";
   import { sourceTarget } from "./sources";
-  import { describe, folded, lineDiff, followUps, starters as startersFor, type Day, type Suggestion } from "./apply";
+  import { describe, doneWord, folded, lineDiff, marked, noteLines, pickCaption, followUps, starters as startersFor, type Day, type Suggestion } from "./apply";
   import { tidy } from "./cards";
   import { doing, rows, summary } from "./trace";
-  import { api, moment, type DeadlineEntry } from "../api";
+  import { api, moment, subjectColor, type DeadlineEntry } from "../api";
 
   type Rect = { x: number; y: number; w: number; h: number };
   import { invoke } from "@tauri-apps/api/core";
@@ -51,6 +51,9 @@
   const myDay = $derived<Day>({ now: new Date(), due, note: [...app.notes].filter((n) => n.title).sort((a, b) => b.updated - a.updated)[0] ?? null, next: app.today?.next });
   /** Traces opened again after they folded, by message index. */
   let unfolded = $state<Record<number, boolean>>({});
+  /** Change cards whose unchanged lines were opened, by message index. */
+  let opened = $state<Record<number, boolean>>({});
+  const colors = $derived(app.snapshot?.colors ?? {});
   const last = $derived(assis.chat[assis.chat.length - 1]);
   // Dots show from the moment a message is sent until the first word arrives.
   const waiting = $derived(assis.busy === "waking" || (assis.busy === "thinking" && !last?.text));
@@ -285,9 +288,17 @@
     const sending = ask(text);
     await tick();
     log?.scrollTo({ top: log.scrollHeight });
-    await sending;
+    await land(sending);
+  }
+
+  /** Once a reply lands, scroll to its end, but never past the top of a card it brought (063 C1: a card opens at its title). */
+  async function land(reply?: Promise<unknown>) {
+    await reply;
     await tick();
-    log?.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
+    if (!log) return;
+    const card = last?.proposal ? [...inn.querySelectorAll<HTMLElement>(".offer, .rows")].at(-1) : undefined;
+    const top = card ? log.scrollTop + card.getBoundingClientRect().top - log.getBoundingClientRect().top - 8 : Infinity;
+    log.scrollTo({ top: Math.min(top, log.scrollHeight), behavior: "smooth" });
   }
 
   /** A suggestion opens its source, fills the field, or asks. */
@@ -401,39 +412,80 @@
                   {#each m.sources as src (src.key)}<button class="chip" onclick={() => show(src.key, src.title)}>From: {src.title}</button>{/each}
                 </div>
               {/if}
-              {#if m.proposal}
+              {#if m.proposal?.kind === "pick_note"}
+                <!-- 063 C6: one full-width row per note; a tap marks it and asks again. -->
+                <ul class="rows" aria-label="Notes">
+                  {#each m.proposal.candidates as c (c.key)}
+                    {@const cap = pickCaption(c)}
+                    <li>
+                      <button class="nrow" class:on={m.picked === c.key} aria-pressed={m.picked === c.key} aria-label={cap ? `${c.name}, ${cap}` : c.name} onclick={() => land(pickNote(i, c.key))} disabled={m.state !== "pending" || !!assis.busy}>
+                        <b>{c.name}</b>{#if cap}<small>{cap}</small>{/if}
+                        <svg width="8" height="10" viewBox="0 0 4 5" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM1 3h1v1H1zM0 4h1v1H0z" /></svg>
+                      </button>
+                    </li>
+                  {/each}
+                </ul>
+                {#if m.problem}<p class="problem">{m.problem}</p>{/if}
+              {:else if m.proposal}
                 {@const d = describe(m.proposal)}
+                {@const changes = m.proposal.kind === "edit_note" || m.proposal.kind === "rename_note" || m.proposal.kind === "move_note" || m.proposal.kind === "delete_note" ? m.proposal.kind : null}
                 <div class="offer" class:done={m.state === "done"}>
-                  <p class="label">{d.label}</p>
-                  {#if m.proposal.kind === "save_note" && m.editing && m.state === "pending"}
-                    <input class="ed" bind:value={m.proposal.title} aria-label="Note title" />
-                    <textarea class="ed body" rows="8" bind:value={m.proposal.text} aria-label="Note text"></textarea>
-                  {:else if m.proposal.kind === "save_note"}
-                    <p class="what"><b>{m.proposal.title}</b></p>
-                    <p class="what note">{m.proposal.text}</p>
-                    {#if m.proposal.partial && m.state === "pending"}<p class="fine">Made from the last part of our chat.</p>{/if}
-                  {:else if m.proposal.kind === "edit_note"}
-                    <ul class="diff" aria-label="Changes to {m.proposal.name}">
-                      {#each folded(lineDiff(m.proposal.before, m.proposal.after)) as l, k (k)}
-                        {#if l.kind === "fold"}
-                          <li class="fold">{l.n} lines unchanged</li>
-                        {:else}
-                          <li class={l.kind}><span class="sr">{l.kind === "add" ? "Added: " : l.kind === "del" ? "Removed: " : ""}</span>{l.text || " "}</li>
-                        {/if}
-                      {/each}
-                    </ul>
-                  {:else if m.proposal.kind === "delete_note"}
-                    <p class="what"><b>{m.proposal.name}</b></p>
-                    <p class="what note dim">{m.proposal.preview}</p>
-                  {:else if m.proposal.kind === "pick_note"}
-                    {#if m.state === "pending"}
-                      <div class="picks">
-                        {#each m.proposal.candidates as c (c.key)}<button class="chip" onclick={() => pickNote(i, c.key)} disabled={!!assis.busy}>{c.name}</button>{/each}
+                  <!-- 063 C5: once applied, this part dims and the line under it stays clear. -->
+                  <div class="gist">
+                    <div class="head">
+                      <p class="label">{d.label}</p>
+                      {#if m.proposal.kind === "save_note" && m.proposal.subject}<span class="subj" style:--sc={subjectColor(m.proposal.subject, colors)}>{m.proposal.subject}</span>{/if}
+                    </div>
+                    {#if m.proposal.kind === "save_note" && m.editing && m.state === "pending"}
+                      <!-- 063 C2: two fields, filled with the note. -->
+                      <label class="lbl" for="ttl{i}">Title</label>
+                      <input id="ttl{i}" class="ed" bind:value={m.proposal.title} />
+                      <label class="lbl" for="txt{i}">Note</label>
+                      <textarea id="txt{i}" class="ed body" rows={m.proposal.text.split("\n").length + 2} bind:value={m.proposal.text}></textarea>
+                    {:else if m.proposal.kind === "save_note"}
+                      <!-- 063 C1: the title first, the points as the note editor draws them. -->
+                      <p class="ttl">{m.proposal.title}</p>
+                      {#if m.proposal.partial}<p class="fine">Made from the last part of our chat</p>{/if}
+                      <ul class="pts">
+                        {#each noteLines(m.proposal.text) as l, k (k)}{#if l.text}<li class:plain={!l.bullet}>{l.text}</li>{/if}{/each}
+                      </ul>
+                    {:else if m.proposal.kind === "edit_note"}
+                      <!-- 063 C3: word marks inside a changed line; long unchanged runs fold. -->
+                      {@const all = marked(lineDiff(m.proposal.before, m.proposal.after))}
+                      <ul class="diff" aria-label="Changes to {m.proposal.name}">
+                        {#each opened[i] ? all : folded(all) as l, k (k)}
+                          {#if l.kind === "fold"}
+                            <li class="fold"><button onclick={() => (opened[i] = true)}>{l.n} lines unchanged</button></li>
+                          {:else if l.kind === "change"}
+                            <li><i aria-hidden="true"></i><span>{#each l.words as w, j (j)}{j ? " " : ""}{#if w.kind === "del"}<s><span class="sr">Removed: </span>{w.text}</s>{:else if w.kind === "add"}<mark><span class="sr">Added: </span>{w.text}</mark>{:else}{w.text}{/if}{/each}</span></li>
+                          {:else if l.kind === "del"}
+                            <li class="del"><svg width="9" height="9" viewBox="0 0 3 3" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M0 1h3v1H0z" /></svg><s><span class="sr">Removed: </span>{l.text || " "}</s></li>
+                          {:else if l.kind === "add"}
+                            <li class="add"><svg width="9" height="9" viewBox="0 0 3 3" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M1 0h1v1h1v1H2v1H1V2H0V1h1z" /></svg><mark><span class="sr">Added: </span>{l.text || " "}</mark></li>
+                          {:else}
+                            <li class="same"><i aria-hidden="true"></i><span>{l.text || " "}</span></li>
+                          {/if}
+                        {/each}
+                      </ul>
+                    {:else if m.proposal.kind === "rename_note"}
+                      <!-- 063 C4: old over new. -->
+                      <div class="swap">
+                        <s class="o"><span class="sr">Removed: </span>{m.proposal.name}</s>
+                        <p class="n"><span class="sr">Added: </span>{m.proposal.title}</p>
                       </div>
+                    {:else if m.proposal.kind === "move_note"}
+                      <p class="ttl">{m.proposal.name}</p>
+                      <div class="move">
+                        {#if m.proposal.from}<s class="subj old" style:--sc={subjectColor(m.proposal.from, colors)}><span class="sr">Removed: </span>{m.proposal.from}</s><svg width="14" height="10" viewBox="0 0 7 5" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M0 2h5v1H0zM4 0h1v1H4zM5 1h1v1H5zM6 2h1v1H6zM5 3h1v1H5zM4 4h1v1H4z" /></svg>{/if}
+                        <span class="subj new" style:--sc={subjectColor(m.proposal.subject, colors)}><span class="sr">Added: </span>{m.proposal.subject}</span>
+                      </div>
+                    {:else if m.proposal.kind === "delete_note"}
+                      <p class="ttl">{m.proposal.name}</p>
+                      <p class="peek">{m.proposal.preview}</p>
+                    {:else}
+                      <p class="what">{d.text}</p>
                     {/if}
-                  {:else}
-                    <p class="what">{d.text}</p>
-                  {/if}
+                  </div>
                   {#if m.state === "pending" && m.cards}
                     <p class="fine">Edit or remove any card. Nothing is saved until you tap the gold button.</p>
                     <ul class="cards">
@@ -452,24 +504,35 @@
                       <button class="yes" onclick={() => confirmCards(i)} disabled={!n}>Add {n} {n === 1 ? "card" : "cards"}</button>
                       <button class="no" onclick={() => discardCards(i)}>Discard</button>
                     </div>
-                  {:else if m.state === "pending" && m.proposal.kind === "pick_note"}
-                    <p class="fine">Tap the note you mean.</p>
                   {:else if m.state === "pending"}
-                    <div class="two">
-                      <button class="yes" onclick={() => apply(i)} disabled={assis.busy === "cards"}>{assis.busy === "cards" ? "Making…" : d.yes}</button>
+                    <div class="two stick">
+                      <button class="yes" class:danger={m.proposal.kind === "delete_note"} onclick={() => apply(i)} disabled={assis.busy === "cards"}>{assis.busy === "cards" ? "Making…" : d.yes}</button>
                       {#if m.proposal.kind === "save_note"}
                         <button class="no" onclick={() => (m.editing = !m.editing)}>{m.editing ? "Done" : "Edit"}</button>
                       {:else}
-                        <button class="no" onclick={() => dismiss(i)}>{m.proposal.kind.endsWith("_note") ? "Cancel" : "Not now"}</button>
+                        <button class="no" onclick={() => dismiss(i)}>{changes ? "Cancel" : "Not now"}</button>
                       {/if}
                     </div>
-                  {:else if m.state === "done" && m.undo}
-                    <div class="two">
-                      <p class="ok">Changed</p>
-                      <button class="no" onclick={() => undoChange(i)}>Undo</button>
+                  {:else if m.state === "done" && changes}
+                    <div class="after">
+                      {#if m.undo}
+                        <p class="ok">{doneWord(changes)}</p>
+                        <button class="no" onclick={() => undoChange(i)}>Undo</button>
+                      {:else if m.undone}
+                        <p class="fine">Put back</p>
+                      {:else if m.notice}
+                        <p class="fine">{m.notice}</p>
+                      {:else}
+                        <p class="ok">{doneWord(changes)}</p>
+                      {/if}
                     </div>
-                  {:else if m.state === "done" && m.proposal.kind === "pick_note"}
-                    <span></span>
+                  {:else if m.state === "done" && m.saved}
+                    {@const key = m.saved}
+                    {@const title = m.proposal.kind === "save_note" ? m.proposal.title : ""}
+                    <div class="after">
+                      <p class="ok">Saved</p>
+                      <button class="tbtn" onclick={() => show(key, title)}>Open note</button>
+                    </div>
                   {:else if m.state === "done" && m.notice}
                     <p class="problem">{m.notice}</p>
                   {:else if m.state === "done"}
@@ -894,8 +957,96 @@
     clip-path: var(--slab);
     animation: pop var(--t-move) var(--ease) both;
   }
-  .offer.done {
+  .gist {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    transition: opacity var(--t-quick) var(--ease);
+  }
+  /* 063 C5: an applied card stays where it was, dimmed; the line under it stays clear. */
+  .offer.done .gist {
     opacity: 0.7;
+  }
+  .head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+  }
+  .head .label {
+    flex: 1;
+  }
+  /* A subject chip: the subject's colour as one square pixel, on a stepped chip. */
+  .subj {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 60%;
+    padding: 3px 7px;
+    font: 500 var(--text-label) / 1.2 var(--font-pixel);
+    letter-spacing: 0.04em;
+    color: var(--parch);
+    text-decoration: none;
+    background: rgb(255 246 220 / 0.07);
+    box-shadow: inset 0 0 0 1px rgb(255 246 220 / 0.14);
+    clip-path: var(--cut);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .subj::before {
+    content: "";
+    flex: none;
+    width: 6px;
+    height: 6px;
+    background: var(--sc);
+  }
+  .subj.old {
+    color: rgb(255 246 220 / 0.55);
+    text-decoration: line-through;
+  }
+  .subj.new {
+    color: var(--portal-gold);
+    box-shadow: inset 0 0 0 1px var(--portal-gold);
+  }
+  .ttl {
+    margin: 0;
+    font: 700 var(--text-headline) / 1.25 var(--font-display);
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+  }
+  /* The points, drawn as the note editor draws them: a gold square, not a typed "- ". */
+  .pts {
+    display: grid;
+    gap: 5px;
+    margin: 2px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-sub);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .pts li {
+    display: flex;
+    gap: 8px;
+  }
+  .pts li:not(.plain)::before {
+    content: "";
+    flex: none;
+    width: 6px;
+    height: 6px;
+    margin-top: 0.55em;
+    background: var(--portal-gold);
+  }
+  .pts .plain {
+    font-weight: 600;
+  }
+  .lbl {
+    margin: 4px 0 -2px;
+    font: 500 var(--text-label) var(--font-pixel);
+    letter-spacing: 0.06em;
+    color: rgb(255 246 220 / 0.6);
   }
   .label {
     margin: 0;
@@ -915,6 +1066,34 @@
     gap: 8px;
     margin-top: 4px;
   }
+  /* Save and Edit (and Apply) stay in reach while a long card scrolls past (063 C1). */
+  .two.stick {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    margin: 4px -12px -12px;
+    padding: 10px 12px 12px;
+    background: linear-gradient(transparent, var(--void-lift) 12px);
+  }
+  .after {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin-top: 4px;
+  }
+  .tbtn {
+    justify-self: end;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    background: none;
+    color: var(--portal-gold);
+    font: 600 var(--text-sub) var(--font-ui);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
   /* Gold pixel buttons: stepped corners and the gold lip. */
   .yes {
     height: 44px;
@@ -928,6 +1107,16 @@
   .yes:active:not(:disabled) {
     box-shadow: inset 0 3px 0 var(--portal-gold-shade);
     transform: translateY(1px);
+  }
+  /* Delete is the one red button (063 C4), so it never reads as the everyday gold. */
+  .yes.danger {
+    background: color-mix(in srgb, var(--rose) 16%, var(--void-lift));
+    color: var(--rose);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rose) 60%, transparent);
+  }
+  .yes.danger:active:not(:disabled) {
+    background: color-mix(in srgb, var(--rose) 26%, var(--void-lift));
+    box-shadow: inset 0 0 0 1px var(--rose);
   }
   .no {
     height: 44px;
@@ -965,36 +1154,153 @@
   }
   .diff {
     display: grid;
-    gap: 2px;
-    margin: 6px 0 0;
-    padding: 0;
+    margin: 2px 0 0;
+    padding: 6px 0;
     list-style: none;
-    font-size: var(--text-body);
-    line-height: 1.35;
+    background: rgb(6 3 7 / 0.35);
+    box-shadow: inset 0 0 0 1px rgb(255 246 220 / 0.08);
+    clip-path: var(--cut);
+    font-size: var(--text-sub);
+    line-height: 1.4;
+  }
+  .diff li {
+    display: grid;
+    grid-template-columns: 9px 1fr;
+    gap: 7px;
+    padding: 2px 10px 2px 8px;
     overflow-wrap: anywhere;
   }
-  .diff .same,
-  .diff .fold {
-    color: rgb(255 246 220 / 0.55);
+  .diff li > svg {
+    margin-top: 0.45em;
   }
-  .diff .fold {
-    font-style: italic;
+  .diff .same {
+    color: rgb(255 246 220 / 0.5);
   }
   .diff .del {
-    color: rgb(255 246 220 / 0.55);
-    text-decoration: line-through;
+    color: rgb(255 246 220 / 0.6);
   }
   .diff .add {
     color: var(--portal-gold);
   }
-  .what.dim {
+  /* Words taken out are struck; words put in are gold (063 C3). */
+  .diff s {
+    color: rgb(255 246 220 / 0.55);
+    text-decoration-color: rgb(255 246 220 / 0.6);
+  }
+  .diff mark {
+    padding: 0 2px;
+    background: rgb(245 178 39 / 0.18);
+    color: var(--portal-gold);
+    box-shadow: inset 0 -2px 0 var(--portal-gold);
+  }
+  .diff .fold {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: -4px 0;
+    padding: 0 8px;
+  }
+  .diff .fold button {
+    min-height: 44px;
+    padding: 0 8px;
+    border: 0;
+    background: none;
+    font: 500 var(--text-label) var(--font-pixel);
+    letter-spacing: 0.06em;
     color: rgb(255 246 220 / 0.55);
   }
-  .picks {
+  .diff .fold::before,
+  .diff .fold::after {
+    content: "";
+    flex: 1;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, rgb(255 246 220 / 0.25) 0 2px, transparent 2px 6px);
+  }
+  /* Rename: the old name struck and dim, over the new one in gold (063 C4). */
+  .swap {
+    display: grid;
+    gap: 2px;
+  }
+  .swap .o {
+    font-size: var(--text-sub);
+    color: rgb(255 246 220 / 0.55);
+  }
+  .swap .n {
+    margin: 0;
+    font: 700 var(--text-headline) / 1.25 var(--font-display);
+    color: var(--portal-gold);
+    overflow-wrap: anywhere;
+  }
+  .move {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
-    margin-top: 8px;
+  }
+  .move svg {
+    color: rgb(255 246 220 / 0.6);
+  }
+  /* Delete: the note's first lines, fading out under its name. */
+  .peek {
+    margin: 0;
+    padding: 8px 10px;
+    background: rgb(6 3 7 / 0.35);
+    clip-path: var(--cut);
+    font-size: var(--text-sub);
+    line-height: 1.4;
+    color: rgb(255 246 220 / 0.6);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    mask: linear-gradient(#000 55%, transparent);
+  }
+  /* 063 C6: which note, one full-width row each. */
+  .rows {
+    justify-self: stretch;
+    display: grid;
+    gap: 6px;
+    margin: -2px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .nrow {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 2px 8px;
+    min-height: 56px;
+    padding: 8px 12px;
+    border: 0;
+    text-align: left;
+    background: var(--void-lift);
+    color: var(--parch);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+    clip-path: var(--cut);
+    animation: pop var(--t-move) var(--ease) both;
+    transition: background var(--t-quick) var(--ease);
+  }
+  .nrow b {
+    font: 600 var(--text-body) / 1.25 var(--font-ui);
+    overflow-wrap: anywhere;
+  }
+  .nrow small {
+    grid-column: 1;
+    font-size: var(--text-caption);
+    color: rgb(255 246 220 / 0.6);
+  }
+  .nrow svg {
+    grid-row: 1 / 3;
+    grid-column: 2;
+    color: var(--accent);
+  }
+  .nrow:active:not(:disabled) {
+    background: color-mix(in srgb, var(--portal-gold) 18%, var(--void-lift));
+  }
+  .nrow.on {
+    box-shadow: inset 0 0 0 2px var(--portal-gold);
+  }
+  .nrow.on:disabled {
+    opacity: 1;
   }
   .sr {
     position: absolute;
@@ -1003,17 +1309,13 @@
     overflow: hidden;
     clip-path: inset(50%);
   }
-  .what.note {
-    white-space: pre-line;
-  }
   .ed.body {
     height: auto;
     padding: 10px 12px;
     resize: vertical;
   }
-  .offer > .ed {
+  .gist > .ed {
     width: 100%;
-    margin-top: 6px;
   }
   .ed {
     min-width: 0;
