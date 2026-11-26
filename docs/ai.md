@@ -476,6 +476,34 @@ Read by hand, 8 of the 10 are clean. Edit 6 also re-added the first line with it
 
 What the rules drop, and why: a wrong answer much shorter than the right one (it gives the right one away), one with no meaning word the right answer lacks (a copy), two of the three alike, and sets where the model listed the right answer as wrong. A near miss ("toward less dissolved substance") is kept on purpose. Some kept sets are weak: three that differ in one word ("released by the leaf to the atmosphere / chloroplast / mitochondria"). A card with no wrong answers plays Choice and Quiz with other cards' backs, as Choice always has. The one-call version was dropped because it was slower and broke. Not measured: a real phone (expect it to be slower than these Mac times), Qwen3 1.7B.
 
+### Near misses (spec 063 C15–C17)
+
+Same probe, 2026-11-27, same Mac and model. The 22 cards are the same in every row (greedy decoding, card prompt unchanged), so only the wrong answers differ. `cards` now prints every wrong answer the model wrote and the first rule that dropped it, and the time of each wrong-answer call.
+
+| Try | Quiz cards with three (of 22) | Old cards (8) | One call per 8 cards |
+|---|---|---|---|
+| main today (before) | 7 | 2 | 7 to 16 s |
+| Near-miss prompt, whole answers | 3 | 0 | 7 to 20 s |
+| + four asked, first three fair kept, copy test by word order | 4 | 3 | 8 to 31 s |
+| The model names a change, the app makes it | 13 | 6 | 11 to 26 s |
+| + "never a word that means the same (stone for rock)" | 8 | 6 | 13 to 36 s, no-op changes ("stroma" to "stroma") |
+| That line out; signs and "not" in the copy test; a wrong term is "another thing of the same kind" | 14 | 5 | 12 to 28 s |
+| + `to` is "never the same words" (shipped, with short words counted) | **16** | **8** | **14 to 33 s** |
+| + "a word that means the same leaves it true" | 18 | 6 | 15 to 31 s, more synonyms kept |
+| + a `kind` field (number, term, relation) per change | 5 | crashed | 17 to 50 s |
+
+What was dropped on main, by the first rule each wrong answer failed (88 written): a copy of the right answer 17, names the term 8, a copy of another 5, too long 2, too short 2. Read by hand, most of the copies were real copies: the Revolution deck repeated the back word for word for every card, and asking for near misses made Qwen copy more (35 copies in 66), not less. But some were near misses the rules called copies: "Tree where every left child is larger than its parent" uses only the back's words, `O(n)` and `nx^(n+1)` lost their symbols, and "one" was too short to count.
+
+What changed:
+- **The model writes changes, not answers** (C15). Each wrong answer is `{"change": words from the back, "to": what goes there}`, and the app makes the swap, so every wrong answer is the back false in one detail. The prompt names the three kinds (a wrong number, a wrong term, a reversed relation) and gives one example card with a change of each. A change is dropped if its words aren't in the back as whole words, or if it reached the 40-character limit (cut off). Still one call per 8 cards (062 C28), and no checking pass.
+- **Four are asked, and the first three fair ones are kept**, each checked against the right answer and the ones kept before it. Fewer than three fair leaves the card with none, as before.
+- **The copy test reads word order.** A wrong answer is a copy if it has the same meaning words as the other in any order, or is the other with words left out in the same order. It now counts a short word that names something ("gas", "ATP", "one"), a token with a digit or math sign whole ("o(n)", "nx^(n+1)"), and "not" ("non-zero" is not "zero"). Every near-copy test in `gen.rs` still passes.
+- **A wrong answer that opens with the term is cut like a back** ("Sunlight is required for ..." on the card "Sunlight" becomes "Required for ..."), so it no longer fails "names the term".
+
+**Hand check (C17), 20 kept sets, 60 wrong answers:** 46 clearly false, 6 true, 8 arguable or not checkable; 11 of the 20 sets are clean. The true ones swap in a near-synonym or a weaker verb ("takes place" to "occurs", "process" to "reaction", "determines" to "influences", "store" to "delete"), repeat a word ("search, insert, and insert"), or are true because the card's own back is false ("The American administration established the Philippine Islands as a colony in 1898", for a back that dates the Spanish colony to 1898). On main, 4 of its 7 kept sets held a true answer ("Oxygen is released by the leaf to the atmosphere"). **The gate's count holds (16 of 22, at least 15); its "no true wrong answer" does not.** Two prompt lines against synonyms were tried and both made it worse (rows above). The rules can't see a synonym, and a wrong back makes wrong "wrong answers"; both need the card prompt or a bigger model, not more rules here.
+
+Cost: a wrong-answer call takes about twice as long as on main (14 to 33 s per 8 cards on this Mac, against 7 to 16 s): the reply names four changes, and some changes copy a long run of the back. Expect a phone to be slower. Not measured: a real phone, Qwen3 1.7B, note and PDF decks (the probe makes topic decks only).
+
 ## Long answers (spec 062 C23–C27)
 
 `cargo run --release -p intportal-llm --example long -- <chat.gguf>` asks six questions through `assis::answer` at the 8,192-token window (Mac M-series, Metal, Qwen3.5 2B IQ4_XS, 2026-11-26).
