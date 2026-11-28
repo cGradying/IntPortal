@@ -18,7 +18,6 @@
 <p align="center">
   <a href="https://intportal.pages.dev"><b>Website</b></a> ·
   <a href="https://intportal.pages.dev/download">Download</a> ·
-  <a href="https://intportal.pages.dev/app/">Try it in the browser</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
   <a href="https://github.com/cGradying/IntPortal/issues">Report a problem</a>
 </p>
@@ -70,7 +69,7 @@ The [website](https://intportal.pages.dev/download) picks the right file for you
 | Windows | `IntPortal-windows.msi` | Unsigned, so Windows asks once. |
 | Linux | `IntPortal-linux.AppImage` or `.deb` | |
 
-To try it first, tap **Look around first** on the sign-in page, or open the [browser demo](https://intportal.pages.dev/app/). Both run the whole app on sample data, with no school account.
+To try it first, tap **Look around first** on the sign-in page. It runs the whole app on sample data, with no school account.
 
 ## Privacy
 

@@ -1,6 +1,6 @@
 # 021 IntAssis v2: an install that finishes, a tutor that answers, cards that work
 
-**Status:** approved (owner's picks, 2026-11-17)
+**Status:** shipped (0.5.0, 2026-11-17; approved from the owner's picks, 2026-11-17)
 
 ## What changes for the student
 

@@ -1,6 +1,6 @@
 # 059 The portal, alive: sculptures from the other side
 
-**Status:** approved (the owner's ask, 2026-11-20: "for the portal make it dynamic too: instead of a normal 3D, add an effect for it, like the same concept of the chatbox where it becomes a sculpture … innovate in a way that fits the app and makes this production ready")
+**Status:** shipped (#334, 2026-11-20; approved from the owner's ask, 2026-11-20: "for the portal make it dynamic too: instead of a normal 3D, add an effect for it, like the same concept of the chatbox where it becomes a sculpture … innovate in a way that fits the app and makes this production ready")
 
 ## What changes for the student
 

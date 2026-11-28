@@ -1,6 +1,6 @@
 # 058 The website, third pass: find, share, offline, and a home that moves
 
-**Status:** approved (the owner's ask, 2026-11-20: "improve the website more, on visuals and functionality … do specs for developing this one, you can QA it yourself")
+**Status:** shipped (#331 and #332, 2026-11-20; approved from the owner's ask, 2026-11-20: "improve the website more, on visuals and functionality … do specs for developing this one, you can QA it yourself")
 
 ## What changes for the student
 

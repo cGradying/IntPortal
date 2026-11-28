@@ -1,6 +1,6 @@
 # 060 The website, fourth pass: honest install, every page finished, lighter on phones
 
-**Status:** approved (the owner's ask, 2026-11-20: "for the website make sure you enhance it a little more")
+**Status:** shipped (#351, 2026-11-21; approved from the owner's ask, 2026-11-20: "for the website make sure you enhance it a little more")
 
 ## What changes for the student
 
@@ -40,7 +40,7 @@ DESIGN.md and specs 057–059 hold. No new fonts, colours or dependencies.
   - "Your login only goes to your school." replaces "Your login stays on your phone.", which contradicted Help.
   - "an encrypted database" replaces "SQLCipher".
   - A fact is added: "Anyone can read the code", linking GitHub.
-- **C5. A next step at every page end.** Feature pages, Privacy, What's new, Roadmap and About end with the same band: "Get IntPortal" for the visitor's device, and "Try it in your browser". The spec link on feature pages becomes a footnote.
+- **C5. A next step at every page end.** Feature pages, Privacy, What's new, Roadmap and About end with the same band: "Get IntPortal" for the visitor's device, and "Every download". *Amended 2026-11-21 (#362):* the owner removed Try it, so the second button is "Every download". The spec link on feature pages becomes a footnote.
 - **C6.** Old "comes with 0.4" lines become "Coming in a later release."
 
 ### Home (lens 1)
